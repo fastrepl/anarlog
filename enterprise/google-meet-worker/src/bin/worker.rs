@@ -203,7 +203,7 @@ impl WorkerConfig {
             worker_id: env::var("ANARLOG_ENTERPRISE_WORKER_ID")
                 .unwrap_or_else(|_| format!("google-meet-{}", hostname())),
             bot_name: env::var("ANARLOG_ENTERPRISE_BOT_NAME")
-                .unwrap_or_else(|_| "Anarlog Notetaker".into()),
+                .unwrap_or_else(|_| "BlackMushi Notetaker".into()),
             chromium_binary: env_path("ANARLOG_ENTERPRISE_CHROMIUM_BINARY", "/usr/bin/chromium"),
             chromium_profile: env::var_os("ANARLOG_ENTERPRISE_CHROMIUM_PROFILE")
                 .map(PathBuf::from)

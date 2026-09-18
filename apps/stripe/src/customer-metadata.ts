@@ -38,7 +38,7 @@ export function getCustomerOwner(metadata: Record<string, string> | null) {
 }
 
 // Char bills through Autumn on the same Stripe account, and Autumn stamps
-// `autumn_id` on every customer it creates. Those customers are not Anarlog's.
+// `autumn_id` on every customer it creates. Those customers are not BlackMushi's.
 export function isAutumnManagedCustomer(
   metadata: Record<string, string> | null | undefined,
 ) {

@@ -7,8 +7,8 @@ description: "Fix the most common recording, transcription, summary, and calenda
 
 Open **Settings → Permissions** and confirm:
 
-- **Microphone** is allowed so Anarlog can hear you.
-- **System Audio** is allowed so Anarlog can hear the other people on the call.
+- **Microphone** is allowed so BlackMushi can hear you.
+- **System Audio** is allowed so BlackMushi can hear the other people on the call.
 
 If a permission is denied, use **Open** to change it in your operating system's settings, then restart Anarlog.
 
@@ -22,7 +22,7 @@ If transcription fails, confirm the provider is configured, the model supports y
 
 ## No summary appears
 
-A summary needs an Intelligence model. Open **Settings → Intelligence**, then select Anarlog Cloud or configure another provider.
+A summary needs an Intelligence model. Open **Settings → Intelligence**, then select BlackMushi Cloud or configure another provider.
 
 For LM Studio and Ollama, confirm the local server is running. See [Transcription and AI](/ai-setup).
 
@@ -34,7 +34,7 @@ For Apple Calendar, also check **Settings → Permissions → Calendar**.
 
 ## A recording disappeared
 
-Open **Settings → Meetings** and check **Audio file retention** under **Audio**. Anarlog can delete audio immediately or after a selected period while keeping the note and transcript.
+Open **Settings → Meetings** and check **Audio file retention** under **Audio**. BlackMushi can delete audio immediately or after a selected period while keeping the note and transcript.
 
 See [Data, privacy, and retention](/data-and-privacy#choose-how-long-audio-is-kept) for every retention option.
 
@@ -46,7 +46,7 @@ For audio, confirm that a Transcription model is selected and that a local provi
 
 ## Meeting-history import shows no apps
 
-Anarlog lists supported meeting assistants it detects on your computer. Open the source app, restart Anarlog, and return to **Settings → Imports**.
+BlackMushi lists supported meeting assistants it detects on your computer. Open the source app, restart BlackMushi, and return to **Settings → Imports**.
 
 If you already removed the source app, reinstall it long enough to complete the import or export the transcript as SRT or VTT and [import it into an empty note](/import-recordings#import-a-transcript).
 
@@ -58,7 +58,7 @@ See [Chat with your meetings](/chat) for context guidance and example requests.
 
 ## Sharing does not work
 
-Sharing requires Anarlog Pro, a signed-in account, an internet connection, and a generated summary. If a recipient cannot open the note, check their invitation and **General access** under **Share**.
+Sharing requires BlackMushi Pro, a signed-in account, an internet connection, and a generated summary. If a recipient cannot open the note, check their invitation and **General access** under **Share**.
 
 For an **Anyone with the link** share, copy the current link again. Replacing a link invalidates the earlier URL. See [Share meetings](/sharing).
 
@@ -114,7 +114,7 @@ The same variables work for the installed `anarlog` command. See [Install the de
 
 Email [team@fastrepl.com](mailto:team@fastrepl.com), [join Discord](https://anarlog.so/discord), or [open a GitHub issue](https://github.com/fastrepl/anarlog/issues).
 
-Include your operating system, Anarlog version, the exact error, what you expected, and the shortest steps that reproduce the problem. For AI failures, include the selected provider and model.
+Include your operating system, BlackMushi version, the exact error, what you expected, and the shortest steps that reproduce the problem. For AI failures, include the selected provider and model.
 
 <Warning>
   Never include API keys, recovery keys, meeting content, or private share links when reporting a problem.

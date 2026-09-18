@@ -1,6 +1,6 @@
 ---
 title: "CLI installation"
-description: "Install the current Anarlog CLI and point it at local meeting data."
+description: "Install the current BlackMushi CLI and point it at local meeting data."
 ---
 
 ## Current availability
@@ -19,7 +19,7 @@ Open **Settings → Developers** and select **Install** (or **Reinstall**). Dire
 | --- | --- | --- |
 | macOS | `anarlog` | `~/.local/bin/anarlog` |
 | Linux (DEB / AppImage) | `anarlog` | `~/.local/bin/anarlog` |
-| Windows | `anarlog` | `%LOCALAPPDATA%\Anarlog\bin\anarlog.exe` (added to your user PATH) |
+| Windows | `anarlog` | `%LOCALAPPDATA%\BlackMushi\bin\anarlog.exe` (added to your user PATH) |
 
 On macOS and Linux, add `~/.local/bin` to `PATH` if your shell cannot find `anarlog`:
 
@@ -48,7 +48,7 @@ anarlog --version
 
 ## Connect to local data
 
-By default, the CLI looks for `anarlog/app.db` in your operating system's application-data directory. It also recognizes legacy Anarlog locations.
+By default, the CLI looks for `anarlog/app.db` in your operating system's application-data directory. It also recognizes legacy BlackMushi locations.
 
 Open the desktop app once so it can create the database. After that, the CLI and local MCP server work while the app is closed.
 
@@ -59,7 +59,7 @@ anarlog --db-path /path/to/app.db --json meetings list
 ANARLOG_DB_PATH=/path/to/app.db anarlog --json meetings list
 ```
 
-If you have an Anarlog data directory containing `app.db`, use:
+If you have an BlackMushi data directory containing `app.db`, use:
 
 ```bash
 anarlog --base /path/to/anarlog-data --json meetings list

@@ -69,12 +69,12 @@ function main() {
 
     if (drifted.length > 0) {
       console.error(
-        `${drifted.join(", ")} drifted from the Anarlog skill package; run: node scripts/publish-anarlog-skill.mjs`,
+        `${drifted.join(", ")} drifted from the BlackMushi skill package; run: node scripts/publish-anarlog-skill.mjs`,
       );
       process.exitCode = 1;
       return;
     }
-    console.log("Published Anarlog skill files are current");
+    console.log("Published BlackMushi skill files are current");
     return;
   }
 
@@ -83,7 +83,7 @@ function main() {
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, readFileSync(source, "utf8"));
   }
-  console.log("Published Anarlog skill files");
+  console.log("Published BlackMushi skill files");
 }
 
 function readFileIfPresent(filePath) {

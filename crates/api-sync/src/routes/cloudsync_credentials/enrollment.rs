@@ -145,7 +145,7 @@ struct EnrollmentRow {
         (status = 200, description = "Current enrollment request", body = RegisterE2eeDeviceEnrollmentResponse),
         (status = 400, description = "Invalid device enrollment"),
         (status = 401, description = "Authentication required"),
-        (status = 403, description = "Anarlog Pro or a free device slot is required"),
+        (status = 403, description = "BlackMushi Pro or a free device slot is required"),
         (status = 409, description = "An existing device must establish encrypted sync first"),
         (status = 502, description = "Enrollment service unavailable")
     )
@@ -181,7 +181,7 @@ pub(super) async fn register_e2ee_device_enrollment(
         (status = 204, description = "Enrollment package sealed"),
         (status = 400, description = "Invalid enrollment package"),
         (status = 401, description = "Authentication required"),
-        (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 403, description = "BlackMushi Pro subscription required"),
         (status = 404, description = "Enrollment request unavailable"),
         (status = 409, description = "Enrollment request already sealed"),
         (status = 502, description = "Enrollment service unavailable")
@@ -213,7 +213,7 @@ pub(super) async fn seal_e2ee_device_enrollment(
         (status = 204, description = "Enrollment package consumed"),
         (status = 400, description = "Invalid enrollment acknowledgement"),
         (status = 401, description = "Authentication required"),
-        (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 403, description = "BlackMushi Pro subscription required"),
         (status = 404, description = "Enrollment request unavailable"),
         (status = 502, description = "Enrollment service unavailable")
     )

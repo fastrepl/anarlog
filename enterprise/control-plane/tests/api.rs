@@ -865,7 +865,7 @@ async fn schedules_exactly_one_capture_job_and_allows_cancel() {
         "workspaceId": "workspace-a",
         "captureEnabled": true,
         "allowedProviders": ["anarlog"],
-        "botName": "Anarlog Notetaker",
+        "botName": "BlackMushi Notetaker",
         "skipIfDesktopCapture": true
     });
     let saved = app

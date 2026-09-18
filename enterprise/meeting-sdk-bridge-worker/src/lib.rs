@@ -394,7 +394,7 @@ mod tests {
             state: BotState::Queued,
             next_sequence: 0,
         };
-        let start = MeetingSdkBridgeStart::new(checkpoint, "Anarlog Notetaker").unwrap();
+        let start = MeetingSdkBridgeStart::new(checkpoint, "BlackMushi Notetaker").unwrap();
         let mut config = MeetingSdkBridgeProcessConfig::new("/bin/sh");
         config.args = vec![
             "-c".into(),

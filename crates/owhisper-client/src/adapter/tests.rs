@@ -111,7 +111,7 @@ fn test_adapter_kind_from_url_and_languages() {
     use anlg_language::ISO639::*;
 
     let cases: &[(&str, &[anlg_language::ISO639], Option<&str>, AdapterKind)] = &[
-        // AnarlogCloud - always routes to Anarlog adapter (proxy owns provider selection)
+        // AnarlogCloud - always routes to BlackMushi adapter (proxy owns provider selection)
         (
             "https://api.anarlog.so/stt",
             &[En],
@@ -392,7 +392,7 @@ fn test_anarlog_proxy_always_selects_anarlog_adapter() {
             assert_eq!(
                 AdapterKind::from_url_and_languages(url, &langs, Some("cloud")),
                 AdapterKind::Anarlog,
-                "proxy URL should always select Anarlog adapter regardless of languages: url={url}, langs={langs:?}"
+                "proxy URL should always select BlackMushi adapter regardless of languages: url={url}, langs={langs:?}"
             );
         }
     }
@@ -408,7 +408,7 @@ fn test_anarlog_cloud_adapter_supports_all_languages() {
         let langs: Vec<anlg_language::Language> = langs.iter().map(|l| (*l).into()).collect();
         assert!(
             AdapterKind::Anarlog.is_supported_languages_live(&langs, Some("cloud")),
-            "Anarlog adapter should support all languages: {langs:?}"
+            "BlackMushi adapter should support all languages: {langs:?}"
         );
     }
 }

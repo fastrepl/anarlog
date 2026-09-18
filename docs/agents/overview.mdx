@@ -1,13 +1,13 @@
 ---
 title: "Agent overview"
-description: "Give an agent useful Anarlog context without exposing storage internals or unbounded transcripts."
+description: "Give an agent useful BlackMushi context without exposing storage internals or unbounded transcripts."
 ---
 
-Anarlog gives agents three ways to access meeting context. The Anarlog plugin uses hosted Cloud MCP. Use the local CLI when Cloud is missing a meeting. Local CLI and MCP reads are bounded; both can also stage proposals for human review. Hosted Cloud API and remote MCP are read-only.
+BlackMushi gives agents three ways to access meeting context. The BlackMushi plugin uses hosted Cloud MCP. Use the local CLI when Cloud is missing a meeting. Local CLI and MCP reads are bounded; both can also stage proposals for human review. Hosted Cloud API and remote MCP are read-only.
 
 | Transport | Choose it when | Output |
 | --- | --- | --- |
-| Cloud MCP | The default Anarlog plugin, or any remote agent with OAuth | Hosted snapshots; requires Anarlog Pro and explicit opt-in |
+| Cloud MCP | The default BlackMushi plugin, or any remote agent with OAuth | Hosted snapshots; requires BlackMushi Pro and explicit opt-in |
 | CLI | Cloud has no snapshot, or the agent only has shell access | Local or authenticated Cloud reads; JSON with `--json`, or Markdown for people |
 | Local MCP | A fully local agent that should not use Cloud | Structured tool results and contextual resources |
 
@@ -24,7 +24,7 @@ Prefer connected Cloud MCP because each tool carries its input schema. Fill gaps
 
 ## Safety boundary
 
-Agents should use an Anarlog interface, not SQLite. The supported interfaces apply Anarlog's rules for canonical notes, generated summaries, excluded participants, recurring meetings, and transcript text.
+Agents should use an BlackMushi interface, not SQLite. The supported interfaces apply BlackMushi's rules for canonical notes, generated summaries, excluded participants, recurring meetings, and transcript text.
 
 Meeting reads stay bounded. An agent cannot apply a note or summary change. It can stage a proposal with CLI `proposals` commands or the local MCP `propose_*` tools. A human reviews the unified diff in the desktop app and applies or declines it. Hosted Cloud API and Cloud MCP stay read-only. CLI export can create a separate file; replacing a file requires `--force`.
 
@@ -35,7 +35,7 @@ Local CLI and MCP access stays on your computer. Cloud access uploads a separate
     Use JSON output and resolve meeting IDs deliberately.
   </Card>
   <Card title="MCP for agents" icon="plug" href="/agents/mcp">
-    Connect Cloud MCP through the Anarlog plugin, or run local stdio as an option.
+    Connect Cloud MCP through the BlackMushi plugin, or run local stdio as an option.
   </Card>
   <Card title="Cloud API and remote MCP" icon="cloud" href="/reference/api-cloud">
     Enable hosted access and connect with OAuth or a connector key.

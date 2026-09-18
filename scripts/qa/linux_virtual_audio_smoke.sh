@@ -65,12 +65,12 @@ if [[ "${ANARLOG_AUDIO_QA_IN_DBUS:-0}" != "1" ]]; then
       | sort -u
   )
   if [[ ${#package_binaries[@]} -ne 1 ]]; then
-    printf "Expected one Anarlog executable, found: %s\n" \
+    printf "Expected one BlackMushi executable, found: %s\n" \
       "${package_binaries[*]:-none}" >&2
     exit 1
   fi
   if [[ ! -x "${package_binaries[0]}" ]]; then
-    echo "Installed Anarlog executable is not runnable" >&2
+    echo "Installed BlackMushi executable is not runnable" >&2
     exit 1
   fi
 

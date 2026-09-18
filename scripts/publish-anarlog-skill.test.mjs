@@ -53,7 +53,7 @@ test("plugin manifests use one stable identity and version", async () => {
   );
 });
 
-test("repository marketplaces list a single Anarlog plugin", async () => {
+test("repository marketplaces list a single BlackMushi plugin", async () => {
   const marketplacePaths = [
     ".claude-plugin/marketplace.json",
     ".cursor-plugin/marketplace.json",
@@ -79,7 +79,7 @@ test("repository marketplaces list a single Anarlog plugin", async () => {
   assert.equal(codexMarketplace.plugins[0].policy.authentication, "ON_USE");
 });
 
-test("the Anarlog plugin connects Cloud MCP over HTTP", async () => {
+test("the BlackMushi plugin connects Cloud MCP over HTTP", async () => {
   const portable = await readJson(`${PLUGIN_ROOT}/mcp.json`);
   const native = await readJson(`${PLUGIN_ROOT}/.mcp.json`);
   const expectedServer = {

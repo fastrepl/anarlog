@@ -58,7 +58,7 @@ impl GgufLlmModel {
     pub fn display_name(&self) -> &'static str {
         match self {
             GgufLlmModel::Llama3p2_3bQ4 => "Llama 3.2 3B Q4",
-            GgufLlmModel::AnarlogLLM => "Anarlog LLM",
+            GgufLlmModel::AnarlogLLM => "BlackMushi LLM",
             GgufLlmModel::Gemma3_4bQ4 => "Gemma 3 4B Q4",
         }
     }

@@ -1,15 +1,15 @@
 ---
 title: "MCP for agents"
-description: "Connect an MCP client to Anarlog meeting context over hosted OAuth or local stdio."
+description: "Connect an MCP client to BlackMushi meeting context over hosted OAuth or local stdio."
 ---
 
-The Anarlog plugin connects to hosted Cloud MCP at `https://api.anarlog.so/mcp` with OAuth. That is the default for Claude, Cursor, ChatGPT, Codex, and Copilot.
+The BlackMushi plugin connects to hosted Cloud MCP at `https://api.anarlog.so/mcp` with OAuth. That is the default for Claude, Cursor, ChatGPT, Codex, and Copilot.
 
 Cloud only has opted-in snapshots. If a meeting is missing there, use the local `anarlog` CLI. For a fully local agent that should not use Cloud, start the stdio server in the `anarlog` executable.
 
 ## Configure the plugin
 
-Enable **Cloud API & Connectors**, then install the **Anarlog** plugin. The host discovers OAuth from the MCP endpoint. See [Cloud API and connectors](/reference/api-cloud#remote-mcp).
+Enable **Cloud API & Connectors**, then install the **BlackMushi** plugin. The host discovers OAuth from the MCP endpoint. See [Cloud API and connectors](/reference/api-cloud#remote-mcp).
 
 Clients that do not install plugins can add:
 
@@ -25,7 +25,7 @@ Clients that do not install plugins can add:
 
 ## Optional local MCP
 
-The local server communicates over standard input and output. It opens no port and sends no meeting data to Anarlog's servers.
+The local server communicates over standard input and output. It opens no port and sends no meeting data to BlackMushi's servers.
 
 Open the desktop app once so it can create the database. The app does not need to stay open after that.
 

@@ -24,7 +24,7 @@ function packageFixture(architecture, marker) {
 Version: 1.4.9
 Architecture: ${architecture}
 Maintainer: Fastrepl <support@anarlog.so>
-Description: Anarlog Desktop App
+Description: BlackMushi Desktop App
 `,
     hashes: {
       md5: marker.repeat(32),

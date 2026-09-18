@@ -2,12 +2,12 @@
 
 Parent: ANLG-135.
 
-Posting a recording/transcription disclosure is an opt-in transport. A sent disclosure is not proof that every participant consented. Anarlog keeps disclosure delivery and consent evidence as separate product concepts.
+Posting a recording/transcription disclosure is an opt-in transport. A sent disclosure is not proof that every participant consented. BlackMushi keeps disclosure delivery and consent evidence as separate product concepts.
 
 ## V1 Slack huddle transport
 
 - `consent_auto_send_chat` defaults to false.
-- After listening starts, Anarlog may post one disclosure to the recognized native Slack Huddle chat (macOS Accessibility only).
+- After listening starts, BlackMushi may post one disclosure to the recognized native Slack Huddle chat (macOS Accessibility only).
 - Delivery is once-per-session, with bounded retry/cancellation. Posting failure never stops listening.
 - The disclosure is excluded from captured Memos.
 - Safe chat mutation stays disabled for Zoom, Meet, Teams, Webex, and browser surfaces until each has controlled live validation.

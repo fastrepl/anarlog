@@ -305,7 +305,7 @@ mod tests {
             !is_supported_languages_live("apple-speech", Some("apple-speech"), &hindi).unwrap()
         );
 
-        // Local models are surfaced under the Anarlog provider in settings.
+        // Local models are surfaced under the BlackMushi provider in settings.
         assert!(is_supported_languages_live("anarlog", Some("apple-speech"), &korean).unwrap());
         assert!(!is_supported_languages_live("anarlog", Some("apple-speech"), &hindi).unwrap());
         assert!(is_supported_languages_batch("anarlog", Some("apple-speech"), &korean).unwrap());

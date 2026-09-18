@@ -1,6 +1,6 @@
 ---
 name: qa-cli-mcp-api
-description: Select and run explicitly requested, risk-based QA for Anarlog's CLI, webhooks, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes unless comprehensive coverage is requested.
+description: Select and run explicitly requested, risk-based QA for BlackMushi's CLI, webhooks, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes unless comprehensive coverage is requested.
 ---
 
 # QA: CLI, MCP, and API
@@ -235,7 +235,7 @@ Connect a real Streamable HTTP MCP client to the deployed `/mcp` endpoint.
    `https://api.anarlog.so/.well-known/oauth-protected-resource/mcp`.
 5. When OAuth is affected, complete MCP OAuth 2.1 discovery and consent from at
    least one documented host (Claude Code, Cursor, ChatGPT/Codex, or Copilot).
-   Confirm the consent screen is Anarlog's `/oauth/consent` route, the issued
+   Confirm the consent screen is BlackMushi's `/oauth/consent` route, the issued
    token is bound to `https://api.anarlog.so/mcp`, and a tool call then reads
    the marked meeting. Repeat with a static `anl_` key for hosts that cannot
    complete OAuth.

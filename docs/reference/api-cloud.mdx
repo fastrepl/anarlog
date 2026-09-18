@@ -1,9 +1,9 @@
 ---
 title: "Cloud API and connectors"
-description: "Opt in to hosted REST and remote MCP access for your Anarlog meetings."
+description: "Opt in to hosted REST and remote MCP access for your BlackMushi meetings."
 ---
 
-The Cloud API lets remote agents read your Anarlog meetings while the desktop app is closed. It requires Pro access, either from your personal plan or membership in an active paid Team, and stays off until you enable it.
+The Cloud API lets remote agents read your BlackMushi meetings while the desktop app is closed. It requires Pro access, either from your personal plan or membership in an active paid Team, and stays off until you enable it.
 
 <Warning>
   Enabling Cloud API & Connectors uploads a separate server-readable copy of
@@ -16,7 +16,7 @@ The Cloud API lets remote agents read your Anarlog meetings while the desktop ap
 
 1. Open **Settings → Developers → Cloud API & Connectors**.
 2. Review the disclosure and turn the feature on.
-3. Wait for Anarlog to upload your existing meetings.
+3. Wait for BlackMushi to upload your existing meetings.
 4. If your client does not support OAuth, create a cloud API key and copy it. The key is shown once.
 
 Keys start with `anl_` and are stored hashed. Revoke a key from the same settings page when you no longer use it.
@@ -58,7 +58,7 @@ Codes: `unauthorized`, `not_found`, `invalid_request`, `internal_error`. The hos
 The request limit allows a burst of 10 requests per account, then refills one request every 200 milliseconds.
 
 <Note>
-  Meeting snapshots are limited to 2 MB. When a snapshot is larger, Anarlog removes word-level transcript timing before upload but keeps the transcript text. If the snapshot is still larger than 2 MB, that meeting cannot upload. A hosted transcript without word timing returns the retained text with an empty `words` array.
+  Meeting snapshots are limited to 2 MB. When a snapshot is larger, BlackMushi removes word-level transcript timing before upload but keeps the transcript text. If the snapshot is still larger than 2 MB, that meeting cannot upload. A hosted transcript without word timing returns the retained text with an empty `words` array.
 </Note>
 
 ## Remote MCP
@@ -77,25 +77,25 @@ It exposes the same five meeting-read tools as the local MCP server:
 - `get_recurring_meeting_history`
 - `export_meeting`
 
-Hosts that support MCP OAuth 2.1 connect your Anarlog account without a cloud API key. The host discovers Anarlog's authorization server from the MCP endpoint, opens the Anarlog sign-in and consent flow, and stores the resulting connection.
+Hosts that support MCP OAuth 2.1 connect your BlackMushi account without a cloud API key. The host discovers BlackMushi's authorization server from the MCP endpoint, opens the BlackMushi sign-in and consent flow, and stores the resulting connection.
 
-Anarlog does not use identity scopes as meeting permissions. Meeting access remains limited to the server-readable snapshots you explicitly opted in to upload. Every MCP tool is read-only, and every access token is checked for its signature, issuer, expiry, MCP resource audience, and OAuth client identifier.
+BlackMushi does not use identity scopes as meeting permissions. Meeting access remains limited to the server-readable snapshots you explicitly opted in to upload. Every MCP tool is read-only, and every access token is checked for its signature, issuer, expiry, MCP resource audience, and OAuth client identifier.
 
-Anarlog publishes OAuth protected-resource metadata at:
+BlackMushi publishes OAuth protected-resource metadata at:
 
 ```text
 https://api.anarlog.so/.well-known/oauth-protected-resource/mcp
 ```
 
-The metadata points the host to Anarlog's existing Supabase authorization server. That server uses dynamic client registration and PKCE with SHA-256. The host sends the MCP `resource` value during authorization and token exchange; Anarlog binds issued OAuth tokens to `https://api.anarlog.so/mcp` and rejects tokens minted for another resource.
+The metadata points the host to BlackMushi's existing Supabase authorization server. That server uses dynamic client registration and PKCE with SHA-256. The host sends the MCP `resource` value during authorization and token exchange; BlackMushi binds issued OAuth tokens to `https://api.anarlog.so/mcp` and rejects tokens minted for another resource.
 
 <Note>
-  OAuth does not bypass Anarlog's product controls. The account must have Pro access through a personal plan or an active paid Team membership, and **Cloud API & Connectors** must remain enabled. Disabling the feature deletes the uploaded snapshots and makes existing connector tokens unusable for meeting access.
+  OAuth does not bypass BlackMushi's product controls. The account must have Pro access through a personal plan or an active paid Team membership, and **Cloud API & Connectors** must remain enabled. Disabling the feature deletes the uploaded snapshots and makes existing connector tokens unusable for meeting access.
 </Note>
 
 ### Claude Code
 
-Install the **Anarlog** plugin:
+Install the **BlackMushi** plugin:
 
 ```bash
 claude plugin marketplace add fastrepl/anarlog
@@ -110,7 +110,7 @@ claude mcp add --transport http anarlog https://api.anarlog.so/mcp
 
 ### Cursor
 
-Import `https://github.com/fastrepl/anarlog` as a team marketplace and install **Anarlog**, or add this MCP server:
+Import `https://github.com/fastrepl/anarlog` as a team marketplace and install **BlackMushi**, or add this MCP server:
 
 ```json
 {
@@ -131,7 +131,7 @@ copilot plugin install anarlog@fastrepl
 
 ### ChatGPT and Codex
 
-Add the Fastrepl source, restart the ChatGPT desktop app, then install **Anarlog**:
+Add the Fastrepl source, restart the ChatGPT desktop app, then install **BlackMushi**:
 
 ```bash
 codex plugin marketplace add fastrepl/anarlog \
@@ -163,7 +163,7 @@ Pass the remote MCP URL and authorization header in the tool definition:
 ```js
 const response = await client.responses.create({
   model: "gpt-5",
-  input: "Summarize my latest Anarlog meeting.",
+  input: "Summarize my latest BlackMushi meeting.",
   tools: [
     {
       type: "mcp",
@@ -180,7 +180,7 @@ const response = await client.responses.create({
 
 ### Poke
 
-Poke does not complete MCP OAuth. Create a personal cloud API key in Anarlog and paste it only into your own Poke recipe or connection.
+Poke does not complete MCP OAuth. Create a personal cloud API key in BlackMushi and paste it only into your own Poke recipe or connection.
 
 <Warning>
   Do not share that key, put it in a public recipe, or reuse one key across users.
@@ -196,6 +196,6 @@ Authorization: Bearer anl_...
 
 ## Disable cloud access
 
-Turn off **Cloud API & Connectors** under **Settings → Developers**. Anarlog immediately deletes all server-readable meeting snapshots. Your local meetings and end-to-end encrypted cloud sync data are unchanged.
+Turn off **Cloud API & Connectors** under **Settings → Developers**. BlackMushi immediately deletes all server-readable meeting snapshots. Your local meetings and end-to-end encrypted cloud sync data are unchanged.
 
 Revoked keys cannot read snapshots. If you lose Pro access from both your personal plan and any paid Team memberships, existing cloud keys return `subscription_required`.

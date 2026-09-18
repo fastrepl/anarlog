@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Anarlog moves fast and we only ship fixes forward. Security updates are applied to the latest release only.
+BlackMushi moves fast and we only ship fixes forward. Security updates are applied to the latest release only.
 
 | Version        | Supported          |
 | -------------- | ------------------ |
@@ -24,7 +24,7 @@ When reporting, please include:
 
 - A description of the vulnerability and its potential impact
 - Steps to reproduce, a proof of concept, or affected code paths
-- The Anarlog version and platform you tested against
+- The BlackMushi version and platform you tested against
 
 ## What to Expect
 
@@ -33,4 +33,4 @@ When reporting, please include:
 - If accepted, we'll work on a fix and credit you in the release notes unless you prefer to stay anonymous.
 - Please give us a reasonable window to ship a fix before any public disclosure.
 
-Thanks for helping keep Anarlog and its users safe.
+Thanks for helping keep BlackMushi and its users safe.

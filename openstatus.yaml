@@ -8,7 +8,7 @@
       target: 200
   frequency: 1m
   kind: http
-  name: Anarlog API
+  name: BlackMushi API
   openTelemetry: {}
   regions:
     - iad
@@ -30,7 +30,7 @@
       target: 200
   frequency: 1m
   kind: http
-  name: Anarlog Web
+  name: BlackMushi Web
   openTelemetry: {}
   regions:
     - iad
@@ -52,7 +52,7 @@
       target: 200
   frequency: 1m
   kind: http
-  name: Anarlog Docs
+  name: BlackMushi Docs
   openTelemetry: {}
   regions:
     - iad
@@ -78,7 +78,7 @@
   description: Checks that production CloudSync is configured and ready.
   frequency: 1m
   kind: http
-  name: Anarlog Sync API
+  name: BlackMushi Sync API
   openTelemetry: {}
   regions:
     - iad
@@ -104,7 +104,7 @@
   description: Checks transcription-provider configuration and stream readiness.
   frequency: 1m
   kind: http
-  name: Anarlog Transcription API
+  name: BlackMushi Transcription API
   openTelemetry: {}
   regions:
     - iad
@@ -130,7 +130,7 @@
   description: Checks that the production LLM provider is configured and ready.
   frequency: 1m
   kind: http
-  name: Anarlog LLM API
+  name: BlackMushi LLM API
   openTelemetry: {}
   regions:
     - iad
@@ -156,7 +156,7 @@
   description: Verifies Cloud API and MCP OAuth discovery metadata.
   frequency: 1m
   kind: http
-  name: Anarlog Cloud API & MCP
+  name: BlackMushi Cloud API & MCP
   openTelemetry: {}
   regions:
     - iad
@@ -182,7 +182,7 @@
   description: Verifies the production Stripe webhook and billing service.
   frequency: 1m
   kind: http
-  name: Anarlog Billing
+  name: BlackMushi Billing
   openTelemetry: {}
   regions:
     - iad
@@ -208,7 +208,7 @@
   description: Verifies that the production sync route remains protected.
   frequency: 1m
   kind: http
-  name: Anarlog Sync Auth Guard
+  name: BlackMushi Sync Auth Guard
   openTelemetry: {}
   regions:
     - iad
@@ -234,7 +234,7 @@
   description: Verifies that the production transcription route remains protected.
   frequency: 1m
   kind: http
-  name: Anarlog Transcription Auth Guard
+  name: BlackMushi Transcription Auth Guard
   openTelemetry: {}
   regions:
     - iad
@@ -260,7 +260,7 @@
   description: Verifies that the production LLM route remains protected.
   frequency: 1m
   kind: http
-  name: Anarlog LLM Auth Guard
+  name: BlackMushi LLM Auth Guard
   openTelemetry: {}
   regions:
     - iad

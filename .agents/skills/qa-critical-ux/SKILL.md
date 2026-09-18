@@ -1,6 +1,6 @@
 ---
 name: qa-critical-ux
-description: QA Anarlog's critical Pro user journey on a signed staging candidate — onboarding, responsive launch, microphone and system-audio capture, automated summaries, and cloud sync.
+description: QA BlackMushi's critical Pro user journey on a signed staging candidate — onboarding, responsive launch, microphone and system-audio capture, automated summaries, and cloud sync.
 ---
 
 # QA: Critical User Experience
@@ -48,7 +48,7 @@ Leave the MacBook open on its built-in speakers and microphone with no external 
 
 ## Start from Onboarding
 
-1. Fully quit Anarlog Staging.
+1. Fully quit BlackMushi Staging.
 2. Reset staging permissions while the app is closed:
 
    ```bash
@@ -64,12 +64,12 @@ Leave the MacBook open on its built-in speakers and microphone with no external 
 4. Launch through LaunchServices without an onboarding override:
 
    ```bash
-   open -a "Anarlog Staging" --env ONBOARDING=
+   open -a "BlackMushi Staging" --env ONBOARDING=
    ```
 
 Missing app data starts onboarding normally. Do not use `ONBOARDING=1`; resetting permissions asynchronously after initialization can suppress the microphone prompt. Do not edit permission databases.
 
-Complete onboarding for real: grant each permission, sign in with the Pro or trialing test account, select Anarlog cloud (`anarlog`) in Settings → AI, and turn on encrypted cloud sync in Settings → Sync. Use that account's existing recovery key when prompted. Creating a new key on an account that already has sync fails this item.
+Complete onboarding for real: grant each permission, sign in with the Pro or trialing test account, select BlackMushi cloud (`anarlog`) in Settings → AI, and turn on encrypted cloud sync in Settings → Sync. Use that account's existing recovery key when prompted. Creating a new key on an account that already has sync fails this item.
 
 ## Checklist
 
@@ -108,7 +108,7 @@ Complete onboarding for real: grant each permission, sign in with the Pro or tri
 ### 5. Sync the note and restore it
 
 - After the summary exists, open Settings → Sync. Status must reach **Synced**, not stay on Connecting, Syncing, Saved locally, or Sync needs attention.
-- Record the note title shown in the app. Quit Anarlog Staging. Do not reset permissions again. Wipe staging data once more:
+- Record the note title shown in the app. Quit BlackMushi Staging. Do not reset permissions again. Wipe staging data once more:
 
   ```bash
   rm -rf ~/Library/Application\ Support/com.hyprnote.staging

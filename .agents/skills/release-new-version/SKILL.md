@@ -1,6 +1,6 @@
 ---
 name: release-new-version
-description: Prepare Anarlog Nightly builds and promote tested desktop stable versions with current CLI, local and hosted MCP, API, agent packages, and documentation. Deploy any required hosted services during the release. Validate and merge release updates before publishing. Distribute mobile builds when requested.
+description: Prepare BlackMushi Nightly builds and promote tested desktop stable versions with current CLI, local and hosted MCP, API, agent packages, and documentation. Deploy any required hosted services during the release. Validate and merge release updates before publishing. Distribute mobile builds when requested.
 metadata:
   internal: true
 ---
@@ -333,7 +333,7 @@ For each service:
    deployment only when its SHA already includes those changes.
 4. An unchanged service needs that live SHA/version recorded. Do not dispatch a
    no-op redeploy to make the checklist look complete.
-5. Confirm the target is Anarlog before any service access; never access
+5. Confirm the target is BlackMushi before any service access; never access
    `*-char`. Check the run's `headSha` against the intended SHA and wait for
    the job and tag (when the workflow creates one).
 
@@ -349,8 +349,8 @@ gh run view <run-id> --json headSha,url
 | Service | Workflow | Deploy when | Live check |
 | --- | --- | --- | --- |
 | API and hosted MCP | `api_cd.yaml` | Unpublished API, hosted MCP, auth, or related proxy changes | `/health` reports the new `api_v*` version; MCP discovery and an authenticated read succeed when credentials exist |
-| Stripe billing | `stripe_cd.yaml` | Unpublished `apps/stripe` or image-context changes | CD succeeded and tagged `stripe_v*`; `/health` on the Anarlog Stripe app returns ok |
-| Hosted Postgres | `db_cd.yaml` | Unpublished `supabase/` migrations this release needs | Linked Anarlog project only; `supabase db push` completed. Run `db_ci.yaml` coverage first when migrations changed |
+| Stripe billing | `stripe_cd.yaml` | Unpublished `apps/stripe` or image-context changes | CD succeeded and tagged `stripe_v*`; `/health` on the BlackMushi Stripe app returns ok |
+| Hosted Postgres | `db_cd.yaml` | Unpublished `supabase/` migrations this release needs | Linked BlackMushi project only; `supabase db push` completed. Run `db_ci.yaml` coverage first when migrations changed |
 | Website | `web_cd.yaml` | Unpublished website, changelog, or download-page changes not already covered by the Linux APT web deploy | Live `anarlog.so` URLs show the candidate content |
 | Docs | Mintlify connected deploy (no GitHub CD) | Unpublished `docs/` or public skill content after merge | Live `https://docs.anarlog.so` pages, `skill.md`, and LLM indexes |
 
@@ -471,7 +471,7 @@ Complete the hosted-service deploys above, then verify each live result:
    available. Health or an unauthenticated `401` alone does not verify tool
    behavior; report unavailable authenticated checks explicitly.
 2. **Stripe:** confirm the `stripe_v*` tag matches the deploy run SHA and the
-   Anarlog billing app `/health` returns ok.
+   BlackMushi billing app `/health` returns ok.
 3. **Hosted Postgres:** if `db_cd.yaml` ran, record that run URL and SHA. If
    it did not run, record the last applied migration SHA and why no push was
    needed.

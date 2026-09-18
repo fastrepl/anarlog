@@ -13,7 +13,7 @@ pub const OPENROUTER_URL: &str = "https://openrouter.ai/api/v1/chat/completions"
 
 // App attribution per https://openrouter.ai/docs/app-attribution
 pub const APP_REFERER: &str = "https://anarlog.so";
-pub const APP_TITLE: &str = "Anarlog";
+pub const APP_TITLE: &str = "BlackMushi";
 pub const APP_CATEGORIES: &str = "writing-assistant,personal-agent";
 
 pub struct OpenRouterProvider {

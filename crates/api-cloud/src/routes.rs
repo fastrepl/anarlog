@@ -257,7 +257,7 @@ pub(crate) async fn revoke_key(
     put,
     path = "/v1/sync-snapshots/{session_id}",
     tag = "cloud-api",
-    params(("session_id" = String, Path, description = "Anarlog meeting id")),
+    params(("session_id" = String, Path, description = "BlackMushi meeting id")),
     request_body = access::MeetingExport,
     responses(
         (status = 200, body = SnapshotReceipt),
@@ -288,7 +288,7 @@ pub(crate) async fn publish_snapshot(
     delete,
     path = "/v1/sync-snapshots/{session_id}",
     tag = "cloud-api",
-    params(("session_id" = String, Path, description = "Anarlog meeting id")),
+    params(("session_id" = String, Path, description = "BlackMushi meeting id")),
     responses((status = 204))
 )]
 pub(crate) async fn delete_snapshot(

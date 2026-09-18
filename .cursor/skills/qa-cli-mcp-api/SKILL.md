@@ -1,6 +1,6 @@
 ---
 name: qa-cli-mcp-api
-description: Select and run explicitly requested, risk-based QA for Anarlog's CLI, webhooks, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes unless comprehensive coverage is requested.
+description: Select and run explicitly requested, risk-based QA for BlackMushi's CLI, webhooks, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes unless comprehensive coverage is requested.
 ---
 
 # QA: CLI, MCP, and API

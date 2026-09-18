@@ -2,7 +2,7 @@
 
 ## Selected connector
 
-Anarlog does **not** use a Chromium bot against the Teams web client. That path is unsupported against current Teams terms and DOM churn.
+BlackMushi does **not** use a Chromium bot against the Teams web client. That path is unsupported against current Teams terms and DOM churn.
 
 The supported connector is a **Microsoft Graph application-hosted media bot** running as a Windows sidecar. The sidecar speaks the MIT `MeetingSdkBridge` protocol (JSON lines) to `anarlog-enterprise-meeting-sdk-bridge-worker`, which normalizes events onto the shared capture contract (`CaptureProviderKind::MicrosoftGraph`, `MeetingPlatform::MicrosoftTeams`).
 

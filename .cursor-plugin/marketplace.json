@@ -12,7 +12,7 @@
     {
       "name": "anarlog",
       "source": "./agent-plugins/anarlog",
-      "description": "Query and export Anarlog meetings through Cloud MCP or the local CLI.",
+      "description": "Query and export BlackMushi meetings through Cloud MCP or the local CLI.",
       "version": "1.2.1",
       "category": "Productivity",
       "tags": ["meetings", "notes", "transcripts", "mcp", "oauth"]

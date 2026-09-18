@@ -29,7 +29,7 @@ fn config_uses_documented_models_languages_and_vad() {
     let params = ListenParams {
         model: Some("qwen3-asr".into()),
         languages: vec![ISO639::Ko.into()],
-        keywords: vec!["Anarlog".into()],
+        keywords: vec!["BlackMushi".into()],
         ..Default::default()
     };
     let Message::Text(config) = adapter.initial_message(None, &params, 1).unwrap() else {
@@ -38,7 +38,7 @@ fn config_uses_documented_models_languages_and_vad() {
     let config: serde_json::Value = serde_json::from_str(&config).unwrap();
     assert_eq!(config["session"]["model"], "qwen3-asr");
     assert_eq!(config["session"]["language"], "ko");
-    assert_eq!(config["session"]["prompt"], "Anarlog");
+    assert_eq!(config["session"]["prompt"], "BlackMushi");
     assert_eq!(config["session"]["turn_detection"]["type"], "server_vad");
     assert!(
         NariAdapter::language_support_live(&[ISO639::Ko.into()], Some(DEFAULT_MODEL))

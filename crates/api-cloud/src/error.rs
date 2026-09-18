@@ -53,13 +53,13 @@ impl IntoResponse for CloudApiError {
             Self::SubscriptionRequired => (
                 StatusCode::FORBIDDEN,
                 "subscription_required",
-                "An active Anarlog Pro subscription is required.".to_string(),
+                "An active BlackMushi Pro subscription is required.".to_string(),
                 None,
             ),
             Self::NotEnabled => (
                 StatusCode::FORBIDDEN,
                 "cloud_api_not_enabled",
-                "Enable Cloud API & Connectors in Anarlog before using this endpoint.".to_string(),
+                "Enable Cloud API & Connectors in BlackMushi before using this endpoint.".to_string(),
                 None,
             ),
             Self::NotFound(message) => (StatusCode::NOT_FOUND, "not_found", message, None),

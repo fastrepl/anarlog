@@ -59,7 +59,7 @@ private final class DictationTarget {
     element = nil
     guard let focused = focusedElement(), acceptsText(focused) else {
       return
-        "Focus an editable text field and enable Anarlog in System Settings > Privacy & Security > Accessibility. Password fields are excluded."
+        "Focus an editable text field and enable BlackMushi in System Settings > Privacy & Security > Accessibility. Password fields are excluded."
     }
     token = UUID().uuidString
     element = focused

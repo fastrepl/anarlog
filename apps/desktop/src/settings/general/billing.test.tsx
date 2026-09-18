@@ -306,7 +306,7 @@ describe("SettingsBilling", () => {
     expect(screen.getByText("Cloud Transcription")).toBeTruthy();
     expect(screen.queryByText("On-device Transcription")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign in to Anarlog" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in to BlackMushi" }));
 
     expect(mocks.openNew).toHaveBeenCalledWith({
       type: "settings",

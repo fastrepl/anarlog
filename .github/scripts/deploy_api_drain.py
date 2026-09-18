@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy Anarlog services without cutting live STT meetings.
+"""Deploy BlackMushi services without cutting live STT meetings.
 
 Fly blue/green cordons old machines and then SIGTERMs them immediately.
 `kill_timeout` maxes out at 300s, which is shorter than a meeting, so this

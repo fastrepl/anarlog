@@ -175,7 +175,7 @@ pub async fn begin_connection(
     let scopes = manager.select_scopes(None, &[]);
     let scope_refs = scopes.iter().map(String::as_str).collect::<Vec<_>>();
     let client = manager
-        .register_client("Anarlog", &redirect_uri, &scope_refs)
+        .register_client("BlackMushi", &redirect_uri, &scope_refs)
         .await
         .map_err(|error| auth_error(provider, error))?;
     let authorization_url = manager
@@ -463,7 +463,7 @@ async fn receive_authorization_callback(
         Err(_) => (
             "400 Bad Request",
             format!("{provider_name} connection failed"),
-            "Return to Anarlog and try connecting again.",
+            "Return to BlackMushi and try connecting again.",
         ),
     };
     let body = format!(

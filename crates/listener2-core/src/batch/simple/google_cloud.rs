@@ -72,7 +72,7 @@ pub(super) async fn run(
 fn preparation_failed() -> crate::BatchFailure {
     crate::BatchFailure::DirectRequestFailed {
         provider: "google_cloud".to_string(),
-        message: "Anarlog couldn't prepare this recording for transcription.".to_string(),
+        message: "BlackMushi couldn't prepare this recording for transcription.".to_string(),
     }
 }
 

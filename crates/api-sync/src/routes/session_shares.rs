@@ -216,7 +216,7 @@ pub(super) fn web_edit_router() -> Router<AppState> {
         (status = 200, description = "Sanitized shared-note snapshot published", body = PublishedSessionShareSnapshot),
         (status = 400, description = "Invalid shared-note snapshot"),
         (status = 401, description = "Authentication required"),
-        (status = 403, description = "Anarlog Pro or share-manager access required"),
+        (status = 403, description = "BlackMushi Pro or share-manager access required"),
         (status = 409, description = "Shared note changed since the supplied base revision"),
         (status = 413, description = "Shared-note snapshot is too large"),
         (status = 502, description = "Shared-note service unavailable")

@@ -103,7 +103,7 @@ async fn verifies_and_sends_a_resend_shared_note_invitation_email() {
         .and(header("authorization", "Bearer resend-key"))
         .and(header("idempotency-key", INVITATION_ID))
         .and(body_partial_json(json!({
-            "from": "Owner via Anarlog <notes@send.anarlog.so>",
+            "from": "Owner via BlackMushi <notes@send.anarlog.so>",
             "to": "invitee@example.com",
             "reply_to": "owner@example.com",
             "subject": "Owner invited you to Planning",
@@ -174,10 +174,10 @@ async fn verifies_and_sends_a_workspace_invitation_email() {
         .and(header("authorization", "Bearer resend-key"))
         .and(header("idempotency-key", INVITATION_ID))
         .and(body_partial_json(json!({
-            "from": "Owner via Anarlog <notes@send.anarlog.so>",
+            "from": "Owner via BlackMushi <notes@send.anarlog.so>",
             "to": "invitee@example.com",
             "reply_to": "owner@example.com",
-            "subject": "You're invited to join the \"Fastrepl\" team in Anarlog",
+            "subject": "You're invited to join the \"Fastrepl\" team in BlackMushi",
             "text": "Owner invited you to join \"Fastrepl\", a team in Anarlog.\n\nAccept the invitation:\nhttps://anarlog.so/team/invite/66666666-6666-4666-8666-666666666666/#token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n\nReply to this email to contact Owner."
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "id": "email-id" })))
@@ -240,14 +240,14 @@ async fn authorizes_and_sends_a_meeting_recap_to_each_recipient() {
         .and(header("idempotency-key", INVITATION_ID))
         .and(body_json(json!([
             {
-                "from": "Owner via Anarlog <notes@send.anarlog.so>",
+                "from": "Owner via BlackMushi <notes@send.anarlog.so>",
                 "to": "one@example.com",
                 "reply_to": "owner@example.com",
                 "subject": "Meeting notes: Planning",
                 "text": "Planning\n\n## Decisions\n\nShip it.\n\nSent by Owner via Anarlog. Reply to this email to contact them."
             },
             {
-                "from": "Owner via Anarlog <notes@send.anarlog.so>",
+                "from": "Owner via BlackMushi <notes@send.anarlog.so>",
                 "to": "two@example.com",
                 "reply_to": "owner@example.com",
                 "subject": "Meeting notes: Planning",

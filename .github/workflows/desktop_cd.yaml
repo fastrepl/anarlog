@@ -584,7 +584,7 @@ jobs:
               set -e
               cat /tmp/anarlog.log
               if [[ $status -ne 124 ]]; then
-                echo "Anarlog exited before the smoke timeout with status $status"
+                echo "BlackMushi exited before the smoke timeout with status $status"
                 exit 1
               fi
             '
@@ -1061,6 +1061,6 @@ jobs:
         run: |
           gh release create "desktop_nightly_v$VERSION" \
             --target "$GITHUB_SHA" \
-            --title "Anarlog Nightly $VERSION" \
+            --title "BlackMushi Nightly $VERSION" \
             --notes-file packages/changelog/nightly.md \
             --prerelease --latest=false

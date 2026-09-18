@@ -33,7 +33,7 @@ Offline license validation uses HMAC-SHA256 over versioned claims. Telemetry is 
 
 ## Capture workers
 
-Google Meet workers join as a visible Anarlog participant. If `ANARLOG_ENTERPRISE_CAPTURE_JOB_ID` is unset they poll dispatched calendar jobs for the workspace. Zoom uses RTMS in the control plane (no browser bot). Optional STT is customer-hosted; leaving `ANARLOG_ENTERPRISE_STT_URL` empty keeps transcript finalization local to whatever the worker is configured with.
+Google Meet workers join as a visible BlackMushi participant. If `ANARLOG_ENTERPRISE_CAPTURE_JOB_ID` is unset they poll dispatched calendar jobs for the workspace. Zoom uses RTMS in the control plane (no browser bot). Optional STT is customer-hosted; leaving `ANARLOG_ENTERPRISE_STT_URL` empty keeps transcript finalization local to whatever the worker is configured with.
 
 ## Network
 
@@ -41,4 +41,4 @@ The data plane must reach the meeting platform (Meet, Zoom, or Teams). A fully a
 
 ## Stock client
 
-Point the stock Anarlog desktop/web client at the customer control plane workspace token and session ingest endpoints. No Fastrepl-operated capture service is required after this package is running.
+Point the stock BlackMushi desktop/web client at the customer control plane workspace token and session ingest endpoints. No Fastrepl-operated capture service is required after this package is running.

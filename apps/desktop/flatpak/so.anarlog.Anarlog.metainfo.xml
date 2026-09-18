@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>so.anarlog.Anarlog</id>
 
-  <name>Anarlog</name>
+  <name>BlackMushi</name>
   <summary>The AI notepad for private meetings</summary>
 
   <metadata_license>CC0-1.0</metadata_license>
@@ -10,7 +10,7 @@
 
   <description>
     <p>
-      Anarlog is a private meeting notepad that records microphone and computer
+      BlackMushi is a private meeting notepad that records microphone and computer
       audio, transcribes conversations, and keeps notes alongside the transcript.
     </p>
     <p>Features include:</p>

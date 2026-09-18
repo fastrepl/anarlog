@@ -1,6 +1,6 @@
 ---
 title: "MCP reference"
-description: "Tools, resources, limits, and transport details exposed by Anarlog MCP."
+description: "Tools, resources, limits, and transport details exposed by BlackMushi MCP."
 ---
 
 Run the server with `anarlog mcp`. It supports the current MCP `2026-07-28` protocol over stdio while remaining compatible with earlier MCP clients. Meeting reads are local and idempotent. Proposal tools can insert or decline staged edits; they never apply those edits. The desktop app only needs to have created the database once. Open it to review and apply pending proposals.
@@ -24,7 +24,7 @@ Accepts required string `meeting_id`. Returns meeting metadata, the canonical me
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `meeting_id` | string | required | A returned Anarlog meeting ID. |
+| `meeting_id` | string | required | A returned BlackMushi meeting ID. |
 | `offset` | integer | `0` | Word offset. |
 | `limit` | integer | `200` | Clamped to `1..500`. |
 
@@ -42,7 +42,7 @@ Accepts required string `meeting_id`. Returns the complete structured meeting re
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `meeting_id` | string | required | A returned Anarlog meeting ID. |
+| `meeting_id` | string | required | A returned BlackMushi meeting ID. |
 | `content` | string | required | Complete replacement summary in markdown. |
 | `target_id` | string | — | Summary document ID. Required when the meeting has multiple summaries. |
 
@@ -52,7 +52,7 @@ The result is a pending proposal. It does not change the meeting until a human a
 
 | Parameter | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `meeting_id` | string | required | A returned Anarlog meeting ID. |
+| `meeting_id` | string | required | A returned BlackMushi meeting ID. |
 | `content` | string | required | Complete replacement memo in markdown. |
 
 The result is a pending proposal. It does not change the meeting until a human applies it in the desktop app. `content` replaces the canonical meeting memo.

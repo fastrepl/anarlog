@@ -311,7 +311,7 @@ mod tests {
         owhisper_interface::ListenParams {
             model: Some("nova-3".to_string()),
             languages: vec![ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
+            keywords: vec!["BlackMushi".to_string(), "transcription".to_string()],
             ..Default::default()
         }
     );

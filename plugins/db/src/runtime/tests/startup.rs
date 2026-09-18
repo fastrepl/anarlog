@@ -24,14 +24,14 @@ async fn wait_until_ready_surfaces_startup_failure() {
 
     let wait = runtime.wait_until_ready();
     runtime.finish_startup(Err(
-        "the database was created by a newer version of Anarlog".into(),
+        "the database was created by a newer version of BlackMushi".into(),
     ));
     let error = wait.await.unwrap_err();
 
     assert!(
         error
             .to_string()
-            .contains("created by a newer version of Anarlog")
+            .contains("created by a newer version of BlackMushi")
     );
     assert_eq!(runtime.startup_status().phase, crate::StartupPhase::Failed);
 }

@@ -102,7 +102,7 @@ async fn run_live_google_meet() -> Result<LiveRun, Box<dyn std::error::Error>> {
                 display: env::var("DISPLAY").unwrap_or_else(|_| ":99".into()),
                 command_timeout: Duration::from_secs(5),
             },
-            bot_name: "Anarlog Reliability Bot".into(),
+            bot_name: "BlackMushi Reliability Bot".into(),
             admission: AdmissionMonitorConfig {
                 timeout: Duration::from_secs(env_u64("ANLG_LIVE_ADMISSION_SECONDS", 120)?),
                 poll_interval: Duration::from_millis(500),

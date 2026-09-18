@@ -44,7 +44,7 @@ fn resolves_linux_arm64_bundled_binary() {
 
 #[test]
 fn finds_windows_path_entries_case_insensitively() {
-    let expected = Path::new(r"C:\Users\Test\AppData\Local\Anarlog\bin");
+    let expected = Path::new(r"C:\Users\Test\AppData\Local\BlackMushi\bin");
 
     assert!(path_list_contains(
         r"C:\Windows;C:\USERS\TEST\APPDATA\LOCAL\ANARLOG\BIN\;C:\Tools",

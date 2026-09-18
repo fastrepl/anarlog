@@ -13,7 +13,7 @@ const MAX_ERROR_BODY_BYTES: usize = 64 * 1024;
 
 // App attribution per https://openrouter.ai/docs/app-attribution
 const APP_REFERER: &str = "https://anarlog.so";
-const APP_TITLE: &str = "Anarlog";
+const APP_TITLE: &str = "BlackMushi";
 const APP_CATEGORIES: &str = "writing-assistant,personal-agent";
 
 #[derive(Debug, Clone)]

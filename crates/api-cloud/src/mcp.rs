@@ -22,7 +22,7 @@ pub(crate) struct CloudMcpServer {
 impl CloudMcpServer {
     #[tool(
         title = "List meetings",
-        description = "List Anarlog meetings with optional title/id search, recurring series filter, and pagination.",
+        description = "List BlackMushi meetings with optional title/id search, recurring series filter, and pagination.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingPage>(),
         meta = oauth_security_meta(),
         annotations(
@@ -58,7 +58,7 @@ impl CloudMcpServer {
 
     #[tool(
         title = "Get meeting",
-        description = "Get notes, summaries, participants, and action items for an Anarlog meeting.",
+        description = "Get notes, summaries, participants, and action items for an BlackMushi meeting.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::Meeting>(),
         meta = oauth_security_meta(),
         annotations(
@@ -85,7 +85,7 @@ impl CloudMcpServer {
 
     #[tool(
         title = "Get meeting transcript",
-        description = "Get a bounded page of transcript words and readable text for an Anarlog meeting. Pass pagination.next_offset as offset to continue.",
+        description = "Get a bounded page of transcript words and readable text for an BlackMushi meeting. Pass pagination.next_offset as offset to continue.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::TranscriptPage>(),
         meta = oauth_security_meta(),
         annotations(
@@ -152,7 +152,7 @@ impl CloudMcpServer {
 
     #[tool(
         title = "Export meeting",
-        description = "Get a complete Anarlog meeting export with notes, summaries, participants, action items, and transcripts.",
+        description = "Get a complete BlackMushi meeting export with notes, summaries, participants, action items, and transcripts.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingExport>(),
         meta = oauth_security_meta(),
         annotations(
@@ -188,7 +188,7 @@ impl ServerHandler for CloudMcpServer {
                 env!("CARGO_PKG_VERSION"),
             ))
             .with_instructions(
-                "Read-only hosted access to the user's opted-in Anarlog meeting data. Start with list_meetings, then use get_meeting, get_meeting_transcript, and get_recurring_meeting_history. Use export_meeting only when the task needs the complete record including transcripts. Every tool is idempotent and performs no writes. Report only meetings these tools return. If list_meetings is empty, say there are no opted-in Cloud snapshots. Never invent titles, dates, or ids.",
+                "Read-only hosted access to the user's opted-in BlackMushi meeting data. Start with list_meetings, then use get_meeting, get_meeting_transcript, and get_recurring_meeting_history. Use export_meeting only when the task needs the complete record including transcripts. Every tool is idempotent and performs no writes. Report only meetings these tools return. If list_meetings is empty, say there are no opted-in Cloud snapshots. Never invent titles, dates, or ids.",
             )
     }
 }
@@ -228,11 +228,11 @@ fn authentication_required(state: &AppState) -> CallToolResult {
         "mcp/www_authenticate".to_string(),
         serde_json::json!([state.oauth().challenge(Some((
             "invalid_token",
-            "Connect your Anarlog account to use this tool",
+            "Connect your BlackMushi account to use this tool",
         )))]),
     );
     CallToolResult::error(vec![ContentBlock::text(
-        "Connect your Anarlog account to use this tool.",
+        "Connect your BlackMushi account to use this tool.",
     )])
     .with_meta(Some(meta))
 }

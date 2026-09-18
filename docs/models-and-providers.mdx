@@ -1,9 +1,9 @@
 ---
 title: "Models and providers"
-description: "See which models Anarlog uses for transcription, summaries, and chat."
+description: "See which models BlackMushi uses for transcription, summaries, and chat."
 ---
 
-Anarlog does not hide one model behind the whole app. It keeps two independent selections:
+BlackMushi does not hide one model behind the whole app. It keeps two independent selections:
 
 - **Transcription** turns meeting audio into text.
 - **Intelligence** turns text into summaries, titles, and chat responses.
@@ -20,17 +20,17 @@ Open **Settings → Transcription** and **Settings → Intelligence** to see the
 
 Recording, editing, and local storage do not require an AI model. A hosted Transcription provider receives audio. A hosted Intelligence provider receives the text and other context needed for that request.
 
-## Anarlog Cloud
+## BlackMushi Cloud
 
-Anarlog Cloud uses managed routes. Settings displays the managed selection as **Pro (Cloud)**. Transcription uses that Cloud route. Intelligence uses **Auto**, which Settings also displays as Pro (Cloud). Either selection lets Anarlog choose a suitable upstream model and retry a compatible provider when needed.
+BlackMushi Cloud uses managed routes. Settings displays the managed selection as **Pro (Cloud)**. Transcription uses that Cloud route. Intelligence uses **Auto**, which Settings also displays as Pro (Cloud). Either selection lets BlackMushi choose a suitable upstream model and retry a compatible provider when needed.
 
 <Note>
-  The routes below describe the current implementation, not a permanently pinned model contract. Anarlog may update a managed route to improve quality, language coverage, latency, or availability. Select your own provider and model when you need a fixed model ID.
+  The routes below describe the current implementation, not a permanently pinned model contract. BlackMushi may update a managed route to improve quality, language coverage, latency, or availability. Select your own provider and model when you need a fixed model ID.
 </Note>
 
 ### Cloud transcription
 
-The managed Transcription route chooses a provider from the meeting's languages and whether Anarlog needs live or after-recording transcription.
+The managed Transcription route chooses a provider from the meeting's languages and whether BlackMushi needs live or after-recording transcription.
 
 - Deepgram currently resolves the route to **Nova 3** or **Nova 2**, depending on language support.
 - Soniox currently resolves it to **Soniox 5**: `stt-rt-v5` for live transcription and `stt-async-v5` after recording.
@@ -38,11 +38,11 @@ The managed Transcription route chooses a provider from the meeting's languages 
 - After-recording transcription prefers Soniox when it supports the selected languages.
 - The eligible fallback pool also includes configured routes for Gladia (currently **Solaria 1**), ElevenLabs, OpenAI, Mistral, and Alibaba Cloud Model Studio.
 
-Only configured providers that support the requested mode and languages enter the route. If one returns a retryable error, Anarlog can try the next eligible provider.
+Only configured providers that support the requested mode and languages enter the route. If one returns a retryable error, BlackMushi can try the next eligible provider.
 
 ### Cloud Intelligence
 
-For text tasks, **Anarlog → Auto** currently routes summaries, chat, and generated titles through the `~anthropic/claude-sonnet-latest` alias on OpenRouter.
+For text tasks, **BlackMushi → Auto** currently routes summaries, chat, and generated titles through the `~anthropic/claude-sonnet-latest` alias on OpenRouter.
 
 The alias tracks the current Claude Sonnet release instead of pinning a dated model. OpenRouter receives the prompt and chooses an available endpoint for that model.
 
@@ -56,7 +56,7 @@ This audio-capable Intelligence route is separate from normal meeting transcript
 
 ## On-device models
 
-Anarlog currently offers three built-in on-device Transcription providers. Settings shows each provider only when it is supported by your Mac and release.
+BlackMushi currently offers three built-in on-device Transcription providers. Settings shows each provider only when it is supported by your Mac and release.
 
 | Provider | Model | When it runs | Requirements |
 | --- | --- | --- | --- |
@@ -71,11 +71,11 @@ You can also keep audio on your network by pointing **Custom**, or Deepgram's **
   Compatibility code still recognizes some older local model IDs, but they are not offered as new choices. The table above is the current user-facing model list.
 </Note>
 
-If you select Parakeet Streaming and also download Parakeet Batch, Anarlog can refine speaker labels on-device after a meeting with multiple remote participants.
+If you select Parakeet Streaming and also download Parakeet Batch, BlackMushi can refine speaker labels on-device after a meeting with multiple remote participants.
 
-For local summaries and chat, connect **LM Studio**, **Ollama**, or **Unsloth** and choose any compatible model they serve. Anarlog does not silently substitute another model. **Apple Intelligence** is also available as an experimental, text-only Intelligence provider on eligible Macs running macOS 26 or later.
+For local summaries and chat, connect **LM Studio**, **Ollama**, or **Unsloth** and choose any compatible model they serve. BlackMushi does not silently substitute another model. **Apple Intelligence** is also available as an experimental, text-only Intelligence provider on eligible Macs running macOS 26 or later.
 
-If a selected local model or server is unavailable, Anarlog reports a connection error instead of sending the request to Anarlog Cloud.
+If a selected local model or server is unavailable, BlackMushi reports a connection error instead of sending the request to BlackMushi Cloud.
 
 ## Other model-backed features
 
@@ -88,19 +88,19 @@ Not every AI-adjacent feature is controlled by AI Settings:
 | Audio cleanup and speech detection | Bundled ONNX models | On your computer |
 
 <Note>
-  When chat uses web search, Anarlog sends the search query to its hosted research endpoint, which currently uses Exa, even when your Transcription and Intelligence models are local. The returned text can then become context for your selected Intelligence model.
+  When chat uses web search, BlackMushi sends the search query to its hosted research endpoint, which currently uses Exa, even when your Transcription and Intelligence models are local. The returned text can then become context for your selected Intelligence model.
 </Note>
 
 ## Your own provider
 
 When you configure a provider with your own API key:
 
-- Anarlog sends requests directly from the desktop app to the configured base URL.
+- BlackMushi sends requests directly from the desktop app to the configured base URL.
 - The provider and exact model shown in Settings handle the request.
-- Anarlog stores the API key in your operating system's secure credential store, not in the app database. Keys stay on that computer and do not [sync](/sync#what-cloud-sync-replicates) to your other devices.
+- BlackMushi stores the API key in your operating system's secure credential store, not in the app database. Keys stay on that computer and do not [sync](/sync#what-cloud-sync-replicates) to your other devices.
 - The provider's pricing, retention, and training policies apply.
 
-Anarlog supports dedicated provider integrations and OpenAI-compatible endpoints. Intelligence model lists are loaded from the provider when its API supports discovery, so **Settings → Intelligence** is the current source of truth for available model IDs.
+BlackMushi supports dedicated provider integrations and OpenAI-compatible endpoints. Intelligence model lists are loaded from the provider when its API supports discovery, so **Settings → Intelligence** is the current source of truth for available model IDs.
 
 You can also connect a subscription for Intelligence instead of an API key: **Claude**, **ChatGPT**, **Grok**, **GitHub Copilot**, or **Kimi Code**. Open **Settings → Intelligence → Configure Providers** and use **Connect**.
 
@@ -121,8 +121,8 @@ Settings may still show older model IDs for compatibility. Prefer the current Ge
 | Goal | Transcription | Intelligence |
 | --- | --- | --- |
 | Keep meeting content on your computer | Select Soniqo, Apple Speech, or On-device file when available, or a Deepgram-compatible local server | Use LM Studio, Ollama, Unsloth, or eligible Apple Intelligence |
-| Avoid per-minute transcription bills | Use on-device models, or Anarlog Cloud on a Pro plan | Use a local Intelligence provider, a connected subscription, or Anarlog Cloud |
+| Avoid per-minute transcription bills | Use on-device models, or BlackMushi Cloud on a Pro plan | Use a local Intelligence provider, a connected subscription, or BlackMushi Cloud |
 | Pin exact model IDs | Configure your own provider | Configure your own provider |
-| Minimize setup | Anarlog Cloud | Anarlog Cloud |
+| Minimize setup | BlackMushi Cloud | BlackMushi Cloud |
 
-To compare on-device, Cloud, and bring-your-own-key cost, see [How can I compare the costs of all the transcription options?](/help#compare-transcription-costs). For every on-device path, see [How can I use on-device models?](/help#use-on-device-models). For a fully local checklist, see [Use Anarlog offline](/offline). For the data sent by each feature, see [Data, privacy, and retention](/data-and-privacy).
+To compare on-device, Cloud, and bring-your-own-key cost, see [How can I compare the costs of all the transcription options?](/help#compare-transcription-costs). For every on-device path, see [How can I use on-device models?](/help#use-on-device-models). For a fully local checklist, see [Use BlackMushi offline](/offline). For the data sent by each feature, see [Data, privacy, and retention](/data-and-privacy).

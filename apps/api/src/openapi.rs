@@ -7,9 +7,9 @@ use utoipa::{Modify, OpenApi};
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "Anarlog API",
+        title = "BlackMushi API",
         version = "1.0.0",
-        description = "Anarlog cloud services and opt-in hosted meeting access"
+        description = "BlackMushi cloud services and opt-in hosted meeting access"
     ),
     tags(
         (name = "stt", description = "Speech-to-text transcription endpoints"),
@@ -28,7 +28,7 @@ use utoipa::{Modify, OpenApi};
         (name = "nango", description = "Integration management via Nango"),
         (name = "sync", description = "CloudSync credential management"),
         (name = "shared-notes", description = "Public shared-note delivery"),
-        (name = "cloud-api", description = "Opt-in hosted access to Anarlog meeting data"),
+        (name = "cloud-api", description = "Opt-in hosted access to BlackMushi meeting data"),
         (name = "subscription", description = "Subscription and trial management")
     ),
     modifiers(&SecurityAddon)
@@ -108,7 +108,7 @@ impl Modify for SecurityAddon {
                     Http::builder()
                         .scheme(HttpAuthScheme::Bearer)
                         .bearer_format("anl_...")
-                        .description(Some("Anarlog cloud API key"))
+                        .description(Some("BlackMushi cloud API key"))
                         .build(),
                 ),
             );

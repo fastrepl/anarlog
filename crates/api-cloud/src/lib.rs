@@ -50,7 +50,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
             anlg_agent_access::MeetingExport,
         )),
         tags(
-            (name = "cloud-api", description = "Opt-in hosted access to Anarlog meeting data")
+            (name = "cloud-api", description = "Opt-in hosted access to BlackMushi meeting data")
         )
     )]
     struct CloudApiDoc;

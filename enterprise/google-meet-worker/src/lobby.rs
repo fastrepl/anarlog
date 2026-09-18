@@ -1,4 +1,4 @@
-// Adapted for Anarlog from Vexa v0.12.18. See ../THIRD_PARTY_NOTICES.md.
+// Adapted for BlackMushi from Vexa v0.12.18. See ../THIRD_PARTY_NOTICES.md.
 
 use std::time::Duration;
 
@@ -514,14 +514,14 @@ fi
         .unwrap();
 
         LobbyController::new(&mut page, &input)
-            .join("Anarlog Notes", false)
+            .join("BlackMushi Notes", false)
             .await
             .unwrap();
         page.close().await.unwrap();
         server.await.unwrap();
 
         let calls = std::fs::read_to_string(calls).unwrap();
-        assert!(calls.contains("type --clearmodifiers --delay 75 -- Anarlog Notes"));
+        assert!(calls.contains("type --clearmodifiers --delay 75 -- BlackMushi Notes"));
         assert_eq!(calls.matches("mousedown 1").count(), 3);
         assert_eq!(calls.matches("mouseup 1").count(), 3);
     }

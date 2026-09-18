@@ -115,7 +115,7 @@ async function createDefaultDependencies(): Promise<ReferralRewardDependencies> 
           {
             amount: -reward.reward_amount_cents,
             currency: reward.reward_currency,
-            description: "Anarlog referral reward",
+            description: "BlackMushi referral reward",
             metadata: {
               referral_id: reward.referral_id,
               qualifying_invoice_id: invoiceId,

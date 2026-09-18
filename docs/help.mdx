@@ -9,12 +9,12 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 
 <AccordionGroup>
   <Accordion title="How can I compare the costs of all the transcription options?" id="compare-transcription-costs">
-    Anarlog has three cost models. Compare those first, then compare providers inside the one you choose.
+    BlackMushi has three cost models. Compare those first, then compare providers inside the one you choose.
 
     | Option | What you pay | When to use it |
     | --- | --- | --- |
     | On-device | Nothing extra after you download the model | Apple Silicon Mac, and you want no usage bill |
-    | Anarlog Cloud | [Pro](https://anarlog.so/pricing) at $15/month or $150/year | Hosted transcription without managing API keys |
+    | BlackMushi Cloud | [Pro](https://anarlog.so/pricing) at $15/month or $150/year | Hosted transcription without managing API keys |
     | Your API key | The provider's own speech-to-text rates | You already have credits, a preferred vendor, or a required endpoint |
 
     On-device and bring-your-own-key transcription stay on the Free plan. Cloud transcription is a Pro feature.
@@ -26,7 +26,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
     3. On the provider's pricing page, compare live vs after-recording rates, language coverage, speaker labels, and any free tier.
     4. Select the model under **Model being used** and run a short test meeting.
 
-    Anarlog does not publish a live price table for third-party providers because those rates change. [OpenRouter](https://openrouter.ai/models?output_modalities=transcription) is one key that can reach several after-recording models if you want a single bill to compare.
+    BlackMushi does not publish a live price table for third-party providers because those rates change. [OpenRouter](https://openrouter.ai/models?output_modalities=transcription) is one key that can reach several after-recording models if you want a single bill to compare.
 
     See [How can I use on-device models?](/help#use-on-device-models), [Models and providers](/models-and-providers), and [Transcription and AI](/ai-setup).
   </Accordion>
@@ -40,9 +40,9 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
     - **On-device file** runs a downloaded whisper.cpp `.bin` model after recording. transcribe.cpp `.gguf` files are not supported yet.
     - **Apple Speech** is live-only and available when macOS 26 reports compatible system assets. It transcribes one supported language at a time.
 
-    Built-in on-device transcription is not available on Windows, Linux, or Intel Macs. On those systems, use a Deepgram-compatible local server, Anarlog Cloud, or a bring-your-own-key provider. After-recording hosted models handle hour-long audio. Some live models have short session limits — for example, Gemini 3.5 Transcribe Live preview sessions last up to 10 minutes.
+    Built-in on-device transcription is not available on Windows, Linux, or Intel Macs. On those systems, use a Deepgram-compatible local server, BlackMushi Cloud, or a bring-your-own-key provider. After-recording hosted models handle hour-long audio. Some live models have short session limits — for example, Gemini 3.5 Transcribe Live preview sessions last up to 10 minutes.
 
-    Quality and speed depend on the computer. Run a short test recording before a long call. See [How can I use on-device models?](/help#use-on-device-models) and [Use Anarlog offline](/offline).
+    Quality and speed depend on the computer. Run a short test recording before a long call. See [How can I use on-device models?](/help#use-on-device-models) and [Use BlackMushi offline](/offline).
   </Accordion>
 
   <Accordion title="Can I replace Granola on Windows?" id="replace-granola-on-windows">
@@ -50,7 +50,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 
     Expect these differences from a Mac setup:
 
-    - Built-in on-device transcription is not available. Choose Anarlog Cloud, a Deepgram-compatible local server, or another configured provider. See [How can I use on-device models?](/help#use-on-device-models).
+    - Built-in on-device transcription is not available. Choose BlackMushi Cloud, a Deepgram-compatible local server, or another configured provider. See [How can I use on-device models?](/help#use-on-device-models).
     - Microphone detection, auto-stop, and meeting-chat capture are macOS and Linux only.
     - You can [import Granola meeting history](/imports) from an official export.
 
@@ -61,12 +61,12 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 ## Recording and notes
 
 <AccordionGroup>
-  <Accordion title="Does Anarlog join the call?" id="does-anarlog-join-the-call">
-    No. Anarlog captures your microphone and computer audio from the desktop without adding a meeting bot. See [Record meetings](/meetings).
+  <Accordion title="Does BlackMushi join the call?" id="does-anarlog-join-the-call">
+    No. BlackMushi captures your microphone and computer audio from the desktop without adding a meeting bot. See [Record meetings](/meetings).
   </Accordion>
 
   <Accordion title="Can recording start automatically?" id="can-recording-start-automatically">
-    Yes. Anarlog can start calendar-backed meetings on schedule and prompt you when it detects an unscheduled call. Manage scheduled meeting controls under **Settings → Meetings** and microphone detection under **Settings → Notifications**. Microphone detection, auto-stop, and meeting-chat capture are available on macOS and Linux, not Windows. See [Automatic capture](/automatic-capture).
+    Yes. BlackMushi can start calendar-backed meetings on schedule and prompt you when it detects an unscheduled call. Manage scheduled meeting controls under **Settings → Meetings** and microphone detection under **Settings → Notifications**. Microphone detection, auto-stop, and meeting-chat capture are available on macOS and Linux, not Windows. See [Automatic capture](/automatic-capture).
   </Accordion>
 
   <Accordion title="Can I edit a transcript or fix a speaker?" id="can-i-edit-a-transcript-or-fix-a-speaker">
@@ -86,7 +86,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 
 <AccordionGroup>
   <Accordion title="How can I use on-device models?" id="use-on-device-models">
-    Anarlog can transcribe without sending audio to Anarlog Cloud. Open **Settings → Transcription** and pick the path that matches your computer.
+    BlackMushi can transcribe without sending audio to BlackMushi Cloud. Open **Settings → Transcription** and pick the path that matches your computer.
 
     | Path | What you select | When it runs | Requirements |
     | --- | --- | --- | --- |
@@ -95,18 +95,18 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
     | On-device file | **On-device file**, then **Choose a .bin model** | After recording | Apple Silicon. Use a whisper.cpp `.bin` you already have. transcribe.cpp `.gguf` files are not supported yet. |
     | Local Deepgram-compatible server | **Custom**, or **Deepgram** with a custom **Base URL** under **Advanced** | Live or after recording, depending on the server | A Deepgram-compatible endpoint on this computer or your local network. Enter that URL and an API key if the server requires one. |
 
-    Soniqo, Apple Speech, and On-device file appear only on a supported Apple Silicon Mac. On Windows, Linux, or Intel Macs, use a local Deepgram-compatible server, Anarlog Cloud, or another configured provider.
+    Soniqo, Apple Speech, and On-device file appear only on a supported Apple Silicon Mac. On Windows, Linux, or Intel Macs, use a local Deepgram-compatible server, BlackMushi Cloud, or another configured provider.
 
     Summaries and chat are a separate setting. For those to stay local too, choose LM Studio, Ollama, Unsloth, or eligible Apple Intelligence under **Settings → Intelligence**.
 
-    See [Models and providers](/models-and-providers), [Use Anarlog offline](/offline), and [Is there a reliable local model that can handle hour-long calls?](/help#local-model-hour-long-calls).
+    See [Models and providers](/models-and-providers), [Use BlackMushi offline](/offline), and [Is there a reliable local model that can handle hour-long calls?](/help#local-model-hour-long-calls).
   </Accordion>
 
-  <Accordion title="Can I use Anarlog offline?" id="can-i-use-anarlog-offline">
-    Yes, if you prepare local models before disconnecting. Soniqo, Apple Speech, and On-device file transcription require a supported Apple Silicon Mac; Apple Speech also needs macOS 26 to report compatible system assets. LM Studio, Ollama, Unsloth, and eligible Apple Intelligence can provide local Intelligence models. See [Use Anarlog offline](/offline) and [How can I use on-device models?](/help#use-on-device-models).
+  <Accordion title="Can I use BlackMushi offline?" id="can-i-use-anarlog-offline">
+    Yes, if you prepare local models before disconnecting. Soniqo, Apple Speech, and On-device file transcription require a supported Apple Silicon Mac; Apple Speech also needs macOS 26 to report compatible system assets. LM Studio, Ollama, Unsloth, and eligible Apple Intelligence can provide local Intelligence models. See [Use BlackMushi offline](/offline) and [How can I use on-device models?](/help#use-on-device-models).
   </Accordion>
 
-  <Accordion title="What languages does Anarlog support?" id="supported-languages">
+  <Accordion title="What languages does BlackMushi support?" id="supported-languages">
     **Settings → General → Language & Region** lets you choose a main language and additional spoken languages from this list:
 
     Arabic, Belarusian, Bulgarian, Bangla, Bosnian, Catalan, Czech, Danish, German, Greek, English, Spanish, Estonian, Persian, Finnish, French, Hebrew, Hindi, Croatian, Hungarian, Indonesian, Italian, Japanese, Kannada, Korean, Lithuanian, Latvian, Macedonian, Marathi, Malay, Dutch, Norwegian, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Serbian, Swedish, Tamil, Telugu, Thai, Filipino, Turkish, Ukrainian, Urdu, Vietnamese, and Chinese.
@@ -115,7 +115,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 
     | Selection | Languages |
     | --- | --- |
-    | Anarlog Cloud | Routes to a provider that supports the languages you selected. The Settings list is the Cloud picker. |
+    | BlackMushi Cloud | Routes to a provider that supports the languages you selected. The Settings list is the Cloud picker. |
     | Soniqo | Bulgarian, Czech, Danish, German, Greek, English, Spanish, Estonian, Finnish, French, Croatian, Hungarian, Italian, Lithuanian, Latvian, Maltese, Dutch, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Swedish, and Ukrainian |
     | Apple Speech | German, English, Spanish, French, Italian, Japanese, Korean, Portuguese, Cantonese, or Chinese — one language at a time |
     | On-device file | The whisper.cpp `.bin` you select. Check that model's language list. |
@@ -124,16 +124,16 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
     Summaries and chat use the main language. See [Use multiple languages](/languages).
   </Accordion>
 
-  <Accordion title="Which AI models does Anarlog use?" id="which-ai-models-does-anarlog-use">
-    There is no single hidden model. Your Transcription selection handles audio, and your Intelligence selection handles summaries, titles, and chat. Anarlog Cloud currently routes transcription by language and mode and routes text Intelligence tasks through the latest Claude Sonnet alias on OpenRouter. See [Models and providers](/models-and-providers) for the current routes and local options.
+  <Accordion title="Which AI models does BlackMushi use?" id="which-ai-models-does-anarlog-use">
+    There is no single hidden model. Your Transcription selection handles audio, and your Intelligence selection handles summaries, titles, and chat. BlackMushi Cloud currently routes transcription by language and mode and routes text Intelligence tasks through the latest Claude Sonnet alias on OpenRouter. See [Models and providers](/models-and-providers) for the current routes and local options.
   </Accordion>
 
   <Accordion title="Where is my data stored?" id="where-is-my-data-stored">
-    Anarlog stores app data locally by default. Hosted AI, calendars, sync, sharing, and the optional Cloud API receive the content needed for the feature you enable. See [Data, privacy, and retention](/data-and-privacy). Enterprise security reviews should start at the [security page](https://anarlog.so/security).
+    BlackMushi stores app data locally by default. Hosted AI, calendars, sync, sharing, and the optional Cloud API receive the content needed for the feature you enable. See [Data, privacy, and retention](/data-and-privacy). Enterprise security reviews should start at the [security page](https://anarlog.so/security).
   </Accordion>
 
-  <Accordion title="Does Anarlog train on my meetings?" id="does-anarlog-train-on-my-meetings">
-    The answer depends on the provider you choose. Local providers keep the model request on your computer. For Anarlog Cloud or a bring-your-own-key provider, review that provider's retention and training policy before sending sensitive content.
+  <Accordion title="Does BlackMushi train on my meetings?" id="does-anarlog-train-on-my-meetings">
+    The answer depends on the provider you choose. Local providers keep the model request on your computer. For BlackMushi Cloud or a bring-your-own-key provider, review that provider's retention and training policy before sending sensitive content.
   </Accordion>
 
   <Accordion title="Can a meeting use multiple languages?" id="can-a-meeting-use-multiple-languages">
@@ -145,11 +145,11 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 
 <AccordionGroup>
   <Accordion title="What gets shared with another person?" id="what-gets-shared-with-another-person">
-    Anarlog shares the generated summary, not your private memo. Retained audio is optional and must be included separately. Sharing is a Pro feature. See [Share meetings](/sharing).
+    BlackMushi shares the generated summary, not your private memo. Retained audio is optional and must be included separately. Sharing is a Pro feature. See [Share meetings](/sharing).
   </Accordion>
 
-  <Accordion title="Can Anarlog recover my sync recovery key?" id="can-anarlog-recover-my-sync-recovery-key">
-    No. The key is shown only during setup and Anarlog cannot read or recover it. Save it in a password manager before closing the setup window. See [Cloud sync](/sync#save-the-recovery-key).
+  <Accordion title="Can BlackMushi recover my sync recovery key?" id="can-anarlog-recover-my-sync-recovery-key">
+    No. The key is shown only during setup and BlackMushi cannot read or recover it. Save it in a password manager before closing the setup window. See [Cloud sync](/sync#save-the-recovery-key).
   </Accordion>
 
   <Accordion title="Do my API keys sync to another device?" id="do-my-api-keys-sync-to-another-device">
@@ -157,7 +157,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
   </Accordion>
 
   <Accordion title="Can I automate follow-up work?" id="can-i-automate-follow-up-work">
-    Yes, with Anarlog Pro. Built-in starters can post a Slack recap, update a Notion page, create Linear issues, or export each meeting as Markdown. See [Automate meeting follow-up](/automations).
+    Yes, with BlackMushi Pro. Built-in starters can post a Slack recap, update a Notion page, create Linear issues, or export each meeting as Markdown. See [Automate meeting follow-up](/automations).
   </Accordion>
 </AccordionGroup>
 
@@ -165,14 +165,14 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
 
 <AccordionGroup>
   <Accordion title="Which desktop platforms are supported?" id="which-desktop-platforms-are-supported">
-    Anarlog supports macOS 15 or later. Windows x64 and Linux x64 or ARM64 builds are available in beta. See [Install the desktop app](/desktop-installation).
+    BlackMushi supports macOS 15 or later. Windows x64 and Linux x64 or ARM64 builds are available in beta. See [Install the desktop app](/desktop-installation).
   </Accordion>
 
   <Accordion title="Is there a mobile app?" id="is-there-a-mobile-app">
-    Not yet. Anarlog currently ships as a desktop app.
+    Not yet. BlackMushi currently ships as a desktop app.
   </Accordion>
 
-  <Accordion title="Can agents reach my meetings while Anarlog is closed?" id="can-agents-reach-my-meetings-while-anarlog-is-closed">
+  <Accordion title="Can agents reach my meetings while BlackMushi is closed?" id="can-agents-reach-my-meetings-while-anarlog-is-closed">
     The CLI and local MCP server read the local database, so they work while the app is closed. They can also stage a memo or summary proposal; review the **pending edit** banner in the desktop meeting note before applying it. Webhooks only deliver while the app is open. For hosted access from anywhere, explicitly enable [Cloud API & Connectors](/reference/api-cloud).
   </Accordion>
 </AccordionGroup>

@@ -470,7 +470,7 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/proxy/graphql"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "data": { "organization": { "name": "Anarlog" } }
+                "data": { "organization": { "name": "BlackMushi" } }
             })))
             .mount(&nango_mock)
             .await;
@@ -479,7 +479,7 @@ mod tests {
         let (identity, display_name) = fetch_identity(&nango, "linear", "conn-linear")
             .await
             .unwrap();
-        assert_eq!(identity.as_deref(), Some("Anarlog"));
+        assert_eq!(identity.as_deref(), Some("BlackMushi"));
         assert_eq!(display_name, None);
     }
 }

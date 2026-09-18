@@ -3,18 +3,18 @@ title: "Data, privacy, and retention"
 description: "Understand what stays on your computer, what can leave it, and how long audio is kept."
 ---
 
-Anarlog stores its app data on your computer and captures meetings without adding a bot to the call. Data leaves your computer only when you use a connected or hosted feature that needs it.
+BlackMushi stores its app data on your computer and captures meetings without adding a bot to the call. Data leaves your computer only when you use a connected or hosted feature that needs it.
 
 Security, legal, and procurement teams should use the [security page](https://anarlog.so/security) for encryption, processors, retention, and the evaluation packet. A hosted trust center comes later, when certification programs start.
 
 ## What stays on your computer
 
-Your notes, local transcripts, settings, recordings you choose to keep, and downloaded local models are stored locally. You can write notes, record audio, and use configured local models without sending meeting content to Anarlog Cloud.
+Your notes, local transcripts, settings, recordings you choose to keep, and downloaded local models are stored locally. You can write notes, record audio, and use configured local models without sending meeting content to BlackMushi Cloud.
 
 [Cloud Sync](/sync#what-cloud-sync-replicates) can copy encrypted notes to your other signed-in devices. Transcription and Intelligence API keys, model selections, calendar connections, and most other settings stay on the computer where you set them.
 
 <Warning>
-  Do not edit the app database directly — this can corrupt your notes. Use Anarlog's export tools when you need a portable copy.
+  Do not edit the app database directly — this can corrupt your notes. Use BlackMushi's export tools when you need a portable copy.
 </Warning>
 
 ## When content is sent elsewhere
@@ -24,14 +24,14 @@ The destination depends on the feature you choose:
 - A hosted **Transcription** provider receives the audio needed to create a transcript.
 - A hosted **Intelligence** provider receives the text and instructions needed to create a summary or chat response.
 - Connected calendars send the calendar and event details needed to show upcoming events and associate them with your notes.
-- [Cloud Sync](/sync#what-cloud-sync-replicates) sends end-to-end encrypted notes to keep your devices up to date. Anarlog cannot read the recovery key. API keys and most settings stay on each device.
+- [Cloud Sync](/sync#what-cloud-sync-replicates) sends end-to-end encrypted notes to keep your devices up to date. BlackMushi cannot read the recovery key. API keys and most settings stay on each device.
 - [Sharing](/sharing) uploads the generated summary and any audio you explicitly include. Your private memo is not part of the shared note.
 - [Chat](/chat) sends the prompt and required context to your selected Intelligence provider. Public web search also sends the search query to the search service.
 - [Cloud API & Connectors](/reference/api-cloud), when you explicitly enable it, uploads a separate server-readable copy of meeting titles, notes, summaries, participants, action items, and transcripts so remote agents can work while your desktop is offline. Turning it off deletes those copies.
 
-Anarlog Cloud, your own API-key providers, and local providers are separate choices. Review the provider's own retention and training policies before sending sensitive content.
+BlackMushi Cloud, your own API-key providers, and local providers are separate choices. Review the provider's own retention and training policies before sending sensitive content.
 
-See [Models and providers](/models-and-providers) for the current Anarlog Cloud routes and how direct provider requests work.
+See [Models and providers](/models-and-providers) for the current BlackMushi Cloud routes and how direct provider requests work.
 
 ## Keep a meeting fully local
 
@@ -39,7 +39,7 @@ See [Models and providers](/models-and-providers) for the current Anarlog Cloud 
 2. Select LM Studio, Ollama, Unsloth, or eligible Apple Intelligence under **Settings → Intelligence**.
 3. Avoid cloud sync, share links, Cloud API & Connectors, and hosted providers for that content.
 
-See [Use Anarlog offline](/offline) for the full setup.
+See [Use BlackMushi offline](/offline) for the full setup.
 
 ## Choose how long audio is kept
 

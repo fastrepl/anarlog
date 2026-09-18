@@ -1,8 +1,8 @@
 # Overview
 
-For Anarlog work, read and follow [.agents/skills/anarlog-workflow/SKILL.md](.agents/skills/anarlog-workflow/SKILL.md). Start requested work immediately; record useful decisions and non-obvious lessons in Linear, not routine execution logs.
+For BlackMushi work, read and follow [.agents/skills/anarlog-workflow/SKILL.md](.agents/skills/anarlog-workflow/SKILL.md). Start requested work immediately; record useful decisions and non-obvious lessons in Linear, not routine execution logs.
 
-Anarlog is a pnpm and Rust workspace. Read the nearest `AGENTS.md` before changing a component.
+BlackMushi is a pnpm and Rust workspace. Read the nearest `AGENTS.md` before changing a component.
 
 - `apps/desktop/`: Tauri 2 with React, TypeScript, Vite, and Tailwind. Zustand owns UI state; TanStack Query/Form own queries, mutations, and forms.
 - `apps/web/`: React with TanStack Start/Router, Vite, and Tailwind; deployed through Vercel.

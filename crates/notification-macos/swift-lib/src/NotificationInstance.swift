@@ -231,7 +231,7 @@ class NotificationInstance {
 
   func stopCountdownText(_ remainingSeconds: Double) -> String {
     let seconds = max(0, Int(ceil(remainingSeconds)))
-    return "Anarlog will stop listening in \(seconds) seconds."
+    return "BlackMushi will stop listening in \(seconds) seconds."
   }
 
   private func startStopCountdownUpdates() {

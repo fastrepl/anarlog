@@ -128,7 +128,7 @@ app:
     - BITRISE_PROJECT_PATH: apps/mobile/ios/Anarlog/Anarlog.xcodeproj
       opts:
         is_expand: false
-    - BITRISE_SCHEME: Anarlog
+    - BITRISE_SCHEME: BlackMushi
       opts:
         is_expand: false
     - BITRISE_DISTRIBUTION_METHOD: ad-hoc

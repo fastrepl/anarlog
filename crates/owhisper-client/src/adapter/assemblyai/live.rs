@@ -525,7 +525,7 @@ mod tests {
         owhisper_interface::ListenParams {
             model: Some("universal-3-5-pro".to_string()),
             languages: vec![anlg_language::ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
+            keywords: vec!["BlackMushi".to_string(), "transcription".to_string()],
             ..Default::default()
         }
     );

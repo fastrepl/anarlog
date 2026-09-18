@@ -1,9 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "anarlog",
-  "displayName": "Anarlog",
+  "displayName": "BlackMushi",
   "version": "1.2.1",
-  "description": "Query and export Anarlog meetings through Cloud MCP or the local CLI.",
+  "description": "Query and export BlackMushi meetings through Cloud MCP or the local CLI.",
   "author": {
     "name": "Fastrepl",
     "email": "team@fastrepl.com",

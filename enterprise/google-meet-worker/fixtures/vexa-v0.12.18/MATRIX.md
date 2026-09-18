@@ -1,9 +1,9 @@
 # Vexa v0.12.18 Google Meet behavior matrix
 
 Pinned reference: Vexa `v0.12.18`, commit `1b62993e7e97c6ee04a5dcb116f7749ec74169df`.
-These fixtures are replayable snapshots of normalized Anarlog admission/runtime classifiers. They do not require Vexa internals at test time.
+These fixtures are replayable snapshots of normalized BlackMushi admission/runtime classifiers. They do not require Vexa internals at test time.
 
-| Fixture                             | Vexa module                           | Anarlog outcome                   | Terminal reason             | Retryable |
+| Fixture                             | Vexa module                           | BlackMushi outcome                   | Terminal reason             | Retryable |
 | ----------------------------------- | ------------------------------------- | --------------------------------- | --------------------------- | --------- |
 | `admission/host-denied.json`        | `join/src/googlemeet/admission.ts`    | Rejected HostDenied               | `admission_denied`          | no        |
 | `admission/waiting-room.json`       | `join/src/googlemeet/admission.ts`    | WaitingForAdmission               | —                           | —         |

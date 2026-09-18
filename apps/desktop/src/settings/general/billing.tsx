@@ -79,7 +79,7 @@ export function SettingsBilling() {
               openNew({ type: "settings", state: { tab: "account" } })
             }
           >
-            <Trans>Sign in to Anarlog</Trans>
+            <Trans>Sign in to BlackMushi</Trans>
           </button>
           <GuestPlanSection />
         </>

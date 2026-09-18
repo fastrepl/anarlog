@@ -532,7 +532,7 @@ describe("SettingsSync", () => {
     expect(screen.getByText("Background sync")).toBeTruthy();
     expect(
       screen.getByText(
-        "Anarlog couldn't complete this sync. Your notes are safe on this device.",
+        "BlackMushi couldn't complete this sync. Your notes are safe on this device.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/sqlx error/)).toBeNull();
@@ -833,7 +833,7 @@ describe("SettingsSync", () => {
     expect(screen.getByText("Devices")).toBeTruthy();
     expect(mocks.getCloudsyncStatus).not.toHaveBeenCalled();
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
+      "This requires BlackMushi Pro",
       {
         action: {
           label: "Upgrade",

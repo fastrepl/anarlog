@@ -49,7 +49,7 @@ function dependencies(
     charWebhookUrl: "https://hooks.example/char",
     getCustomer: async () =>
       customer(customerMetadata) as unknown as Stripe.Customer,
-    getProductName: async () => "Anarlog Pro",
+    getProductName: async () => "BlackMushi Pro",
     postSlackMessage: async (webhookUrl, text) => {
       posts.push({ webhookUrl, text });
     },
@@ -58,7 +58,7 @@ function dependencies(
 }
 
 describe("sendNewCustomerAlert", () => {
-  it("announces an Anarlog signup when its Stripe customer is created", async () => {
+  it("announces an BlackMushi signup when its Stripe customer is created", async () => {
     const posts: Post[] = [];
 
     const result = await sendNewCustomerAlert(
@@ -70,7 +70,7 @@ describe("sendNewCustomerAlert", () => {
     expect(posts).toEqual([
       {
         webhookUrl: "https://hooks.example/anarlog",
-        text: `${LINK} signed up to Anarlog`,
+        text: `${LINK} signed up to BlackMushi`,
       },
     ]);
   });
@@ -207,11 +207,11 @@ describe("sendNewCustomerAlert", () => {
     );
     await sendNewCustomerAlert(
       stripeEvent("customer.subscription.created", subscription("active")),
-      dependencies(posts, { getProductName: async () => "Anarlog <Pro>" }),
+      dependencies(posts, { getProductName: async () => "BlackMushi <Pro>" }),
     );
 
     expect(posts.map((post) => post.text)).toEqual([
-      "<https://dashboard.stripe.com/test/customers/cus_new|a&lt;b&gt;&amp;c@example.com> signed up to Anarlog",
+      "<https://dashboard.stripe.com/test/customers/cus_new|a&lt;b&gt;&amp;c@example.com> signed up to BlackMushi",
       `${LINK} started &lt;Pro&gt; plan`,
     ]);
   });
@@ -228,7 +228,7 @@ describe("sendNewCustomerAlert", () => {
     );
 
     expect(posts[0]?.text).toBe(
-      "<https://dashboard.stripe.com/customers/cus_new|cus_new> signed up to Anarlog",
+      "<https://dashboard.stripe.com/customers/cus_new|cus_new> signed up to BlackMushi",
     );
   });
 

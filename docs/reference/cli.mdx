@@ -1,6 +1,6 @@
 ---
 title: "CLI reference"
-description: "Commands and global options available in the Anarlog CLI."
+description: "Commands and global options available in the BlackMushi CLI."
 ---
 
 ## Global syntax
@@ -15,7 +15,7 @@ anarlog [--base DIR] [--db-path FILE] [--json] <command>
 | `--db-path FILE` | `ANARLOG_DB_PATH` | Use an explicit SQLite file. |
 | `--json` | — | Emit a versioned JSON response or machine-readable JSON error. |
 
-`--db-path` takes precedence over `--base`. Without either option, the CLI uses Anarlog's platform application-data directory and recognized legacy locations.
+`--db-path` takes precedence over `--base`. Without either option, the CLI uses BlackMushi's platform application-data directory and recognized legacy locations.
 
 The installed command is `anarlog` on DEB, AppImage, macOS, Windows, and Settings-installed builds.
 
@@ -27,11 +27,11 @@ anarlog auth status
 anarlog auth logout
 ```
 
-`auth login` prints a URL that can be opened in any browser, including one on another device. Sign in, choose **Copy URL** on the completion page, then paste the `anarlog://auth/callback` link into the hidden CLI prompt. The CLI verifies the session with Anarlog before saving it in the same local auth store as the desktop app.
+`auth login` prints a URL that can be opened in any browser, including one on another device. Sign in, choose **Copy URL** on the completion page, then paste the `anarlog://auth/callback` link into the hidden CLI prompt. The CLI verifies the session with BlackMushi before saving it in the same local auth store as the desktop app.
 
 With `--json`, the login URL and instructions are printed to stderr. The callback URL is read from stdin. JSON appears on stdout only after login completes.
 
-On Linux, the CLI uses Secret Service when it is available. Headless systems without Secret Service fall back to `auth.cli.json` in Anarlog's local application-data directory with permissions limited to the current user. The desktop app reconciles that file into Secret Service when it becomes available. On Windows, the CLI stores sessions with DPAPI in the desktop app's secure auth file. `auth logout` removes the local session; it does not delete the Anarlog account.
+On Linux, the CLI uses Secret Service when it is available. Headless systems without Secret Service fall back to `auth.cli.json` in BlackMushi's local application-data directory with permissions limited to the current user. The desktop app reconciles that file into Secret Service when it becomes available. On Windows, the CLI stores sessions with DPAPI in the desktop app's secure auth file. `auth logout` removes the local session; it does not delete the BlackMushi account.
 
 `auth status` reports the signed-in account and whether the current access token has expired. The stored refresh token lets the desktop app refresh an expired access token when it starts.
 
@@ -44,7 +44,7 @@ anarlog meetings --source cloud list
 anarlog meetings --source auto get MEETING_ID
 ```
 
-`local` is the default and reads Anarlog's database on this computer. `cloud` reads the opted-in hosted snapshots using the account saved by `anarlog auth login`. `auto` uses the local database when it exists and falls back to Cloud when it does not. Set `ANARLOG_SOURCE` to choose the same behavior without a flag.
+`local` is the default and reads BlackMushi's database on this computer. `cloud` reads the opted-in hosted snapshots using the account saved by `anarlog auth login`. `auto` uses the local database when it exists and falls back to Cloud when it does not. Set `ANARLOG_SOURCE` to choose the same behavior without a flag.
 
 All meeting read commands support all three sources. `--base`, `--db-path`, and `doctor` apply only to local data. Proposals and `anarlog mcp` remain local because hosted Cloud access is read-only.
 

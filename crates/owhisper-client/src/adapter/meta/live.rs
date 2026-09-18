@@ -340,7 +340,7 @@ mod tests {
     fn handshake_carries_key_model_mode_and_bias() {
         let json = handshake_json(&owhisper_interface::ListenParams {
             languages: vec![anlg_language::ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string()],
+            keywords: vec!["BlackMushi".to_string()],
             ..Default::default()
         });
 
@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(json["partialMode"], "CUMULATIVE");
         assert_eq!(json["emitAudioProgress"], false);
         assert_eq!(json["languageBias"], serde_json::json!(["English"]));
-        assert_eq!(json["keywords"], serde_json::json!(["Anarlog"]));
+        assert_eq!(json["keywords"], serde_json::json!(["BlackMushi"]));
     }
 
     #[test]

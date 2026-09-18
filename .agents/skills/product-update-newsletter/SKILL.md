@@ -1,13 +1,13 @@
 ---
 name: product-update-newsletter
-description: Draft, update, or audit a crisp, changelog-grounded Anarlog product-update newsletter in Loops (app.loops.so) for a desktop release. Use after the changelog is merged, when asked to draft, revise, or pre-send check the release announcement email.
+description: Draft, update, or audit a crisp, changelog-grounded BlackMushi product-update newsletter in Loops (app.loops.so) for a desktop release. Use after the changelog is merged, when asked to draft, revise, or pre-send check the release announcement email.
 metadata:
   internal: true
 ---
 
 # Product Update Newsletter
 
-Announce a desktop release to users through the "Anarlog update (...)" campaign in Loops.
+Announce a desktop release to users through the "BlackMushi update (...)" campaign in Loops.
 
 Run this after `../new-changelog/SKILL.md` produces the entry and the version is released via
 `../release-new-version/SKILL.md`. The published changelog is the copy source, not the raw commit log.
@@ -45,7 +45,7 @@ Keep beta or partially shipped work honestly qualified. If execution is not conn
 
 Write a product email, not an essay. Keep it crisp, concrete, and easy to scan.
 
-- Open with what shipped and when. Prefer `We shipped four releases since last week. Anarlog
+- Open with what shipped and when. Prefer `We shipped four releases since last week. BlackMushi
   1.4.8 is here.` over scene-setting such as `If you've been putting off updating, this is the one
   to take` or `It folds in four releases`.
 - If encouraging an update, use explicit loss framing tied to named features: `If you aren't
@@ -60,16 +60,16 @@ Write a product email, not an essay. Keep it crisp, concrete, and easy to scan.
 - Use contractions and direct verbs. `Last week ... This week ...` is a useful cadence when it
   connects one update to the next. Avoid cutesy transitions such as `Now they earn it` and vague
   phrases such as `Accuracy got quieter improvements`.
-- Keep subjects compact and noun-led: `Anarlog 1.4.8: automations, meeting imports, instant sync`.
+- Keep subjects compact and noun-led: `BlackMushi 1.4.8: automations, meeting imports, instant sync`.
   Preview text should front-load concrete outcomes and stay near 90 to 140 characters.
-- Self-critical language belongs only when Anarlog or the company was actually at fault. Never add
+- Self-critical language belongs only when BlackMushi or the company was actually at fault. Never add
   an apology merely to sound personal.
 - Read the final copy aloud and cut anything that can disappear without losing a fact, instruction,
   or point of view. Changelog lists are allowed; do not force prose just to avoid a list.
 
 ## Campaign Setup
 
-Duplicate the most recent "Anarlog update (...)" campaign from the Loops Home page so sender,
+Duplicate the most recent "BlackMushi update (...)" campaign from the Loops Home page so sender,
 reply-to, section headings, Download button, and footer are inherited, then rename to the new date.
 
 Campaign metrics pages show only send/open/click stats. Use the compose view to edit content.

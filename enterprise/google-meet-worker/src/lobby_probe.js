@@ -1,4 +1,4 @@
-// Adapted for Anarlog from Vexa v0.12.18. See ../THIRD_PARTY_NOTICES.md.
+// Adapted for BlackMushi from Vexa v0.12.18. See ../THIRD_PARTY_NOTICES.md.
 (() => {
   const marker = "data-anlg-worker-target";
   const visible = (element) => {

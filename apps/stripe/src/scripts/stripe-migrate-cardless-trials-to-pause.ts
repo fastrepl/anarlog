@@ -1,6 +1,6 @@
 // Preserve existing cardless trial subscriptions after their trial ends.
 //
-// Native Anarlog trials historically used missing_payment_method=cancel. A
+// Native BlackMushi trials historically used missing_payment_method=cancel. A
 // customer who paid after the trial therefore received a second subscription,
 // so Stripe could not attribute the payment to the original trial. Pausing the
 // original subscription keeps it resumable without requiring a card at signup.

@@ -158,7 +158,7 @@ pub(super) async fn prepare_anarlog_batch_upload(
             );
             crate::BatchFailure::DirectRequestFailed {
                 provider: AdapterKind::Anarlog.to_string(),
-                message: "Anarlog couldn't prepare this large recording for transcription."
+                message: "BlackMushi couldn't prepare this large recording for transcription."
                     .to_string(),
             }
         })?;
@@ -174,7 +174,7 @@ pub(super) async fn prepare_anarlog_batch_upload(
             );
             crate::BatchFailure::DirectRequestFailed {
                 provider: AdapterKind::Anarlog.to_string(),
-                message: "Anarlog couldn't prepare this large recording for transcription."
+                message: "BlackMushi couldn't prepare this large recording for transcription."
                     .to_string(),
             }
         })?
@@ -185,7 +185,7 @@ pub(super) async fn prepare_anarlog_batch_upload(
             );
             crate::BatchFailure::DirectRequestFailed {
                 provider: AdapterKind::Anarlog.to_string(),
-                message: "Anarlog couldn't prepare this large recording for transcription."
+                message: "BlackMushi couldn't prepare this large recording for transcription."
                     .to_string(),
             }
         })?;

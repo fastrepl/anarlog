@@ -58,7 +58,7 @@ export function CloudApiSection() {
       });
       if (backfillFailed) {
         sonnerToast.error(
-          t`Cloud API enabled, but existing meetings could not be uploaded. Anarlog will retry.`,
+          t`Cloud API enabled, but existing meetings could not be uploaded. BlackMushi will retry.`,
         );
       } else if (settings.enabled) {
         sonnerToast.success(
@@ -152,7 +152,7 @@ function CloudApiHeading({ error }: { error?: string }) {
       </h2>
       <p className="text-muted-foreground mt-1 text-xs">
         <Trans>
-          Uploads meeting content for remote access while Anarlog is closed.
+          Uploads meeting content for remote access while BlackMushi is closed.
         </Trans>
       </p>
       {error ? <p className="text-destructive mt-2 text-xs">{error}</p> : null}

@@ -34,7 +34,7 @@ PHASE_SCHEMA_VERSION = POLICY["phaseSchemaVersion"]
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Verify Anarlog's persisted Linux mic/system tracks from the "
+            "Verify BlackMushi's persisted Linux mic/system tracks from the "
             "virtual-audio QA scenario. This does not assess AEC."
         )
     )

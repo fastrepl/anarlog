@@ -200,7 +200,7 @@ mod tests {
         let params = ListenParams {
             sample_rate: 16_000,
             languages: vec![anlg_language::ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string()],
+            keywords: vec!["BlackMushi".to_string()],
             ..Default::default()
         };
 

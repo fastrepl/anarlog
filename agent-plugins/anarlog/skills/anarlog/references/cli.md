@@ -31,7 +31,7 @@ anarlog --json proposals show PROPOSAL_ID
 anarlog --json proposals decline PROPOSAL_ID
 ```
 
-`proposals create` stages a pending edit. Do not claim the meeting changed. A human applies or declines it in the Anarlog desktop app.
+`proposals create` stages a pending edit. Do not claim the meeting changed. A human applies or declines it in the BlackMushi desktop app.
 
 Meeting commands default to `--source local`. `--source cloud` reads hosted snapshots using `anarlog auth login`; `--source auto` uses Cloud only when the local database is absent. Cloud access is read-only, so proposals remain local.
 

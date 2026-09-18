@@ -69,7 +69,7 @@ It is built for people who want AI meeting notes without handing their conversat
 
 anarlog keeps audio transcription separate from the language model used for summaries and chat. You can change either one without changing the other.
 
-| Stage                                       | App setting       | Anarlog Cloud                                                                                                                                            | Local or bring your own                                                                   |
+| Stage                                       | App setting       | BlackMushi Cloud                                                                                                                                            | Local or bring your own                                                                   |
 | ------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Audio → transcript                          | **Transcription** | Managed **Pro (Cloud)** chooses by language and live or batch mode. Current primary paths include Deepgram Nova, Soniox 5, and AssemblyAI Universal 3.5. | Soniqo or Apple Speech when available, or your selected transcription provider and model  |
 | Transcript + memo → summary, title, or chat | **Intelligence**  | Managed **Auto** (also shown as Pro (Cloud)) currently uses the latest Claude Sonnet alias through OpenRouter.                                           | Your selected API, subscription, OpenAI-compatible server, or eligible Apple Intelligence |
@@ -78,7 +78,7 @@ The active provider and model are always visible under **Settings → Transcript
 
 ## Get started
 
-1. [Download Anarlog](https://anarlog.so/download) for macOS, Windows, or Linux.
+1. [Download BlackMushi](https://anarlog.so/download) for macOS, Windows, or Linux.
 2. Open it and join a meeting. anarlog records on your device and transcribes with the model you selected.
 3. Generate a note, edit it like a document, and export Markdown when you need it.
 4. Optional: connect an LLM provider or a local model in settings for summaries and chat.

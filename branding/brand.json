@@ -1,0 +1,33 @@
+{
+  "$comment": "Single source of truth for this fork's identity. Everything else is derived by branding/apply.mjs; never hand-edit a branded string in the tree.",
+
+  "upstream": "Anarlog",
+  "fork": "BlackMushi",
+
+  "$comment_article": "The indefinite article has to agree with the sound the name starts with. Upstream's name is vowel-initial and this fork's is not, so a plain substitution would leave 'an BlackMushi' behind.",
+  "article": { "upstream": "an", "fork": "a" },
+
+  "$comment_protected": "Substrings that must survive untouched: they are identifiers, not copy. Renaming any of them changes deep-link routing, bundle identity or on-disk data location, which would orphan existing installs.",
+  "protected": [
+    "anarlog://",
+    "anarlog.so",
+    "so.anarlog",
+    "com.hyprnote",
+    "anarlog-cli",
+    "anarlog-dev",
+    "anarlog-nightly",
+    "anarlog-staging",
+    "AnarlogMcpServer",
+    "@anlg/"
+  ],
+
+  "$comment_exclude": "Paths the overlay never rewrites. The changelog records what upstream actually shipped under its own name -- rewriting it would make the entries false. Lockfiles are generated. Files named LICENSE/NOTICE are additionally protected in apply.mjs.",
+  "exclude": [
+    "branding/",
+    "pnpm-lock.yaml",
+    "Cargo.lock",
+    "LICENSING.md",
+    "packages/changelog/content/",
+    ".git/"
+  ]
+}

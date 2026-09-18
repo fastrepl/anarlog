@@ -329,7 +329,7 @@ mod tests {
     fn initial_message_includes_languages_and_keywords() {
         let params = ListenParams {
             languages: vec!["en-US".parse().unwrap()],
-            keywords: vec!["Anarlog".to_string()],
+            keywords: vec!["BlackMushi".to_string()],
             model: Some("gemini-3.5-transcribe-live".to_string()),
             ..Default::default()
         };
@@ -352,7 +352,7 @@ mod tests {
         );
         assert_eq!(
             json["setup"]["inputAudioTranscription"]["customVocabulary"][0],
-            "Anarlog"
+            "BlackMushi"
         );
     }
 

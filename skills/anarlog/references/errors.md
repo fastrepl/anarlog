@@ -10,7 +10,7 @@ If Cloud `list_meetings` returns an empty list, search again with `anarlog --jso
 
 ## Database not found
 
-Run `anarlog --json doctor`. Ask the user to open Anarlog once if the database does not exist. If they keep data in a custom location, use `--db-path FILE` or `ANARLOG_DB_PATH` after they provide the path.
+Run `anarlog --json doctor`. Ask the user to open BlackMushi once if the database does not exist. If they keep data in a custom location, use `--db-path FILE` or `ANARLOG_DB_PATH` after they provide the path.
 
 ## Database operation failed
 

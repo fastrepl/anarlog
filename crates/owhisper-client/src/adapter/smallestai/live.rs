@@ -303,7 +303,7 @@ mod tests {
             &ListenParams {
                 sample_rate: 16_000,
                 languages: vec![ISO639::En.into()],
-                keywords: vec!["Anarlog".to_string(), "Pulse".to_string()],
+                keywords: vec!["BlackMushi".to_string(), "Pulse".to_string()],
                 ..Default::default()
             },
             1,
@@ -320,7 +320,7 @@ mod tests {
         assert_eq!(query.get("sample_rate"), Some(&"16000".to_string()));
         assert_eq!(query.get("word_timestamps"), Some(&"true".to_string()));
         assert_eq!(query.get("diarize"), Some(&"true".to_string()));
-        assert_eq!(query.get("keywords"), Some(&"Anarlog,Pulse".to_string()));
+        assert_eq!(query.get("keywords"), Some(&"BlackMushi,Pulse".to_string()));
         assert!(!query.contains_key("full_transcript"));
     }
 

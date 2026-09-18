@@ -1,7 +1,7 @@
 {
   "name": "anarlog",
   "version": "1.2.1",
-  "description": "Query and export Anarlog meetings through Cloud MCP or the local CLI.",
+  "description": "Query and export BlackMushi meetings through Cloud MCP or the local CLI.",
   "author": {
     "name": "Fastrepl",
     "email": "team@fastrepl.com",
@@ -14,9 +14,9 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Anarlog",
+    "displayName": "BlackMushi",
     "shortDescription": "Query your meetings from anywhere",
-    "longDescription": "Connect your Anarlog account with OAuth, then find meetings and read notes, summaries, participants, action items, bounded transcript excerpts, recurring history, and complete exports when explicitly needed. Cloud MCP is read-only hosted snapshots. The bundled skill can also use authenticated Cloud reads or local data through the Anarlog CLI.",
+    "longDescription": "Connect your BlackMushi account with OAuth, then find meetings and read notes, summaries, participants, action items, bounded transcript excerpts, recurring history, and complete exports when explicitly needed. Cloud MCP is read-only hosted snapshots. The bundled skill can also use authenticated Cloud reads or local data through the BlackMushi CLI.",
     "developerName": "Fastrepl",
     "category": "Productivity",
     "capabilities": [
@@ -30,7 +30,7 @@
     "privacyPolicyURL": "https://anarlog.so/privacy",
     "termsOfServiceURL": "https://anarlog.so/terms",
     "defaultPrompt": [
-      "Summarize my latest Anarlog meeting.",
+      "Summarize my latest BlackMushi meeting.",
       "What action items came out of my planning meeting?",
       "Compare the last three meetings in this recurring series."
     ],

@@ -1,6 +1,6 @@
 # anarlog-bin
 
-Arch Linux package for Anarlog, repackaged from the official Linux `.deb` release.
+Arch Linux package for BlackMushi, repackaged from the official Linux `.deb` release.
 Works on Arch and Arch-based distros such as Omarchy, EndeavourOS, and Manjaro.
 
 ## Install

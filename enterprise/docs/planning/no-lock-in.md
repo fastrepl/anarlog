@@ -4,7 +4,7 @@ ANLG-138.
 
 ## Promise
 
-Customers can inspect, export, automate, and leave with their Anarlog data. Notes are local-first SQLite. Cloud holds ciphertext plus metadata. Agents see only what the user (or workspace policy) grants.
+Customers can inspect, export, automate, and leave with their BlackMushi data. Notes are local-first SQLite. Cloud holds ciphertext plus metadata. Agents see only what the user (or workspace policy) grants.
 
 ## Durable surfaces (v1)
 

@@ -195,7 +195,7 @@ fn validate_applied_migrations(
 // A step whose leading comment block contains a "-- breaking" line makes the
 // schema unreadable by builds that don't include it (e.g. dropped or renamed
 // columns); applying it raises the compat floor so older builds refuse to
-// open the database with a clear "update Anarlog" message instead of
+// open the database with a clear "update BlackMushi" message instead of
 // misbehaving on a schema they don't understand.
 fn is_breaking_step(sql: &str) -> bool {
     sql.lines()

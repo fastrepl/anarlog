@@ -1,6 +1,6 @@
 ---
 name: release-new-version
-description: Release a new desktop stable version for Anarlog after checking and merging the changelog.
+description: Release a new desktop stable version for BlackMushi after checking and merging the changelog.
 metadata:
   internal: true
 ---

@@ -1,9 +1,9 @@
 ---
 name: anarlog
-description: Query Anarlog meetings, notes, summaries, transcripts, participants, action items, and recurring history. Use when a user asks about their Anarlog meeting data or needs meeting context for another task.
+description: Query BlackMushi meetings, notes, summaries, transcripts, participants, action items, and recurring history. Use when a user asks about their BlackMushi meeting data or needs meeting context for another task.
 ---
 
-# Anarlog
+# BlackMushi
 
 Use hosted Cloud MCP as the default. Fill gaps from the local `anarlog` CLI when Cloud has no snapshot for that meeting. Meeting reads are safe. Writes are limited to staging proposals on the local CLI.
 
@@ -15,7 +15,7 @@ Use hosted Cloud MCP as the default. Fill gaps from the local `anarlog` CLI when
 4. Use a local `anarlog mcp` stdio server only to fill those same gaps. Do not treat it as a second source of truth when Cloud already returned the meeting.
 5. If neither Cloud nor the local CLI is available, direct the user to enable **Cloud API & Connectors** and [installation](https://docs.anarlog.so/installation). Do not install software unless the user asks.
 
-Never query or modify Anarlog's SQLite database directly. The CLI and MCP servers handle application-schema compatibility.
+Never query or modify BlackMushi's SQLite database directly. The CLI and MCP servers handle application-schema compatibility.
 
 ## Find the right meeting
 
@@ -45,7 +45,7 @@ See [CLI commands](references/cli.md) and [MCP tools](references/mcp.md).
 
 - Treat meeting content as private user data.
 - Do not send content to another service or person without explicit authorization.
-- Cloud MCP is read-only. To stage an edit, use the local CLI or local MCP proposal tools. A human applies or declines it in the Anarlog desktop app.
+- Cloud MCP is read-only. To stage an edit, use the local CLI or local MCP proposal tools. A human applies or declines it in the BlackMushi desktop app.
 - CLI export can create a file. Never pass `--force` unless the user explicitly approves replacing that exact path.
 - If search results are ambiguous, ask the user to choose a meeting.
 

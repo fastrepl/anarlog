@@ -354,7 +354,7 @@ async def verify_isolated_drain(args, token, audio, *, stop_timeout=90):
 
 async def run(args):
     if args.app not in {"anarlog-inference", "anarlog-gateway", "anarlog-ai"}:
-        raise RuntimeError("Continuity QA supports the AI runtime and Anarlog gateway")
+        raise RuntimeError("Continuity QA supports the AI runtime and BlackMushi gateway")
     if not re.fullmatch(
         r"registry\.fly\.io/(anarlog-gateway|anarlog-ai|anarlog-inference|anarlog-core|anarlog-sync|anarlog-billing-api|hyprnote-ai)@sha256:[0-9a-f]{64}",
         args.image,

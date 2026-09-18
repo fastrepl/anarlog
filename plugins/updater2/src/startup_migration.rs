@@ -75,8 +75,8 @@ fn should_skip_startup_migration(args: &[OsString]) -> bool {
 fn legacy_target_app_path(current_app_path: &Path) -> Option<PathBuf> {
     let target_name = match current_app_path.file_name().and_then(|name| name.to_str()) {
         Some("Hyprnote.app") | Some("Char.app") => "Anarlog.app",
-        Some("Hyprnote Nightly.app") | Some("Char Nightly.app") => "Anarlog Nightly.app",
-        Some("Hyprnote Staging.app") | Some("Char Staging.app") => "Anarlog Staging.app",
+        Some("Hyprnote Nightly.app") | Some("Char Nightly.app") => "BlackMushi Nightly.app",
+        Some("Hyprnote Staging.app") | Some("Char Staging.app") => "BlackMushi Staging.app",
         _ => return None,
     };
 

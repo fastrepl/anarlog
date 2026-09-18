@@ -1,15 +1,15 @@
 ---
 name: anarlog-workflow
-description: Execute Anarlog work immediately while preserving useful decisions and non-obvious lessons in Linear. Use for Anarlog repository or Anarlog desktop, web, mobile, and API work, including related worktrees and ANLG issues. Explicit brainstorming stays discussion-first. Do not use for unrelated repositories or meeting-data queries.
+description: Execute BlackMushi work immediately while preserving useful decisions and non-obvious lessons in Linear. Use for BlackMushi repository or BlackMushi desktop, web, mobile, and API work, including related worktrees and ANLG issues. Explicit brainstorming stays discussion-first. Do not use for unrelated repositories or meeting-data queries.
 ---
 
-# Anarlog workflow
+# BlackMushi workflow
 
-Apply to Anarlog repository or Anarlog desktop, web, mobile, and API work. Apply the same workflow in other checkouts and worktrees.
+Apply to BlackMushi repository or BlackMushi desktop, web, mobile, and API work. Apply the same workflow in other checkouts and worktrees.
 
 Use Linear for work tracking and facts worth remembering. Keep implementation and verification details in commits, PRs, and CI.
 
-- Team: **Anarlog** (`ANLG`).
+- Team: **BlackMushi** (`ANLG`).
 - Workspace: [fastrepl-inc](https://linear.app/fastrepl-inc).
 - [Agent lessons](https://linear.app/fastrepl-inc/document/agent-lessons-45018045d01e).
 

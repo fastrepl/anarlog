@@ -1,0 +1,12 @@
+# Path prefixes this fork has removed on purpose.
+#
+# Upstream still develops these, so every merge reports them as modify/delete
+# conflicts -- 870 of them at the last count, which git cannot resolve on its
+# own. scripts/merge-upstream.sh re-applies the deletion for anything listed
+# here and prints what it dropped, so the merge only stops on real conflicts.
+#
+# One prefix per line. Blank lines and # comments are ignored.
+
+apps/web/
+apps/mobile/
+patches/expo-audio

@@ -2,7 +2,7 @@ CREATE TABLE capture_policies (
     workspace_id TEXT PRIMARY KEY CHECK (length(workspace_id) BETWEEN 1 AND 128),
     capture_enabled BOOLEAN NOT NULL DEFAULT false,
     allowed_providers JSONB NOT NULL DEFAULT '["anarlog"]'::jsonb,
-    bot_name TEXT NOT NULL DEFAULT 'Anarlog Notetaker'
+    bot_name TEXT NOT NULL DEFAULT 'BlackMushi Notetaker'
         CHECK (length(bot_name) BETWEEN 1 AND 80),
     disclosure_text TEXT CHECK (
         disclosure_text IS NULL OR length(disclosure_text) BETWEEN 1 AND 2048

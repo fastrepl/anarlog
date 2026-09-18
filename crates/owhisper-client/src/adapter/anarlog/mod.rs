@@ -3,7 +3,7 @@ mod live;
 
 use super::{LanguageQuality, LanguageSupport};
 
-// Keep the wire identifier compatible with proxy deployments that predate the Anarlog rename.
+// Keep the wire identifier compatible with proxy deployments that predate the BlackMushi rename.
 const STT_PROXY_PROVIDER_NAME: &str = "hyprnote";
 
 #[derive(Clone, Default)]

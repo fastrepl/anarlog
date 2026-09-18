@@ -19,6 +19,6 @@ Reference modules:
 - `core/meetings/modules/gmeet-capture/src/gmeet-speakers.ts`
 - `core/meetings/modules/gmeet-capture/src/pcm-capture.ts`
 
-The Anarlog implementation was rewritten in Rust, reorganized around Anarlog's provider-neutral capture contract, and modified for direct Chromium DevTools ownership. Files carrying an adaptation notice have been changed by Fastrepl, Inc.
+The BlackMushi implementation was rewritten in Rust, reorganized around BlackMushi's provider-neutral capture contract, and modified for direct Chromium DevTools ownership. Files carrying an adaptation notice have been changed by Fastrepl, Inc.
 
 Vexa is licensed under the Apache License, Version 2.0. A copy is provided in `third-party/VEXA-LICENSE`.

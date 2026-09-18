@@ -1,17 +1,17 @@
 # Zoom RTMS enterprise capture
 
-Anarlog captures Zoom through [Realtime Media Streams](https://developers.zoom.us/docs/rtms/), not a browser bot. The meeting materializes as an Anarlog session from RTMS audio, transcript, chat, and participant events.
+BlackMushi captures Zoom through [Realtime Media Streams](https://developers.zoom.us/docs/rtms/), not a browser bot. The meeting materializes as an BlackMushi session from RTMS audio, transcript, chat, and participant events.
 
 ## Customer tenant prerequisites
 
 1. Zoom account on a plan that includes **Zoom Developer Pack** / RTMS.
 2. A Zoom app with RTMS scopes installed to the customer tenant (account-level).
-3. Host or admin approval for the Anarlog app, plus any required recording disclosure in the Zoom admin console.
-4. Webhook endpoint on the Anarlog control plane (`POST /webhooks/zoom`) with `ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET`.
+3. Host or admin approval for the BlackMushi app, plus any required recording disclosure in the Zoom admin console.
+4. Webhook endpoint on the BlackMushi control plane (`POST /webhooks/zoom`) with `ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET`.
 5. Control-plane env:
    - `ANARLOG_ENTERPRISE_ZOOM_CLIENT_ID`
    - `ANARLOG_ENTERPRISE_ZOOM_CLIENT_SECRET`
-   - `ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES` mapping Zoom account IDs to Anarlog workspace IDs
+   - `ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES` mapping Zoom account IDs to BlackMushi workspace IDs
 
 ## Runtime
 

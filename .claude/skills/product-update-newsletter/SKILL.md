@@ -1,6 +1,6 @@
 ---
 name: product-update-newsletter
-description: Draft, update, or audit a crisp, changelog-grounded Anarlog product-update newsletter in Loops for a desktop release.
+description: Draft, update, or audit a crisp, changelog-grounded BlackMushi product-update newsletter in Loops for a desktop release.
 metadata:
   internal: true
 ---

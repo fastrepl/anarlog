@@ -249,7 +249,7 @@ mod tests {
             "base_url": "https://provider.example/v1",
             "api_key": "synthetic-key",
             "file_uri": "file:///audio.wav",
-            "params": {"model": "test-model", "languages": ["ko", "en"], "keywords": ["Anarlog"]},
+            "params": {"model": "test-model", "languages": ["ko", "en"], "keywords": ["BlackMushi"]},
         }))
         .unwrap()
     }

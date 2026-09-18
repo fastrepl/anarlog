@@ -8,7 +8,7 @@ repo_dir=$(cd "$crate_dir/../.." && pwd)
 framework="$crate_dir/vendor/cloudsync/apple/CloudSync.xcframework/ios-arm64_x86_64-simulator/CloudSync.framework/CloudSync"
 test -f "$framework"
 
-ANARLOG_CLOUDSYNC_TEST_SIMULATOR=$(xcrun simctl create "Anarlog CloudSync Tests" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro)
+ANARLOG_CLOUDSYNC_TEST_SIMULATOR=$(xcrun simctl create "BlackMushi CloudSync Tests" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro)
 export ANARLOG_CLOUDSYNC_TEST_SIMULATOR
 cleanup() {
   xcrun simctl shutdown "$ANARLOG_CLOUDSYNC_TEST_SIMULATOR" >/dev/null 2>&1 || true

@@ -22,9 +22,9 @@ export type NewCustomerAlertDependencies = {
   postSlackMessage: (webhookUrl: string, text: string) => Promise<void>;
 };
 
-// Anarlog and Char share one Stripe account, so Stripe's own Slack app cannot
+// BlackMushi and Char share one Stripe account, so Stripe's own Slack app cannot
 // pick a channel; Char's customers come from Autumn and carry `autumn_id`.
-// This announces Anarlog signups (Anarlog creates the Stripe customer at signup)
+// This announces BlackMushi signups (BlackMushi creates the Stripe customer at signup)
 // and each plan's first paid start for both products. Char signups come from the
 // Char API, because Char creates no Stripe customer when someone signs up.
 export async function sendNewCustomerAlert(
@@ -46,7 +46,7 @@ export async function sendNewCustomerAlert(
     }
     await activeDependencies.postSlackMessage(
       activeDependencies.anarlogWebhookUrl,
-      `${customerLink(event, customer)} signed up to Anarlog`,
+      `${customerLink(event, customer)} signed up to BlackMushi`,
     );
     return { product: "anarlog" as Product, kind: "signup" as const };
   }
@@ -124,9 +124,9 @@ function customerLink(event: Stripe.Event, customer: Stripe.Customer) {
   return `<${dashboardUrl}|${escapeSlackText(customer.email ?? customer.id)}>`;
 }
 
-// "Anarlog Pro" and "Char Max" read as "Pro" and "Max" in their own channels.
+// "BlackMushi Pro" and "Char Max" read as "Pro" and "Max" in their own channels.
 function planLabel(productName: string) {
-  return productName.replace(/^(Anarlog|Char)\s+/, "");
+  return productName.replace(/^(BlackMushi|Char)\s+/, "");
 }
 
 function escapeSlackText(value: string) {

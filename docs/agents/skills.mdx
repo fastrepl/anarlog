@@ -1,9 +1,9 @@
 ---
-title: "Anarlog skill"
-description: "Teach a compatible agent when and how to use Anarlog's MCP and CLI surfaces."
+title: "BlackMushi skill"
+description: "Teach a compatible agent when and how to use BlackMushi's MCP and CLI surfaces."
 ---
 
-The public Anarlog skill teaches agents a single workflow across Cloud MCP and the local CLI:
+The public BlackMushi skill teaches agents a single workflow across Cloud MCP and the local CLI:
 
 1. Call connected Cloud MCP tools first.
 2. Fill gaps with `anarlog --json` when Cloud has no snapshot.
@@ -21,10 +21,10 @@ The published file is self-contained. The repository package adds references for
 
 ## Install the plugin
 
-The `Anarlog` plugin connects to hosted Cloud MCP and bundles the skill. Enable **Settings → Developers → Cloud API & Connectors** first. [Install the Anarlog CLI](/installation) when the skill needs to fill a meeting that is not in Cloud.
+The `BlackMushi` plugin connects to hosted Cloud MCP and bundles the skill. Enable **Settings → Developers → Cloud API & Connectors** first. [Install the BlackMushi CLI](/installation) when the skill needs to fill a meeting that is not in Cloud.
 
 <Note>
-  If you previously installed **Anarlog Cloud**, replace it with **Anarlog**.
+  If you previously installed **BlackMushi Cloud**, replace it with **BlackMushi**.
 </Note>
 
 For Claude Code:
@@ -41,7 +41,7 @@ copilot plugin marketplace add fastrepl/anarlog
 copilot plugin install anarlog@fastrepl
 ```
 
-For ChatGPT and Codex, add the repository source, restart the ChatGPT desktop app, then install **Anarlog** from the Fastrepl source in the Plugins Directory:
+For ChatGPT and Codex, add the repository source, restart the ChatGPT desktop app, then install **BlackMushi** from the Fastrepl source in the Plugins Directory:
 
 ```bash
 codex plugin marketplace add fastrepl/anarlog \
@@ -49,9 +49,9 @@ codex plugin marketplace add fastrepl/anarlog \
   --sparse agent-plugins/anarlog
 ```
 
-The first cloud tool use opens Anarlog's OAuth sign-in and consent flow; no cloud API key is required for Cloud reads.
+The first cloud tool use opens BlackMushi's OAuth sign-in and consent flow; no cloud API key is required for Cloud reads.
 
-Cursor Teams and Enterprise administrators can import `https://github.com/fastrepl/anarlog` as a team marketplace, then install **Anarlog**.
+Cursor Teams and Enterprise administrators can import `https://github.com/fastrepl/anarlog` as a team marketplace, then install **BlackMushi**.
 
 ## Install in an agent
 
@@ -67,4 +67,4 @@ For a filesystem-based agent, copy the complete `skills/anarlog` directory into 
   Agent skill locations and installer commands vary by client. Follow your agent's skill installation instructions rather than copying only `SKILL.md`.
 </Note>
 
-The contributor skills under `.agents/skills` are internal repository workflows. They are not part of the public Anarlog skill.
+The contributor skills under `.agents/skills` are internal repository workflows. They are not part of the public BlackMushi skill.

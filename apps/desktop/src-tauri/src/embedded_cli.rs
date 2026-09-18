@@ -50,9 +50,9 @@ pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCl
         // Windows resolves the install path from local app data, not the home
         // directory, so the two platforms cannot share one message.
         #[cfg(target_os = "windows")]
-        let missing_dir = "Anarlog could not find your local application data directory.";
+        let missing_dir = "BlackMushi could not find your local application data directory.";
         #[cfg(not(target_os = "windows"))]
-        let missing_dir = "Anarlog could not find your home directory.";
+        let missing_dir = "BlackMushi could not find your home directory.";
 
         return unavailable_status(command_name, missing_dir);
     };
@@ -167,7 +167,7 @@ pub fn install<R: tauri::Runtime, T: tauri::Manager<R>>(
             }
             EmbeddedCliState::Conflict => {
                 return Err(format!(
-                    "Another file already exists at {}. Move it before installing the Anarlog CLI.",
+                    "Another file already exists at {}. Move it before installing the BlackMushi CLI.",
                     status.install_path
                 ));
             }
@@ -190,7 +190,7 @@ pub fn install<R: tauri::Runtime, T: tauri::Manager<R>>(
             }
             EmbeddedCliState::Conflict => {
                 return Err(format!(
-                    "Another file already exists at {}. Move it before installing the Anarlog CLI.",
+                    "Another file already exists at {}. Move it before installing the BlackMushi CLI.",
                     status.install_path
                 ));
             }
@@ -237,7 +237,7 @@ fn install_path_for_command(command_name: &str) -> Option<PathBuf> {
     {
         return dirs::data_local_dir().map(|data_dir| {
             data_dir
-                .join("Anarlog")
+                .join("BlackMushi")
                 .join("bin")
                 .join(format!("{command_name}.exe"))
         });
@@ -675,7 +675,7 @@ fn is_legacy_app_cli_target(target: &Path) -> bool {
 
     matches!(
         app_name,
-        "Anarlog.app" | "Anarlog Staging.app" | "Anarlog Dev.app"
+        "Anarlog.app" | "BlackMushi Staging.app" | "BlackMushi Dev.app"
     )
 }
 

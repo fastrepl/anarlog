@@ -165,18 +165,18 @@ pub fn exit_for_running_peer_channel(identifier: &str, peer: &str) -> ! {
 
 fn channel_product_name(identifier: &str) -> &'static str {
     if identifier == crate::db::NIGHTLY_BUNDLE_ID {
-        "Anarlog Nightly"
+        "BlackMushi Nightly"
     } else {
-        "Anarlog"
+        "BlackMushi"
     }
 }
 
 pub fn exit_for_already_running_instance() -> ! {
-    eprintln!("another Anarlog process holds the launch lock; exiting");
+    eprintln!("another BlackMushi process holds the launch lock; exiting");
 
     #[cfg(target_os = "macos")]
     {
-        let alert = "display alert \"Anarlog is already starting\" message \"Another Anarlog process is preparing your data, possibly finishing an update. The app will open automatically when it is ready.\" buttons {\"OK\"} default button \"OK\"";
+        let alert = "display alert \"BlackMushi is already starting\" message \"Another BlackMushi process is preparing your data, possibly finishing an update. The app will open automatically when it is ready.\" buttons {\"OK\"} default button \"OK\"";
         let _ = std::process::Command::new("/usr/bin/osascript")
             .args(["-e", alert])
             .spawn();
@@ -233,7 +233,7 @@ impl SlowStartupIndicator {
 
 #[cfg(target_os = "macos")]
 fn spawn_indicator_alert() -> Option<std::process::Child> {
-    let alert = "display alert \"Updating your data\" message \"Anarlog is updating your data. This can take several minutes for a large library.\\n\\nPlease keep Anarlog running; it will open automatically when the update finishes.\" buttons {\"OK\"} default button \"OK\"";
+    let alert = "display alert \"Updating your data\" message \"BlackMushi is updating your data. This can take several minutes for a large library.\\n\\nPlease keep BlackMushi running; it will open automatically when the update finishes.\" buttons {\"OK\"} default button \"OK\"";
     std::process::Command::new("/usr/bin/osascript")
         .args(["-e", alert])
         .spawn()
@@ -353,9 +353,9 @@ mod tests {
     fn channel_product_names_follow_the_bundle_identifier() {
         assert_eq!(
             channel_product_name("com.hyprnote.nightly"),
-            "Anarlog Nightly"
+            "BlackMushi Nightly"
         );
-        assert_eq!(channel_product_name("com.hyprnote.stable"), "Anarlog");
+        assert_eq!(channel_product_name("com.hyprnote.stable"), "BlackMushi");
     }
 
     #[test]

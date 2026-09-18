@@ -3298,18 +3298,18 @@
       },
       "cloud_api_key": {
         "bearerFormat": "anl_...",
-        "description": "Anarlog cloud API key",
+        "description": "BlackMushi cloud API key",
         "scheme": "bearer",
         "type": "http"
       }
     }
   },
   "info": {
-    "description": "Anarlog cloud services and opt-in hosted meeting access",
+    "description": "BlackMushi cloud services and opt-in hosted meeting access",
     "license": {
       "name": ""
     },
-    "title": "Anarlog API",
+    "title": "BlackMushi API",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",
@@ -4701,7 +4701,7 @@
         "operationId": "delete_snapshot",
         "parameters": [
           {
-            "description": "Anarlog meeting id",
+            "description": "BlackMushi meeting id",
             "in": "path",
             "name": "session_id",
             "required": true,
@@ -4728,7 +4728,7 @@
         "operationId": "publish_snapshot",
         "parameters": [
           {
-            "description": "Anarlog meeting id",
+            "description": "BlackMushi meeting id",
             "in": "path",
             "name": "session_id",
             "required": true,
@@ -4924,7 +4924,7 @@
       "name": "shared-notes"
     },
     {
-      "description": "Opt-in hosted access to Anarlog meeting data",
+      "description": "Opt-in hosted access to BlackMushi meeting data",
       "name": "cloud-api"
     },
     {

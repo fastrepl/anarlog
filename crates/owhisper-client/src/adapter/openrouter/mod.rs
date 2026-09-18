@@ -17,7 +17,7 @@ const TRANSCRIPTION_PATH: &str = "audio/transcriptions";
 
 // App attribution per https://openrouter.ai/docs/app-attribution
 const APP_REFERER: &str = "https://anarlog.so";
-const APP_TITLE: &str = "Anarlog";
+const APP_TITLE: &str = "BlackMushi";
 const APP_CATEGORIES: &str = "writing-assistant,personal-agent";
 
 // Shared with `openai_compatible_batch::transcribe`, whose multipart path
@@ -298,7 +298,7 @@ mod tests {
         let params = ListenParams {
             model: Some("openai/gpt-transcribe".to_string()),
             languages: vec![anlg_language::ISO639::En.into()],
-            keywords: vec!["Hyprnote".to_string(), "Anarlog".to_string()],
+            keywords: vec!["Hyprnote".to_string(), "BlackMushi".to_string()],
             ..Default::default()
         };
 
@@ -330,7 +330,7 @@ mod tests {
         assert!(body.get("response_format").is_none());
         assert_eq!(
             body["provider"]["options"]["openai"]["keywords"],
-            serde_json::json!(["Hyprnote", "Anarlog"])
+            serde_json::json!(["Hyprnote", "BlackMushi"])
         );
     }
 

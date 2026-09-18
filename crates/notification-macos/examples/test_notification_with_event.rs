@@ -45,7 +45,7 @@ fn main() {
         ];
 
         let event_details = EventDetails {
-            what: "Discovery call - Apple <> Anarlog".to_string(),
+            what: "Discovery call - Apple <> BlackMushi".to_string(),
             timezone: Some("America/Cupertino".to_string()),
             location: Some("https://zoom.us/j/123456789".to_string()),
         };
@@ -65,7 +65,7 @@ fn main() {
             })
             .participants(participants)
             .event_details(event_details)
-            .action_label("Open Anarlog")
+            .action_label("Open BlackMushi")
             .start_time(start_time)
             .build();
 

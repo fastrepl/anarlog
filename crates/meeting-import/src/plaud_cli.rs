@@ -29,7 +29,7 @@ struct CliToken {
 
 pub fn resolve_binary() -> Result<PathBuf, String> {
     find_plaud_in_dirs(search_dirs()).ok_or_else(|| {
-        "Install the Plaud CLI (`npm install -g @plaud-ai/cli`) and try again. Anarlog looks for `plaud` on PATH and in common Node.js bin folders.".to_string()
+        "Install the Plaud CLI (`npm install -g @plaud-ai/cli`) and try again. BlackMushi looks for `plaud` on PATH and in common Node.js bin folders.".to_string()
     })
 }
 

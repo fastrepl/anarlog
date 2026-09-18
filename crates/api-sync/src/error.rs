@@ -11,10 +11,10 @@ pub enum SyncError {
     #[error("Invalid request: {0}")]
     BadRequest(String),
 
-    #[error("Anarlog Pro is required for CloudSync")]
+    #[error("BlackMushi Pro is required for CloudSync")]
     ProPlanRequired,
 
-    #[error("A newer Anarlog version is required for encrypted CloudSync")]
+    #[error("A newer BlackMushi version is required for encrypted CloudSync")]
     CloudsyncUpgradeRequired,
 
     #[error("This account is protected by a different E2EE recovery key")]
@@ -118,12 +118,12 @@ impl IntoResponse for SyncError {
             Self::ProPlanRequired => (
                 StatusCode::FORBIDDEN,
                 "subscription_required",
-                "Anarlog Pro is required for CloudSync".to_string(),
+                "BlackMushi Pro is required for CloudSync".to_string(),
             ),
             Self::CloudsyncUpgradeRequired => (
                 StatusCode::UPGRADE_REQUIRED,
                 "cloudsync_upgrade_required",
-                "Update Anarlog to continue using encrypted CloudSync".to_string(),
+                "Update BlackMushi to continue using encrypted CloudSync".to_string(),
             ),
             Self::E2eeKeyMismatch => (
                 StatusCode::CONFLICT,
@@ -175,7 +175,7 @@ impl IntoResponse for SyncError {
             Self::SnapshotChanged => (
                 StatusCode::CONFLICT,
                 "snapshot_conflict",
-                "Shared note changed; update Anarlog and reload before publishing again"
+                "Shared note changed; update BlackMushi and reload before publishing again"
                     .to_string(),
             ),
             Self::SnapshotServiceUnavailable => (

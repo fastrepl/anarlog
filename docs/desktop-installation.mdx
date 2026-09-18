@@ -1,9 +1,9 @@
 ---
 title: "Install the desktop app"
-description: "Choose the right Anarlog build for macOS, Windows, or Linux."
+description: "Choose the right BlackMushi build for macOS, Windows, or Linux."
 ---
 
-[Download Anarlog](https://anarlog.so/download) to get the latest stable desktop release. The download page offers every supported platform from the same release.
+[Download BlackMushi](https://anarlog.so/download) to get the latest stable desktop release. The download page offers every supported platform from the same release.
 
 ## Choose the right build
 
@@ -22,22 +22,22 @@ On a Mac, open **Apple menu → About This Mac** if you do not know whether it u
 ## macOS
 
 1. Download the DMG that matches your Mac.
-2. Open the DMG and move Anarlog to **Applications**.
-3. Open Anarlog and follow the setup screen.
+2. Open the DMG and move BlackMushi to **Applications**.
+3. Open BlackMushi and follow the setup screen.
 4. Allow microphone, system audio, and calendar access when you want to use those features.
 
 ## Windows
 
-1. Download the **Windows x64** installer or [get Anarlog from Microsoft Store](https://apps.microsoft.com/detail/XPDLN196NKSW10).
+1. Download the **Windows x64** installer or [get BlackMushi from Microsoft Store](https://apps.microsoft.com/detail/XPDLN196NKSW10).
 2. For the direct download, run the EXE and follow the installer. Microsoft Store handles installation and updates automatically.
-3. Open Anarlog and complete setup.
+3. Open BlackMushi and complete setup.
 4. Allow microphone and system-audio access when prompted.
 
 ## Linux
 
 ### APT repository
 
-On Debian, Ubuntu, or a compatible distribution, add Anarlog's signed repository to get updates through APT:
+On Debian, Ubuntu, or a compatible distribution, add BlackMushi's signed repository to get updates through APT:
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings
@@ -57,7 +57,7 @@ sudo apt update
 sudo apt install anarlog
 ```
 
-APT verifies the repository metadata with the dedicated Anarlog archive key. New stable releases become available through the normal `apt upgrade` flow.
+APT verifies the repository metadata with the dedicated BlackMushi archive key. New stable releases become available through the normal `apt upgrade` flow.
 
 ### Downloaded DEB
 
@@ -104,22 +104,22 @@ The PKGBUILD downloads the stable DEB for your architecture, verifies its checks
 
 ## Platform differences
 
-- Apple Calendar integration is available on macOS. Google Calendar works through your Anarlog account on every supported platform.
-- Soniqo, Apple Speech, and On-device file transcription require Apple Silicon. Apple Speech also appears only when a compatible Mac running macOS 26 reports the required system assets. On other systems, choose Anarlog Cloud or configure a supported transcription provider. See [how to use on-device models](/help#use-on-device-models) and [local models for hour-long calls](/help#local-model-hour-long-calls).
-- Windows and Linux support are in beta. Include your operating system and Anarlog version when you report a platform-specific problem.
-- Anarlog does not currently offer a mobile app.
+- Apple Calendar integration is available on macOS. Google Calendar works through your BlackMushi account on every supported platform.
+- Soniqo, Apple Speech, and On-device file transcription require Apple Silicon. Apple Speech also appears only when a compatible Mac running macOS 26 reports the required system assets. On other systems, choose BlackMushi Cloud or configure a supported transcription provider. See [how to use on-device models](/help#use-on-device-models) and [local models for hour-long calls](/help#local-model-hour-long-calls).
+- Windows and Linux support are in beta. Include your operating system and BlackMushi version when you report a platform-specific problem.
+- BlackMushi does not currently offer a mobile app.
 
 When installation is complete, continue to [Your first meeting](/quickstart). If the app does not open or cannot capture audio, see [Troubleshooting](/troubleshooting).
 
 ## Nightly
 
 Use the [stable download page](https://anarlog.so/download/) for new installations.
-If you already use Anarlog Nightly, keep these compatibility notes in mind before
+If you already use BlackMushi Nightly, keep these compatibility notes in mind before
 switching to stable.
 
 Nightly opens the same local notes database as stable, so your notes,
 transcripts, and meetings appear in both apps. Sign-in and app settings stay
-separate per app. Quit one app before opening the other: Anarlog does not open
+separate per app. Quit one app before opening the other: BlackMushi does not open
 while the other app is running.
 
 Nightly can update the database format before stable does. Most changes stay
@@ -135,5 +135,5 @@ Nightly until then. Your data is not modified by the older app.
 </Warning>
 
 Nightly release notes are included in the app and its GitHub prerelease. Only
-stable changelogs appear on the Anarlog website. If you install the bundled CLI
+stable changelogs appear on the BlackMushi website. If you install the bundled CLI
 from Nightly, its command is `anarlog-nightly`; `anarlog` continues to use stable.

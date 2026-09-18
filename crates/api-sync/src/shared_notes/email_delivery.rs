@@ -57,7 +57,7 @@ impl ResendClient {
             .header("Idempotency-Key", idempotency_key)
             .json(&ResendEmail {
                 from: format!(
-                    "{} via Anarlog <{}>",
+                    "{} via BlackMushi <{}>",
                     safe_sender_name(sender_name),
                     self.from_email
                 ),
@@ -89,7 +89,7 @@ impl ResendClient {
             .join("emails/batch")
             .map_err(|error| error.to_string())?;
         let from = format!(
-            "{} via Anarlog <{}>",
+            "{} via BlackMushi <{}>",
             safe_sender_name(sender_name),
             self.from_email
         );
@@ -188,7 +188,7 @@ impl EmailDelivery {
                 recipient,
                 owner_email,
                 &sender_name,
-                format!("You're invited to join the \"{workspace_name}\" team in Anarlog"),
+                format!("You're invited to join the \"{workspace_name}\" team in BlackMushi"),
                 format!(
                     "{} invited you to join \"{}\", a team in Anarlog.\n\nAccept the invitation:\n{}\n\nReply to this email to contact {}.",
                     sender_name,
@@ -252,7 +252,7 @@ pub(super) fn safe_sender_name(value: &str) -> String {
     let normalized = normalized.split_whitespace().collect::<Vec<_>>().join(" ");
     let normalized = normalized.chars().take(80).collect::<String>();
     if normalized.is_empty() {
-        "An Anarlog user".to_string()
+        "An BlackMushi user".to_string()
     } else {
         normalized
     }
@@ -265,6 +265,6 @@ mod tests {
     #[test]
     fn sanitizes_sender_names_for_email_headers() {
         assert_eq!(safe_sender_name(" Ada <Lovelace>\n"), "Ada Lovelace");
-        assert_eq!(safe_sender_name("\r\n"), "An Anarlog user");
+        assert_eq!(safe_sender_name("\r\n"), "An BlackMushi user");
     }
 }

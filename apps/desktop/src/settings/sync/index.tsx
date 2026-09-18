@@ -328,7 +328,7 @@ function SyncLogEntry({ entry }: { entry: CloudsyncActivityEntry }) {
         {entry.error && (
           <p className="mt-1 text-xs break-words text-red-500">
             <Trans>
-              Anarlog couldn't complete this sync. Your notes are safe on this
+              BlackMushi couldn't complete this sync. Your notes are safe on this
               device.
             </Trans>
           </p>
@@ -797,7 +797,7 @@ export function SettingsSync() {
         return {
           kind: "local" as const,
           label: t`Waiting for device approval`,
-          description: t`Open Anarlog on a device that already has access, then approve this device.`,
+          description: t`Open BlackMushi on a device that already has access, then approve this device.`,
         };
       }
       if (credentialBlock === "device_limit") {
@@ -818,7 +818,7 @@ export function SettingsSync() {
         return {
           kind: "error" as const,
           label: t`Sync needs attention`,
-          description: t`Anarlog could not start cloud sync on this device. It will keep retrying.`,
+          description: t`BlackMushi could not start cloud sync on this device. It will keep retrying.`,
           detail: status?.configuration_error ?? null,
         };
       }
@@ -828,7 +828,7 @@ export function SettingsSync() {
         description:
           credentialBlock === "setup_required"
             ? t`Set up your recovery key to start encrypted cloud sync.`
-            : t`Anarlog could not start cloud sync on this device.`,
+            : t`BlackMushi could not start cloud sync on this device.`,
       };
     }
     if (statusQuery.isError) {
@@ -851,8 +851,8 @@ export function SettingsSync() {
           status.last_error_kind === "auth"
             ? t`Sign out and sign in again to resume cloud sync.`
             : status.last_error_kind === "transient"
-              ? t`Anarlog will retry automatically.`
-              : t`Anarlog will keep retrying.`,
+              ? t`BlackMushi will retry automatically.`
+              : t`BlackMushi will keep retrying.`,
       };
     }
     if (status?.activity_paused) {
@@ -873,7 +873,7 @@ export function SettingsSync() {
           ? t`Cloud sync delayed`
           : t`Restoring cloud sync...`,
         description: status.recovery_delayed
-          ? t`Your notes remain available locally. Anarlog will keep retrying.`
+          ? t`Your notes remain available locally. BlackMushi will keep retrying.`
           : t`Your notes remain available locally.`,
         detail: status.recovery_delayed
           ? (status.recovery_error ?? null)
@@ -1073,7 +1073,7 @@ export function SettingsSync() {
                 <Trans>
                   Cloud sync and {cloudStorageService} can both change the same
                   files, which can create conflicted copies and incomplete
-                  recordings. Move your Anarlog storage location to a folder
+                  recordings. Move your BlackMushi storage location to a folder
                   that {cloudStorageService} does not sync.
                 </Trans>
               </p>
@@ -1398,7 +1398,7 @@ export function SettingsSync() {
             </DialogTitle>
             <DialogDescription>
               <Trans>
-                Install Anarlog and sign in with this account on the new device.
+                Install BlackMushi and sign in with this account on the new device.
                 It will appear here automatically so you can approve it.
               </Trans>
             </DialogDescription>

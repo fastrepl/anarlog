@@ -16,12 +16,12 @@ qa_process_status=0
 pgrep -x "anarlog-staging" >/dev/null || qa_process_status=$?
 case "$qa_process_status" in
   0)
-    echo "Quit Anarlog Staging before resetting permissions." >&2
+    echo "Quit BlackMushi Staging before resetting permissions." >&2
     exit 1
     ;;
   1) ;;
   *)
-    echo "Could not determine whether Anarlog Staging is running." >&2
+    echo "Could not determine whether BlackMushi Staging is running." >&2
     exit 1
     ;;
 esac

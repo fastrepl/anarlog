@@ -1,9 +1,9 @@
 ---
 title: "Webhooks reference"
-description: "Signed meeting events Anarlog delivers to an endpoint you configure."
+description: "Signed meeting events BlackMushi delivers to an endpoint you configure."
 ---
 
-Webhooks let Anarlog push meeting events to your own endpoint. They are built into the desktop app and available on every plan. Configure them under **Settings → Developers → Webhooks**.
+Webhooks let BlackMushi push meeting events to your own endpoint. They are built into the desktop app and available on every plan. Configure them under **Settings → Developers → Webhooks**.
 
 <Warning>
   Meeting events include the note, summaries, participants, action items, and full transcript text. Only add an endpoint you trust.
@@ -19,14 +19,14 @@ To read meeting data instead of receiving it, use the [CLI](/reference/cli), the
 4. Click **Test** to send one `webhook.test` delivery and confirm your endpoint responds.
 
 <Note>
-  The signing secret is shown once during setup. Store it before leaving the page — Anarlog does not display it again.
+  The signing secret is shown once during setup. Store it before leaving the page — BlackMushi does not display it again.
 </Note>
 
 A new endpoint is subscribed to all events. One installation can configure at most 64 endpoints.
 
 ## Events
 
-Anarlog delivers events as JSON `POST` requests while the desktop app is running.
+BlackMushi delivers events as JSON `POST` requests while the desktop app is running.
 
 | Event | Fires when |
 | --- | --- |
@@ -82,4 +82,4 @@ Verify the raw body before parsing it. For replay protection, reject stale signe
   Deliveries only run while the desktop app is open. Events that occur while it is closed are dropped, not queued for later delivery.
 </Warning>
 
-Anarlog delivers to at most 64 endpoints per event and runs at most 4 deliveries at a time.
+BlackMushi delivers to at most 64 endpoints per event and runs at most 4 deliveries at a time.

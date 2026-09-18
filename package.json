@@ -3,6 +3,8 @@
     "dev:desktop": "pnpm -F @anlg/desktop tauri:dev",
     "fmt:check": "dprint check",
     "fmt": "dprint fmt",
+    "brand": "node branding/apply.mjs",
+    "brand:check": "node branding/apply.mjs --check",
     "lint": "pnpm lint:oxlint && pnpm lint:eslint",
     "lint:eslint": "eslint",
     "lint:oxlint": "oxlint --type-aware",

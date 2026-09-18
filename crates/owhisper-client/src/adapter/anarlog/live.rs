@@ -144,14 +144,14 @@ mod tests {
         let params = owhisper_interface::ListenParams {
             model: Some("nova-3".to_string()),
             languages: vec![ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
+            keywords: vec!["BlackMushi".to_string(), "transcription".to_string()],
             ..Default::default()
         };
 
         let url = adapter.build_ws_url(API_BASE, &params, 1);
         let url_str = url.as_str();
 
-        assert!(url_str.contains("keyword=Anarlog"));
+        assert!(url_str.contains("keyword=BlackMushi"));
         assert!(url_str.contains("keyword=transcription"));
     }
 

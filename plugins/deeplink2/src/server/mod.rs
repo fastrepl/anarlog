@@ -149,7 +149,7 @@ fn ui_content(deep_link: &DeepLink) -> (bool, &'static str, &'static str) {
             (
                 true,
                 "Connected successfully",
-                "Returning to Anarlog to finish connecting.",
+                "Returning to BlackMushi to finish connecting.",
             )
         }
         DeepLink::AuthCallback(_) => (
@@ -180,7 +180,7 @@ fn ui_content(deep_link: &DeepLink) -> (bool, &'static str, &'static str) {
         DeepLink::OnboardingDemoComplete(_) => (
             true,
             "Demo complete",
-            "Anarlog is finishing your transcript and creating your summary.",
+            "BlackMushi is finishing your transcript and creating your summary.",
         ),
     }
 }

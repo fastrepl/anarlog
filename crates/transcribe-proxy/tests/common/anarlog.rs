@@ -230,7 +230,7 @@ pub async fn send_stereo_batch_via_anarlog_client(
         .build()
         .transcribe_file(file_path)
         .await
-        .expect("stereo Anarlog batch request should succeed")
+        .expect("stereo BlackMushi batch request should succeed")
 }
 
 pub async fn send_batch_via_deepgram_client(

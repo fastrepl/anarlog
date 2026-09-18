@@ -2,7 +2,7 @@
 
 Parent: ANLG-131.
 
-Anarlog's enterprise position is that customers can own every sensitive part of the stack. The community application and shared contracts stay MIT. Enterprise orchestration, administration, deployment, licensing, and meeting-bot services are commercially licensed.
+BlackMushi's enterprise position is that customers can own every sensitive part of the stack. The community application and shared contracts stay MIT. Enterprise orchestration, administration, deployment, licensing, and meeting-bot services are commercially licensed.
 
 ## v1 advocacy vs later certification
 

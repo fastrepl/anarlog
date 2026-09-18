@@ -140,7 +140,7 @@ unsupported rows keep their existing scope.
 | ---------- | -------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | L-ART-01   | Yes      | Record the URL, filename, version, commit, size, and SHA-256 for every published Linux artifact.          | Hashes match published checksums and every required run uses an exact recorded hash.                                            | NOT RUN             |
 | L-ART-02   | Yes      | Inspect each artifact with file and inspect each .deb control record.                                     | Machine architecture, package Architecture, filename, download label, and updater target all agree.                             | NOT RUN             |
-| L-ART-03   | Yes      | Inspect AppImage and .deb contents for the expected binary, icon, desktop file, resources, and libraries. | The installed identity is Anarlog, the main binary is anarlog, and required shared libraries are declared or bundled correctly. | NOT RUN             |
+| L-ART-03   | Yes      | Inspect AppImage and .deb contents for the expected binary, icon, desktop file, resources, and libraries. | The installed identity is BlackMushi, the main binary is anarlog, and required shared libraries are declared or bundled correctly. | NOT RUN             |
 | L-INS-01   | Yes      | Launch the x86_64 AppImage on L-ENV-X64-CLEAN from a fresh download.                                      | It launches without an undeclared host dependency, reaches the main shell, and creates no duplicate app identity.               | NOT RUN             |
 | L-INS-02   | Yes      | Install the x86_64 .deb with apt on L-ENV-X64-CLEAN, then launch from the desktop and terminal.           | apt resolves declared dependencies, the launcher and icon work, and the app reaches the main shell.                             | NOT RUN             |
 | L-INS-03   | Yes      | Install and launch L-PKG-ARM64-DEB on the required ARM64 environment.                                     | The artifact is native ARM64, launches successfully, opens SQLite, and extracts the ARM64 CloudSync library.                    | NOT RUN             |
@@ -202,7 +202,7 @@ hypervisor preprocessing means VM results cannot count as AEC evidence.
 | L-DESK-01 | Yes         | Start and end calls in Zoom, Meet, and Slack; observe meeting and microphone-use detection.                      | Each advertised app is identified without persistent helper-process noise and start/end transitions do not duplicate.                | NOT RUN             |
 | L-DESK-02 | Yes         | Trigger notifications focused, minimized, and backgrounded; click, dismiss, clear, and repeat once.              | Notifications appear once with correct identity and expected actions; clearing and main-window activation work.                      | NOT RUN             |
 | L-DESK-03 | Yes         | Exercise tray show/hide and menu actions, then restart the desktop session.                                      | The tray remains usable on the declared GNOME baseline and does not strand the main window.                                          | NOT RUN             |
-| L-DESK-04 | Yes         | Enable autostart, reboot, open anarlog:// and legacy hyprnote:// deep links, and launch a second instance.       | Autostart behavior matches the setting, both deep links open Anarlog, and the second launch focuses the existing instance.           | NOT RUN             |
+| L-DESK-04 | Yes         | Enable autostart, reboot, open anarlog:// and legacy hyprnote:// deep links, and launch a second instance.       | Autostart behavior matches the setting, both deep links open BlackMushi, and the second launch focuses the existing instance.           | NOT RUN             |
 | L-DESK-05 | Conditional | Exercise every global shortcut advertised to Linux on GNOME/Wayland, including press, release, and repeated use. | Advertised shortcuts fire once without stuck state; otherwise the controls are visibly unavailable and absent from beta claims.      | NOT RUN             |
 | L-DESK-06 | Conditional | Exercise dictation, floating controls, or live captions only if they are advertised to Linux.                    | Advertised controls are usable; unsupported controls are gated and cannot silently no-op.                                            | NOT RUN             |
 
@@ -372,7 +372,7 @@ find "$cache_dir/char/cloudsync" -type f -name "cloudsync.so" -exec file {} \;
 busctl --user list | grep -F "org.freedesktop.secrets"
 ```
 
-The Secret Service command proves only service availability. Verify Anarlog credential
+The Secret Service command proves only service availability. Verify BlackMushi credential
 metadata through the desktop credential manager or Seahorse without exposing values. The
 current secure-store service name is com.anarlog.stable.secure-store. The CloudSync
 cache path intentionally still uses char/cloudsync.

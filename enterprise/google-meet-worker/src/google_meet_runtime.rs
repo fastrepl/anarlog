@@ -511,7 +511,7 @@ mod tests {
             Err(GoogleMeetRuntimeConfigError::InvalidBotName)
         ));
 
-        let mut invalid_x11 = config("Anarlog Notes");
+        let mut invalid_x11 = config("BlackMushi Notes");
         invalid_x11.x11.display.clear();
         assert!(matches!(
             GoogleMeetRuntime::new(invalid_x11, UnusedSink),
@@ -520,7 +520,7 @@ mod tests {
             ))
         ));
 
-        let mut invalid_monitor = config("Anarlog Notes");
+        let mut invalid_monitor = config("BlackMushi Notes");
         invalid_monitor.runtime_poll_interval = Duration::ZERO;
         assert!(matches!(
             GoogleMeetRuntime::new(invalid_monitor, UnusedSink),
@@ -532,7 +532,7 @@ mod tests {
 
     #[test]
     fn rejects_other_platforms_before_launching_the_browser() {
-        let runtime = GoogleMeetRuntime::new(config("Anarlog Notetaker"), UnusedSink).unwrap();
+        let runtime = GoogleMeetRuntime::new(config("BlackMushi Notetaker"), UnusedSink).unwrap();
         let checkpoint = WorkerCheckpoint {
             job_id: "job-1".into(),
             bot_id: "bot-1".into(),
@@ -592,7 +592,7 @@ mod tests {
     #[tokio::test]
     async fn retries_sink_finalization_during_cleanup_after_a_transient_failure() {
         let mut runtime =
-            GoogleMeetRuntime::new(config("Anarlog Notes"), RetryingFinishSink { attempts: 0 })
+            GoogleMeetRuntime::new(config("BlackMushi Notes"), RetryingFinishSink { attempts: 0 })
                 .unwrap();
         let frozen = Duration::from_secs(42);
         runtime.media = MediaState::Finalizing {
@@ -614,7 +614,7 @@ mod tests {
 
     #[tokio::test]
     async fn finalize_is_a_no_op_before_capture_and_after_completion() {
-        let mut runtime = GoogleMeetRuntime::new(config("Anarlog Notes"), UnusedSink).unwrap();
+        let mut runtime = GoogleMeetRuntime::new(config("BlackMushi Notes"), UnusedSink).unwrap();
 
         let idle = runtime.finalize_media().await;
         assert!(idle.payloads.is_empty());
@@ -631,7 +631,7 @@ mod tests {
     #[tokio::test]
     async fn repeated_finalize_retries_reuse_the_frozen_duration() {
         let mut runtime = GoogleMeetRuntime::new(
-            config("Anarlog Notes"),
+            config("BlackMushi Notes"),
             DurationRecordingSink {
                 fail_attempts: 2,
                 attempts: 0,

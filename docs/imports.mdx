@@ -3,7 +3,7 @@ title: "Import meeting history"
 description: "Bring notes and transcripts from another meeting assistant into Anarlog."
 ---
 
-Meeting-history import turns official exports from another meeting assistant into Anarlog notes. It is designed for moving a library of past meetings, not for uploading one recording.
+Meeting-history import turns official exports from another meeting assistant into BlackMushi notes. It is designed for moving a library of past meetings, not for uploading one recording.
 
 <Note>
   To import one audio, SRT, or VTT file, use [Import audio or a transcript](/import-recordings).
@@ -17,11 +17,11 @@ Meeting-history import turns official exports from another meeting assistant int
 4. Select one or more JSON, CSV, Markdown, text, VTT, or SRT export files.
 5. Review the result shown when the import finishes.
 
-Anarlog detects supported meeting-assistant apps installed on your computer. Supported sources include Granola, Circleback, Fireflies.ai, Fathom, Krisp, Otter.ai, Notion AI Meeting Notes, Zoom, Microsoft Teams, Google Meet, Webex, Plaud, Pocket, ChatGPT Record, Slack Huddles, and others.
+BlackMushi detects supported meeting-assistant apps installed on your computer. Supported sources include Granola, Circleback, Fireflies.ai, Fathom, Krisp, Otter.ai, Notion AI Meeting Notes, Zoom, Microsoft Teams, Google Meet, Webex, Plaud, Pocket, ChatGPT Record, Slack Huddles, and others.
 
-For assistants that support a direct connection (OAuth, MCP, or a local CLI such as Plaud), choose **Connect & import**. Anarlog signs in through the official integration — for Plaud it runs `plaud` on your machine, and for Pocket it uses the official MCP server — and keeps importing new meetings while it is running.
+For assistants that support a direct connection (OAuth, MCP, or a local CLI such as Plaud), choose **Connect & import**. BlackMushi signs in through the official integration — for Plaud it runs `plaud` on your machine, and for Pocket it uses the official MCP server — and keeps importing new meetings while it is running.
 
-The exact content depends on the source export. Anarlog keeps supported titles, dates, notes, summaries, transcripts, speakers, and participants when those fields are available.
+The exact content depends on the source export. BlackMushi keeps supported titles, dates, notes, summaries, transcripts, speakers, and participants when those fields are available.
 
 ## Understand the result
 
@@ -29,7 +29,7 @@ The result separates meetings into four groups:
 
 - **Imported** meetings were added as new notes.
 - **Matched** meetings were already present and were left unchanged.
-- **Conflicts** need review because Anarlog could not safely choose between versions.
+- **Conflicts** need review because BlackMushi could not safely choose between versions.
 - **Errors** could not be read or converted.
 
 You can select the same export again. Meetings that still match are not duplicated.
@@ -42,6 +42,6 @@ If you only have an audio recording, [upload the audio to an empty note](/import
 
 ## If your assistant is missing
 
-Anarlog lists assistants it detects on your computer. Open or reinstall the source app, restart Anarlog, and check **Settings → Imports** again. You can also export to SRT or VTT and [import the transcript directly](/import-recordings#import-a-transcript).
+BlackMushi lists assistants it detects on your computer. Open or reinstall the source app, restart BlackMushi, and check **Settings → Imports** again. You can also export to SRT or VTT and [import the transcript directly](/import-recordings#import-a-transcript).
 
 See [Troubleshooting](/troubleshooting#meeting-history-import-shows-no-apps) if no supported app appears or an export fails.

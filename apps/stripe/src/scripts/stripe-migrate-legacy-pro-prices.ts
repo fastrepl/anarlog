@@ -167,7 +167,7 @@ if (values.help) {
   console.log(`
 Usage: bun stripe-migrate-legacy-pro-prices.ts [options]
 
-Migrates paid Anarlog subscriptions to the single Pro price set:
+Migrates paid BlackMushi subscriptions to the single Pro price set:
   - monthly sources -> $15/month Pro
   - yearly sources  -> $150/year Pro
 
@@ -222,7 +222,7 @@ const stripe = createStripeAdapter({
 const livemode = await validateConfiguredPrices(PRICE_RULES, stripe);
 
 console.log(
-  `${shouldApply ? "Applying" : "Dry run"} Anarlog Pro price migration in ${
+  `${shouldApply ? "Applying" : "Dry run"} BlackMushi Pro price migration in ${
     livemode ? "live" : "test"
   } mode`,
 );

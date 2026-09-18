@@ -512,24 +512,24 @@ msgid "Analyzing structure..."
 msgstr "Analyzing structure..."
 
 #: src/settings/sync/index.tsx
-msgid "Anarlog could not start cloud sync on this device."
-msgstr "Anarlog could not start cloud sync on this device."
+msgid "BlackMushi could not start cloud sync on this device."
+msgstr "BlackMushi could not start cloud sync on this device."
 
 #: src/settings/sync/index.tsx
-msgid "Anarlog could not start cloud sync on this device. It will keep retrying."
-msgstr "Anarlog could not start cloud sync on this device. It will keep retrying."
+msgid "BlackMushi could not start cloud sync on this device. It will keep retrying."
+msgstr "BlackMushi could not start cloud sync on this device. It will keep retrying."
 
 #: src/settings/sync/index.tsx
-msgid "Anarlog couldn't complete this sync. Your notes are safe on this device."
-msgstr "Anarlog couldn't complete this sync. Your notes are safe on this device."
+msgid "BlackMushi couldn't complete this sync. Your notes are safe on this device."
+msgstr "BlackMushi couldn't complete this sync. Your notes are safe on this device."
 
 #: src/settings/sync/index.tsx
-msgid "Anarlog will keep retrying."
-msgstr "Anarlog will keep retrying."
+msgid "BlackMushi will keep retrying."
+msgstr "BlackMushi will keep retrying."
 
 #: src/settings/sync/index.tsx
-msgid "Anarlog will retry automatically."
-msgstr "Anarlog will retry automatically."
+msgid "BlackMushi will retry automatically."
+msgstr "BlackMushi will retry automatically."
 
 #: src/templates/template-icon-picker.tsx
 msgid "Animals & Nature"
@@ -1282,8 +1282,8 @@ msgid "Cloud API enabled — 1 meeting uploaded"
 msgstr "Cloud API enabled — 1 meeting uploaded"
 
 #: src/settings/developers/cloud-api.tsx
-msgid "Cloud API enabled, but existing meetings could not be uploaded. Anarlog will retry."
-msgstr "Cloud API enabled, but existing meetings could not be uploaded. Anarlog will retry."
+msgid "Cloud API enabled, but existing meetings could not be uploaded. BlackMushi will retry."
+msgstr "Cloud API enabled, but existing meetings could not be uploaded. BlackMushi will retry."
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Cloud API key copied"
@@ -1302,8 +1302,8 @@ msgid "Cloud sync"
 msgstr "Cloud sync"
 
 #: src/settings/sync/index.tsx
-msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
-msgstr "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
+msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your BlackMushi storage location to a folder that {cloudStorageService} does not sync."
+msgstr "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your BlackMushi storage location to a folder that {cloudStorageService} does not sync."
 
 #: src/settings/general/notification.tsx
 msgid "Cloud sync complete"
@@ -2798,8 +2798,8 @@ msgid "Install"
 msgstr "Install"
 
 #: src/settings/sync/index.tsx
-msgid "Install Anarlog and sign in with this account on the new device. It will appear here automatically so you can approve it."
-msgstr "Install Anarlog and sign in with this account on the new device. It will appear here automatically so you can approve it."
+msgid "Install BlackMushi and sign in with this account on the new device. It will appear here automatically so you can approve it."
+msgstr "Install BlackMushi and sign in with this account on the new device. It will appear here automatically so you can approve it."
 
 #: src/settings/developers/skills.tsx
 msgid "Install to all agents"
@@ -3786,8 +3786,8 @@ msgid "Open AI Settings"
 msgstr "Open AI Settings"
 
 #: src/settings/sync/index.tsx
-msgid "Open Anarlog on a device that already has access, then approve this device."
-msgstr "Open Anarlog on a device that already has access, then approve this device."
+msgid "Open BlackMushi on a device that already has access, then approve this device."
+msgstr "Open BlackMushi on a device that already has access, then approve this device."
 
 #: src/composer/index.tsx
 #: src/onboarding/final.tsx
@@ -5034,8 +5034,8 @@ msgid "Sign in to add this folder"
 msgstr "Sign in to add this folder"
 
 #: src/settings/general/billing.tsx
-msgid "Sign in to Anarlog"
-msgstr "Sign in to Anarlog"
+msgid "Sign in to BlackMushi"
+msgstr "Sign in to BlackMushi"
 
 #: src/settings/general/account.tsx
 msgid "Sign in to BlackMushi"
@@ -5957,8 +5957,8 @@ msgid "Upload transcript"
 msgstr "Upload transcript"
 
 #: src/settings/developers/cloud-api.tsx
-msgid "Uploads meeting content for remote access while Anarlog is closed."
-msgstr "Uploads meeting content for remote access while Anarlog is closed."
+msgid "Uploads meeting content for remote access while BlackMushi is closed."
+msgstr "Uploads meeting content for remote access while BlackMushi is closed."
 
 #: src/settings/team/index.tsx
 msgid "Usage"
@@ -6279,8 +6279,8 @@ msgid "Your notes remain available locally."
 msgstr "Your notes remain available locally."
 
 #: src/settings/sync/index.tsx
-msgid "Your notes remain available locally. Anarlog will keep retrying."
-msgstr "Your notes remain available locally. Anarlog will keep retrying."
+msgid "Your notes remain available locally. BlackMushi will keep retrying."
+msgstr "Your notes remain available locally. BlackMushi will keep retrying."
 
 #: src/settings/sync/index.tsx
 msgid "Your notes remain available locally. Try again in a moment."

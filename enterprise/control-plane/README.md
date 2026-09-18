@@ -1,4 +1,4 @@
-# Anarlog Enterprise control plane
+# BlackMushi Enterprise control plane
 
 This commercially licensed service packages the workspace-scoped enterprise capture API with automatic PostgreSQL migrations, fail-closed startup configuration, and graceful shutdown. It durably appends provider-neutral capture events, projects each revision into the shared session-ingest contract, and delivers those revisions to authorized clients.
 

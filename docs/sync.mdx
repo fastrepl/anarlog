@@ -3,12 +3,12 @@ title: "Cloud sync"
 description: "Keep notes end-to-end encrypted across devices, and avoid conflicts with cloud-storage folders."
 ---
 
-Cloud sync keeps your notes up to date across your signed-in devices. It is part of Anarlog Pro.
+Cloud sync keeps your notes up to date across your signed-in devices. It is part of BlackMushi Pro.
 
 ## Turn sync on or off
 
 1. Open **Settings → Sync**.
-2. Turn on **Cloud sync**. The first time, Anarlog asks you to create or enter a recovery key.
+2. Turn on **Cloud sync**. The first time, BlackMushi asks you to create or enter a recovery key.
 
 Sync runs automatically in the background. Use **Sync now** to send and receive the latest changes immediately. Your notes always remain available locally, even while sync is paused or you are offline.
 
@@ -16,7 +16,7 @@ Pause sync when you want changes to remain only on the current device for a whil
 
 ## What Cloud Sync replicates
 
-Cloud Sync copies end-to-end encrypted notes across your signed-in devices. Anarlog cannot read this data.
+Cloud Sync copies end-to-end encrypted notes across your signed-in devices. BlackMushi cannot read this data.
 
 Each synced device receives:
 
@@ -28,7 +28,7 @@ Each synced device receives:
 
 In 1.4.24, new daily notes, folders, tags, and note-tag assignments stay on the device where you create them. Their sync rollout is deferred to keep meeting-note sync compatible with 1.4.23. **Synced** applies to the supported data above, not these local-only items. Existing items already synced by Nightly continue using their existing format; use matching app versions on those devices.
 
-API keys, model selections, and most other settings stay on the computer where you entered them. After you add a new device, enter each Transcription and Intelligence API key again and choose the models you want on that computer. Anarlog stores those keys in the operating system's credential store and does not copy them between devices.
+API keys, model selections, and most other settings stay on the computer where you entered them. After you add a new device, enter each Transcription and Intelligence API key again and choose the models you want on that computer. BlackMushi stores those keys in the operating system's credential store and does not copy them between devices.
 
 Also set up on each device:
 
@@ -42,7 +42,7 @@ See [Data, privacy, and retention](/data-and-privacy) for what can leave your co
 
 ## Save the recovery key
 
-Your recovery key encrypts synced notes before they leave your device, so Anarlog cannot read or recover it.
+Your recovery key encrypts synced notes before they leave your device, so BlackMushi cannot read or recover it.
 
 When you create the key:
 
@@ -53,14 +53,14 @@ When you create the key:
 The key is shown only during setup. Clipboard copies clear after 60 seconds when the operating system supports it.
 
 <Warning>
-  If you lose the recovery key, your existing local notes remain on their devices, but you cannot use that key to add another device. Anarlog support cannot recover it for you.
+  If you lose the recovery key, your existing local notes remain on their devices, but you cannot use that key to add another device. BlackMushi support cannot recover it for you.
 </Warning>
 
 ## Add another device
 
 You do not need to type the recovery key on a new device. An existing device approves it instead.
 
-1. Install Anarlog and sign in with the same account on the new device.
+1. Install BlackMushi and sign in with the same account on the new device.
 2. Open **Settings → Sync** and turn on Cloud sync. The status shows **Waiting for device approval**.
 3. On a device that already syncs, open **Settings → Sync**. The new device appears under **Devices**; click **Approve**.
 4. Return to the new device. It receives its key automatically, shows **Restoring cloud sync...** while it downloads your notes, and then **Synced**. Keep the app open until this finishes.
@@ -70,28 +70,28 @@ If none of your approved devices is available, click **Use recovery key instead*
 
 Your plan determines how many devices you can sync. **Settings → Sync → Devices** shows your current usage and limit. If you reach the limit, remove an unused device before enabling sync on another one.
 
-Cloud API & Connectors is a separate, optional feature. If you enable it under **Settings → Developers**, Anarlog uploads a server-readable copy for remote agents; it does not decrypt or weaken your end-to-end encrypted sync data. See [Cloud API and connectors](/reference/api-cloud).
+Cloud API & Connectors is a separate, optional feature. If you enable it under **Settings → Developers**, BlackMushi uploads a server-readable copy for remote agents; it does not decrypt or weaken your end-to-end encrypted sync data. See [Cloud API and connectors](/reference/api-cloud).
 
 ## Don't combine sync with a cloud-storage folder
 
 <Warning>
-  Keep your Anarlog storage location out of folders managed by a file-syncing service such as iCloud Drive, Dropbox, Google Drive, or OneDrive. This includes Obsidian vaults stored in iCloud Drive.
+  Keep your BlackMushi storage location out of folders managed by a file-syncing service such as iCloud Drive, Dropbox, Google Drive, or OneDrive. This includes Obsidian vaults stored in iCloud Drive.
 </Warning>
 
 Two sync systems changing the same files can cause:
 
 - Conflicted or duplicate copies of recordings and attachments
-- Incomplete audio files when a service uploads a recording while Anarlog is still writing it
+- Incomplete audio files when a service uploads a recording while BlackMushi is still writing it
 - Files that are offloaded to the cloud and unavailable offline
 
-Anarlog shows a warning in **Settings → Sync** when your storage location is inside a known cloud-storage folder. Backup tools that snapshot files without continuously syncing them back are fine.
+BlackMushi shows a warning in **Settings → Sync** when your storage location is inside a known cloud-storage folder. Backup tools that snapshot files without continuously syncing them back are fine.
 
 If you see this warning:
 
 1. Pause Cloud sync so changes remain on this device while the files move.
 2. Open **Settings → General** and find **Storage**.
 3. Click **Change** and choose a local folder that is not managed by a file-syncing service.
-4. Wait for Anarlog to move the data and relaunch automatically.
+4. Wait for BlackMushi to move the data and relaunch automatically.
 5. Return to **Settings → Sync**, confirm that the warning is gone, and resume sync.
 
 Use **Change** instead of moving or deleting the storage folder manually. If the move fails, leave the existing folder in place and email [team@fastrepl.com](mailto:team@fastrepl.com) with your operating system and the error shown in Settings.
@@ -107,16 +107,16 @@ Use **Change** instead of moving or deleting the storage folder manually. If the
 
 ## Sync stays on Connecting or Cloud sync delayed
 
-Both states mean Anarlog is still retrying in the background. Your notes remain available locally.
+Both states mean BlackMushi is still retrying in the background. Your notes remain available locally.
 
-- **Connecting...** means this device has not finished setting up encrypted sync. If setup fails, Anarlog may show **Sync needs attention** with more detail.
-- **Cloud sync delayed** means recovery has not finished. Anarlog may be waiting for more synced data or retrying a failed step. An error appears below the status when one is available.
+- **Connecting...** means this device has not finished setting up encrypted sync. If setup fails, BlackMushi may show **Sync needs attention** with more detail.
+- **Cloud sync delayed** means recovery has not finished. BlackMushi may be waiting for more synced data or retrying a failed step. An error appears below the status when one is available.
 
 To fix it:
 
 1. Check that the device is online and that a firewall, VPN, or proxy is not blocking `api.anarlog.so`. Opening `https://api.anarlog.so/` in a browser can return **404 Not Found** because there is no page at that address. This alone neither indicates a sync failure nor proves that the app can complete sync.
-2. Check the date and time on this device. A wrong clock makes sync credentials expire immediately; Anarlog reports this as a clock problem.
-3. Keep Anarlog open. A large first download can take several minutes and resumes if the app was closed.
+2. Check the date and time on this device. A wrong clock makes sync credentials expire immediately; BlackMushi reports this as a clock problem.
+3. Keep BlackMushi open. A large first download can take several minutes and resumes if the app was closed.
 4. Turn Cloud sync off and on again from **Settings → Sync**.
 5. If it still does not clear, click **Sync now** and expand **Sync log**. Note the time you tried it, the status text, any error, and the app version and operating system on each affected device.
 
@@ -133,4 +133,4 @@ Nightly and Staging keep separate logs; use `com.hyprnote.nightly` or `com.hyprn
   Do not delete your local data or create a replacement recovery key to troubleshoot delayed sync. Keep the existing notes and recovery key until sync completes and you have verified your notes on another device.
 </Warning>
 
-If sync is paused during recording or an import, let that activity finish. Anarlog resumes background sync when it is safe to do so.
+If sync is paused during recording or an import, let that activity finish. BlackMushi resumes background sync when it is safe to do so.

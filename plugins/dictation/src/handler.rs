@@ -118,7 +118,7 @@ mod desktop {
                     "window.addEventListener('DOMContentLoaded', () => {{ document.body.dataset.phase = '{}'; }});",
                     phase_name(*self.phase.lock().unwrap_or_else(|e| e.into_inner()))
                 ))
-                .title("Anarlog Dictation")
+                .title("BlackMushi Dictation")
                 .inner_size(240.0, 52.0)
                 .decorations(false)
                 .focused(false)
