@@ -32,7 +32,10 @@ import {
   type RemoteMeeting,
 } from "~/session/hooks/useRemoteMeeting";
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
-import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
+import {
+  usesWindowsStyleTitleBar,
+  useWindowControlsGutter,
+} from "~/shared/hooks/useWindowControlsGutter";
 import { getScheme } from "~/shared/utils";
 import type { EditorView, Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
@@ -63,7 +66,7 @@ export function OuterHeader({
   const now = useNow();
   const showWindowControlsGutter = useWindowControlsGutter();
   const showSidebarTimelineHeaderGutter =
-    !standaloneWindow && !leftsidebar.expanded;
+    !standaloneWindow && !leftsidebar.expanded && !usesWindowsStyleTitleBar();
   const endedAt = sessionEvent?.ended_at
     ? safeParseDate(sessionEvent.ended_at)
     : null;
@@ -84,7 +87,7 @@ export function OuterHeader({
         // sidebar toggle row (pt-[9px] + size-7).
         "h-12 pb-0.5",
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
-        !standaloneWindow && leftsidebar.expanded && "pl-2",
+        !standaloneWindow && !showSidebarTimelineHeaderGutter && "pl-2",
         showSidebarTimelineHeaderGutter &&
           (showWindowControlsGutter ? "pl-[108px]" : "pl-[32px]"),
       ])}

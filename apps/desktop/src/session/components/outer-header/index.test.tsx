@@ -119,6 +119,7 @@ vi.mock("~/shared/config", () => ({
 
 vi.mock("~/shared/hooks/useWindowControlsGutter", () => ({
   useWindowControlsGutter: () => mocks.windowControlsGutter,
+  usesWindowsStyleTitleBar: () => false,
 }));
 
 vi.mock("~/shared/utils", async (importOriginal) => ({
