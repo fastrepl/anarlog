@@ -166,11 +166,11 @@ describe("FloatingBarOverlay", () => {
     ).toBe(toggle);
     expect(screen.queryByText("Weekly sync")).toBeNull();
     expect(
-      view.container.querySelector('[data-tauri-drag-region=""]'),
+      view.container.querySelector('[data-tauri-drag-region="true"]'),
     ).not.toBeNull();
     fireEvent.mouseEnter(view.container.firstElementChild!);
     expect(
-      view.container.querySelector('[data-tauri-drag-region=""]'),
+      view.container.querySelector('[data-tauri-drag-region="true"]'),
     ).not.toBeNull();
     expect(screen.getByText("Let's start.")).toBeTruthy();
 
