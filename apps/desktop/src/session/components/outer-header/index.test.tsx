@@ -1030,7 +1030,7 @@ describe("OuterHeader", () => {
       "This is a prerecorded demo, so your camera stays off.",
     );
     expect(prompt?.textContent).toContain(
-      "Click Join & record to see Anarlog in action.",
+      "Click Join & record to see BlackMushi in action.",
     );
     expect(
       prompt?.querySelector("[data-welcome-demo-prompt-tail]"),

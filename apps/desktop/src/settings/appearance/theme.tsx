@@ -38,7 +38,7 @@ export function ThemeSelector() {
           <Trans>Theme</Trans>
         </h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>Choose how Anarlog looks on this device.</Trans>
+          <Trans>Choose how BlackMushi looks on this device.</Trans>
         </p>
       </div>
       <div

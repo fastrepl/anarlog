@@ -21,10 +21,10 @@ export function useNotifyPlanRequired() {
     (plan: GatedPlan) => {
       const message =
         plan === "pro"
-          ? t`This requires Anarlog Pro`
+          ? t`This requires BlackMushi Pro`
           : plan === "team"
-            ? t`This requires Anarlog Team`
-            : t`This requires Anarlog Enterprise`;
+            ? t`This requires BlackMushi Team`
+            : t`This requires BlackMushi Enterprise`;
 
       sonnerToast.warning(message, {
         ...(plan === "pro"

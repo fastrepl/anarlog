@@ -685,7 +685,7 @@ describe("runBatchSession", () => {
           title: "Transcription complete",
           message: "Your transcript is ready.",
           timeout: { secs: 15, nanos: 0 },
-          action_label: "Open Anarlog",
+          action_label: "Open BlackMushi",
           source: { type: "session", session_id: "session-1" },
         }),
       );

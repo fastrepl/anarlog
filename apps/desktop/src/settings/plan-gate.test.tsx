@@ -59,7 +59,7 @@ describe("PlanGate", () => {
 
     expect(onClick).not.toHaveBeenCalled();
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
+      "This requires BlackMushi Pro",
       {
         action: {
           label: "Upgrade",
@@ -82,7 +82,7 @@ describe("PlanGate", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create workspace" }));
 
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Team",
+      "This requires BlackMushi Team",
       {},
     );
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
@@ -98,7 +98,7 @@ describe("PlanGate", () => {
     fireEvent.click(screen.getByRole("button", { name: "Require SSO" }));
 
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Enterprise",
+      "This requires BlackMushi Enterprise",
       {},
     );
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();

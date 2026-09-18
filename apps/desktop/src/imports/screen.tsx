@@ -465,7 +465,7 @@ export function MeetingImportScreen({
                           {connected ? (
                             <Trans>
                               Connected · New meetings are imported
-                              automatically while Anarlog is running.
+                              automatically while BlackMushi is running.
                             </Trans>
                           ) : (
                             <Trans>

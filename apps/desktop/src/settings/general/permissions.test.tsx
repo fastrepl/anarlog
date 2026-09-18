@@ -105,7 +105,7 @@ describe("Permissions", () => {
     const accessibility = renderPermissions("neverRequested");
 
     expect(
-      screen.getByText(/guides you to add Anarlog to the Accessibility list/),
+      screen.getByText(/guides you to add BlackMushi to the Accessibility list/),
     ).toBeTruthy();
 
     fireEvent.click(

@@ -29,7 +29,7 @@ export function ChatCTA({
     <button
       type="button"
       data-chat-cta-trigger
-      aria-label={ariaLabel ?? t`Ask Anarlog anything`}
+      aria-label={ariaLabel ?? t`Ask BlackMushi anything`}
       onClick={handleClick}
       className="group/anarlog-chat-cta relative h-10 w-[180px] max-w-full cursor-text focus-visible:outline-none"
     >

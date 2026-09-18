@@ -19,7 +19,7 @@ describe("normalizeReasoningEffort", () => {
 });
 
 describe("supportsReasoningEffort", () => {
-  it("leaves Anarlog Pro and Apple Foundation out", () => {
+  it("leaves BlackMushi Pro and Apple Foundation out", () => {
     expect(supportsReasoningEffort("anarlog")).toBe(false);
     expect(supportsReasoningEffort("apple_foundation")).toBe(false);
     expect(supportsReasoningEffort("openai")).toBe(true);

@@ -227,7 +227,7 @@ describe("LegacyMigrationCleanupRow", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "Anarlog will retry automatically. This does not affect your notes.",
+        "BlackMushi will retry automatically. This does not affect your notes.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText("Migration needs attention")).toBeNull();

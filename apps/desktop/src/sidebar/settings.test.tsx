@@ -338,7 +338,7 @@ describe("SettingsNav", () => {
     expect(screen.getByText("Sync")).toBeTruthy();
     expect(screen.getByText("Imports")).toBeTruthy();
     expect(
-      screen.getAllByLabelText("Requires Anarlog Pro").length,
+      screen.getAllByLabelText("Requires BlackMushi Pro").length,
     ).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: /Sync/ }));
@@ -386,7 +386,7 @@ describe("SettingsNav", () => {
     expect(
       screen
         .getByRole("button", { name: /Teams/ })
-        .querySelector("[aria-label='Requires Anarlog Pro']"),
+        .querySelector("[aria-label='Requires BlackMushi Pro']"),
     ).toBeTruthy();
   });
 
@@ -405,7 +405,7 @@ describe("SettingsNav", () => {
     expect(
       screen
         .getByRole("button", { name: "Teams" })
-        .querySelector("[aria-label='Requires Anarlog Pro']"),
+        .querySelector("[aria-label='Requires BlackMushi Pro']"),
     ).toBeNull();
   });
 
@@ -425,7 +425,7 @@ describe("SettingsNav", () => {
     expect(
       screen
         .getByRole("button", { name: "Teams" })
-        .querySelector("[aria-label='Requires Anarlog Pro']"),
+        .querySelector("[aria-label='Requires BlackMushi Pro']"),
     ).toBeNull();
   });
 

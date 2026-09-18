@@ -41,7 +41,7 @@ describe("InstructionScreen billing", () => {
     expect(screen.getByText("Upgrade to Pro")).toBeTruthy();
     expect(
       screen.getByText(
-        "Finish checkout in your browser to unlock more, then return to Anarlog.",
+        "Finish checkout in your browser to unlock more, then return to BlackMushi.",
       ),
     ).toBeTruthy();
     expect(

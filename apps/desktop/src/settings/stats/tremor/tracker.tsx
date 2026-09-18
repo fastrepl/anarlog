@@ -1,6 +1,6 @@
 // Tremor Tracker v1.0.0, Apache-2.0. See LICENSE.
 // Source: tremorlabs/tremor@ca4d588f47820ff3d514d37fa4ee08a4222dec11.
-// Adapted for calendar cells, Anarlog colors, and accessible data labels.
+// Adapted for calendar cells, BlackMushi colors, and accessible data labels.
 import * as HoverCard from "@radix-ui/react-hover-card";
 import { type HTMLAttributes, useState } from "react";
 

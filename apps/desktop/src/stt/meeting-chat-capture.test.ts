@@ -298,7 +298,7 @@ describe("startMeetingChatCapture", () => {
   });
 
   test("excludes the generated disclosure while retaining participant chat", async () => {
-    const disclosure = "Anarlog disclosure https://anarlog.so";
+    const disclosure = "BlackMushi disclosure https://anarlog.so";
     captureMeetingChatMessagesMock.mockResolvedValue(captureResult([]));
     const stop = startMeetingChatCapture({
       sessionId: "session-1",

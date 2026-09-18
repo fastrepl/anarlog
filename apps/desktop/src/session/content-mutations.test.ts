@@ -66,7 +66,7 @@ describe("session content SQLite corrections", () => {
       transcripts: [],
       title: {
         currentTitle: "Scratchpad Design and Analog vs Chyle Direction",
-        nextTitle: "Scratchpad Design and Anarlog vs Char Direction",
+        nextTitle: "Scratchpad Design and BlackMushi vs Char Direction",
       },
     });
 
@@ -75,7 +75,7 @@ describe("session content SQLite corrections", () => {
     expect(statements[0]).toMatchObject({
       expectedRowsAffected: 1,
       params: [
-        "Scratchpad Design and Anarlog vs Char Direction",
+        "Scratchpad Design and BlackMushi vs Char Direction",
         expect.any(String),
         "session-1",
         "Scratchpad Design and Analog vs Chyle Direction",

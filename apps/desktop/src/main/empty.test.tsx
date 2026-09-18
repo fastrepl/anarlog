@@ -68,7 +68,7 @@ describe("TabContentEmpty", () => {
 
     expect(screen.getByRole("button", { name: /New Note/ })).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Ask Anarlog anything" }),
+      screen.getByRole("button", { name: "Ask BlackMushi anything" }),
     ).toBeTruthy();
   });
 

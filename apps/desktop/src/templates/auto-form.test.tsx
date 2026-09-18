@@ -193,7 +193,7 @@ describe("Auto format editor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
+      "This requires BlackMushi Pro",
       {
         action: {
           label: "Upgrade",
@@ -217,7 +217,7 @@ describe("Auto format editor", () => {
     );
 
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
+      "This requires BlackMushi Pro",
       {
         action: {
           label: "Upgrade",

@@ -106,14 +106,14 @@ describe("LongLoadGate", () => {
   it("shows an update prompt when startup reports a newer schema", async () => {
     waitUntilReady.mockRejectedValue(
       new Error(
-        "the database was created by a newer version of Anarlog: it requires migration 1",
+        "the database was created by a newer version of BlackMushi: it requires migration 1",
       ),
     );
 
     renderLongLoadGate();
 
     await waitFor(() => {
-      expect(screen.getByText("Anarlog needs an update")).toBeTruthy();
+      expect(screen.getByText("BlackMushi needs an update")).toBeTruthy();
     });
     expect(screen.queryByText("app")).toBeNull();
     expect(screen.queryByRole("button", { name: "Restart App" })).toBeNull();

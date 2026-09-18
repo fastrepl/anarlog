@@ -2,7 +2,7 @@
 pub enum Error {
     #[error("{0} not found")]
     NotFound(String),
-    #[error("Anarlog database not found at {0}; start Anarlog once or pass --db-path")]
+    #[error("BlackMushi database not found at {0}; start BlackMushi once or pass --db-path")]
     DatabaseNotFound(std::path::PathBuf),
     #[error("output file already exists at {0}; pass --force to overwrite it")]
     OutputExists(std::path::PathBuf),

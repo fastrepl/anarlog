@@ -167,7 +167,7 @@ export function buildSlackRecap({
   noteTitle: string;
   noteBody: string;
 }) {
-  const signature = `\n\n_Sent by ${senderName} via Anarlog_`;
+  const signature = `\n\n_Sent by ${senderName} via BlackMushi_`;
   const prefix = `*${noteTitle}*\n\n`;
   const bodyBudget = 40_000 - prefix.length - signature.length;
   const body =

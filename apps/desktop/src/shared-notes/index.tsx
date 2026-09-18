@@ -63,7 +63,7 @@ export function TabContentSharedNote({
       <SharedNoteUnavailable
         icon={WarningCircle}
         title={t`Shared note unavailable`}
-        description={t`Anarlog could not read the local shared-note cache.`}
+        description={t`BlackMushi could not read the local shared-note cache.`}
       />
     );
   }

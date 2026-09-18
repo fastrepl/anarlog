@@ -133,11 +133,11 @@ export function createToastRegistry({
         icon: (
           <img
             src={ANARLOG_ICON_SRC}
-            alt="Anarlog"
+            alt="BlackMushi"
             className="size-5 object-contain object-center"
           />
         ),
-        description: t`Sign in to get the most out of Anarlog`,
+        description: t`Sign in to get the most out of BlackMushi`,
         primaryAction: {
           label: t`Sign in`,
           onClick: onSignIn,
@@ -221,7 +221,7 @@ function createDesktopUpdateToast(
       // A new ID prevents Sonner from retaining the loading state used while
       // this update was downloading.
       id: `${id}:ready`,
-      description: t`Anarlog ${update.version} is ready to install`,
+      description: t`BlackMushi ${update.version} is ready to install`,
       primaryAction: update.installing
         ? undefined
         : { label: t`Restart`, onClick: update.installUpdate },
@@ -236,7 +236,7 @@ function createDesktopUpdateToast(
         : ` (${Math.round(update.progress * 100)}%)`;
     return {
       id: `${id}:downloading`,
-      description: t`Downloading Anarlog ${update.version}${progress}`,
+      description: t`Downloading BlackMushi ${update.version}${progress}`,
       lifecycle: { type: "persistent", dismissal: "session" },
       loading: true,
     };
@@ -256,7 +256,7 @@ function createDesktopUpdateToast(
 
   return {
     id: `${id}:available`,
-    description: t`Anarlog ${update.version} is available`,
+    description: t`BlackMushi ${update.version} is available`,
     primaryAction: busy
       ? undefined
       : { label: t`Download`, onClick: update.downloadUpdate },

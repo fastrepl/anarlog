@@ -78,7 +78,7 @@ export function AppIconSelector() {
           <Trans>App icon</Trans>
         </h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>Choose how Anarlog appears in the Dock.</Trans>
+          <Trans>Choose how BlackMushi appears in the Dock.</Trans>
         </p>
       </div>
       <div

@@ -83,24 +83,24 @@ it("shows a retryable error when onboarding cannot be persisted", async () => {
   });
 
   render(<FinalSection onContinue={onContinue} />);
-  fireEvent.click(screen.getByRole("button", { name: "Open Anarlog" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open BlackMushi" }));
 
   expect(
     (
       screen.getByRole("button", {
-        name: "Open Anarlog",
+        name: "Open BlackMushi",
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);
   await waitFor(() => {
     expect(screen.getByRole("alert").textContent).toBe(
-      "Couldn't open Anarlog. Please try again.",
+      "Couldn't open BlackMushi. Please try again.",
     );
   });
   expect(
     (
       screen.getByRole("button", {
-        name: "Open Anarlog",
+        name: "Open BlackMushi",
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(false);
@@ -120,9 +120,9 @@ it("reuses the blank fallback session when persistence is retried", async () => 
     .mockResolvedValueOnce({ status: "ok", data: null });
 
   render(<FinalSection onContinue={onContinue} />);
-  fireEvent.click(screen.getByRole("button", { name: "Open Anarlog" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open BlackMushi" }));
   await screen.findByRole("alert");
-  fireEvent.click(screen.getByRole("button", { name: "Open Anarlog" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open BlackMushi" }));
 
   await waitFor(() => {
     expect(onContinue).toHaveBeenCalledWith("blank-session");
@@ -141,7 +141,7 @@ it("ignores concurrent finish attempts", async () => {
   );
 
   render(<FinalSection onContinue={onContinue} />);
-  const button = screen.getByRole("button", { name: "Open Anarlog" });
+  const button = screen.getByRole("button", { name: "Open BlackMushi" });
   fireEvent.click(button);
   fireEvent.click(button);
   resolveWelcomeSession("welcome-session");

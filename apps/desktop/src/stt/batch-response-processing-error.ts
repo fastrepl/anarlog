@@ -1,5 +1,5 @@
 const BATCH_RESPONSE_PROCESSING_ERROR_MESSAGE =
-  "Batch transcription completed, but Anarlog could not process the response.";
+  "Batch transcription completed, but BlackMushi could not process the response.";
 
 export class BatchResponseProcessingError extends Error {
   readonly cause: unknown;

@@ -1,7 +1,7 @@
 {
   "name": "@anlg/mobile-bridge",
   "version": "0.1.0",
-  "description": "React Native bindings for Anarlog's Rust mobile database bridge",
+  "description": "React Native bindings for BlackMushi's Rust mobile database bridge",
   "private": true,
   "homepage": "https://github.com/fastrepl/anarlog",
   "license": "AGPL-3.0-only",

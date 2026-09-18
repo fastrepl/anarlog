@@ -12,16 +12,16 @@ import { listenerStore } from "~/store/zustand/listener/instance";
 
 const PENDING_WELCOME_SESSION_KEY = "anarlog.pending-welcome-session";
 
-const WELCOME_NOTE = `Welcome to Anarlog 👋
+const WELCOME_NOTE = `Welcome to BlackMushi 👋
 
 
-This note is a quick way to see how Anarlog works.
+This note is a quick way to see how BlackMushi works.
 
 
-Click **Join & record** in the top-right corner. It will open a private, prerecorded demo meeting, so you don't have to worry about your camera or microphone. Anarlog will save the audio. To create a transcript and notes, choose a provider in **Settings → Transcription**; if one is not ready, Anarlog will show you a setup shortcut.
+Click **Join & record** in the top-right corner. It will open a private, prerecorded demo meeting, so you don't have to worry about your camera or microphone. BlackMushi will save the audio. To create a transcript and notes, choose a provider in **Settings → Transcription**; if one is not ready, BlackMushi will show you a setup shortcut.
 
 
-When the video ends, Anarlog will stop listening. If transcription and intelligence are configured, it will start creating your summary automatically.`;
+When the video ends, BlackMushi will stop listening. If transcription and intelligence are configured, it will start creating your summary automatically.`;
 
 let pendingWelcomeSession: Promise<string> | null = null;
 
@@ -105,16 +105,16 @@ async function findOrCreateWelcomeSession(): Promise<string> {
   const event: SessionEvent = {
     tracking_id: WELCOME_NOTE_TRACKING_ID,
     calendar_id: "",
-    title: "Welcome to Anarlog",
+    title: "Welcome to BlackMushi",
     started_at: now,
     ended_at: "",
     is_all_day: false,
     has_recurrence_rules: false,
     meeting_link: WELCOME_NOTE_DEMO_URL,
-    description: "A private, prerecorded introduction to Anarlog.",
+    description: "A private, prerecorded introduction to BlackMushi.",
   };
 
-  return createSession("Welcome to Anarlog", DEFAULT_USER_ID, {
+  return createSession("Welcome to BlackMushi", DEFAULT_USER_ID, {
     event_json: JSON.stringify(event),
     raw_md: JSON.stringify(md2json(WELCOME_NOTE)),
   });

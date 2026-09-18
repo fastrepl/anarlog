@@ -64,7 +64,7 @@ export type Provider = {
 const _PROVIDERS = [
   {
     id: "anarlog",
-    displayName: "Anarlog",
+    displayName: "BlackMushi",
     badge: "Recommended",
     icon: <AnarlogProviderIcon />,
     baseUrl: new URL("/llm", env.VITE_API_URL).toString(),

@@ -9,7 +9,7 @@ import {
 import { persistDisclosureAttempt } from "./meeting-consent-store";
 
 export const MEETING_DISCLOSURE_MESSAGE =
-  "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so";
+  "I'm using BlackMushi to record and transcribe this meeting. https://anarlog.so";
 
 const MEETING_DISCLOSURE_MAX_ATTEMPTS = 30;
 const MEETING_DISCLOSURE_RETRY_INTERVAL_MS = 1_000;
@@ -141,7 +141,7 @@ function meetingDisclosureFailure(reason: unknown): MeetingDisclosureOutcome {
   const detail = reason instanceof Error ? reason.message : String(reason);
   console.warn("[listener] meeting disclosure was not sent", reason);
   sonnerToast.warning(
-    "Recording started, but Anarlog could not post the meeting chat disclosure.",
+    "Recording started, but BlackMushi could not post the meeting chat disclosure.",
     { id: "meeting-disclosure-send-failed", duration: Infinity },
   );
   return { status: "notSent", reason: detail };

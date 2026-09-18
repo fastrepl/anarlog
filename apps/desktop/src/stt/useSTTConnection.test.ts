@@ -110,7 +110,7 @@ describe("useSTTConnection", () => {
     startServerForPathMock.mockReset();
   });
 
-  it("uses the hosted STT URL when the stored Anarlog URL is blank", () => {
+  it("uses the hosted STT URL when the stored BlackMushi URL is blank", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });

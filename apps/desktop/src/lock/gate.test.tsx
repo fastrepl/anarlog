@@ -106,7 +106,7 @@ describe("AppLockGate", () => {
     await renderLockedGate();
 
     expect(mocks.authenticateDevice).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Anarlog is Locked")).toBeNull();
+    expect(screen.queryByText("BlackMushi is Locked")).toBeNull();
   });
 
   it("locks on main window close without prompting", async () => {
@@ -119,7 +119,7 @@ describe("AppLockGate", () => {
 
     expect(useAppLock.getState().appUnlocked).toBe(false);
     expect(mocks.authenticateDevice).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Anarlog is Locked")).toBeTruthy();
+    expect(screen.getByText("BlackMushi is Locked")).toBeTruthy();
   });
 
   it("prompts only after the closed window is opened again", async () => {
@@ -131,7 +131,7 @@ describe("AppLockGate", () => {
     });
 
     expect(mocks.authenticateDevice).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Anarlog is Locked")).toBeTruthy();
+    expect(screen.getByText("BlackMushi is Locked")).toBeTruthy();
 
     await act(async () => {
       emit({ payload: { window: { type: "main" }, visible: true } });
@@ -141,7 +141,7 @@ describe("AppLockGate", () => {
       expect(mocks.authenticateDevice).toHaveBeenCalledTimes(2);
       expect(useAppLock.getState().appUnlocked).toBe(true);
     });
-    expect(screen.queryByText("Anarlog is Locked")).toBeNull();
+    expect(screen.queryByText("BlackMushi is Locked")).toBeNull();
   });
 
   it("reprompts on reopen if close interrupted an in-flight prompt", async () => {
@@ -173,7 +173,7 @@ describe("AppLockGate", () => {
 
     expect(mocks.authenticateDevice).toHaveBeenCalledTimes(1);
     expect(useAppLock.getState().appUnlocked).toBe(false);
-    expect(screen.getByText("Anarlog is Locked")).toBeTruthy();
+    expect(screen.getByText("BlackMushi is Locked")).toBeTruthy();
 
     mocks.authenticateDevice.mockResolvedValue(true);
     await act(async () => {
@@ -184,7 +184,7 @@ describe("AppLockGate", () => {
       expect(mocks.authenticateDevice).toHaveBeenCalledTimes(2);
       expect(useAppLock.getState().appUnlocked).toBe(true);
     });
-    expect(screen.queryByText("Anarlog is Locked")).toBeNull();
+    expect(screen.queryByText("BlackMushi is Locked")).toBeNull();
   });
 
   it("does not unlock from a prompt that finishes after close", async () => {
@@ -219,7 +219,7 @@ describe("AppLockGate", () => {
       expect(useAppLock.getState().authenticating).toBe(false);
     });
     expect(useAppLock.getState().appUnlocked).toBe(false);
-    expect(screen.getByText("Anarlog is Locked")).toBeTruthy();
+    expect(screen.getByText("BlackMushi is Locked")).toBeTruthy();
 
     mocks.authenticateDevice.mockResolvedValue(true);
     await act(async () => {
@@ -230,7 +230,7 @@ describe("AppLockGate", () => {
       expect(mocks.authenticateDevice).toHaveBeenCalledTimes(2);
       expect(useAppLock.getState().appUnlocked).toBe(true);
     });
-    expect(screen.queryByText("Anarlog is Locked")).toBeNull();
+    expect(screen.queryByText("BlackMushi is Locked")).toBeNull();
   });
 
   it("ignores visibility changes for other windows", async () => {
@@ -243,6 +243,6 @@ describe("AppLockGate", () => {
 
     expect(useAppLock.getState().appUnlocked).toBe(true);
     expect(mocks.authenticateDevice).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Anarlog is Locked")).toBeNull();
+    expect(screen.queryByText("BlackMushi is Locked")).toBeNull();
   });
 });

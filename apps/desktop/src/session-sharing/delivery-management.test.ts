@@ -87,7 +87,7 @@ describe("meeting recap delivery", () => {
       expect.objectContaining({
         accessToken: "access-token",
         channel: "C123",
-        text: expect.stringContaining("Sent by Ada Lovelace via Anarlog"),
+        text: expect.stringContaining("Sent by Ada Lovelace via BlackMushi"),
       }),
     );
   });

@@ -36,7 +36,7 @@ impl CloudClient {
         {
             return Err(Error::cloud(
                 "unauthorized",
-                "The Anarlog session has expired; open Anarlog or run `anarlog auth login` again.",
+                "The BlackMushi session has expired; open BlackMushi or run `anarlog auth login` again.",
             ));
         }
         Self::new(base_url, session.access_token)

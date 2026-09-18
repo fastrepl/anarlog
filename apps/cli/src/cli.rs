@@ -8,7 +8,7 @@ use anlg_agent_access::{DEFAULT_TRANSCRIPT_LIMIT, MAX_TRANSCRIPT_LIMIT};
 #[command(
     name = "anarlog",
     version = crate::VERSION,
-    about = "Access Anarlog from the command line"
+    about = "Access BlackMushi from the command line"
 )]
 pub struct Args {
     #[arg(
@@ -75,7 +75,7 @@ impl Args {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Sign in to an Anarlog account from a browser
+    /// Sign in to a BlackMushi account from a browser
     Auth {
         #[command(subcommand)]
         command: AuthCommand,
@@ -95,7 +95,7 @@ pub enum Command {
         #[command(subcommand)]
         command: ProposalCommand,
     },
-    /// Run the Anarlog MCP server over stdio
+    /// Run the BlackMushi MCP server over stdio
     Mcp,
 }
 
@@ -383,7 +383,7 @@ mod tests {
 
         for path in paths {
             assert!(docs.contains(&path), "CLI docs are missing `{path}`");
-            assert!(skill.contains(&path), "Anarlog skill is missing `{path}`");
+            assert!(skill.contains(&path), "BlackMushi skill is missing `{path}`");
         }
         assert_options_are_documented(&command, docs);
     }

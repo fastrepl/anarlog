@@ -308,7 +308,7 @@ export function AccessEntryRow({
   contactName?: string;
   onMutate: (mutation: AccessMutation) => void;
 }) {
-  const label = contactName || entry.userEmail || t`Anarlog user`;
+  const label = contactName || entry.userEmail || t`BlackMushi user`;
   const capabilityLabels: Record<SessionAccessCapability, string> = {
     viewer: t`Can view`,
     commenter: t`Can comment`,
@@ -324,7 +324,7 @@ export function AccessEntryRow({
           {contactName && entry.userEmail
             ? entry.userEmail
             : entry.entryType === "grant"
-              ? t`Anarlog member`
+              ? t`BlackMushi member`
               : entry.entryType === "invitation"
                 ? t`Invitation pending`
                 : t`Requested ${capabilityLabels[entry.capability].toLowerCase()}`}

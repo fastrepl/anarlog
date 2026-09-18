@@ -13,7 +13,7 @@ import { useConfigValues } from "~/shared/config";
 /**
  * Settings that change what is on screen, exposed as one-click toggles so a
  * build can be checked in both states without leaving the current view. This
- * is the closest thing Anarlog has to Linear's feature-flag tiles.
+ * is the closest thing BlackMushi has to Linear's feature-flag tiles.
  */
 const QUICK_TOGGLES = [
   {

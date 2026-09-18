@@ -3,11 +3,11 @@ date: "2026-09-16"
 summary: "Try in-app team invitations, membership billing, and more reliable transcription."
 ---
 
-## Anarlog Nightly is back
+## BlackMushi Nightly is back
 
-Nightly is a separate app for trying upcoming improvements before they reach stable. It updates more frequently and may be less reliable. Your existing Anarlog installation stays on stable.
+Nightly is a separate app for trying upcoming improvements before they reach stable. It updates more frequently and may be less reliable. Your existing BlackMushi installation stays on stable.
 
-Nightly opens the same local notes as your stable Anarlog, while sign-in and settings stay separate. Quit one app before opening the other. If Nightly updates the database format ahead of stable, stable asks for an update until a release includes that change; keep using Nightly until then.
+Nightly opens the same local notes as your stable BlackMushi, while sign-in and settings stay separate. Quit one app before opening the other. If Nightly updates the database format ahead of stable, stable asks for an update until a release includes that change; keep using Nightly until then.
 
 When trying Nightly with cloud sync, use matching versions on your connected devices. Older builds may not read records written by a newer Nightly.
 

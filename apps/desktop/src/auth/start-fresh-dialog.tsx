@@ -38,8 +38,8 @@ export function StartFreshDialog({
       title={<Trans>Start fresh on this device?</Trans>}
       description={
         <Trans>
-          The notes on this device belong to another Anarlog account. Starting
-          fresh sets them aside as a backup file and restarts Anarlog with an
+          The notes on this device belong to another BlackMushi account. Starting
+          fresh sets them aside as a backup file and restarts BlackMushi with an
           empty workspace for the account you signed in with. Nothing from the
           old notes is uploaded.
         </Trans>

@@ -68,7 +68,7 @@ it("creates a prerecorded demo note with normal meeting metadata", async () => {
 
   const [title, , initial] = mocks.createSession.mock.calls[0];
   const event = JSON.parse(initial.event_json);
-  expect(title).toBe("Welcome to Anarlog");
+  expect(title).toBe("Welcome to BlackMushi");
   expect(event.meeting_link).toBe("https://anarlog.so/onboarding-demo/");
   expect(event.tracking_id).toBe("anarlog-onboarding-demo-v1");
   expect(initial.raw_md).toContain("prerecorded demo meeting");
@@ -77,7 +77,7 @@ it("creates a prerecorded demo note with normal meeting metadata", async () => {
   expect(initial.raw_md).toContain(
     "If transcription and intelligence are configured",
   );
-  expect(initial.raw_md).not.toContain("Anarlog will listen, transcribe");
+  expect(initial.raw_md).not.toContain("BlackMushi will listen, transcribe");
 
   const note = JSON.parse(initial.raw_md);
   expect(note.content).toHaveLength(7);

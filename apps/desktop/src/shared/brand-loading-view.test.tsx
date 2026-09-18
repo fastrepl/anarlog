@@ -6,7 +6,7 @@ import { BrandLoadingView } from "./brand-loading-view";
 describe("BrandLoadingView", () => {
   afterEach(cleanup);
 
-  it("shows the anarlog mark while loading", () => {
+  it("shows the BlackMushi mark while loading", () => {
     render(<BrandLoadingView />);
 
     const status = screen.getByRole("status", { name: "Loading" });

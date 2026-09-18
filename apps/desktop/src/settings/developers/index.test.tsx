@@ -230,7 +230,7 @@ describe("SettingsDevelopers", () => {
         installPath: "/Users/test/.local/bin/anarlog",
         state: "installed",
         details:
-          "Installed at /Users/test/.local/bin/anarlog and managed by Anarlog.",
+          "Installed at /Users/test/.local/bin/anarlog and managed by BlackMushi.",
       },
     });
 
@@ -433,7 +433,7 @@ describe("SettingsDevelopers", () => {
     expect(screen.getByText("REST API")).toBeTruthy();
     expect(mocks.getCloudApiSettings).not.toHaveBeenCalled();
     expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
+      "This requires BlackMushi Pro",
       {
         action: {
           label: "Upgrade",
@@ -540,7 +540,7 @@ describe("SettingsDevelopers", () => {
     expect(mocks.installAgentSkill).not.toHaveBeenCalledWith("cursor");
     await waitFor(() =>
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        "Anarlog skill added to 3 agents",
+        "BlackMushi skill added to 3 agents",
       ),
     );
   });
@@ -595,7 +595,7 @@ describe("SettingsDevelopers", () => {
     );
     await waitFor(() =>
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        "Anarlog skill added to Codex",
+        "BlackMushi skill added to Codex",
       ),
     );
   });

@@ -276,7 +276,7 @@ export function NotificationSettingsView() {
                   description={
                     <Trans>
                       Ask before stopping when a meeting may have ended. When
-                      alerts are off, Anarlog keeps listening.
+                      alerts are off, BlackMushi keeps listening.
                     </Trans>
                   }
                   checked={field.state.value}
@@ -379,7 +379,7 @@ export function NotificationSettingsView() {
                     title={<Trans>Bounce app icon</Trans>}
                     description={
                       <Trans>
-                        Get your attention when Anarlog finishes work in the
+                        Get your attention when BlackMushi finishes work in the
                         background.
                       </Trans>
                     }

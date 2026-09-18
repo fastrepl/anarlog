@@ -41,7 +41,7 @@ impl AnarlogMcpServer {
 impl AnarlogMcpServer {
     #[tool(
         title = "List meetings",
-        description = "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id, then pass next_offset as offset to continue.",
+        description = "List recent BlackMushi meetings with pagination metadata. Use query to narrow by title or meeting id, then pass next_offset as offset to continue.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingPage>(),
         annotations(
             read_only_hint = true,
@@ -62,7 +62,7 @@ impl AnarlogMcpServer {
 
     #[tool(
         title = "Get meeting",
-        description = "Get one Anarlog meeting with its canonical note, summaries, participants, and action items. Use get_meeting_transcript separately for transcript words.",
+        description = "Get one BlackMushi meeting with its canonical note, summaries, participants, and action items. Use get_meeting_transcript separately for transcript words.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::Meeting>(),
         annotations(
             read_only_hint = true,
@@ -83,7 +83,7 @@ impl AnarlogMcpServer {
 
     #[tool(
         title = "Get meeting transcript",
-        description = "Get a bounded page of transcript words and readable text for an Anarlog meeting. Pass pagination.next_offset as offset to continue.",
+        description = "Get a bounded page of transcript words and readable text for a BlackMushi meeting. Pass pagination.next_offset as offset to continue.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::TranscriptPage>(),
         annotations(
             read_only_hint = true,
@@ -125,7 +125,7 @@ impl AnarlogMcpServer {
 
     #[tool(
         title = "Export meeting",
-        description = "Get a complete Anarlog meeting export with notes, summaries, participants, action items, and transcripts.",
+        description = "Get a complete BlackMushi meeting export with notes, summaries, participants, action items, and transcripts.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingExport>(),
         annotations(
             read_only_hint = true,
@@ -146,7 +146,7 @@ impl AnarlogMcpServer {
 
     #[tool(
         title = "Propose summary edit",
-        description = "Propose a complete summary replacement. The proposal stays pending until a human applies it in the Anarlog desktop app. Specify target_id when the meeting has multiple summaries.",
+        description = "Propose a complete summary replacement. The proposal stays pending until a human applies it in the BlackMushi desktop app. Specify target_id when the meeting has multiple summaries.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::Proposal>(),
         annotations(
             read_only_hint = false,
@@ -176,7 +176,7 @@ impl AnarlogMcpServer {
 
     #[tool(
         title = "Propose memo edit",
-        description = "Propose a complete memo replacement. The proposal stays pending until a human applies it in the Anarlog desktop app.",
+        description = "Propose a complete memo replacement. The proposal stays pending until a human applies it in the BlackMushi desktop app.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::Proposal>(),
         annotations(
             read_only_hint = false,
@@ -206,7 +206,7 @@ impl AnarlogMcpServer {
 
     #[tool(
         title = "List proposals",
-        description = "List staged Anarlog meeting proposals. Defaults to pending proposals. Pass status all to include applied and declined rows, and next_offset as offset to continue.",
+        description = "List staged BlackMushi meeting proposals. Defaults to pending proposals. Pass status all to include applied and declined rows, and next_offset as offset to continue.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::ProposalPage>(),
         annotations(
             read_only_hint = true,
@@ -227,7 +227,7 @@ impl AnarlogMcpServer {
 
     #[tool(
         title = "Get proposal",
-        description = "Get one staged Anarlog proposal, including its unified diff. The proposal is not applied.",
+        description = "Get one staged BlackMushi proposal, including its unified diff. The proposal is not applied.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::Proposal>(),
         annotations(
             read_only_hint = true,
@@ -295,7 +295,7 @@ impl ServerHandler for AnarlogMcpServer {
         .with_protocol_version(ProtocolVersion::V_2026_07_28)
         .with_server_info(Implementation::new("anarlog", crate::VERSION))
         .with_instructions(
-            "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Use export_meeting only when the task needs the complete record including transcripts. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
+            "Local access to BlackMushi meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Use export_meeting only when the task needs the complete record including transcripts. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
         )
     }
 
@@ -335,7 +335,7 @@ impl ServerHandler for AnarlogMcpServer {
                     meeting.title
                 };
                 Resource::new(format!("anarlog://meetings/{}", meeting.id), name)
-                    .with_description("Anarlog meeting context")
+                    .with_description("BlackMushi meeting context")
                     .with_mime_type("text/markdown")
             })
             .collect();
@@ -351,16 +351,16 @@ impl ServerHandler for AnarlogMcpServer {
         _context: RequestContext<RoleServer>,
     ) -> std::result::Result<ListResourceTemplatesResult, McpError> {
         Ok(ListResourceTemplatesResult::with_all_items(vec![
-            ResourceTemplate::new("anarlog://meetings/{meeting_id}", "Anarlog meeting")
+            ResourceTemplate::new("anarlog://meetings/{meeting_id}", "BlackMushi meeting")
                 .with_description("Meeting metadata, note, summaries, people, and action items")
                 .with_mime_type("text/markdown"),
             ResourceTemplate::new(
                 "anarlog://meetings/{meeting_id}/transcript{?offset,limit}",
-                "Anarlog meeting transcript",
+                "BlackMushi meeting transcript",
             )
             .with_description("A bounded page of meeting transcript text")
             .with_mime_type("text/plain"),
-            ResourceTemplate::new("anarlog://series/{series_id}", "Anarlog meeting series")
+            ResourceTemplate::new("anarlog://series/{series_id}", "BlackMushi meeting series")
                 .with_description("Recurring meeting history")
                 .with_mime_type("text/markdown"),
         ]))
@@ -450,7 +450,7 @@ pub async fn serve(db: Arc<anlg_db_core::Db>) -> crate::Result<()> {
 
 fn parse_resource_uri(uri: &str) -> std::result::Result<ResourceRequest, McpError> {
     let url = url::Url::parse(uri)
-        .map_err(|_| McpError::invalid_params("invalid Anarlog resource URI", None))?;
+        .map_err(|_| McpError::invalid_params("invalid BlackMushi resource URI", None))?;
     if url.scheme() != "anarlog" {
         return Err(McpError::invalid_params(
             "resource URI must use the anarlog scheme",
@@ -501,7 +501,7 @@ fn parse_resource_uri(uri: &str) -> std::result::Result<ResourceRequest, McpErro
             series_id: (*series_id).to_string(),
         }),
         _ => Err(McpError::invalid_params(
-            "unsupported Anarlog resource URI",
+            "unsupported BlackMushi resource URI",
             None,
         )),
     }
@@ -654,7 +654,7 @@ mod tests {
             );
             assert!(
                 mcp_skill.contains(tool_name),
-                "Anarlog skill is missing `{tool_name}`"
+                "BlackMushi skill is missing `{tool_name}`"
             );
         }
         for tool in tools {
@@ -702,17 +702,17 @@ mod tests {
             template_contract,
             [
                 (
-                    "Anarlog meeting".to_string(),
+                    "BlackMushi meeting".to_string(),
                     "anarlog://meetings/{meeting_id}".to_string(),
                     None,
                 ),
                 (
-                    "Anarlog meeting transcript".to_string(),
+                    "BlackMushi meeting transcript".to_string(),
                     "anarlog://meetings/{meeting_id}/transcript{?offset,limit}".to_string(),
                     None,
                 ),
                 (
-                    "Anarlog meeting series".to_string(),
+                    "BlackMushi meeting series".to_string(),
                     "anarlog://series/{series_id}".to_string(),
                     None,
                 ),
@@ -720,7 +720,7 @@ mod tests {
         );
         for (_, uri, _) in &template_contract {
             assert!(mcp_docs.contains(uri), "MCP docs are missing `{uri}`");
-            assert!(mcp_skill.contains(uri), "Anarlog skill is missing `{uri}`");
+            assert!(mcp_skill.contains(uri), "BlackMushi skill is missing `{uri}`");
         }
         assert_eq!(resources.len(), 1);
         assert_eq!(resources[0].name, "Planning");
