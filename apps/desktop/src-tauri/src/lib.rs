@@ -181,52 +181,7 @@ pub fn main() {
             )
         });
 
-    let sentry_client = {
-        let dsn = if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
-            None
-        } else {
-            option_env!("SENTRY_DSN")
-        };
-
-        if let Some(dsn) = dsn {
-            let release =
-                option_env!("APP_VERSION").map(|v| format!("anarlog-desktop@{}", v).into());
-
-            let client = sentry::init((
-                dsn,
-                sentry::ClientOptions {
-                    release,
-                    traces_sample_rate: 1.0,
-                    auto_session_tracking: false,
-                    before_send: Some(Arc::new(|event| {
-                        CRASH_REPORTING_ENABLED
-                            .load(Ordering::SeqCst)
-                            .then(|| tauri_plugin_tracing::redaction::sanitize_sentry_event(event))
-                            .flatten()
-                    })),
-                    before_breadcrumb: Some(Arc::new(|breadcrumb| {
-                        CRASH_REPORTING_ENABLED
-                            .load(Ordering::SeqCst)
-                            .then_some(breadcrumb)
-                    })),
-                    ..Default::default()
-                },
-            ));
-
-            sentry::configure_scope(|scope| {
-                scope.set_tag("service.namespace", "anarlog");
-                scope.set_tag("service.name", "desktop");
-                scope.set_tag(
-                    "release_channel",
-                    option_env!("RELEASE_CHANNEL").unwrap_or("dev"),
-                );
-            });
-
-            Some(client)
-        } else {
-            None
-        }
-    };
+    // [fork] Sentry retiré : plus de client, plus de rapport de crash.
     let crash_reporting_state = CrashReportingState::new(crash_reporting_enabled);
 
     let audio: std::sync::Arc<dyn anlg_audio_actual::AudioProvider> =
@@ -279,8 +234,7 @@ pub fn main() {
         .plugin(tauri_plugin_db::init_with_cloudsync(
             db.clone(),
             cloudsync_config,
-        ))
-        .plugin(tauri_plugin_bedrock::init());
+        ));
 
     builder = builder
         .plugin(tauri_plugin_importer::init())
@@ -302,6 +256,11 @@ pub fn main() {
     #[cfg(not(feature = "app-store"))]
     {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    #[cfg(not(feature = "app-store"))]
+    {
+        builder = builder.plugin(tauri_plugin_updater2::init());
     }
 
     builder = builder
@@ -328,11 +287,6 @@ pub fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_store2::init());
-
-    #[cfg(not(feature = "app-store"))]
-    {
-        builder = builder.plugin(tauri_plugin_updater2::init());
-    }
 
     builder = builder
         .plugin(tauri_plugin_tray::init(!cfg!(feature = "app-store")))
@@ -366,10 +320,6 @@ pub fn main() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--background"]),
         ));
-    }
-
-    if let Some(client) = sentry_client.as_ref() {
-        builder = builder.plugin(tauri_plugin_sentry::init_with_no_injection(client));
     }
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
