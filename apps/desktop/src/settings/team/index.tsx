@@ -90,6 +90,7 @@ import {
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { usePersonalContact } from "~/contacts/queries";
 import {
   cancelScheduledCapture,
   listScheduledCaptures,
@@ -1812,13 +1813,17 @@ function MemberRow({
     <tr>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <Avatar
-            seed={member.userId}
-            label={member.name || member.email}
-            imageUrl={member.avatarUrl}
-            size={32}
-            className="rounded-full"
-          />
+          {isViewer ? (
+            <PersonalMemberAvatar member={member} />
+          ) : (
+            <Avatar
+              seed={member.userId}
+              label={member.name || member.email}
+              imageUrl={member.avatarUrl}
+              size={32}
+              className="rounded-full"
+            />
+          )}
           <div className="min-w-0">
             <p className="font-medium whitespace-nowrap">
               {member.name || "—"}
@@ -1916,5 +1921,18 @@ function TeamSkeleton() {
         <div key={row} className="bg-muted h-11 animate-pulse rounded-lg" />
       ))}
     </div>
+  );
+}
+
+function PersonalMemberAvatar({ member }: { member: WorkspaceMember }) {
+  const { data: contact } = usePersonalContact(member.userId);
+  return (
+    <Avatar
+      seed={member.userId}
+      label={member.name || member.email}
+      imageUrl={contact ? contact.avatarDataUrl : member.avatarUrl}
+      size={32}
+      className="rounded-full"
+    />
   );
 }

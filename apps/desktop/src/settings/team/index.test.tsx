@@ -11,6 +11,12 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  personalContact: null as null | {
+    name: string;
+    email: string;
+    avatarDataUrl: string | null;
+  },
+  personalContactQuery: vi.fn(),
   billingCheckout: {
     buildWebAppUrl: vi.fn(() => Promise.resolve("https://anarlog.so/team")),
     openUrl: vi.fn(() => Promise.resolve()),
@@ -228,6 +234,13 @@ vi.mock("./client", () => ({
 
 import { SettingsTeam } from "./index";
 
+vi.mock("~/contacts/queries", () => ({
+  usePersonalContact: (id: string) => {
+    mocks.personalContactQuery(id);
+    return { data: mocks.personalContact };
+  },
+}));
+
 function renderTeam() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -235,6 +248,7 @@ function renderTeam() {
   const invalidate = vi.spyOn(queryClient, "invalidateQueries");
 
   return {
+    queryClient,
     invalidate,
     ...render(
       <QueryClientProvider client={queryClient}>
@@ -250,6 +264,8 @@ function openWorkspace(name: string) {
 
 describe("SettingsTeam", () => {
   beforeEach(() => {
+    mocks.personalContact = null;
+    mocks.personalContactQuery.mockClear();
     mocks.session = { user: { id: "user-1" } };
     mocks.workspaces.data = [];
     mocks.myInvitations.data = [];
@@ -853,6 +869,68 @@ describe("SettingsTeam", () => {
     expect(await screen.findByText("Require SSO")).toBeTruthy();
     expect(screen.getByText("Retention (days)")).toBeTruthy();
     expect(screen.getByText("SCIM bearer token")).toBeTruthy();
+  });
+
+  it("uses the personal photo only for the viewer and reacts to changes and removal", async () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "ws",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+    mocks.client.members = [
+      {
+        userId: "user-1",
+        email: "owner@example.com",
+        name: "Owner",
+        avatarUrl: "https://example.com/old.png",
+        role: "owner",
+      },
+      {
+        userId: "user-2",
+        email: "member@example.com",
+        name: "Member",
+        avatarUrl: "https://example.com/member.png",
+        role: "member",
+      },
+    ];
+    mocks.personalContact = {
+      name: "Local name",
+      email: "local@example.com",
+      avatarDataUrl: "data:image/jpeg;base64,custom",
+    };
+    const view = renderTeam();
+    const table = await screen.findByRole("table", { name: "Members" });
+    const owner = within(table)
+      .getByText("Owner", { selector: "p" })
+      .closest("tr")!;
+    const member = within(table)
+      .getByText("Member", { selector: "p" })
+      .closest("tr")!;
+    expect(owner.querySelector("img")?.getAttribute("src")).toBe(
+      "data:image/jpeg;base64,custom",
+    );
+    expect(member.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/member.png",
+    );
+    expect(
+      mocks.personalContactQuery.mock.calls.every(([id]) => id === "user-1"),
+    ).toBe(true);
+    mocks.personalContact.avatarDataUrl = null;
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        <SettingsTeam />
+      </QueryClientProvider>,
+    );
+    const updatedTable = await screen.findByRole("table", { name: "Members" });
+    const updatedOwner = within(updatedTable)
+      .getByText("Owner", { selector: "p" })
+      .closest("tr")!;
+    expect(
+      updatedOwner.querySelector('img[src="https://example.com/old.png"]'),
+    ).toBeNull();
   });
 
   it("shows profile details in the roster and keeps owner controls hidden", async () => {
