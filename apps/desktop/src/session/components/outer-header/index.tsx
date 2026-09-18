@@ -24,7 +24,6 @@ import {
   buildWelcomeNoteDemoUrl,
   WELCOME_NOTE_TRACKING_ID,
 } from "~/onboarding/welcome-note.constants";
-import { SessionShareButton } from "~/session-sharing";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import { useMeetingMicInUse } from "~/session/hooks/useMeetingMicInUse";
 import {
@@ -111,11 +110,7 @@ export function OuterHeader({
         className="relative z-10 flex shrink-0 items-center pr-1"
       >
         {!showTitleInput && <FolderPicker sessionId={sessionId} align="end" />}
-        <HeaderMeetingControl
-          sessionId={sessionId}
-          sessionMode={sessionMode}
-          meetingOver={meetingOver}
-        />
+        <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
         <OverflowButton
           standaloneWindow={standaloneWindow}
           sessionId={sessionId}
@@ -129,11 +124,9 @@ export function OuterHeader({
 function HeaderMeetingControl({
   sessionId,
   sessionMode,
-  meetingOver,
 }: {
   sessionId: string;
   sessionMode: string;
-  meetingOver: boolean;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
@@ -145,18 +138,6 @@ function HeaderMeetingControl({
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
   if (sessionMode === "finalizing" || sessionMode === "running_batch") {
     return null;
-  }
-
-  if (meetingOver) {
-    return (
-      <div className="relative mr-1 ml-1 flex min-w-0 shrink-0 items-center">
-        <SessionShareButton
-          key={sessionId}
-          sessionId={sessionId}
-          variant="cta"
-        />
-      </div>
-    );
   }
 
   return (

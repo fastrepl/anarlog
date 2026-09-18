@@ -2,7 +2,6 @@ import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 
 import { isSessionEmpty, softDeleteSession } from "~/session/queries";
-import { purgeSharedNotePreview } from "~/shared-notes/preview";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import {
   restorePinnedTabsToStore,
@@ -88,18 +87,11 @@ export function createSessionTabCloseHandler({
   };
 }
 
-export function createDesktopTabCloseHandler({
-  purgePreview = purgeSharedNotePreview,
-  ...sessionOptions
-}: SessionTabCloseHandlerOptions & {
-  purgePreview?: (viewId: string) => void;
-}) {
+export function createDesktopTabCloseHandler(
+  sessionOptions: SessionTabCloseHandlerOptions,
+) {
   const closeSession = createSessionTabCloseHandler(sessionOptions);
   return (tab: Tab) => {
-    if (tab.type === "shared_note_preview") {
-      purgePreview(tab.id);
-      return;
-    }
     closeSession(tab);
   };
 }

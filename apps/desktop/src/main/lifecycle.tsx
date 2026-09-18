@@ -2,7 +2,6 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
-import { AttachmentTransferLifecycle } from "~/attachment-sync/lifecycle";
 import { useAuth } from "~/auth";
 import { CloudsyncKeychainRepairToast } from "~/auth/cloudsync-keychain-repair";
 import { searchCalendarEvents } from "~/calendar/queries";
@@ -15,10 +14,6 @@ import { DictationLifecycle } from "~/dictation/lifecycle";
 import { takePendingWelcomeSession } from "~/onboarding/welcome-note";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
-import { OwnedSharedNotePublisher } from "~/session-sharing/sync";
-import { SharedAttachmentCacheLifecycle } from "~/shared-notes/attachment-cache-lifecycle";
-import { SharedNotePreviewAuthLifecycle } from "~/shared-notes/preview";
-import { DurableSharedNoteCacheSync } from "~/shared-notes/sync";
 import { useConfigValue } from "~/shared/config";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
 import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
@@ -51,13 +46,8 @@ export function useClassicMainLifecycle() {
 export function ClassicMainServices() {
   return (
     <>
-      <AttachmentTransferLifecycle />
       <CloudsyncKeychainRepairToast />
       <CloudApiBackfillLifecycle />
-      <DurableSharedNoteCacheSync />
-      <SharedAttachmentCacheLifecycle />
-      <OwnedSharedNotePublisher />
-      <SharedNotePreviewAuthLifecycle />
       <LiveCaptureRecovery />
       <ScheduledMeetingAutoStart />
       <MainListenerControlBridge />
@@ -78,8 +68,8 @@ function ToolRegistration() {
 
   const { getSessionId, getEnhancedNoteId } = useSessionTab();
   const getFolderFilter = useCallback(() => {
-    const { noteFilter, folderFilter } = useSidebarNotes.getState();
-    return folderIdForNewNote(noteFilter, folderFilter) ?? null;
+    const { folderFilter } = useSidebarNotes.getState();
+    return folderIdForNewNote(folderFilter) ?? null;
   }, []);
   const getAuthHeaders = useCallback(() => auth?.getHeaders(), [auth]);
   const openEditTab = useCallback((requestId: string) => {

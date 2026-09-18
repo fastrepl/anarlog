@@ -6,19 +6,10 @@ import { useCallback, useEffect } from "react";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
-import { supabase } from "~/auth/client";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { deleteCloudApiSnapshotBestEffort } from "~/cloud-api/client";
-import {
-  deleteSessionShareBySession,
-  ShareManagementError,
-} from "~/session-sharing/client";
 import { trackPendingSoftDelete } from "~/session/pending-soft-deletes";
 import { finalizeSessionDeletion, softDeleteSession } from "~/session/queries";
-import {
-  loadManagedSharedNoteForSession,
-  removeDurableSharedNoteCache,
-} from "~/shared-notes/cache";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import {
@@ -45,75 +36,6 @@ async function closeSessionNoteWindows(sessionId: string) {
   } catch {
     // Closing note windows should not block the deletion path.
   }
-}
-
-// Share revocation runs after the local deletion is finalized and must never
-// block or fail it — local deletes have to work offline. Auth is read from
-// the module-level client because this can run in windows (or the AppRoot
-// listener) mounted outside AuthProvider.
-async function revokeManagedShare(sessionId: string) {
-  if (!supabase) return;
-  const { data } = await supabase.auth.getSession();
-  const session = data.session;
-  if (!session || session.user.is_anonymous === true) return;
-  const context = { session, supabase };
-
-  // A failed lookup is not the same as "no share": without a warning a
-  // shared link could stay live after delete with no user signal. Retry
-  // once (the flush can rethrow an unrelated transient write failure),
-  // then surface it.
-  const lookupShare = () =>
-    loadManagedSharedNoteForSession(session.user.id, sessionId);
-  const managedShare = await lookupShare()
-    .catch(lookupShare)
-    .catch((error: unknown) => {
-      console.error("[delete-session] failed to look up managed share", error);
-      sonnerToast.warning(
-        "Note deleted, but its shared link could not be verified as removed.",
-        { id: "shared-link-removal-unverified", duration: Infinity },
-      );
-      return null;
-    });
-  if (!managedShare) return;
-
-  try {
-    const deletedShare = await deleteSessionShareBySession(context, {
-      workspaceId: managedShare.workspaceId,
-      sessionId: managedShare.sessionId,
-    });
-    if (
-      deletedShare.shareId !== null &&
-      deletedShare.shareId !== managedShare.shareId
-    ) {
-      throw new ShareManagementError();
-    }
-  } catch (error) {
-    // Share RPC failures can carry tokens in their messages; log the name only.
-    console.error(
-      "[delete-session] failed to revoke shared link",
-      error instanceof Error ? error.name : typeof error,
-    );
-    sonnerToast.warning(
-      "Note deleted, but its shared link could not be removed.",
-      { id: "shared-link-removal-failed", duration: Infinity },
-    );
-    return;
-  }
-
-  try {
-    await removeDurableSharedNoteCache(session.user.id, managedShare.shareId);
-  } catch {
-    console.error("[delete-session] failed to clear shared-note cache");
-  }
-}
-
-function revokeManagedShareBestEffort(sessionId: string): Promise<void> {
-  return revokeManagedShare(sessionId).catch((error: unknown) => {
-    console.error(
-      "[delete-session] failed to revoke shared link",
-      error instanceof Error ? error.name : typeof error,
-    );
-  });
 }
 
 function isSessionDeletedForUndoPayload(
@@ -148,7 +70,7 @@ export function useDeleteSession() {
       const { trackingId, batchId, title } = options ?? {};
       // A repeat delete would replace the pending tombstone and its finalize
       // callback, then no-op in softDeleteSession and clear the undo toast —
-      // leaving the note soft-deleted with no undo and no share cleanup.
+      // leaving the note soft-deleted with no undo and no cleanup.
       if (useUndoDelete.getState().pendingDeletions[sessionId]) {
         return;
       }
@@ -186,14 +108,12 @@ export function useDeleteSession() {
 
       if (isMainWindow) {
         // Finalize gates on the commit so a failed or no-op delete never
-        // removes the session folder or revokes the shared link. It returns
-        // its promise so app exit can await the share revocation.
+        // removes the session folder.
         const finalize = () =>
           commit
             .then(async (deletedData) => {
               if (!deletedData) return;
               await finalizeSessionDeletion(sessionId);
-              await revokeManagedShareBestEffort(sessionId);
               deleteCloudApiSnapshotBestEffort(sessionId);
             })
             .catch(() => undefined);
@@ -240,10 +160,8 @@ export function useDeleteSession() {
             sonnerToast.error(t`Could not delete this note. Please try again.`);
           } else {
             // The delete committed but main never learned about it, so its
-            // finalize-time cleanup will not run. Finalize here — losing the
-            // undo window beats leaving the shared link live forever.
+            // finalize-time cleanup will not run. Finalize here.
             void finalizeSessionDeletion(sessionId);
-            void revokeManagedShareBestEffort(sessionId);
             deleteCloudApiSnapshotBestEffort(sessionId);
           }
         } finally {
@@ -284,7 +202,6 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
       invalidateResource("sessions", payload.sessionId);
       addDeletion(payload.data, async () => {
         await finalizeSessionDeletion(payload.sessionId);
-        await revokeManagedShareBestEffort(payload.sessionId);
         deleteCloudApiSnapshotBestEffort(payload.sessionId);
       });
       void closeSessionNoteWindows(payload.sessionId);

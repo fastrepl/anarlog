@@ -62,7 +62,7 @@ describe("automation workflows", () => {
 
   it("treats a workflow as ready only when every action is configured", () => {
     const workflow = createEmptyWorkflow({
-      steps: [createWorkflowStep("slack_recap")],
+      steps: [createWorkflowStep("notion_update")],
     });
 
     expect(isWorkflowReady(workflow)).toBe(false);
@@ -70,7 +70,7 @@ describe("automation workflows", () => {
     workflow.steps = [
       {
         id: "step-1",
-        type: "slack_recap",
+        type: "notion_update",
         target: { id: "C1", name: "general" },
       },
     ];

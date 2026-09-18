@@ -12,7 +12,6 @@ import { createClient } from "@anlg/api-client/client";
 import {
   CircleNotch,
   FolderOpen,
-  LockSimple,
   MagnifyingGlass,
 } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -35,13 +34,11 @@ import {
   parseAutomationTargetRef,
 } from "~/automations/engine";
 import { env } from "~/env";
-import { listSlackChannels } from "~/session-sharing/delivery-client";
 import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
 import { type SettingKey } from "~/settings/schema";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
 type TargetSettingKey =
-  | "automation_slack_recap_channel"
   | "automation_linear_issues_team"
   | "automation_notion_update_page";
 
@@ -225,102 +222,6 @@ export function MarkdownExportConfig({
         <Trans>Choose folder</Trans>
       </Button>
     </ConfigRow>
-  );
-}
-
-export function SlackRecapConfig({
-  value,
-  onChange,
-}: {
-  value?: AutomationTargetRef | null;
-  onChange?: (target: AutomationTargetRef) => void;
-} = {}) {
-  const selected =
-    value !== undefined
-      ? value
-      : parseAutomationTargetRef(
-          useStoredSettingValue("automation_slack_recap_channel").value,
-        );
-
-  return (
-    <ConfigRow
-      title={<Trans>Slack channel</Trans>}
-      value={
-        selected ? `#${selected.name}` : <Trans>No channel selected yet.</Trans>
-      }
-    >
-      <IntegrationGate
-        integrationId="slack"
-        connectLabel={<Trans>Connect Slack</Trans>}
-        reconnectLabel={<Trans>Reconnect Slack</Trans>}
-      >
-        {() => <SlackChannelSelect selected={selected} onChange={onChange} />}
-      </IntegrationGate>
-    </ConfigRow>
-  );
-}
-
-function SlackChannelSelect({
-  selected,
-  onChange,
-}: {
-  selected: AutomationTargetRef | null;
-  onChange?: (target: AutomationTargetRef) => void;
-}) {
-  const { t } = useLingui();
-  const auth = useAuth();
-  const saveTarget = useSaveTarget("automation_slack_recap_channel");
-  const applyTarget = (target: AutomationTargetRef) => {
-    if (onChange) {
-      onChange(target);
-      return;
-    }
-    saveTarget.mutate(target);
-  };
-  const channels = useQuery({
-    queryKey: ["automation-slack-channels", auth.session?.user.id],
-    enabled: Boolean(auth.session?.access_token),
-    queryFn: ({ signal }) =>
-      listSlackChannels({
-        apiBaseUrl: env.VITE_API_URL,
-        accessToken: auth.session?.access_token ?? "",
-        signal,
-      }),
-  });
-
-  return (
-    <Select
-      value={selected?.id ?? ""}
-      onValueChange={(id) => {
-        const channel = channels.data?.find((entry) => entry.id === id);
-        if (channel) {
-          applyTarget({ id: channel.id, name: channel.name });
-        }
-      }}
-      disabled={channels.isLoading || (!onChange && saveTarget.isPending)}
-    >
-      <SelectTrigger className="h-8 w-52 text-xs">
-        <SelectValue
-          placeholder={
-            channels.isLoading ? t`Loading channels…` : t`Choose a channel`
-          }
-        />
-      </SelectTrigger>
-      <SelectContent>
-        {channels.data?.map((channel) => (
-          <SelectItem key={channel.id} value={channel.id}>
-            <span className="flex items-center gap-1.5">
-              {channel.isPrivate ? (
-                <LockSimple className="size-3" aria-hidden="true" />
-              ) : (
-                <span aria-hidden="true">#</span>
-              )}
-              {channel.name}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }
 

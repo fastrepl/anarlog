@@ -1,8 +1,8 @@
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { liveQueryClient } from "~/db";
-import { flushCanonicalSessionEditorChanges } from "~/session-sharing/editor-activity";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
+import { flushSessionEditorChanges } from "~/session/editor-registry";
 import { isSessionEmpty } from "~/session/queries";
 
 export async function discardEmptyAutomaticCapture({
@@ -33,11 +33,11 @@ export async function discardEmptyAutomaticCapture({
     return false;
   }
   try {
-    await flushCanonicalSessionEditorChanges(sessionId);
+    await flushSessionEditorChanges(sessionId);
     return await enqueueSessionAudioOperation(sessionId, async () => {
       const speech = await fsSyncCommands.audioHasSpeech(sessionId);
       if (speech.status !== "ok" || speech.data) return false;
-      await flushCanonicalSessionEditorChanges(sessionId);
+      await flushSessionEditorChanges(sessionId);
       const [session] = await liveQueryClient.execute<{
         title: string;
         has_attachments: boolean | number;

@@ -195,7 +195,7 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
-import { ManagedSharedSessionIdsContext, TimelineItemComponent } from "./item";
+import { TimelineItemComponent } from "./item";
 
 import { resetSidebarNotes, useSidebarNotes } from "~/sidebar/note-filter";
 
@@ -650,66 +650,6 @@ describe("TimelineItemComponent", () => {
 
     expect(rowButton?.className).not.toContain("pr-10");
     expect(spinner.parentElement?.lastElementChild).toBe(spinner);
-  });
-
-  it("replaces the shared icon with the spinner while a shared note regenerates", () => {
-    mocks.isEnhancing = true;
-    mocks.storeTitle = "Shared plan";
-
-    render(
-      <ManagedSharedSessionIdsContext.Provider
-        value={new Set(["session-shared"])}
-      >
-        <TimelineItemComponent
-          item={{
-            type: "session",
-            id: "session-shared",
-            data: {
-              title: "Shared plan",
-              created_at: "2024-01-15T10:30:00.000Z",
-            },
-          }}
-          precision="time"
-          selected={false}
-          timezone="UTC"
-          multiSelected={false}
-          flatItemKeys={["session-session-shared"]}
-        />
-      </ManagedSharedSessionIdsContext.Provider>,
-    );
-
-    const spinner = screen.getByTestId("spinner");
-
-    expect(screen.queryByLabelText("Shared note")).toBeNull();
-    expect(spinner.parentElement?.lastElementChild).toBe(spinner);
-  });
-
-  it("marks a locally owned shared note with a people icon", () => {
-    render(
-      <ManagedSharedSessionIdsContext.Provider
-        value={new Set(["session-shared"])}
-      >
-        <TimelineItemComponent
-          item={{
-            type: "session",
-            id: "session-shared",
-            data: {
-              title: "Shared plan",
-              created_at: "2024-01-15T10:30:00.000Z",
-            },
-          }}
-          precision="time"
-          selected={false}
-          timezone="UTC"
-          multiSelected={false}
-          flatItemKeys={["session-session-shared"]}
-        />
-      </ManagedSharedSessionIdsContext.Provider>,
-    );
-
-    const sharedIcon = screen.getByLabelText("Shared note");
-
-    expect(sharedIcon.parentElement?.lastElementChild).toBe(sharedIcon);
   });
 
   it("preloads a session before opening it in the current tab", async () => {

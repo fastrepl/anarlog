@@ -21,11 +21,11 @@ import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
 import { Transcript } from "./transcript";
 
-import {
-  registerCanonicalSessionEditor,
-  unregisterCanonicalSessionEditor,
-} from "~/session-sharing/editor-activity";
 import { useCurrentNoteTab } from "~/session/components/shared";
+import {
+  registerSessionEditor,
+  unregisterSessionEditor,
+} from "~/session/editor-registry";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
 import type { SessionMode } from "~/store/zustand/listener/general";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -318,17 +318,17 @@ const NoteInputContent = forwardRef<
 
     const handleSessionViewReady = useCallback(
       (view: EditorView) =>
-        registerCanonicalSessionEditor(sessionId, view, () => {
+        registerSessionEditor(sessionId, view, () => {
           const editor = internalEditorRef.current;
           if (!editor || editor.view !== view) {
-            throw new Error("Canonical session editor changed");
+            throw new Error("Session editor changed");
           }
           editor.flushPendingChanges();
         }),
       [sessionId],
     );
     const handleSessionViewDisposed = useCallback(
-      (view: EditorView) => unregisterCanonicalSessionEditor(sessionId, view),
+      (view: EditorView) => unregisterSessionEditor(sessionId, view),
       [sessionId],
     );
 

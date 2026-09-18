@@ -24,34 +24,6 @@ describe("navigation", () => {
     expect(state).toHaveCurrentTab({ id: tab2.id });
   });
 
-  test("ephemeral shared-note previews never enter navigation history", () => {
-    useTabs.getState().openNew({
-      type: "shared_note_preview",
-      id: "13697a87-f69b-456d-8679-4202d4f5d498",
-    });
-
-    expect(useTabs.getState().history.size).toBe(0);
-    expect(useTabs.getState().canGoBack).toBe(false);
-    expect(useTabs.getState().canGoNext).toBe(false);
-  });
-
-  test("revocation invalidates a shared-note tab", () => {
-    const personal = createSessionTab();
-    useTabs.getState().openNew(personal);
-    useTabs.getState().openCurrent({
-      type: "shared_sessions",
-      id: "share-1",
-    });
-
-    useTabs.getState().invalidateResource("shared_sessions", "share-1");
-
-    const state = useTabs.getState();
-    expect(state.tabs).toHaveLength(1);
-    expect(state).toHaveCurrentTab({ id: personal.id, active: true });
-    expect(state.currentTab?.slotId).toBe(state.tabs[0]?.slotId);
-    expect(state.tabs.filter((tab) => tab.active)).toHaveLength(1);
-  });
-
   test("openCurrent adds to current slot's history", () => {
     const tab1 = createSessionTab();
     const tab2 = createSessionTab();

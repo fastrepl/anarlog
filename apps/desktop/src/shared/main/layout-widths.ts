@@ -5,12 +5,7 @@ export const AUTOMATIONS_SURFACE_MIN_WIDTH_PX = 600;
 export const SETTINGS_SURFACE_MIN_WIDTH_PX = 700;
 
 export function usesNoteSurfaceMinWidth(tab: Pick<Tab, "type"> | null) {
-  return (
-    tab?.type === "sessions" ||
-    tab?.type === "shared_sessions" ||
-    tab?.type === "shared_note_preview" ||
-    tab?.type === "empty"
-  );
+  return tab?.type === "sessions" || tab?.type === "empty";
 }
 
 export function getMainContentMinWidth(tab: Pick<Tab, "type"> | null) {

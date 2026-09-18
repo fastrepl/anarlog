@@ -7,7 +7,6 @@ const WORKFLOW_TRIGGERS = ["note_enhanced", "meeting_completed"] as const;
 export type WorkflowTrigger = (typeof WORKFLOW_TRIGGERS)[number];
 
 const WORKFLOW_STEP_TYPES = [
-  "slack_recap",
   "notion_update",
   "linear_issues",
   "markdown_export",
@@ -17,7 +16,7 @@ export type WorkflowStepType = (typeof WORKFLOW_STEP_TYPES)[number];
 export type WorkflowStep =
   | {
       id: string;
-      type: "slack_recap" | "notion_update" | "linear_issues";
+      type: "notion_update" | "linear_issues";
       target: AutomationTargetRef | null;
     }
   | {
@@ -156,11 +155,7 @@ function parseStep(value: unknown): WorkflowStep | null {
       directory: typeof value.directory === "string" ? value.directory : "",
     };
   }
-  if (
-    value.type === "slack_recap" ||
-    value.type === "notion_update" ||
-    value.type === "linear_issues"
-  ) {
+  if (value.type === "notion_update" || value.type === "linear_issues") {
     return {
       id: value.id,
       type: value.type,

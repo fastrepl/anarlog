@@ -26,10 +26,6 @@ import { getTemplateCopyTitle, type UserTemplate } from "./queries";
 import { TemplateIconGlyph } from "./template-icon";
 import { AUTO_TEMPLATE_ID, useTemplateTab } from "./utils";
 
-import {
-  parseSharedTemplatePayload,
-  SharedResourceLibrarySection,
-} from "~/resource-sharing";
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
@@ -525,16 +521,6 @@ export function TemplatesSidebarContent({
                 </div>
               </div>
             )}
-            <SharedResourceLibrarySection
-              resourceType="template"
-              search={search}
-              onImport={async (resource) => {
-                const id = await createTemplate(
-                  parseSharedTemplatePayload(resource.payload),
-                );
-                if (id) setSelectedMineId(id);
-              }}
-            />
           </>
         )}
       </div>

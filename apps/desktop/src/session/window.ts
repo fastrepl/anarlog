@@ -1,23 +1,10 @@
 import { commands as windowsCommands } from "@anlg/plugin-windows";
 
-import {
-  beginCanonicalSessionEditorActivation,
-  waitForCanonicalSessionImportUnlock,
-} from "~/session-sharing/editor-activity";
-
 export async function openStandaloneNoteWindow(sessionId: string) {
-  let finishActivation = beginCanonicalSessionEditorActivation(sessionId);
-  while (!finishActivation) {
-    await waitForCanonicalSessionImportUnlock(sessionId);
-    finishActivation = beginCanonicalSessionEditorActivation(sessionId);
-  }
-
-  const result = await windowsCommands
-    .windowShow({
-      type: "note",
-      value: sessionId,
-    })
-    .finally(finishActivation);
+  const result = await windowsCommands.windowShow({
+    type: "note",
+    value: sessionId,
+  });
 
   if (result.status === "error") {
     console.error("Failed to open note window:", result.error);

@@ -18,8 +18,6 @@ const hoisted = vi.hoisted(() => ({
   showWindow: vi.fn(),
   unminimizeWindow: vi.fn(),
   focusWindow: vi.fn(),
-  startCommentDraft: vi.fn(),
-  commentDraft: null as Record<string, unknown> | null,
   noteEditorProps: [] as Record<string, unknown>[],
 }));
 
@@ -89,19 +87,6 @@ vi.mock("~/stt/useUploadFile", () => ({
   useUploadFile: () => ({ processAudioFile: hoisted.processAudioFile }),
 }));
 
-vi.mock("~/session-sharing/comments", () => ({
-  SessionCommentsLayer: () => <div data-testid="summary-comments-layer" />,
-  useOwnedSessionComments: () => ({
-    containerRef: { current: null },
-    onCommentAnchorsEvent: vi.fn(),
-    onViewReady: vi.fn(),
-    onViewDisposed: vi.fn(),
-    draft: hoisted.commentDraft,
-    selection: {},
-    startDraft: hoisted.startCommentDraft,
-  }),
-}));
-
 vi.mock("~/session/queries", () => ({
   useEnhancedNote: () => ({ content: hoisted.content }),
   useUpdateEnhancedNoteContent: () => hoisted.persistContent,
@@ -130,7 +115,6 @@ describe("EnhancedEditor", () => {
     hoisted.persistContent = vi.fn(() => Promise.resolve());
     hoisted.fileUpload = vi.fn();
     hoisted.processAudioFile = vi.fn();
-    hoisted.commentDraft = null;
     hoisted.showWindow.mockReset();
     hoisted.unminimizeWindow.mockReset();
     hoisted.focusWindow.mockReset();
@@ -163,9 +147,6 @@ describe("EnhancedEditor", () => {
 
     expect(props?.className).toContain("session-note-editor");
     expect(props?.className).toContain("enhanced-summary-editor");
-    expect(props?.onCommentAnchorsEvent).toEqual(expect.any(Function));
-    expect(props?.onCommentSelection).toBe(hoisted.startCommentDraft);
-    expect(screen.getByTestId("summary-comments-layer")).toBeTruthy();
     expect(props?.placeholderComponent).toEqual(expect.any(Function));
     expect(props?.syncContentWhenFocused).toBe(false);
     expect(props?.handleChange).not.toBe(hoisted.persistContent);
@@ -185,21 +166,6 @@ describe("EnhancedEditor", () => {
         },
       ],
     });
-  });
-
-  it("hides the selection comment action while a draft is open", () => {
-    hoisted.commentDraft = {};
-
-    render(
-      <EnhancedEditor
-        sessionId="session-1"
-        enhancedNoteId="note-1"
-        content={hoisted.content}
-      />,
-    );
-
-    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
-    expect(props?.onCommentSelection).toBeUndefined();
   });
 
   it("does not rerender the editor when its props are unchanged", () => {

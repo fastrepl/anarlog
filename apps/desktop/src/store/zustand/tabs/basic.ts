@@ -295,10 +295,6 @@ export const createBasicSlice = <
     } as unknown as Partial<T>);
   },
   pin: (tab) => {
-    if (tab.type === "shared_sessions" || tab.type === "shared_note_preview") {
-      return;
-    }
-
     const { tabs } = get();
     const tabIndex = tabs.findIndex((t) => isSameTab(t, tab));
     if (tabIndex === -1) return;
@@ -551,13 +547,6 @@ const getChatModeForNavigation = (
   }
 
   if (targetTab.type === "settings") {
-    return "FloatingClosed";
-  }
-
-  if (
-    targetTab.type === "shared_sessions" ||
-    targetTab.type === "shared_note_preview"
-  ) {
     return "FloatingClosed";
   }
 

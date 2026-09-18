@@ -70,8 +70,8 @@ vi.mock("./use-session-tab", () => ({
 }));
 
 vi.mock("~/sidebar/note-filter", () => ({
-  folderIdForNewNote: (noteFilter: string, folderFilter: string | null) =>
-    noteFilter === "mine" && folderFilter !== null ? folderFilter : undefined,
+  folderIdForNewNote: (folderFilter: string | null) =>
+    folderFilter ?? undefined,
   useSidebarNotes: (
     selector: (state: {
       noteFilter: string;

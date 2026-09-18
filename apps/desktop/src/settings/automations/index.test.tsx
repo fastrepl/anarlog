@@ -96,7 +96,6 @@ vi.mock("~/settings/queries", () => ({
 vi.mock("./starter-config", () => ({
   AutomationLastRunLine: () => null,
   MarkdownExportConfig: () => <div data-testid="config-markdown" />,
-  SlackRecapConfig: () => <div data-testid="config-slack" />,
   LinearIssuesConfig: () => <div data-testid="config-linear" />,
   NotionUpdateConfig: () => <div data-testid="config-notion" />,
 }));
@@ -190,13 +189,13 @@ describe("AutomationsContent", () => {
   });
 
   it("shows the selected starter as an inspectable deterministic draft", () => {
-    mocks.selection = { kind: "starter", starterId: "slack-recap" };
+    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
 
     renderAutomations();
 
     expect(screen.getByText("Use the AI meeting summary")).toBeTruthy();
-    expect(screen.getByText("Post to a channel")).toBeTruthy();
-    expect(screen.getByTestId("config-slack")).toBeTruthy();
+    expect(screen.getByText("Append the meeting update")).toBeTruthy();
+    expect(screen.getByTestId("config-notion")).toBeTruthy();
     expect(
       screen.getByRole<HTMLButtonElement>("button", { name: "Test" }).disabled,
     ).toBe(true);
@@ -209,24 +208,22 @@ describe("AutomationsContent", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
 
     expect(screen.getByText("Expected output")).toBeTruthy();
-    expect(
-      screen.getByText(/A Slack message with the meeting title and recap/),
-    ).toBeTruthy();
+    expect(screen.getByText("Expected output")).toBeTruthy();
   });
 
   it("uses product marks without icon tiles", () => {
-    mocks.selection = { kind: "starter", starterId: "slack-recap" };
+    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
 
     const { container } = renderAutomations();
 
     const header = screen
       .getByRole("heading", {
         level: 2,
-        name: "Share a meeting recap in Slack",
+        name: "Update project notes in Notion",
       })
       .closest("header");
     const slackIcon = container.querySelector(
-      'iconify-icon[icon="logos:slack-icon"]',
+      'iconify-icon[icon="logos:notion-icon"]',
     );
 
     expect(header).toBeTruthy();
@@ -242,14 +239,14 @@ describe("AutomationsContent", () => {
   });
 
   it("matches the templates header and body gutters", () => {
-    mocks.selection = { kind: "starter", starterId: "slack-recap" };
+    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
 
     renderAutomations();
 
     const header = screen
       .getByRole("heading", {
         level: 2,
-        name: "Share a meeting recap in Slack",
+        name: "Update project notes in Notion",
       })
       .closest("header");
     const body = header?.nextElementSibling;
@@ -321,7 +318,7 @@ describe("AutomationsContent", () => {
   });
 
   it("removes the starter automation from the actions menu", async () => {
-    mocks.selection = { kind: "starter", starterId: "slack-recap" };
+    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
 
     renderAutomations();
 
@@ -331,7 +328,9 @@ describe("AutomationsContent", () => {
 
     fireEvent.click(await screen.findByText("Remove automation"));
 
-    expect(mocks.removeStarterDraft).toHaveBeenCalledWith("slack-recap");
+    expect(mocks.removeStarterDraft).toHaveBeenCalledWith(
+      "notion-project-notes",
+    );
   });
 
   it("deletes a chat automation from the actions menu", async () => {

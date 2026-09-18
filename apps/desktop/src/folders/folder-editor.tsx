@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 
 import { DotsThree, File, Plus, X } from "@anlg/ui/components/icons";
@@ -17,17 +16,6 @@ import { cn } from "@anlg/utils";
 
 import { useFolderSelection } from "./selection";
 
-import { useOptionalAuth } from "~/auth";
-import { ResourceShareButton, sharedFolderPayload } from "~/resource-sharing";
-import {
-  deleteSharedResource,
-  moveSharedResource,
-  requireResourceSharingContext,
-} from "~/resource-sharing/client";
-import {
-  sharedResourcesQueryKey,
-  useSharedResources,
-} from "~/resource-sharing/hooks";
 import {
   deleteLocalFolderMaterial,
   diskAttachmentId,
@@ -48,13 +36,6 @@ import { TemplateIconPicker } from "~/templates/template-icon-picker";
 
 export function FolderEditor({ folderPath }: { folderPath: string }) {
   const { t } = useLingui();
-  const auth = useOptionalAuth();
-  const queryClient = useQueryClient();
-  const sharedFolders = useSharedResources("folder");
-  const ownedShare = sharedFolders.data?.find(
-    (resource) =>
-      resource.accessKind === "owner" && resource.sourceId === folderPath,
-  );
   const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
   const markFolderDeleted = useFolderSelection(
     (state) => state.markFolderDeleted,
@@ -106,22 +87,6 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
     setBusy(true);
     try {
       const renamed = await renameNamedFolder(folderPath, renamedPath);
-      if (ownedShare && auth) {
-        try {
-          await moveSharedResource(requireResourceSharingContext(auth), {
-            shareId: ownedShare.shareId,
-            sourceId: renamed,
-            title: folderDisplayName(renamed),
-            payload: await sharedFolderPayload(renamed),
-          });
-        } catch (error) {
-          await renameNamedFolder(renamed, folderPath);
-          throw error;
-        }
-        void queryClient.invalidateQueries({
-          queryKey: sharedResourcesQueryKey(auth.session?.user.id, "folder"),
-        });
-      }
       rekeyIconOverride(folderPath, renamed);
       setSelectedPath(renamed);
     } catch {
@@ -129,16 +94,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
     } finally {
       setBusy(false);
     }
-  }, [
-    auth,
-    displayName,
-    draft,
-    folderPath,
-    ownedShare,
-    queryClient,
-    rekeyIconOverride,
-    setSelectedPath,
-  ]);
+  }, [displayName, draft, folderPath, rekeyIconOverride, setSelectedPath]);
 
   return (
     <section className="flex h-full flex-1 flex-col" aria-label={folderPath}>
@@ -187,12 +143,6 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
           </div>
         </div>
         <div className="flex items-center gap-0.5">
-          <ResourceShareButton
-            resourceType="folder"
-            sourceId={folderPath}
-            title={displayName}
-            buildPayload={() => sharedFolderPayload(folderPath)}
-          />
           <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
             <DropdownMenuTrigger asChild>
               <Button
@@ -340,23 +290,9 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
           void (async () => {
             setBusy(true);
             try {
-              if (ownedShare && auth) {
-                await deleteSharedResource(
-                  requireResourceSharingContext(auth),
-                  ownedShare.shareId,
-                );
-              }
               await deleteNamedFolder(folderPath);
               setDeleting(false);
               markFolderDeleted(folderPath);
-              if (ownedShare) {
-                void queryClient.invalidateQueries({
-                  queryKey: sharedResourcesQueryKey(
-                    auth?.session?.user.id,
-                    "folder",
-                  ),
-                });
-              }
             } finally {
               setBusy(false);
             }

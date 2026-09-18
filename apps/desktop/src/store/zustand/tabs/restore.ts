@@ -74,7 +74,6 @@ const restoreMiddlewareImpl: RestoreMiddleware =
 
         const closedTabs = prevTabs.filter(
           (prevTab) =>
-            prevTab.type !== "shared_note_preview" &&
             !nextTabs.some((nextTab) => nextTab.slotId === prevTab.slotId),
         );
 

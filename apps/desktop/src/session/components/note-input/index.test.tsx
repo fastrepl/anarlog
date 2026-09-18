@@ -14,10 +14,10 @@ const hoisted = vi.hoisted(() => ({
   flushPendingChanges: vi.fn(),
   onBeforeTabChange: vi.fn(),
   rawEditorProps: [] as Record<string, unknown>[],
-  registerCanonicalSessionEditor: vi.fn(),
+  registerSessionEditor: vi.fn(),
   searchVisible: false,
   sessionMode: "inactive",
-  unregisterCanonicalSessionEditor: vi.fn(),
+  unregisterSessionEditor: vi.fn(),
   updateSessionTabState: vi.fn(),
 }));
 
@@ -113,9 +113,9 @@ vi.mock("~/session/components/shared", () => ({
   useCurrentNoteTab: () => ({ type: "raw" }),
 }));
 
-vi.mock("~/session-sharing/editor-activity", () => ({
-  registerCanonicalSessionEditor: hoisted.registerCanonicalSessionEditor,
-  unregisterCanonicalSessionEditor: hoisted.unregisterCanonicalSessionEditor,
+vi.mock("~/session/editor-registry", () => ({
+  registerSessionEditor: hoisted.registerSessionEditor,
+  unregisterSessionEditor: hoisted.unregisterSessionEditor,
 }));
 
 vi.mock("~/shared/hooks/useScrollPreservation", () => ({
@@ -223,10 +223,10 @@ describe("NoteInput tab selection", () => {
     hoisted.flushPendingChanges.mockClear();
     hoisted.onBeforeTabChange.mockClear();
     hoisted.rawEditorProps = [];
-    hoisted.registerCanonicalSessionEditor.mockClear();
+    hoisted.registerSessionEditor.mockClear();
     hoisted.searchVisible = false;
     hoisted.sessionMode = "inactive";
-    hoisted.unregisterCanonicalSessionEditor.mockClear();
+    hoisted.unregisterSessionEditor.mockClear();
     hoisted.updateSessionTabState.mockClear();
   });
 
@@ -359,14 +359,14 @@ describe("NoteInput tab selection", () => {
     const view = { hasFocus: () => true };
 
     props.onViewReady?.(view);
-    expect(hoisted.registerCanonicalSessionEditor).toHaveBeenCalledWith(
+    expect(hoisted.registerSessionEditor).toHaveBeenCalledWith(
       "session-1",
       view,
       expect.any(Function),
     );
 
     props.onViewDisposed?.(view);
-    expect(hoisted.unregisterCanonicalSessionEditor).toHaveBeenCalledWith(
+    expect(hoisted.unregisterSessionEditor).toHaveBeenCalledWith(
       "session-1",
       view,
     );
@@ -387,7 +387,7 @@ describe("NoteInput tab selection", () => {
 
     props.onViewReady?.(view);
 
-    expect(hoisted.registerCanonicalSessionEditor).toHaveBeenCalledWith(
+    expect(hoisted.registerSessionEditor).toHaveBeenCalledWith(
       "session-1",
       view,
       expect.any(Function),

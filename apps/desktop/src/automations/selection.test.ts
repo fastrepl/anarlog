@@ -63,51 +63,51 @@ describe("useAutomationSelection", () => {
   it("keeps a chat thread per automation across selection switches", () => {
     const { selectStarter } = useAutomationSelection.getState();
 
-    selectStarter("slack-recap");
-    const slackSession = automationsChat().sessionId;
+    selectStarter("notion-project-notes");
+    const notionSession = automationsChat().sessionId;
 
     // Chatting creates a group for the live automations chat.
-    useChatContext.getState().setGroupId("automations", "slack-group");
+    useChatContext.getState().setGroupId("automations", "notion-group");
 
     selectStarter("markdown-export");
     expect(automationsChat().groupId).toBeUndefined();
-    expect(automationsChat().sessionId).not.toBe(slackSession);
+    expect(automationsChat().sessionId).not.toBe(notionSession);
 
-    selectStarter("slack-recap");
+    selectStarter("notion-project-notes");
     expect(automationsChat()).toEqual({
-      groupId: "slack-group",
-      sessionId: slackSession,
+      groupId: "notion-group",
+      sessionId: notionSession,
     });
   });
 
   it("clears the current selection and its stored chat thread", () => {
     const { selectStarter, clearSelection } = useAutomationSelection.getState();
 
-    selectStarter("slack-recap");
-    useChatContext.getState().setGroupId("automations", "slack-group");
-    const slackSession = automationsChat().sessionId;
+    selectStarter("notion-project-notes");
+    useChatContext.getState().setGroupId("automations", "notion-group");
+    const notionSession = automationsChat().sessionId;
 
-    clearSelection({ kind: "starter", starterId: "slack-recap" });
+    clearSelection({ kind: "starter", starterId: "notion-project-notes" });
 
     expect(useAutomationSelection.getState().selection).toBeNull();
     expect(useAutomationSelection.getState().chatBySelection).toEqual({});
     expect(automationsChat().groupId).toBeUndefined();
-    expect(automationsChat().sessionId).not.toBe(slackSession);
+    expect(automationsChat().sessionId).not.toBe(notionSession);
   });
 
   it("keeps the current selection when clearing another automation", () => {
     const { selectStarter, clearSelection } = useAutomationSelection.getState();
 
-    selectStarter("slack-recap");
-    const slackChat = automationsChat();
+    selectStarter("notion-project-notes");
+    const notionChat = automationsChat();
 
     clearSelection({ kind: "chat", groupId: "other-group" });
 
     expect(useAutomationSelection.getState().selection).toEqual({
       kind: "starter",
-      starterId: "slack-recap",
+      starterId: "notion-project-notes",
     });
-    expect(automationsChat()).toEqual(slackChat);
+    expect(automationsChat()).toEqual(notionChat);
   });
 
   it("opens a persisted workflow chat thread when selecting after reload", () => {
@@ -153,7 +153,7 @@ describe("useAutomationSelection", () => {
     const liveSession = automationsChat().sessionId;
     useChatContext.getState().setGroupId("automations", "live-group");
 
-    useAutomationSelection.getState().selectStarter("slack-recap");
+    useAutomationSelection.getState().selectStarter("notion-project-notes");
     useAutomationSelection.getState().selectWorkflow("wf-1", "persisted-group");
 
     expect(automationsChat()).toEqual({
@@ -211,18 +211,18 @@ describe("useEffectiveAutomationSelection", () => {
   });
 
   it("falls back to the stored draft starter", () => {
-    settingsMocks.storedDraft = "slack-recap";
+    settingsMocks.storedDraft = "notion-project-notes";
 
     const { result } = renderHook(() => useEffectiveAutomationSelection());
 
     expect(result.current).toEqual({
       kind: "starter",
-      starterId: "slack-recap",
+      starterId: "notion-project-notes",
     });
   });
 
   it("prefers the explicit selection over the stored draft", () => {
-    settingsMocks.storedDraft = "slack-recap";
+    settingsMocks.storedDraft = "notion-project-notes";
     useAutomationSelection.setState({
       selection: { kind: "draft", draftId: "draft-1" },
     });

@@ -126,35 +126,6 @@ describe("Basic Tab Actions", () => {
     expect(useTabs.getState().tabs).toHaveLength(1);
   });
 
-  test("shared-note tabs are distinct, idempotent, and not pinnable", () => {
-    useTabs.getState().openNew({ type: "shared_sessions", id: "share-1" });
-    useTabs.getState().openNew({ type: "shared_sessions", id: "share-1" });
-
-    const tab = useTabs.getState().currentTab!;
-    expect(useTabs.getState().tabs).toHaveLength(1);
-    expect(tab).toMatchObject({
-      type: "shared_sessions",
-      id: "share-1",
-      pinned: false,
-    });
-
-    useTabs.getState().pin(tab);
-    expect(useTabs.getState().currentTab?.pinned).toBe(false);
-  });
-
-  test("ephemeral shared-note previews are not pinnable", () => {
-    useTabs.getState().openNew({
-      type: "shared_note_preview",
-      id: "13697a87-f69b-456d-8679-4202d4f5d498",
-    });
-
-    const tab = useTabs.getState().currentTab!;
-    useTabs.getState().pin(tab);
-
-    expect(tab.type).toBe("shared_note_preview");
-    expect(useTabs.getState().currentTab?.pinned).toBe(false);
-  });
-
   test("openNew reuses contacts tab and updates the selected entity", () => {
     const contacts = createContactsTab({
       active: false,

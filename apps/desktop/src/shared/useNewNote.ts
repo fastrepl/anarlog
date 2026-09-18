@@ -7,8 +7,8 @@ import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 
 function createNoteSession() {
-  const { noteFilter, folderFilter } = useSidebarNotes.getState();
-  const folderId = folderIdForNewNote(noteFilter, folderFilter);
+  const { folderFilter } = useSidebarNotes.getState();
+  const folderId = folderIdForNewNote(folderFilter);
   return folderId === undefined
     ? createSession()
     : createSession("", undefined, { folder_id: folderId });

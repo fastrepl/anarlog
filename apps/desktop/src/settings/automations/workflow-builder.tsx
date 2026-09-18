@@ -19,7 +19,6 @@ import {
   LinearIssuesConfig,
   MarkdownExportConfig,
   NotionUpdateConfig,
-  SlackRecapConfig,
 } from "./starter-config";
 
 import {
@@ -140,9 +139,6 @@ export function WorkflowBuilder({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="slack_recap">
-                    <Trans>Post a recap to Slack</Trans>
-                  </SelectItem>
                   <SelectItem value="notion_update">
                     <Trans>Append an update to Notion</Trans>
                   </SelectItem>
@@ -198,14 +194,6 @@ function WorkflowStepConfig({
       />
     );
   }
-  if (step.type === "slack_recap") {
-    return (
-      <SlackRecapConfig
-        value={step.target}
-        onChange={(target) => onChange({ ...step, target })}
-      />
-    );
-  }
   if (step.type === "linear_issues") {
     return (
       <LinearIssuesConfig
@@ -247,9 +235,6 @@ function AddWorkflowStep({
           </span>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="slack_recap">
-            <Trans>Slack recap</Trans>
-          </SelectItem>
           <SelectItem value="notion_update">
             <Trans>Notion update</Trans>
           </SelectItem>

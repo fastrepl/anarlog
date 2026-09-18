@@ -13,18 +13,17 @@ describe("sidebar note filter", () => {
     resetSidebarNotes();
   });
 
-  it("encodes and decodes mine, shared, unfiled, and named folders", () => {
-    expect(encodeNotesView("mine", null)).toBe("mine");
-    expect(encodeNotesView("shared", null)).toBe("shared");
-    expect(encodeNotesView("mine", "")).toBe("folder:");
-    expect(encodeNotesView("mine", "CS 101")).toBe("folder:CS 101");
+  it("encodes and decodes mine, unfiled, and named folders", () => {
+    expect(encodeNotesView(null)).toBe("mine");
+    expect(encodeNotesView("")).toBe("folder:");
+    expect(encodeNotesView("CS 101")).toBe("folder:CS 101");
 
     expect(decodeNotesView("mine")).toEqual({
       noteFilter: "mine",
       folderFilter: null,
     });
     expect(decodeNotesView("shared")).toEqual({
-      noteFilter: "shared",
+      noteFilter: "mine",
       folderFilter: null,
     });
     expect(decodeNotesView("folder:")).toEqual({
@@ -37,30 +36,19 @@ describe("sidebar note filter", () => {
     });
   });
 
-  it("inherits a folder only while that folder is the active mine view", () => {
-    expect(folderIdForNewNote("mine", null)).toBeUndefined();
-    expect(folderIdForNewNote("shared", "CS 101")).toBeUndefined();
-    expect(folderIdForNewNote("mine", "")).toBe("");
-    expect(folderIdForNewNote("mine", "CS 101")).toBe("CS 101");
-  });
-
-  it("clears the folder filter when switching to shared notes", () => {
-    useSidebarNotes.getState().setView("mine", "CS 101");
-    useSidebarNotes.getState().setView("shared");
-
-    expect(useSidebarNotes.getState()).toMatchObject({
-      noteFilter: "shared",
-      folderFilter: null,
-    });
+  it("inherits the active folder for a new note", () => {
+    expect(folderIdForNewNote(null)).toBeUndefined();
+    expect(folderIdForNewNote("")).toBe("");
+    expect(folderIdForNewNote("CS 101")).toBe("CS 101");
   });
 
   it("keeps grouping and sort independent of the ownership filter", () => {
     useSidebarNotes.getState().setGroupBy("folder");
     useSidebarNotes.getState().setSortOrder("oldest");
-    useSidebarNotes.getState().setView("shared");
+    useSidebarNotes.getState().setView("mine");
 
     expect(useSidebarNotes.getState()).toMatchObject({
-      noteFilter: "shared",
+      noteFilter: "mine",
       folderFilter: null,
       groupBy: "folder",
       sortOrder: "oldest",

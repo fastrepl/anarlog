@@ -11,7 +11,7 @@ export type NavigationState = {
 
 type InvalidatableResourceType = Extract<
   Tab["type"],
-  "sessions" | "shared_sessions" | "humans" | "organizations"
+  "sessions" | "humans" | "organizations"
 >;
 
 export type NavigationActions = {
@@ -170,7 +170,7 @@ export const pushHistory = (
   history: Map<string, TabHistory>,
   tab: Tab,
 ): Map<string, TabHistory> => {
-  if (tab.type === "empty" || tab.type === "shared_note_preview") {
+  if (tab.type === "empty") {
     return history;
   }
 

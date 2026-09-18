@@ -29,7 +29,6 @@ import {
   LinearIssuesConfig,
   MarkdownExportConfig,
   NotionUpdateConfig,
-  SlackRecapConfig,
 } from "./starter-config";
 import { useSaveWorkflow, WorkflowBuilder } from "./workflow-builder";
 
@@ -58,10 +57,6 @@ import {
   useAutomationWorkflows,
 } from "~/automations/workflows";
 import { useChatGroup } from "~/chat/store/queries";
-import {
-  ResourceShareButton,
-  sharedAutomationPayload,
-} from "~/resource-sharing";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { useNotifyPlanRequired } from "~/settings/plan-gate";
@@ -328,12 +323,6 @@ function CustomWorkflowDetails({
       description={description}
       actions={
         <div className="flex items-center gap-2">
-          <ResourceShareButton
-            resourceType="automation"
-            sourceId={workflow.id}
-            title={workflow.title.trim() || t`Untitled automation`}
-            buildPayload={() => sharedAutomationPayload(workflow)}
-          />
           {workflow.enabled ? (
             <Button
               type="button"
@@ -474,8 +463,6 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
     switch (starterId) {
       case "markdown-export":
         return t`Choose an export folder first.`;
-      case "slack-recap":
-        return t`Choose a Slack channel first.`;
       case "linear-action-items":
         return t`Choose a Linear team first.`;
       case "notion-project-notes":
@@ -647,8 +634,6 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
         <div className="border-border border-t px-5 py-4">
           {starterId === "markdown-export" ? (
             <MarkdownExportConfig />
-          ) : starterId === "slack-recap" ? (
-            <SlackRecapConfig />
           ) : starterId === "linear-action-items" ? (
             <LinearIssuesConfig />
           ) : (

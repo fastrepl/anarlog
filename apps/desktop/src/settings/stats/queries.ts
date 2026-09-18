@@ -1,7 +1,5 @@
-import { useAuth } from "~/auth";
 import { useLiveQuery } from "~/db";
 import { WELCOME_NOTE_TRACKING_ID } from "~/onboarding/welcome-note.constants";
-import { DEFAULT_USER_ID } from "~/shared/utils";
 
 export type ActivityRecord = {
   session_id: string;
@@ -35,7 +33,6 @@ export const ACTIVITY_SQL = `
   END) AS word
   WHERE session.deleted_at IS NULL
     AND transcript.deleted_at IS NULL
-    AND COALESCE(session.owner_user_id, '') IN (?, '', '${DEFAULT_USER_ID}')
     AND CASE WHEN word.type = 'object'
       THEN LENGTH(TRIM(COALESCE(json_extract(word.value, '$.text'), ''))) > 0
       ELSE 0 END
@@ -43,9 +40,8 @@ export const ACTIVITY_SQL = `
 `;
 
 export function useActivity() {
-  const auth = useAuth();
   return useLiveQuery<ActivityRecord, ActivityRecord[]>({
     sql: ACTIVITY_SQL,
-    params: [auth.session?.user.id ?? DEFAULT_USER_ID],
+    params: [],
   });
 }

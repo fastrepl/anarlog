@@ -60,20 +60,20 @@ describe("useRemoveStarterDraft", () => {
   });
 
   it("disables the starter and clears its stored draft", async () => {
-    mocks.storedValues = { automation_draft_template: "slack-recap" };
+    mocks.storedValues = { automation_draft_template: "notion-project-notes" };
 
     const { result } = renderHook(() => useRemoveStarterDraft(), { wrapper });
-    result.current.mutate("slack-recap");
+    result.current.mutate("notion-project-notes");
 
     await waitFor(() => {
       expect(mocks.setSettingValues).toHaveBeenCalledWith({
-        automation_slack_recap_enabled: false,
+        automation_notion_update_enabled: false,
         automation_draft_template: "",
       });
     });
     expect(mocks.clearSelection).toHaveBeenCalledWith({
       kind: "starter",
-      starterId: "slack-recap",
+      starterId: "notion-project-notes",
     });
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Automation removed");
   });
@@ -82,11 +82,11 @@ describe("useRemoveStarterDraft", () => {
     mocks.storedValues = { automation_draft_template: "markdown-export" };
 
     const { result } = renderHook(() => useRemoveStarterDraft(), { wrapper });
-    result.current.mutate("slack-recap");
+    result.current.mutate("notion-project-notes");
 
     await waitFor(() => {
       expect(mocks.setSettingValues).toHaveBeenCalledWith({
-        automation_slack_recap_enabled: false,
+        automation_notion_update_enabled: false,
       });
     });
   });

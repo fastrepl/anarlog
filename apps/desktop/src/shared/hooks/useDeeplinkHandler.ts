@@ -19,10 +19,6 @@ import {
   syncCalendarEvents,
 } from "~/services/calendar";
 import { useScheduleTaskRunCallback } from "~/services/task-scheduler";
-import {
-  createShareOpenProcessor,
-  subscribeThenDrainShareOpens,
-} from "~/shared-notes/deeplink";
 import { subscribeThenDrainDeepLinks } from "~/shared/deeplink";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -141,27 +137,11 @@ export function useDeeplinkHandler() {
       takePendingDeepLinks: deeplink2Commands.takePendingDeepLinks,
       handle: handleDeepLink,
     });
-    const shareOpenProcessor = createShareOpenProcessor({
-      takePendingShareOpen: deeplink2Commands.takePendingShareOpen,
-      getAuth: () => authRef.current,
-      openNew: (tab) => openNewRef.current(tab),
-    });
-    const shareOpenSubscription = subscribeThenDrainShareOpens({
-      listen: (handler) =>
-        deeplink2Events.shareOpenPendingEvent.listen(({ payload }) => {
-          handler(payload.pending_id);
-        }),
-      listPendingShareOpens: deeplink2Commands.listPendingShareOpens,
-      handle: shareOpenProcessor.handle,
-    });
-
     return () => {
-      shareOpenProcessor.dispose();
       for (const timeoutId of timeoutIds) {
         window.clearTimeout(timeoutId);
       }
       void deepLinkSubscription.then((fn) => fn()).catch(() => {});
-      void shareOpenSubscription.then((fn) => fn()).catch(() => {});
     };
   });
 }

@@ -25,7 +25,6 @@ import {
 import { SectionsList } from "./sections-editor";
 import { TemplateIconPicker } from "./template-icon-picker";
 
-import { ResourceShareButton, sharedTemplatePayload } from "~/resource-sharing";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 
@@ -227,14 +226,6 @@ export function TemplateForm({
           </form.Field>
         </div>
         <div className="flex items-center gap-0">
-          <ResourceShareButton
-            resourceType="template"
-            sourceId={template.id}
-            title={form.state.values.title.trim() || t`Untitled template`}
-            buildPayload={() =>
-              sharedTemplatePayload({ ...template, ...form.state.values })
-            }
-          />
           <Button
             type="button"
             size="sm"

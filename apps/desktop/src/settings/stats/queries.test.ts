@@ -1,7 +1,6 @@
 import { createRequire } from "node:module";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("~/auth", () => ({ useAuth: vi.fn() }));
 vi.mock("~/db", () => ({ useLiveQuery: vi.fn() }));
 
 import { ACTIVITY_SQL } from "./queries";
@@ -11,7 +10,7 @@ const { DatabaseSync } = createRequire(import.meta.url)(
 ) as typeof import("node:sqlite");
 
 describe("personal activity query", () => {
-  it("excludes other owners, deleted data, blank transcripts, and malformed JSON", () => {
+  it("includes every owner and excludes deleted data, blank transcripts, and malformed JSON", () => {
     const db = new DatabaseSync(":memory:");
     try {
       db.exec(`
@@ -40,22 +39,20 @@ describe("personal activity query", () => {
       ].entries()) {
         insert.run(String(index), "mine", json, null);
       }
-      const rows = db.prepare(ACTIVITY_SQL).all("user");
-      expect(rows).toHaveLength(2);
+      const rows = db.prepare(ACTIVITY_SQL).all();
+      expect(rows).toHaveLength(3);
       expect(rows).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ session_id: "mine", duration_ms: 800 }),
+          expect.objectContaining({ session_id: "theirs", duration_ms: 800 }),
           expect.objectContaining({ session_id: "guest", duration_ms: 800 }),
         ]),
       );
-      expect(db.prepare(ACTIVITY_SQL).all("guest-user")).toEqual([
-        expect.objectContaining({ session_id: "guest", duration_ms: 800 }),
-      ]);
       db.exec(
         `UPDATE sessions SET event_json = '{"tracking_id":"anarlog-onboarding-demo-v1"}' WHERE id = 'mine'`,
       );
       db.exec(`UPDATE sessions SET event_json = 'invalid' WHERE id = 'guest'`);
-      expect(db.prepare(ACTIVITY_SQL).all("user")).toEqual(
+      expect(db.prepare(ACTIVITY_SQL).all()).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ session_id: "mine", is_demo: 1 }),
           expect.objectContaining({ session_id: "guest", is_demo: 0 }),

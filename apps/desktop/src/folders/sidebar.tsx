@@ -13,12 +13,6 @@ import { cn } from "@anlg/utils";
 
 import { useActiveFolderPath, useFolderSelection } from "./selection";
 
-import { useOptionalAuth } from "~/auth";
-import {
-  importSharedFolder,
-  parseSharedFolderPayload,
-  SharedResourceLibrarySection,
-} from "~/resource-sharing";
 import { createNamedFolder } from "~/session/folder-catalog";
 import { resolvedFolderIcon } from "~/session/folder-icon";
 import { useFolderIcons, useFolderPaths } from "~/session/queries";
@@ -28,7 +22,6 @@ import { TemplateIconGlyph } from "~/templates/template-icon";
 
 export function FoldersSidebar() {
   const { t } = useLingui();
-  const auth = useOptionalAuth();
   const folders = useFolderPaths();
   const persistedIcons = useFolderIcons();
   const iconOverrides = useFolderSelection((state) => state.iconOverrides);
@@ -153,19 +146,6 @@ export function FoldersSidebar() {
             })}
           </ul>
         )}
-        <SharedResourceLibrarySection
-          resourceType="folder"
-          search={search}
-          onImport={async (resource) => {
-            const userId = auth?.session?.user.id;
-            if (!userId) throw new Error(t`Sign in to add this folder`);
-            const path = await importSharedFolder(
-              parseSharedFolderPayload(resource.payload),
-              userId,
-            );
-            setSelectedPath(path);
-          }}
-        />
       </div>
 
       <FolderNameDialog

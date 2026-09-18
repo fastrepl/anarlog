@@ -37,12 +37,12 @@ import {
 } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
 import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
-import { flushCanonicalSessionEditorChanges } from "~/session-sharing/editor-activity";
 import {
   catalogLocalSessionAudio,
   markSessionAudioTranscriptionComplete,
 } from "~/session/attachments";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
+import { flushSessionEditorChanges } from "~/session/editor-registry";
 import {
   isSessionDeleted,
   useSession,
@@ -794,7 +794,7 @@ export function useCaptureLifecycle(sessionId: string) {
             await persistTranscriptWrite(async () => {
               await saveCaptureLifecycleMarker(await marker());
             });
-            await flushCanonicalSessionEditorChanges(sessionId);
+            await flushSessionEditorChanges(sessionId);
             const summaryMode = preserveExistingTranscript
               ? "regenerate"
               : "if_empty";
@@ -954,7 +954,7 @@ export function useCaptureLifecycle(sessionId: string) {
         }
 
         try {
-          await flushCanonicalSessionEditorChanges(sessionId);
+          await flushSessionEditorChanges(sessionId);
         } catch (error) {
           console.error(
             "[listener] failed to flush session notes before completing capture",

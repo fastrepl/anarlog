@@ -26,7 +26,6 @@ import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
-import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
 import { useCanShowTranscript } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useCreatePreMeetingBrief } from "~/session/hooks/useCreatePreMeetingBrief";
@@ -265,7 +264,6 @@ export const RawEditor = forwardRef<
     }, []);
 
     const mentionConfig = useMentionConfig();
-    const commentAnchors = useSessionCommentAnchors(sessionId);
     // Stable identity: NoteEditor keys whole-document memos off this.
     const taskSource = useMemo(
       () =>
@@ -304,15 +302,8 @@ export const RawEditor = forwardRef<
               extraNodeViews={extraNodeViews}
               showFormatToolbar={showFormatToolbar}
               enforceTitleHeading={false}
-              commentAnchorsEnabled
-              onViewReady={(view) => {
-                commentAnchors.onViewReady(view);
-                onViewReady?.(view);
-              }}
-              onViewDisposed={(view) => {
-                commentAnchors.onViewDisposed(view);
-                onViewDisposed?.(view);
-              }}
+              onViewReady={onViewReady}
+              onViewDisposed={onViewDisposed}
             />
             {isMemoEmpty && !isGenerating ? (
               <div className="pointer-events-none absolute inset-x-0 top-8 z-10 flex flex-col">

@@ -370,26 +370,6 @@ export const SETTING_DEFINITIONS = {
     path: ["automations", "markdown_export_last_run"],
     default: "" as string,
   },
-  automation_slack_recap_enabled: {
-    type: "boolean",
-    path: ["automations", "slack_recap_enabled"],
-    default: false as boolean,
-  },
-  automation_slack_recap_channel: {
-    type: "string",
-    path: ["automations", "slack_recap_channel"],
-    default: "" as string,
-  },
-  automation_slack_recap_last_run: {
-    type: "string",
-    path: ["automations", "slack_recap_last_run"],
-    default: "" as string,
-  },
-  automation_slack_recap_processed: {
-    type: "string",
-    path: ["automations", "slack_recap_processed"],
-    default: "" as string,
-  },
   automation_linear_issues_enabled: {
     type: "boolean",
     path: ["automations", "linear_issues_enabled"],

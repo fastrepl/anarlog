@@ -3,11 +3,6 @@ import { useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
 
 export const STARTER_AUTOMATIONS = {
-  "slack-recap": {
-    enabledKey: "automation_slack_recap_enabled",
-    targetKey: "automation_slack_recap_channel",
-    lastRunKey: "automation_slack_recap_last_run",
-  },
   "notion-project-notes": {
     enabledKey: "automation_notion_update_enabled",
     targetKey: "automation_notion_update_page",
@@ -50,37 +45,6 @@ export function useStarterAutomations(): StarterAutomation[] {
   const { t } = useLingui();
 
   return [
-    {
-      id: "slack-recap",
-      title: t`Share a meeting recap in Slack`,
-      description: t`Post a meeting recap to a Slack channel.`,
-      renderIcon: (size) => (
-        <Icon
-          icon="logos:slack-icon"
-          width={size}
-          height={size}
-          aria-hidden="true"
-        />
-      ),
-      steps: [
-        {
-          kind: "trigger",
-          title: t`Meeting ends`,
-          detail: t`Runs once the AI summary for the meeting is ready.`,
-        },
-        {
-          kind: "ai",
-          title: t`Use the AI meeting summary`,
-          detail: t`Take the enhanced note with decisions and action items.`,
-        },
-        {
-          kind: "action",
-          title: t`Post to a channel`,
-          detail: t`Send the recap to the selected Slack channel.`,
-        },
-      ],
-      preview: t`A Slack message with the meeting title and recap.`,
-    },
     {
       id: "notion-project-notes",
       title: t`Update project notes in Notion`,

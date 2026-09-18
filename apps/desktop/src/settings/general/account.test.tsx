@@ -62,15 +62,6 @@ vi.mock("~/auth", () => ({
   }),
 }));
 
-vi.mock("~/settings/team/client", () => ({
-  getWorkspaceAccess: mocks.getWorkspaceAccess,
-  requireTeamContext: (auth: unknown) => auth,
-}));
-
-vi.mock("~/settings/team/mirror", () => ({
-  useMyWorkspacesWithMirror: () => mocks.workspaces,
-}));
-
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => mocks.billing,
 }));

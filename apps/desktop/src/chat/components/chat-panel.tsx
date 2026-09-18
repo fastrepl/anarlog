@@ -27,14 +27,11 @@ export function ChatSessionHost({
   const { chat } = useShell();
   const { groupId, sessionId } = chat;
   const { currentSessionId } = useSessionTab();
-  const noteFilter = useSidebarNotes((state) => state.noteFilter);
   const folderFilter = useSidebarNotes((state) => state.folderFilter);
   const contextSessionId =
     chat.scope === "automations" ? undefined : currentSessionId;
   const folderId =
-    chat.scope === "automations"
-      ? undefined
-      : folderIdForNewNote(noteFilter, folderFilter);
+    chat.scope === "automations" ? undefined : folderIdForNewNote(folderFilter);
   const ownerUserId = useOwnerUserId();
   const hasAvailableTranscript = useSessionHasTranscript(
     contextSessionId ?? "",

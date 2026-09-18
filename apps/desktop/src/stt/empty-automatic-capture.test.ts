@@ -17,8 +17,8 @@ vi.mock("@anlg/plugin-fs-sync", () => ({
 }));
 vi.mock("~/db", () => ({ liveQueryClient: { execute: mocks.execute } }));
 vi.mock("~/session/queries", () => ({ isSessionEmpty: mocks.empty }));
-vi.mock("~/session-sharing/editor-activity", () => ({
-  flushCanonicalSessionEditorChanges: mocks.flush,
+vi.mock("~/session/editor-registry", () => ({
+  flushSessionEditorChanges: mocks.flush,
 }));
 vi.mock("~/session/audio-operations", () => ({
   enqueueSessionAudioOperation: (_: string, operation: () => unknown) =>

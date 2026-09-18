@@ -26,11 +26,6 @@ import {
 import { supabase } from "~/auth/client";
 import { liveQueryClient } from "~/db";
 import { env } from "~/env";
-import {
-  buildSlackRecap,
-  sendSlackRecap,
-} from "~/session-sharing/delivery-client";
-import { getSessionShareSenderName } from "~/session-sharing/invitation-management";
 import { getStoredSettingValues, setSettingValue } from "~/settings/queries";
 
 export type { AutomationRunRecord, AutomationTargetRef };
@@ -57,7 +52,7 @@ export async function runMeetingCompletedAutomations(
 export async function runNoteEnhancedAutomations(
   sessionId: string,
 ): Promise<void> {
-  const runners = [runSlackRecap, runLinearIssues, runNotionUpdate];
+  const runners = [runLinearIssues, runNotionUpdate];
   for (const runner of runners) {
     try {
       await runner(sessionId);
@@ -191,9 +186,6 @@ async function executeWorkflowStep(
   if (!step.target) {
     throw new Error(`choose a ${stepLabel(step.type)} first`);
   }
-  if (step.type === "slack_recap") {
-    return await executeSlackRecap(sessionId, step.target);
-  }
   if (step.type === "linear_issues") {
     return await executeLinearIssues(
       sessionId,
@@ -206,8 +198,6 @@ async function executeWorkflowStep(
 
 function stepLabel(type: Exclude<WorkflowStep["type"], "markdown_export">) {
   switch (type) {
-    case "slack_recap":
-      return "Slack channel";
     case "linear_issues":
       return "Linear team";
     case "notion_update":
@@ -239,47 +229,6 @@ async function runMarkdownExport(sessionId: string): Promise<void> {
   }
   await setSettingValue(
     "automation_markdown_export_last_run",
-    JSON.stringify(record),
-  );
-}
-
-async function runSlackRecap(sessionId: string): Promise<void> {
-  const { values } = await getStoredSettingValues();
-  if (!values.automation_slack_recap_enabled) {
-    return;
-  }
-  const channel = parseAutomationTargetRef(
-    values.automation_slack_recap_channel,
-  );
-  if (!channel) {
-    return;
-  }
-  const processed = parseProcessedSessions(
-    values.automation_slack_recap_processed,
-  );
-  if (processed.includes(sessionId)) {
-    return;
-  }
-
-  const record: AutomationRunRecord = {
-    at: new Date().toISOString(),
-    status: "success",
-    detail: "",
-  };
-  try {
-    record.detail = await executeSlackRecap(sessionId, channel);
-    await recordProcessedSession(
-      "automation_slack_recap_processed",
-      processed,
-      sessionId,
-    );
-  } catch (error) {
-    record.status = "error";
-    record.detail = error instanceof Error ? error.message : String(error);
-    console.error("[automations] slack recap failed", error);
-  }
-  await setSettingValue(
-    "automation_slack_recap_last_run",
     JSON.stringify(record),
   );
 }
@@ -375,28 +324,6 @@ async function executeMarkdownExport(
     throw new Error(result.error);
   }
   return result.data;
-}
-
-async function executeSlackRecap(
-  sessionId: string,
-  channel: AutomationTargetRef,
-): Promise<string> {
-  const recap = await loadMeetingRecap(sessionId);
-  if (!recap) {
-    throw new Error("no meeting summary is available yet");
-  }
-  const session = await requireSupabaseSession();
-  await sendSlackRecap({
-    apiBaseUrl: env.VITE_API_URL,
-    accessToken: session.access_token,
-    channel: channel.id,
-    text: buildSlackRecap({
-      senderName: getSessionShareSenderName(session.user),
-      noteTitle: recap.title,
-      noteBody: recap.body,
-    }),
-  });
-  return `#${channel.name}`;
 }
 
 async function executeLinearIssues(
@@ -531,7 +458,6 @@ function parseProcessedSessions(value: string | undefined): string[] {
 async function recordProcessedSession(
   settingKey:
     | "automation_linear_issues_processed"
-    | "automation_slack_recap_processed"
     | "automation_notion_update_processed",
   processed: string[],
   sessionId: string,

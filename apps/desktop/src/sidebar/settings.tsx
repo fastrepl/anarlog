@@ -19,7 +19,6 @@ import {
   MagnifyingGlass,
   ShieldCheck,
   Sun,
-  User,
   Users,
   VideoCamera,
   Waveform,
@@ -30,7 +29,6 @@ import { cn } from "@anlg/utils";
 
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
-import { useBillingAccess } from "~/auth/billing-context";
 import { privacyMessages } from "~/settings/general/app-settings";
 import { type SettingsTab, type TabInput, useTabs } from "~/store/zustand/tabs";
 
@@ -39,21 +37,18 @@ type SettingsNavItem =
       id: SettingsTab;
       label: string;
       icon: Icon;
-      requiresPro?: boolean;
     }
   | {
       id: "automations" | "calendar" | "contacts" | "folders" | "templates";
       label: string;
       icon: Icon;
       destination: TabInput;
-      requiresPro?: boolean;
     };
 
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
 export function SettingsNav() {
   const { i18n, t } = useLingui();
-  const { isPro } = useBillingAccess();
   const [search, setSearch] = useState("");
   const searchRef = useSquircleRef<HTMLDivElement>();
   const currentTab = useTabs((state) => state.currentTab);
@@ -85,7 +80,6 @@ export function SettingsNav() {
       label: t`App`,
       items: [
         { id: "app", label: t`General`, icon: Gear },
-        { id: "account", label: t`Account`, icon: User },
         { id: "insights", label: t`Insights`, icon: ChartLineUp },
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "notifications", label: t`Notifications`, icon: Bell },
@@ -99,14 +93,12 @@ export function SettingsNav() {
           id: "dictation",
           label: t`Dictation`,
           icon: Waveform,
-          requiresPro: true,
         },
         { id: "intelligence", label: t`Intelligence`, icon: Brain },
         {
           id: "dictionary",
           label: t`Dictionary`,
           icon: BookOpen,
-          requiresPro: true,
         },
       ],
     },
@@ -143,15 +135,12 @@ export function SettingsNav() {
           label: t`Automations`,
           icon: Lightning,
           destination: { type: "automations" },
-          requiresPro: true,
         },
       ],
     },
     {
       label: t`Data`,
-      items: [
-        { id: "imports", label: t`Imports`, icon: DownloadSimple },
-      ],
+      items: [{ id: "imports", label: t`Imports`, icon: DownloadSimple }],
     },
     {
       label: t`Advanced`,
@@ -242,8 +231,6 @@ export function SettingsNav() {
                 {group.label}
               </span>
               {group.items.map((item) => {
-                const requiresPro = Boolean(item.requiresPro && !isPro);
-
                 return (
                   <div key={item.id} className="relative">
                     <button
@@ -273,12 +260,7 @@ export function SettingsNav() {
                         <span className="min-w-0 flex-1 truncate">
                           {item.label}
                         </span>
-                        {requiresPro ? (
-                          <Lock
-                            aria-label={t`Requires BlackMushi Pro`}
-                            className="size-3.5 shrink-0"
-                          />
-                        ) : "destination" in item ? (
+                        {"destination" in item ? (
                           <ArrowUpRight
                             aria-hidden
                             className="text-muted-foreground/70 size-3.5 shrink-0"

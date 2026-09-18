@@ -17,10 +17,6 @@ import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
-import {
-  SessionCommentsLayer,
-  useOwnedSessionComments,
-} from "~/session-sharing/comments";
 import { hasStoredNoteContent } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateEnhancedNoteContent } from "~/session/queries";
@@ -131,7 +127,6 @@ const EnhancedEditorInner = forwardRef<
     );
 
     const mentionConfig = useMentionConfig();
-    const comments = useOwnedSessionComments(sessionId);
     // Stable identity: NoteEditor keys whole-document memos off this.
     const taskSource = useMemo(
       () =>
@@ -147,7 +142,7 @@ const EnhancedEditorInner = forwardRef<
         targetProps={audioDropTargetProps}
         isActive={isAudioDragActive}
       >
-        <div ref={comments.containerRef} className="relative h-full">
+        <div className="relative h-full">
           <NoteEditor
             ref={ref}
             className="session-note-editor enhanced-summary-editor"
@@ -163,24 +158,10 @@ const EnhancedEditorInner = forwardRef<
             fileHandlerConfig={fileHandlerConfig}
             taskSource={taskSource}
             extraNodeViews={extraNodeViews}
-            commentAnchorsEnabled
-            onCommentAnchorsEvent={comments.onCommentAnchorsEvent}
-            onCommentSelection={
-              comments.selection && !comments.draft
-                ? comments.startDraft
-                : undefined
-            }
-            onViewReady={(view) => {
-              comments.onViewReady(view);
-              onViewReady?.(view);
-            }}
-            onViewDisposed={(view) => {
-              comments.onViewDisposed(view);
-              onViewDisposed?.(view);
-            }}
+            onViewReady={onViewReady}
+            onViewDisposed={onViewDisposed}
             syncContentWhenFocused={!persistChanges}
           />
-          <SessionCommentsLayer controller={comments} />
         </div>
       </AudioDropTarget>
     );

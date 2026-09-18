@@ -72,7 +72,7 @@ const {
   requestMainAutoEnhanceMock,
   beginCloudsyncActivityMock,
   endCloudsyncActivityMock,
-  flushCanonicalSessionEditorChangesMock,
+  flushSessionEditorChangesMock,
   idMock,
   openNewMock,
   emptyCaptureMock,
@@ -128,7 +128,7 @@ const {
   requestMainAutoEnhanceMock: vi.fn(),
   beginCloudsyncActivityMock: vi.fn(),
   endCloudsyncActivityMock: vi.fn(),
-  flushCanonicalSessionEditorChangesMock: vi.fn(),
+  flushSessionEditorChangesMock: vi.fn(),
   idMock: vi.fn(() => "generated-id"),
   openNewMock: vi.fn(),
 }));
@@ -270,8 +270,8 @@ vi.mock("~/session/queries", () => ({
   useSessionTranscriptExistence: useSessionHasTranscriptMock,
 }));
 
-vi.mock("~/session-sharing/editor-activity", () => ({
-  flushCanonicalSessionEditorChanges: flushCanonicalSessionEditorChangesMock,
+vi.mock("~/session/editor-registry", () => ({
+  flushSessionEditorChanges: flushSessionEditorChangesMock,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -528,7 +528,7 @@ describe("useStartListening", () => {
     waitForSessionSearchIndexMock.mockResolvedValue(undefined);
     beginCloudsyncActivityMock.mockResolvedValue(undefined);
     endCloudsyncActivityMock.mockResolvedValue(undefined);
-    flushCanonicalSessionEditorChangesMock.mockResolvedValue(undefined);
+    flushSessionEditorChangesMock.mockResolvedValue(undefined);
     catalogLocalSessionAudioMock.mockResolvedValue(undefined);
     markSessionAudioTranscriptionCompleteMock.mockResolvedValue(undefined);
     useConfigValueMock.mockImplementation((key) =>
@@ -1380,7 +1380,7 @@ describe("useStartListening", () => {
   test("flushes canonical note persistence before releasing the capture sync lease", async () => {
     useSessionHasTranscriptMock.mockReturnValue(true);
     let finishEditorFlush: (() => void) | undefined;
-    flushCanonicalSessionEditorChangesMock.mockReturnValueOnce(
+    flushSessionEditorChangesMock.mockReturnValueOnce(
       new Promise<void>((resolve) => {
         finishEditorFlush = resolve;
       }),
@@ -1401,9 +1401,7 @@ describe("useStartListening", () => {
     });
 
     await waitFor(() => {
-      expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledWith(
-        "session-1",
-      );
+      expect(flushSessionEditorChangesMock).toHaveBeenCalledWith("session-1");
     });
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
     expect(endCloudsyncActivityMock).not.toHaveBeenCalled();
@@ -1413,10 +1411,10 @@ describe("useStartListening", () => {
     await act(async () => {
       await stopped;
     });
-    expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledBefore(
+    expect(flushSessionEditorChangesMock).toHaveBeenCalledBefore(
       queueAutoEnhanceIfSummaryEmptyMock,
     );
-    expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledBefore(
+    expect(flushSessionEditorChangesMock).toHaveBeenCalledBefore(
       clearCaptureLifecycleMarkerMock,
     );
     expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledBefore(
@@ -1425,7 +1423,7 @@ describe("useStartListening", () => {
   });
 
   test("retains the marker and capture lease until a failed editor flush recovers", async () => {
-    flushCanonicalSessionEditorChangesMock.mockRejectedValueOnce(
+    flushSessionEditorChangesMock.mockRejectedValueOnce(
       new Error("database is locked"),
     );
     const consoleError = vi
@@ -1476,7 +1474,7 @@ describe("useStartListening", () => {
       await expect(recoveryResult.result.current()).resolves.toBe("inactive");
     });
 
-    expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledTimes(2);
+    expect(flushSessionEditorChangesMock).toHaveBeenCalledTimes(2);
     expect(clearCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
       "session-1",
       "generated-id",
@@ -2850,7 +2848,7 @@ describe("useStartListening", () => {
         expect(flushLiveTranscriptDeltasToDatabaseMock).toHaveBeenCalledBefore(
           requestAutoEnhanceMock,
         );
-        expect(flushCanonicalSessionEditorChangesMock).toHaveBeenCalledBefore(
+        expect(flushSessionEditorChangesMock).toHaveBeenCalledBefore(
           requestAutoEnhanceMock,
         );
         expect(requestAutoEnhanceMock).toHaveBeenCalledBefore(runBatchMock);

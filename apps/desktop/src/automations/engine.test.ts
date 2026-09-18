@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   setSettingValue: vi.fn(),
   execute: vi.fn(),
   getSession: vi.fn(),
-  sendSlackRecap: vi.fn(),
   listConnections: vi.fn(),
   linearCreateIssue: vi.fn(),
   notionAppendUpdate: vi.fn(),
@@ -31,15 +30,6 @@ vi.mock("~/auth/client", () => ({
 
 vi.mock("~/env", () => ({
   env: { VITE_API_URL: "https://api.test" },
-}));
-
-vi.mock("~/session-sharing/delivery-client", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  sendSlackRecap: mocks.sendSlackRecap,
-}));
-
-vi.mock("~/session-sharing/invitation-management", () => ({
-  getSessionShareSenderName: () => "Test User",
 }));
 
 vi.mock("@anlg/api-client", () => ({
@@ -182,82 +172,6 @@ describe("runMeetingCompletedAutomations (markdown export)", () => {
       status: "error",
       detail: "could not write markdown export: denied",
     });
-  });
-});
-
-describe("runNoteEnhancedAutomations (slack recap)", () => {
-  it("posts the summary to the configured channel", async () => {
-    storedSettings({
-      automation_slack_recap_enabled: true,
-      automation_slack_recap_channel: JSON.stringify({
-        id: "C123",
-        name: "general",
-      }),
-    });
-    mockDbRows();
-    signedInSession();
-    mocks.sendSlackRecap.mockResolvedValue(undefined);
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.sendSlackRecap).toHaveBeenCalledWith(
-      expect.objectContaining({
-        apiBaseUrl: "https://api.test",
-        accessToken: "token-1",
-        channel: "C123",
-        text: expect.stringContaining("Decisions were made."),
-      }),
-    );
-    expect(recordedRun("automation_slack_recap_last_run")).toMatchObject({
-      status: "success",
-      detail: "#general",
-    });
-  });
-
-  it("records an error when no summary exists yet", async () => {
-    storedSettings({
-      automation_slack_recap_enabled: true,
-      automation_slack_recap_channel: JSON.stringify({
-        id: "C123",
-        name: "general",
-      }),
-    });
-    mockDbRows({ recap: [] });
-    signedInSession();
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
-    expect(recordedRun("automation_slack_recap_last_run")).toMatchObject({
-      status: "error",
-    });
-  });
-
-  it("skips when the channel is not configured", async () => {
-    storedSettings({ automation_slack_recap_enabled: true });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
-    expect(recordedRun("automation_slack_recap_last_run")).toBeNull();
-  });
-
-  it("posts once per session and records the processed session", async () => {
-    storedSettings({
-      automation_slack_recap_enabled: true,
-      automation_slack_recap_channel: JSON.stringify({
-        id: "C123",
-        name: "general",
-      }),
-      automation_slack_recap_processed: JSON.stringify(["session-1"]),
-    });
-    mockDbRows();
-    signedInSession();
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
-    expect(recordedRun("automation_slack_recap_last_run")).toBeNull();
   });
 });
 
@@ -493,7 +407,7 @@ describe("parsers", () => {
 });
 
 describe("custom workflows", () => {
-  it("runs an enabled Slack workflow after a summary is ready", async () => {
+  it("runs an enabled workflow after a summary is ready", async () => {
     storedSettings({
       automation_workflows: JSON.stringify([
         {
@@ -504,7 +418,7 @@ describe("custom workflows", () => {
           steps: [
             {
               id: "step-1",
-              type: "slack_recap",
+              type: "notion_update",
               target: { id: "C123", name: "general" },
             },
           ],
@@ -516,13 +430,11 @@ describe("custom workflows", () => {
     });
     mockDbRows();
     signedInSession();
-    mocks.sendSlackRecap.mockResolvedValue(undefined);
+    mocks.notionAppendUpdate.mockResolvedValue({ data: {}, error: undefined });
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.sendSlackRecap).toHaveBeenCalledWith(
-      expect.objectContaining({ channel: "C123" }),
-    );
+    expect(mocks.notionAppendUpdate).toHaveBeenCalledTimes(1);
     const workflowCalls = mocks.setSettingValue.mock.calls.filter(
       (entry) => entry[0] === "automation_workflows",
     );
@@ -538,14 +450,14 @@ describe("custom workflows", () => {
       automation_workflows: JSON.stringify([
         {
           id: "wf-1",
-          title: "Slack then Notion",
+          title: "Markdown then Notion",
           enabled: true,
           trigger: "note_enhanced",
           steps: [
             {
               id: "step-1",
-              type: "slack_recap",
-              target: { id: "C123", name: "general" },
+              type: "markdown_export",
+              directory: "/tmp/exports",
             },
             {
               id: "step-2",
@@ -561,7 +473,10 @@ describe("custom workflows", () => {
     });
     mockDbRows();
     signedInSession();
-    mocks.sendSlackRecap.mockResolvedValue(undefined);
+    mocks.exportMeetingMarkdown.mockResolvedValue({
+      status: "ok",
+      data: "/tmp/exports/note.md",
+    });
     mocks.notionAppendUpdate.mockResolvedValue({
       data: undefined,
       error: { error: { message: "notion unavailable" } },
@@ -569,7 +484,7 @@ describe("custom workflows", () => {
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
+    expect(mocks.exportMeetingMarkdown).toHaveBeenCalledTimes(1);
     const firstSave = mocks.setSettingValue.mock.calls.filter(
       (entry) => entry[0] === "automation_workflows",
     );
@@ -582,12 +497,12 @@ describe("custom workflows", () => {
     storedSettings({
       automation_workflows: JSON.stringify(afterFailure),
     });
-    mocks.sendSlackRecap.mockClear();
+    mocks.exportMeetingMarkdown.mockClear();
     mocks.notionAppendUpdate.mockClear();
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+    expect(mocks.exportMeetingMarkdown).not.toHaveBeenCalled();
     expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
   });
 
@@ -654,7 +569,7 @@ describe("custom workflows", () => {
       steps: [
         {
           id: "step-1",
-          type: "slack_recap",
+          type: "notion_update",
           target: { id: "C123", name: "general" },
         },
       ],
@@ -670,7 +585,7 @@ describe("custom workflows", () => {
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
     const firstSave = mocks.setSettingValue.mock.calls.filter(
       (entry) => entry[0] === "automation_workflows",
     );
@@ -684,11 +599,11 @@ describe("custom workflows", () => {
       automation_workflows: JSON.stringify(afterFailure),
     });
     mockDbRows();
-    mocks.sendSlackRecap.mockResolvedValue(undefined);
+    mocks.notionAppendUpdate.mockResolvedValue({ data: {}, error: undefined });
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
+    expect(mocks.notionAppendUpdate).toHaveBeenCalledTimes(1);
   });
 
   it("skips disabled or already processed workflows", async () => {
@@ -702,7 +617,7 @@ describe("custom workflows", () => {
           steps: [
             {
               id: "step-1",
-              type: "slack_recap",
+              type: "notion_update",
               target: { id: "C123", name: "general" },
             },
           ],
@@ -716,7 +631,7 @@ describe("custom workflows", () => {
           steps: [
             {
               id: "step-1",
-              type: "slack_recap",
+              type: "notion_update",
               target: { id: "C123", name: "general" },
             },
           ],
@@ -727,6 +642,6 @@ describe("custom workflows", () => {
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
   });
 });

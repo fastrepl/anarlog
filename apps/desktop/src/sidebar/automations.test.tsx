@@ -152,7 +152,6 @@ describe("AutomationsNav", () => {
     render(<AutomationsNav />);
 
     expect(screen.getByText("Get started")).toBeTruthy();
-    expect(screen.getByText("Share a meeting recap in Slack")).toBeTruthy();
     expect(screen.getByText("Update project notes in Notion")).toBeTruthy();
     expect(
       screen.getByText("Turn action items into Linear issues"),
@@ -160,10 +159,10 @@ describe("AutomationsNav", () => {
     expect(screen.getByText("Export every meeting as Markdown")).toBeTruthy();
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Share a meeting recap in Slack/ }),
+      screen.getByRole("button", { name: /Update project notes in Notion/ }),
     );
 
-    expect(mocks.selectStarter).toHaveBeenCalledWith("slack-recap");
+    expect(mocks.selectStarter).toHaveBeenCalledWith("notion-project-notes");
   });
 
   it("marks the selected starter", () => {
@@ -201,14 +200,16 @@ describe("AutomationsNav", () => {
     render(<AutomationsNav />);
 
     fireEvent.contextMenu(
-      screen.getByRole("button", { name: /Share a meeting recap in Slack/ }),
+      screen.getByRole("button", { name: /Update project notes in Notion/ }),
     );
 
-    expect(mocks.selectStarter).toHaveBeenCalledWith("slack-recap");
+    expect(mocks.selectStarter).toHaveBeenCalledWith("notion-project-notes");
     expect(mocks.showContextMenu).toHaveBeenCalled();
 
-    findContextMenuItem("remove-automation-slack-recap")?.action();
-    expect(mocks.removeStarterDraft).toHaveBeenCalledWith("slack-recap");
+    findContextMenuItem("remove-automation-notion-project-notes")?.action();
+    expect(mocks.removeStarterDraft).toHaveBeenCalledWith(
+      "notion-project-notes",
+    );
   });
 
   it("offers edit and delete in the chat automation context menu", () => {
@@ -233,7 +234,6 @@ describe("AutomationsNav", () => {
       target: { value: "project" },
     });
 
-    expect(screen.queryByText("Share a meeting recap in Slack")).toBeNull();
     expect(screen.getByText("Update project notes in Notion")).toBeTruthy();
     expect(screen.queryByText("Share weekly recap")).toBeNull();
     expect(screen.getByText("Update project notes")).toBeTruthy();

@@ -86,14 +86,6 @@ vi.mock("~/auth/billing-context", () => ({
   }),
 }));
 
-vi.mock("~/settings/team/mirror", () => ({
-  useMyWorkspacesWithMirror: () => ({
-    data: mocks.workspaces,
-    isLoading: mocks.workspacesLoading,
-    isPending: mocks.workspacesLoading,
-  }),
-}));
-
 vi.mock("~/store/zustand/tabs", () => {
   const getState = () => ({
     currentTab: mocks.currentTab,
@@ -141,8 +133,6 @@ describe("SettingsNav", () => {
       "App",
       "General",
       "Appearance",
-      "Account",
-      "Teams",
       "Notifications",
       "AI",
       "Transcription",
@@ -156,7 +146,6 @@ describe("SettingsNav", () => {
       "Templates",
       "Automations",
       "Data",
-      "Sync",
       "Imports",
       "Advanced",
       "Privacy",
@@ -247,20 +236,6 @@ describe("SettingsNav", () => {
     expect(screen.queryByText("Personalization")).toBeNull();
   });
 
-  it("opens Account and Billing as separate destinations", () => {
-    render(<SettingsNav />);
-    fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    expect(mocks.updateSettingsTabState).toHaveBeenLastCalledWith(
-      mocks.currentTab,
-      { tab: "account" },
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Billing" }));
-    expect(mocks.updateSettingsTabState).toHaveBeenLastCalledWith(
-      mocks.currentTab,
-      { tab: "billing" },
-    );
-  });
-
   it("shows only Insights and opens it for free users", () => {
     mocks.isPro = false;
     render(<SettingsNav />);
@@ -319,54 +294,6 @@ describe("SettingsNav", () => {
     );
   });
 
-  it("opens Sync inside settings", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sync" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "sync" },
-    );
-  });
-
-  it("keeps locked Pro features visible and opens them", () => {
-    mocks.isPro = false;
-
-    render(<SettingsNav />);
-
-    expect(screen.getByText("Sync")).toBeTruthy();
-    expect(screen.getByText("Imports")).toBeTruthy();
-    expect(
-      screen.getAllByLabelText("Requires BlackMushi Pro").length,
-    ).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole("button", { name: /Sync/ }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "sync" },
-    );
-    expect(mocks.upgradeToPro).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ["Teams", { tab: "team" }],
-    ["Dictionary", { tab: "dictionary" }],
-    ["Sync", { tab: "sync" }],
-  ] as const)("opens locked %s navigation", (label, state) => {
-    mocks.isPro = false;
-
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      state,
-    );
-  });
-
   it("opens locked Automations from settings", () => {
     mocks.isPro = false;
 
@@ -375,58 +302,6 @@ describe("SettingsNav", () => {
     fireEvent.click(screen.getByRole("button", { name: /Automations/ }));
 
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "automations" });
-  });
-
-  it("shows Teams with the Pro lock on the free plan", () => {
-    mocks.isPro = false;
-
-    render(<SettingsNav />);
-
-    expect(screen.getByRole("button", { name: /Teams/ })).toBeTruthy();
-    expect(
-      screen
-        .getByRole("button", { name: /Teams/ })
-        .querySelector("[aria-label='Requires BlackMushi Pro']"),
-    ).toBeTruthy();
-  });
-
-  it("opens Teams for free members of an existing workspace", () => {
-    mocks.isPro = false;
-    mocks.workspaces = [{ workspaceId: "ws-1" }];
-
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Teams" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "team" },
-    );
-    expect(
-      screen
-        .getByRole("button", { name: "Teams" })
-        .querySelector("[aria-label='Requires BlackMushi Pro']"),
-    ).toBeNull();
-  });
-
-  it("does not lock Teams while workspaces are still loading", () => {
-    mocks.isPro = false;
-    mocks.workspaces = undefined;
-    mocks.workspacesLoading = true;
-
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Teams" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "team" },
-    );
-    expect(
-      screen
-        .getByRole("button", { name: "Teams" })
-        .querySelector("[aria-label='Requires BlackMushi Pro']"),
-    ).toBeNull();
   });
 
   it("opens Imports inside settings", () => {
