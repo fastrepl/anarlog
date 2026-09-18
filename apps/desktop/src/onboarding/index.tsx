@@ -214,7 +214,7 @@ function OnboardingScreenContent({
           headerClassName,
         ])}
       >
-        <h1 className="font-hand text-foreground text-4xl leading-none font-semibold tracking-normal">
+        <h1 className="font-display text-foreground text-4xl leading-none font-semibold tracking-normal">
           <Trans>Welcome to BlackMushi</Trans>
         </h1>
       </div>
@@ -227,9 +227,9 @@ function OnboardingScreenContent({
             description={
               currentPlatform === "macos" ? (
                 <Trans>
-                  BlackMushi needs microphone and system audio to transcribe your
-                  meetings, plus Accessibility to read meeting controls, visible
-                  chat.
+                  BlackMushi needs microphone and system audio to transcribe
+                  your meetings, plus Accessibility to read meeting controls,
+                  visible chat.
                 </Trans>
               ) : (
                 <Trans>

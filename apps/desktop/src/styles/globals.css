@@ -1,3 +1,4 @@
+@import "./fonts.css";
 @import "./scrollbar.css" layer(base);
 @import "./scrollbar.utilities.css";
 
@@ -37,8 +38,12 @@ html[data-live-caption] #root {
 
 @theme {
   --font-sans:
-    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-hand: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+    "Instrument Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+
+  /* The display face is deliberately rare -- onboarding and settings titles
+     only. A voice that is everywhere is not a voice. */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
 
   /* Capsule radii still read as pills/circles; remap to a control squircle. */
   --radius-full: 0.5rem;
@@ -181,6 +186,14 @@ html[data-live-caption] #root {
 }
 
 @layer utilities {
+  /* Fraunces ships flat by default. SOFT rounds the terminals and WONK swaps in
+     the curled alternates -- without these two the face is just another serif
+     and the link to the mark is lost. opsz is set for headline sizes. */
+  .font-display {
+    font-variation-settings: "SOFT" 60, "WONK" 1, "opsz" 96;
+    letter-spacing: -0.015em;
+  }
+
   /* https://www.joshwcomeau.com/css/custom-css-reset/ */
 
   *,
