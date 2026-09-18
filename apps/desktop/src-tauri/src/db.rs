@@ -4,8 +4,8 @@ use anlg_db_core::Db;
 
 const DB_FILENAME: &str = "app.db";
 const DB_RESET_MARKER: &str = "app.db.reset-requested";
-pub(crate) const STABLE_BUNDLE_ID: &str = "com.hyprnote.stable";
-pub(crate) const NIGHTLY_BUNDLE_ID: &str = "com.hyprnote.nightly";
+pub(crate) const STABLE_BUNDLE_ID: &str = "com.blackmushi.stable";
+pub(crate) const NIGHTLY_BUNDLE_ID: &str = "com.blackmushi.nightly";
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
 const DB_OPEN_LOCK_RETRIES: u32 = 12;
 const DB_OPEN_LOCK_RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);

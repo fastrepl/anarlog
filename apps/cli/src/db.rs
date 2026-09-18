@@ -53,13 +53,20 @@ fn resolve_default_path_for_command(data_dir: &Path, command_name: Option<&OsStr
         .and_then(OsStr::to_str);
     // `anarlog-nightly` falls through: the Nightly desktop app opens the same
     // database as stable.
-    let channel_identifier = match command_name {
-        Some("anarlog-dev") => Some("com.hyprnote.dev"),
-        Some("anarlog-staging") => Some("com.hyprnote.staging"),
-        _ => None,
+    // Each channel lists the identifier it ships under today first, then the one
+    // it shipped under before the fork renamed it. The desktop app applies the
+    // same fallback, so both sides keep opening the one database that exists.
+    let channel_identifiers: &[&str] = match command_name {
+        Some("anarlog-dev") => &["com.blackmushi.dev", "com.hyprnote.dev"],
+        Some("anarlog-staging") => &["com.blackmushi.staging", "com.hyprnote.staging"],
+        _ => &[],
     };
-    if let Some(identifier) = channel_identifier {
-        return data_dir.join(identifier).join("app.db");
+    if let Some(first) = channel_identifiers.first() {
+        let existing = channel_identifiers
+            .iter()
+            .map(|identifier| data_dir.join(identifier).join("app.db"))
+            .find(|path| path.is_file());
+        return existing.unwrap_or_else(|| data_dir.join(first).join("app.db"));
     }
 
     let current = data_dir.join("anarlog").join("app.db");
@@ -72,9 +79,11 @@ fn resolve_default_path_for_command(data_dir: &Path, command_name: Option<&OsStr
         return legacy;
     }
 
-    let identifier = data_dir.join("com.hyprnote.stable").join("app.db");
-    if identifier.is_file() {
-        return identifier;
+    for identifier in ["com.blackmushi.stable", "com.hyprnote.stable"] {
+        let candidate = data_dir.join(identifier).join("app.db");
+        if candidate.is_file() {
+            return candidate;
+        }
     }
 
     current
@@ -146,19 +155,47 @@ mod tests {
 
         assert_eq!(
             resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-dev"))),
-            dir.path().join("com.hyprnote.dev/app.db")
+            dir.path().join("com.blackmushi.dev/app.db")
         );
         assert_eq!(
             resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-staging"))),
-            dir.path().join("com.hyprnote.staging/app.db")
+            dir.path().join("com.blackmushi.staging/app.db")
         );
         assert_eq!(
             resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-dev.exe"))),
-            dir.path().join("com.hyprnote.dev/app.db")
+            dir.path().join("com.blackmushi.dev/app.db")
         );
         assert_eq!(
             resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-staging.exe"))),
-            dir.path().join("com.hyprnote.staging/app.db")
+            dir.path().join("com.blackmushi.staging/app.db")
+        );
+    }
+
+    #[test]
+    fn a_channel_still_finds_the_database_left_under_its_previous_identifier() {
+        let dir = tempfile::tempdir().unwrap();
+        let previous = dir.path().join("com.hyprnote.dev/app.db");
+        std::fs::create_dir_all(previous.parent().unwrap()).unwrap();
+        std::fs::write(&previous, "").unwrap();
+
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-dev"))),
+            previous
+        );
+    }
+
+    #[test]
+    fn a_channel_prefers_its_current_identifier_once_that_database_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        for identifier in ["com.hyprnote.dev", "com.blackmushi.dev"] {
+            let path = dir.path().join(identifier).join("app.db");
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, "").unwrap();
+        }
+
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-dev"))),
+            dir.path().join("com.blackmushi.dev/app.db")
         );
     }
 }

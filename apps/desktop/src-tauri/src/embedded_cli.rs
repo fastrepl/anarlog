@@ -6,14 +6,14 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-const DEV_BUNDLE_ID: &str = "com.hyprnote.dev";
+const DEV_BUNDLE_ID: &str = "com.blackmushi.dev";
 const FLATPAK_BUNDLE_ID: &str = "so.anarlog.Anarlog";
 const LEGACY_STABLE_BUNDLE_ID: &str = "com.hyprnote.Hyprnote";
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 const MANAGED_CLI_DIR: &str = ".anarlog-cli";
-const STABLE_BUNDLE_ID: &str = "com.hyprnote.stable";
-const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
-const NIGHTLY_BUNDLE_ID: &str = "com.hyprnote.nightly";
+const STABLE_BUNDLE_ID: &str = "com.blackmushi.stable";
+const STAGING_BUNDLE_ID: &str = "com.blackmushi.staging";
+const NIGHTLY_BUNDLE_ID: &str = "com.blackmushi.nightly";
 
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, specta::Type)]

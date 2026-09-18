@@ -48,6 +48,22 @@ pub(super) struct AuthStore {
     use_windows_data_protection: bool,
 }
 
+fn previous_auth_path(bundle_id: &str) -> Option<PathBuf> {
+    let previous = previous_bundle_id(bundle_id)?;
+    let candidate = dirs::data_local_dir()?.join(previous).join("auth.json");
+    candidate.is_file().then_some(candidate)
+}
+
+fn previous_bundle_id(bundle_id: &str) -> Option<&'static str> {
+    match bundle_id {
+        "com.blackmushi.dev" => Some("com.hyprnote.dev"),
+        "com.blackmushi.staging" => Some("com.hyprnote.staging"),
+        "com.blackmushi.nightly" => Some("com.hyprnote.nightly"),
+        "com.blackmushi.stable" => Some("com.hyprnote.stable"),
+        _ => None,
+    }
+}
+
 impl AuthStore {
     pub(super) fn new(bundle_id: &str) -> Result<Self> {
         let override_path = std::env::var_os("ANARLOG_AUTH_PATH").map(PathBuf::from);
@@ -72,8 +88,16 @@ impl AuthStore {
                 .join(bundle_id)
                 .join("auth.json"),
         };
+        // A session signed in before the fork renamed its bundle still lives in
+        // the old directory; keep reading it until this one has been written.
+        let path = if override_path.is_some() || path.is_file() {
+            path
+        } else {
+            previous_auth_path(bundle_id).unwrap_or(path)
+        };
         #[cfg(target_os = "linux")]
-        let use_secret_service = override_path.is_none() && bundle_id == "com.hyprnote.stable";
+        let use_secret_service = override_path.is_none()
+            && matches!(bundle_id, "com.blackmushi.stable" | "com.hyprnote.stable");
         #[cfg(target_os = "linux")]
         let path = if use_secret_service {
             path.with_file_name(CLI_FALLBACK_FILENAME)

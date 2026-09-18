@@ -22,6 +22,10 @@ pub fn list_installed_apps() -> Vec<InstalledApp> {
 }
 
 const SELF_BUNDLE_IDS: &[&str] = &[
+    "com.blackmushi.dev",
+    "com.blackmushi.stable",
+    "com.blackmushi.staging",
+    "com.blackmushi.nightly",
     "com.anarlog.dev",
     "com.anarlog.stable",
     "com.anarlog.staging",

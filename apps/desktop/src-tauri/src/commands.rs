@@ -4,7 +4,7 @@ use crate::{
     embedded_cli::EmbeddedCliStatus,
 };
 
-const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
+const STAGING_BUNDLE_ID: &str = "com.blackmushi.staging";
 
 #[tauri::command]
 #[specta::specta]

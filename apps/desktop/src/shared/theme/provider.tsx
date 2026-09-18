@@ -189,7 +189,7 @@ async function applyDockIcon(
   systemIsDark: boolean,
 ) {
   const appIdentifier = await getIdentifier().catch(
-    () => "com.hyprnote.stable",
+    () => "com.blackmushi.stable",
   );
 
   try {

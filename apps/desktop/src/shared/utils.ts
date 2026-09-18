@@ -17,6 +17,10 @@ export type DesktopScheme =
 export const getScheme = async (): Promise<DesktopScheme> => {
   const id = await getIdentifier();
   const schemes: Record<string, DesktopScheme> = {
+    "com.blackmushi.stable": "anarlog",
+    "com.blackmushi.staging": "anarlog-staging",
+    "com.blackmushi.nightly": "anarlog-nightly",
+    "com.blackmushi.dev": "anarlog-dev",
     "com.hyprnote.stable": "anarlog",
     "com.hyprnote.Hyprnote": "anarlog",
     "com.hyprnote.staging": "anarlog-staging",

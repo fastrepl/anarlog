@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 pub const VAULT_CONFIG_FILENAME: &str = "global.json";
-const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
-const NIGHTLY_BUNDLE_ID: &str = "com.hyprnote.nightly";
+const STAGING_BUNDLE_ID: &str = "com.blackmushi.staging";
+const NIGHTLY_BUNDLE_ID: &str = "com.blackmushi.nightly";
 const RELEASE_APP_FOLDER: &str = "anarlog";
 const LEGACY_RELEASE_APP_FOLDER: &str = "hyprnote";
 

@@ -427,24 +427,24 @@ impl Environment {
         if executable.contains("nightly") {
             return Self {
                 scheme: "anarlog-nightly",
-                bundle_id: "com.hyprnote.nightly",
+                bundle_id: "com.blackmushi.nightly",
             };
         }
         if executable.contains("staging") {
             return Self {
                 scheme: "anarlog-staging",
-                bundle_id: "com.hyprnote.staging",
+                bundle_id: "com.blackmushi.staging",
             };
         }
         if executable.contains("dev") {
             return Self {
                 scheme: "anarlog-dev",
-                bundle_id: "com.hyprnote.dev",
+                bundle_id: "com.blackmushi.dev",
             };
         }
         Self {
             scheme: "anarlog",
-            bundle_id: "com.hyprnote.stable",
+            bundle_id: "com.blackmushi.stable",
         }
     }
 }
@@ -464,7 +464,7 @@ mod tests {
     fn nightly_auth_uses_its_own_callback_and_token_store() {
         let environment = Environment::for_executable("anarlog-nightly");
         assert_eq!(environment.scheme, "anarlog-nightly");
-        assert_eq!(environment.bundle_id, "com.hyprnote.nightly");
+        assert_eq!(environment.bundle_id, "com.blackmushi.nightly");
         assert!(
             login_url(environment.scheme)
                 .unwrap()
@@ -473,7 +473,7 @@ mod tests {
         );
         assert_eq!(
             Environment::for_executable("anarlog").bundle_id,
-            "com.hyprnote.stable"
+            "com.blackmushi.stable"
         );
     }
 

@@ -30,6 +30,10 @@ impl AppCategory {
     pub fn bundle_ids(&self) -> &'static [&'static str] {
         match self {
             Self::Anarlog => &[
+                "com.blackmushi.dev",
+                "com.blackmushi.stable",
+                "com.blackmushi.nightly",
+                "com.blackmushi.staging",
                 "com.hyprnote.dev",
                 "com.hyprnote.stable",
                 "com.hyprnote.nightly",

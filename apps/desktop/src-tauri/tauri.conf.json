@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "BlackMushi Dev",
   "mainBinaryName": "anarlog-dev",
-  "identifier": "com.hyprnote.dev",
+  "identifier": "com.blackmushi.dev",
   "build": {
     "features": ["direct-distribution"],
     "beforeDevCommand": "pnpm -F desktop dev",
