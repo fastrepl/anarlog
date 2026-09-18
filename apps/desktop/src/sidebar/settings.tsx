@@ -2,11 +2,9 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 
 import {
-  ArrowUpRight,
   ArrowsClockwise,
   Bell,
   BookOpen,
-  Brain,
   CalendarDots,
   ChartLineUp,
   Code,
@@ -19,7 +17,9 @@ import {
   type Icon,
   Lock,
   MagnifyingGlass,
+  Microphone,
   ShieldCheck,
+  Sparkle,
   Sun,
   User,
   Users,
@@ -100,6 +100,12 @@ export function SettingsNav() {
           icon: UsersThree,
           requiresPro: !workspaces.isLoading && !hasExistingWorkspace,
         },
+        {
+          id: "sync",
+          label: t`Sync`,
+          icon: ArrowsClockwise,
+          requiresPro: true,
+        },
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "notifications", label: t`Notifications`, icon: Bell },
       ],
@@ -111,10 +117,10 @@ export function SettingsNav() {
         {
           id: "dictation",
           label: t`Dictation`,
-          icon: Waveform,
+          icon: Microphone,
           requiresPro: true,
         },
-        { id: "intelligence", label: t`Intelligence`, icon: Brain },
+        { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
         {
           id: "dictionary",
           label: t`Dictionary`,
@@ -162,15 +168,7 @@ export function SettingsNav() {
     },
     {
       label: t`Data`,
-      items: [
-        {
-          id: "sync",
-          label: t`Sync`,
-          icon: ArrowsClockwise,
-          requiresPro: true,
-        },
-        { id: "imports", label: t`Imports`, icon: DownloadSimple },
-      ],
+      items: [{ id: "imports", label: t`Imports`, icon: DownloadSimple }],
     },
     {
       label: t`Advanced`,
@@ -296,12 +294,6 @@ export function SettingsNav() {
                           <Lock
                             aria-label={t`Requires Anarlog Pro`}
                             className="size-3.5 shrink-0"
-                          />
-                        ) : "destination" in item ? (
-                          <ArrowUpRight
-                            aria-hidden
-                            className="text-muted-foreground/70 size-3.5 shrink-0"
-                            data-testid={`settings-nav-destination-icon-${item.id}`}
                           />
                         ) : null}
                       </span>

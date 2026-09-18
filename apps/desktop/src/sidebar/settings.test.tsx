@@ -195,8 +195,8 @@ describe("SettingsNav", () => {
     fireEvent.click(screen.getByRole("button", { name: label }));
 
     expect(
-      screen.getByTestId(`settings-nav-destination-icon-${destination.type}`),
-    ).toBeTruthy();
+      screen.queryByTestId(`settings-nav-destination-icon-${destination.type}`),
+    ).toBeNull();
     expect(mocks.openNew).toHaveBeenCalledWith(destination);
   });
 
