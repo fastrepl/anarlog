@@ -3,6 +3,7 @@ import type { ChatStatus } from "ai";
 import { ErrorMessage } from "~/chat/components/message/error";
 import { LoadingMessage } from "~/chat/components/message/loading";
 import { NormalMessage } from "~/chat/components/message/normal";
+import { MessageTimestamp } from "~/chat/components/message/timestamp";
 import { hasRenderableContent } from "~/chat/components/shared";
 import type { AnlgUIMessage } from "~/chat/types";
 
@@ -56,6 +57,14 @@ export function ChatBodyNonEmpty({
 
   return (
     <div className="flex flex-col">
+      {messages[0]?.metadata?.createdAt !== undefined && (
+        <div className="pt-2 pb-4 text-center">
+          <MessageTimestamp
+            createdAt={messages[0].metadata.createdAt}
+            showDate
+          />
+        </div>
+      )}
       {messages.map((message, index) => (
         <NormalMessage
           key={message.id}

@@ -13,6 +13,7 @@ import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
 import { cn } from "@anlg/utils";
 
 import { Disclosure, MessageBubble, MessageContainer } from "./shared";
+import { MessageTimestamp } from "./timestamp";
 import { Tool } from "./tool";
 import type { Part } from "./types";
 
@@ -83,8 +84,8 @@ export function NormalMessage({
     <MessageContainer align={isUser ? "end" : "start"}>
       <div
         className={cn([
-          "flex min-w-0 flex-col",
-          isUser ? "max-w-[85%] items-end" : "group w-full",
+          "group/message flex min-w-0 flex-col",
+          isUser ? "max-w-[85%] items-end" : "w-full",
         ])}
       >
         <MessageBubble variant={isUser ? "user" : "assistant"}>
@@ -108,26 +109,29 @@ export function NormalMessage({
             <Part key={i} part={part as Part} />
           ))}
         </MessageBubble>
-        {!isUser && (
-          <div className="mt-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <button
-              onClick={handleCopy}
-              className={`p-1 transition-colors ${copied ? "text-green-500" : "text-muted-foreground hover:text-foreground"}`}
-              aria-label={t`Copy message`}
-            >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-            </button>
-            {handleReload && (
+        <div className="mt-1 flex min-h-6 items-center gap-1 opacity-0 transition-opacity group-focus-within/message:opacity-100 group-hover/message:opacity-100">
+          {!isUser && (
+            <>
               <button
-                onClick={handleReload}
-                className="text-muted-foreground hover:text-foreground p-1 transition-colors"
-                aria-label={t`Regenerate message`}
+                onClick={handleCopy}
+                className={`p-1 transition-colors ${copied ? "text-green-500" : "text-muted-foreground hover:text-foreground"}`}
+                aria-label={t`Copy message`}
               >
-                <ArrowCounterClockwise size={14} />
+                {copied ? <Check size={14} /> : <Copy size={14} />}
               </button>
-            )}
-          </div>
-        )}
+              {handleReload && (
+                <button
+                  onClick={handleReload}
+                  className="text-muted-foreground hover:text-foreground p-1 transition-colors"
+                  aria-label={t`Regenerate message`}
+                >
+                  <ArrowCounterClockwise size={14} />
+                </button>
+              )}
+            </>
+          )}
+          <MessageTimestamp createdAt={message.metadata?.createdAt} />
+        </div>
       </div>
     </MessageContainer>
   );

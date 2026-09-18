@@ -75,6 +75,16 @@ describe("persisted chat messages", () => {
     });
   });
 
+  test("restores legacy timestamps from the saved row without losing metadata", () => {
+    const parsed = rowToPersistedChatMessage(
+      chatMessageRow({ metadata_json: '{"chatScope":"general"}' }),
+    );
+    expect(parsed.message.metadata).toEqual({
+      createdAt: Date.parse("2024-01-01T00:00:01.000Z"),
+      chatScope: "general",
+    });
+  });
+
   test("hides empty assistant messages regardless of status", () => {
     const empty = rowToPersistedChatMessage(
       chatMessageRow({ content: "", parts_json: "[]", status: "streaming" }),
