@@ -7,6 +7,8 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -42,6 +44,48 @@ function setHoverCapability(enabled: boolean): void {
 }
 
 describe("app toast", () => {
+  it("hydrates the server markup before mounting the portal", async () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<AppToaster />);
+    expect(container.innerHTML).toBe("");
+    document.body.append(container);
+    const onRecoverableError = vi.fn();
+    let root: ReturnType<typeof hydrateRoot>;
+    await act(async () => {
+      root = hydrateRoot(container, <AppToaster />, { onRecoverableError });
+    });
+    expect(onRecoverableError).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-app-toaster]")).not.toBeNull();
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("unpacks persistent toasts when the pointer loses hover capability", () => {
+    const listeners = new Set<() => void>();
+    const query = {
+      matches: true,
+      addEventListener: (_: string, listener: () => void) =>
+        listeners.add(listener),
+      removeEventListener: (_: string, listener: () => void) =>
+        listeners.delete(listener),
+    };
+    vi.stubGlobal("matchMedia", () => query);
+    const view = render(<AppToaster />);
+    act(() => {
+      showAppToast({ message: "First", durationMs: Infinity });
+      showAppToast({ message: "Second", durationMs: Infinity });
+    });
+    const stack = document.querySelector("[data-app-toast-stack]");
+    expect(stack?.getAttribute("data-stacked")).toBe("true");
+    act(() => {
+      query.matches = false;
+      listeners.forEach((listener) => listener());
+    });
+    expect(stack?.getAttribute("data-stacked")).toBe("false");
+    view.unmount();
+    expect(listeners.size).toBe(0);
+  });
+
   it("renders independent custom toasts with the shared app visuals", async () => {
     vi.useFakeTimers();
     const onAction = vi.fn();

@@ -42,7 +42,7 @@ function showToast(
   const id = options.id ?? `notification-${++nextToastId}`;
   const requestedDuration = options.duration;
   const durationMs =
-    tone === "error"
+    tone === "error" && requestedDuration !== Infinity
       ? requestedDuration === undefined || !Number.isFinite(requestedDuration)
         ? TOAST_DURATIONS.error
         : Math.min(requestedDuration, TOAST_DURATIONS.error)

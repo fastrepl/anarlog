@@ -38,21 +38,23 @@ describe("toast migration", () => {
     },
   );
 
-  it("keeps explicit persistent warnings and loading notices until dismissed", async () => {
+  it("keeps explicit persistent errors, warnings and loading notices until dismissed", async () => {
     act(() => {
+      toast.error("Persistent error", { id: "error", duration: Infinity });
       toast.warning("Warning", { id: "warning", duration: Infinity });
       toast.loading("Working", { id: "loading" });
     });
     await advance(60_000);
     expect(screen.getByText("Warning")).toBeTruthy();
     expect(screen.getByText("Working")).toBeTruthy();
+    expect(screen.getByText("Persistent error")).toBeTruthy();
     act(() => toast.dismiss("loading"));
     await advance(250);
     expect(screen.queryByText("Working")).toBeNull();
     expect(screen.getByText("Warning")).toBeTruthy();
   });
 
-  it.each([Infinity, 12_000, 2_000])(
+  it.each([12_000, 2_000])(
     "caps errors while respecting shorter durations (%s)",
     async (duration) => {
       act(() => {

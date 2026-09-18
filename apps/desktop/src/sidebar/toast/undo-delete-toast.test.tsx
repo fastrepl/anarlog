@@ -75,6 +75,7 @@ describe("UndoDeleteToast", () => {
         id: "undo-delete:session-1",
         duration: Infinity,
         closeButton: false,
+        dismissible: false,
         action: expect.objectContaining({ label: "Undo" }),
       }),
     );

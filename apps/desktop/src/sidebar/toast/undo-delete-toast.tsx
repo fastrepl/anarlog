@@ -159,6 +159,7 @@ function UndoDeleteNotificationToast({ group }: { group: ToastGroup }) {
       id: toastId,
       duration: Infinity,
       closeButton: false,
+      dismissible: false,
       description: (
         <span
           aria-hidden="true"

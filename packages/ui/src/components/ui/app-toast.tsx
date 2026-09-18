@@ -230,6 +230,20 @@ function toggleAppToastTimer(id: string): void {
   updateAppToast(id, (current) => ({ ...current, paused: true, remainingMs }));
 }
 
+function subscribeToDesktopHover(listener: () => void) {
+  const query = window.matchMedia?.(APP_TOAST_DESKTOP_HOVER_QUERY);
+  query?.addEventListener("change", listener);
+  return () => query?.removeEventListener("change", listener);
+}
+
+function getDesktopHoverSnapshot() {
+  return window.matchMedia?.(APP_TOAST_DESKTOP_HOVER_QUERY).matches ?? false;
+}
+
+const subscribeToClient = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 /**
  * App-wide toast viewport shared by desktop and web.
  * Mount once per renderer root; feedback is published through
@@ -252,10 +266,16 @@ export function AppToaster({
   );
   const [desktopStackExpanded, setDesktopStackExpanded] = useState(false);
   const visibleToastItems = toasts.slice(-visibleToasts);
-  const supportsDesktopHover =
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia(APP_TOAST_DESKTOP_HOVER_QUERY).matches;
+  const supportsDesktopHover = useSyncExternalStore(
+    subscribeToDesktopHover,
+    getDesktopHoverSnapshot,
+    getServerSnapshot,
+  );
+  const isClient = useSyncExternalStore(
+    subscribeToClient,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
   const stacked =
     supportsDesktopHover &&
     visibleToastItems.length > 1 &&
@@ -272,7 +292,7 @@ export function AppToaster({
       collapseDesktopStack();
   };
 
-  if (typeof document === "undefined") return null;
+  if (!isClient) return null;
 
   return createPortal(
     <div
