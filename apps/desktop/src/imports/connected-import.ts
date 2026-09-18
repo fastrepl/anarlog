@@ -163,6 +163,7 @@ export async function connectNangoImport(
     "imports",
     headers,
     false,
+    false,
   );
   if (!opened) {
     throw integrationSetupError();

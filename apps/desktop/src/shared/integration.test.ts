@@ -25,7 +25,8 @@ vi.mock("~/error-reporting", () => ({
   captureOperationalError: mocks.captureOperationalError,
 }));
 vi.mock("~/shared/utils", () => ({
-  buildWebAppUrl: async () => "https://anarlog.so/app/integration",
+  buildWebAppUrl: async (path: string, params: Record<string, string>) =>
+    `https://anarlog.so${path}?${new URLSearchParams(params)}`,
 }));
 
 import { openIntegrationUrl } from "./integration";
@@ -63,8 +64,17 @@ describe("openIntegrationUrl", () => {
     });
 
     await expect(
-      openIntegrationUrl("zoom", undefined, "connect", "imports", {}, false),
+      openIntegrationUrl(
+        "zoom",
+        undefined,
+        "connect",
+        "imports",
+        {},
+        false,
+        false,
+      ),
     ).resolves.toBe(false);
+    expect(mocks.toastError).not.toHaveBeenCalled();
     expect(mocks.captureOperationalError).toHaveBeenCalledWith(
       new Error("launch failed"),
       expect.objectContaining({ operation: "integration_open" }),
@@ -76,7 +86,7 @@ describe("openIntegrationUrl", () => {
       openIntegrationUrl("zoom", undefined, "connect", "imports", {}, false),
     ).resolves.toBe(true);
     expect(mocks.openUrl).toHaveBeenCalledWith(
-      "https://anarlog.so/app/integration?handoff=nango#session_token=scoped-token",
+      "https://anarlog.so/app/integration?action=connect&integration_id=zoom&return_to=imports&handoff=nango#session_token=scoped-token",
       null,
     );
     expect(mocks.openUrlWithInstruction).not.toHaveBeenCalled();

@@ -303,6 +303,7 @@ describe("nango meeting imports", () => {
       "imports",
       headers,
       false,
+      false,
     );
     expect(mocks.listConnections).toHaveBeenCalledOnce();
   });

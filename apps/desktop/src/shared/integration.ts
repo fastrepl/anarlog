@@ -25,6 +25,7 @@ export async function openIntegrationUrl(
   returnTo?: string,
   headers?: Record<string, string> | null,
   showInstruction = true,
+  showErrorToast = true,
 ) {
   if (!nangoIntegrationId) return false;
 
@@ -88,7 +89,7 @@ export async function openIntegrationUrl(
         mode: action,
       },
     });
-    toast.error(integrationSetupError().message);
+    if (showErrorToast) toast.error(integrationSetupError().message);
     return false;
   }
 }
