@@ -142,6 +142,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^27.4.0",
     "postcss": "^8.5.23",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.8.3",
