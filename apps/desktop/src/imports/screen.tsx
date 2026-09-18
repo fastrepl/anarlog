@@ -350,15 +350,7 @@ export function MeetingImportScreen({
     },
   });
 
-  const connectedError =
-    credentialQueries.find((query) => query.error)?.error ??
-    connectionsQuery.error ??
-    signInMutation.error ??
-    connectMutation.error ??
-    cancelConnectMutation.error ??
-    disconnectMutation.error ??
-    syncQueries.find((query) => query.error)?.error ??
-    nangoSyncQueries.find((query) => query.error)?.error;
+  const connectedError = connectionsQuery.error ?? signInMutation.error;
   const latestResult =
     fileImportMutation.data ??
     syncQueries.find((query) => query.data)?.data?.result ??
@@ -378,39 +370,9 @@ export function MeetingImportScreen({
         </p>
       ) : null}
 
-      {fileImportMutation.error ? (
-        <p className="text-destructive text-sm">
-          {fileImportMutation.error.message}
-        </p>
-      ) : null}
       {connectedError ? (
         <p className="text-destructive text-sm">{connectedError.message}</p>
       ) : null}
-      {latestResult ? (
-        <div className="border-border bg-card rounded-xl border px-4 py-3 text-sm">
-          {latestResult.imported > 0 ? (
-            <Trans>
-              Brought in {latestResult.imported} new meetings.{" "}
-              {latestResult.matched} were already here.
-            </Trans>
-          ) : latestResult.errors > 0 || latestResult.conflicts > 0 ? (
-            <Trans>
-              Nothing new was imported. {latestResult.conflicts} meetings need
-              review and {latestResult.errors} could not be imported.
-            </Trans>
-          ) : (
-            <Trans>Everything is already here.</Trans>
-          )}
-        </div>
-      ) : null}
-      {syncQueries
-        .flatMap((query) => query.data?.warnings ?? [])
-        .concat(nangoSyncQueries.flatMap((query) => query.data?.warnings ?? []))
-        .map((warning) => (
-          <p key={warning} className="text-muted-foreground text-xs">
-            {warning}
-          </p>
-        ))}
 
       {displayedProviders.length > 0 || detectionSettled ? (
         <div className="border-border bg-card overflow-hidden rounded-2xl border">
@@ -474,9 +436,31 @@ export function MeetingImportScreen({
                   (run) => run.providerId === provider.id,
                 );
 
+                const result =
+                  fileImportMutation.variables?.id === provider.id
+                    ? (fileImportMutation.data ?? syncQuery?.data?.result)
+                    : syncQuery?.data?.result;
+                const error =
+                  credentialsQuery?.error ??
+                  syncQuery?.error ??
+                  (fileImportMutation.variables?.id === provider.id
+                    ? fileImportMutation.error
+                    : null) ??
+                  (connectMutation.variables?.id === provider.id
+                    ? connectMutation.error
+                    : null) ??
+                  (cancelConnectMutation.variables === provider.id
+                    ? cancelConnectMutation.error
+                    : null) ??
+                  (disconnectMutation.variables?.providerId === provider.id
+                    ? disconnectMutation.error
+                    : null);
+
                 return (
                   <div
                     key={provider.id}
+                    role="group"
+                    aria-label={provider.name}
                     className="flex min-h-16 items-center gap-3 px-4 py-3"
                   >
                     <span className="flex size-8 shrink-0 items-center justify-center">
@@ -501,7 +485,7 @@ export function MeetingImportScreen({
                             </Trans>
                           )}
                         </p>
-                      ) : lastRun ? (
+                      ) : lastRun && !result ? (
                         <p className="text-muted-foreground mt-1 text-xs">
                           <Trans>
                             Last import: {lastRun.imported} added,{" "}
@@ -520,6 +504,46 @@ export function MeetingImportScreen({
                           </Trans>
                         </p>
                       )}
+                      {result &&
+                      (result.imported > 0 ||
+                        result.matched > 0 ||
+                        result.errors > 0 ||
+                        result.conflicts > 0) ? (
+                        <p
+                          className="text-muted-foreground mt-1 text-xs"
+                          role="status"
+                        >
+                          {result.errors > 0 || result.conflicts > 0 ? (
+                            <Trans>
+                              Imported: {result.imported}. Unchanged:{" "}
+                              {result.matched}. Needs review: {result.conflicts}
+                              . Failed: {result.errors}.
+                            </Trans>
+                          ) : (
+                            <Trans>
+                              Last import: {result.imported} added,{" "}
+                              {result.matched} unchanged
+                            </Trans>
+                          )}
+                        </p>
+                      ) : null}
+                      {syncQuery?.data?.warnings.map((warning) => (
+                        <p
+                          key={warning}
+                          className="text-muted-foreground mt-1 text-xs"
+                          role="status"
+                        >
+                          {warning}
+                        </p>
+                      ))}
+                      {error ? (
+                        <p
+                          className="text-destructive mt-1 text-xs"
+                          role="alert"
+                        >
+                          {error.message}
+                        </p>
+                      ) : null}
                     </div>
                     {connectedProvider ? (
                       <div className="flex shrink-0 items-center gap-1">

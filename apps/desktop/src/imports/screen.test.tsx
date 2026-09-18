@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -114,7 +115,7 @@ vi.mock("./connected-import", () => ({
     enabled: boolean,
   ) => ({
     queryKey: ["meeting-import", provider.id, "sync", connectionId],
-    queryFn: () => mocks.sync(),
+    queryFn: () => mocks.sync(provider.id),
     enabled,
     retry: false,
   }),
@@ -411,6 +412,37 @@ describe("MeetingImportScreen", () => {
     expect(
       screen.queryByText(/Direct connection is not available yet/i),
     ).toBeNull();
+  });
+
+  it("keeps each provider's sync warnings and errors in its own row", async () => {
+    mockDetected(["google-meet", "zoom"]);
+    mocks.connections = [
+      { connection_id: "meet-1", integration_id: "google-meet" },
+      { connection_id: "zoom-1", integration_id: "zoom" },
+    ];
+    mocks.sync.mockImplementation(async (providerId: string) => {
+      if (providerId === "zoom") throw new Error("Zoom sync failed");
+      return {
+        result: {
+          discovered: 0,
+          imported: 0,
+          matched: 0,
+          conflicts: 0,
+          errors: 0,
+        },
+        warnings: ["Meet transcripts unavailable"],
+      };
+    });
+    renderImports();
+    const meet = within(
+      await screen.findByRole("group", { name: "Google Meet" }),
+    );
+    const zoom = within(screen.getByRole("group", { name: "Zoom" }));
+    expect(await meet.findByText("Meet transcripts unavailable")).toBeTruthy();
+    expect(await zoom.findByText("Zoom sync failed")).toBeTruthy();
+    expect(meet.queryByText("Zoom sync failed")).toBeNull();
+    expect(zoom.queryByText("Meet transcripts unavailable")).toBeNull();
+    expect(screen.queryByText("Everything is already here.")).toBeNull();
   });
 
   it("shows sync progress and blocks repeat clicks until syncing finishes", async () => {

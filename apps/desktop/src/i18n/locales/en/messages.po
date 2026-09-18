@@ -858,12 +858,6 @@ msgstr "Bright canvas"
 msgid "Bring your meeting history"
 msgstr "Bring your meeting history"
 
-#. placeholder {0}: latestResult.imported
-#. placeholder {1}: latestResult.matched
-#: src/imports/screen.tsx
-msgid "Brought in {0} new meetings. {1} were already here."
-msgstr "Brought in {0} new meetings. {1} were already here."
-
 #: src/instruction/index.tsx
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr "Browser handoff not working? Paste the callback link instead"
@@ -2340,10 +2334,6 @@ msgstr "Everyone in the Team"
 msgid "Everyone in the workspace"
 msgstr "Everyone in the workspace"
 
-#: src/imports/screen.tsx
-msgid "Everything is already here."
-msgstr "Everything is already here."
-
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Example summary"
 msgstr "Example summary"
@@ -2749,6 +2739,14 @@ msgstr "If Anarlog stays closed, paste the link in the sign-in window."
 msgid "Import notes and transcripts from the meeting apps you already use."
 msgstr "Import notes and transcripts from the meeting apps you already use."
 
+#. placeholder {0}: result.imported
+#. placeholder {1}: result.matched
+#. placeholder {2}: result.conflicts
+#. placeholder {3}: result.errors
+#: src/imports/screen.tsx
+msgid "Imported: {0}. Unchanged: {1}. Needs review: {2}. Failed: {3}."
+msgstr "Imported: {0}. Unchanged: {1}. Needs review: {2}. Failed: {3}."
+
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Importing audio..."
 msgstr "Importing audio..."
@@ -2989,7 +2987,9 @@ msgid "Last dictation"
 msgstr "Last dictation"
 
 #. placeholder {0}: lastRun.imported
+#. placeholder {0}: result.imported
 #. placeholder {1}: lastRun.matched
+#. placeholder {1}: result.matched
 #: src/imports/screen.tsx
 msgid "Last import: {0} added, {1} unchanged"
 msgstr "Last import: {0} added, {1} unchanged"
@@ -3728,12 +3728,6 @@ msgstr "Notes list"
 #: src/sidebar/folder-materials.tsx
 msgid "Notes stay in All notes. Materials in this folder will be deleted."
 msgstr "Notes stay in All notes. This folder, its nested folders, and all their materials will be deleted."
-
-#. placeholder {0}: latestResult.conflicts
-#. placeholder {1}: latestResult.errors
-#: src/imports/screen.tsx
-msgid "Nothing new was imported. {0} meetings need review and {1} could not be imported."
-msgstr "Nothing new was imported. {0} meetings need review and {1} could not be imported."
 
 #: src/settings/general/index.tsx
 #: src/sidebar/settings.tsx
