@@ -32,12 +32,6 @@ export function PricingSection({
         ))}
       </div>
 
-      <p className="text-color-muted mx-auto mt-6 max-w-2xl text-sm leading-6">
-        Dictation is included with Pro, Team, and Enterprise. Use a configurable
-        shortcut to turn speech into text in other desktop apps on macOS,
-        Windows, and Linux.
-      </p>
-
       {compareLink ? (
         <div className="mt-8">
           <Link
