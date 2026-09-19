@@ -206,9 +206,6 @@ importers:
       '@anlg/store':
         specifier: workspace:*
         version: link:../../packages/store
-      '@anlg/supabase':
-        specifier: workspace:*
-        version: link:../../packages/supabase
       '@anlg/ui':
         specifier: workspace:^
         version: link:../../packages/ui
@@ -251,9 +248,6 @@ importers:
       '@sentry/react':
         specifier: ^8.55.1
         version: 8.55.1(react@19.2.5)
-      '@supabase/supabase-js':
-        specifier: ^2.103.0
-        version: 2.103.0
       '@t3-oss/env-core':
         specifier: ^0.13.11
         version: 0.13.11(typescript@5.8.3)(zod@4.5.4)

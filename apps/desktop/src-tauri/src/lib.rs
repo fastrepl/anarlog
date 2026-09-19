@@ -10,7 +10,7 @@ mod startup;
 mod store;
 mod supervisor;
 
-use db::{cloudsync_runtime_config_from_env, open_desktop_db};
+use db::open_desktop_db;
 use ext::*;
 use store::*;
 
@@ -186,14 +186,6 @@ pub fn main() {
 
     let audio: std::sync::Arc<dyn anlg_audio_actual::AudioProvider> =
         create_audio_provider(&context.config().identifier);
-    let cloudsync_config = match cloudsync_runtime_config_from_env() {
-        Ok(config) => config,
-        Err(error) => {
-            tracing::warn!(%error, "invalid CloudSync environment configuration; CloudSync disabled");
-            None
-        }
-    };
-
     let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default())
         .manage(audio)
         .manage(db.clone())
@@ -222,25 +214,19 @@ pub fn main() {
         .plugin(tauri_plugin_opener2::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_tracing::init())
-        .plugin(tauri_plugin_analytics::init())
-        .plugin(tauri_plugin_attachment_sync::init());
+        .plugin(tauri_plugin_analytics::init());
 
     #[cfg(not(feature = "app-store"))]
     {
         builder = builder.plugin(tauri_plugin_agent::init());
     }
 
-    builder = builder
-        .plugin(tauri_plugin_db::init_with_cloudsync(
-            db.clone(),
-            cloudsync_config,
-        ));
+    builder = builder.plugin(tauri_plugin_db::init(db.clone()));
 
     builder = builder
         .plugin(tauri_plugin_importer::init())
         .plugin(tauri_plugin_calendar::init())
-        .plugin(tauri_plugin_todo::init())
-        .plugin(tauri_plugin_auth::init());
+        .plugin(tauri_plugin_todo::init());
 
     #[cfg(not(feature = "app-store"))]
     {
@@ -440,11 +426,9 @@ pub fn main() {
             }
         }
         Some(true) => {
-            use tauri_plugin_auth::AuthPluginExt;
             use tauri_plugin_settings::SettingsPluginExt;
             use tauri_plugin_store2::Store2PluginExt;
 
-            let _ = app.clear_auth();
             let _ = app.settings().reset();
             let _ = app.store2().reset();
             let _ = app.set_onboarding_needed(true);
