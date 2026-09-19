@@ -42,7 +42,9 @@ fn main() {
     let manifest_dir = PathBuf::from(
         std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is set by Cargo"),
     );
-    let src = manifest_dir.join("../../apps/api/openapi.gen.json");
+    // Le contrat est versionné ici depuis le retrait d'apps/api : le client
+    // généré doit pouvoir se construire sans son serveur d'origine.
+    let src = manifest_dir.join("openapi.source.json");
     println!("cargo:rerun-if-changed={}", src.display());
 
     OpenApiSpec::from_path(&src)
