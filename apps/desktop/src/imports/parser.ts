@@ -320,7 +320,13 @@ function parseCaptionTranscript(content: string) {
   });
 }
 
+const TIMESTAMPED_SPEAKER_TURN =
+  /\[(\d{1,2}:\d{2}(?::\d{2})?)\s*-\s*(\d{1,2}:\d{2}(?::\d{2})?)\]\s*([^:\n]{1,80}):\s*/gu;
+
 function parseTextTranscript(content: string) {
+  const timestamped = parseTimestampedSpeakerTranscript(content);
+  if (timestamped) return timestamped;
+
   return content
     .split(/\r?\n/u)
     .map((line) => line.trim())
@@ -334,6 +340,22 @@ function parseTextTranscript(content: string) {
         endMs: (index + 1) * 1_000,
       };
     });
+}
+
+function parseTimestampedSpeakerTranscript(content: string) {
+  const matches = [...content.matchAll(TIMESTAMPED_SPEAKER_TURN)];
+  if (matches.length === 0) return null;
+
+  return matches.map((match, index) => {
+    const turnStart = match.index + match[0].length;
+    const turnEnd = matches[index + 1]?.index ?? content.length;
+    return {
+      speaker: match[3]!.trim(),
+      text: content.slice(turnStart, turnEnd).trim(),
+      startMs: parseTimestamp(match[1]!),
+      endMs: parseTimestamp(match[2]!),
+    };
+  });
 }
 
 function parseTranscriptValue(value: unknown): ImportedMeeting["transcript"] {

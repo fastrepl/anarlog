@@ -147,6 +147,39 @@ describe("meeting export parser", () => {
     expect(meeting?.noteMarkdown).toContain("Follow up next week");
   });
 
+  it("parses Fireflies timestamped speaker turns from a single text blob", () => {
+    const [meeting] = parseMeetingExport({
+      path: "/tmp/fireflies.txt",
+      name: "fireflies.txt",
+      content:
+        "01M2QPG5DND30EDFVQWAED6CWJ 2026-09-18T10:00:00.000Z link Alexis Murat, Camille Vingere " +
+        "[00:02 - 00:03] Alexis Murat: Le classique. " +
+        "[00:04 - 00:07] Alexis Murat: Hello, hello, comment ça va? " +
+        "[00:07 - 00:08] Camille Vingere: Ça va, et toi?",
+    });
+
+    expect(meeting?.transcript).toEqual([
+      {
+        speaker: "Alexis Murat",
+        text: "Le classique.",
+        startMs: 2_000,
+        endMs: 3_000,
+      },
+      {
+        speaker: "Alexis Murat",
+        text: "Hello, hello, comment ça va?",
+        startMs: 4_000,
+        endMs: 7_000,
+      },
+      {
+        speaker: "Camille Vingere",
+        text: "Ça va, et toi?",
+        startMs: 7_000,
+        endMs: 8_000,
+      },
+    ]);
+  });
+
   it("handles quoted multiline CSV cells", () => {
     expect(
       parseCsvRows('title,notes\n"Planning","Line one\nLine two"'),
