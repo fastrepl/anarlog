@@ -341,7 +341,6 @@ describe("OuterHeader", () => {
     const spacer = container.firstElementChild?.firstElementChild;
 
     expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Share note" })).toBeNull();
     expect(spacer?.className).toContain("flex-1");
   });
 
@@ -1268,7 +1267,7 @@ describe("OuterHeader", () => {
     expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
   });
 
-  it("offers recording again for an inactive ad hoc session with a transcript", () => {
+  it("offers export instead of recording for an inactive ad hoc session with a transcript", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -1278,13 +1277,13 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Share note" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Export" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("offers recording again for an inactive ad hoc session with audio", () => {
+  it("offers export instead of recording for an inactive ad hoc session with audio", () => {
     mocks.audioExists = true;
 
     render(
@@ -1294,8 +1293,8 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Share note" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Export" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
@@ -1397,7 +1396,7 @@ describe("OuterHeader", () => {
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
-  it("offers recording again after the meeting is over", () => {
+  it("offers export instead of recording after the meeting is over", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -1415,22 +1414,22 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const record = screen.getByRole("button", { name: "Record" });
+    const exportButton = screen.getByRole("button", { name: "Export" });
     const more = screen.getByRole("button", { name: "More" });
     const actionStrip = container.firstElementChild?.lastElementChild;
     const actionChildren = [...(actionStrip?.children ?? [])];
 
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Share note" })).toBeNull();
-    expect(record).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(exportButton).not.toBeNull();
     expect(more).not.toBeNull();
     expect(
-      actionChildren.findIndex((child) => child.contains(record)),
+      actionChildren.findIndex((child) => child.contains(exportButton)),
     ).toBeLessThan(actionChildren.findIndex((child) => child.contains(more)));
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("offers recording again when a recorded event has no ended_at", () => {
+  it("offers export instead of recording when a recorded event has no ended_at", () => {
     mocks.sessionEvents = {
       "session-1": {
         title: "Design Review",
@@ -1449,8 +1448,8 @@ describe("OuterHeader", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Share note" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Export" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "More" })).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
@@ -1466,7 +1465,7 @@ describe("OuterHeader", () => {
 
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Record" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Share note" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Export" })).not.toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Headset, Square, VideoCamera } from "@anlg/ui/components/icons";
+import { DownloadSimple } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Popover,
@@ -16,6 +17,7 @@ import { FolderPicker } from "../folder-picker";
 import { RecordingIcon, useHasTranscript } from "../shared";
 import { TitleInput } from "../title-input";
 import { OverflowButton } from "./overflow";
+import { ExportModal } from "./overflow/export-modal";
 
 import { useAudioPlayer } from "~/audio-player";
 import { useNow } from "~/calendar/hooks";
@@ -110,7 +112,11 @@ export function OuterHeader({
         className="relative z-10 flex shrink-0 items-center pr-1"
       >
         {!showTitleInput && <FolderPicker sessionId={sessionId} align="end" />}
-        <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
+        <HeaderMeetingControl
+          sessionId={sessionId}
+          sessionMode={sessionMode}
+          currentView={currentView}
+        />
         <OverflowButton
           standaloneWindow={standaloneWindow}
           sessionId={sessionId}
@@ -124,9 +130,11 @@ export function OuterHeader({
 function HeaderMeetingControl({
   sessionId,
   sessionMode,
+  currentView,
 }: {
   sessionId: string;
   sessionMode: string;
+  currentView: EditorView;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
@@ -140,6 +148,14 @@ function HeaderMeetingControl({
     return null;
   }
 
+  // Une note terminée ne doit pas proposer d'enregistrer. L'emplacement
+  // accueillait le partage avant son retrait ; l'export le remplace.
+  const isRecording =
+    sessionMode === "active" || sessionMode === "running_batch";
+  if (!isRecording && (ended || hasTranscript || audioExists)) {
+    return <HeaderExportAction sessionId={sessionId} currentView={currentView} />;
+  }
+
   return (
     <HeaderMeetingAction
       sessionId={sessionId}
@@ -149,6 +165,45 @@ function HeaderMeetingControl({
       hasTranscript={hasTranscript}
       audioExists={audioExists}
     />
+  );
+}
+
+function HeaderExportAction({
+  sessionId,
+  currentView,
+}: {
+  sessionId: string;
+  currentView: EditorView;
+}) {
+  const { t } = useLingui();
+  // La modale n'est montée qu'après la première ouverture : elle charge le
+  // contenu de la note, inutile de le faire pour chaque note affichée.
+  const [hasOpened, setHasOpened] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative mr-1 ml-1 flex min-w-0 shrink-0 items-center">
+      <Button
+        type="button"
+        size="sm"
+        variant="default"
+        onClick={() => {
+          setHasOpened(true);
+          setIsOpen(true);
+        }}
+      >
+        <DownloadSimple size={14} />
+        {t`Export`}
+      </Button>
+      {hasOpened && (
+        <ExportModal
+          sessionId={sessionId}
+          currentView={currentView}
+          open={isOpen}
+          onOpenChange={setIsOpen}
+        />
+      )}
+    </div>
   );
 }
 
