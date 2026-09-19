@@ -22,6 +22,7 @@ Sessions are the core entity: all notes are backed by sessions. ProseMirror powe
 - Typecheck (Rust): `cargo check --locked -p <package>`; match the relevant workflow's features and target. A root `cargo check` does not cover the separate enterprise workspace or every platform.
 - Build shared UI before desktop/web checks: `pnpm -F @anlg/ui build`.
 - Desktop dev: `pnpm exec turbo dev:desktop`.
+- Desktop release on macOS: `pnpm -F @anlg/desktop tauri:build:macos`. Xcode 26+ ships a SwiftPM build system that internalizes `@_cdecl` symbols in release, which breaks `swift-rs` linking; that script pins `DEVELOPER_DIR` to the Command Line Tools toolchain. A plain `tauri build` fails at link time with undefined SwiftRs symbols.
 - Web dev: `pnpm exec turbo dev:web`.
 - Dev docs: https://docs.anarlog.so
 
