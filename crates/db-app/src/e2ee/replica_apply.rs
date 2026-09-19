@@ -643,6 +643,9 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 rollback_if_cancelled!(transaction, is_cancelled);
                 if !row_exists(&mut transaction, &table, &workspace_id, &row_id).await? {
                     rollback_if_cancelled!(transaction, is_cancelled);
+                    // Another workspace owns this row ID. Let hydration yield
+                    // instead of retrying the unchanged pending record forever.
+                    stats.skipped_local_changes += records.len() as u64 + 1;
                     remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
                     rollback_if_cancelled!(transaction, is_cancelled);
                     commit_e2ee_apply_transaction(transaction, is_cancelled).await?;

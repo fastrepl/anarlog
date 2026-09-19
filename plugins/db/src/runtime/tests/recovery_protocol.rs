@@ -461,6 +461,113 @@ async fn witness_hydration_leaves_incomplete_transcripts_for_the_next_page() {
 }
 
 #[tokio::test]
+async fn witness_hydration_yields_on_a_row_id_collision_and_resumes_after_resolution() {
+    let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+    anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, title)
+         VALUES ('session-1', 'workspace-local', 'Keep local')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap()
+    .workspace_key("workspace-1")
+    .unwrap();
+    let events = ["session-1", "session-2"]
+        .into_iter()
+        .enumerate()
+        .map(|(index, row_id)| {
+            let sealed = key
+                .seal_field(
+                    "workspace-1",
+                    "sessions",
+                    row_id,
+                    "$row",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    1,
+                    false,
+                    serde_json::json!(true),
+                )
+                .unwrap();
+            anlg_db_app::E2eeWitnessEvent {
+                sequence: index as u64 + 1,
+                record_id: sealed.record_id,
+                workspace_id: "workspace-1".to_string(),
+                payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+                payload: sealed.payload,
+            }
+        })
+        .collect::<Vec<_>>();
+    anlg_db_app::merge_e2ee_witness_events(db.pool(), &key, "workspace-1", &events)
+        .await
+        .unwrap();
+    let keys = HashMap::from([("workspace-1".to_string(), key.into())]);
+    let cancellation = crate::e2ee_witness::E2eeWitnessCancellation::default();
+
+    tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        runtime.materialize_authenticated_e2ee_changes(&keys, &cancellation),
+    )
+    .await
+    .expect("hydration must yield instead of retrying a row ID collision forever")
+    .unwrap();
+
+    let local: (String, String) =
+        sqlx::query_as("SELECT workspace_id, title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        local,
+        ("workspace-local".to_string(), "Keep local".to_string())
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM sessions WHERE workspace_id = 'workspace-1'"
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_replica_pending")
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+        1
+    );
+
+    sqlx::query("UPDATE sessions SET id = 'local-session' WHERE id = 'session-1'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    runtime
+        .materialize_authenticated_e2ee_changes(&keys, &cancellation)
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_replica_pending")
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT workspace_id FROM sessions WHERE id = 'session-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+        "workspace-1"
+    );
+}
+
+#[tokio::test]
 async fn reconciliation_barrier_blocks_renderer_writes() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     let runtime = std::sync::Arc::new(PluginDbRuntime::new(db));
