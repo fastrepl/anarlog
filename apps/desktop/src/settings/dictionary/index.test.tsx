@@ -41,10 +41,6 @@ vi.mock("~/settings/queries", () => ({
   useSetSettingValue: () => vi.fn(),
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => mocks.billing,
-}));
-
 vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { warning: mocks.toastWarning },
 }));
@@ -176,9 +172,12 @@ describe("DictionarySettings", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Edit: BlackMushi" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Edit: BlackMushi" }), {
-      target: { value: "parakeet tdt" },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Edit: BlackMushi" }),
+      {
+        target: { value: "parakeet tdt" },
+      },
+    );
 
     expect(
       (screen.getByRole("button", { name: "Save" }) as HTMLButtonElement)

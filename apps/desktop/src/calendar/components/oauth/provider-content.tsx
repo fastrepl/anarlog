@@ -16,10 +16,8 @@ import {
 import { ReconnectRequiredIndicator } from "./status";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
-import { PlanGate } from "~/settings/plan-gate";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
 export function OAuthProviderContent({
@@ -32,8 +30,7 @@ export function OAuthProviderContent({
   onConnectStarted?: () => void;
 }) {
   const auth = useAuth();
-  const { isPro } = useBillingAccess();
-  const { data: connections, isError } = useConnections(isPro);
+  const { data: connections, isError } = useConnections(true);
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const providerConnections = useMemo(
     () =>
@@ -68,21 +65,6 @@ export function OAuthProviderContent({
             {t`Sign in to connect your calendar`}
           </TooltipContent>
         </Tooltip>
-      </div>
-    );
-  }
-
-  if (!isPro) {
-    return (
-      <div className="pt-1 pb-2">
-        <PlanGate plan="pro" allowed={false}>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors"
-          >
-            {t`Connect ${config.displayName} Calendar`}
-          </button>
-        </PlanGate>
       </div>
     );
   }

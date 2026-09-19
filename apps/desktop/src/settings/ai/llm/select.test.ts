@@ -66,8 +66,6 @@ describe("getLlmProviderStatus", () => {
     const status = getLlmProviderStatus({
       provider: provider("openai"),
       config: { api_key: "" },
-      isAuthenticated: false,
-      isPaid: false,
     });
 
     expect(status.configured).toBe(false);
@@ -79,8 +77,6 @@ describe("getLlmProviderStatus", () => {
       provider: provider("openai"),
       config: { api_key: "sk-test" },
       isAvailable: true,
-      isAuthenticated: false,
-      isPaid: false,
     });
 
     expect(status.configured).toBe(true);
@@ -93,8 +89,6 @@ describe("getLlmProviderStatus", () => {
       const status = getLlmProviderStatus({
         provider: provider("openai"),
         config: { api_key: "nonempty-invalid-key" },
-        isAuthenticated: false,
-        isPaid: false,
         isAvailable,
       });
       expect(status.configured).toBe(false);
@@ -109,16 +103,12 @@ describe("getLlmProviderStatus", () => {
       const missing = getLlmProviderStatus({
         provider: definition,
         config: { api_key: "" },
-        isAuthenticated: false,
-        isPaid: false,
       });
       const configured = getLlmProviderStatus({
         provider: definition,
         config: {
           api_key: '{"type":"oauth","refresh":"r","access":"a","expires":1}',
         },
-        isAuthenticated: false,
-        isPaid: false,
       });
 
       expect(definition.authKind).toBe("subscription");
@@ -154,8 +144,6 @@ describe("getLlmProviderStatus", () => {
       provider: definition,
       config: { api_key: "test-key" },
       isAvailable: true,
-      isAuthenticated: false,
-      isPaid: false,
     });
 
     expect(definition.baseUrl).toBe(baseUrl);
@@ -171,8 +159,6 @@ describe("getLlmProviderStatus", () => {
         provider: definition,
         config: { api_key: "test-key" },
         isAvailable: true,
-        isAuthenticated: false,
-        isPaid: false,
       });
       const configured = getLlmProviderStatus({
         provider: definition,
@@ -181,8 +167,6 @@ describe("getLlmProviderStatus", () => {
           api_key: "test-key",
         },
         isAvailable: true,
-        isAuthenticated: false,
-        isPaid: false,
       });
 
       expect(missingEndpoint.configured).toBe(false);
@@ -200,8 +184,6 @@ describe("getLlmProviderStatus", () => {
         api_key: "test-key",
       },
       isAvailable: true,
-      isAuthenticated: false,
-      isPaid: false,
     });
 
     const result = await status.listModels?.();
@@ -218,19 +200,13 @@ describe("getLlmProviderStatus", () => {
     (id) => {
       const pending = getLlmProviderStatus({
         provider: provider(id),
-        isAuthenticated: false,
-        isPaid: false,
       });
       const unavailable = getLlmProviderStatus({
         provider: provider(id),
-        isAuthenticated: false,
-        isPaid: false,
         isAvailable: false,
       });
       const available = getLlmProviderStatus({
         provider: provider(id),
-        isAuthenticated: false,
-        isPaid: false,
         isAvailable: true,
       });
 

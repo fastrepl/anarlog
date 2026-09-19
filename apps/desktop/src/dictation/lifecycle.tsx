@@ -16,7 +16,6 @@ import { waitForDictationPanel } from "./panel";
 import { useDictationStatus } from "./state";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { useSettingsReady } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -33,7 +32,6 @@ export function waitForDictationCleanup() {
 
 export function DictationLifecycle() {
   const { session } = useAuth();
-  const { isPro, isReady } = useBillingAccess();
   const settingsReady = useSettingsReady();
   const enabled = useConfigValue("dictation_enabled");
   const shortcut = useConfigValue("dictation_shortcut");
@@ -43,7 +41,7 @@ export function DictationLifecycle() {
     (state) => state.live.status !== "inactive" || state.live.loading,
   );
 
-  if (!session || !isReady || !isPro || !settingsReady || !enabled) return null;
+  if (!session || !settingsReady || !enabled) return null;
   return (
     <TranscriptRetention key={session.user.id}>
       {!meetingActive && (

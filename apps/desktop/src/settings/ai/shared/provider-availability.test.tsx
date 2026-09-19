@@ -11,9 +11,6 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: mocks.fetch }));
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => ({ isPaid: true }),
-}));
 vi.mock("~/settings/providers", () => ({
   useAiProviders: (type: string) => ({
     [`${type}:${mocks.provider}`]: {

@@ -30,10 +30,6 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => mocks.billing,
-}));
-
 vi.mock("~/types/tauri.gen", () => ({
   commands: {
     checkEmbeddedCli: mocks.checkEmbeddedCli,

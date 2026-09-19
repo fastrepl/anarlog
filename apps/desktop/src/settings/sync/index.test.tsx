@@ -79,10 +79,6 @@ vi.mock("~/db", () => ({
   }),
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => mocks.billing,
-}));
-
 vi.mock("~/auth/cloudsync", () => ({
   applyCloudsyncPreference: mocks.applyCloudsyncPreference,
   getCloudsyncCredentialBlock: () => mocks.credentialBlock,
@@ -821,25 +817,5 @@ describe("SettingsSync", () => {
     ).toEqual([
       ["cloud_sync_failed", { trigger: "manual", failure_stage: "sync" }],
     ]);
-  });
-
-  it("shows sync controls and toasts on the free plan", () => {
-    mocks.billing.isPro = false;
-    renderSettings();
-
-    fireEvent.click(screen.getByRole("switch", { name: "Cloud sync" }));
-
-    expect(screen.getByRole("button", { name: "Sync now" })).toBeTruthy();
-    expect(screen.getByText("Devices")).toBeTruthy();
-    expect(mocks.getCloudsyncStatus).not.toHaveBeenCalled();
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires BlackMushi Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
   });
 });

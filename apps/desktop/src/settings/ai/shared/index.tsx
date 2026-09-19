@@ -39,12 +39,10 @@ import {
   getProviderSelectionBlockers,
   getRequiredConfigFields,
   type ProviderRequirement,
-  requiresEntitlement,
 } from "./eligibility";
 import { useProviderSelectionPrompt } from "./provider-selection-prompt";
 
 import { providerFetch } from "~/ai/provider-fetch";
-import { useBillingAccess } from "~/auth/billing-context";
 import {
   isKeychainAccessError,
   repairKeychainAccess,
@@ -218,7 +216,6 @@ export function useProviderAvailability(
   providerType: ProviderType,
   providers: readonly ProviderConfig[],
 ): Record<string, boolean | undefined> {
-  const billing = useBillingAccess();
   const configuredProviders = useAiProviders(providerType);
 
   const inputs = providers
@@ -233,8 +230,6 @@ export function useProviderAvailability(
       const apiKey = String(config?.api_key || "").trim();
       const isConfigured =
         getProviderSelectionBlockers(provider.requirements, {
-          isAuthenticated: true,
-          isPaid: billing.isPaid,
           config: { base_url: baseUrl, api_key: apiKey },
         }).length === 0;
 
@@ -292,7 +287,6 @@ function useIsProviderReady(
   providerType: ProviderType,
   providers: readonly ProviderConfig[],
 ) {
-  const billing = useBillingAccess();
   const configuredProviders = useAiProviders(providerType);
   const availability = useProviderAvailability(providerType, providers);
   const providerDef = providers.find((p) => p.id === providerId);
@@ -311,8 +305,6 @@ function useIsProviderReady(
   return (
     !!providerDef &&
     getProviderSelectionBlockers(providerDef.requirements, {
-      isAuthenticated: true,
-      isPaid: billing.isPaid,
       config: { base_url: baseUrl, api_key: apiKey },
     }).length === 0
   );
@@ -338,7 +330,6 @@ export function NonAnarlogProviderCard({
   subscriptionProviderId?: string;
 }) {
   const { t } = useLingui();
-  const billing = useBillingAccess();
   const [provider, providerMutation, providerStateReady] = useProvider(
     providerType,
     config,
@@ -355,8 +346,7 @@ export function NonAnarlogProviderCard({
     useState(false);
   const [isKeychainRecoveryInProgress, setIsKeychainRecoveryInProgress] =
     useState(false);
-  const locked =
-    requiresEntitlement(config.requirements, "pro") && !billing.isPaid;
+  const locked = false;
   const isReady = useIsProviderReady(config.id, providerType, providers);
   const configuredProviders = useAiProviders(providerType);
   const subscriptionReady = Boolean(

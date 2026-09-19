@@ -21,9 +21,7 @@ import { cn } from "@anlg/utils";
 import type { TodoProvider } from "./shared";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
-import { PlanGate } from "~/settings/plan-gate";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 import { useOpenIntegrationUrl } from "~/shared/integration";
@@ -46,8 +44,7 @@ export function GitHubTodoProviderContent({
 }) {
   const { t } = useLingui();
   const auth = useAuth();
-  const { isPaid } = useBillingAccess();
-  const { data: connections } = useConnections(isPaid);
+  const { data: connections } = useConnections(true);
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const [showAddInput, setShowAddInput] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -106,15 +103,6 @@ export function GitHubTodoProviderContent({
           <span>
             <Trans>Sign in for private repo access.</Trans>
           </span>
-        ) : !isPaid ? (
-          <PlanGate plan="pro" allowed={false} className="inline-flex">
-            <button
-              type="button"
-              className="hover:text-muted-foreground inline-flex items-center gap-1 underline transition-colors"
-            >
-              <Trans>Connect GitHub for private repos.</Trans>
-            </button>
-          </PlanGate>
         ) : providerConnections.length === 0 ? (
           <button
             type="button"

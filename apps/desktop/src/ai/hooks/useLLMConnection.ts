@@ -26,7 +26,6 @@ import { streamOnlyGenerationMiddleware } from "../stream-only-generation";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/llm/shared";
 import {
@@ -105,7 +104,6 @@ export const useLLMConnection = (): LLMConnectionResult => {
   // Only the session feeds the connection; the auth object itself changes
   // identity on refresh-mutation state and would churn the model chain.
   const session = auth?.session;
-  const billing = useBillingAccess();
 
   const {
     current_llm_provider,
@@ -128,11 +126,9 @@ export const useLLMConnection = (): LLMConnectionResult => {
         reasoningEffort: normalizeReasoningEffort(current_llm_reasoning_effort),
         providerConfig,
         session,
-        isPaid: billing.isPaid,
       }),
     [
       session,
-      billing.isPaid,
       current_llm_model,
       current_llm_provider,
       current_llm_reasoning_effort,
@@ -152,7 +148,6 @@ const resolveLLMConnection = (params: {
   reasoningEffort: ReasoningEffort;
   providerConfig: AIProviderStorage | undefined;
   session: { access_token: string } | null | undefined;
-  isPaid: boolean;
 }): LLMConnectionResult => {
   const {
     providerId: rawProviderId,
@@ -160,7 +155,6 @@ const resolveLLMConnection = (params: {
     reasoningEffort,
     providerConfig,
     session,
-    isPaid,
   } = params;
 
   if (!rawProviderId) {
@@ -199,8 +193,6 @@ const resolveLLMConnection = (params: {
   const apiKey = providerConfig?.api_key?.trim() || "";
 
   const context: ProviderEligibilityContext = {
-    isAuthenticated: !!session,
-    isPaid,
     config: { base_url: baseUrl, api_key: apiKey },
   };
 
@@ -211,18 +203,6 @@ const resolveLLMConnection = (params: {
 
   if (blockers.length > 0) {
     const blocker = blockers[0];
-    if (blocker.code === "requires_auth" && providerId === "anarlog") {
-      return {
-        conn: null,
-        status: { status: "error", reason: "unauthenticated", providerId },
-      };
-    }
-    if (blocker.code === "requires_entitlement" && providerId === "anarlog") {
-      return {
-        conn: null,
-        status: { status: "error", reason: "not_pro", providerId },
-      };
-    }
     if (blocker.code === "missing_config") {
       return {
         conn: null,

@@ -5,7 +5,6 @@ import { commands as localSttCommands } from "@anlg/plugin-local-stt";
 import type { AIProviderStorage } from "@anlg/store";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/stt/shared";
 import { useAiProvidersState } from "~/settings/providers";
@@ -21,7 +20,6 @@ import { localSttQueries } from "~/stt/useLocalSttModel";
 
 export const useSTTConnection = () => {
   const auth = useAuth();
-  const billing = useBillingAccess();
   const settingsReady = useSettingsReady();
   const { current_stt_provider, current_stt_model, local_stt_model_path } =
     useConfigValues([
@@ -150,7 +148,7 @@ export const useSTTConnection = () => {
     }
 
     if (isCloudModel) {
-      if (!auth?.session || !billing.isPaid) {
+      if (!apiKey) {
         return null;
       }
 
@@ -158,7 +156,7 @@ export const useSTTConnection = () => {
         provider: current_stt_provider,
         model: current_stt_model,
         baseUrl: baseUrl || new URL("/stt", env.VITE_API_URL).toString(),
-        apiKey: auth.session.access_token,
+        apiKey,
       };
     }
 
@@ -182,7 +180,6 @@ export const useSTTConnection = () => {
     baseUrl,
     apiKey,
     auth,
-    billing.isPaid,
   ]);
 
   return {
@@ -190,11 +187,7 @@ export const useSTTConnection = () => {
     isReady:
       settingsReady &&
       connection !== null &&
-      (isLocalModel
-        ? !local.isPending
-        : isCloudModel
-          ? billing.isReady
-          : providerConfigReady),
+      (isLocalModel ? !local.isPending : providerConfigReady),
     local,
     localBatchDiarizationAvailable: localBatchModel.data === true,
     isLocalModel,

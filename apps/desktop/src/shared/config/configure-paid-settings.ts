@@ -34,8 +34,6 @@ async function shouldUseHostedLlm(values: SettingValues): Promise<boolean> {
   };
   if (
     getProviderSelectionBlockers(provider.requirements, {
-      isAuthenticated: true,
-      isPaid: true,
       config: defaultConfig,
     }).length === 0
   ) {
@@ -51,8 +49,6 @@ async function shouldUseHostedLlm(values: SettingValues): Promise<boolean> {
 
   return (
     getProviderSelectionBlockers(provider.requirements, {
-      isAuthenticated: true,
-      isPaid: true,
       config: {
         base_url: config?.base_url || defaultConfig.base_url,
         api_key: config?.api_key || "",

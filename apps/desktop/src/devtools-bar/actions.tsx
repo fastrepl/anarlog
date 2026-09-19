@@ -6,9 +6,6 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { populateRecurringMeetingNotes } from "./recurring-notes";
 
-import { useBillingAccess } from "~/auth/billing-context";
-import { TrialEndedDialog } from "~/billing/trial-ended-dialog";
-import { TrialStartedDialog } from "~/billing/trial-started-dialog";
 import { executeTransaction } from "~/db";
 import { createSession, updateSession } from "~/session/queries";
 import { useOwnerUserId } from "~/shared/owner-user";
@@ -43,8 +40,6 @@ export type DevtoolsAction =
   | "notifications:auto-stop"
   | "notifications:batch-done"
   | "notifications:clear"
-  | "billing:trial-started"
-  | "billing:trial-ended"
   | "countdown:note-60"
   | "countdown:note-300"
   | "countdown:zoom-60"
@@ -210,22 +205,6 @@ export const DEVTOOLS_MENU: DevtoolsMenuGroup[] = [
     ],
   },
   {
-    label: "Billing",
-    description: "Open the billing dialogs users see around a trial.",
-    items: [
-      {
-        label: "Trial started",
-        description: 'Open the "Your Pro trial just started" dialog.',
-        action: "billing:trial-started",
-      },
-      {
-        label: "Trial ended",
-        description: "Open the dialog shown when a trial ends without payment.",
-        action: "billing:trial-ended",
-      },
-    ],
-  },
-  {
     label: "Countdown",
     description:
       "Create a note for a meeting that starts soon, to exercise pre-meeting flows.",
@@ -284,7 +263,6 @@ export const DEVTOOLS_MENU: DevtoolsMenuGroup[] = [
 export function useDevtoolsActions() {
   const openNew = useTabs((state) => state.openNew);
   const userId = useOwnerUserId() ?? undefined;
-  const { trialDaysRemaining, upgradeToPro } = useBillingAccess();
   const showToastPreview = useDevtoolsToastPreview(
     (state) => state.showPreview,
   );
@@ -293,8 +271,6 @@ export function useDevtoolsActions() {
   );
   const showOtaPreview = useDevtoolsOtaPreview((state) => state.showPreview);
   const clearOtaPreview = useDevtoolsOtaPreview((state) => state.clearPreview);
-  const [trialStartedOpen, setTrialStartedOpen] = useState(false);
-  const [trialEndedOpen, setTrialEndedOpen] = useState(false);
   const [shouldThrow, setShouldThrow] = useState(false);
 
   if (shouldThrow) {
@@ -557,12 +533,6 @@ export function useDevtoolsActions() {
         case "notifications:clear":
           void clearNotifications();
           return;
-        case "billing:trial-started":
-          setTrialStartedOpen(true);
-          return;
-        case "billing:trial-ended":
-          setTrialEndedOpen(true);
-          return;
         case "countdown:note-60":
           void createWithCountdown(60);
           return;
@@ -602,20 +572,6 @@ export function useDevtoolsActions() {
 
   return {
     run,
-    dialogs: (
-      <>
-        <TrialStartedDialog
-          open={trialStartedOpen}
-          onOpenChange={setTrialStartedOpen}
-          trialDaysRemaining={trialDaysRemaining}
-          hasPaymentMethod={false}
-        />
-        <TrialEndedDialog
-          open={trialEndedOpen}
-          onOpenChange={setTrialEndedOpen}
-          onUpgrade={upgradeToPro}
-        />
-      </>
-    ),
+    dialogs: <></>,
   };
 }

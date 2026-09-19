@@ -93,10 +93,6 @@ vi.mock("~/auth", () => ({
   useAuth: () => ({ session: mocks.session }),
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => mocks.billing,
-}));
-
 vi.mock("./actions", () => ({
   DEVTOOLS_MENU: [
     {
@@ -224,14 +220,13 @@ describe("DevtoolsStatusBar", () => {
     expect(bar.textContent).toContain("staging");
   });
 
-  it("shows build, plan and live metrics with threshold tones", async () => {
+  it("shows build and live metrics with threshold tones", async () => {
     renderBar();
 
     const bar = await screen.findByTestId("devtools-status-bar");
     await screen.findByText("1.2.3 abcdef1");
 
     expect(bar.textContent).toContain("staging");
-    expect(bar.textContent).toContain("trial 12d");
     expect(bar.textContent).toContain("FPS60");
     expect(bar.textContent).toContain("Jank4%");
     expect(bar.textContent).toContain("Delay250ms");
@@ -244,27 +239,6 @@ describe("DevtoolsStatusBar", () => {
     expect(screen.getByText("60").className).toContain("text-neutral-100");
     expect(screen.getByTestId("devtools-dialogs")).toBeTruthy();
     expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
-  });
-
-  it("labels the plan badge from billing state", async () => {
-    mocks.billing.plan = "pro";
-    mocks.billing.trialDaysRemaining = null;
-
-    renderBar();
-
-    const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("pro");
-    expect(bar.textContent).not.toContain("trial");
-  });
-
-  it("shows signed out instead of a plan without a session", async () => {
-    mocks.session = null;
-
-    renderBar();
-
-    const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("signed out");
-    expect(bar.textContent).not.toContain("trial");
   });
 
   it("runs devtools actions and exposes quick settings from the channel menu", async () => {

@@ -1,19 +1,8 @@
 export type ConfigField = "base_url" | "api_key";
 
 export type ProviderRequirement =
-  | { kind: "requires_auth" }
-  | { kind: "requires_entitlement"; entitlement: "pro" }
   | { kind: "requires_config"; fields: ConfigField[] }
   | { kind: "requires_platform"; platform: "apple_silicon" };
-
-export function requiresEntitlement(
-  requirements: readonly ProviderRequirement[],
-  entitlement: "pro",
-): boolean {
-  return requirements.some(
-    (r) => r.kind === "requires_entitlement" && r.entitlement === entitlement,
-  );
-}
 
 export function getRequiredConfigFields(
   requirements: readonly ProviderRequirement[],
@@ -23,8 +12,6 @@ export function getRequiredConfigFields(
 }
 
 export type ProviderEligibilityContext = {
-  isAuthenticated: boolean;
-  isPaid: boolean;
   config?: { base_url?: string; api_key?: string };
 };
 
@@ -36,16 +23,6 @@ export function getProviderSelectionBlockers(
 
   for (const req of requirements) {
     switch (req.kind) {
-      case "requires_auth":
-        if (!context.isAuthenticated) {
-          blockers.push({ code: "requires_auth" });
-        }
-        break;
-      case "requires_entitlement":
-        if (req.entitlement === "pro" && !context.isPaid) {
-          blockers.push({ code: "requires_entitlement", entitlement: "pro" });
-        }
-        break;
       case "requires_config": {
         const missingFields = req.fields.filter((field) => {
           const value = context.config?.[field];
@@ -66,15 +43,12 @@ export function getProviderSelectionBlockers(
 
 export type ModelRequirement =
   | { kind: "requires_download" }
-  | { kind: "requires_entitlement"; entitlement: "pro" }
   | { kind: "requires_platform"; platform: "apple_silicon" };
 
 export type EligibilityBlocker =
   | { code: "missing_provider" }
   | { code: "missing_model" }
   | { code: "provider_disabled" }
-  | { code: "requires_auth" }
-  | { code: "requires_entitlement"; entitlement: "pro" }
   | { code: "missing_config"; fields: Array<"base_url" | "api_key"> }
   | { code: "model_not_downloaded"; modelId: string }
   | { code: "unsupported_platform"; required: "apple_silicon" };

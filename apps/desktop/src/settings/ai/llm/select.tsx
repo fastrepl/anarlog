@@ -30,17 +30,13 @@ import {
   supportsReasoningEffort,
 } from "~/ai/reasoning-effort";
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import {
   providerRowId,
   ProviderIconSlot,
   requiresKeyVerification,
   useProviderAvailability,
 } from "~/settings/ai/shared";
-import {
-  getProviderSelectionBlockers,
-  requiresEntitlement,
-} from "~/settings/ai/shared/eligibility";
+import { getProviderSelectionBlockers } from "~/settings/ai/shared/eligibility";
 import { listAnthropicModels } from "~/settings/ai/shared/list-anthropic";
 import { listAppleFoundationModels } from "~/settings/ai/shared/list-apple-foundation";
 import { listAzureAIModels } from "~/settings/ai/shared/list-azure-ai";
@@ -83,7 +79,6 @@ export function SelectProviderAndModel() {
   const { providers: configuredProviders, isReady: providerSettingsReady } =
     useConfiguredMapping();
   const settingsReady = useSettingsReady();
-  const billing = useBillingAccess();
   const queryClient = useQueryClient();
   const { setAccordionValue } = useLlmSettings();
   const [pendingSelection, setPendingSelection] = useState<{
@@ -271,11 +266,6 @@ export function SelectProviderAndModel() {
       : undefined;
 
   const handleProviderChange = (provider: string) => {
-    if (provider === "anarlog" && !billing.isPaid) {
-      billing.upgradeToPro();
-      return;
-    }
-
     const requestId = ++selectionRequestRef.current;
 
     const status = configuredProviders[provider];
@@ -394,11 +384,7 @@ export function SelectProviderAndModel() {
             </SelectTrigger>
             <SelectContent>
               {providerOptions.map((provider) => {
-                const requiresPro = requiresEntitlement(
-                  provider.requirements,
-                  "pro",
-                );
-                const locked = requiresPro && !billing.isPaid;
+                const locked = false;
                 const configured =
                   configuredProviders[provider.id]?.configured ?? false;
 
@@ -516,14 +502,10 @@ const GOOGLE_VERTEX_AI_MODELS = [
 export function getLlmProviderStatus({
   provider,
   config,
-  isAuthenticated,
-  isPaid,
   isAvailable,
 }: {
   provider: Provider;
   config?: ProviderConfig;
-  isAuthenticated: boolean;
-  isPaid: boolean;
   isAvailable?: boolean;
 }): ProviderStatus {
   const baseUrl = String(config?.base_url || provider.baseUrl || "").trim();
@@ -531,8 +513,6 @@ export function getLlmProviderStatus({
 
   const eligible =
     getProviderSelectionBlockers(provider.requirements, {
-      isAuthenticated,
-      isPaid,
       config: { base_url: baseUrl, api_key: apiKey },
     }).length === 0;
 
@@ -641,7 +621,6 @@ function useConfiguredMapping(): {
   isReady: boolean;
 } {
   const auth = useAuth();
-  const billing = useBillingAccess();
   const availability = useProviderAvailability("llm", PROVIDERS);
   const { current_llm_provider } = useConfigValues([
     "current_llm_provider",
@@ -666,14 +645,12 @@ function useConfiguredMapping(): {
           getLlmProviderStatus({
             provider,
             config,
-            isAuthenticated: !!auth?.session,
-            isPaid: billing.isPaid,
             isAvailable,
           }),
         ];
       }),
     ) as Record<string, ProviderStatus>;
-  }, [configuredProviders, auth, billing, availability, current_llm_provider]);
+  }, [configuredProviders, auth, availability, current_llm_provider]);
 
   return {
     providers: mapping,

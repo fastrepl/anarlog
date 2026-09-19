@@ -7,9 +7,6 @@ import { normalizeLLMProviderId, useLanguageModel } from "./useLLMConnection";
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: vi.fn() }));
 vi.mock("~/auth", () => ({ useAuth: () => ({ session: null }) }));
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => ({ isPaid: false }),
-}));
 vi.mock("~/settings/providers", () => ({
   useAiProvider: () => ({
     type: "llm",

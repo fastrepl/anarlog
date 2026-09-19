@@ -38,7 +38,6 @@ import {
 } from "./shared";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import {
   allowReconnectedCalendarConnections,
@@ -122,13 +121,12 @@ export function CalendarSidebarContent({
 }) {
   const isMacos = platform() === "macos";
   const calendar = usePermission("calendar");
-  const { isPaid } = useBillingAccess();
   const [connectionPollUntil, setConnectionPollUntil] = useState<number | null>(
     null,
   );
   const connectionKeyWhenPollStartedRef = useRef("");
   const isPollingConnections = connectionPollUntil !== null;
-  const { data: connections } = useConnections(isPaid, {
+  const { data: connections } = useConnections(true, {
     refetchInterval: isPollingConnections ? CONNECTION_POLL_INTERVAL_MS : false,
   });
   const connectionKey = getCalendarConnectionKey(connections);
@@ -229,9 +227,8 @@ function ProviderAccordionItem({
 }) {
   const { t } = useLingui();
   const auth = useAuth();
-  const { isPaid, isPro } = useBillingAccess();
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
-  const { data: connections, isPending, isError } = useConnections(isPaid);
+  const { data: connections, isPending, isError } = useConnections(true);
   const [isApplePermissionDialogOpen, setIsApplePermissionDialogOpen] =
     useState(false);
   const providerConnections =
@@ -239,16 +236,11 @@ function ProviderAccordionItem({
       (connection) => connection.integration_id === provider.nangoIntegrationId,
     ) ?? [];
 
-  const requiresPro = !!provider.nangoIntegrationId && !isPro;
   const appleNeedsPermission =
     provider.id === "apple" && calendar.status !== "authorized";
 
   const canAddAccount =
-    !!provider.nangoIntegrationId &&
-    !!auth.session &&
-    isPaid &&
-    !isPending &&
-    !isError;
+    !!provider.nangoIntegrationId && !!auth.session && !isPending && !isError;
   const shouldConnectOnClick =
     canAddAccount && providerConnections.length === 0;
 
@@ -379,7 +371,7 @@ function ProviderAccordionItem({
     ],
   );
   const showProviderMenu = useNativeContextMenu(providerMenuItems);
-  const hasAddAccountButton = canAddAccount && !requiresPro;
+  const hasAddAccountButton = canAddAccount;
   const hasProviderMenuButton = canDisconnectApple;
 
   return (

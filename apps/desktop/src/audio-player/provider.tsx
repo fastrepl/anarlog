@@ -16,7 +16,6 @@ import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
 import { configureCenteredPlayback } from "./playback";
 
-import { useBillingAccess } from "~/auth/billing-context";
 import {
   isSessionAudioIdle,
   subscribeToSessionAudioRetention,
@@ -137,7 +136,6 @@ export function AudioPlayerProvider({
   children: ReactNode;
 }) {
   const queryClient = useQueryClient();
-  const { isPro } = useBillingAccess();
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [wavesurfer, setWavesurfer] = useState<WaveSurfer | null>(null);
   const [state, setState] = useState<AudioPlayerState>("stopped");
@@ -355,15 +353,12 @@ export function AudioPlayerProvider({
 
   const setPlaybackRate = useCallback(
     (rate: number) => {
-      if (!isPro && rate !== 1) {
-        return;
-      }
       if (wavesurfer) {
         wavesurfer.setPlaybackRate(rate, false);
       }
       setPlaybackRateState(rate);
     },
-    [isPro, wavesurfer],
+    [wavesurfer],
   );
 
   useEffect(() => {
@@ -371,13 +366,8 @@ export function AudioPlayerProvider({
       return;
     }
 
-    const nextRate = isPro ? playbackRate : 1;
-    wavesurfer.setPlaybackRate(nextRate, false);
-
-    if (nextRate !== playbackRate) {
-      setPlaybackRateState(1);
-    }
-  }, [isPro, playbackRate, wavesurfer]);
+    wavesurfer.setPlaybackRate(playbackRate, false);
+  }, [playbackRate, wavesurfer]);
 
   const deleteRecordingMutation = useMutation({
     mutationFn: async () => {

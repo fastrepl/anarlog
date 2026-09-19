@@ -50,15 +50,6 @@ vi.mock("~/auth", () => ({
   useAuth: () => ({ session: {} }),
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => ({
-    isPaid: true,
-    isPro: true,
-    upgradeToPro: vi.fn(),
-    isUpgradingToPro: false,
-  }),
-}));
-
 vi.mock("~/auth/useConnections", () => ({
   useConnections: () => ({
     data: [],

@@ -37,7 +37,6 @@ import { useSync } from "./context";
 import { DayCell } from "./day-cell";
 import { getCalendarConnectionKey } from "./shared";
 
-import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import {
   useCalendarData,
@@ -87,8 +86,7 @@ function useVisibleCols(ref: React.RefObject<HTMLDivElement | null>) {
 
 export function CalendarView() {
   const { scheduleSync } = useSync();
-  const { isPaid } = useBillingAccess();
-  const { data: connections } = useConnections(isPaid);
+  const { data: connections } = useConnections(true);
   const connectionKey = useMemo(
     () => getCalendarConnectionKey(connections),
     [connections],

@@ -16,9 +16,7 @@ import {
 import { useSTTConnection } from "./useSTTConnection";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
-import { env } from "~/env";
 import {
   deleteProcessedAudioForRetention,
   normalizeAudioRetention,
@@ -166,28 +164,12 @@ export function canRunBatchTranscription(
 }
 
 export function getBatchFallbackTarget({
-  isPaid,
-  accessToken,
-  apiBaseUrl,
   currentPlatform = platform(),
   currentArch = arch(),
 }: {
-  isPaid: boolean;
-  accessToken?: string | null;
-  apiBaseUrl: string;
   currentPlatform?: ReturnType<typeof platform>;
   currentArch?: ReturnType<typeof arch>;
-}): BatchTarget | null {
-  if (isPaid && accessToken) {
-    return {
-      provider: "anarlog",
-      model: "cloud",
-      baseUrl: new URL("/stt", apiBaseUrl).toString(),
-      apiKey: accessToken,
-      label: "Pro cloud transcription",
-    };
-  }
-
+} = {}): BatchTarget | null {
   return isDesktopLocalSttAvailable(currentPlatform, currentArch)
     ? LOCAL_SONIQO_BATCH_TARGET
     : null;
@@ -696,7 +678,6 @@ export const useRunBatch = (sessionId: string) => {
   const stopTranscription = useListener((state) => state.stopTranscription);
   const { conn } = useSTTConnection();
   const auth = useAuth();
-  const billing = useBillingAccess();
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
@@ -751,9 +732,8 @@ export const useRunBatch = (sessionId: string) => {
           : false;
       options?.signal?.throwIfAborted();
       const requiresCloudSession =
-        billing.isPaid ||
-        (selectedTarget?.provider === "anarlog" &&
-          selectedTarget.model === "cloud");
+        selectedTarget?.provider === "anarlog" &&
+        selectedTarget.model === "cloud";
       const requestSession = requiresCloudSession
         ? await auth.getSessionForRequest().catch(() => null)
         : null;
@@ -761,9 +741,6 @@ export const useRunBatch = (sessionId: string) => {
       const cloudAccessToken =
         requestSession?.access_token ?? auth.session?.access_token;
       const fallbackTarget = getBatchFallbackTarget({
-        isPaid: billing.isPaid,
-        accessToken: cloudAccessToken,
-        apiBaseUrl: env.VITE_API_URL,
         currentPlatform,
         currentArch,
       });
@@ -1088,7 +1065,6 @@ export const useRunBatch = (sessionId: string) => {
       auth.session?.access_token,
       aiLanguage,
       audioRetention,
-      billing.isPaid,
       dictionaryTerms,
       rememberSpeakers,
       session,

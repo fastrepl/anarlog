@@ -3,7 +3,7 @@ import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { CircleNotch, Copy, Key } from "@anlg/ui/components/icons";
+import { Copy, Key } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
@@ -12,7 +12,6 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { ApiKeyRow } from "./api-key-row";
 import { copyText } from "./clipboard";
 
-import { useBillingAccess } from "~/auth/billing-context";
 import {
   backfillCloudApiSnapshots,
   createCloudApiKey,
@@ -24,7 +23,6 @@ import {
   type CloudApiKey,
 } from "~/cloud-api/client";
 import { env } from "~/env";
-import { PlanGate } from "~/settings/plan-gate";
 
 const CLOUD_API_BASE_URL = new URL("/v1", env.VITE_API_URL).toString();
 const CLOUD_MCP_URL = new URL("/mcp", env.VITE_API_URL).toString();
@@ -32,12 +30,10 @@ const CLOUD_API_SETTINGS_QUERY_KEY = ["cloud-api", "settings"] as const;
 const CLOUD_API_KEYS_QUERY_KEY = ["cloud-api", "keys"] as const;
 
 export function CloudApiSection() {
-  const billing = useBillingAccess();
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: CLOUD_API_SETTINGS_QUERY_KEY,
     queryFn: getCloudApiSettings,
-    enabled: billing.isReady && billing.isPro,
     retry: false,
   });
   const toggleMutation = useMutation({
@@ -74,18 +70,6 @@ export function CloudApiSection() {
   });
   const enabled = settingsQuery.data?.enabled === true;
 
-  if (!billing.isReady) {
-    return (
-      <section className="flex items-start justify-between gap-4">
-        <CloudApiHeading />
-        <CircleNotch
-          aria-label={t`Loading Cloud API access`}
-          className="text-muted-foreground mt-1 size-4 animate-spin"
-        />
-      </section>
-    );
-  }
-
   const endpoints = (
     <div className="grid gap-3 sm:grid-cols-2">
       <CloudEndpoint
@@ -100,23 +84,6 @@ export function CloudApiSection() {
       />
     </div>
   );
-
-  if (!billing.isPro) {
-    return (
-      <PlanGate plan="pro" allowed={false}>
-        <section className="flex flex-col gap-4">
-          <div className="flex items-start justify-between gap-4">
-            <CloudApiHeading />
-            <Switch
-              checked={false}
-              aria-label={t`Enable Cloud API & Connectors`}
-            />
-          </div>
-          {endpoints}
-        </section>
-      </PlanGate>
-    );
-  }
 
   return (
     <section className="flex flex-col gap-4">

@@ -13,13 +13,11 @@ import { GitHubTodoProviderContent } from "./github";
 import type { TodoProvider } from "./shared";
 
 import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import {
   AccessPermissionRow,
   TroubleShootingLink,
 } from "~/calendar/components/apple/permission";
-import { PlanGate } from "~/settings/plan-gate";
 import { usePermission } from "~/shared/hooks/usePermissions";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
@@ -43,8 +41,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
   }
 
   const auth = useAuth();
-  const { isPaid } = useBillingAccess();
-  const { data: connections, isError } = useConnections(isPaid);
+  const { data: connections, isError } = useConnections(true);
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
 
   const providerConnections = useMemo(
@@ -81,21 +78,6 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
             <Trans>Sign in to connect {config.displayName}</Trans>
           </TooltipContent>
         </Tooltip>
-      </div>
-    );
-  }
-
-  if (!isPaid) {
-    return (
-      <div className="pt-1 pb-2">
-        <PlanGate plan="pro" allowed={false}>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground inline-flex cursor-pointer items-center gap-1 text-xs underline transition-colors"
-          >
-            <Trans>Connect {config.displayName}</Trans>
-          </button>
-        </PlanGate>
       </div>
     );
   }

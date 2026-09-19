@@ -120,10 +120,6 @@ vi.mock("~/settings/queries", () => ({
   setSettingValue: mocks.setSettingValue,
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => mocks.billing,
-}));
-
 vi.mock("~/shared/config", () => ({
   useConfigValue: (key: string) => mocks.values[key] ?? "",
 }));
@@ -172,63 +168,6 @@ describe("Auto format editor", () => {
     ).toHaveProperty("value", defaultFormat);
     expect(mocks.getTemplateSource).toHaveBeenCalledWith("enhanceFormat");
     expect(screen.queryByText("Variables")).toBeNull();
-  });
-
-  it("keeps the format visible and toasts for Free users", () => {
-    mocks.billing.isPro = false;
-
-    renderWithQueryClient(
-      <AutoFormatForm defaultFormat={defaultFormat} formatOverride="" />,
-    );
-
-    expect(
-      screen.getByRole("textbox", {
-        name: "Auto summary format",
-      }) as HTMLTextAreaElement,
-    ).toHaveProperty("value", defaultFormat);
-    expect(
-      screen.getByText("Choose how Auto structures and styles your summaries."),
-    ).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires BlackMushi Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
-    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-    expect(mocks.setSettingValue).not.toHaveBeenCalled();
-  });
-
-  it("toasts instead of opening example generation for Free users", () => {
-    mocks.billing.isPro = false;
-
-    renderWithQueryClient(
-      <AutoFormatForm defaultFormat={defaultFormat} formatOverride="" />,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Improve with examples" }),
-    );
-
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires BlackMushi Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
-    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-    expect(
-      screen.queryByRole("dialog", { name: "Improve summary format" }),
-    ).toBeNull();
   });
 
   it("generates an editable format from up to three transient examples", async () => {

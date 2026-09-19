@@ -7,10 +7,6 @@ const { useProviderAvailabilityMock } = vi.hoisted(() => ({
   useProviderAvailabilityMock: vi.fn(),
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => ({ isPaid: true }),
-}));
-
 vi.mock("~/settings/ai/shared", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/settings/ai/shared")>()),
   useProviderAvailability: useProviderAvailabilityMock,

@@ -48,10 +48,6 @@ vi.mock("~/auth", () => ({
   useAuth: () => ({ session: authState.session }),
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => billingState,
-}));
-
 vi.mock("~/env", () => ({
   env: { VITE_API_URL: "https://api.anarlog.so" },
 }));
@@ -123,7 +119,7 @@ describe("useSTTConnection", () => {
       provider: "anarlog",
       model: "cloud",
       baseUrl: "https://api.anarlog.so/stt",
-      apiKey: "access-token",
+      apiKey: "test-key",
     });
     expect(result.current.isReady).toBe(true);
   });
@@ -169,25 +165,19 @@ describe("useSTTConnection", () => {
     expect(settingsPending.result.current.isReady).toBe(false);
   });
 
-  it("waits for cloud authentication and billing access", () => {
-    billingState.isReady = false;
+  it("returns no connection when the cloud provider has no API key", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
     const wrapper = ({ children }: { children: ReactNode }) =>
       createElement(QueryClientProvider, { client: queryClient }, children);
 
-    const billingPending = renderHook(() => useSTTConnection(), { wrapper });
+    readiness.settings = false;
+    const settingsPending = renderHook(() => useSTTConnection(), { wrapper });
 
-    expect(billingPending.result.current.isReady).toBe(false);
-
-    billingPending.unmount();
-    billingState.isReady = true;
-    authState.session = undefined;
-    const authPending = renderHook(() => useSTTConnection(), { wrapper });
-
-    expect(authPending.result.current.conn).toBeNull();
-    expect(authPending.result.current.isReady).toBe(false);
+    expect(settingsPending.result.current.isReady).toBe(false);
+    settingsPending.unmount();
+    readiness.settings = true;
   });
 
   it("waits for an on-device model server to become ready", async () => {

@@ -59,7 +59,6 @@ import {
   sttModelQueries,
 } from "./shared";
 
-import { useBillingAccess } from "~/auth/billing-context";
 import { useNotifications } from "~/contexts/notifications";
 import {
   providerRowId,
@@ -67,10 +66,7 @@ import {
   requiresKeyVerification,
   useProviderAvailability,
 } from "~/settings/ai/shared";
-import {
-  getProviderSelectionBlockers,
-  requiresEntitlement,
-} from "~/settings/ai/shared/eligibility";
+import { getProviderSelectionBlockers } from "~/settings/ai/shared/eligibility";
 import { PersistAiSelection } from "~/settings/ai/shared/persist-selection";
 import {
   getConfiguredProviderIds,
@@ -107,10 +103,9 @@ export function SelectProviderAndModel() {
     "current_stt_provider",
     "current_stt_model",
   ] as const);
-  const billing = useBillingAccess();
   const { providers: configuredProviders, isReady: providerSettingsReady } =
     useConfiguredMapping();
-  const { startDownload, startTrial } = useSttSettings();
+  const { startDownload } = useSttSettings();
   const health = useConnectionHealth();
   const [pendingProvider, setPendingProvider] = useState<ProviderId | null>(
     null,
@@ -265,11 +260,7 @@ export function SelectProviderAndModel() {
               {providerOptions.map((provider) => {
                 const configured =
                   configuredProviders[provider.id]?.configured ?? false;
-                const requiresPro = requiresEntitlement(
-                  provider.requirements,
-                  "pro",
-                );
-                const locked = requiresPro && !billing.isPaid;
+                const locked = false;
                 return (
                   <SelectItem
                     key={provider.id}
@@ -284,11 +275,6 @@ export function SelectProviderAndModel() {
                       <div className="flex items-center gap-2">
                         <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
                         <span>{provider.displayName}</span>
-                        {requiresPro ? (
-                          <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] tracking-wide uppercase">
-                            <Trans>Pro</Trans>
-                          </span>
-                        ) : null}
                       </div>
                       {locked ? (
                         <span className="text-muted-foreground text-[11px]">
@@ -366,7 +352,6 @@ export function SelectProviderAndModel() {
                       <ModelSelectItem
                         model={model}
                         onDownload={() => startDownload(model.id as LocalModel)}
-                        onStartTrial={startTrial}
                       />
                     </span>
                   );
@@ -638,7 +623,6 @@ export function useConfiguredMapping(): {
   >;
   isReady: boolean;
 } {
-  const billing = useBillingAccess();
   const availability = useProviderAvailability("stt", PROVIDERS);
   const { providers: configuredProviders, isReady } =
     useAiProvidersState("stt");
@@ -691,8 +675,6 @@ export function useConfiguredMapping(): {
 
       const eligible =
         getProviderSelectionBlockers(provider.requirements, {
-          isAuthenticated: true,
-          isPaid: billing.isPaid,
           config: { base_url: baseUrl, api_key: apiKey },
         }).length === 0;
 
@@ -712,7 +694,7 @@ export function useConfiguredMapping(): {
             models: [
               {
                 id: "cloud",
-                isDownloaded: billing.isPaid,
+                isDownloaded: true,
                 category: "latest" as const,
               },
             ],
@@ -835,11 +817,9 @@ function buildOnDeviceModelEntries(
 function ModelSelectItem({
   model,
   onDownload,
-  onStartTrial,
 }: {
   model: ModelEntry;
   onDownload: () => void;
-  onStartTrial: () => void;
 }) {
   const isCloud = model.id === "cloud";
   const { activeDownloads } = useNotifications();
@@ -909,9 +889,7 @@ function ModelSelectItem({
     if (isDownloading) {
       return;
     }
-    if (isCloud) {
-      onStartTrial();
-    } else {
+    if (!isCloud) {
       onDownload();
     }
   };

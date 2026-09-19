@@ -16,10 +16,6 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError },
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => ({ upgradeToPro: mocks.upgradeToPro }),
-}));
-
 vi.mock("~/store/zustand/toast-action", () => ({
   useToastAction: (selector: (state: unknown) => unknown) =>
     selector({ target: null, clearTarget: mocks.clearTarget }),

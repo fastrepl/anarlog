@@ -37,8 +37,6 @@ import {
   setRenderOutlinesEnabled,
 } from "./render-tracker";
 
-import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing-context";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { commands } from "~/types/tauri.gen";
 
@@ -189,7 +187,6 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
             </span>
           </button>
         </DevtoolsMenu>
-        <PlanBadge />
 
         <div className="flex min-w-0 flex-1 items-stretch overflow-hidden">
           <LiveMetrics />
@@ -227,45 +224,6 @@ function readCollapsed(): boolean {
   } catch {
     return false;
   }
-}
-
-function PlanBadge() {
-  const { session } = useAuth();
-  const billing = useBillingAccess();
-
-  if (!session) {
-    return (
-      <div className={cn([ITEM_CLASS, "text-neutral-500"])}>signed out</div>
-    );
-  }
-
-  if (!billing.isReady) {
-    return null;
-  }
-
-  const label =
-    billing.plan === "trial" && billing.trialDaysRemaining !== null
-      ? `trial ${billing.trialDaysRemaining}d`
-      : billing.isLite
-        ? "lite"
-        : billing.plan;
-
-  return (
-    <Hint
-      content={
-        <Rows
-          rows={[
-            ["plan", billing.plan],
-            ["subscription", billing.subscriptionStatus ?? "none"],
-            ["payment method", billing.hasPaymentMethod ? "yes" : "no"],
-            ["entitlements", billing.entitlements.join(", ") || "none"],
-          ]}
-        />
-      }
-    >
-      <div className={cn([ITEM_CLASS, "text-neutral-400"])}>{label}</div>
-    </Hint>
-  );
 }
 
 // Isolated so the once-per-second metrics tick only re-renders the metrics,

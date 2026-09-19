@@ -78,14 +78,6 @@ vi.mock("./custom-sidebar-header", () => ({
   CustomSidebarHeader: () => <div />,
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => ({
-    isPro: mocks.isPro,
-    isUpgradingToPro: mocks.isUpgradingToPro,
-    upgradeToPro: mocks.upgradeToPro,
-  }),
-}));
-
 vi.mock("~/store/zustand/tabs", () => {
   const getState = () => ({
     currentTab: mocks.currentTab,

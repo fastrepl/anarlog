@@ -13,7 +13,6 @@ import {
 } from "./useNewNote";
 
 import { AuthProvider } from "~/auth";
-import { BillingProvider } from "~/auth/billing";
 import { MeetingImportSync } from "~/services/meeting-import-sync";
 import { getOrCreateSessionForEventId } from "~/session/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -25,9 +24,7 @@ export default function MainAppLayout() {
 
   return (
     <AuthProvider>
-      <BillingProvider>
-        <MainAppContent />
-      </BillingProvider>
+      <MainAppContent />
     </AuthProvider>
   );
 }

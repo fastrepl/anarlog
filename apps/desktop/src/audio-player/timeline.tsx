@@ -6,7 +6,6 @@ import { cn } from "@anlg/utils";
 import { useAudioPlayer, useAudioTime } from "./provider";
 import { TimelineMeta, TimelineShell } from "./timeline-shell";
 
-import { useBillingAccess } from "~/auth/billing-context";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -16,7 +15,6 @@ export function Timeline({
 }: {
   contentClassName?: string;
 } = {}) {
-  const { isPro } = useBillingAccess();
   const {
     registerContainer,
     state,
@@ -124,51 +122,49 @@ export function Timeline({
             <span>{formatTime(time.total)}</span>
           </TimelineMeta>
 
-          {isPro ? (
-            <div className="relative shrink-0" ref={rateMenuRef}>
-              <button
-                onClick={() => setShowRateMenu((prev) => !prev)}
+          <div className="relative shrink-0" ref={rateMenuRef}>
+            <button
+              onClick={() => setShowRateMenu((prev) => !prev)}
+              className={cn([
+                "flex items-center justify-center",
+                "h-6 rounded-md px-1.5",
+                "border-border bg-card border",
+                "hover:bg-accent transition-colors",
+                "text-muted-foreground font-mono text-xs select-none",
+                "shadow-xs",
+              ])}
+            >
+              {playbackRate}x
+            </button>
+            {showRateMenu && (
+              <div
                 className={cn([
-                  "flex items-center justify-center",
-                  "h-6 rounded-md px-1.5",
-                  "border-border bg-card border",
-                  "hover:bg-accent transition-colors",
-                  "text-muted-foreground font-mono text-xs select-none",
-                  "shadow-xs",
+                  "absolute right-0 bottom-full mb-1",
+                  "border-border bg-card rounded-lg border shadow-md",
+                  "py-1",
                 ])}
               >
-                {playbackRate}x
-              </button>
-              {showRateMenu && (
-                <div
-                  className={cn([
-                    "absolute right-0 bottom-full mb-1",
-                    "border-border bg-card rounded-lg border shadow-md",
-                    "py-1",
-                  ])}
-                >
-                  {PLAYBACK_RATES.map((rate) => (
-                    <button
-                      key={rate}
-                      onClick={() => {
-                        setPlaybackRate(rate);
-                        setShowRateMenu(false);
-                      }}
-                      className={cn([
-                        "block w-full px-3 py-1 text-left font-mono text-xs select-none",
-                        "hover:bg-accent transition-colors",
-                        rate === playbackRate
-                          ? "text-foreground font-semibold"
-                          : "text-muted-foreground",
-                      ])}
-                    >
-                      {rate}x
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
+                {PLAYBACK_RATES.map((rate) => (
+                  <button
+                    key={rate}
+                    onClick={() => {
+                      setPlaybackRate(rate);
+                      setShowRateMenu(false);
+                    }}
+                    className={cn([
+                      "block w-full px-3 py-1 text-left font-mono text-xs select-none",
+                      "hover:bg-accent transition-colors",
+                      rate === playbackRate
+                        ? "text-foreground font-semibold"
+                        : "text-muted-foreground",
+                    ])}
+                  >
+                    {rate}x
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       }
       main={

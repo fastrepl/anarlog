@@ -51,10 +51,6 @@ const mocks = vi.hoisted(() => ({
   toastWarning: vi.fn(),
 }));
 
-vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => mocks.billing,
-}));
-
 vi.mock("~/automations/actions", () => ({
   useRemoveStarterDraft: () => ({ mutate: mocks.removeStarterDraft }),
   useDeleteChatAutomation: () => ({ mutate: mocks.deleteChatAutomation }),
@@ -272,27 +268,6 @@ describe("AutomationsContent", () => {
       );
     });
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Automation draft saved");
-  });
-
-  it("toasts instead of saving on the free plan", () => {
-    mocks.billing.isPro = false;
-    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
-
-    renderAutomations();
-
-    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
-
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires BlackMushi Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
-    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-    expect(mocks.setSettingValue).not.toHaveBeenCalled();
   });
 
   it("shows a dedicated view for a chat-created automation", () => {
