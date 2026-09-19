@@ -235,6 +235,24 @@ const _PROVIDERS = [
     },
   },
   {
+    id: "venice",
+    displayName: "Venice",
+    badge: null,
+    icon: <ProviderBrandImage src="/assets/venice.png" alt="Venice" />,
+    baseUrl: "https://api.venice.ai/api/v1",
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://docs.venice.ai/models/text",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://venice.ai/settings/api",
+      },
+    },
+  },
+  {
     id: "openrouter",
     displayName: "OpenRouter",
     badge: null,
@@ -668,6 +686,7 @@ const PROVIDER_ORDER = [
   "anthropic",
   "google_generative_ai",
   "openrouter",
+  "venice",
   "moonshot",
   "zai",
   "deepseek",

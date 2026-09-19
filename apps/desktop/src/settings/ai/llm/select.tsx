@@ -61,6 +61,7 @@ import {
 } from "~/settings/ai/shared/list-openai";
 import { listOpenRouterModels } from "~/settings/ai/shared/list-openrouter";
 import { listUnslothModels } from "~/settings/ai/shared/list-unsloth";
+import { listVeniceModels } from "~/settings/ai/shared/list-venice";
 import { ModelCombobox } from "~/settings/ai/shared/model-combobox";
 import { PersistAiSelection } from "~/settings/ai/shared/persist-selection";
 import {
@@ -616,6 +617,9 @@ export function getLlmProviderStatus({
       break;
     case "unsloth":
       listModelsFunc = () => listUnslothModels(baseUrl, apiKey);
+      break;
+    case "venice":
+      listModelsFunc = () => listVeniceModels(baseUrl, apiKey);
       break;
     case "custom":
       listModelsFunc = () => listGenericModels(baseUrl, apiKey);

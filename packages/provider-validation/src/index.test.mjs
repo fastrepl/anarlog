@@ -443,3 +443,40 @@ test("validates Wispr Flow with its authenticated warmup endpoint", async () => 
     "Bearer anarlog-invalid-key-verification",
   );
 });
+
+test("Venice verifies account access instead of its public model catalog", async () => {
+  const requests = [];
+  await verifyProviderCredentials(
+    {
+      ...credential,
+      provider: "venice",
+      baseUrl: "https://api.venice.ai/api/v1",
+    },
+    async (url, init) => {
+      requests.push({ url, init });
+      return Response.json({ data: { accessPermitted: true } });
+    },
+  );
+  assert.equal(requests.length, 1);
+  assert.equal(
+    requests[0].url,
+    "https://api.venice.ai/api/v1/api_keys/rate_limits",
+  );
+  assert.equal(requests[0].init.headers.Authorization, "Bearer synthetic-key");
+});
+
+for (const data of [{ accessPermitted: false }, [], {}]) {
+  test(`Venice rejects unconfirmed access: ${JSON.stringify(data)}`, async () => {
+    await assert.rejects(
+      verifyProviderCredentials(
+        {
+          ...credential,
+          provider: "venice",
+          baseUrl: "https://api.venice.ai/api/v1",
+        },
+        async () => Response.json({ data }),
+      ),
+      ProviderCredentialError,
+    );
+  });
+}

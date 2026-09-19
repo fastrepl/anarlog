@@ -221,6 +221,12 @@ export const SUMMARY_PROVIDERS = [
     model: "",
   },
   {
+    id: "venice",
+    name: "Venice",
+    baseUrl: "https://api.venice.ai/api/v1",
+    model: "",
+  },
+  {
     id: "moonshot",
     name: "Moonshot AI",
     baseUrl: "https://api.moonshot.ai/v1",

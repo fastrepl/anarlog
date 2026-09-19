@@ -1402,7 +1402,7 @@ for (const definition of providersFor("llm").filter(
                 },
               ],
             }
-          : { data: [{ id: "test-chat" }] },
+          : { data: [{ id: "test-chat", type: "text" }] },
       );
     assert.deepEqual(
       await discoverProviderModels(
@@ -1415,7 +1415,7 @@ for (const definition of providersFor("llm").filter(
     const { url, options } = fixture.requests[0];
     assert.equal(
       url,
-      `${config.baseUrl}${definition.id === "azure_openai" ? "/openai/models?api-version=2024-10-21" : "/models"}`,
+      `${config.baseUrl}${definition.id === "azure_openai" ? "/openai/models?api-version=2024-10-21" : definition.id === "venice" ? "/models?type=text" : "/models"}`,
     );
     const header =
       definition.id === "google_generative_ai"
@@ -1931,4 +1931,21 @@ test("a preparation error is replaced by the next successful automatic summary s
   await summarizeSession("note-1", { automatic: true });
   assert.equal(latestState().status, "success");
   assert.equal(latestState().error, null);
+});
+
+test("Venice model discovery excludes offline and non-text entries", () => {
+  assert.deepEqual(
+    parseProviderModels("venice", {
+      data: [
+        {
+          id: "venice-uncensored",
+          type: "text",
+          model_spec: { offline: false },
+        },
+        { id: "offline-model", type: "text", model_spec: { offline: true } },
+        { id: "video-model", type: "video" },
+      ],
+    }),
+    ["venice-uncensored"],
+  );
 });

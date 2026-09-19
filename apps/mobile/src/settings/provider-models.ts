@@ -27,6 +27,10 @@ export async function discoverProviderModels(
     let url = `${connection.baseUrl}/models`;
     const headers: Record<string, string> = {};
     switch (config.provider) {
+      case "venice":
+        url += "?type=text";
+        headers.Authorization = `Bearer ${apiKey}`;
+        break;
       case "anthropic":
         headers["x-api-key"] = apiKey;
         headers["anthropic-version"] = "2023-06-01";
@@ -109,6 +113,11 @@ export function parseProviderModels(
   if (!Array.isArray(data)) throw new Error("Invalid model list.");
   const models = data.flatMap((entry: unknown) => {
     const model = record(entry);
+    if (
+      provider === "venice" &&
+      (model.type !== "text" || record(model.model_spec).offline === true)
+    )
+      return [];
     const raw = model.id ?? model.name;
     if (typeof raw !== "string") return [];
     const id =
