@@ -34,7 +34,7 @@
       "desktop": { "schemes": ["anarlog", "hyprnote"] }
     },
     "updater": {
-      "active": true,
+      "active": false,
       "endpoints": [
         "https://desktop.anarlog.so/update/{{target}}-{{arch}}-{{bundle_type}}/{{current_version}}?channel=stable"
       ]

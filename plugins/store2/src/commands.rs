@@ -329,6 +329,24 @@ async fn read_secret_for<R: tauri::Runtime>(
     .map_err(|error| error.to_string())?
 }
 
+/// Un build non signé par le certificat qui a créé les entrées se voit refuser
+/// l'accès par le trousseau. Sans mémoire de ce refus, chaque secret relance
+/// une invite : au démarrage, une par fournisseur configuré. On retient donc le
+/// refus pour la durée du processus et on cesse de solliciter l'utilisateur.
+static KEYCHAIN_ACCESS_DENIED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(target_os = "macos")]
+fn is_access_denied(error: &keyring::Error) -> bool {
+    // errSecAuthFailed, errSecUserCanceled, errSecInteractionNotAllowed.
+    matches!(keychain_error_code(error), Some(-25293 | -128 | -25308))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn is_access_denied(_error: &keyring::Error) -> bool {
+    false
+}
+
 fn read_secret_blocking_for<R: tauri::Runtime>(
     caller: SecretCaller,
     app: &tauri::AppHandle<R>,
@@ -336,6 +354,9 @@ fn read_secret_blocking_for<R: tauri::Runtime>(
     key: &str,
 ) -> Result<Option<String>, String> {
     validate_secret_coordinate(caller, scope, key)?;
+    if KEYCHAIN_ACCESS_DENIED.load(std::sync::atomic::Ordering::Relaxed) {
+        return Ok(None);
+    }
     let entry = secret_entry(app, scope, key)?;
     match entry.get_password() {
         Ok(secret) => Ok(Some(secret)),
@@ -354,7 +375,13 @@ fn read_secret_blocking_for<R: tauri::Runtime>(
             }
             Ok(None)
         }
-        Err(error) => Err(secure_store_error(error)),
+        Err(error) => {
+            if is_access_denied(&error) {
+                KEYCHAIN_ACCESS_DENIED.store(true, std::sync::atomic::Ordering::Relaxed);
+                return Ok(None);
+            }
+            Err(secure_store_error(error))
+        }
     }
 }
 
