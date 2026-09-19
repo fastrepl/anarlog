@@ -152,17 +152,13 @@ describe("AutomationsNav", () => {
     render(<AutomationsNav />);
 
     expect(screen.getByText("Get started")).toBeTruthy();
-    expect(screen.getByText("Update project notes in Notion")).toBeTruthy();
-    expect(
-      screen.getByText("Turn action items into Linear issues"),
-    ).toBeTruthy();
     expect(screen.getByText("Export every meeting as Markdown")).toBeTruthy();
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Update project notes in Notion/ }),
+      screen.getByRole("button", { name: /Export every meeting as Markdown/ }),
     );
 
-    expect(mocks.selectStarter).toHaveBeenCalledWith("notion-project-notes");
+    expect(mocks.selectStarter).toHaveBeenCalledWith("markdown-export");
   });
 
   it("marks the selected starter", () => {
@@ -200,16 +196,14 @@ describe("AutomationsNav", () => {
     render(<AutomationsNav />);
 
     fireEvent.contextMenu(
-      screen.getByRole("button", { name: /Update project notes in Notion/ }),
+      screen.getByRole("button", { name: /Export every meeting as Markdown/ }),
     );
 
-    expect(mocks.selectStarter).toHaveBeenCalledWith("notion-project-notes");
+    expect(mocks.selectStarter).toHaveBeenCalledWith("markdown-export");
     expect(mocks.showContextMenu).toHaveBeenCalled();
 
-    findContextMenuItem("remove-automation-notion-project-notes")?.action();
-    expect(mocks.removeStarterDraft).toHaveBeenCalledWith(
-      "notion-project-notes",
-    );
+    findContextMenuItem("remove-automation-markdown-export")?.action();
+    expect(mocks.removeStarterDraft).toHaveBeenCalledWith("markdown-export");
   });
 
   it("offers edit and delete in the chat automation context menu", () => {
@@ -234,7 +228,7 @@ describe("AutomationsNav", () => {
       target: { value: "project" },
     });
 
-    expect(screen.getByText("Update project notes in Notion")).toBeTruthy();
+    expect(screen.queryByText("Export every meeting as Markdown")).toBeNull();
     expect(screen.queryByText("Share weekly recap")).toBeNull();
     expect(screen.getByText("Update project notes")).toBeTruthy();
 

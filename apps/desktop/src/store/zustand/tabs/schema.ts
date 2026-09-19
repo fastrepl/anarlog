@@ -38,16 +38,12 @@ export const isTabInputSupported = (
 };
 
 export type SettingsTab =
-  | "account"
-  | "billing"
   | "stats"
   | "insights"
   | "app"
   | "meetings"
   | "audio"
   | "appearance"
-  | "sync"
-  | "team"
   | "notifications"
   | "imports"
   | "developers"
@@ -56,21 +52,15 @@ export type SettingsTab =
   | "dictionary"
   | "dictation"
   | "transcription"
-  | "intelligence"
-  | "todo";
+  | "intelligence";
 
-const normalizeSettingsTab = (
-  tab: string | null | undefined,
-): Exclude<SettingsTab, "account"> => {
+const normalizeSettingsTab = (tab: string | null | undefined): SettingsTab => {
   switch (tab) {
-    case "billing":
     case "stats":
     case "insights":
     case "app":
     case "meetings":
     case "appearance":
-    case "sync":
-    case "team":
     case "notifications":
     case "imports":
     case "developers":
@@ -80,7 +70,6 @@ const normalizeSettingsTab = (
     case "dictation":
     case "transcription":
     case "intelligence":
-    case "todo":
       return tab;
     case "audio":
       return "meetings";
@@ -88,7 +77,6 @@ const normalizeSettingsTab = (
       return "dictionary";
     case "data":
       return "imports";
-    case "account":
     default:
       return "app";
   }
@@ -218,7 +206,7 @@ export const getDefaultState = (tab: TabInput): Tab => {
         ...base,
         type: "settings",
         state: {
-          tab: subtab === "account" ? "account" : normalizeSettingsTab(subtab),
+          tab: normalizeSettingsTab(subtab),
         },
       };
     }

@@ -35,7 +35,7 @@ vi.mock("~/env", () => ({
 vi.mock("@anlg/api-client", () => ({
   listConnections: mocks.listConnections,
   linearCreateIssue: mocks.linearCreateIssue,
-  notionAppendUpdate: mocks.notionAppendUpdate,
+  notionAppendUpdate: mocks.exportMeetingMarkdown,
 }));
 
 vi.mock("@anlg/api-client/client", () => ({
@@ -175,213 +175,6 @@ describe("runMeetingCompletedAutomations (markdown export)", () => {
   });
 });
 
-describe("runNoteEnhancedAutomations (linear issues)", () => {
-  const linearSettings = {
-    automation_linear_issues_enabled: true,
-    automation_linear_issues_team: JSON.stringify({
-      id: "team-1",
-      name: "Core",
-    }),
-  };
-
-  it("creates one issue per open action item", async () => {
-    storedSettings(linearSettings);
-    mockDbRows({
-      actionItems: [{ text: "Ship the fix" }, { text: "Email the customer" }],
-    });
-    signedInSession();
-    mocks.linearCreateIssue.mockResolvedValue({ data: {}, error: undefined });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.linearCreateIssue).toHaveBeenCalledTimes(2);
-    expect(mocks.linearCreateIssue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({
-          connection_id: "conn-linear",
-          team_id: "team-1",
-          title: "Ship the fix",
-        }),
-      }),
-    );
-    expect(recordedRun("automation_linear_issues_last_run")).toMatchObject({
-      status: "success",
-      detail: "2 issues in Core",
-    });
-    const processedCall = mocks.setSettingValue.mock.calls.find(
-      (entry) => entry[0] === "automation_linear_issues_processed",
-    );
-    expect(JSON.parse(processedCall?.[1] as string)).toEqual(["session-1"]);
-  });
-
-  it("skips sessions that were already processed", async () => {
-    storedSettings({
-      ...linearSettings,
-      automation_linear_issues_processed: JSON.stringify(["session-1"]),
-    });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.linearCreateIssue).not.toHaveBeenCalled();
-    expect(recordedRun("automation_linear_issues_last_run")).toBeNull();
-  });
-
-  it("falls back to unchecked task items in the summary document", async () => {
-    storedSettings(linearSettings);
-    mockDbRows({
-      actionItems: [],
-      summaryDoc: [
-        {
-          body: JSON.stringify({
-            type: "doc",
-            content: [
-              {
-                type: "taskList",
-                content: [
-                  {
-                    type: "taskItem",
-                    attrs: { checked: false },
-                    content: [{ type: "text", text: "Review the deck" }],
-                  },
-                  {
-                    type: "taskItem",
-                    attrs: { checked: true },
-                    content: [{ type: "text", text: "Done already" }],
-                  },
-                ],
-              },
-            ],
-          }),
-          body_format: "prosemirror_json",
-        },
-      ],
-    });
-    signedInSession();
-    mocks.linearCreateIssue.mockResolvedValue({ data: {}, error: undefined });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.linearCreateIssue).toHaveBeenCalledTimes(1);
-    expect(mocks.linearCreateIssue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ title: "Review the deck" }),
-      }),
-    );
-  });
-
-  it("records a success without issues when nothing is actionable", async () => {
-    storedSettings(linearSettings);
-    mockDbRows({ actionItems: [], summaryDoc: [] });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.linearCreateIssue).not.toHaveBeenCalled();
-    expect(recordedRun("automation_linear_issues_last_run")).toMatchObject({
-      status: "success",
-      detail: "no action items found for this meeting",
-    });
-  });
-
-  it("marks the session processed before creating, so a partial failure never duplicates", async () => {
-    storedSettings(linearSettings);
-    mockDbRows({
-      actionItems: [{ text: "First item" }, { text: "Second item" }],
-    });
-    signedInSession();
-    mocks.linearCreateIssue
-      .mockResolvedValueOnce({ data: {}, error: undefined })
-      .mockResolvedValueOnce({
-        data: undefined,
-        error: { error: { message: "rate limited" } },
-      });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    const processedCall = mocks.setSettingValue.mock.calls.find(
-      (entry) => entry[0] === "automation_linear_issues_processed",
-    );
-    expect(JSON.parse(processedCall?.[1] as string)).toEqual(["session-1"]);
-    expect(recordedRun("automation_linear_issues_last_run")).toMatchObject({
-      status: "error",
-      detail: "rate limited",
-    });
-  });
-});
-
-describe("runNoteEnhancedAutomations (notion update)", () => {
-  it("appends a dated update to the configured page", async () => {
-    storedSettings({
-      automation_notion_update_enabled: true,
-      automation_notion_update_page: JSON.stringify({
-        id: "page-1",
-        name: "Project Apollo",
-      }),
-    });
-    mockDbRows();
-    signedInSession();
-    mocks.notionAppendUpdate.mockResolvedValue({ data: {}, error: undefined });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.notionAppendUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: {
-          connection_id: "conn-notion",
-          page_id: "page-1",
-          heading: "2026-08-07 — Weekly Sync",
-          markdown: "Decisions were made.",
-        },
-      }),
-    );
-    expect(recordedRun("automation_notion_update_last_run")).toMatchObject({
-      status: "success",
-      detail: "Project Apollo",
-    });
-  });
-
-  it("records an error when the connection is missing", async () => {
-    storedSettings({
-      automation_notion_update_enabled: true,
-      automation_notion_update_page: JSON.stringify({
-        id: "page-1",
-        name: "Project Apollo",
-      }),
-    });
-    mockDbRows();
-    signedInSession();
-    mocks.listConnections.mockResolvedValue({
-      data: { connections: [] },
-      error: undefined,
-    });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
-    expect(recordedRun("automation_notion_update_last_run")).toMatchObject({
-      status: "error",
-      detail: "connect notion to run this automation",
-    });
-  });
-
-  it("appends once per session", async () => {
-    storedSettings({
-      automation_notion_update_enabled: true,
-      automation_notion_update_page: JSON.stringify({
-        id: "page-1",
-        name: "Project Apollo",
-      }),
-      automation_notion_update_processed: JSON.stringify(["session-1"]),
-    });
-    mockDbRows();
-    signedInSession();
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
-    expect(recordedRun("automation_notion_update_last_run")).toBeNull();
-  });
-});
-
 describe("parsers", () => {
   it("round-trips run records and rejects malformed values", () => {
     const record = {
@@ -418,8 +211,8 @@ describe("custom workflows", () => {
           steps: [
             {
               id: "step-1",
-              type: "notion_update",
-              target: { id: "C123", name: "general" },
+              type: "markdown_export",
+              directory: "/tmp/exports",
             },
           ],
           lastRun: null,
@@ -430,11 +223,14 @@ describe("custom workflows", () => {
     });
     mockDbRows();
     signedInSession();
-    mocks.notionAppendUpdate.mockResolvedValue({ data: {}, error: undefined });
+    mocks.exportMeetingMarkdown.mockResolvedValue({
+      status: "ok",
+      data: "/tmp/exports/a.md",
+    });
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.notionAppendUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.exportMeetingMarkdown).toHaveBeenCalledTimes(1);
     const workflowCalls = mocks.setSettingValue.mock.calls.filter(
       (entry) => entry[0] === "automation_workflows",
     );
@@ -450,7 +246,7 @@ describe("custom workflows", () => {
       automation_workflows: JSON.stringify([
         {
           id: "wf-1",
-          title: "Markdown then Notion",
+          title: "Two markdown exports",
           enabled: true,
           trigger: "note_enhanced",
           steps: [
@@ -461,8 +257,8 @@ describe("custom workflows", () => {
             },
             {
               id: "step-2",
-              type: "notion_update",
-              target: { id: "page-1", name: "Project Apollo" },
+              type: "markdown_export",
+              directory: "/tmp/exports",
             },
           ],
           lastRun: null,
@@ -473,18 +269,13 @@ describe("custom workflows", () => {
     });
     mockDbRows();
     signedInSession();
-    mocks.exportMeetingMarkdown.mockResolvedValue({
-      status: "ok",
-      data: "/tmp/exports/note.md",
-    });
-    mocks.notionAppendUpdate.mockResolvedValue({
-      data: undefined,
-      error: { error: { message: "notion unavailable" } },
-    });
+    mocks.exportMeetingMarkdown
+      .mockResolvedValueOnce({ status: "ok", data: "/tmp/exports/note.md" })
+      .mockResolvedValueOnce({ status: "error", error: "export unavailable" });
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.exportMeetingMarkdown).toHaveBeenCalledTimes(1);
+    expect(mocks.exportMeetingMarkdown).toHaveBeenCalledTimes(2);
     const firstSave = mocks.setSettingValue.mock.calls.filter(
       (entry) => entry[0] === "automation_workflows",
     );
@@ -498,66 +289,10 @@ describe("custom workflows", () => {
       automation_workflows: JSON.stringify(afterFailure),
     });
     mocks.exportMeetingMarkdown.mockClear();
-    mocks.notionAppendUpdate.mockClear();
 
     await runNoteEnhancedAutomations("session-1");
 
     expect(mocks.exportMeetingMarkdown).not.toHaveBeenCalled();
-    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
-  });
-
-  it("marks a Linear workflow processed before creating so a mid-loop failure never duplicates", async () => {
-    storedSettings({
-      automation_workflows: JSON.stringify([
-        {
-          id: "wf-1",
-          title: "Linear issues",
-          enabled: true,
-          trigger: "note_enhanced",
-          steps: [
-            {
-              id: "step-1",
-              type: "linear_issues",
-              target: { id: "team-1", name: "Core" },
-            },
-          ],
-          lastRun: null,
-          processedSessionIds: [],
-          chatGroupId: null,
-        },
-      ]),
-    });
-    mockDbRows({
-      actionItems: [{ text: "First item" }, { text: "Second item" }],
-    });
-    signedInSession();
-    mocks.linearCreateIssue
-      .mockResolvedValueOnce({ data: {}, error: undefined })
-      .mockResolvedValueOnce({
-        data: undefined,
-        error: { error: { message: "rate limited" } },
-      });
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.linearCreateIssue).toHaveBeenCalledTimes(2);
-    const workflowCall = mocks.setSettingValue.mock.calls.filter(
-      (entry) => entry[0] === "automation_workflows",
-    );
-    const saved = JSON.parse(
-      workflowCall[workflowCall.length - 1]?.[1] as string,
-    );
-    expect(saved[0].processedSessionIds).toEqual(["session-1"]);
-    expect(saved[0].lastRun.status).toBe("error");
-
-    storedSettings({
-      automation_workflows: JSON.stringify(saved),
-    });
-    mocks.linearCreateIssue.mockClear();
-
-    await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.linearCreateIssue).not.toHaveBeenCalled();
   });
 
   it("retries a workflow when the first step fails before any side effect", async () => {
@@ -569,8 +304,8 @@ describe("custom workflows", () => {
       steps: [
         {
           id: "step-1",
-          type: "notion_update",
-          target: { id: "C123", name: "general" },
+          type: "markdown_export",
+          directory: "/tmp/exports",
         },
       ],
       lastRun: null,
@@ -582,10 +317,12 @@ describe("custom workflows", () => {
     });
     mockDbRows({ recap: [] });
     signedInSession();
+    mocks.exportMeetingMarkdown.mockResolvedValueOnce({
+      status: "error",
+      error: "export unavailable",
+    });
 
     await runNoteEnhancedAutomations("session-1");
-
-    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
     const firstSave = mocks.setSettingValue.mock.calls.filter(
       (entry) => entry[0] === "automation_workflows",
     );
@@ -599,11 +336,15 @@ describe("custom workflows", () => {
       automation_workflows: JSON.stringify(afterFailure),
     });
     mockDbRows();
-    mocks.notionAppendUpdate.mockResolvedValue({ data: {}, error: undefined });
+    mocks.exportMeetingMarkdown.mockClear();
+    mocks.exportMeetingMarkdown.mockResolvedValue({
+      status: "ok",
+      data: "/tmp/exports/a.md",
+    });
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.notionAppendUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.exportMeetingMarkdown).toHaveBeenCalledTimes(1);
   });
 
   it("skips disabled or already processed workflows", async () => {
@@ -617,8 +358,8 @@ describe("custom workflows", () => {
           steps: [
             {
               id: "step-1",
-              type: "notion_update",
-              target: { id: "C123", name: "general" },
+              type: "markdown_export",
+              directory: "/tmp/exports",
             },
           ],
           processedSessionIds: [],
@@ -631,8 +372,8 @@ describe("custom workflows", () => {
           steps: [
             {
               id: "step-1",
-              type: "notion_update",
-              target: { id: "C123", name: "general" },
+              type: "markdown_export",
+              directory: "/tmp/exports",
             },
           ],
           processedSessionIds: ["session-1"],
@@ -642,6 +383,6 @@ describe("custom workflows", () => {
 
     await runNoteEnhancedAutomations("session-1");
 
-    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
+    expect(mocks.exportMeetingMarkdown).not.toHaveBeenCalled();
   });
 });

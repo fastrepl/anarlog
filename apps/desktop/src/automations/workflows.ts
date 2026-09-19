@@ -1,4 +1,4 @@
-import type { AutomationRunRecord, AutomationTargetRef } from "./types";
+import type { AutomationRunRecord } from "./types";
 
 import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
 import { id } from "~/shared/utils";
@@ -6,24 +6,14 @@ import { id } from "~/shared/utils";
 const WORKFLOW_TRIGGERS = ["note_enhanced", "meeting_completed"] as const;
 export type WorkflowTrigger = (typeof WORKFLOW_TRIGGERS)[number];
 
-const WORKFLOW_STEP_TYPES = [
-  "notion_update",
-  "linear_issues",
-  "markdown_export",
-] as const;
+const WORKFLOW_STEP_TYPES = ["markdown_export"] as const;
 export type WorkflowStepType = (typeof WORKFLOW_STEP_TYPES)[number];
 
-export type WorkflowStep =
-  | {
-      id: string;
-      type: "notion_update" | "linear_issues";
-      target: AutomationTargetRef | null;
-    }
-  | {
-      id: string;
-      type: "markdown_export";
-      directory: string;
-    };
+export type WorkflowStep = {
+  id: string;
+  type: "markdown_export";
+  directory: string;
+};
 
 export type AutomationWorkflow = {
   id: string;
@@ -52,17 +42,11 @@ export function createEmptyWorkflow(
 }
 
 export function createWorkflowStep(type: WorkflowStepType): WorkflowStep {
-  if (type === "markdown_export") {
-    return { id: id(), type, directory: "" };
-  }
-  return { id: id(), type, target: null };
+  return { id: id(), type, directory: "" };
 }
 
 export function isWorkflowStepReady(step: WorkflowStep): boolean {
-  if (step.type === "markdown_export") {
-    return step.directory.trim().length > 0;
-  }
-  return step.target !== null;
+  return step.directory.trim().length > 0;
 }
 
 export function isWorkflowReady(workflow: AutomationWorkflow): boolean {
@@ -154,24 +138,6 @@ function parseStep(value: unknown): WorkflowStep | null {
       type: "markdown_export",
       directory: typeof value.directory === "string" ? value.directory : "",
     };
-  }
-  if (value.type === "notion_update" || value.type === "linear_issues") {
-    return {
-      id: value.id,
-      type: value.type,
-      target: parseTarget(value.target),
-    };
-  }
-  return null;
-}
-
-function parseTarget(value: unknown): AutomationTargetRef | null {
-  if (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.name === "string"
-  ) {
-    return { id: value.id, name: value.name };
   }
   return null;
 }

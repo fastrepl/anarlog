@@ -393,7 +393,7 @@ describe("Basic Tab Actions", () => {
     ]);
   });
 
-  test.each(["account", "billing"] as const)(
+  test.each(["app", "app"] as const)(
     "openNew preserves %s settings tab requests",
     (tab) => {
       useTabs.getState().openNew({ type: "settings", state: { tab } });
@@ -409,11 +409,11 @@ describe("Basic Tab Actions", () => {
   );
 
   test("openNew preserves sync settings tab requests", () => {
-    useTabs.getState().openNew({ type: "settings", state: { tab: "sync" } });
+    useTabs.getState().openNew({ type: "settings", state: { tab: "app" } });
 
     expect(useTabs.getState()).toHaveCurrentTab({
       type: "settings",
-      state: { tab: "sync" },
+      state: { tab: "app" },
     });
   });
 

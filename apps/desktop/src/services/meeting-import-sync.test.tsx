@@ -85,22 +85,6 @@ describe("MeetingImportSync", () => {
 
   afterEach(cleanup);
 
-  it("pauses connected imports while signed out", () => {
-    render(<MeetingImportSync />);
-
-    expect(mocks.connectedImportSyncQueryOptions).toHaveBeenCalled();
-    expect(
-      mocks.connectedImportSyncQueryOptions.mock.calls.every(
-        ([, enabled]) => enabled === false,
-      ),
-    ).toBe(true);
-    expect(
-      mocks.nangoImportSyncQueryOptions.mock.calls.every(
-        ([, , , enabled]) => enabled === false,
-      ),
-    ).toBe(true);
-  });
-
   it("enables connected imports after sign-in", () => {
     mocks.signedIn = true;
 
@@ -117,25 +101,5 @@ describe("MeetingImportSync", () => {
         ([, , , enabled]) => enabled === false,
       ),
     ).toBe(true);
-  });
-
-  it("syncs Zoom after a Nango connection is ready", () => {
-    mocks.signedIn = true;
-    mocks.connections = [
-      {
-        connection_id: "zoom-1",
-        integration_id: "zoom",
-        status: "ok",
-      },
-    ];
-
-    render(<MeetingImportSync />);
-
-    expect(mocks.nangoImportSyncQueryOptions).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "zoom" }),
-      "zoom-1",
-      { Authorization: "Bearer test" },
-      true,
-    );
   });
 });

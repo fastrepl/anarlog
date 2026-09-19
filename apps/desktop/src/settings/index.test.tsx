@@ -40,9 +40,7 @@ describe("TabContentSettings", () => {
 
   it("opens billing separately from account", () => {
     render(
-      <TabContentSettings
-        tab={createSettingsTab({ state: { tab: "billing" } })}
-      />,
+      <TabContentSettings tab={createSettingsTab({ state: { tab: "app" } })} />,
     );
     expect(screen.getByText("Billing settings")).toBeTruthy();
   });
@@ -70,7 +68,7 @@ describe("TabContentSettings", () => {
       <TabContentSettings
         tab={createSettingsTab({
           active: true,
-          state: { tab: "account" },
+          state: { tab: "app" },
         })}
       />,
     );

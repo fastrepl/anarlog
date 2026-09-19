@@ -92,8 +92,6 @@ vi.mock("~/settings/queries", () => ({
 vi.mock("./starter-config", () => ({
   AutomationLastRunLine: () => null,
   MarkdownExportConfig: () => <div data-testid="config-markdown" />,
-  LinearIssuesConfig: () => <div data-testid="config-linear" />,
-  NotionUpdateConfig: () => <div data-testid="config-notion" />,
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
@@ -185,13 +183,13 @@ describe("AutomationsContent", () => {
   });
 
   it("shows the selected starter as an inspectable deterministic draft", () => {
-    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
+    mocks.selection = { kind: "starter", starterId: "markdown-export" };
 
     renderAutomations();
 
-    expect(screen.getByText("Use the AI meeting summary")).toBeTruthy();
-    expect(screen.getByText("Append the meeting update")).toBeTruthy();
-    expect(screen.getByTestId("config-notion")).toBeTruthy();
+    expect(screen.getByText("Render canonical Markdown")).toBeTruthy();
+    expect(screen.getByText("Write to a folder")).toBeTruthy();
+    expect(screen.getByTestId("config-markdown")).toBeTruthy();
     expect(
       screen.getByRole<HTMLButtonElement>("button", { name: "Test" }).disabled,
     ).toBe(true);
@@ -207,42 +205,15 @@ describe("AutomationsContent", () => {
     expect(screen.getByText("Expected output")).toBeTruthy();
   });
 
-  it("uses product marks without icon tiles", () => {
-    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
-
-    const { container } = renderAutomations();
-
-    const header = screen
-      .getByRole("heading", {
-        level: 2,
-        name: "Update project notes in Notion",
-      })
-      .closest("header");
-    const slackIcon = container.querySelector(
-      'iconify-icon[icon="logos:notion-icon"]',
-    );
-
-    expect(header).toBeTruthy();
-    expect(slackIcon).toBeTruthy();
-    expect(slackIcon?.closest("header")).toBe(header);
-    expect(
-      screen
-        .getByRole("button", { name: "Automation actions" })
-        .closest("header"),
-    ).toBe(header);
-    expect(slackIcon?.parentElement?.className).not.toContain("bg-muted");
-    expect(slackIcon?.parentElement?.className).not.toContain("rounded");
-  });
-
   it("matches the templates header and body gutters", () => {
-    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
+    mocks.selection = { kind: "starter", starterId: "markdown-export" };
 
     renderAutomations();
 
     const header = screen
       .getByRole("heading", {
         level: 2,
-        name: "Update project notes in Notion",
+        name: "Export every meeting as Markdown",
       })
       .closest("header");
     const body = header?.nextElementSibling;
@@ -293,7 +264,7 @@ describe("AutomationsContent", () => {
   });
 
   it("removes the starter automation from the actions menu", async () => {
-    mocks.selection = { kind: "starter", starterId: "notion-project-notes" };
+    mocks.selection = { kind: "starter", starterId: "markdown-export" };
 
     renderAutomations();
 
@@ -303,9 +274,7 @@ describe("AutomationsContent", () => {
 
     fireEvent.click(await screen.findByText("Remove automation"));
 
-    expect(mocks.removeStarterDraft).toHaveBeenCalledWith(
-      "notion-project-notes",
-    );
+    expect(mocks.removeStarterDraft).toHaveBeenCalledWith("markdown-export");
   });
 
   it("deletes a chat automation from the actions menu", async () => {

@@ -62,7 +62,7 @@ describe("automation workflows", () => {
 
   it("treats a workflow as ready only when every action is configured", () => {
     const workflow = createEmptyWorkflow({
-      steps: [createWorkflowStep("notion_update")],
+      steps: [createWorkflowStep("markdown_export")],
     });
 
     expect(isWorkflowReady(workflow)).toBe(false);
@@ -70,8 +70,8 @@ describe("automation workflows", () => {
     workflow.steps = [
       {
         id: "step-1",
-        type: "notion_update",
-        target: { id: "C1", name: "general" },
+        type: "markdown_export",
+        directory: "/tmp",
       },
     ];
     expect(isWorkflowReady(workflow)).toBe(true);

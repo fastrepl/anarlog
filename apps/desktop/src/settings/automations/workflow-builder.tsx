@@ -14,12 +14,7 @@ import {
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
-import {
-  AutomationLastRunLine,
-  LinearIssuesConfig,
-  MarkdownExportConfig,
-  NotionUpdateConfig,
-} from "./starter-config";
+import { AutomationLastRunLine, MarkdownExportConfig } from "./starter-config";
 
 import {
   createWorkflowStep,
@@ -186,26 +181,10 @@ function WorkflowStepConfig({
   step: WorkflowStep;
   onChange: (step: WorkflowStep) => void;
 }) {
-  if (step.type === "markdown_export") {
-    return (
-      <MarkdownExportConfig
-        value={step.directory}
-        onChange={(directory) => onChange({ ...step, directory })}
-      />
-    );
-  }
-  if (step.type === "linear_issues") {
-    return (
-      <LinearIssuesConfig
-        value={step.target}
-        onChange={(target) => onChange({ ...step, target })}
-      />
-    );
-  }
   return (
-    <NotionUpdateConfig
-      value={step.target}
-      onChange={(target) => onChange({ ...step, target })}
+    <MarkdownExportConfig
+      value={step.directory}
+      onChange={(directory) => onChange({ ...step, directory })}
     />
   );
 }

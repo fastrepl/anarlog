@@ -24,12 +24,7 @@ import {
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
-import {
-  AutomationLastRunLine,
-  LinearIssuesConfig,
-  MarkdownExportConfig,
-  NotionUpdateConfig,
-} from "./starter-config";
+import { AutomationLastRunLine, MarkdownExportConfig } from "./starter-config";
 import { useSaveWorkflow, WorkflowBuilder } from "./workflow-builder";
 
 import {
@@ -37,7 +32,6 @@ import {
   useDeleteWorkflow,
   useRemoveStarterDraft,
 } from "~/automations/actions";
-import { parseAutomationTargetRef } from "~/automations/engine";
 import {
   useAutomationSelection,
   useEffectiveAutomationSelection,
@@ -441,20 +435,8 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
   );
   const targetRaw =
     settingValues[STARTER_AUTOMATIONS[starterId].targetKey] ?? "";
-  const isReady =
-    starterId === "markdown-export"
-      ? targetRaw.trim().length > 0
-      : parseAutomationTargetRef(targetRaw) !== null;
-  const readinessHint = (() => {
-    switch (starterId) {
-      case "markdown-export":
-        return t`Choose an export folder first.`;
-      case "linear-action-items":
-        return t`Choose a Linear team first.`;
-      case "notion-project-notes":
-        return t`Choose a Notion page first.`;
-    }
-  })();
+  const isReady = targetRaw.trim().length > 0;
+  const readinessHint = t`Choose an export folder first.`;
 
   const handleSaveDraft = () => {
     saveDraftMutation.mutate();
@@ -606,13 +588,7 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
         </div>
 
         <div className="border-border border-t px-5 py-4">
-          {starterId === "markdown-export" ? (
-            <MarkdownExportConfig />
-          ) : starterId === "linear-action-items" ? (
-            <LinearIssuesConfig />
-          ) : (
-            <NotionUpdateConfig />
-          )}
+          <MarkdownExportConfig />
           <AutomationLastRunLine
             settingKey={STARTER_AUTOMATIONS[starterId].lastRunKey}
           />
