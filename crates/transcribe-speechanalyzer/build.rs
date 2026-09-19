@@ -56,6 +56,11 @@ fn main() {
             .with_package("apple-speech-swift", "./swift-lib/")
             .link();
 
+        // Les extensions Swift de CMTime vivent dans la surcouche CoreMedia.
+        // Le SDK d'Xcode la fournissait implicitement ; celui des Command Line
+        // Tools non, d'où un lien explicite.
+        println!("cargo:rustc-link-lib=framework=CoreMedia");
+
         for path in swift_runtime_rpaths() {
             println!("cargo:rustc-link-arg=-Wl,-rpath,{path}");
         }
