@@ -29,7 +29,6 @@ import {
   normalizeReasoningEffort,
   supportsReasoningEffort,
 } from "~/ai/reasoning-effort";
-import { useAuth } from "~/auth";
 import {
   providerRowId,
   ProviderIconSlot,
@@ -620,7 +619,6 @@ function useConfiguredMapping(): {
   providers: Record<string, ProviderStatus>;
   isReady: boolean;
 } {
-  const auth = useAuth();
   const availability = useProviderAvailability("llm", PROVIDERS);
   const { current_llm_provider } = useConfigValues([
     "current_llm_provider",
@@ -650,7 +648,7 @@ function useConfiguredMapping(): {
         ];
       }),
     ) as Record<string, ProviderStatus>;
-  }, [configuredProviders, auth, availability, current_llm_provider]);
+  }, [configuredProviders, availability, current_llm_provider]);
 
   return {
     providers: mapping,

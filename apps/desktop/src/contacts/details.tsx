@@ -38,7 +38,6 @@ import {
 import { RelatedNotesSection } from "./related-notes";
 import { ContactFacehash } from "./shared";
 
-import { useOptionalAuth } from "~/auth";
 import { useOwnerUserId } from "~/shared/owner-user";
 
 export function DetailsColumn({
@@ -55,8 +54,7 @@ export function DetailsColumn({
   onDelete: (id: string) => void;
 }) {
   const localOwnerUserId = useOwnerUserId();
-  const auth = useOptionalAuth();
-  const ownerUserId = auth?.session?.user.id ?? localOwnerUserId;
+  const ownerUserId = localOwnerUserId;
   const readOnly = human?.id === ownerUserId;
   const { t } = useLingui();
   const [showCompactIdentity, setShowCompactIdentity] = useState(false);

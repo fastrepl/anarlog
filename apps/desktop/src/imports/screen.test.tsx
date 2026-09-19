@@ -300,27 +300,6 @@ describe("MeetingImportScreen", () => {
     ).toBeTruthy();
   });
 
-  it("prompts signed-out users to sign in before connecting", async () => {
-    mocks.signedIn = false;
-    mockDetected(["granola"]);
-
-    renderImports();
-
-    const signInButton = await screen.findByRole("button", {
-      name: "Sign in to connect",
-    });
-    expect(screen.getByText("Connect & import")).toBeTruthy();
-    expect(screen.getAllByText("Sign in to connect")).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Use files" })).toBeTruthy();
-
-    fireEvent.click(signInButton);
-
-    await waitFor(() => {
-      expect(mocks.signIn).toHaveBeenCalledOnce();
-    });
-    expect(mocks.connectConnectedImport).not.toHaveBeenCalled();
-  });
-
   it("renders the same detected list in the compact onboarding layout", async () => {
     mockDetected(["granola", "slack-huddles"]);
 
@@ -389,27 +368,6 @@ describe("MeetingImportScreen", () => {
     await waitFor(() => {
       expect(mocks.connectConnectedImport).toHaveBeenCalledTimes(2);
     });
-  });
-
-  it("connects Zoom through Nango OAuth instead of file-only import", async () => {
-    mockDetected(["zoom"]);
-
-    renderImports();
-
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Connect & import" }),
-    );
-
-    await waitFor(() => {
-      expect(mocks.connectNangoImport).toHaveBeenCalledOnce();
-    });
-    expect(mocks.connectConnectedImport).not.toHaveBeenCalled();
-    expect(
-      screen.getByText(/keep new meetings coming in while you switch/i),
-    ).toBeTruthy();
-    expect(
-      screen.queryByText(/Direct connection is not available yet/i),
-    ).toBeNull();
   });
 
   it("connects Plaud by running the local CLI instead of file-only import", async () => {

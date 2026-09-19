@@ -70,14 +70,6 @@ vi.mock("@anlg/ui/components/ui/toast", async (importOriginal) => {
   };
 });
 
-vi.mock("~/auth", () => ({
-  useAuth: () => ({ session: null, signIn: mocks.signIn }),
-}));
-
-vi.mock("~/auth/cloudsync-progress", () => ({
-  useCloudsyncInitialSyncProgress: () => ({ state: "idle" }),
-}));
-
 vi.mock("~/contexts/notifications", () => ({
   useNotifications: () => mocks.notifications,
 }));
@@ -194,39 +186,6 @@ describe("ToastNotifications", () => {
     cleanup();
     vi.unstubAllGlobals();
     vi.useRealTimers();
-  });
-
-  it("routes the sign-in suggestion through Sonner", () => {
-    render(<ToastNotifications />);
-
-    act(() => vi.advanceTimersByTime(500));
-
-    expect(mocks.message).toHaveBeenCalledWith(
-      "Sign in to get the most out of BlackMushi",
-      expect.objectContaining({
-        id: "sign-in-benefits",
-        duration: Infinity,
-        closeButton: true,
-        action: expect.objectContaining({ label: "Sign in" }),
-      }),
-    );
-
-    const options = mocks.message.mock.calls[0][1];
-    options.action.onClick();
-    expect(mocks.signIn).toHaveBeenCalledOnce();
-
-    options.onDismiss();
-    expect(mocks.dismissToast).not.toHaveBeenCalled();
-  });
-
-  it("persists explicit Sonner dismissals", () => {
-    render(<ToastNotifications />);
-
-    act(() => vi.advanceTimersByTime(500));
-
-    const options = mocks.message.mock.calls[0][1];
-    options.onDismiss();
-    expect(mocks.dismissToast).toHaveBeenCalledWith("auth-promotion");
   });
 
   it("uses a Sonner loading toast for model downloads", () => {

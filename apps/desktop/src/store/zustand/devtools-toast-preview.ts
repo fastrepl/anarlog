@@ -4,8 +4,7 @@ export type DevtoolsToastPreview =
   | "language-model"
   | "transcription-model"
   | "transcription-error"
-  | "download"
-  | "pro";
+  | "download";
 
 type ActiveDevtoolsToastPreview = {
   type: DevtoolsToastPreview;

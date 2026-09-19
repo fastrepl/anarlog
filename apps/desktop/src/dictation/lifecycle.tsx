@@ -15,7 +15,6 @@ import { DictationController } from "./controller";
 import { waitForDictationPanel } from "./panel";
 import { useDictationStatus } from "./state";
 
-import { useAuth } from "~/auth";
 import { useSettingsReady } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -31,7 +30,6 @@ export function waitForDictationCleanup() {
 }
 
 export function DictationLifecycle() {
-  const { session } = useAuth();
   const settingsReady = useSettingsReady();
   const enabled = useConfigValue("dictation_enabled");
   const shortcut = useConfigValue("dictation_shortcut");
@@ -41,9 +39,9 @@ export function DictationLifecycle() {
     (state) => state.live.status !== "inactive" || state.live.loading,
   );
 
-  if (!session || !settingsReady || !enabled) return null;
+  if (!settingsReady || !enabled) return null;
   return (
-    <TranscriptRetention key={session.user.id}>
+    <TranscriptRetention>
       {!meetingActive && (
         <ActiveDictation
           key={`${shortcut}:${handsFree}:${retry}`}
@@ -84,7 +82,6 @@ function ActiveDictation({
   const dictionary = useConfigValue("personalization_dictionary_terms");
   const languages = useConfigValue("spoken_languages");
   const { conn, isCloudModel } = useSTTConnection();
-  const auth = useAuth();
   const current = useRef({
     runBatch,
     microphone,
@@ -93,7 +90,6 @@ function ActiveDictation({
     dictionary,
     conn,
     isCloudModel,
-    auth,
   });
   current.current = {
     runBatch,
@@ -103,7 +99,6 @@ function ActiveDictation({
     dictionary,
     conn,
     isCloudModel,
-    auth,
   };
 
   useMountEffect(() => {
@@ -132,7 +127,6 @@ function ActiveDictation({
           isCloudModel,
           languages,
           dictionary,
-          auth,
         } = current.current;
         useDictationStatus.setState({
           owner,
@@ -161,15 +155,9 @@ function ActiveDictation({
           );
         abort.signal.throwIfAborted();
         target = unwrap(await dictation.captureTarget());
-        const previewSession =
-          livePreview && isCloudModel
-            ? await auth.getSessionForRequest().catch(() => null)
-            : null;
-        const apiKey = isCloudModel
-          ? previewSession?.access_token
-          : conn?.apiKey;
+        const apiKey = conn?.apiKey;
         const preview =
-          livePreview && conn && (!isCloudModel || previewSession)
+          livePreview && conn && (!isCloudModel || apiKey)
             ? {
                 provider: conn.provider,
                 baseUrl: conn.baseUrl,

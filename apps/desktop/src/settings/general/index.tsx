@@ -7,7 +7,6 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
 import { CircleNotch } from "@anlg/ui/components/icons";
 
-export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
 import { AudioSettingsView } from "./audio-settings";
 import {

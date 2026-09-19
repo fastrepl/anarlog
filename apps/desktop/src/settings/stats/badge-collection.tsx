@@ -21,7 +21,6 @@ import {
 import type { ActivityRecord } from "./queries";
 import { ProgressBar } from "./tremor/progress-bar";
 
-import { useAuth } from "~/auth";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import { commands } from "~/types/tauri.gen";
@@ -32,22 +31,8 @@ export function BadgeCollection(props: {
   timezone?: string;
   weekStartsOn: 0 | 1;
 }) {
-  const auth = useAuth();
-  if (auth.session === undefined)
-    return (
-      <p role="status">
-        <Trans>Loading your badges…</Trans>
-      </p>
-    );
-  const ownerId = auth.session?.user.id ?? DEFAULT_USER_ID;
-  return (
-    <PersonalBadges
-      key={ownerId}
-      {...props}
-      ownerId={ownerId}
-      signedUp={!!auth.session && !auth.session.user.is_anonymous}
-    />
-  );
+  const ownerId = DEFAULT_USER_ID;
+  return <PersonalBadges key={ownerId} {...props} ownerId={ownerId} signedUp />;
 }
 
 function PersonalBadges({

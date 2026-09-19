@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
-import { useRef } from "react";
 
 import {
   type DeepLink,
@@ -9,8 +8,6 @@ import {
 } from "@anlg/plugin-deeplink2";
 import { dismissInstruction } from "@anlg/plugin-windows";
 
-import { useAuth } from "~/auth";
-import { createAuthCallbackHandler } from "~/auth/deeplink";
 import { stopActiveWelcomeDemo } from "~/onboarding/welcome-note";
 import {
   allowReconnectedCalendarConnections,
@@ -25,7 +22,6 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function useDeeplinkHandler() {
-  const auth = useAuth();
   const queryClient = useQueryClient();
   const openNew = useTabs((state) => state.openNew);
   const scheduleCalendarSync = useScheduleTaskRunCallback(
@@ -33,16 +29,6 @@ export function useDeeplinkHandler() {
     undefined,
     0,
   );
-  const authRef = useLatestRef(auth);
-  const authCallbackHandlerRef =
-    useRef<ReturnType<typeof createAuthCallbackHandler>>(null);
-  if (!authCallbackHandlerRef.current) {
-    authCallbackHandlerRef.current = createAuthCallbackHandler({
-      setSessionFromTokens: (accessToken, refreshToken) =>
-        authRef.current.setSessionFromTokens(accessToken, refreshToken),
-    });
-  }
-  const authCallbackHandler = authCallbackHandlerRef.current;
   const queryClientRef = useLatestRef(queryClient);
   const openNewRef = useLatestRef(openNew);
   const scheduleCalendarSyncRef = useLatestRef(scheduleCalendarSync);
@@ -64,15 +50,7 @@ export function useDeeplinkHandler() {
       scheduleCalendarSyncRef.current();
     };
     const handleDeepLink = (payload: DeepLink) => {
-      if (payload.to === "/auth/callback") {
-        const { access_token, refresh_token } = payload.search;
-        if (access_token && refresh_token) {
-          authCallbackHandler(access_token, refresh_token);
-        }
-      } else if (payload.to === "/billing/refresh") {
-        void authRef.current.refreshSession();
-        void dismissInstruction();
-      } else if (payload.to === "/onboarding-demo/complete") {
+      if (payload.to === "/onboarding-demo/complete") {
         void stopActiveWelcomeDemo().catch((error) => {
           console.error("[onboarding] failed to complete welcome demo", error);
         });

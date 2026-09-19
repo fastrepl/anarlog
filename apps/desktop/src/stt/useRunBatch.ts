@@ -1,4 +1,3 @@
-import { t } from "@lingui/core/macro";
 import { arch, platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
@@ -15,7 +14,6 @@ import {
 } from "./refined-source-channels";
 import { useSTTConnection } from "./useSTTConnection";
 
-import { useAuth } from "~/auth";
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
 import {
   deleteProcessedAudioForRetention,
@@ -677,7 +675,6 @@ export const useRunBatch = (sessionId: string) => {
   const startTranscription = useListener((state) => state.startTranscription);
   const stopTranscription = useListener((state) => state.stopTranscription);
   const { conn } = useSTTConnection();
-  const auth = useAuth();
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
@@ -731,15 +728,6 @@ export const useRunBatch = (sessionId: string) => {
             )
           : false;
       options?.signal?.throwIfAborted();
-      const requiresCloudSession =
-        selectedTarget?.provider === "anarlog" &&
-        selectedTarget.model === "cloud";
-      const requestSession = requiresCloudSession
-        ? await auth.getSessionForRequest().catch(() => null)
-        : null;
-      options?.signal?.throwIfAborted();
-      const cloudAccessToken =
-        requestSession?.access_token ?? auth.session?.access_token;
       const fallbackTarget = getBatchFallbackTarget({
         currentPlatform,
         currentArch,
@@ -757,13 +745,6 @@ export const useRunBatch = (sessionId: string) => {
             ? `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription with the selected languages. Choose languages it supports, or configure another speech-to-text provider.`
             : `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider.`,
         );
-      }
-
-      if (target.provider === "anarlog" && target.model === "cloud") {
-        if (!cloudAccessToken) {
-          throw new Error(t`Transcription failed`);
-        }
-        target = { ...target, apiKey: cloudAccessToken };
       }
 
       if (!shouldUseSelectedTarget && !options?.recovery) {
@@ -805,11 +786,6 @@ export const useRunBatch = (sessionId: string) => {
         options?.handlePersist;
       let stagedWords: WordWithId[] = [];
       let stagedHints: SpeakerHintWithId[] = [];
-      const resetStagedTranscript = () => {
-        transcriptId = null;
-        stagedWords = [];
-        stagedHints = [];
-      };
 
       const persist =
         handlePersist ??
@@ -930,15 +906,7 @@ export const useRunBatch = (sessionId: string) => {
                 throw error;
               }
 
-              const refreshedSession = await auth.refreshSession();
-              if (!refreshedSession?.access_token) {
-                throw error;
-              }
-
-              if (!handlePersist) {
-                resetStagedTranscript();
-              }
-              await run({ ...params, api_key: refreshedSession.access_token });
+              throw error;
             }
           }
 
@@ -1061,8 +1029,6 @@ export const useRunBatch = (sessionId: string) => {
     },
     [
       conn,
-      auth,
-      auth.session?.access_token,
       aiLanguage,
       audioRetention,
       dictionaryTerms,

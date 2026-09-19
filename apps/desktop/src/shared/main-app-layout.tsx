@@ -12,7 +12,6 @@ import {
   useNewNote,
 } from "./useNewNote";
 
-import { AuthProvider } from "~/auth";
 import { MeetingImportSync } from "~/services/meeting-import-sync";
 import { getOrCreateSessionForEventId } from "~/session/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -22,11 +21,7 @@ import { isTabInputSupported, useTabs } from "~/store/zustand/tabs";
 export default function MainAppLayout() {
   useNavigationEvents();
 
-  return (
-    <AuthProvider>
-      <MainAppContent />
-    </AuthProvider>
-  );
+  return <MainAppContent />;
 }
 
 function MainAppContent() {

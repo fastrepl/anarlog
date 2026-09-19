@@ -117,11 +117,6 @@ export const DEVTOOLS_MENU: DevtoolsMenuGroup[] = [
         action: "toasts:preview:download",
       },
       {
-        label: "Pro",
-        description: "Preview the Pro upsell toast.",
-        action: "toasts:preview:pro",
-      },
-      {
         label: "Clear all toasts",
         description: "Dismiss every previewed toast.",
         action: "toasts:clear",
@@ -496,7 +491,6 @@ export function useDevtoolsActions() {
         case "toasts:preview:transcription-model":
         case "toasts:preview:transcription-error":
         case "toasts:preview:download":
-        case "toasts:preview:pro":
           showToastPreview(
             action.slice("toasts:preview:".length) as DevtoolsToastPreview,
           );

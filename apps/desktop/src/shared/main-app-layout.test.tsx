@@ -25,12 +25,6 @@ vi.mock("./useNewNote", () => ({
   useNewNote: () => vi.fn(),
 }));
 
-vi.mock("~/auth", () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="auth-provider">{children}</div>
-  ),
-}));
-
 vi.mock("~/session/queries", () => ({
   getOrCreateSessionForEventId: vi.fn(),
 }));
@@ -61,13 +55,10 @@ describe("MainAppLayout", () => {
 
   afterEach(cleanup);
 
-  it("mounts main-window sync services inside the auth provider", () => {
+  it("mounts main-window sync services", () => {
     render(<MainAppLayout />);
 
-    const authProvider = screen.getByTestId("auth-provider");
-    expect(
-      authProvider.contains(screen.getByTestId("meeting-import-sync")),
-    ).toBe(true);
+    expect(screen.getByTestId("meeting-import-sync")).toBeTruthy();
   });
 
   it("does not mount connected import sync in secondary windows", () => {

@@ -2,12 +2,9 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
-import { useAuth } from "~/auth";
-import { CloudsyncKeychainRepairToast } from "~/auth/cloudsync-keychain-repair";
 import { searchCalendarEvents } from "~/calendar/queries";
 import { useSessionTab } from "~/chat/components/use-session-tab";
 import { buildChatTools } from "~/chat/tools";
-import { CloudApiBackfillLifecycle } from "~/cloud-api/lifecycle";
 import { searchContacts } from "~/contacts/queries";
 import { useRegisterTools } from "~/contexts/tool";
 import { DictationLifecycle } from "~/dictation/lifecycle";
@@ -46,8 +43,6 @@ export function useClassicMainLifecycle() {
 export function ClassicMainServices() {
   return (
     <>
-      <CloudsyncKeychainRepairToast />
-      <CloudApiBackfillLifecycle />
       <LiveCaptureRecovery />
       <ScheduledMeetingAutoStart />
       <MainListenerControlBridge />
@@ -59,7 +54,6 @@ export function ClassicMainServices() {
 }
 
 function ToolRegistration() {
-  const auth = useAuth();
   const { search } = useSearchEngine();
 
   const getContactSearchResults = searchContacts;
@@ -71,7 +65,7 @@ function ToolRegistration() {
     const { folderFilter } = useSidebarNotes.getState();
     return folderIdForNewNote(folderFilter) ?? null;
   }, []);
-  const getAuthHeaders = useCallback(() => auth?.getHeaders(), [auth]);
+  const getAuthHeaders = useCallback(() => null, []);
   const openEditTab = useCallback((requestId: string) => {
     useTabs.getState().openNew({ type: "edit", requestId });
   }, []);

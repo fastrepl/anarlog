@@ -6,7 +6,6 @@ import { Button } from "@anlg/ui/components/ui/button";
 
 import { useAITask } from "~/ai/contexts";
 import { useLanguageModel } from "~/ai/hooks";
-import { useAuth } from "~/auth";
 import { useEnhancedNote } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
@@ -21,11 +20,10 @@ export function EnhanceError({
   error: Error | undefined;
   isUnauthenticated: boolean;
 }) {
-  const auth = useAuth();
   const model = useLanguageModel("enhance");
   const generate = useAITask((state) => state.generate);
   const templateId = useEnhancedNote(enhancedNoteId)?.templateId || undefined;
-  const signInMutation = useMutation({ mutationFn: () => auth.signIn() });
+  const signInMutation = useMutation({ mutationFn: async () => {} });
 
   const handleRetry = () => {
     if (!model) return;

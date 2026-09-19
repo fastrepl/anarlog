@@ -1,7 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
@@ -11,12 +11,9 @@ import {
 } from "@anlg/ui/components/icons";
 import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
 import { Button } from "@anlg/ui/components/ui/button";
-import { Input } from "@anlg/ui/components/ui/input";
 import { cn } from "@anlg/utils";
 
-import { useAuth } from "~/auth";
-
-export type InstructionType = "sign-in" | "billing" | "integration";
+export type InstructionType = "integration";
 
 function useInstructionCleanup(onCleanup?: () => void) {
   const cleanupRef = useRef(onCleanup);
@@ -143,7 +140,6 @@ function ExternalInstruction({
 }
 
 export function InstructionScreen({
-  type,
   onBack,
   url,
   integrationId,
@@ -157,22 +153,6 @@ export function InstructionScreen({
 }) {
   const { t } = useLingui();
   useInstructionCleanup(onCleanup);
-
-  if (type === "sign-in") {
-    return <SignInInstruction onBack={onBack} />;
-  }
-
-  if (type === "billing") {
-    return (
-      <ExternalInstruction
-        title={t`Upgrade to Pro`}
-        description={t`Finish checkout in your browser to unlock more, then return to BlackMushi.`}
-        actionLabel={t`Reopen checkout page`}
-        onBack={onBack}
-        url={url}
-      />
-    );
-  }
 
   const integration = getIntegrationInstruction(integrationId);
 
@@ -222,66 +202,4 @@ function getIntegrationInstruction(integrationId?: string):
     default:
       return undefined;
   }
-}
-
-function SignInInstruction({ onBack }: { onBack: () => void }) {
-  const { t } = useLingui();
-  const auth = useAuth();
-  const [callbackUrl, setCallbackUrl] = useState("");
-  const [showCallbackInput, setShowCallbackInput] = useState(false);
-
-  useEffect(() => {
-    if (!auth?.session) {
-      return;
-    }
-
-    onBack();
-  }, [auth?.session, onBack]);
-
-  return (
-    <InstructionShell
-      title={t`Sign in to your account`}
-      description={t`Complete sign-in in your browser, then return to BlackMushi.`}
-      onBack={onBack}
-    >
-      {showCallbackInput ? (
-        <>
-          <div className="flex w-full flex-col gap-2">
-            <Input
-              type="text"
-              className="h-10 font-mono text-xs"
-              placeholder="anarlog://auth/callback?access_token=..."
-              value={callbackUrl}
-              onChange={(e) => setCallbackUrl(e.target.value)}
-            />
-            <Button
-              className="h-10"
-              onClick={() => void auth.handleAuthCallback(callbackUrl)}
-              disabled={!callbackUrl}
-            >
-              <Trans>Submit callback URL</Trans>
-            </Button>
-          </div>
-          <p className="text-muted-foreground text-xs leading-5">
-            <Trans>
-              Paste the browser URL here if the browser button did not reopen
-              BlackMushi.
-            </Trans>
-          </p>
-        </>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setShowCallbackInput(true)}
-          className={cn([
-            "text-muted-foreground hover:text-muted-foreground text-xs font-medium underline underline-offset-4 transition-colors",
-          ])}
-        >
-          <Trans>
-            Browser handoff not working? Paste the callback link instead
-          </Trans>
-        </button>
-      )}
-    </InstructionShell>
-  );
 }

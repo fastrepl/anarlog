@@ -20,9 +20,6 @@ const mocks = vi.hoisted(() => ({
   collect: vi.fn(),
   onboarding: vi.fn(),
 }));
-vi.mock("~/auth", () => ({
-  useAuth: () => ({ session: { user: { id: "alice" } } }),
-}));
 vi.mock("./badge-queries", () => ({
   useCollectedBadges: () => mocks.collection,
   collectBadges: mocks.collect,
@@ -71,11 +68,10 @@ describe("badge collection", () => {
     );
     const { rerender } = render(view());
     await waitFor(() =>
-      expect(mocks.collect).toHaveBeenCalledWith("alice", [
-        "hello",
-        "all-set",
-        "first-words",
-      ]),
+      expect(mocks.collect).toHaveBeenCalledWith(
+        "00000000-0000-0000-0000-000000000000",
+        ["hello", "all-set", "first-words"],
+      ),
     );
     expect(screen.getByText("0 of 9 collected")).toBeTruthy();
     mocks.collection.data = {

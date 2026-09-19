@@ -7,7 +7,6 @@ import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useIgnoredEvents } from "~/calendar/ignored-events";
-import { deleteCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { trackPendingSoftDelete } from "~/session/pending-soft-deletes";
 import { finalizeSessionDeletion, softDeleteSession } from "~/session/queries";
 import { listenerStore } from "~/store/zustand/listener/instance";
@@ -114,7 +113,6 @@ export function useDeleteSession() {
             .then(async (deletedData) => {
               if (!deletedData) return;
               await finalizeSessionDeletion(sessionId);
-              deleteCloudApiSnapshotBestEffort(sessionId);
             })
             .catch(() => undefined);
         addDeletion(
@@ -162,7 +160,6 @@ export function useDeleteSession() {
             // The delete committed but main never learned about it, so its
             // finalize-time cleanup will not run. Finalize here.
             void finalizeSessionDeletion(sessionId);
-            deleteCloudApiSnapshotBestEffort(sessionId);
           }
         } finally {
           if (didDelete) {
@@ -202,7 +199,6 @@ export function useRemoteSessionDeletionUndoListener(active: boolean) {
       invalidateResource("sessions", payload.sessionId);
       addDeletion(payload.data, async () => {
         await finalizeSessionDeletion(payload.sessionId);
-        deleteCloudApiSnapshotBestEffort(payload.sessionId);
       });
       void closeSessionNoteWindows(payload.sessionId);
     }).then((fn) => {

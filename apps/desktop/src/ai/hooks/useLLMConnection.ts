@@ -9,13 +9,12 @@ import {
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from "ai";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 
 import type { CharTask } from "@anlg/api-client";
 import type { AIProviderStorage } from "@anlg/store";
 
 import { createAppleFoundationModel } from "../apple-foundation-model";
-import { createAuthFetch } from "../auth-fetch";
 import { providerFetch } from "../provider-fetch";
 import {
   normalizeReasoningEffort,
@@ -25,7 +24,6 @@ import {
 import { streamOnlyGenerationMiddleware } from "../stream-only-generation";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
 
-import { useAuth } from "~/auth";
 import { env } from "~/env";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/llm/shared";
 import {
@@ -74,37 +72,14 @@ export const normalizeLLMProviderId = (providerId: string): string =>
 
 export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
   const { conn } = useLLMConnection();
-  const auth = useAuth();
-
-  // Auth is resolved at fetch time (not model construction) so token
-  // refreshes take effect without recreating the chat transport chain.
-  const getSessionForRequestRef = useRef(auth.getSessionForRequest);
-  getSessionForRequestRef.current = auth.getSessionForRequest;
-  const refreshSessionRef = useRef(auth.refreshSession);
-  refreshSessionRef.current = auth.refreshSession;
-
   return useMemo(() => {
     if (!conn) return null;
 
-    const hostedFetch =
-      conn.providerId === "anarlog"
-        ? createAuthFetch(
-            task ? createTracedFetch(task) : tracedFetch,
-            async () => (await getSessionForRequestRef.current())?.access_token,
-            async () => (await refreshSessionRef.current())?.access_token,
-          )
-        : undefined;
-
-    return createLanguageModel(conn, task, hostedFetch);
+    return createLanguageModel(conn, task);
   }, [conn, task]);
 };
 
 export const useLLMConnection = (): LLMConnectionResult => {
-  const auth = useAuth();
-  // Only the session feeds the connection; the auth object itself changes
-  // identity on refresh-mutation state and would churn the model chain.
-  const session = auth?.session;
-
   const {
     current_llm_provider,
     current_llm_model,
@@ -125,10 +100,8 @@ export const useLLMConnection = (): LLMConnectionResult => {
         modelId: current_llm_model,
         reasoningEffort: normalizeReasoningEffort(current_llm_reasoning_effort),
         providerConfig,
-        session,
       }),
     [
-      session,
       current_llm_model,
       current_llm_provider,
       current_llm_reasoning_effort,
@@ -147,14 +120,12 @@ const resolveLLMConnection = (params: {
   modelId: string | undefined;
   reasoningEffort: ReasoningEffort;
   providerConfig: AIProviderStorage | undefined;
-  session: { access_token: string } | null | undefined;
 }): LLMConnectionResult => {
   const {
     providerId: rawProviderId,
     modelId,
     reasoningEffort,
     providerConfig,
-    session,
   } = params;
 
   if (!rawProviderId) {
@@ -216,13 +187,13 @@ const resolveLLMConnection = (params: {
     }
   }
 
-  if (providerId === "anarlog" && session) {
+  if (providerId === "anarlog" && apiKey) {
     return {
       conn: {
         providerId,
         modelId,
         baseUrl: baseUrl ?? new URL("/llm", env.VITE_API_URL).toString(),
-        apiKey: session.access_token,
+        apiKey,
         reasoningEffort,
       },
       status: { status: "success", providerId, isHosted: true },

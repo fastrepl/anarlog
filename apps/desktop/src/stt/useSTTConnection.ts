@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { commands as localSttCommands } from "@anlg/plugin-local-stt";
 import type { AIProviderStorage } from "@anlg/store";
 
-import { useAuth } from "~/auth";
 import { env } from "~/env";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/stt/shared";
 import { useAiProvidersState } from "~/settings/providers";
@@ -19,7 +18,6 @@ import {
 import { localSttQueries } from "~/stt/useLocalSttModel";
 
 export const useSTTConnection = () => {
-  const auth = useAuth();
   const settingsReady = useSettingsReady();
   const { current_stt_provider, current_stt_model, local_stt_model_path } =
     useConfigValues([
@@ -179,7 +177,6 @@ export const useSTTConnection = () => {
     local.data,
     baseUrl,
     apiKey,
-    auth,
   ]);
 
   return {

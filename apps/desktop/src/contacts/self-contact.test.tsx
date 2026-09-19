@@ -117,16 +117,6 @@ it("keeps your unpinned card before draggable pins and visible during search", (
   expect(screen.getAllByRole("button", { name: /Zoe/ })).toHaveLength(1);
 });
 
-it("prefers the signed-in identity over the local owner fallback", () => {
-  mocks.ownerId = "other";
-  mocks.authId = "self";
-  render(<ContactsNav />);
-  expect(
-    screen.getByRole("img", { name: "Pinned contact" }).parentElement
-      ?.textContent,
-  ).toContain("Zoe");
-});
-
 it("renders your details without edit, photo, merge, or delete controls", () => {
   const { rerender } = render(
     <DetailsColumn

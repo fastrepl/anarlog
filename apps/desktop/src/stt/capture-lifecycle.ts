@@ -29,7 +29,6 @@ import { useSTTConnection } from "./useSTTConnection";
 
 import { requestMainAutoEnhance } from "~/ai/task-window-sync";
 import { trackAnalyticsEvent } from "~/analytics";
-import { useAuth } from "~/auth";
 import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
 import {
   deleteProcessedAudioForRetention,
@@ -175,9 +174,6 @@ export function getPostCaptureAction(
 
 export function useCaptureLifecycle(sessionId: string) {
   const session = useSession(sessionId);
-  const auth = useAuth();
-  const authRef = useRef(auth);
-  authRef.current = auth;
   const transcriptExistence = useSessionTranscriptExistence(sessionId);
   const participantHumanIds = useSessionParticipantHumanIds(sessionId);
   const audioRetention = normalizeAudioRetention(
@@ -558,15 +554,8 @@ export function useCaptureLifecycle(sessionId: string) {
       const refreshCredentials = async () => {
         if (!refreshCredentialsActive) return;
         try {
-          const current = await authRef.current.getSessionForRequest();
-          if (refreshCredentialsActive && current?.access_token) {
-            await transcriptionCommands.updateCaptureCredentials(
-              sessionId,
-              current.access_token,
-            );
-          }
-        } catch (error) {
-          console.warn("[listener] capture credential refresh deferred", error);
+          // Plus d'identifiants hébergés à rafraîchir : la capture cloud
+          // utilise la clé API configurée en réglages.
         } finally {
           if (refreshCredentialsActive)
             credentialTimer = setTimeout(

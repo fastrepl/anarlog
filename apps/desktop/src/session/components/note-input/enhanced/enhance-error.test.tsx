@@ -1,11 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -62,25 +56,6 @@ describe("EnhanceError", () => {
   });
 
   afterEach(cleanup);
-
-  it("explains that sign-in is required and opens sign-in", async () => {
-    renderError(true);
-
-    expect(screen.getByText("Sign in to generate this summary")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "BlackMushi could not generate this summary because you were not signed in. Sign in, then try again.",
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.queryByText("AI generation did not return any text."),
-    ).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-
-    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledOnce());
-    expect(mocks.generate).not.toHaveBeenCalled();
-  });
 
   it("keeps the retry action for other generation failures", () => {
     renderError(false);
