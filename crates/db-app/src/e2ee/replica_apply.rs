@@ -737,6 +737,17 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             {
                 return Err(E2eeReplicaError::InvalidField);
             }
+            // Chunk hydration retires the legacy field's state. Only apply that
+            // field again for a queued update, not while retrying another field.
+            if !row_materialized
+                && !selected_generations.contains_key(&record.record_id)
+                && states.values().any(|state| {
+                    parse_chunk_field(&table, &state.field_name)
+                        .is_some_and(|(column, _)| column == field_name)
+                })
+            {
+                continue;
+            }
             if !row_materialized
                 && states
                     .get(&record.record_id)
