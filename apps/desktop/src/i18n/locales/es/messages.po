@@ -1139,10 +1139,6 @@ msgstr ""
 msgid "Choose files"
 msgstr ""
 
-#: src/imports/screen.tsx
-msgid "Choose files exported from this app."
-msgstr ""
-
 #: src/settings/automations/starter-config.tsx
 #: src/settings/general/storage/export-location.tsx
 msgid "Choose folder"
@@ -1476,11 +1472,6 @@ msgstr ""
 msgid "Connect Notion"
 msgstr ""
 
-#. placeholder {0}: provider.name
-#: src/imports/screen.tsx
-msgid "Connect once to bring over your {0} history and keep new meetings coming in while you switch."
-msgstr ""
-
 #: src/onboarding/calendar.tsx
 msgid "Connect Outlook"
 msgstr ""
@@ -1499,7 +1490,7 @@ msgid "Connect your integration"
 msgstr ""
 
 #: src/imports/screen.tsx
-msgid "Connected · New meetings are imported automatically while Anarlog is running."
+msgid "Connected"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -2094,10 +2085,6 @@ msgstr "El dictado usa tu micrófono, proveedor de transcripción, idiomas y dic
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
 msgstr "Diccionario"
-
-#: src/imports/screen.tsx
-msgid "Direct connection is not available yet. You can still bring your history over with files."
-msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Disable"
@@ -3461,6 +3448,10 @@ msgstr ""
 msgid "New folder"
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "New meetings are imported automatically while Anarlog is running."
+msgstr ""
+
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
@@ -3575,6 +3566,10 @@ msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "No icons found"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "No imports yet."
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx

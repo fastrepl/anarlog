@@ -233,8 +233,11 @@ describe("MeetingImportScreen", () => {
       screen.getAllByRole("button", { name: "Choose files" }),
     ).toHaveLength(2);
     expect(
-      screen.getAllByText(/keep new meetings coming in while you switch/i),
-    ).toHaveLength(3);
+      screen.queryByText(/keep new meetings coming in while you switch/i),
+    ).toBeNull();
+    expect(
+      screen.queryByText("Choose files exported from this app."),
+    ).toBeNull();
     expect(
       container.querySelectorAll('img[src^="data:image/png;base64,"]'),
     ).toHaveLength(4);
@@ -418,7 +421,7 @@ describe("MeetingImportScreen", () => {
       await screen.findByRole("button", { name: "Sync now" }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
-    expect(screen.getByText(/Connected · New meetings/)).toBeTruthy();
+    expect(screen.getByText("Connected")).toBeTruthy();
     expect(
       screen.queryByText(/Direct connection is not available yet/i),
     ).toBeNull();
@@ -448,10 +451,19 @@ describe("MeetingImportScreen", () => {
       await screen.findByRole("group", { name: "Google Meet" }),
     );
     const zoom = within(screen.getByRole("group", { name: "Zoom" }));
+    expect(meet.queryByText("Meet transcripts unavailable")).toBeNull();
+    const meetToggle = meet.getByRole("button", { name: "Google Meet" });
+    expect(meetToggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(meetToggle);
+    fireEvent.click(zoom.getByRole("button", { name: "Zoom" }));
+    expect(meetToggle.getAttribute("aria-expanded")).toBe("true");
     expect(await meet.findByText("Meet transcripts unavailable")).toBeTruthy();
     expect(await zoom.findByText("Zoom sync failed")).toBeTruthy();
     expect(meet.queryByText("Zoom sync failed")).toBeNull();
     expect(zoom.queryByText("Meet transcripts unavailable")).toBeNull();
+    fireEvent.click(meetToggle);
+    expect(meetToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(meet.queryByText("Meet transcripts unavailable")).toBeNull();
     expect(screen.queryByText("Everything is already here.")).toBeNull();
   });
 
@@ -468,6 +480,12 @@ describe("MeetingImportScreen", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Choose files" }),
     );
+    expect(
+      screen
+        .getByRole("button", { name: "Slack Huddles" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Slack Huddles" }));
     expect(
       await screen.findByText("Last import: 0 added, 0 unchanged"),
     ).toBeTruthy();
@@ -500,6 +518,7 @@ describe("MeetingImportScreen", () => {
     await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
     fireEvent.pointerDown(screen.getByRole("button", { name: "More options" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Use files" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zoom" }));
     expect(
       await screen.findByText("Last import: 2 added, 0 unchanged"),
     ).toBeTruthy();
@@ -585,11 +604,7 @@ describe("MeetingImportScreen", () => {
       expect(mocks.connectConnectedImport).toHaveBeenCalledOnce();
     });
     expect(mocks.connectNangoImport).not.toHaveBeenCalled();
-    expect(
-      screen.getByText(
-        /Connected · New meetings are imported automatically while Anarlog is running/i,
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText("Connected")).toBeTruthy();
     expect(
       screen.queryByText(/Direct connection is not available yet/i),
     ).toBeNull();
@@ -611,11 +626,7 @@ describe("MeetingImportScreen", () => {
       expect(mocks.connectConnectedImport).toHaveBeenCalledOnce();
     });
     expect(mocks.connectNangoImport).not.toHaveBeenCalled();
-    expect(
-      screen.getByText(
-        /Connected · New meetings are imported automatically while Anarlog is running/i,
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText("Connected")).toBeTruthy();
   });
 
   it("shows the empty state when nothing is detected", async () => {

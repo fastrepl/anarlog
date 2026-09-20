@@ -1139,10 +1139,6 @@ msgstr "Choose extra fields to show on each note."
 msgid "Choose files"
 msgstr "Choose files"
 
-#: src/imports/screen.tsx
-msgid "Choose files exported from this app."
-msgstr "Choose files exported from this app."
-
 #: src/settings/automations/starter-config.tsx
 #: src/settings/general/storage/export-location.tsx
 msgid "Choose folder"
@@ -1476,11 +1472,6 @@ msgstr "Connect Linear"
 msgid "Connect Notion"
 msgstr "Connect Notion"
 
-#. placeholder {0}: provider.name
-#: src/imports/screen.tsx
-msgid "Connect once to bring over your {0} history and keep new meetings coming in while you switch."
-msgstr "Connect once to bring over your {0} history and keep new meetings coming in while you switch."
-
 #: src/onboarding/calendar.tsx
 msgid "Connect Outlook"
 msgstr "Connect Outlook"
@@ -1499,8 +1490,8 @@ msgid "Connect your integration"
 msgstr "Connect your integration"
 
 #: src/imports/screen.tsx
-msgid "Connected · New meetings are imported automatically while Anarlog is running."
-msgstr "Connected · New meetings are imported automatically while Anarlog is running."
+msgid "Connected"
+msgstr "Connected"
 
 #: src/settings/general/account.tsx
 msgid "Connected accounts"
@@ -2094,10 +2085,6 @@ msgstr "Dictation uses your microphone, transcription provider, languages, and d
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
 msgstr "Dictionary"
-
-#: src/imports/screen.tsx
-msgid "Direct connection is not available yet. You can still bring your history over with files."
-msgstr "Direct connection is not available yet. You can still bring your history over with files."
 
 #: src/settings/automations/index.tsx
 msgid "Disable"
@@ -3461,6 +3448,10 @@ msgstr "New chat"
 msgid "New folder"
 msgstr "New folder"
 
+#: src/imports/screen.tsx
+msgid "New meetings are imported automatically while Anarlog is running."
+msgstr "New meetings are imported automatically while Anarlog is running."
+
 #: src/main/empty.tsx
 #: src/main/windows-title-bar.tsx
 msgid "New Note"
@@ -3576,6 +3567,10 @@ msgstr "No folders yet. Create one to group notes and materials."
 #: src/templates/template-icon-picker.tsx
 msgid "No icons found"
 msgstr "No icons found"
+
+#: src/imports/screen.tsx
+msgid "No imports yet."
+msgstr "No imports yet."
 
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"

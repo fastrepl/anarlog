@@ -18,6 +18,13 @@ import {
   DownloadSimple,
   PlugsConnected,
 } from "@anlg/ui/components/icons";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionHeader,
+  AccordionTriggerPrimitive,
+  AccordionContent,
+} from "@anlg/ui/components/ui/accordion";
 import { Button } from "@anlg/ui/components/ui/button";
 import { ButtonGroup } from "@anlg/ui/components/ui/button-group";
 import {
@@ -377,7 +384,8 @@ export function MeetingImportScreen({
 
       {displayedProviders.length > 0 || detectionSettled ? (
         <div className="border-border bg-card overflow-hidden rounded-2xl border">
-          <div
+          <Accordion
+            type="multiple"
             className={cn([
               "divide-border divide-y",
               compact && "max-h-80 overflow-y-auto",
@@ -461,53 +469,277 @@ export function MeetingImportScreen({
                     : null);
 
                 return (
-                  <div
+                  <AccordionItem
                     key={provider.id}
+                    value={provider.id}
                     role="group"
                     aria-label={provider.name}
-                    className="flex min-h-16 items-center gap-3 px-4 py-3"
+                    className="border-0"
                   >
-                    <span className="flex size-8 shrink-0 items-center justify-center">
-                      <ProviderIcon provider={provider} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
-                        {provider.name}
-                      </span>
+                    <div className="flex min-h-16 items-center gap-3 px-4 py-3">
+                      <AccordionHeader className="min-w-0 flex-1">
+                        <AccordionTriggerPrimitive className="group focus-visible:outline-ring flex w-full items-center gap-3 text-left">
+                          <span className="flex size-8 shrink-0 items-center justify-center">
+                            <ProviderIcon provider={provider} />
+                          </span>
+                          <span className="truncate text-sm font-medium">
+                            {provider.name}
+                          </span>
+                          <CaretDown className="text-muted-foreground size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+                        </AccordionTriggerPrimitive>
+                      </AccordionHeader>
                       {connectedProvider ? (
-                        <p className="text-muted-foreground mt-1 text-xs">
+                        <div className="flex shrink-0 items-center gap-1">
                           {connected ? (
-                            <Trans>
-                              Connected · New meetings are imported
-                              automatically while Anarlog is running.
-                            </Trans>
+                            <ImportSplitButtonGroup
+                              signedIn
+                              syncing={syncQuery?.isFetching}
+                            >
+                              <Button
+                                type="button"
+                                size="sm"
+                                smoothCorners={false}
+                                aria-label={t`Sync now`}
+                                className="group/sync hover:bg-primary-foreground/10 rounded-none border-0 bg-transparent shadow-none"
+                                disabled={
+                                  syncQuery?.isFetching || disconnecting
+                                }
+                                aria-busy={syncQuery?.isFetching}
+                                onClick={() =>
+                                  void syncQuery?.refetch({
+                                    cancelRefetch: false,
+                                  })
+                                }
+                              >
+                                {syncQuery?.isFetching ? (
+                                  <CircleNotch className="size-3.5 animate-spin" />
+                                ) : (
+                                  <ArrowsClockwise className="size-3.5" />
+                                )}
+                                <span aria-hidden="true" className="grid">
+                                  <span className="col-start-1 row-start-1 group-hover/sync:invisible group-focus-visible/sync:invisible">
+                                    <Trans>Connected</Trans>
+                                  </span>
+                                  <span className="invisible col-start-1 row-start-1 group-hover/sync:visible group-focus-visible/sync:visible">
+                                    <Trans>Sync now</Trans>
+                                  </span>
+                                </span>
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    smoothCorners={false}
+                                    aria-label={t`More options`}
+                                    disabled={
+                                      syncQuery?.isFetching || disconnecting
+                                    }
+                                    className={cn([
+                                      "relative w-6 rounded-none border-0 px-0 shadow-none",
+                                      "before:absolute before:inset-y-1.5 before:left-0 before:w-px",
+                                      "hover:bg-primary-foreground/10 before:bg-primary-foreground/20 bg-transparent",
+                                    ])}
+                                  >
+                                    <CaretDown className="size-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  variant="app"
+                                  align="end"
+                                  className="w-40"
+                                >
+                                  <AppFloatingPanel
+                                    className={appFloatingMenuPanelClassName}
+                                  >
+                                    <DropdownMenuItem
+                                      disabled={
+                                        syncQuery?.isFetching || disconnecting
+                                      }
+                                      onClick={() =>
+                                        disconnectMutation.mutate({
+                                          providerId: provider.id,
+                                          nangoIntegrationId: nangoProvider
+                                            ? provider.nangoIntegrationId
+                                            : undefined,
+                                          connectionId:
+                                            nangoConnection?.connection_id,
+                                        })
+                                      }
+                                    >
+                                      <Trans>Disconnect</Trans>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={fileImportMutation.isPending}
+                                      onClick={() =>
+                                        fileImportMutation.mutate(provider)
+                                      }
+                                    >
+                                      <DownloadSimple />
+                                      <Trans>Use files</Trans>
+                                    </DropdownMenuItem>
+                                  </AppFloatingPanel>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </ImportSplitButtonGroup>
                           ) : (
-                            <Trans>
-                              Connect once to bring over your {provider.name}{" "}
-                              history and keep new meetings coming in while you
-                              switch.
-                            </Trans>
+                            <ImportSplitButtonGroup signedIn={signedIn}>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={signedIn ? "default" : "outline"}
+                                smoothCorners={false}
+                                aria-label={
+                                  signedIn ? undefined : t`Sign in to connect`
+                                }
+                                disabled={
+                                  signedIn
+                                    ? checkingConnection ||
+                                      cancelConnectMutation.isPending ||
+                                      connectionCancellationRequested ||
+                                      (connectMutation.isPending && !connecting)
+                                    : signInMutation.isPending
+                                }
+                                className={cn([
+                                  "rounded-none border-0 shadow-none",
+                                  signedIn &&
+                                    "hover:bg-primary-foreground/10 bg-transparent",
+                                  !signedIn &&
+                                    "group/sign-in bg-muted hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground",
+                                ])}
+                                onClick={() => {
+                                  if (!signedIn) {
+                                    signInMutation.mutate();
+                                    return;
+                                  }
+                                  if (connecting) {
+                                    connectAbortController.current?.abort();
+                                    if (!nangoProvider) {
+                                      cancelConnectMutation.mutate(provider.id);
+                                    }
+                                    return;
+                                  }
+                                  connectMutation.mutate(provider);
+                                }}
+                              >
+                                {!signedIn ? (
+                                  signInMutation.isPending ? (
+                                    <>
+                                      <CircleNotch className="size-3.5 animate-spin" />
+                                      <Trans>Opening…</Trans>
+                                    </>
+                                  ) : (
+                                    <span className="grid items-center overflow-hidden">
+                                      <span className="invisible col-start-1 row-start-1">
+                                        <Trans>Sign in to connect</Trans>
+                                      </span>
+                                      <span className="col-start-1 row-start-1 flex items-center justify-center gap-2 transition-transform duration-200 group-hover/sign-in:translate-y-full group-focus-visible/sign-in:translate-y-full">
+                                        <PlugsConnected className="size-3.5" />
+                                        <Trans>Connect</Trans>
+                                      </span>
+                                      <span className="col-start-1 row-start-1 flex -translate-y-full items-center justify-center transition-transform duration-200 group-hover/sign-in:translate-y-0 group-focus-visible/sign-in:translate-y-0">
+                                        <Trans>Sign in to connect</Trans>
+                                      </span>
+                                    </span>
+                                  )
+                                ) : checkingConnection ||
+                                  connecting ||
+                                  cancellingConnection ? (
+                                  <CircleNotch className="size-3.5 animate-spin" />
+                                ) : (
+                                  <PlugsConnected className="size-3.5" />
+                                )}
+                                {!signedIn ? null : connecting ||
+                                  cancellingConnection ? (
+                                  <Trans>Cancel</Trans>
+                                ) : checkingConnection ? (
+                                  <Trans>Checking connection</Trans>
+                                ) : (
+                                  <Trans>Connect</Trans>
+                                )}
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={signedIn ? "default" : "outline"}
+                                    smoothCorners={false}
+                                    aria-label={t`Use files`}
+                                    disabled={fileImportMutation.isPending}
+                                    className={cn([
+                                      "relative w-6 rounded-none border-0 px-0 shadow-none",
+                                      "before:absolute before:inset-y-1.5 before:left-0 before:w-px",
+                                      signedIn
+                                        ? "hover:bg-primary-foreground/10 before:bg-primary-foreground/20 bg-transparent"
+                                        : "bg-muted before:bg-border",
+                                    ])}
+                                  >
+                                    <CaretDown className="size-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  variant="app"
+                                  align="end"
+                                  className="w-40"
+                                >
+                                  <AppFloatingPanel
+                                    className={appFloatingMenuPanelClassName}
+                                  >
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        fileImportMutation.mutate(provider)
+                                      }
+                                    >
+                                      <DownloadSimple />
+                                      <Trans>Use files</Trans>
+                                    </DropdownMenuItem>
+                                  </AppFloatingPanel>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </ImportSplitButtonGroup>
                           )}
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="w-56 shrink-0"
+                          variant="outline"
+                          disabled={fileImportMutation.isPending}
+                          onClick={() => fileImportMutation.mutate(provider)}
+                        >
+                          {importing ? (
+                            <CircleNotch className="size-3.5 animate-spin" />
+                          ) : (
+                            <DownloadSimple className="size-3.5" />
+                          )}
+                          <Trans>Choose files</Trans>
+                        </Button>
+                      )}
+                    </div>
+                    <AccordionContent className="px-4 pb-4 pl-15">
+                      {connected ? (
+                        <p className="text-muted-foreground text-xs">
+                          <Trans>
+                            New meetings are imported automatically while
+                            Anarlog is running.
+                          </Trans>
                         </p>
-                      ) : lastRun && !result ? (
+                      ) : null}
+                      {lastRun && !result ? (
                         <p className="text-muted-foreground mt-1 text-xs">
                           <Trans>
                             Last import: {lastRun.imported} added,{" "}
                             {lastRun.matched} unchanged
                           </Trans>
                         </p>
-                      ) : provider.access === "Export" ? (
+                      ) : null}
+                      {!result && !lastRun && !error ? (
                         <p className="text-muted-foreground mt-1 text-xs">
-                          <Trans>Choose files exported from this app.</Trans>
+                          <Trans>No imports yet.</Trans>
                         </p>
-                      ) : (
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          <Trans>
-                            Direct connection is not available yet. You can
-                            still bring your history over with files.
-                          </Trans>
-                        </p>
-                      )}
+                      ) : null}
                       {result ? (
                         <p
                           className="text-muted-foreground mt-1 text-xs"
@@ -544,231 +776,12 @@ export function MeetingImportScreen({
                           {error.message}
                         </p>
                       ) : null}
-                    </div>
-                    {connectedProvider ? (
-                      <div className="flex shrink-0 items-center gap-1">
-                        {connected ? (
-                          <ImportSplitButtonGroup
-                            signedIn
-                            syncing={syncQuery?.isFetching}
-                          >
-                            <Button
-                              type="button"
-                              size="sm"
-                              smoothCorners={false}
-                              className="hover:bg-primary-foreground/10 rounded-none border-0 bg-transparent shadow-none"
-                              disabled={syncQuery?.isFetching || disconnecting}
-                              aria-busy={syncQuery?.isFetching}
-                              onClick={() =>
-                                void syncQuery?.refetch({
-                                  cancelRefetch: false,
-                                })
-                              }
-                            >
-                              {syncQuery?.isFetching ? (
-                                <CircleNotch className="size-3.5 animate-spin" />
-                              ) : (
-                                <ArrowsClockwise className="size-3.5" />
-                              )}
-                              <Trans>Sync now</Trans>
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  smoothCorners={false}
-                                  aria-label={t`More options`}
-                                  disabled={
-                                    syncQuery?.isFetching || disconnecting
-                                  }
-                                  className={cn([
-                                    "relative w-6 rounded-none border-0 px-0 shadow-none",
-                                    "before:absolute before:inset-y-1.5 before:left-0 before:w-px",
-                                    "hover:bg-primary-foreground/10 before:bg-primary-foreground/20 bg-transparent",
-                                  ])}
-                                >
-                                  <CaretDown className="size-3.5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                variant="app"
-                                align="end"
-                                className="w-40"
-                              >
-                                <AppFloatingPanel
-                                  className={appFloatingMenuPanelClassName}
-                                >
-                                  <DropdownMenuItem
-                                    disabled={
-                                      syncQuery?.isFetching || disconnecting
-                                    }
-                                    onClick={() =>
-                                      disconnectMutation.mutate({
-                                        providerId: provider.id,
-                                        nangoIntegrationId: nangoProvider
-                                          ? provider.nangoIntegrationId
-                                          : undefined,
-                                        connectionId:
-                                          nangoConnection?.connection_id,
-                                      })
-                                    }
-                                  >
-                                    <Trans>Disconnect</Trans>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={fileImportMutation.isPending}
-                                    onClick={() =>
-                                      fileImportMutation.mutate(provider)
-                                    }
-                                  >
-                                    <DownloadSimple />
-                                    <Trans>Use files</Trans>
-                                  </DropdownMenuItem>
-                                </AppFloatingPanel>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </ImportSplitButtonGroup>
-                        ) : (
-                          <ImportSplitButtonGroup signedIn={signedIn}>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={signedIn ? "default" : "outline"}
-                              smoothCorners={false}
-                              aria-label={
-                                signedIn ? undefined : t`Sign in to connect`
-                              }
-                              disabled={
-                                signedIn
-                                  ? checkingConnection ||
-                                    cancelConnectMutation.isPending ||
-                                    connectionCancellationRequested ||
-                                    (connectMutation.isPending && !connecting)
-                                  : signInMutation.isPending
-                              }
-                              className={cn([
-                                "rounded-none border-0 shadow-none",
-                                signedIn &&
-                                  "hover:bg-primary-foreground/10 bg-transparent",
-                                !signedIn &&
-                                  "group/sign-in bg-muted hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground",
-                              ])}
-                              onClick={() => {
-                                if (!signedIn) {
-                                  signInMutation.mutate();
-                                  return;
-                                }
-                                if (connecting) {
-                                  connectAbortController.current?.abort();
-                                  if (!nangoProvider) {
-                                    cancelConnectMutation.mutate(provider.id);
-                                  }
-                                  return;
-                                }
-                                connectMutation.mutate(provider);
-                              }}
-                            >
-                              {!signedIn ? (
-                                signInMutation.isPending ? (
-                                  <>
-                                    <CircleNotch className="size-3.5 animate-spin" />
-                                    <Trans>Opening…</Trans>
-                                  </>
-                                ) : (
-                                  <span className="grid items-center overflow-hidden">
-                                    <span className="invisible col-start-1 row-start-1">
-                                      <Trans>Sign in to connect</Trans>
-                                    </span>
-                                    <span className="col-start-1 row-start-1 flex items-center justify-center gap-2 transition-transform duration-200 group-hover/sign-in:translate-y-full group-focus-visible/sign-in:translate-y-full">
-                                      <PlugsConnected className="size-3.5" />
-                                      <Trans>Connect</Trans>
-                                    </span>
-                                    <span className="col-start-1 row-start-1 flex -translate-y-full items-center justify-center transition-transform duration-200 group-hover/sign-in:translate-y-0 group-focus-visible/sign-in:translate-y-0">
-                                      <Trans>Sign in to connect</Trans>
-                                    </span>
-                                  </span>
-                                )
-                              ) : checkingConnection ||
-                                connecting ||
-                                cancellingConnection ? (
-                                <CircleNotch className="size-3.5 animate-spin" />
-                              ) : (
-                                <PlugsConnected className="size-3.5" />
-                              )}
-                              {!signedIn ? null : connecting ||
-                                cancellingConnection ? (
-                                <Trans>Cancel</Trans>
-                              ) : checkingConnection ? (
-                                <Trans>Checking connection</Trans>
-                              ) : (
-                                <Trans>Connect</Trans>
-                              )}
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant={signedIn ? "default" : "outline"}
-                                  smoothCorners={false}
-                                  aria-label={t`Use files`}
-                                  disabled={fileImportMutation.isPending}
-                                  className={cn([
-                                    "relative w-6 rounded-none border-0 px-0 shadow-none",
-                                    "before:absolute before:inset-y-1.5 before:left-0 before:w-px",
-                                    signedIn
-                                      ? "hover:bg-primary-foreground/10 before:bg-primary-foreground/20 bg-transparent"
-                                      : "bg-muted before:bg-border",
-                                  ])}
-                                >
-                                  <CaretDown className="size-3.5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                variant="app"
-                                align="end"
-                                className="w-40"
-                              >
-                                <AppFloatingPanel
-                                  className={appFloatingMenuPanelClassName}
-                                >
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      fileImportMutation.mutate(provider)
-                                    }
-                                  >
-                                    <DownloadSimple />
-                                    <Trans>Use files</Trans>
-                                  </DropdownMenuItem>
-                                </AppFloatingPanel>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </ImportSplitButtonGroup>
-                        )}
-                      </div>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="w-56 shrink-0"
-                        variant="outline"
-                        disabled={fileImportMutation.isPending}
-                        onClick={() => fileImportMutation.mutate(provider)}
-                      >
-                        {importing ? (
-                          <CircleNotch className="size-3.5 animate-spin" />
-                        ) : (
-                          <DownloadSimple className="size-3.5" />
-                        )}
-                        <Trans>Choose files</Trans>
-                      </Button>
-                    )}
-                  </div>
+                    </AccordionContent>
+                  </AccordionItem>
                 );
               })
             )}
-          </div>
+          </Accordion>
         </div>
       ) : null}
 
