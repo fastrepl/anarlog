@@ -5,6 +5,15 @@ export const documentTitlePlaceholder: PlaceholderFunction = ({ node, pos }) =>
     ? "Untitled"
     : "";
 
+export function isPlausibleTitle(title: string): boolean {
+  return (title.match(/[\p{L}\p{N}]/gu)?.length ?? 0) >= 2;
+}
+
+export function isTitleMissing(title: string | null | undefined): boolean {
+  const trimmed = title?.trim() ?? "";
+  return !trimmed || !isPlausibleTitle(trimmed);
+}
+
 export function extractFirstLineTitle(content: JSONContent) {
   const firstBlock = content.content?.[0];
   const title = collectText(firstBlock).trim();
@@ -43,32 +52,39 @@ export function removeDocumentTitle(
 export function ensureFirstLineTitle(
   content: JSONContent,
   title: string | null | undefined,
+  previousTitle?: string | null,
 ) {
   const trimmedTitle = title?.trim();
-  if (!trimmedTitle) {
+  if (!trimmedTitle || !isPlausibleTitle(trimmedTitle)) {
     return content;
   }
 
   const blocks = content.content ?? [];
   const firstBlock = blocks[0];
   const titleBlock = buildTitleBlock(trimmedTitle);
+  const firstBlockText = collectText(firstBlock).trim();
+  const trimmedPreviousTitle = previousTitle?.trim();
 
-  if (
-    (firstBlock?.type === "heading" && firstBlock.attrs?.level === 1) ||
-    firstBlock?.type === "paragraph"
-  ) {
-    if (collectText(firstBlock).trim() === trimmedTitle) {
-      return firstBlock.type === "heading" && firstBlock.attrs?.level === 1
-        ? content
-        : { ...content, content: [titleBlock, ...blocks.slice(1)] };
+  // A first-position level-1 heading only gets replaced (instead of having
+  // the new title prepended above it) when it's empty or matches the title
+  // this document was last given. Otherwise it's the summary's own content
+  // heading, not a stale title slot, and must be preserved underneath.
+  if (firstBlock?.type === "heading" && firstBlock.attrs?.level === 1) {
+    if (firstBlockText === trimmedTitle) {
+      return content;
     }
+    const isPriorTitleSlot =
+      !firstBlockText ||
+      (trimmedPreviousTitle != null && firstBlockText === trimmedPreviousTitle);
+    return {
+      ...content,
+      content: isPriorTitleSlot
+        ? [titleBlock, ...blocks.slice(1)]
+        : [titleBlock, ...blocks],
+    };
   }
 
-  if (
-    firstBlock?.type === "heading" &&
-    firstBlock.attrs?.level === 1 &&
-    !collectText(firstBlock).trim()
-  ) {
+  if (firstBlock?.type === "paragraph" && firstBlockText === trimmedTitle) {
     return { ...content, content: [titleBlock, ...blocks.slice(1)] };
   }
 

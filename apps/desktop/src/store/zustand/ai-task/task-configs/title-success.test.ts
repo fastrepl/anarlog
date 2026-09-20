@@ -124,7 +124,7 @@ describe("titleSuccess.onSuccess", () => {
     });
   });
 
-  it("does not overwrite an existing session title", async () => {
+  it("overwrites an existing session title with a freshly generated one", async () => {
     mocks.loadSessionContentSnapshot.mockResolvedValue(
       createSnapshot("Custom title"),
     );
@@ -134,8 +134,13 @@ describe("titleSuccess.onSuccess", () => {
         text: "Generated title",
         args: { sessionId: "session-1" },
       }),
-    ).resolves.toBe(false);
-    expect(mocks.applyGeneratedSessionTitle).not.toHaveBeenCalled();
+    ).resolves.toBe(true);
+    expect(mocks.applyGeneratedSessionTitle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentTitle: "Custom title",
+        nextTitle: "Generated title",
+      }),
+    );
   });
 
   it("does not overwrite an active title edit, including a blank draft", async () => {
@@ -150,6 +155,13 @@ describe("titleSuccess.onSuccess", () => {
   it("ignores empty and placeholder title outputs", async () => {
     await titleSuccess.onSuccess?.(createParams({ text: "   " }));
     await titleSuccess.onSuccess?.(createParams({ text: "<EMPTY>" }));
+
+    expect(mocks.loadSessionContentSnapshot).not.toHaveBeenCalled();
+    expect(mocks.applyGeneratedSessionTitle).not.toHaveBeenCalled();
+  });
+
+  it("ignores a punctuation-only title output", async () => {
+    await titleSuccess.onSuccess?.(createParams({ text: " :`, " }));
 
     expect(mocks.loadSessionContentSnapshot).not.toHaveBeenCalled();
     expect(mocks.applyGeneratedSessionTitle).not.toHaveBeenCalled();
@@ -206,5 +218,16 @@ describe("getPersistableGeneratedTitle", () => {
   it("rejects placeholders and oversized output", () => {
     expect(getPersistableGeneratedTitle('"<EMPTY>"')).toBe("");
     expect(getPersistableGeneratedTitle("x".repeat(161))).toBe("");
+  });
+
+  it("rejects punctuation-only output", () => {
+    expect(getPersistableGeneratedTitle(" :`, ")).toBe("");
+    expect(getPersistableGeneratedTitle("---")).toBe("");
+    expect(getPersistableGeneratedTitle('"..."')).toBe("");
+  });
+
+  it("accepts short titles carrying digits or few letters", () => {
+    expect(getPersistableGeneratedTitle("1:1")).toBe("1:1");
+    expect(getPersistableGeneratedTitle("Q3 review")).toBe("Q3 review");
   });
 });

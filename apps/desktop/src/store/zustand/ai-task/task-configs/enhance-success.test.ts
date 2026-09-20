@@ -328,7 +328,7 @@ describe("enhanceSuccess.onSuccess", () => {
     });
   });
 
-  it("uses an existing title without starting title generation", async () => {
+  it("still regenerates the title even when one already exists", async () => {
     mocks.loadSessionContentSnapshot.mockResolvedValue(
       createSnapshot("Existing title"),
     );
@@ -336,7 +336,9 @@ describe("enhanceSuccess.onSuccess", () => {
 
     await enhanceSuccess.onSuccess?.(params);
 
-    expect(params.startTask).not.toHaveBeenCalled();
+    expect(params.startTask).toHaveBeenCalled();
+    // The mocked startTask never invokes onComplete, so no fresh title comes
+    // back this time; the previously stored title is kept as a fallback.
     expect(mocks.persistGeneratedTitle).not.toHaveBeenCalled();
     const content =
       mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;

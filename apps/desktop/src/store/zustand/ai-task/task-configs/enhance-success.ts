@@ -70,11 +70,11 @@ export const runEnhanceSuccess = async ({
   let generatedTitle = "";
   let shouldPersistGeneratedTitle = false;
 
-  if (!trimmedTitle && !hasLiveSessionTitleDraft(args.sessionId)) {
+  if (!hasLiveSessionTitleDraft(args.sessionId)) {
     const titleTaskId = createTaskId(args.sessionId, "title");
     const titleTask = getTaskState(titleTaskId);
 
-    if (titleTask?.status === "success" || titleTask?.status === "generating") {
+    if (titleTask?.status === "generating") {
       generatedTitle = getPersistableGeneratedTitle(titleTask.streamedText);
     } else {
       await startTask(titleTaskId, {
@@ -110,11 +110,7 @@ export const runEnhanceSuccess = async ({
     }
 
     trimmedTitle = snapshot.title.trim();
-    if (
-      !trimmedTitle &&
-      !hasLiveSessionTitleDraft(args.sessionId) &&
-      generatedTitle
-    ) {
+    if (!hasLiveSessionTitleDraft(args.sessionId) && generatedTitle) {
       trimmedTitle = generatedTitle;
       shouldPersistGeneratedTitle = true;
     }

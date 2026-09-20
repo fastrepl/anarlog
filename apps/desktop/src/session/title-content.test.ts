@@ -7,6 +7,7 @@ import {
   ensureFirstLineTitle,
   ensureMarkdownFirstLineTitle,
   extractFirstLineTitle,
+  isPlausibleTitle,
   removeDocumentTitle,
 } from "./title-content";
 
@@ -26,6 +27,20 @@ describe("documentTitlePlaceholder", () => {
         hasAnchor: true,
       }),
     ).toBe("");
+  });
+});
+
+describe("isPlausibleTitle", () => {
+  it("rejects punctuation-only text", () => {
+    expect(isPlausibleTitle(" :`, ")).toBe(false);
+    expect(isPlausibleTitle("---")).toBe(false);
+    expect(isPlausibleTitle("")).toBe(false);
+  });
+
+  it("accepts short titles carrying digits or letters", () => {
+    expect(isPlausibleTitle("1:1")).toBe(true);
+    expect(isPlausibleTitle("Q3 review")).toBe(true);
+    expect(isPlausibleTitle("Sync")).toBe(true);
   });
 });
 
@@ -256,6 +271,59 @@ describe("ensureFirstLineTitle", () => {
     };
 
     expect(ensureFirstLineTitle(content, "Meeting Title")).toBe(content);
+  });
+
+  it("replaces a stale first heading that matches the previous title", () => {
+    expect(
+      ensureFirstLineTitle(
+        {
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 1 },
+              content: [{ type: "text", text: ":`," }],
+            },
+            {
+              type: "heading",
+              attrs: { level: 1 },
+              content: [{ type: "text", text: "Meeting recap" }],
+            },
+          ],
+        },
+        "Better Title",
+        ":`,",
+      ),
+    ).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Better Title" }],
+        },
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Meeting recap" }],
+        },
+      ],
+    });
+  });
+
+  it("does not insert a phantom heading for a punctuation-only title", () => {
+    const content = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Summary Section" }],
+        },
+      ],
+    };
+
+    expect(ensureFirstLineTitle(content, " :`, ")).toBe(content);
   });
 });
 

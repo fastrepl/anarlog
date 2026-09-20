@@ -7,7 +7,10 @@ import {
   type SessionDocumentContentUpdate,
 } from "~/session/content-mutations";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
-import { ensureFirstLineTitle } from "~/session/title-content";
+import {
+  ensureFirstLineTitle,
+  isPlausibleTitle,
+} from "~/session/title-content";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
 const GENERATED_TITLE_MAX_LENGTH = 160;
@@ -47,7 +50,7 @@ export async function persistGeneratedTitle({
   }
 
   const snapshot = await loadSessionContentSnapshot(args.sessionId);
-  if (!snapshot || snapshot.title.trim()) {
+  if (!snapshot) {
     return false;
   }
 
@@ -63,6 +66,7 @@ export async function persistGeneratedTitle({
         note.content,
         note.contentFormat,
         trimmed,
+        snapshot.title,
       ),
     );
 
@@ -80,6 +84,7 @@ function createTitledDocumentUpdate(
   content: string,
   contentFormat: string,
   title: string,
+  previousTitle: string,
 ): SessionDocumentContentUpdate {
   const parsed =
     contentFormat === "markdown" ? md2json(content) : parseJsonContent(content);
@@ -87,7 +92,9 @@ function createTitledDocumentUpdate(
     id,
     currentContent: content,
     currentContentFormat: contentFormat,
-    nextContent: JSON.stringify(ensureFirstLineTitle(parsed, title)),
+    nextContent: JSON.stringify(
+      ensureFirstLineTitle(parsed, title, previousTitle),
+    ),
   };
 }
 
@@ -116,7 +123,8 @@ export function getPersistableGeneratedTitle(text: string): string {
   if (
     !title ||
     title === "<EMPTY>" ||
-    title.length > GENERATED_TITLE_MAX_LENGTH
+    title.length > GENERATED_TITLE_MAX_LENGTH ||
+    !isPlausibleTitle(title)
   ) {
     return "";
   }
