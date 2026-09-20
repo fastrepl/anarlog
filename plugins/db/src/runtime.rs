@@ -1431,8 +1431,15 @@ impl PluginDbRuntime {
         keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
         cancellation: &crate::e2ee_witness::E2eeWitnessCancellation,
     ) -> std::io::Result<()> {
+        let started = std::time::Instant::now();
+        let mut last_progress = started;
+        let mut batches = 0_u64;
+        let mut total_applied_fields = 0_u64;
+        let mut total_skipped_local_changes = 0_u64;
+        let mut total_repaired_witness_records = 0_u64;
         loop {
             cancellation.check()?;
+            let batch_started = std::time::Instant::now();
             let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
                 self.db.pool(),
                 keys,
@@ -1444,15 +1451,45 @@ impl PluginDbRuntime {
                 std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
             })?;
             cancellation.check()?;
+            batches += 1;
+            total_applied_fields = total_applied_fields.saturating_add(stats.applied_fields);
+            total_skipped_local_changes =
+                total_skipped_local_changes.saturating_add(stats.skipped_local_changes);
+            total_repaired_witness_records =
+                total_repaired_witness_records.saturating_add(stats.repaired_witness_records);
             tracing::debug!(
                 applied_fields = stats.applied_fields,
                 remaining = stats.remaining_replica_changes,
                 "materialized authenticated E2EE changes"
             );
             // Drain ready records before yielding stalled records to later pages or local encryption.
-            if !stats.remaining_replica_changes
-                || (stats.skipped_local_changes > 0 && stats.applied_fields == 0)
+            let yielded = !stats.remaining_replica_changes
+                || (stats.skipped_local_changes > 0 && stats.applied_fields == 0);
+            if last_progress.elapsed() >= std::time::Duration::from_secs(30)
+                || (yielded && started.elapsed() >= std::time::Duration::from_secs(30))
             {
+                tracing::info!(
+                    batches,
+                    applied_fields = stats.applied_fields,
+                    skipped_local_changes = stats.skipped_local_changes,
+                    incomplete_chunk_columns = stats.incomplete_chunk_columns,
+                    rejected_rollbacks = stats.rejected_rollbacks,
+                    rejected_unwitnessed = stats.rejected_unwitnessed,
+                    parked_records = stats.parked_records,
+                    repaired_witness_records = stats.repaired_witness_records,
+                    remaining_witness_repairs = stats.remaining_witness_repairs,
+                    total_applied_fields,
+                    total_skipped_local_changes,
+                    total_repaired_witness_records,
+                    remaining = stats.remaining_replica_changes,
+                    yielded,
+                    batch_elapsed_ms = batch_started.elapsed().as_millis() as u64,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "E2EE witness hydration progress"
+                );
+                last_progress = std::time::Instant::now();
+            }
+            if yielded {
                 return Ok(());
             }
         }

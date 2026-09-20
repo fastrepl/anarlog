@@ -90,7 +90,7 @@ pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     check_e2ee_apply_cancellation(is_cancelled)?;
-    let repair_remaining = if snapshot_complete {
+    let repair = if snapshot_complete {
         repair_e2ee_replica_from_witness_bounded_cancellable(
             pool,
             keys,
@@ -100,9 +100,11 @@ pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
             is_cancelled,
         )
         .await?
-        .remaining
     } else {
-        false
+        super::E2eeWitnessRepairOutcome {
+            repaired_records: 0,
+            remaining: false,
+        }
     };
     check_e2ee_apply_cancellation(is_cancelled)?;
     let mut stats = apply_e2ee_replica_changes_inner(
@@ -115,7 +117,9 @@ pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
     )
     .await?;
     check_e2ee_apply_cancellation(is_cancelled)?;
-    stats.remaining_replica_changes |= repair_remaining;
+    stats.repaired_witness_records = repair.repaired_records;
+    stats.remaining_witness_repairs = repair.remaining;
+    stats.remaining_replica_changes |= repair.remaining;
     Ok(stats)
 }
 
