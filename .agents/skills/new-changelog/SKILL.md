@@ -1,31 +1,22 @@
 ---
 name: new-changelog
-description: Create stable or Nightly desktop changelogs. Keep stable entries under packages/changelog/content for website publication and Nightly notes in packages/changelog/nightly.md for app and GitHub release snapshots.
+description: Create stable desktop changelogs under packages/changelog/content, grounded in changes since the previous stable release and gated on actual publication.
 metadata:
   internal: true
 ---
 
 ## Channel contract
 
-Create changelogs for both stable and Nightly. Only released stable entries are
-published on the website. Deployable website builds include a versioned file
-from `packages/changelog/content` only when GitHub has a published, non-draft,
-non-prerelease `desktop_v<version>` release. A file on main or its frontmatter
-date is not publication evidence. Local development can preview stable drafts.
+Nightly publication is retired. Prepare stable notes in
+`packages/changelog/content/<version>.md`, covering all desktop user-facing
+changes since the previous stable, including changes once described in Nightly
+notes. Preserve historical Nightly notes; do not generate or announce new Nightly
+releases.
 
-- Stable: write `packages/changelog/content/<version>.md`, covering all desktop
-  user-facing changes since the previous stable release, including changes
-  previously described in Nightly notes.
-- Nightly: update `packages/changelog/nightly.md` before merging product changes.
-  Keep a curated cumulative list for the current development cycle. The build
-  embeds this file and snapshots it into each GitHub Nightly prerelease, so
-  previous Nightly release notes remain attached to their exact version.
-  Reset the working list after stable publishes, preserving the GitHub snapshots.
-- Do not put Nightly notes under the website content directory, link them into
-  the website changelog, or send a product-update newsletter for every Nightly.
-- Announce the revived Nightly in the next stable changelog, with an opt-in link
-  to `https://anarlog.so/download/nightly/`. Existing users stay on stable.
-  Verify the first Nightly installers and update feed before publishing that claim.
+Only released stable entries appear on the website. Deployable builds include a
+versioned file only when GitHub has a published, non-draft, non-prerelease
+`desktop_v<version>` release. A file on main or its frontmatter date is not
+publication evidence. Local development can preview stable drafts.
 
 ## Stable version
 

@@ -1,81 +1,52 @@
 ---
 name: release-new-version
-description: Prepare Anarlog Nightly builds and promote tested desktop stable versions with current CLI, local and hosted MCP, API, agent packages, and documentation. Deploy any required hosted services during the release. Validate and merge release updates before publishing. Distribute mobile builds when requested.
+description: Prepare and publish tested Anarlog desktop stable versions with current CLI, local and hosted MCP, API, agent packages, and documentation. Deploy any required hosted services during the release. Validate and merge release updates before publishing. Distribute mobile builds when requested.
 metadata:
   internal: true
 ---
 
 # Release a New Version
 
-Use this for Nightly builds, stable desktop releases, and requested mobile store distribution. A stable desktop release must come from `main`, after the changelog and required CLI, MCP, API, agent-package, and documentation updates are accurate, validated, and merged. Desktop and watchOS share the marketing version in `release-version.json`. iOS and Android use `apps/mobile/release-version.json`. Platform build numbers and publication schedules remain independent.
+Use this for stable desktop releases, staging candidates, and requested mobile store distribution. A stable desktop release must come from `main`, after the changelog and required CLI, MCP, API, agent-package, and documentation updates are accurate, validated, and merged. Desktop and watchOS share the marketing version in `release-version.json`. iOS and Android use `apps/mobile/release-version.json`. Platform build numbers and publication schedules remain independent.
 
 ## Core Rule
 
-Do not trigger a stable release from an unmerged branch. Complete the release surface review and changelog below, merge the required changes to `main`, then freeze the candidate and release that merged commit through its Nightly tag.
+Do not trigger a stable release from an unmerged branch. Complete the release surface review and changelog below, merge the required changes to `main`, then freeze the candidate and release that exact merged commit. New candidates use `main`; every verification, build, and publication run must execute at the recorded candidate SHA.
 
-## Nightly and Stable Operations
+## Staging and Stable Operations
 
-- Existing users and the main download remain on stable. Nightly is an explicit
-  separate-app install, with its own updater feed and CLI command. It opens the
-  same local database as stable; settings, store, and sign-in stay per app.
-- The team uses Nightly for daily meetings. Volunteers can join through the
-  announcement in the next stable changelog and product-update newsletter.
-- `.github/workflows/desktop_nightly.yaml` runs daily at 15:00 UTC (midnight KST)
-  and can be dispatched manually from `main`. It runs desktop JS/i18n and native
-  CI, including source CloudSync rebuilds, before building and publishing all
-  desktop platforms through `desktop_cd.yaml` with `channel=nightly`.
-- Nightly versions are `<shared-version>-nightly.<n>`, where `<n>` counts up
-  from 1 for each base version (`1.4.24-nightly.1`, `1.4.24-nightly.2`, ...)
-  and resets when `release-version.json` moves to the next stable. Each build
-  snapshots `packages/changelog/nightly.md` into the app and a GitHub prerelease
-  tagged `desktop_nightly_v<nightly-version>`. Maintain that file as curated,
-  user-facing changes since the previous stable release; do not generate a raw
-  commit dump. Nightly notes never belong in the website's stable changelog.
-- Target weekly ordinary stable releases. Select a published Nightly commit,
-  pin the team's app to it for 2–3 working days, and record real meeting results.
-  Disable automatic updates while testing that candidate. CI or elapsed time
-  alone is not evidence of use. Confirm recording/transcription, saved notes
-  after restart, sync, and stable-to-candidate upgrades on shipped platforms.
-- One release owner records the candidate, Nightly release/run, testing results,
-  unresolved issues, and go/no-go decision in the release task. A serious
-  regression postpones publication. Candidate fixes require renewed affected
-  testing; newer main features wait for the next candidate.
-- Nightly and stable are separate signed packages. Build stable from the tested
-  commit and verify its install/upgrade behavior before publication; do not
-  present the Nightly binary as byte-identical to the stable artifact.
-- For an urgent stable hotfix, start from the latest stable tag, carry the
-  minimal fix into main, and verify the patch. Record the owner's explicit
-  exception to the usual Nightly testing period; do not bundle unrelated work.
-  The candidate must still be merged into main before publication. If main has
-  advanced, dispatch `desktop_cd.yaml` with `channel=nightly` on the merged
-  hotfix branch, supplying its exact SHA, then use the resulting Nightly tag
-  for stable verification and publication. This preserves the minimal patch.
+- Nightly publication is retired. Do not dispatch or recreate Nightly build,
+  publication, or changelog workflows. Preserve historical immutable Nightly
+  tags and existing installations' auth/share compatibility.
+- Existing users and the main download remain on stable. Use signed staging
+  artifacts from `desktop_cd.yaml` with `channel=staging` for candidate testing.
+  Staging has a separate profile; do not reset or copy a user's live database
+  merely to prepare a release.
+- Target weekly ordinary stable releases. Pin the team to the exact candidate
+  for 2–3 working days and record real meeting results. Disable automatic
+  updates while testing. CI or elapsed time alone is not evidence of use.
+  Confirm recording/transcription, saved notes after restart, sync, and
+  stable-to-candidate upgrades on shipped platforms.
+- One release owner records the candidate SHA, staging build/run, testing
+  results, unresolved issues, and go/no-go decision in the release task. A
+  serious regression postpones publication. Candidate fixes require renewed
+  affected testing.
+- Staging and stable are separate signed packages. Verify the final stable
+  package's install/upgrade behavior before publication; do not present staging
+  as byte-identical to stable.
+- For an urgent stable hotfix, carry the minimal patch from the latest stable
+  tag into main and verify it. Record the owner's explicit exception to the
+  usual testing period; do not bundle unrelated work.
 - Shared APIs and synced data must stay compatible with existing stable clients.
-  Nightly and stable write the same local database, and the apps refuse to run
-  at the same time. A `-- breaking` migration published in Nightly locks stable
-  users out of their notes until stable ships it: keep schema changes additive
-  (see the root `AGENTS.md`), and land a breaking migration only in the
-  candidate that becomes the next stable release, so the lockout ends when that
-  release publishes.
+  Keep schema changes additive and downgrade-safe (see root `AGENTS.md`),
+  including compatibility with existing Nightly installations that share the
+  stable database.
 
-### Publish and verify Nightly
-
-```bash
-gh workflow run desktop_nightly.yaml --ref main
-gh run list --workflow desktop_nightly.yaml --limit 5
-```
-
-Verify the exact SHA and all called jobs, not only the aggregate status. A failed
-run needs a fresh dispatch. Confirm the GitHub prerelease/tag, signed installers,
-CrabNebula `nightly` downloads, and every platform's Nightly update response.
-Install the published build and exercise Nightly-to-Nightly updating, auth,
-sharing links, and the embedded CLI. Confirm stable remains on the stable feed.
-The first published Nightly needs this verification before announcing it.
-
-Do not send the newsletter or announce Nightly as available until the Nightly
-builds, update feed, and `https://anarlog.so/download/nightly/` are live and verified.
-Use the [newsletter skill](../product-update-newsletter/SKILL.md) for the announcement.
-Nightly publication does not publish a website changelog or submit to stores.
+New releases use `CANDIDATE_REF=main`. Keep its head at the recorded candidate
+through verification, build, and publish dispatches. Check every run's `headSha`;
+if main advances, do not combine old build evidence with the new workflow SHA.
+Select and verify a fresh candidate before continuing. Historical immutable
+Nightly refs remain supported for their existing candidates only.
 
 ## Scope Boundary
 
@@ -106,7 +77,7 @@ release finished while a required surface is stale or awaiting publication.
 
 Release and QA are separate, explicitly requested workflows. Do not read or
 run `qa-critical-ux` or `qa-cli-mcp-api` solely because the user asked for a
-release. A release does not require a report from either optional QA skill. The Nightly
+release. A release does not require a report from either optional QA skill. The staging
 candidate testing and final stable package verification above are part of this
 release operation; report their actual evidence separately.
 The contract, packaging, and publication checks in this skill are required
@@ -128,7 +99,7 @@ Silicon and Intel, `rebuild-windows.sh` under UCRT64 in `windows_ci`, and
 freshly built library, covering the stalled-network, logout, configuration
 cleanup/init, worker-drain, and immediate-local-write cancellation gates.
 
-The rebuild steps run on `workflow_dispatch` or the Nightly caller with
+The rebuild steps run on `workflow_dispatch` or a reusable caller with
 `rebuild_cloudsync=true`, so a routine pull-request run does not prove them. Dispatch `desktop_ci.yaml` against the candidate SHA
 and confirm the `cloudsync-windows-*` and `cloudsync-linux-*` artifacts before
 treating a desktop lane as approved. Do not treat macOS artifacts or
@@ -147,7 +118,6 @@ cat .github/workflows/desktop_store_publish.yaml
 cat .github/workflows/cli_ci.yaml
 cat .github/workflows/api_ci.yaml
 cat .github/workflows/api_cd.yaml
-cat .github/workflows/stripe_cd.yaml
 cat .github/workflows/db_cd.yaml
 cat .github/workflows/web_ci.yaml
 cat .github/workflows/web_cd.yaml
@@ -205,7 +175,7 @@ that needs a product decision requires an explicit deferral, not a silent skip.
 | API and generated client    | `apps/api`, `crates/api-cloud`, and affected auth/sync crates; `apps/api/openapi.gen.json` and `packages/api-client/src/generated`. Check routes, payloads, errors, auth scopes, and compatibility with already shipped desktop/mobile/CLI clients.                                                                                                                                               |
 | Agent skills and plugins    | Authored `skills/anarlog`, generated `agent-plugins/anarlog` and `docs/skill.md`, native manifests, and repository marketplace entries. Update instructions and examples, bump the plugin's own version when its package changes, and keep manifests and their tests aligned.                                                                                                                     |
 | Documentation and discovery | Read `docs/AGENTS.md`; review affected product guides, installation/upgrade instructions, CLI/MCP/Cloud references, examples, troubleshooting, screenshots, `docs/docs.json`, and `apps/web/public/llms.txt`. Include the public skill, Mintlify's `llms.txt`/`llms-full.txt`, and the website changelog in publication verification. Document shipped behavior and actual platform availability. |
-| Hosted services             | Compare each independently deployed service with its last published SHA/tag: API/hosted MCP (`api_cd.yaml`, `api_v*`), Stripe (`stripe_cd.yaml`, `stripe_v*`), hosted Postgres (`db_cd.yaml`), website (`web_cd.yaml`, `web_v*`), and Mintlify docs. Record whether the candidate needs a redeploy. |
+| Hosted services             | Compare each independently deployed service with its last published SHA/tag: API/hosted MCP (`api_cd.yaml`, `api_v*`), billing and Stripe (`api_cd.yaml` with `service=billing`), hosted Postgres (`db_cd.yaml`), website (`web_cd.yaml`, `web_v*`), and Mintlify docs. Record whether the candidate needs a redeploy. |
 
 Review related release dependencies when affected: SQLite/CloudSync and hosted
 schema migrations, downgrade compatibility, native bindings, mobile/watch
@@ -250,7 +220,7 @@ before freezing the candidate.
 
 ## Changelog Gate
 
-The changelog is required alongside the release surface review. Before releasing either channel:
+The changelog is required alongside the release surface review. Before releasing stable:
 
 Prepare, validate, and merge stable notes before freezing the desktop candidate,
 but do not expose them on the website before the desktop release is published.
@@ -265,7 +235,7 @@ APT web deploy); dispatch `web_cd.yaml` if no post-publication deploy covers it.
 Do not change the frozen desktop candidate merely to publish its website notes.
 
 1. Open `packages/changelog/content/AGENTS.md` and follow its instructions.
-2. For stable, confirm `packages/changelog/content/<version>.md` exists. For Nightly, use `packages/changelog/nightly.md`.
+2. Confirm `packages/changelog/content/<version>.md` exists.
 3. Compare the file against the desktop user-facing changes since the latest `desktop_v*` tag.
 4. If the changelog is missing or incomplete, update it before release.
 
@@ -298,10 +268,10 @@ validation passes:
 3. Wait for CI and required review state to be clear.
 4. Merge the release preparation PRs to `main`.
 5. Verify `main` contains the changelog and all required surface updates.
-6. Record the resulting `main` SHA, publish a Nightly from it, and retain its
-   immutable `desktop_nightly_v<nightly-version>` tag as `CANDIDATE_REF`.
-7. Complete the Nightly candidate testing period before building stable. Keep
-   development on main; do not replace the candidate with its latest head.
+6. Record the resulting `main` SHA as the candidate and use `CANDIDATE_REF=main`.
+7. Complete staging candidate testing before building stable. Verify main still
+   equals that SHA before every dispatch; an advanced head needs fresh candidate
+   verification, not reuse of another commit's evidence.
 
 If using GitButler, prefer:
 
@@ -324,7 +294,7 @@ the ones that need it before publishing the desktop client.
 For each service:
 
 1. Find the last successful CD run and, when one exists, the published tag
-   (`api_v*`, `stripe_v*`, `web_v*`). Hosted Postgres has no version tag; use
+   (`api_v*`, `web_v*`; inspect API CD for billing provenance). Hosted Postgres has no version tag; use
    the last successful `db_cd.yaml` run SHA.
 2. Diff that SHA against the candidate for that service's source. Re-read the
    workflow if the checkout, image context, or migration path is unclear.
@@ -333,13 +303,13 @@ For each service:
    deployment only when its SHA already includes those changes.
 4. An unchanged service needs that live SHA/version recorded. Do not dispatch a
    no-op redeploy to make the checklist look complete.
-5. Confirm the target is Anarlog before any service access; never access
-   `*-char`. Check the run's `headSha` against the intended SHA and wait for
+5. Confirm the selected service and environment match the authorized release.
+   Check the run's `headSha` against the intended SHA and wait for
    the job and tag (when the workflow creates one).
 
 ```bash
 gh workflow run api_cd.yaml --ref main
-gh workflow run stripe_cd.yaml --ref main
+gh workflow run api_cd.yaml --ref main -f service=billing
 gh workflow run db_cd.yaml --ref main
 gh workflow run web_cd.yaml --ref main
 gh run list --workflow api_cd.yaml --limit 3
@@ -349,7 +319,7 @@ gh run view <run-id> --json headSha,url
 | Service | Workflow | Deploy when | Live check |
 | --- | --- | --- | --- |
 | API and hosted MCP | `api_cd.yaml` | Unpublished API, hosted MCP, auth, or related proxy changes | `/health` reports the new `api_v*` version; MCP discovery and an authenticated read succeed when credentials exist |
-| Stripe billing | `stripe_cd.yaml` | Unpublished `apps/stripe` or image-context changes | CD succeeded and tagged `stripe_v*`; `/health` on the Anarlog Stripe app returns ok |
+| Stripe billing | `api_cd.yaml` with `service=billing` | Unpublished billing API, `apps/stripe`, or image-context changes | Billing deployment succeeded; verify its source SHA and live health |
 | Hosted Postgres | `db_cd.yaml` | Unpublished `supabase/` migrations this release needs | Linked Anarlog project only; `supabase db push` completed. Run `db_ci.yaml` coverage first when migrations changed |
 | Website | `web_cd.yaml` | Unpublished website, changelog, or download-page changes not already covered by the Linux APT web deploy | Live `anarlog.so` URLs show the candidate content |
 | Docs | Mintlify connected deploy (no GitHub CD) | Unpublished `docs/` or public skill content after merge | Live `https://docs.anarlog.so` pages, `skill.md`, and LLM indexes |
@@ -361,13 +331,13 @@ explicitly deferred.
 
 ## Trigger Stable Release
 
-Dispatch desktop, CLI, and API verification from the candidate Nightly tag, then identify each run
+Dispatch desktop, CLI, and API verification from the frozen main candidate, then identify each run
 and verify `headSha` equals the recorded candidate before accepting any job.
 Reuse an existing successful run only if it covers the exact SHA and all
 required jobs; path-filtered or skipped jobs are not coverage:
 
 ```bash
-CANDIDATE_REF=desktop_nightly_v<nightly-version>
+CANDIDATE_REF=main
 gh workflow run desktop_ci.yaml --ref "$CANDIDATE_REF"
 gh workflow run cli_ci.yaml --ref "$CANDIDATE_REF"
 gh workflow run api_ci.yaml --ref "$CANDIDATE_REF"
@@ -378,7 +348,7 @@ both macOS architectures, Windows, and both Linux architectures. Pull-request
 runs skip the desktop native jobs. Require both CLI jobs and the API job to pass
 for this candidate as well. Keep the candidate fixed through publication.
 
-After candidate testing, verify the candidate remains an ancestor of main,
+After candidate testing, verify the candidate still equals main,
 then build the stable candidate without publishing:
 
 ```bash
@@ -621,7 +591,7 @@ from a successful upload. Never accept new legal agreements on the user's behalf
 
 Before reporting success, capture:
 
-- explicit stable version, candidate SHA, Nightly release/tag and testing evidence
+- explicit stable version, candidate SHA, staging build/run and testing evidence
 - dry-run workflow URL and head SHA
 - publish workflow URL and head SHA
 - `desktop_v<version>` tag
@@ -631,7 +601,7 @@ Before reporting success, capture:
 - CLI version from each platform's packaged artifact and installer/update result
 - CLI/API candidate CI runs and contract checks, including stdio MCP discovery
 - hosted API/MCP deployed version, source SHA, deployment URL, and live checks
-- Stripe deploy decision, `stripe_v*` tag or reuse reason, and live `/health`
+- billing deploy decision, source SHA or reuse reason, and live health
 - hosted Postgres deploy decision, `db_cd.yaml` run or reuse reason
 - published docs, skill, LLM indexes, and website content verification
 - plugin package/catalog version and install/update result when affected

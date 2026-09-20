@@ -100,10 +100,10 @@ The old plugin format is no longer supported. Please update your plugins.
 ## Channels
 
 This directory is exclusively for stable website changelogs, named
-`<major>.<minor>.<patch>.md`. Maintain Nightly notes in `../nightly.md`; each
-Nightly build embeds them and archives them in its GitHub prerelease. Stable
-changelogs cover the full delta since the last stable release, including changes
-already seen in Nightly. Never publish Nightly entries in the website changelog.
+`<major>.<minor>.<patch>.md`. Nightly publication is retired; preserve historical
+notes without generating new Nightly entries. Stable changelogs cover the full
+delta since the last stable release, including changes previously seen in
+Nightly. Never publish Nightly entries in the website changelog.
 
 Preparing or merging a stable entry does not publish it. Website builds include
 only versions with a published, non-draft, non-prerelease GitHub `desktop_v*`
