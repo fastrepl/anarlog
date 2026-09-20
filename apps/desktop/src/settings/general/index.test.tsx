@@ -132,6 +132,35 @@ describe("SettingsApp", () => {
     });
   });
 
+  it("defaults auto-record-detected-meetings to enabled and persists toggling it off", async () => {
+    mocks.useStoredSettingValuesQuery.mockReturnValue({
+      data: {
+        values: {},
+        hasValues: new Set(),
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    render(<SettingsMeetings />);
+
+    const props = mocks.meetingSettingsProps.mock.lastCall?.[0] as {
+      autoRecordDetectedMeetings: {
+        value: boolean;
+        onChange: (value: boolean) => void;
+      };
+    };
+    expect(props.autoRecordDetectedMeetings.value).toBe(true);
+
+    act(() => props.autoRecordDetectedMeetings.onChange(false));
+
+    await waitFor(() => {
+      expect(mocks.setSettingValues).toHaveBeenCalledWith(
+        expect.objectContaining({ auto_record_detected_meetings: false }),
+      );
+    });
+  });
+
   it("keeps audio controls with meeting settings", () => {
     mocks.useStoredSettingValuesQuery.mockReturnValue({
       data: {

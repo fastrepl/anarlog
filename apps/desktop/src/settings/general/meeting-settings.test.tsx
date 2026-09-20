@@ -23,6 +23,8 @@ function renderMeetingSettings({
   floatingBar = true,
   meetingDisclosureAutoPost = setting(),
   captureMeetingChat = setting(false),
+  liveAssistEnabled = setting(false),
+  autoRecordDetectedMeetings = setting(true),
 } = {}) {
   return {
     ...render(
@@ -30,12 +32,16 @@ function renderMeetingSettings({
         autoJoinScheduledMeetings={setting()}
         autoStartScheduledMeetings={setting(autoStartScheduledMeetings)}
         autoStopMeetings={setting()}
+        autoRecordDetectedMeetings={autoRecordDetectedMeetings}
         floatingBar={setting(floatingBar)}
         meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}
+        liveAssistEnabled={liveAssistEnabled}
       />,
     ),
     meetingDisclosureAutoPost,
+    liveAssistEnabled,
+    autoRecordDetectedMeetings,
   };
 }
 
@@ -59,6 +65,9 @@ describe("MeetingSettingsView", () => {
       screen.queryByText("Post recording disclosure in meeting chat"),
     ).toBeNull();
     expect(screen.queryByText("Capture meeting chat in Memos")).toBeNull();
+    expect(
+      screen.queryByText("Start when a meeting app is detected"),
+    ).toBeNull();
     expect(screen.getByText("Show floating bar")).toBeTruthy();
     expect(screen.queryByText("Stop when meeting ends")).toBeNull();
   });
@@ -75,6 +84,9 @@ describe("MeetingSettingsView", () => {
       screen.getByText(/supported meetings using Accessibility/),
     ).toBeTruthy();
     expect(screen.getByText("Stop when meeting ends")).toBeTruthy();
+    expect(
+      screen.getByText("Start when a meeting app is detected"),
+    ).toBeTruthy();
   });
 
   it("only enables automatic joining when scheduled listening is enabled", () => {
@@ -113,5 +125,36 @@ describe("MeetingSettingsView", () => {
     renderMeetingSettings();
 
     expect(screen.getByText(/does not confirm consent/)).toBeTruthy();
+  });
+
+  it("updates the Live Assist setting", () => {
+    const liveAssistEnabled = setting(false);
+    renderMeetingSettings({ liveAssistEnabled });
+
+    fireEvent.click(screen.getByRole("switch", { name: "Live Assist" }));
+
+    expect(liveAssistEnabled.onChange).toHaveBeenCalledWith(true);
+  });
+
+  it("describes Accessibility-based auto-recording of detected meeting apps", () => {
+    renderMeetingSettings();
+
+    expect(
+      screen.getByText("Start when a meeting app is detected"),
+    ).toBeTruthy();
+    expect(screen.getByText(/without a scheduled meeting/)).toBeTruthy();
+  });
+
+  it("updates the auto-record-detected-meetings setting", () => {
+    const autoRecordDetectedMeetings = setting(true);
+    renderMeetingSettings({ autoRecordDetectedMeetings });
+
+    fireEvent.click(
+      screen.getByRole("switch", {
+        name: "Start when a meeting app is detected",
+      }),
+    );
+
+    expect(autoRecordDetectedMeetings.onChange).toHaveBeenCalledWith(false);
   });
 });

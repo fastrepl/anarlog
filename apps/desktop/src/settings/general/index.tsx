@@ -38,12 +38,14 @@ const SETTINGS_FORM_KEYS = [
   "auto_join_scheduled_meetings",
   "auto_start_scheduled_meetings",
   "auto_stop_meetings",
+  "auto_record_detected_meetings",
   "floating_bar_enabled",
   "show_app_in_dock",
   "show_tray_icon",
   "notification_detect",
   "consent_auto_send_chat",
   "capture_meeting_chat",
+  "live_assist_enabled",
   "ai_language",
   "spoken_languages",
   "current_stt_provider",
@@ -62,12 +64,15 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
       auto_start_scheduled_meetings:
         settingsValue.auto_start_scheduled_meetings,
       auto_stop_meetings: settingsValue.auto_stop_meetings,
+      auto_record_detected_meetings:
+        settingsValue.auto_record_detected_meetings,
       floating_bar_enabled: settingsValue.floating_bar_enabled,
       show_app_in_dock: settingsValue.show_app_in_dock,
       show_tray_icon: settingsValue.show_tray_icon,
       notification_detect: settingsValue.notification_detect,
       consent_auto_send_chat: settingsValue.consent_auto_send_chat,
       capture_meeting_chat: settingsValue.capture_meeting_chat,
+      live_assist_enabled: settingsValue.live_assist_enabled,
       ai_language: settingsValue.ai_language,
       spoken_languages: getAdditionalSpokenLanguages(
         settingsValue.ai_language,
@@ -102,12 +107,15 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         auto_start_scheduled_meetings:
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
+        auto_record_detected_meetings:
+          normalizedValue.auto_record_detected_meetings,
         floating_bar_enabled: normalizedValue.floating_bar_enabled,
         show_app_in_dock: normalizedValue.show_app_in_dock,
         show_tray_icon: normalizedValue.show_tray_icon,
         notification_detect: normalizedValue.notification_detect,
         consent_auto_send_chat: normalizedValue.consent_auto_send_chat,
         capture_meeting_chat: normalizedValue.capture_meeting_chat,
+        live_assist_enabled: normalizedValue.live_assist_enabled,
         ai_language: normalizedValue.ai_language,
         spoken_languages: JSON.stringify(normalizedValue.spoken_languages),
       });
@@ -121,12 +129,15 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         auto_start_scheduled_meetings:
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
+        auto_record_detected_meetings:
+          normalizedValue.auto_record_detected_meetings,
         floating_bar_enabled: normalizedValue.floating_bar_enabled,
         show_app_in_dock: normalizedValue.show_app_in_dock,
         show_tray_icon: normalizedValue.show_tray_icon,
         notification_detect: normalizedValue.notification_detect,
         consent_auto_send_chat: normalizedValue.consent_auto_send_chat,
         capture_meeting_chat: normalizedValue.capture_meeting_chat,
+        live_assist_enabled: normalizedValue.live_assist_enabled,
       });
     },
   });
@@ -306,6 +317,11 @@ function SettingsSectionContent({
                   onChange: (value) =>
                     submitFieldValue("auto_stop_meetings", value),
                 }}
+                autoRecordDetectedMeetings={{
+                  value: values.auto_record_detected_meetings,
+                  onChange: (value) =>
+                    submitFieldValue("auto_record_detected_meetings", value),
+                }}
                 floatingBar={{
                   value: values.floating_bar_enabled,
                   onChange: (value) =>
@@ -320,6 +336,11 @@ function SettingsSectionContent({
                   value: values.capture_meeting_chat,
                   onChange: (value) =>
                     submitFieldValue("capture_meeting_chat", value),
+                }}
+                liveAssistEnabled={{
+                  value: values.live_assist_enabled,
+                  onChange: (value) =>
+                    submitFieldValue("live_assist_enabled", value),
                 }}
               />
             )}

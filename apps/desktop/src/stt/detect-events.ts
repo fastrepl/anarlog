@@ -37,6 +37,7 @@ import {
 } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { openNewNoteAndListen } from "~/shared/useNewNote";
 import type { ListenerStore } from "~/store/zustand/listener";
 
 const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
@@ -70,12 +71,17 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
   const autoStopMeetings = useConfigValue("auto_stop_meetings");
+  const autoRecordDetectedMeetings = useConfigValue(
+    "auto_record_detected_meetings",
+  );
   const notificationsDisabled = useConfigValue("notification_disabled");
   const notificationDetect = useConfigValue("notification_detect");
   const notificationRecording = useConfigValue("notification_recording");
 
   const autoStopMeetingsRef = useRef(autoStopMeetings);
   autoStopMeetingsRef.current = autoStopMeetings;
+  const autoRecordDetectedMeetingsRef = useRef(autoRecordDetectedMeetings);
+  autoRecordDetectedMeetingsRef.current = autoRecordDetectedMeetings;
   const notificationDetectRef = useRef(notificationDetect);
   notificationDetectRef.current = notificationDetect && !notificationsDisabled;
   const notificationRecordingRef = useRef(notificationRecording);
@@ -85,6 +91,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
   const lastReconnectAtMsRef = useRef<number | null>(null);
   const pendingAutoStopRef = useRef<PendingAutoStop | null>(null);
   const pendingMicDetectedPromptRef = useRef(false);
+  const pendingAutoRecordStartRef = useRef(false);
 
   useMountEffect(() => {
     let unlistenDetect: (() => void) | undefined;
@@ -155,6 +162,55 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
             ),
         );
       }
+    };
+    const isListenerIdle = () => {
+      const live = store.getState().live;
+      return live.status === "inactive" && !live.loading;
+    };
+    const maybeAutoStartRecordingForDetectedApps = (appIds: string[]) => {
+      if (!autoRecordDetectedMeetingsRef.current) {
+        return;
+      }
+      if (appIds.length === 0) {
+        return;
+      }
+      if (pendingAutoRecordStartRef.current) {
+        return;
+      }
+      if (!isListenerIdle()) {
+        return;
+      }
+
+      pendingAutoRecordStartRef.current = true;
+      void (async () => {
+        try {
+          const accessibilityResult =
+            await detectCommands.inspectMeetingAccessibility();
+          if (accessibilityResult.status !== "ok") {
+            return;
+          }
+          if (
+            !inspectionsShowActiveMeetingForApps(
+              accessibilityResult.data,
+              appIds,
+            )
+          ) {
+            return;
+          }
+          if (!isListenerIdle()) {
+            return;
+          }
+
+          openNewNoteAndListen({ behavior: "new" });
+        } catch (error) {
+          console.error(
+            "[listener] failed to auto-start recording for a detected meeting app",
+            error,
+          );
+        } finally {
+          pendingAutoRecordStartRef.current = false;
+        }
+      })();
     };
 
     function scheduleAutoStop(
@@ -352,6 +408,8 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
             captureTriggerApps(ignorableApps);
             return;
           }
+
+          maybeAutoStartRecordingForDetectedApps(appIds);
 
           if (!notificationDetectRef.current) {
             return;

@@ -12,16 +12,20 @@ export function MeetingSettingsView({
   autoJoinScheduledMeetings,
   autoStartScheduledMeetings,
   autoStopMeetings,
+  autoRecordDetectedMeetings,
   floatingBar,
   meetingDisclosureAutoPost,
   captureMeetingChat,
+  liveAssistEnabled,
 }: {
   autoJoinScheduledMeetings: SettingItem;
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
+  autoRecordDetectedMeetings: SettingItem;
   floatingBar: SettingItem;
   meetingDisclosureAutoPost: SettingItem;
   captureMeetingChat: SettingItem;
+  liveAssistEnabled: SettingItem;
 }) {
   const currentPlatform = platform();
   const supportsMeetingAx =
@@ -58,6 +62,18 @@ export function MeetingSettingsView({
       {supportsMeetingAx && (
         <>
           <SettingSwitchRow
+            title={<Trans>Start when a meeting app is detected</Trans>}
+            description={
+              <Trans>
+                Use Accessibility to detect Zoom, Google Meet, or Teams open
+                with an active call, and start listening automatically, even
+                without a scheduled meeting.
+              </Trans>
+            }
+            checked={autoRecordDetectedMeetings.value}
+            onChange={autoRecordDetectedMeetings.onChange}
+          />
+          <SettingSwitchRow
             title={<Trans>Post recording disclosure in meeting chat</Trans>}
             description={
               <Trans>
@@ -87,6 +103,18 @@ export function MeetingSettingsView({
         }
         checked={floatingBar.value}
         onChange={floatingBar.onChange}
+      />
+      <SettingSwitchRow
+        title={<Trans>Live Assist</Trans>}
+        description={
+          <Trans>
+            Show AI suggestions (catch-up, action items, follow-up questions) in
+            a side panel while a meeting is being transcribed live. Sends
+            transcript excerpts to your configured AI provider every minute.
+          </Trans>
+        }
+        checked={liveAssistEnabled.value}
+        onChange={liveAssistEnabled.onChange}
       />
     </div>
   );

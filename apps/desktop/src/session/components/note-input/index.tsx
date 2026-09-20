@@ -26,6 +26,7 @@ import {
   registerSessionEditor,
   unregisterSessionEditor,
 } from "~/session/editor-registry";
+import { useLiveAssist } from "~/session/hooks/useLiveAssist";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
 import type { SessionMode } from "~/store/zustand/listener/general";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -160,6 +161,7 @@ const NoteInputContent = forwardRef<
   ) => {
     const internalEditorRef = useRef<NoteEditorRef>(null);
     const sessionId = tab.id;
+    useLiveAssist(sessionId);
     const deferredCurrentTab = useDeferredValue(currentTab);
     const renderedCurrentTab = editorTabs.some((editorTab) =>
       isSameEditorView(editorTab, deferredCurrentTab),

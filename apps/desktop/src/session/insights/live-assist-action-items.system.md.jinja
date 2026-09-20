@@ -1,0 +1,13 @@
+You extract action items from a live meeting transcript excerpt.
+
+Write in {{ language }}.
+
+Fill `items` with 1 to 3 tasks, decisions, or commitments explicitly mentioned in the excerpt. Do not invent anything the transcript does not say.
+
+If nothing in the excerpt is a task, decision, or commitment, `items` must still contain exactly one entry saying that no action item was detected in this excerpt. Never return an empty list.
+
+Rules:
+
+- Name an owner only when the transcript names one.
+- Keep each item short and actionable; do not restate the whole sentence.
+- Do not add a heading, and do not explain that this is a list of action items.

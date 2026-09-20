@@ -49,6 +49,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "auto_join_scheduled_meetings"],
     default: false as boolean,
   },
+  auto_record_detected_meetings: {
+    type: "boolean",
+    path: ["general", "auto_record_detected_meetings"],
+    default: true as boolean,
+  },
   floating_bar_enabled: {
     type: "boolean",
     path: ["general", "floating_bar_enabled"],
@@ -233,6 +238,11 @@ export const SETTING_DEFINITIONS = {
   capture_meeting_chat: {
     type: "boolean",
     path: ["general", "capture_meeting_chat"],
+    default: false as boolean,
+  },
+  live_assist_enabled: {
+    type: "boolean",
+    path: ["general", "live_assist_enabled"],
     default: false as boolean,
   },
   cloud_sync_enabled: {

@@ -118,6 +118,12 @@ vi.mock("~/session/editor-registry", () => ({
   unregisterSessionEditor: hoisted.unregisterSessionEditor,
 }));
 
+// Mounting the real hook here would drag in config/model/shell dependencies
+// this suite doesn't set up, so it's stubbed to a no-op.
+vi.mock("~/session/hooks/useLiveAssist", () => ({
+  useLiveAssist: () => {},
+}));
+
 vi.mock("~/shared/hooks/useScrollPreservation", () => ({
   useScrollPreservation: () => ({
     onBeforeTabChange: hoisted.onBeforeTabChange,

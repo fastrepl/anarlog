@@ -28,6 +28,7 @@ const {
   useConfigValueMock,
   getNearbyCalendarEventsMock,
   loadSessionEventMock,
+  openNewNoteAndListenMock,
 } = vi.hoisted(() => ({
   listMicUsingApplicationsMock: vi.fn(),
   inspectMeetingAccessibilityMock: vi.fn(),
@@ -38,6 +39,7 @@ const {
   useConfigValueMock: vi.fn((key: string) => key !== "notification_disabled"),
   getNearbyCalendarEventsMock: vi.fn(),
   loadSessionEventMock: vi.fn(),
+  openNewNoteAndListenMock: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-detect", () => ({
@@ -69,6 +71,10 @@ vi.mock("~/session/queries", () => ({
 
 vi.mock("~/shared/config", () => ({
   useConfigValue: useConfigValueMock,
+}));
+
+vi.mock("~/shared/useNewNote", () => ({
+  openNewNoteAndListen: openNewNoteAndListenMock,
 }));
 
 function setStoreActive(
@@ -227,6 +233,7 @@ describe("ListenerProvider detect events", () => {
     useConfigValueMock.mockReset();
     getNearbyCalendarEventsMock.mockReset();
     loadSessionEventMock.mockReset();
+    openNewNoteAndListenMock.mockReset();
     useStoreMock.mockReturnValue(null);
     useConfigValueMock.mockImplementation(
       (key: string) => key !== "notification_disabled",
@@ -2536,5 +2543,276 @@ describe("ListenerProvider detect events", () => {
     });
 
     expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+function activeMeetingInspection(
+  overrides: Partial<{
+    appId: string;
+    appName: string;
+    activeCall: boolean;
+    platform: string;
+  }> = {},
+) {
+  const {
+    appId = "us.zoom.xos",
+    appName = "Zoom",
+    activeCall = true,
+    platform = "zoom",
+  } = overrides;
+
+  return {
+    activeCall,
+    app: { id: appId, name: appName },
+    pid: 42,
+    platform,
+    surface: "native",
+    accessibilityTrusted: true,
+    windowTitle: "Zoom Meeting",
+    warnings: [],
+  };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+describe("ListenerProvider auto-record detected meetings", () => {
+  beforeEach(() => {
+    listenMock.mockReset();
+    useStoreMock.mockReset();
+    useConfigValueMock.mockReset();
+    getNearbyCalendarEventsMock.mockReset();
+    loadSessionEventMock.mockReset();
+    openNewNoteAndListenMock.mockReset();
+    inspectMeetingAccessibilityMock.mockReset();
+    listMicUsingApplicationsMock.mockReset();
+    useStoreMock.mockReturnValue(null);
+    useConfigValueMock.mockImplementation(
+      (key: string) => key !== "notification_disabled",
+    );
+    getNearbyCalendarEventsMock.mockImplementation(readConfiguredNearbyEvents);
+    loadSessionEventMock.mockImplementation(readConfiguredSessionEvent);
+    listenMock.mockResolvedValue(() => {});
+    inspectMeetingAccessibilityMock.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
+    listMicUsingApplicationsMock.mockResolvedValue({ status: "ok", data: [] });
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  test("starts a new note and listens when a detected app shows an active call via Accessibility", async () => {
+    const store = createListenerStore();
+    inspectMeetingAccessibilityMock.mockResolvedValue({
+      status: "ok",
+      data: [activeMeetingInspection()],
+    });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(openNewNoteAndListenMock).toHaveBeenCalledWith({
+        behavior: "new",
+      }),
+    );
+  });
+
+  test("does not start a new note when auto-record-detected-meetings is disabled", async () => {
+    const store = createListenerStore();
+    useConfigValueMock.mockImplementation(
+      (key: string) => key !== "auto_record_detected_meetings",
+    );
+    inspectMeetingAccessibilityMock.mockResolvedValue({
+      status: "ok",
+      data: [activeMeetingInspection()],
+    });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await Promise.resolve();
+
+    expect(inspectMeetingAccessibilityMock).not.toHaveBeenCalled();
+    expect(openNewNoteAndListenMock).not.toHaveBeenCalled();
+  });
+
+  test("does not start a new note when Accessibility does not show an active call for the detected app", async () => {
+    const store = createListenerStore();
+    inspectMeetingAccessibilityMock.mockResolvedValue({
+      status: "ok",
+      data: [activeMeetingInspection({ activeCall: false })],
+    });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(inspectMeetingAccessibilityMock).toHaveBeenCalledTimes(1),
+    );
+    expect(openNewNoteAndListenMock).not.toHaveBeenCalled();
+  });
+
+  test("does not start a new note while a session is already listening", async () => {
+    const store = createListenerStore();
+    setStoreActive(store);
+    inspectMeetingAccessibilityMock.mockResolvedValue({
+      status: "ok",
+      data: [activeMeetingInspection()],
+    });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await Promise.resolve();
+
+    expect(inspectMeetingAccessibilityMock).not.toHaveBeenCalled();
+    expect(openNewNoteAndListenMock).not.toHaveBeenCalled();
+  });
+
+  test("does not start a new note while a previous session is finalizing", async () => {
+    const store = createListenerStore();
+    store.setState((state) => ({
+      live: { ...state.live, sessionId: "session-1", status: "finalizing" },
+    }));
+    inspectMeetingAccessibilityMock.mockResolvedValue({
+      status: "ok",
+      data: [activeMeetingInspection()],
+    });
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await Promise.resolve();
+
+    expect(inspectMeetingAccessibilityMock).not.toHaveBeenCalled();
+    expect(openNewNoteAndListenMock).not.toHaveBeenCalled();
+  });
+
+  test("does not trigger a second auto-record attempt while one is already starting", async () => {
+    const store = createListenerStore();
+    const deferred = createDeferred<{ status: "ok"; data: unknown[] }>();
+    inspectMeetingAccessibilityMock.mockReturnValueOnce(deferred.promise);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-2",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    await Promise.resolve();
+    expect(inspectMeetingAccessibilityMock).toHaveBeenCalledTimes(1);
+
+    deferred.resolve({ status: "ok", data: [activeMeetingInspection()] });
+
+    await vi.waitFor(() =>
+      expect(openNewNoteAndListenMock).toHaveBeenCalledTimes(1),
+    );
   });
 });
