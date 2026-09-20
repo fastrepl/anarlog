@@ -22,7 +22,7 @@ Sessions are the core entity: all notes are backed by sessions. ProseMirror powe
 - Typecheck (Rust): `cargo check --locked -p <package>`; match the relevant workflow's features and target. A root `cargo check` does not cover the separate enterprise workspace or every platform.
 - Build shared UI before desktop/web checks: `pnpm -F @anlg/ui build`.
 - Desktop dev: `pnpm exec turbo dev:desktop`.
-- Desktop release on macOS: `pnpm -F @anlg/desktop tauri:build:macos`. Xcode 26+ ships a SwiftPM build system that internalizes `@_cdecl` symbols in release, which breaks `swift-rs` linking; that script pins `DEVELOPER_DIR` to the Command Line Tools toolchain. A plain `tauri build` fails at link time with undefined SwiftRs symbols.
+- Desktop release on macOS: `pnpm -F @anlg/desktop tauri:build:macos`, which wraps `scripts/build-macos.sh`. Xcode 26+ ships a SwiftPM build system that internalizes `@_cdecl` symbols in release, which breaks `swift-rs` linking; that script pins `DEVELOPER_DIR` to the Command Line Tools toolchain. A plain `tauri build` fails at link time with undefined SwiftRs symbols. The script also signs the bundle: with a Developer ID when one is available (`APPLE_SIGNING_IDENTITY` or the keychain), ad-hoc otherwise, because the linker's own signature carries no entitlements and leaves TCC keying the app on a cdhash that changes on every build. `scripts/build-macos.sh --sign-only <path to .app>` re-signs an existing bundle without rebuilding.
 - Web dev: `pnpm exec turbo dev:web`.
 - Dev docs: https://docs.anarlog.so
 
