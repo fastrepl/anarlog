@@ -20,7 +20,7 @@ Workspace owners and admins can open **Members** to:
 
 - Invite a teammate by email
 - Resend or cancel a pending invitation
-- Change a member between the Admin and Member roles
+- Change member roles within your own permissions; owners can add other owners
 - Remove a member
 
 ### Accept an invitation
@@ -35,10 +35,12 @@ You do not need to purchase seats before inviting someone. Pending invitations d
 
 Owners can enable automatic joining for coworkers with a verified work email domain. Personal email domains such as Gmail are excluded, and previously removed members are not automatically readmitted.
 
-Ownership transfers require the recipient to accept the request. Until they accept, the current owner keeps ownership.
+A workspace can have several **Owners** and one **Primary owner**. Only the Primary owner can transfer primary ownership or delete the workspace. Other owners cannot remove or demote the Primary owner.
+
+Primary ownership transfers require the recipient to accept. Until they accept, permissions stay unchanged. After acceptance, the previous Primary owner remains an Owner.
 
 <Warning>
-  Deleting a workspace removes it for everyone in it, and cannot be undone. Only the owner can transfer ownership, so transfer it before leaving if someone else should keep the workspace.
+  Deleting a workspace removes it for everyone in it, and cannot be undone. The Primary owner must transfer primary ownership before leaving if someone else should keep the workspace.
 </Warning>
 
 ## Share a meeting with the workspace

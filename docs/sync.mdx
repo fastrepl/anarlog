@@ -26,7 +26,7 @@ Each synced device receives:
 - Action items
 - A few preferences: **Theme**, **App icon**, **Week starts on**, and **Default sharing**
 
-In 1.4.24, new daily notes, folders, tags, and note-tag assignments stay on the device where you create them. Their sync rollout is deferred to keep meeting-note sync compatible with 1.4.23. **Synced** applies to the supported data above, not these local-only items. Existing items already synced by Nightly continue using their existing format; use matching app versions on those devices.
+In 1.4.24 and 1.4.25, new daily notes, folders, tags, and note-tag assignments stay on the device where you create them. Their sync rollout is deferred to keep meeting-note sync compatible with 1.4.23. **Synced** applies to the supported data above, not these local-only items. Existing items already synced by Nightly continue using their existing format; use matching app versions on those devices.
 
 API keys, model selections, and most other settings stay on the computer where you entered them. After you add a new device, enter each Transcription and Intelligence API key again and choose the models you want on that computer. Anarlog stores those keys in the operating system's credential store and does not copy them between devices.
 
@@ -71,6 +71,17 @@ If none of your approved devices is available, click **Use recovery key instead*
 Your plan determines how many devices you can sync. **Settings → Sync → Devices** shows your current usage and limit. If you reach the limit, remove an unused device before enabling sync on another one.
 
 Cloud API & Connectors is a separate, optional feature. If you enable it under **Settings → Developers**, Anarlog uploads a server-readable copy for remote agents; it does not decrypt or weaken your end-to-end encrypted sync data. See [Cloud API and connectors](/reference/api-cloud).
+
+## Switch accounts while keeping local notes
+
+In 1.4.25, signing in to another account keeps your personal notes and recordings available on this device. Sync waits for your choice in **Connect library**:
+
+- **Keep using locally** leaves the library available without connecting it to the signed-in account.
+- **Connect library** connects the personal library to that account and brings in its existing notes. Copies already synced to your previous account remain there. Team and shared notes stay with their workspace.
+
+Reconnect integrations for the account you are using. Connecting a different account opts this library into the new account-switching format; older app versions cannot open it. Keep a compatible version installed rather than downgrading after connecting.
+
+This is an account-switching choice, not a repair for a delayed sync. Leave your account, storage folder, and recovery key unchanged while investigating a sync error.
 
 ## Don't combine sync with a cloud-storage folder
 
