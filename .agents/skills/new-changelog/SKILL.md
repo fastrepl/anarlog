@@ -37,8 +37,12 @@ in the release task; a changelog alone does not establish release readiness.
 Creating a changelog does not itself dispatch or publish a release.
 Keep the notes prepared and merged before freezing the desktop candidate, but
 verify that the public index and direct version URL exclude them until release.
-After desktop publication, deploy the website to expose the released notes; the
-Linux package publication workflow normally performs that deployment.
+For an authorized stable release, [Release Docs](../release-docs/SKILL.md) owns
+website publication immediately after the app is published and verifies the full
+version page and index. It reuses the post-publication Linux APT web deployment
+when suitable or dispatches the missing website deployment within that release.
+The user must not need to ask separately. This authoring skill alone still does
+not authorize a release or deployment.
 
 Each changelog file must start with frontmatter that includes both `date` and
 `summary`:
