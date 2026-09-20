@@ -39,6 +39,9 @@ pub struct ProvisionalSpeakerLabel {
 pub fn segment_options_for_assignments(
     assignments: &[crate::IdentityAssignment],
 ) -> crate::SegmentBuilderOptions {
+    // Only `complete_channels` depends on the assignments; the micro-segment
+    // thresholds stay at their defaults because consolidation merges segments
+    // that already share a key, so it can never move words between identities.
     crate::SegmentBuilderOptions {
         complete_channels: Some(
             assignments
@@ -49,8 +52,6 @@ pub fn segment_options_for_assignments(
                 })
                 .collect(),
         ),
-        min_segment_words: Some(0),
-        min_segment_ms: Some(0),
         ..Default::default()
     }
 }

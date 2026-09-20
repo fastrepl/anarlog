@@ -49,6 +49,101 @@ fn request(context: SpeakerContext, speakers: &[(i32, i32)]) -> RenderTranscript
     }
 }
 
+/// Mirrors the evidence a plain local recording produces: observed, but with no
+/// call, no invitee and a non-isolated microphone.
+fn observed_without_call() -> SpeakerContext {
+    SpeakerContext {
+        intervals: vec![SpeakerContextInterval {
+            start_ms: 0,
+            end_ms: 200_000,
+            active_call: false,
+            calendar_call: false,
+            mic_isolated: Some(false),
+            shared_microphone: false,
+            title: String::new(),
+            self_names: vec![],
+            participants: vec![],
+        }],
+    }
+}
+
+fn timed_request(
+    context: SpeakerContext,
+    words: &[(&str, i64, i64, i32, i32)],
+) -> RenderTranscriptRequest {
+    RenderTranscriptRequest {
+        speaker_context: Some(context),
+        preview: None,
+        participant_human_ids: vec![],
+        self_human_id: Some("self".into()),
+        humans: vec![RenderTranscriptHuman {
+            human_id: "self".into(),
+            name: "John".into(),
+        }],
+        transcripts: vec![RenderTranscriptInput {
+            started_at: Some(0),
+            assignments: vec![],
+            words: words
+                .iter()
+                .enumerate()
+                .map(|(index, (text, start_ms, end_ms, channel, speaker))| {
+                    RenderTranscriptWordInput {
+                        id: index.to_string(),
+                        text: format!(" {text}"),
+                        start_ms: *start_ms,
+                        end_ms: *end_ms,
+                        channel: *channel,
+                        speaker_index: Some(*speaker),
+                    }
+                })
+                .collect(),
+        }],
+    }
+}
+
+#[test]
+fn assignment_options_keep_micro_segment_consolidation_enabled() {
+    let defaults = crate::SegmentBuilderOptions::default();
+    let options = segment_options_for_assignments(&[]);
+
+    assert_eq!(options.min_segment_words, defaults.min_segment_words);
+    assert_eq!(options.min_segment_ms, defaults.min_segment_ms);
+    assert!(
+        options
+            .complete_channels
+            .is_some_and(|channels| channels.is_empty())
+    );
+}
+
+#[test]
+fn diarization_stutter_still_consolidates_under_a_speaker_context() {
+    let segments = render_transcript_segments(timed_request(
+        observed_without_call(),
+        &[
+            ("alright", 78_000, 84_000, 1, 2),
+            ("mean", 84_000, 84_500, 1, 3),
+            ("but", 85_000, 85_200, 1, 2),
+            ("look", 85_200, 85_400, 1, 3),
+            ("yeah", 85_400, 85_500, 1, 2),
+            ("everyone", 85_500, 86_000, 1, 3),
+            ("knows", 86_000, 86_500, 1, 3),
+            ("the", 86_500, 87_000, 1, 3),
+            ("truth", 87_000, 105_000, 1, 3),
+        ],
+    ));
+
+    assert_eq!(segments.len(), 2);
+    assert_eq!(segments[0].text, "alright but yeah");
+    assert_eq!(segments[1].text, "mean look everyone knows the truth");
+    assert_eq!(
+        segments
+            .iter()
+            .map(|segment| segment.speaker_label.as_str())
+            .collect::<Vec<_>>(),
+        ["Speaker 1", "Speaker 2"]
+    );
+}
+
 #[test]
 fn no_attendees_call_names_self_and_title_candidate_without_creating_identities() {
     let segments = render_transcript_segments(request(context(), &[(0, 0), (1, 1)]));

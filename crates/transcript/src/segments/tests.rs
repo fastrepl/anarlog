@@ -562,6 +562,31 @@ fn consolidates_rapid_crosstalk_micro_segments() {
 }
 
 #[test]
+fn consolidates_diarization_stutter_between_speakers_of_one_channel() {
+    let finals = vec![
+        fw_si("alright", 78000, 84000, 1, 2),
+        fw_si("mean", 84000, 84500, 1, 3),
+        fw_si("but", 85000, 85200, 1, 2),
+        fw_si("look", 85200, 85400, 1, 3),
+        fw_si("yeah", 85400, 85500, 1, 2),
+        fw_si("everyone", 85500, 86000, 1, 3),
+        fw_si("knows", 86000, 86500, 1, 3),
+        fw_si("the", 86500, 87000, 1, 3),
+        fw_si("truth", 87000, 105000, 1, 3),
+    ];
+    let opts = SegmentBuilderOptions::default();
+    let result = build_segments(&finals, &[], &[], Some(&opts));
+    assert_eq!(result.len(), 2);
+    assert_eq!(result[0].key, key_speaker(1, 2));
+    assert_eq!(texts(&result[0]), vec!["alright", "but", "yeah"]);
+    assert_eq!(result[1].key, key_speaker(1, 3));
+    assert_eq!(
+        texts(&result[1]),
+        vec!["mean", "look", "everyone", "knows", "the", "truth"]
+    );
+}
+
+#[test]
 fn no_consolidation_when_segment_duration_exceeds_threshold() {
     let finals = vec![
         fw("hello", 0, 2500, 0),
