@@ -33,9 +33,21 @@ Aucune donnée d'usage ni rapport de crash ne quitte la machine.
 | `plugins/analytics/src/ext.rs` | `APP_VERSION` devient optionnel (repli sur la version du package) |
 | `apps/desktop/src-tauri/src/lib.rs` | Sentry retiré (plus de client, plus de plugin) |
 | `apps/desktop/src/settings/privacy/index.tsx` | interrupteurs PostHog et rapports d'erreur retirés (ils ne pilotaient plus rien) |
+| `plugins/updater2/src/ext.rs` | `Updater2::check()` renvoie toujours `Ok(None)` |
+| `plugins/updater2/src/lib.rs` | boucle native de vérification/installation auto (30 min) retirée |
 
 Note : Sentry était déjà inactif sans `SENTRY_DSN` au build (`option_env!`).
 Le retrait explicite sert surtout à supprimer la dépendance du build.
+
+Note sur l'updater : `plugins.updater.active: false` dans `tauri.conf.stable.json`
+(voir historique git) ne coupe que la génération d'artefacts de mise à jour au
+build — pas les appels runtime. Sans le correctif ci-dessus, l'app interrogeait
+quand même `desktop.anarlog.so` (le serveur officiel upstream) et pouvait
+**installer automatiquement le binaire officiel par-dessus ce fork**, effaçant
+au passage tous les patchs de vie privée et de déblocage Pro. `Updater2::check()`
+est le point de passage unique de tout le plugin (vérification manuelle,
+téléchargement, boucle native) : le couper là suffit, sans toucher au frontend
+(`apps/desktop/src/main/update-banner.tsx`) ni à ses tests.
 
 ## 3. Déverrouillage des fonctions Pro
 

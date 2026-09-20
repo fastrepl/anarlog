@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
+use std::{path::PathBuf, sync::LazyLock};
 
 use tauri::Manager;
 use tauri_plugin_store2::Store2PluginExt;
@@ -9,8 +6,8 @@ use tauri_plugin_updater::UpdaterExt;
 use tauri_specta::Event;
 
 use crate::events::{
-    UpdateAvailableEvent, UpdateDownloadFailedEvent, UpdateDownloadProgressEvent,
-    UpdateDownloadingEvent, UpdateReadyEvent, UpdatedEvent,
+    UpdateDownloadFailedEvent, UpdateDownloadProgressEvent, UpdateDownloadingEvent,
+    UpdateReadyEvent, UpdatedEvent,
 };
 
 static DOWNLOAD_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
@@ -119,30 +116,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         Ok(bytes)
     }
 
+    // [fork] This build has no release channel of its own; desktop.anarlog.so
+    // serves upstream's official binary, which is never a valid "update" for a
+    // customized fork. `plugins.updater.active: false` in the stable config
+    // only skips building updater artifacts, not this runtime check, so it's
+    // disabled here instead — the one call site every check/download/install
+    // path in this plugin goes through.
     pub async fn check(&self) -> Result<Option<String>, crate::Error> {
-        let updater = self.manager.updater()?;
-        let update = updater.check().await?;
-        let version = update.map(|u| u.version);
-
-        // install_and_relaunch never returns, so this periodic check is the
-        // only place stale cached bins can be cleaned up.
-        prune_cached_updates(self.manager, version.as_deref());
-
-        if let Some(version) = &version {
-            if self.has_cached_update(version) {
-                let _ = UpdateReadyEvent {
-                    version: version.clone(),
-                }
-                .emit(self.manager.app_handle());
-            } else {
-                let _ = UpdateAvailableEvent {
-                    version: version.clone(),
-                }
-                .emit(self.manager.app_handle());
-            }
-        }
-
-        Ok(version)
+        Ok(None)
     }
 
     pub fn has_cached_update(&self, version: &str) -> bool {
@@ -293,83 +274,4 @@ fn get_cache_path<R: tauri::Runtime, M: tauri::Manager<R>>(
     version: &str,
 ) -> Option<PathBuf> {
     Some(get_updates_dir(manager)?.join(format!("{}.bin", version)))
-}
-
-fn prune_cached_updates<R: tauri::Runtime, M: tauri::Manager<R>>(manager: &M, keep: Option<&str>) {
-    if let Some(dir) = get_updates_dir(manager) {
-        prune_updates_dir(&dir, keep);
-    }
-}
-
-fn prune_updates_dir(dir: &Path, keep: Option<&str>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("bin") {
-            continue;
-        }
-        if keep.is_some() && path.file_stem().and_then(|s| s.to_str()) == keep {
-            continue;
-        }
-        match std::fs::remove_file(&path) {
-            Ok(()) => tracing::info!("pruned_cached_update: {:?}", path),
-            Err(e) => tracing::warn!("failed_to_prune_cached_update: {:?}: {}", path, e),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::prune_updates_dir;
-
-    fn write_bins(dir: &std::path::Path, versions: &[&str]) {
-        for v in versions {
-            std::fs::write(dir.join(format!("{v}.bin")), b"update").unwrap();
-        }
-    }
-
-    #[test]
-    fn prune_keeps_only_the_kept_version() {
-        let dir = tempfile::tempdir().unwrap();
-        write_bins(dir.path(), &["1.4.1", "1.4.2", "1.4.8"]);
-
-        prune_updates_dir(dir.path(), Some("1.4.8"));
-
-        assert!(dir.path().join("1.4.8.bin").exists());
-        assert!(!dir.path().join("1.4.1.bin").exists());
-        assert!(!dir.path().join("1.4.2.bin").exists());
-    }
-
-    #[test]
-    fn prune_without_keep_removes_all_bins() {
-        let dir = tempfile::tempdir().unwrap();
-        write_bins(dir.path(), &["1.4.1", "1.4.2"]);
-
-        prune_updates_dir(dir.path(), None);
-
-        assert!(!dir.path().join("1.4.1.bin").exists());
-        assert!(!dir.path().join("1.4.2.bin").exists());
-    }
-
-    #[test]
-    fn prune_ignores_non_bin_files() {
-        let dir = tempfile::tempdir().unwrap();
-        write_bins(dir.path(), &["1.4.1"]);
-        std::fs::write(dir.path().join("notes.txt"), b"keep").unwrap();
-
-        prune_updates_dir(dir.path(), None);
-
-        assert!(dir.path().join("notes.txt").exists());
-        assert!(!dir.path().join("1.4.1.bin").exists());
-    }
-
-    #[test]
-    fn prune_missing_dir_is_noop() {
-        let dir = tempfile::tempdir().unwrap();
-
-        prune_updates_dir(&dir.path().join("does-not-exist"), Some("1.4.8"));
-    }
 }
