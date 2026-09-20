@@ -3618,7 +3618,9 @@ msgid "No people in this organization"
 msgstr ""
 
 #: src/settings/ai/llm/configure.tsx
+#: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/configure.tsx
+#: src/settings/ai/stt/select.tsx
 msgid "No providers found."
 msgstr ""
 
