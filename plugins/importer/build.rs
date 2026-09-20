@@ -4,6 +4,7 @@ const COMMANDS: &[&str] = &[
     "complete_connected_import",
     "sync_connected_import",
     "read_text_files",
+    "list_directory_entries",
 ];
 
 fn main() {

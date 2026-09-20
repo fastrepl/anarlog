@@ -331,6 +331,18 @@
           "markdownDescription": "Denies the complete_connected_import command without any pre-configured scope."
         },
         {
+          "description": "Enables the list_directory_entries command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-directory-entries",
+          "markdownDescription": "Enables the list_directory_entries command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_directory_entries command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-directory-entries",
+          "markdownDescription": "Denies the list_directory_entries command without any pre-configured scope."
+        },
+        {
           "description": "Enables the read_text_files command without any pre-configured scope.",
           "type": "string",
           "const": "allow-read-text-files",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the sync_connected_import command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`\n- `allow-list-directory-entries`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`\n- `allow-list-directory-entries`"
         }
       ]
     }

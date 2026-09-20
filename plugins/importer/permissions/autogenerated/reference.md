@@ -9,6 +9,7 @@ Default permissions for the plugin
 - `allow-complete-connected-import`
 - `allow-sync-connected-import`
 - `allow-read-text-files`
+- `allow-list-directory-entries`
 
 ## Permission Table
 
@@ -93,6 +94,32 @@ Enables the complete_connected_import command without any pre-configured scope.
 <td>
 
 Denies the complete_connected_import command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:allow-list-directory-entries`
+
+</td>
+<td>
+
+Enables the list_directory_entries command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-list-directory-entries`
+
+</td>
+<td>
+
+Denies the list_directory_entries command without any pre-configured scope.
 
 </td>
 </tr>

@@ -45,6 +45,19 @@ async readTextFiles(paths: string[]) : Promise<Result<ImportTextFile[], string>>
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Lists the immediate children of a user-selected import directory, so the
+ * caller can discover sibling export bundles (one folder per meeting)
+ * without knowing their names in advance.
+ */
+async listDirectoryEntries(path: string) : Promise<Result<ImportDirectoryEntry[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|list_directory_entries", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -61,6 +74,7 @@ async readTextFiles(paths: string[]) : Promise<Result<ImportTextFile[], string>>
 export type ConnectedImportAuthorization = { providerId: string; authorizationUrl: string }
 export type ConnectedImportCredentials = { providerId: string; clientId: string; clientSecret: string | null; tokenJson: string; tokenReceivedAt: number | null }
 export type ConnectedImportSyncResult = { files: ImportTextFile[]; credentials: ConnectedImportCredentials; warnings: string[] }
+export type ImportDirectoryEntry = { name: string; path: string; isDir: boolean }
 export type ImportTextFile = { path: string; name: string; content: string }
 
 /** tauri-specta globals **/

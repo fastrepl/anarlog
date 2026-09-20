@@ -49,8 +49,13 @@ vi.mock("./detection", () => ({
 vi.mock("./queries", () => ({
   EMPTY_MEETING_IMPORT_HISTORY: [],
   importConnectedMeetings: vi.fn(),
+  importFirefliesExportBundles: vi.fn(),
   importMeetingFiles: vi.fn(),
   useMeetingImportHistory: () => ({ data: [] }),
+}));
+
+vi.mock("./fireflies-export", () => ({
+  loadFirefliesExportBundles: vi.fn(),
 }));
 
 vi.mock("./connected-import", () => ({
@@ -298,6 +303,20 @@ describe("MeetingImportScreen", () => {
     expect(
       await screen.findByRole("menuitem", { name: "Use files" }),
     ).toBeTruthy();
+  });
+
+  it("offers a local export folder import for Fireflies", async () => {
+    mockDetected(["fireflies", "granola"]);
+
+    renderImports();
+
+    await screen.findByText("Fireflies.ai");
+    expect(
+      screen.getByRole("button", { name: "Import export folder" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryAllByRole("button", { name: "Import export folder" }),
+    ).toHaveLength(1);
   });
 
   it("renders the same detected list in the compact onboarding layout", async () => {

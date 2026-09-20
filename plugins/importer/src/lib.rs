@@ -18,6 +18,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::complete_connected_import,
             commands::sync_connected_import,
             commands::read_text_files,
+            commands::list_directory_entries,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

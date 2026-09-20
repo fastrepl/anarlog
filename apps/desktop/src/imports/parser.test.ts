@@ -180,6 +180,42 @@ describe("meeting export parser", () => {
     ]);
   });
 
+  it("parses the record shape produced by the Fireflies export folder importer", () => {
+    const [meeting] = parseMeetingExport({
+      path: "/tmp/ID1.json",
+      name: "ID1.json",
+      content: JSON.stringify({
+        id: "01M07W3NXYYBB0H2H9NCGQ2KX3",
+        title: "Meet – Weekly CEOs Avicenne <> Titan",
+        started_at: "2026-08-17T12:45:50.640Z",
+        ended_at: "2026-08-17T13:30:33.552Z",
+        url: "https://app.fireflies.ai/view/01M07W3NXYYBB0H2H9NCGQ2KX3",
+        attendees: [],
+        transcript: [
+          {
+            speaker: "Marwane Lairi",
+            text: "Selam, les amis, selam!",
+            start: 474.691,
+            end: 481.611,
+          },
+        ],
+      }),
+    });
+
+    expect(meeting).toMatchObject({
+      externalId: "01M07W3NXYYBB0H2H9NCGQ2KX3",
+      title: "Meet – Weekly CEOs Avicenne <> Titan",
+      startedAt: "2026-08-17T12:45:50.640Z",
+      sourceUrl: "https://app.fireflies.ai/view/01M07W3NXYYBB0H2H9NCGQ2KX3",
+    });
+    expect(meeting?.transcript[0]).toMatchObject({
+      speaker: "Marwane Lairi",
+      text: "Selam, les amis, selam!",
+      startMs: 474_691,
+      endMs: 481_611,
+    });
+  });
+
   it("handles quoted multiline CSV cells", () => {
     expect(
       parseCsvRows('title,notes\n"Planning","Line one\nLine two"'),

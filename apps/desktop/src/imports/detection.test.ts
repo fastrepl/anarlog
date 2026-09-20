@@ -37,10 +37,12 @@ describe("import source detection", () => {
     expect(listInstalledApplications).toHaveBeenCalledOnce();
     expect(getInstalledApplicationIcons).toHaveBeenCalledWith([
       "com.granola.app",
+      "fireflies",
       "google-meet",
     ]);
     expect(result.map((provider) => provider.id)).toEqual([
       "granola",
+      "fireflies",
       "google-meet",
     ]);
     expect(result[0]?.iconUrl).toBe("data:image/png;base64,granola");

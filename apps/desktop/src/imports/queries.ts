@@ -1,9 +1,12 @@
 import { md2json } from "@anlg/editor/markdown";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import type { ImportTextFile } from "@anlg/plugin-importer";
 
+import type { FirefliesExportBundleFile } from "./fireflies-export";
 import { parseMeetingExport, type ImportedMeeting } from "./parser";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
+import { catalogLocalSessionAudio } from "~/session/attachments";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 
 const IMPORTER_VERSION = 2;
@@ -92,6 +95,27 @@ export async function importMeetingFiles(
   return runMeetingImport(providerId, files, "export");
 }
 
+export async function importFirefliesExportBundles(
+  bundles: FirefliesExportBundleFile[],
+): Promise<MeetingImportResult> {
+  if (bundles.length === 0) {
+    throw new Error("Select at least one Fireflies export folder");
+  }
+
+  const audioPathByFilePath = new Map(
+    bundles
+      .filter((bundle) => bundle.audioPath)
+      .map((bundle) => [bundle.file.path, bundle.audioPath]),
+  );
+
+  return runMeetingImport(
+    "fireflies",
+    bundles.map((bundle) => bundle.file),
+    "export",
+    (file) => audioPathByFilePath.get(file.path),
+  );
+}
+
 export async function importConnectedMeetings(
   providerId: string,
   files: ImportTextFile[],
@@ -113,6 +137,7 @@ async function runMeetingImport(
   providerId: string,
   files: ImportTextFile[],
   mode: MeetingImportMode,
+  getAudioPath?: (file: ImportTextFile) => string | undefined,
 ): Promise<MeetingImportResult> {
   const runId = id();
   const sourceKind = `meeting-${mode}:${providerId}`;
@@ -232,6 +257,17 @@ async function runMeetingImport(
         });
       }
       await executeTransaction(statements);
+
+      const audioPath = getAudioPath?.(file);
+      if (audioPath) {
+        for (const target of importedTargets) {
+          await importSessionAudio(target.sessionId, audioPath).catch(
+            (error) => {
+              console.error("[import] failed to import session audio", error);
+            },
+          );
+        }
+      }
 
       totals.discovered += targets.length;
       totals.imported += importedTargets.length;
@@ -541,6 +577,14 @@ async function recordImportError({
 
 async function stableSessionId(providerId: string, sourceIdentity: string) {
   return `meeting-import:${await sha256(`${providerId}:${sourceIdentity}`)}`;
+}
+
+async function importSessionAudio(sessionId: string, sourcePath: string) {
+  const result = await fsSyncCommands.audioImport(sessionId, sourcePath);
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+  await catalogLocalSessionAudio(sessionId);
 }
 
 async function sha256(value: string) {

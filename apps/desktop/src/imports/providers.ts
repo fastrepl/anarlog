@@ -43,6 +43,7 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     helpUrl: "https://docs.fireflies.ai/mcp-tools/overview",
     directImport: "mcp-oauth",
     nativeNames: ["Fireflies", "Fireflies.ai"],
+    alwaysAvailable: true,
   },
   {
     id: "krisp",

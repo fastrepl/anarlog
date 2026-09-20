@@ -6,4 +6,5 @@ permissions = [
     "allow-complete-connected-import",
     "allow-sync-connected-import",
     "allow-read-text-files",
+    "allow-list-directory-entries",
 ]

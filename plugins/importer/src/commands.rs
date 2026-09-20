@@ -1,6 +1,6 @@
 use crate::types::{
     ConnectedImportAuthorization, ConnectedImportCredentials, ConnectedImportSyncResult,
-    ImportTextFile,
+    ImportDirectoryEntry, ImportTextFile,
 };
 
 const MAX_IMPORT_FILE_COUNT: usize = 1_000;
@@ -114,4 +114,86 @@ pub async fn read_text_files(paths: Vec<String>) -> Result<Vec<ImportTextFile>, 
     }
 
     Ok(files)
+}
+
+/// Lists the immediate children of a user-selected import directory, so the
+/// caller can discover sibling export bundles (one folder per meeting)
+/// without knowing their names in advance.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_directory_entries(path: String) -> Result<Vec<ImportDirectoryEntry>, String> {
+    let path_buf = std::path::PathBuf::from(&path);
+    let metadata = std::fs::metadata(&path_buf)
+        .map_err(|error| format!("could not inspect {path}: {error}"))?;
+    if !metadata.is_dir() {
+        return Err(format!("{path} is not a directory"));
+    }
+
+    let read_dir =
+        std::fs::read_dir(&path_buf).map_err(|error| format!("could not read {path}: {error}"))?;
+    let mut entries = Vec::new();
+    for entry in read_dir {
+        let entry = entry.map_err(|error| format!("could not read {path}: {error}"))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("could not inspect {path}: {error}"))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        entries.push(ImportDirectoryEntry {
+            path: entry.path().to_string_lossy().into_owned(),
+            is_dir: file_type.is_dir(),
+            name,
+        });
+    }
+    entries.sort_by(|a, b| a.name.cmp(&b.name));
+
+    Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unique_temp_dir(label: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("anlg-importer-test-{label}-{nanos}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[tokio::test]
+    async fn lists_files_and_subdirectories_sorted_by_name() {
+        let dir = unique_temp_dir("list-entries");
+        std::fs::write(dir.join("transcript.json"), "{}").unwrap();
+        std::fs::create_dir(dir.join("call-a")).unwrap();
+
+        let entries = list_directory_entries(dir.to_string_lossy().into_owned())
+            .await
+            .unwrap();
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].name, "call-a");
+        assert!(entries[0].is_dir);
+        assert_eq!(entries[1].name, "transcript.json");
+        assert!(!entries[1].is_dir);
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rejects_a_path_that_is_not_a_directory() {
+        let dir = unique_temp_dir("list-entries-file");
+        let file_path = dir.join("transcript.json");
+        std::fs::write(&file_path, "{}").unwrap();
+
+        let error = list_directory_entries(file_path.to_string_lossy().into_owned())
+            .await
+            .unwrap_err();
+
+        assert!(error.contains("is not a directory"));
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

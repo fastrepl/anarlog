@@ -41,6 +41,7 @@ import {
   isLocalConnectedImport,
 } from "./connected-import";
 import { detectImportSources } from "./detection";
+import { loadFirefliesExportBundles } from "./fireflies-export";
 import { providerIconOpticalClass, providerIconSrc } from "./icons";
 import type {
   DetectedMeetingImportProvider,
@@ -48,6 +49,7 @@ import type {
 } from "./providers";
 import {
   EMPTY_MEETING_IMPORT_HISTORY,
+  importFirefliesExportBundles,
   importMeetingFiles,
   useMeetingImportHistory,
 } from "./queries";
@@ -199,6 +201,23 @@ export function MeetingImportScreen({
     },
   });
 
+  const firefliesExportImportMutation = useMutation({
+    mutationFn: async () => {
+      const selection = await selectFiles({
+        title: t`Choose your Fireflies export folder`,
+        multiple: false,
+        directory: true,
+      });
+      if (!selection) return null;
+
+      const bundles = await loadFirefliesExportBundles(selection);
+      if (bundles.length === 0) {
+        throw new Error(t`No Fireflies export found in that folder`);
+      }
+      return importFirefliesExportBundles(bundles);
+    },
+  });
+
   const connectMutation = useMutation({
     mutationFn: async (provider: MeetingImportProvider) => {
       const controller = new AbortController();
@@ -250,9 +269,11 @@ export function MeetingImportScreen({
     connectMutation.error ??
     cancelConnectMutation.error ??
     disconnectMutation.error ??
+    firefliesExportImportMutation.error ??
     syncQueries.find((query) => query.error)?.error;
   const latestResult =
     fileImportMutation.data ??
+    firefliesExportImportMutation.data ??
     syncQueries.find((query) => query.data)?.data?.result ??
     null;
 
@@ -518,6 +539,24 @@ export function MeetingImportScreen({
                           >
                             <DownloadSimple className="size-3.5" />
                             <Trans>Use files</Trans>
+                          </Button>
+                        ) : null}
+                        {provider.id === "fireflies" ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={firefliesExportImportMutation.isPending}
+                            onClick={() =>
+                              firefliesExportImportMutation.mutate()
+                            }
+                          >
+                            {firefliesExportImportMutation.isPending ? (
+                              <CircleNotch className="size-3.5 animate-spin" />
+                            ) : (
+                              <DownloadSimple className="size-3.5" />
+                            )}
+                            <Trans>Import export folder</Trans>
                           </Button>
                         ) : null}
                       </div>

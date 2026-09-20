@@ -10,6 +10,14 @@ pub struct ImportTextFile {
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct ImportDirectoryEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct ConnectedImportAuthorization {
     pub provider_id: String,
     pub authorization_url: String,
