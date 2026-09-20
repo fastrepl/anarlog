@@ -1,0 +1,362 @@
+diff --git a/dist/index.d.mts b/dist/index.d.mts
+index 7e7cc84675cc41f961376444440e4feac33c2313..37852f9946714eadeb11e3af3df673707ce24bd6 100644
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -266,3 +266,43 @@ declare const ignoredProps: WeakSet<object | preact.VNode<any>>;
+ declare const ignoreScan: (node: ReactNode) => void;
+ 
+ export { type Change, type ChangesListener, type ChangesPayload, type ClassComponentStateChange, type ContextChange, type FunctionalComponentStateChange, type Internals, type LocalStorageOptions, type Options, type OutlineKey, type PropsChange, ReactScanInternals, type StateChange, Store, type StoreType, getIsProduction, getOptions, getReport, ignoreScan, ignoredProps, onRender, scan, setOptions, start, useScan };
++
++type ScanRender = {
++  id: string;
++  name: string;
++  count: number;
++  totalTime: number;
++  hasMemoCache: boolean;
++  wasFiberRenderMount: boolean;
++  changes: {
++    props: Array<{ name: string; count: number }>;
++    context: Array<{ name: string; count: number }>;
++    state: Array<{ index: string | number; count: number }>;
++  };
++};
++type ScanNotification = {
++  id: string;
++  timestamp: number;
++  groupedFiberRenders: ScanRender[];
++} & ({
++  kind: "interaction";
++  type: "click" | "keyboard";
++  componentPath: string[];
++  timing: { kind: "interaction"; renderTime: number; otherJSTime: number; framePreparation: number; frameConstruction: number; frameDraw: number | null };
++} | {
++  kind: "dropped-frames";
++  fps: number;
++  timing: { kind: "dropped-frames"; renderTime: number; otherTime: number };
++});
++declare const ReactScanDevtools: {
++  subscribe: (listener: () => void) => () => void;
++  getEvents: () => ScanNotification[];
++  clear: () => void;
++  getPrompt: (mode: "fix" | "explanation" | "data", event: ScanNotification) => string;
++  getTotalTime: (timing: ScanNotification["timing"]) => number;
++  getComponentName: (path: string[]) => string;
++  getEventSeverity: (event: ScanNotification) => "low" | "needs-improvement" | "high";
++  playNotificationSound: (context: AudioContext) => void;
++  mountInspector: (host: HTMLElement) => () => void;
++};
++export { ReactScanDevtools, type ScanNotification, type ScanRender };
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 7e7cc84675cc41f961376444440e4feac33c2313..37852f9946714eadeb11e3af3df673707ce24bd6 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -266,3 +266,43 @@ declare const ignoredProps: WeakSet<object | preact.VNode<any>>;
+ declare const ignoreScan: (node: ReactNode) => void;
+ 
+ export { type Change, type ChangesListener, type ChangesPayload, type ClassComponentStateChange, type ContextChange, type FunctionalComponentStateChange, type Internals, type LocalStorageOptions, type Options, type OutlineKey, type PropsChange, ReactScanInternals, type StateChange, Store, type StoreType, getIsProduction, getOptions, getReport, ignoreScan, ignoredProps, onRender, scan, setOptions, start, useScan };
++
++type ScanRender = {
++  id: string;
++  name: string;
++  count: number;
++  totalTime: number;
++  hasMemoCache: boolean;
++  wasFiberRenderMount: boolean;
++  changes: {
++    props: Array<{ name: string; count: number }>;
++    context: Array<{ name: string; count: number }>;
++    state: Array<{ index: string | number; count: number }>;
++  };
++};
++type ScanNotification = {
++  id: string;
++  timestamp: number;
++  groupedFiberRenders: ScanRender[];
++} & ({
++  kind: "interaction";
++  type: "click" | "keyboard";
++  componentPath: string[];
++  timing: { kind: "interaction"; renderTime: number; otherJSTime: number; framePreparation: number; frameConstruction: number; frameDraw: number | null };
++} | {
++  kind: "dropped-frames";
++  fps: number;
++  timing: { kind: "dropped-frames"; renderTime: number; otherTime: number };
++});
++declare const ReactScanDevtools: {
++  subscribe: (listener: () => void) => () => void;
++  getEvents: () => ScanNotification[];
++  clear: () => void;
++  getPrompt: (mode: "fix" | "explanation" | "data", event: ScanNotification) => string;
++  getTotalTime: (timing: ScanNotification["timing"]) => number;
++  getComponentName: (path: string[]) => string;
++  getEventSeverity: (event: ScanNotification) => "low" | "needs-improvement" | "high";
++  playNotificationSound: (context: AudioContext) => void;
++  mountInspector: (host: HTMLElement) => () => void;
++};
++export { ReactScanDevtools, type ScanNotification, type ScanRender };
+diff --git a/dist/index.js b/dist/index.js
+index 7514416b798e173501c586fb8dbc8ad19234f3a5..847c4373ef14cd6e7e0398001830eb97eaa164f9 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -41,6 +41,7 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
+ // src/index.ts
+ var index_exports = {};
+ __export(index_exports, {
++  ReactScanDevtools: () => ReactScanDevtools,
+   ReactScanInternals: () => ReactScanInternals,
+   Store: () => Store,
+   getIsProduction: () => getIsProduction,
+@@ -12040,7 +12041,7 @@ var setupPerformanceListener = (onEntry) => {
+     if (entry.target) {
+       let current = entry.target;
+       while (current) {
+-        if (current.id === "react-scan-toolbar-root" || current.id === "react-scan-root") {
++        if (current.id === "react-scan-toolbar-root" || current.id === "react-scan-root" || current.hasAttribute("data-devbar")) {
+           return;
+         }
+         current = current.parentElement;
+@@ -12240,7 +12241,7 @@ var setupDetailedPointerTimingListener = (kind, options) => {
+     var _a, _b;
+     const path = e.composedPath();
+     if (path.some(
+-      (el) => el instanceof Element && el.id === "react-scan-toolbar-root"
++      (el) => el instanceof Element && (el.id === "react-scan-toolbar-root" || el.hasAttribute("data-devbar"))
+     )) {
+       return;
+     }
+@@ -12740,7 +12741,7 @@ var previousTrackCurrentMouseOverElementCallback = null;
+ var overToolbar;
+ var trackCurrentMouseOverToolbar = () => {
+   const callback = (e) => {
+-    overToolbar = e.composedPath().map((path) => path.id).filter(Boolean).includes("react-scan-toolbar");
++    overToolbar = e.composedPath().some((el) => el instanceof Element && (el.id === "react-scan-toolbar" || el.hasAttribute("data-devbar")));
+   };
+   document.addEventListener("mouseover", callback);
+   previousTrackCurrentMouseOverElementCallback = callback;
+@@ -16330,9 +16331,13 @@ var useGarbageCollectElements = (notificationEvents) => {
+ };
+ var useAppNotifications = () => {
+   const log2 = useToolbarEventLog();
+-  const notificationEvents = [];
++  const notificationEvents = getNotificationEvents(log2.state.events);
+   useGarbageCollectElements(notificationEvents);
+-  log2.state.events.forEach((event) => {
++  return notificationEvents;
++};
++var getNotificationEvents = (events) => {
++  const notificationEvents = [];
++  events.forEach((event) => {
+     const fiberRenders = event.kind === "interaction" ? event.data.meta.detailedTiming.fiberRenders : event.data.meta.fiberRenders;
+     const groupedFiberRenders = getGroupedFiberRenders(fiberRenders);
+     const renderTime = groupedFiberRenders.reduce(
+@@ -17149,6 +17154,10 @@ var ScanOverlay = () => {
+     const element = document.elementFromPoint((_a = e == null ? void 0 : e.clientX) != null ? _a : 0, (_b = e == null ? void 0 : e.clientY) != null ? _b : 0);
+     refEventCatcher.current.style.removeProperty("pointer-events");
+     clearTimeout(refTimeout.current);
++    if (element?.closest("[data-devbar]")) {
++      handleNonHoverableArea();
++      return;
++    }
+     if (element && element !== refCanvas.current) {
+       const { parentCompositeFiber } = getCompositeComponentFromElement(
+         element
+@@ -17226,6 +17235,7 @@ var ScanOverlay = () => {
+     };
+   };
+   const handleClick = (e) => {
++    if (e.composedPath().some((el) => el instanceof Element && el.hasAttribute("data-devbar"))) return;
+     if (e.__reactScanSyntheticEvent) {
+       return;
+     }
+@@ -17348,6 +17358,7 @@ var ScanOverlay = () => {
+     }
+   };
+   const handlePointerDown = (e) => {
++    if (e.composedPath().some((el) => el instanceof Element && el.hasAttribute("data-devbar"))) return;
+     const state = Store.inspectState.peek();
+     const canvas2 = refCanvas.current;
+     if (!canvas2) return;
+@@ -19303,3 +19314,52 @@ var ignoreScan = (node) => {
+     ignoredProps.add(node);
+   }
+ };
++
++
++// Char embedding adapter: reuse collection, prompts and the full inspector
++// without mounting the floating Widget. Remove when upstream exports an embed API.
++var ReactScanDevtools = {
++  subscribe: toolbarEventStore.subscribe,
++  getEvents: () => getNotificationEvents(toolbarEventStore.getState().state.events),
++  clear: () => toolbarEventStore.getState().actions.clear(),
++  getPrompt: getLLMPrompt,
++  getTotalTime,
++  getComponentName,
++  getEventSeverity,
++  playNotificationSound,
++  mountInspector(host) {
++    const shadow = host.shadowRoot || host.attachShadow({ mode: "open" });
++    const style = document.createElement("style");
++    style.textContent = styles_default;
++    const content = document.createElement("div");
++    content.style.cssText = "height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;background:#0a0a0a;color:white";
++    shadow.append(style, content);
++    (0, import_preact6.render)((0, import_jsx_runtime29.jsx)(ToolbarElementContext.Provider, { value: content, children: [
++      (0, import_jsx_runtime29.jsx)(Header, {}),
++      (0, import_jsx_runtime29.jsx)("div", { className: "relative flex flex-1 overflow-hidden", children: (0, import_jsx_runtime29.jsx)(ViewInspector, {}) })
++    ] }), content);
++    // Keep the viewport overlay outside the dock so its canvas is never clipped.
++    const overlayHost = document.createElement("div");
++    const overlayShadow = overlayHost.attachShadow({ mode: "open" });
++    const overlayStyle = document.createElement("style");
++    overlayStyle.textContent = styles_default + "\n#react-scan-embedded-overlay > div { pointer-events: none !important; }";
++    const overlay = document.createElement("div");
++    overlay.id = "react-scan-embedded-overlay";
++    overlayShadow.append(overlayStyle, overlay);
++    document.documentElement.append(overlayHost);
++    (0, import_preact6.render)((0, import_jsx_runtime29.jsx)(ScanOverlay, {}), overlay);
++    const sprite = document.createElement("div");
++    shadow.append(sprite);
++    (0, import_preact6.render)((0, import_jsx_runtime29.jsx)(SvgSprite, {}), sprite);
++    return () => {
++      Store.inspectState.value = { kind: "inspect-off" };
++      (0, import_preact6.render)(null, overlay);
++      (0, import_preact6.render)(null, content);
++      (0, import_preact6.render)(null, sprite);
++      overlayHost.remove();
++      content.remove();
++      sprite.remove();
++      style.remove();
++    };
++  }
++};
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 0c8d6cb1b06d1e9d034c8e59691638088fbee2b6..0270dcd360d3e827f04d6abfb48a64c2628300d9 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -12083,7 +12083,7 @@ var setupPerformanceListener = (onEntry) => {
+     if (entry.target) {
+       let current = entry.target;
+       while (current) {
+-        if (current.id === "react-scan-toolbar-root" || current.id === "react-scan-root") {
++        if (current.id === "react-scan-toolbar-root" || current.id === "react-scan-root" || current.hasAttribute("data-devbar")) {
+           return;
+         }
+         current = current.parentElement;
+@@ -12283,7 +12283,7 @@ var setupDetailedPointerTimingListener = (kind, options) => {
+     var _a, _b;
+     const path = e.composedPath();
+     if (path.some(
+-      (el) => el instanceof Element && el.id === "react-scan-toolbar-root"
++      (el) => el instanceof Element && (el.id === "react-scan-toolbar-root" || el.hasAttribute("data-devbar"))
+     )) {
+       return;
+     }
+@@ -12783,7 +12783,7 @@ var previousTrackCurrentMouseOverElementCallback = null;
+ var overToolbar;
+ var trackCurrentMouseOverToolbar = () => {
+   const callback = (e) => {
+-    overToolbar = e.composedPath().map((path) => path.id).filter(Boolean).includes("react-scan-toolbar");
++    overToolbar = e.composedPath().some((el) => el instanceof Element && (el.id === "react-scan-toolbar" || el.hasAttribute("data-devbar")));
+   };
+   document.addEventListener("mouseover", callback);
+   previousTrackCurrentMouseOverElementCallback = callback;
+@@ -16379,9 +16379,13 @@ var useGarbageCollectElements = (notificationEvents) => {
+ };
+ var useAppNotifications = () => {
+   const log2 = useToolbarEventLog();
+-  const notificationEvents = [];
++  const notificationEvents = getNotificationEvents(log2.state.events);
+   useGarbageCollectElements(notificationEvents);
+-  log2.state.events.forEach((event) => {
++  return notificationEvents;
++};
++var getNotificationEvents = (events) => {
++  const notificationEvents = [];
++  events.forEach((event) => {
+     const fiberRenders = event.kind === "interaction" ? event.data.meta.detailedTiming.fiberRenders : event.data.meta.fiberRenders;
+     const groupedFiberRenders = getGroupedFiberRenders(fiberRenders);
+     const renderTime = groupedFiberRenders.reduce(
+@@ -17198,6 +17202,10 @@ var ScanOverlay = () => {
+     const element = document.elementFromPoint((_a = e == null ? void 0 : e.clientX) != null ? _a : 0, (_b = e == null ? void 0 : e.clientY) != null ? _b : 0);
+     refEventCatcher.current.style.removeProperty("pointer-events");
+     clearTimeout(refTimeout.current);
++    if (element?.closest("[data-devbar]")) {
++      handleNonHoverableArea();
++      return;
++    }
+     if (element && element !== refCanvas.current) {
+       const { parentCompositeFiber } = getCompositeComponentFromElement(
+         element
+@@ -17275,6 +17283,7 @@ var ScanOverlay = () => {
+     };
+   };
+   const handleClick = (e) => {
++    if (e.composedPath().some((el) => el instanceof Element && el.hasAttribute("data-devbar"))) return;
+     if (e.__reactScanSyntheticEvent) {
+       return;
+     }
+@@ -17397,6 +17406,7 @@ var ScanOverlay = () => {
+     }
+   };
+   const handlePointerDown = (e) => {
++    if (e.composedPath().some((el) => el instanceof Element && el.hasAttribute("data-devbar"))) return;
+     const state = Store.inspectState.peek();
+     const canvas2 = refCanvas.current;
+     if (!canvas2) return;
+@@ -19352,7 +19362,56 @@ var ignoreScan = (node) => {
+     ignoredProps.add(node);
+   }
+ };
++
++// Char embedding adapter: reuse collection, prompts and the full inspector
++// without mounting the floating Widget. Remove when upstream exports an embed API.
++var ReactScanDevtools = {
++  subscribe: toolbarEventStore.subscribe,
++  getEvents: () => getNotificationEvents(toolbarEventStore.getState().state.events),
++  clear: () => toolbarEventStore.getState().actions.clear(),
++  getPrompt: getLLMPrompt,
++  getTotalTime,
++  getComponentName,
++  getEventSeverity,
++  playNotificationSound,
++  mountInspector(host) {
++    const shadow = host.shadowRoot || host.attachShadow({ mode: "open" });
++    const style = document.createElement("style");
++    style.textContent = styles_default;
++    const content = document.createElement("div");
++    content.style.cssText = "height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;background:#0a0a0a;color:white";
++    shadow.append(style, content);
++    render(jsx29(ToolbarElementContext.Provider, { value: content, children: [
++      jsx29(Header, {}),
++      jsx29("div", { className: "relative flex flex-1 overflow-hidden", children: jsx29(ViewInspector, {}) })
++    ] }), content);
++    // Keep the viewport overlay outside the dock so its canvas is never clipped.
++    const overlayHost = document.createElement("div");
++    const overlayShadow = overlayHost.attachShadow({ mode: "open" });
++    const overlayStyle = document.createElement("style");
++    overlayStyle.textContent = styles_default + "\n#react-scan-embedded-overlay > div { pointer-events: none !important; }";
++    const overlay = document.createElement("div");
++    overlay.id = "react-scan-embedded-overlay";
++    overlayShadow.append(overlayStyle, overlay);
++    document.documentElement.append(overlayHost);
++    render(jsx29(ScanOverlay, {}), overlay);
++    const sprite = document.createElement("div");
++    shadow.append(sprite);
++    render(jsx29(SvgSprite, {}), sprite);
++    return () => {
++      Store.inspectState.value = { kind: "inspect-off" };
++      render(null, overlay);
++      render(null, content);
++      render(null, sprite);
++      overlayHost.remove();
++      content.remove();
++      sprite.remove();
++      style.remove();
++    };
++  }
++};
+ export {
++  ReactScanDevtools,
+   ReactScanInternals,
+   Store,
+   getIsProduction,

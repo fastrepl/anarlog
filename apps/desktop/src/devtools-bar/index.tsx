@@ -30,6 +30,8 @@ import {
   useDevtoolsMetrics,
 } from "./metrics";
 import { QuickSettingsMenu } from "./quick-settings";
+import { ReactScanControls } from "./react-scan-controls";
+import { useReactToolsState, setReactOutlinesEnabled } from "./react-tools";
 import {
   areRenderOutlinesEnabled,
   getTopRenderedComponents,
@@ -157,6 +159,7 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
       <footer
         aria-label="Developer status bar"
         data-testid="devtools-status-bar"
+        data-devbar=""
         className={cn([
           "flex h-6 shrink-0 items-stretch select-none",
           "border-t border-neutral-800 bg-neutral-900 text-neutral-300",
@@ -195,6 +198,7 @@ function DevtoolsStatusBarContent(props: Record<never, never>) {
           <LiveMetrics />
         </div>
 
+        <ReactScanControls />
         <Hint content="Copy a diagnostics snapshot (build, device, metrics, top commands and components, sync) as JSON">
           <button
             type="button"
@@ -281,7 +285,10 @@ function LiveMetrics() {
   const callbacks = last(metrics.callbacks) ?? 0;
   const renders = last(metrics.renders) ?? 0;
   const memoryBytes = last(metrics.memoryBytes);
-  const outlinesEnabled = areRenderOutlinesEnabled();
+  const reactTools = useReactToolsState();
+  const outlinesEnabled = reactTools.available
+    ? reactTools.outlinesEnabled
+    : areRenderOutlinesEnabled();
   const fpsTarget = Math.max(60, ...metrics.fps);
 
   return (
@@ -348,7 +355,8 @@ function LiveMetrics() {
           </span>
         }
         onClick={() => {
-          setRenderOutlinesEnabled(!outlinesEnabled);
+          if (reactTools.available) setReactOutlinesEnabled(!outlinesEnabled);
+          else setRenderOutlinesEnabled(!outlinesEnabled);
           refresh();
         }}
         tooltip={
