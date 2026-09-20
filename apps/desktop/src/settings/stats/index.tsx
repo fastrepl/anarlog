@@ -65,13 +65,8 @@ export function SettingsInsights() {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <SettingsPageTitle title={<Trans>Your insights</Trans>} />
-        <p className="text-muted-foreground text-sm">
-          <Trans>Your conversation history.</Trans>
-        </p>
-      </div>
+    <div className="flex w-full min-w-0 flex-col gap-8">
+      <SettingsPageTitle title={<Trans>Your insights</Trans>} />
       {activity.error ? (
         <p role="alert" className="text-muted-foreground text-sm">
           <Trans>

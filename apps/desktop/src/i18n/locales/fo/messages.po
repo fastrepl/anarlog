@@ -6283,10 +6283,6 @@ msgstr ""
 msgid "Your comment couldn’t be added. Try again."
 msgstr ""
 
-#: src/settings/stats/index.tsx
-msgid "Your conversation history."
-msgstr ""
-
 #: src/settings/stats/insights.tsx
 msgid "Your conversation patterns"
 msgstr ""

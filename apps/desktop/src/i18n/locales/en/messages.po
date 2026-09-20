@@ -6283,10 +6283,6 @@ msgstr "Your busiest weekdays are tied at {peakCount} conversations each in the 
 msgid "Your comment couldn’t be added. Try again."
 msgstr "Your comment couldn’t be added. Try again."
 
-#: src/settings/stats/index.tsx
-msgid "Your conversation history."
-msgstr "Your conversation history."
-
 #: src/settings/stats/insights.tsx
 msgid "Your conversation patterns"
 msgstr "Your conversation patterns"
