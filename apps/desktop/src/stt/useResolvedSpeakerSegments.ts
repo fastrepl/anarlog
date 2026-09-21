@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import {
@@ -31,6 +31,8 @@ export function useResolvedSpeakerSegments(
         : null,
     [request, segments],
   );
+  // Live captures change the input several times a second; keep the last
+  // resolution on screen until the native labeler answers for the new one.
   const { data } = useQuery({
     queryKey: ["contextual-speaker-segments", input],
     queryFn: async () => {
@@ -40,6 +42,7 @@ export function useResolvedSpeakerSegments(
       return result.data;
     },
     enabled: Boolean(input),
+    placeholderData: keepPreviousData,
     staleTime: Infinity,
     gcTime: 0,
   });
