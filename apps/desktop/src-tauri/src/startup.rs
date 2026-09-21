@@ -185,6 +185,29 @@ pub fn exit_for_already_running_instance() -> ! {
     std::process::exit(0);
 }
 
+// Older versions let users point notes and recordings at a custom folder,
+// typically an Obsidian vault, while the database stayed in the app data
+// directory. Everything now lives in the app data directory; the first launch
+// after updating moves the custom folder's contents back before any plugin
+// resolves the storage location. Runs under the launch lock.
+pub fn consolidate_custom_storage(identifier: &str) {
+    let Some(base) = anlg_storage::global::compute_default_base(identifier) else {
+        return;
+    };
+    match anlg_storage::vault::consolidate_custom_vault(&base, &base) {
+        Ok(Some(previous)) if previous != base => eprintln!(
+            "moved notes and recordings from {} to {}",
+            previous.display(),
+            base.display()
+        ),
+        Ok(_) => {}
+        Err(error) => eprintln!(
+            "failed to move notes and recordings into {}; keeping the custom folder for now: {error}",
+            base.display()
+        ),
+    }
+}
+
 // Database open and plugin setup can still take a few seconds before the
 // webview exists. After a short delay this shows a native alert (spawned
 // osascript, matching the startup-failure alerts) that is killed as soon as

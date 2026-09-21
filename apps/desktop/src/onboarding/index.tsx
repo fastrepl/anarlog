@@ -17,7 +17,6 @@ import {
   getStepStatus,
 } from "./config";
 import { FinalDescription, FinalSection, finishOnboarding } from "./final";
-import { FolderLocationSection } from "./folder-location";
 import { ImportSection } from "./imports";
 import { PermissionsSection } from "./permissions";
 import { OnboardingSection } from "./shared";
@@ -314,20 +313,6 @@ function OnboardingScreenContent({
             onSkip={skipCurrentStep}
           >
             <ImportSection onContinue={goNext} onSkip={skipCurrentStep} />
-          </OnboardingSection>
-
-          <OnboardingSection
-            title={<Trans>Storage</Trans>}
-            description={
-              <Trans>Where your notes and recordings are stored</Trans>
-            }
-            completedTitle={<Trans>Storage configured</Trans>}
-            status={getStepStatus("folder-location", currentStep)}
-            onBack={goBack}
-            onNext={goNext}
-            onSkip={skipCurrentStep}
-          >
-            <FolderLocationSection onContinue={goNext} />
           </OnboardingSection>
 
           <OnboardingSection

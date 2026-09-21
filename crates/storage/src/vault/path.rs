@@ -70,67 +70,57 @@ pub fn resolve_custom(global_base: &Path, default_base: &Path) -> Option<PathBuf
     None
 }
 
-pub fn persist_vault_path(
+/// Moves the notes and recordings of a custom storage location into
+/// `default_base` and clears the override that pointed at it. Returns the
+/// folder that was consolidated, if there was one.
+///
+/// The copy finishes before the override is cleared, so an interrupted or
+/// failed launch keeps using the custom folder and retries next time. Only
+/// artifacts the app owns are removed from the old folder afterwards.
+pub fn consolidate_custom_vault(
     global_base: &Path,
     default_base: &Path,
-    new_path: &Path,
-) -> Result<(), crate::Error> {
-    ensure_vault_dir(new_path)?;
+) -> Result<Option<PathBuf>, crate::Error> {
+    let Some(mut config) = load_config(global_base) else {
+        return Ok(None);
+    };
+    let Some(custom_path) = config
+        .get(VAULT_PATH_KEY)
+        .and_then(|v| v.as_str())
+        .map(|path| expand_path(path, Some(default_base)))
+    else {
+        return Ok(None);
+    };
 
-    let mut config = load_config(global_base).unwrap_or_else(|| serde_json::json!({}));
-    if !config.is_object() {
-        config = serde_json::json!({});
+    let has_separate_data = custom_path.is_dir() && !is_same_dir(&custom_path, default_base);
+    if has_separate_data {
+        std::fs::create_dir_all(default_base)?;
+        super::fs::copy_vault_items(&custom_path, default_base)?;
+        super::fs::remove_derived_items(default_base)?;
     }
 
-    if new_path == default_base {
-        clear_vault_path(&mut config);
-    } else {
-        set_vault_path(&mut config, new_path);
+    if let Some(obj) = config.as_object_mut() {
+        obj.remove(VAULT_PATH_KEY);
     }
-
     crate::fs::atomic_write(
         &compute_vault_config_path(global_base),
         &serde_json::to_string_pretty(&config)?,
     )?;
 
-    Ok(())
+    if has_separate_data {
+        // Best-effort: the data is already safe at the default base.
+        let _ = super::fs::remove_owned_items(&custom_path);
+    }
+
+    Ok(Some(custom_path))
 }
 
-pub fn validate_vault_base_change(old_path: &Path, new_path: &Path) -> Result<(), crate::Error> {
-    if new_path == old_path {
-        return Ok(());
-    }
-
-    validate_vault_path(new_path)?;
-
-    if new_path.starts_with(old_path) {
-        return Err(crate::Error::VaultBaseIsSubdirectory);
-    }
-
-    if old_path.starts_with(new_path) {
-        return Err(crate::Error::VaultBaseIsParent);
-    }
-
-    Ok(())
-}
-
-pub fn set_vault_path(config: &mut serde_json::Value, path: &Path) {
-    if !config.is_object() {
-        *config = serde_json::json!({});
-    }
-
-    if let Some(obj) = config.as_object_mut() {
-        obj.insert(
-            VAULT_PATH_KEY.to_string(),
-            serde_json::Value::String(path.to_string_lossy().to_string()),
-        );
-    }
-}
-
-pub fn clear_vault_path(config: &mut serde_json::Value) {
-    if let Some(obj) = config.as_object_mut() {
-        obj.remove(VAULT_PATH_KEY);
-    }
+fn is_same_dir(a: &Path, b: &Path) -> bool {
+    a == b
+        || matches!(
+            (a.canonicalize(), b.canonicalize()),
+            (Ok(a), Ok(b)) if a == b
+        )
 }
 
 fn load_vault_path(global_base: &Path) -> Option<String> {
@@ -372,138 +362,203 @@ mod tests {
         }
     }
 
-    mod persist_vault_path_tests {
+    mod consolidate_custom_vault_tests {
         use super::*;
 
+        fn write_config(global_base: &Path, config: serde_json::Value) {
+            fs::write(compute_vault_config_path(global_base), config.to_string()).unwrap();
+        }
+
+        fn read_config(global_base: &Path) -> serde_json::Value {
+            let content = fs::read_to_string(compute_vault_config_path(global_base)).unwrap();
+            serde_json::from_str(&content).unwrap()
+        }
+
+        fn seed_vault(vault: &Path) {
+            fs::create_dir_all(vault.join("sessions").join("s1")).unwrap();
+            fs::write(
+                vault.join("sessions").join("s1").join("audio.wav"),
+                "custom",
+            )
+            .unwrap();
+            fs::create_dir_all(vault.join("search_index")).unwrap();
+            fs::write(vault.join("search_index").join("meta.json"), "{}").unwrap();
+            fs::write(vault.join("settings.json"), r#"{"theme":"dark"}"#).unwrap();
+            fs::write(vault.join("AGENTS.md"), "# Anarlog Desktop\n").unwrap();
+            fs::create_dir_all(vault.join(".obsidian")).unwrap();
+            fs::write(vault.join("Daily note.md"), "note").unwrap();
+        }
+
         #[test]
-        fn writes_custom_path_to_primary_config() {
+        fn does_nothing_without_an_override() {
             let temp = tempdir().unwrap();
             let global_base = temp.path().to_path_buf();
             let default_base = temp.path().join("default");
-            let custom_path = temp.path().join("vault");
+            fs::create_dir_all(&default_base).unwrap();
+            write_config(&global_base, serde_json::json!({"theme": "dark"}));
 
-            persist_vault_path(&global_base, &default_base, &custom_path).unwrap();
-
-            let config = fs::read_to_string(compute_vault_config_path(&global_base)).unwrap();
-            let config = serde_json::from_str::<serde_json::Value>(&config).unwrap();
             assert_eq!(
-                config.get(VAULT_PATH_KEY).and_then(|v| v.as_str()),
-                Some(custom_path.to_string_lossy().as_ref())
+                consolidate_custom_vault(&global_base, &default_base).unwrap(),
+                None
+            );
+            assert_eq!(
+                read_config(&global_base),
+                serde_json::json!({"theme": "dark"})
             );
         }
 
         #[test]
-        fn clears_override_when_using_default_base() {
+        fn does_nothing_without_a_config_file() {
             let temp = tempdir().unwrap();
             let global_base = temp.path().to_path_buf();
             let default_base = temp.path().join("default");
 
+            assert_eq!(
+                consolidate_custom_vault(&global_base, &default_base).unwrap(),
+                None
+            );
+            assert!(!compute_vault_config_path(&global_base).exists());
+        }
+
+        #[test]
+        fn moves_owned_items_into_the_default_base_and_clears_the_override() {
+            let temp = tempdir().unwrap();
+            let global_base = temp.path().join("global");
+            let default_base = global_base.clone();
+            let vault = temp.path().join("obsidian-vault");
+            fs::create_dir_all(&default_base).unwrap();
+            seed_vault(&vault);
+            fs::create_dir_all(default_base.join("sessions").join("s0")).unwrap();
             fs::write(
-                compute_vault_config_path(&global_base),
-                serde_json::json!({
-                    "theme": "dark",
-                    VAULT_PATH_KEY: temp.path().join("old").to_string_lossy(),
-                })
-                .to_string(),
+                default_base.join("sessions").join("s0").join("audio.wav"),
+                "older",
             )
             .unwrap();
+            fs::create_dir_all(default_base.join("search_index")).unwrap();
+            fs::write(default_base.join("search_index").join("meta.json"), "stale").unwrap();
+            write_config(
+                &global_base,
+                serde_json::json!({
+                    "theme": "dark",
+                    VAULT_PATH_KEY: vault.to_string_lossy(),
+                }),
+            );
 
-            persist_vault_path(&global_base, &default_base, &default_base).unwrap();
+            let result = consolidate_custom_vault(&global_base, &default_base).unwrap();
 
-            let config = fs::read_to_string(compute_vault_config_path(&global_base)).unwrap();
-            let config = serde_json::from_str::<serde_json::Value>(&config).unwrap();
-            assert_eq!(config.get("theme").and_then(|v| v.as_str()), Some("dark"));
-            assert!(config.get(VAULT_PATH_KEY).is_none());
+            assert_eq!(result, Some(vault.clone()));
+            assert_eq!(
+                fs::read_to_string(default_base.join("sessions").join("s1").join("audio.wav"))
+                    .unwrap(),
+                "custom"
+            );
+            assert!(
+                default_base
+                    .join("sessions")
+                    .join("s0")
+                    .join("audio.wav")
+                    .exists()
+            );
+            assert_eq!(
+                fs::read_to_string(default_base.join("settings.json")).unwrap(),
+                r#"{"theme":"dark"}"#
+            );
+            assert!(
+                !default_base.join("search_index").exists(),
+                "a stale index must not survive; the app rebuilds it from the database"
+            );
+            assert_eq!(
+                read_config(&global_base),
+                serde_json::json!({"theme": "dark"})
+            );
+
+            assert!(!vault.join("sessions").exists());
+            assert!(!vault.join("search_index").exists());
+            assert!(!vault.join("settings.json").exists());
+            assert!(!vault.join("AGENTS.md").exists());
+            assert!(vault.join(".obsidian").exists());
+            assert!(vault.join("Daily note.md").exists());
         }
 
         #[test]
-        fn rejects_relative_new_path() {
+        fn resolves_to_the_default_base_after_consolidating() {
             let temp = tempdir().unwrap();
-            let global_base = temp.path().to_path_buf();
-            let default_base = temp.path().join("default");
-            let new_path = PathBuf::from("relative/path");
+            let global_base = temp.path().join("global");
+            let vault = temp.path().join("vault");
+            fs::create_dir_all(&global_base).unwrap();
+            seed_vault(&vault);
+            write_config(
+                &global_base,
+                serde_json::json!({ VAULT_PATH_KEY: vault.to_string_lossy() }),
+            );
 
-            let result = persist_vault_path(&global_base, &default_base, &new_path);
-
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("absolute"));
-        }
-    }
-
-    mod validate_vault_base_change_tests {
-        use super::*;
-
-        #[test]
-        fn same_path_returns_ok() {
-            let temp = tempdir().unwrap();
-            let path = temp.path().join("vault");
-            assert!(validate_vault_base_change(&path, &path).is_ok());
+            with_env(VAULT_BASE_ENV_VAR, None, || {
+                assert_eq!(resolve_base(&global_base, &global_base), vault);
+                consolidate_custom_vault(&global_base, &global_base).unwrap();
+                assert_eq!(resolve_base(&global_base, &global_base), global_base);
+            });
         }
 
         #[test]
-        fn different_sibling_paths_returns_ok() {
+        fn clears_an_override_that_points_at_the_default_base() {
             let temp = tempdir().unwrap();
-            let old = temp.path().join("content");
-            let new = temp.path().join("other");
-            assert!(validate_vault_base_change(&old, &new).is_ok());
+            let global_base = temp.path().join("global");
+            fs::create_dir_all(&global_base).unwrap();
+            seed_vault(&global_base);
+            write_config(
+                &global_base,
+                serde_json::json!({ VAULT_PATH_KEY: global_base.to_string_lossy() }),
+            );
+
+            let result = consolidate_custom_vault(&global_base, &global_base).unwrap();
+
+            assert_eq!(result, Some(global_base.clone()));
+            assert!(read_config(&global_base).get(VAULT_PATH_KEY).is_none());
+            assert!(global_base.join("sessions").join("s1").exists());
+            assert!(global_base.join("search_index").exists());
         }
 
         #[test]
-        fn rejects_subdirectory() {
+        fn clears_an_override_whose_folder_is_gone() {
             let temp = tempdir().unwrap();
-            let old = temp.path().join("vault");
-            let new = temp.path().join("vault").join("subdir");
-            let result = validate_vault_base_change(&old, &new);
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("subdirectory"));
+            let global_base = temp.path().join("global");
+            fs::create_dir_all(&global_base).unwrap();
+            let missing = temp.path().join("missing");
+            write_config(
+                &global_base,
+                serde_json::json!({ VAULT_PATH_KEY: missing.to_string_lossy() }),
+            );
+
+            let result = consolidate_custom_vault(&global_base, &global_base).unwrap();
+
+            assert_eq!(result, Some(missing));
+            assert!(read_config(&global_base).get(VAULT_PATH_KEY).is_none());
         }
 
         #[test]
-        fn rejects_nested_subdirectory() {
+        fn keeps_the_override_when_the_copy_fails() {
             let temp = tempdir().unwrap();
-            let old = temp.path().join("vault");
-            let new = temp.path().join("vault").join("deep").join("nested");
-            let result = validate_vault_base_change(&old, &new);
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("subdirectory"));
-        }
+            let global_base = temp.path().join("global");
+            let vault = temp.path().join("vault");
+            fs::create_dir_all(&global_base).unwrap();
+            seed_vault(&vault);
+            // A file where the sessions directory must go makes the copy fail.
+            fs::write(global_base.join("sessions"), "not a directory").unwrap();
+            write_config(
+                &global_base,
+                serde_json::json!({ VAULT_PATH_KEY: vault.to_string_lossy() }),
+            );
 
-        #[test]
-        fn rejects_parent_directory() {
-            let temp = tempdir().unwrap();
-            let old = temp.path().join("vault").join("subdir");
-            let new = temp.path().join("vault");
-            let result = validate_vault_base_change(&old, &new);
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("parent"));
-        }
+            assert!(consolidate_custom_vault(&global_base, &global_base).is_err());
 
-        #[test]
-        fn rejects_ancestor_directory() {
-            let temp = tempdir().unwrap();
-            let old = temp.path().join("vault").join("deep").join("nested");
-            let new = temp.path().join("vault");
-            let result = validate_vault_base_change(&old, &new);
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("parent"));
-        }
-
-        #[test]
-        fn similar_prefix_not_ancestor() {
-            let temp = tempdir().unwrap();
-            let old = temp.path().join("vault");
-            let new = temp.path().join("vault-backup");
-            assert!(validate_vault_base_change(&old, &new).is_ok());
-        }
-
-        #[test]
-        fn rejects_relative_new_path() {
-            let temp = tempdir().unwrap();
-            let old = temp.path().join("vault");
-            let new = PathBuf::from("relative/path");
-            let result = validate_vault_base_change(&old, &new);
-            assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("absolute"));
+            assert_eq!(
+                read_config(&global_base)
+                    .get(VAULT_PATH_KEY)
+                    .and_then(|v| v.as_str()),
+                Some(vault.to_string_lossy().as_ref())
+            );
+            assert!(vault.join("sessions").join("s1").join("audio.wav").exists());
+            assert!(vault.join("settings.json").exists());
         }
     }
 }

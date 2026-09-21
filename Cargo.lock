@@ -15573,10 +15573,8 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "dirs 6.0.0",
- "serde",
  "serde_json",
  "shellexpand",
- "specta",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",

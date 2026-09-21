@@ -295,18 +295,6 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Enables the copy_vault command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-copy-vault",
-          "markdownDescription": "Enables the copy_vault command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the copy_vault command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-copy-vault",
-          "markdownDescription": "Denies the copy_vault command without any pre-configured scope."
-        },
-        {
           "description": "Enables the global_base command without any pre-configured scope.",
           "type": "string",
           "const": "allow-global-base",
@@ -319,18 +307,6 @@
           "markdownDescription": "Denies the global_base command without any pre-configured scope."
         },
         {
-          "description": "Enables the is_empty_or_missing_dir command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-is-empty-or-missing-dir",
-          "markdownDescription": "Enables the is_empty_or_missing_dir command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the is_empty_or_missing_dir command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-is-empty-or-missing-dir",
-          "markdownDescription": "Denies the is_empty_or_missing_dir command without any pre-configured scope."
-        },
-        {
           "description": "Enables the load command without any pre-configured scope.",
           "type": "string",
           "const": "allow-load",
@@ -341,30 +317,6 @@
           "type": "string",
           "const": "deny-load",
           "markdownDescription": "Denies the load command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the move_vault command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-move-vault",
-          "markdownDescription": "Enables the move_vault command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the move_vault command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-move-vault",
-          "markdownDescription": "Denies the move_vault command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the obsidian_vaults command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-obsidian-vaults",
-          "markdownDescription": "Enables the obsidian_vaults command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the obsidian_vaults command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-obsidian-vaults",
-          "markdownDescription": "Denies the obsidian_vaults command without any pre-configured scope."
         },
         {
           "description": "Enables the path command without any pre-configured scope.",
@@ -391,18 +343,6 @@
           "markdownDescription": "Denies the save command without any pre-configured scope."
         },
         {
-          "description": "Enables the set_vault_base command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-set-vault-base",
-          "markdownDescription": "Enables the set_vault_base command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the set_vault_base command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-set-vault-base",
-          "markdownDescription": "Denies the set_vault_base command without any pre-configured scope."
-        },
-        {
           "description": "Enables the vault_base command without any pre-configured scope.",
           "type": "string",
           "const": "allow-vault-base",
@@ -415,10 +355,10 @@
           "markdownDescription": "Denies the vault_base command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-global-base`\n- `allow-vault-base`\n- `allow-copy-vault`\n- `allow-move-vault`\n- `allow-set-vault-base`\n- `allow-is-empty-or-missing-dir`\n- `allow-obsidian-vaults`\n- `allow-path`\n- `allow-load`\n- `allow-save`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-global-base`\n- `allow-vault-base`\n- `allow-path`\n- `allow-load`\n- `allow-save`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-global-base`\n- `allow-vault-base`\n- `allow-copy-vault`\n- `allow-move-vault`\n- `allow-set-vault-base`\n- `allow-is-empty-or-missing-dir`\n- `allow-obsidian-vaults`\n- `allow-path`\n- `allow-load`\n- `allow-save`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-global-base`\n- `allow-vault-base`\n- `allow-path`\n- `allow-load`\n- `allow-save`"
         }
       ]
     }

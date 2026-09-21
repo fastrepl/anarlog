@@ -164,6 +164,7 @@ pub fn main() {
                 };
 
             let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
+            startup::consolidate_custom_storage(&identifier);
             let db = match open_desktop_db(&identifier).await {
                 Ok(db) => db,
                 Err(error) => {

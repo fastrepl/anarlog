@@ -81,31 +81,15 @@ In 1.4.25, signing in to another account keeps your personal notes and recording
 
 Reconnect integrations for the account you are using. Connecting a different account opts this library into the new account-switching format; older app versions cannot open it. Keep a compatible version installed rather than downgrading after connecting.
 
-This is an account-switching choice, not a repair for a delayed sync. Leave your account, storage folder, and recovery key unchanged while investigating a sync error.
+This is an account-switching choice, not a repair for a delayed sync. Leave your account and recovery key unchanged while investigating a sync error.
 
-## Don't combine sync with a cloud-storage folder
+## Where local data lives
 
-<Warning>
-  Keep your Anarlog storage location out of folders managed by a file-syncing service such as iCloud Drive, Dropbox, Google Drive, or OneDrive. This includes Obsidian vaults stored in iCloud Drive.
-</Warning>
+Anarlog keeps your notes, recordings, and settings in its application data folder, next to the local database. You don't pick a storage folder, so a file-syncing service such as iCloud Drive, Dropbox, Google Drive, or OneDrive never competes with Cloud sync for the same files. Backup tools that snapshot the folder are fine.
 
-Two sync systems changing the same files can cause:
+Earlier versions let you point storage at a custom folder, often an Obsidian vault. The first launch after updating moves the notes and recordings from that folder back into the application data folder and removes only the files Anarlog created there. Your other files in that folder stay where they are.
 
-- Conflicted or duplicate copies of recordings and attachments
-- Incomplete audio files when a service uploads a recording while Anarlog is still writing it
-- Files that are offloaded to the cloud and unavailable offline
-
-Anarlog shows a warning in **Settings → Sync** when your storage location is inside a known cloud-storage folder. Backup tools that snapshot files without continuously syncing them back are fine.
-
-If you see this warning:
-
-1. Pause Cloud sync so changes remain on this device while the files move.
-2. Open **Settings → General** and find **Storage**.
-3. Click **Change** and choose a local folder that is not managed by a file-syncing service.
-4. Wait for Anarlog to move the data and relaunch automatically.
-5. Return to **Settings → Sync**, confirm that the warning is gone, and resume sync.
-
-Use **Change** instead of moving or deleting the storage folder manually. If the move fails, leave the existing folder in place and email [team@fastrepl.com](mailto:team@fastrepl.com) with your operating system and the error shown in Settings.
+To keep an Obsidian vault or another folder up to date, use the [Export every meeting as Markdown](/automations) automation and choose that folder as its export location. It writes files one way, from Anarlog into the folder.
 
 ## Fix a blocked sync
 

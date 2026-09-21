@@ -30,38 +30,6 @@ async vaultBase() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async copyVault(newPath: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:settings|copy_vault", { newPath }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async moveVault(newPath: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:settings|move_vault", { newPath }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async setVaultBase(newPath: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:settings|set_vault_base", { newPath }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async isEmptyOrMissingDir(path: string) : Promise<Result<boolean, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:settings|is_empty_or_missing_dir", { path }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async load() : Promise<Result<JsonValue, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:settings|load") };
@@ -73,14 +41,6 @@ async load() : Promise<Result<JsonValue, string>> {
 async save(settings: JsonValue) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:settings|save", { settings }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async obsidianVaults() : Promise<Result<ObsidianVault[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:settings|obsidian_vaults") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -99,7 +59,6 @@ async obsidianVaults() : Promise<Result<ObsidianVault[], string>> {
 /** user-defined types **/
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
-export type ObsidianVault = { path: string }
 
 /** tauri-specta globals **/
 

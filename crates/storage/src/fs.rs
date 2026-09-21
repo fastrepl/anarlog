@@ -28,14 +28,13 @@ pub async fn atomic_write_async(target: &Path, content: &str) -> std::io::Result
     Ok(())
 }
 
-pub async fn copy_dir_recursive(
+pub fn copy_dir_recursive(
     src: &Path,
     dst: &Path,
     skip_filename: Option<&str>,
 ) -> std::io::Result<()> {
-    let mut entries = tokio::fs::read_dir(src).await?;
-
-    while let Some(entry) = entries.next_entry().await? {
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
         let src_path = entry.path();
         let file_name = entry.file_name();
         let dst_path = dst.join(&file_name);
@@ -46,12 +45,11 @@ pub async fn copy_dir_recursive(
             continue;
         }
 
-        let file_type = entry.file_type().await?;
-        if file_type.is_dir() {
-            tokio::fs::create_dir_all(&dst_path).await?;
-            Box::pin(copy_dir_recursive(&src_path, &dst_path, skip_filename)).await?;
+        if entry.file_type()?.is_dir() {
+            std::fs::create_dir_all(&dst_path)?;
+            copy_dir_recursive(&src_path, &dst_path, skip_filename)?;
         } else {
-            tokio::fs::copy(&src_path, &dst_path).await?;
+            std::fs::copy(&src_path, &dst_path)?;
         }
     }
 
@@ -117,8 +115,8 @@ mod tests {
         assert_eq!(fs::read_to_string(&target).unwrap(), "async content");
     }
 
-    #[tokio::test]
-    async fn copy_dir_recursive_copies_files() {
+    #[test]
+    fn copy_dir_recursive_copies_files() {
         let temp = tempdir().unwrap();
         let src = temp.path().join("src");
         let dst = temp.path().join("dst");
@@ -128,7 +126,7 @@ mod tests {
         fs::write(src.join("file2.txt"), "content2").unwrap();
 
         fs::create_dir_all(&dst).unwrap();
-        copy_dir_recursive(&src, &dst, None).await.unwrap();
+        copy_dir_recursive(&src, &dst, None).unwrap();
 
         assert_eq!(
             fs::read_to_string(dst.join("file1.txt")).unwrap(),
@@ -140,8 +138,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn copy_dir_recursive_copies_subdirs() {
+    #[test]
+    fn copy_dir_recursive_copies_subdirs() {
         let temp = tempdir().unwrap();
         let src = temp.path().join("src");
         let dst = temp.path().join("dst");
@@ -150,7 +148,7 @@ mod tests {
         fs::write(src.join("subdir").join("nested.txt"), "nested content").unwrap();
 
         fs::create_dir_all(&dst).unwrap();
-        copy_dir_recursive(&src, &dst, None).await.unwrap();
+        copy_dir_recursive(&src, &dst, None).unwrap();
 
         assert_eq!(
             fs::read_to_string(dst.join("subdir").join("nested.txt")).unwrap(),
@@ -158,8 +156,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn copy_dir_recursive_skips_specified_file() {
+    #[test]
+    fn copy_dir_recursive_skips_specified_file() {
         let temp = tempdir().unwrap();
         let src = temp.path().join("src");
         let dst = temp.path().join("dst");
@@ -169,9 +167,7 @@ mod tests {
         fs::write(src.join("skip.txt"), "skip").unwrap();
 
         fs::create_dir_all(&dst).unwrap();
-        copy_dir_recursive(&src, &dst, Some("skip.txt"))
-            .await
-            .unwrap();
+        copy_dir_recursive(&src, &dst, Some("skip.txt")).unwrap();
 
         assert!(dst.join("keep.txt").exists());
         assert!(!dst.join("skip.txt").exists());

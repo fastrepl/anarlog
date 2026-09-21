@@ -7,7 +7,6 @@ export type OnboardingStep =
   | "login"
   | "calendar"
   | "imports"
-  | "folder-location"
   | "final";
 
 const STEPS_MACOS: OnboardingStep[] = [
