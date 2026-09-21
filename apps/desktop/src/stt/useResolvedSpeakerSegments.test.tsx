@@ -181,7 +181,14 @@ describe("useResolvedSpeakerSegments", () => {
   });
 
   it("keeps a context-boundary split while the extended segment is re-resolved", async () => {
-    const request = createRequest();
+    const base = createRequest();
+    // The call starts at 100ms, so "before" precedes the speaker context.
+    const request: RenderTranscriptRequest = {
+      ...base,
+      speaker_context: {
+        intervals: [{ ...base.speaker_context!.intervals[0]!, start_ms: 100 }],
+      },
+    };
     const before = {
       id: "w-before",
       text: "before",
@@ -294,6 +301,77 @@ describe("useResolvedSpeakerSegments", () => {
     expect(result.current[1]?.provisional_speaker?.human_id).toBe(
       "human-artem",
     );
+  });
+
+  it("keeps merged same-speaker words in one segment while re-resolving", async () => {
+    const request = createRequest();
+    const remoteWord = (id: string, text: string, start_ms: number) => ({
+      id,
+      text,
+      start_ms,
+      end_ms: start_ms + 40,
+      channel: "RemoteParty" as const,
+      is_final: true,
+    });
+    const key = {
+      channel: "RemoteParty" as const,
+      speaker_index: 0,
+      speaker_human_id: null,
+    };
+    const first = remoteWord("w-first", "first", 1_000);
+    const second = remoteWord("w-second", " second", 5_000);
+    const separate: Segment[] = [
+      {
+        id: "segment-first",
+        key,
+        start_ms: first.start_ms,
+        end_ms: first.end_ms,
+        text: "first",
+        words: [first],
+      },
+      {
+        id: "segment-second",
+        key,
+        start_ms: second.start_ms,
+        end_ms: second.end_ms,
+        text: "second",
+        words: [second],
+      },
+    ];
+    mocks.renderTranscriptSegments.mockResolvedValueOnce({
+      status: "ok",
+      data: separate.map((segment) =>
+        labelSegment(segment, "Artem", "human-artem"),
+      ),
+    });
+
+    const { rerender, result } = renderHook(
+      ({ segments }) => useResolvedSpeakerSegments(segments, request),
+      { initialProps: { segments: separate }, wrapper },
+    );
+    await waitFor(() => expect(result.current).toHaveLength(2));
+
+    mocks.renderTranscriptSegments.mockImplementationOnce(
+      () => new Promise(() => {}),
+    );
+    const bridge = remoteWord("w-bridge", " bridge", 3_000);
+    rerender({
+      segments: [
+        {
+          id: "segment-merged",
+          key,
+          start_ms: first.start_ms,
+          end_ms: second.end_ms,
+          text: "first bridge second",
+          words: [first, bridge, second],
+        },
+      ],
+    });
+
+    expect(result.current).toHaveLength(1);
+    expect(result.current[0]?.id).toBe("segment-merged");
+    expect(result.current[0]?.speaker_label).toBe("Artem");
+    expect(result.current[0]?.words).toEqual([first, bridge, second]);
   });
 
   it("scopes carried speaker names to the matching context interval", async () => {
