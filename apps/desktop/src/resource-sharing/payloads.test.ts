@@ -8,7 +8,10 @@ import {
   sharedTemplatePayload,
 } from "./payloads";
 
-import type { AutomationWorkflow } from "~/automations/workflows";
+import {
+  createEmptyWorkflow,
+  type AutomationWorkflow,
+} from "~/automations/workflows";
 import { DEFAULT_TEMPLATE_ICON } from "~/templates/template-icon";
 
 describe("shared resource payloads", () => {
@@ -112,4 +115,32 @@ describe("shared resource payloads", () => {
       }),
     ).toThrow("This shared folder is invalid");
   });
+});
+
+it("removes Google Drive destinations and delivery history from shared automations", () => {
+  const workflow = createEmptyWorkflow({
+    steps: [
+      {
+        id: "drive",
+        type: "google_drive_export",
+        connectionId: "private-connection",
+        target: { id: "private-folder", name: "Client" },
+      },
+    ],
+    driveExports: [
+      {
+        sessionId: "private-meeting",
+        stepId: "drive",
+        connectionId: "private-connection",
+        folderId: "private-folder",
+        fileId: "private-file",
+        status: "error",
+        detail: "private-error",
+        at: "2026-09-18",
+      },
+    ],
+  });
+  const serialized = JSON.stringify(sharedAutomationPayload(workflow));
+  expect(serialized).not.toContain("private-");
+  expect(serialized).not.toContain("Client");
 });

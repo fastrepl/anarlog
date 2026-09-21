@@ -75,6 +75,15 @@ class ServiceSecretsTests(unittest.TestCase):
             self.assertNotIn("SLACK_ALERT_ANARLOG_WEBHOOK_URL", result)
             self.assertNotIn("SLACK_ALERT_CHAR_WEBHOOK_URL", result)
 
+    def test_drive_callback_is_optional_and_only_reaches_core_runtimes(self):
+        key = "GOOGLE_DRIVE_PICKER_REDIRECT_URI"
+        for role in ["core", "all", "gateway", "legacy"]:
+            self.assertEqual(select(role, self.api, [])[key], "test-value")
+            without_callback = [secret for secret in self.api if secret["key"] != key]
+            self.assertNotIn(key, select(role, without_callback, []))
+        for role in ["ai", "sync", "billing"]:
+            self.assertNotIn(key, select(role, self.api, [], self.webhooks))
+
     def test_unknown_role_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "Unknown"):
             select("misspelled", self.api, [])

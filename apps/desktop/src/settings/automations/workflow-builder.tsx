@@ -14,6 +14,7 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
+import { GoogleDriveConfig, DriveExportResult } from "./google-drive-config";
 import { MarkdownExportOptionsConfig } from "./markdown-export-options";
 import {
   AutomationLastRunLine,
@@ -110,7 +111,12 @@ export function WorkflowBuilder({
               <SelectItem value="note_enhanced">
                 <Trans>After the meeting summary is ready</Trans>
               </SelectItem>
-              <SelectItem value="meeting_completed">
+              <SelectItem
+                value="meeting_completed"
+                disabled={workflow.steps.some(
+                  (step) => step.type === "google_drive_export",
+                )}
+              >
                 <Trans>After the meeting ends</Trans>
               </SelectItem>
             </SelectContent>
@@ -151,6 +157,12 @@ export function WorkflowBuilder({
                   <SelectItem value="linear_issues">
                     <Trans>Create Linear issues from action items</Trans>
                   </SelectItem>
+                  <SelectItem
+                    value="google_drive_export"
+                    disabled={workflow.trigger !== "note_enhanced"}
+                  >
+                    <Trans>Save to Google Drive</Trans>
+                  </SelectItem>
                   <SelectItem value="markdown_export">
                     <Trans>Export the meeting as Markdown</Trans>
                   </SelectItem>
@@ -161,6 +173,9 @@ export function WorkflowBuilder({
                   step={step}
                   onChange={(next) => updateStep(step.id, next)}
                 />
+                {step.type === "google_drive_export" ? (
+                  <DriveExportResult workflow={workflow} step={step} />
+                ) : null}
               </div>
             </WorkflowCard>
           </div>
@@ -170,7 +185,7 @@ export function WorkflowBuilder({
           <ArrowRight className="rotate-90" size={13} />
         </div>
 
-        <AddWorkflowStep onAdd={addStep} />
+        <AddWorkflowStep onAdd={addStep} trigger={workflow.trigger} />
       </div>
 
       <div className="border-border border-t px-5 py-4">
@@ -192,6 +207,8 @@ function WorkflowStepConfig({
   step: WorkflowStep;
   onChange: (step: WorkflowStep) => void;
 }) {
+  if (step.type === "google_drive_export")
+    return <GoogleDriveConfig step={step} onChange={onChange} />;
   if (step.type === "markdown_export") {
     return (
       <>
@@ -232,8 +249,10 @@ function WorkflowStepConfig({
 
 function AddWorkflowStep({
   onAdd,
+  trigger,
 }: {
   onAdd: (type: WorkflowStepType) => void;
+  trigger: WorkflowTrigger;
 }) {
   const { t } = useLingui();
 
@@ -248,10 +267,12 @@ function AddWorkflowStep({
         </p>
       </div>
       <Select onValueChange={(value) => onAdd(value as WorkflowStepType)}>
-        <SelectTrigger className="h-8 w-44 text-xs">
-          <span className="flex items-center gap-1.5">
-            <Plus size={12} />
-            {t`Add step`}
+        <SelectTrigger className="h-8 w-44 shrink-0 text-xs">
+          <span>
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <Plus size={12} className="shrink-0" />
+              {t`Add step`}
+            </span>
           </span>
         </SelectTrigger>
         <SelectContent>
@@ -263,6 +284,12 @@ function AddWorkflowStep({
           </SelectItem>
           <SelectItem value="linear_issues">
             <Trans>Linear issues</Trans>
+          </SelectItem>
+          <SelectItem
+            value="google_drive_export"
+            disabled={trigger !== "note_enhanced"}
+          >
+            <Trans>Save to Google Drive</Trans>
           </SelectItem>
           <SelectItem value="markdown_export">
             <Trans>Markdown export</Trans>
@@ -335,21 +362,30 @@ export function useSaveWorkflow() {
   return useMutation({
     mutationKey: ["automation-workflow-save"],
     mutationFn: async ({
-      workflows,
       next,
     }: {
       workflows: AutomationWorkflow[];
       next: AutomationWorkflow;
     }) => {
-      const { saveAutomationWorkflows } =
+      const { mutateAutomationWorkflows } =
         await import("~/automations/workflows");
-      await saveAutomationWorkflows(
-        workflows.some((workflow) => workflow.id === next.id)
-          ? workflows.map((workflow) =>
-              workflow.id === next.id ? next : workflow,
+      next = { ...next, enabled: next.enabled && isWorkflowReady(next) };
+      await mutateAutomationWorkflows((current) => {
+        const existing = current.find((workflow) => workflow.id === next.id);
+        const updated = existing
+          ? {
+              ...next,
+              lastRun: existing.lastRun,
+              processedSessionIds: existing.processedSessionIds,
+              driveExports: existing.driveExports,
+            }
+          : next;
+        return existing
+          ? current.map((workflow) =>
+              workflow.id === next.id ? updated : workflow,
             )
-          : [next, ...workflows],
-      );
+          : [updated, ...current];
+      });
     },
     onError: () => toast.error(t`Could not update the automation`),
   });

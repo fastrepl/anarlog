@@ -53,6 +53,7 @@ import { Route as ViewAppTeamCheckoutRouteImport } from './routes/_view/app/team
 import { Route as ViewAppSwitchPlanRouteImport } from './routes/_view/app/switch-plan'
 import { Route as ViewAppPortalRouteImport } from './routes/_view/app/portal'
 import { Route as ViewAppIntegrationRouteImport } from './routes/_view/app/integration'
+import { Route as ViewAppGoogleDrivePickerRouteImport } from './routes/_view/app/google-drive-picker'
 import { Route as ViewAppCheckoutRouteImport } from './routes/_view/app/checkout'
 import { Route as ViewAppAccountRouteImport } from './routes/_view/app/account'
 import { Route as ViewDownloadNightlyIndexRouteImport } from './routes/_view/download/nightly/index'
@@ -281,6 +282,12 @@ const ViewAppIntegrationRoute = ViewAppIntegrationRouteImport.update({
   path: '/integration',
   getParentRoute: () => ViewAppRouteRoute,
 } as any)
+const ViewAppGoogleDrivePickerRoute =
+  ViewAppGoogleDrivePickerRouteImport.update({
+    id: '/google-drive-picker',
+    path: '/google-drive-picker',
+    getParentRoute: () => ViewAppRouteRoute,
+  } as any)
 const ViewAppCheckoutRoute = ViewAppCheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
@@ -346,6 +353,7 @@ export interface FileRoutesByFullPath {
   '/yc/': typeof YcIndexRoute
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
+  '/app/google-drive-picker': typeof ViewAppGoogleDrivePickerRoute
   '/app/integration': typeof ViewAppIntegrationRoute
   '/app/portal': typeof ViewAppPortalRoute
   '/app/switch-plan': typeof ViewAppSwitchPlanRoute
@@ -397,6 +405,7 @@ export interface FileRoutesByTo {
   '/yc': typeof YcIndexRoute
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
+  '/app/google-drive-picker': typeof ViewAppGoogleDrivePickerRoute
   '/app/integration': typeof ViewAppIntegrationRoute
   '/app/portal': typeof ViewAppPortalRoute
   '/app/switch-plan': typeof ViewAppSwitchPlanRoute
@@ -451,6 +460,7 @@ export interface FileRoutesById {
   '/yc/': typeof YcIndexRoute
   '/_view/app/account': typeof ViewAppAccountRoute
   '/_view/app/checkout': typeof ViewAppCheckoutRoute
+  '/_view/app/google-drive-picker': typeof ViewAppGoogleDrivePickerRoute
   '/_view/app/integration': typeof ViewAppIntegrationRoute
   '/_view/app/portal': typeof ViewAppPortalRoute
   '/_view/app/switch-plan': typeof ViewAppSwitchPlanRoute
@@ -505,6 +515,7 @@ export interface FileRouteTypes {
     | '/yc/'
     | '/app/account'
     | '/app/checkout'
+    | '/app/google-drive-picker'
     | '/app/integration'
     | '/app/portal'
     | '/app/switch-plan'
@@ -556,6 +567,7 @@ export interface FileRouteTypes {
     | '/yc'
     | '/app/account'
     | '/app/checkout'
+    | '/app/google-drive-picker'
     | '/app/integration'
     | '/app/portal'
     | '/app/switch-plan'
@@ -609,6 +621,7 @@ export interface FileRouteTypes {
     | '/yc/'
     | '/_view/app/account'
     | '/_view/app/checkout'
+    | '/_view/app/google-drive-picker'
     | '/_view/app/integration'
     | '/_view/app/portal'
     | '/_view/app/switch-plan'
@@ -983,6 +996,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewAppIntegrationRouteImport
       parentRoute: typeof ViewAppRouteRoute
     }
+    '/_view/app/google-drive-picker': {
+      id: '/_view/app/google-drive-picker'
+      path: '/google-drive-picker'
+      fullPath: '/app/google-drive-picker'
+      preLoaderRoute: typeof ViewAppGoogleDrivePickerRouteImport
+      parentRoute: typeof ViewAppRouteRoute
+    }
     '/_view/app/checkout': {
       id: '/_view/app/checkout'
       path: '/checkout'
@@ -1038,6 +1058,7 @@ declare module '@tanstack/react-router' {
 interface ViewAppRouteRouteChildren {
   ViewAppAccountRoute: typeof ViewAppAccountRoute
   ViewAppCheckoutRoute: typeof ViewAppCheckoutRoute
+  ViewAppGoogleDrivePickerRoute: typeof ViewAppGoogleDrivePickerRoute
   ViewAppIntegrationRoute: typeof ViewAppIntegrationRoute
   ViewAppPortalRoute: typeof ViewAppPortalRoute
   ViewAppSwitchPlanRoute: typeof ViewAppSwitchPlanRoute
@@ -1048,6 +1069,7 @@ interface ViewAppRouteRouteChildren {
 const ViewAppRouteRouteChildren: ViewAppRouteRouteChildren = {
   ViewAppAccountRoute: ViewAppAccountRoute,
   ViewAppCheckoutRoute: ViewAppCheckoutRoute,
+  ViewAppGoogleDrivePickerRoute: ViewAppGoogleDrivePickerRoute,
   ViewAppIntegrationRoute: ViewAppIntegrationRoute,
   ViewAppPortalRoute: ViewAppPortalRoute,
   ViewAppSwitchPlanRoute: ViewAppSwitchPlanRoute,

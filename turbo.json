@@ -13,6 +13,7 @@
       "cache": false
     },
     "//#dev:desktop": {
+      "passThroughEnv": ["CARGO_TARGET_DIR"],
       "persistent": true,
       "cache": false
     },

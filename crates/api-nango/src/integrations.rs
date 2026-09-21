@@ -27,6 +27,7 @@ pub const MICROSOFT_TEAMS_OAUTH_SCOPES: &str =
 pub fn oauth_scopes_override(integration_id: &str) -> Option<&'static str> {
     match integration_id {
         GoogleCalendar::ID => Some(GOOGLE_CALENDAR_OAUTH_SCOPES),
+        GoogleDrive::ID => Some("https://www.googleapis.com/auth/drive.file"),
         Outlook::ID => Some(OUTLOOK_OAUTH_SCOPES),
         Zoom::ID => Some(ZOOM_OAUTH_SCOPES),
         Fathom::ID => Some(FATHOM_OAUTH_SCOPES),

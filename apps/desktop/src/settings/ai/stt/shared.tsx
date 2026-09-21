@@ -388,7 +388,10 @@ const _PROVIDERS = [
     badge: "Recommended",
     builtIn: true,
     icon: <AnarlogProviderIcon />,
-    baseUrl: new URL("/stt", env.VITE_API_URL).toString(),
+    baseUrl: new URL(
+      "/stt",
+      env.VITE_AI_API_URL ?? env.VITE_API_URL,
+    ).toString(),
     models: ["cloud"],
     requirements: [],
   },

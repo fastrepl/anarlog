@@ -182,3 +182,29 @@ describe("Markdown workflow options", () => {
     expect(isWorkflowReady(workflow)).toBe(true);
   });
 });
+
+describe("Google Drive workflows", () => {
+  it("requires a connected folder and the summary-ready trigger", () => {
+    const step = createWorkflowStep("google_drive_export");
+    const workflow = createEmptyWorkflow({ steps: [step] });
+    expect(isWorkflowReady(workflow)).toBe(false);
+    const configured = {
+      ...workflow,
+      steps: [
+        {
+          id: "drive",
+          type: "google_drive_export" as const,
+          connectionId: "connection",
+          target: { id: "folder", name: "Meeting notes" },
+        },
+      ],
+    };
+    expect(isWorkflowReady(configured)).toBe(true);
+    expect(
+      isWorkflowReady({ ...configured, trigger: "meeting_completed" }),
+    ).toBe(false);
+    expect(
+      parseAutomationWorkflows(serializeAutomationWorkflows([configured]))[0],
+    ).toEqual(configured);
+  });
+});

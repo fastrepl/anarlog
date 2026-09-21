@@ -1078,6 +1078,10 @@ msgstr ""
 msgid "Choose a file format and what to include."
 msgstr ""
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Choose a folder in your browser…"
+msgstr ""
+
 #: src/settings/ai/llm/select.tsx
 msgid "Choose a language model for summaries and chat."
 msgstr ""
@@ -1150,6 +1154,10 @@ msgstr ""
 
 #: src/settings/general/notification.tsx
 msgid "Choose from five completion sounds."
+msgstr ""
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Choose Google Drive folder"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
@@ -1457,6 +1465,10 @@ msgstr ""
 
 #: src/onboarding/calendar.tsx
 msgid "Connect Google Calendar"
+msgstr ""
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Connect Google Drive"
 msgstr ""
 
 #: src/auth/connect-local-library-dialog.tsx
@@ -2302,6 +2314,10 @@ msgstr ""
 msgid "Every conversation adds to your story."
 msgstr ""
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Every note summarized after enabling this automation is saved here as one Markdown file with its summary and transcript. Anarlog must be open."
+msgstr ""
+
 #. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
 #: src/resource-sharing/share-dialog.tsx
@@ -2577,6 +2593,10 @@ msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Good Listener"
+msgstr ""
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Google Drive export did not finish."
 msgstr ""
 
 #: src/billing/trial-started-dialog.tsx
@@ -3829,6 +3849,10 @@ msgstr ""
 msgid "Open calendar account actions"
 msgstr ""
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Open exported file in Google Drive"
+msgstr ""
+
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Open floating panel"
 msgstr ""
@@ -4211,6 +4235,10 @@ msgstr ""
 msgid "Reconnect"
 msgstr ""
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Reconnect Google Drive"
+msgstr ""
+
 #: src/settings/automations/starter-config.tsx
 msgid "Reconnect Linear"
 msgstr ""
@@ -4523,6 +4551,10 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Retry Google Drive export"
+msgstr ""
+
 #: src/settings/dictation.tsx
 msgid "Retry setup"
 msgstr "Reintentar configuración"
@@ -4596,6 +4628,10 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Save to Google Drive"
 msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
@@ -6286,6 +6322,10 @@ msgstr ""
 
 #: src/settings/dictionary/index.tsx
 msgid "Your dictionary is empty"
+msgstr ""
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Your Google account changed. Choose a folder again."
 msgstr ""
 
 #: src/settings/general/account-profile.tsx

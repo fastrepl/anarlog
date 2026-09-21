@@ -56,3 +56,29 @@ Examples:
 <Warning>
   Automations send meeting content to the destination you configure. Use only workspaces, channels, pages, teams, and folders that should receive that content.
 </Warning>
+
+## Save summaries to Google Drive
+
+In a custom workflow, choose **After the meeting summary is ready**, then add
+**Save to Google Drive**. Connect your Google account and choose a folder in My
+Drive or a shared drive where you can add files.
+
+Every note summarized after you enable the workflow is exported to that folder
+as one Markdown file containing its summary, transcript, title, date, and meeting
+ID. Notes without a transcript include a message that no transcript is available.
+Choose a collection folder that should receive all of these notes; this action
+does not filter by Anarlog folder or automatically route projects.
+
+Generating a summary again updates the existing export for that meeting and
+folder. Renaming a note updates its exported filename. Anarlog owns the exported
+file content, so a later export replaces edits made directly to that file.
+
+The action shows the exported file link or its latest unresolved failure. Use
+**Retry Google Drive export** to retry that delivery without replaying successful
+Slack, Notion, or Linear actions. If the destination changes, generate the summary
+again to export to the new folder.
+
+Anarlog must be open to run the workflow. This action does not backfill older
+notes or queue deliveries while the app is closed. It uses the same plan access
+as other connected automation actions and sends the exported content through
+Anarlog's integration API to Google Drive; CloudSync is not required.

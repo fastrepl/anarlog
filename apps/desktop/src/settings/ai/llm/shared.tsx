@@ -67,7 +67,10 @@ const _PROVIDERS = [
     displayName: "Anarlog",
     badge: "Recommended",
     icon: <AnarlogProviderIcon />,
-    baseUrl: new URL("/llm", env.VITE_API_URL).toString(),
+    baseUrl: new URL(
+      "/llm",
+      env.VITE_AI_API_URL ?? env.VITE_API_URL,
+    ).toString(),
     requirements: [
       { kind: "requires_auth" },
       { kind: "requires_entitlement", entitlement: "pro" },

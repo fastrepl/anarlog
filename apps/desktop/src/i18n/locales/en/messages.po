@@ -1078,6 +1078,10 @@ msgstr "Choose a device below to replace, then this device will continue automat
 msgid "Choose a file format and what to include."
 msgstr "Choose a file format and what to include."
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Choose a folder in your browser…"
+msgstr "Choose a folder in your browser…"
+
 #: src/settings/ai/llm/select.tsx
 msgid "Choose a language model for summaries and chat."
 msgstr "Choose a language model for summaries and chat."
@@ -1151,6 +1155,10 @@ msgstr "Choose folder icon"
 #: src/settings/general/notification.tsx
 msgid "Choose from five completion sounds."
 msgstr "Choose from five completion sounds."
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Choose Google Drive folder"
+msgstr "Choose Google Drive folder"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Choose how Anarlog appears in the Dock."
@@ -1458,6 +1466,10 @@ msgstr "Connect GitHub for private repos."
 #: src/onboarding/calendar.tsx
 msgid "Connect Google Calendar"
 msgstr "Connect Google Calendar"
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Connect Google Drive"
+msgstr "Connect Google Drive"
 
 #: src/auth/connect-local-library-dialog.tsx
 #: src/auth/context.tsx
@@ -2302,6 +2314,10 @@ msgstr "Event notifications"
 msgid "Every conversation adds to your story."
 msgstr "Every conversation adds to your story."
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Every note summarized after enabling this automation is saved here as one Markdown file with its summary and transcript. Anarlog must be open."
+msgstr "Every note summarized after enabling this automation is saved here as one Markdown file with its summary and transcript. Anarlog must be open."
+
 #. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
 #: src/resource-sharing/share-dialog.tsx
@@ -2578,6 +2594,10 @@ msgstr "Go to recent"
 #: src/settings/stats/badge-collection.tsx
 msgid "Good Listener"
 msgstr "Good Listener"
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Google Drive export did not finish."
+msgstr "Google Drive export did not finish."
 
 #: src/billing/trial-started-dialog.tsx
 #: src/settings/ai/stt/select.tsx
@@ -3829,6 +3849,10 @@ msgstr "Open calendar"
 msgid "Open calendar account actions"
 msgstr "Open calendar account actions"
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Open exported file in Google Drive"
+msgstr "Open exported file in Google Drive"
+
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Open floating panel"
 msgstr "Open floating panel"
@@ -4211,6 +4235,10 @@ msgstr "Recipient email"
 msgid "Reconnect"
 msgstr "Reconnect"
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Reconnect Google Drive"
+msgstr "Reconnect Google Drive"
+
 #: src/settings/automations/starter-config.tsx
 msgid "Reconnect Linear"
 msgstr "Reconnect Linear"
@@ -4523,6 +4551,10 @@ msgstr "Retention (days)"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/settings/automations/google-drive-config.tsx
+msgid "Retry Google Drive export"
+msgstr "Retry Google Drive export"
+
 #: src/settings/dictation.tsx
 msgid "Retry setup"
 msgstr "Retry setup"
@@ -4597,6 +4629,10 @@ msgstr "Save subdomain"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
 msgstr "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Save to Google Drive"
+msgstr "Save to Google Drive"
 
 #: src/settings/general/meeting-settings.tsx
 msgid "Save visible chat from supported meetings using Accessibility."
@@ -6287,6 +6323,10 @@ msgstr "Your conversation patterns"
 #: src/settings/dictionary/index.tsx
 msgid "Your dictionary is empty"
 msgstr "Your dictionary is empty"
+
+#: src/settings/automations/google-drive-config.tsx
+msgid "Your Google account changed. Choose a folder again."
+msgstr "Your Google account changed. Choose a folder again."
 
 #: src/settings/general/account-profile.tsx
 msgid "Your info"

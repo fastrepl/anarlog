@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -16,8 +16,13 @@ import {
   flowSearchSchema,
 } from "@/functions/desktop-flow";
 import { integrationCallbackCopy } from "@/lib/integration-callback-copy";
+import {
+  callbackPortSchema,
+  returnToDesktop,
+} from "@/lib/integration-desktop-return";
 
 const commonSearch = {
+  callback_port: callbackPortSchema,
   integration_id: z.string(),
   status: z.string(),
   disconnected_connection_id: z.string().optional(),
@@ -76,12 +81,10 @@ function Component() {
     });
   };
 
-  const handleDeeplink = () => {
-    const deeplink = getDeeplink();
-    if (search.flow === "desktop" && deeplink) {
-      window.location.href = deeplink;
-    }
-  };
+  const handoff = useMutation({
+    mutationFn: () => returnToDesktop(getDeeplink(), search.callback_port),
+  });
+  const handleDeeplink = () => handoff.mutate();
 
   const handleCopy = async () => {
     const deeplink = getDeeplink();
@@ -106,9 +109,8 @@ function Component() {
 
   useEffect(() => {
     if (search.flow === "desktop" && search.status === "success") {
-      const deeplink = getDeeplink();
       const timer = setTimeout(() => {
-        window.location.href = deeplink;
+        handoff.mutate();
       }, 250);
       return () => clearTimeout(timer);
     }
@@ -119,6 +121,8 @@ function Component() {
     search.integration_id,
     search.disconnected_connection_id,
     search.return_to,
+    search.callback_port,
+    handoff.mutate,
   ]);
 
   const isSuccess = search.status === "success";
@@ -132,11 +136,23 @@ function Component() {
       <AuthShell title={copy.title} description={copy.description}>
         {isSuccess ? (
           <div className="flex flex-col gap-3">
+            {handoff.error ? (
+              <p role="alert">
+                Could not reach Anarlog. Keep the desktop app open and start
+                connecting again from the app.
+              </p>
+            ) : null}
             <button
+              disabled={
+                handoff.isPending ||
+                (search.callback_port !== undefined && handoff.isSuccess)
+              }
               onClick={handleDeeplink}
               className={authPrimaryButtonClassName}
             >
-              Open Anarlog
+              {search.callback_port !== undefined && handoff.isSuccess
+                ? "Connected — return to the desktop app"
+                : "Open Anarlog"}
             </button>
 
             <div className="rounded-xl border border-[#e5ddcf] bg-[#fbfaf7] p-4 text-center">

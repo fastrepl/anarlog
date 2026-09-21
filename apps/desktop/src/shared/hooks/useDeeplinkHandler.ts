@@ -11,6 +11,7 @@ import { dismissInstruction } from "@anlg/plugin-windows";
 
 import { useAuth } from "~/auth";
 import { createAuthCallbackHandler } from "~/auth/deeplink";
+import { completeDrivePicker } from "~/automations/drive-picker";
 import { stopActiveWelcomeDemo } from "~/onboarding/welcome-note";
 import {
   allowReconnectedCalendarConnections,
@@ -87,6 +88,13 @@ export function useDeeplinkHandler() {
           status,
           return_to,
         } = payload.search;
+        if (
+          integration_id === "google-drive" &&
+          completeDrivePicker(return_to)
+        ) {
+          void dismissInstruction();
+          return;
+        }
         if (status === "success") {
           console.log(`[deeplink] integration updated: ${integration_id}`);
           if (disconnected_connection_id) {

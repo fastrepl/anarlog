@@ -755,6 +755,120 @@
         ],
         "type": "object"
       },
+      "DriveConnectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
+      },
+      "DriveExportFile": {
+        "properties": {
+          "file_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_id",
+          "url"
+        ],
+        "type": "object"
+      },
+      "DriveExportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "file_id": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "meeting_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "folder_id",
+          "meeting_id",
+          "file_id",
+          "filename",
+          "markdown"
+        ],
+        "type": "object"
+      },
+      "DriveFolder": {
+        "properties": {
+          "drive_id": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "DriveFolderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "folder_id"
+        ],
+        "type": "object"
+      },
+      "DrivePrepareExportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string"
+          },
+          "meeting_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "folder_id",
+          "meeting_id"
+        ],
+        "type": "object"
+      },
       "EmailAddress": {
         "properties": {
           "address": {
@@ -2033,6 +2147,41 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "PickerComplete": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "code",
+          "folder_id"
+        ],
+        "type": "object"
+      },
+      "PickerStart": {
+        "properties": {
+          "authorization_url": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorization_url",
+          "state"
+        ],
         "type": "object"
       },
       "PullRequestDetail": {
@@ -3674,6 +3823,181 @@
           },
           "500": {
             "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "nango"
+        ]
+      }
+    },
+    "/nango/google-drive/export": {
+      "post": {
+        "operationId": "google_drive_export_markdown",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveExportFile"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "nango"
+        ]
+      }
+    },
+    "/nango/google-drive/folder": {
+      "post": {
+        "operationId": "google_drive_validate_folder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveFolder"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "nango"
+        ]
+      }
+    },
+    "/nango/google-drive/picker-complete": {
+      "post": {
+        "operationId": "google_drive_picker_complete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PickerComplete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveFolder"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "nango"
+        ]
+      }
+    },
+    "/nango/google-drive/picker-start": {
+      "post": {
+        "operationId": "google_drive_picker_start",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickerStart"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "nango"
+        ]
+      }
+    },
+    "/nango/google-drive/prepare-export": {
+      "post": {
+        "operationId": "google_drive_prepare_export",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrivePrepareExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveExportFile"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [

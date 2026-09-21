@@ -516,3 +516,37 @@ pub async fn list_cloud_snapshot_ids<R: tauri::Runtime>(
     }
     Ok(ids)
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn prepare_drive_markdown<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    meeting_id: String,
+) -> Result<crate::types::DriveMarkdownExport, String> {
+    let export = anlg_agent_access::get_meeting_export(&pool(&app)?, meeting_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    drive_markdown(export)
+}
+
+pub(crate) fn drive_markdown(
+    mut export: anlg_agent_access::MeetingExport,
+) -> Result<crate::types::DriveMarkdownExport, String> {
+    if !export
+        .meeting
+        .summaries
+        .iter()
+        .any(|summary| !summary.markdown.trim().is_empty())
+    {
+        return Err("No meeting summary is available yet".to_string());
+    }
+    export.meeting.note = None;
+    export.meeting.action_items.clear();
+    let filename = configured_markdown_filename(&export.meeting, &MarkdownExportOptions::default());
+    let mut markdown = export.to_markdown();
+    if markdown == export.meeting.to_markdown() {
+        markdown.push_str("\n\n## Transcript\n\nNo transcript is available for this note.");
+    }
+    markdown.push('\n');
+    Ok(crate::types::DriveMarkdownExport { filename, markdown })
+}

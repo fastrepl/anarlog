@@ -96,6 +96,7 @@ export function DisconnectFlow() {
             disconnected_connection_id: search.connection_id,
             flow: "desktop" as const,
             scheme: search.scheme,
+            callback_port: search.callback_port,
             return_to: search.return_to,
           }
         : {
