@@ -7,7 +7,11 @@ import {
   type RenderedTranscriptSegment,
 } from "@anlg/plugin-transcription";
 
-import { type Segment, SegmentKeyUtils } from "~/stt/live-segment";
+import {
+  type Segment,
+  SegmentKeyUtils,
+  type SegmentWord,
+} from "~/stt/live-segment";
 
 type SpeakerResolution = Pick<
   RenderedTranscriptSegment,
@@ -97,26 +101,57 @@ function carrySpeakerResolution(
       if (word.id) byWord.set(word.id, resolution);
     }
   }
-  return segments.map((segment) => {
-    const resolution =
-      bySegment.get(segment.id) ??
-      wordResolution(segment, byWord) ??
-      byKey.get(SegmentKeyUtils.serialize(segment.key));
-    return {
-      ...segment,
-      speaker_label: resolution?.speaker_label,
-      provisional_speaker: resolution?.provisional_speaker,
-    };
+  return segments.flatMap((segment) => {
+    const whole = bySegment.get(segment.id);
+    if (whole) return [withResolution(segment, whole)];
+
+    // The native labeler splits a segment whose words straddle a speaker
+    // context boundary, so carry each run separately and mirror its ids.
+    const runs: Array<{
+      resolution?: SpeakerResolution;
+      words: SegmentWord[];
+    }> = [];
+    let carried = byKey.get(SegmentKeyUtils.serialize(segment.key));
+    for (const word of segment.words) {
+      const resolution = (word.id ? byWord.get(word.id) : undefined) ?? carried;
+      const run = runs[runs.length - 1];
+      if (run && run.resolution === resolution) {
+        run.words.push(word);
+      } else {
+        runs.push({ resolution, words: [word] });
+      }
+      carried = resolution;
+    }
+    if (runs.length <= 1) {
+      return [withResolution(segment, runs[0]?.resolution)];
+    }
+    return runs.map(({ resolution, words }) => {
+      const start_ms = words[0]!.start_ms;
+      return withResolution(
+        {
+          ...segment,
+          id: `${segment.id}:${start_ms}`,
+          start_ms,
+          end_ms: words[words.length - 1]!.end_ms,
+          text: words
+            .map((word) => word.text)
+            .join("")
+            .trim(),
+          words,
+        },
+        resolution,
+      );
+    });
   });
 }
 
-function wordResolution(
+function withResolution(
   segment: Segment,
-  byWord: Map<string, SpeakerResolution>,
-): SpeakerResolution | undefined {
-  for (const word of segment.words) {
-    const resolution = word.id ? byWord.get(word.id) : undefined;
-    if (resolution) return resolution;
-  }
-  return undefined;
+  resolution: SpeakerResolution | undefined,
+): Segment {
+  return {
+    ...segment,
+    speaker_label: resolution?.speaker_label,
+    provisional_speaker: resolution?.provisional_speaker,
+  };
 }

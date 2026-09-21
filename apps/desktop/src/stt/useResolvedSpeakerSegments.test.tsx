@@ -180,6 +180,122 @@ describe("useResolvedSpeakerSegments", () => {
     expect(result.current[3]?.provisional_speaker).toBeUndefined();
   });
 
+  it("keeps a context-boundary split while the extended segment is re-resolved", async () => {
+    const request = createRequest();
+    const before = {
+      id: "w-before",
+      text: "before",
+      start_ms: 0,
+      end_ms: 50,
+      channel: "RemoteParty" as const,
+      is_final: true,
+    };
+    const after = {
+      ...before,
+      id: "w-after",
+      text: " after",
+      start_ms: 100,
+      end_ms: 150,
+    };
+    const spanning: Segment = {
+      id: "segment-span",
+      key: { channel: "RemoteParty", speaker_index: 0, speaker_human_id: null },
+      start_ms: before.start_ms,
+      end_ms: after.end_ms,
+      text: "before after",
+      words: [before, after],
+    };
+    mocks.renderTranscriptSegments.mockResolvedValueOnce({
+      status: "ok",
+      data: [
+        labelSegment(
+          {
+            ...spanning,
+            id: "segment-span:0",
+            end_ms: 50,
+            text: "before",
+            words: [before],
+          },
+          "Speaker 1",
+          null,
+        ),
+        labelSegment(
+          {
+            ...spanning,
+            id: "segment-span:100",
+            start_ms: 100,
+            text: "after",
+            words: [after],
+          },
+          "Artem",
+          "human-artem",
+        ),
+      ],
+    });
+
+    const { rerender, result } = renderHook(
+      ({ segments }) => useResolvedSpeakerSegments(segments, request),
+      { initialProps: { segments: [spanning] }, wrapper },
+    );
+    await waitFor(() =>
+      expect(result.current.map((segment) => segment.speaker_label)).toEqual([
+        "Speaker 1",
+        "Artem",
+      ]),
+    );
+
+    mocks.renderTranscriptSegments.mockImplementationOnce(
+      () => new Promise(() => {}),
+    );
+    const partial = {
+      text: " still",
+      start_ms: 200,
+      end_ms: 240,
+      channel: "RemoteParty" as const,
+      is_final: false,
+    };
+    rerender({
+      segments: [
+        {
+          ...spanning,
+          id: "segment-span:extended",
+          end_ms: partial.end_ms,
+          text: `${spanning.text}${partial.text}`,
+          words: [before, after, partial],
+        },
+      ],
+    });
+
+    expect(
+      result.current.map(({ id, speaker_label, text, start_ms, end_ms }) => ({
+        id,
+        speaker_label,
+        text,
+        start_ms,
+        end_ms,
+      })),
+    ).toEqual([
+      {
+        id: "segment-span:extended:0",
+        speaker_label: "Speaker 1",
+        text: "before",
+        start_ms: 0,
+        end_ms: 50,
+      },
+      {
+        id: "segment-span:extended:100",
+        speaker_label: "Artem",
+        text: "after still",
+        start_ms: 100,
+        end_ms: 240,
+      },
+    ]);
+    expect(result.current[1]?.words).toEqual([after, partial]);
+    expect(result.current[1]?.provisional_speaker?.human_id).toBe(
+      "human-artem",
+    );
+  });
+
   it("falls back to unresolved segments before the first resolution lands", () => {
     mocks.renderTranscriptSegments.mockImplementationOnce(
       () => new Promise(() => {}),
