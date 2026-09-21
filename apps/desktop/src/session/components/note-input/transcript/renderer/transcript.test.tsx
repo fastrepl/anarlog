@@ -360,6 +360,7 @@ describe("RenderTranscript", () => {
     expect(mocks.renderTranscriptSegments).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("button", { name: "Ada" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Speaker/ })).toBeNull();
+    expect(document.body.textContent).toContain("next");
   });
 
   it("renders identities resolved by the native settled renderer", () => {

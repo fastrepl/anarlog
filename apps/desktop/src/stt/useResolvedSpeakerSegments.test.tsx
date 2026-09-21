@@ -87,22 +87,97 @@ describe("useResolvedSpeakerSegments", () => {
       "John",
       "Artem",
     ]);
+    expect(result.current[1]?.text).toBe(updated[1]!.text);
+    expect(result.current[1]?.words).toEqual(updated[1]!.words);
+    expect(result.current[1]?.provisional_speaker?.human_id).toBe(
+      "human-artem",
+    );
 
     act(() => {
       resolveNext?.({
         status: "ok",
         data: [
           labelSegment(updated[0]!, "John", "human-john"),
-          labelSegment(updated[1]!, "Artem", "human-artem"),
+          labelSegment(updated[1]!, "Speaker 1", null),
         ],
       });
     });
 
-    await waitFor(() => expect(result.current[1]?.words).toHaveLength(2));
+    await waitFor(() =>
+      expect(result.current.map((segment) => segment.speaker_label)).toEqual([
+        "John",
+        "Speaker 1",
+      ]),
+    );
+    expect(result.current[1]?.words).toHaveLength(2);
+    expect(result.current[1]?.provisional_speaker).toBeUndefined();
+  });
+
+  it("shows new segments before the renderer resolves, carrying labels by speaker key", async () => {
+    const request = createRequest();
+    const initial = [createSegment("self", 0), createSegment("remote", 1)];
+    mocks.renderTranscriptSegments.mockResolvedValueOnce({
+      status: "ok",
+      data: [
+        labelSegment(initial[0]!, "John", "human-john"),
+        labelSegment(initial[1]!, "Artem", "human-artem"),
+      ],
+    });
+
+    const { rerender, result } = renderHook(
+      ({ segments }) => useResolvedSpeakerSegments(segments, request),
+      { initialProps: { segments: initial }, wrapper },
+    );
+    await waitFor(() =>
+      expect(result.current.map((segment) => segment.speaker_label)).toEqual([
+        "John",
+        "Artem",
+      ]),
+    );
+
+    mocks.renderTranscriptSegments.mockImplementationOnce(
+      () => new Promise(() => {}),
+    );
+    const partial = {
+      text: "later",
+      start_ms: 300,
+      end_ms: 340,
+      channel: "RemoteParty" as const,
+      is_final: false,
+      metadata: { timing: { source: "provider_word" } },
+    };
+    const sameSpeaker: Segment = {
+      id: "segment-remote-later",
+      key: initial[1]!.key,
+      start_ms: partial.start_ms,
+      end_ms: partial.end_ms,
+      text: partial.text,
+      words: [partial],
+    };
+    const unknownSpeaker: Segment = {
+      ...createSegment("mixed", 4),
+      key: {
+        channel: "MixedCapture",
+        speaker_index: 2,
+        speaker_human_id: null,
+      },
+    };
+    rerender({ segments: [...initial, sameSpeaker, unknownSpeaker] });
+
+    expect(result.current.map((segment) => segment.text)).toEqual([
+      "word-self",
+      "word-remote",
+      "later",
+      "word-mixed",
+    ]);
     expect(result.current.map((segment) => segment.speaker_label)).toEqual([
       "John",
       "Artem",
+      "Artem",
+      undefined,
     ]);
+    expect(result.current[2]?.words[0]?.metadata).toEqual(partial.metadata);
+    expect(result.current[3]?.provisional_speaker).toBeUndefined();
   });
 
   it("falls back to unresolved segments before the first resolution lands", () => {
@@ -185,15 +260,13 @@ function createSegment(id: string, index: number): Segment {
 function labelSegment(
   segment: Segment,
   name: string,
-  humanId: string,
+  humanId: string | null,
 ): RenderedTranscriptSegment {
   return {
     ...segment,
     speaker_label: name,
-    provisional_speaker: {
-      name,
-      human_id: humanId,
-      reason: "sole_remote_participant",
-    },
+    provisional_speaker: humanId
+      ? { name, human_id: humanId, reason: "sole_remote_participant" }
+      : undefined,
   };
 }
