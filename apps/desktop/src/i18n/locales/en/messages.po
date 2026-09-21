@@ -985,11 +985,6 @@ msgstr "Capture meeting chat in Memos"
 msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr "Capture your first conversation. Every collection starts somewhere."
 
-#: src/onboarding/folder-location.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Change"
-msgstr "Change"
-
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/contacts/profile-photo.tsx
@@ -1172,11 +1167,6 @@ msgstr "Choose how long recordings stay on this device."
 msgid "Choose how much detail generated meeting summaries include."
 msgstr "Choose how much detail generated meeting summaries include."
 
-#: src/onboarding/folder-location.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Choose storage location"
-msgstr "Choose storage location"
-
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
 msgstr "Choose template icon"
@@ -1300,10 +1290,6 @@ msgstr "Cloud API URL copied"
 msgid "Cloud sync"
 msgstr "Cloud sync"
 
-#: src/settings/sync/index.tsx
-msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
-msgstr "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
-
 #: src/settings/general/notification.tsx
 msgid "Cloud sync complete"
 msgstr "Cloud sync complete"
@@ -1420,7 +1406,6 @@ msgstr "Configure a chat model to use the quick composer."
 msgid "Configure Providers"
 msgstr "Configure Providers"
 
-#: src/onboarding/folder-location.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
 msgstr "Confirm"
@@ -3009,10 +2994,6 @@ msgstr "Last used {0}"
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
 msgstr "Learn how to fix this"
-
-#: src/settings/sync/index.tsx
-msgid "Learn more"
-msgstr "Learn more"
 
 #: src/settings/team/index.tsx
 msgid "Leave {workspaceName}?"
@@ -5379,18 +5360,9 @@ msgstr "Stop voice input"
 msgid "Stop when meeting ends"
 msgstr "Stop when meeting ends"
 
-#: src/onboarding/index.tsx
 #: src/settings/general/storage/index.tsx
 msgid "Storage"
 msgstr "Storage"
-
-#: src/onboarding/index.tsx
-msgid "Storage configured"
-msgstr "Storage configured"
-
-#: src/onboarding/folder-location.tsx
-msgid "Storage Updated"
-msgstr "Storage Updated"
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Story Collector"
@@ -5605,10 +5577,6 @@ msgstr "Test failed ({0})"
 #: src/settings/automations/index.tsx
 msgid "Test runs are not available yet."
 msgstr "Test runs are not available yet."
-
-#: src/onboarding/folder-location.tsx
-msgid "The app will restart after onboarding to apply your storage changes"
-msgstr "The app will restart after onboarding to apply your storage changes"
 
 #: src/shared-notes/index.tsx
 msgid "The link may have expired or its access may have changed."
@@ -6165,11 +6133,6 @@ msgstr "What's new in {version}?"
 msgid "When this happens"
 msgstr "When this happens"
 
-#: src/onboarding/index.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Where your notes and recordings are stored"
-msgstr "Where your notes and recordings are stored"
-
 #: src/settings/ai/stt/local-file-model.tsx
 msgid "whisper.cpp models"
 msgstr "whisper.cpp models"
@@ -6352,10 +6315,6 @@ msgstr "Your Pro trial just started"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 msgstr "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
-
-#: src/settings/sync/index.tsx
-msgid "Your storage location is inside {cloudStorageService}"
-msgstr "Your storage location is inside {cloudStorageService}"
 
 #: src/services/enhancer/summary-notification.ts
 msgid "Your summary is ready."

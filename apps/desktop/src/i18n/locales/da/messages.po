@@ -985,11 +985,6 @@ msgstr ""
 msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr ""
 
-#: src/onboarding/folder-location.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Change"
-msgstr ""
-
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/contacts/profile-photo.tsx
@@ -1172,11 +1167,6 @@ msgstr ""
 msgid "Choose how much detail generated meeting summaries include."
 msgstr ""
 
-#: src/onboarding/folder-location.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Choose storage location"
-msgstr ""
-
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
 msgstr ""
@@ -1300,10 +1290,6 @@ msgstr ""
 msgid "Cloud sync"
 msgstr ""
 
-#: src/settings/sync/index.tsx
-msgid "Cloud sync and {cloudStorageService} can both change the same files, which can create conflicted copies and incomplete recordings. Move your Anarlog storage location to a folder that {cloudStorageService} does not sync."
-msgstr ""
-
 #: src/settings/general/notification.tsx
 msgid "Cloud sync complete"
 msgstr ""
@@ -1420,7 +1406,6 @@ msgstr ""
 msgid "Configure Providers"
 msgstr ""
 
-#: src/onboarding/folder-location.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
 msgstr ""
@@ -3008,10 +2993,6 @@ msgstr ""
 
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Learn more"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -5379,17 +5360,8 @@ msgstr ""
 msgid "Stop when meeting ends"
 msgstr "Stop, når mødet slutter"
 
-#: src/onboarding/index.tsx
 #: src/settings/general/storage/index.tsx
 msgid "Storage"
-msgstr ""
-
-#: src/onboarding/index.tsx
-msgid "Storage configured"
-msgstr ""
-
-#: src/onboarding/folder-location.tsx
-msgid "Storage Updated"
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -5604,10 +5576,6 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Test runs are not available yet."
-msgstr ""
-
-#: src/onboarding/folder-location.tsx
-msgid "The app will restart after onboarding to apply your storage changes"
 msgstr ""
 
 #: src/shared-notes/index.tsx
@@ -6165,11 +6133,6 @@ msgstr ""
 msgid "When this happens"
 msgstr ""
 
-#: src/onboarding/index.tsx
-#: src/settings/general/storage/index.tsx
-msgid "Where your notes and recordings are stored"
-msgstr ""
-
 #: src/settings/ai/stt/local-file-model.tsx
 msgid "whisper.cpp models"
 msgstr ""
@@ -6351,10 +6314,6 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Your storage location is inside {cloudStorageService}"
 msgstr ""
 
 #: src/services/enhancer/summary-notification.ts
