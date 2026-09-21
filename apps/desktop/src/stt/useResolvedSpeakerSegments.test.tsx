@@ -8,7 +8,7 @@ import type {
   RenderedTranscriptSegment,
 } from "@anlg/plugin-transcription";
 
-import type { Segment } from "./live-segment";
+import type { Segment, SegmentWord } from "./live-segment";
 import { useResolvedSpeakerSegments } from "./useResolvedSpeakerSegments";
 
 const mocks = vi.hoisted(() => ({
@@ -294,6 +294,114 @@ describe("useResolvedSpeakerSegments", () => {
     expect(result.current[1]?.provisional_speaker?.human_id).toBe(
       "human-artem",
     );
+  });
+
+  it("scopes carried speaker names to the matching context interval", async () => {
+    const base = createRequest();
+    const bob = { human_id: "human-bob", name: "Bob" };
+    const request: RenderTranscriptRequest = {
+      ...base,
+      humans: [...base.humans, bob],
+      participant_human_ids: ["human-artem", "human-bob"],
+      speaker_context: {
+        intervals: [
+          base.speaker_context!.intervals[0]!,
+          {
+            ...base.speaker_context!.intervals[0]!,
+            start_ms: 60_000,
+            end_ms: 120_000,
+            title: "John x Bob",
+            participants: [bob],
+          },
+        ],
+      },
+    };
+    const remoteKey = {
+      channel: "RemoteParty" as const,
+      speaker_index: 0,
+      speaker_human_id: null,
+    };
+    const remoteWord = (text: string, start_ms: number, id?: string) => ({
+      ...(id ? { id } : {}),
+      text,
+      start_ms,
+      end_ms: start_ms + 40,
+      channel: "RemoteParty" as const,
+      is_final: Boolean(id),
+    });
+    const remoteSegment = (id: string, words: SegmentWord[]): Segment => ({
+      id,
+      key: remoteKey,
+      start_ms: words[0]!.start_ms,
+      end_ms: words[words.length - 1]!.end_ms,
+      text: words
+        .map((word) => word.text)
+        .join("")
+        .trim(),
+      words,
+    });
+    const early = remoteSegment("segment-early", [
+      remoteWord("early", 1_000, "w-early"),
+    ]);
+    const edge = remoteSegment("segment-edge", [
+      remoteWord("edge", 59_900, "w-edge"),
+    ]);
+    mocks.renderTranscriptSegments.mockResolvedValueOnce({
+      status: "ok",
+      data: [
+        labelSegment(early, "Artem", "human-artem"),
+        labelSegment(edge, "Artem", "human-artem"),
+      ],
+    });
+
+    const { rerender, result } = renderHook(
+      ({ segments }) => useResolvedSpeakerSegments(segments, request),
+      { initialProps: { segments: [early, edge] }, wrapper },
+    );
+    await waitFor(() =>
+      expect(result.current.map((segment) => segment.speaker_label)).toEqual([
+        "Artem",
+        "Artem",
+      ]),
+    );
+
+    mocks.renderTranscriptSegments.mockImplementationOnce(
+      () => new Promise(() => {}),
+    );
+    const sameCall = remoteSegment("segment-same-call", [
+      remoteWord("still artem", 2_000),
+    ]);
+    const straddling = remoteSegment("segment-edge:extended", [
+      ...edge.words,
+      remoteWord(" crossing", 60_100),
+    ]);
+    const nextCall = remoteSegment("segment-next-call", [
+      remoteWord("hello", 61_000),
+    ]);
+    rerender({ segments: [early, sameCall, straddling, nextCall] });
+
+    expect(
+      result.current.map(({ id, speaker_label, text }) => ({
+        id,
+        speaker_label,
+        text,
+      })),
+    ).toEqual([
+      { id: "segment-early", speaker_label: "Artem", text: "early" },
+      { id: "segment-same-call", speaker_label: "Artem", text: "still artem" },
+      {
+        id: "segment-edge:extended:59900",
+        speaker_label: "Artem",
+        text: "edge",
+      },
+      {
+        id: "segment-edge:extended:60100",
+        speaker_label: undefined,
+        text: "crossing",
+      },
+      { id: "segment-next-call", speaker_label: undefined, text: "hello" },
+    ]);
+    expect(result.current[4]?.provisional_speaker).toBeUndefined();
   });
 
   it("falls back to unresolved segments before the first resolution lands", () => {

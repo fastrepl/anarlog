@@ -9,6 +9,7 @@ import {
 
 import {
   type Segment,
+  type SegmentKey,
   SegmentKeyUtils,
   type SegmentWord,
 } from "~/stt/live-segment";
@@ -58,8 +59,10 @@ export function useResolvedSpeakerSegments(
     gcTime: 0,
   });
   const resolved = useMemo(() => {
-    if (!data) return undefined;
-    if (isPlaceholderData) return carrySpeakerResolution(segments, data);
+    if (!input || !data) return undefined;
+    if (isPlaceholderData) {
+      return carrySpeakerResolution(segments, data, input);
+    }
     const metadata = new Map(
       segments.flatMap((segment) =>
         segment.words.map((word) => [word.id, word.metadata] as const),
@@ -72,7 +75,7 @@ export function useResolvedSpeakerSegments(
         metadata: metadata.get(word.id),
       })),
     }));
-  }, [data, isPlaceholderData, segments]);
+  }, [data, input, isPlaceholderData, segments]);
   return input
     ? (resolved ??
         segments.map((segment) => ({
@@ -86,7 +89,16 @@ export function useResolvedSpeakerSegments(
 function carrySpeakerResolution(
   segments: Segment[],
   previous: RenderedTranscriptSegment[],
+  request: RenderTranscriptRequest,
 ): Segment[] {
+  // The native labeler names a speaker key per speaker-context interval and
+  // splits a segment whose words straddle a boundary, so carried names are
+  // scoped the same way and runs are emitted with the labeler's ids.
+  const intervalAt = createIntervalLookup(request);
+  const scopedKey = (key: SegmentKey, word: SegmentWord) =>
+    `${SegmentKeyUtils.serialize(key)}:${
+      key.speaker_human_id ? "assigned" : (intervalAt(word) ?? "none")
+    }`;
   const bySegment = new Map<string, SpeakerResolution>();
   const byWord = new Map<string, SpeakerResolution>();
   const byKey = new Map<string, SpeakerResolution>();
@@ -96,7 +108,8 @@ function carrySpeakerResolution(
       provisional_speaker: segment.provisional_speaker,
     };
     bySegment.set(segment.id, resolution);
-    byKey.set(SegmentKeyUtils.serialize(segment.key), resolution);
+    const first = segment.words[0];
+    if (first) byKey.set(scopedKey(segment.key, first), resolution);
     for (const word of segment.words) {
       if (word.id) byWord.set(word.id, resolution);
     }
@@ -105,20 +118,21 @@ function carrySpeakerResolution(
     const whole = bySegment.get(segment.id);
     if (whole) return [withResolution(segment, whole)];
 
-    // The native labeler splits a segment whose words straddle a speaker
-    // context boundary, so carry each run separately and mirror its ids.
     const runs: Array<{
+      scope: string;
       resolution?: SpeakerResolution;
       words: SegmentWord[];
     }> = [];
-    let carried = byKey.get(SegmentKeyUtils.serialize(segment.key));
+    let carried: SpeakerResolution | undefined;
     for (const word of segment.words) {
-      const resolution = (word.id ? byWord.get(word.id) : undefined) ?? carried;
+      const scope = scopedKey(segment.key, word);
       const run = runs[runs.length - 1];
-      if (run && run.resolution === resolution) {
+      if (run?.scope !== scope) carried = byKey.get(scope);
+      const resolution = (word.id ? byWord.get(word.id) : undefined) ?? carried;
+      if (run && run.scope === scope && run.resolution === resolution) {
         run.words.push(word);
       } else {
-        runs.push({ resolution, words: [word] });
+        runs.push({ scope, resolution, words: [word] });
       }
       carried = resolution;
     }
@@ -143,6 +157,35 @@ function carrySpeakerResolution(
       );
     });
   });
+}
+
+function createIntervalLookup(
+  request: RenderTranscriptRequest,
+): (word: SegmentWord) => number | undefined {
+  const intervals = request.speaker_context?.intervals ?? [];
+  const startedAt = request.transcripts.reduce<number | null>(
+    (earliest, transcript) =>
+      transcript.started_at === null
+        ? earliest
+        : Math.min(earliest ?? Infinity, transcript.started_at),
+    null,
+  );
+  return (word) => {
+    const start = (startedAt ?? 0) + word.start_ms;
+    const end = (startedAt ?? 0) + word.end_ms;
+    let found: number | undefined;
+    for (const [index, interval] of intervals.entries()) {
+      if (
+        interval.start_ms <= start &&
+        end <= interval.end_ms &&
+        interval.start_ms < interval.end_ms
+      ) {
+        if (found !== undefined) return undefined;
+        found = index;
+      }
+    }
+    return found;
+  };
 }
 
 function withResolution(
