@@ -124,7 +124,7 @@ describe("audio retention", () => {
     expect(deleted).toEqual(["expired"]);
   });
 
-  test("retention none deletes idle audio even when no transcript was saved", async () => {
+  test("retention none preserves idle audio until a transcript is saved", async () => {
     mockCleanupRows([
       {
         id: "unprocessed",
@@ -140,7 +140,11 @@ describe("audio retention", () => {
 
     await expect(
       cleanupExpiredAudio("none", Date.parse("2026-05-13T00:00:00.000Z")),
-    ).resolves.toEqual(["unprocessed", "processed"]);
+    ).resolves.toEqual(["processed"]);
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalledWith(
+      "unprocessed",
+      expect.any(Function),
+    );
     expect(mocks.deleteLocalSessionAudio).toHaveBeenCalledWith(
       "processed",
       expect.any(Function),
@@ -148,7 +152,7 @@ describe("audio retention", () => {
   });
 
   test.each(["none", "oneWeek"] as const)(
-    "unfinished transcription does not extend %s audio retention",
+    "unfinished transcription extends %s audio retention",
     async (policy) => {
       mockCleanupRows([
         {
@@ -161,15 +165,19 @@ describe("audio retention", () => {
 
       await expect(
         cleanupExpiredAudio(policy, Date.parse("2026-05-13T00:00:00.000Z")),
-      ).resolves.toEqual(["partial"]);
-      expect(mocks.deleteLocalSessionAudio).toHaveBeenCalledWith(
-        "partial",
-        expect.any(Function),
-      );
+      ).resolves.toEqual([]);
+      expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
     },
   );
 
   test("deletes processed audio immediately when retention is none", async () => {
+    mockCleanupRows([
+      {
+        id: "processed",
+        created_at: "2026-05-13T00:00:00.000Z",
+        has_words: 1,
+      },
+    ]);
     const listener = vi.fn();
     const unsubscribe = subscribeToSessionAudioRetention(listener);
 
@@ -191,18 +199,35 @@ describe("audio retention", () => {
     unsubscribe();
   });
 
-  test("deletes idle unprocessed audio when retention is none", async () => {
+  test("does not delete idle unprocessed audio when retention is none", async () => {
+    mockCleanupRows([
+      {
+        id: "unprocessed",
+        created_at: "2026-05-13T00:00:00.000Z",
+        has_words: 0,
+      },
+    ]);
+
     await expect(
       deleteProcessedAudioForRetention("none", "unprocessed"),
-    ).resolves.toBe(true);
-    expect(mocks.deleteLocalSessionAudio).toHaveBeenCalledOnce();
+    ).resolves.toBe(false);
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
   });
 
-  test("deletes idle partially persisted audio when retention is none", async () => {
+  test("does not delete idle partially persisted audio when retention is none", async () => {
+    mockCleanupRows([
+      {
+        id: "partial",
+        created_at: "2026-05-13T00:00:00.000Z",
+        has_words: 1,
+        transcript_processing: 1,
+      },
+    ]);
+
     await expect(
       deleteProcessedAudioForRetention("none", "partial"),
-    ).resolves.toBe(true);
-    expect(mocks.deleteLocalSessionAudio).toHaveBeenCalledOnce();
+    ).resolves.toBe(false);
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
   });
 
   test("skips immediate deletion for retained audio", async () => {
