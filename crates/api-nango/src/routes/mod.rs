@@ -1,5 +1,7 @@
 pub(crate) mod connect;
 pub(crate) mod disconnect;
+pub(crate) mod google_drive;
+pub(crate) mod google_drive_oauth;
 pub(crate) mod identity;
 pub(crate) mod status;
 pub(crate) mod webhook;
@@ -28,6 +30,20 @@ pub fn session_router(config: NangoConfig) -> Router {
 
     Router::new()
         .route("/session", post(connect::create_session))
+        .route(
+            "/google-drive/picker-start",
+            post(google_drive_oauth::start),
+        )
+        .route(
+            "/google-drive/picker-complete",
+            post(google_drive_oauth::complete),
+        )
+        .route("/google-drive/folder", post(google_drive::validate_folder))
+        .route(
+            "/google-drive/prepare-export",
+            post(google_drive::prepare_export),
+        )
+        .route("/google-drive/export", post(google_drive::export_markdown))
         .with_state(state)
 }
 

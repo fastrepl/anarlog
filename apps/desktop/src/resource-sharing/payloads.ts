@@ -159,6 +159,7 @@ export function sharedAutomationPayload(
       steps: workflow.steps.map(clearAutomationDestination),
       lastRun: null,
       processedSessionIds: [],
+      driveExports: [],
       chatGroupId: null,
     },
   };
@@ -238,6 +239,7 @@ export function parseSharedAutomationPayload(
     steps: workflow.steps.map(clearAutomationDestination),
     lastRun: null,
     processedSessionIds: [],
+    driveExports: [],
     chatGroupId: null,
   };
 }
@@ -277,6 +279,7 @@ export async function importSharedAutomation(
     steps: payload.workflow.steps.map(clearAutomationDestination),
     lastRun: null,
     processedSessionIds: [],
+    driveExports: [],
     chatGroupId: null,
   });
   await saveAutomationWorkflows([workflow, ...workflows]);
@@ -284,6 +287,8 @@ export async function importSharedAutomation(
 }
 
 function clearAutomationDestination(step: WorkflowStep): WorkflowStep {
+  if (step.type === "google_drive_export")
+    return { ...step, connectionId: "", target: null };
   if (step.type === "markdown_export") {
     return { ...step, directory: "" };
   }

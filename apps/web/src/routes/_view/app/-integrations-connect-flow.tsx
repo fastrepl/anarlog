@@ -171,6 +171,7 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
             status: "success" as const,
             flow: "desktop" as const,
             scheme: search.scheme,
+            callback_port: search.callback_port,
             return_to: search.return_to,
           }
         : {

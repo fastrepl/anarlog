@@ -476,6 +476,41 @@ export type Document = {
     updated_at: string;
 };
 
+export type DriveConnectionRequest = {
+    connection_id: string;
+};
+
+export type DriveExportFile = {
+    file_id: string;
+    url: string;
+};
+
+export type DriveExportRequest = {
+    connection_id: string;
+    file_id: string;
+    filename: string;
+    folder_id: string;
+    markdown: string;
+    meeting_id: string;
+};
+
+export type DriveFolder = {
+    drive_id?: string | null;
+    id: string;
+    name: string;
+};
+
+export type DriveFolderRequest = {
+    connection_id: string;
+    folder_id: string;
+};
+
+export type DrivePrepareExportRequest = {
+    connection_id: string;
+    folder_id: string;
+    meeting_id: string;
+};
+
 export type E2EeDeviceEnrollmentPackage = {
     ciphertext: string;
     ephemeralPublicKey: string;
@@ -1312,6 +1347,17 @@ export type PhysicalAddress = {
     postalCode?: string | null;
     state?: string | null;
     street?: string | null;
+};
+
+export type PickerComplete = {
+    code: string;
+    folder_id: string;
+    state: string;
+};
+
+export type PickerStart = {
+    authorization_url: string;
+    state: string;
 };
 
 export type PipelineStatus = 'processing' | 'done' | 'error';
@@ -2742,6 +2788,71 @@ export type ListConnectionsResponses = {
 };
 
 export type ListConnectionsResponse2 = ListConnectionsResponses[keyof ListConnectionsResponses];
+
+export type GoogleDriveExportMarkdownData = {
+    body: DriveExportRequest;
+    path?: never;
+    query?: never;
+    url: '/nango/google-drive/export';
+};
+
+export type GoogleDriveExportMarkdownResponses = {
+    200: DriveExportFile;
+};
+
+export type GoogleDriveExportMarkdownResponse = GoogleDriveExportMarkdownResponses[keyof GoogleDriveExportMarkdownResponses];
+
+export type GoogleDriveValidateFolderData = {
+    body: DriveFolderRequest;
+    path?: never;
+    query?: never;
+    url: '/nango/google-drive/folder';
+};
+
+export type GoogleDriveValidateFolderResponses = {
+    200: DriveFolder;
+};
+
+export type GoogleDriveValidateFolderResponse = GoogleDriveValidateFolderResponses[keyof GoogleDriveValidateFolderResponses];
+
+export type GoogleDrivePickerCompleteData = {
+    body: PickerComplete;
+    path?: never;
+    query?: never;
+    url: '/nango/google-drive/picker-complete';
+};
+
+export type GoogleDrivePickerCompleteResponses = {
+    200: DriveFolder;
+};
+
+export type GoogleDrivePickerCompleteResponse = GoogleDrivePickerCompleteResponses[keyof GoogleDrivePickerCompleteResponses];
+
+export type GoogleDrivePickerStartData = {
+    body: DriveConnectionRequest;
+    path?: never;
+    query?: never;
+    url: '/nango/google-drive/picker-start';
+};
+
+export type GoogleDrivePickerStartResponses = {
+    200: PickerStart;
+};
+
+export type GoogleDrivePickerStartResponse = GoogleDrivePickerStartResponses[keyof GoogleDrivePickerStartResponses];
+
+export type GoogleDrivePrepareExportData = {
+    body: DrivePrepareExportRequest;
+    path?: never;
+    query?: never;
+    url: '/nango/google-drive/prepare-export';
+};
+
+export type GoogleDrivePrepareExportResponses = {
+    200: DriveExportFile;
+};
+
+export type GoogleDrivePrepareExportResponse = GoogleDrivePrepareExportResponses[keyof GoogleDrivePrepareExportResponses];
 
 export type CreateSessionData = {
     body: CreateSessionRequest;

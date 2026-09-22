@@ -8,6 +8,7 @@ import {
 } from "@/functions/desktop-flow";
 import { useBilling } from "@/hooks/use-billing";
 import { getIntegrationBillingGate } from "@/lib/integration-billing-gate";
+import { callbackPortSchema } from "@/lib/integration-desktop-return";
 import { useNangoSessionHandoffToken } from "@/lib/integration-handoff";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
@@ -16,6 +17,7 @@ import { DisconnectFlow } from "./-integrations-disconnect-flow";
 import { UpgradePrompt } from "./-integrations-upgrade-prompt";
 
 const commonSearch = {
+  callback_port: callbackPortSchema,
   integration_id: z.string().default("google-calendar"),
   connection_id: z.string().optional(),
   action: z.enum(["connect", "reconnect", "disconnect"]).default("connect"),
@@ -29,6 +31,12 @@ const INTEGRATION_DISPLAY: Record<
   string,
   { name: string; description: string; connectingHint: string }
 > = {
+  "google-drive": {
+    name: "Google Drive",
+    description:
+      "Connect Google Drive to save meeting summaries and transcripts to a folder you choose",
+    connectingHint: "Finish authorization with Google, then return to Anarlog",
+  },
   "google-calendar": {
     name: "Google Calendar",
     description:

@@ -1,6 +1,8 @@
 import type { Session } from "@supabase/supabase-js";
 
 import {
+  googleDrivePrepareExport,
+  googleDriveExportMarkdown,
   linearCreateIssue,
   listConnections,
   notionAppendUpdate,
@@ -19,8 +21,9 @@ import {
 } from "./types";
 import {
   type AutomationWorkflow,
+  type DriveExportRun,
   parseAutomationWorkflows,
-  serializeAutomationWorkflows,
+  mutateAutomationWorkflows,
   type WorkflowStep,
   type WorkflowTrigger,
 } from "./workflows";
@@ -74,7 +77,21 @@ export async function runNoteEnhancedAutomations(
   }
 }
 
-async function runCustomWorkflows(
+let workflowQueue: Promise<void> = Promise.resolve();
+function enqueueWorkflowRun(run: () => Promise<void>): Promise<void> {
+  const next = workflowQueue.then(run);
+  workflowQueue = next.catch(() => {});
+  return next;
+}
+
+function runCustomWorkflows(
+  sessionId: string,
+  trigger: WorkflowTrigger,
+): Promise<void> {
+  return enqueueWorkflowRun(() => runCustomWorkflowsNow(sessionId, trigger));
+}
+
+async function runCustomWorkflowsNow(
   sessionId: string,
   trigger: WorkflowTrigger,
 ): Promise<void> {
@@ -85,6 +102,16 @@ async function runCustomWorkflows(
       continue;
     }
     if (workflow.steps.length === 0) {
+      continue;
+    }
+    if (workflow.steps.some((step) => step.type === "google_drive_export")) {
+      if (trigger === "note_enhanced") {
+        try {
+          await runWorkflowWithDrive(sessionId, workflow);
+        } catch (error) {
+          console.error("[automations] Drive workflow run failed", error);
+        }
+      }
       continue;
     }
     if (workflow.processedSessionIds.includes(sessionId)) {
@@ -148,23 +175,17 @@ async function persistWorkflowResult(
     sessionId?: string;
   },
 ): Promise<void> {
-  const { values } = await getStoredSettingValues();
-  const workflows = parseAutomationWorkflows(values.automation_workflows);
-  const next = workflows.map((workflow) => {
-    if (workflow.id !== workflowId) {
-      return workflow;
-    }
-    return {
-      ...workflow,
-      lastRun: record ?? workflow.lastRun,
-      processedSessionIds: sessionId
-        ? appendProcessedSession(workflow.processedSessionIds, sessionId)
-        : workflow.processedSessionIds,
-    };
-  });
-  await setSettingValue(
-    "automation_workflows",
-    serializeAutomationWorkflows(next),
+  await mutateAutomationWorkflows((workflows) =>
+    workflows.map((workflow) => {
+      if (workflow.id !== workflowId) return workflow;
+      return {
+        ...workflow,
+        lastRun: record ?? workflow.lastRun,
+        processedSessionIds: sessionId
+          ? appendProcessedSession(workflow.processedSessionIds, sessionId)
+          : workflow.processedSessionIds,
+      };
+    }),
   );
 }
 
@@ -183,6 +204,9 @@ async function executeWorkflowStep(
   step: WorkflowStep,
   options?: { beforeLinearCreate?: () => Promise<void> },
 ): Promise<string> {
+  if (step.type === "google_drive_export") {
+    throw new Error("Google Drive requires the summary-ready workflow runner");
+  }
   if (step.type === "markdown_export") {
     const directory = step.directory.trim();
     if (!directory) {
@@ -209,7 +233,12 @@ async function executeWorkflowStep(
   return await executeNotionUpdate(sessionId, step.target);
 }
 
-function stepLabel(type: Exclude<WorkflowStep["type"], "markdown_export">) {
+function stepLabel(
+  type: Exclude<
+    WorkflowStep["type"],
+    "markdown_export" | "google_drive_export"
+  >,
+) {
   switch (type) {
     case "slack_recap":
       return "Slack channel";
@@ -679,4 +708,166 @@ function markdownFromProsemirror(body: string): string {
   } catch {
     return "";
   }
+}
+
+async function persistDriveRun(
+  workflowId: string,
+  run: DriveExportRun,
+): Promise<void> {
+  await mutateAutomationWorkflows((workflows) => {
+    const workflow = workflows.find((item) => item.id === workflowId);
+    if (!workflow) throw new Error("Automation no longer exists");
+    const runs = (workflow.driveExports ?? []).filter(
+      (item) =>
+        !(
+          item.stepId === run.stepId &&
+          item.sessionId === run.sessionId &&
+          item.folderId === run.folderId &&
+          item.connectionId === run.connectionId
+        ),
+    );
+    runs.push(run);
+    // Preserve unresolved file IDs across ambiguous uploads and restarts.
+    const completed = runs
+      .filter((item) => item.status === "success")
+      .slice(-50);
+    workflow.driveExports = [
+      ...completed,
+      ...runs.filter((item) => item.status !== "success"),
+    ];
+    return workflows;
+  });
+}
+
+async function executeDriveStep(
+  sessionId: string,
+  workflow: AutomationWorkflow,
+  step: Extract<WorkflowStep, { type: "google_drive_export" }>,
+): Promise<DriveExportRun> {
+  if (!step.target || !step.connectionId)
+    throw new Error("Choose a Google Drive folder first");
+  const previous = workflow.driveExports?.find(
+    (run) =>
+      run.sessionId === sessionId &&
+      run.stepId === step.id &&
+      run.connectionId === step.connectionId &&
+      run.folderId === step.target?.id,
+  );
+  const run: DriveExportRun = {
+    sessionId,
+    stepId: step.id,
+    connectionId: step.connectionId,
+    folderId: step.target.id,
+    fileId: previous?.fileId,
+    status: "pending",
+    detail: "",
+    at: new Date().toISOString(),
+  };
+  try {
+    const prepared = await localApiCommands.prepareDriveMarkdown(sessionId);
+    if (prepared.status === "error") throw new Error(prepared.error);
+    const client = apiClientForSession(await requireSupabaseSession());
+    if (!run.fileId) {
+      const { data, error } = await googleDrivePrepareExport({
+        client,
+        body: {
+          connection_id: run.connectionId,
+          folder_id: run.folderId,
+          meeting_id: sessionId,
+        },
+      });
+      if (error || !data) throw new Error(apiErrorMessage(error));
+      run.fileId = data.file_id;
+    }
+    await persistDriveRun(workflow.id, run);
+    const { data, error } = await googleDriveExportMarkdown({
+      client,
+      body: {
+        connection_id: run.connectionId,
+        folder_id: run.folderId,
+        meeting_id: sessionId,
+        file_id: run.fileId,
+        filename: prepared.data.filename,
+        markdown: prepared.data.markdown,
+      },
+    });
+    if (error || !data) throw new Error(apiErrorMessage(error));
+    run.status = "success";
+    run.detail = data.url;
+  } catch (error) {
+    run.status = "error";
+    run.detail = error instanceof Error ? error.message : String(error);
+  }
+  run.at = new Date().toISOString();
+  await persistDriveRun(workflow.id, run);
+  return run;
+}
+
+async function runWorkflowWithDrive(
+  sessionId: string,
+  workflow: AutomationWorkflow,
+): Promise<void> {
+  const skipOtherSteps = workflow.processedSessionIds.includes(sessionId);
+  const record: AutomationRunRecord = {
+    at: new Date().toISOString(),
+    status: "success",
+    detail: "",
+  };
+  const details: string[] = [];
+  for (const step of workflow.steps) {
+    if (step.type === "google_drive_export") {
+      const run = await executeDriveStep(sessionId, workflow, step);
+      if (run.status === "error") record.status = "error";
+      details.push(run.detail);
+    } else if (!skipOtherSteps) {
+      try {
+        details.push(
+          await executeWorkflowStep(sessionId, step, {
+            beforeLinearCreate: () =>
+              persistWorkflowResult(workflow.id, { sessionId }),
+          }),
+        );
+        await persistWorkflowResult(workflow.id, { sessionId });
+      } catch (error) {
+        record.status = "error";
+        details.push(error instanceof Error ? error.message : String(error));
+        break;
+      }
+    }
+  }
+  record.detail = details.join(" · ");
+  await persistWorkflowResult(workflow.id, { record });
+}
+
+export function retryDriveExport(
+  workflowId: string,
+  failed: DriveExportRun,
+): Promise<void> {
+  return enqueueWorkflowRun(async () => {
+    const { values } = await getStoredSettingValues();
+    const workflow = parseAutomationWorkflows(values.automation_workflows).find(
+      (item) => item.id === workflowId,
+    );
+    if (!workflow?.enabled || workflow.trigger !== "note_enhanced")
+      throw new Error("Enable the summary-ready automation before retrying");
+    const step = workflow.steps.find((item) => item.id === failed.stepId);
+    if (
+      step?.type !== "google_drive_export" ||
+      step.connectionId !== failed.connectionId ||
+      step.target?.id !== failed.folderId
+    ) {
+      throw new Error(
+        "The Drive destination has changed. Generate the summary again to export to the new folder.",
+      );
+    }
+    const run = await executeDriveStep(failed.sessionId, workflow, step);
+    await persistWorkflowResult(workflow.id, {
+      record: {
+        at: run.at,
+        status: run.status === "success" ? "success" : "error",
+        detail: run.detail,
+      },
+    });
+    if (run.status === "error") throw new Error(run.detail);
+  });
 }

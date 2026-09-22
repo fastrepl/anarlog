@@ -44,6 +44,13 @@ pnpm exec turbo dev:web
 
 Turbo builds shared UI packages before starting either app.
 
+On macOS, install and select the full Xcode application, including its Metal
+toolchain (`xcodebuild -downloadComponent MetalToolchain`). Command Line Tools
+alone cannot build the on-device transcription dependencies. If the checkout
+path contains spaces, set `CARGO_TARGET_DIR` to a path without spaces before
+starting the desktop app; some native dependencies use Autotools, which rejects
+build directories containing spaces.
+
 CloudSync, hosted AI, authentication, billing, and connected integrations require the optional local services:
 
 ```bash
@@ -52,6 +59,49 @@ cargo run -p api
 ```
 
 The Supabase stack requires Docker. Provider credentials and service-specific configuration are not required for local notes, recording, or on-device features.
+
+### Develop the Google Drive automation
+
+Run the desktop, web (`:3000`), and API (`:3001`) development commands above in
+separate terminals. Configure the existing Nango `google-drive` integration with
+`https://www.googleapis.com/auth/drive.file` and the team's development OAuth
+client. Enable the Google Drive and Google Picker APIs in that client's Google
+Cloud project. Existing connections with broader scopes must be reauthorized.
+
+To test hosted transcription and summaries while keeping Drive requests local,
+set `VITE_API_URL=http://localhost:3001` and
+`VITE_AI_API_URL=https://api.anarlog.so` in `apps/desktop/.env`, then restart the
+desktop dev process. This requires an account and Pro entitlement accepted by
+the hosted service. The local API can remain `ANARLOG_SERVICE=core`. Omitting
+`VITE_AI_API_URL` keeps AI requests on `VITE_API_URL`. Explicit provider base URL
+settings still take precedence. Audio and summary requests use the hosted service
+and its normal usage limits.
+
+Set `GOOGLE_DRIVE_PICKER_REDIRECT_URI` in `apps/api/.env` to
+`http://localhost:3000/app/google-drive-picker` for local development. Register
+that exact URI on the **same Google OAuth client configured in Nango**, in its
+authorized redirect URIs. Keep Nango's existing callback URI as well. Production
+must use the deployed web origin with HTTPS and this same route path.
+
+Folder selection opens Google's OAuth page directly using `trigger_onepick` and
+`drive.file`; it does not embed the JavaScript Picker. No Picker API key or
+`VITE_GOOGLE_DRIVE_PICKER_*` variables are needed. The API obtains the OAuth
+client credentials from Nango, validates signed user-bound state and PKCE,
+checks that the selected Google account matches the existing connection, and
+imports the new credentials into that same Nango connection. The Nango API key
+must permit reading integration credentials and importing connections.
+
+The web page uses same-tab session storage only for return routing, clears the
+OAuth code from the URL before telemetry, and hands it to the authenticated
+desktop for API completion. Access and refresh tokens stay on the server.
+Restart selection from the desktop if the callback tab is refreshed or closed.
+Nango's new-connection webhook still needs a reachable local tunnel; the direct
+folder-selection callback goes to the web app and does not use that tunnel.
+
+Validate with a test My Drive folder and a test shared-drive folder. Verify
+folder selection, a first upload, an update after regenerating a summary, and a
+failed upload retry. Deploy the API and web support before distributing a desktop
+build that exposes the action.
 
 ## Find the right code
 

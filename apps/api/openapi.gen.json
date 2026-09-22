@@ -817,6 +817,181 @@
         ]
       }
     },
+    "/nango/google-drive/export": {
+      "post": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "google_drive_export_markdown",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveExportFile"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/nango/google-drive/folder": {
+      "post": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "google_drive_validate_folder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveFolder"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/nango/google-drive/picker-complete": {
+      "post": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "google_drive_picker_complete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PickerComplete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveFolder"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/nango/google-drive/picker-start": {
+      "post": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "google_drive_picker_start",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickerStart"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/nango/google-drive/prepare-export": {
+      "post": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "google_drive_prepare_export",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrivePrepareExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveExportFile"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/nango/session": {
       "post": {
         "tags": [
@@ -6947,6 +7122,122 @@
           }
         }
       },
+      "DriveConnectionRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DriveExportFile": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "url"
+        ],
+        "properties": {
+          "file_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "DriveExportRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "folder_id",
+          "meeting_id",
+          "file_id",
+          "filename",
+          "markdown"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "file_id": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "meeting_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DriveFolder": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "drive_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "DriveFolderRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "folder_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DrivePrepareExportRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "folder_id",
+          "meeting_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string"
+          },
+          "meeting_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "E2eeDeviceEnrollmentPackage": {
         "type": "object",
         "required": [
@@ -10149,6 +10440,41 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "PickerComplete": {
+        "type": "object",
+        "required": [
+          "state",
+          "code",
+          "folder_id"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "folder_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PickerStart": {
+        "type": "object",
+        "required": [
+          "authorization_url",
+          "state"
+        ],
+        "properties": {
+          "authorization_url": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
           }
         }
       },

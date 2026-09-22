@@ -10,6 +10,9 @@ export const Route = createFileRoute("/_view/app")({
     meta: [{ name: "robots", content: "noindex, nofollow" }],
   }),
   beforeLoad: async ({ location }) => {
+    if (location.pathname.replace(/\/$/, "") === "/app/google-drive-picker") {
+      return { user: null };
+    }
     if (
       isDesktopIntegrationHandoff({
         pathname: location.pathname,

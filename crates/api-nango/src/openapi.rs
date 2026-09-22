@@ -10,6 +10,11 @@ use crate::routes::{
 #[openapi(
     paths(
         crate::routes::connect::create_session,
+        crate::routes::google_drive_oauth::start,
+        crate::routes::google_drive_oauth::complete,
+        crate::routes::google_drive::validate_folder,
+        crate::routes::google_drive::prepare_export,
+        crate::routes::google_drive::export_markdown,
         crate::routes::disconnect::delete_connection,
         crate::routes::status::list_connections,
         crate::routes::webhook::nango_webhook,

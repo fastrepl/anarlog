@@ -764,7 +764,7 @@ export const useRunBatch = (sessionId: string) => {
       const fallbackTarget = getBatchFallbackTarget({
         isPaid: billing.isPaid,
         accessToken: cloudAccessToken,
-        apiBaseUrl: env.VITE_API_URL,
+        apiBaseUrl: env.VITE_AI_API_URL ?? env.VITE_API_URL,
         currentPlatform,
         currentArch,
       });

@@ -108,7 +108,23 @@ pub(crate) async fn fetch_identity(
         }
 
         // https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/UserInfo
-        "google-drive" | "google-meet" => {
+        "google-drive" => {
+            let resp = proxy
+                .base_url_override("https://www.googleapis.com")
+                .get("/drive/v3/about?fields=user(emailAddress,displayName)")
+                .map_err(|e| e.to_string())?
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+            let about: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            Ok((
+                about["user"]["emailAddress"].as_str().map(str::to_owned),
+                about["user"]["displayName"].as_str().map(str::to_owned),
+            ))
+        }
+        "google-meet" => {
             let request = if integration_id == "google-meet" {
                 proxy
                     .base_url_override("https://www.googleapis.com")

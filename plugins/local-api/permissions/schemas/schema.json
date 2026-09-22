@@ -379,6 +379,18 @@
           "markdownDescription": "Denies the list_webhooks command without any pre-configured scope."
         },
         {
+          "description": "Enables the prepare_drive_markdown command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-prepare-drive-markdown",
+          "markdownDescription": "Enables the prepare_drive_markdown command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the prepare_drive_markdown command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-prepare-drive-markdown",
+          "markdownDescription": "Denies the prepare_drive_markdown command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_webhook_active command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-webhook-active",
@@ -403,10 +415,10 @@
           "markdownDescription": "Denies the test_webhook command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-webhooks`\n- `allow-create-webhook`\n- `allow-delete-webhook`\n- `allow-set-webhook-active`\n- `allow-test-webhook`\n- `allow-dispatch-event`\n- `allow-export-meeting-markdown`\n- `allow-get-cloud-snapshot`\n- `allow-list-cloud-snapshot-ids`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-webhooks`\n- `allow-create-webhook`\n- `allow-delete-webhook`\n- `allow-set-webhook-active`\n- `allow-test-webhook`\n- `allow-dispatch-event`\n- `allow-export-meeting-markdown`\n- `allow-prepare-drive-markdown`\n- `allow-get-cloud-snapshot`\n- `allow-list-cloud-snapshot-ids`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-webhooks`\n- `allow-create-webhook`\n- `allow-delete-webhook`\n- `allow-set-webhook-active`\n- `allow-test-webhook`\n- `allow-dispatch-event`\n- `allow-export-meeting-markdown`\n- `allow-get-cloud-snapshot`\n- `allow-list-cloud-snapshot-ids`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-webhooks`\n- `allow-create-webhook`\n- `allow-delete-webhook`\n- `allow-set-webhook-active`\n- `allow-test-webhook`\n- `allow-dispatch-event`\n- `allow-export-meeting-markdown`\n- `allow-prepare-drive-markdown`\n- `allow-get-cloud-snapshot`\n- `allow-list-cloud-snapshot-ids`"
         }
       ]
     }

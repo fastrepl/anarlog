@@ -64,3 +64,9 @@ impl Default for MarkdownExportOptions {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct DriveMarkdownExport {
+    pub filename: String,
+    pub markdown: String,
+}

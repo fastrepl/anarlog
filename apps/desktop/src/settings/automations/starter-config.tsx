@@ -88,7 +88,7 @@ export function AutomationLastRunLine({
   );
 }
 
-function IntegrationGate({
+export function IntegrationGate({
   integrationId,
   connectLabel,
   reconnectLabel,
@@ -148,7 +148,7 @@ function useSaveTarget(settingKey: TargetSettingKey) {
   });
 }
 
-function useAuthedApiClient() {
+export function useAuthedApiClient() {
   const auth = useAuth();
   const headers = auth.getHeaders();
   if (!headers) {

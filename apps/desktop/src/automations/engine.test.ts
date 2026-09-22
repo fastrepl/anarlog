@@ -4,6 +4,9 @@ import { DEFAULT_MARKDOWN_EXPORT_OPTIONS } from "./markdown-export";
 
 const mocks = vi.hoisted(() => ({
   exportMeetingMarkdown: vi.fn(),
+  prepareDriveMarkdown: vi.fn(),
+  googleDrivePrepareExport: vi.fn(),
+  googleDriveExportMarkdown: vi.fn(),
   getStoredSettingValues: vi.fn(),
   setSettingValue: vi.fn(),
   execute: vi.fn(),
@@ -15,7 +18,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@anlg/plugin-local-api", () => ({
-  commands: { exportMeetingMarkdown: mocks.exportMeetingMarkdown },
+  commands: {
+    exportMeetingMarkdown: mocks.exportMeetingMarkdown,
+    prepareDriveMarkdown: mocks.prepareDriveMarkdown,
+  },
 }));
 
 vi.mock("~/settings/queries", () => ({
@@ -45,6 +51,8 @@ vi.mock("~/session-sharing/invitation-management", () => ({
 }));
 
 vi.mock("@anlg/api-client", () => ({
+  googleDrivePrepareExport: mocks.googleDrivePrepareExport,
+  googleDriveExportMarkdown: mocks.googleDriveExportMarkdown,
   listConnections: mocks.listConnections,
   linearCreateIssue: mocks.linearCreateIssue,
   notionAppendUpdate: mocks.notionAppendUpdate,
@@ -59,6 +67,7 @@ vi.mock("@anlg/editor/markdown", () => ({
 }));
 
 import {
+  retryDriveExport,
   parseAutomationRunRecord,
   parseAutomationTargetRef,
   runMeetingCompletedAutomations,
@@ -821,5 +830,107 @@ describe("configured Markdown workflows", () => {
     );
     expect(saved[0].lastRun.status).toBe("error");
     expect(saved[0].processedSessionIds).toEqual([]);
+  });
+});
+
+describe("Google Drive workflow delivery", () => {
+  function setupDrive() {
+    const workflow = {
+      id: "drive-workflow",
+      title: "Drive",
+      enabled: true,
+      trigger: "note_enhanced",
+      processedSessionIds: [],
+      lastRun: null,
+      chatGroupId: null,
+      steps: [
+        {
+          id: "slack",
+          type: "slack_recap",
+          target: { id: "channel", name: "recaps" },
+        },
+        {
+          id: "drive",
+          type: "google_drive_export",
+          connectionId: "connection",
+          target: { id: "folder", name: "Meeting notes" },
+        },
+      ],
+    };
+    const values: Record<string, unknown> = {
+      automation_workflows: JSON.stringify([workflow]),
+    };
+    storedSettings(values);
+    mocks.setSettingValue.mockImplementation(
+      async (key: string, value: unknown) => {
+        values[key] = value;
+      },
+    );
+    signedInSession();
+    mockDbRows();
+    mocks.prepareDriveMarkdown.mockResolvedValue({
+      status: "ok",
+      data: {
+        filename: "회의.md",
+        markdown: "# 회의\n## Summary\nSummary\n## Transcript\nTranscript",
+      },
+    });
+    mocks.googleDrivePrepareExport.mockResolvedValue({
+      data: {
+        file_id: "stable-file",
+        url: "https://drive.google.com/file/d/stable-file/view",
+      },
+    });
+    mocks.googleDriveExportMarkdown.mockResolvedValue({
+      data: {
+        file_id: "stable-file",
+        url: "https://drive.google.com/file/d/stable-file/view",
+      },
+    });
+    return () => JSON.parse(values.automation_workflows as string)[0];
+  }
+
+  it("persists the file ID before uploading and retries only Drive after Slack succeeds", async () => {
+    const current = setupDrive();
+    mocks.googleDriveExportMarkdown.mockImplementationOnce(async () => {
+      expect(current().driveExports[0].fileId).toBe("stable-file");
+      return { error: { error: { message: "Temporary failure" } } };
+    });
+    await runNoteEnhancedAutomations("meeting-1");
+    expect(current().driveExports[0].status).toBe("error");
+    expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
+    await retryDriveExport("drive-workflow", current().driveExports[0]);
+    expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
+    expect(mocks.googleDrivePrepareExport).toHaveBeenCalledTimes(1);
+    expect(mocks.googleDriveExportMarkdown).toHaveBeenCalledTimes(2);
+    expect(current().driveExports[0].status).toBe("success");
+  });
+
+  it("serializes duplicate events and reuses the file ID while preserving other steps", async () => {
+    const current = setupDrive();
+    await Promise.all([
+      runNoteEnhancedAutomations("meeting-1"),
+      runNoteEnhancedAutomations("meeting-1"),
+    ]);
+    expect(mocks.googleDrivePrepareExport).toHaveBeenCalledTimes(1);
+    expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
+    expect(current().driveExports).toHaveLength(1);
+    expect(
+      mocks.googleDriveExportMarkdown.mock.calls.every(
+        ([request]) => request.body.file_id === "stable-file",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not send a note without a summary or use the meeting-completed trigger", async () => {
+    setupDrive();
+    mocks.prepareDriveMarkdown.mockResolvedValue({
+      status: "error",
+      error: "No meeting summary is available yet",
+    });
+    await runNoteEnhancedAutomations("meeting-1");
+    await runMeetingCompletedAutomations("meeting-1");
+    expect(mocks.googleDrivePrepareExport).not.toHaveBeenCalled();
+    expect(mocks.googleDriveExportMarkdown).not.toHaveBeenCalled();
   });
 });

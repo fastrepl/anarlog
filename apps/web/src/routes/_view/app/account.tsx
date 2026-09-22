@@ -210,7 +210,7 @@ function Component() {
     setHash("");
     setOptimisticTab(tabId);
     void navigate({
-      search: (prev) => ({
+      search: (prev: ReturnType<typeof Route.useSearch>) => ({
         ...prev,
         tab: tabId === "account" ? undefined : tabId,
         section: undefined,
