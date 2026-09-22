@@ -57,7 +57,10 @@ jobs:
       - run: pnpm -F ui build
       - if: matrix.shard == 1
         run: pnpm -F desktop typecheck
-      - run: pnpm -F desktop test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - env:
+          SHARD: ${{ matrix.shard }}
+          SHARD_TOTAL: ${{ strategy.job-total }}
+        run: pnpm -F desktop test --shard="$SHARD/$SHARD_TOTAL"
 
   macos_ci:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}

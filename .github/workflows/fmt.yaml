@@ -34,14 +34,14 @@ jobs:
           if [ -n "$BASE_SHA" ] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
             git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" > changed-files.nul
             echo "scoped=true" >> "$GITHUB_OUTPUT"
-            if tr '\0' '\n' < changed-files.nul | grep -q '\.rs$'; then echo "rust=true" >> "$GITHUB_OUTPUT"; fi
+            if grep -zq '\.rs$' changed-files.nul; then echo "rust=true" >> "$GITHUB_OUTPUT"; fi
           else
             echo "scoped=false" >> "$GITHUB_OUTPUT"
             echo "rust=true" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.changed.outputs.rust == 'true'
-        uses: ./.github/actions/rust_install
-      - uses: actions/cache@v4
+        uses: $/.github/actions/rust_install
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/dprint/cache/plugins
           key: dprint-${{ hashFiles('dprint.json') }}
