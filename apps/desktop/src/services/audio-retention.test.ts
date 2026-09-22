@@ -5,12 +5,15 @@ const mocks = vi.hoisted(() => ({
   deleteLocalSessionAudio: vi.fn(),
   execute: vi.fn(),
   getSessionMode: vi.fn(),
+  markSessionAudioTranscriptionComplete: vi.fn(),
   live: { loading: false, sessionId: null as string | null },
 }));
 
 vi.mock("~/session/attachments", () => ({
   cleanupDeletedSessionAudio: mocks.cleanupDeletedSessionAudio,
   deleteLocalSessionAudio: mocks.deleteLocalSessionAudio,
+  markSessionAudioTranscriptionComplete:
+    mocks.markSessionAudioTranscriptionComplete,
 }));
 
 vi.mock("~/db", () => ({
@@ -228,6 +231,7 @@ describe("audio retention", () => {
       deleteProcessedAudioForRetention("none", "partial"),
     ).resolves.toBe(false);
     expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
+    expect(mocks.markSessionAudioTranscriptionComplete).not.toHaveBeenCalled();
   });
 
   test("skips immediate deletion for retained audio", async () => {
