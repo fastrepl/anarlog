@@ -7,6 +7,7 @@ import { liveQueryClient } from "~/db";
 import {
   cleanupDeletedSessionAudio,
   deleteLocalSessionAudio,
+  markSessionAudioTranscriptionComplete,
 } from "~/session/attachments";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
@@ -126,11 +127,13 @@ export async function deleteProcessedAudioForRetention(
     return false;
   }
 
-  if (!(await sessionAudioIsProcessed(sessionId))) {
-    return false;
-  }
-
   try {
+    await markSessionAudioTranscriptionComplete(sessionId).catch(
+      () => undefined,
+    );
+    if (!(await sessionAudioIsProcessed(sessionId))) {
+      return false;
+    }
     return await deleteWithRetentionLifecycle(sessionId, () =>
       deleteLocalSessionAudio(sessionId, () => isSessionAudioIdle(sessionId)),
     );
