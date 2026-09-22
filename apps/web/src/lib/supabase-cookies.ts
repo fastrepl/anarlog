@@ -28,20 +28,45 @@ export type SupabaseCookie = {
  * anonymous request into a server error before the route can handle it.
  */
 export function filterInvalidSupabaseCookies(cookies: SupabaseRequestCookie[]) {
-  const invalidCookieBases = new Set<string>();
+  const authCookieChunks = new Map<string, SupabaseRequestCookie[]>();
 
   for (const cookie of cookies) {
     const cookieBase = cookie.name.replace(COOKIE_CHUNK_SUFFIX, "");
     if (
       !cookieBase.startsWith("sb-") ||
-      !cookieBase.endsWith(AUTH_COOKIE_SUFFIX) ||
-      !cookie.value.startsWith(BASE64_COOKIE_PREFIX)
+      !cookieBase.endsWith(AUTH_COOKIE_SUFFIX)
     ) {
       continue;
     }
+    const chunks = authCookieChunks.get(cookieBase) ?? [];
+    chunks.push(cookie);
+    authCookieChunks.set(cookieBase, chunks);
+  }
 
+  const invalidCookieBases = new Set<string>();
+  for (const [cookieBase, chunks] of authCookieChunks) {
+    const exact = chunks.find((cookie) => cookie.name === cookieBase);
+    let value = exact?.value;
+    if (!exact) {
+      const numbered = new Map(
+        chunks
+          .filter((cookie) => cookie.name !== cookieBase)
+          .map((cookie) => [
+            Number(cookie.name.slice(cookieBase.length + 1)),
+            cookie.value,
+          ]),
+      );
+      const values: string[] = [];
+      for (let index = 0; numbered.has(index); index++) {
+        values.push(numbered.get(index)!);
+      }
+      value = values.join("");
+    }
+    if (!value?.startsWith(BASE64_COOKIE_PREFIX)) {
+      continue;
+    }
     try {
-      stringFromBase64URL(cookie.value.slice(BASE64_COOKIE_PREFIX.length));
+      stringFromBase64URL(value.slice(BASE64_COOKIE_PREFIX.length));
     } catch {
       invalidCookieBases.add(cookieBase);
     }
