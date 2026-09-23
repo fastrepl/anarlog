@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   } | null,
   goBack: vi.fn(),
   openCurrent: vi.fn(),
+  platform: null as string | null,
   select: vi.fn(),
   sendEvent: vi.fn(),
   tabs: [] as {
@@ -20,6 +21,15 @@ const mocks = vi.hoisted(() => ({
     slotId?: string;
     type: string;
   }[],
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => {
+    if (mocks.platform === null) {
+      throw new Error("not in tauri");
+    }
+    return mocks.platform;
+  },
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -64,6 +74,7 @@ describe("CustomSidebarHeader", () => {
     mocks.currentTab = { type: "settings" };
     mocks.goBack.mockClear();
     mocks.openCurrent.mockClear();
+    mocks.platform = null;
     mocks.select.mockClear();
     mocks.sendEvent.mockClear();
     mocks.tabs = [];
@@ -143,6 +154,17 @@ describe("CustomSidebarHeader", () => {
     expect(mocks.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(mocks.sendEvent).not.toHaveBeenCalled();
   });
+
+  it.each(["windows", "linux"])(
+    "hides the back button on %s where the title bar hosts it",
+    (platform) => {
+      mocks.platform = platform;
+
+      render(<CustomSidebarHeader />);
+
+      expect(screen.queryByRole("button", { name: "Go home" })).toBeNull();
+    },
+  );
 
   it("does not render history controls", () => {
     render(<CustomSidebarHeader />);

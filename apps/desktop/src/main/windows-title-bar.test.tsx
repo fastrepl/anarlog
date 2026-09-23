@@ -22,8 +22,11 @@ const mocks = vi.hoisted(() => ({
   setFullscreen: vi.fn().mockResolvedValue(undefined),
   toggleExpanded: vi.fn(),
   toggleMaximize: vi.fn().mockResolvedValue(undefined),
+  chatMode: "FloatingClosed",
   currentTab: { type: "empty" } as { id?: string; type: string },
   leftSidebarExpanded: true,
+  openCurrent: vi.fn(),
+  sendEvent: vi.fn(),
   platform: "windows",
   upcomingMeetingStatus: null as null | { itemKey: string },
 }));
@@ -50,6 +53,7 @@ vi.mock("@anlg/plugin-opener2", () => ({
 
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
+    chat: { mode: mocks.chatMode, sendEvent: mocks.sendEvent },
     leftsidebar: {
       expanded: mocks.leftSidebarExpanded,
       toggleExpanded: mocks.toggleExpanded,
@@ -69,14 +73,24 @@ vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
   useSidebarUpcomingMeetingStatus: () => mocks.upcomingMeetingStatus,
 }));
 
-vi.mock("~/store/zustand/tabs", () => ({
-  useTabs: (
-    selector: (state: {
-      currentTab: typeof mocks.currentTab;
-      openNew: typeof mocks.openNew;
-    }) => unknown,
-  ) => selector({ currentTab: mocks.currentTab, openNew: mocks.openNew }),
-}));
+vi.mock("~/store/zustand/tabs", () => {
+  const getState = () => ({
+    canGoBack: false,
+    currentTab: mocks.currentTab,
+    goBack: vi.fn(),
+    openCurrent: mocks.openCurrent,
+    openNew: mocks.openNew,
+    select: vi.fn(),
+    tabs: [],
+  });
+  const useTabs = Object.assign(
+    (selector: (state: ReturnType<typeof getState>) => unknown) =>
+      selector(getState()),
+    { getState },
+  );
+
+  return { uniqueIdfromTab: (tab: { type: string }) => tab.type, useTabs };
+});
 
 import { WindowsTitleBar } from "./windows-title-bar";
 
@@ -95,6 +109,9 @@ describe("WindowsTitleBar", () => {
     mocks.setFullscreen.mockClear();
     mocks.toggleExpanded.mockClear();
     mocks.toggleMaximize.mockClear();
+    mocks.openCurrent.mockClear();
+    mocks.sendEvent.mockClear();
+    mocks.chatMode = "FloatingClosed";
     mocks.currentTab = { type: "empty" };
     mocks.leftSidebarExpanded = true;
     mocks.platform = "windows";
@@ -141,6 +158,32 @@ describe("WindowsTitleBar", () => {
     expect(mocks.minimize).toHaveBeenCalledOnce();
     expect(mocks.toggleMaximize).toHaveBeenCalledOnce();
     expect(mocks.close).toHaveBeenCalledOnce();
+  });
+
+  it("replaces the sidebar toggle with a back button on custom sidebar tabs", () => {
+    mocks.currentTab = { type: "settings" };
+
+    render(<WindowsTitleBar showSidebarTimelineChrome={false} />);
+
+    expect(screen.queryByRole("button", { name: "Hide sidebar" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Go home" }));
+
+    expect(mocks.toggleExpanded).not.toHaveBeenCalled();
+    expect(mocks.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+  });
+
+  it("closes an open chat from the title bar back button first", () => {
+    mocks.currentTab = { type: "calendar" };
+    mocks.chatMode = "Floating";
+
+    render(<WindowsTitleBar showSidebarTimelineChrome={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go home" }));
+
+    expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
+    expect(mocks.openCurrent).not.toHaveBeenCalled();
   });
 
   it("shows note actions beside the sidebar toggle only while expanded", () => {

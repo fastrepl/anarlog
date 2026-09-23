@@ -5,17 +5,18 @@ import { ArrowLeft } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useShell } from "~/contexts/shell";
-import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
+import {
+  usesWindowsStyleTitleBar,
+  useWindowControlsGutter,
+} from "~/shared/hooks/useWindowControlsGutter";
 import { leaveOverlayTab } from "~/shared/leave-overlay-tab";
 import { useTabs } from "~/store/zustand/tabs";
 
-export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
-  const { t } = useLingui();
+export function useCustomSidebarBack() {
   const { chat } = useShell();
-  const showWindowControlsGutter = useWindowControlsGutter();
   const currentTab = useTabs((state) => state.currentTab);
 
-  const handleBack = useCallback(() => {
+  return useCallback(() => {
     if (currentTab?.type !== "automations" && chat.mode !== "FloatingClosed") {
       chat.sendEvent({ type: "CLOSE" });
       return;
@@ -23,6 +24,13 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
 
     leaveOverlayTab();
   }, [chat, currentTab]);
+}
+
+export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
+  const { t } = useLingui();
+  const showWindowControlsGutter = useWindowControlsGutter();
+  const handleBack = useCustomSidebarBack();
+  const showBackButton = !usesWindowsStyleTitleBar();
 
   return (
     <div
@@ -36,13 +44,15 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
         data-tauri-drag-region
         className="flex min-w-0 flex-1 items-center gap-1"
       >
-        <CustomSidebarHeaderButton
-          label={t`Go home`}
-          title={t`Back`}
-          onClick={handleBack}
-        >
-          <ArrowLeft size={16} />
-        </CustomSidebarHeaderButton>
+        {showBackButton ? (
+          <CustomSidebarHeaderButton
+            label={t`Go home`}
+            title={t`Back`}
+            onClick={handleBack}
+          >
+            <ArrowLeft size={16} />
+          </CustomSidebarHeaderButton>
+        ) : null}
       </div>
       {children ? (
         <div

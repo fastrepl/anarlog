@@ -2540,6 +2540,7 @@ msgstr ""
 msgid "Go back to now"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Go home"
 msgstr ""
