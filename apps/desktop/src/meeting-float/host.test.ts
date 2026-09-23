@@ -802,6 +802,52 @@ describe("createFloatingSpeakerResolver", () => {
     expect(onUpdate).toHaveBeenCalledTimes(1);
   });
 
+  it("upgrades an anonymous label once a later response names the speaker", async () => {
+    const first = deferred<{
+      status: "ok";
+      data: RenderedTranscriptSegment[];
+    }>();
+    const second = deferred<{
+      status: "ok";
+      data: RenderedTranscriptSegment[];
+    }>();
+    transcriptMocks.renderTranscriptSegments
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      vi.fn(),
+    );
+    const state = createListenerStateWithSegments(
+      { status: "active", sessionId: "session-1" },
+      [remoteSegment()],
+    );
+    const key = SegmentKeyUtils.serialize(remoteSegment().key);
+
+    resolve(state);
+    first.resolve({
+      status: "ok",
+      data: [
+        {
+          ...renderedRemoteSegment(null),
+          provisional_speaker: null,
+          speaker_label: "Speaker 2",
+        },
+      ],
+    });
+    await vi.waitFor(() => expect(labels.get(key)?.label).toBe("Speaker 2"));
+
+    resolve(state);
+    second.resolve({
+      status: "ok",
+      data: [renderedRemoteSegment("human-remote")],
+    });
+    await vi.waitFor(() => expect(labels.get(key)?.label).toBe("Artem"));
+    expect(labels.get(key)?.humanId).toBe("human-remote");
+  });
+
   it("does not call the native resolver without a speaker context", () => {
     const labels = new Map<string, { label: string; humanId?: string }>();
     const resolve = createFloatingSpeakerResolver(

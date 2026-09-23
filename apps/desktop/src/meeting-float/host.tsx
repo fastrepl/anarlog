@@ -415,25 +415,46 @@ export function createFloatingSpeakerResolver(
       if (isCancelled() || requestId !== counter || result.status !== "ok") {
         return;
       }
-      let changed = false;
+      const next = new Map<string, { label: string; humanId?: string }>();
       for (const segment of result.data) {
         const key = SegmentKeyUtils.serialize(segment.key);
-        if (speakerLabels.has(key)) continue;
+        if (next.has(key)) continue;
         const label =
           segment.provisional_speaker?.name || segment.speaker_label;
         if (!label) continue;
-        speakerLabels.set(key, {
+        next.set(key, {
           label,
           humanId:
             segment.key.speaker_human_id ??
             segment.provisional_speaker?.human_id ??
             undefined,
         });
-        changed = true;
       }
-      if (changed) onUpdate();
+      if (!areSpeakerLabelsEqual(speakerLabels, next)) {
+        speakerLabels.clear();
+        for (const [key, value] of next) speakerLabels.set(key, value);
+        onUpdate();
+      }
     })();
   };
+}
+
+function areSpeakerLabelsEqual(
+  a: FloatingSpeakerLabels,
+  b: Map<string, { label: string; humanId?: string }>,
+) {
+  if (a.size !== b.size) return false;
+  for (const [key, value] of a) {
+    const other = b.get(key);
+    if (
+      !other ||
+      other.label !== value.label ||
+      other.humanId !== value.humanId
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function haveFloatingRouteInputsChanged(
