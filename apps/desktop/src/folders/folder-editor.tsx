@@ -43,7 +43,10 @@ import {
   sharedResourcesQueryKey,
   useSharedResources,
 } from "~/resource-sharing/hooks";
-import { useAvailableShareWorkspaces } from "~/session-sharing/source";
+import {
+  useAvailableShareWorkspaces,
+  usePersonalWorkspaceId,
+} from "~/session-sharing/source";
 import {
   deleteLocalFolderMaterial,
   diskAttachmentId,
@@ -71,6 +74,7 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
   const auth = useOptionalAuth();
   const accountUserId = auth?.session?.user.id ?? null;
   const availableWorkspaces = useAvailableShareWorkspaces(accountUserId);
+  const personalWorkspaceId = usePersonalWorkspaceId(accountUserId);
   const queryClient = useQueryClient();
   const sharedFolders = useSharedResources("folder");
   const ownedShare = sharedFolders.data?.find(
@@ -103,6 +107,11 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
     name: string;
   } | null>(null);
   const folderWorkspaceId = useFolderWorkspaceId(folderPath);
+  const selectedWorkspaceValue = availableWorkspaces.some(
+    (workspace) => workspace.id === folderWorkspaceId,
+  )
+    ? folderWorkspaceId
+    : PERSONAL_WORKSPACE_VALUE;
   const workspaceMutation = useMutation({
     mutationFn: (workspaceId: string) =>
       updateFolderWorkspace(folderPath, workspaceId),
@@ -271,11 +280,11 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
                 </p>
               </div>
               <Select
-                value={folderWorkspaceId || PERSONAL_WORKSPACE_VALUE}
+                value={selectedWorkspaceValue}
                 disabled={workspaceMutation.isPending}
                 onValueChange={(workspaceId) => {
                   if (workspaceId === PERSONAL_WORKSPACE_VALUE) {
-                    workspaceMutation.mutate("");
+                    workspaceMutation.mutate(personalWorkspaceId);
                     return;
                   }
                   const workspace = availableWorkspaces.find(

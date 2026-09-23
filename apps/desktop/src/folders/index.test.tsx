@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   folders: [] as string[],
   icons: {} as Record<string, { type: "icon"; value: string; color: string }>,
   instructions: "",
+  auth: null as { session: { user: { id: string } } } | null,
   materials: [] as Array<{
     id: string;
     filename: string;
@@ -29,7 +30,20 @@ const mocks = vi.hoisted(() => ({
   updateFolderWorkspace: vi.fn(),
   upload: vi.fn(),
   workspaceId: "",
+  personalWorkspaceId: "",
   workspaces: [] as Array<{ id: string; name: string }>,
+}));
+
+vi.mock("~/auth", () => ({
+  useOptionalAuth: () => mocks.auth,
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => ({
+    isReady: false,
+    isPaid: false,
+    upgradeToPro: vi.fn(),
+  }),
 }));
 
 vi.mock("@lingui/react/macro", () => ({
@@ -63,6 +77,7 @@ vi.mock("~/session/folder-catalog", () => ({
 
 vi.mock("~/session-sharing/source", () => ({
   useAvailableShareWorkspaces: () => mocks.workspaces,
+  usePersonalWorkspaceId: () => mocks.personalWorkspaceId,
 }));
 
 vi.mock("~/session/folder-attachments", () => ({
@@ -122,7 +137,9 @@ describe("Folders workspace", () => {
     mocks.icons = {};
     mocks.instructions = "";
     mocks.materials = [];
+    mocks.auth = null;
     mocks.workspaceId = "";
+    mocks.personalWorkspaceId = "";
     mocks.workspaces = [];
     mocks.createNamedFolder.mockResolvedValue("CS 101");
     mocks.deleteNamedFolder.mockResolvedValue(undefined);
@@ -215,6 +232,19 @@ describe("Folders workspace", () => {
     await waitFor(() => {
       expect(mocks.upload).toHaveBeenCalledWith(file);
     });
+  });
+
+  it("shows Only me for a personal workspace assignment", () => {
+    mocks.folders = ["CS 101"];
+    mocks.auth = { session: { user: { id: "user-1" } } };
+    mocks.workspaces = [{ id: "ws-team", name: "Team" }];
+    mocks.workspaceId = "user-1";
+    renderFoldersWorkspace();
+
+    expect(
+      screen.getByRole("combobox", { name: "Team folder workspace" })
+        .textContent,
+    ).toContain("Only me");
   });
 
   it("filters the sidebar by folder name", () => {
