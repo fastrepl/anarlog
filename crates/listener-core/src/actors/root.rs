@@ -307,12 +307,6 @@ async fn start_session_impl(
 
         configure_sentry_session_context(&params);
 
-        if params.retain_audio == Some(false) {
-            state.held_audio_sessions.insert(params.session_id.clone());
-        } else {
-            state.held_audio_sessions.remove(&params.session_id);
-        }
-
         let app_dir = match state.runtime.vault_base() {
             Ok(base) => base.join("sessions"),
             Err(e) => {
@@ -343,6 +337,11 @@ async fn start_session_impl(
 
                 state.active_session_id = Some(params.session_id.clone());
                 state.active_supervisor = Some(supervisor_cell);
+                if params.retain_audio == Some(false) {
+                    state.held_audio_sessions.insert(params.session_id.clone());
+                } else {
+                    state.held_audio_sessions.remove(&params.session_id);
+                }
 
                 let evt = SessionLifecycleEvent::Active {
                     session_id: params.session_id,
