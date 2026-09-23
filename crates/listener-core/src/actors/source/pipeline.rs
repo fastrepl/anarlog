@@ -29,9 +29,8 @@ const LISTENER_BACKPRESSURE_TIMEOUT: Duration = Duration::from_secs(1);
 const LISTENER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(10);
 const MAX_BACKLOG_DISPATCH_PER_FRAME: usize = 2;
 const RECORDER_RPC_TIMEOUT: Duration = Duration::from_millis(100);
-// A stalled disk delays the recording instead of stopping it: frames wait in memory
-// for up to this long (about 4 MB of dual-channel audio) before the recorder is
-// declared dead and restarted.
+// Frames wait in memory (~4 MB dual-channel) through a disk stall this long
+// before the recorder is declared dead.
 const RECORDER_STALL_TOLERANCE: Duration = Duration::from_secs(30);
 const RECORDER_FRAME_MS: u64 = 120;
 const RECORDER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(25);
