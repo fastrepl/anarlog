@@ -11699,6 +11699,7 @@ dependencies = [
  "transcribe-speechanalyzer",
  "url",
  "user-error",
+ "uuid",
  "wiremock",
  "ws-client",
 ]

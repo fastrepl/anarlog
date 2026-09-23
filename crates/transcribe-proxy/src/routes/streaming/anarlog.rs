@@ -2,9 +2,10 @@ use base64::Engine;
 use std::sync::Arc;
 
 use owhisper_client::{
-    AssemblyAIAdapter, Auth, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter,
-    DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, MistralAdapter,
-    OpenAIAdapter, Provider, RealtimeSttAdapter, SonioxAdapter, normalize_listen_params,
+    AssemblyAIAdapter, Auth, CartesiaAdapter, DashScopeAdapter, DashScopeStreamingAdapter,
+    DeepgramAdapter, DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter,
+    MistralAdapter, OpenAIAdapter, Provider, RealtimeSttAdapter, SonioxAdapter,
+    normalize_listen_params,
 };
 use owhisper_interface::ListenParams;
 
@@ -35,12 +36,24 @@ fn build_listen_params(params: &QueryParams) -> ListenParams {
     })
 }
 
+fn dashscope_streaming_adapter(
+    provider: Provider,
+    model: Option<&str>,
+) -> Option<DashScopeStreamingAdapter> {
+    (provider == Provider::DashScope && model.is_some_and(DashScopeStreamingAdapter::is_model))
+        .then(DashScopeStreamingAdapter::default)
+}
+
 fn build_upstream_url_with_adapter(
     provider: Provider,
     api_base: &str,
     params: &ListenParams,
     channels: u8,
+    dashscope_streaming: Option<&DashScopeStreamingAdapter>,
 ) -> url::Url {
+    if let Some(adapter) = dashscope_streaming {
+        return adapter.build_ws_url(api_base, params, channels);
+    }
     match provider {
         Provider::Deepgram
             if params
@@ -85,8 +98,12 @@ fn build_initial_message_with_adapter(
     api_key: Option<&str>,
     params: &ListenParams,
     channels: u8,
+    dashscope_streaming: Option<&DashScopeStreamingAdapter>,
 ) -> Option<String> {
     let msg = match provider {
+        Provider::DashScope if dashscope_streaming.is_some() => {
+            dashscope_streaming?.initial_message(api_key, params, channels)
+        }
         Provider::Deepgram
             if params
                 .model
@@ -138,9 +155,14 @@ fn build_response_transformer(
     let openai_adapter = OpenAIAdapter::default();
     let is_deepgram_flux =
         provider == Provider::Deepgram && model.is_some_and(DeepgramFluxAdapter::is_model);
+    let dashscope_streaming = dashscope_streaming_adapter(provider, model);
     move |raw: &str| {
         let responses: Vec<owhisper_interface::stream::StreamResponse> = match provider {
             Provider::Deepgram if is_deepgram_flux => DeepgramFluxAdapter.parse_response(raw),
+            Provider::DashScope if dashscope_streaming.is_some() => dashscope_streaming
+                .as_ref()
+                .map(|adapter| adapter.parse_response(raw))
+                .unwrap_or_default(),
             Provider::Deepgram => DeepgramAdapter.parse_response(raw),
             Provider::AssemblyAI => AssemblyAIAdapter.parse_response(raw),
             Provider::Cartesia => CartesiaAdapter.parse_response(raw),
@@ -203,7 +225,11 @@ fn proxy_debug_enabled() -> bool {
         .unwrap_or(false)
 }
 
-fn build_client_message_filter(provider: Provider, model: Option<&str>) -> ClientMessageFilter {
+fn build_client_message_filter(
+    provider: Provider,
+    model: Option<&str>,
+    dashscope_streaming: Option<DashScopeStreamingAdapter>,
+) -> ClientMessageFilter {
     let is_deepgram_flux =
         provider == Provider::Deepgram && model.is_some_and(DeepgramFluxAdapter::is_model);
     Arc::new(move |text: String| {
@@ -211,6 +237,18 @@ fn build_client_message_filter(provider: Provider, model: Option<&str>) -> Clien
             Ok(msg) => msg,
             Err(_) => return Some(text),
         };
+        if let Some(adapter) = &dashscope_streaming {
+            return match msg {
+                owhisper_interface::ControlMessage::Finalize => match adapter.finalize_message() {
+                    owhisper_client::anlg_ws_client::client::Message::Text(t) => {
+                        Some(t.to_string())
+                    }
+                    _ => None,
+                },
+                owhisper_interface::ControlMessage::KeepAlive
+                | owhisper_interface::ControlMessage::CloseStream => None,
+            };
+        }
         if is_deepgram_flux {
             return match msg {
                 owhisper_interface::ControlMessage::Finalize
@@ -260,6 +298,7 @@ fn build_proxy_plan(
     model: Option<&str>,
     config: &SttProxyConfig,
     analytics_ctx: AnalyticsContext,
+    dashscope_streaming: Option<DashScopeStreamingAdapter>,
 ) -> Result<StreamingProxyPlan, crate::ProxyError> {
     let mut plan = StreamingProxyPlan::new(StreamingTransport::for_channels(
         channels,
@@ -270,7 +309,11 @@ fn build_proxy_plan(
     .connect_timeout(config.connect_timeout)
     .control_message_types(provider.control_message_types())
     .response_transformer(build_response_transformer(provider, model))
-    .client_message_filter(build_client_message_filter(provider, model))
+    .client_message_filter(build_client_message_filter(
+        provider,
+        model,
+        dashscope_streaming,
+    ))
     .apply_auth(selected);
 
     if plan.upstream_count() == 2 {
@@ -295,17 +338,24 @@ fn build_proxy_with_adapter(
     mut plan: StreamingProxyPlan,
     provider: Provider,
     api_key: &str,
+    dashscope_streaming: Option<&DashScopeStreamingAdapter>,
 ) -> Result<StreamingProxy, crate::ProxyError> {
     let upstream_channels = plan.upstream_request_channels(channels);
 
-    let upstream_url =
-        build_upstream_url_with_adapter(provider, api_base, listen_params, upstream_channels);
+    let upstream_url = build_upstream_url_with_adapter(
+        provider,
+        api_base,
+        listen_params,
+        upstream_channels,
+        dashscope_streaming,
+    );
 
     let initial_message = build_initial_message_with_adapter(
         provider,
         Some(api_key),
         listen_params,
         upstream_channels,
+        dashscope_streaming,
     );
 
     if let Some(msg) = initial_message {
@@ -335,6 +385,7 @@ pub async fn build_proxy(
     }
     let mut listen_params = build_listen_params(params);
     resolve_model_live(provider, &mut listen_params);
+    let dashscope_streaming = dashscope_streaming_adapter(provider, listen_params.model.as_deref());
     let plan = build_proxy_plan(
         provider,
         selected,
@@ -343,6 +394,7 @@ pub async fn build_proxy(
         listen_params.model.as_deref(),
         &state.config,
         analytics_ctx,
+        dashscope_streaming.clone(),
     )?;
     let api_base = selected
         .upstream_url()
@@ -358,6 +410,7 @@ pub async fn build_proxy(
                     plan,
                     provider,
                     selected.api_key(),
+                    dashscope_streaming.as_ref(),
                 )?)
             } else {
                 let mut session_params = params.clone();
@@ -399,6 +452,7 @@ pub async fn build_proxy(
             plan,
             provider,
             selected.api_key(),
+            dashscope_streaming.as_ref(),
         )?),
     }
 }
@@ -523,6 +577,7 @@ mod tests {
             "https://api.deepgram.com/v1",
             &params,
             1,
+            None,
         );
 
         assert!(url.as_str().contains("deepgram.com"));
@@ -544,6 +599,7 @@ mod tests {
             "https://api.deepgram.com/v1",
             &params,
             1,
+            None,
         );
 
         assert_eq!(url.path(), "/v2/listen");
@@ -562,8 +618,13 @@ mod tests {
             ..Default::default()
         };
 
-        let url =
-            build_upstream_url_with_adapter(Provider::Soniox, "https://api.soniox.com", &params, 1);
+        let url = build_upstream_url_with_adapter(
+            Provider::Soniox,
+            "https://api.soniox.com",
+            &params,
+            1,
+            None,
+        );
 
         assert!(url.as_str().contains("soniox.com"));
     }
@@ -578,8 +639,13 @@ mod tests {
             ..Default::default()
         };
 
-        let initial_msg =
-            build_initial_message_with_adapter(Provider::Soniox, Some("test-key"), &params, 1);
+        let initial_msg = build_initial_message_with_adapter(
+            Provider::Soniox,
+            Some("test-key"),
+            &params,
+            1,
+            None,
+        );
 
         assert!(initial_msg.is_some());
         let msg = initial_msg.unwrap();
@@ -596,8 +662,13 @@ mod tests {
             ..Default::default()
         };
 
-        let initial_msg =
-            build_initial_message_with_adapter(Provider::Deepgram, Some("test-key"), &params, 1);
+        let initial_msg = build_initial_message_with_adapter(
+            Provider::Deepgram,
+            Some("test-key"),
+            &params,
+            1,
+            None,
+        );
 
         assert!(initial_msg.is_none());
     }
@@ -673,7 +744,7 @@ mod tests {
 
     #[test]
     fn test_client_message_filter_deepgram_identity() {
-        let filter = build_client_message_filter(Provider::Deepgram, Some("nova-3"));
+        let filter = build_client_message_filter(Provider::Deepgram, Some("nova-3"), None);
         assert_eq!(
             filter(r#"{"type":"KeepAlive"}"#.to_string()),
             Some(r#"{"type":"KeepAlive"}"#.to_string())
@@ -686,8 +757,66 @@ mod tests {
     }
 
     #[test]
+    fn test_dashscope_streaming_uses_task_protocol_with_shared_task_id() {
+        let model = "qwen-audio-3.1-asr-flash-streaming";
+        let params = ListenParams {
+            model: Some(model.to_string()),
+            sample_rate: 16000,
+            channels: 1,
+            ..Default::default()
+        };
+        let adapter = dashscope_streaming_adapter(Provider::DashScope, Some(model))
+            .expect("streaming adapter");
+        assert!(
+            dashscope_streaming_adapter(Provider::DashScope, Some("qwen3-asr-flash-realtime"))
+                .is_none()
+        );
+
+        let url = build_upstream_url_with_adapter(
+            Provider::DashScope,
+            "wss://dashscope-intl.aliyuncs.com",
+            &params,
+            1,
+            Some(&adapter),
+        );
+        assert_eq!(url.path(), "/api-ws/v1/inference");
+        assert!(url.as_str().contains(&format!("model={model}")));
+
+        let initial = build_initial_message_with_adapter(
+            Provider::DashScope,
+            Some("test-key"),
+            &params,
+            1,
+            Some(&adapter),
+        )
+        .expect("initial message");
+        let initial: serde_json::Value = serde_json::from_str(&initial).unwrap();
+        assert_eq!(initial["header"]["action"], "run-task");
+        assert_eq!(initial["header"]["task_id"], adapter.task_id());
+
+        let filter =
+            build_client_message_filter(Provider::DashScope, Some(model), Some(adapter.clone()));
+        assert_eq!(filter(r#"{"type":"KeepAlive"}"#.to_string()), None);
+        let finish: serde_json::Value =
+            serde_json::from_str(&filter(r#"{"type":"Finalize"}"#.to_string()).unwrap()).unwrap();
+        assert_eq!(finish["header"]["action"], "finish-task");
+        assert_eq!(finish["header"]["task_id"], adapter.task_id());
+
+        let legacy_filter = build_client_message_filter(
+            Provider::DashScope,
+            Some("qwen3-asr-flash-realtime"),
+            None,
+        );
+        assert_eq!(
+            legacy_filter(r#"{"type":"Finalize"}"#.to_string()),
+            Some(r#"{"type":"session.finish"}"#.to_string())
+        );
+    }
+
+    #[test]
     fn test_client_message_filter_deepgram_flux_translates_finalize() {
-        let filter = build_client_message_filter(Provider::Deepgram, Some("flux-general-multi"));
+        let filter =
+            build_client_message_filter(Provider::Deepgram, Some("flux-general-multi"), None);
         assert_eq!(filter(r#"{"type":"KeepAlive"}"#.to_string()), None);
         assert_eq!(
             filter(r#"{"type":"Finalize"}"#.to_string()),
@@ -701,7 +830,7 @@ mod tests {
 
     #[test]
     fn test_client_message_filter_soniox_translates_control_messages() {
-        let filter = build_client_message_filter(Provider::Soniox, None);
+        let filter = build_client_message_filter(Provider::Soniox, None, None);
 
         assert_eq!(filter(r#"{"type":"CloseStream"}"#.to_string()), None);
         assert_eq!(
@@ -716,7 +845,7 @@ mod tests {
 
     #[test]
     fn test_client_message_filter_assemblyai_translates_finalize() {
-        let filter = build_client_message_filter(Provider::AssemblyAI, None);
+        let filter = build_client_message_filter(Provider::AssemblyAI, None, None);
         assert_eq!(filter(r#"{"type":"KeepAlive"}"#.to_string()), None);
         assert_eq!(
             filter(r#"{"type":"Finalize"}"#.to_string()),
@@ -726,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_client_message_filter_non_json_passthrough() {
-        let filter = build_client_message_filter(Provider::Soniox, None);
+        let filter = build_client_message_filter(Provider::Soniox, None, None);
         assert_eq!(filter("not json".to_string()), Some("not json".to_string()));
     }
 

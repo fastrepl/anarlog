@@ -150,11 +150,13 @@ impl WebSocketClient {
                                         message: "invalid session acknowledgement".into(),
                                     }
                                 })?;
-                            if event
-                                .get(self.initial_response_field)
-                                .and_then(|v| v.as_str())
-                                == Some(expected)
-                            {
+                            let field = self.initial_response_field;
+                            let actual = if field.starts_with('/') {
+                                event.pointer(field)
+                            } else {
+                                event.get(field)
+                            };
+                            if actual.and_then(|v| v.as_str()) == Some(expected) {
                                 return Ok::<_, crate::Error>(());
                             }
                             return Err(crate::Error::InvalidRequest {
