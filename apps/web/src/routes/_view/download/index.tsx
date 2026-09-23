@@ -29,7 +29,7 @@ const downloadButtonClassName =
   "items-center gap-1.5 rounded-full bg-[#181613] px-4 py-3 text-[13px] font-medium text-white sm:text-sm";
 
 const gridCellClassName =
-  "border-color-subtle flex flex-col gap-5 border-b py-10 md:border-l md:px-9 md:[&:nth-child(3n+1)]:border-l-0 md:[&:nth-child(3n+1)]:pl-0 md:[&:nth-child(3n)]:pr-0";
+  "border-color-subtle flex flex-col gap-7 border-b py-10 md:border-l md:px-9 md:[&:nth-child(3n+1)]:border-l-0 md:[&:nth-child(3n+1)]:pl-0 md:[&:nth-child(3n)]:pr-0";
 
 export const Route = createFileRoute("/_view/download/")({
   component: Component,
@@ -96,9 +96,6 @@ function Component() {
                     />
                     {section.name}
                   </h3>
-                  <p className="text-color-muted text-sm leading-6">
-                    {section.description}
-                  </p>
                   <ul className="mt-auto flex flex-col gap-2">
                     {section.downloads
                       .filter((download) => download.showInMenu)
@@ -158,9 +155,6 @@ function Component() {
                 <h3 className="font-hand text-3xl leading-none font-semibold tracking-normal">
                   Coming soon
                 </h3>
-                <p className="text-color-muted text-sm leading-6">
-                  Wearable companions are on the way.
-                </p>
                 <ul className="mt-auto flex flex-wrap gap-2">
                   {comingSoonPlatforms.map((platform) => (
                     <li
