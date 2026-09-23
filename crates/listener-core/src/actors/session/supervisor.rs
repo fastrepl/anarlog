@@ -298,6 +298,7 @@ impl Actor for SessionActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         children::shutdown_children(state, "session_stop").await;
+        persist_live_gaps(&state.ctx, &state.live_gaps).await;
         if state.ctx.params.retain_audio == Some(false) {
             let dir = crate::actors::recorder::find_session_dir(
                 &state.ctx.app_dir,
@@ -354,18 +355,18 @@ async fn emit_active_lifecycle_event(state: &SessionState, error: Option<Degrade
 async fn enter_batch_fallback(state: &mut SessionState, degraded: DegradedError) {
     state.mode.enter_batch_fallback();
     let confirmed_ms = state.ctx.live_confirmed_ms.load(Ordering::Relaxed);
-    if state.live_gaps.open(confirmed_ms) {
-        persist_live_gaps(&state.ctx, &state.live_gaps).await;
-    }
+    state.live_gaps.open(confirmed_ms);
+    // Written on every transition (not only when state changed) so a failed
+    // earlier write is repaired by the next one.
+    persist_live_gaps(&state.ctx, &state.live_gaps).await;
     children::attach_listener_to_source(state).await;
     emit_active_lifecycle_event(state, Some(degraded)).await;
 }
 
 async fn on_listener_attached(state: &mut SessionState) {
     state.mode.on_listener_attached();
-    if state.live_gaps.close(state.ctx.elapsed_ms()) {
-        persist_live_gaps(&state.ctx, &state.live_gaps).await;
-    }
+    state.live_gaps.close(state.ctx.elapsed_ms());
+    persist_live_gaps(&state.ctx, &state.live_gaps).await;
     children::attach_listener_to_source(state).await;
 }
 
