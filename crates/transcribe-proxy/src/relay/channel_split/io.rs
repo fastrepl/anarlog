@@ -6,8 +6,8 @@ use super::super::handler::UPSTREAM_READY_TIMEOUT;
 use super::super::pending::MAX_PENDING_QUEUE_BYTES;
 use super::super::types::{
     ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, ClientReceiver,
-    ClientSender, DEFAULT_CLOSE_CODE, ReadyNotifier, ReadyWaiter, ShutdownSignal,
-    UpstreamReadiness, UpstreamReceiver, UpstreamSender, convert, wait_until_ready,
+    ClientSender, DEFAULT_CLOSE_CODE, ReadyNotifier, ReadyWaiter, ShutdownSignal, UpstreamEvent,
+    UpstreamReceiver, UpstreamSender, convert, wait_until_ready,
 };
 use super::coordinator::SplitEvent;
 use super::payload::RewrittenSplitResponse;
@@ -294,7 +294,8 @@ pub(super) async fn relay_upstream_to_events(
     channel: usize,
     event_tx: tokio::sync::mpsc::Sender<SplitEvent>,
     shutdown_tx: tokio::sync::broadcast::Sender<ShutdownSignal>,
-    mut readiness: Option<(UpstreamReadiness, ReadyNotifier)>,
+    mut readiness: Option<(UpstreamEvent, ReadyNotifier)>,
+    completion: Option<&UpstreamEvent>,
 ) {
     let mut shutdown_rx = shutdown_tx.subscribe();
 
@@ -335,6 +336,7 @@ pub(super) async fn relay_upstream_to_events(
                                 "channel_split_upstream_text"
                             );
                         }
+                        let completed = completion.is_some_and(|c| c.matches(text.as_str()));
                         if event_tx
                             .send(SplitEvent::Text {
                                 channel,
@@ -343,6 +345,16 @@ pub(super) async fn relay_upstream_to_events(
                             .await
                             .is_err()
                         {
+                            break;
+                        }
+                        if completed {
+                            let _ = event_tx
+                                .send(SplitEvent::UpstreamClosed {
+                                    channel,
+                                    code: 1000,
+                                    reason: "upstream_task_finished".to_string(),
+                                })
+                                .await;
                             break;
                         }
                     }

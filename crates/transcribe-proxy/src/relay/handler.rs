@@ -20,8 +20,8 @@ use super::types::{
     ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, ClientReceiver,
     ClientSender, ControlMessageTypes, DEFAULT_CLOSE_CODE, FirstMessageTransformer, InitialMessage,
     OnCloseCallback, ReadyNotifier, ReadyWaiter, ResponseTransformer, ShutdownSignal,
-    UpstreamReadiness, UpstreamReceiver, UpstreamSender, convert, is_control_message,
-    ready_channel, wait_until_ready,
+    UpstreamEvent, UpstreamReceiver, UpstreamSender, convert, is_control_message, ready_channel,
+    wait_until_ready,
 };
 
 pub(crate) const UPSTREAM_READY_TIMEOUT: Duration = Duration::from_secs(10);
@@ -37,7 +37,7 @@ pub struct WebSocketProxy {
     on_close: Option<OnCloseCallback>,
     client_message_filter: Option<ClientMessageFilter>,
     client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
-    upstream_readiness: Option<UpstreamReadiness>,
+    upstream_readiness: Option<UpstreamEvent>,
 }
 
 impl WebSocketProxy {
@@ -67,7 +67,7 @@ impl WebSocketProxy {
         }
     }
 
-    pub(crate) fn with_upstream_readiness(mut self, readiness: UpstreamReadiness) -> Self {
+    pub(crate) fn with_upstream_readiness(mut self, readiness: UpstreamEvent) -> Self {
         self.upstream_readiness = Some(readiness);
         self
     }
@@ -178,7 +178,7 @@ impl WebSocketProxy {
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
         client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
-        upstream_readiness: Option<UpstreamReadiness>,
+        upstream_readiness: Option<UpstreamEvent>,
     ) {
         let start_time = Instant::now();
 
@@ -464,7 +464,7 @@ impl WebSocketProxy {
         shutdown_tx: tokio::sync::broadcast::Sender<ShutdownSignal>,
         mut shutdown_rx: tokio::sync::broadcast::Receiver<ShutdownSignal>,
         response_transformer: Option<ResponseTransformer>,
-        mut readiness: Option<(UpstreamReadiness, ReadyNotifier)>,
+        mut readiness: Option<(UpstreamEvent, ReadyNotifier)>,
     ) {
         let mut pending_error: Option<(u16, String)> = None;
 

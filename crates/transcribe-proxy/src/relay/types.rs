@@ -27,15 +27,15 @@ pub enum ClientBinaryMessage {
     Binary(Vec<u8>),
 }
 
-/// Upstream acknowledgement that must arrive before any client payload is forwarded.
+/// Matches an upstream JSON message by field value (readiness, completion, ...).
 /// `field` is a top-level key or a JSON Pointer (leading `/`).
 #[derive(Clone, Debug)]
-pub struct UpstreamReadiness {
+pub struct UpstreamEvent {
     pub field: String,
     pub expected: String,
 }
 
-impl UpstreamReadiness {
+impl UpstreamEvent {
     pub fn new(field: impl Into<String>, expected: impl Into<String>) -> Self {
         Self {
             field: field.into(),
@@ -59,7 +59,7 @@ impl UpstreamReadiness {
 pub type ReadyNotifier = tokio::sync::watch::Sender<bool>;
 pub type ReadyWaiter = tokio::sync::watch::Receiver<bool>;
 
-pub fn ready_channel(readiness: Option<&UpstreamReadiness>) -> (ReadyNotifier, ReadyWaiter) {
+pub fn ready_channel(readiness: Option<&UpstreamEvent>) -> (ReadyNotifier, ReadyWaiter) {
     tokio::sync::watch::channel(readiness.is_none())
 }
 
@@ -157,12 +157,12 @@ mod tests {
 
     #[test]
     fn upstream_readiness_matches_pointer_and_top_level_fields() {
-        let nested = UpstreamReadiness::new("/header/event", "task-started");
+        let nested = UpstreamEvent::new("/header/event", "task-started");
         assert!(nested.matches(r#"{"header":{"event":"task-started"}}"#));
         assert!(!nested.matches(r#"{"header":{"event":"result-generated"}}"#));
         assert!(!nested.matches("not json"));
 
-        let flat = UpstreamReadiness::new("type", "session.created");
+        let flat = UpstreamEvent::new("type", "session.created");
         assert!(flat.matches(r#"{"type":"session.created"}"#));
         assert!(!flat.matches(r#"{"type":"other"}"#));
     }

@@ -17,7 +17,7 @@ pub use builder::ClientRequestBuilder;
 pub use handler::WebSocketProxy;
 pub use types::{
     ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, FirstMessageTransformer,
-    InitialMessage, OnCloseCallback, ResponseTransformer, UpstreamReadiness,
+    InitialMessage, OnCloseCallback, ResponseTransformer, UpstreamEvent,
 };
 pub use upstream_error::{UpstreamError, detect_upstream_error};
 
@@ -77,7 +77,8 @@ pub struct StreamingProxyPlan {
     client_message_filter: Option<ClientMessageFilter>,
     split_client_message_filter: Option<ClientMessageFilter>,
     client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
-    upstream_readiness: Option<UpstreamReadiness>,
+    upstream_readiness: Option<UpstreamEvent>,
+    upstream_completion: Option<UpstreamEvent>,
 }
 
 pub enum StreamingProxy {
@@ -102,6 +103,7 @@ impl StreamingProxyPlan {
             split_client_message_filter: None,
             client_binary_message_mapper: None,
             upstream_readiness: None,
+            upstream_completion: None,
         }
     }
 
@@ -135,8 +137,15 @@ impl StreamingProxyPlan {
     }
 
     /// Upstream acknowledgement each upstream must emit before client payloads are forwarded.
-    pub fn upstream_readiness(mut self, readiness: UpstreamReadiness) -> Self {
+    pub fn upstream_readiness(mut self, readiness: UpstreamEvent) -> Self {
         self.upstream_readiness = Some(readiness);
+        self
+    }
+
+    /// Upstream message after which a split upstream is treated as cleanly closed, even if the
+    /// provider keeps the socket open (e.g. DashScope `task-finished`).
+    pub fn upstream_completion(mut self, completion: UpstreamEvent) -> Self {
+        self.upstream_completion = Some(completion);
         self
     }
 
@@ -296,6 +305,9 @@ impl StreamingProxyPlan {
         }
         if let Some(readiness) = self.upstream_readiness {
             proxy = proxy.with_upstream_readiness(readiness);
+        }
+        if let Some(completion) = self.upstream_completion {
+            proxy = proxy.with_upstream_completion(completion);
         }
         StreamingProxy::ChannelSplit(proxy)
     }

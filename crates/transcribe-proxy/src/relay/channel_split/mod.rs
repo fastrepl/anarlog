@@ -24,8 +24,7 @@ use self::io::{
 use self::payload::{FinalizeMode, rewrite_split_response};
 use super::types::{
     ClientBinaryMessageMapper, ClientMessageFilter, DEFAULT_CLOSE_CODE, InitialMessage,
-    OnCloseCallback, ResponseTransformer, ShutdownSignal, UpstreamReadiness, convert,
-    ready_channel,
+    OnCloseCallback, ResponseTransformer, ShutdownSignal, UpstreamEvent, convert, ready_channel,
 };
 
 fn proxy_debug_enabled() -> bool {
@@ -44,7 +43,8 @@ pub struct ChannelSplitProxy {
     on_close: Option<OnCloseCallback>,
     client_message_filters: [Option<ClientMessageFilter>; 2],
     client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
-    upstream_readiness: Option<UpstreamReadiness>,
+    upstream_readiness: Option<UpstreamEvent>,
+    upstream_completion: Option<UpstreamEvent>,
 }
 
 impl ChannelSplitProxy {
@@ -66,6 +66,7 @@ impl ChannelSplitProxy {
             client_message_filters: [None, None],
             client_binary_message_mapper: None,
             upstream_readiness: None,
+            upstream_completion: None,
         }
     }
 
@@ -77,8 +78,13 @@ impl ChannelSplitProxy {
         self
     }
 
-    pub fn with_upstream_readiness(mut self, readiness: UpstreamReadiness) -> Self {
+    pub fn with_upstream_readiness(mut self, readiness: UpstreamEvent) -> Self {
         self.upstream_readiness = Some(readiness);
+        self
+    }
+
+    pub fn with_upstream_completion(mut self, completion: UpstreamEvent) -> Self {
+        self.upstream_completion = Some(completion);
         self
     }
 
@@ -203,9 +209,16 @@ impl ChannelSplitProxy {
             event_tx.clone(),
             shutdown_tx.clone(),
             mic_readiness,
+            self.upstream_completion.as_ref(),
         );
-        let spk_to_events =
-            relay_upstream_to_events(&mut spk_rx, 1, event_tx, shutdown_tx.clone(), spk_readiness);
+        let spk_to_events = relay_upstream_to_events(
+            &mut spk_rx,
+            1,
+            event_tx,
+            shutdown_tx.clone(),
+            spk_readiness,
+            self.upstream_completion.as_ref(),
+        );
 
         let event_coordinator = {
             let shutdown_tx = shutdown_tx.clone();

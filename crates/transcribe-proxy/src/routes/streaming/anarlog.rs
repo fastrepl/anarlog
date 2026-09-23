@@ -14,7 +14,7 @@ use crate::provider_selector::SelectedProvider;
 use crate::query_params::{QueryParams, QueryValue};
 use crate::relay::{
     ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, StreamingProxy,
-    StreamingProxyPlan, StreamingTransport, UpstreamReadiness,
+    StreamingProxyPlan, StreamingTransport, UpstreamEvent,
 };
 use crate::routes::AppState;
 use crate::routes::model_resolution::resolve_model_live;
@@ -51,10 +51,14 @@ fn dashscope_streaming_sessions(
         })
 }
 
-fn upstream_readiness_for(adapter: &DashScopeStreamingAdapter) -> Option<UpstreamReadiness> {
+fn dashscope_upstream_completion() -> UpstreamEvent {
+    UpstreamEvent::new("/header/event", "task-finished")
+}
+
+fn upstream_readiness_for(adapter: &DashScopeStreamingAdapter) -> Option<UpstreamEvent> {
     adapter
         .initial_response_type()
-        .map(|expected| UpstreamReadiness::new(adapter.initial_response_field(), expected))
+        .map(|expected| UpstreamEvent::new(adapter.initial_response_field(), expected))
 }
 
 fn build_upstream_url_with_adapter(
@@ -330,7 +334,9 @@ fn build_proxy_plan(
     .apply_auth(selected);
 
     if let Some(readiness) = dashscope_streaming.and_then(|s| upstream_readiness_for(&s[0])) {
-        plan = plan.upstream_readiness(readiness);
+        plan = plan
+            .upstream_readiness(readiness)
+            .upstream_completion(dashscope_upstream_completion());
     }
 
     if plan.upstream_count() == 2 {
@@ -865,6 +871,10 @@ mod tests {
         let readiness = upstream_readiness_for(&adapter).expect("readiness");
         assert!(readiness.matches(r#"{"header":{"event":"task-started"}}"#));
         assert!(!readiness.matches(r#"{"header":{"event":"result-generated"}}"#));
+
+        let completion = dashscope_upstream_completion();
+        assert!(completion.matches(r#"{"header":{"event":"task-finished"}}"#));
+        assert!(!completion.matches(r#"{"header":{"event":"task-started"}}"#));
 
         let legacy_filter = build_client_message_filter(
             Provider::DashScope,
