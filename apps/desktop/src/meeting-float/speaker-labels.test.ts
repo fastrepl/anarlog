@@ -115,6 +115,56 @@ describe("createFloatingSpeakerLabeler", () => {
     ).toEqual(["Speaker 2", "Speaker 1", "Speaker 3"]);
   });
 
+  it("prefers a resolved name over an anonymous part of the same key and follows the current participant cap", async () => {
+    const onLabels = vi.fn();
+    const labeler = createFloatingSpeakerLabeler(onLabels);
+    const m = segment("m", "DirectMic", 0);
+    const r0 = segment("r0", "RemoteParty", 0);
+    const r1 = segment("r1", "RemoteParty", 1);
+    const r2 = segment("r2", "RemoteParty", 2);
+    const twoPeople = { ...request, participant_human_ids: ["self", "a"] };
+
+    mocks.renderTranscriptSegments.mockResolvedValueOnce({
+      status: "ok",
+      data: [
+        { ...m, speaker_label: "Speaker 1" },
+        { ...m, id: "m2", speaker_label: "John" },
+        { ...r0, speaker_label: "Speaker 2" },
+        { ...r1, speaker_label: "Speaker 3" },
+        { ...r2, speaker_label: "Speaker 4" },
+      ],
+    });
+    labeler.resolve("session", [m, r0, r1, r2], twoPeople);
+    await vi.waitFor(() => expect(onLabels).toHaveBeenCalledTimes(1));
+    const get = (s: LiveTranscriptSegment) =>
+      labeler.labels.get(SegmentKeyUtils.serialize(s.key));
+    expect([m, r0, r1, r2].map(get)).toEqual([
+      "John",
+      "Speaker 1",
+      "Speaker 2",
+      "Speaker 2",
+    ]);
+
+    mocks.renderTranscriptSegments.mockResolvedValueOnce({
+      status: "ok",
+      data: [
+        { ...r0, speaker_label: "Speaker 1" },
+        { ...r1, speaker_label: "Speaker 2" },
+        { ...r2, speaker_label: "Speaker 3" },
+      ],
+    });
+    labeler.resolve("session", [r0, r1, r2], {
+      ...request,
+      participant_human_ids: ["self", "a", "b"],
+    });
+    await vi.waitFor(() => expect(onLabels).toHaveBeenCalledTimes(2));
+    expect([r0, r1, r2].map(get)).toEqual([
+      "Speaker 1",
+      "Speaker 2",
+      "Speaker 3",
+    ]);
+  });
+
   it("drops labels when the live session changes", async () => {
     const labeler = createFloatingSpeakerLabeler(() => {});
     mocks.renderTranscriptSegments.mockResolvedValueOnce({

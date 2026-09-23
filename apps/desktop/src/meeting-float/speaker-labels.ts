@@ -8,7 +8,6 @@ import type { FloatingSpeakerLabels, ListenerState } from "./route-state";
 import {
   getMaxSpeakerNumberForParticipants,
   SegmentKeyUtils,
-  SpeakerLabelManager,
 } from "~/stt/live-segment";
 
 type LiveSegments = ListenerState["liveSegments"];
@@ -26,7 +25,7 @@ export function createFloatingSpeakerLabeler(
 ) {
   let sessionId: string | null = null;
   let labels = new Map<string, string>();
-  let anonymous: SpeakerLabelManager | null = null;
+  let anonymous = new Map<string, number>();
   let generation = 0;
 
   return {
@@ -41,7 +40,7 @@ export function createFloatingSpeakerLabeler(
       if (sessionId !== nextSessionId) {
         sessionId = nextSessionId;
         labels = new Map();
-        anonymous = null;
+        anonymous = new Map();
       }
       if (!request || segments.length === 0) {
         return;
@@ -65,22 +64,28 @@ export function createFloatingSpeakerLabeler(
             );
             return;
           }
-          anonymous ??= new SpeakerLabelManager(
-            getMaxSpeakerNumberForParticipants(
-              request.participant_human_ids,
-              request.self_human_id,
-            ),
+          const max = getMaxSpeakerNumberForParticipants(
+            request.participant_human_ids,
+            request.self_human_id,
           );
           const next = new Map<string, string>();
           for (const segment of result.data) {
+            if (!ANONYMOUS_LABEL.test(segment.speaker_label)) {
+              next.set(
+                SegmentKeyUtils.serialize(segment.key),
+                segment.speaker_label,
+              );
+            }
+          }
+          for (const segment of result.data) {
             const key = SegmentKeyUtils.serialize(segment.key);
             if (next.has(key)) continue;
-            next.set(
-              key,
-              ANONYMOUS_LABEL.test(segment.speaker_label)
-                ? `Speaker ${anonymous.getUnknownSpeakerNumber(segment.key)}`
-                : segment.speaker_label,
-            );
+            let number = anonymous.get(key);
+            if (number === undefined) {
+              number = anonymous.size + 1;
+              anonymous.set(key, number);
+            }
+            next.set(key, `Speaker ${max ? Math.min(number, max) : number}`);
           }
           labels = next;
           onLabels(labels);
@@ -93,7 +98,7 @@ export function createFloatingSpeakerLabeler(
       generation++;
       sessionId = null;
       labels = new Map();
-      anonymous = null;
+      anonymous = new Map();
     },
   };
 }
