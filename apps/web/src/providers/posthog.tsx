@@ -138,6 +138,9 @@ export function PostHogProvider({
         });
         client.startSessionRecording();
         routeDisabledRef.current = false;
+        // The history change that left the private route ran while pageview
+        // capture was disabled, so record the public destination explicitly.
+        client.capture("$pageview");
       }
 
       analyticsStatusRef.current = "ready";
