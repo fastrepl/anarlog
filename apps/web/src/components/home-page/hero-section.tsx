@@ -346,12 +346,9 @@ function DownloadButton() {
   const preferredSection = orderedSections[0];
   const preferredDownload = preferredSection.downloads[0];
   const preferredLabel =
-    preferredSection.platform === "ios" ||
-    preferredSection.platform === "android"
-      ? `Join ${preferredSection.name} beta`
-      : preferredSection.platform === "macos"
-        ? `Download for ${preferredDownload.name}`
-        : `Download for ${preferredSection.name}`;
+    preferredSection.platform === "macos"
+      ? `Download for ${preferredDownload.name}`
+      : `Download for ${preferredSection.name}`;
 
   useMountEffect(() => {
     setPreferredPlatform(
@@ -421,6 +418,23 @@ function DownloadButton() {
                 return null;
               }
 
+              if (!section.available) {
+                return (
+                  <div
+                    key={download.url}
+                    role="menuitem"
+                    aria-disabled="true"
+                    className="text-color-muted flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 opacity-60"
+                  >
+                    {getPlatformIcon(section.platform, 20)}
+                    <span>{section.name}</span>
+                    <span className="border-color-subtle ml-auto rounded-full border px-2 py-0.5 text-[11px] leading-none font-medium tracking-wide uppercase">
+                      {section.status}
+                    </span>
+                  </div>
+                );
+              }
+
               return (
                 <a
                   key={download.url}
@@ -440,11 +454,6 @@ function DownloadButton() {
                   <span>
                     {getDownloadOptionLabel(section.platform, download.name)}
                   </span>
-                  {section.status && (
-                    <span className="border-color-subtle text-color-muted ml-auto rounded-full border px-2 py-0.5 text-[11px] leading-none font-medium tracking-wide uppercase">
-                      {section.status}
-                    </span>
-                  )}
                 </a>
               );
             }),

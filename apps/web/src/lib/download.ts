@@ -27,12 +27,15 @@ export const platformIcons = {
   Android: "simple-icons:android",
 } as const;
 
+export const mobileLaunchLabel = "Coming October";
+
 export const mobileDownloadSections = [
   {
     platform: "ios",
     name: "iOS",
-    status: "Beta",
-    description: "Join the public beta on your iPhone or iPad with TestFlight.",
+    status: mobileLaunchLabel,
+    available: false,
+    description: "The iPhone and iPad app launches in October.",
     downloads: [
       {
         name: "TestFlight",
@@ -46,8 +49,9 @@ export const mobileDownloadSections = [
   {
     platform: "android",
     name: "Android",
-    status: "Beta",
-    description: "Join the open beta on Google Play.",
+    status: mobileLaunchLabel,
+    available: false,
+    description: "The Android app launches in October on Google Play.",
     downloads: [
       {
         name: "Google Play",
@@ -65,6 +69,7 @@ export const desktopDownloadSections = [
     platform: "macos",
     name: "macOS",
     status: null,
+    available: true,
     description: "Choose the build that matches your Mac.",
     downloads: [
       {
@@ -85,6 +90,7 @@ export const desktopDownloadSections = [
     platform: "windows",
     name: "Windows",
     status: null,
+    available: true,
     description: "Choose a direct download or install from Microsoft Store.",
     downloads: [
       {
@@ -106,6 +112,7 @@ export const desktopDownloadSections = [
     platform: "linux",
     name: "Linux",
     status: null,
+    available: true,
     description:
       "APT, AppImage, and Debian packages for x64 and ARM64, plus a PKGBUILD for Arch.",
     downloads: [
@@ -175,8 +182,11 @@ export function getOrderedDownloadSections(
   preferredPlatform: DownloadPlatform,
 ) {
   const sections = [...desktopDownloadSections, ...mobileDownloadSections];
+  const preferred = sections.filter(
+    (section) => section.platform === preferredPlatform && section.available,
+  );
   return [
-    ...sections.filter((section) => section.platform === preferredPlatform),
-    ...sections.filter((section) => section.platform !== preferredPlatform),
+    ...preferred,
+    ...sections.filter((section) => !preferred.includes(section)),
   ];
 }
