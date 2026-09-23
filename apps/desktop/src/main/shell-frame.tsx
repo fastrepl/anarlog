@@ -1,12 +1,17 @@
 import { memo } from "react";
 
+import { cn } from "@anlg/utils";
+
 import { ClassicMainBody } from "./body";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 import { WindowsTitleBar } from "./windows-title-bar";
 
 import { useShell } from "~/contexts/shell";
 import { DevtoolsStatusBar } from "~/devtools-bar";
-import { usesWindowsStyleTitleBar } from "~/shared/hooks/useWindowControlsGutter";
+import {
+  useRoundedWindowFrame,
+  usesWindowsStyleTitleBar,
+} from "~/shared/hooks/useWindowControlsGutter";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
 import { ToastNotifications } from "~/sidebar/toast";
 import {
@@ -19,6 +24,7 @@ import { useTabs } from "~/store/zustand/tabs";
 export function ClassicMainShellFrame() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
+  const roundedWindowFrame = useRoundedWindowFrame();
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";
@@ -49,7 +55,13 @@ export function ClassicMainShellFrame() {
   );
 
   return (
-    <div className="bg-background flex h-full min-h-0 flex-col">
+    <div
+      className={cn([
+        "bg-background flex h-full min-h-0 flex-col",
+        roundedWindowFrame &&
+          "border-border overflow-hidden rounded-[10px] border",
+      ])}
+    >
       {usesWindowsStyleTitleBar() ? (
         <WindowsTitleBar
           showSidebarTimelineChrome={showSidebarTimelineChrome}
