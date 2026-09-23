@@ -17,8 +17,24 @@ const PERSONAL_EMAIL_DOMAINS = new Set([
   "fastmail.com",
 ]);
 
+const SECOND_LEVEL_SUFFIX_LABELS = new Set([
+  "co",
+  "com",
+  "org",
+  "net",
+  "ac",
+  "edu",
+  "gov",
+  "mil",
+  "ne",
+  "or",
+  "go",
+  "re",
+]);
+
 export type DerivedContactIdentity = {
   name: string;
+  nameSource: "provider" | "email";
   companyName?: string;
 };
 
@@ -30,10 +46,10 @@ export function deriveContactIdentity({
   email: string;
 }): DerivedContactIdentity {
   const trimmedName = name?.trim() ?? "";
+  const providedName = isLikelyPersonName(trimmedName);
   const derived: DerivedContactIdentity = {
-    name: isLikelyPersonName(trimmedName)
-      ? trimmedName
-      : nameFromEmailLocalPart(email) || email,
+    name: providedName ? trimmedName : nameFromEmailLocalPart(email) || email,
+    nameSource: providedName ? "provider" : "email",
   };
   const companyName = inferCompanyNameFromEmail(email);
   if (companyName) {
@@ -94,11 +110,13 @@ export function inferCompanyNameFromEmail(
     return undefined;
   }
 
-  const secondLast = labels[labels.length - 2];
+  const last = labels[labels.length - 1] ?? "";
+  const secondLast = labels[labels.length - 2] ?? "";
+  const isPublicSuffixLabel =
+    SECOND_LEVEL_SUFFIX_LABELS.has(secondLast) ||
+    (last.length === 2 && secondLast.length <= 3);
   const companyLabel =
-    labels.length >= 3 &&
-    secondLast &&
-    ["co", "com", "org", "net", "ac"].includes(secondLast)
+    labels.length >= 3 && isPublicSuffixLabel
       ? labels[labels.length - 3]
       : secondLast;
   if (!companyLabel || companyLabel.length < 2) {

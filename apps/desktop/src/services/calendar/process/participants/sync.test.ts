@@ -279,4 +279,67 @@ describe("syncSessionParticipants", () => {
 
     expect(result.humansToEnrich).toEqual([]);
   });
+
+  test("prefers a provider display name over an email-derived one across sessions", () => {
+    const result = syncSessionParticipants({
+      incomingParticipants: new Map([
+        ["tracking-1", [{ email: "alice.smith@acme.com" }]],
+        [
+          "tracking-2",
+          [{ email: "alice.smith@acme.com", name: "Dr. Alice Smith" }],
+        ],
+      ]),
+      snapshot: createSnapshot({
+        sessions: [
+          session,
+          { ...session, id: "session-2", trackingId: "tracking-2" },
+        ],
+        humans: [
+          {
+            id: "human-a",
+            email: "alice.smith@acme.com",
+            name: "",
+            organizationId: "",
+          },
+        ],
+      }),
+    });
+
+    expect(result.humansToEnrich).toEqual([
+      {
+        id: "human-a",
+        ownerUserId: "user-1",
+        name: "Dr. Alice Smith",
+        companyName: "Acme",
+      },
+    ]);
+  });
+
+  test("upgrades a pending new human's name when a later event provides one", () => {
+    const result = syncSessionParticipants({
+      incomingParticipants: new Map([
+        ["tracking-1", [{ email: "alice.smith@acme.com" }]],
+        [
+          "tracking-2",
+          [{ email: "alice.smith@acme.com", name: "Dr. Alice Smith" }],
+        ],
+      ]),
+      snapshot: createSnapshot({
+        sessions: [
+          session,
+          { ...session, id: "session-2", trackingId: "tracking-2" },
+        ],
+      }),
+    });
+
+    expect(result.humansToCreate).toEqual([
+      {
+        id: "human-new",
+        ownerUserId: "user-1",
+        email: "alice.smith@acme.com",
+        name: "Dr. Alice Smith",
+        companyName: "Acme",
+      },
+    ]);
+  });
 });

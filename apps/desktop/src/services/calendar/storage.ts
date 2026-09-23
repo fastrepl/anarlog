@@ -751,7 +751,9 @@ export async function applyConnectionSync({
     const assignments: string[] = [];
     const params: unknown[] = [];
     if (human.name) {
-      assignments.push("name = ?");
+      assignments.push(
+        "name = CASE WHEN trim(name) = '' OR instr(name, '@') > 0 THEN ? ELSE name END",
+      );
       params.push(human.name);
     }
     if (human.companyName) {

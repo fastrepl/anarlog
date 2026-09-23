@@ -7,7 +7,10 @@ import type {
   ParticipantsSyncOutput,
 } from "./types";
 
-import { deriveContactIdentity } from "~/contacts/identity";
+import {
+  type DerivedContactIdentity,
+  deriveContactIdentity,
+} from "~/contacts/identity";
 import { id } from "~/shared/utils";
 
 type SnapshotHuman = ParticipantsSyncInput["snapshot"]["humans"][number];
@@ -100,6 +103,7 @@ function computeSessionParticipantChanges({
     if (!email) continue;
 
     const emailKey = email.toLowerCase();
+    const identity = deriveContactIdentity({ name: participant.name, email });
     let humanId = humansByEmail.get(emailKey);
     if (!humanId) {
       humanId = id();
@@ -107,16 +111,28 @@ function computeSessionParticipantChanges({
       humansToCreate.set(emailKey, {
         id: humanId,
         ownerUserId,
-        ...deriveContactIdentity({ name: participant.name, email }),
+        name: identity.name,
         email,
+        ...(identity.companyName ? { companyName: identity.companyName } : {}),
       });
-    } else if (humanId !== ownerUserId && !humansToEnrich.has(humanId)) {
+    } else if (humansToCreate.has(emailKey)) {
+      const pending = humansToCreate.get(emailKey);
+      if (pending && identity.nameSource === "provider") {
+        pending.name = identity.name;
+      }
+    } else if (humanId !== ownerUserId) {
       const existing = humansById.get(humanId);
-      const enrichment = existing
-        ? planHumanEnrichment({ existing, participant, email, ownerUserId })
-        : undefined;
-      if (enrichment) {
-        humansToEnrich.set(humanId, enrichment);
+      if (existing) {
+        const enrichment = planHumanEnrichment({
+          existing,
+          identity,
+          email,
+          ownerUserId,
+          pending: humansToEnrich.get(humanId),
+        });
+        if (enrichment) {
+          humansToEnrich.set(humanId, enrichment);
+        }
       }
     }
     eventHumans.set(humanId, { humanId, email });
@@ -142,28 +158,32 @@ function computeSessionParticipantChanges({
 
 function planHumanEnrichment({
   existing,
-  participant,
+  identity,
   email,
   ownerUserId,
+  pending,
 }: {
   existing: SnapshotHuman;
-  participant: EventParticipant;
+  identity: DerivedContactIdentity;
   email: string;
   ownerUserId: string;
+  pending: HumanToEnrich | undefined;
 }): HumanToEnrich | undefined {
-  const derived = deriveContactIdentity({ name: participant.name, email });
   const enrichment: HumanToEnrich = { id: existing.id, ownerUserId };
 
   const currentName = existing.name.trim();
-  if (
-    (!currentName || currentName.includes("@")) &&
-    derived.name !== email &&
-    derived.name !== currentName
+  const nameNeedsFill = !currentName || currentName.includes("@");
+  if (pending?.name && identity.nameSource !== "provider") {
+    enrichment.name = pending.name;
+  } else if (
+    nameNeedsFill &&
+    identity.name !== email &&
+    identity.name !== currentName
   ) {
-    enrichment.name = derived.name;
+    enrichment.name = identity.name;
   }
-  if (!existing.organizationId && derived.companyName) {
-    enrichment.companyName = derived.companyName;
+  if (!existing.organizationId && identity.companyName) {
+    enrichment.companyName = identity.companyName;
   }
 
   return enrichment.name || enrichment.companyName ? enrichment : undefined;
