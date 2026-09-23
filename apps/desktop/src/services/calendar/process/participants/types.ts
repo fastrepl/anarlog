@@ -19,10 +19,19 @@ export type HumanToCreate = {
   ownerUserId: string;
   name: string;
   email: string;
+  companyName?: string;
+};
+
+export type HumanToEnrich = {
+  id: string;
+  ownerUserId: string;
+  name?: string;
+  companyName?: string;
 };
 
 export type ParticipantsSyncOutput = {
   toDelete: ParticipantMappingId[];
   toAdd: ParticipantMappingToAdd[];
   humansToCreate: HumanToCreate[];
+  humansToEnrich: HumanToEnrich[];
 };

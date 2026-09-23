@@ -1,12 +1,16 @@
 import type { EventParticipant } from "../../fetch/types";
 import type {
   HumanToCreate,
+  HumanToEnrich,
   ParticipantMappingToAdd,
   ParticipantsSyncInput,
   ParticipantsSyncOutput,
 } from "./types";
 
+import { deriveContactIdentity } from "~/contacts/identity";
 import { id } from "~/shared/utils";
+
+type SnapshotHuman = ParticipantsSyncInput["snapshot"]["humans"][number];
 
 export function syncSessionParticipants({
   incomingParticipants,
@@ -16,9 +20,12 @@ export function syncSessionParticipants({
     toDelete: [],
     toAdd: [],
     humansToCreate: [],
+    humansToEnrich: [],
   };
   const humansByEmail = new Map<string, string>();
+  const humansById = new Map<string, SnapshotHuman>();
   for (const human of snapshot.humans) {
+    humansById.set(human.id, human);
     const email = human.email.trim().toLowerCase();
     if (email && !humansByEmail.has(email)) {
       humansByEmail.set(email, human.id);
@@ -37,6 +44,7 @@ export function syncSessionParticipants({
     mappingsBySession.set(mapping.sessionId, sessionMappings);
   }
   const humansToCreate = new Map<string, HumanToCreate>();
+  const humansToEnrich = new Map<string, HumanToEnrich>();
 
   for (const session of snapshot.sessions) {
     const eventParticipants = incomingParticipants.get(session.trackingId);
@@ -47,7 +55,9 @@ export function syncSessionParticipants({
       ownerUserId: session.ownerUserId,
       eventParticipants,
       humansByEmail,
+      humansById,
       humansToCreate,
+      humansToEnrich,
       existingMappings:
         mappingsBySession.get(session.id) ??
         new Map<string, (typeof snapshot.mappings)[number]>(),
@@ -57,6 +67,7 @@ export function syncSessionParticipants({
   }
 
   output.humansToCreate = Array.from(humansToCreate.values());
+  output.humansToEnrich = Array.from(humansToEnrich.values());
   return output;
 }
 
@@ -65,14 +76,18 @@ function computeSessionParticipantChanges({
   ownerUserId,
   eventParticipants,
   humansByEmail,
+  humansById,
   humansToCreate,
+  humansToEnrich,
   existingMappings,
 }: {
   sessionId: string;
   ownerUserId: string;
   eventParticipants: EventParticipant[];
   humansByEmail: Map<string, string>;
+  humansById: Map<string, SnapshotHuman>;
   humansToCreate: Map<string, HumanToCreate>;
+  humansToEnrich: Map<string, HumanToEnrich>;
   existingMappings: Map<
     string,
     { id: string; humanId: string; source: string }
@@ -92,9 +107,17 @@ function computeSessionParticipantChanges({
       humansToCreate.set(emailKey, {
         id: humanId,
         ownerUserId,
-        name: participant.name || email,
+        ...deriveContactIdentity({ name: participant.name, email }),
         email,
       });
+    } else if (humanId !== ownerUserId && !humansToEnrich.has(humanId)) {
+      const existing = humansById.get(humanId);
+      const enrichment = existing
+        ? planHumanEnrichment({ existing, participant, email, ownerUserId })
+        : undefined;
+      if (enrichment) {
+        humansToEnrich.set(humanId, enrichment);
+      }
     }
     eventHumans.set(humanId, { humanId, email });
   }
@@ -115,4 +138,33 @@ function computeSessionParticipantChanges({
   }
 
   return { toDelete, toAdd };
+}
+
+function planHumanEnrichment({
+  existing,
+  participant,
+  email,
+  ownerUserId,
+}: {
+  existing: SnapshotHuman;
+  participant: EventParticipant;
+  email: string;
+  ownerUserId: string;
+}): HumanToEnrich | undefined {
+  const derived = deriveContactIdentity({ name: participant.name, email });
+  const enrichment: HumanToEnrich = { id: existing.id, ownerUserId };
+
+  const currentName = existing.name.trim();
+  if (
+    (!currentName || currentName.includes("@")) &&
+    derived.name !== email &&
+    derived.name !== currentName
+  ) {
+    enrichment.name = derived.name;
+  }
+  if (!existing.organizationId && derived.companyName) {
+    enrichment.companyName = derived.companyName;
+  }
+
+  return enrichment.name || enrichment.companyName ? enrichment : undefined;
 }

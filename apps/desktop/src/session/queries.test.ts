@@ -112,7 +112,11 @@ describe("session SQLite operations", () => {
         statement.sql.includes("session_participants"),
       ),
     ).toBe(true);
-    expect(statements[0]?.params).toContain("alice@example.com");
+    expect(
+      statements.find((statement) =>
+        statement.sql.includes("INSERT INTO humans"),
+      )?.params,
+    ).toContain("alice@example.com");
   });
 
   it("does not attach the calendar self copy to an existing event note", async () => {

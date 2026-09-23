@@ -8,7 +8,7 @@ import {
   useFloating,
 } from "@floating-ui/react";
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { CircleNotch } from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
@@ -19,7 +19,6 @@ import { ParticipantDropdown } from "./dropdown";
 import {
   buildEventContactExtractionContextFromRecords,
   extractEventContacts,
-  planAutoContactEnhancements,
   planExtractedContactToHuman,
 } from "./event-contact-extraction";
 
@@ -406,26 +405,13 @@ function useParticipantInput(sessionId: string) {
 function useEventContactEnhancement(sessionId: string) {
   const session = useSession(sessionId);
   const userId = session?.user_id;
-  const eventJson = session?.event_json;
-  const sessionEvent = useMemo(
-    () => (eventJson ? getSessionEvent({ event_json: eventJson }) : null),
-    [eventJson],
-  );
+  const sessionEvent = session ? getSessionEvent(session) : null;
   const participants = useSessionParticipants(sessionId);
   const humans = useHumans();
   const eventParticipants = useSessionEventParticipants(sessionId);
   const showEnhancementButtons = Boolean(
     sessionEvent?.title?.trim() || sessionEvent?.description?.trim(),
   );
-
-  useAutoContactEnhancement({
-    sessionId,
-    sessionEvent,
-    userId,
-    participants,
-    eventParticipants,
-    humans,
-  });
 
   const { isPending, mutate, variables } = useMutation({
     mutationKey: ["event-contact-enhancement", sessionId],
@@ -511,63 +497,4 @@ function useEventContactEnhancement(sessionId: string) {
     enhancingHumanId: isPending ? variables : undefined,
     showEnhancementButtons,
   };
-}
-
-function useAutoContactEnhancement({
-  sessionId,
-  sessionEvent,
-  userId,
-  participants,
-  eventParticipants,
-  humans,
-}: {
-  sessionId: string;
-  sessionEvent: ReturnType<typeof getSessionEvent> | null;
-  userId: string | undefined;
-  participants: ReturnType<typeof useSessionParticipants>;
-  eventParticipants: ReturnType<typeof useSessionEventParticipants>;
-  humans: ReturnType<typeof useHumans>;
-}) {
-  const attemptedRef = useRef<{ sessionId: string; humanIds: Set<string> }>({
-    sessionId,
-    humanIds: new Set(),
-  });
-
-  useEffect(() => {
-    if (!userId || !sessionEvent) return;
-    if (attemptedRef.current.sessionId !== sessionId) {
-      attemptedRef.current = { sessionId, humanIds: new Set() };
-    }
-    const attempted = attemptedRef.current.humanIds;
-
-    const plans = planAutoContactEnhancements({
-      sessionEvent,
-      userId,
-      participants,
-      eventParticipants,
-      humans,
-    }).filter((plan) => !attempted.has(plan.humanId));
-
-    for (const plan of plans) {
-      attempted.add(plan.humanId);
-      applyContactEnhancement({
-        humanId: plan.humanId,
-        ownerUserId: userId,
-        changes: plan.changes,
-      }).catch((error: unknown) => {
-        console.error(
-          "[participants] failed to auto-enhance contact",
-          plan.humanId,
-          error,
-        );
-      });
-    }
-  }, [
-    sessionId,
-    sessionEvent,
-    userId,
-    participants,
-    eventParticipants,
-    humans,
-  ]);
 }

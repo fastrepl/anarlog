@@ -1,5 +1,13 @@
 import type { EventParticipant, SessionEvent } from "@anlg/store";
 
+import {
+  inferCompanyNameFromEmail,
+  isLikelyPersonName,
+  nameFromEmailLocalPart,
+  normalizeCompanyName,
+  normalizeName,
+} from "~/contacts/identity";
+
 const MAX_EVENT_TEXT_CHARS = 6000;
 const MAX_CONTACTS_TO_EXTRACT = 8;
 
@@ -165,71 +173,6 @@ export function planExtractedContactToHuman({
   if (Object.keys(changes).length > 0) result.updated = 1;
 
   return { result, changes };
-}
-
-export function planAutoContactEnhancements({
-  sessionEvent,
-  userId,
-  participants,
-  eventParticipants,
-  humans,
-}: {
-  sessionEvent: SessionEvent | null;
-  userId: string;
-  participants: Array<{
-    humanId: string;
-    name: string;
-    email: string;
-    source: string;
-  }>;
-  eventParticipants: EventParticipant[];
-  humans: Array<{
-    id: string;
-    name: string;
-    email: string;
-    organizationId: string;
-  }>;
-}): Array<{ humanId: string; changes: ContactEnhancementChanges }> {
-  if (!sessionEvent?.title?.trim() && !sessionEvent?.description?.trim()) {
-    return [];
-  }
-
-  const context = buildEventContactExtractionContextFromRecords({
-    sessionEvent,
-    currentUserId: userId,
-    participants,
-    eventParticipants,
-  });
-  const { contacts } = extractEventContacts({ context });
-  const currentUser = humans.find((human) => human.id === userId);
-  const plans: Array<{ humanId: string; changes: ContactEnhancementChanges }> =
-    [];
-
-  for (const participant of participants) {
-    if (participant.source === "excluded" || participant.humanId === userId) {
-      continue;
-    }
-    const human = humans.find(
-      (candidate) => candidate.id === participant.humanId,
-    );
-    if (!human) {
-      continue;
-    }
-    const { changes } = planExtractedContactToHuman({
-      humanId: participant.humanId,
-      userId,
-      human,
-      currentUser,
-      mappingSource: participant.source,
-      participant: { name: participant.name, email: participant.email },
-      contacts,
-    });
-    if (Object.keys(changes).length > 0) {
-      plans.push({ humanId: participant.humanId, changes });
-    }
-  }
-
-  return plans;
 }
 
 export function extractEventContacts({
@@ -455,34 +398,6 @@ function cleanNameHint(value: string): string {
     .trim();
 }
 
-function isLikelyPersonName(value: string): boolean {
-  if (!value || value.length < 2 || value.length > 80) {
-    return false;
-  }
-
-  if (value.includes("@") || /^https?:\/\//i.test(value)) {
-    return false;
-  }
-
-  const normalized = normalizeName(value);
-  if (
-    !normalized ||
-    [
-      "what",
-      "who",
-      "invitee timezone",
-      "meeting link",
-      "zoom",
-      "google meet",
-      "teams",
-    ].includes(normalized)
-  ) {
-    return false;
-  }
-
-  return (value.match(/\p{L}/gu)?.length ?? 0) >= 2;
-}
-
 function matchCandidateEmail(
   name: string,
   candidates: EventContactCandidate[],
@@ -677,25 +592,6 @@ function getStrongCandidateAliases(
   return aliases;
 }
 
-const PERSONAL_EMAIL_DOMAINS = new Set([
-  "gmail.com",
-  "googlemail.com",
-  "yahoo.com",
-  "outlook.com",
-  "hotmail.com",
-  "live.com",
-  "msn.com",
-  "icloud.com",
-  "me.com",
-  "mac.com",
-  "aol.com",
-  "proton.me",
-  "protonmail.com",
-  "pm.me",
-  "hey.com",
-  "fastmail.com",
-]);
-
 function contactFromIdentity(identity: {
   name?: string;
   email?: string;
@@ -720,46 +616,6 @@ function contactFromIdentity(identity: {
     contact.companyName = companyName;
   }
   return contact;
-}
-
-function nameFromEmailLocalPart(email: string): string {
-  const local = email.split("@")[0]?.split("+")[0] ?? "";
-  return local
-    .replace(/[._-]+/g, " ")
-    .split(" ")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0 && !/^\d+$/.test(part))
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-}
-
-function inferCompanyNameFromEmail(
-  email: string | undefined,
-): string | undefined {
-  const domain = email?.split("@")[1]?.toLowerCase();
-  if (!domain || PERSONAL_EMAIL_DOMAINS.has(domain)) {
-    return undefined;
-  }
-
-  const labels = domain.split(".").filter(Boolean);
-  if (labels.length < 2) {
-    return undefined;
-  }
-
-  const secondLast = labels[labels.length - 2];
-  const companyLabel =
-    labels.length >= 3 &&
-    secondLast &&
-    ["co", "com", "org", "net", "ac"].includes(secondLast)
-      ? labels[labels.length - 3]
-      : secondLast;
-  if (!companyLabel || companyLabel.length < 2) {
-    return undefined;
-  }
-
-  return normalizeCompanyName(
-    companyLabel.charAt(0).toUpperCase() + companyLabel.slice(1),
-  );
 }
 
 function shouldUpdateHumanName(
@@ -792,30 +648,6 @@ function normalizeEmail(value: string | undefined | null): string | undefined {
   }
 
   return email;
-}
-
-function normalizeCompanyName(
-  value: string | undefined | null,
-): string | undefined {
-  const name = value?.trim().replace(/\s+/g, " ");
-  if (!name || name.length < 2 || name.length > 80) {
-    return undefined;
-  }
-
-  if (name.includes("@") || /^https?:\/\//i.test(name)) {
-    return undefined;
-  }
-
-  return name;
-}
-
-function normalizeName(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }
 
 function tokenizeName(value: string): string[] {

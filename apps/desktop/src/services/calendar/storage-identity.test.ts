@@ -67,7 +67,12 @@ async function reconcile() {
     ctx,
     events,
     sessionUpdates: syncSessionEmbeddedEvents(ctx, incoming, sessions),
-    participants: { toAdd: [], toDelete: [], humansToCreate: [] },
+    participants: {
+      toAdd: [],
+      toDelete: [],
+      humansToCreate: [],
+      humansToEnrich: [],
+    },
   });
   return events;
 }

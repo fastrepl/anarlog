@@ -91,8 +91,10 @@ describe("syncSessionParticipants", () => {
         ownerUserId: "user-1",
         email: "new@example.com",
         name: "New Person",
+        companyName: "Example",
       },
     ]);
+    expect(result.humansToEnrich).toEqual([]);
     expect(result.toAdd).toEqual([
       {
         sessionId: "session-1",
@@ -109,7 +111,14 @@ describe("syncSessionParticipants", () => {
       ]),
       snapshot: createSnapshot({
         sessions: [session],
-        humans: [{ id: "human-1", email: "existing@example.com" }],
+        humans: [
+          {
+            id: "human-1",
+            email: "existing@example.com",
+            name: "Existing",
+            organizationId: "org-1",
+          },
+        ],
       }),
     });
 
@@ -122,7 +131,14 @@ describe("syncSessionParticipants", () => {
       incomingParticipants: new Map([["tracking-1", []]]),
       snapshot: createSnapshot({
         sessions: [session],
-        humans: [{ id: "human-1", email: "removed@example.com" }],
+        humans: [
+          {
+            id: "human-1",
+            email: "removed@example.com",
+            name: "",
+            organizationId: "",
+          },
+        ],
         mappings: [
           {
             id: "mapping-1",
@@ -142,7 +158,14 @@ describe("syncSessionParticipants", () => {
       incomingParticipants: new Map([["tracking-1", []]]),
       snapshot: createSnapshot({
         sessions: [session],
-        humans: [{ id: "human-1", email: "excluded@example.com" }],
+        humans: [
+          {
+            id: "human-1",
+            email: "excluded@example.com",
+            name: "",
+            organizationId: "",
+          },
+        ],
         mappings: [
           {
             id: "mapping-1",
@@ -155,5 +178,105 @@ describe("syncSessionParticipants", () => {
     });
 
     expect(result.toDelete).toEqual([]);
+  });
+
+  test("derives a display name and company for new humans without a name", () => {
+    const result = syncSessionParticipants({
+      incomingParticipants: new Map([
+        ["tracking-1", [{ email: "simon.goldstein@ionprotocol.io" }]],
+      ]),
+      snapshot: createSnapshot({ sessions: [session] }),
+    });
+
+    expect(result.humansToCreate).toEqual([
+      {
+        id: "human-new",
+        ownerUserId: "user-1",
+        email: "simon.goldstein@ionprotocol.io",
+        name: "Simon Goldstein",
+        companyName: "Ionprotocol",
+      },
+    ]);
+  });
+
+  test("does not attach a company for personal email domains", () => {
+    const result = syncSessionParticipants({
+      incomingParticipants: new Map([
+        ["tracking-1", [{ email: "jane.doe@gmail.com" }]],
+      ]),
+      snapshot: createSnapshot({ sessions: [session] }),
+    });
+
+    expect(result.humansToCreate[0]).toEqual({
+      id: "human-new",
+      ownerUserId: "user-1",
+      email: "jane.doe@gmail.com",
+      name: "Jane Doe",
+    });
+  });
+
+  test("enriches existing humans whose name is missing or an email", () => {
+    const result = syncSessionParticipants({
+      incomingParticipants: new Map([
+        [
+          "tracking-1",
+          [
+            { email: "alice@acme.com" },
+            { email: "bob@acme.com", name: "Bob Builder" },
+            { email: "done@acme.com" },
+          ],
+        ],
+      ]),
+      snapshot: createSnapshot({
+        sessions: [session],
+        humans: [
+          {
+            id: "human-a",
+            email: "alice@acme.com",
+            name: "alice@acme.com",
+            organizationId: "",
+          },
+          {
+            id: "human-b",
+            email: "bob@acme.com",
+            name: "",
+            organizationId: "org-1",
+          },
+          {
+            id: "human-c",
+            email: "done@acme.com",
+            name: "Done Person",
+            organizationId: "org-1",
+          },
+        ],
+      }),
+    });
+
+    expect(result.humansToCreate).toEqual([]);
+    expect(result.humansToEnrich).toEqual([
+      {
+        id: "human-a",
+        ownerUserId: "user-1",
+        name: "Alice",
+        companyName: "Acme",
+      },
+      { id: "human-b", ownerUserId: "user-1", name: "Bob Builder" },
+    ]);
+  });
+
+  test("never enriches the session owner", () => {
+    const result = syncSessionParticipants({
+      incomingParticipants: new Map([
+        ["tracking-1", [{ email: "me@acme.com" }]],
+      ]),
+      snapshot: createSnapshot({
+        sessions: [session],
+        humans: [
+          { id: "user-1", email: "me@acme.com", name: "", organizationId: "" },
+        ],
+      }),
+    });
+
+    expect(result.humansToEnrich).toEqual([]);
   });
 });

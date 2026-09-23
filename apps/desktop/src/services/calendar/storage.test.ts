@@ -217,6 +217,15 @@ describe("calendar SQLite storage", () => {
             ownerUserId: "",
             name: "Alice",
             email: "alice@example.com",
+            companyName: "Example",
+          },
+        ],
+        humansToEnrich: [
+          {
+            id: "human-2",
+            ownerUserId: "",
+            name: "Bob",
+            companyName: "Example",
           },
         ],
         toDelete: ["mapping-old"],
@@ -238,7 +247,12 @@ describe("calendar SQLite storage", () => {
     expect(sql).toContain("UPDATE events");
     expect(sql).toContain("INSERT INTO events");
     expect(sql).toContain("UPDATE sessions");
+    expect(sql).toContain("INSERT INTO organizations");
     expect(sql).toContain("INSERT INTO humans");
+    expect(sql).toContain("UPDATE humans");
+    expect(sql.indexOf("INSERT INTO organizations")).toBeLessThan(
+      sql.indexOf("INSERT INTO humans"),
+    );
     expect(sql).toContain("cloudsync_workspace_binding");
     expect(sql).toContain("NULLIF((");
     expect(sql).not.toContain("COALESCE((");
@@ -301,7 +315,12 @@ describe("calendar SQLite storage", () => {
       ctx,
       events,
       sessionUpdates: [],
-      participants: { humansToCreate: [], toDelete: [], toAdd: [] },
+      participants: {
+        humansToCreate: [],
+        humansToEnrich: [],
+        toDelete: [],
+        toAdd: [],
+      },
     });
 
     const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
