@@ -11,7 +11,7 @@ date: "2026-10-03"
 
 **Offline meeting transcription on a Mac requires a local speech model that is already downloaded. Offline summaries require a separate local language model.** Recording audio, transcribing it, and producing notes are three stages; success at one stage does not establish the other two.
 
-This guide uses Anarlog, the meeting notetaker we build. It includes a repeatable check you can run before relying on the setup. Product documentation was checked September 22, 2026; screenshot captions describe the evidence actually captured.
+This guide uses Anarlog, the meeting notetaker we build, and includes a check you can repeat on your Mac. Documentation and screenshots are from September 22, 2026.
 
 ## Check your Mac before selecting a model
 
@@ -41,11 +41,11 @@ A cloud transcription selection sends audio to a provider. A cloud Intelligence 
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-transcription-settings.png" alt="Anarlog local Parakeet Batch and Streaming transcription models" width={900} height={611} />
 
-*Our capture: Anarlog 1.4.25 on the Apple Silicon Mac used in the test, September 22, 2026. The language-model reminder reinforces that speech and Intelligence are separate. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-transcription-settings.png).*
+*Our capture: Anarlog's local Parakeet transcription models. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-transcription-settings.png).*
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-intelligence.png" alt="Anarlog Intelligence settings selecting Ollama Qwen2.5 1.5b" width={900} height={611} />
 
-*Our capture: Anarlog 1.4.25 on macOS 26.5.2, Apple Silicon, September 22, 2026. This selection controls summaries; transcription is configured separately. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-intelligence.png).*
+*Our capture: Ollama selected for Anarlog summaries. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-intelligence.png).*
 
 ## Test capture before testing AI
 
@@ -63,7 +63,7 @@ Use this sample structure:
 
 > We approved the pilot for next Tuesday. Maya will prepare the checklist. We rejected the Friday launch. The support handoff still has no owner.
 
-This is synthetic test content. Check whether the transcript preserves the rejected launch and whether the summary leaves the unassigned task unassigned. The goal is to verify the workflow and catch consequential mistakes, not establish a general accuracy score from four sentences.
+Check whether the transcript preserves the rejected launch and whether the summary leaves the unassigned task unassigned.
 
 Keep a small result log:
 
@@ -91,11 +91,11 @@ The VM had no Wi-Fi hardware or physical audio devices. We used BlackHole loopba
 | Markdown export and reopen | Summary and transcript exported and opened in TextEdit |
 | Accuracy check | Failed on some numbers, one owner assignment, and one deadline |
 
-**The workflow completed; the output still needed correction.** The speech model dropped version and pricing-tier digits. The summary assigned a task to “Priya and Alex” for the following Monday, while the source assigned it to Priya for Tuesday. Review names, numbers, decisions, and deadlines against the recording before relying on the note. One short synthetic example does not establish long-meeting accuracy.
+**The workflow completed; the output still needed correction.** The speech model dropped version and pricing-tier digits. The summary assigned a task to “Priya and Alex” for the following Monday, while the source assigned it to Priya for Tuesday. Review names, numbers, decisions, and deadlines against the recording before relying on the note. This short synthetic test does not establish long-meeting accuracy.
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-offline-summary.png" alt="Anarlog completed local summary beside terminal evidence of blocked external traffic" width={900} height={675} />
 
-*Our capture: the completed offline summary and network check. The visible owner/deadline errors are described above; completion is not an accuracy pass. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-offline-summary.png).*
+*Our capture: completed local summary alongside the external-network check. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-offline-summary.png).*
 
 ## Common causes of a partly offline setup
 
@@ -103,11 +103,11 @@ Anarlog's [offline guide](https://docs.anarlog.so/offline) explains the boundari
 
 For a local-only meeting workflow, leave network-dependent features out of the test. Also check whether your export folder is automatically synchronized by another application. A locally generated transcript can still leave the device when another service copies the file.
 
-For long meetings, test a representative recording while you still have time to change the model or workflow. Model memory, audio quality, and summary context all matter. A successful one-minute test does not establish reliability for an hour-long call.
+Before an hour-long call, test a representative recording while you still have time to adjust model memory, audio quality, or summary context.
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-markdown-export.png" alt="Anarlog export dialog selecting Markdown with summary and transcript" width={900} height={675} />
 
-*Our capture: Markdown export while external traffic remained blocked. The exported file was then reopened in TextEdit. September 22, 2026. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-markdown-export.png).*
+*Our capture: Markdown export with external traffic blocked. The file reopened in TextEdit. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-markdown-export.png).*
 
 ## Keep the working configuration
 
