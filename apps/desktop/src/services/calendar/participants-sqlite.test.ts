@@ -264,6 +264,40 @@ describe("participant enrichment in SQLite", () => {
     ]);
   });
 
+  test("handles more than 1000 planned humans for one company", async () => {
+    const incoming: IncomingParticipants = new Map([
+      [
+        "tracking-1",
+        Array.from({ length: 1200 }, (_, i) => ({
+          email: `person${i}@acme.com`,
+        })),
+      ],
+    ]);
+    const snapshot = await loadParticipantSyncSnapshot([session], incoming);
+    const participants = syncSessionParticipants({
+      incomingParticipants: incoming,
+      snapshot,
+    });
+    expect(participants.humansToCreate).toHaveLength(1200);
+
+    await applyConnectionSync({
+      ctx,
+      events: { toDelete: [], toUpdate: [], toAdd: [] },
+      sessionUpdates: [],
+      participants,
+    });
+    expect(
+      db
+        .prepare("SELECT count(*) AS n FROM organizations WHERE name = 'Acme'")
+        .get(),
+    ).toEqual({ n: 1 });
+    expect(
+      db
+        .prepare("SELECT count(*) AS n FROM humans WHERE organization_id <> ''")
+        .get(),
+    ).toEqual({ n: 1200 });
+  });
+
   test("keeps user names containing @ and skips organizations assigned after planning", async () => {
     db.exec(`
       INSERT INTO organizations(id, name, created_at, updated_at) VALUES ('org-consulting', 'Acme Consulting', '2026-09-01', '2026-09-01');

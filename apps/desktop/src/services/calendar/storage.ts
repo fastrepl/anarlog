@@ -700,11 +700,15 @@ export async function applyConnectionSync({
   }
   for (const company of companyNames.values()) {
     const stillNeeded: string[] = [];
-    for (const _email of company.newHumanEmails) {
-      stillNeeded.push(`NOT EXISTS (
+    if (company.newHumanEmails.length > 0) {
+      stillNeeded.push(`EXISTS (
           SELECT 1
-          FROM humans
-          WHERE lower(email) = ? AND deleted_at IS NULL
+          FROM (VALUES ${company.newHumanEmails.map(() => "(?)").join(", ")}) AS planned
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM humans
+            WHERE lower(email) = planned.column1 AND deleted_at IS NULL
+          )
         )`);
     }
     if (company.enrichHumanIds.length > 0) {
