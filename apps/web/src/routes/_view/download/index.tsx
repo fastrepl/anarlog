@@ -50,17 +50,19 @@ export const Route = createFileRoute("/_view/download/")({
 
 function Component() {
   const { track } = useAnalytics();
-  const { variant } = useExperiment("downloadLayout");
-  const experiment = experimentProperties("downloadLayout", variant);
+  const { variant, ready } = useExperiment("downloadLayout");
+  const experiment = ready
+    ? experimentProperties("downloadLayout", variant)
+    : {};
   const threeColumn = variant === "three-column";
 
   return (
     <main className="surface text-color min-h-screen">
       <div
-        className={cn(
+        className={cn([
           "mx-auto w-full px-5 py-8 md:px-8 md:py-12",
           threeColumn ? "max-w-[1040px]" : "max-w-[700px]",
-        )}
+        ])}
       >
         <header>
           <Link to="/" aria-label="Anarlog home">
@@ -69,9 +71,9 @@ function Component() {
         </header>
 
         <section
-          className={cn(
+          className={cn([
             threeColumn ? "pt-20 pb-14 md:pt-28" : "pt-24 pb-16 md:pt-32",
-          )}
+          ])}
         >
           <h1 className="font-hand text-color text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
             Download Anarlog
@@ -110,10 +112,10 @@ function Component() {
                           {!section.available ? (
                             <span
                               aria-disabled="true"
-                              className={cn(
+                              className={cn([
                                 downloadButtonClassName,
                                 "flex w-full cursor-not-allowed justify-between opacity-40",
-                              )}
+                              ])}
                             >
                               {section.status}
                               <Clock size={16} aria-hidden="true" />
@@ -137,10 +139,10 @@ function Component() {
                                   ...experiment,
                                 })
                               }
-                              className={cn(
+                              className={cn([
                                 downloadButtonClassName,
                                 "flex justify-between",
-                              )}
+                              ])}
                             >
                               {"actionLabel" in download
                                 ? download.actionLabel
@@ -155,6 +157,38 @@ function Component() {
                         </li>
                       ))}
                   </ul>
+                  {section.available &&
+                    section.downloads.some(
+                      (download) => !download.showInMenu,
+                    ) && (
+                      <p className="text-color-muted text-xs leading-5">
+                        Also:{" "}
+                        {section.downloads
+                          .filter((download) => !download.showInMenu)
+                          .map((download, index) => (
+                            <span key={download.name}>
+                              {index > 0 && " · "}
+                              <a
+                                href={download.url}
+                                {...("actionLabel" in download
+                                  ? { target: "_blank", rel: "noreferrer" }
+                                  : {})}
+                                onClick={() =>
+                                  track("download_clicked", {
+                                    platform: section.platform,
+                                    spec: download.name,
+                                    source: "download_page",
+                                    ...experiment,
+                                  })
+                                }
+                                className="underline underline-offset-2"
+                              >
+                                {download.name}
+                              </a>
+                            </span>
+                          ))}
+                      </p>
+                    )}
                 </div>
               ))}
               <div className={gridCellClassName}>
@@ -218,10 +252,10 @@ function Component() {
                           {!section.available ? (
                             <span
                               aria-disabled="true"
-                              className={cn(
+                              className={cn([
                                 downloadButtonClassName,
                                 "inline-flex shrink-0 cursor-not-allowed opacity-40 sm:px-5",
-                              )}
+                              ])}
                             >
                               {section.status}
                               <Clock size={16} aria-hidden="true" />
@@ -248,10 +282,10 @@ function Component() {
                                   ...experiment,
                                 })
                               }
-                              className={cn(
+                              className={cn([
                                 downloadButtonClassName,
                                 "inline-flex shrink-0 sm:px-5",
-                              )}
+                              ])}
                             >
                               {"actionLabel" in download ? (
                                 <>

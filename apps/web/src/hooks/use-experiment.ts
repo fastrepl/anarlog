@@ -36,16 +36,18 @@ export function useExperiment<K extends ExperimentKey>(key: K) {
         return;
       }
     }
+    let cancelListener: (() => void) | undefined;
     runOrQueue((client) => {
-      const cancelListener = client.onFeatureFlags(() => {
+      if (cancelled) return;
+      cancelListener = client.onFeatureFlags(() => {
         if (cancelled) return;
         setVariant(resolveExperimentVariant(key, client.getFeatureFlag(flag)));
         setReady(true);
       });
-      if (cancelled) cancelListener();
     });
     return () => {
       cancelled = true;
+      cancelListener?.();
     };
   }, [key, runOrQueue]);
 
