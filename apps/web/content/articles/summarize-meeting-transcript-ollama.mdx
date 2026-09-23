@@ -13,7 +13,7 @@ To summarize a meeting transcript with Ollama, start with a downloaded local mod
 
 The hard part is preserving commitments across the whole discussion. A fluent paragraph can miss the final decision, assign a task to the wrong person, or promote a rejected proposal into an action item.
 
-We make Anarlog. The commands below use Ollama's local API; documentation was checked September 22, 2026. Example inputs are synthetic and should not be treated as a benchmark for real meeting accuracy.
+We make Anarlog. This guide uses Ollama's local API and a synthetic transcript; documentation was checked September 22, 2026.
 
 ## Prepare a local model and a readable transcript
 
@@ -24,7 +24,7 @@ ollama pull qwen2.5:1.5b
 ollama list
 ```
 
-This is a lightweight workflow example, not a recommendation that a 1.5B model is sufficient for every meeting. A larger model may produce better results but needs more memory and still requires review.
+This small model makes the workflow easy to try. For real meetings, evaluate a model that fits your memory budget against the decisions and action items you need to preserve.
 
 Save the transcript as UTF-8 text. Keep speaker labels and timestamps when available. Preserve the source file unchanged so you can compare it with the output. If your transcript already contains an incorrect date or name, fix it before evaluating the summarizer.
 
@@ -32,7 +32,7 @@ Confirm that you are using a local model. Ollama also supports cloud features; i
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/ollama/summary/2026-09-22-model-environment.png" alt="Ollama terminal displaying version and locally installed Qwen model" width={900} height={296} />
 
-*Our Ubuntu terminal recapture, September 22, 2026. Version/model commands were rerun; the settings annotation describes the saved experiment. The empty ollama ps table means the model was unloaded at capture time. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/ollama/summary/2026-09-22-model-environment.png).*
+*Our Ubuntu terminal recapture, September 22, 2026: installed model and saved experiment settings. The empty ollama ps table shows the model was unloaded. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/ollama/summary/2026-09-22-model-environment.png).*
 
 ## Set context explicitly
 
@@ -115,20 +115,20 @@ Make a small reference list of known decisions and tasks before running the mode
 
 Count missing required items, invented commitments, wrong owners, and wrong deadlines separately. Keep the prompt, model tag, context setting, and every attempt. If you revise the prompt three times, report that instead of presenting the best run as the only result.
 
-A one-pass summary and a chunked summary can each fail differently. Compare both with the reference list, not only with each other. Chunking is a way to manage input and preserve evidence; it is not a guarantee of higher accuracy.
+Compare both one-pass and chunked summaries with the reference list. Chunking manages input size; check whether it also preserves more of the required facts.
 
-## What our synthetic run actually showed
+## What our synthetic test showed
 
-We used Ollama 0.34.2 with `qwen2.5:1.5b` (Q4_K_M) on an Ubuntu 22.04 VM with 8 Intel Xeon Platinum 8559C vCPUs, 31 GiB RAM, and CPU inference. The input was a 2,687-word fictional transcript. The measured runs used a short Summary/Decisions/Action-items prompt; the more explicit evidence-preserving template above is a suggested next step, not a measured improvement from this experiment. Its timestamp labels are synthetic; this was not a recorded 71-minute meeting.
+We used Ollama 0.34.2 with `qwen2.5:1.5b` (Q4_K_M) on an Ubuntu 22.04 VM with 8 Intel Xeon Platinum 8559C vCPUs, 31 GiB RAM, and CPU inference. The input was a 2,687-word fictional transcript with synthetic timestamps, including an out-of-order closing segment. It was not a recorded 71-minute meeting. The measured runs used a short Summary/Decisions/Action-items prompt; the evidence-preserving template above has not been measured in this experiment.
 
-Download the [synthetic transcript, measured prompt, four saved outputs, and selected response metrics](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/ollama/summary/2026-09-22-ollama-synthetic-example.zip) to inspect the reported mistakes or try another model. The archive contains fictional test material only. Its timestamps include an out-of-order closing segment, another reason to treat it as a synthetic stress test rather than a recording benchmark.
+Download the [synthetic transcript, measured prompt, four saved outputs, and selected response metrics](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/ollama/summary/2026-09-22-ollama-synthetic-example.zip) to inspect the reported mistakes or try another model. The archive contains fictional test material only.
 
 | Request | Evaluated prompt tokens | Completed server duration | What the result establishes |
 | --- | ---: | --- | --- |
 | Explicit `num_ctx: 8192`, temperature 0.2; three completed calls | 4,417 each | 112.3 s, 47.1 s, 45.8 s | The larger input was processed; factual errors still appeared |
 | Same prompt, request defaults | 2,050 | 30.0 s | Fewer input tokens were evaluated, consistent with a smaller context allocation |
 
-One explicit-context invocation first hit a 600-second client timeout and was retried. Earlier exploratory CLI outputs were partly overwritten, so they are not a complete repeatability dataset. A complete earlier chunked run exists, but the later controlled chunked rerun was stopped after its first chunk. We therefore do not claim that chunking outperformed a single request.
+**Test scope:** one explicit-context call hit a 600-second client timeout before retrying. Some exploratory CLI outputs were overwritten. An earlier chunked run completed, but the controlled rerun stopped after its first chunk, so this experiment cannot establish a chunking advantage or rank model accuracy.
 
 The first completed explicit-context result looked organized but changed substantive facts:
 
@@ -138,11 +138,11 @@ The first completed explicit-context result looked organized but changed substan
 | Sam should prototype font warmup; the purge job requires a dry run | Font warmup was described as needing a dry-run mode | Requirements from different topics were mixed |
 | Priya owns several distinct actions and Sam owns others | Numerous actions became generic commitments for Sam this sprint | Owners and deadlines were not reliably preserved |
 
-The default-context output also confused the fictional hiring decision about Mara and Dev. Increasing context addressed input capacity; it did not establish summary accuracy. These are observed failures from one small model and synthetic input, not a ranking of local models.
+The default-context output also confused the fictional hiring decision about Mara and Dev. A larger context processed more input, but owners and deadlines still needed correction.
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/ollama/summary/2026-09-22-saved-summary-errors.png" alt="Saved Ollama summary excerpt containing the deadline and mixed-requirement errors discussed in the text" width={900} height={701} />
 
-*Our terminal displays saved attempt-1 output from the reported experiment. This is a readable recapture of existing output, not a new generation or a successful accuracy result. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/ollama/summary/2026-09-22-saved-summary-errors.png).*
+*Our recapture of saved attempt-1 output, including the deadline and mixed-requirement errors described above. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/ollama/summary/2026-09-22-saved-summary-errors.png).*
 
 ## Use the result in your meeting workflow
 
