@@ -1,5 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 import {
   ArrowSquareOut,
@@ -47,6 +48,34 @@ export const Route = createFileRoute("/_view/download/")({
     ],
   }),
 });
+
+const nextDevices = ["Watch", "Dongle", "Pin"] as const;
+
+function NextDeviceButton() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(
+      () => setIndex((current) => (current + 1) % nextDevices.length),
+      1800,
+    );
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <span
+      aria-disabled="true"
+      aria-label={`Coming next: ${nextDevices.join(", ")}`}
+      className={cn([
+        downloadButtonClassName,
+        "mt-auto flex w-full cursor-not-allowed justify-between opacity-40",
+      ])}
+    >
+      <span>{nextDevices[index]}</span>
+      <Clock size={16} aria-hidden="true" />
+    </span>
+  );
+}
 
 function Component() {
   const { track } = useAnalytics();
@@ -153,18 +182,9 @@ function Component() {
               ))}
               <div className={gridCellClassName}>
                 <h3 className="font-hand text-3xl leading-none font-semibold tracking-normal">
-                  Coming soon
+                  Next?
                 </h3>
-                <ul className="mt-auto flex flex-wrap gap-2">
-                  {comingSoonPlatforms.map((platform) => (
-                    <li
-                      key={platform}
-                      className="border-color-subtle text-color-muted rounded-full border px-4 py-2 text-sm font-medium"
-                    >
-                      {platform}
-                    </li>
-                  ))}
-                </ul>
+                <NextDeviceButton />
               </div>
             </div>
             {downloadSections
