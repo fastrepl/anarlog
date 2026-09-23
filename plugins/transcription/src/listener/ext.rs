@@ -155,6 +155,18 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
+    pub async fn delete_capture_audio(&self, session_id: String) -> Result<(), String> {
+        let cell = registry::where_is(RootActor::name()).ok_or_else(|| {
+            crate::Error::ActorNotFound(RootActor::name().to_string()).to_string()
+        })?;
+        let actor: ActorRef<RootMsg> = cell.into();
+        match ractor::call!(actor, RootMsg::DeleteSessionAudio, session_id) {
+            Ok(result) => result,
+            Err(error) => Err(error.to_string()),
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
     pub async fn update_capture_config(&self, update: CaptureConfigUpdate) {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();

@@ -290,29 +290,6 @@ impl Actor for SessionActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         children::shutdown_children(state, "session_stop").await;
-        if state.ctx.params.retain_audio == Some(false) {
-            let dir = crate::actors::recorder::find_session_dir(
-                &state.ctx.app_dir,
-                &state.ctx.params.session_id,
-            );
-            if let Err(error) = tokio::task::spawn_blocking(move || {
-                crate::actors::recorder::delete_capture_audio(&dir)
-            })
-            .await?
-            {
-                let error = format!("audio_deletion_failed: {error}");
-                state
-                    .ctx
-                    .runtime
-                    .emit_error(crate::SessionErrorEvent::AudioError {
-                        session_id: state.ctx.params.session_id.clone(),
-                        error: error.clone(),
-                        device: None,
-                        is_fatal: false,
-                    });
-                return Err(std::io::Error::other(error).into());
-            }
-        }
         Ok(())
     }
 }

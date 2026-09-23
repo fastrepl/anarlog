@@ -299,10 +299,18 @@ async fn refreshed_credentials_resume_live_transcription_after_authentication_fa
         .await
         .unwrap()
         .unwrap();
+    // Non-retained audio stays until the frontend finishes transcribing it.
     assert!(
-        crate::actors::recorder::list_recovery_chunks(&vault.path().join(&session_id))
+        !crate::actors::recorder::list_recovery_chunks(&vault.path().join(&session_id))
             .unwrap()
             .is_empty()
+    );
+    assert!(
+        vault
+            .path()
+            .join(&session_id)
+            .join(crate::actors::recorder::DELETE_ON_STOP)
+            .exists()
     );
     assert!(!vault.path().join(&session_id).join("audio.mp3").exists());
 }

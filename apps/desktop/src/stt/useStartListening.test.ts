@@ -145,14 +145,21 @@ vi.mock("@anlg/plugin-db", () => ({
 vi.mock("~/auth", () => ({
   useAuth: () => ({ getSessionForRequest: vi.fn(async () => null) }),
 }));
+const listCaptureAudioChunksMock = vi.hoisted(() =>
+  vi.fn(async () => ({ status: "ok" as const, data: [] as unknown[] })),
+);
+const deleteCaptureAudioMock = vi.hoisted(() =>
+  vi.fn(async () => ({ status: "ok" as const, data: null })),
+);
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
-    listCaptureAudioChunks: vi.fn(async () => ({ status: "ok", data: [] })),
+    listCaptureAudioChunks: listCaptureAudioChunksMock,
     acknowledgeCaptureAudioChunk: vi.fn(async () => ({
       status: "ok",
       data: null,
     })),
+    deleteCaptureAudio: deleteCaptureAudioMock,
     updateCaptureCredentials: vi.fn(async () => ({ status: "ok", data: null })),
   },
   events: {
@@ -309,6 +316,7 @@ vi.mock("~/stt/queries", () => ({
   applyLiveTranscriptDeltaToDatabase: applyLiveTranscriptDeltaToDatabaseMock,
   createLiveTranscript: createLiveTranscriptMock,
   flushLiveTranscriptDeltasToDatabase: flushLiveTranscriptDeltasToDatabaseMock,
+  getTranscriptRecord: vi.fn(async () => null),
   softDeleteTranscript: softDeleteTranscriptMock,
   transcriptExists: transcriptExistsMock,
   useSessionParticipantHumanIds: useSessionParticipantHumanIdsMock,
@@ -470,6 +478,8 @@ describe("getPostCaptureAction", () => {
 describe("useStartListening", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listCaptureAudioChunksMock.mockResolvedValue({ status: "ok", data: [] });
+    deleteCaptureAudioMock.mockResolvedValue({ status: "ok", data: null });
     emptyCaptureMock.mockResolvedValue(false);
     idMock.mockReturnValue("generated-id");
 
@@ -584,15 +594,31 @@ describe("useStartListening", () => {
     vi.useRealTimers();
   });
 
-  test("zero retention deletes the recovery opportunity at stop even after a disconnect", async () => {
+  test("zero retention deletes the audio at stop even when recovery stays offline", async () => {
     useConfigValueMock.mockImplementation((key: string) =>
       key === "audio_retention" ? "none" : undefined,
     );
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    listCaptureAudioChunksMock.mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          id: "chunk-1",
+          path: "/tmp/audio-recovery/chunk-1.wav",
+          capture_started_at: 1_000_000,
+          start_ms: 0,
+          audio_start_ms: 0,
+          end_ms: 60_000,
+        },
+      ],
+    });
     const { result } = renderHook(() => useStartListening("session-1"));
     await act(async () => {
       await result.current();
     });
     expect(startMock.mock.calls[0]?.[0]).toMatchObject({ retain_audio: false });
+    vi.setSystemTime(1_060_000);
     const progress = vi.mocked(transcriptionEvents.captureStatusEvent.listen)
       .mock.calls[0]?.[0];
     progress?.({
@@ -613,6 +639,7 @@ describe("useStartListening", () => {
       });
     });
     expect(runBatchMock).not.toHaveBeenCalled();
+    expect(deleteCaptureAudioMock).toHaveBeenCalledWith("session-1");
     expect(saveIncompleteCapture).toHaveBeenCalledWith(
       "session-1",
       "generated-id",
@@ -623,6 +650,101 @@ describe("useStartListening", () => {
       "Your transcript is incomplete",
       expect.anything(),
     );
+  });
+
+  test("zero retention transcribes every remaining chunk before deleting the audio", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    listCaptureAudioChunksMock.mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          id: "chunk-1",
+          path: "/tmp/audio-recovery/chunk-1.wav",
+          capture_started_at: 1_000_000,
+          start_ms: 0,
+          audio_start_ms: 0,
+          end_ms: 60_000,
+        },
+      ],
+    });
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    const lifecycle = vi.mocked(
+      transcriptionEvents.captureLifecycleEvent.listen,
+    ).mock.calls[0]?.[0];
+    lifecycle?.({
+      payload: {
+        type: "started",
+        session_id: "session-1",
+        requested_live_transcription: false,
+        live_transcription_active: false,
+      },
+    } as never);
+    vi.setSystemTime(1_060_000);
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: true,
+      });
+    });
+    expect(runBatchMock).toHaveBeenCalledWith(
+      "/tmp/audio-recovery/chunk-1.wav",
+      expect.objectContaining({ deferAudioFinalization: true }),
+    );
+    expect(deleteCaptureAudioMock).toHaveBeenCalledWith("session-1");
+    expect(runBatchMock).toHaveBeenCalledBefore(deleteCaptureAudioMock);
+    expect(toastErrorMock).not.toHaveBeenCalledWith(
+      "Your transcript is incomplete",
+      expect.anything(),
+    );
+  });
+
+  test("zero retention reports when the audio could not be deleted after the drain", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    deleteCaptureAudioMock.mockResolvedValueOnce({
+      status: "error",
+      error: "audio_deletion_failed: busy",
+    } as never);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
+        needsBatchRepair: false,
+      });
+    });
+    expect(saveIncompleteCapture).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+      false,
+      true,
+    );
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "Audio could not be deleted",
+      expect.anything(),
+    );
+    consoleError.mockRestore();
   });
 
   test("does not reprocess a whole chunked recording after recovery has completed", async () => {

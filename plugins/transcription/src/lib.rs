@@ -110,6 +110,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_capture_audio_cleanup_status::<tauri::Wry>,
             listener::commands::acknowledge_capture_audio_cleanup_status::<tauri::Wry>,
             listener::commands::acknowledge_capture_audio_chunk::<tauri::Wry>,
+            listener::commands::delete_capture_audio::<tauri::Wry>,
             listener::commands::is_supported_languages_live::<tauri::Wry>,
             listener::commands::suggest_providers_for_languages_live::<tauri::Wry>,
             listener::commands::list_documented_language_codes_live::<tauri::Wry>,

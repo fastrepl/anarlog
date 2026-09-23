@@ -22,6 +22,7 @@ pub enum RootMsg {
     StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
     UpdateSessionConfig(SessionConfigUpdate, RpcReplyPort<()>),
     StopSession(RpcReplyPort<()>),
+    DeleteSessionAudio(String, RpcReplyPort<Result<(), String>>),
     GetState(RpcReplyPort<State>),
     GetSnapshot(RpcReplyPort<Snapshot>),
 }
@@ -37,6 +38,9 @@ pub struct RootState {
     active_session_id: Option<String>,
     active_supervisor: Option<ActorCell>,
     finalizing_sessions: HashMap<String, ActorCell>,
+    /// Non-retained sessions whose audio stays on disk until the frontend has
+    /// finished transcribing it and asks for deletion.
+    held_audio_sessions: HashSet<String>,
     cleanup_failed_sessions: HashMap<String, bool>,
     cleanup_retry_scheduled: bool,
 }
@@ -71,6 +75,7 @@ impl Actor for RootActor {
             active_session_id: None,
             active_supervisor: None,
             finalizing_sessions: HashMap::new(),
+            held_audio_sessions: HashSet::new(),
             cleanup_failed_sessions,
             cleanup_retry_scheduled: retry,
         })
@@ -90,6 +95,7 @@ impl Actor for RootActor {
                     .cloned()
                     .collect::<HashSet<_>>();
                 active.extend(state.active_session_id.iter().cloned());
+                active.extend(state.held_audio_sessions.iter().cloned());
                 let (retry, failed) = cleanup_interrupted_audio(
                     state.runtime.clone(),
                     active,
@@ -113,6 +119,10 @@ impl Actor for RootActor {
             RootMsg::StopSession(reply) => {
                 stop_session_impl(state).await;
                 let _ = reply.send(());
+            }
+            RootMsg::DeleteSessionAudio(session_id, reply) => {
+                let result = delete_session_audio_impl(myself, session_id, state).await;
+                let _ = reply.send(result);
             }
             RootMsg::GetState(reply) => {
                 let _ = reply.send(root_snapshot(state).state);
@@ -297,6 +307,12 @@ async fn start_session_impl(
 
         configure_sentry_session_context(&params);
 
+        if params.retain_audio == Some(false) {
+            state.held_audio_sessions.insert(params.session_id.clone());
+        } else {
+            state.held_audio_sessions.remove(&params.session_id);
+        }
+
         let app_dir = match state.runtime.vault_base() {
             Ok(base) => base.join("sessions"),
             Err(e) => {
@@ -416,6 +432,40 @@ async fn stop_session_impl(state: &mut RootState) {
             supervisor.stop(Some("session_stop_cast_failed".to_string()));
         }
     }
+}
+
+async fn delete_session_audio_impl(
+    myself: ActorRef<RootMsg>,
+    session_id: String,
+    state: &mut RootState,
+) -> Result<(), String> {
+    if state.active_session_id.as_deref() == Some(session_id.as_str())
+        || state.finalizing_sessions.contains_key(&session_id)
+    {
+        return Err("session_still_active".to_string());
+    }
+    state.held_audio_sessions.remove(&session_id);
+    let dir = state
+        .runtime
+        .vault_base()
+        .map_err(|error| error.to_string())?
+        .join("sessions");
+    let dir = crate::actors::recorder::find_session_dir(&dir, &session_id);
+    let result =
+        tokio::task::spawn_blocking(move || crate::actors::recorder::delete_capture_audio(&dir))
+            .await
+            .map_err(|error| error.to_string())
+            .and_then(|result| result.map_err(|error| error.to_string()));
+    if let Err(error) = &result {
+        tracing::warn!(%session_id, %error, "session_audio_deletion_failed");
+        emit_audio_cleanup(&*state.runtime, &session_id, true, Some(error.clone()));
+        state.cleanup_failed_sessions.insert(session_id, true);
+        if !state.cleanup_retry_scheduled {
+            state.cleanup_retry_scheduled = true;
+            myself.send_after(std::time::Duration::from_secs(30), || RootMsg::RetryCleanup);
+        }
+    }
+    result
 }
 
 fn handle_supervisor_completion(
@@ -590,6 +640,60 @@ mod tests {
             .unwrap();
         assert!(!state.cleanup_retry_scheduled);
         assert!(!session.join("audio.mp3").exists());
+        root.stop(None);
+        task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn held_non_retained_audio_survives_cleanup_until_frontend_deletes_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let runtime = Arc::new(Runtime(dir.path().to_path_buf(), Default::default()));
+        let args = || RootArgs {
+            runtime: runtime.clone(),
+            audio: runtime.clone(),
+        };
+        let (root, task) = Actor::spawn(None, RootActor, args()).await.unwrap();
+        let mut state = RootActor.pre_start(root.clone(), args()).await.unwrap();
+
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let session = dir.path().join("sessions").join(&session_id);
+        let recovery = session.join("audio-recovery");
+        std::fs::create_dir_all(&recovery).unwrap();
+        std::fs::write(session.join(".delete-audio-on-stop"), b"").unwrap();
+        std::fs::write(recovery.join("000001.part"), b"untranscribed").unwrap();
+        state.held_audio_sessions.insert(session_id.clone());
+
+        RootActor
+            .handle(root.clone(), RootMsg::RetryCleanup, &mut state)
+            .await
+            .unwrap();
+        assert!(recovery.join("000001.part").exists());
+
+        let result = delete_session_audio_impl(root.clone(), session_id.clone(), &mut state).await;
+        assert_eq!(result, Ok(()));
+        assert!(!recovery.exists());
+        assert!(!session.join(".delete-audio-on-stop").exists());
+        assert!(!state.held_audio_sessions.contains(&session_id));
+        root.stop(None);
+        task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn frontend_audio_deletion_is_refused_while_session_is_finalizing() {
+        let dir = tempfile::tempdir().unwrap();
+        let runtime = Arc::new(Runtime(dir.path().to_path_buf(), Default::default()));
+        let args = || RootArgs {
+            runtime: runtime.clone(),
+            audio: runtime.clone(),
+        };
+        let (root, task) = Actor::spawn(None, RootActor, args()).await.unwrap();
+        let mut state = RootActor.pre_start(root.clone(), args()).await.unwrap();
+        let session_id = uuid::Uuid::new_v4().to_string();
+        state
+            .finalizing_sessions
+            .insert(session_id.clone(), root.get_cell());
+        let result = delete_session_audio_impl(root.clone(), session_id, &mut state).await;
+        assert_eq!(result, Err("session_still_active".to_string()));
         root.stop(None);
         task.await.unwrap();
     }

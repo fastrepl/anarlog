@@ -118,6 +118,14 @@ async acknowledgeCaptureAudioChunk(sessionId: string, chunkId: string) : Promise
     else return { status: "error", error: e  as any };
 }
 },
+async deleteCaptureAudio(sessionId: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|delete_capture_audio", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async isSupportedLanguagesLive(provider: string, model: string | null, languages: string[]) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|is_supported_languages_live", { provider, model, languages }) };

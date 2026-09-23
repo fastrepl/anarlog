@@ -545,7 +545,7 @@ export function useCaptureLifecycle(sessionId: string) {
               id: recoveryToastId,
               duration: Infinity,
               description: !retainAudio
-                ? "Recovery runs while recording. Audio will be deleted when this meeting ends, even if recovery is unfinished."
+                ? "Recovery runs while recording. Temporary audio is deleted once the transcript is filled in after this meeting ends."
                 : "Live transcription resumes separately. Saved audio is used to fill the gap.",
             },
           );
@@ -584,8 +584,6 @@ export function useCaptureLifecycle(sessionId: string) {
               else if (!payload.requested_live_transcription)
                 audioRecovery.batchOnly();
               else audioRecovery.interrupted();
-            } else if (payload.type === "finalizing" && !retainAudio) {
-              void audioRecovery.stop(false);
             }
           }),
           transcriptionEvents.captureStatusEvent.listen(({ payload }) => {
@@ -617,9 +615,22 @@ export function useCaptureLifecycle(sessionId: string) {
         clearTimeout(credentialTimer);
         recoveryUnlisten.forEach((unlisten) => unlisten());
         recoveryUnlisten = [];
-        const result = await audioRecovery.stop(retainAudio);
+        // Drain every remaining chunk before non-retained audio is released for
+        // deletion; native keeps the files until the frontend asks.
+        const result = await audioRecovery.stop(true);
         toast.dismiss(recoveryToastId);
-        return result;
+        let audioDeletionFailed = false;
+        if (!retainAudio) {
+          try {
+            const deleted =
+              await transcriptionCommands.deleteCaptureAudio(sessionId);
+            if (deleted.status === "error") throw new Error(deleted.error);
+          } catch (error) {
+            audioDeletionFailed = true;
+            console.error("[listener] failed to delete capture audio", error);
+          }
+        }
+        return { ...result, audioDeletionFailed };
       };
       const marker = async (): Promise<CaptureLifecycleMarker> => ({
         version: 1,
@@ -1120,6 +1131,8 @@ export function useCaptureLifecycle(sessionId: string) {
             ...details,
             needsBatchRepair: recovery.incomplete,
             liveTranscriptionActive: !recovery.incomplete,
+            audioDeletionFailed:
+              details.audioDeletionFailed || recovery.audioDeletionFailed,
           };
           if (recovery.incomplete || details.audioDeletionFailed) {
             await saveIncompleteCapture(
@@ -1146,7 +1159,7 @@ export function useCaptureLifecycle(sessionId: string) {
               id: `capture-incomplete-${sessionId}`,
               duration: Infinity,
               description:
-                "The meeting ended before recovery finished. Audio was deleted according to your retention setting.",
+                "Part of the transcript could not be filled in. Audio was deleted according to your retention setting.",
             });
           }
         } else {
@@ -1183,6 +1196,8 @@ export function useCaptureLifecycle(sessionId: string) {
             ...details,
             needsBatchRepair: recovery.incomplete,
             liveTranscriptionActive: !recovery.incomplete,
+            audioDeletionFailed:
+              details.audioDeletionFailed || recovery.audioDeletionFailed,
             ...(!retainAudio ? { audioPath: null } : {}),
           };
         }

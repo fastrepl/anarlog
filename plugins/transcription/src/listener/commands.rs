@@ -78,6 +78,16 @@ pub async fn acknowledge_capture_audio_chunk<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn delete_capture_audio<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<(), String> {
+    uuid::Uuid::parse_str(&session_id).map_err(|_| "Invalid session ID".to_string())?;
+    app.listener().delete_capture_audio(session_id).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn list_microphone_devices<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<String>, String> {

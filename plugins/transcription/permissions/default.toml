@@ -14,6 +14,7 @@ permissions = [
     "allow-get-capture-audio-cleanup-status",
     "allow-acknowledge-capture-audio-cleanup-status",
     "allow-acknowledge-capture-audio-chunk",
+    "allow-delete-capture-audio",
     "allow-is-supported-languages-live",
     "allow-suggest-providers-for-languages-live",
     "allow-list-documented-language-codes-live",
