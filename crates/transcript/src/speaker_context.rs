@@ -166,10 +166,8 @@ impl SpeakerContext {
         // Intermittent context must not rename a voice: a key resolved to one
         // person keeps that label in intervals that do not contradict a single
         // speaker, while conflicting resolutions tombstone the key.
-        let mut sticky: HashMap<
-            (ChannelProfile, Option<i32>),
-            Option<ProvisionalSpeakerLabel>,
-        > = HashMap::new();
+        let mut sticky: HashMap<(ChannelProfile, Option<i32>), Option<ProvisionalSpeakerLabel>> =
+            HashMap::new();
         for (_, part) in &parts {
             let Some(label) = &part.provisional_speaker else {
                 continue;
@@ -182,10 +180,10 @@ impl SpeakerContext {
                     );
                 }
                 Some(existing) => {
-                    let matches_person = existing
-                        .as_ref()
-                        .is_some_and(|known| known.human_id == label.human_id
-                            && (known.human_id.is_some() || known.name == label.name));
+                    let matches_person = existing.as_ref().is_some_and(|known| {
+                        known.human_id == label.human_id
+                            && (known.human_id.is_some() || known.name == label.name)
+                    });
                     if !matches_person {
                         *existing = None;
                     }
@@ -196,8 +194,7 @@ impl SpeakerContext {
         for (interval, mut part) in parts {
             if part.key.speaker_human_id.is_none()
                 && part.provisional_speaker.is_none()
-                && let Some(Some(label)) =
-                    sticky.get(&(part.key.channel, part.key.speaker_index))
+                && let Some(Some(label)) = sticky.get(&(part.key.channel, part.key.speaker_index))
                 && interval.is_none_or(|index| {
                     interval_allows_single_speaker(
                         &self.intervals[index],
@@ -244,7 +241,8 @@ fn interval_allows_single_speaker(
                     .participants
                     .iter()
                     .filter(|person| {
-                        !person.human_id.is_empty() && person.human_id.as_str() != self_id.unwrap_or("")
+                        !person.human_id.is_empty()
+                            && person.human_id.as_str() != self_id.unwrap_or("")
                     })
                     .map(|person| person.human_id.as_str())
                     .collect::<HashSet<_>>()

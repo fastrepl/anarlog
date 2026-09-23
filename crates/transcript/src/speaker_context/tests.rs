@@ -341,11 +341,7 @@ fn assigned_speakers_stay_merged_across_context_intervals() {
     );
 }
 
-fn interval(
-    start_ms: i64,
-    end_ms: i64,
-    participants: &[(&str, &str)],
-) -> SpeakerContextInterval {
+fn interval(start_ms: i64, end_ms: i64, participants: &[(&str, &str)]) -> SpeakerContextInterval {
     SpeakerContextInterval {
         start_ms,
         end_ms,
@@ -394,16 +390,16 @@ fn request_with_word_times(
             words: words
                 .iter()
                 .enumerate()
-                .map(|(i, (channel, speaker, start_ms, end_ms))| {
-                    RenderTranscriptWordInput {
+                .map(
+                    |(i, (channel, speaker, start_ms, end_ms))| RenderTranscriptWordInput {
                         id: i.to_string(),
                         text: format!("word{i} "),
                         start_ms: *start_ms,
                         end_ms: *end_ms,
                         channel: *channel,
                         speaker_index: Some(*speaker),
-                    }
-                })
+                    },
+                )
                 .collect(),
         }],
     }
@@ -425,22 +421,18 @@ fn remote_speaker_stays_named_across_context_gap() {
     let segments = render_transcript_segments(req);
     assert_eq!(segments.len(), 3);
     assert!(
-        segments
-            .iter()
-            .all(|s| s.speaker_label == "Artem"),
+        segments.iter().all(|s| s.speaker_label == "Artem"),
         "every part must be labelled Artem: {:?}",
         segments
             .iter()
             .map(|s| s.speaker_label.as_str())
             .collect::<Vec<_>>()
     );
-    assert!(
-        segments
-            .iter()
-            .all(|s| s.provisional_speaker.as_ref().is_some_and(
-                |label| label.human_id.as_deref() == Some("artem")
-            ))
-    );
+    assert!(segments.iter().all(|s| {
+        s.provisional_speaker
+            .as_ref()
+            .is_some_and(|label| label.human_id.as_deref() == Some("artem"))
+    }));
 }
 
 #[test]
