@@ -904,6 +904,7 @@ msgid "Can view"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
+#: src/folders/folder-editor.tsx
 #: src/imports/screen.tsx
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
@@ -1184,6 +1185,10 @@ msgstr ""
 msgid "Choose who can access notes from new meetings."
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Choose who receives new notes created in this folder."
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
 msgstr ""
@@ -1407,6 +1412,7 @@ msgstr ""
 msgid "Configure Providers"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
 msgstr ""
@@ -3439,6 +3445,11 @@ msgstr ""
 msgid "New Note"
 msgstr ""
 
+#. placeholder {0}: workspaceConfirmation?.name
+#: src/folders/folder-editor.tsx
+msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+msgstr ""
+
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr ""
@@ -3752,6 +3763,7 @@ msgstr ""
 msgid "On-device transcription, recordings, and your own keys."
 msgstr ""
 
+#: src/folders/folder-editor.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "Only me"
 msgstr ""
@@ -4883,6 +4895,10 @@ msgstr ""
 msgid "Share one item with a guest, or add it to a Team for everyone."
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Share this folder?"
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
 msgstr "Мубодилаи маълумоти истифода"
@@ -5523,6 +5539,14 @@ msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "Team folder"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "Team folder workspace"
 msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx

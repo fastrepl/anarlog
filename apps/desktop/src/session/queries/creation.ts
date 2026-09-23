@@ -53,11 +53,17 @@ export async function createSession(
           id, workspace_id, owner_user_id, title, event_json, folder_path,
           created_at, updated_at, deleted_at
         ) VALUES (
-          ?, NULLIF((
-            SELECT json_extract(value_json, '$.workspace_id')
-            FROM app_settings
-            WHERE id = 'cloudsync_workspace_binding'
-          ), ''), COALESCE(
+          ?, COALESCE(
+            (SELECT NULLIF(folder.workspace_id, '') FROM folders AS folder
+              WHERE folder.deleted_at IS NULL AND folder.workspace_id <> ''
+                AND (folder.path = ? OR ? LIKE folder.path || '/%')
+              ORDER BY length(folder.path) DESC, folder.id LIMIT 1),
+            NULLIF((
+              SELECT json_extract(value_json, '$.workspace_id')
+              FROM app_settings
+              WHERE id = 'cloudsync_workspace_binding'
+            ), '')
+          ), COALESCE(
             (SELECT library_workspace_id FROM local_library_connections WHERE active = 1),
             NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
             NULLIF((
@@ -70,6 +76,8 @@ export async function createSession(
       `,
       params: [
         sessionId,
+        folderPath,
+        folderPath,
         userId,
         title,
         initial?.event_json ?? "",

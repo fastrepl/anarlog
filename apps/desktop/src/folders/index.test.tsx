@@ -26,7 +26,10 @@ const mocks = vi.hoisted(() => ({
   renameNamedFolder: vi.fn(),
   updateFolderIcon: vi.fn(),
   updateFolderInstructions: vi.fn(),
+  updateFolderWorkspace: vi.fn(),
   upload: vi.fn(),
+  workspaceId: "",
+  workspaces: [] as Array<{ id: string; name: string }>,
 }));
 
 vi.mock("@lingui/react/macro", () => ({
@@ -44,6 +47,7 @@ vi.mock("@lingui/react/macro", () => ({
 vi.mock("~/session/queries", () => ({
   useFolderIcons: () => mocks.icons,
   useFolderPaths: () => mocks.folders,
+  useFolderWorkspaces: () => ({}),
 }));
 
 vi.mock("~/session/folder-catalog", () => ({
@@ -52,7 +56,13 @@ vi.mock("~/session/folder-catalog", () => ({
   renameNamedFolder: mocks.renameNamedFolder,
   updateFolderIcon: mocks.updateFolderIcon,
   updateFolderInstructions: mocks.updateFolderInstructions,
+  updateFolderWorkspace: mocks.updateFolderWorkspace,
+  useFolderWorkspaceId: () => mocks.workspaceId,
   useFolderInstructions: () => mocks.instructions,
+}));
+
+vi.mock("~/session-sharing/source", () => ({
+  useAvailableShareWorkspaces: () => mocks.workspaces,
 }));
 
 vi.mock("~/session/folder-attachments", () => ({
@@ -106,16 +116,20 @@ describe("Folders workspace", () => {
     mocks.renameNamedFolder.mockReset();
     mocks.updateFolderIcon.mockReset();
     mocks.updateFolderInstructions.mockReset();
+    mocks.updateFolderWorkspace.mockReset();
     mocks.upload.mockReset();
     mocks.folders = [];
     mocks.icons = {};
     mocks.instructions = "";
     mocks.materials = [];
+    mocks.workspaceId = "";
+    mocks.workspaces = [];
     mocks.createNamedFolder.mockResolvedValue("CS 101");
     mocks.deleteNamedFolder.mockResolvedValue(undefined);
     mocks.renameNamedFolder.mockResolvedValue("Algorithms");
     mocks.updateFolderIcon.mockResolvedValue(undefined);
     mocks.updateFolderInstructions.mockResolvedValue(undefined);
+    mocks.updateFolderWorkspace.mockResolvedValue(undefined);
     mocks.upload.mockResolvedValue({
       path: "/vault/sessions/CS 101/materials/syllabus.pdf",
       attachmentId: "syllabus.pdf",
