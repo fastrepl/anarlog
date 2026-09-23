@@ -28,9 +28,12 @@ const LISTENER_AUDIO_ACK_TIMEOUT: Duration = Duration::from_secs(1);
 const LISTENER_BACKPRESSURE_TIMEOUT: Duration = Duration::from_secs(1);
 const LISTENER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(10);
 const MAX_BACKLOG_DISPATCH_PER_FRAME: usize = 2;
-const RECORDER_DISPATCH_CAPACITY: usize = 32;
 const RECORDER_RPC_TIMEOUT: Duration = Duration::from_millis(100);
-const RECORDER_BACKPRESSURE_TIMEOUT: Duration = Duration::from_secs(2);
+// A stalled disk delays the recording instead of stopping it: frames wait in memory
+// for up to this long (about 4 MB of dual-channel audio) before the recorder is
+// declared dead and restarted.
+const RECORDER_STALL_TOLERANCE: Duration = Duration::from_secs(30);
+const RECORDER_FRAME_MS: u64 = 120;
 const RECORDER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(25);
 const DROPOUT_WINDOW_SAMPLES: usize = SAMPLE_RATE as usize * 5;
 const DROPOUT_RATIO_THRESHOLD: f32 = 0.15;
@@ -75,7 +78,7 @@ impl Pipeline {
             audio_buffer: AudioBuffer::new(MAX_BUFFER_CHUNKS),
             replay_history: ReplayHistory::new(SAMPLE_RATE as usize * REPLAY_HISTORY_SECS),
             listener_dispatcher: ListenerDispatcher::new(),
-            recorder_dispatcher: RecorderDispatcher::new(),
+            recorder_dispatcher: RecorderDispatcher::new(RECORDER_STALL_TOLERANCE),
             vad_mask: VadMask::default(),
         }
     }
@@ -86,7 +89,8 @@ impl Pipeline {
         self.audio_buffer.clear();
         self.replay_history.clear();
         self.listener_dispatcher.reset();
-        self.recorder_dispatcher = RecorderDispatcher::new();
+        self.recorder_dispatcher =
+            RecorderDispatcher::new(self.recorder_dispatcher.stall_tolerance);
         self.vad_mask = VadMask::default();
     }
 
@@ -273,13 +277,14 @@ impl Pipeline {
 struct RecorderDispatcher {
     tx: Option<tokio::sync::mpsc::Sender<(ActorRef<RecMsg>, BufferedAudio)>>,
     task: Option<tokio::task::JoinHandle<()>>,
+    stall_tolerance: Duration,
 }
 
 impl RecorderDispatcher {
-    fn new() -> Self {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<(ActorRef<RecMsg>, BufferedAudio)>(
-            RECORDER_DISPATCH_CAPACITY,
-        );
+    fn new(stall_tolerance: Duration) -> Self {
+        let capacity = (stall_tolerance.as_millis() as u64 / RECORDER_FRAME_MS).max(32) as usize;
+        let (tx, mut rx) =
+            tokio::sync::mpsc::channel::<(ActorRef<RecMsg>, BufferedAudio)>(capacity);
         let task = tokio::spawn(async move {
             let mut failed_actor = None;
             while let Some((actor, item)) = rx.recv().await {
@@ -291,7 +296,7 @@ impl RecorderDispatcher {
                     match Pipeline::write_to_recorder(&actor, &item).await {
                         Ok(RecorderEnqueueResult::Accepted) => break,
                         Ok(RecorderEnqueueResult::Backpressured)
-                            if started_at.elapsed() < RECORDER_BACKPRESSURE_TIMEOUT =>
+                            if started_at.elapsed() < stall_tolerance =>
                         {
                             tokio::time::sleep(RECORDER_BACKPRESSURE_RETRY_DELAY).await;
                         }
@@ -309,6 +314,7 @@ impl RecorderDispatcher {
         Self {
             tx: Some(tx),
             task: Some(task),
+            stall_tolerance,
         }
     }
 
@@ -1111,8 +1117,12 @@ mod tests {
         task.abort();
     }
 
+    const TEST_STALL_TOLERANCE: Duration = Duration::from_secs(2);
+
     fn test_pipeline() -> Pipeline {
-        Pipeline::new(Arc::new(TestRuntime), "session".to_string())
+        let mut pipeline = Pipeline::new(Arc::new(TestRuntime), "session".to_string());
+        pipeline.recorder_dispatcher = RecorderDispatcher::new(TEST_STALL_TOLERANCE);
+        pipeline
     }
 
     fn capture_frame() -> CaptureFrame {
@@ -1523,7 +1533,7 @@ mod tests {
                 Some(ProbeEvent::ListenerDual)
             ));
         }
-        tokio::time::timeout(RECORDER_BACKPRESSURE_TIMEOUT * 2, recorder_task)
+        tokio::time::timeout(TEST_STALL_TOLERANCE * 2, recorder_task)
             .await
             .unwrap()
             .unwrap();
@@ -1531,10 +1541,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn recorder_survives_a_writer_stall_shorter_than_the_backpressure_timeout() {
+    async fn recorder_survives_a_writer_stall_shorter_than_the_tolerance() {
         let mut pipeline = test_pipeline();
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let stall = RECORDER_BACKPRESSURE_TIMEOUT / 2;
+        let stall = TEST_STALL_TOLERANCE / 2;
         let (recorder, task) = Actor::spawn(None, StalledRecorderProbe(tx, stall), ())
             .await
             .unwrap();
@@ -1549,7 +1559,7 @@ mod tests {
                 .await
                 .unwrap();
         }
-        tokio::time::timeout(RECORDER_BACKPRESSURE_TIMEOUT, pipeline.flush_recorder())
+        tokio::time::timeout(TEST_STALL_TOLERANCE, pipeline.flush_recorder())
             .await
             .unwrap();
         for value in [1.0, 2.0, 3.0] {
@@ -1558,6 +1568,130 @@ mod tests {
         assert!(rx.try_recv().is_err());
         assert!(!task.is_finished());
         task.abort();
+    }
+
+    // A disk that stalls for several seconds must not cost a single frame: the
+    // dispatcher holds the whole stall in memory and writes it out in order.
+    #[tokio::test]
+    async fn recorder_keeps_every_frame_while_audio_arrives_during_a_stall() {
+        let mut pipeline = test_pipeline();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let stall = Duration::from_millis(1_500);
+        let (recorder, task) = Actor::spawn(None, StalledRecorderProbe(tx, stall), ())
+            .await
+            .unwrap();
+        let frames = (stall.as_millis() as u64 / RECORDER_FRAME_MS) as usize;
+        for value in 0..frames {
+            pipeline
+                .dispatch_frame(
+                    source_frame_with_speaker_value(value as f32),
+                    ChannelMode::SpeakerOnly,
+                    &ListenerRouting::Dropped,
+                    Some(&recorder),
+                )
+                .await
+                .unwrap();
+            tokio::time::sleep(Duration::from_millis(RECORDER_FRAME_MS)).await;
+        }
+        tokio::time::timeout(TEST_STALL_TOLERANCE, pipeline.flush_recorder())
+            .await
+            .unwrap();
+        for value in 0..frames {
+            assert_eq!(rx.try_recv().unwrap(), vec![value as f32; 4]);
+        }
+        assert!(rx.try_recv().is_err());
+        assert!(!task.is_finished(), "recorder must survive the stall");
+        task.abort();
+    }
+
+    struct HiccupRecorderProbe {
+        tx: tokio::sync::mpsc::UnboundedSender<f32>,
+        every: usize,
+        rejections: usize,
+    }
+
+    #[ractor::async_trait]
+    impl Actor for HiccupRecorderProbe {
+        type Msg = RecMsg;
+        type State = (usize, usize);
+        type Arguments = ();
+        async fn pre_start(
+            &self,
+            _: ActorRef<Self::Msg>,
+            _: (),
+        ) -> Result<Self::State, ActorProcessingErr> {
+            Ok((0, 0))
+        }
+        async fn handle(
+            &self,
+            _: ActorRef<Self::Msg>,
+            message: RecMsg,
+            (accepted, rejected): &mut Self::State,
+        ) -> Result<(), ActorProcessingErr> {
+            if let RecMsg::AudioSingle(samples, reply) = message {
+                if (*accepted + 1) % self.every == 0 && *rejected < self.rejections {
+                    *rejected += 1;
+                    let _ = reply.send(RecorderEnqueueResult::Backpressured);
+                } else {
+                    *accepted += 1;
+                    *rejected = 0;
+                    let _ = self.tx.send(samples[0]);
+                    let _ = reply.send(RecorderEnqueueResult::Accepted);
+                }
+            }
+            Ok(())
+        }
+    }
+
+    // One hour of 120 ms frames with a disk hiccup every minute: the recording
+    // must come out complete and in order, and the recorder must still be alive.
+    #[tokio::test]
+    async fn one_hour_recording_survives_a_disk_hiccup_every_minute() {
+        let mut pipeline = Pipeline::new(Arc::new(TestRuntime), "session".to_string());
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let frames_per_minute = (60_000 / RECORDER_FRAME_MS) as usize;
+        let frames = frames_per_minute * 60;
+        let (recorder, task) = Actor::spawn(
+            None,
+            HiccupRecorderProbe {
+                tx,
+                every: frames_per_minute,
+                rejections: 4,
+            },
+            (),
+        )
+        .await
+        .unwrap();
+        for value in 0..frames {
+            while pipeline.recorder_dispatcher.tx.as_ref().unwrap().capacity() == 0 {
+                tokio::task::yield_now().await;
+            }
+            pipeline
+                .dispatch_frame(
+                    source_frame_with_speaker_value(value as f32),
+                    ChannelMode::SpeakerOnly,
+                    &ListenerRouting::Dropped,
+                    Some(&recorder),
+                )
+                .await
+                .unwrap();
+        }
+        tokio::time::timeout(Duration::from_secs(60), pipeline.flush_recorder())
+            .await
+            .unwrap();
+        for value in 0..frames {
+            assert_eq!(rx.try_recv().unwrap(), value as f32);
+        }
+        assert!(rx.try_recv().is_err());
+        assert!(!task.is_finished(), "recorder must survive the hiccups");
+        task.abort();
+    }
+
+    #[tokio::test]
+    async fn recorder_dispatch_queue_covers_the_stall_tolerance() {
+        let dispatcher = RecorderDispatcher::new(RECORDER_STALL_TOLERANCE);
+        let capacity = dispatcher.tx.as_ref().unwrap().max_capacity();
+        assert!(capacity as u64 * RECORDER_FRAME_MS >= RECORDER_STALL_TOLERANCE.as_millis() as u64);
     }
 
     #[test]
