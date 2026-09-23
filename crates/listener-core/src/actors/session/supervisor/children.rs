@@ -5,7 +5,7 @@ use ractor::{Actor, ActorCell, ActorRef};
 use crate::actors::session::types::SessionContext;
 use crate::actors::{
     ChannelMode, ListenerActor, ListenerArgs, RecArgs, RecMsg, RecorderActor, SourceActor,
-    SourceArgs, SourceMsg,
+    SourceArgs, SourceMsg, source::RECORDER_STALL_TOLERANCE,
 };
 
 use super::SessionState;
@@ -41,6 +41,9 @@ const RETRY_STRATEGY: RetryStrategy = RetryStrategy {
 };
 
 const CHILD_STOP_TIMEOUT: Duration = Duration::from_secs(30);
+// The source drains queued recorder frames on stop, which may wait out a
+// disk stall first.
+const SOURCE_STOP_TIMEOUT: Duration = CHILD_STOP_TIMEOUT.saturating_add(RECORDER_STALL_TOLERANCE);
 
 fn source_restart_delay(restart_count: u32) -> Duration {
     Duration::from_secs(1 << restart_count.saturating_sub(1).min(2))
@@ -286,7 +289,7 @@ pub(super) async fn sync_source_recorder(state: &SessionState) {
 
 pub(super) async fn shutdown_children(state: &mut SessionState, reason: &str) {
     if let Some(cell) = state.source_cell.take() {
-        stop_child(&cell, reason, "source").await;
+        stop_child_within(&cell, reason, "source", SOURCE_STOP_TIMEOUT).await;
     }
     if let Some(cell) = state.listener_cell.take() {
         stop_child(&cell, reason, "listener").await;
@@ -299,8 +302,12 @@ pub(super) async fn shutdown_children(state: &mut SessionState, reason: &str) {
 }
 
 async fn stop_child(cell: &ActorCell, reason: &str, child: &str) {
+    stop_child_within(cell, reason, child, CHILD_STOP_TIMEOUT).await;
+}
+
+async fn stop_child_within(cell: &ActorCell, reason: &str, child: &str, budget: Duration) {
     if let Err(error) = cell
-        .stop_and_wait(Some(reason.to_string()), Some(CHILD_STOP_TIMEOUT))
+        .stop_and_wait(Some(reason.to_string()), Some(budget))
         .await
     {
         tracing::warn!(?error, %child, "child_stop_and_wait_failed");
@@ -317,6 +324,11 @@ mod tests {
         assert_eq!(source_restart_delay(2), Duration::from_secs(2));
         assert_eq!(source_restart_delay(3), Duration::from_secs(4));
         assert_eq!(source_restart_delay(10), Duration::from_secs(4));
+    }
+
+    #[test]
+    fn source_stop_outlasts_a_recorder_stall() {
+        assert!(SOURCE_STOP_TIMEOUT > RECORDER_STALL_TOLERANCE + CHILD_STOP_TIMEOUT / 2);
     }
 
     #[test]

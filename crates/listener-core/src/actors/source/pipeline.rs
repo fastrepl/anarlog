@@ -31,7 +31,7 @@ const MAX_BACKLOG_DISPATCH_PER_FRAME: usize = 2;
 const RECORDER_RPC_TIMEOUT: Duration = Duration::from_millis(100);
 // Frames wait in memory (~4 MB dual-channel) through a disk stall this long
 // before the recorder is declared dead.
-const RECORDER_STALL_TOLERANCE: Duration = Duration::from_secs(30);
+pub(crate) const RECORDER_STALL_TOLERANCE: Duration = Duration::from_secs(30);
 const RECORDER_FRAME_MS: u64 = 120;
 const RECORDER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(25);
 const DROPOUT_WINDOW_SAMPLES: usize = SAMPLE_RATE as usize * 5;

@@ -1,6 +1,8 @@
 mod pipeline;
 mod stream;
 
+pub(crate) use pipeline::RECORDER_STALL_TOLERANCE;
+
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
