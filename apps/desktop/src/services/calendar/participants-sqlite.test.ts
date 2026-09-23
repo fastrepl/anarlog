@@ -238,6 +238,32 @@ describe("participant enrichment in SQLite", () => {
     });
   });
 
+  test("still creates the organization when only some planned humans were created after planning", async () => {
+    const incoming: IncomingParticipants = new Map([
+      ["tracking-1", [{ email: "alice@acme.com" }, { email: "bob@acme.com" }]],
+    ]);
+    const snapshot = await loadParticipantSyncSnapshot([session], incoming);
+    const participants = syncSessionParticipants({
+      incomingParticipants: incoming,
+      snapshot,
+    });
+    expect(participants.humansToCreate).toHaveLength(2);
+
+    db.exec(
+      "INSERT INTO humans(id, name, email, created_at, updated_at) VALUES ('h-alice', 'Alice Smith', 'alice@acme.com', '2026-09-01', '2026-09-01')",
+    );
+    await applyConnectionSync({
+      ctx,
+      events: { toDelete: [], toUpdate: [], toAdd: [] },
+      sessionUpdates: [],
+      participants,
+    });
+    expect(humans().slice(0, 2)).toEqual([
+      { email: "alice@acme.com", name: "Alice Smith", company: "" },
+      { email: "bob@acme.com", name: "Bob", company: "Acme" },
+    ]);
+  });
+
   test("keeps user names containing @ and skips organizations assigned after planning", async () => {
     db.exec(`
       INSERT INTO organizations(id, name, created_at, updated_at) VALUES ('org-consulting', 'Acme Consulting', '2026-09-01', '2026-09-01');
