@@ -45,11 +45,11 @@ Check the export before processing a folder of recordings. TXT is useful for rea
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-import-dialog.png" alt="Buzz import dialog selecting local Whisper Tiny for a WAV file" width={312} height={354} />
 
-*Our native-window capture: Buzz 1.4.5, Windows Server 2022, September 22, 2026. The dialog is shown at its original 312-pixel width. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-import-dialog.png).*
+*Our capture: Buzz 1.4.5 import settings, Windows Server 2022, September 22, 2026. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-import-dialog.png).*
 
 ### The file workflow we ran
 
-Our test used Buzz 1.4.5 on Windows Server 2022 Standard (build 20348), with a 75.55-second synthetic WAV and the local Whisper Tiny model. This is a Windows desktop VM test, not a Windows 11 laptop benchmark. The VM had no audio endpoints, so live microphone/system-audio capture was not tested.
+Our test used Buzz 1.4.5 on Windows Server 2022 Standard (build 20348), with a 75.55-second synthetic WAV and local Whisper Tiny. The VM had no audio endpoints, so we tested file import and export only. Live capture, a Windows 11 laptop, and network-disconnected operation were not tested.
 
 1. Install the Windows package from the project's official release/distribution link.
 2. Open **File → Import Media File** and select the WAV.
@@ -58,11 +58,9 @@ Our test used Buzz 1.4.5 on Windows Server 2022 Standard (build 20348), with a 7
 5. Open **Export**, choose **TXT**, and save. Repeat with **SRT** if you need timed segments.
 6. Reopen both files. In our check, `sample-buzz.txt` was 1,105 bytes and `sample-buzz.srt` was 1,894 bytes; both were read back from disk.
 
-That verifies this short file-import/export path. It does not establish speaker identification, all supported formats, noisy-call accuracy, or the behavior of a newer release. We did not run a network-disconnection check on this Windows VM; the selected local engine and completed file job should not be presented as that separate test.
-
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png" alt="Buzz completed transcript with TXT and SRT export choices" width={900} height={611} />
 
-*Our capture: the completed 75.55-second synthetic WAV job in Buzz 1.4.5. TXT and SRT files were saved and read back; a menu alone would not establish a successful export. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png).*
+*Our capture: the completed Buzz job and TXT/SRT export choices. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png).*
 
 ## whisper.cpp for repeatable transcription
 
@@ -77,12 +75,12 @@ The verified Windows run used the x64 binary from [whisper.cpp v1.8.7](https://g
 Get-Content .\sample.wav.txt -TotalCount 5
 ```
 
-The CPU run completed and wrote a transcript file. This verifies the file-to-TXT path with that pinned binary/model; it is not a test of the newest source build, GPU acceleration, or live capture. The tested release was chosen because it provided the required Windows x64 archive.
+The CPU run completed and wrote a transcript file. We used this pinned release for its Windows x64 archive; GPU acceleration and live capture were not tested.
 
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/whisper-cpp/transcription/2026-09-22-windows-transcription.png" alt="whisper.cpp terminal showing completed transcription and saved text output" width={900} height={506} />
 
-*Our capture: whisper.cpp v1.8.7 with base.en on Windows Server 2022, September 22, 2026. This verifies file transcription, not microphone capture. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/whisper-cpp/transcription/2026-09-22-windows-transcription.png).*
+*Our capture: whisper.cpp v1.8.7 and base.en completing file transcription on Windows Server 2022, September 22, 2026. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/whisper-cpp/transcription/2026-09-22-windows-transcription.png).*
 
 ## Otter Basic when you prefer a cloud workspace
 
@@ -94,11 +92,11 @@ Otter provides a [Windows desktop option](https://otter.ai/desktop) as well as w
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png" alt="Otter official illustration of calendar joining, a visible meeting guest, and the transcript workspace" width={900} height={294} />
 
-*Official Otter Notetaker workflow illustration, reused from our existing image library. This shows its calendar-joining path, not every Otter capture mode or a test performed for this guide. Source: [Otter Notetaker overview](https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview). [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png).*
+*Otter's calendar-joining workflow illustration. Source: [Otter Notetaker overview](https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview). [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png).*
 
 ## Run the same small test before committing
 
-Use a non-sensitive recording with a known reference text. Include a speaker name, a date, a technical term, a decision, and a sentence that explicitly rejects an idea. A synthetic sample is suitable for checking the workflow; it is not representative evidence of accuracy in real meetings.
+Start with a non-sensitive recording and a known reference text. Include a name, a date, a technical term, a decision, and a rejected idea. After the workflow succeeds, check accuracy with authorized audio from the kinds of meetings you actually hold.
 
 | Record | Why it matters |
 | --- | --- |
