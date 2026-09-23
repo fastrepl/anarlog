@@ -17,7 +17,12 @@ This guide uses Anarlog, the meeting notetaker we build. It includes a repeatabl
 
 Anarlog's current installers require macOS 15 or later and include Apple Silicon and Intel builds. Its built-in Soniqo, Apple Speech, and on-device file transcription options require Apple Silicon. Apple Speech has additional macOS 26 and system-asset requirements. [Source: platform requirements](https://docs.anarlog.so/desktop-installation).
 
-That means “there is an Intel app” is not the same claim as “every built-in local transcription option works on Intel.” Confirm the exact provider available on your computer.
+Open **Apple menu → About This Mac** and check the chip before downloading a build or a speech model.
+
+- **Apple Silicon, macOS 15+:** use the Apple Silicon build and prepare a supported local speech model. The Soniqo route below is the one used in our test.
+- **Intel, macOS 15+:** the Intel app is available, but the built-in on-device speech paths above are not. Check an alternative provider setup or the [Mac transcription options](/blog/transcription-software-mac/) before following an offline recipe.
+
+A compatible installer and a compatible local speech provider are separate requirements.
 
 | Stage | Prepare while online | Check after disconnecting |
 | --- | --- | --- |
@@ -108,4 +113,6 @@ For long meetings, test a representative recording while you still have time to 
 
 Save the Anarlog version, macOS version, chip, speech provider/model, summary provider/model, and audio-device setup. Repeat a short offline check after changing one of those components.
 
-You can [download Anarlog](https://anarlog.so/download/) and use the [first-meeting guide](https://docs.anarlog.so/quickstart) for the initial setup. For a broader view of local and hosted architectures, see [local AI meeting notes](/blog/local-ai-meeting-notes/).
+To follow the tested Apple Silicon route, [choose the matching Mac build](https://anarlog.so/download/#macos-downloads), then use the [first-meeting guide](https://docs.anarlog.so/quickstart). Complete both model downloads before disconnecting.
+
+If you are still choosing a workflow, [local AI meeting notes](/blog/local-ai-meeting-notes/) compares local and hosted approaches.
