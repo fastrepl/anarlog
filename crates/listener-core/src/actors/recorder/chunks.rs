@@ -365,6 +365,7 @@ pub fn delete_capture_audio(session_dir: &Path) -> std::io::Result<()> {
             std::fs::remove_file(entry.path())?;
         }
     }
+    super::live_gaps::remove_live_gaps(session_dir)?;
     match std::fs::remove_file(session_dir.join(DELETE_ON_STOP)) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         result => result,
@@ -504,6 +505,79 @@ mod tests {
         for _ in 0..60 {
             sink.write(&samples, &samples).unwrap();
         }
+    }
+
+    // One hour of capture with three live outages. Only the chunks that
+    // overlap an outage need batch repair; the rest are already covered live.
+    #[test]
+    fn one_hour_capture_maps_live_gaps_onto_recovery_chunks() {
+        use super::super::live_gaps::{LiveGap, LiveGaps, read_live_gaps, write_live_gaps};
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut sink = ChunkedSink::new(dir.path(), 123, 0, true).unwrap();
+        let mut gaps = LiveGaps::new(123);
+        // (listener lost at, last confirmed word end, listener back at)
+        let outages_ms = [
+            (90_000, 91_000, Some(100_000)),
+            (1_800_000, 1_800_500, Some(1_921_000)),
+            (3_540_000, 3_541_000, None),
+        ];
+        let samples = vec![0.05; SAMPLE_RATE as usize];
+        for second in 0..3_600u64 {
+            let now_ms = second * 1_000;
+            for (lost_at, confirmed_ms, back_at) in outages_ms {
+                if now_ms == lost_at {
+                    gaps.open(confirmed_ms);
+                }
+                if back_at == Some(now_ms) {
+                    gaps.close(now_ms);
+                }
+            }
+            sink.write(&samples, &samples).unwrap();
+        }
+        sink.join_pending_sync().unwrap();
+        sink.finish().unwrap();
+
+        let chunks = list_recovery_chunks(dir.path()).unwrap();
+        assert_eq!(chunks.len(), 60);
+        for (index, chunk) in chunks.iter().enumerate() {
+            assert_eq!(chunk.start_ms, index as u64 * 60_000);
+            assert_eq!(chunk.end_ms, (index as u64 + 1) * 60_000);
+        }
+
+        let needs_repair: Vec<usize> = chunks
+            .iter()
+            .enumerate()
+            .filter(|(_, chunk)| !gaps.within(chunk.start_ms, chunk.end_ms).is_empty())
+            .map(|(index, _)| index)
+            .collect();
+        assert_eq!(needs_repair, vec![1, 29, 30, 31, 32, 59]);
+        assert_eq!(
+            gaps.within(chunks[1].start_ms, chunks[1].end_ms),
+            vec![LiveGap {
+                start_ms: 90_000,
+                end_ms: 100_000
+            }]
+        );
+        assert_eq!(
+            gaps.within(chunks[29].start_ms, chunks[29].end_ms),
+            vec![LiveGap {
+                start_ms: 1_799_500,
+                end_ms: 1_800_000
+            }]
+        );
+        assert_eq!(
+            gaps.within(chunks[59].start_ms, chunks[59].end_ms),
+            vec![LiveGap {
+                start_ms: 3_540_000,
+                end_ms: 3_600_000
+            }],
+            "an outage still open at stop covers through the end of capture"
+        );
+
+        write_live_gaps(dir.path(), &gaps).unwrap();
+        assert_eq!(read_live_gaps(dir.path()).unwrap(), gaps);
+        assert!(dir.path().join("audio.mp3").metadata().unwrap().len() > 0);
     }
 
     #[test]

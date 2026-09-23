@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-capture-live-gaps"
+description = "Enables the get_capture_live_gaps command without any pre-configured scope."
+commands.allow = ["get_capture_live_gaps"]
+
+[[permission]]
+identifier = "deny-get-capture-live-gaps"
+description = "Denies the get_capture_live_gaps command without any pre-configured scope."
+commands.deny = ["get_capture_live_gaps"]

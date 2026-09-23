@@ -2,6 +2,7 @@ mod adapters;
 mod stream;
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime};
 
 use bytes::Bytes;
@@ -70,6 +71,7 @@ pub struct ListenerArgs {
     pub participant_human_ids: Vec<String>,
     pub self_human_id: Option<String>,
     pub speaker_assignments: Vec<IdentityAssignment>,
+    pub live_confirmed_ms: Arc<AtomicU64>,
 }
 
 pub struct ListenerState {
@@ -204,6 +206,7 @@ impl Actor for ListenerActor {
         }
 
         if let Some(update) = state.transcript.flush() {
+            note_confirmed_words(&state.args, &update.transcript_delta);
             if !update.transcript_delta.is_empty() {
                 state
                     .args
@@ -478,6 +481,7 @@ fn process_stream_response(
         if let Some(progress) = &mut state.progress {
             progress.observe_delta(&update.transcript_delta, Instant::now());
         }
+        note_confirmed_words(&state.args, &update.transcript_delta);
         state
             .args
             .runtime
@@ -497,6 +501,17 @@ fn process_stream_response(
     }
 
     None
+}
+
+fn note_confirmed_words(args: &ListenerArgs, delta: &crate::LiveTranscriptDelta) {
+    if let Some(end_ms) = delta
+        .new_words
+        .iter()
+        .map(|word| word.end_ms.max(0) as u64)
+        .max()
+    {
+        args.live_confirmed_ms.fetch_max(end_ms, Ordering::Relaxed);
+    }
 }
 
 fn classify_provider_error(

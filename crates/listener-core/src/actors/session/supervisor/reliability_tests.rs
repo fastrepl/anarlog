@@ -207,7 +207,7 @@ async fn send_audio(listener: &ActorRef<ListenerMsg>) {
     );
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum StreamFailure {
     Silent,
     Unfinalized,
@@ -431,5 +431,20 @@ async fn live_words_resume_after_stalled_streams_without_restarting_recorder() {
                 .len()
                 > 0
         );
+
+        let gaps =
+            crate::actors::recorder::read_live_gaps(&vault.path().join(&session_id)).unwrap();
+        assert!(gaps.capture_started_at > 0);
+        assert_eq!(
+            gaps.open_since_ms, None,
+            "{failure:?}: reconnect closes the gap"
+        );
+        assert_eq!(gaps.closed.len(), 1, "{failure:?}: one outage, one gap");
+        // "before" ends at ~1000ms of stream time; the gap opens 1s earlier.
+        assert!(
+            gaps.closed[0].start_ms < 100,
+            "{failure:?}: gap starts 1s before the last confirmed word, got {gaps:?}"
+        );
+        assert!(gaps.closed[0].end_ms >= gaps.closed[0].start_ms);
     }
 }

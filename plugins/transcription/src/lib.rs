@@ -107,6 +107,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_capture_snapshot::<tauri::Wry>,
             listener::commands::update_capture_credentials::<tauri::Wry>,
             listener::commands::list_capture_audio_chunks::<tauri::Wry>,
+            listener::commands::get_capture_live_gaps::<tauri::Wry>,
             listener::commands::get_capture_audio_cleanup_status::<tauri::Wry>,
             listener::commands::acknowledge_capture_audio_cleanup_status::<tauri::Wry>,
             listener::commands::acknowledge_capture_audio_chunk::<tauri::Wry>,

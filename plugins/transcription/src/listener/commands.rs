@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::listener::ListenerPluginExt;
 use crate::{CaptureConfigUpdate, CaptureParams, CaptureSnapshot, CaptureState};
 use anlg_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
-use anlg_transcription_core::listener::actors::recorder::{self, RecoveryAudioChunk};
+use anlg_transcription_core::listener::actors::recorder::{self, LiveGaps, RecoveryAudioChunk};
 use anlg_transcription_core::listener2 as listener2_core;
 
 fn session_audio_dir<R: tauri::Runtime>(
@@ -56,6 +56,20 @@ pub async fn list_capture_audio_chunks<R: tauri::Runtime>(
     tokio::task::spawn_blocking(move || {
         let dir = session_audio_dir(&app, &session_id)?;
         recorder::list_recovery_chunks(&dir).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_capture_live_gaps<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<LiveGaps, String> {
+    tokio::task::spawn_blocking(move || {
+        let dir = session_audio_dir(&app, &session_id)?;
+        recorder::read_live_gaps(&dir).map_err(|error| error.to_string())
     })
     .await
     .map_err(|error| error.to_string())?

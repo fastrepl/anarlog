@@ -676,6 +676,7 @@ mod tests {
             participant_human_ids: vec![],
             self_human_id: None,
             speaker_assignments: vec![],
+            live_confirmed_ms: Default::default(),
         }
     }
 

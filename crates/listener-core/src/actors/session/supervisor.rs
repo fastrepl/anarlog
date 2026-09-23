@@ -4,12 +4,14 @@ mod mode;
 mod reliability_tests;
 
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::atomic::Ordering;
 
 use ractor::concurrency::Duration;
 use ractor::{Actor, ActorCell, ActorProcessingErr, ActorRef, SupervisionEvent};
 use tracing::Instrument;
 
 use crate::DegradedError;
+use crate::actors::recorder::LiveGaps;
 use crate::actors::session::types::{
     SessionConfigUpdate, SessionContext, SessionParams, session_span, session_supervisor_name,
 };
@@ -36,6 +38,7 @@ pub struct SessionState {
     source_restarts: anlg_supervisor::RestartTracker,
     recorder_restarts: anlg_supervisor::RestartTracker,
     mode: SessionModeState,
+    live_gaps: LiveGaps,
     listener_retry_attempt: usize,
     shutting_down: bool,
 }
@@ -69,6 +72,11 @@ impl Actor for SessionActor {
                 ctx.requested_transcription_mode,
                 ctx.params.transcription_mode,
             );
+            let mut live_gaps = LiveGaps::new(ctx.capture_started_at());
+            if !mode.should_spawn_listener() {
+                live_gaps.open(0);
+            }
+            persist_live_gaps(&ctx, &live_gaps).await;
             let recorder_cell = match children::spawn_recorder(myself.get_cell(), &ctx).await {
                 Ok(cell) => Some(cell),
                 Err(error) => {
@@ -94,6 +102,7 @@ impl Actor for SessionActor {
                 source_restarts: anlg_supervisor::RestartTracker::new(),
                 recorder_restarts: anlg_supervisor::RestartTracker::new(),
                 mode,
+                live_gaps,
                 listener_retry_attempt: 0,
                 shutting_down: false,
             })
@@ -119,8 +128,7 @@ impl Actor for SessionActor {
             match children::spawn_listener(myself.get_cell(), &state.ctx, None).await {
                 Ok(listener_cell) => {
                     state.listener_cell = Some(listener_cell);
-                    state.mode.on_listener_attached();
-                    children::attach_listener_to_source(state).await;
+                    on_listener_attached(state).await;
                 }
                 Err(error) => {
                     tracing::warn!(?error, "listener_spawn_failed");
@@ -345,8 +353,31 @@ async fn emit_active_lifecycle_event(state: &SessionState, error: Option<Degrade
 
 async fn enter_batch_fallback(state: &mut SessionState, degraded: DegradedError) {
     state.mode.enter_batch_fallback();
+    let confirmed_ms = state.ctx.live_confirmed_ms.load(Ordering::Relaxed);
+    if state.live_gaps.open(confirmed_ms) {
+        persist_live_gaps(&state.ctx, &state.live_gaps).await;
+    }
     children::attach_listener_to_source(state).await;
     emit_active_lifecycle_event(state, Some(degraded)).await;
+}
+
+async fn on_listener_attached(state: &mut SessionState) {
+    state.mode.on_listener_attached();
+    if state.live_gaps.close(state.ctx.elapsed_ms()) {
+        persist_live_gaps(&state.ctx, &state.live_gaps).await;
+    }
+    children::attach_listener_to_source(state).await;
+}
+
+async fn persist_live_gaps(ctx: &SessionContext, gaps: &LiveGaps) {
+    let dir = crate::actors::recorder::find_session_dir(&ctx.app_dir, &ctx.params.session_id);
+    let gaps = gaps.clone();
+    let result =
+        tokio::task::spawn_blocking(move || crate::actors::recorder::write_live_gaps(&dir, &gaps))
+            .await;
+    if let Err(error) = result.map_err(std::io::Error::other).and_then(|r| r) {
+        tracing::warn!(error.message = %error, "live_gaps_persist_failed");
+    }
 }
 
 async fn update_config(
@@ -397,8 +428,7 @@ async fn refresh_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState
     match children::spawn_listener(myself.get_cell(), &state.ctx, Some(replay_offset_secs)).await {
         Ok(listener_cell) => {
             state.listener_cell = Some(listener_cell);
-            state.mode.on_listener_attached();
-            children::attach_listener_to_source(state).await;
+            on_listener_attached(state).await;
         }
         Err(error) => {
             tracing::warn!(?error, "listener_refresh_failed");
@@ -542,8 +572,7 @@ async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) 
             );
             state.listener_cell = Some(listener_cell);
             state.listener_retry_attempt = 0;
-            state.mode.on_listener_attached();
-            children::attach_listener_to_source(state).await;
+            on_listener_attached(state).await;
             emit_active_lifecycle_event(state, None).await;
         }
         Err(error) => {
@@ -781,6 +810,7 @@ mod tests {
             app_dir: std::env::temp_dir(),
             started_at_instant: Instant::now(),
             started_at_system: SystemTime::now(),
+            live_confirmed_ms: Default::default(),
         }
     }
 
@@ -793,6 +823,7 @@ mod tests {
             source_restarts: RestartTracker::new(),
             recorder_restarts: RestartTracker::new(),
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
+            live_gaps: LiveGaps::default(),
             listener_retry_attempt: 0,
             shutting_down: false,
         }
@@ -1162,6 +1193,7 @@ mod tests {
             source_restarts: RestartTracker::new(),
             recorder_restarts: RestartTracker::new(),
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
+            live_gaps: LiveGaps::default(),
             listener_retry_attempt: 0,
             shutting_down: false,
         };

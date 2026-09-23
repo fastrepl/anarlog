@@ -94,6 +94,14 @@ async listCaptureAudioChunks(sessionId: string) : Promise<Result<RecoveryAudioCh
     else return { status: "error", error: e  as any };
 }
 },
+async getCaptureLiveGaps(sessionId: string) : Promise<Result<LiveGaps, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|get_capture_live_gaps", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getCaptureAudioCleanupStatus() : Promise<Result<Partial<{ [key in string]: string }>, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|get_capture_audio_cleanup_status") };
@@ -275,6 +283,13 @@ export type FinalizedWord = { id: string; text: string; start_ms: number; end_ms
 export type IdentityAssignment = { human_id: string; scope: IdentityScope }
 export type IdentityScope = { kind: "channel"; channel: ChannelProfile } | { kind: "channel_speaker"; channel: ChannelProfile; speaker_index: number } | { kind: "words"; word_ids: string[] }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
+export type LiveGap = { start_ms: number; end_ms: number }
+/**
+ * Capture time (ms since capture start) that live transcription did not
+ * cover. Owned by the session supervisor and mirrored to disk so it survives
+ * renderer reloads and outlives the session actors.
+ */
+export type LiveGaps = { capture_started_at: number; closed: LiveGap[]; open_since_ms: number | null }
 export type LiveTranscriptDelta = { new_words: FinalizedWord[]; replaced_ids: string[]; partials: PartialWord[] }
 export type LiveTranscriptSegment = { id: string; key: SegmentKey; start_ms: number; end_ms: number; text: string; words: SegmentWord[] }
 export type LiveTranscriptSegmentDelta = { upserts: LiveTranscriptSegment[]; removed_ids: string[] }

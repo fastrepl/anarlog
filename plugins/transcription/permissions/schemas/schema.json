@@ -367,6 +367,18 @@
           "markdownDescription": "Denies the get_capture_audio_cleanup_status command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_capture_live_gaps command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-capture-live-gaps",
+          "markdownDescription": "Enables the get_capture_live_gaps command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_capture_live_gaps command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-capture-live-gaps",
+          "markdownDescription": "Denies the get_capture_live_gaps command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_capture_snapshot command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-capture-snapshot",
@@ -619,10 +631,10 @@
           "markdownDescription": "Denies the update_capture_credentials command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-update-capture-credentials`\n- `allow-list-capture-audio-chunks`\n- `allow-get-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-chunk`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-cleanup-expired-voiceprint-candidates`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-cleanup-expired-voiceprint-candidates`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-update-capture-credentials`\n- `allow-list-capture-audio-chunks`\n- `allow-get-capture-live-gaps`\n- `allow-get-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-chunk`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-cleanup-expired-voiceprint-candidates`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-cleanup-expired-voiceprint-candidates`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-update-capture-credentials`\n- `allow-list-capture-audio-chunks`\n- `allow-get-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-chunk`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-cleanup-expired-voiceprint-candidates`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-cleanup-expired-voiceprint-candidates`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-get-capture-snapshot`\n- `allow-update-capture-credentials`\n- `allow-list-capture-audio-chunks`\n- `allow-get-capture-live-gaps`\n- `allow-get-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-cleanup-status`\n- `allow-acknowledge-capture-audio-chunk`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-cleanup-expired-voiceprint-candidates`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`\n- `allow-extract-voiceprint-candidates`\n- `allow-promote-voiceprint-candidates`\n- `allow-cleanup-expired-voiceprint-candidates`"
         }
       ]
     }

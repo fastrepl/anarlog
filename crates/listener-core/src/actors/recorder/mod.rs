@@ -1,10 +1,12 @@
 mod chunks;
 mod disk;
+mod live_gaps;
 pub(crate) use chunks::recover_interrupted_captures_except;
 pub use chunks::{
     RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio, list_recovery_chunks,
     recover_interrupted_captures,
 };
+pub use live_gaps::{LiveGap, LiveGaps, read_live_gaps, write_live_gaps};
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

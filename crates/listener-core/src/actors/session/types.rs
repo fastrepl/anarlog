@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 use std::time::{Instant, SystemTime};
 
 use anlg_audio::AudioProvider;
@@ -145,6 +146,22 @@ pub struct SessionContext {
     pub app_dir: PathBuf,
     pub started_at_instant: Instant,
     pub started_at_system: SystemTime,
+    /// End of the last finalized live word (capture ms). The listener raises
+    /// it; the supervisor reads it when live transcription drops.
+    pub live_confirmed_ms: Arc<AtomicU64>,
+}
+
+impl SessionContext {
+    pub fn elapsed_ms(&self) -> u64 {
+        self.started_at_instant.elapsed().as_millis() as u64
+    }
+
+    pub fn capture_started_at(&self) -> u64 {
+        self.started_at_system
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
+    }
 }
 
 pub fn session_supervisor_name(session_id: &str) -> String {
