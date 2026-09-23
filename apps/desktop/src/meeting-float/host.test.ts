@@ -1,8 +1,29 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import type { LiveTranscriptSegment } from "@anlg/plugin-transcription";
+import type {
+  LiveTranscriptSegment,
+  RenderedTranscriptSegment,
+} from "@anlg/plugin-transcription";
 
+const transcriptMocks = vi.hoisted(() => ({
+  renderTranscriptSegments: vi.fn(),
+}));
+
+vi.mock("@anlg/plugin-transcription", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@anlg/plugin-transcription")>();
+  return {
+    ...actual,
+    commands: {
+      ...actual.commands,
+      renderTranscriptSegments: transcriptMocks.renderTranscriptSegments,
+    },
+  };
+});
+
+import { createMeetingFloatLabelContext, type MeetingFloatData } from "./hooks";
 import {
+  createFloatingSpeakerResolver,
   getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
@@ -12,7 +33,7 @@ import {
 
 import { createListenerStore } from "~/store/zustand/listener";
 import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/transcript";
-import type { RenderLabelContext } from "~/stt/live-segment";
+import { type RenderLabelContext, SegmentKeyUtils } from "~/stt/live-segment";
 
 type ListenerLiveState = ReturnType<
   ReturnType<typeof createListenerStore>["getState"]
@@ -593,5 +614,209 @@ describe("floating route refresh", () => {
     expect(haveFloatingRouteInputsChanged(authFailed, timeout)).toBe(true);
     expect(haveFloatingRouteInputsChanged(timeout, authFailed)).toBe(true);
     expect(haveFloatingRouteInputsChanged(timeout, timeout)).toBe(false);
+  });
+});
+
+describe("createFloatingSpeakerResolver", () => {
+  const speakerContext = {
+    intervals: [
+      {
+        start_ms: 0,
+        end_ms: 60_000,
+        active_call: true,
+        calendar_call: false,
+        mic_isolated: null,
+        shared_microphone: false,
+        title: "",
+        self_names: [],
+        participants: [{ human_id: "human-remote", name: "Artem" }],
+      },
+    ],
+  };
+
+  const floatData = (context = speakerContext): MeetingFloatData => ({
+    sessions: {
+      "session-1": {
+        title: "Planning",
+        ownerUserId: "human-self",
+        participantHumanIds: ["human-remote"],
+        speakerContext: context,
+        startedAtMs: 1_000,
+      },
+    },
+    humanNames: { "human-remote": "Artem" },
+  });
+
+  const remoteSegment = () =>
+    createSegment({
+      id: "seg-remote",
+      key: {
+        channel: "RemoteParty",
+        speaker_index: 1,
+        speaker_human_id: null,
+      },
+      start_ms: 0,
+      text: "hello",
+      words: [{ text: "hello" }],
+    });
+
+  const renderedRemoteSegment = (
+    humanId: string | null,
+  ): RenderedTranscriptSegment => ({
+    id: "seg-remote",
+    key: {
+      channel: "RemoteParty",
+      speaker_index: 1,
+      speaker_human_id: null,
+    },
+    start_ms: 0,
+    end_ms: 100,
+    text: "hello",
+    speaker_label: "Artem",
+    provisional_speaker: {
+      name: "Artem",
+      human_id: humanId,
+      reason: "sole_remote_participant",
+    },
+    words: [],
+  });
+
+  const deferred = <T>() => {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((res) => {
+      resolve = res;
+    });
+    return { promise, resolve };
+  };
+
+  it("labels bubbles with the resolver result instead of Speaker N", async () => {
+    transcriptMocks.renderTranscriptSegments.mockResolvedValue({
+      status: "ok",
+      data: [renderedRemoteSegment("human-remote")],
+    });
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const onUpdate = vi.fn();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      onUpdate,
+    );
+    const state = createListenerStateWithSegments(
+      { status: "active", sessionId: "session-1" },
+      [remoteSegment()],
+    );
+
+    resolve(state);
+    await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+
+    const key = SegmentKeyUtils.serialize(remoteSegment().key);
+    expect(labels.get(key)).toEqual({
+      label: "Artem",
+      humanId: "human-remote",
+    });
+
+    const bubbles = getFloatingTranscriptBubbles(
+      state.liveSegments,
+      createMeetingFloatLabelContext(floatData(), "session-1"),
+      labels,
+    );
+    expect(bubbles[0]?.speakerLabel).toBe("Artem");
+  });
+
+  it("renders You when the resolved speaker is the session owner", async () => {
+    transcriptMocks.renderTranscriptSegments.mockResolvedValue({
+      status: "ok",
+      data: [renderedRemoteSegment("human-self")],
+    });
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      vi.fn(),
+    );
+    const state = createListenerStateWithSegments(
+      { status: "active", sessionId: "session-1" },
+      [remoteSegment()],
+    );
+
+    resolve(state);
+    await vi.waitFor(() => expect(labels.size).toBe(1));
+
+    const bubbles = getFloatingTranscriptBubbles(
+      state.liveSegments,
+      createMeetingFloatLabelContext(floatData(), "session-1"),
+      labels,
+    );
+    expect(bubbles[0]?.speakerLabel).toBe("You");
+  });
+
+  it("ignores a stale response issued before the latest request", async () => {
+    const first = deferred<{
+      status: "ok";
+      data: RenderedTranscriptSegment[];
+    }>();
+    const second = deferred<{
+      status: "ok";
+      data: RenderedTranscriptSegment[];
+    }>();
+    transcriptMocks.renderTranscriptSegments
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const onUpdate = vi.fn();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      onUpdate,
+    );
+
+    resolve(
+      createListenerStateWithSegments(
+        { status: "active", sessionId: "session-1" },
+        [remoteSegment()],
+      ),
+    );
+    resolve(
+      createListenerStateWithSegments(
+        { status: "active", sessionId: "session-1" },
+        [remoteSegment()],
+      ),
+    );
+
+    first.resolve({
+      status: "ok",
+      data: [
+        { ...renderedRemoteSegment("human-remote"), speaker_label: "Stale" },
+      ],
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(labels.size).toBe(0);
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    second.resolve({
+      status: "ok",
+      data: [renderedRemoteSegment("human-remote")],
+    });
+    await vi.waitFor(() => expect(labels.size).toBe(1));
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call the native resolver without a speaker context", () => {
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData({ intervals: [] }),
+      vi.fn(),
+    );
+
+    resolve(
+      createListenerStateWithSegments(
+        { status: "active", sessionId: "session-1" },
+        [remoteSegment()],
+      ),
+    );
+
+    expect(transcriptMocks.renderTranscriptSegments).not.toHaveBeenCalled();
   });
 });

@@ -14,9 +14,26 @@ vi.mock("~/db", () => ({
 
 import {
   createMeetingFloatLabelContext,
+  createMeetingFloatRenderRequest,
   loadMeetingFloatData,
   subscribeMeetingFloatData,
 } from "./hooks";
+
+const speakerContextJson = JSON.stringify({
+  intervals: [
+    {
+      start_ms: 1000,
+      end_ms: 60000,
+      active_call: true,
+      calendar_call: false,
+      mic_isolated: null,
+      shared_microphone: false,
+      title: "",
+      self_names: [],
+      participants: [{ human_id: "human-remote", name: "Remote speaker" }],
+    },
+  ],
+});
 
 const rows = [
   {
@@ -26,6 +43,8 @@ const rows = [
     owner_user_id: "human-self",
     human_id: "human-remote",
     human_name: "Remote speaker",
+    speaker_context: "",
+    started_at: "",
   },
   {
     row_kind: "human",
@@ -34,6 +53,8 @@ const rows = [
     owner_user_id: "",
     human_id: "human-other",
     human_name: "Other person",
+    speaker_context: "",
+    started_at: "",
   },
   {
     row_kind: "session",
@@ -42,6 +63,8 @@ const rows = [
     owner_user_id: "human-self",
     human_id: "",
     human_name: "",
+    speaker_context: speakerContextJson,
+    started_at: "2026-01-01T00:00:00.000Z",
   },
 ] as const;
 
@@ -60,6 +83,10 @@ describe("meeting float SQLite data", () => {
       title: "Planning",
       ownerUserId: "human-self",
       participantHumanIds: ["human-remote"],
+      speakerContext: {
+        intervals: [expect.objectContaining({ start_ms: 1000, end_ms: 60000 })],
+      },
+      startedAtMs: Date.parse("2026-01-01T00:00:00.000Z"),
     });
     expect(labels.getSelfHumanId()).toBe("human-self");
     expect(labels.getParticipantHumanIds?.()).toEqual(["human-remote"]);
@@ -86,5 +113,41 @@ describe("meeting float SQLite data", () => {
         }),
       }),
     );
+  });
+
+  it("builds a render request from the session speaker context", async () => {
+    mocks.execute.mockResolvedValue(rows);
+    const data = await loadMeetingFloatData();
+    const startedAt = data.sessions["session-1"]!.startedAtMs;
+
+    const request = createMeetingFloatRenderRequest(
+      data,
+      "session-1",
+      startedAt,
+    );
+
+    expect(request).toMatchObject({
+      transcripts: [{ started_at: startedAt, words: [], assignments: [] }],
+      participant_human_ids: ["human-remote"],
+      self_human_id: "human-self",
+      humans: [
+        { human_id: "human-self", name: "" },
+        { human_id: "human-remote", name: "Remote speaker" },
+      ],
+      speaker_context: {
+        intervals: [expect.objectContaining({ start_ms: 1000 })],
+      },
+    });
+  });
+
+  it("returns no render request without a speaker context", async () => {
+    mocks.execute.mockResolvedValue(
+      rows.map((row) =>
+        row.row_kind === "session" ? { ...row, speaker_context: "" } : row,
+      ),
+    );
+    const data = await loadMeetingFloatData();
+
+    expect(createMeetingFloatRenderRequest(data, "session-1", 0)).toBeNull();
   });
 });

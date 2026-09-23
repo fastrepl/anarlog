@@ -1,5 +1,6 @@
 import { useRef } from "react";
 
+import { commands as transcriptCommands } from "@anlg/plugin-transcription";
 import {
   commands as windowsCommands,
   events as windowsEvents,
@@ -7,6 +8,7 @@ import {
 
 import {
   createMeetingFloatLabelContext,
+  createMeetingFloatRenderRequest,
   loadMeetingFloatData,
   type MeetingFloatData,
   subscribeMeetingFloatData,
@@ -17,6 +19,7 @@ import {
   getFloatingRouteState,
   isSameFloatingRouteState,
   type FloatingRouteState,
+  type FloatingSpeakerLabels,
   type ListenerState,
 } from "./route-state";
 import {
@@ -45,7 +48,8 @@ import { useConfigValue, useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
-import type { RenderLabelContext } from "~/stt/live-segment";
+import { type RenderLabelContext, SegmentKeyUtils } from "~/stt/live-segment";
+import { buildSpeakerResolutionInput } from "~/stt/useResolvedSpeakerSegments";
 
 export {
   getCurrentFloatingBarColorScheme,
@@ -182,6 +186,7 @@ function FloatingMeetingWindowSync({
     let routeState: FloatingRouteState | null = null;
     let hasRouteState = false;
     let cancelled = false;
+    const speakerLabels: FloatingSpeakerLabels = new Map();
     const windowSynchronizer = createFloatingMeetingWindowSynchronizer(
       (state) => {
         useDictationStatus.setState({
@@ -222,11 +227,19 @@ function FloatingMeetingWindowSync({
                 getFloatingLiveCaptionToggleVisible(state),
                 meetingData,
                 transcriptBubbles,
+                speakerLabels,
               )
             : null,
       );
     };
     refreshSettingsRef.current = refreshCurrentRouteState;
+
+    const resolveSpeakers = createFloatingSpeakerResolver(
+      speakerLabels,
+      () => meetingData,
+      () => refreshCurrentRouteState(true),
+      () => cancelled,
+    );
 
     windowsEvents.floatingBarStop
       .listen(() => {
@@ -288,12 +301,19 @@ function FloatingMeetingWindowSync({
         state.liveSegments !== previousState.liveSegments ||
           state.live.sessionId !== previousState.live.sessionId,
       );
+      if (
+        state.liveSegments !== previousState.liveSegments ||
+        state.live.sessionId !== previousState.live.sessionId
+      ) {
+        resolveSpeakers(state);
+      }
     });
 
     void subscribeMeetingFloatData(
       (nextData) => {
         meetingData = nextData;
         refreshCurrentRouteState(true);
+        resolveSpeakers(listenerStore.getState());
       },
       (error) => {
         console.error("Failed to read floating meeting data:", error);
@@ -350,6 +370,7 @@ function getCurrentFloatingRouteState(
   liveCaptionToggleVisible = false,
   meetingData?: MeetingFloatData,
   transcriptBubbles?: FloatingRouteState["transcriptBubbles"],
+  speakerLabels?: FloatingSpeakerLabels,
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
     sessionId,
@@ -358,8 +379,61 @@ function getCurrentFloatingRouteState(
     liveCaptionToggleVisible,
     sessionTitle: getFloatingSessionTitle(state, meetingData),
     speakerLabelContext: getFloatingSpeakerLabelContext(state, meetingData),
+    speakerLabels,
     transcriptBubbles,
   });
+}
+
+export function createFloatingSpeakerResolver(
+  speakerLabels: FloatingSpeakerLabels,
+  getMeetingData: () => MeetingFloatData,
+  onUpdate: () => void,
+  isCancelled: () => boolean = () => false,
+): (state: ListenerState) => void {
+  let sessionId: string | null = null;
+  let counter = 0;
+
+  return (state: ListenerState) => {
+    if (sessionId !== state.live.sessionId) {
+      sessionId = state.live.sessionId;
+      speakerLabels.clear();
+    }
+    if (!sessionId || state.liveSegments.length === 0) return;
+
+    const meetingData = getMeetingData();
+    const startedAt = meetingData.sessions[sessionId]?.startedAtMs;
+    if (!startedAt) return;
+    const input = buildSpeakerResolutionInput(
+      state.liveSegments,
+      createMeetingFloatRenderRequest(meetingData, sessionId, startedAt),
+    );
+    if (!input) return;
+
+    const requestId = ++counter;
+    void (async () => {
+      const result = await transcriptCommands.renderTranscriptSegments(input);
+      if (isCancelled() || requestId !== counter || result.status !== "ok") {
+        return;
+      }
+      let changed = false;
+      for (const segment of result.data) {
+        const key = SegmentKeyUtils.serialize(segment.key);
+        if (speakerLabels.has(key)) continue;
+        const label =
+          segment.provisional_speaker?.name || segment.speaker_label;
+        if (!label) continue;
+        speakerLabels.set(key, {
+          label,
+          humanId:
+            segment.key.speaker_human_id ??
+            segment.provisional_speaker?.human_id ??
+            undefined,
+        });
+        changed = true;
+      }
+      if (changed) onUpdate();
+    })();
+  };
 }
 
 export function haveFloatingRouteInputsChanged(

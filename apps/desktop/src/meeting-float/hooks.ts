@@ -1,5 +1,11 @@
+import type {
+  RenderTranscriptRequest,
+  SpeakerContext,
+} from "@anlg/plugin-transcription";
+
 import { liveQueryClient } from "~/db";
 import type { RenderLabelContext } from "~/stt/live-segment";
+import { parseSpeakerContext } from "~/stt/speaker-context";
 
 type MeetingFloatSqlRow = {
   row_kind: "session" | "participant" | "human";
@@ -8,6 +14,8 @@ type MeetingFloatSqlRow = {
   owner_user_id: string;
   human_id: string;
   human_name: string;
+  speaker_context: string | null;
+  started_at: string;
 };
 
 export type MeetingFloatData = {
@@ -17,6 +25,8 @@ export type MeetingFloatData = {
       title: string;
       ownerUserId: string;
       participantHumanIds: string[];
+      speakerContext: SpeakerContext;
+      startedAtMs: number;
     }
   >;
   humanNames: Record<string, string>;
@@ -29,7 +39,9 @@ const MEETING_FLOAT_SQL = `
     session.title,
     session.owner_user_id,
     '' AS human_id,
-    '' AS human_name
+    '' AS human_name,
+    json_extract(session.metadata_json, '$.speaker_context') AS speaker_context,
+    session.started_at AS started_at
   FROM sessions AS session
   WHERE session.deleted_at IS NULL
 
@@ -41,7 +53,9 @@ const MEETING_FLOAT_SQL = `
     '' AS title,
     session.owner_user_id,
     participant.human_id,
-    COALESCE(NULLIF(human.name, ''), participant.display_name) AS human_name
+    COALESCE(NULLIF(human.name, ''), participant.display_name) AS human_name,
+    '' AS speaker_context,
+    '' AS started_at
   FROM session_participants AS participant
   INNER JOIN sessions AS session
     ON session.id = participant.session_id
@@ -61,7 +75,9 @@ const MEETING_FLOAT_SQL = `
     '' AS title,
     '' AS owner_user_id,
     human.id AS human_id,
-    human.name AS human_name
+    human.name AS human_name,
+    '' AS speaker_context,
+    '' AS started_at
   FROM humans AS human
   WHERE human.id <> '' AND human.deleted_at IS NULL
 
@@ -107,6 +123,8 @@ function mapMeetingFloatRows(rows: MeetingFloatSqlRow[]): MeetingFloatData {
         ownerUserId: row.owner_user_id,
         participantHumanIds:
           sessions[row.session_id]?.participantHumanIds ?? [],
+        speakerContext: parseSpeakerContext(row.speaker_context),
+        startedAtMs: Date.parse(row.started_at) || 0,
       };
       continue;
     }
@@ -122,6 +140,8 @@ function mapMeetingFloatRows(rows: MeetingFloatSqlRow[]): MeetingFloatData {
       title: "",
       ownerUserId: row.owner_user_id,
       participantHumanIds: [],
+      speakerContext: parseSpeakerContext(null),
+      startedAtMs: 0,
     };
     if (!session.participantHumanIds.includes(row.human_id)) {
       session.participantHumanIds.push(row.human_id);
@@ -130,4 +150,30 @@ function mapMeetingFloatRows(rows: MeetingFloatSqlRow[]): MeetingFloatData {
   }
 
   return { sessions, humanNames };
+}
+
+export function createMeetingFloatRenderRequest(
+  data: MeetingFloatData,
+  sessionId: string,
+  startedAt: number,
+): RenderTranscriptRequest | null {
+  const session = data.sessions[sessionId];
+  if (!session || session.speakerContext.intervals.length === 0) {
+    return null;
+  }
+
+  const humanIds = [
+    ...new Set([session.ownerUserId, ...session.participantHumanIds]),
+  ].filter(Boolean);
+
+  return {
+    transcripts: [{ started_at: startedAt, words: [], assignments: [] }],
+    participant_human_ids: session.participantHumanIds,
+    self_human_id: session.ownerUserId || null,
+    humans: humanIds.map((humanId) => ({
+      human_id: humanId,
+      name: data.humanNames[humanId] ?? "",
+    })),
+    speaker_context: session.speakerContext,
+  };
 }

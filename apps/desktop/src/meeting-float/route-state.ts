@@ -14,6 +14,11 @@ export type ListenerState = ReturnType<ListenerStore["getState"]>;
 type FloatingBarStatus = "recording" | "reconnecting" | "error";
 type FloatingBarColorScheme = "light" | "dark";
 
+export type FloatingSpeakerLabels = Map<
+  string,
+  { label: string; humanId?: string }
+>;
+
 export type FloatingTranscriptBubble = {
   id: string;
   speakerLabel: string;
@@ -53,6 +58,7 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible = false,
     sessionTitle,
     speakerLabelContext,
+    speakerLabels,
     transcriptBubbles,
   }: {
     sessionId?: string;
@@ -61,6 +67,7 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible?: boolean;
     sessionTitle?: string | null;
     speakerLabelContext?: RenderLabelContext;
+    speakerLabels?: FloatingSpeakerLabels;
     transcriptBubbles?: FloatingTranscriptBubble[];
   } = {},
 ): FloatingRouteState | null {
@@ -102,7 +109,11 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible,
     transcriptBubbles:
       transcriptBubbles ??
-      getFloatingTranscriptBubbles(state.liveSegments, speakerLabelContext),
+      getFloatingTranscriptBubbles(
+        state.liveSegments,
+        speakerLabelContext,
+        speakerLabels,
+      ),
   };
 }
 
@@ -114,6 +125,7 @@ function getFloatingTitle(title: string | null | undefined) {
 export function getFloatingTranscriptBubbles(
   segments: ListenerState["liveSegments"],
   speakerLabelContext?: RenderLabelContext,
+  speakerLabels?: FloatingSpeakerLabels,
 ): FloatingTranscriptBubble[] {
   const bubbles = segments
     .slice()
@@ -132,7 +144,11 @@ export function getFloatingTranscriptBubbles(
 
       return {
         id: segment.id,
-        speakerLabel: getFloatingSpeakerLabel(segment.key, speakerLabelContext),
+        speakerLabel: getFloatingSpeakerLabel(
+          segment.key,
+          speakerLabelContext,
+          speakerLabels,
+        ),
         text,
         isSelf: isFloatingSelfSpeaker(segment.key),
         isFinal: segment.words.every((word) => word.is_final),
@@ -163,7 +179,15 @@ function getFloatingSegmentText(
 function getFloatingSpeakerLabel(
   key: ListenerState["liveSegments"][number]["key"],
   ctx?: RenderLabelContext,
+  speakerLabels?: FloatingSpeakerLabels,
 ) {
+  const resolved = speakerLabels?.get(SegmentKeyUtils.serialize(key));
+  if (resolved) {
+    return resolved.humanId && resolved.humanId === ctx?.getSelfHumanId()
+      ? "You"
+      : resolved.label;
+  }
+
   if (isFloatingSelfSpeaker(key)) {
     return "You";
   }

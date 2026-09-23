@@ -19,27 +19,33 @@ type SpeakerResolution = Pick<
   "speaker_label" | "provisional_speaker"
 >;
 
+export function buildSpeakerResolutionInput(
+  segments: Segment[],
+  request: RenderTranscriptRequest | null,
+): RenderTranscriptRequest | null {
+  return request?.speaker_context && segments.length
+    ? {
+        ...request,
+        transcripts: request.transcripts.map((transcript) => ({
+          started_at: transcript.started_at,
+          words: [],
+          assignments: [],
+        })),
+        preview: segments.map((segment) => ({
+          ...segment,
+          speaker_label: "",
+          provisional_speaker: undefined,
+        })),
+      }
+    : null;
+}
+
 export function useResolvedSpeakerSegments(
   segments: Segment[],
   request: RenderTranscriptRequest | null,
 ): Segment[] {
   const input = useMemo(
-    () =>
-      request?.speaker_context && segments.length
-        ? {
-            ...request,
-            transcripts: request.transcripts.map((transcript) => ({
-              started_at: transcript.started_at,
-              words: [],
-              assignments: [],
-            })),
-            preview: segments.map((segment) => ({
-              ...segment,
-              speaker_label: "",
-              provisional_speaker: undefined,
-            })),
-          }
-        : null,
+    () => buildSpeakerResolutionInput(segments, request),
     [request, segments],
   );
   // Live captures change the input several times a second; keep the last
