@@ -37,9 +37,13 @@ Do not assume that an export proves a completely offline transfer from the recor
 
 ## Route A: transcribe the audio locally
 
-A file transcription tool such as [Buzz](https://buzzcaptions.com/) can process an exported recording with a local model. Download the model first, select the local engine, and verify a small sample before processing a long recording. Choosing an API engine creates a different data path.
+Choose a file-processing route for the computer receiving your export:
 
-On a supported Mac, Anarlog can also import audio using the selected Transcription provider. Its [platform documentation](https://docs.anarlog.so/desktop-installation) identifies which built-in on-device paths require Apple Silicon. Do not assume the same local provider is available on every operating system.
+- **Windows:** evaluate [Buzz](https://buzzcaptions.com/) with a local model. Use the [free transcription guide](/blog/free-transcription-software/) to compare file tools.
+- **Apple Silicon Mac:** evaluate Anarlog audio import with a supported local Transcription model. Check the [platform requirements](https://docs.anarlog.so/desktop-installation) first.
+- **Intel Mac:** choose a compatible engine from the [Mac transcription guide](/blog/transcription-software-mac/). The Apple Silicon example below does not establish Intel support.
+
+Download the model first and verify a small sample before processing a long recording. Choosing an API engine creates a different data path. If you already have an accurate timed transcript, skip speech processing and use Route B.
 
 A safe workflow check is to prepare the model online, disconnect, and process a synthetic audio file with the same format as your export. That proves the local file-processing step for that configuration. It does not prove how the Plaud hardware captured or transferred the original file.
 
