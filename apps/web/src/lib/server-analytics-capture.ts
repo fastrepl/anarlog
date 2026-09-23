@@ -65,6 +65,7 @@ export async function sendServerAnalytics({
         distinct_id: uuid,
         $insert_id: uuid,
         $process_person_profile: false,
+        $geoip_disable: true,
         surface: "api",
         analytics_schema_version: 1,
         app_version: appVersion,

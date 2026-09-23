@@ -10,6 +10,7 @@ import { cn } from "@anlg/utils";
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
+import { toAnalyticsToken } from "@/lib/analytics-sanitization";
 import {
   type DownloadPlatform,
   detectDownloadPlatform,
@@ -390,7 +391,7 @@ function DownloadButton() {
         onClick={() =>
           track("download_clicked", {
             platform: preferredSection.platform,
-            spec: preferredDownload.name,
+            spec: toAnalyticsToken(preferredDownload.name),
             source: "homepage",
           })
         }
@@ -429,7 +430,7 @@ function DownloadButton() {
                   onClick={() => {
                     track("download_clicked", {
                       platform: section.platform,
-                      spec: download.name,
+                      spec: toAnalyticsToken(download.name),
                       source: "homepage_menu",
                     });
                     setOpen(false);

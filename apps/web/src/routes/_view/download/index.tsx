@@ -5,6 +5,7 @@ import { ArrowSquareOut, DownloadSimple } from "@anlg/ui/components/icons";
 
 import { SiteFooter } from "@/components/site-footer";
 import { useAnalytics } from "@/hooks/use-posthog";
+import { toAnalyticsToken } from "@/lib/analytics-sanitization";
 import {
   comingSoonPlatforms,
   desktopDownloadSections,
@@ -104,7 +105,7 @@ function Component() {
                           onClick={() =>
                             track("download_clicked", {
                               platform: section.platform,
-                              spec: download.name,
+                              spec: toAnalyticsToken(download.name),
                               source: "download_page",
                             })
                           }
