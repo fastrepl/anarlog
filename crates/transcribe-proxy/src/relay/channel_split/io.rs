@@ -2,12 +2,68 @@ use axum::extract::ws::Message;
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 
+use super::super::handler::UPSTREAM_READY_TIMEOUT;
+use super::super::pending::MAX_PENDING_QUEUE_BYTES;
 use super::super::types::{
     ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, ClientReceiver,
-    ClientSender, DEFAULT_CLOSE_CODE, ShutdownSignal, UpstreamReceiver, UpstreamSender, convert,
+    ClientSender, DEFAULT_CLOSE_CODE, ReadyNotifier, ReadyWaiter, ShutdownSignal,
+    UpstreamReadiness, UpstreamReceiver, UpstreamSender, convert, wait_until_ready,
 };
 use super::coordinator::SplitEvent;
 use super::payload::RewrittenSplitResponse;
+
+/// Upstream sink that buffers payloads until the upstream has acknowledged readiness.
+pub(super) struct GatedUpstream {
+    inner: UpstreamSender,
+    ready: ReadyWaiter,
+    queued: Vec<TungsteniteMessage>,
+    queued_bytes: usize,
+}
+
+impl GatedUpstream {
+    pub(super) fn new(inner: UpstreamSender, ready: ReadyWaiter) -> Self {
+        Self {
+            inner,
+            ready,
+            queued: Vec::new(),
+            queued_bytes: 0,
+        }
+    }
+
+    pub(super) fn is_ready(&self) -> bool {
+        *self.ready.borrow()
+    }
+
+    pub(super) async fn wait_ready(&mut self) {
+        wait_until_ready(&mut self.ready).await
+    }
+
+    pub(super) async fn send(&mut self, message: TungsteniteMessage) -> Result<(), ()> {
+        if self.is_ready() {
+            return self.flush(Some(message)).await;
+        }
+        let size = message.len();
+        if self.queued_bytes + size > MAX_PENDING_QUEUE_BYTES {
+            return Err(());
+        }
+        self.queued_bytes += size;
+        self.queued.push(message);
+        Ok(())
+    }
+
+    pub(super) async fn send_now(&mut self, message: TungsteniteMessage) -> Result<(), ()> {
+        self.inner.send(message).await.map_err(|_| ())
+    }
+
+    pub(super) async fn flush(&mut self, tail: Option<TungsteniteMessage>) -> Result<(), ()> {
+        let queued = std::mem::take(&mut self.queued);
+        self.queued_bytes = 0;
+        for message in queued.into_iter().chain(tail) {
+            self.inner.send(message).await.map_err(|_| ())?;
+        }
+        Ok(())
+    }
+}
 
 const SAMPLE_BYTES: usize = 2;
 const FRAME_BYTES: usize = SAMPLE_BYTES * 2;
@@ -71,14 +127,16 @@ pub(super) async fn send_rewritten(
 
 pub(super) async fn relay_client_to_upstreams(
     mut client_rx: ClientReceiver,
-    mut mic_tx: UpstreamSender,
-    mut spk_tx: UpstreamSender,
-    client_message_filter: Option<ClientMessageFilter>,
+    mut mic_tx: GatedUpstream,
+    mut spk_tx: GatedUpstream,
+    client_message_filters: [Option<ClientMessageFilter>; 2],
     client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
     shutdown_tx: tokio::sync::broadcast::Sender<ShutdownSignal>,
     event_tx: tokio::sync::mpsc::Sender<SplitEvent>,
 ) {
     let mut shutdown_rx = shutdown_tx.subscribe();
+    let ready_deadline = tokio::time::sleep(UPSTREAM_READY_TIMEOUT);
+    tokio::pin!(ready_deadline);
 
     loop {
         tokio::select! {
@@ -87,9 +145,35 @@ pub(super) async fn relay_client_to_upstreams(
                 if let Ok(signal) = result
                     && let ShutdownSignal::Close { code, reason } = signal {
                         let close = convert::to_tungstenite_close(code, reason);
-                        let _ = mic_tx.send(close.clone()).await;
-                        let _ = spk_tx.send(close).await;
+                        let _ = mic_tx.send_now(close.clone()).await;
+                        let _ = spk_tx.send_now(close).await;
                     }
+                break;
+            },
+            _ = mic_tx.wait_ready(), if !mic_tx.is_ready() => {
+                if mic_tx.flush(None).await.is_err() {
+                    let _ = event_tx.send(SplitEvent::Fatal(upstream_send_failed_signal())).await;
+                    break;
+                }
+            },
+            _ = spk_tx.wait_ready(), if !spk_tx.is_ready() => {
+                if spk_tx.flush(None).await.is_err() {
+                    let _ = event_tx.send(SplitEvent::Fatal(upstream_send_failed_signal())).await;
+                    break;
+                }
+            },
+            _ = &mut ready_deadline, if !mic_tx.is_ready() || !spk_tx.is_ready() => {
+                tracing::error!(
+                    error.type = "upstream_ready_timeout",
+                    anarlog.timeout_ms = UPSTREAM_READY_TIMEOUT.as_millis() as u64,
+                    "upstream_ready_timeout"
+                );
+                let _ = event_tx
+                    .send(SplitEvent::Fatal(ShutdownSignal::Close {
+                        code: DEFAULT_CLOSE_CODE,
+                        reason: "upstream_ready_timeout".to_string(),
+                    }))
+                    .await;
                 break;
             },
             msg_opt = client_rx.next() => {
@@ -160,13 +244,15 @@ pub(super) async fn relay_client_to_upstreams(
                             serde_json::from_str::<owhisper_interface::ControlMessage>(&text_str),
                             Ok(owhisper_interface::ControlMessage::Finalize)
                         );
-                        let forwarded = match client_message_filter.as_ref() {
-                            Some(filter) => match filter(text_str) {
-                                Some(text) => text,
-                                None => continue,
-                            },
-                            None => text_str,
+                        let apply = |filter: &Option<ClientMessageFilter>| match filter {
+                            Some(filter) => filter(text_str.clone()),
+                            None => Some(text_str.clone()),
                         };
+                        let mic_forwarded = apply(&client_message_filters[0]);
+                        let spk_forwarded = apply(&client_message_filters[1]);
+                        if mic_forwarded.is_none() && spk_forwarded.is_none() {
+                            continue;
+                        }
 
                         if is_finalize
                             && event_tx.send(SplitEvent::FinalizeRequested).await.is_err()
@@ -174,9 +260,14 @@ pub(super) async fn relay_client_to_upstreams(
                             break;
                         }
 
-                        let tung = TungsteniteMessage::Text(forwarded.into());
-                        if mic_tx.send(tung.clone()).await.is_err() || spk_tx.send(tung).await.is_err()
-                        {
+                        let mut failed = false;
+                        if let Some(text) = mic_forwarded {
+                            failed |= mic_tx.send(TungsteniteMessage::Text(text.into())).await.is_err();
+                        }
+                        if let Some(text) = spk_forwarded {
+                            failed |= spk_tx.send(TungsteniteMessage::Text(text.into())).await.is_err();
+                        }
+                        if failed {
                             let _ = event_tx
                                 .send(SplitEvent::Fatal(upstream_send_failed_signal()))
                                 .await;
@@ -186,8 +277,8 @@ pub(super) async fn relay_client_to_upstreams(
                     Message::Close(frame) => {
                         let (code, reason) = convert::extract_axum_close(frame, "client_closed");
                         let close = convert::to_tungstenite_close(code, reason);
-                        let _ = mic_tx.send(close.clone()).await;
-                        let _ = spk_tx.send(close).await;
+                        let _ = mic_tx.send_now(close.clone()).await;
+                        let _ = spk_tx.send_now(close).await;
                         let _ = event_tx.send(SplitEvent::ClientClosed).await;
                         break;
                     }
@@ -203,6 +294,7 @@ pub(super) async fn relay_upstream_to_events(
     channel: usize,
     event_tx: tokio::sync::mpsc::Sender<SplitEvent>,
     shutdown_tx: tokio::sync::broadcast::Sender<ShutdownSignal>,
+    mut readiness: Option<(UpstreamReadiness, ReadyNotifier)>,
 ) {
     let mut shutdown_rx = shutdown_tx.subscribe();
 
@@ -230,6 +322,11 @@ pub(super) async fn relay_upstream_to_events(
 
                 match msg {
                     TungsteniteMessage::Text(text) => {
+                        if readiness.as_ref().is_some_and(|(r, _)| r.matches(text.as_str()))
+                            && let Some((_, notifier)) = readiness.take()
+                        {
+                            let _ = notifier.send(true);
+                        }
                         if proxy_debug_enabled() {
                             tracing::info!(
                                 anarlog.stream.channel = channel,

@@ -19,9 +19,12 @@ use super::pending::{FlushError, PendingState, QueuedPayload};
 use super::types::{
     ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, ClientReceiver,
     ClientSender, ControlMessageTypes, DEFAULT_CLOSE_CODE, FirstMessageTransformer, InitialMessage,
-    OnCloseCallback, ResponseTransformer, ShutdownSignal, UpstreamReceiver, UpstreamSender,
-    convert, is_control_message,
+    OnCloseCallback, ReadyNotifier, ReadyWaiter, ResponseTransformer, ShutdownSignal,
+    UpstreamReadiness, UpstreamReceiver, UpstreamSender, convert, is_control_message,
+    ready_channel, wait_until_ready,
 };
+
+pub(crate) const UPSTREAM_READY_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct WebSocketProxy {
@@ -34,6 +37,7 @@ pub struct WebSocketProxy {
     on_close: Option<OnCloseCallback>,
     client_message_filter: Option<ClientMessageFilter>,
     client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
+    upstream_readiness: Option<UpstreamReadiness>,
 }
 
 impl WebSocketProxy {
@@ -59,7 +63,13 @@ impl WebSocketProxy {
             on_close,
             client_message_filter,
             client_binary_message_mapper,
+            upstream_readiness: None,
         }
+    }
+
+    pub(crate) fn with_upstream_readiness(mut self, readiness: UpstreamReadiness) -> Self {
+        self.upstream_readiness = Some(readiness);
+        self
     }
 
     pub(crate) fn with_client_binary_message_mapper(
@@ -131,6 +141,7 @@ impl WebSocketProxy {
             self.on_close.clone(),
             self.client_message_filter.clone(),
             self.client_binary_message_mapper.clone(),
+            self.upstream_readiness.clone(),
         )
         .await;
 
@@ -167,6 +178,7 @@ impl WebSocketProxy {
         on_close: Option<OnCloseCallback>,
         client_message_filter: Option<ClientMessageFilter>,
         client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
+        upstream_readiness: Option<UpstreamReadiness>,
     ) {
         let start_time = Instant::now();
 
@@ -175,6 +187,7 @@ impl WebSocketProxy {
 
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel::<ShutdownSignal>(1);
         let shutdown_rx2 = shutdown_tx.subscribe();
+        let (ready_tx, ready_rx) = ready_channel(upstream_readiness.as_ref());
 
         let client_to_upstream = Self::run_client_to_upstream(
             client_receiver,
@@ -186,6 +199,7 @@ impl WebSocketProxy {
             initial_message,
             client_message_filter,
             client_binary_message_mapper,
+            ready_rx,
         );
 
         let upstream_to_client = Self::run_upstream_to_client(
@@ -194,6 +208,7 @@ impl WebSocketProxy {
             shutdown_tx.clone(),
             shutdown_rx2,
             response_transformer,
+            upstream_readiness.map(|readiness| (readiness, ready_tx)),
         );
 
         let _ = tokio::join!(client_to_upstream, upstream_to_client);
@@ -216,6 +231,7 @@ impl WebSocketProxy {
         control_types: &Option<ControlMessageTypes>,
         shutdown_tx: &tokio::sync::broadcast::Sender<ShutdownSignal>,
         upstream_sender: &mut UpstreamSender,
+        upstream_ready: bool,
     ) -> bool {
         let is_control = control_types
             .as_ref()
@@ -237,6 +253,18 @@ impl WebSocketProxy {
             return true;
         }
 
+        if !upstream_ready {
+            return false;
+        }
+
+        Self::flush_pending(pending, shutdown_tx, upstream_sender).await
+    }
+
+    async fn flush_pending(
+        pending: &mut PendingState,
+        shutdown_tx: &tokio::sync::broadcast::Sender<ShutdownSignal>,
+        upstream_sender: &mut UpstreamSender,
+    ) -> bool {
         if let Err(e) = pending.flush_to(upstream_sender).await {
             match e {
                 FlushError::SendFailed => {
@@ -276,8 +304,12 @@ impl WebSocketProxy {
         initial_message: Option<InitialMessage>,
         client_message_filter: Option<ClientMessageFilter>,
         client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
+        mut ready_rx: ReadyWaiter,
     ) {
         let mut pending = PendingState::default();
+        let mut upstream_ready = *ready_rx.borrow();
+        let ready_deadline = tokio::time::sleep(UPSTREAM_READY_TIMEOUT);
+        tokio::pin!(ready_deadline);
 
         if let Some(msg) = initial_message {
             if let Err(_e) = upstream_sender
@@ -300,6 +332,27 @@ impl WebSocketProxy {
                         && let ShutdownSignal::Close { code, reason } = signal {
                             let _ = upstream_sender.send(convert::to_tungstenite_close(code, reason)).await;
                         }
+                    break;
+                }
+
+                _ = wait_until_ready(&mut ready_rx), if !upstream_ready => {
+                    upstream_ready = true;
+                    tracing::debug!("upstream_ready");
+                    if Self::flush_pending(&mut pending, &shutdown_tx, &mut upstream_sender).await {
+                        break;
+                    }
+                }
+
+                _ = &mut ready_deadline, if !upstream_ready => {
+                    tracing::error!(
+                        error.type = "upstream_ready_timeout",
+                        anarlog.timeout_ms = UPSTREAM_READY_TIMEOUT.as_millis() as u64,
+                        "upstream_ready_timeout"
+                    );
+                    let _ = shutdown_tx.send(ShutdownSignal::Close {
+                        code: DEFAULT_CLOSE_CODE,
+                        reason: "upstream_ready_timeout".to_string(),
+                    });
                     break;
                 }
 
@@ -345,7 +398,7 @@ impl WebSocketProxy {
 
                             let data = text_str.into_bytes();
 
-                            if Self::process_data_message(&mut pending, data, true, &control_types, &shutdown_tx, &mut upstream_sender).await {
+                            if Self::process_data_message(&mut pending, data, true, &control_types, &shutdown_tx, &mut upstream_sender, upstream_ready).await {
                                 break;
                             }
                         }
@@ -369,7 +422,7 @@ impl WebSocketProxy {
                                 ClientBinaryMessage::Binary(data) => (data, false),
                             };
 
-                            if Self::process_data_message(&mut pending, data, is_text, &control_types, &shutdown_tx, &mut upstream_sender).await {
+                            if Self::process_data_message(&mut pending, data, is_text, &control_types, &shutdown_tx, &mut upstream_sender, upstream_ready).await {
                                 break;
                             }
                         }
@@ -411,6 +464,7 @@ impl WebSocketProxy {
         shutdown_tx: tokio::sync::broadcast::Sender<ShutdownSignal>,
         mut shutdown_rx: tokio::sync::broadcast::Receiver<ShutdownSignal>,
         response_transformer: Option<ResponseTransformer>,
+        mut readiness: Option<(UpstreamReadiness, ReadyNotifier)>,
     ) {
         let mut pending_error: Option<(u16, String)> = None;
 
@@ -456,6 +510,12 @@ impl WebSocketProxy {
                         TungsteniteMessage::Text(text) => {
                             let text_str = text.as_str();
                             let text_bytes = text_str.as_bytes();
+
+                            if readiness.as_ref().is_some_and(|(r, _)| r.matches(text_str))
+                                && let Some((_, notifier)) = readiness.take()
+                            {
+                                let _ = notifier.send(true);
+                            }
 
                             if let Some(upstream_err) = Provider::detect_any_error(text_bytes) {
                                 tracing::warn!(

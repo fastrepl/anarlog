@@ -14,7 +14,7 @@ use crate::provider_selector::SelectedProvider;
 use crate::query_params::{QueryParams, QueryValue};
 use crate::relay::{
     ClientBinaryMessage, ClientBinaryMessageMapper, ClientMessageFilter, StreamingProxy,
-    StreamingProxyPlan, StreamingTransport,
+    StreamingProxyPlan, StreamingTransport, UpstreamReadiness,
 };
 use crate::routes::AppState;
 use crate::routes::model_resolution::resolve_model_live;
@@ -36,12 +36,25 @@ fn build_listen_params(params: &QueryParams) -> ListenParams {
     })
 }
 
-fn dashscope_streaming_adapter(
+/// One task-protocol session per upstream: `[mic, spk]`. Split mode uses both; single mode uses `[0]`.
+type DashScopeStreamingSessions = [DashScopeStreamingAdapter; 2];
+
+fn dashscope_streaming_sessions(
     provider: Provider,
     model: Option<&str>,
-) -> Option<DashScopeStreamingAdapter> {
+) -> Option<DashScopeStreamingSessions> {
     (provider == Provider::DashScope && model.is_some_and(DashScopeStreamingAdapter::is_model))
-        .then(DashScopeStreamingAdapter::default)
+        .then(|| {
+            let mic = DashScopeStreamingAdapter::default();
+            let spk = mic.fork_session();
+            [mic, spk]
+        })
+}
+
+fn upstream_readiness_for(adapter: &DashScopeStreamingAdapter) -> Option<UpstreamReadiness> {
+    adapter
+        .initial_response_type()
+        .map(|expected| UpstreamReadiness::new(adapter.initial_response_field(), expected))
 }
 
 fn build_upstream_url_with_adapter(
@@ -155,7 +168,7 @@ fn build_response_transformer(
     let openai_adapter = OpenAIAdapter::default();
     let is_deepgram_flux =
         provider == Provider::Deepgram && model.is_some_and(DeepgramFluxAdapter::is_model);
-    let dashscope_streaming = dashscope_streaming_adapter(provider, model);
+    let dashscope_streaming = dashscope_streaming_sessions(provider, model).map(|[mic, _]| mic);
     move |raw: &str| {
         let responses: Vec<owhisper_interface::stream::StreamResponse> = match provider {
             Provider::Deepgram if is_deepgram_flux => DeepgramFluxAdapter.parse_response(raw),
@@ -298,7 +311,7 @@ fn build_proxy_plan(
     model: Option<&str>,
     config: &SttProxyConfig,
     analytics_ctx: AnalyticsContext,
-    dashscope_streaming: Option<DashScopeStreamingAdapter>,
+    dashscope_streaming: Option<&DashScopeStreamingSessions>,
 ) -> Result<StreamingProxyPlan, crate::ProxyError> {
     let mut plan = StreamingProxyPlan::new(StreamingTransport::for_channels(
         channels,
@@ -312,12 +325,23 @@ fn build_proxy_plan(
     .client_message_filter(build_client_message_filter(
         provider,
         model,
-        dashscope_streaming,
+        dashscope_streaming.map(|sessions| sessions[0].clone()),
     ))
     .apply_auth(selected);
 
+    if let Some(readiness) = dashscope_streaming.and_then(|s| upstream_readiness_for(&s[0])) {
+        plan = plan.upstream_readiness(readiness);
+    }
+
     if plan.upstream_count() == 2 {
         plan = plan.split_response_transformer(build_response_transformer(provider, model));
+        if let Some(sessions) = dashscope_streaming {
+            plan = plan.split_client_message_filter(build_client_message_filter(
+                provider,
+                model,
+                Some(sessions[1].clone()),
+            ));
+        }
     }
 
     if let Some(mapper) = build_client_binary_message_mapper(provider, sample_rate) {
@@ -338,16 +362,17 @@ fn build_proxy_with_adapter(
     mut plan: StreamingProxyPlan,
     provider: Provider,
     api_key: &str,
-    dashscope_streaming: Option<&DashScopeStreamingAdapter>,
+    dashscope_streaming: Option<&DashScopeStreamingSessions>,
 ) -> Result<StreamingProxy, crate::ProxyError> {
     let upstream_channels = plan.upstream_request_channels(channels);
+    let mic_adapter = dashscope_streaming.map(|s| &s[0]);
 
     let upstream_url = build_upstream_url_with_adapter(
         provider,
         api_base,
         listen_params,
         upstream_channels,
-        dashscope_streaming,
+        mic_adapter,
     );
 
     let initial_message = build_initial_message_with_adapter(
@@ -355,11 +380,24 @@ fn build_proxy_with_adapter(
         Some(api_key),
         listen_params,
         upstream_channels,
-        dashscope_streaming,
+        mic_adapter,
     );
 
     if let Some(msg) = initial_message {
         plan = plan.initial_message(msg);
+    }
+
+    if plan.upstream_count() == 2
+        && let Some(sessions) = dashscope_streaming
+        && let Some(msg) = build_initial_message_with_adapter(
+            provider,
+            Some(api_key),
+            listen_params,
+            upstream_channels,
+            Some(&sessions[1]),
+        )
+    {
+        plan = plan.split_initial_message(msg);
     }
 
     plan.build_from_upstream_url(upstream_url.as_str())
@@ -385,7 +423,8 @@ pub async fn build_proxy(
     }
     let mut listen_params = build_listen_params(params);
     resolve_model_live(provider, &mut listen_params);
-    let dashscope_streaming = dashscope_streaming_adapter(provider, listen_params.model.as_deref());
+    let dashscope_streaming =
+        dashscope_streaming_sessions(provider, listen_params.model.as_deref());
     let plan = build_proxy_plan(
         provider,
         selected,
@@ -394,7 +433,7 @@ pub async fn build_proxy(
         listen_params.model.as_deref(),
         &state.config,
         analytics_ctx,
-        dashscope_streaming.clone(),
+        dashscope_streaming.as_ref(),
     )?;
     let api_base = selected
         .upstream_url()
@@ -765,10 +804,11 @@ mod tests {
             channels: 1,
             ..Default::default()
         };
-        let adapter = dashscope_streaming_adapter(Provider::DashScope, Some(model))
+        let [adapter, spk_adapter] = dashscope_streaming_sessions(Provider::DashScope, Some(model))
             .expect("streaming adapter");
+        assert_ne!(adapter.task_id(), spk_adapter.task_id());
         assert!(
-            dashscope_streaming_adapter(Provider::DashScope, Some("qwen3-asr-flash-realtime"))
+            dashscope_streaming_sessions(Provider::DashScope, Some("qwen3-asr-flash-realtime"))
                 .is_none()
         );
 
@@ -801,6 +841,30 @@ mod tests {
             serde_json::from_str(&filter(r#"{"type":"Finalize"}"#.to_string()).unwrap()).unwrap();
         assert_eq!(finish["header"]["action"], "finish-task");
         assert_eq!(finish["header"]["task_id"], adapter.task_id());
+
+        let spk_initial = build_initial_message_with_adapter(
+            Provider::DashScope,
+            Some("test-key"),
+            &params,
+            1,
+            Some(&spk_adapter),
+        )
+        .expect("speaker initial message");
+        let spk_initial: serde_json::Value = serde_json::from_str(&spk_initial).unwrap();
+        assert_eq!(spk_initial["header"]["task_id"], spk_adapter.task_id());
+        let spk_filter = build_client_message_filter(
+            Provider::DashScope,
+            Some(model),
+            Some(spk_adapter.clone()),
+        );
+        let spk_finish: serde_json::Value =
+            serde_json::from_str(&spk_filter(r#"{"type":"Finalize"}"#.to_string()).unwrap())
+                .unwrap();
+        assert_eq!(spk_finish["header"]["task_id"], spk_adapter.task_id());
+
+        let readiness = upstream_readiness_for(&adapter).expect("readiness");
+        assert!(readiness.matches(r#"{"header":{"event":"task-started"}}"#));
+        assert!(!readiness.matches(r#"{"header":{"event":"result-generated"}}"#));
 
         let legacy_filter = build_client_message_filter(
             Provider::DashScope,

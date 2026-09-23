@@ -85,6 +85,27 @@ impl DashScopeStreamingAdapter {
             channel_index: vec![0, 1],
         }]
     }
+
+    /// Empty finalization marker so consumers waiting on `from_finalize` observe `task-finished`.
+    fn finalization_marker() -> StreamResponse {
+        StreamResponse::TranscriptResponse {
+            is_final: true,
+            speech_final: true,
+            from_finalize: true,
+            start: 0.0,
+            duration: 0.0,
+            channel: Channel {
+                alternatives: vec![Alternatives {
+                    transcript: String::new(),
+                    words: vec![],
+                    confidence: 1.0,
+                    languages: vec![],
+                }],
+            },
+            metadata: Metadata::default(),
+            channel_index: vec![0, 1],
+        }
+    }
 }
 
 impl RealtimeSttAdapter for DashScopeStreamingAdapter {
@@ -127,6 +148,10 @@ impl RealtimeSttAdapter for DashScopeStreamingAdapter {
 
     fn build_auth_header(&self, api_key: Option<&str>) -> Option<(&'static str, String)> {
         api_key.and_then(|k| Provider::DashScope.build_auth_header(k))
+    }
+
+    fn fork_session(&self) -> Self {
+        Self::default()
     }
 
     fn initial_response_type(&self) -> Option<&'static str> {
@@ -222,7 +247,7 @@ impl RealtimeSttAdapter for DashScopeStreamingAdapter {
             },
             "task-finished" => {
                 tracing::debug!("dashscope_task_finished");
-                vec![]
+                vec![Self::finalization_marker()]
             }
             "task-failed" => {
                 let code = event.header.error_code.unwrap_or_default();
@@ -482,7 +507,7 @@ mod tests {
     }
 
     #[test]
-    fn parses_task_failed_and_ignores_lifecycle_events() {
+    fn parses_task_lifecycle_events() {
         let adapter = DashScopeStreamingAdapter::default();
 
         assert!(
@@ -492,11 +517,17 @@ mod tests {
                 )
                 .is_empty()
         );
-        assert!(
-            adapter
-                .parse_response(r#"{"header": {"task_id": "abc", "event": "task-finished"}, "payload": {"output": {}}}"#)
-                .is_empty()
+        let finished = adapter.parse_response(
+            r#"{"header": {"task_id": "abc", "event": "task-finished"}, "payload": {"output": {}}}"#,
         );
+        assert!(matches!(
+            &finished[..],
+            [StreamResponse::TranscriptResponse {
+                from_finalize: true,
+                is_final: true,
+                ..
+            }]
+        ));
 
         let raw = r#"{"header": {"task_id": "abc", "event": "task-failed", "error_code": "InvalidParameter", "error_message": "bad format"}, "payload": {}}"#;
         let responses = adapter.parse_response(raw);
@@ -510,5 +541,13 @@ mod tests {
         };
         assert_eq!(error_message, "InvalidParameter: bad format");
         assert_eq!(provider, "dashscope");
+    }
+
+    #[test]
+    fn fork_session_uses_distinct_task_id() {
+        let adapter = DashScopeStreamingAdapter::default();
+        let forked = adapter.fork_session();
+        assert_ne!(adapter.task_id(), forked.task_id());
+        assert_eq!(adapter.clone().task_id(), adapter.task_id());
     }
 }

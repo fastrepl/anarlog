@@ -27,6 +27,46 @@ pub enum ClientBinaryMessage {
     Binary(Vec<u8>),
 }
 
+/// Upstream acknowledgement that must arrive before any client payload is forwarded.
+/// `field` is a top-level key or a JSON Pointer (leading `/`).
+#[derive(Clone, Debug)]
+pub struct UpstreamReadiness {
+    pub field: String,
+    pub expected: String,
+}
+
+impl UpstreamReadiness {
+    pub fn new(field: impl Into<String>, expected: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            expected: expected.into(),
+        }
+    }
+
+    pub fn matches(&self, text: &str) -> bool {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(text) else {
+            return false;
+        };
+        let actual = if self.field.starts_with('/') {
+            value.pointer(&self.field)
+        } else {
+            value.get(&self.field)
+        };
+        actual.and_then(|v| v.as_str()) == Some(self.expected.as_str())
+    }
+}
+
+pub type ReadyNotifier = tokio::sync::watch::Sender<bool>;
+pub type ReadyWaiter = tokio::sync::watch::Receiver<bool>;
+
+pub fn ready_channel(readiness: Option<&UpstreamReadiness>) -> (ReadyNotifier, ReadyWaiter) {
+    tokio::sync::watch::channel(readiness.is_none())
+}
+
+pub async fn wait_until_ready(waiter: &mut ReadyWaiter) {
+    let _ = waiter.wait_for(|ready| *ready).await;
+}
+
 #[derive(Clone, Debug)]
 pub enum ShutdownSignal {
     Close { code: u16, reason: String },
@@ -114,6 +154,18 @@ pub mod convert {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn upstream_readiness_matches_pointer_and_top_level_fields() {
+        let nested = UpstreamReadiness::new("/header/event", "task-started");
+        assert!(nested.matches(r#"{"header":{"event":"task-started"}}"#));
+        assert!(!nested.matches(r#"{"header":{"event":"result-generated"}}"#));
+        assert!(!nested.matches("not json"));
+
+        let flat = UpstreamReadiness::new("type", "session.created");
+        assert!(flat.matches(r#"{"type":"session.created"}"#));
+        assert!(!flat.matches(r#"{"type":"other"}"#));
+    }
 
     #[test]
     fn test_is_control_message_empty_types() {
