@@ -18,17 +18,7 @@ html[data-live-caption] #root {
 }
 
 html[data-rounded-window] #root {
-  position: relative;
-}
-
-html[data-rounded-window] #root::after {
-  content: "";
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 2147483647;
   border: 1px solid hsl(var(--border));
-  border-radius: 10px;
 }
 
 .undo-delete-toast-gauge {

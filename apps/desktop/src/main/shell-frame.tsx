@@ -6,10 +6,7 @@ import { WindowsTitleBar } from "./windows-title-bar";
 
 import { useShell } from "~/contexts/shell";
 import { DevtoolsStatusBar } from "~/devtools-bar";
-import {
-  useRoundedWindowFrame,
-  usesWindowsStyleTitleBar,
-} from "~/shared/hooks/useWindowControlsGutter";
+import { usesWindowsStyleTitleBar } from "~/shared/hooks/useWindowControlsGutter";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
 import { ToastNotifications } from "~/sidebar/toast";
 import {
@@ -22,7 +19,6 @@ import { useTabs } from "~/store/zustand/tabs";
 export function ClassicMainShellFrame() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
-  useRoundedWindowFrame();
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";

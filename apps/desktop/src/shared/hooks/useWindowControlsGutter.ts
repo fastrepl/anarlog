@@ -24,10 +24,14 @@ export function useRoundedWindowFrame() {
       return;
     }
 
+    const appWindow = getCurrentWindow();
+    if (appWindow.label !== "main") {
+      return;
+    }
+
     let cancelled = false;
     let syncVersion = 0;
     let unlistenResize: (() => void) | undefined;
-    const appWindow = getCurrentWindow();
     const sync = async () => {
       const version = ++syncVersion;
       const [isMaximized, isFullscreen] = await Promise.all([
