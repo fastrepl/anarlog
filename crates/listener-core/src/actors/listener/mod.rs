@@ -207,7 +207,7 @@ impl Actor for ListenerActor {
             let _ = process_stream_response(state, response);
         }
 
-        if let Some(update) = state.transcript.flush() {
+        if let Some(update) = flush_transcript(&state.args.live_confirmed, &mut state.transcript) {
             if !update.transcript_delta.is_empty() {
                 state
                     .args
@@ -518,6 +518,19 @@ fn process_stream_response(
     None
 }
 
+fn flush_transcript(
+    live_confirmed: &LiveConfirmed,
+    engine: &mut LiveTranscriptEngine,
+) -> Option<crate::LiveTranscriptUpdate> {
+    let update = engine.flush()?;
+    // Words flushed at shutdown are already delivered; the replacement
+    // listener's watermark must cover them or the replay re-emits them.
+    for word in &update.transcript_delta.new_words {
+        live_confirmed.note(word.channel, word.end_ms.max(0) as u64);
+    }
+    Some(update)
+}
+
 fn note_confirmed_words(args: &ListenerArgs, delta: &crate::LiveTranscriptDelta) {
     for word in &delta.new_words {
         args.live_confirmed
@@ -590,6 +603,15 @@ mod tests {
 
     type Emitted = Vec<(i32, String, i64, i64)>;
 
+    fn emitted_words(update: crate::LiveTranscriptUpdate) -> Emitted {
+        update
+            .transcript_delta
+            .new_words
+            .iter()
+            .map(|w| (w.channel, w.text.trim().to_string(), w.start_ms, w.end_ms))
+            .collect()
+    }
+
     fn collect(
         live_confirmed: &LiveConfirmed,
         update: Option<crate::LiveTranscriptUpdate>,
@@ -600,12 +622,7 @@ mod tests {
         for word in &update.transcript_delta.new_words {
             live_confirmed.note(word.channel, word.end_ms.max(0) as u64);
         }
-        update
-            .transcript_delta
-            .new_words
-            .iter()
-            .map(|w| (w.channel, w.text.trim().to_string(), w.start_ms, w.end_ms))
-            .collect()
+        emitted_words(update)
     }
 
     fn finalize(
@@ -622,7 +639,9 @@ mod tests {
         old: &mut LiveTranscriptEngine,
         live_confirmed: &LiveConfirmed,
     ) -> (Emitted, LiveTranscriptEngine) {
-        let flushed = collect(live_confirmed, old.flush());
+        let flushed = flush_transcript(live_confirmed, old)
+            .map(emitted_words)
+            .unwrap_or_default();
         (flushed, engine(live_confirmed))
     }
 
@@ -666,6 +685,40 @@ mod tests {
                 (0, "world".to_string(), 1000, 1500),
                 (1, "reply".to_string(), 200, 900),
             ]
+        );
+    }
+
+    #[test]
+    fn flushed_words_raise_the_reconnect_watermark() {
+        let live_confirmed = LiveConfirmed::default();
+
+        let mut first = engine(&live_confirmed);
+        finalize(
+            &mut first,
+            &live_confirmed,
+            &final_response(0, "hello", 0, 1000),
+        );
+        assert_eq!(
+            live_confirmed.latest(),
+            0,
+            "held words are not yet confirmed"
+        );
+
+        let flushed = flush_transcript(&live_confirmed, &mut first)
+            .map(emitted_words)
+            .unwrap_or_default();
+        assert_eq!(flushed, vec![(0, "hello".to_string(), 0, 1000)]);
+        assert_eq!(live_confirmed.latest(), 1000);
+
+        let mut second = engine(&live_confirmed);
+        let replayed = finalize(
+            &mut second,
+            &live_confirmed,
+            &final_response(0, "hello", 0, 1000),
+        );
+        assert!(
+            replayed.is_empty(),
+            "flushed word was emitted again: {replayed:?}"
         );
     }
 
