@@ -48,8 +48,12 @@ import {
   MAX_SYNC_DEVICE_ADDONS,
   selectBasePlanItem,
   selectSyncDeviceAddonItem,
-  SYNC_DEVICE_ADDON_LOOKUP_KEYS,
 } from "@/lib/sync-device-addon";
+import {
+  getSyncDeviceAddonPrice,
+  switchPlanWithAddon,
+  updateDeviceAddonQuantity,
+} from "@/lib/sync-device-billing";
 import { WEB_TRIAL_CHECKOUT_FIELDS } from "@/lib/trial-policy";
 import {
   startWorkspaceCheckout,
@@ -193,53 +197,29 @@ const getTeamPriceId = (period: "monthly" | "yearly") => {
   );
 };
 
-const getSyncDeviceAddonPrice = async (
-  stripe: Stripe,
-  period: BillingPeriod,
-): Promise<Stripe.Price> => {
-  const lookupKey = SYNC_DEVICE_ADDON_LOOKUP_KEYS[period];
-  const prices = await stripe.prices.list({
-    lookup_keys: [lookupKey],
-    active: true,
-    limit: 1,
-  });
-  const price = prices.data[0];
-  if (!price) {
-    throw new Error(`Missing Stripe price for lookup key: ${lookupKey}`);
-  }
-  return price;
-};
-
 const createSubscriptionUpdateConfirmUrl = async (
   stripe: Stripe,
   stripeCustomerId: string,
   subscription: Stripe.Subscription,
   targetPriceId: string,
   returnUrl: string,
+  scheme?: z.infer<typeof desktopSchemeSchema>,
 ) => {
   const subscriptionItem = selectBasePlanItem(subscription.items.data);
   if (!subscriptionItem) {
     throw new Error("Subscription item is unavailable");
   }
 
-  const items: Stripe.BillingPortal.SessionCreateParams.FlowData.SubscriptionUpdateConfirm.Item[] =
-    [{ id: subscriptionItem.id, price: targetPriceId }];
-
-  // Keep the add-on on the same billing interval as the base plan.
-  const addonItem = selectSyncDeviceAddonItem(subscription.items.data);
-  const targetPrice = await stripe.prices.retrieve(targetPriceId);
-  const targetPeriod = getSubscriptionBillingPeriod({
-    items: { data: [{ price: targetPrice }] },
-  });
-  if (addonItem && targetPeriod) {
-    const addonPrice = await getSyncDeviceAddonPrice(stripe, targetPeriod);
-    if (addonPrice.id !== addonItem.price.id) {
-      items.push({
-        id: addonItem.id,
-        price: addonPrice.id,
-        quantity: addonItem.quantity,
-      });
-    }
+  if (selectSyncDeviceAddonItem(subscription.items.data)) {
+    const targetPrice = await stripe.prices.retrieve(targetPriceId);
+    const period = getSubscriptionBillingPeriod({
+      items: { data: [{ price: targetPrice }] },
+    });
+    if (!period) throw new Error("Subscription billing period is unavailable");
+    const url = new URL("/app/switch-plan", getRequestAppOrigin());
+    url.searchParams.set("targetPeriod", period);
+    if (scheme) url.searchParams.set("scheme", scheme);
+    return url.toString();
   }
 
   const portalSession = await stripe.billingPortal.sessions.create({
@@ -249,7 +229,7 @@ const createSubscriptionUpdateConfirmUrl = async (
       type: "subscription_update_confirm",
       subscription_update_confirm: {
         subscription: subscription.id,
-        items,
+        items: [{ id: subscriptionItem.id, price: targetPriceId }],
       },
       after_completion: {
         type: "redirect",
@@ -657,6 +637,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
                   currentSubscription,
                   getProPriceId(data.period),
                   returnUrl,
+                  data.scheme,
                 ),
               };
             }
@@ -894,6 +875,7 @@ const releaseTrialReservation = async (
 };
 
 const createPlanSwitchSessionInput = z.object({
+  confirmed: z.boolean().default(false),
   targetPlan: z.enum(["pro"]).default("pro").optional(),
   targetPeriod: z.enum(["monthly", "yearly"]).default("monthly"),
   scheme: desktopSchemeSchema.optional(),
@@ -964,6 +946,17 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
       });
 
       return { url: portalSession.url };
+    }
+
+    if (selectSyncDeviceAddonItem(activeSubscription.items.data)) {
+      return switchPlanWithAddon({
+        stripe,
+        subscription: activeSubscription,
+        targetPriceId,
+        period: data.targetPeriod,
+        confirmed: data.confirmed,
+        returnUrl,
+      });
     }
 
     return {
@@ -1178,37 +1171,17 @@ export const updateSyncDeviceAddon = createServerFn({ method: "POST" })
       throw new Error("Subscription billing period is unavailable");
     }
 
-    const addonItem = selectSyncDeviceAddonItem(subscription.items.data);
     const currentQuantity = getSyncDeviceAddonQuantity(subscription.items.data);
     if (currentQuantity === data.quantity) {
       return { quantity: currentQuantity };
     }
 
-    // Extra slots are billed immediately (prorated); removals credit the
-    // next invoice.
-    const prorationBehavior: Stripe.SubscriptionItemUpdateParams.ProrationBehavior =
-      data.quantity > currentQuantity ? "always_invoice" : "create_prorations";
-
-    if (data.quantity === 0) {
-      if (addonItem) {
-        await stripe.subscriptionItems.del(addonItem.id, {
-          proration_behavior: prorationBehavior,
-        });
-      }
-    } else if (addonItem) {
-      await stripe.subscriptionItems.update(addonItem.id, {
-        quantity: data.quantity,
-        proration_behavior: prorationBehavior,
-      });
-    } else {
-      const addonPrice = await getSyncDeviceAddonPrice(stripe, period);
-      await stripe.subscriptionItems.create({
-        subscription: subscription.id,
-        price: addonPrice.id,
-        quantity: data.quantity,
-        proration_behavior: prorationBehavior,
-      });
-    }
+    await updateDeviceAddonQuantity({
+      stripe,
+      subscription,
+      period,
+      quantity: data.quantity,
+    });
 
     void captureServerAnalytics({
       event: "sync_device_addon_updated",
