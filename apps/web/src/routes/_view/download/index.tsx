@@ -152,38 +152,6 @@ function Component() {
                         </li>
                       ))}
                   </ul>
-                  {section.available &&
-                    section.downloads.some(
-                      (download) => !download.showInMenu,
-                    ) && (
-                      <p className="text-color-muted text-xs leading-5">
-                        Also:{" "}
-                        {section.downloads
-                          .filter((download) => !download.showInMenu)
-                          .map((download, index) => (
-                            <span key={download.name}>
-                              {index > 0 && " · "}
-                              <a
-                                href={download.url}
-                                {...("actionLabel" in download
-                                  ? { target: "_blank", rel: "noreferrer" }
-                                  : {})}
-                                onClick={() =>
-                                  track("download_clicked", {
-                                    platform: section.platform,
-                                    spec: download.name,
-                                    source: "download_page",
-                                    ...experiment,
-                                  })
-                                }
-                                className="underline underline-offset-2"
-                              >
-                                {download.name}
-                              </a>
-                            </span>
-                          ))}
-                      </p>
-                    )}
                 </div>
               ))}
               <div className={gridCellClassName}>
@@ -205,6 +173,44 @@ function Component() {
                 </ul>
               </div>
             </div>
+            {downloadSections
+              .filter(
+                (section) =>
+                  section.available &&
+                  section.downloads.some((download) => !download.showInMenu),
+              )
+              .map((section) => (
+                <p
+                  key={section.name}
+                  className="text-color-muted mt-6 text-sm leading-6"
+                >
+                  More {section.name} installers:{" "}
+                  {section.downloads
+                    .filter((download) => !download.showInMenu)
+                    .map((download, index) => (
+                      <span key={download.name}>
+                        {index > 0 && " · "}
+                        <a
+                          href={download.url}
+                          {...("actionLabel" in download
+                            ? { target: "_blank", rel: "noreferrer" }
+                            : {})}
+                          onClick={() =>
+                            track("download_clicked", {
+                              platform: section.platform,
+                              spec: download.name,
+                              source: "download_page",
+                              ...experiment,
+                            })
+                          }
+                          className="text-color underline underline-offset-2"
+                        >
+                          {download.name}
+                        </a>
+                      </span>
+                    ))}
+                </p>
+              ))}
           </section>
         )}
 
