@@ -45,8 +45,6 @@ Check the export before processing a folder of recordings. TXT is useful for rea
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-import-dialog.png" alt="Buzz import dialog selecting local Whisper Tiny for a WAV file" width={312} height={354} />
 
-*Our capture: Buzz 1.4.5 import settings, Windows Server 2022, September 22, 2026. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-import-dialog.png).*
-
 ### The file workflow we ran
 
 Our test used Buzz 1.4.5 on Windows Server 2022 Standard (build 20348), with a 75.55-second synthetic WAV and local Whisper Tiny. The VM had no audio endpoints, so we tested file import and export only. Live capture, a Windows 11 laptop, and network-disconnected operation were not tested.
@@ -59,8 +57,6 @@ Our test used Buzz 1.4.5 on Windows Server 2022 Standard (build 20348), with a 7
 6. Reopen both files. In our check, `sample-buzz.txt` was 1,105 bytes and `sample-buzz.srt` was 1,894 bytes; both were read back from disk.
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png" alt="Buzz completed transcript with TXT and SRT export choices" width={900} height={611} />
-
-*Our capture: the completed Buzz job and TXT/SRT export choices. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png).*
 
 ## whisper.cpp for repeatable transcription
 
@@ -77,10 +73,7 @@ Get-Content .\sample.wav.txt -TotalCount 5
 
 The CPU run completed and wrote a transcript file. We used this pinned release for its Windows x64 archive; GPU acceleration and live capture were not tested.
 
-
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/whisper-cpp/transcription/2026-09-22-windows-transcription.png" alt="whisper.cpp terminal showing completed transcription and saved text output" width={900} height={506} />
-
-*Our capture: whisper.cpp v1.8.7 and base.en completing file transcription on Windows Server 2022, September 22, 2026. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/whisper-cpp/transcription/2026-09-22-windows-transcription.png).*
 
 ## Otter Basic when you prefer a cloud workspace
 
@@ -92,7 +85,7 @@ Otter provides a [Windows desktop option](https://otter.ai/desktop) as well as w
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png" alt="Otter official illustration of calendar joining, a visible meeting guest, and the transcript workspace" width={900} height={294} />
 
-*Otter's calendar-joining workflow illustration. Source: [Otter Notetaker overview](https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview). [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png).*
+<p className="blog-image-credit">Source: <a href="https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview">Otter</a>.</p>
 
 ## Run the same small test before committing
 
