@@ -10,6 +10,7 @@ import type {
 import {
   type DerivedContactIdentity,
   deriveContactIdentity,
+  isEmailPlaceholderName,
 } from "~/contacts/identity";
 import { id } from "~/shared/utils";
 
@@ -172,7 +173,7 @@ function planHumanEnrichment({
   const enrichment: HumanToEnrich = { id: existing.id, ownerUserId };
 
   const currentName = existing.name.trim();
-  const nameNeedsFill = !currentName || currentName.includes("@");
+  const nameNeedsFill = isEmailPlaceholderName(currentName);
   if (pending?.name && identity.nameSource !== "provider") {
     enrichment.name = pending.name;
   } else if (

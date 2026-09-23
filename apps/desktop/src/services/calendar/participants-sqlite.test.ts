@@ -202,4 +202,46 @@ describe("participant enrichment in SQLite", () => {
       company: "Acme",
     });
   });
+
+  test("keeps user names containing @ and skips organizations assigned after planning", async () => {
+    db.exec(`
+      INSERT INTO organizations(id, name, created_at, updated_at) VALUES ('org-consulting', 'Acme Consulting', '2026-09-01', '2026-09-01');
+      INSERT INTO humans(id, name, email, created_at, updated_at) VALUES
+        ('h-jane', 'Jane @ Acme', 'jane@acme.com', '2026-09-01', '2026-09-01'),
+        ('h-alice', 'alice@acme.com', 'alice@acme.com', '2026-09-01', '2026-09-01');
+    `);
+    const incoming: IncomingParticipants = new Map([
+      ["tracking-1", [{ email: "jane@acme.com" }, { email: "alice@acme.com" }]],
+    ]);
+    const snapshot = await loadParticipantSyncSnapshot([session], incoming);
+    const participants = syncSessionParticipants({
+      incomingParticipants: incoming,
+      snapshot,
+    });
+    expect(
+      participants.humansToEnrich.find((h) => h.id === "h-jane")?.name,
+    ).toBeUndefined();
+
+    db.exec(
+      "UPDATE humans SET organization_id = 'org-consulting' WHERE id IN ('h-jane', 'h-alice')",
+    );
+    await applyConnectionSync({
+      ctx,
+      events: { toDelete: [], toUpdate: [], toAdd: [] },
+      sessionUpdates: [],
+      participants,
+    });
+    expect(humans()).toEqual([
+      { email: "alice@acme.com", name: "Alice", company: "Acme Consulting" },
+      {
+        email: "jane@acme.com",
+        name: "Jane @ Acme",
+        company: "Acme Consulting",
+      },
+      { email: "owner@acme.com", name: "", company: "" },
+    ]);
+    expect(db.prepare("SELECT count(*) AS n FROM organizations").get()).toEqual(
+      { n: 1 },
+    );
+  });
 });

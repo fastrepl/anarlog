@@ -11,6 +11,7 @@ import type { EventsSyncOutput } from "./process/events/types";
 import type { ParticipantsSyncOutput } from "./process/participants/types";
 
 import { getCalendarTrackingKey } from "~/calendar/utils";
+import { HUMAN_NAME_IS_PLACEHOLDER_SQL } from "~/contacts/identity";
 import { executeTransaction, liveQueryClient } from "~/db";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 
@@ -666,22 +667,47 @@ export async function applyConnectionSync({
     });
   }
 
-  const companyNames = new Map<string, { name: string; ownerUserId: string }>();
-  for (const human of [
-    ...participants.humansToCreate,
-    ...participants.humansToEnrich,
-  ]) {
-    if (human.companyName) {
-      const key = human.companyName.toLowerCase();
-      if (!companyNames.has(key)) {
-        companyNames.set(key, {
-          name: human.companyName,
-          ownerUserId: human.ownerUserId,
-        });
-      }
+  type CompanyPlan = {
+    name: string;
+    ownerUserId: string;
+    forNewHuman: boolean;
+    enrichHumanIds: string[];
+  };
+  const companyNames = new Map<string, CompanyPlan>();
+  const planCompany = (human: {
+    companyName?: string;
+    ownerUserId: string;
+  }): CompanyPlan | undefined => {
+    if (!human.companyName) return undefined;
+    const key = human.companyName.toLowerCase();
+    let plan = companyNames.get(key);
+    if (!plan) {
+      plan = {
+        name: human.companyName,
+        ownerUserId: human.ownerUserId,
+        forNewHuman: false,
+        enrichHumanIds: [],
+      };
+      companyNames.set(key, plan);
     }
+    return plan;
+  };
+  for (const human of participants.humansToCreate) {
+    const plan = planCompany(human);
+    if (plan) plan.forNewHuman = true;
+  }
+  for (const human of participants.humansToEnrich) {
+    planCompany(human)?.enrichHumanIds.push(human.id);
   }
   for (const company of companyNames.values()) {
+    const stillNeededSql = company.forNewHuman
+      ? ""
+      : `AND EXISTS (
+          SELECT 1
+          FROM humans
+          WHERE id IN (${placeholders(company.enrichHumanIds.length)})
+            AND organization_id = '' AND deleted_at IS NULL
+        )`;
     statements.push({
       sql: `
         INSERT INTO organizations (
@@ -698,8 +724,17 @@ export async function applyConnectionSync({
           FROM organizations
           WHERE lower(name) = lower(?) AND deleted_at IS NULL
         )
+        ${stillNeededSql}
       `,
-      params: [id(), company.ownerUserId, company.name, now, now, company.name],
+      params: [
+        id(),
+        company.ownerUserId,
+        company.name,
+        now,
+        now,
+        company.name,
+        ...(company.forNewHuman ? [] : company.enrichHumanIds),
+      ],
     });
   }
 
@@ -752,7 +787,7 @@ export async function applyConnectionSync({
     const params: unknown[] = [];
     if (human.name) {
       assignments.push(
-        "name = CASE WHEN trim(name) = '' OR instr(name, '@') > 0 THEN ? ELSE name END",
+        `name = CASE WHEN ${HUMAN_NAME_IS_PLACEHOLDER_SQL} THEN ? ELSE name END`,
       );
       params.push(human.name);
     }

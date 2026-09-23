@@ -119,6 +119,39 @@ describe("session SQLite operations", () => {
     ).toContain("alice@example.com");
   });
 
+  it("enriches an existing placeholder human when attaching to an event note", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([event])
+      .mockResolvedValueOnce([{ id: "session-existing" }])
+      .mockResolvedValueOnce([
+        { id: "human-alice", email: "alice@example.com" },
+      ]);
+
+    await getOrCreateSessionForEventId("event-1");
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(
+      statements.some((statement) =>
+        statement.sql.includes("INSERT INTO humans"),
+      ),
+    ).toBe(false);
+    const update = statements.find((statement) =>
+      statement.sql.includes("UPDATE humans"),
+    );
+    expect(update?.sql).toContain("ELSE name");
+    expect(update?.params).toEqual(
+      expect.arrayContaining(["Alice", "Example", "human-alice"]),
+    );
+    expect(
+      statements.find((statement) =>
+        statement.sql.includes("INSERT INTO organizations"),
+      )?.sql,
+    ).toContain("organization_id = ''");
+  });
+
   it("does not attach the calendar self copy to an existing event note", async () => {
     mocks.execute
       .mockResolvedValueOnce([

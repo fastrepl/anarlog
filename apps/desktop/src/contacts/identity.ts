@@ -17,6 +17,43 @@ const PERSONAL_EMAIL_DOMAINS = new Set([
   "fastmail.com",
 ]);
 
+const PERSONAL_PROVIDER_LABELS = new Set([
+  "gmail",
+  "googlemail",
+  "yahoo",
+  "ymail",
+  "outlook",
+  "hotmail",
+  "live",
+  "msn",
+  "icloud",
+  "aol",
+  "proton",
+  "protonmail",
+  "gmx",
+  "yandex",
+  "naver",
+  "daum",
+  "hanmail",
+  "nate",
+  "qq",
+  "163",
+  "126",
+  "mail",
+  "email",
+  "web",
+]);
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isEmailPlaceholderName(name: string): boolean {
+  const trimmed = name.trim();
+  return !trimmed || EMAIL_PATTERN.test(trimmed);
+}
+
+export const HUMAN_NAME_IS_PLACEHOLDER_SQL =
+  "(trim(name) = '' OR (name LIKE '%@%.%' AND instr(trim(name), ' ') = 0))";
+
 const SECOND_LEVEL_SUFFIX_LABELS = new Set([
   "co",
   "com",
@@ -67,7 +104,12 @@ export function isLikelyPersonName(value: string): boolean {
     return false;
   }
 
-  const normalized = normalizeName(value);
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
   if (
     !normalized ||
     [
@@ -119,7 +161,11 @@ export function inferCompanyNameFromEmail(
     labels.length >= 3 && isPublicSuffixLabel
       ? labels[labels.length - 3]
       : secondLast;
-  if (!companyLabel || companyLabel.length < 2) {
+  if (
+    !companyLabel ||
+    companyLabel.length < 2 ||
+    PERSONAL_PROVIDER_LABELS.has(companyLabel)
+  ) {
     return undefined;
   }
 

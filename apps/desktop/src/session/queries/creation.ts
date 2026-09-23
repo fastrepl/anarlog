@@ -7,7 +7,10 @@ import {
 
 import type { SessionChanges } from "./types";
 
-import { deriveContactIdentity } from "~/contacts/identity";
+import {
+  deriveContactIdentity,
+  HUMAN_NAME_IS_PLACEHOLDER_SQL,
+} from "~/contacts/identity";
 import { executeTransaction, liveQueryClient } from "~/db";
 import { ensureFolderCatalog } from "~/session/folder-catalog";
 import { normalizeFolderPath } from "~/session/folders";
@@ -372,6 +375,83 @@ function eventParticipantStatements(
           sessionId,
           humanId,
           email,
+        ],
+      });
+    } else {
+      if (identity.companyName) {
+        statements.push({
+          sql: `
+            INSERT INTO organizations (
+              id, workspace_id, owner_user_id, name, memo, pinned, pin_order,
+              metadata_json, created_at, updated_at, deleted_at
+            )
+            SELECT ?, session.workspace_id, session.owner_user_id, ?, '', 0, NULL,
+              '{}', ?, ?, NULL
+            FROM sessions AS session
+            WHERE session.id = ? AND session.deleted_at IS NULL
+              AND ? <> session.owner_user_id
+              AND EXISTS (
+                SELECT 1
+                FROM humans
+                WHERE id = ? AND organization_id = '' AND deleted_at IS NULL
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM organizations
+                WHERE lower(name) = lower(?) AND deleted_at IS NULL
+              )
+          `,
+          params: [
+            id(),
+            identity.companyName,
+            now,
+            now,
+            sessionId,
+            humanId,
+            humanId,
+            identity.companyName,
+          ],
+        });
+      }
+      statements.push({
+        sql: `
+          UPDATE humans
+          SET
+            name = CASE
+              WHEN ${HUMAN_NAME_IS_PLACEHOLDER_SQL} THEN ? ELSE name
+            END,
+            organization_id = CASE
+              WHEN organization_id = '' THEN COALESCE((
+                SELECT id
+                FROM organizations
+                WHERE deleted_at IS NULL AND ? <> '' AND lower(name) = lower(?)
+                ORDER BY created_at, id
+                LIMIT 1
+              ), '')
+              ELSE organization_id
+            END,
+            updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+            AND (
+              ${HUMAN_NAME_IS_PLACEHOLDER_SQL}
+              OR (organization_id = '' AND ? <> '')
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM sessions AS session
+              WHERE session.id = ? AND session.deleted_at IS NULL
+                AND ? <> session.owner_user_id
+            )
+        `,
+        params: [
+          identity.name,
+          identity.companyName ?? "",
+          identity.companyName ?? "",
+          now,
+          humanId,
+          identity.companyName ?? "",
+          sessionId,
+          humanId,
         ],
       });
     }
