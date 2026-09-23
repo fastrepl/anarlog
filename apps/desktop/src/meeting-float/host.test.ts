@@ -866,3 +866,230 @@ describe("createFloatingSpeakerResolver", () => {
     expect(transcriptMocks.renderTranscriptSegments).not.toHaveBeenCalled();
   });
 });
+
+describe("floating speaker label hardening", () => {
+  const speakerContext = {
+    intervals: [
+      {
+        start_ms: 0,
+        end_ms: 60_000,
+        active_call: true,
+        calendar_call: false,
+        mic_isolated: null,
+        shared_microphone: false,
+        title: "",
+        self_names: [],
+        participants: [{ human_id: "human-remote", name: "Artem" }],
+      },
+    ],
+  };
+
+  const floatData = (): MeetingFloatData => ({
+    sessions: {
+      "session-1": {
+        title: "Planning",
+        ownerUserId: "human-self",
+        participantHumanIds: ["human-remote"],
+        speakerContext,
+        startedAtMs: 1_000,
+      },
+      "session-2": {
+        title: "Other",
+        ownerUserId: "human-self",
+        participantHumanIds: [],
+        speakerContext: { intervals: [] },
+        startedAtMs: 1_000,
+      },
+    },
+    humanNames: { "human-remote": "Artem" },
+  });
+
+  const remoteSegment = () =>
+    createSegment({
+      id: "seg-remote",
+      key: {
+        channel: "RemoteParty",
+        speaker_index: 1,
+        speaker_human_id: null,
+      },
+      start_ms: 0,
+      text: "hello",
+      words: [{ text: "hello" }],
+    });
+
+  const renderedWithLabel = (
+    label: string,
+    humanId: string | null,
+  ): RenderedTranscriptSegment => ({
+    id: "seg-remote",
+    key: {
+      channel: "RemoteParty",
+      speaker_index: 1,
+      speaker_human_id: null,
+    },
+    start_ms: 0,
+    end_ms: 100,
+    text: "hello",
+    speaker_label: label,
+    provisional_speaker: {
+      name: label,
+      human_id: humanId,
+      reason: "sole_remote_participant",
+    },
+    words: [],
+  });
+
+  const deferred = <T>() => {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((res) => {
+      resolve = res;
+    });
+    return { promise, resolve };
+  };
+
+  it("drops an in-flight response after the session changes", async () => {
+    const pending = deferred<{
+      status: "ok";
+      data: RenderedTranscriptSegment[];
+    }>();
+    transcriptMocks.renderTranscriptSegments.mockReturnValueOnce(
+      pending.promise,
+    );
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      vi.fn(),
+    );
+
+    resolve(
+      createListenerStateWithSegments(
+        { status: "active", sessionId: "session-1" },
+        [remoteSegment()],
+      ),
+    );
+    resolve(
+      createListenerStateWithSegments(
+        { status: "active", sessionId: "session-2" },
+        [],
+      ),
+    );
+
+    pending.resolve({
+      status: "ok",
+      data: [renderedWithLabel("Artem", "human-remote")],
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(labels.size).toBe(0);
+  });
+
+  it("does not cache a key resolved to different labels in one response", async () => {
+    transcriptMocks.renderTranscriptSegments.mockResolvedValue({
+      status: "ok",
+      data: [
+        renderedWithLabel("Artem", "human-remote"),
+        { ...renderedWithLabel("Bob", "human-bob"), id: "seg-remote-2" },
+      ],
+    });
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      vi.fn(),
+    );
+    const state = createListenerStateWithSegments(
+      { status: "active", sessionId: "session-1" },
+      [remoteSegment()],
+    );
+
+    resolve(state);
+    await vi.waitFor(() =>
+      expect(transcriptMocks.renderTranscriptSegments).toHaveBeenCalled(),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(labels.has(SegmentKeyUtils.serialize(remoteSegment().key))).toBe(
+      false,
+    );
+  });
+
+  it("marks resolved self speakers as self regardless of channel", async () => {
+    transcriptMocks.renderTranscriptSegments.mockResolvedValue({
+      status: "ok",
+      data: [renderedWithLabel("Artem", "human-self")],
+    });
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      vi.fn(),
+    );
+    const state = createListenerStateWithSegments(
+      { status: "active", sessionId: "session-1" },
+      [remoteSegment()],
+    );
+
+    resolve(state);
+    await vi.waitFor(() => expect(labels.size).toBe(1));
+
+    const bubbles = getFloatingTranscriptBubbles(
+      state.liveSegments,
+      createMeetingFloatLabelContext(floatData(), "session-1"),
+      labels,
+    );
+    expect(bubbles[0]?.speakerLabel).toBe("You");
+    expect(bubbles[0]?.isSelf).toBe(true);
+  });
+
+  it("marks a DirectMic key resolved to another person as not self", async () => {
+    const micSegment = createSegment({
+      id: "seg-mic",
+      key: {
+        channel: "DirectMic",
+        speaker_index: null,
+        speaker_human_id: null,
+      },
+      start_ms: 0,
+      text: "hello",
+      words: [{ text: "hello" }],
+    });
+    transcriptMocks.renderTranscriptSegments.mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          ...renderedWithLabel("Artem", "human-remote"),
+          id: "seg-mic",
+          key: {
+            channel: "DirectMic",
+            speaker_index: null,
+            speaker_human_id: null,
+          },
+        },
+      ],
+    });
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      vi.fn(),
+    );
+    const state = createListenerStateWithSegments(
+      { status: "active", sessionId: "session-1" },
+      [micSegment],
+    );
+
+    resolve(state);
+    await vi.waitFor(() => expect(labels.size).toBe(1));
+
+    const bubbles = getFloatingTranscriptBubbles(
+      state.liveSegments,
+      createMeetingFloatLabelContext(floatData(), "session-1"),
+      labels,
+    );
+    expect(bubbles[0]?.speakerLabel).toBe("Artem");
+    expect(bubbles[0]?.isSelf).toBe(false);
+  });
+});

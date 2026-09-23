@@ -142,15 +142,17 @@ export function getFloatingTranscriptBubbles(
         return null;
       }
 
+      const speaker = resolveFloatingSpeaker(
+        segment.key,
+        speakerLabelContext,
+        speakerLabels,
+      );
+
       return {
         id: segment.id,
-        speakerLabel: getFloatingSpeakerLabel(
-          segment.key,
-          speakerLabelContext,
-          speakerLabels,
-        ),
+        speakerLabel: speaker.label,
         text,
-        isSelf: isFloatingSelfSpeaker(segment.key),
+        isSelf: speaker.isSelf,
         isFinal: segment.words.every((word) => word.is_final),
         startMs: segment.start_ms,
         endMs: segment.end_ms,
@@ -176,35 +178,38 @@ function getFloatingSegmentText(
   return (wordText || segment.text).trim().replace(/\s+/g, " ");
 }
 
-function getFloatingSpeakerLabel(
+function resolveFloatingSpeaker(
   key: ListenerState["liveSegments"][number]["key"],
   ctx?: RenderLabelContext,
   speakerLabels?: FloatingSpeakerLabels,
-) {
+): { label: string; isSelf: boolean } {
   const resolved = speakerLabels?.get(SegmentKeyUtils.serialize(key));
   if (resolved) {
-    return resolved.humanId && resolved.humanId === ctx?.getSelfHumanId()
-      ? "You"
-      : resolved.label;
+    const isSelf =
+      resolved.humanId != null && resolved.humanId === ctx?.getSelfHumanId();
+    return { label: isSelf ? "You" : resolved.label, isSelf };
   }
 
   if (isFloatingSelfSpeaker(key)) {
-    return "You";
+    return { label: "You", isSelf: true };
   }
 
   if (ctx) {
-    return SegmentKeyUtils.renderLabel(key, ctx);
+    return {
+      label: SegmentKeyUtils.renderLabel(key, ctx),
+      isSelf: false,
+    };
   }
 
   if (key.speaker_index != null) {
-    return `Speaker ${key.speaker_index + 1}`;
+    return { label: `Speaker ${key.speaker_index + 1}`, isSelf: false };
   }
 
   if (key.channel === "RemoteParty") {
-    return "Speaker";
+    return { label: "Speaker", isSelf: false };
   }
 
-  return "Audio";
+  return { label: "Audio", isSelf: false };
 }
 
 function isFloatingSelfSpeaker(

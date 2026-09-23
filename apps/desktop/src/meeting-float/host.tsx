@@ -397,6 +397,7 @@ export function createFloatingSpeakerResolver(
     if (sessionId !== state.live.sessionId) {
       sessionId = state.live.sessionId;
       speakerLabels.clear();
+      ++counter;
     }
     if (!sessionId || state.liveSegments.length === 0) return;
 
@@ -409,26 +410,39 @@ export function createFloatingSpeakerResolver(
     );
     if (!input) return;
 
+    const requestSessionId = sessionId;
     const requestId = ++counter;
     void (async () => {
       const result = await transcriptCommands.renderTranscriptSegments(input);
-      if (isCancelled() || requestId !== counter || result.status !== "ok") {
+      if (
+        isCancelled() ||
+        requestId !== counter ||
+        requestSessionId !== sessionId ||
+        result.status !== "ok"
+      ) {
         return;
       }
       const next = new Map<string, { label: string; humanId?: string }>();
+      const conflicts = new Set<string>();
       for (const segment of result.data) {
         const key = SegmentKeyUtils.serialize(segment.key);
-        if (next.has(key)) continue;
+        if (conflicts.has(key)) continue;
         const label =
           segment.provisional_speaker?.name || segment.speaker_label;
         if (!label) continue;
-        next.set(key, {
-          label,
-          humanId:
-            segment.key.speaker_human_id ??
-            segment.provisional_speaker?.human_id ??
-            undefined,
-        });
+        const humanId =
+          segment.key.speaker_human_id ??
+          segment.provisional_speaker?.human_id ??
+          undefined;
+        const existing = next.get(key);
+        if (existing) {
+          if (existing.label !== label || existing.humanId !== humanId) {
+            next.delete(key);
+            conflicts.add(key);
+          }
+          continue;
+        }
+        next.set(key, { label, humanId });
       }
       if (!areSpeakerLabelsEqual(speakerLabels, next)) {
         speakerLabels.clear();
