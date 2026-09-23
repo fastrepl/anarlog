@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   buildEventContactExtractionContextFromRecords,
   extractEventContacts,
+  planAutoContactEnhancements,
   planExtractedContactToHuman,
 } from "./event-contact-extraction";
 
@@ -16,6 +17,90 @@ const sessionEvent = {
   has_recurrence_rules: false,
   description: "Alice Kim from Example",
 };
+
+describe("planAutoContactEnhancements", () => {
+  const humans = [
+    {
+      id: "user-1",
+      name: "John",
+      email: "john@anarlog.so",
+      organizationId: "",
+    },
+    {
+      id: "human-1",
+      name: "",
+      email: "simon.goldstein@rho.co",
+      organizationId: "",
+    },
+    {
+      id: "human-2",
+      name: "Alice Kim",
+      email: "alice@example.com",
+      organizationId: "org-1",
+    },
+  ];
+
+  test("plans changes only for participants that need them", () => {
+    const plans = planAutoContactEnhancements({
+      sessionEvent,
+      userId: "user-1",
+      participants: [
+        {
+          humanId: "user-1",
+          name: "John",
+          email: "john@anarlog.so",
+          source: "manual",
+        },
+        {
+          humanId: "human-1",
+          name: "simon.goldstein@rho.co",
+          email: "simon.goldstein@rho.co",
+          source: "auto",
+        },
+        {
+          humanId: "human-2",
+          name: "Alice Kim",
+          email: "alice@example.com",
+          source: "auto",
+        },
+        {
+          humanId: "human-missing",
+          name: "Ghost",
+          email: "ghost@rho.co",
+          source: "auto",
+        },
+      ],
+      eventParticipants: [],
+      humans,
+    });
+
+    expect(plans).toEqual([
+      {
+        humanId: "human-1",
+        changes: { name: "Simon Goldstein", companyName: "Rho" },
+      },
+    ]);
+  });
+
+  test("does nothing without event title or description", () => {
+    const plans = planAutoContactEnhancements({
+      sessionEvent: { ...sessionEvent, title: "", description: "" },
+      userId: "user-1",
+      participants: [
+        {
+          humanId: "human-1",
+          name: "",
+          email: "simon.goldstein@rho.co",
+          source: "auto",
+        },
+      ],
+      eventParticipants: [],
+      humans,
+    });
+
+    expect(plans).toEqual([]);
+  });
+});
 
 describe("event contact extraction", () => {
   test("builds context from canonical participants and event attendees", () => {

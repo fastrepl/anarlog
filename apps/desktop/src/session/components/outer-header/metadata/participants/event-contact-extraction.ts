@@ -167,6 +167,71 @@ export function planExtractedContactToHuman({
   return { result, changes };
 }
 
+export function planAutoContactEnhancements({
+  sessionEvent,
+  userId,
+  participants,
+  eventParticipants,
+  humans,
+}: {
+  sessionEvent: SessionEvent | null;
+  userId: string;
+  participants: Array<{
+    humanId: string;
+    name: string;
+    email: string;
+    source: string;
+  }>;
+  eventParticipants: EventParticipant[];
+  humans: Array<{
+    id: string;
+    name: string;
+    email: string;
+    organizationId: string;
+  }>;
+}): Array<{ humanId: string; changes: ContactEnhancementChanges }> {
+  if (!sessionEvent?.title?.trim() && !sessionEvent?.description?.trim()) {
+    return [];
+  }
+
+  const context = buildEventContactExtractionContextFromRecords({
+    sessionEvent,
+    currentUserId: userId,
+    participants,
+    eventParticipants,
+  });
+  const { contacts } = extractEventContacts({ context });
+  const currentUser = humans.find((human) => human.id === userId);
+  const plans: Array<{ humanId: string; changes: ContactEnhancementChanges }> =
+    [];
+
+  for (const participant of participants) {
+    if (participant.source === "excluded" || participant.humanId === userId) {
+      continue;
+    }
+    const human = humans.find(
+      (candidate) => candidate.id === participant.humanId,
+    );
+    if (!human) {
+      continue;
+    }
+    const { changes } = planExtractedContactToHuman({
+      humanId: participant.humanId,
+      userId,
+      human,
+      currentUser,
+      mappingSource: participant.source,
+      participant: { name: participant.name, email: participant.email },
+      contacts,
+    });
+    if (Object.keys(changes).length > 0) {
+      plans.push({ humanId: participant.humanId, changes });
+    }
+  }
+
+  return plans;
+}
+
 export function extractEventContacts({
   context,
 }: {
