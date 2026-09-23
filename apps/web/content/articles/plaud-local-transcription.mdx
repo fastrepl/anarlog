@@ -33,7 +33,7 @@ If the recording must stay out of cloud storage, check your Plaud device's trans
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/plaud/export/2026-09-22-audio-export.png" alt="Plaud mobile audio export selector with MP3 and WAV formats" width={360} height={724} />
 
-*Plaud's mobile MP3/WAV export example. Source: [official Plaud documentation](https://support.plaud.ai/hc/en-us/articles/50835453223705-Export-recordings-transcripts-and-summaries). [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/plaud/export/2026-09-22-audio-export.png).*
+<p className="blog-image-credit">Source: <a href="https://support.plaud.ai/hc/en-us/articles/50835453223705-Export-recordings-transcripts-and-summaries">Plaud</a>.</p>
 
 ## Route A: transcribe the audio locally
 
@@ -49,8 +49,6 @@ To check the local step, prepare the model online, disconnect, and process a syn
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-import.png" alt="Synthetic MP3 being dropped into a new Anarlog note" width={900} height={814} />
 
-*Our capture: importing a synthetic MP3 into Anarlog, September 22, 2026. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-import.png).*
-
 ### The local MP3 step we tested
 
 We imported a 79.6-second synthetic MP3 into Anarlog 1.4.25 on an Apple Silicon Mac running macOS 26.5.2, using local Parakeet transcription. A later summary ran through local Ollama qwen2.5:1.5b with external traffic blocked, and the note exported as Markdown.
@@ -58,8 +56,6 @@ We imported a 79.6-second synthetic MP3 into Anarlog 1.4.25 on an Apple Silicon 
 This MP3 was a stand-in for an exported recording, not a file captured on Plaud hardware. It verifies the downstream format and processing path only. The transcript dropped some digits, and the summary changed one owner/deadline; check those details before treating the output as a record of commitments.
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-transcript.png" alt="Anarlog transcript generated from the imported synthetic MP3" width={900} height={814} />
-
-*Our capture: the local transcript produced from the synthetic MP3. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-transcript.png).*
 
 ## Route B: keep the transcript and summarize locally
 
