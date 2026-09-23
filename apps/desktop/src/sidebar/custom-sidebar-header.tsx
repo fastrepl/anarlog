@@ -1,21 +1,25 @@
 import { useLingui } from "@lingui/react/macro";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { ArrowLeft } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useShell } from "~/contexts/shell";
-import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
+import {
+  usesWindowsStyleTitleBar,
+  useWindowControlsGutter,
+} from "~/shared/hooks/useWindowControlsGutter";
 import { leaveOverlayTab } from "~/shared/leave-overlay-tab";
 import { useTabs } from "~/store/zustand/tabs";
 
-export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
-  const { t } = useLingui();
+export const TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID = "title-bar-sidebar-actions";
+
+export function useCustomSidebarBack() {
   const { chat } = useShell();
-  const showWindowControlsGutter = useWindowControlsGutter();
   const currentTab = useTabs((state) => state.currentTab);
 
-  const handleBack = useCallback(() => {
+  return useCallback(() => {
     if (currentTab?.type !== "automations" && chat.mode !== "FloatingClosed") {
       chat.sendEvent({ type: "CLOSE" });
       return;
@@ -23,6 +27,34 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
 
     leaveOverlayTab();
   }, [chat, currentTab]);
+}
+
+export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
+  if (usesWindowsStyleTitleBar()) {
+    return <TitleBarSidebarActions>{children}</TitleBarSidebarActions>;
+  }
+
+  return <InlineCustomSidebarHeader>{children}</InlineCustomSidebarHeader>;
+}
+
+function TitleBarSidebarActions({ children }: { children?: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setSlot(document.getElementById(TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID));
+  }, []);
+
+  if (!children || !slot) {
+    return null;
+  }
+
+  return createPortal(children, slot);
+}
+
+function InlineCustomSidebarHeader({ children }: { children?: ReactNode }) {
+  const { t } = useLingui();
+  const showWindowControlsGutter = useWindowControlsGutter();
+  const handleBack = useCustomSidebarBack();
 
   return (
     <div

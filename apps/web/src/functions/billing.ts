@@ -36,11 +36,24 @@ import {
   isUnavailableStripeCustomerError,
 } from "@/lib/stripe-customer";
 import {
+  type BillingPeriod,
   getPlanSwitchRoute,
   getSubscriptionBillingPeriod,
   selectCurrentSubscription,
   selectPersonalPlanReplacement,
 } from "@/lib/subscription-selection";
+import {
+  getSyncDeviceAddonQuantity,
+  INCLUDED_PRO_SYNC_DEVICES,
+  MAX_SYNC_DEVICE_ADDONS,
+  selectBasePlanItem,
+  selectSyncDeviceAddonItem,
+} from "@/lib/sync-device-addon";
+import {
+  getSyncDeviceAddonPrice,
+  switchPlanWithAddon,
+  updateDeviceAddonQuantity,
+} from "@/lib/sync-device-billing";
 import { WEB_TRIAL_CHECKOUT_FIELDS } from "@/lib/trial-policy";
 import {
   startWorkspaceCheckout,
@@ -190,10 +203,23 @@ const createSubscriptionUpdateConfirmUrl = async (
   subscription: Stripe.Subscription,
   targetPriceId: string,
   returnUrl: string,
+  scheme?: z.infer<typeof desktopSchemeSchema>,
 ) => {
-  const subscriptionItem = subscription.items.data[0];
+  const subscriptionItem = selectBasePlanItem(subscription.items.data);
   if (!subscriptionItem) {
     throw new Error("Subscription item is unavailable");
+  }
+
+  if (selectSyncDeviceAddonItem(subscription.items.data)) {
+    const targetPrice = await stripe.prices.retrieve(targetPriceId);
+    const period = getSubscriptionBillingPeriod({
+      items: { data: [{ price: targetPrice }] },
+    });
+    if (!period) throw new Error("Subscription billing period is unavailable");
+    const url = new URL("/app/switch-plan", getRequestAppOrigin());
+    url.searchParams.set("targetPeriod", period);
+    if (scheme) url.searchParams.set("scheme", scheme);
+    return url.toString();
   }
 
   const portalSession = await stripe.billingPortal.sessions.create({
@@ -203,12 +229,7 @@ const createSubscriptionUpdateConfirmUrl = async (
       type: "subscription_update_confirm",
       subscription_update_confirm: {
         subscription: subscription.id,
-        items: [
-          {
-            id: subscriptionItem.id,
-            price: targetPriceId,
-          },
-        ],
+        items: [{ id: subscriptionItem.id, price: targetPriceId }],
       },
       after_completion: {
         type: "redirect",
@@ -616,6 +637,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
                   currentSubscription,
                   getProPriceId(data.period),
                   returnUrl,
+                  data.scheme,
                 ),
               };
             }
@@ -853,6 +875,7 @@ const releaseTrialReservation = async (
 };
 
 const createPlanSwitchSessionInput = z.object({
+  confirmed: z.boolean().default(false),
   targetPlan: z.enum(["pro"]).default("pro").optional(),
   targetPeriod: z.enum(["monthly", "yearly"]).default("monthly"),
   scheme: desktopSchemeSchema.optional(),
@@ -923,6 +946,17 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
       });
 
       return { url: portalSession.url };
+    }
+
+    if (selectSyncDeviceAddonItem(activeSubscription.items.data)) {
+      return switchPlanWithAddon({
+        stripe,
+        subscription: activeSubscription,
+        targetPriceId,
+        period: data.targetPeriod,
+        confirmed: data.confirmed,
+        returnUrl,
+      });
     }
 
     return {
@@ -1029,6 +1063,144 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
+const emptySyncDeviceAddon = {
+  available: false,
+  includedDevices: INCLUDED_PRO_SYNC_DEVICES,
+  maxAddons: MAX_SYNC_DEVICE_ADDONS,
+  period: null as BillingPeriod | null,
+  quantity: 0,
+  unitAmount: null as number | null,
+  currency: null as string | null,
+};
+
+export const getSyncDeviceAddon = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      user,
+    );
+    if (!stripeCustomerId) {
+      return emptySyncDeviceAddon;
+    }
+
+    const subscription = await getCurrentSubscription(stripe, stripeCustomerId);
+    if (
+      !subscription ||
+      (subscription.status !== "active" && subscription.status !== "trialing")
+    ) {
+      return emptySyncDeviceAddon;
+    }
+
+    const period = getSubscriptionBillingPeriod(subscription);
+    if (!period) {
+      return emptySyncDeviceAddon;
+    }
+
+    const addonPrice = await getSyncDeviceAddonPrice(stripe, period).catch(
+      (error) => {
+        captureOperationalError(error, {
+          operation: "sync_device_addon_price_lookup",
+          level: "warning",
+        });
+        return null;
+      },
+    );
+    if (!addonPrice) {
+      return emptySyncDeviceAddon;
+    }
+
+    return {
+      ...emptySyncDeviceAddon,
+      available: true,
+      period,
+      quantity: getSyncDeviceAddonQuantity(subscription.items.data),
+      unitAmount: addonPrice.unit_amount,
+      currency: addonPrice.currency,
+    };
+  },
+);
+
+const updateSyncDeviceAddonInput = z.object({
+  quantity: z.number().int().min(0).max(MAX_SYNC_DEVICE_ADDONS),
+});
+
+export const updateSyncDeviceAddon = createServerFn({ method: "POST" })
+  .inputValidator(updateSyncDeviceAddonInput)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id || user.is_anonymous) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      user,
+    );
+    if (!stripeCustomerId) {
+      throw new Error("No Stripe customer found");
+    }
+
+    const subscription = await getCurrentSubscription(stripe, stripeCustomerId);
+    if (
+      !subscription ||
+      (subscription.status !== "active" && subscription.status !== "trialing")
+    ) {
+      throw new Error("An active Pro subscription is required");
+    }
+
+    const period = getSubscriptionBillingPeriod(subscription);
+    if (!period) {
+      throw new Error("Subscription billing period is unavailable");
+    }
+
+    const currentQuantity = getSyncDeviceAddonQuantity(subscription.items.data);
+    if (currentQuantity === data.quantity) {
+      return { quantity: currentQuantity };
+    }
+
+    await updateDeviceAddonQuantity({
+      stripe,
+      subscription,
+      period,
+      quantity: data.quantity,
+    });
+
+    void captureServerAnalytics({
+      event: "sync_device_addon_updated",
+      userId: user.id,
+      timestamp: new Date(),
+      properties: {
+        period,
+        previous_quantity: currentQuantity,
+        quantity: data.quantity,
+      },
+    }).catch((error) => {
+      captureOperationalError(error, {
+        operation: "sync_device_addon_analytics_capture",
+        level: "warning",
+      });
+    });
+
+    return { quantity: data.quantity };
+  });
 
 const deleteAccountInput = z.object({
   email: z.string().trim().email(),

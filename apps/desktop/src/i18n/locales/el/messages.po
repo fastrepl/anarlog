@@ -1067,7 +1067,7 @@ msgid "Choose a channel"
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Choose a device below to replace, then this device will continue automatically."
+msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -1787,6 +1787,10 @@ msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Couldn't open connected accounts. Try again."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Couldn't open device add-ons. Try again."
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -2528,6 +2532,10 @@ msgstr ""
 msgid "Generating transcript..."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Get more slots"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 #: src/settings/general/billing.tsx
 msgid "Get Pro"
@@ -2547,6 +2555,7 @@ msgstr ""
 msgid "Go back to now"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Go home"
 msgstr ""

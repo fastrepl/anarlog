@@ -12,6 +12,7 @@ import {
   syncCloudsyncNow,
 } from "@anlg/plugin-db";
 import type { CloudsyncActivityEntry } from "@anlg/plugin-db";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
   ArrowsClockwise,
   CaretDown,
@@ -40,6 +41,7 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
+import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { E2eeSetupDialog } from "../general/e2ee-setup";
@@ -73,6 +75,7 @@ import {
 } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
 import { isKeychainAccessError, repairKeychainAccess } from "~/shared/keychain";
+import { buildWebAppUrl } from "~/shared/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
@@ -475,6 +478,16 @@ export function SettingsSync() {
       }
     },
   });
+  const openMoreDevicesMutation = useMutation({
+    mutationFn: async () => {
+      const url = new URL(
+        await buildWebAppUrl("/app/account", { tab: "connections" }),
+      );
+      url.hash = "devices";
+      await openerCommands.openUrl(url.toString(), null);
+    },
+    onError: () => toast.error(t`Couldn't open device add-ons. Try again.`),
+  });
   const renameDeviceMutation = useMutation({
     mutationFn: ({
       fingerprint,
@@ -787,7 +800,7 @@ export function SettingsSync() {
         return {
           kind: "error" as const,
           label: t`Device limit reached`,
-          description: t`Choose a device below to replace, then this device will continue automatically.`,
+          description: t`Choose a device below to replace, or add more device slots to your plan. This device will continue automatically.`,
         };
       }
       if (credentialBlock === "clock_skew") {
@@ -1050,14 +1063,28 @@ export function SettingsSync() {
               </span>
             )}
           </h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAddDeviceOpen(true)}
-          >
-            <Plus className="size-3.5" />
-            <Trans>Add device</Trans>
-          </Button>
+          <div className="flex items-center gap-2">
+            {devicesQuery.data &&
+              (usedDeviceSlots >= devicesQuery.data.maxDevices ||
+                credentialBlock === "device_limit") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={openMoreDevicesMutation.isPending}
+                  onClick={() => openMoreDevicesMutation.mutate()}
+                >
+                  <Trans>Get more slots</Trans>
+                </Button>
+              )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddDeviceOpen(true)}
+            >
+              <Plus className="size-3.5" />
+              <Trans>Add device</Trans>
+            </Button>
+          </div>
         </div>
         <div className="border-border/60 divide-border/60 divide-y overflow-hidden rounded-xl border">
           {devicesQuery.isPending && (
