@@ -55,6 +55,9 @@ function NextDeviceButton() {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
     const id = window.setInterval(
       () => setIndex((current) => (current + 1) % nextDevices.length),
       1800,
