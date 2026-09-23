@@ -195,6 +195,13 @@ mod tests {
         gaps.open(20_000);
         write_live_gaps(dir.path(), &gaps).unwrap();
         assert_eq!(read_live_gaps(dir.path()).unwrap(), gaps);
+        gaps.close(30_000);
+        write_live_gaps(dir.path(), &gaps).unwrap();
+        assert_eq!(
+            read_live_gaps(dir.path()).unwrap(),
+            gaps,
+            "overwrites an existing file"
+        );
         remove_live_gaps(dir.path()).unwrap();
         assert_eq!(read_live_gaps(dir.path()).unwrap(), LiveGaps::default());
     }
