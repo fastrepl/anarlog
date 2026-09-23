@@ -32,6 +32,8 @@ This guide compares five tools by their documented processing and storage choice
 
 Local transcription and local summaries are separate choices. Selecting Ollama for summaries does not change where your audio is transcribed.
 
+![Anarlog Settings → Transcription with the model dropdown open, showing on-device options](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-23-settings-transcription-dropdown.png)
+
 1. **Check model availability.** The built-in on-device transcription paths require a supported Apple Silicon Mac. Open **Settings → Transcription** and check the available models for your installed release. Apple Speech additionally requires macOS 26 and a supported language.
 2. **Prepare speech-to-text.** Download a Soniqo model and select it under **Model being used**. Alternatively, configure Apple Speech's language assets or choose **On-device file** with a downloaded whisper.cpp `.bin`. Read the model's **Live** or **After recording** label; after-recording models do not produce a live transcript.
 3. **Prepare summaries separately.** Download a text model in LM Studio, Ollama, or Unsloth, start its local server on the same computer, and select it in **Settings → Intelligence**. Choose a model that fits your available memory alongside the meeting app. Experimental Apple Intelligence is another option on eligible Macs running macOS 26 or later.
