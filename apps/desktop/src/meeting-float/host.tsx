@@ -7,6 +7,7 @@ import {
 
 import {
   createMeetingFloatLabelContext,
+  createMeetingFloatRenderRequest,
   loadMeetingFloatData,
   type MeetingFloatData,
   subscribeMeetingFloatData,
@@ -17,6 +18,7 @@ import {
   getFloatingRouteState,
   isSameFloatingRouteState,
   type FloatingRouteState,
+  type FloatingSpeakerLabels,
   type ListenerState,
 } from "./route-state";
 import {
@@ -26,6 +28,7 @@ import {
   getSettingsValuesFromNativeChange,
   type FloatingOverlaySettings,
 } from "./settings";
+import { createFloatingSpeakerLabeler } from "./speaker-labels";
 import { isFloatingBarSupported } from "./support";
 import {
   createFloatingMeetingWindowSynchronizer,
@@ -191,6 +194,9 @@ function FloatingMeetingWindowSync({
     );
     let unsubscribeMeetingData: (() => Promise<void>) | null = null;
     const unlisteners: Array<() => void> = [];
+    const speakerLabeler = createFloatingSpeakerLabeler(() => {
+      if (!cancelled) refreshCurrentRouteState(true);
+    });
 
     const updateRouteState = (nextRouteState: FloatingRouteState | null) => {
       if (
@@ -222,8 +228,21 @@ function FloatingMeetingWindowSync({
                 getFloatingLiveCaptionToggleVisible(state),
                 meetingData,
                 transcriptBubbles,
+                speakerLabeler.labels,
               )
             : null,
+      );
+    };
+    const resolveSpeakerLabels = () => {
+      const state = listenerStore.getState();
+      if (!enabledRef.current || !state.live.sessionId) {
+        speakerLabeler.reset();
+        return;
+      }
+      speakerLabeler.resolve(
+        state.live.sessionId,
+        state.liveSegments,
+        createMeetingFloatRenderRequest(meetingData, state.live.sessionId),
       );
     };
     refreshSettingsRef.current = refreshCurrentRouteState;
@@ -284,15 +303,19 @@ function FloatingMeetingWindowSync({
         return;
       }
 
-      refreshCurrentRouteState(
+      const transcriptChanged =
         state.liveSegments !== previousState.liveSegments ||
-          state.live.sessionId !== previousState.live.sessionId,
-      );
+        state.live.sessionId !== previousState.live.sessionId;
+      if (transcriptChanged) {
+        resolveSpeakerLabels();
+      }
+      refreshCurrentRouteState(transcriptChanged);
     });
 
     void subscribeMeetingFloatData(
       (nextData) => {
         meetingData = nextData;
+        resolveSpeakerLabels();
         refreshCurrentRouteState(true);
       },
       (error) => {
@@ -350,6 +373,7 @@ function getCurrentFloatingRouteState(
   liveCaptionToggleVisible = false,
   meetingData?: MeetingFloatData,
   transcriptBubbles?: FloatingRouteState["transcriptBubbles"],
+  speakerLabels?: FloatingSpeakerLabels,
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
     sessionId,
@@ -358,6 +382,7 @@ function getCurrentFloatingRouteState(
     liveCaptionToggleVisible,
     sessionTitle: getFloatingSessionTitle(state, meetingData),
     speakerLabelContext: getFloatingSpeakerLabelContext(state, meetingData),
+    speakerLabels,
     transcriptBubbles,
   });
 }

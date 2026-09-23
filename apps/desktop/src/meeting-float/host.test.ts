@@ -12,7 +12,7 @@ import {
 
 import { createListenerStore } from "~/store/zustand/listener";
 import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/transcript";
-import type { RenderLabelContext } from "~/stt/live-segment";
+import { type RenderLabelContext, SegmentKeyUtils } from "~/stt/live-segment";
 
 type ListenerLiveState = ReturnType<
   ReturnType<typeof createListenerStore>["getState"]
@@ -351,6 +351,91 @@ describe("getFloatingTranscriptBubbles", () => {
     expect(bubbles[0]?.speakerLabel).toBe("Artem");
   });
 
+  it("prefers labels from the contextual speaker resolver", () => {
+    const ctx: RenderLabelContext = {
+      getSelfHumanId: () => undefined,
+      getHumanName: () => undefined,
+      getParticipantHumanIds: () => [],
+    };
+    const mic = { channel: "DirectMic", speaker_index: 0 } as const;
+    const remote = { channel: "RemoteParty", speaker_index: 2 } as const;
+    const bubbles = getFloatingTranscriptBubbles(
+      [
+        createSegment({
+          id: "mic",
+          key: { ...mic, speaker_human_id: null },
+          start_ms: 0,
+          text: "hello",
+          words: [{ text: "hello" }],
+        }),
+        createSegment({
+          id: "remote",
+          key: { ...remote, speaker_human_id: null },
+          start_ms: 200,
+          text: "hi",
+          words: [{ text: "hi" }],
+        }),
+      ],
+      ctx,
+      new Map([
+        [SegmentKeyUtils.serialize({ ...mic, speaker_human_id: null }), "John"],
+        [
+          SegmentKeyUtils.serialize({ ...remote, speaker_human_id: null }),
+          "Artem",
+        ],
+      ]),
+    );
+
+    expect(bubbles.map((bubble) => bubble.speakerLabel)).toEqual([
+      "John",
+      "Artem",
+    ]);
+  });
+
+  it("numbers unknown speakers like the transcript tab", () => {
+    const ctx: RenderLabelContext = {
+      getSelfHumanId: () => "self",
+      getHumanName: (id) => (id === "self" ? "John" : undefined),
+      getParticipantHumanIds: () => ["self", "artem", "woohyeok"],
+    };
+    const remote = (speaker_index: number, id: string, start_ms: number) =>
+      createSegment({
+        id,
+        key: { channel: "RemoteParty", speaker_index, speaker_human_id: null },
+        start_ms,
+        text: id,
+        words: [{ text: id }],
+      });
+    const bubbles = getFloatingTranscriptBubbles(
+      [
+        remote(4, "a", 0),
+        createSegment({
+          id: "mic",
+          key: {
+            channel: "DirectMic",
+            speaker_index: 0,
+            speaker_human_id: null,
+          },
+          start_ms: 100,
+          text: "me",
+          words: [{ text: "me" }],
+        }),
+        remote(7, "b", 200),
+        remote(9, "c", 300),
+        remote(4, "d", 400),
+      ],
+      ctx,
+    );
+
+    expect(bubbles.map((bubble) => bubble.speakerLabel)).toEqual([
+      "Speaker 1",
+      "John",
+      "Speaker 2",
+      "Speaker 3",
+      "Speaker 1",
+    ]);
+  });
+
   it("labels assigned direct-mic bubbles as self", () => {
     const ctx: RenderLabelContext = {
       getSelfHumanId: () => "self",
@@ -377,7 +462,7 @@ describe("getFloatingTranscriptBubbles", () => {
     expect(bubbles).toEqual([
       {
         id: "assigned-mic",
-        speakerLabel: "You",
+        speakerLabel: "Artem",
         text: "hello",
         isSelf: true,
         isFinal: true,

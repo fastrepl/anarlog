@@ -1,5 +1,14 @@
+import type {
+  RenderTranscriptRequest,
+  SpeakerContext,
+} from "@anlg/plugin-transcription";
+
 import { liveQueryClient } from "~/db";
 import type { RenderLabelContext } from "~/stt/live-segment";
+import {
+  EMPTY_SPEAKER_CONTEXT,
+  parseSpeakerContext,
+} from "~/stt/speaker-context";
 
 type MeetingFloatSqlRow = {
   row_kind: "session" | "participant" | "human";
@@ -8,17 +17,20 @@ type MeetingFloatSqlRow = {
   owner_user_id: string;
   human_id: string;
   human_name: string;
+  speaker_context: string | null;
+  started_at_ms: number | null;
+};
+
+export type MeetingFloatSession = {
+  title: string;
+  ownerUserId: string;
+  participantHumanIds: string[];
+  speakerContext: SpeakerContext;
+  transcriptStartedAtMs: number | null;
 };
 
 export type MeetingFloatData = {
-  sessions: Record<
-    string,
-    {
-      title: string;
-      ownerUserId: string;
-      participantHumanIds: string[];
-    }
-  >;
+  sessions: Record<string, MeetingFloatSession>;
   humanNames: Record<string, string>;
 };
 
@@ -29,7 +41,13 @@ const MEETING_FLOAT_SQL = `
     session.title,
     session.owner_user_id,
     '' AS human_id,
-    '' AS human_name
+    '' AS human_name,
+    json_extract(session.metadata_json, '$.speaker_context') AS speaker_context,
+    (
+      SELECT MIN(transcript.started_at_ms)
+      FROM transcripts AS transcript
+      WHERE transcript.session_id = session.id AND transcript.deleted_at IS NULL
+    ) AS started_at_ms
   FROM sessions AS session
   WHERE session.deleted_at IS NULL
 
@@ -41,7 +59,9 @@ const MEETING_FLOAT_SQL = `
     '' AS title,
     session.owner_user_id,
     participant.human_id,
-    COALESCE(NULLIF(human.name, ''), participant.display_name) AS human_name
+    COALESCE(NULLIF(human.name, ''), participant.display_name) AS human_name,
+    NULL AS speaker_context,
+    NULL AS started_at_ms
   FROM session_participants AS participant
   INNER JOIN sessions AS session
     ON session.id = participant.session_id
@@ -61,7 +81,9 @@ const MEETING_FLOAT_SQL = `
     '' AS title,
     '' AS owner_user_id,
     human.id AS human_id,
-    human.name AS human_name
+    human.name AS human_name,
+    NULL AS speaker_context,
+    NULL AS started_at_ms
   FROM humans AS human
   WHERE human.id <> '' AND human.deleted_at IS NULL
 
@@ -89,10 +111,51 @@ export function createMeetingFloatLabelContext(
   sessionId: string,
 ): RenderLabelContext {
   const session = data.sessions[sessionId];
+  // Mirrors the transcript tab: once recording context exists the native
+  // labeler owns self/remote identity, so the static fallbacks step aside.
+  const contextual = hasMeetingFloatSpeakerContext(data, sessionId);
   return {
-    getSelfHumanId: () => session?.ownerUserId || undefined,
+    getSelfHumanId: () =>
+      contextual ? undefined : session?.ownerUserId || undefined,
     getHumanName: (humanId) => data.humanNames[humanId] || undefined,
-    getParticipantHumanIds: () => session?.participantHumanIds ?? [],
+    getParticipantHumanIds: () =>
+      contextual ? [] : (session?.participantHumanIds ?? []),
+  };
+}
+
+export function hasMeetingFloatSpeakerContext(
+  data: MeetingFloatData,
+  sessionId: string,
+): boolean {
+  return (data.sessions[sessionId]?.speakerContext.intervals.length ?? 0) > 0;
+}
+
+export function createMeetingFloatRenderRequest(
+  data: MeetingFloatData,
+  sessionId: string,
+): RenderTranscriptRequest | null {
+  const session = data.sessions[sessionId];
+  if (!session || !hasMeetingFloatSpeakerContext(data, sessionId)) {
+    return null;
+  }
+  const humanIds = [
+    ...new Set([...session.participantHumanIds, session.ownerUserId]),
+  ].filter(Boolean);
+  return {
+    speaker_context: session.speakerContext,
+    transcripts: [
+      {
+        started_at: session.transcriptStartedAtMs,
+        words: [],
+        assignments: [],
+      },
+    ],
+    participant_human_ids: session.participantHumanIds,
+    self_human_id: session.ownerUserId || null,
+    humans: humanIds.map((human_id) => ({
+      human_id,
+      name: data.humanNames[human_id] ?? "",
+    })),
   };
 }
 
@@ -107,6 +170,8 @@ function mapMeetingFloatRows(rows: MeetingFloatSqlRow[]): MeetingFloatData {
         ownerUserId: row.owner_user_id,
         participantHumanIds:
           sessions[row.session_id]?.participantHumanIds ?? [],
+        speakerContext: parseSpeakerContext(row.speaker_context),
+        transcriptStartedAtMs: row.started_at_ms,
       };
       continue;
     }
@@ -122,6 +187,8 @@ function mapMeetingFloatRows(rows: MeetingFloatSqlRow[]): MeetingFloatData {
       title: "",
       ownerUserId: row.owner_user_id,
       participantHumanIds: [],
+      speakerContext: EMPTY_SPEAKER_CONTEXT,
+      transcriptStartedAtMs: null,
     };
     if (!session.participantHumanIds.includes(row.human_id)) {
       session.participantHumanIds.push(row.human_id);

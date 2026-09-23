@@ -135,7 +135,11 @@ function createCapture(sessionId: string) {
     // An observed pre-join/ended window overrides a scheduled link. A link alone is never attendance.
     const calendarCall = Boolean(
       meetingLink &&
-      micApps.some((app) => /zoom|teams|slack|webex/i.test(app.id)) &&
+      micApps.some((app) =>
+        /zoom|teams|slack|webex|meet|chrome|safari|arc|firefox|brave|edge/i.test(
+          app.id,
+        ),
+      ) &&
       inspections.length === 0,
     );
     const inputDevice =
@@ -146,8 +150,11 @@ function createCapture(sessionId: string) {
         end_ms: at + EVIDENCE_LEASE_MS,
         active_call: active.length === 1,
         calendar_call: calendarCall,
-        mic_isolated:
-          isolated === true ? isPersonalMicrophone(inputDevice) : isolated,
+        mic_isolated: isPersonalMicrophone(inputDevice)
+          ? true
+          : isolated === true
+            ? false
+            : isolated,
         shared_microphone: isSharedMicrophone(inputDevice),
         title: row.title,
         self_names: [row.name, ...aliases].filter(Boolean),

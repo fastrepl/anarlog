@@ -8,7 +8,14 @@ import {
 
 import type { ListenerStore } from "~/store/zustand/listener";
 import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/transcript";
-import { SegmentKeyUtils, type RenderLabelContext } from "~/stt/live-segment";
+import {
+  getMaxSpeakerNumberForParticipants,
+  type RenderLabelContext,
+  SegmentKeyUtils,
+  SpeakerLabelManager,
+} from "~/stt/live-segment";
+
+export type FloatingSpeakerLabels = ReadonlyMap<string, string>;
 
 export type ListenerState = ReturnType<ListenerStore["getState"]>;
 type FloatingBarStatus = "recording" | "reconnecting" | "error";
@@ -53,6 +60,7 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible = false,
     sessionTitle,
     speakerLabelContext,
+    speakerLabels,
     transcriptBubbles,
   }: {
     sessionId?: string;
@@ -61,6 +69,7 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible?: boolean;
     sessionTitle?: string | null;
     speakerLabelContext?: RenderLabelContext;
+    speakerLabels?: FloatingSpeakerLabels;
     transcriptBubbles?: FloatingTranscriptBubble[];
   } = {},
 ): FloatingRouteState | null {
@@ -100,7 +109,11 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible,
     transcriptBubbles:
       transcriptBubbles ??
-      getFloatingTranscriptBubbles(state.liveSegments, speakerLabelContext),
+      getFloatingTranscriptBubbles(
+        state.liveSegments,
+        speakerLabelContext,
+        speakerLabels,
+      ),
   };
 }
 
@@ -112,15 +125,29 @@ function getFloatingTitle(title: string | null | undefined) {
 export function getFloatingTranscriptBubbles(
   segments: ListenerState["liveSegments"],
   speakerLabelContext?: RenderLabelContext,
+  speakerLabels?: FloatingSpeakerLabels,
 ): FloatingTranscriptBubble[] {
-  const bubbles = segments
+  const ordered = segments
     .slice()
     .sort(
       (a, b) =>
         a.start_ms - b.start_ms ||
         a.end_ms - b.end_ms ||
         a.id.localeCompare(b.id),
-    )
+    );
+  // Same numbering as the transcript tab: first-seen order over the whole
+  // live transcript, capped by the participant count, not the preview window.
+  const speakerLabelManager = speakerLabelContext
+    ? SpeakerLabelManager.fromSegments(
+        ordered,
+        speakerLabelContext,
+        getMaxSpeakerNumberForParticipants(
+          speakerLabelContext.getParticipantHumanIds?.() ?? [],
+          speakerLabelContext.getSelfHumanId(),
+        ),
+      )
+    : undefined;
+  const bubbles = ordered
     .slice(-LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT)
     .map((segment) => {
       const text = getFloatingSegmentText(segment);
@@ -130,7 +157,12 @@ export function getFloatingTranscriptBubbles(
 
       return {
         id: segment.id,
-        speakerLabel: getFloatingSpeakerLabel(segment.key, speakerLabelContext),
+        speakerLabel: getFloatingSpeakerLabel(
+          segment.key,
+          speakerLabelContext,
+          speakerLabelManager,
+          speakerLabels,
+        ),
         text,
         isSelf: isFloatingSelfSpeaker(segment.key),
         isFinal: segment.words.every((word) => word.is_final),
@@ -161,13 +193,20 @@ function getFloatingSegmentText(
 function getFloatingSpeakerLabel(
   key: ListenerState["liveSegments"][number]["key"],
   ctx?: RenderLabelContext,
+  manager?: SpeakerLabelManager,
+  speakerLabels?: FloatingSpeakerLabels,
 ) {
-  if (isFloatingSelfSpeaker(key)) {
-    return "You";
+  const resolved = speakerLabels?.get(SegmentKeyUtils.serialize(key));
+  if (resolved) {
+    return resolved;
   }
 
   if (ctx) {
-    return SegmentKeyUtils.renderLabel(key, ctx);
+    return SegmentKeyUtils.renderLabel(key, ctx, manager);
+  }
+
+  if (isFloatingSelfSpeaker(key)) {
+    return "You";
   }
 
   if (key.speaker_index != null) {

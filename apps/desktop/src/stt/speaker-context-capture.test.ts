@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   mic: vi.fn(),
   currentDevice: vi.fn(),
   participants: vi.fn(),
+  eventJson: "{}",
 }));
 
 vi.mock("@anlg/plugin-detect", () => ({
@@ -32,7 +33,7 @@ vi.mock("~/db", () => ({
             {
               title: "John x Alex",
               name: "John",
-              event_json: "{}",
+              event_json: mocks.eventJson,
               owner_user_id: "self",
               aliases: null,
             },
@@ -70,6 +71,7 @@ describe("capturing speaker context", () => {
       data: "AirPods Pro",
     });
     mocks.participants.mockResolvedValue([]);
+    mocks.eventJson = "{}";
   });
   afterEach(async () => {
     await stopSpeakerContextCapture("session");
@@ -140,6 +142,31 @@ describe("capturing speaker context", () => {
     observeSpeakerMicrophone("session", { isolated: true });
     await vi.advanceTimersByTimeAsync(0);
     expect(mocks.context.intervals[0]?.mic_isolated).toBe(false);
+  });
+
+  it("treats a personal input device as isolated even without a runtime isolation event", async () => {
+    startSpeakerContextCapture("session");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.context.intervals[0]?.mic_isolated).toBe(true);
+  });
+
+  it("falls back to the scheduled Meet link when a browser holds the microphone", async () => {
+    mocks.inspect.mockResolvedValue({ status: "ok", data: [] });
+    mocks.eventJson = JSON.stringify({
+      meeting_link: "https://meet.google.com/abc-defg-hij",
+    });
+    startSpeakerContextCapture("session");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.context.intervals[0]?.calendar_call).toBe(true);
+    mocks.mic.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "voice-memo", name: "Voice Memo" }],
+    });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(
+      mocks.context.intervals[mocks.context.intervals.length - 1]
+        ?.calendar_call,
+    ).toBe(false);
   });
 
   it("closes evidence without waiting for a hung inspection and does not queue polls", async () => {

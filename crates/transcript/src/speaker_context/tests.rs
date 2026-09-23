@@ -76,7 +76,7 @@ fn unknown_title_leaves_remote_numbered_from_one() {
 }
 
 #[test]
-fn distinct_remote_voices_are_not_capped_by_one_invitee() {
+fn over_split_remote_voices_collapse_onto_sole_invitee() {
     let mut context = context();
     context.intervals[0]
         .participants
@@ -93,7 +93,29 @@ fn distinct_remote_voices_are_not_capped_by_one_invitee() {
             .iter()
             .map(|s| s.speaker_label.as_str())
             .collect::<Vec<_>>(),
-        ["Speaker 1", "Speaker 2", "Speaker 3"]
+        ["Alex", "Alex", "Alex"]
+    );
+    assert!(segments.iter().all(|s| s.key.speaker_human_id.is_none()));
+}
+
+#[test]
+fn remote_speaker_numbers_are_capped_by_other_participants() {
+    let mut context = context();
+    for (id, name) in [("a", "Artem"), ("w", "Woohyeok")] {
+        context.intervals[0]
+            .participants
+            .push(RenderTranscriptHuman {
+                human_id: id.into(),
+                name: name.into(),
+            });
+    }
+    let segments = render_transcript_segments(request(context, &[(1, 0), (1, 1), (1, 2), (0, 3)]));
+    assert_eq!(
+        segments
+            .iter()
+            .map(|s| s.speaker_label.as_str())
+            .collect::<Vec<_>>(),
+        ["Speaker 1", "Speaker 2", "Speaker 2", "John"]
     );
 }
 
@@ -115,7 +137,7 @@ fn sole_remote_participant_wins_over_title() {
 }
 
 #[test]
-fn shared_or_multiple_local_voices_remain_anonymous() {
+fn shared_microphone_stays_anonymous_but_split_headset_voices_are_self() {
     let mut shared = context();
     shared.intervals[0].shared_microphone = true;
     assert_eq!(
@@ -124,7 +146,7 @@ fn shared_or_multiple_local_voices_remain_anonymous() {
     );
     let segments = render_transcript_segments(request(context(), &[(0, 0), (0, 1)]));
     assert_eq!(segments.len(), 2);
-    assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
+    assert!(segments.iter().all(|s| s.speaker_label == "John"));
 }
 
 #[test]
@@ -167,20 +189,42 @@ fn changing_devices_splits_the_interval_without_renaming_earlier_words() {
 }
 
 #[test]
-fn expired_or_conflicting_observations_fail_closed() {
+fn evidence_gaps_and_overlaps_keep_the_recording_wide_resolution() {
     let mut context = context();
     context.intervals.push(context.intervals[0].clone());
-    assert!(
-        render_transcript_segments(request(context, &[(0, 0)]))[0]
-            .provisional_speaker
-            .is_none()
+    assert_eq!(
+        render_transcript_segments(request(context, &[(0, 0)]))[0].speaker_label,
+        "John"
     );
     let mut context = super::tests::context();
     context.intervals[0].end_ms = 1100;
-    assert!(
-        render_transcript_segments(request(context, &[(0, 0)]))[0]
-            .provisional_speaker
-            .is_none()
+    let segments = render_transcript_segments(request(context, &[(0, 0), (0, 0), (0, 0)]));
+    assert!(segments.iter().all(|s| s.speaker_label == "John"));
+}
+
+#[test]
+fn intermittent_call_evidence_never_renames_a_speaker() {
+    let mut context = context();
+    context.intervals[0].end_ms = 2000;
+    let mut lost = context.intervals[0].clone();
+    lost.start_ms = 2000;
+    lost.end_ms = 4000;
+    lost.active_call = false;
+    lost.mic_isolated = None;
+    context.intervals.push(lost);
+    context.intervals[0]
+        .participants
+        .push(RenderTranscriptHuman {
+            human_id: "remote".into(),
+            name: "Artem".into(),
+        });
+    let segments = render_transcript_segments(request(context, &[(0, 0), (1, 0), (0, 0), (1, 1)]));
+    assert_eq!(
+        segments
+            .iter()
+            .map(|s| s.speaker_label.as_str())
+            .collect::<Vec<_>>(),
+        ["John", "Artem", "John", "Artem"]
     );
 }
 

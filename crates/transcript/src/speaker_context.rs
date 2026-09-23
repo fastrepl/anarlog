@@ -55,6 +55,54 @@ pub fn segment_options_for_assignments(
     }
 }
 
+/// Evidence accumulated over the whole recording. Call and headset evidence
+/// is sticky: a meeting observed in any window applies to every word, so a
+/// momentary loss of accessibility focus or a polling gap cannot rename a
+/// speaker mid-conversation. Only the microphone kind stays interval-scoped,
+/// because switching to a speakerphone genuinely changes who the mic hears.
+#[derive(Debug, Default)]
+struct RecordingEvidence {
+    virtual_call: bool,
+    personal_microphone: bool,
+    shared_microphone: bool,
+    title: String,
+    self_names: Vec<String>,
+    participants: Vec<RenderTranscriptHuman>,
+}
+
+impl RecordingEvidence {
+    fn from_intervals(intervals: &[SpeakerContextInterval]) -> Self {
+        let mut evidence = Self::default();
+        for interval in intervals
+            .iter()
+            .filter(|interval| interval.start_ms < interval.end_ms)
+        {
+            evidence.virtual_call |= interval.active_call || interval.calendar_call;
+            evidence.personal_microphone |= interval.mic_isolated == Some(true);
+            evidence.shared_microphone |= interval.shared_microphone;
+            if !interval.title.trim().is_empty() {
+                evidence.title = interval.title.clone();
+            }
+            if !interval.self_names.is_empty() {
+                evidence.self_names = interval.self_names.clone();
+            }
+            if !interval.participants.is_empty() {
+                evidence.participants = interval.participants.clone();
+            }
+        }
+        evidence
+    }
+
+    fn remote_participants<'a>(&'a self, self_id: &str) -> Vec<&'a RenderTranscriptHuman> {
+        let mut seen = HashSet::new();
+        self.participants
+            .iter()
+            .filter(|person| !person.human_id.is_empty() && person.human_id != self_id)
+            .filter(|person| seen.insert(person.human_id.as_str()))
+            .collect()
+    }
+}
+
 impl SpeakerContext {
     fn interval_at(&self, start_ms: i64, end_ms: i64) -> Option<usize> {
         let mut matches = self.intervals.iter().enumerate().filter(|(_, interval)| {
@@ -66,6 +114,12 @@ impl SpeakerContext {
         matches.next().is_none().then_some(index)
     }
 
+    fn shared_microphone_at(&self, evidence: &RecordingEvidence, interval: Option<usize>) -> bool {
+        interval
+            .map(|index| self.intervals[index].shared_microphone)
+            .unwrap_or(evidence.shared_microphone)
+    }
+
     pub fn label_segments(
         &self,
         segments: Vec<RenderedTranscriptSegment>,
@@ -73,25 +127,11 @@ impl SpeakerContext {
         self_human_id: Option<&str>,
         humans: &[RenderTranscriptHuman],
     ) -> Vec<RenderedTranscriptSegment> {
-        let mut counts = vec![(HashSet::new(), HashSet::new()); self.intervals.len()];
-        for segment in &segments {
-            for word in &segment.words {
-                if let Some(index) = self.interval_at(
-                    started_at.saturating_add(word.start_ms),
-                    started_at.saturating_add(word.end_ms),
-                ) {
-                    match segment.key.channel {
-                        ChannelProfile::DirectMic => {
-                            counts[index].0.insert(segment.key.speaker_index);
-                        }
-                        ChannelProfile::RemoteParty => {
-                            counts[index].1.insert(segment.key.speaker_index);
-                        }
-                        ChannelProfile::MixedCapture => {}
-                    }
-                }
-            }
-        }
+        let evidence = RecordingEvidence::from_intervals(&self.intervals);
+        let self_id = self_human_id.filter(|id| !id.trim().is_empty());
+        let remote_count = self_id
+            .map(|self_id| evidence.remote_participants(self_id).len())
+            .unwrap_or(0);
 
         let mut result = Vec::new();
         for segment in segments {
@@ -104,22 +144,23 @@ impl SpeakerContext {
                 continue;
             }
 
-            let mut groups: Vec<(Option<usize>, Vec<crate::SegmentWord>)> = Vec::new();
+            let mut groups: Vec<(bool, Vec<crate::SegmentWord>)> = Vec::new();
             for word in &segment.words {
                 let interval = self.interval_at(
                     started_at.saturating_add(word.start_ms),
                     started_at.saturating_add(word.end_ms),
                 );
-                if let Some((last_interval, words)) = groups.last_mut()
-                    && *last_interval == interval
+                let shared = self.shared_microphone_at(&evidence, interval);
+                if let Some((last_shared, words)) = groups.last_mut()
+                    && *last_shared == shared
                 {
                     words.push(word.clone());
                 } else {
-                    groups.push((interval, vec![word.clone()]));
+                    groups.push((shared, vec![word.clone()]));
                 }
             }
             let split = groups.len() > 1;
-            for (interval, words) in groups {
+            for (shared, words) in groups {
                 let mut part = RenderedTranscriptSegment {
                     id: segment.id.clone(),
                     key: segment.key.clone(),
@@ -140,19 +181,8 @@ impl SpeakerContext {
                     .trim()
                     .to_owned();
                 part.words = words;
-                part.provisional_speaker = None;
-                if part.key.speaker_human_id.is_none()
-                    && let Some(index) = interval
-                {
-                    part.provisional_speaker = resolve_speaker(
-                        &self.intervals[index],
-                        part.key.channel,
-                        counts[index].0.len(),
-                        counts[index].1.len(),
-                        self_human_id,
-                        humans,
-                    );
-                }
+                part.provisional_speaker =
+                    resolve_speaker(&evidence, shared, part.key.channel, self_id, humans);
                 if let Some(label) = &part.provisional_speaker {
                     part.speaker_label = label.name.clone();
                 }
@@ -161,10 +191,18 @@ impl SpeakerContext {
         }
 
         // Provisional names do not consume anonymous speaker numbers or become identity hints.
+        // Remote voices never outnumber the other invitees: diarization over-splitting a
+        // participant collapses onto the last available number.
         let mut unknown = std::collections::HashMap::new();
         for segment in &mut result {
             if segment.key.speaker_human_id.is_none() && segment.provisional_speaker.is_none() {
-                let next = unknown.len() + 1;
+                let mut next = unknown.len() + 1;
+                if segment.key.channel == ChannelProfile::RemoteParty
+                    && evidence.virtual_call
+                    && remote_count > 0
+                {
+                    next = next.min(remote_count);
+                }
                 let number = unknown
                     .entry((segment.key.channel, segment.key.speaker_index))
                     .or_insert(next);
@@ -176,20 +214,16 @@ impl SpeakerContext {
 }
 
 fn resolve_speaker(
-    context: &SpeakerContextInterval,
+    evidence: &RecordingEvidence,
+    shared_microphone: bool,
     source: ChannelProfile,
-    local_voices: usize,
-    remote_voices: usize,
     self_id: Option<&str>,
     humans: &[RenderTranscriptHuman],
 ) -> Option<ProvisionalSpeakerLabel> {
-    let self_id = self_id.filter(|id| !id.trim().is_empty())?;
-    let virtual_call = context.active_call || context.calendar_call;
+    let self_id = self_id?;
     match source {
         ChannelProfile::DirectMic
-            if !context.shared_microphone
-                && local_voices <= 1
-                && (virtual_call || context.mic_isolated == Some(true)) =>
+            if !shared_microphone && (evidence.virtual_call || evidence.personal_microphone) =>
         {
             let name = humans
                 .iter()
@@ -200,37 +234,27 @@ fn resolve_speaker(
             Some(ProvisionalSpeakerLabel {
                 name: name.to_owned(),
                 human_id: Some(self_id.to_owned()),
-                reason: if context.mic_isolated == Some(true) {
+                reason: if evidence.personal_microphone {
                     SpeakerResolutionReason::PersonalMicrophone
                 } else {
                     SpeakerResolutionReason::VirtualMeetingMicrophone
                 },
             })
         }
-        ChannelProfile::RemoteParty if virtual_call && remote_voices == 1 => {
-            let remotes = context
-                .participants
-                .iter()
-                .filter(|person| !person.human_id.is_empty() && person.human_id != self_id)
-                .map(|person| person.human_id.as_str())
-                .collect::<HashSet<_>>();
-            if remotes.len() == 1 {
-                let person = context
-                    .participants
-                    .iter()
-                    .find(|person| remotes.contains(person.human_id.as_str()))?;
-                if !person.name.trim().is_empty() {
-                    return Some(ProvisionalSpeakerLabel {
-                        name: person.name.trim().to_owned(),
-                        human_id: Some(person.human_id.clone()),
-                        reason: SpeakerResolutionReason::SoleRemoteParticipant,
-                    });
-                }
+        ChannelProfile::RemoteParty if evidence.virtual_call => {
+            let remotes = evidence.remote_participants(self_id);
+            if let [person] = remotes.as_slice() {
+                let name = person.name.trim();
+                return (!name.is_empty()).then(|| ProvisionalSpeakerLabel {
+                    name: name.to_owned(),
+                    human_id: Some(person.human_id.clone()),
+                    reason: SpeakerResolutionReason::SoleRemoteParticipant,
+                });
             }
             if !remotes.is_empty() {
                 return None;
             }
-            remote_name_from_title(&context.title, &context.self_names).map(|name| {
+            remote_name_from_title(&evidence.title, &evidence.self_names).map(|name| {
                 ProvisionalSpeakerLabel {
                     name,
                     human_id: None,
