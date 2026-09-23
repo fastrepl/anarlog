@@ -15,14 +15,27 @@ We make Anarlog. This is a use-case comparison based on official documentation c
 
 ## Choose the job before the product
 
-| What is missing from your current workflow? | Candidate to evaluate | The tradeoff to test |
-| --- | --- | --- |
-| Notes alongside a transcript, with a local canonical record | Anarlog | Confirm your OS and selected transcription/AI providers |
-| A managed workspace that develops your raw notes | Granola | Cloud processing and plan-dependent collaboration |
-| Straightforward transcription of existing audio files | Buzz | A transcription utility, not a full team meeting workspace |
-| Local transcription with the Meetily workflow you already know | Stay with Meetily | Recheck current features before paying migration costs |
+- **Notes alongside a transcript:** evaluate Anarlog's local meeting workspace. Built-in on-device speech requires Apple Silicon; Windows beta needs a supported transcription provider.
+- **Managed note enhancement:** evaluate Granola if cloud processing and plan-dependent collaboration fit your requirements.
+- **Existing audio files:** evaluate Buzz for transcription and portable text or subtitles.
+- **Your current local workflow:** stay with Meetily if a provider or setting change resolves the problem.
 
 This shortlist deliberately covers different jobs. Adding more similar apps would not make the choice clearer.
+
+## Platform and portability comparison
+
+| Product | Platforms | Portable output |
+| --- | --- | --- |
+| Anarlog | macOS 15+; Windows/Linux beta | Markdown |
+| Granola | macOS 14+; Windows; iOS; Android | CSV |
+| Buzz | Windows; Apple Silicon Mac; Linux | TXT, SRT, VTT |
+| Meetily | Apple Silicon Mac; Windows | Copy; Pro file exports |
+
+Anarlog's built-in on-device transcription requires Apple Silicon; its canonical meeting record remains local SQLite. Meetily also offers a Linux source-build route.
+
+Granola's CSV includes owned notes, summaries, transcripts, and metadata. Enterprise administrators must enable export. Meetily Community provides basic copying; Pro adds the named file formats described below.
+
+Sources: Anarlog [installation](https://docs.anarlog.so/desktop-installation); Granola [setup](https://docs.granola.ai/help-center/getting-started/setting-up-granola-for-the-first-time) and [export](https://docs.granola.ai/help-center/sharing/exporting-notes); Buzz [repository](https://github.com/chidiwilliams/buzz); Meetily [downloads](https://meetily.ai/downloads) and [edition comparison](https://meetily.ai/pricing). A supported desktop application does not guarantee that every local model is available on that OS.
 
 ## Anarlog for a local meeting-notes workspace
 
@@ -61,17 +74,6 @@ Before your first offline job, download the required local model and test a smal
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png" alt="Buzz completed transcript with TXT and SRT export choices" width={900} height={611} />
 
 *Our capture: the completed 75.55-second synthetic WAV job in Buzz 1.4.5. TXT and SRT files were saved and read back; a menu alone would not establish a successful export. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png).*
-
-## Platform and portability comparison
-
-| Product | Platform boundary | Portable output |
-| --- | --- | --- |
-| Anarlog | macOS 15+; Windows/Linux beta; built-in on-device transcription has Apple Silicon requirements | Markdown export; canonical record remains local SQLite |
-| Granola | macOS 14+, Windows, iOS, Android | CSV of owned notes, summaries, transcripts, and metadata; Enterprise admin must enable export |
-| Buzz | Windows installer; current Mac builds require Apple Silicon; Linux packages | TXT, SRT, VTT |
-| Meetily | Native macOS/Windows; Apple Silicon Mac download; Linux source build | Community basic copy; Pro adds named summary/transcript file formats |
-
-Sources: Anarlog [installation](https://docs.anarlog.so/desktop-installation); Granola [setup](https://docs.granola.ai/help-center/getting-started/setting-up-granola-for-the-first-time) and [export](https://docs.granola.ai/help-center/sharing/exporting-notes); Buzz [repository](https://github.com/chidiwilliams/buzz); Meetily [downloads](https://meetily.ai/downloads) and [edition comparison](https://meetily.ai/pricing). A supported desktop application does not guarantee that every local model is available on that OS.
 
 ## Reasons to stay with Meetily
 
