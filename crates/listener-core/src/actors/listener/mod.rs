@@ -252,13 +252,8 @@ impl Actor for ListenerActor {
                     ChannelSender::Dual(_) => ListenerAudioResult::ModeMismatch,
                 };
                 let _ = reply.send(result);
-                if result == ListenerAudioResult::Accepted
-                    && state.progress.as_mut().is_some_and(|progress| {
-                        progress.observe_audio(active_samples, Instant::now())
-                    })
-                {
-                    tracing::warn!("listen_stream_stalled_during_audio");
-                    stop_with_degraded_error(&myself, DegradedError::ConnectionTimeout);
+                if result == ListenerAudioResult::Accepted {
+                    stop_if_stalled(&myself, state, active_samples);
                 }
                 if matches!(
                     result,
@@ -289,13 +284,8 @@ impl Actor for ListenerActor {
                     ChannelSender::Single(_) => ListenerAudioResult::ModeMismatch,
                 };
                 let _ = reply.send(result);
-                if result == ListenerAudioResult::Accepted
-                    && state.progress.as_mut().is_some_and(|progress| {
-                        progress.observe_audio(active_samples, Instant::now())
-                    })
-                {
-                    tracing::warn!("listen_stream_stalled_during_audio");
-                    stop_with_degraded_error(&myself, DegradedError::ConnectionTimeout);
+                if result == ListenerAudioResult::Accepted {
+                    stop_if_stalled(&myself, state, active_samples);
                 }
                 if matches!(
                     result,
@@ -429,10 +419,34 @@ fn discard_final_stream_errors(responses: Vec<StreamResponse>) -> Vec<StreamResp
         .collect()
 }
 
+fn stop_if_stalled(myself: &ActorRef<ListenerMsg>, state: &mut ListenerState, samples: usize) {
+    let now = Instant::now();
+    let Some(stall) = state.progress.as_mut().and_then(|progress| {
+        progress
+            .observe_audio(samples, now)
+            .map(|reason| (reason, progress.snapshot(now)))
+    }) else {
+        return;
+    };
+    let (reason, diagnostics) = stall;
+    tracing::warn!(
+        reason = ?reason,
+        active_audio_secs = diagnostics.active_audio_secs,
+        unfinalized_audio_secs = diagnostics.unfinalized_audio_secs,
+        secs_since_progress = diagnostics.secs_since_progress,
+        secs_since_response = diagnostics.secs_since_response,
+        "listen_stream_stalled_during_audio"
+    );
+    stop_with_degraded_error(myself, DegradedError::ConnectionTimeout);
+}
+
 fn process_stream_response(
     state: &mut ListenerState,
     mut response: StreamResponse,
 ) -> Option<DegradedError> {
+    if let Some(progress) = &mut state.progress {
+        progress.observe_response(Instant::now());
+    }
     if let StreamResponse::ErrorResponse {
         error_code,
         error_message,

@@ -14,8 +14,23 @@ const TRANSCRIPT_PROGRESS_TIMEOUT: std::time::Duration = std::time::Duration::fr
 const MIN_ACTIVE_AUDIO_SAMPLES: usize = crate::actors::SAMPLE_RATE as usize * 5;
 const MAX_UNFINALIZED_AUDIO_SAMPLES: usize = crate::actors::SAMPLE_RATE as usize * 90;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum StallReason {
+    NoProgress,
+    UnfinalizedCap,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(super) struct StallDiagnostics {
+    pub(super) active_audio_secs: f64,
+    pub(super) unfinalized_audio_secs: f64,
+    pub(super) secs_since_progress: f64,
+    pub(super) secs_since_response: f64,
+}
+
 pub(super) struct StreamProgress {
     last_progress_at: std::time::Instant,
+    last_response_at: std::time::Instant,
     last_partials_hash: Option<u64>,
     active_samples: usize,
     unfinalized_samples: usize,
@@ -25,18 +40,43 @@ impl StreamProgress {
     pub(super) fn new(now: std::time::Instant) -> Self {
         Self {
             last_progress_at: now,
+            last_response_at: now,
             last_partials_hash: None,
             active_samples: 0,
             unfinalized_samples: 0,
         }
     }
 
-    pub(super) fn observe_audio(&mut self, samples: usize, now: std::time::Instant) -> bool {
+    pub(super) fn observe_audio(
+        &mut self,
+        samples: usize,
+        now: std::time::Instant,
+    ) -> Option<StallReason> {
         self.active_samples = self.active_samples.saturating_add(samples);
         self.unfinalized_samples = self.unfinalized_samples.saturating_add(samples);
-        (self.active_samples >= MIN_ACTIVE_AUDIO_SAMPLES
-            && now.duration_since(self.last_progress_at) >= TRANSCRIPT_PROGRESS_TIMEOUT)
-            || self.unfinalized_samples >= MAX_UNFINALIZED_AUDIO_SAMPLES
+        if self.active_samples >= MIN_ACTIVE_AUDIO_SAMPLES
+            && now.duration_since(self.last_progress_at) >= TRANSCRIPT_PROGRESS_TIMEOUT
+        {
+            Some(StallReason::NoProgress)
+        } else if self.unfinalized_samples >= MAX_UNFINALIZED_AUDIO_SAMPLES {
+            Some(StallReason::UnfinalizedCap)
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn observe_response(&mut self, now: std::time::Instant) {
+        self.last_response_at = now;
+    }
+
+    pub(super) fn snapshot(&self, now: std::time::Instant) -> StallDiagnostics {
+        StallDiagnostics {
+            active_audio_secs: self.active_samples as f64 / crate::actors::SAMPLE_RATE as f64,
+            unfinalized_audio_secs: self.unfinalized_samples as f64
+                / crate::actors::SAMPLE_RATE as f64,
+            secs_since_progress: now.duration_since(self.last_progress_at).as_secs_f64(),
+            secs_since_response: now.duration_since(self.last_response_at).as_secs_f64(),
+        }
     }
 
     pub(super) fn observe_delta(
@@ -477,13 +517,19 @@ mod tests {
             .repeat(crate::actors::SAMPLE_RATE as usize);
 
         for second in 1..30 {
-            assert!(!progress.observe_audio(
-                active_audio_samples(&audio),
-                now + Duration::from_secs(second),
-            ));
+            assert!(
+                progress
+                    .observe_audio(
+                        active_audio_samples(&audio),
+                        now + Duration::from_secs(second)
+                    )
+                    .is_none()
+            );
         }
         assert!(
-            progress.observe_audio(active_audio_samples(&audio), now + Duration::from_secs(30))
+            progress
+                .observe_audio(active_audio_samples(&audio), now + Duration::from_secs(30))
+                .is_some()
         );
     }
 
@@ -496,32 +542,53 @@ mod tests {
                 .to_le_bytes()
                 .repeat(crate::actors::SAMPLE_RATE as usize);
             assert!(
-                !progress
+                progress
                     .observe_audio(active_audio_samples(&audio), now + Duration::from_secs(600))
+                    .is_none()
             );
         }
         assert_eq!(active_audio_samples(&[]), 0);
-        assert!(!progress.observe_audio(
-            crate::actors::SAMPLE_RATE as usize,
-            now + Duration::from_secs(601)
-        ));
+        assert!(
+            progress
+                .observe_audio(
+                    crate::actors::SAMPLE_RATE as usize,
+                    now + Duration::from_secs(601)
+                )
+                .is_none()
+        );
     }
 
     #[test]
     fn partial_transcripts_reset_the_stall_watchdog() {
         let now = Instant::now();
         let mut progress = StreamProgress::new(now);
-        assert!(!progress.observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(29)));
+        assert!(
+            progress
+                .observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(29))
+                .is_none()
+        );
         progress.observe_delta(&transcript_delta(false, 29), now + Duration::from_secs(29));
-        assert!(!progress.observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(30)));
-        assert!(progress.observe_audio(0, now + Duration::from_secs(59)));
+        assert!(
+            progress
+                .observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(30))
+                .is_none()
+        );
+        assert!(
+            progress
+                .observe_audio(0, now + Duration::from_secs(59))
+                .is_some()
+        );
     }
 
     #[test]
     fn empty_updates_do_not_hide_a_stalled_transcript() {
         let now = Instant::now();
         let mut progress = StreamProgress::new(now);
-        assert!(!progress.observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(29)));
+        assert!(
+            progress
+                .observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(29))
+                .is_none()
+        );
         progress.observe_delta(
             &crate::LiveTranscriptDelta {
                 new_words: vec![],
@@ -530,7 +597,11 @@ mod tests {
             },
             now + Duration::from_secs(29),
         );
-        assert!(progress.observe_audio(0, now + Duration::from_secs(30)));
+        assert!(
+            progress
+                .observe_audio(0, now + Duration::from_secs(30))
+                .is_some()
+        );
     }
 
     #[test]
@@ -540,13 +611,21 @@ mod tests {
         for second in 1..90 {
             let time = now + Duration::from_secs(second);
             progress.observe_delta(&transcript_delta(false, second as i64), time);
-            assert!(!progress.observe_audio(crate::actors::SAMPLE_RATE as usize, time));
+            assert!(
+                progress
+                    .observe_audio(crate::actors::SAMPLE_RATE as usize, time)
+                    .is_none()
+            );
         }
         progress.observe_delta(&transcript_delta(false, 90), now + Duration::from_secs(90));
-        assert!(progress.observe_audio(
-            crate::actors::SAMPLE_RATE as usize,
-            now + Duration::from_secs(90)
-        ));
+        assert!(
+            progress
+                .observe_audio(
+                    crate::actors::SAMPLE_RATE as usize,
+                    now + Duration::from_secs(90)
+                )
+                .is_some()
+        );
     }
 
     #[test]
@@ -566,7 +645,9 @@ mod tests {
                 "duplicate provider words must not count as app progress"
             );
             assert_eq!(
-                progress.observe_audio(crate::actors::SAMPLE_RATE as usize, time),
+                progress
+                    .observe_audio(crate::actors::SAMPLE_RATE as usize, time)
+                    .is_some(),
                 second == 30,
             );
         }
@@ -582,7 +663,9 @@ mod tests {
             let time = now + Duration::from_secs(second);
             progress.observe_delta(&delta, time);
             assert_eq!(
-                progress.observe_audio(crate::actors::SAMPLE_RATE as usize, time),
+                progress
+                    .observe_audio(crate::actors::SAMPLE_RATE as usize, time)
+                    .is_some(),
                 second == 30
             );
         }
@@ -611,7 +694,11 @@ mod tests {
                 assert!(!update.transcript_delta.new_words.is_empty());
                 progress.observe_delta(&update.transcript_delta, time);
             }
-            assert!(!progress.observe_audio(crate::actors::SAMPLE_RATE as usize, time));
+            assert!(
+                progress
+                    .observe_audio(crate::actors::SAMPLE_RATE as usize, time)
+                    .is_none()
+            );
         }
     }
 
@@ -622,8 +709,52 @@ mod tests {
         for second in 1..300 {
             let time = now + Duration::from_secs(second);
             progress.observe_delta(&transcript_delta(second % 20 == 0, second as i64), time);
-            assert!(!progress.observe_audio(crate::actors::SAMPLE_RATE as usize, time));
+            assert!(
+                progress
+                    .observe_audio(crate::actors::SAMPLE_RATE as usize, time)
+                    .is_none()
+            );
         }
+    }
+
+    #[test]
+    fn provider_responses_do_not_count_as_transcript_progress() {
+        let now = Instant::now();
+        let mut progress = StreamProgress::new(now);
+
+        progress.observe_response(now + Duration::from_secs(25));
+
+        // An empty provider response keeps the provider alive but must not reset
+        // the transcript-progress watchdog.
+        assert_eq!(
+            progress.observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(30)),
+            Some(StallReason::NoProgress)
+        );
+
+        let diagnostics = progress.snapshot(now + Duration::from_secs(30));
+        assert_eq!(diagnostics.secs_since_progress, 30.0);
+        assert_eq!(diagnostics.secs_since_response, 5.0);
+    }
+
+    #[test]
+    fn stall_reason_reports_what_tripped_the_watchdog() {
+        let now = Instant::now();
+        let sample_rate = crate::actors::SAMPLE_RATE as usize;
+
+        let mut no_progress = StreamProgress::new(now);
+        assert_eq!(
+            no_progress.observe_audio(sample_rate * 90, now + Duration::from_secs(90)),
+            Some(StallReason::NoProgress)
+        );
+
+        // Recent partial progress rules out NoProgress even past the
+        // unfinalized cap, so the cap itself is reported.
+        let mut unfinalized_cap = StreamProgress::new(now);
+        unfinalized_cap.observe_delta(&transcript_delta(false, 89), now + Duration::from_secs(89));
+        assert_eq!(
+            unfinalized_cap.observe_audio(sample_rate * 90, now + Duration::from_secs(90)),
+            Some(StallReason::UnfinalizedCap)
+        );
     }
 
     #[tokio::test]

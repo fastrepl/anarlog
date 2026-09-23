@@ -206,13 +206,38 @@ describe("getFloatingRouteState", () => {
     ).toBe("error");
   });
 
-  it("returns error status when live transcription degrades", () => {
+  it("keeps recording status while live transcription degrades and retries", () => {
     expect(
       getFloatingRouteState(
         createListenerState({
           status: "active",
           sessionId: "session-1",
           degraded: { type: "connection_timeout" },
+        }),
+      )?.status,
+    ).toBe("recording");
+  });
+
+  it("returns error status when live transcription fails permanently", () => {
+    expect(
+      getFloatingRouteState(
+        createListenerState({
+          status: "active",
+          sessionId: "session-1",
+          degraded: { type: "authentication_failed", provider: "deepgram" },
+        }),
+      )?.status,
+    ).toBe("error");
+    expect(
+      getFloatingRouteState(
+        createListenerState({
+          status: "active",
+          sessionId: "session-1",
+          degraded: {
+            type: "provider_configuration",
+            provider: "deepgram",
+            message: "invalid model",
+          },
         }),
       )?.status,
     ).toBe("error");
@@ -540,5 +565,33 @@ describe("floating route refresh", () => {
     };
     expect(haveFloatingRouteInputsChanged(audioFailure, retrying)).toBe(true);
     expect(haveFloatingRouteInputsChanged(retrying, audioFailure)).toBe(true);
+  });
+
+  it("refreshes when the degraded type changes without new audio", () => {
+    const previous = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+    });
+    const timeout = {
+      ...previous,
+      live: {
+        ...previous.live,
+        degraded: { type: "connection_timeout" as const },
+      },
+    };
+    const authFailed = {
+      ...previous,
+      live: {
+        ...previous.live,
+        degraded: {
+          type: "authentication_failed" as const,
+          provider: "deepgram",
+        },
+      },
+    };
+    expect(haveFloatingRouteInputsChanged(timeout, previous)).toBe(true);
+    expect(haveFloatingRouteInputsChanged(authFailed, timeout)).toBe(true);
+    expect(haveFloatingRouteInputsChanged(timeout, authFailed)).toBe(true);
+    expect(haveFloatingRouteInputsChanged(timeout, timeout)).toBe(false);
   });
 });
