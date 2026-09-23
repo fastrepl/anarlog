@@ -185,7 +185,28 @@ pub async fn window_save_frame(
     let maximized = if let Some(handle) = window.get(&app) {
         let maximized = handle.is_maximized().map_err(|e| e.to_string())?;
         if maximized {
+            #[cfg(target_os = "linux")]
+            let previous_size = handle.inner_size().map_err(|e| e.to_string())?;
             handle.unmaximize().map_err(|e| e.to_string())?;
+            #[cfg(target_os = "linux")]
+            let restored = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                loop {
+                    if !handle.is_maximized().map_err(|e| e.to_string())?
+                        && handle.inner_size().map_err(|e| e.to_string())? != previous_size
+                    {
+                        return Ok::<(), String>(());
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+                }
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|result| result);
+            #[cfg(target_os = "linux")]
+            if let Err(error) = restored {
+                let _ = handle.maximize();
+                return Err(error);
+            }
         }
         maximized
     } else {
