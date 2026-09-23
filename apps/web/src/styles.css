@@ -708,12 +708,13 @@
 
 .blog-prose
   :where(table):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
-  min-width: 100%;
-  width: max-content;
+  width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0 0.25rem;
   font-family: var(--font-sans);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .blog-prose
@@ -745,6 +746,65 @@
     td:first-child):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   background: #f3eee6;
   font-weight: 600;
+}
+
+.blog-table-label {
+  display: none;
+}
+
+.blog-prose .blog-image-credit {
+  margin-top: -1.25rem;
+  margin-bottom: 2rem;
+  color: color-mix(in srgb, var(--color-brand-dark) 85%, white);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.blog-prose .blog-image-credit a {
+  color: inherit;
+  text-decoration-color: currentColor;
+}
+
+@media (max-width: 40rem) {
+  .blog-prose table[data-mobile-stack],
+  .blog-prose table[data-mobile-stack] tbody,
+  .blog-prose table[data-mobile-stack] tr {
+    display: block;
+    width: 100%;
+  }
+
+  .blog-prose table[data-mobile-stack] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .blog-prose table[data-mobile-stack] tbody tr {
+    margin-bottom: 1rem;
+  }
+
+  .blog-prose table[data-mobile-stack] td,
+  .blog-prose table[data-mobile-stack] tbody th {
+    display: block;
+    width: 100%;
+    text-align: left;
+  }
+
+  .blog-prose table[data-mobile-stack] td + td {
+    border-top: 2px solid var(--color-surface);
+  }
+
+  .blog-prose table[data-mobile-stack] .blog-table-label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+  }
 }
 
 .blog-prose
