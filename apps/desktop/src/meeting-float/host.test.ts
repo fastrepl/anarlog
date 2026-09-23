@@ -218,6 +218,18 @@ describe("getFloatingRouteState", () => {
     ).toBe("recording");
   });
 
+  it("returns error status when live transcription fails permanently", () => {
+    expect(
+      getFloatingRouteState(
+        createListenerState({
+          status: "active",
+          sessionId: "session-1",
+          degraded: { type: "authentication_failed", provider: "deepgram" },
+        }),
+      )?.status,
+    ).toBe("error");
+  });
+
   it("returns error status when the active listener reports an error", () => {
     expect(
       getFloatingRouteState(
