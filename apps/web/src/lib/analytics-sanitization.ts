@@ -396,7 +396,12 @@ function sanitizePostHogHeatmapData(value: unknown, origin: string) {
         ? [sanitizeAnalyticsProperties(entry as Record<string, unknown>)]
         : [],
     );
-    if (safeEntries.length > 0) sanitized[url] = safeEntries;
+    if (safeEntries.length > 0) {
+      const previous = sanitized[url];
+      sanitized[url] = Array.isArray(previous)
+        ? [...previous, ...safeEntries]
+        : safeEntries;
+    }
   }
   return sanitized;
 }

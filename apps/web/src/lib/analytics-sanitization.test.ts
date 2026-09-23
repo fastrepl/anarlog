@@ -398,6 +398,8 @@ test("normalizes heatmap page URL keys so query secrets are not sent", () => {
         $heatmap_data: {
           "https://anarlog.so/blog/best-ai-notetaker-for-in-person-meetings/?utm_source=slack%20test&token=SECRET&email=a@b.com":
             [{ x: 402, y: 158, target_fixed: false, type: "click" }],
+          "https://anarlog.so/blog/best-ai-notetaker-for-in-person-meetings/?utm_source=slack%20test&session=abc":
+            [{ x: 10, y: 20, target_fixed: false, type: "click" }],
           "not a url ::": [{ x: 1, y: 1, type: "click" }],
         },
       },
@@ -408,7 +410,10 @@ test("normalizes heatmap page URL keys so query secrets are not sent", () => {
   const properties: Record<string, unknown> = result?.properties ?? {};
   assert.deepEqual(properties.$heatmap_data, {
     "https://anarlog.so/blog/best-ai-notetaker-for-in-person-meetings/?utm_source=slack+test":
-      [{ x: 402, y: 158, target_fixed: false, type: "click" }],
+      [
+        { x: 402, y: 158, target_fixed: false, type: "click" },
+        { x: 10, y: 20, target_fixed: false, type: "click" },
+      ],
   });
   assert.equal(JSON.stringify(result).includes("SECRET"), false);
 });
