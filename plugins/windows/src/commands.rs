@@ -182,18 +182,21 @@ pub async fn window_save_frame(
     app: tauri::AppHandle<tauri::Wry>,
     window: AppWindow,
 ) -> Result<(), String> {
+    let maximized = if let Some(handle) = window.get(&app) {
+        let maximized = handle.is_maximized().map_err(|e| e.to_string())?;
+        if maximized {
+            handle.unmaximize().map_err(|e| e.to_string())?;
+        }
+        maximized
+    } else {
+        false
+    };
     let frame = app
         .windows()
         .frame(window.clone())
         .map_err(|e| e.to_string())?;
 
     if let Some(frame) = frame {
-        let maximized = window
-            .get(&app)
-            .map(|handle| handle.is_maximized())
-            .transpose()
-            .map_err(|e| e.to_string())?
-            .unwrap_or(false);
         app.state::<SavedFrames>()
             .0
             .lock()
