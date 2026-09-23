@@ -1,7 +1,5 @@
 import { memo } from "react";
 
-import { cn } from "@anlg/utils";
-
 import { ClassicMainBody } from "./body";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 import { WindowsTitleBar } from "./windows-title-bar";
@@ -24,7 +22,7 @@ import { useTabs } from "~/store/zustand/tabs";
 export function ClassicMainShellFrame() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
-  const roundedWindowFrame = useRoundedWindowFrame();
+  useRoundedWindowFrame();
 
   const isOnboarding = currentTab?.type === "onboarding";
   const isChangelog = currentTab?.type === "changelog";
@@ -55,13 +53,7 @@ export function ClassicMainShellFrame() {
   );
 
   return (
-    <div
-      className={cn([
-        "bg-background flex h-full min-h-0 flex-col",
-        roundedWindowFrame &&
-          "border-border overflow-hidden rounded-[10px] border",
-      ])}
-    >
+    <div className="bg-background flex h-full min-h-0 flex-col">
       {usesWindowsStyleTitleBar() ? (
         <WindowsTitleBar
           showSidebarTimelineChrome={showSidebarTimelineChrome}

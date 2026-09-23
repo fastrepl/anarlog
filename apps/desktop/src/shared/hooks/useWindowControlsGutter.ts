@@ -19,24 +19,30 @@ export function usesRoundedWindowFrame() {
 }
 
 export function useRoundedWindowFrame() {
-  const [rounded, setRounded] = useState(() => usesRoundedWindowFrame());
-
   useMountEffect(() => {
     if (!usesRoundedWindowFrame()) {
       return;
     }
 
     let cancelled = false;
+    let syncVersion = 0;
     let unlistenResize: (() => void) | undefined;
     const appWindow = getCurrentWindow();
     const sync = async () => {
+      const version = ++syncVersion;
       const [isMaximized, isFullscreen] = await Promise.all([
         appWindow.isMaximized().catch(() => false),
         appWindow.isFullscreen().catch(() => false),
       ]);
 
-      if (!cancelled) {
-        setRounded(!isMaximized && !isFullscreen);
+      if (cancelled || version !== syncVersion) {
+        return;
+      }
+
+      if (isMaximized || isFullscreen) {
+        delete document.documentElement.dataset.roundedWindow;
+      } else {
+        document.documentElement.dataset.roundedWindow = "";
       }
     };
 
@@ -60,8 +66,6 @@ export function useRoundedWindowFrame() {
       unlistenResize?.();
     };
   });
-
-  return rounded;
 }
 
 export function useWindowControlsGutter() {
