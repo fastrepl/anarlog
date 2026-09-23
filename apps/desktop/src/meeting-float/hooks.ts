@@ -43,8 +43,8 @@ const MEETING_FLOAT_SQL = `
     json_extract(session.metadata_json, '$.speaker_context') AS speaker_context,
     (
       SELECT t.started_at_ms FROM transcripts AS t
-      WHERE t.session_id = session.id
-      ORDER BY t.started_at_ms DESC LIMIT 1
+      WHERE t.session_id = session.id AND t.deleted_at IS NULL
+      ORDER BY t.started_at_ms DESC, t.created_at DESC LIMIT 1
     ) AS live_started_at_ms
   FROM sessions AS session
   WHERE session.deleted_at IS NULL
