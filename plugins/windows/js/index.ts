@@ -64,7 +64,7 @@ export async function dismissInstruction() {
   await new Promise((resolve) => setTimeout(resolve, 100));
   const restored = await commands.windowRestoreFrameAnimated({ type: "main" });
   if (restored.status === "error") {
-    throw new Error(restored.error);
+    console.warn("Failed to restore instruction window frame:", restored.error);
   }
 }
 

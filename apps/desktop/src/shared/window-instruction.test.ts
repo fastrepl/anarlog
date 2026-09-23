@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   windowSaveFrame: vi.fn(),
   windowEmitNavigate: vi.fn(),
   windowSetFrameAnimated: vi.fn(),
+  windowRestoreFrameAnimated: vi.fn(),
 }));
 
 vi.mock("../../../../plugins/windows/js/bindings.gen", () => ({
@@ -11,7 +12,10 @@ vi.mock("../../../../plugins/windows/js/bindings.gen", () => ({
   events: {},
 }));
 
-import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import {
+  dismissInstruction,
+  openUrlWithInstruction,
+} from "@anlg/plugin-windows";
 
 describe("openUrlWithInstruction", () => {
   beforeEach(() => {
@@ -32,5 +36,25 @@ describe("openUrlWithInstruction", () => {
     expect(mocks.windowEmitNavigate).not.toHaveBeenCalled();
     expect(mocks.windowSetFrameAnimated).not.toHaveBeenCalled();
     expect(openUrl).not.toHaveBeenCalled();
+  });
+
+  it("completes dismissal even if restoring the original frame fails", async () => {
+    mocks.windowEmitNavigate.mockResolvedValue({ status: "ok", data: null });
+    mocks.windowRestoreFrameAnimated.mockResolvedValue({
+      status: "error",
+      error: "window manager timed out",
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(dismissInstruction()).resolves.toBeUndefined();
+    expect(mocks.windowEmitNavigate).toHaveBeenCalledWith(
+      { type: "main" },
+      { path: "/app", search: null },
+    );
+    expect(warn).toHaveBeenCalledWith(
+      "Failed to restore instruction window frame:",
+      "window manager timed out",
+    );
+    warn.mockRestore();
   });
 });
