@@ -21,4 +21,3 @@ Docs-only or non-functional changes (formatting, comments, CI/config with no beh
 ## Verification
 
 <!-- List the commands and manual checks you ran. -->
-
