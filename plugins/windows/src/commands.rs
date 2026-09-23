@@ -185,16 +185,27 @@ pub async fn window_save_frame(
     let maximized = if let Some(handle) = window.get(&app) {
         let maximized = handle.is_maximized().map_err(|e| e.to_string())?;
         if maximized {
-            #[cfg(target_os = "linux")]
-            let previous_size = handle.inner_size().map_err(|e| e.to_string())?;
             handle.unmaximize().map_err(|e| e.to_string())?;
             #[cfg(target_os = "linux")]
             let restored = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                let mut previous_bounds = None;
+                let mut stable_since = std::time::Instant::now();
                 loop {
-                    if !handle.is_maximized().map_err(|e| e.to_string())?
-                        && handle.inner_size().map_err(|e| e.to_string())? != previous_size
-                    {
-                        return Ok::<(), String>(());
+                    if !handle.is_maximized().map_err(|e| e.to_string())? {
+                        let frame = app
+                            .windows()
+                            .frame(window.clone())
+                            .map_err(|e| e.to_string())?
+                            .ok_or("restored window frame is unavailable")?;
+                        let bounds = (frame.x, frame.y, frame.w, frame.h);
+                        if previous_bounds != Some(bounds) {
+                            previous_bounds = Some(bounds);
+                            stable_since = std::time::Instant::now();
+                        } else if stable_since.elapsed() >= std::time::Duration::from_millis(120) {
+                            return Ok::<(), String>(());
+                        }
+                    } else {
+                        previous_bounds = None;
                     }
                     tokio::time::sleep(std::time::Duration::from_millis(16)).await;
                 }

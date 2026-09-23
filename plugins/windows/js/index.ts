@@ -26,7 +26,10 @@ export async function openUrlWithInstruction(
   ) => Promise<{ status: "ok" | "error"; error?: unknown }>,
   instructionSearch?: Record<string, string | undefined>,
 ) {
-  await commands.windowSaveFrame({ type: "main" });
+  const saved = await commands.windowSaveFrame({ type: "main" });
+  if (saved.status === "error") {
+    throw new Error(saved.error);
+  }
   const search = Object.fromEntries(
     Object.entries({ type: instructionType, url, ...instructionSearch }).filter(
       ([, value]) => value !== undefined,
