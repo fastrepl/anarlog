@@ -55,14 +55,25 @@ function NextDeviceButton() {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-    const id = window.setInterval(
-      () => setIndex((current) => (current + 1) % nextDevices.length),
-      1800,
-    );
-    return () => window.clearInterval(id);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let id: number | undefined;
+
+    const sync = () => {
+      window.clearInterval(id);
+      id = reducedMotion.matches
+        ? undefined
+        : window.setInterval(
+            () => setIndex((current) => (current + 1) % nextDevices.length),
+            1800,
+          );
+    };
+
+    sync();
+    reducedMotion.addEventListener("change", sync);
+    return () => {
+      window.clearInterval(id);
+      reducedMotion.removeEventListener("change", sync);
+    };
   }, []);
 
   return (
