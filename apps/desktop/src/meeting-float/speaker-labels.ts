@@ -9,6 +9,8 @@ import { SegmentKeyUtils } from "~/stt/live-segment";
 
 type LiveSegments = ListenerState["liveSegments"];
 
+const ANONYMOUS_LABEL = /^Speaker \d+$/;
+
 /**
  * Runs the native contextual speaker labeler for the floating panel's live
  * segments. A name depends only on the segment key, so the last answer is kept
@@ -57,12 +59,15 @@ export function createFloatingSpeakerLabeler(
             );
             return;
           }
+          // Anonymous numbers are first-seen within the bounded live window,
+          // so an existing number is kept; only a resolved name may replace it.
           const next = new Map(labels);
           for (const segment of result.data) {
-            next.set(
-              SegmentKeyUtils.serialize(segment.key),
-              segment.speaker_label,
-            );
+            const key = SegmentKeyUtils.serialize(segment.key);
+            if (next.has(key) && ANONYMOUS_LABEL.test(segment.speaker_label)) {
+              continue;
+            }
+            next.set(key, segment.speaker_label);
           }
           labels = next;
           onLabels(labels);
