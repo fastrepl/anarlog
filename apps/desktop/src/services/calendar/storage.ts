@@ -670,7 +670,7 @@ export async function applyConnectionSync({
   type CompanyPlan = {
     name: string;
     ownerUserId: string;
-    forNewHuman: boolean;
+    newHumanEmails: string[];
     enrichHumanIds: string[];
   };
   const companyNames = new Map<string, CompanyPlan>();
@@ -685,7 +685,7 @@ export async function applyConnectionSync({
       plan = {
         name: human.companyName,
         ownerUserId: human.ownerUserId,
-        forNewHuman: false,
+        newHumanEmails: [],
         enrichHumanIds: [],
       };
       companyNames.set(key, plan);
@@ -693,21 +693,30 @@ export async function applyConnectionSync({
     return plan;
   };
   for (const human of participants.humansToCreate) {
-    const plan = planCompany(human);
-    if (plan) plan.forNewHuman = true;
+    planCompany(human)?.newHumanEmails.push(human.email.toLowerCase());
   }
   for (const human of participants.humansToEnrich) {
     planCompany(human)?.enrichHumanIds.push(human.id);
   }
   for (const company of companyNames.values()) {
-    const stillNeededSql = company.forNewHuman
-      ? ""
-      : `AND EXISTS (
+    const stillNeeded: string[] = [];
+    if (company.newHumanEmails.length > 0) {
+      stillNeeded.push(`NOT EXISTS (
+          SELECT 1
+          FROM humans
+          WHERE lower(email) IN (${placeholders(company.newHumanEmails.length)})
+            AND deleted_at IS NULL
+        )`);
+    }
+    if (company.enrichHumanIds.length > 0) {
+      stillNeeded.push(`EXISTS (
           SELECT 1
           FROM humans
           WHERE id IN (${placeholders(company.enrichHumanIds.length)})
             AND organization_id = '' AND deleted_at IS NULL
-        )`;
+        )`);
+    }
+    const stillNeededSql = `AND (${stillNeeded.join(" OR ")})`;
     statements.push({
       sql: `
         INSERT INTO organizations (
@@ -733,7 +742,8 @@ export async function applyConnectionSync({
         now,
         now,
         company.name,
-        ...(company.forNewHuman ? [] : company.enrichHumanIds),
+        ...company.newHumanEmails,
+        ...company.enrichHumanIds,
       ],
     });
   }

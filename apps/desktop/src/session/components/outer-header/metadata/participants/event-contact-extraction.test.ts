@@ -315,4 +315,21 @@ describe("event contact extraction", () => {
       },
     ]);
   });
+
+  test("keeps distinct non-Latin names separate", () => {
+    const extraction = extractEventContacts({
+      context: {
+        title: "Sync",
+        candidates: [
+          { name: "김철수", email: "cs@kakao.co.kr" },
+          { name: "이영희", email: "yh@kakao.co.kr" },
+        ],
+      },
+    });
+
+    expect(extraction.contacts.map((contact) => contact.name)).toEqual([
+      "김철수",
+      "이영희",
+    ]);
+  });
 });

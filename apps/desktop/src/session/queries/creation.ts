@@ -328,6 +328,11 @@ function eventParticipantStatements(
                 FROM organizations
                 WHERE lower(name) = lower(?) AND deleted_at IS NULL
               )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM humans
+                WHERE lower(email) = lower(?) AND deleted_at IS NULL
+              )
           `,
           params: [
             id(),
@@ -337,6 +342,7 @@ function eventParticipantStatements(
             sessionId,
             humanId,
             identity.companyName,
+            email,
           ],
         });
       }
