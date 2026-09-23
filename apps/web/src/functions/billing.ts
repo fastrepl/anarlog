@@ -36,11 +36,20 @@ import {
   isUnavailableStripeCustomerError,
 } from "@/lib/stripe-customer";
 import {
+  type BillingPeriod,
   getPlanSwitchRoute,
   getSubscriptionBillingPeriod,
   selectCurrentSubscription,
   selectPersonalPlanReplacement,
 } from "@/lib/subscription-selection";
+import {
+  getSyncDeviceAddonQuantity,
+  INCLUDED_PRO_SYNC_DEVICES,
+  MAX_SYNC_DEVICE_ADDONS,
+  selectBasePlanItem,
+  selectSyncDeviceAddonItem,
+  SYNC_DEVICE_ADDON_LOOKUP_KEYS,
+} from "@/lib/sync-device-addon";
 import { WEB_TRIAL_CHECKOUT_FIELDS } from "@/lib/trial-policy";
 import {
   startWorkspaceCheckout,
@@ -184,6 +193,23 @@ const getTeamPriceId = (period: "monthly" | "yearly") => {
   );
 };
 
+const getSyncDeviceAddonPrice = async (
+  stripe: Stripe,
+  period: BillingPeriod,
+): Promise<Stripe.Price> => {
+  const lookupKey = SYNC_DEVICE_ADDON_LOOKUP_KEYS[period];
+  const prices = await stripe.prices.list({
+    lookup_keys: [lookupKey],
+    active: true,
+    limit: 1,
+  });
+  const price = prices.data[0];
+  if (!price) {
+    throw new Error(`Missing Stripe price for lookup key: ${lookupKey}`);
+  }
+  return price;
+};
+
 const createSubscriptionUpdateConfirmUrl = async (
   stripe: Stripe,
   stripeCustomerId: string,
@@ -191,9 +217,29 @@ const createSubscriptionUpdateConfirmUrl = async (
   targetPriceId: string,
   returnUrl: string,
 ) => {
-  const subscriptionItem = subscription.items.data[0];
+  const subscriptionItem = selectBasePlanItem(subscription.items.data);
   if (!subscriptionItem) {
     throw new Error("Subscription item is unavailable");
+  }
+
+  const items: Stripe.BillingPortal.SessionCreateParams.FlowData.SubscriptionUpdateConfirm.Item[] =
+    [{ id: subscriptionItem.id, price: targetPriceId }];
+
+  // Keep the add-on on the same billing interval as the base plan.
+  const addonItem = selectSyncDeviceAddonItem(subscription.items.data);
+  const targetPrice = await stripe.prices.retrieve(targetPriceId);
+  const targetPeriod = getSubscriptionBillingPeriod({
+    items: { data: [{ price: targetPrice }] },
+  });
+  if (addonItem && targetPeriod) {
+    const addonPrice = await getSyncDeviceAddonPrice(stripe, targetPeriod);
+    if (addonPrice.id !== addonItem.price.id) {
+      items.push({
+        id: addonItem.id,
+        price: addonPrice.id,
+        quantity: addonItem.quantity,
+      });
+    }
   }
 
   const portalSession = await stripe.billingPortal.sessions.create({
@@ -203,12 +249,7 @@ const createSubscriptionUpdateConfirmUrl = async (
       type: "subscription_update_confirm",
       subscription_update_confirm: {
         subscription: subscription.id,
-        items: [
-          {
-            id: subscriptionItem.id,
-            price: targetPriceId,
-          },
-        ],
+        items,
       },
       after_completion: {
         type: "redirect",
@@ -1029,6 +1070,164 @@ export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
+const emptySyncDeviceAddon = {
+  available: false,
+  includedDevices: INCLUDED_PRO_SYNC_DEVICES,
+  maxAddons: MAX_SYNC_DEVICE_ADDONS,
+  period: null as BillingPeriod | null,
+  quantity: 0,
+  unitAmount: null as number | null,
+  currency: null as string | null,
+};
+
+export const getSyncDeviceAddon = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      user,
+    );
+    if (!stripeCustomerId) {
+      return emptySyncDeviceAddon;
+    }
+
+    const subscription = await getCurrentSubscription(stripe, stripeCustomerId);
+    if (
+      !subscription ||
+      (subscription.status !== "active" && subscription.status !== "trialing")
+    ) {
+      return emptySyncDeviceAddon;
+    }
+
+    const period = getSubscriptionBillingPeriod(subscription);
+    if (!period) {
+      return emptySyncDeviceAddon;
+    }
+
+    const addonPrice = await getSyncDeviceAddonPrice(stripe, period).catch(
+      (error) => {
+        captureOperationalError(error, {
+          operation: "sync_device_addon_price_lookup",
+          level: "warning",
+        });
+        return null;
+      },
+    );
+    if (!addonPrice) {
+      return emptySyncDeviceAddon;
+    }
+
+    return {
+      ...emptySyncDeviceAddon,
+      available: true,
+      period,
+      quantity: getSyncDeviceAddonQuantity(subscription.items.data),
+      unitAmount: addonPrice.unit_amount,
+      currency: addonPrice.currency,
+    };
+  },
+);
+
+const updateSyncDeviceAddonInput = z.object({
+  quantity: z.number().int().min(0).max(MAX_SYNC_DEVICE_ADDONS),
+});
+
+export const updateSyncDeviceAddon = createServerFn({ method: "POST" })
+  .inputValidator(updateSyncDeviceAddonInput)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id || user.is_anonymous) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      user,
+    );
+    if (!stripeCustomerId) {
+      throw new Error("No Stripe customer found");
+    }
+
+    const subscription = await getCurrentSubscription(stripe, stripeCustomerId);
+    if (
+      !subscription ||
+      (subscription.status !== "active" && subscription.status !== "trialing")
+    ) {
+      throw new Error("An active Pro subscription is required");
+    }
+
+    const period = getSubscriptionBillingPeriod(subscription);
+    if (!period) {
+      throw new Error("Subscription billing period is unavailable");
+    }
+
+    const addonItem = selectSyncDeviceAddonItem(subscription.items.data);
+    const currentQuantity = getSyncDeviceAddonQuantity(subscription.items.data);
+    if (currentQuantity === data.quantity) {
+      return { quantity: currentQuantity };
+    }
+
+    // Extra slots are billed immediately (prorated); removals credit the
+    // next invoice.
+    const prorationBehavior: Stripe.SubscriptionItemUpdateParams.ProrationBehavior =
+      data.quantity > currentQuantity ? "always_invoice" : "create_prorations";
+
+    if (data.quantity === 0) {
+      if (addonItem) {
+        await stripe.subscriptionItems.del(addonItem.id, {
+          proration_behavior: prorationBehavior,
+        });
+      }
+    } else if (addonItem) {
+      await stripe.subscriptionItems.update(addonItem.id, {
+        quantity: data.quantity,
+        proration_behavior: prorationBehavior,
+      });
+    } else {
+      const addonPrice = await getSyncDeviceAddonPrice(stripe, period);
+      await stripe.subscriptionItems.create({
+        subscription: subscription.id,
+        price: addonPrice.id,
+        quantity: data.quantity,
+        proration_behavior: prorationBehavior,
+      });
+    }
+
+    void captureServerAnalytics({
+      event: "sync_device_addon_updated",
+      userId: user.id,
+      timestamp: new Date(),
+      properties: {
+        period,
+        previous_quantity: currentQuantity,
+        quantity: data.quantity,
+      },
+    }).catch((error) => {
+      captureOperationalError(error, {
+        operation: "sync_device_addon_analytics_capture",
+        level: "warning",
+      });
+    });
+
+    return { quantity: data.quantity };
+  });
 
 const deleteAccountInput = z.object({
   email: z.string().trim().email(),

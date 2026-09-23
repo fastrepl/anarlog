@@ -1066,8 +1066,8 @@ msgid "Choose a channel"
 msgstr "Choose a channel"
 
 #: src/settings/sync/index.tsx
-msgid "Choose a device below to replace, then this device will continue automatically."
-msgstr "Choose a device below to replace, then this device will continue automatically."
+msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
+msgstr "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Choose a file format and what to include."
@@ -1782,6 +1782,10 @@ msgstr "Couldn't load your profile. Reopen this page to try again."
 #: src/settings/general/account.tsx
 msgid "Couldn't open connected accounts. Try again."
 msgstr "Couldn't open connected accounts. Try again."
+
+#: src/settings/sync/index.tsx
+msgid "Couldn't open device add-ons. Try again."
+msgstr "Couldn't open device add-ons. Try again."
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
@@ -2521,6 +2525,10 @@ msgstr "Generating title..."
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "Generating transcript..."
 msgstr "Generating transcript..."
+
+#: src/settings/sync/index.tsx
+msgid "Get more slots"
+msgstr "Get more slots"
 
 #: src/session/components/note-input/enhanced/config-error.tsx
 #: src/settings/general/billing.tsx
