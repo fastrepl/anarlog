@@ -763,6 +763,7 @@ mod tests {
             runtime: Arc::new(TestRuntime),
             audio: Arc::new(TestRuntime),
             requested_transcription_mode: crate::TranscriptionMode::Live,
+            live_confirmed: Default::default(),
             params: SessionParams {
                 retain_audio: None,
                 session_id: "session".to_string(),
