@@ -138,7 +138,6 @@ Check the affected workflow under `.github/workflows/` for stricter package-spec
 - Attach a short screen recording or GIF in the `Demo` section showing the problem and the fix in action. This, plus the one-line intent, is what lets a maintainer understand a contribution without reading a wall of text. Docs-only or non-functional changes can skip the video by writing `N/A` and a one-line reason.
 - List the commands and manual checks you used to verify the change.
 - CI enforces the title, the labeled `Intent` line, and the `Demo` section for external contributors. Org members, collaborators, owners, and bots are not gated.
-- External contributors must sign the [Fastrepl Contributor License Agreement](https://gist.github.com/ComputelessComputer/9d8243ec8e2ce92541c5b67462f092a0) through CLA Assistant when prompted. Org members, collaborators, and owners skip the `license/cla` status check.
 
 ## Licensing and contribution boundary
 
