@@ -44,7 +44,16 @@ For a reproducible first test, use a transcript section small enough for the con
 
 ## Make one request and keep the full result
 
-The following Python example reads `transcript-part-01.txt`, calls a local Ollama server, and saves both the returned JSON and the generated text. It requires Python 3 and an already-running Ollama server with the named model downloaded. Use a new output filename for each experiment so you keep earlier results.
+Save the following code as `summarize.py` in the same folder as `transcript-part-01.txt`. It requires Python 3 and an already-running local Ollama server with the named model downloaded.
+
+Open that folder in your terminal: PowerShell on Windows, or Terminal on macOS/Linux. Confirm that your Python command runs Python 3, then use the matching command:
+
+| Environment | Check Python | Run the script |
+| --- | --- | --- |
+| Windows with Python on PATH | `python --version` | `python summarize.py` |
+| macOS or Linux with Python 3 installed | `python3 --version` | `python3 summarize.py` |
+
+If the command is unavailable or reports Python 2, configure Python 3 before continuing. The script saves the returned JSON and summary beside the input file. Use new output filenames for each experiment so you keep earlier results.
 
 ```python
 import json
@@ -137,6 +146,6 @@ The default-context output also confused the fictional hiring decision about Mar
 
 ## Use the result in your meeting workflow
 
-Anarlog can keep the canonical meeting record locally and use a configured Ollama model for Intelligence. Check the [provider setup](https://docs.anarlog.so/models-and-providers) and keep transcription as a separate decision. Local summaries do not make a cloud transcription provider local.
+[Anarlog](https://anarlog.so/) can keep the canonical meeting record locally and use a configured Ollama model for Intelligence. Check the [provider setup](https://docs.anarlog.so/models-and-providers) and keep transcription as a separate decision. Local summaries do not make a cloud transcription provider local.
 
 Whichever app you use, keep the transcript alongside the reviewed summary. The final handoff should make it easy to find the source of a decision, correct a name, and see which tasks still need an owner.
