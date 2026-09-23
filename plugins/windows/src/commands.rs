@@ -268,20 +268,30 @@ async fn wait_for_maximized(
 }
 
 #[cfg(target_os = "linux")]
-async fn wait_for_restored_size(
+async fn wait_for_restored_frame(
     app: &tauri::AppHandle<tauri::Wry>,
     window: &AppWindow,
     frame: crate::SavedFrame,
 ) -> Result<(), String> {
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        let mut stable_since = None;
         loop {
             let current = app
                 .windows()
                 .frame(window.clone())
                 .map_err(|e| e.to_string())?
                 .ok_or("restored window frame is unavailable")?;
-            if (current.w - frame.w).abs() < 1.0 && (current.h - frame.h).abs() < 1.0 {
-                return Ok::<(), String>(());
+            if (current.x - frame.x).abs() < 1.0
+                && (current.y - frame.y).abs() < 1.0
+                && (current.w - frame.w).abs() < 1.0
+                && (current.h - frame.h).abs() < 1.0
+            {
+                let since = stable_since.get_or_insert_with(std::time::Instant::now);
+                if since.elapsed() >= std::time::Duration::from_millis(120) {
+                    return Ok::<(), String>(());
+                }
+            } else {
+                stable_since = None;
             }
             tokio::time::sleep(std::time::Duration::from_millis(16)).await;
         }
@@ -295,39 +305,57 @@ pub(crate) async fn restore_saved_frame(
     window: AppWindow,
     saved: Option<SavedWindowFrame>,
 ) -> Result<(), String> {
-    if let Some(saved) = saved {
-        if let Some(handle) = window.get(app)
-            && handle.is_maximized().map_err(|e| e.to_string())?
-        {
-            handle.unmaximize().map_err(|e| e.to_string())?;
+    let restored = async {
+        if let Some(saved) = saved {
+            if let Some(handle) = window.get(app)
+                && handle.is_maximized().map_err(|e| e.to_string())?
+            {
+                handle.unmaximize().map_err(|e| e.to_string())?;
+                #[cfg(target_os = "linux")]
+                wait_for_maximized(&handle, false).await?;
+            }
+            app.windows()
+                .set_frame_animated(window.clone(), saved.frame)
+                .map_err(|e| e.to_string())?;
             #[cfg(target_os = "linux")]
-            wait_for_maximized(&handle, false).await?;
+            if window.get(app).is_some() {
+                wait_for_restored_frame(app, &window, saved.frame).await?;
+            }
+            if saved.maximized
+                && let Some(handle) = window.get(app)
+            {
+                handle.maximize().map_err(|e| e.to_string())?;
+                #[cfg(target_os = "linux")]
+                wait_for_maximized(&handle, true).await?;
+            }
         }
-        app.windows()
-            .set_frame_animated(window.clone(), saved.frame)
-            .map_err(|e| e.to_string())?;
-        #[cfg(target_os = "linux")]
-        if window.get(app).is_some() {
-            wait_for_restored_size(app, &window, saved.frame).await?;
-        }
+        Ok::<(), String>(())
+    }
+    .await;
+
+    if restored.is_err()
+        && let Some(saved) = saved
+    {
+        let _ = app
+            .windows()
+            .set_frame_animated(window.clone(), saved.frame);
         if saved.maximized
             && let Some(handle) = window.get(app)
         {
-            handle.maximize().map_err(|e| e.to_string())?;
-            #[cfg(target_os = "linux")]
-            wait_for_maximized(&handle, true).await?;
+            let _ = handle.maximize();
         }
     }
 
-    if matches!(window, AppWindow::Main)
-        && let Some(window_handle) = window.get(&app)
-    {
-        window_handle
-            .set_always_on_top(false)
-            .map_err(|e| e.to_string())?;
-    }
+    let cleanup = if matches!(window, AppWindow::Main) {
+        window
+            .get(app)
+            .map(|handle| handle.set_always_on_top(false).map_err(|e| e.to_string()))
+            .unwrap_or(Ok(()))
+    } else {
+        Ok(())
+    };
 
-    Ok(())
+    restored.and(cleanup)
 }
 
 #[tauri::command]

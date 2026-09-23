@@ -62,7 +62,10 @@ export async function dismissInstruction() {
     { path: "/app", search: null },
   );
   await new Promise((resolve) => setTimeout(resolve, 100));
-  await commands.windowRestoreFrameAnimated({ type: "main" });
+  const restored = await commands.windowRestoreFrameAnimated({ type: "main" });
+  if (restored.status === "error") {
+    throw new Error(restored.error);
+  }
 }
 
 const DROP_PREVENTION_CLEANUP_KEY =
