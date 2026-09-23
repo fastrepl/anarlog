@@ -21,6 +21,11 @@ import type { IncomingParticipants } from "./fetch/types";
 import { syncSessionParticipants } from "./process/participants/sync";
 import { applyConnectionSync, loadParticipantSyncSnapshot } from "./storage";
 
+import {
+  HUMAN_NAME_IS_PLACEHOLDER_SQL,
+  isEmailPlaceholderName,
+} from "~/contacts/identity";
+
 const { DatabaseSync } = createRequire(import.meta.url)(
   "node:sqlite",
 ) as typeof import("node:sqlite");
@@ -273,5 +278,26 @@ describe("participant enrichment in SQLite", () => {
     expect(db.prepare("SELECT count(*) AS n FROM organizations").get()).toEqual(
       { n: 1 },
     );
+  });
+
+  test("SQL placeholder predicate matches isEmailPlaceholderName", () => {
+    const query = db.prepare(
+      `SELECT ${HUMAN_NAME_IS_PLACEHOLDER_SQL} AS placeholder FROM (SELECT ? AS name)`,
+    );
+    for (const name of [
+      "",
+      "   ",
+      "alice@acme.com",
+      " alice@acme.com ",
+      "Jane @ Acme",
+      "Jane Doe",
+      "@handle",
+      "alice@localhost",
+      "김철수",
+    ]) {
+      expect(query.get(name), name).toEqual({
+        placeholder: isEmailPlaceholderName(name) ? 1 : 0,
+      });
+    }
   });
 });
