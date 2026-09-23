@@ -95,11 +95,6 @@ function Component() {
                       aria-hidden="true"
                     />
                     {section.name}
-                    {section.status && (
-                      <span className="border-color-subtle text-color-muted rounded-full border px-2.5 py-1 font-sans text-xs leading-none font-medium tracking-wide whitespace-nowrap uppercase">
-                        {section.status}
-                      </span>
-                    )}
                   </h3>
                   <p className="text-color-muted text-sm leading-6">
                     {section.description}
@@ -230,11 +225,6 @@ function Component() {
                       aria-hidden="true"
                     />
                     {section.name}
-                    {section.status && (
-                      <span className="border-color-subtle text-color-muted rounded-full border px-2.5 py-1 font-sans text-xs leading-none font-medium tracking-wide whitespace-nowrap uppercase">
-                        {section.status}
-                      </span>
-                    )}
                   </h2>
 
                   {(section.platform === "ios" ||
