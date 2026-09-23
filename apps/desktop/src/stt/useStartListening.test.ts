@@ -1,8 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { events as transcriptionEvents } from "@anlg/plugin-transcription";
-
 import { saveIncompleteCapture } from "./capture-result";
 import {
   MAX_SENT_MEETING_DISCLOSURE_SESSIONS,
@@ -54,6 +52,7 @@ const {
   useConfigValueMock,
   useSTTConnectionMock,
   isSupportedLanguagesLiveMock,
+  getCaptureLiveGapsMock,
   leftSidebarExpanded,
   setLeftSidebarExpandedMock,
   deleteProcessedAudioForRetentionMock,
@@ -110,6 +109,19 @@ const {
   useConfigValueMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   isSupportedLanguagesLiveMock: vi.fn(),
+  getCaptureLiveGapsMock: vi.fn(
+    async (): Promise<{
+      status: "ok";
+      data: {
+        capture_started_at: number;
+        closed: { start_ms: number; end_ms: number }[];
+        open_since_ms: number | null;
+      };
+    }> => ({
+      status: "ok",
+      data: { capture_started_at: 0, closed: [], open_since_ms: null },
+    }),
+  ),
   leftSidebarExpanded: { value: true },
   setLeftSidebarExpandedMock: vi.fn(),
   deleteProcessedAudioForRetentionMock: vi.fn(),
@@ -149,6 +161,7 @@ vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     isSupportedLanguagesLive: isSupportedLanguagesLiveMock,
     listCaptureAudioChunks: vi.fn(async () => ({ status: "ok", data: [] })),
+    getCaptureLiveGaps: getCaptureLiveGapsMock,
     acknowledgeCaptureAudioChunk: vi.fn(async () => ({
       status: "ok",
       data: null,
@@ -593,15 +606,10 @@ describe("useStartListening", () => {
       await result.current();
     });
     expect(startMock.mock.calls[0]?.[0]).toMatchObject({ retain_audio: false });
-    const progress = vi.mocked(transcriptionEvents.captureStatusEvent.listen)
-      .mock.calls[0]?.[0];
-    progress?.({
-      payload: {
-        type: "connection_error",
-        session_id: "session-1",
-        error: "offline",
-      },
-    } as never);
+    getCaptureLiveGapsMock.mockResolvedValueOnce({
+      status: "ok",
+      data: { capture_started_at: 0, closed: [], open_since_ms: 30_000 },
+    });
     await act(async () => {
       await startMock.mock.calls[0]?.[1].onStopped("session-1", {
         chunkedAudio: true,

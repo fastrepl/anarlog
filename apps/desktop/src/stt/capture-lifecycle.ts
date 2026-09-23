@@ -452,6 +452,12 @@ export function useCaptureLifecycle(sessionId: string) {
             (chunk) => chunk.capture_started_at >= startedAt - 5_000,
           );
         },
+        liveGaps: async () => {
+          const result =
+            await transcriptionCommands.getCaptureLiveGaps(sessionId);
+          if (result.status === "error") throw new Error(result.error);
+          return result.data;
+        },
         acknowledge: async (chunk) => {
           const result =
             await transcriptionCommands.acknowledgeCaptureAudioChunk(
@@ -579,21 +585,12 @@ export function useCaptureLifecycle(sessionId: string) {
         (recoveryListening ??= Promise.all([
           transcriptionEvents.captureLifecycleEvent.listen(({ payload }) => {
             if (payload.session_id !== sessionId) return;
-            if (payload.type === "started") {
-              if (payload.live_transcription_active) audioRecovery.connected();
-              else if (!payload.requested_live_transcription)
-                audioRecovery.batchOnly();
-              else audioRecovery.interrupted();
-            } else if (payload.type === "finalizing" && !retainAudio) {
+            if (payload.type === "finalizing" && !retainAudio)
               void audioRecovery.stop(false);
-            }
           }),
           transcriptionEvents.captureStatusEvent.listen(({ payload }) => {
             if (payload.session_id !== sessionId) return;
-            if (payload.type === "connected") audioRecovery.connected();
-            else if (payload.type === "connection_error")
-              audioRecovery.interrupted();
-            else if (
+            if (
               payload.type === "audio_error" &&
               payload.error.startsWith("audio_storage_")
             )
