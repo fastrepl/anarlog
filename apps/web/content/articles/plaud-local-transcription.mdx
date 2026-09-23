@@ -11,7 +11,7 @@ date: "2026-10-10"
 
 **You can export a Plaud recording and transcribe the exported file with a local tool. You can also export an existing transcript and summarize it locally.** These are downstream workflows; they do not turn Plaud's own AI service into local inference or change where a recording was processed before export.
 
-Plaud's [export guide](https://support.plaud.ai/hc/en-us/articles/50835453223705-Export-recordings-transcripts-and-summaries), updated September 9, 2026, documents audio and transcript exports. We checked the documentation on September 22, 2026. We make Anarlog. This article does not claim a hands-on test of Plaud recorder hardware; vendor export screens and local processing evidence are identified separately.
+Plaud's [export guide](https://support.plaud.ai/hc/en-us/articles/50835453223705-Export-recordings-transcripts-and-summaries), updated September 9, 2026, documents audio and transcript exports. We checked the documentation on September 22, 2026. We make Anarlog. We tested the downstream local processing step with a synthetic MP3; Plaud export instructions and images come from its documentation.
 
 ## Choose which artifact you want to move
 
@@ -29,11 +29,11 @@ In Plaud, open the recording's export controls, choose the content type, and sel
 
 Save an untouched copy of the exported file before converting or editing it. Give it a name that distinguishes the original recording from a revised transcript and a generated summary.
 
-Do not assume that an export proves a completely offline transfer from the recorder. This guide has not verified every device, app, sync, or transfer path. Check the settings and documentation for your own Plaud device if keeping the recording away from cloud storage is a requirement.
+If the recording must stay out of cloud storage, check your Plaud device's transfer and sync settings before recording. Export alone does not establish an offline transfer path.
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/plaud/export/2026-09-22-audio-export.png" alt="Plaud mobile audio export selector with MP3 and WAV formats" width={360} height={724} />
 
-*Official mobile-app export example; this is not a hands-on capture from a Plaud recorder. Source: [official Plaud documentation](https://support.plaud.ai/hc/en-us/articles/50835453223705-Export-recordings-transcripts-and-summaries), checked September 22, 2026. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/plaud/export/2026-09-22-audio-export.png).*
+*Plaud's mobile MP3/WAV export example. Source: [official Plaud documentation](https://support.plaud.ai/hc/en-us/articles/50835453223705-Export-recordings-transcripts-and-summaries). [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/plaud/export/2026-09-22-audio-export.png).*
 
 ## Route A: transcribe the audio locally
 
@@ -45,11 +45,11 @@ Choose a file-processing route for the computer receiving your export:
 
 Download the model first and verify a small sample before processing a long recording. Choosing an API engine creates a different data path. If you already have an accurate timed transcript, skip speech processing and use Route B.
 
-A safe workflow check is to prepare the model online, disconnect, and process a synthetic audio file with the same format as your export. That proves the local file-processing step for that configuration. It does not prove how the Plaud hardware captured or transferred the original file.
+To check the local step, prepare the model online, disconnect, and process a synthetic file in the same format as your export.
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-import.png" alt="Synthetic MP3 being dropped into a new Anarlog note" width={900} height={814} />
 
-*Our capture: Anarlog 1.4.25, Apple Silicon macOS 26.5.2, September 22, 2026. The synthetic MP3 stands in for an exported recording; no Plaud hardware is shown. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-import.png).*
+*Our capture: importing a synthetic MP3 into Anarlog, September 22, 2026. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-import.png).*
 
 ### The local MP3 step we tested
 
@@ -59,7 +59,7 @@ This MP3 was a stand-in for an exported recording, not a file captured on Plaud 
 
 <Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-transcript.png" alt="Anarlog transcript generated from the imported synthetic MP3" width={900} height={814} />
 
-*Our capture of the completed local import/transcription step. Missing digits in the transcript illustrate why source review is still needed. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-transcript.png).*
+*Our capture: the local transcript produced from the synthetic MP3. [Open full-size image](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-transcript.png).*
 
 ## Route B: keep the transcript and summarize locally
 
