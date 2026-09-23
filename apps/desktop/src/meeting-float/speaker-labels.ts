@@ -5,7 +5,11 @@ import {
 
 import type { FloatingSpeakerLabels, ListenerState } from "./route-state";
 
-import { SegmentKeyUtils } from "~/stt/live-segment";
+import {
+  getMaxSpeakerNumberForParticipants,
+  SegmentKeyUtils,
+  SpeakerLabelManager,
+} from "~/stt/live-segment";
 
 type LiveSegments = ListenerState["liveSegments"];
 
@@ -13,15 +17,16 @@ const ANONYMOUS_LABEL = /^Speaker \d+$/;
 
 /**
  * Runs the native contextual speaker labeler for the floating panel's live
- * segments. A name depends only on the segment key, so the last answer is kept
- * per key until the labeler responds to a newer capture, exactly like the
- * transcript tab keeps previous data while a new query is in flight.
+ * segments. Identities come from the latest native result; anonymous numbers
+ * are allocated once per key for the whole session so the bounded live window
+ * cannot renumber speakers as old segments are evicted.
  */
 export function createFloatingSpeakerLabeler(
   onLabels: (labels: FloatingSpeakerLabels) => void,
 ) {
   let sessionId: string | null = null;
   let labels = new Map<string, string>();
+  let anonymous: SpeakerLabelManager | null = null;
   let generation = 0;
 
   return {
@@ -36,6 +41,7 @@ export function createFloatingSpeakerLabeler(
       if (sessionId !== nextSessionId) {
         sessionId = nextSessionId;
         labels = new Map();
+        anonymous = null;
       }
       if (!request || segments.length === 0) {
         return;
@@ -59,15 +65,22 @@ export function createFloatingSpeakerLabeler(
             );
             return;
           }
-          // Anonymous numbers are first-seen within the bounded live window,
-          // so an existing number is kept; only a resolved name may replace it.
-          const next = new Map(labels);
+          anonymous ??= new SpeakerLabelManager(
+            getMaxSpeakerNumberForParticipants(
+              request.participant_human_ids,
+              request.self_human_id,
+            ),
+          );
+          const next = new Map<string, string>();
           for (const segment of result.data) {
             const key = SegmentKeyUtils.serialize(segment.key);
-            if (next.has(key) && ANONYMOUS_LABEL.test(segment.speaker_label)) {
-              continue;
-            }
-            next.set(key, segment.speaker_label);
+            if (next.has(key)) continue;
+            next.set(
+              key,
+              ANONYMOUS_LABEL.test(segment.speaker_label)
+                ? `Speaker ${anonymous.getUnknownSpeakerNumber(segment.key)}`
+                : segment.speaker_label,
+            );
           }
           labels = next;
           onLabels(labels);
@@ -80,6 +93,7 @@ export function createFloatingSpeakerLabeler(
       generation++;
       sessionId = null;
       labels = new Map();
+      anonymous = null;
     },
   };
 }

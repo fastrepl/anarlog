@@ -80,6 +80,41 @@ describe("createFloatingSpeakerLabeler", () => {
     expect(labeler.labels.get(remote)).toBe("Speaker 2");
   });
 
+  it("gives evicted-window newcomers a fresh number and applies identity withdrawals", async () => {
+    const onLabels = vi.fn();
+    const labeler = createFloatingSpeakerLabeler(onLabels);
+    const a = segment("a", "RemoteParty", 0);
+    const b = segment("b", "RemoteParty", 1);
+    const c = segment("c", "RemoteParty", 2);
+
+    mocks.renderTranscriptSegments.mockResolvedValueOnce({
+      status: "ok",
+      data: [
+        { ...a, speaker_label: "John" },
+        { ...b, speaker_label: "Speaker 1" },
+      ],
+    });
+    labeler.resolve("session", [a, b], request);
+    await vi.waitFor(() => expect(onLabels).toHaveBeenCalledTimes(1));
+
+    mocks.renderTranscriptSegments.mockResolvedValueOnce({
+      status: "ok",
+      data: [
+        { ...a, speaker_label: "Speaker 1" },
+        { ...b, speaker_label: "Speaker 2" },
+        { ...c, speaker_label: "Speaker 3" },
+      ],
+    });
+    labeler.resolve("session", [a, b, c], request);
+    await vi.waitFor(() => expect(onLabels).toHaveBeenCalledTimes(2));
+
+    expect(
+      [a, b, c].map((s) =>
+        labeler.labels.get(SegmentKeyUtils.serialize(s.key)),
+      ),
+    ).toEqual(["Speaker 2", "Speaker 1", "Speaker 3"]);
+  });
+
   it("drops labels when the live session changes", async () => {
     const labeler = createFloatingSpeakerLabeler(() => {});
     mocks.renderTranscriptSegments.mockResolvedValueOnce({
