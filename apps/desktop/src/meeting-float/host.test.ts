@@ -206,7 +206,7 @@ describe("getFloatingRouteState", () => {
     ).toBe("error");
   });
 
-  it("returns error status when live transcription degrades", () => {
+  it("keeps recording status while live transcription degrades and retries", () => {
     expect(
       getFloatingRouteState(
         createListenerState({
@@ -215,7 +215,7 @@ describe("getFloatingRouteState", () => {
           degraded: { type: "connection_timeout" },
         }),
       )?.status,
-    ).toBe("error");
+    ).toBe("recording");
   });
 
   it("returns error status when the active listener reports an error", () => {

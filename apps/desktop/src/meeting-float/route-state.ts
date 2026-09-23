@@ -87,7 +87,7 @@ export function getFloatingRouteState(
       state.live.loadingPhase === "connecting" &&
       !state.live.lastErrorIsAudioRelated
         ? "reconnecting"
-        : state.live.degraded || state.live.lastError
+        : state.live.lastError
           ? "error"
           : "recording",
     colorScheme,
