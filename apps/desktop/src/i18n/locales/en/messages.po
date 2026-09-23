@@ -1237,6 +1237,7 @@ msgstr "Clone"
 
 #: src/changelog/index.tsx
 #: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 #: src/session/components/note-input/search/bar.tsx
 #: src/shared/open-note-dialog.tsx
 msgid "Close"
@@ -3205,7 +3206,7 @@ msgstr "Match your device"
 msgid "Materials"
 msgstr "Materials"
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 msgid "Maximize"
 msgstr "Maximize"
 
@@ -3357,7 +3358,7 @@ msgstr "Migration needs attention"
 msgid "Migration status unavailable"
 msgstr "Migration status unavailable"
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 msgid "Minimize"
 msgstr "Minimize"
 
@@ -4478,7 +4479,7 @@ msgstr "Restart App"
 msgid "Restarting…"
 msgstr "Restarting…"
 
-#: src/main/windows-title-bar.tsx
+#: src/main/windows-window-controls.tsx
 #: src/session/components/version-history-dialog.tsx
 msgid "Restore"
 msgstr "Restore"

@@ -25,6 +25,9 @@ objc2-foundation = { workspace = true }
 swift-rs = { workspace = true }
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1", optional = true }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Dwm"] }
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }

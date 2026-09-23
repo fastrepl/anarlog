@@ -20,6 +20,29 @@ const NOTE_WINDOW_OFFSETS: [(f64, f64); 6] = [
 const NOTE_WINDOW_OVERFLOW_OFFSET: f64 = 48.0;
 static NOTE_WINDOW_POSITIONING_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+#[cfg(target_os = "windows")]
+fn round_window_corners(window: &tauri::WebviewWindow<tauri::Wry>) {
+    use windows::Win32::Graphics::Dwm::{
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
+    };
+
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    let preference = DWMWCP_ROUND;
+    let result = unsafe {
+        DwmSetWindowAttribute(
+            windows::Win32::Foundation::HWND(hwnd.0),
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            (&preference as *const _).cast(),
+            std::mem::size_of_val(&preference) as u32,
+        )
+    };
+    if let Err(error) = result {
+        tracing::debug!(%error, "window_corner_preference_unsupported");
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq, Hash)]
 #[serde(tag = "type", content = "value")]
 pub enum AppWindow {
@@ -179,6 +202,13 @@ impl AppWindow {
             builder = builder.decorations(!matches!(self, Self::Main));
         }
 
+        #[cfg(target_os = "linux")]
+        {
+            if matches!(self, Self::Main) {
+                builder = builder.transparent(true);
+            }
+        }
+
         builder
     }
 }
@@ -236,6 +266,11 @@ impl WindowImpl for AppWindow {
 
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         window.set_decorations(!matches!(self, Self::Main))?;
+
+        #[cfg(target_os = "windows")]
+        if matches!(self, Self::Main) {
+            round_window_corners(&window);
+        }
 
         Ok(window)
     }

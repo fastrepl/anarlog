@@ -1,4 +1,7 @@
-use crate::{AppWindow, SavedFrames, WebviewHealthState, WindowImpl, WindowsPluginExt, events};
+use crate::{
+    AppWindow, SavedFrames, SavedWindowFrame, WebviewHealthState, WindowImpl, WindowsPluginExt,
+    events,
+};
 
 use tauri::Manager;
 
@@ -115,6 +118,9 @@ pub async fn window_set_frame_animated(
     if matches!(window, AppWindow::Main)
         && let Some(window_handle) = window.get(&app)
     {
+        if window_handle.is_maximized().map_err(|e| e.to_string())? {
+            window_handle.unmaximize().map_err(|e| e.to_string())?;
+        }
         window_handle
             .set_always_on_top(true)
             .map_err(|e| e.to_string())?;
@@ -176,6 +182,47 @@ pub async fn window_save_frame(
     app: tauri::AppHandle<tauri::Wry>,
     window: AppWindow,
 ) -> Result<(), String> {
+    let maximized = if let Some(handle) = window.get(&app) {
+        let maximized = handle.is_maximized().map_err(|e| e.to_string())?;
+        if maximized {
+            handle.unmaximize().map_err(|e| e.to_string())?;
+            #[cfg(target_os = "linux")]
+            let restored = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                let mut previous_bounds = None;
+                let mut stable_since = std::time::Instant::now();
+                loop {
+                    if !handle.is_maximized().map_err(|e| e.to_string())? {
+                        let frame = app
+                            .windows()
+                            .frame(window.clone())
+                            .map_err(|e| e.to_string())?
+                            .ok_or("restored window frame is unavailable")?;
+                        let bounds = (frame.x, frame.y, frame.w, frame.h);
+                        if previous_bounds != Some(bounds) {
+                            previous_bounds = Some(bounds);
+                            stable_since = std::time::Instant::now();
+                        } else if stable_since.elapsed() >= std::time::Duration::from_millis(120) {
+                            return Ok::<(), String>(());
+                        }
+                    } else {
+                        previous_bounds = None;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+                }
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|result| result);
+            #[cfg(target_os = "linux")]
+            if let Err(error) = restored {
+                let _ = handle.maximize();
+                return Err(error);
+            }
+        }
+        maximized
+    } else {
+        false
+    };
     let frame = app
         .windows()
         .frame(window.clone())
@@ -186,7 +233,7 @@ pub async fn window_save_frame(
             .0
             .lock()
             .unwrap()
-            .insert(window.label(), frame);
+            .insert(window.label(), SavedWindowFrame { frame, maximized });
     }
 
     Ok(())
@@ -200,21 +247,115 @@ pub async fn window_restore_frame_animated(
 ) -> Result<(), String> {
     let saved = app.state::<SavedFrames>().take(&window.label());
 
-    if let Some(saved) = saved {
-        app.windows()
-            .set_frame_animated(window.clone(), saved)
-            .map_err(|e| e.to_string())?;
-    }
+    restore_saved_frame(&app, window, saved).await
+}
 
-    if matches!(window, AppWindow::Main)
-        && let Some(window_handle) = window.get(&app)
+#[cfg(target_os = "linux")]
+async fn wait_for_maximized(
+    handle: &tauri::WebviewWindow<tauri::Wry>,
+    maximized: bool,
+) -> Result<(), String> {
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            if handle.is_maximized().map_err(|e| e.to_string())? == maximized {
+                return Ok::<(), String>(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[cfg(target_os = "linux")]
+async fn wait_for_restored_frame(
+    app: &tauri::AppHandle<tauri::Wry>,
+    window: &AppWindow,
+    frame: crate::SavedFrame,
+) -> Result<(), String> {
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        let mut stable_since = None;
+        loop {
+            let current = app
+                .windows()
+                .frame(window.clone())
+                .map_err(|e| e.to_string())?
+                .ok_or("restored window frame is unavailable")?;
+            if (current.x - frame.x).abs() < 1.0
+                && (current.y - frame.y).abs() < 1.0
+                && (current.w - frame.w).abs() < 1.0
+                && (current.h - frame.h).abs() < 1.0
+            {
+                let since = stable_since.get_or_insert_with(std::time::Instant::now);
+                if since.elapsed() >= std::time::Duration::from_millis(120) {
+                    return Ok::<(), String>(());
+                }
+            } else {
+                stable_since = None;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub(crate) async fn restore_saved_frame(
+    app: &tauri::AppHandle<tauri::Wry>,
+    window: AppWindow,
+    saved: Option<SavedWindowFrame>,
+) -> Result<(), String> {
+    let restored = async {
+        if let Some(saved) = saved {
+            if let Some(handle) = window.get(app)
+                && handle.is_maximized().map_err(|e| e.to_string())?
+            {
+                handle.unmaximize().map_err(|e| e.to_string())?;
+                #[cfg(target_os = "linux")]
+                wait_for_maximized(&handle, false).await?;
+            }
+            app.windows()
+                .set_frame_animated(window.clone(), saved.frame)
+                .map_err(|e| e.to_string())?;
+            #[cfg(target_os = "linux")]
+            if window.get(app).is_some() {
+                wait_for_restored_frame(app, &window, saved.frame).await?;
+            }
+            if saved.maximized
+                && let Some(handle) = window.get(app)
+            {
+                handle.maximize().map_err(|e| e.to_string())?;
+                #[cfg(target_os = "linux")]
+                wait_for_maximized(&handle, true).await?;
+            }
+        }
+        Ok::<(), String>(())
+    }
+    .await;
+
+    if restored.is_err()
+        && let Some(saved) = saved
     {
-        window_handle
-            .set_always_on_top(false)
-            .map_err(|e| e.to_string())?;
+        let _ = app
+            .windows()
+            .set_frame_animated(window.clone(), saved.frame);
+        if saved.maximized
+            && let Some(handle) = window.get(app)
+        {
+            let _ = handle.maximize();
+        }
     }
 
-    Ok(())
+    let cleanup = if matches!(window, AppWindow::Main) {
+        window
+            .get(app)
+            .map(|handle| handle.set_always_on_top(false).map_err(|e| e.to_string()))
+            .unwrap_or(Ok(()))
+    } else {
+        Ok(())
+    };
+
+    restored.and(cleanup)
 }
 
 #[tauri::command]
