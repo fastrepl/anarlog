@@ -78,6 +78,7 @@ pub fn on_window_event(window: &tauri::Window<tauri::Wry>, event: &tauri::Window
                             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                             if let Err(error) =
                                 commands::restore_saved_frame(&app, AppWindow::Main, Some(saved))
+                                    .await
                             {
                                 tracing::warn!(%error, "instruction close frame restore failed");
                             }

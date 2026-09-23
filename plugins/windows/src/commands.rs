@@ -247,10 +247,50 @@ pub async fn window_restore_frame_animated(
 ) -> Result<(), String> {
     let saved = app.state::<SavedFrames>().take(&window.label());
 
-    restore_saved_frame(&app, window, saved)
+    restore_saved_frame(&app, window, saved).await
 }
 
-pub(crate) fn restore_saved_frame(
+#[cfg(target_os = "linux")]
+async fn wait_for_maximized(
+    handle: &tauri::WebviewWindow<tauri::Wry>,
+    maximized: bool,
+) -> Result<(), String> {
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            if handle.is_maximized().map_err(|e| e.to_string())? == maximized {
+                return Ok::<(), String>(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[cfg(target_os = "linux")]
+async fn wait_for_restored_size(
+    app: &tauri::AppHandle<tauri::Wry>,
+    window: &AppWindow,
+    frame: crate::SavedFrame,
+) -> Result<(), String> {
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            let current = app
+                .windows()
+                .frame(window.clone())
+                .map_err(|e| e.to_string())?
+                .ok_or("restored window frame is unavailable")?;
+            if (current.w - frame.w).abs() < 1.0 && (current.h - frame.h).abs() < 1.0 {
+                return Ok::<(), String>(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub(crate) async fn restore_saved_frame(
     app: &tauri::AppHandle<tauri::Wry>,
     window: AppWindow,
     saved: Option<SavedWindowFrame>,
@@ -260,14 +300,22 @@ pub(crate) fn restore_saved_frame(
             && handle.is_maximized().map_err(|e| e.to_string())?
         {
             handle.unmaximize().map_err(|e| e.to_string())?;
+            #[cfg(target_os = "linux")]
+            wait_for_maximized(&handle, false).await?;
         }
         app.windows()
             .set_frame_animated(window.clone(), saved.frame)
             .map_err(|e| e.to_string())?;
+        #[cfg(target_os = "linux")]
+        if window.get(app).is_some() {
+            wait_for_restored_size(app, &window, saved.frame).await?;
+        }
         if saved.maximized
             && let Some(handle) = window.get(app)
         {
             handle.maximize().map_err(|e| e.to_string())?;
+            #[cfg(target_os = "linux")]
+            wait_for_maximized(&handle, true).await?;
         }
     }
 
