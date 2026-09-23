@@ -131,6 +131,29 @@ describe("capture audio recovery", () => {
     expect(acknowledge).not.toHaveBeenCalled();
   });
 
+  it("keeps a healthy-looking chunk when an outage starts while it is being flushed", async () => {
+    const { worker, flush, repair, acknowledge, setLiveGaps } = setup();
+    worker.persistedThrough(70_000);
+    flush.mockImplementationOnce(async () => {
+      setLiveGaps({ open_since_ms: 59_000 });
+    });
+    await worker.tick();
+    expect(acknowledge).not.toHaveBeenCalled();
+    await worker.tick();
+    expect(repair.mock.calls[0]?.[1]).toEqual([{ start: 59_000, end: 60_000 }]);
+    expect(acknowledge).toHaveBeenCalledOnce();
+  });
+
+  it("stays incomplete after a failed transcript write until its audio is finalized", async () => {
+    const { worker, list, acknowledge } = setup();
+    worker.persistedThrough(30_000);
+    worker.persistenceFailed();
+    list.mockResolvedValueOnce([]);
+    await worker.tick();
+    expect(acknowledge).not.toHaveBeenCalled();
+    expect((await worker.stop(false)).incomplete).toBe(true);
+  });
+
   it("processes batch-only capture in bounded chunks during the meeting", async () => {
     const { worker, repair, acknowledge, setLiveGaps } = setup();
     setLiveGaps({ open_since_ms: 0 });

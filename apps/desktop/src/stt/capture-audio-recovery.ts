@@ -127,16 +127,20 @@ export function createCaptureAudioRecovery(options: {
         options.onStatus("repairing");
         await options.repair(chunk, intervals, controller.signal);
         controller.signal.throwIfAborted();
-        // A new outage during repair can reach back into this chunk.
-        live = await options.liveGaps();
-        if (!sameIntervals(intervals, gapsFor(live, range))) return false;
       }
+      // Acknowledging deletes the audio, so make sure no outage reached into this
+      // chunk since the gaps were read.
+      live = await options.liveGaps();
+      if (!sameIntervals(intervals, gapsFor(live, range))) return false;
       // Network success alone is insufficient: repair resolves after SQLite commits.
       await options.acknowledge(chunk);
       released += 1;
       localGaps = clip(localGaps, { start: range.end, end: Infinity });
     }
-    unresolved = remaining > 0 || chunks.length >= PAGE_SIZE;
+    // Once capture has ended, no chunk will ever cover audio past the last one.
+    if (settle && chunks.length < PAGE_SIZE) localGaps = [];
+    unresolved =
+      remaining > 0 || chunks.length >= PAGE_SIZE || localGaps.length > 0;
     checked = true;
     if (unresolved) options.onStatus("waiting");
     else if (!storageFailed) options.onStatus("complete");
