@@ -32,6 +32,7 @@ export function useRoundedWindowFrame() {
     let cancelled = false;
     let syncVersion = 0;
     let unlistenResize: (() => void) | undefined;
+    document.documentElement.dataset.roundedWindowOwner = "app";
     const sync = async () => {
       const version = ++syncVersion;
       const [isMaximized, isFullscreen] = await Promise.all([
@@ -68,6 +69,7 @@ export function useRoundedWindowFrame() {
     return () => {
       cancelled = true;
       unlistenResize?.();
+      delete document.documentElement.dataset.roundedWindowOwner;
     };
   });
 }

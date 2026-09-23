@@ -33,7 +33,10 @@
     };
     Promise.all([windowState("is_maximized"), windowState("is_fullscreen")])
       .then(function (states) {
-        if (states[0] || states[1]) {
+        if (
+          (states[0] || states[1]) &&
+          !document.documentElement.hasAttribute("data-rounded-window-owner")
+        ) {
           delete document.documentElement.dataset.roundedWindow;
         }
       })
