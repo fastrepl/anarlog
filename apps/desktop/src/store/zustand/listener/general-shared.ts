@@ -369,6 +369,11 @@ export const updateLiveProgress = (
       return;
     case "connected":
       live.loadingPhase = "connected";
+      if (!live.lastErrorIsAudioRelated) {
+        live.lastError = null;
+        live.lastErrorSessionId = null;
+        live.lastErrorIsAudioRelated = false;
+      }
       return;
     case "audio_error":
       live.lastError = payload.error;
