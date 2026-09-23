@@ -140,6 +140,16 @@ impl TranscriptProcessor {
         self
     }
 
+    /// Treat words on `channel` ending at or before `end_ms` as already
+    /// finalized by an earlier stream, so replayed audio does not emit them again.
+    pub fn with_confirmed_through(mut self, channel: i32, end_ms: i64) -> Self {
+        if end_ms > 0 && self.channels.len() < MAX_CHANNEL_STATES {
+            self.channels
+                .insert(channel, ChannelState::confirmed_through(end_ms));
+        }
+        self
+    }
+
     pub fn clear_partials(&mut self, channel: i32, start_ms: i64, end_ms: i64) -> TranscriptDelta {
         if let Some(state) = self.channels.get_mut(&channel) {
             state.clear_partials(start_ms, end_ms);

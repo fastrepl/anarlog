@@ -4,7 +4,6 @@ mod mode;
 mod reliability_tests;
 
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::sync::atomic::Ordering;
 
 use ractor::concurrency::Duration;
 use ractor::{Actor, ActorCell, ActorProcessingErr, ActorRef, SupervisionEvent};
@@ -354,7 +353,7 @@ async fn emit_active_lifecycle_event(state: &SessionState, error: Option<Degrade
 
 async fn enter_batch_fallback(state: &mut SessionState, degraded: DegradedError) {
     state.mode.enter_batch_fallback();
-    let confirmed_ms = state.ctx.live_confirmed_ms.load(Ordering::Relaxed);
+    let confirmed_ms = state.ctx.live_confirmed.latest();
     state.live_gaps.open(confirmed_ms);
     // Written on every transition (not only when state changed) so a failed
     // earlier write is repaired by the next one.
@@ -811,7 +810,7 @@ mod tests {
             app_dir: std::env::temp_dir(),
             started_at_instant: Instant::now(),
             started_at_system: SystemTime::now(),
-            live_confirmed_ms: Default::default(),
+            live_confirmed: Default::default(),
         }
     }
 

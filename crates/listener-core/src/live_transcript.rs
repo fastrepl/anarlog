@@ -109,6 +109,15 @@ impl LiveTranscriptEngine {
         }
     }
 
+    /// Skip words on `channel` that an earlier stream already finalized
+    /// through `end_ms`; used when a reconnect replays recent audio.
+    pub fn with_confirmed_through(mut self, channel: i32, end_ms: u64) -> Self {
+        self.processor = self
+            .processor
+            .with_confirmed_through(channel, i64::try_from(end_ms).unwrap_or(i64::MAX));
+        self
+    }
+
     pub fn process(&mut self, response: &StreamResponse) -> Option<LiveTranscriptUpdate> {
         let mut normalized = response.clone();
         self.normalizer.normalize(&mut normalized);

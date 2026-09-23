@@ -14,8 +14,12 @@ pub(super) struct ChannelState {
 
 impl ChannelState {
     pub(super) fn new() -> Self {
+        Self::confirmed_through(0)
+    }
+
+    pub(super) fn confirmed_through(watermark: i64) -> Self {
         Self {
-            watermark: 0,
+            watermark,
             partial_watermark: 0,
             held: None,
             partials: Vec::new(),

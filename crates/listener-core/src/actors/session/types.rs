@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Instant, SystemTime};
 
 use anlg_audio::AudioProvider;
@@ -146,9 +146,38 @@ pub struct SessionContext {
     pub app_dir: PathBuf,
     pub started_at_instant: Instant,
     pub started_at_system: SystemTime,
-    /// End of the last finalized live word (capture ms). The listener raises
-    /// it; the supervisor reads it when live transcription drops.
-    pub live_confirmed_ms: Arc<AtomicU64>,
+    pub live_confirmed: Arc<LiveConfirmed>,
+}
+
+/// End of the last finalized live word per channel (capture ms). The listener
+/// raises it; the supervisor reads it when live transcription drops, and a
+/// reconnecting listener seeds its transcript watermark from it so replayed
+/// audio does not finalize the same words twice.
+#[derive(Debug, Default)]
+pub struct LiveConfirmed {
+    channels: [AtomicU64; 3],
+}
+
+impl LiveConfirmed {
+    pub fn channels(&self) -> impl Iterator<Item = (i32, u64)> + '_ {
+        self.channels
+            .iter()
+            .enumerate()
+            .map(|(channel, end_ms)| (channel as i32, end_ms.load(Ordering::Relaxed)))
+    }
+
+    pub fn latest(&self) -> u64 {
+        self.channels().map(|(_, end_ms)| end_ms).max().unwrap_or(0)
+    }
+
+    pub fn note(&self, channel: i32, end_ms: u64) {
+        if let Some(slot) = usize::try_from(channel)
+            .ok()
+            .and_then(|channel| self.channels.get(channel))
+        {
+            slot.fetch_max(end_ms, Ordering::Relaxed);
+        }
+    }
 }
 
 impl SessionContext {

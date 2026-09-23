@@ -2,7 +2,6 @@ mod adapters;
 mod stream;
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime};
 
 use bytes::Bytes;
@@ -14,7 +13,7 @@ use anlg_transcript::IdentityAssignment;
 use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, MixedMessage};
 
-use super::session::session_span;
+use super::session::{LiveConfirmed, session_span};
 use crate::{
     DegradedError, ListenerRuntime, LiveTranscriptEngine, SessionDataEvent, SessionErrorEvent,
     SessionProgressEvent,
@@ -71,7 +70,7 @@ pub struct ListenerArgs {
     pub participant_human_ids: Vec<String>,
     pub self_human_id: Option<String>,
     pub speaker_assignments: Vec<IdentityAssignment>,
-    pub live_confirmed_ms: Arc<AtomicU64>,
+    pub live_confirmed: Arc<LiveConfirmed>,
 }
 
 pub struct ListenerState {
@@ -166,11 +165,14 @@ impl Actor for ListenerActor {
                 adapter: adapter_name.clone(),
             });
 
-            let transcript = LiveTranscriptEngine::with_speaker_assignments(
-                &adapter_name,
-                &args.participant_human_ids,
-                args.self_human_id.as_deref(),
-                args.speaker_assignments.clone(),
+            let transcript = resume_transcript(
+                LiveTranscriptEngine::with_speaker_assignments(
+                    &adapter_name,
+                    &args.participant_human_ids,
+                    args.self_human_id.as_deref(),
+                    args.speaker_assignments.clone(),
+                ),
+                &args.live_confirmed,
             );
 
             let state = ListenerState {
@@ -504,14 +506,23 @@ fn process_stream_response(
 }
 
 fn note_confirmed_words(args: &ListenerArgs, delta: &crate::LiveTranscriptDelta) {
-    if let Some(end_ms) = delta
-        .new_words
-        .iter()
-        .map(|word| word.end_ms.max(0) as u64)
-        .max()
-    {
-        args.live_confirmed_ms.fetch_max(end_ms, Ordering::Relaxed);
+    for word in &delta.new_words {
+        args.live_confirmed
+            .note(word.channel, word.end_ms.max(0) as u64);
     }
+}
+
+// A reconnect replays the last few seconds of audio; words the previous
+// stream already finalized in that window must not be emitted again.
+fn resume_transcript(
+    engine: LiveTranscriptEngine,
+    live_confirmed: &LiveConfirmed,
+) -> LiveTranscriptEngine {
+    live_confirmed
+        .channels()
+        .fold(engine, |engine: LiveTranscriptEngine, (channel, end_ms)| {
+            engine.with_confirmed_through(channel, end_ms)
+        })
 }
 
 fn classify_provider_error(
@@ -541,6 +552,160 @@ fn stop_with_degraded_error(myself: &ActorRef<ListenerMsg>, error: DegradedError
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn final_response(channel: i32, text: &str, start_ms: u64, end_ms: u64) -> StreamResponse {
+        let start = start_ms as f64 / 1000.0;
+        let end = end_ms as f64 / 1000.0;
+        serde_json::from_value(serde_json::json!({
+            "type": "Results", "start": start, "duration": end - start,
+            "is_final": true, "speech_final": true, "from_finalize": false,
+            "channel_index": [channel, 2],
+            "channel": {"alternatives": [{"transcript": text, "confidence": 1.0,
+                "words": [{"word": format!(" {text}"), "start": start, "end": end, "confidence": 1.0, "speaker": 0}]}]},
+            "metadata": {"request_id": "test", "model_uuid": "test",
+                "model_info": {"name": "test", "version": "1", "arch": "test"}}
+        }))
+        .unwrap()
+    }
+
+    fn engine(live_confirmed: &LiveConfirmed) -> LiveTranscriptEngine {
+        resume_transcript(
+            LiveTranscriptEngine::with_speaker_assignments("deepgram", &[], None, vec![]),
+            live_confirmed,
+        )
+    }
+
+    type Emitted = Vec<(i32, String, i64, i64)>;
+
+    fn collect(
+        live_confirmed: &LiveConfirmed,
+        update: Option<crate::LiveTranscriptUpdate>,
+    ) -> Emitted {
+        let Some(update) = update else {
+            return vec![];
+        };
+        for word in &update.transcript_delta.new_words {
+            live_confirmed.note(word.channel, word.end_ms.max(0) as u64);
+        }
+        update
+            .transcript_delta
+            .new_words
+            .iter()
+            .map(|w| (w.channel, w.text.trim().to_string(), w.start_ms, w.end_ms))
+            .collect()
+    }
+
+    fn finalize(
+        engine: &mut LiveTranscriptEngine,
+        live_confirmed: &LiveConfirmed,
+        response: &StreamResponse,
+    ) -> Emitted {
+        collect(live_confirmed, engine.process(response))
+    }
+
+    // The old listener flushes its held word when it stops; the new one
+    // starts from whatever the old one confirmed.
+    fn reconnect(
+        old: &mut LiveTranscriptEngine,
+        live_confirmed: &LiveConfirmed,
+    ) -> (Emitted, LiveTranscriptEngine) {
+        let flushed = collect(live_confirmed, old.flush());
+        (flushed, engine(live_confirmed))
+    }
+
+    #[test]
+    fn reconnect_replay_does_not_finalize_words_twice() {
+        let live_confirmed = LiveConfirmed::default();
+
+        let mut first = engine(&live_confirmed);
+        finalize(
+            &mut first,
+            &live_confirmed,
+            &final_response(0, "hello", 0, 1000),
+        );
+        let (flushed, mut second) = reconnect(&mut first, &live_confirmed);
+        assert_eq!(flushed, vec![(0, "hello".to_string(), 0, 1000)]);
+
+        let replayed = finalize(
+            &mut second,
+            &live_confirmed,
+            &final_response(0, "hello", 0, 1000),
+        );
+        assert!(
+            replayed.is_empty(),
+            "replayed word was emitted again: {replayed:?}"
+        );
+
+        finalize(
+            &mut second,
+            &live_confirmed,
+            &final_response(0, "world", 1000, 1500),
+        );
+        finalize(
+            &mut second,
+            &live_confirmed,
+            &final_response(1, "reply", 200, 900),
+        );
+        let rest = collect(&live_confirmed, second.flush());
+        assert_eq!(
+            rest,
+            vec![
+                (0, "world".to_string(), 1000, 1500),
+                (1, "reply".to_string(), 200, 900),
+            ]
+        );
+    }
+
+    #[test]
+    fn one_hour_with_a_reconnect_every_fifteen_minutes_yields_each_word_once() {
+        const WORD_MS: u64 = 1000;
+        const SPOKEN_MS: u64 = 400;
+        const RECONNECT_EVERY_MS: u64 = 15 * 60 * 1000;
+        const REPLAY_MS: u64 = 5000;
+        const HOUR_MS: u64 = 60 * 60 * 1000;
+
+        let live_confirmed = LiveConfirmed::default();
+        let mut engine = engine(&live_confirmed);
+        let mut emitted = Vec::new();
+        let mut at = 0;
+        while at < HOUR_MS {
+            if at > 0 && at % RECONNECT_EVERY_MS == 0 {
+                let (flushed, next) = reconnect(&mut engine, &live_confirmed);
+                emitted.extend(flushed);
+                engine = next;
+                let mut replay = at - REPLAY_MS;
+                while replay < at {
+                    for channel in 0..2 {
+                        let response = final_response(
+                            channel,
+                            &format!("w{replay}"),
+                            replay,
+                            replay + SPOKEN_MS,
+                        );
+                        emitted.extend(finalize(&mut engine, &live_confirmed, &response));
+                    }
+                    replay += WORD_MS;
+                }
+            }
+            for channel in 0..2 {
+                let response = final_response(channel, &format!("w{at}"), at, at + SPOKEN_MS);
+                emitted.extend(finalize(&mut engine, &live_confirmed, &response));
+            }
+            at += WORD_MS;
+        }
+        emitted.extend(collect(&live_confirmed, engine.flush()));
+
+        let expected = (HOUR_MS / WORD_MS) as usize * 2;
+        assert_eq!(emitted.len(), expected);
+        let mut unique = emitted.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(
+            unique.len(),
+            expected,
+            "duplicate words after reconnect replay"
+        );
+    }
 
     #[tokio::test]
     async fn stream_task_shutdown_aborts_a_hung_task_after_the_deadline() {
