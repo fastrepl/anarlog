@@ -340,3 +340,184 @@ fn assigned_speakers_stay_merged_across_context_intervals() {
         serde_json::to_value(preview).unwrap()
     );
 }
+
+fn interval(
+    start_ms: i64,
+    end_ms: i64,
+    participants: &[(&str, &str)],
+) -> SpeakerContextInterval {
+    SpeakerContextInterval {
+        start_ms,
+        end_ms,
+        active_call: true,
+        calendar_call: false,
+        mic_isolated: None,
+        shared_microphone: false,
+        title: String::new(),
+        self_names: vec![],
+        participants: participants
+            .iter()
+            .map(|(human_id, name)| RenderTranscriptHuman {
+                human_id: (*human_id).into(),
+                name: (*name).into(),
+            })
+            .collect(),
+    }
+}
+
+fn request_with_word_times(
+    intervals: Vec<SpeakerContextInterval>,
+    words: &[(i32, i32, i64, i64)],
+) -> RenderTranscriptRequest {
+    RenderTranscriptRequest {
+        speaker_context: Some(SpeakerContext { intervals }),
+        preview: None,
+        participant_human_ids: vec![],
+        self_human_id: Some("self".into()),
+        humans: vec![
+            RenderTranscriptHuman {
+                human_id: "self".into(),
+                name: "John".into(),
+            },
+            RenderTranscriptHuman {
+                human_id: "artem".into(),
+                name: "Artem".into(),
+            },
+            RenderTranscriptHuman {
+                human_id: "bob".into(),
+                name: "Bob".into(),
+            },
+        ],
+        transcripts: vec![RenderTranscriptInput {
+            started_at: Some(0),
+            assignments: vec![],
+            words: words
+                .iter()
+                .enumerate()
+                .map(|(i, (channel, speaker, start_ms, end_ms))| {
+                    RenderTranscriptWordInput {
+                        id: i.to_string(),
+                        text: format!("word{i} "),
+                        start_ms: *start_ms,
+                        end_ms: *end_ms,
+                        channel: *channel,
+                        speaker_index: Some(*speaker),
+                    }
+                })
+                .collect(),
+        }],
+    }
+}
+
+#[test]
+fn remote_speaker_stays_named_across_context_gap() {
+    let req = request_with_word_times(
+        vec![
+            interval(0, 60_000, &[("self", "John"), ("artem", "Artem")]),
+            interval(120_000, 180_000, &[("self", "John"), ("artem", "Artem")]),
+        ],
+        &[
+            (1, 0, 10_000, 10_500),
+            (1, 0, 70_000, 70_500),
+            (1, 0, 150_000, 150_500),
+        ],
+    );
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 3);
+    assert!(
+        segments
+            .iter()
+            .all(|s| s.speaker_label == "Artem"),
+        "every part must be labelled Artem: {:?}",
+        segments
+            .iter()
+            .map(|s| s.speaker_label.as_str())
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        segments
+            .iter()
+            .all(|s| s.provisional_speaker.as_ref().is_some_and(
+                |label| label.human_id.as_deref() == Some("artem")
+            ))
+    );
+}
+
+#[test]
+fn direct_mic_stays_self_across_intervals_without_call_flag() {
+    let mut second = interval(120_000, 180_000, &[("self", "John")]);
+    second.active_call = false;
+    second.mic_isolated = None;
+    let req = request_with_word_times(
+        vec![interval(0, 60_000, &[("self", "John")]), second],
+        &[(0, 0, 10_000, 10_500), (0, 0, 150_000, 150_500)],
+    );
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 2);
+    assert!(
+        segments
+            .iter()
+            .all(|s| s.speaker_label == "John" && s.provisional_speaker.is_some()),
+        "DirectMic must stay self across a flagless interval: {:?}",
+        segments
+            .iter()
+            .map(|s| s.speaker_label.as_str())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn sticky_does_not_apply_when_interval_has_two_remotes() {
+    let req = request_with_word_times(
+        vec![
+            interval(0, 60_000, &[("self", "John"), ("artem", "Artem")]),
+            interval(
+                120_000,
+                180_000,
+                &[("self", "John"), ("artem", "Artem"), ("bob", "Bob")],
+            ),
+        ],
+        &[
+            (1, 0, 10_000, 10_500),
+            (1, 0, 150_000, 150_500),
+            (1, 1, 151_000, 151_500),
+        ],
+    );
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 3);
+    assert_eq!(segments[0].speaker_label, "Artem");
+    assert!(
+        segments[1].provisional_speaker.is_none()
+            && segments[1].speaker_label.starts_with("Speaker "),
+        "a second remote in the interval must block the sticky label"
+    );
+    assert!(
+        segments[2].provisional_speaker.is_none()
+            && segments[2].speaker_label.starts_with("Speaker ")
+    );
+}
+
+#[test]
+fn conflicting_resolutions_are_not_sticky() {
+    let req = request_with_word_times(
+        vec![
+            interval(0, 60_000, &[("self", "John"), ("artem", "Artem")]),
+            interval(120_000, 180_000, &[("self", "John"), ("bob", "Bob")]),
+        ],
+        &[
+            (1, 0, 10_000, 10_500),
+            (1, 0, 70_000, 70_500),
+            (1, 0, 150_000, 150_500),
+        ],
+    );
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 3);
+    assert_eq!(segments[0].speaker_label, "Artem");
+    assert_eq!(segments[2].speaker_label, "Bob");
+    assert!(
+        segments[1].provisional_speaker.is_none()
+            && segments[1].speaker_label.starts_with("Speaker "),
+        "conflicting resolutions must tombstone the key: {:?}",
+        segments[1].speaker_label
+    );
+}

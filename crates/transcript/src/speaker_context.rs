@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{ChannelProfile, RenderTranscriptHuman, RenderedTranscriptSegment};
 
@@ -93,14 +93,17 @@ impl SpeakerContext {
             }
         }
 
-        let mut result = Vec::new();
+        let mut parts: Vec<(Option<usize>, RenderedTranscriptSegment)> = Vec::new();
         for segment in segments {
             // Context boundaries only affect inferred names, not explicit assignments.
             if segment.key.speaker_human_id.is_some() {
-                result.push(RenderedTranscriptSegment {
-                    provisional_speaker: None,
-                    ..segment
-                });
+                parts.push((
+                    None,
+                    RenderedTranscriptSegment {
+                        provisional_speaker: None,
+                        ..segment
+                    },
+                ));
                 continue;
             }
 
@@ -120,7 +123,7 @@ impl SpeakerContext {
             }
             let split = groups.len() > 1;
             for (interval, words) in groups {
-                let mut part = RenderedTranscriptSegment {
+                let mut part: RenderedTranscriptSegment = RenderedTranscriptSegment {
                     id: segment.id.clone(),
                     key: segment.key.clone(),
                     speaker_label: segment.speaker_label.clone(),
@@ -156,8 +159,59 @@ impl SpeakerContext {
                 if let Some(label) = &part.provisional_speaker {
                     part.speaker_label = label.name.clone();
                 }
-                result.push(part);
+                parts.push((interval, part));
             }
+        }
+
+        // Intermittent context must not rename a voice: a key resolved to one
+        // person keeps that label in intervals that do not contradict a single
+        // speaker, while conflicting resolutions tombstone the key.
+        let mut sticky: HashMap<
+            (ChannelProfile, Option<i32>),
+            Option<ProvisionalSpeakerLabel>,
+        > = HashMap::new();
+        for (_, part) in &parts {
+            let Some(label) = &part.provisional_speaker else {
+                continue;
+            };
+            match sticky.get_mut(&(part.key.channel, part.key.speaker_index)) {
+                None => {
+                    sticky.insert(
+                        (part.key.channel, part.key.speaker_index),
+                        Some(label.clone()),
+                    );
+                }
+                Some(existing) => {
+                    let matches_person = existing
+                        .as_ref()
+                        .is_some_and(|known| known.human_id == label.human_id
+                            && (known.human_id.is_some() || known.name == label.name));
+                    if !matches_person {
+                        *existing = None;
+                    }
+                }
+            }
+        }
+        let mut result = Vec::with_capacity(parts.len());
+        for (interval, mut part) in parts {
+            if part.key.speaker_human_id.is_none()
+                && part.provisional_speaker.is_none()
+                && let Some(Some(label)) =
+                    sticky.get(&(part.key.channel, part.key.speaker_index))
+                && interval.is_none_or(|index| {
+                    interval_allows_single_speaker(
+                        &self.intervals[index],
+                        part.key.channel,
+                        counts[index].0.len(),
+                        counts[index].1.len(),
+                        self_human_id,
+                    )
+                })
+            {
+                part.provisional_speaker = Some(label.clone());
+                part.speaker_label = label.name.clone();
+            }
+            result.push(part);
         }
 
         // Provisional names do not consume anonymous speaker numbers or become identity hints.
@@ -172,6 +226,32 @@ impl SpeakerContext {
             }
         }
         result
+    }
+}
+
+fn interval_allows_single_speaker(
+    context: &SpeakerContextInterval,
+    source: ChannelProfile,
+    local_voices: usize,
+    remote_voices: usize,
+    self_id: Option<&str>,
+) -> bool {
+    match source {
+        ChannelProfile::DirectMic => !context.shared_microphone && local_voices <= 1,
+        ChannelProfile::RemoteParty => {
+            remote_voices <= 1
+                && context
+                    .participants
+                    .iter()
+                    .filter(|person| {
+                        !person.human_id.is_empty() && person.human_id.as_str() != self_id.unwrap_or("")
+                    })
+                    .map(|person| person.human_id.as_str())
+                    .collect::<HashSet<_>>()
+                    .len()
+                    <= 1
+        }
+        ChannelProfile::MixedCapture => false,
     }
 }
 
