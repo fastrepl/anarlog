@@ -24,7 +24,10 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usesTitleBarSidebarActions } from "~/shared/hooks/useWindowControlsGutter";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
-import { useCustomSidebarBack } from "~/sidebar/custom-sidebar-header";
+import {
+  TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID,
+  useCustomSidebarBack,
+} from "~/sidebar/custom-sidebar-header";
 import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-meeting";
 import { hasCustomSidebarTab } from "~/sidebar/use-custom-sidebar";
 import { useTabs } from "~/store/zustand/tabs";
@@ -124,9 +127,16 @@ export function WindowsTitleBar({
         className="flex min-w-0 flex-1 items-center pl-2"
       >
         {showBackButton ? (
-          <LeftSurfaceChromeButton ariaLabel={t`Go home`} onClick={goBack}>
-            <ArrowLeft size={16} />
-          </LeftSurfaceChromeButton>
+          <>
+            <LeftSurfaceChromeButton ariaLabel={t`Go home`} onClick={goBack}>
+              <ArrowLeft size={16} />
+            </LeftSurfaceChromeButton>
+            <div
+              id={TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID}
+              data-tauri-drag-region="false"
+              className="flex items-center"
+            />
+          </>
         ) : (
           <LeftSurfaceChromeButton
             ariaLabel={leftsidebar.expanded ? t`Hide sidebar` : t`Show sidebar`}

@@ -1,5 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { ArrowLeft } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
@@ -11,6 +12,8 @@ import {
 } from "~/shared/hooks/useWindowControlsGutter";
 import { leaveOverlayTab } from "~/shared/leave-overlay-tab";
 import { useTabs } from "~/store/zustand/tabs";
+
+export const TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID = "title-bar-sidebar-actions";
 
 export function useCustomSidebarBack() {
   const { chat } = useShell();
@@ -27,10 +30,31 @@ export function useCustomSidebarBack() {
 }
 
 export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
+  if (usesWindowsStyleTitleBar()) {
+    return <TitleBarSidebarActions>{children}</TitleBarSidebarActions>;
+  }
+
+  return <InlineCustomSidebarHeader>{children}</InlineCustomSidebarHeader>;
+}
+
+function TitleBarSidebarActions({ children }: { children?: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setSlot(document.getElementById(TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID));
+  }, []);
+
+  if (!children || !slot) {
+    return null;
+  }
+
+  return createPortal(children, slot);
+}
+
+function InlineCustomSidebarHeader({ children }: { children?: ReactNode }) {
   const { t } = useLingui();
   const showWindowControlsGutter = useWindowControlsGutter();
   const handleBack = useCustomSidebarBack();
-  const showBackButton = !usesWindowsStyleTitleBar();
 
   return (
     <div
@@ -44,15 +68,13 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
         data-tauri-drag-region
         className="flex min-w-0 flex-1 items-center gap-1"
       >
-        {showBackButton ? (
-          <CustomSidebarHeaderButton
-            label={t`Go home`}
-            title={t`Back`}
-            onClick={handleBack}
-          >
-            <ArrowLeft size={16} />
-          </CustomSidebarHeaderButton>
-        ) : null}
+        <CustomSidebarHeaderButton
+          label={t`Go home`}
+          title={t`Back`}
+          onClick={handleBack}
+        >
+          <ArrowLeft size={16} />
+        </CustomSidebarHeaderButton>
       </div>
       {children ? (
         <div

@@ -61,7 +61,10 @@ vi.mock("~/store/zustand/tabs", () => {
   };
 });
 
-import { CustomSidebarHeader } from "./custom-sidebar-header";
+import {
+  CustomSidebarHeader,
+  TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID,
+} from "./custom-sidebar-header";
 
 describe("CustomSidebarHeader", () => {
   afterEach(() => {
@@ -156,15 +159,38 @@ describe("CustomSidebarHeader", () => {
   });
 
   it.each(["windows", "linux"])(
-    "hides the back button on %s where the title bar hosts it",
+    "renders nothing in the sidebar on %s where the title bar hosts the back button",
     (platform) => {
       mocks.platform = platform;
 
-      render(<CustomSidebarHeader />);
+      const { container } = render(<CustomSidebarHeader />);
 
       expect(screen.queryByRole("button", { name: "Go home" })).toBeNull();
+      expect(container.innerHTML).toBe("");
     },
   );
+
+  it("portals header actions next to the title bar back button on windows", () => {
+    mocks.platform = "windows";
+    const slot = document.createElement("div");
+    slot.id = TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID;
+    document.body.appendChild(slot);
+
+    try {
+      const { container } = render(
+        <CustomSidebarHeader>
+          <button type="button">New folder</button>
+        </CustomSidebarHeader>,
+      );
+
+      expect(container.innerHTML).toBe("");
+      expect(
+        slot.contains(screen.getByRole("button", { name: "New folder" })),
+      ).toBe(true);
+    } finally {
+      slot.remove();
+    }
+  });
 
   it("does not render history controls", () => {
     render(<CustomSidebarHeader />);

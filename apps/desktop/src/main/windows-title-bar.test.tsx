@@ -167,6 +167,7 @@ describe("WindowsTitleBar", () => {
 
     expect(screen.queryByRole("button", { name: "Hide sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
+    expect(document.getElementById("title-bar-sidebar-actions")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Go home" }));
 
