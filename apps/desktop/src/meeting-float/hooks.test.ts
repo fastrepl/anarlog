@@ -44,7 +44,7 @@ const rows = [
     human_id: "human-remote",
     human_name: "Remote speaker",
     speaker_context: "",
-    started_at: "",
+    live_started_at_ms: null,
   },
   {
     row_kind: "human",
@@ -54,7 +54,7 @@ const rows = [
     human_id: "human-other",
     human_name: "Other person",
     speaker_context: "",
-    started_at: "",
+    live_started_at_ms: null,
   },
   {
     row_kind: "session",
@@ -64,7 +64,7 @@ const rows = [
     human_id: "",
     human_name: "",
     speaker_context: speakerContextJson,
-    started_at: "2026-01-01T00:00:00.000Z",
+    live_started_at_ms: 1_000,
   },
 ] as const;
 
@@ -86,7 +86,7 @@ describe("meeting float SQLite data", () => {
       speakerContext: {
         intervals: [expect.objectContaining({ start_ms: 1000, end_ms: 60000 })],
       },
-      startedAtMs: Date.parse("2026-01-01T00:00:00.000Z"),
+      startedAtMs: 1_000,
     });
     expect(labels.getSelfHumanId()).toBe("human-self");
     expect(labels.getParticipantHumanIds?.()).toEqual(["human-remote"]);

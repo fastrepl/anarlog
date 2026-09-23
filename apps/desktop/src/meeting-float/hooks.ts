@@ -15,7 +15,7 @@ type MeetingFloatSqlRow = {
   human_id: string;
   human_name: string;
   speaker_context: string | null;
-  started_at: string;
+  live_started_at_ms: number | null;
 };
 
 export type MeetingFloatData = {
@@ -41,7 +41,11 @@ const MEETING_FLOAT_SQL = `
     '' AS human_id,
     '' AS human_name,
     json_extract(session.metadata_json, '$.speaker_context') AS speaker_context,
-    session.started_at AS started_at
+    (
+      SELECT t.started_at_ms FROM transcripts AS t
+      WHERE t.session_id = session.id
+      ORDER BY t.started_at_ms DESC LIMIT 1
+    ) AS live_started_at_ms
   FROM sessions AS session
   WHERE session.deleted_at IS NULL
 
@@ -55,7 +59,7 @@ const MEETING_FLOAT_SQL = `
     participant.human_id,
     COALESCE(NULLIF(human.name, ''), participant.display_name) AS human_name,
     '' AS speaker_context,
-    '' AS started_at
+    NULL AS live_started_at_ms
   FROM session_participants AS participant
   INNER JOIN sessions AS session
     ON session.id = participant.session_id
@@ -77,7 +81,7 @@ const MEETING_FLOAT_SQL = `
     human.id AS human_id,
     human.name AS human_name,
     '' AS speaker_context,
-    '' AS started_at
+    NULL AS live_started_at_ms
   FROM humans AS human
   WHERE human.id <> '' AND human.deleted_at IS NULL
 
@@ -124,7 +128,7 @@ function mapMeetingFloatRows(rows: MeetingFloatSqlRow[]): MeetingFloatData {
         participantHumanIds:
           sessions[row.session_id]?.participantHumanIds ?? [],
         speakerContext: parseSpeakerContext(row.speaker_context),
-        startedAtMs: Date.parse(row.started_at) || 0,
+        startedAtMs: row.live_started_at_ms ?? 0,
       };
       continue;
     }

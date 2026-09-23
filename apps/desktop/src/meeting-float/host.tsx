@@ -396,7 +396,10 @@ export function createFloatingSpeakerResolver(
   return (state: ListenerState) => {
     if (sessionId !== state.live.sessionId) {
       sessionId = state.live.sessionId;
-      speakerLabels.clear();
+      if (speakerLabels.size > 0) {
+        speakerLabels.clear();
+        onUpdate();
+      }
       ++counter;
     }
     if (!sessionId || state.liveSegments.length === 0) return;

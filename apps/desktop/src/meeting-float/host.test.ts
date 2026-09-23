@@ -985,6 +985,39 @@ describe("floating speaker label hardening", () => {
     expect(labels.size).toBe(0);
   });
 
+  it("notifies when a session change clears a populated label map", async () => {
+    transcriptMocks.renderTranscriptSegments.mockResolvedValue({
+      status: "ok",
+      data: [renderedWithLabel("Artem", "human-remote")],
+    });
+    const labels = new Map<string, { label: string; humanId?: string }>();
+    const onUpdate = vi.fn();
+    const resolve = createFloatingSpeakerResolver(
+      labels,
+      () => floatData(),
+      onUpdate,
+    );
+
+    resolve(
+      createListenerStateWithSegments(
+        { status: "active", sessionId: "session-1" },
+        [remoteSegment()],
+      ),
+    );
+    await vi.waitFor(() => expect(labels.size).toBe(1));
+    onUpdate.mockClear();
+
+    resolve(
+      createListenerStateWithSegments(
+        { status: "active", sessionId: "session-2" },
+        [],
+      ),
+    );
+
+    expect(labels.size).toBe(0);
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+  });
+
   it("does not cache a key resolved to different labels in one response", async () => {
     transcriptMocks.renderTranscriptSegments.mockResolvedValue({
       status: "ok",
