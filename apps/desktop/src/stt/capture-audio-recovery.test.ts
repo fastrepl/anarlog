@@ -144,6 +144,16 @@ describe("capture audio recovery", () => {
     expect(acknowledge).toHaveBeenCalledOnce();
   });
 
+  it("reports incomplete when an outage reaches a chunk during the final pass", async () => {
+    const { worker, flush, acknowledge, setLiveGaps } = setup();
+    worker.persistedThrough(70_000);
+    flush.mockImplementationOnce(async () => {
+      setLiveGaps({ open_since_ms: 59_000 });
+    });
+    expect(await worker.stop(true)).toEqual({ incomplete: true });
+    expect(acknowledge).not.toHaveBeenCalled();
+  });
+
   it("stays incomplete after a failed transcript write until its audio is finalized", async () => {
     const { worker, list, acknowledge } = setup();
     worker.persistedThrough(30_000);

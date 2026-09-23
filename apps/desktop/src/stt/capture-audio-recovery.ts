@@ -131,7 +131,10 @@ export function createCaptureAudioRecovery(options: {
       // Acknowledging deletes the audio, so make sure no outage reached into this
       // chunk since the gaps were read.
       live = await options.liveGaps();
-      if (!sameIntervals(intervals, gapsFor(live, range))) return false;
+      if (!sameIntervals(intervals, gapsFor(live, range))) {
+        unresolved = true;
+        return false;
+      }
       // Network success alone is insufficient: repair resolves after SQLite commits.
       await options.acknowledge(chunk);
       released += 1;
