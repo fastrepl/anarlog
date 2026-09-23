@@ -32,11 +32,17 @@ pub struct SavedFrame {
     pub h: f64,
 }
 
+#[derive(Clone, Copy)]
+pub struct SavedWindowFrame {
+    pub frame: SavedFrame,
+    pub maximized: bool,
+}
+
 #[derive(Default)]
-pub struct SavedFrames(pub Mutex<HashMap<String, SavedFrame>>);
+pub struct SavedFrames(pub Mutex<HashMap<String, SavedWindowFrame>>);
 
 impl SavedFrames {
-    fn take(&self, label: &str) -> Option<SavedFrame> {
+    fn take(&self, label: &str) -> Option<SavedWindowFrame> {
         self.0.lock().unwrap().remove(label)
     }
 
@@ -464,16 +470,21 @@ mod test {
         let frames = SavedFrames::default();
         frames.0.lock().unwrap().insert(
             "note-1".into(),
-            SavedFrame {
-                x: 1.0,
-                y: 2.0,
-                w: 3.0,
-                h: 4.0,
+            SavedWindowFrame {
+                frame: SavedFrame {
+                    x: 1.0,
+                    y: 2.0,
+                    w: 3.0,
+                    h: 4.0,
+                },
+                maximized: true,
             },
         );
 
-        let frame = frames.take("note-1").unwrap();
+        let saved = frames.take("note-1").unwrap();
+        let frame = saved.frame;
         assert_eq!((frame.x, frame.y, frame.w, frame.h), (1.0, 2.0, 3.0, 4.0));
+        assert!(saved.maximized);
         assert!(frames.0.lock().unwrap().is_empty());
     }
 

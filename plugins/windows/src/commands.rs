@@ -1,4 +1,7 @@
-use crate::{AppWindow, SavedFrames, WebviewHealthState, WindowImpl, WindowsPluginExt, events};
+use crate::{
+    AppWindow, SavedFrames, SavedWindowFrame, WebviewHealthState, WindowImpl, WindowsPluginExt,
+    events,
+};
 
 use tauri::Manager;
 
@@ -115,6 +118,9 @@ pub async fn window_set_frame_animated(
     if matches!(window, AppWindow::Main)
         && let Some(window_handle) = window.get(&app)
     {
+        if window_handle.is_maximized().map_err(|e| e.to_string())? {
+            window_handle.unmaximize().map_err(|e| e.to_string())?;
+        }
         window_handle
             .set_always_on_top(true)
             .map_err(|e| e.to_string())?;
@@ -182,11 +188,17 @@ pub async fn window_save_frame(
         .map_err(|e| e.to_string())?;
 
     if let Some(frame) = frame {
+        let maximized = window
+            .get(&app)
+            .map(|handle| handle.is_maximized())
+            .transpose()
+            .map_err(|e| e.to_string())?
+            .unwrap_or(false);
         app.state::<SavedFrames>()
             .0
             .lock()
             .unwrap()
-            .insert(window.label(), frame);
+            .insert(window.label(), SavedWindowFrame { frame, maximized });
     }
 
     Ok(())
@@ -200,10 +212,28 @@ pub async fn window_restore_frame_animated(
 ) -> Result<(), String> {
     let saved = app.state::<SavedFrames>().take(&window.label());
 
+    restore_saved_frame(&app, window, saved)
+}
+
+pub(crate) fn restore_saved_frame(
+    app: &tauri::AppHandle<tauri::Wry>,
+    window: AppWindow,
+    saved: Option<SavedWindowFrame>,
+) -> Result<(), String> {
     if let Some(saved) = saved {
+        if let Some(handle) = window.get(app)
+            && handle.is_maximized().map_err(|e| e.to_string())?
+        {
+            handle.unmaximize().map_err(|e| e.to_string())?;
+        }
         app.windows()
-            .set_frame_animated(window.clone(), saved)
+            .set_frame_animated(window.clone(), saved.frame)
             .map_err(|e| e.to_string())?;
+        if saved.maximized
+            && let Some(handle) = window.get(app)
+        {
+            handle.maximize().map_err(|e| e.to_string())?;
+        }
     }
 
     if matches!(window, AppWindow::Main)
