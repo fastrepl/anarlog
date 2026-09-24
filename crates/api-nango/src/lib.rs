@@ -12,8 +12,9 @@ pub use extractor::{
     NangoConnection, NangoConnectionError, NangoConnectionState, is_provider_auth_failure,
 };
 pub use integrations::{
-    Discord, Fathom, GitHub, GoogleCalendar, GoogleDrive, GoogleMail, GoogleMeet, HubSpot,
-    Linear, MicrosoftTeams, NangoIntegrationId, Notion, Outlook, Slack, Webex, Zoom,
+    Attio, Discord, Fathom, GitHub, GoogleCalendar, GoogleDrive, GoogleMail, GoogleMeet,
+    HubSpot, Linear, MicrosoftTeams, NangoIntegrationId, Notion, Outlook, Slack, Webex,
+    Zoom,
 };
 pub use openapi::openapi;
 pub use routes::{

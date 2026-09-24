@@ -142,6 +142,12 @@ impl NangoIntegrationId for HubSpot {
     const ID: &'static str = "hubspot";
 }
 
+pub struct Attio;
+
+impl NangoIntegrationId for Attio {
+    const ID: &'static str = "attio";
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

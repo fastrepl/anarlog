@@ -28,6 +28,11 @@ export const CRM_PROVIDERS: CrmProviderInfo[] = [
     name: "HubSpot",
     nangoIntegrationId: "hubspot",
   },
+  {
+    id: "attio",
+    name: "Attio",
+    nangoIntegrationId: "attio",
+  },
 ];
 
 export type CrmContactQuery = {
