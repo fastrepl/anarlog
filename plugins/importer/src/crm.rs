@@ -335,7 +335,23 @@ fn contact_from_record(record: &Map<String, Value>) -> Option<CrmContact> {
         ],
     )
     .filter(|value| value.contains('@'));
-    let name = field(&fields, &["name", "full_name", "fullName", "display_name"]).or_else(|| {
+    if field(&fields, &["object_slug", "objectSlug"])
+        .is_some_and(|slug| !matches!(slug.as_str(), "people" | "person" | "contacts" | "contact"))
+    {
+        return None;
+    }
+
+    let name = field(
+        &fields,
+        &[
+            "name",
+            "full_name",
+            "fullName",
+            "display_name",
+            "record_text",
+        ],
+    )
+    .or_else(|| {
         let first = field(&fields, &["firstname", "first_name", "firstName"]);
         let last = field(&fields, &["lastname", "last_name", "lastName"]);
         match (first, last) {
@@ -356,6 +372,10 @@ fn contact_from_record(record: &Map<String, Value>) -> Option<CrmContact> {
     {
         Some(Value::String(value)) if !value.is_empty() => Some(value.clone()),
         Some(Value::Number(value)) => Some(value.to_string()),
+        Some(Value::Object(nested)) => match nested.get("record_id").or_else(|| nested.get("id")) {
+            Some(Value::String(value)) if !value.is_empty() => Some(value.clone()),
+            _ => None,
+        },
         _ => None,
     };
     if email.is_none() && (name.is_none() || id.is_none()) {
@@ -460,6 +480,41 @@ mod tests {
             email: email.map(str::to_string),
             name: name.map(str::to_string),
         }
+    }
+
+    #[test]
+    fn extracts_attio_search_hits_and_skips_other_objects() {
+        let payload = json!({
+            "results": [
+                {
+                    "id": { "workspace_id": "ws_1", "object_id": "obj_people", "record_id": "rec_1" },
+                    "object_slug": "people",
+                    "record_text": "Ada Lovelace",
+                    "email_addresses": [],
+                    "web_url": "https://app.attio.com/w/person/rec_1"
+                },
+                {
+                    "id": { "record_id": "rec_2" },
+                    "object_slug": "companies",
+                    "record_text": "Ada Lovelace Ltd"
+                }
+            ]
+        });
+
+        let contacts = matching_contacts(&[payload], &query(None, Some("ada lovelace")));
+        assert_eq!(
+            contacts,
+            vec![CrmContact {
+                id: Some("rec_1".to_string()),
+                name: Some("Ada Lovelace".to_string()),
+                email: None,
+                company_name: None,
+                job_title: None,
+                phone: None,
+                linkedin_url: None,
+                url: Some("https://app.attio.com/w/person/rec_1".to_string()),
+            }]
+        );
     }
 
     #[test]
