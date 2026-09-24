@@ -28,6 +28,7 @@ fn search(
         } else {
             return Ok(Vec::new());
         };
+        let query_email = query.email.clone();
 
         let path = format!(
             "/v1/persons/search?term={}{}&limit={}",
@@ -55,7 +56,7 @@ fn search(
             .into_iter()
             .flatten()
             .filter_map(|hit| hit.get("item"))
-            .map(contact_from_item)
+            .map(|item| contact_from_item(item, query_email.as_deref()))
             .collect();
         Ok(contacts)
     })
@@ -82,14 +83,28 @@ fn first_entry(record: &Value, key: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn contact_from_item(item: &Value) -> CrmContact {
+fn queried_email(item: &Value, query_email: Option<&str>) -> Option<String> {
+    let preferred = query_email?.to_ascii_lowercase();
+    item.get("emails")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.get("value").and_then(Value::as_str))
+        .map(str::trim)
+        .find(|value| !value.is_empty() && value.to_ascii_lowercase() == preferred)
+        .map(str::to_string)
+}
+
+fn contact_from_item(item: &Value, query_email: Option<&str>) -> CrmContact {
     CrmContact {
         id: item
             .get("id")
             .and_then(Value::as_i64)
             .map(|id| id.to_string()),
         name: text(item, "name"),
-        email: text(item, "primary_email").or_else(|| first_entry(item, "emails")),
+        email: queried_email(item, query_email)
+            .or_else(|| text(item, "primary_email"))
+            .or_else(|| first_entry(item, "emails")),
         company_name: item
             .get("organization")
             .filter(|org| !org.is_null())
@@ -116,7 +131,7 @@ mod tests {
             "phones": [{"value": "+1 555 0100", "primary": true}],
             "organization": {"id": 5, "name": "Acme"},
         });
-        let contact = contact_from_item(&item);
+        let contact = contact_from_item(&item, None);
         assert_eq!(contact.id.as_deref(), Some("12"));
         assert_eq!(contact.name.as_deref(), Some("Jane Doe"));
         assert_eq!(contact.email.as_deref(), Some("jane@acme.com"));
@@ -132,7 +147,21 @@ mod tests {
             "primary_email": null,
             "emails": [{"value": ""}, {"value": "bob@corp.io"}],
         });
-        let contact = contact_from_item(&item);
+        let contact = contact_from_item(&item, None);
         assert_eq!(contact.email.as_deref(), Some("bob@corp.io"));
+    }
+
+    #[test]
+    fn prefers_the_queried_email_over_the_primary_entry() {
+        let item = json!({
+            "id": 9,
+            "primary_email": "jane@home.test",
+            "emails": [
+                {"value": "jane@home.test", "primary": true},
+                {"value": "jane@work.test"},
+            ],
+        });
+        let contact = contact_from_item(&item, Some("Jane@Work.Test"));
+        assert_eq!(contact.email.as_deref(), Some("jane@work.test"));
     }
 }
