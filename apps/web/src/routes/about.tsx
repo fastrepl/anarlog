@@ -6,7 +6,7 @@ import {
   ABOUT_UPDATED_ON,
   differentiators,
   faqs,
-  founders,
+  team,
   howAnarlogWorks,
   keyFacts,
   originStory,
@@ -50,11 +50,17 @@ export const Route = createFileRoute("/about")({
               url: getCanonicalUrl(),
               logo: `${ANARLOG_SITE_URL}/logo.svg`,
               foundingDate: "2023",
-              founder: founders.map((founder) => ({
+              founder: {
                 "@type": "Person",
-                name: founder.name,
-                jobTitle: founder.role,
-                sameAs: founder.links.map((link) => link.href),
+                name: team[0].name,
+                jobTitle: team[0].role,
+                sameAs: team[0].links.map((link) => link.href),
+              },
+              employee: team.map((member) => ({
+                "@type": "Person",
+                name: member.name,
+                jobTitle: member.role,
+                sameAs: member.links.map((link) => link.href),
               })),
               location: [
                 { "@type": "Place", name: "Seoul, South Korea" },
@@ -189,7 +195,7 @@ function AboutPage() {
             </p>
           ))}
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {founders.map((founder) => (
+            {team.map((founder) => (
               <div
                 key={founder.name}
                 className="rounded-2xl border border-[#eadfce] px-5 py-4"

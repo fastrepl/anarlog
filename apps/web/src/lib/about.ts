@@ -58,10 +58,10 @@ export const whoUsesAnarlog = [
   "Enterprises that need SSO, SCIM, retention controls, or a self-hosted server",
 ] as const;
 
-export const founders = [
+export const team = [
   {
     name: "John Jeong",
-    role: "Co-founder & CEO",
+    role: "Founder & CEO",
     bio: "Spent five years co-founding startups, including an AI-native investment research platform he sold, and sat through hundreds of meetings where notetakers transcribed but never went further. He leads product and design.",
     links: [
       { label: "X", href: "https://x.com/computeless" },
@@ -70,15 +70,15 @@ export const founders = [
     ],
   },
   {
-    name: "Yujong Lee",
-    role: "Co-founder",
-    bio: "Open-source contributor to projects like Hono and LiteLLM before Anarlog. He leads engineering and is behind the local-first, on-device architecture.",
-    links: [{ label: "GitHub", href: "https://github.com/yujonglee" }],
+    name: "Artem",
+    role: "Engineering",
+    bio: "Builds the desktop app and the local-first pipeline that keeps recording, transcription, and notes on the device.",
+    links: [{ label: "X", href: "https://x.com/s_II_a" }],
   },
 ] as const;
 
 export const originStory = [
-  "John and Yujong worked on different startups out of the same shared office in Seoul, had lunch together every day for over a year, and were usually the only two people in on weekends. When they finally teamed up they built Hyprnote, an on-device AI notetaker, and went through Y Combinator in the Summer 2025 batch.",
+  "John spent five years co-founding startups and sat through hundreds of meetings where notetakers transcribed but never went further. In 2025 he built Hyprnote, an on-device AI notetaker, and took it through Y Combinator in the Summer 2025 batch.",
   "Hyprnote was renamed Char, then split into two products in 2026: Anarlog is the meeting notetaker, relicensed from GPL to MIT and kept open source; Char became a separate agentic notepad. Anarlog is built by Fastrepl, a small software studio between Seoul and San Francisco.",
 ] as const;
 
@@ -89,7 +89,7 @@ export const howAnarlogWorks = [
   },
   {
     title: "Support",
-    body: "Email team@fastrepl.com, open an issue on GitHub, or ask in the Discord community. The founders read and answer support themselves.",
+    body: "Email team@fastrepl.com, open an issue on GitHub, or ask in the Discord community. The team reads and answers support directly.",
   },
   {
     title: "Enterprise rollout",
@@ -113,7 +113,8 @@ export const keyFacts = [
     detail:
       "Fastrepl in 2023; the notetaker launched in 2025 as Hyprnote and became Anarlog in 2026",
   },
-  { term: "Founders", detail: "John Jeong (CEO) and Yujong Lee" },
+  { term: "Founder", detail: "John Jeong (CEO)" },
+  { term: "Team", detail: "John Jeong and Artem" },
   {
     term: "Headquarters",
     detail: "Seoul, South Korea and San Francisco, California",
