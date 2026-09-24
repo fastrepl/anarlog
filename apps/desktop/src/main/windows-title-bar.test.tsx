@@ -255,12 +255,12 @@ describe("WindowsTitleBar", () => {
     expect(useSidebarNotes.getState().groupBy).toBe("folder");
   });
 
-  it("keeps Linux note actions in the sidebar", () => {
+  it("shows note actions in the Linux title bar", () => {
     mocks.platform = "linux";
     render(<WindowsTitleBar showSidebarTimelineChrome />);
 
     for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
+      expect(screen.getByRole("button", { name })).toBeTruthy();
     }
   });
 

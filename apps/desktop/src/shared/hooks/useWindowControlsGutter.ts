@@ -11,7 +11,7 @@ export function usesWindowsStyleTitleBar() {
 }
 
 export function usesTitleBarSidebarActions() {
-  return getRuntimePlatform() === "windows";
+  return usesWindowsStyleTitleBar();
 }
 
 export function usesRoundedWindowFrame() {
