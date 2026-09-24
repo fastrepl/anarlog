@@ -143,6 +143,7 @@ function SpeechFlowVisual() {
 
   const rawStart = lengths.path - lengths.raw * 2;
   const polishedStart = -lengths.polished;
+  const ribbonTail = edges.right - 1180;
   const animated = !reducedMotion && lengths.raw > 0 && lengths.polished > 0;
 
   return (
@@ -164,12 +165,12 @@ function SpeechFlowVisual() {
         <path
           ref={rawPathRef}
           id={`${id}-raw`}
-          d={`M${edges.left} 226 H-80 C 40 184 172 172 244 214 C 320 258 308 320 232 318 C 142 316 120 254 174 198 C 236 136 322 150 382 166 C 436 181 464 176 500 176`}
+          d={`M${edges.left} 226 H-80 C -10 226 20 184 90 184 C 160 184 170 266 240 250 C 310 234 330 156 400 166 C 442 172 466 176 500 176`}
         />
         <path
           id={`${id}-polished`}
           className="speech-flow-ribbon"
-          d={`M650 176 C 804 176 878 176 940 168 C 1008 158 1038 128 1078 70 C 1106 32 1138 10 1180 -4 H${edges.right}`}
+          d={`M650 176 C 730 176 750 204 820 196 C 890 188 910 132 980 124 C 1050 116 1110 144 1180 96 C ${1180 + ribbonTail / 3} ${96 - (ribbonTail * 48) / 210} ${1180 + (2 * ribbonTail) / 3} ${96 - ribbonTail / 2} ${edges.right} ${96 - ribbonTail * 0.65}`}
         />
         <text
           ref={rawRef}
