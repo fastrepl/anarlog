@@ -19,7 +19,6 @@ export function createCaptureAudioRecovery(options: {
     intervals: RecoveryInterval[],
     signal: AbortSignal,
   ) => Promise<void>;
-  onStatus: (status: "waiting" | "repairing" | "complete") => void;
   now?: () => number;
 }) {
   const now = options.now ?? Date.now;
@@ -43,7 +42,6 @@ export function createCaptureAudioRecovery(options: {
     revision += 1;
     gapStart ??= Math.max(acknowledgedThrough, confirmedThrough - 1_000);
     pending = true;
-    options.onStatus("waiting");
   };
   const closeGap = () => {
     if (gapStart === undefined) return;
@@ -88,7 +86,6 @@ export function createCaptureAudioRecovery(options: {
       if (intervals.length > 0) {
         pending = true;
         if (!online || now() < retryAt) return false;
-        options.onStatus("repairing");
         await options.repair(chunk, intervals, controller.signal);
         controller.signal.throwIfAborted();
       }
@@ -105,7 +102,6 @@ export function createCaptureAudioRecovery(options: {
     }
     if (settle && chunks.length < 128) gaps = [];
     pending = gapStart !== undefined || gaps.length > 0 || chunks.length >= 128;
-    if (!pending && !failed) options.onStatus("complete");
     return settle && chunks.length >= 128;
   };
 
@@ -116,7 +112,6 @@ export function createCaptureAudioRecovery(options: {
         if (controller.signal.aborted) return false;
         pending = true;
         retryAt = now() + 30_000;
-        options.onStatus("waiting");
         console.warn("[listener] audio recovery deferred", error);
         return false;
       })

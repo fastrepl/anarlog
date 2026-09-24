@@ -22,7 +22,6 @@ function setup() {
     acknowledge,
     flush,
     repair,
-    onStatus: vi.fn(),
     now: () => now,
   });
   return {

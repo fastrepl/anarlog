@@ -206,7 +206,7 @@ describe("getFloatingRouteState", () => {
     ).toBe("error");
   });
 
-  it("returns error status when live transcription degrades", () => {
+  it("keeps recording status while a retryable degradation reconnects on its own", () => {
     expect(
       getFloatingRouteState(
         createListenerState({
@@ -215,7 +215,28 @@ describe("getFloatingRouteState", () => {
           degraded: { type: "connection_timeout" },
         }),
       )?.status,
-    ).toBe("error");
+    ).toBe("recording");
+  });
+
+  it("returns error status when live transcription needs the user", () => {
+    for (const degraded of [
+      { type: "authentication_failed" as const, provider: "deepgram" },
+      {
+        type: "provider_configuration" as const,
+        provider: "deepgram",
+        message: "invalid model",
+      },
+    ]) {
+      expect(
+        getFloatingRouteState(
+          createListenerState({
+            status: "active",
+            sessionId: "session-1",
+            degraded,
+          }),
+        )?.status,
+      ).toBe("error");
+    }
   });
 
   it("returns error status when the active listener reports an error", () => {
