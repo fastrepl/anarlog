@@ -210,15 +210,21 @@ pub fn parse_meeting_link(text: &str) -> Option<String> {
 
     use regex::Regex;
 
+    // A trailing run of URL characters stops at whitespace and at the
+    // delimiters (`< > " '`) that surround a link in an HTML invitation body,
+    // so markup after the URL is not swallowed into the link. An optional
+    // `subdomain.` prefix keeps bare-domain links (e.g. a Whereby personal room
+    // at `whereby.com/room`, or `zoom.us/j/...`) matching too.
     static MEETING_REGEXES: LazyLock<Vec<Regex>> = LazyLock::new(|| {
         vec![
             Regex::new(r"https://meet\.google\.com/[a-z0-9]{3,4}-[a-z0-9]{3,4}-[a-z0-9]{3,4}")
                 .unwrap(),
-            Regex::new(r"https://[a-z0-9.-]+\.zoom\.us/j/\d+(\?pwd=[a-zA-Z0-9.]+)?").unwrap(),
-            Regex::new(r"https://teams\.microsoft\.com/l/meetup-join/\S+").unwrap(),
-            Regex::new(r"https://teams\.live\.com/meet/\S+").unwrap(),
-            Regex::new(r"https://[a-z0-9.-]+\.webex\.com/(?:meet|j\.php)\S*").unwrap(),
-            Regex::new(r"https://[a-z0-9.-]+\.whereby\.com/\S+").unwrap(),
+            Regex::new(r"https://(?:[a-z0-9.-]+\.)?zoom\.us/j/\d+(\?pwd=[a-zA-Z0-9.]+)?").unwrap(),
+            Regex::new(r#"https://teams\.microsoft\.com/l/meetup-join/[^\s<>"']+"#).unwrap(),
+            Regex::new(r#"https://teams\.live\.com/meet/[^\s<>"']+"#).unwrap(),
+            Regex::new(r#"https://(?:[a-z0-9.-]+\.)?webex\.com/(?:meet|j\.php)[^\s<>"']*"#)
+                .unwrap(),
+            Regex::new(r#"https://(?:[a-z0-9.-]+\.)?whereby\.com/[^\s<>"']+"#).unwrap(),
             Regex::new(r"https://app\.cal\.com/video/[a-zA-Z0-9]+").unwrap(),
         ]
     });
@@ -396,6 +402,21 @@ mod tests {
                 "webex",
                 "Join: https://acme.webex.com/meet/jane.doe",
                 "https://acme.webex.com/meet/jane.doe",
+            ),
+            (
+                "teams in html invitation",
+                "<p>Join the meeting<br/><a href=\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0\">Click here</a></p>",
+                "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0",
+            ),
+            (
+                "whereby personal room (bare domain)",
+                "Join here: https://whereby.com/jane-doe",
+                "https://whereby.com/jane-doe",
+            ),
+            (
+                "zoom bare domain",
+                "https://zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
+                "https://zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
             ),
         ];
 
