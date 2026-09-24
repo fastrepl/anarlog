@@ -1,194 +1,117 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import { crmSearchContacts, type ConnectionItem } from "@anlg/api-client";
+import type { CrmContact } from "@anlg/api-client";
+import { createClient } from "@anlg/api-client/client";
+
+import { env } from "~/env";
 import {
-  commands as importerCommands,
-  type ConnectedImportCredentials,
-  type CrmClientInput,
-  type CrmContact,
-  type CrmContactQuery,
-  type CrmProviderInfo,
-} from "@anlg/plugin-importer";
-import { commands as openerCommands } from "@anlg/plugin-opener2";
-import { commands as store2Commands } from "@anlg/plugin-store2";
+  nangoConnectionIsReady,
+  waitForNangoConnection,
+} from "~/imports/connected-import";
+import {
+  integrationSetupError,
+  openIntegrationUrl,
+} from "~/shared/integration";
 
-export type { CrmClientInput, CrmContact, CrmContactQuery, CrmProviderInfo };
+export type { CrmContact };
 
-const CRM_SECRET_SCOPE = "crm-connections";
+export type CrmProviderInfo = {
+  id: string;
+  name: string;
+  nangoIntegrationId: string;
+};
+
+export const CRM_PROVIDERS: CrmProviderInfo[] = [];
+
+export type CrmContactQuery = {
+  email?: string;
+  name?: string;
+};
 
 export function crmProvidersQueryOptions() {
   return queryOptions({
-    queryKey: ["crm", "providers"] as const,
-    queryFn: () => importerCommands.listCrmProviders(),
+    queryKey: ["crm", "providers"],
+    queryFn: () => CRM_PROVIDERS,
     staleTime: Infinity,
   });
 }
 
-export function crmCredentialsQueryKey(providerId: string) {
-  return ["crm", providerId, "credentials"] as const;
-}
-
-export function crmCredentialsQueryOptions(providerId: string) {
-  return queryOptions({
-    queryKey: crmCredentialsQueryKey(providerId),
-    queryFn: () => readCrmCredentials(providerId),
-    staleTime: Infinity,
-  });
+export function findCrmConnection(
+  provider: Pick<CrmProviderInfo, "nangoIntegrationId">,
+  connections: ConnectionItem[] | undefined,
+) {
+  return connections?.find(
+    (item) => item.integration_id === provider.nangoIntegrationId,
+  );
 }
 
 export async function connectCrm(
-  provider: Pick<CrmProviderInfo, "id" | "name">,
-  client: CrmClientInput | null,
+  provider: Pick<CrmProviderInfo, "name" | "nangoIntegrationId">,
+  headers: Record<string, string>,
   signal?: AbortSignal,
+): Promise<ConnectionItem> {
+  const opened = await openIntegrationUrl(
+    provider.nangoIntegrationId,
+    undefined,
+    "connect",
+    "crm",
+    headers,
+    false,
+  );
+  if (!opened) {
+    throw integrationSetupError();
+  }
+  return waitForNangoConnection(
+    provider.name,
+    provider.nangoIntegrationId,
+    headers,
+    signal,
+  );
+}
+
+export async function disconnectCrm(
+  provider: Pick<CrmProviderInfo, "nangoIntegrationId">,
+  connectionId: string,
 ) {
-  throwIfCancelled(signal);
-  const authorization = await importerCommands.beginCrmConnection(
-    provider.id,
-    client,
-  );
-  if (authorization.status === "error") throw new Error(authorization.error);
-  await cancelIfRequested(provider.id, signal);
-
-  const opened = await openerCommands.openUrl(
-    authorization.data.authorizationUrl,
+  await openIntegrationUrl(
+    provider.nangoIntegrationId,
+    connectionId,
+    "disconnect",
+    "crm",
     null,
+    false,
   );
-  if (opened.status === "error") throw new Error(opened.error);
-  await cancelIfRequested(provider.id, signal);
-
-  const credentials = await waitForCompletion(provider.id, signal);
-  if (credentials.status === "error") throw new Error(credentials.error);
-  throwIfCancelled(signal);
-
-  await writeCrmCredentials(provider.id, credentials.data);
-  return credentials.data;
-}
-
-export async function cancelCrmConnection(providerId: string) {
-  const result = await importerCommands.cancelCrmConnection(providerId);
-  if (result.status === "error") throw new Error(result.error);
-  return result.data;
-}
-
-export async function disconnectCrm(providerId: string) {
-  const result = await store2Commands.deleteSecret(
-    CRM_SECRET_SCOPE,
-    crmSecretKey(providerId),
-  );
-  if (result.status === "error") throw new Error(result.error);
 }
 
 export async function verifyCrmConnection(
   provider: Pick<CrmProviderInfo, "id" | "name">,
+  connectionId: string,
+  headers: Record<string, string>,
 ) {
-  const credentials = await readCrmCredentials(provider.id);
-  if (!credentials) throw new Error(`Connect ${provider.name} first`);
-
-  const result = await importerCommands.verifyCrmConnection(
-    provider.id,
-    credentials,
-  );
-  if (result.status === "error") throw new Error(result.error);
-  await writeCrmCredentials(provider.id, result.data);
-  return result.data;
+  await lookupCrmContacts(provider, connectionId, { name: "test" }, headers);
 }
 
 export async function lookupCrmContacts(
   provider: Pick<CrmProviderInfo, "id" | "name">,
+  connectionId: string,
   query: CrmContactQuery,
+  headers: Record<string, string>,
 ): Promise<CrmContact[]> {
-  const credentials = await readCrmCredentials(provider.id);
-  if (!credentials) throw new Error(`Connect ${provider.name} first`);
-
-  const result = await importerCommands.lookupCrmContacts(
-    provider.id,
-    credentials,
-    query,
-  );
-  if (result.status === "error") throw new Error(result.error);
-  await writeCrmCredentials(provider.id, result.data.credentials);
-  return result.data.contacts;
-}
-
-async function cancelIfRequested(providerId: string, signal?: AbortSignal) {
-  if (!signal?.aborted) return;
-  await cancelCrmConnection(providerId);
-  throwIfCancelled(signal);
-}
-
-async function waitForCompletion(providerId: string, signal?: AbortSignal) {
-  const completion = importerCommands.completeCrmConnection(providerId);
-  if (!signal) return completion;
-  throwIfCancelled(signal);
-
-  let cancel!: () => void;
-  const cancelled = new Promise<never>((_, reject) => {
-    cancel = () => reject(cancellationError(signal));
-    signal.addEventListener("abort", cancel, { once: true });
-    if (signal.aborted) cancel();
+  const client = createClient({ baseUrl: env.VITE_API_URL, headers });
+  const { data, error } = await crmSearchContacts({
+    client,
+    body: {
+      provider: provider.id,
+      connection_id: connectionId,
+      email: query.email,
+      name: query.name,
+    },
   });
-
-  try {
-    return await Promise.race([completion, cancelled]);
-  } finally {
-    signal.removeEventListener("abort", cancel);
+  if (error || !data) {
+    throw new Error(`Failed to look up contacts in ${provider.name}`);
   }
+  return data.contacts;
 }
 
-function throwIfCancelled(signal?: AbortSignal) {
-  if (signal?.aborted) throw cancellationError(signal);
-}
-
-function cancellationError(signal: AbortSignal) {
-  return signal.reason instanceof Error
-    ? signal.reason
-    : new Error("CRM connection cancelled");
-}
-
-export async function readCrmCredentials(
-  providerId: string,
-): Promise<ConnectedImportCredentials | null> {
-  const result = await store2Commands.getSecret(
-    CRM_SECRET_SCOPE,
-    crmSecretKey(providerId),
-  );
-  if (result.status === "error") throw new Error(result.error);
-  if (!result.data) return null;
-
-  try {
-    const credentials = JSON.parse(
-      result.data,
-    ) as Partial<ConnectedImportCredentials>;
-    if (
-      (credentials.providerId ?? providerId) !== providerId ||
-      !credentials.clientId ||
-      !credentials.tokenJson
-    ) {
-      return null;
-    }
-    return {
-      providerId,
-      clientId: credentials.clientId,
-      clientSecret: credentials.clientSecret ?? null,
-      tokenJson: credentials.tokenJson,
-      tokenReceivedAt: credentials.tokenReceivedAt ?? null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function writeCrmCredentials(
-  providerId: string,
-  credentials: ConnectedImportCredentials,
-) {
-  const result = await store2Commands.setSecret(
-    CRM_SECRET_SCOPE,
-    crmSecretKey(providerId),
-    JSON.stringify(credentials),
-  );
-  if (result.status === "error") throw new Error(result.error);
-}
-
-function crmSecretKey(providerId: string) {
-  return `${providerId}-mcp`;
-}
+export { nangoConnectionIsReady };

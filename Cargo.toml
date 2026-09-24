@@ -28,6 +28,7 @@ anlg-api-auth = { path = "crates/api-auth", package = "api-auth" }
 anlg-api-calendar = { path = "crates/api-calendar", package = "api-calendar" }
 anlg-api-client = { path = "crates/api-client", package = "api-client" }
 anlg-api-cloud = { path = "crates/api-cloud", package = "api-cloud" }
+anlg-api-crm = { path = "crates/api-crm", package = "api-crm" }
 anlg-api-env = { path = "crates/api-env", package = "api-env" }
 anlg-api-error = { path = "crates/api-error", package = "api-error" }
 anlg-api-mail = { path = "crates/api-mail", package = "api-mail" }

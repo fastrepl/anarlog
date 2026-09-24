@@ -25,20 +25,15 @@ msgstr "(default)"
 msgid "(Unavailable — using current default)"
 msgstr "(Unavailable — using current default)"
 
+#. placeholder {0}: reconnectRequired ? "Reconnect" : "Connect"
+#: src/settings/crm/index.tsx
+msgid "{0}"
+msgstr "{0}"
+
 #. placeholder {0}: group.sessionIds.length
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "{0} {noteLabel} deleted"
 msgstr "{0} {noteLabel} deleted"
-
-#. placeholder {0}: provider.name
-#: src/settings/crm/index.tsx
-msgid "{0} client ID"
-msgstr "{0} client ID"
-
-#. placeholder {0}: provider.name
-#: src/settings/crm/index.tsx
-msgid "{0} client secret"
-msgstr "{0} client secret"
 
 #. placeholder {0}: status.commandName
 #: src/settings/developers/cli.tsx
@@ -1248,14 +1243,6 @@ msgstr "Click here, then use your dictation shortcut."
 msgid "Click the shortcut to record a new key combination. Press Escape to cancel."
 msgstr "Click the shortcut to record a new key combination. Press Escape to cancel."
 
-#: src/settings/crm/index.tsx
-msgid "Client ID"
-msgstr "Client ID"
-
-#: src/settings/crm/index.tsx
-msgid "Client secret (optional)"
-msgstr "Client secret (optional)"
-
 #: src/shared/ui/resource-list/preview-header.tsx
 msgid "Clone"
 msgstr "Clone"
@@ -1439,7 +1426,6 @@ msgstr "Confirm"
 
 #: src/imports/screen.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
-#: src/settings/crm/index.tsx
 msgid "Connect"
 msgstr "Connect"
 
@@ -1460,8 +1446,8 @@ msgid "Connect {0} Calendar"
 msgstr "Connect {0} Calendar"
 
 #: src/settings/crm/index.tsx
-msgid "Connect a CRM to look up your contacts from Anarlog. Access tokens stay on this device."
-msgstr "Connect a CRM to look up your contacts from Anarlog. Access tokens stay on this device."
+msgid "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
+msgstr "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
 
 #: src/onboarding/calendar.tsx
 #: src/onboarding/index.tsx
@@ -1860,12 +1846,6 @@ msgstr "Create a Team to share a library"
 #: src/onboarding/index.tsx
 msgid "Create account"
 msgstr "Create account"
-
-#. placeholder {0}: provider.name
-#. placeholder {1}: provider.redirectUri
-#: src/settings/crm/index.tsx
-msgid "Create an OAuth app in {0} with redirect URL <0>{1}</0> and paste its credentials here."
-msgstr "Create an OAuth app in {0} with redirect URL <0>{1}</0> and paste its credentials here."
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Create key"
@@ -4273,6 +4253,7 @@ msgid "Reconnect Notion"
 msgstr "Reconnect Notion"
 
 #: src/calendar/components/oauth/status.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Reconnect required"
 msgstr "Reconnect required"
@@ -5137,6 +5118,10 @@ msgstr "Sign in to connect"
 #: src/settings/todo/provider-content.tsx
 msgid "Sign in to connect {0}"
 msgstr "Sign in to connect {0}"
+
+#: src/settings/crm/index.tsx
+msgid "Sign in to connect a CRM."
+msgstr "Sign in to connect a CRM."
 
 #: src/calendar/components/oauth/provider-content.tsx
 msgid "Sign in to connect your calendar"

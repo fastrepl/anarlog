@@ -5,7 +5,6 @@ use crate::types::{
 use rmcp::{
     Peer, RoleClient, ServiceExt,
     model::{CallToolRequestParams, CallToolResult, JsonObject, Tool},
-    service::RunningService,
     transport::{
         auth::{AuthorizationManager, OAuthClientConfig, OAuthState, OAuthTokenResponse},
         streamable_http_client::{
@@ -29,26 +28,6 @@ const MAX_OAUTH_REQUEST_BYTES: usize = 16 * 1024;
 const MAX_LIST_PAGES: usize = 100;
 const MEETING_BATCH_SIZE: usize = 25;
 
-/// A remote MCP server that Anarlog signs in to with OAuth.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct McpTarget {
-    pub id: &'static str,
-    pub name: &'static str,
-    pub endpoint: &'static str,
-}
-
-/// OAuth client details for servers without dynamic client registration.
-#[derive(Clone, Debug)]
-pub struct PreregisteredClient {
-    pub client_id: String,
-    pub client_secret: Option<String>,
-    pub redirect_port: u16,
-}
-
-pub fn loopback_redirect_uri(port: u16) -> String {
-    format!("http://127.0.0.1:{port}/callback")
-}
-
 #[derive(Clone, Copy)]
 struct McpProvider {
     id: &'static str,
@@ -56,16 +35,6 @@ struct McpProvider {
     endpoint: &'static str,
     list_tools: &'static [&'static str],
     enrichment_tools: &'static [&'static str],
-}
-
-impl McpProvider {
-    fn target(self) -> McpTarget {
-        McpTarget {
-            id: self.id,
-            name: self.name,
-            endpoint: self.endpoint,
-        }
-    }
 }
 
 const MCP_PROVIDERS: &[McpProvider] = &[
@@ -185,58 +154,34 @@ pub async fn begin_connection(
     provider_id: &str,
     state: &ConnectedImportOAuthState,
 ) -> Result<ConnectedImportAuthorization, String> {
-    begin_authorization(provider(provider_id)?.target(), None, state).await
-}
-
-pub async fn begin_authorization(
-    provider: McpTarget,
-    client: Option<PreregisteredClient>,
-    state: &ConnectedImportOAuthState,
-) -> Result<ConnectedImportAuthorization, String> {
-    let port = client.as_ref().map_or(0, |client| client.redirect_port);
-    let listener = TcpListener::bind(("127.0.0.1", port))
+    let provider = provider(provider_id)?;
+    let listener = TcpListener::bind(("127.0.0.1", 0))
         .await
         .map_err(|error| format!("could not start {} sign-in: {error}", provider.name))?;
     let port = listener
         .local_addr()
         .map_err(|error| format!("could not prepare {} sign-in: {error}", provider.name))?
         .port();
-    let redirect_uri = loopback_redirect_uri(port);
+    let redirect_uri = format!("http://127.0.0.1:{port}/callback");
 
     let mut manager = AuthorizationManager::new(provider.endpoint)
         .await
-        .map_err(|error| auth_error(provider.name, error))?;
+        .map_err(|error| auth_error(provider, error))?;
     let metadata = manager
         .resolve_metadata()
         .await
-        .map_err(|error| auth_error(provider.name, error))?;
+        .map_err(|error| auth_error(provider, error))?;
     manager.set_metadata(metadata.metadata);
     let scopes = manager.select_scopes(None, &[]);
     let scope_refs = scopes.iter().map(String::as_str).collect::<Vec<_>>();
-    let client_secret = match client {
-        Some(client) => {
-            let mut config = OAuthClientConfig::new(&client.client_id, &redirect_uri)
-                .with_scopes(scopes.clone());
-            if let Some(secret) = &client.client_secret {
-                config = config.with_client_secret(secret);
-            }
-            manager
-                .configure_client(config)
-                .map_err(|error| auth_error(provider.name, error))?;
-            client.client_secret
-        }
-        None => {
-            manager
-                .register_client("Anarlog", &redirect_uri, &scope_refs)
-                .await
-                .map_err(|error| auth_error(provider.name, error))?
-                .client_secret
-        }
-    };
+    let client = manager
+        .register_client("Anarlog", &redirect_uri, &scope_refs)
+        .await
+        .map_err(|error| auth_error(provider, error))?;
     let authorization_url = manager
         .get_authorization_url(&scope_refs)
         .await
-        .map_err(|error| auth_error(provider.name, error))?;
+        .map_err(|error| auth_error(provider, error))?;
 
     let cancellation = CancellationToken::new();
     let callback_cancellation = cancellation.clone();
@@ -257,7 +202,7 @@ pub async fn begin_authorization(
         provider_name: provider.name,
         flow: Some(PendingAuthorizationFlow {
             manager,
-            client_secret,
+            client_secret: client.client_secret,
             callback: callback_rx,
         }),
         cancellation,
@@ -276,13 +221,7 @@ pub async fn cancel_connection(
     provider_id: &str,
     state: &ConnectedImportOAuthState,
 ) -> Result<bool, String> {
-    cancel_authorization(provider(provider_id)?.target(), state).await
-}
-
-pub async fn cancel_authorization(
-    provider: McpTarget,
-    state: &ConnectedImportOAuthState,
-) -> Result<bool, String> {
+    let provider = provider(provider_id)?;
     let mut pending = state.pending.lock().await;
     if pending
         .as_ref()
@@ -301,13 +240,7 @@ pub async fn complete_connection(
     provider_id: &str,
     state: &ConnectedImportOAuthState,
 ) -> Result<ConnectedImportCredentials, String> {
-    complete_authorization(provider(provider_id)?.target(), state).await
-}
-
-pub async fn complete_authorization(
-    provider: McpTarget,
-    state: &ConnectedImportOAuthState,
-) -> Result<ConnectedImportCredentials, String> {
+    let provider = provider(provider_id)?;
     let (authorization_id, provider_name, flow, cancellation) = {
         let mut pending = state.pending.lock().await;
         let Some(pending) = pending.as_mut() else {
@@ -339,7 +272,7 @@ pub async fn complete_authorization(
 }
 
 async fn complete_pending_authorization(
-    provider: McpTarget,
+    provider: McpProvider,
     provider_name: &str,
     flow: PendingAuthorizationFlow,
     cancellation: CancellationToken,
@@ -357,7 +290,7 @@ async fn complete_pending_authorization(
 
     tokio::select! {
         result = flow.manager.exchange_code_for_token(&callback.code, &callback.state) => {
-            result.map_err(|error| auth_error(provider.name, error))?;
+            result.map_err(|error| auth_error(provider, error))?;
         }
         _ = cancellation.cancelled() => {
             return Err(format!("{provider_name} sign-in cancelled."));
@@ -381,14 +314,54 @@ pub async fn sync(
     known_meeting_ids: Vec<String>,
 ) -> Result<ConnectedImportSyncResult, String> {
     let provider = provider(provider_id)?;
-    let reconnect = || format!("Reconnect {} to keep importing", provider.name);
-    let AuthorizedService {
-        service,
-        tools,
-        manager,
-        token_received_at,
-    } = connect_authorized(provider.target(), &credentials, reconnect).await?;
-    let provider_target = provider.target();
+    if credentials.provider_id != provider.id {
+        return Err(format!("Reconnect {} to keep importing", provider.name));
+    }
+
+    let mut oauth = OAuthState::new(provider.endpoint, None)
+        .await
+        .map_err(|error| auth_error(provider, error))?;
+    let token: OAuthTokenResponse = serde_json::from_str(&credentials.token_json)
+        .map_err(|_| format!("Reconnect {} to keep importing", provider.name))?;
+    oauth
+        .set_credentials(&credentials.client_id, token)
+        .await
+        .map_err(|error| auth_error(provider, error))?;
+    let mut token_received_at = credentials.token_received_at;
+    if token_needs_refresh(&credentials.token_json, token_received_at) {
+        oauth
+            .refresh_token()
+            .await
+            .map_err(|error| auth_error(provider, error))?;
+        token_received_at = Some(now_epoch_secs());
+    }
+    let mut manager = oauth
+        .into_authorization_manager()
+        .ok_or_else(|| format!("Reconnect {} to keep importing", provider.name))?;
+    if let Some(client_secret) = credentials.client_secret.as_deref() {
+        manager
+            .configure_client(
+                OAuthClientConfig::new(&credentials.client_id, provider.endpoint)
+                    .with_client_secret(client_secret),
+            )
+            .map_err(|error| auth_error(provider, error))?;
+    }
+    let access_token = manager
+        .get_access_token()
+        .await
+        .map_err(|error| auth_error(provider, error))?;
+
+    let transport = StreamableHttpClientTransport::from_config(
+        StreamableHttpClientTransportConfig::with_uri(provider.endpoint).auth_header(access_token),
+    );
+    let service = ()
+        .serve(transport)
+        .await
+        .map_err(|error| format!("could not connect to {}: {error}", provider.name))?;
+    let tools = service
+        .list_all_tools()
+        .await
+        .map_err(|error| format!("could not read {} tools: {error}", provider.name))?;
 
     let list_tool = find_tool(&tools, provider.list_tools).ok_or_else(|| {
         format!(
@@ -402,7 +375,7 @@ pub async fn sync(
         .filter_map(|name| find_tool(&tools, std::slice::from_ref(name)))
         .collect::<Vec<_>>();
 
-    let list_payloads = list_all_meetings(provider_target, service.peer(), list_tool).await?;
+    let list_payloads = list_all_meetings(provider, service.peer(), list_tool).await?;
     let meetings = meeting_records(&list_payloads);
     let mut warnings = Vec::new();
     if meetings.is_empty() {
@@ -428,7 +401,7 @@ pub async fn sync(
             }
             let mut payloads = Vec::new();
             for arguments in requests {
-                match call_tool(provider_target, service.peer(), tool, arguments).await {
+                match call_tool(provider, service.peer(), tool, arguments).await {
                     Ok(values) => payloads.extend(values),
                     Err(_) => unavailable += 1,
                 }
@@ -457,7 +430,7 @@ pub async fn sync(
 
     let files = meeting_files(provider, enriched);
     let refreshed_credentials = credentials_from_manager(
-        provider_target,
+        provider,
         &manager,
         credentials.client_secret,
         token_received_at,
@@ -469,75 +442,6 @@ pub async fn sync(
         files,
         credentials: refreshed_credentials,
         warnings,
-    })
-}
-
-pub struct AuthorizedService {
-    pub service: RunningService<RoleClient, ()>,
-    pub tools: Vec<Tool>,
-    pub manager: AuthorizationManager,
-    pub token_received_at: Option<u64>,
-}
-
-/// Connects to a remote MCP server with stored credentials, refreshing the
-/// access token first when it is about to expire.
-pub async fn connect_authorized(
-    provider: McpTarget,
-    credentials: &ConnectedImportCredentials,
-    reconnect: impl Fn() -> String,
-) -> Result<AuthorizedService, String> {
-    if credentials.provider_id != provider.id {
-        return Err(reconnect());
-    }
-
-    let mut oauth = OAuthState::new(provider.endpoint, None)
-        .await
-        .map_err(|error| auth_error(provider.name, error))?;
-    let token: OAuthTokenResponse =
-        serde_json::from_str(&credentials.token_json).map_err(|_| reconnect())?;
-    oauth
-        .set_credentials(&credentials.client_id, token)
-        .await
-        .map_err(|error| auth_error(provider.name, error))?;
-    let mut manager = oauth.into_authorization_manager().ok_or_else(reconnect)?;
-    if let Some(client_secret) = credentials.client_secret.as_deref() {
-        manager
-            .configure_client(
-                OAuthClientConfig::new(&credentials.client_id, provider.endpoint)
-                    .with_client_secret(client_secret),
-            )
-            .map_err(|error| auth_error(provider.name, error))?;
-    }
-    let mut token_received_at = credentials.token_received_at;
-    if token_needs_refresh(&credentials.token_json, token_received_at) {
-        manager
-            .refresh_token()
-            .await
-            .map_err(|error| auth_error(provider.name, error))?;
-        token_received_at = Some(now_epoch_secs());
-    }
-    let access_token = manager
-        .get_access_token()
-        .await
-        .map_err(|error| auth_error(provider.name, error))?;
-
-    let transport = StreamableHttpClientTransport::from_config(
-        StreamableHttpClientTransportConfig::with_uri(provider.endpoint).auth_header(access_token),
-    );
-    let service = ()
-        .serve(transport)
-        .await
-        .map_err(|error| format!("could not connect to {}: {error}", provider.name))?;
-    let tools = service
-        .list_all_tools()
-        .await
-        .map_err(|error| format!("could not read {} tools: {error}", provider.name))?;
-
-    Ok(AuthorizedService {
-        service,
-        tools,
-        manager,
-        token_received_at,
     })
 }
 
@@ -631,8 +535,8 @@ fn parse_authorization_request(
     Ok(AuthorizationCallback { code, state })
 }
 
-pub async fn credentials_from_manager(
-    provider: McpTarget,
+async fn credentials_from_manager(
+    provider: McpProvider,
     manager: &AuthorizationManager,
     client_secret: Option<String>,
     token_received_at: Option<u64>,
@@ -640,12 +544,12 @@ pub async fn credentials_from_manager(
     let (client_id, token) = manager
         .get_credentials()
         .await
-        .map_err(|error| auth_error(provider.name, error))?;
+        .map_err(|error| auth_error(provider, error))?;
     credentials(provider, client_id, client_secret, token, token_received_at)
 }
 
 fn credentials(
-    provider: McpTarget,
+    provider: McpProvider,
     client_id: String,
     client_secret: Option<String>,
     token: Option<OAuthTokenResponse>,
@@ -691,11 +595,11 @@ fn now_epoch_secs() -> u64 {
         .as_secs()
 }
 
-fn auth_error(provider_name: &str, error: impl std::fmt::Display) -> String {
-    format!("{provider_name} connection failed: {error}")
+fn auth_error(provider: McpProvider, error: impl std::fmt::Display) -> String {
+    format!("{} connection failed: {error}", provider.name)
 }
 
-pub fn find_tool<'a>(tools: &'a [Tool], candidates: &[&str]) -> Option<&'a Tool> {
+fn find_tool<'a>(tools: &'a [Tool], candidates: &[&str]) -> Option<&'a Tool> {
     tools.iter().find(|tool| {
         let actual = normalized_tool_name(tool.name.as_ref());
         candidates.iter().any(|candidate| {
@@ -713,7 +617,7 @@ fn normalized_tool_name(name: &str) -> String {
 }
 
 async fn list_all_meetings(
-    provider: McpTarget,
+    provider: McpProvider,
     peer: &Peer<RoleClient>,
     tool: &Tool,
 ) -> Result<Vec<Value>, String> {
@@ -754,8 +658,8 @@ async fn list_all_meetings(
     Ok(payloads)
 }
 
-pub async fn call_tool(
-    provider: McpTarget,
+async fn call_tool(
+    provider: McpProvider,
     peer: &Peer<RoleClient>,
     tool: &Tool,
     arguments: JsonObject,
@@ -768,7 +672,7 @@ pub async fn call_tool(
     tool_payloads(provider, result)
 }
 
-fn tool_payloads(provider: McpTarget, result: CallToolResult) -> Result<Vec<Value>, String> {
+fn tool_payloads(provider: McpProvider, result: CallToolResult) -> Result<Vec<Value>, String> {
     let text = result
         .content
         .iter()
@@ -797,7 +701,7 @@ fn tool_payloads(provider: McpTarget, result: CallToolResult) -> Result<Vec<Valu
     Ok(payloads)
 }
 
-pub fn parse_json_text(text: &str) -> Option<Value> {
+fn parse_json_text(text: &str) -> Option<Value> {
     let trimmed = text.trim();
     if let Ok(value) = serde_json::from_str(trimmed) {
         return Some(value);
@@ -960,7 +864,7 @@ fn add_enrichment_defaults(tool: &Tool, arguments: &mut JsonObject) {
     }
 }
 
-pub fn schema_property(tool: &Tool, candidates: &[&str]) -> Option<String> {
+fn schema_property(tool: &Tool, candidates: &[&str]) -> Option<String> {
     let properties = tool
         .input_schema
         .get("properties")
