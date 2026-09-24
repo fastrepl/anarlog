@@ -16,6 +16,7 @@ pub async fn import_legacy_data<R: tauri::Runtime>(
         return Ok(());
     }
 
+    let mut unfinished_run: Option<String> = None;
     for source in startup_vault_sources(app)? {
         let run_id = match legacy_vault::import_legacy_vault(pool, &source, false).await {
             Ok(run_id) => run_id,
@@ -29,16 +30,31 @@ pub async fn import_legacy_data<R: tauri::Runtime>(
             Err(error) => return Err(error),
         };
 
-        // Stop at the first unfinished source: the migration state can only
-        // point at one run, and a later clean run must not paper over this
-        // one — it stays published until an explicit retry clears it.
         if !legacy_migration_ready(pool).await? {
             tracing::warn!(
                 %run_id,
                 "legacy import needs attention; continuing with recovery copies intact"
             );
-            break;
+            if unfinished_run.is_none() {
+                unfinished_run = Some(run_id);
+            }
         }
+    }
+
+    // The migration state can only point at one run, and each import
+    // repoints it at itself. Publish the earliest unfinished run so a
+    // later clean scan cannot hide it — the explicit retry re-reads this
+    // run's source until it clears.
+    if let Some(run_id) = unfinished_run {
+        sqlx::query(
+            "UPDATE storage_migration_state
+             SET latest_run_id = ?, parity_verified = 0,
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE id = 'legacy_v1'",
+        )
+        .bind(&run_id)
+        .execute(pool)
+        .await?;
     }
 
     Ok(())
