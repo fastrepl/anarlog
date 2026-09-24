@@ -201,10 +201,7 @@ fn resolve_startup_vault_base<R: tauri::Runtime>(
         .ok_or(std::io::Error::other("settings base unavailable"))?;
     std::fs::create_dir_all(&settings_base)?;
 
-    Ok(anlg_storage::vault::resolve_base(
-        &settings_base,
-        &settings_base,
-    ))
+    Ok(settings_base)
 }
 
 #[cfg(test)]

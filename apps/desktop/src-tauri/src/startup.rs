@@ -202,7 +202,7 @@ pub fn consolidate_custom_storage(identifier: &str) {
         ),
         Ok(_) => {}
         Err(error) => eprintln!(
-            "failed to move notes and recordings into {}; keeping the custom folder for now: {error}",
+            "failed to move notes and recordings into {}; will retry on next launch: {error}",
             base.display()
         ),
     }

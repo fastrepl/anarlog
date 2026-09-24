@@ -37,17 +37,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Settings<'a, R, M> {
     }
 
     pub fn resolve_startup_vault_base(&self) -> Result<PathBuf, crate::Error> {
-        let settings_base = self.settings_base_path()?;
-        Ok(anlg_storage::vault::resolve_base(
-            &settings_base,
-            &settings_base,
-        ))
+        self.settings_base_path()
     }
 
     pub async fn load(&self) -> crate::Result<serde_json::Value> {
         let snapshot = self.manager.state::<crate::state::StartupSnapshot>();
-        let legacy_base = self.settings_base_path()?;
-        snapshot.load_with_legacy_fallback(&legacy_base).await
+        snapshot.load().await
     }
 
     pub async fn save(&self, settings: serde_json::Value) -> crate::Result<()> {

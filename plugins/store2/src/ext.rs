@@ -38,7 +38,7 @@ fn resolve_store_dir<R: tauri::Runtime>(
         .ok_or(anlg_storage::Error::DataDirUnavailable)?;
     std::fs::create_dir_all(&global_base)?;
 
-    Ok(anlg_storage::vault::resolve_custom(&global_base, &global_base).unwrap_or(global_base))
+    Ok(global_base)
 }
 
 pub fn store_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, crate::Error> {
