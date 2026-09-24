@@ -98,8 +98,14 @@ mod tests {
             email: Some("ada@example.com".to_string()),
             name: None,
         };
-        assert!(contact_matches(&contact(Some("Ada@Example.com"), None), &query));
-        assert!(!contact_matches(&contact(Some("other@example.com"), None), &query));
+        assert!(contact_matches(
+            &contact(Some("Ada@Example.com"), None),
+            &query
+        ));
+        assert!(!contact_matches(
+            &contact(Some("other@example.com"), None),
+            &query
+        ));
     }
 
     #[test]
@@ -112,6 +118,9 @@ mod tests {
             &contact(None, Some("Ada Lovelace")),
             &query
         ));
-        assert!(!contact_matches(&contact(None, Some("Alan Turing")), &query));
+        assert!(!contact_matches(
+            &contact(None, Some("Alan Turing")),
+            &query
+        ));
     }
 }
