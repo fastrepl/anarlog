@@ -17,6 +17,10 @@ vi.mock("~/auth", () => ({
   useOptionalAuth: () => ({
     session: mocks.authId ? { user: { id: mocks.authId } } : null,
   }),
+  useAuth: () => null,
+}));
+vi.mock("~/auth/useConnections", () => ({
+  useConnections: () => ({ data: [] }),
 }));
 vi.mock("~/shared/owner-user", () => ({ useOwnerUserId: () => mocks.ownerId }));
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
