@@ -243,6 +243,36 @@ describe("contact summary", () => {
     expect(prompt.existing_facts).toBeUndefined();
   });
 
+  it("starts the first summary as soon as sessions arrive", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const props = {
+      human: makeHuman(),
+      organizationName: "Fastrepl",
+      sessions: [] as HumanSessionRecord[],
+      settleMs: 200,
+    };
+    const { rerender } = renderHook(
+      (nextProps: typeof props) => useContactSummary(nextProps),
+      { wrapper, initialProps: props },
+    );
+
+    expect(mocks.generateText).not.toHaveBeenCalled();
+
+    // A session appearing while writes keep arriving must not wait out the
+    // settle window before generating.
+    rerender({ ...props, sessions: makeSessions() });
+
+    await waitFor(() => {
+      expect(mocks.generateText).toHaveBeenCalledOnce();
+    });
+  });
+
   it("does not restart generation while session updates keep arriving", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -274,9 +304,25 @@ describe("contact summary", () => {
       expect(mocks.generateText).toHaveBeenCalledOnce();
     });
 
-    // Continuous writes (recording, enhance, edits) keep bumping the
-    // fingerprint; the in-flight run must not be aborted and restarted.
-    for (let bump = 1; bump <= 3; bump++) {
+    // Writes landing in the same burst emit once at the leading edge, so a
+    // single restart picks up the newest fingerprint...
+    rerender({
+      ...props,
+      sessions: makeSessions().map((session) => ({
+        ...session,
+        sourceUpdatedAt: "2026-08-11T12:00:01.000Z",
+      })),
+    });
+    await waitFor(() => {
+      expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(result.current.isGenerating).toBe(false);
+    });
+
+    // ...and further continuous writes (recording, enhance, edits) spanning
+    // several settle windows emit nothing until the source goes quiet.
+    for (let bump = 2; bump <= 4; bump++) {
       rerender({
         ...props,
         sessions: makeSessions().map((session) => ({
@@ -284,22 +330,9 @@ describe("contact summary", () => {
           sourceUpdatedAt: `2026-08-11T12:00:0${bump}.000Z`,
         })),
       });
+      await new Promise((resolve) => setTimeout(resolve, 120));
     }
-
-    expect(mocks.generateText).toHaveBeenCalledOnce();
-
-    resolveGeneration({
-      output: {
-        facts: [
-          "Prefers concise weekly updates.",
-          "Owns the launch timeline.",
-          "Needs pricing by Friday.",
-        ],
-      },
-    });
-    await waitFor(() => {
-      expect(result.current.facts).toHaveLength(3);
-    });
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
 
     // Once the source goes quiet, exactly one follow-up run picks up the
     // newest fingerprint instead of restarting per write.
@@ -309,10 +342,14 @@ describe("contact summary", () => {
       },
     });
     await waitFor(() => {
-      expect(mocks.generateText).toHaveBeenCalledTimes(2);
+      expect(mocks.generateText).toHaveBeenCalledTimes(3);
     });
     await waitFor(() => {
       expect(result.current.isGenerating).toBe(false);
+    });
+
+    resolveGeneration({
+      output: { facts: ["A.", "B.", "C."] },
     });
   });
 

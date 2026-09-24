@@ -31,6 +31,9 @@ const ATTEMPT_TIMEOUT_MS = 90_000;
 // processing; keying the query off the live fingerprint aborts and restarts
 // generation on every write, so it can never finish.
 const SOURCE_SETTLE_MS = 3_000;
+// Emit the first session change immediately so generation can start while
+// the source is still moving, then only re-emit after the source goes quiet.
+const DEBOUNCE_OPTIONS = { leading: true };
 const SPACE_REGEX = /\s+/g;
 
 const contactSummarySchema = z.object({
@@ -68,7 +71,11 @@ export function useContactSummary({
   settleMs?: number;
 }) {
   const model = useLanguageModel("enhance");
-  const [settledSessions] = useDebounceValue(sessions, settleMs);
+  const [settledSessions] = useDebounceValue(
+    sessions,
+    settleMs,
+    DEBOUNCE_OPTIONS,
+  );
   const sourceHash = createContactSummarySourceHash(settledSessions);
   const savedSummary = human?.summary ?? null;
   const needsGeneration = Boolean(
@@ -85,6 +92,9 @@ export function useContactSummary({
         throw new Error("Language model needed");
       }
 
+      const attempt = new AbortController();
+      signal.addEventListener("abort", () => attempt.abort(), { once: true });
+
       try {
         return await withTimeout(
           generateAndSaveContactSummary({
@@ -93,9 +103,10 @@ export function useContactSummary({
             sessions: settledSessions,
             sourceHash,
             model,
-            signal,
+            signal: attempt.signal,
           }),
           ATTEMPT_TIMEOUT_MS,
+          () => attempt.abort(),
         );
       } catch (error) {
         if (!signal.aborted) {
@@ -250,6 +261,7 @@ export async function generateAndSaveContactSummary({
       updatedAt: session.sourceUpdatedAt,
     })),
   };
+  signal?.throwIfAborted();
   await updateHumanContactSummary(human.id, summary);
   return summary;
 }
@@ -316,14 +328,18 @@ function truncateAtWord(text: string, maxLength: number): string {
   return `${slice.slice(0, end).trim()}...`;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  onTimeout: () => void,
+): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_resolve, reject) =>
-      setTimeout(
-        () => reject(new Error("Contact summary generation timed out")),
-        ms,
-      ),
+      setTimeout(() => {
+        onTimeout();
+        reject(new Error("Contact summary generation timed out"));
+      }, ms),
     ),
   ]);
 }
