@@ -30,6 +30,7 @@
     "@anlg/utils": "workspace:^",
     "facehash": "^0.0.7",
     "markdown-it": "^14.2.0",
+    "node-emoji": "2.2.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-dropcursor": "^1.8.2",
     "prosemirror-gapcursor": "1.4.0",
@@ -41,6 +42,7 @@
     "prosemirror-schema-list": "^1.5.1",
     "prosemirror-search": "^1.1.0",
     "prosemirror-state": "^1.4.4",
+    "prosemirror-transform": "^1.12.0",
     "prosemirror-view": "^1.41.7",
     "tlds": "^1.261.0",
     "usehooks-ts": "^3.1.1"

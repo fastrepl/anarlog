@@ -1,3 +1,4 @@
+import { get as getEmojiByShortcode } from "node-emoji";
 import {
   chainCommands,
   createParagraphNear,
@@ -20,10 +21,16 @@ import {
   InputRule,
   inputRules,
   textblockTypeInputRule,
+  undoInputRule,
   wrappingInputRule,
 } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
-import { Fragment, type MarkType, type NodeType } from "prosemirror-model";
+import {
+  Fragment,
+  type MarkType,
+  type NodeType,
+  type ResolvedPos,
+} from "prosemirror-model";
 import {
   liftListItem,
   sinkListItem,
@@ -36,6 +43,7 @@ import {
   type EditorState,
   type Transaction,
 } from "prosemirror-state";
+import { findWrapping } from "prosemirror-transform";
 
 import { createTaskItemAttrs } from "../tasks";
 import { schema } from "./schema";
@@ -443,19 +451,181 @@ function quoteRule(pattern: RegExp, replacement: string) {
   });
 }
 
+// `[]`, `[ ]`, `[x]`, or `[X]` followed by a space wraps the paragraph in
+// taskList > taskItem wherever the surrounding node allows a taskList. Inside
+// a bulletList/orderedList > listItem, the marker converts that listItem into
+// a taskItem, splitting the list around it and merging with adjacent
+// taskLists when possible. Ported from char's editor taskListRule.
 function taskListRule() {
-  return new InputRule(/^\s*\[([ x]?)\]\s$/, (state, match, start, end) => {
-    const checked = match[1] === "x";
-    const taskItem = schema.nodes.taskItem.create(
-      createTaskItemAttrs(checked),
-      schema.nodes.paragraph.create(),
+  return new InputRule(/^\s*\[([ xX]?)\]\s$/, (state, match, start, end) => {
+    const $start = state.doc.resolve(start);
+    const { taskList, taskItem, paragraph, bulletList, orderedList, listItem } =
+      schema.nodes;
+    if ($start.parent.type !== paragraph) return null;
+    const checked = match[1] === "x" || match[1] === "X";
+    const taskAttrs = createTaskItemAttrs(checked);
+
+    const listDepth = $start.depth - 2;
+    const itemDepth = $start.depth - 1;
+    const listNode = listDepth >= 0 ? $start.node(listDepth) : null;
+    const itemNode = itemDepth >= 0 ? $start.node(itemDepth) : null;
+
+    // Inside a list item, only when the marker is at the very start
+    // (first paragraph of the listItem).
+    if (
+      itemNode?.type === listItem &&
+      listNode &&
+      (listNode.type === bulletList || listNode.type === orderedList) &&
+      $start.index(itemDepth) === 0
+    ) {
+      const firstParagraph = itemNode.firstChild;
+      if (!firstParagraph || firstParagraph.type !== paragraph) return null;
+
+      // Build the taskItem from the listItem's content, stripping the marker.
+      // The handler runs against the doc *before* the typed char is inserted,
+      // so the in-doc prefix length is `end - start`.
+      const newFirstParagraph = paragraph.create(
+        firstParagraph.attrs,
+        firstParagraph.content.cut(end - start),
+        firstParagraph.marks,
+      );
+      const taskItemChildren = [newFirstParagraph];
+      for (let i = 1; i < itemNode.childCount; i++) {
+        taskItemChildren.push(itemNode.child(i));
+      }
+      const newTaskItem = taskItem.create(
+        taskAttrs,
+        Fragment.from(taskItemChildren),
+      );
+
+      // Partition the list's items around the converted item.
+      const itemIndex = $start.index(listDepth);
+      const itemsBefore = [];
+      const itemsAfter = [];
+      for (let i = 0; i < listNode.childCount; i++) {
+        if (i < itemIndex) itemsBefore.push(listNode.child(i));
+        else if (i > itemIndex) itemsAfter.push(listNode.child(i));
+      }
+
+      // If the new taskList would be flush against an existing taskList
+      // sibling (no leftover list items on that side), merge into it.
+      const listStart = $start.before(listDepth);
+      const listEnd = $start.after(listDepth);
+      const grandParent = $start.node(listDepth - 1);
+      const listIndex = $start.index(listDepth - 1);
+      const prevSibling =
+        listIndex > 0 ? grandParent.child(listIndex - 1) : null;
+      const nextSibling =
+        listIndex < grandParent.childCount - 1
+          ? grandParent.child(listIndex + 1)
+          : null;
+      const mergePrev =
+        itemsBefore.length === 0 && prevSibling?.type === taskList;
+      const mergeNext =
+        itemsAfter.length === 0 && nextSibling?.type === taskList;
+
+      // Replace [list (+ adjacent taskList siblings to merge)] with
+      // [list_before?, taskList, list_after?].
+      let replaceFrom = listStart;
+      let replaceTo = listEnd;
+      const newNodes = [];
+
+      if (itemsBefore.length > 0) {
+        newNodes.push(
+          listNode.type.create(listNode.attrs, Fragment.from(itemsBefore)),
+        );
+      }
+
+      const taskListChildren = [];
+      let prevSiblingChildSize = 0;
+      if (mergePrev && prevSibling) {
+        replaceFrom = listStart - prevSibling.nodeSize;
+        for (let i = 0; i < prevSibling.childCount; i++) {
+          taskListChildren.push(prevSibling.child(i));
+          prevSiblingChildSize += prevSibling.child(i).nodeSize;
+        }
+      }
+      taskListChildren.push(newTaskItem);
+      if (mergeNext && nextSibling) {
+        replaceTo = listEnd + nextSibling.nodeSize;
+        for (let i = 0; i < nextSibling.childCount; i++) {
+          taskListChildren.push(nextSibling.child(i));
+        }
+      }
+      newNodes.push(taskList.create(null, Fragment.from(taskListChildren)));
+
+      if (itemsAfter.length > 0) {
+        newNodes.push(
+          listNode.type.create(listNode.attrs, Fragment.from(itemsAfter)),
+        );
+      }
+
+      const tr = state.tr.replaceWith(replaceFrom, replaceTo, newNodes);
+
+      // Place the cursor at the start of the new taskItem's paragraph: skip
+      // the leading list (if any), enter taskList, skip any merged-in prior
+      // taskItems, then enter taskItem and paragraph.
+      let cursor = replaceFrom;
+      if (itemsBefore.length > 0) cursor += newNodes[0].nodeSize;
+      cursor += 1 + prevSiblingChildSize + 1 + 1;
+      tr.setSelection(TextSelection.create(tr.doc, cursor));
+      return tr;
+    }
+
+    // List-item paragraphs are only handled by the branch above; a marker in
+    // a non-leading paragraph of an item should stay literal, not nest a list.
+    const parentType = itemNode?.type ?? null;
+    if (parentType === listItem || parentType === taskItem) return null;
+
+    // Anywhere else — wrap the paragraph in taskList > taskItem when the
+    // surrounding node allows it (findWrapping rejects e.g. list items).
+    const tr = state.tr.delete(start, end);
+    const range = tr.doc.resolve(start).blockRange();
+    if (!range) return null;
+    const wrapping = findWrapping(range, taskList);
+    if (!wrapping) return null;
+    tr.wrap(
+      range,
+      wrapping.map((wrapper) =>
+        wrapper.type === taskItem
+          ? { type: wrapper.type, attrs: taskAttrs }
+          : wrapper,
+      ),
     );
-    const taskList = schema.nodes.taskList.create(null, taskItem);
-    const tr = state.tr.replaceWith(start - 1, end, taskList);
-    // Content starts three levels into taskList > taskItem > paragraph,
-    // measured from the replacement position (start - 1).
-    return tr.setSelection(TextSelection.create(tr.doc, start + 2));
+    return tr;
   });
+}
+
+function underlineRule() {
+  return new InputRule(/<u>([^<]+)<\/u>$/i, (state, match, start, end) => {
+    const content = match[1];
+    if (!content) return null;
+    const contentStart = start + "<u>".length;
+    const contentEnd = contentStart + content.length;
+    const markType = schema.marks.underline;
+    if (!state.doc.resolve(contentStart).parent.type.allowsMarkType(markType)) {
+      return null;
+    }
+    const tr = state.tr;
+    if (end > contentEnd) tr.delete(contentEnd, end);
+    tr.addMark(contentStart, contentEnd, markType.create());
+    tr.delete(start, contentStart);
+    tr.removeStoredMark(markType);
+    return tr;
+  });
+}
+
+function emojiReplacementRule() {
+  return new InputRule(
+    /(^|[\s([{])(:[\w+-]+:)$/,
+    (state, match, start, end) => {
+      if (isInCodeInputContext(state)) return null;
+      const prefix = match[1] ?? "";
+      const emoji = match[2] ? getEmojiByShortcode(match[2]) : undefined;
+      if (!emoji) return null;
+      return state.tr.insertText(emoji, start + prefix.length, end);
+    },
+  );
 }
 
 export function buildInputRules() {
@@ -478,19 +648,90 @@ export function buildInputRules() {
         /(^|[\s([{])((?:c\/o|1\/2|1\/3|1\/4|1\/5|1\/6|1\/8|2\/3|2\/5|3\/4|3\/5|3\/8|4\/5|5\/6|5\/8|7\/8))([\s.,;:!?])$/i,
         FRACTION_REPLACEMENTS,
       ),
+      emojiReplacementRule(),
       quoteRule(/(?:^|[\s{[(<'"‘“])(")$/, "“"),
       quoteRule(/"$/, "”"),
       quoteRule(/(?:^|[\s{[(<'"‘“])(')$/, "‘"),
       quoteRule(/'$/, "’"),
       textReplacementRule(/\.\.\.$/, "…"),
       markInputRule(/(^|[^*])\*\*([^*]+)\*\*$/, schema.marks.bold, 2),
+      markInputRule(/(^|[^_])__([^_]+)__$/, schema.marks.bold, 2),
       markInputRule(/(^|[^~])~~([^~]+)~~$/, schema.marks.strike, 2),
       markInputRule(/(^|[^=])==([^=]+)==$/, schema.marks.highlight, 2),
       markInputRule(/(^|[^*])\*([^*]+)\*$/, schema.marks.italic, 1),
       markInputRule(/(^|[^_])_([^_]+)_$/, schema.marks.italic, 1),
       markInputRule(/(^|[^~])~([^~]+)~$/, schema.marks.strike, 1),
+      markInputRule(/(^|[^`])`([^`]+)`$/, schema.marks.code, 1),
+      underlineRule(),
     ],
   });
+}
+
+function findItemDepth($from: ResolvedPos, itemType: NodeType): number | null {
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type === itemType) return depth;
+  }
+  return null;
+}
+
+function atStartOfItem($from: ResolvedPos, itemDepth: number): boolean {
+  if ($from.parentOffset !== 0) return false;
+  for (let depth = $from.depth; depth > itemDepth; depth--) {
+    if ($from.index(depth - 1) !== 0) return false;
+  }
+  return true;
+}
+
+// Enter at the very start of the first list item inserts an empty paragraph
+// before the list, giving the writer a way to open a row above it.
+function insertParagraphBeforeFirstListItem(itemType: NodeType): Command {
+  return (state, dispatch) => {
+    if (!state.selection.empty) return false;
+
+    const paragraphType = schema.nodes.paragraph;
+    const { $from } = state.selection;
+    const itemDepth = findItemDepth($from, itemType);
+    if (itemDepth === null) return false;
+    if (!atStartOfItem($from, itemDepth)) return false;
+    if (
+      $from.parent.type !== paragraphType ||
+      $from.parent.content.size === 0
+    ) {
+      return false;
+    }
+
+    const listDepth = itemDepth - 1;
+    const listParentDepth = listDepth - 1;
+    if (listParentDepth < 0) return false;
+    if ($from.index(listDepth) !== 0) return false;
+
+    // Inside a nested list the paragraph would land inside the parent item;
+    // fall through to splitListItem so Enter makes an empty sibling instead.
+    const listParentName = $from.node(listParentDepth).type.name;
+    if (listParentName === "listItem" || listParentName === "taskItem") {
+      return false;
+    }
+
+    const listIndex = $from.index(listParentDepth);
+    if (
+      !$from
+        .node(listParentDepth)
+        .canReplaceWith(listIndex, listIndex, paragraphType)
+    ) {
+      return false;
+    }
+
+    const paragraph = paragraphType.createAndFill();
+    if (!paragraph) return false;
+
+    if (dispatch) {
+      const insertPos = $from.before(listDepth);
+      const tr = state.tr.insert(insertPos, paragraph);
+      tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -550,6 +791,8 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
   keys["Enter"] = chainCommands(
     exitCodeBlockOnEmptyLine,
     newlineInCode,
+    insertParagraphBeforeFirstListItem(schema.nodes.taskItem),
+    insertParagraphBeforeFirstListItem(schema.nodes.listItem),
     (state, dispatch) => {
       const itemName = isInListItem(state);
       if (!itemName) return false;
@@ -564,7 +807,11 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
       if (!itemName) return false;
       const nodeType = state.schema.nodes[itemName];
       if (!nodeType) return false;
-      return splitListItem(nodeType)(state, dispatch);
+      // New rows get fresh task identity and never inherit the done state — a
+      // copied done status would mark an untouched row complete.
+      const itemAttrs =
+        itemName === "taskItem" ? createTaskItemAttrs() : undefined;
+      return splitListItem(nodeType, itemAttrs)(state, dispatch);
     },
     createParagraphNear,
     liftEmptyBlock,
@@ -586,6 +833,7 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
 
   const backspaceCmd: Command = chainCommands(
     deleteSelection,
+    undoInputRule,
     (state, _dispatch) => {
       const { selection } = state;
       if (selection.$head.pos === 0 && selection.empty) return true;
