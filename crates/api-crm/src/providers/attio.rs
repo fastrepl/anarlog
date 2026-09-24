@@ -62,7 +62,12 @@ fn search(
         Ok(payload
             .get("data")
             .and_then(Value::as_array)
-            .map(|records| records.iter().filter_map(contact_from_record).collect())
+            .map(|records| {
+                records
+                    .iter()
+                    .filter_map(|record| contact_from_record(record, query.email.as_deref()))
+                    .collect()
+            })
             .unwrap_or_default())
     })
 }
@@ -72,10 +77,13 @@ fn attribute_entries<'a>(values: &'a Map<String, Value>, slug: &str) -> Option<&
 }
 
 fn entry_field<'a>(entry: &'a Value, keys: &[&str]) -> Option<&'a str> {
-    keys.iter()
-        .find_map(|key| entry.get(*key).and_then(Value::as_str))
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+    keys.iter().find_map(|key| {
+        entry
+            .get(*key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    })
 }
 
 fn first_entry_field<'a>(
@@ -88,7 +96,7 @@ fn first_entry_field<'a>(
         .find_map(|entry| entry_field(entry, keys))
 }
 
-fn contact_from_record(record: &Value) -> Option<CrmContact> {
+fn contact_from_record(record: &Value, query_email: Option<&str>) -> Option<CrmContact> {
     let values = record.get("values")?.as_object()?;
 
     let name = first_entry_field(values, "name", &["full_name"])
@@ -115,7 +123,23 @@ fn contact_from_record(record: &Value) -> Option<CrmContact> {
             .and_then(Value::as_str)
             .map(str::to_string),
         name,
-        email: first_entry_field(values, "email_addresses", &["email_address"]).map(str::to_string),
+        // Prefer the queried email when the match came through a secondary
+        // address so `matching_contacts` keeps the record.
+        email: attribute_entries(values, "email_addresses")
+            .and_then(|entries| {
+                let queried = query_email.and_then(|wanted| {
+                    entries.iter().find_map(|entry| {
+                        entry_field(entry, &["email_address"])
+                            .filter(|email| email.eq_ignore_ascii_case(wanted))
+                    })
+                });
+                queried.or_else(|| {
+                    entries
+                        .iter()
+                        .find_map(|entry| entry_field(entry, &["email_address"]))
+                })
+            })
+            .map(str::to_string),
         // Attio's `company` attribute is a record reference and does not carry
         // the company's name, so it is left unset rather than resolved with
         // extra requests per result.
@@ -164,7 +188,7 @@ mod tests {
             },
         });
 
-        let contact = contact_from_record(&record).unwrap();
+        let contact = contact_from_record(&record, None).unwrap();
         assert_eq!(contact.id.as_deref(), Some("rec_1"));
         assert_eq!(contact.name.as_deref(), Some("Ada Lovelace"));
         assert_eq!(contact.email.as_deref(), Some("ada@example.com"));
@@ -185,7 +209,27 @@ mod tests {
             },
         });
 
-        let contact = contact_from_record(&record).unwrap();
+        let contact = contact_from_record(&record, None).unwrap();
         assert_eq!(contact.name.as_deref(), Some("Ada Lovelace"));
+    }
+
+    #[test]
+    fn prefers_the_queried_email_over_the_first_entry() {
+        let record = json!({
+            "id": {"record_id": "rec_3"},
+            "values": {
+                "name": [{"full_name": "Ada Lovelace"}],
+                "email_addresses": [
+                    {"email_address": "ada@example.com"},
+                    {"email_address": "ada.lovelace@work.com"},
+                ],
+            },
+        });
+
+        let contact = contact_from_record(&record, Some("ada.lovelace@work.com")).unwrap();
+        assert_eq!(contact.email.as_deref(), Some("ada.lovelace@work.com"));
+
+        let contact = contact_from_record(&record, Some("other@x.com")).unwrap();
+        assert_eq!(contact.email.as_deref(), Some("ada@example.com"));
     }
 }
