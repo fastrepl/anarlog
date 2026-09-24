@@ -12,14 +12,14 @@ export type SummaryLengthMode = (typeof SUMMARY_LENGTH_MODES)[number];
 const DEFAULT_SUMMARY_LENGTH_MODE: SummaryLengthMode = "detailed";
 
 const SUMMARY_LENGTH_RATIOS: Record<SummaryLengthMode, number> = {
-  crisp: 0.75,
-  balanced: 0.875,
+  crisp: 0.3,
+  balanced: 0.5,
   detailed: 1,
 };
 
 const SUMMARY_GUIDANCE_CHARACTER_LIMITS: Record<SummaryLengthMode, number> = {
-  crisp: 4_500,
-  balanced: 6_000,
+  crisp: 2_000,
+  balanced: 4_000,
   detailed: MAX_SUMMARY_GUIDANCE_CHARACTERS,
 };
 
@@ -154,12 +154,14 @@ export function formatSummaryLengthModeGuidance(
 
 export function formatSummaryLengthGuidance(
   policy: SummaryLengthPolicy | null,
-  customFormat = false,
+  options: { customFormat?: boolean; hasTemplateSections?: boolean } = {},
 ): string | null {
   const guidance = policy?.guidance;
   if (!policy || !guidance) {
     return null;
   }
+
+  const { customFormat = false, hasTemplateSections = false } = options;
 
   const sections =
     guidance.minSections === guidance.maxSections
@@ -168,9 +170,11 @@ export function formatSummaryLengthGuidance(
 
   return [
     `Summary length: the transcript contains about ${policy.transcriptCharacters} characters.`,
-    customFormat
-      ? `Keep the requested structure and stay under ${guidance.maxCharacters} characters overall.`
-      : `Keep the summary proportional to it: use ${sections} and stay under ${guidance.maxCharacters} characters overall.`,
+    hasTemplateSections
+      ? `Keep every requested template section and stay under ${guidance.maxCharacters} characters overall.`
+      : customFormat
+        ? `Keep the requested structure and stay under ${guidance.maxCharacters} characters overall.`
+        : `Keep the summary proportional to it: use ${sections} and stay under ${guidance.maxCharacters} characters overall.`,
     "A short meeting must produce a short summary; never pad with filler.",
   ].join(" ");
 }

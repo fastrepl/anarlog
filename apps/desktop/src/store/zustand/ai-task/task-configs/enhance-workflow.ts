@@ -222,13 +222,13 @@ function withLengthGuidance(
   summaryLength: TaskArgsMapTransformed["enhance"]["summaryLength"],
   customFormat: boolean,
 ): string {
-  if (hasTemplateSections) {
-    return prompt;
-  }
-
   const guidance = formatSummaryLengthGuidance(
-    getSummaryLengthPolicy(transcripts, summaryLength, customFormat),
-    customFormat,
+    getSummaryLengthPolicy(
+      transcripts,
+      summaryLength,
+      customFormat || hasTemplateSections,
+    ),
+    { customFormat, hasTemplateSections },
   );
   if (!guidance) return prompt;
 

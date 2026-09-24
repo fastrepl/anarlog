@@ -114,13 +114,60 @@ describe("summary length policy", () => {
       guidance: { maxCharacters: 7_500, minSections: 3, maxSections: 6 },
     });
     expect(getSummaryLengthPolicy(transcripts, "balanced")).toMatchObject({
-      maxCharacters: 8_750,
-      guidance: { maxCharacters: 6_000, minSections: 3, maxSections: 6 },
+      maxCharacters: 5_000,
+      guidance: { maxCharacters: 4_000, minSections: 2, maxSections: 3 },
     });
     expect(getSummaryLengthPolicy(transcripts, "crisp")).toMatchObject({
-      maxCharacters: 7_500,
-      guidance: { maxCharacters: 4_500, minSections: 3, maxSections: 5 },
+      maxCharacters: 3_000,
+      guidance: { maxCharacters: 2_000, minSections: 1, maxSections: 2 },
     });
+  });
+
+  it.each([
+    ["crisp", 2_000],
+    ["balanced", 4_000],
+    ["detailed", 7_500],
+  ] as const)(
+    "caps %s guidance at %s characters for a long transcript",
+    (mode, expected) => {
+      const policy = getSummaryLengthPolicy(
+        [
+          {
+            startedAt: null,
+            endedAt: null,
+            segments: [{ speaker: "John", text: "a".repeat(30_000) }],
+          },
+        ],
+        mode,
+      );
+
+      expect(policy?.guidance?.maxCharacters).toBe(expected);
+    },
+  );
+
+  it("keeps every template section under the length budget", () => {
+    const policy = getSummaryLengthPolicy(
+      [
+        {
+          startedAt: null,
+          endedAt: null,
+          segments: [{ speaker: "John", text: "a".repeat(10_000) }],
+        },
+      ],
+      "detailed",
+      true,
+    );
+
+    const guidance = formatSummaryLengthGuidance(policy, {
+      hasTemplateSections: true,
+    });
+
+    expect(guidance).toContain("Summary length:");
+    expect(guidance).toContain(
+      "Keep every requested template section and stay under 7500 characters overall.",
+    );
+    expect(guidance).not.toContain("sections and stay under");
+    expect(guidance).not.toMatch(/\d to \d sections|exactly \d+ section/);
   });
 
   it("keeps detailed as the default and explicitly requests full context", () => {
@@ -160,7 +207,9 @@ describe("summary length policy", () => {
     expect(custom?.maxSections).toBeNull();
     expect(standard?.maxSections).toBe(2);
     expect(custom?.maxCharacters).toBe(standard?.maxCharacters);
-    const guidance = formatSummaryLengthGuidance(custom, true);
+    const guidance = formatSummaryLengthGuidance(custom, {
+      customFormat: true,
+    });
     expect(guidance).toContain("Keep the requested structure");
     expect(guidance).toContain("under 636 characters");
     expect(guidance).not.toContain("1 to 2 sections");
