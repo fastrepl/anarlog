@@ -30,5 +30,4 @@ pub fn resolve(provider_id: &str) -> Option<&'static CrmProvider> {
         .copied()
 }
 
-pub static PROVIDERS: &[&CrmProvider] =
-    &[&hubspot::PROVIDER, &attio::PROVIDER];
+pub static PROVIDERS: &[&CrmProvider] = &[&hubspot::PROVIDER, &attio::PROVIDER];
