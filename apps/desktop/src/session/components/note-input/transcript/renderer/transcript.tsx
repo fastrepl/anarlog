@@ -123,15 +123,17 @@ function PersistedTranscript({
     segments: storedSegments,
   } = useRenderedTranscriptData(transcriptId, currentActive, captureGeneration);
   const mergedSegments = useMemo(() => {
-    const merged = mergeRenderedAndLiveSegments(
-      storedSegments,
-      liveSegments,
-      currentActive ? request : null,
-    );
+    if (!currentActive) {
+      // Settled transcripts are already merged and labeled by the native
+      // render; merging again would join segments the speaker-context
+      // labeler intentionally split across intervals.
+      return mergeRenderedAndLiveSegments(storedSegments, liveSegments, null);
+    }
     return mergeAdjacentSpeakerSegments(
-      currentActive
-        ? applyRenderRequestIdentitiesToSegments(merged, request)
-        : merged,
+      applyRenderRequestIdentitiesToSegments(
+        mergeRenderedAndLiveSegments(storedSegments, liveSegments, request),
+        request,
+      ),
     );
   }, [currentActive, liveSegments, request, storedSegments]);
 
