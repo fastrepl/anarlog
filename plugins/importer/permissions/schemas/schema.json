@@ -307,18 +307,6 @@
           "markdownDescription": "Denies the begin_connected_import command without any pre-configured scope."
         },
         {
-          "description": "Enables the begin_crm_connection command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-begin-crm-connection",
-          "markdownDescription": "Enables the begin_crm_connection command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the begin_crm_connection command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-begin-crm-connection",
-          "markdownDescription": "Denies the begin_crm_connection command without any pre-configured scope."
-        },
-        {
           "description": "Enables the cancel_connected_import command without any pre-configured scope.",
           "type": "string",
           "const": "allow-cancel-connected-import",
@@ -331,18 +319,6 @@
           "markdownDescription": "Denies the cancel_connected_import command without any pre-configured scope."
         },
         {
-          "description": "Enables the cancel_crm_connection command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-cancel-crm-connection",
-          "markdownDescription": "Enables the cancel_crm_connection command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the cancel_crm_connection command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-cancel-crm-connection",
-          "markdownDescription": "Denies the cancel_crm_connection command without any pre-configured scope."
-        },
-        {
           "description": "Enables the complete_connected_import command without any pre-configured scope.",
           "type": "string",
           "const": "allow-complete-connected-import",
@@ -353,42 +329,6 @@
           "type": "string",
           "const": "deny-complete-connected-import",
           "markdownDescription": "Denies the complete_connected_import command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the complete_crm_connection command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-complete-crm-connection",
-          "markdownDescription": "Enables the complete_crm_connection command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the complete_crm_connection command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-complete-crm-connection",
-          "markdownDescription": "Denies the complete_crm_connection command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the list_crm_providers command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-list-crm-providers",
-          "markdownDescription": "Enables the list_crm_providers command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the list_crm_providers command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-list-crm-providers",
-          "markdownDescription": "Denies the list_crm_providers command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the lookup_crm_contacts command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-lookup-crm-contacts",
-          "markdownDescription": "Enables the lookup_crm_contacts command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the lookup_crm_contacts command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-lookup-crm-contacts",
-          "markdownDescription": "Denies the lookup_crm_contacts command without any pre-configured scope."
         },
         {
           "description": "Enables the read_text_files command without any pre-configured scope.",
@@ -415,22 +355,10 @@
           "markdownDescription": "Denies the sync_connected_import command without any pre-configured scope."
         },
         {
-          "description": "Enables the verify_crm_connection command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-verify-crm-connection",
-          "markdownDescription": "Enables the verify_crm_connection command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the verify_crm_connection command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-verify-crm-connection",
-          "markdownDescription": "Denies the verify_crm_connection command without any pre-configured scope."
-        },
-        {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-list-crm-providers`\n- `allow-begin-crm-connection`\n- `allow-cancel-crm-connection`\n- `allow-complete-crm-connection`\n- `allow-verify-crm-connection`\n- `allow-lookup-crm-contacts`\n- `allow-read-text-files`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-list-crm-providers`\n- `allow-begin-crm-connection`\n- `allow-cancel-crm-connection`\n- `allow-complete-crm-connection`\n- `allow-verify-crm-connection`\n- `allow-lookup-crm-contacts`\n- `allow-read-text-files`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`"
         }
       ]
     }
