@@ -1,4 +1,7 @@
 mod live;
+mod streaming;
+
+pub use streaming::DashScopeStreamingAdapter;
 
 use crate::providers::Provider;
 

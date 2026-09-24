@@ -241,7 +241,7 @@ export async function disconnectConnectedImport(providerId: string) {
   if (result.status === "error") throw new Error(result.error);
 }
 
-async function waitForNangoConnection(
+export async function waitForNangoConnection(
   providerName: string,
   integrationId: string,
   headers: Record<string, string>,

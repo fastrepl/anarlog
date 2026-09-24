@@ -5,10 +5,10 @@ use std::{
 
 use futures_util::{FutureExt, Stream, StreamExt};
 use owhisper_client::{
-    AdapterKind, AssemblyAIAdapter, CartesiaAdapter, DashScopeAdapter, DeepgramAdapter,
-    ElevenLabsAdapter, FinalizeHandle, GladiaAdapter, GoogleGenerativeAiAdapter, ListenClient,
-    ListenClientInput, MistralAdapter, NariAdapter, OpenAIAdapter, RealtimeSttAdapter,
-    SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter, XaiAdapter,
+    AdapterKind, AssemblyAIAdapter, CartesiaAdapter, DashScopeAdapter, DashScopeStreamingAdapter,
+    DeepgramAdapter, ElevenLabsAdapter, FinalizeHandle, GladiaAdapter, GoogleGenerativeAiAdapter,
+    ListenClient, ListenClientInput, MistralAdapter, NariAdapter, OpenAIAdapter,
+    RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter, XaiAdapter,
 };
 use owhisper_interface::{ListenParams, MixedMessage, stream::StreamResponse};
 use serde::Deserialize;
@@ -85,6 +85,16 @@ async fn dispatch(
     request: Request,
     listener: Arc<dyn TranscriptionEventListener>,
 ) -> Result<Arc<ProviderLiveTranscription>, ProviderTranscriptionError> {
+    if adapter == AdapterKind::DashScope
+        && request
+            .params
+            .model
+            .as_deref()
+            .is_some_and(DashScopeStreamingAdapter::is_model)
+    {
+        return start::<DashScopeStreamingAdapter>(request, listener).await;
+    }
+
     macro_rules! adapters {
         ($($variant:ident => $adapter:ty),+ $(,)?) => {
             match adapter {

@@ -25,19 +25,14 @@ msgstr ""
 msgid "(Unavailable — using current default)"
 msgstr ""
 
+#. placeholder {0}: reconnectRequired ? "Reconnect" : "Connect"
+#: src/settings/crm/index.tsx
+msgid "{0}"
+msgstr ""
+
 #. placeholder {0}: group.sessionIds.length
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "{0} {noteLabel} deleted"
-msgstr ""
-
-#. placeholder {0}: provider.name
-#: src/settings/crm/index.tsx
-msgid "{0} client ID"
-msgstr ""
-
-#. placeholder {0}: provider.name
-#: src/settings/crm/index.tsx
-msgid "{0} client secret"
 msgstr ""
 
 #. placeholder {0}: status.commandName
@@ -914,6 +909,7 @@ msgid "Can view"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
+#: src/folders/folder-editor.tsx
 #: src/imports/screen.tsx
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
@@ -1196,6 +1192,10 @@ msgstr ""
 msgid "Choose who can access notes from new meetings."
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Choose who receives new notes created in this folder."
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
 msgstr ""
@@ -1241,14 +1241,6 @@ msgstr ""
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Click the shortcut to record a new key combination. Press Escape to cancel."
-msgstr ""
-
-#: src/settings/crm/index.tsx
-msgid "Client ID"
-msgstr ""
-
-#: src/settings/crm/index.tsx
-msgid "Client secret (optional)"
 msgstr ""
 
 #: src/shared/ui/resource-list/preview-header.tsx
@@ -1427,13 +1419,13 @@ msgstr ""
 msgid "Configure Providers"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
 msgstr ""
 
 #: src/imports/screen.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
-#: src/settings/crm/index.tsx
 msgid "Connect"
 msgstr ""
 
@@ -1454,7 +1446,7 @@ msgid "Connect {0} Calendar"
 msgstr ""
 
 #: src/settings/crm/index.tsx
-msgid "Connect a CRM to look up your contacts from Anarlog. Access tokens stay on this device."
+msgid "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
 msgstr ""
 
 #: src/onboarding/calendar.tsx
@@ -1853,12 +1845,6 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Create account"
-msgstr ""
-
-#. placeholder {0}: provider.name
-#. placeholder {1}: provider.redirectUri
-#: src/settings/crm/index.tsx
-msgid "Create an OAuth app in {0} with redirect URL <0>{1}</0> and paste its credentials here."
 msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
@@ -3490,6 +3476,11 @@ msgstr ""
 msgid "New Note"
 msgstr ""
 
+#. placeholder {0}: workspaceConfirmation?.name
+#: src/folders/folder-editor.tsx
+msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+msgstr ""
+
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr ""
@@ -3811,6 +3802,7 @@ msgstr ""
 msgid "On-device transcription, recordings, and your own keys."
 msgstr ""
 
+#: src/folders/folder-editor.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "Only me"
 msgstr ""
@@ -4261,6 +4253,7 @@ msgid "Reconnect Notion"
 msgstr ""
 
 #: src/calendar/components/oauth/status.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Reconnect required"
 msgstr ""
@@ -4942,6 +4935,10 @@ msgstr ""
 msgid "Share one item with a guest, or add it to a Team for everyone."
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Share this folder?"
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
 msgstr "Skupna raba podatkov o uporabi"
@@ -5120,6 +5117,10 @@ msgstr ""
 #. placeholder {0}: config.displayName
 #: src/settings/todo/provider-content.tsx
 msgid "Sign in to connect {0}"
+msgstr ""
+
+#: src/settings/crm/index.tsx
+msgid "Sign in to connect a CRM."
 msgstr ""
 
 #: src/calendar/components/oauth/provider-content.tsx
@@ -5582,6 +5583,14 @@ msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "Team folder"
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "Team folder workspace"
 msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx

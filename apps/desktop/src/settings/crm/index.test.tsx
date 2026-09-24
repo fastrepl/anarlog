@@ -10,17 +10,41 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  listCrmProviders: vi.fn(),
-  readCrmCredentials: vi.fn(),
+  signedIn: true,
+  connections: [] as Array<{
+    integration_id: string;
+    connection_id: string;
+    status: string | null;
+  }>,
+  providers: [] as Array<{
+    id: string;
+    name: string;
+    nangoIntegrationId: string;
+  }>,
   connectCrm: vi.fn(),
-  cancelCrmConnection: vi.fn(),
   disconnectCrm: vi.fn(),
   verifyCrmConnection: vi.fn(),
 }));
 
-vi.mock("@anlg/plugin-importer", () => ({
-  commands: { listCrmProviders: mocks.listCrmProviders },
+vi.mock("~/auth", () => ({
+  useAuth: () => ({
+    session: mocks.signedIn ? { user: { id: "user-1" } } : null,
+    getHeaders: () =>
+      mocks.signedIn ? { Authorization: "Bearer test" } : null,
+  }),
 }));
+
+vi.mock("~/auth/useConnections", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  return {
+    useConnections: () =>
+      useQuery({
+        queryKey: ["integration-status", "user-1"],
+        queryFn: async () => mocks.connections,
+        initialData: mocks.connections,
+      }),
+  };
+});
 
 vi.mock("~/crm/connection", async () => {
   const actual =
@@ -29,14 +53,12 @@ vi.mock("~/crm/connection", async () => {
     );
   return {
     ...actual,
-    readCrmCredentials: mocks.readCrmCredentials,
-    crmCredentialsQueryOptions: (providerId: string) => ({
-      queryKey: actual.crmCredentialsQueryKey(providerId),
-      queryFn: () => mocks.readCrmCredentials(providerId),
+    crmProvidersQueryOptions: () => ({
+      queryKey: ["crm", "providers"],
+      queryFn: async () => mocks.providers,
       staleTime: Infinity,
     }),
     connectCrm: mocks.connectCrm,
-    cancelCrmConnection: mocks.cancelCrmConnection,
     disconnectCrm: mocks.disconnectCrm,
     verifyCrmConnection: mocks.verifyCrmConnection,
   };
@@ -44,12 +66,16 @@ vi.mock("~/crm/connection", async () => {
 
 import { SettingsCrm } from "./index";
 
-const credentials = {
-  providerId: "acme",
-  clientId: "client",
-  clientSecret: null,
-  tokenJson: "{}",
-  tokenReceivedAt: null,
+const provider = {
+  id: "acme",
+  name: "Acme",
+  nangoIntegrationId: "acme-nango",
+};
+
+const connection = {
+  integration_id: "acme-nango",
+  connection_id: "conn-1",
+  status: "connected",
 };
 
 function renderPage() {
@@ -65,26 +91,31 @@ function renderPage() {
 describe("SettingsCrm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.readCrmCredentials.mockResolvedValue(null);
+    mocks.signedIn = true;
+    mocks.connections = [];
+    mocks.providers = [provider];
   });
 
   afterEach(() => {
     cleanup();
   });
 
+  it("asks the user to sign in when signed out", async () => {
+    mocks.signedIn = false;
+    renderPage();
+    expect(await screen.findByText("Sign in to connect a CRM.")).toBeTruthy();
+  });
+
   it("shows an empty state when no CRM providers exist", async () => {
-    mocks.listCrmProviders.mockResolvedValue([]);
+    mocks.providers = [];
     renderPage();
     expect(
       await screen.findByText("No CRM integrations are available yet."),
     ).toBeTruthy();
   });
 
-  it("connects a dynamic-registration provider without client fields", async () => {
-    mocks.listCrmProviders.mockResolvedValue([
-      { id: "acme", name: "Acme", requiresClient: false, redirectUri: null },
-    ]);
-    mocks.connectCrm.mockResolvedValue(credentials);
+  it("starts the Nango connect flow", async () => {
+    mocks.connectCrm.mockResolvedValue(connection);
     renderPage();
 
     await screen.findByText("Not connected");
@@ -93,71 +124,13 @@ describe("SettingsCrm", () => {
     await waitFor(() =>
       expect(mocks.connectCrm).toHaveBeenCalledWith(
         expect.objectContaining({ id: "acme" }),
-        null,
+        { Authorization: "Bearer test" },
         expect.any(AbortSignal),
       ),
     );
-    expect(await screen.findByText("Connected")).toBeTruthy();
-    expect(screen.queryByLabelText("Acme client ID")).toBeNull();
-  });
-
-  it("requires a client ID for preregistered providers and passes it through", async () => {
-    mocks.listCrmProviders.mockResolvedValue([
-      {
-        id: "acme",
-        name: "Acme",
-        requiresClient: true,
-        redirectUri: "http://127.0.0.1:4242/callback",
-      },
-    ]);
-    mocks.connectCrm.mockResolvedValue(credentials);
-    const { container } = renderPage();
-
-    await screen.findByText("Not connected");
-    const connect = screen.getByRole("button", { name: "Connect" });
-    expect(connect).toHaveProperty("disabled", true);
-    expect(container.textContent).toContain("http://127.0.0.1:4242/callback");
-
-    fireEvent.change(screen.getByLabelText("Acme client ID"), {
-      target: { value: "my-client" },
-    });
-    fireEvent.change(screen.getByLabelText("Acme client secret"), {
-      target: { value: "shh" },
-    });
-    fireEvent.click(connect);
-
-    await waitFor(() =>
-      expect(mocks.connectCrm).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "acme" }),
-        { clientId: "my-client", clientSecret: "shh" },
-        expect.any(AbortSignal),
-      ),
-    );
-  });
-
-  it("tests and disconnects an existing connection", async () => {
-    mocks.listCrmProviders.mockResolvedValue([
-      { id: "acme", name: "Acme", requiresClient: false, redirectUri: null },
-    ]);
-    mocks.readCrmCredentials.mockResolvedValue(credentials);
-    mocks.verifyCrmConnection.mockResolvedValue(credentials);
-    mocks.disconnectCrm.mockResolvedValue(undefined);
-    renderPage();
-
-    fireEvent.click(await screen.findByRole("button", { name: "Test" }));
-    expect(await screen.findByText("Connected and working")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
-    await waitFor(() =>
-      expect(mocks.disconnectCrm).toHaveBeenCalledWith("acme"),
-    );
-    expect(await screen.findByText("Not connected")).toBeTruthy();
   });
 
   it("surfaces connection errors", async () => {
-    mocks.listCrmProviders.mockResolvedValue([
-      { id: "acme", name: "Acme", requiresClient: false, redirectUri: null },
-    ]);
     mocks.connectCrm.mockRejectedValue(new Error("Acme connection failed"));
     renderPage();
 
@@ -166,5 +139,38 @@ describe("SettingsCrm", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(
       "Acme connection failed",
     );
+  });
+
+  it("tests and disconnects an existing connection", async () => {
+    mocks.connections = [connection];
+    mocks.verifyCrmConnection.mockResolvedValue(undefined);
+    mocks.disconnectCrm.mockResolvedValue(undefined);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Test" }));
+    await waitFor(() =>
+      expect(mocks.verifyCrmConnection).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "acme" }),
+        "conn-1",
+        { Authorization: "Bearer test" },
+      ),
+    );
+    expect(await screen.findByText("Connected and working")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await waitFor(() =>
+      expect(mocks.disconnectCrm).toHaveBeenCalledWith(
+        expect.objectContaining({ nangoIntegrationId: "acme-nango" }),
+        "conn-1",
+      ),
+    );
+  });
+
+  it("shows reconnect state for expired connections", async () => {
+    mocks.connections = [{ ...connection, status: "reconnect_required" }];
+    renderPage();
+
+    expect(await screen.findByText("Reconnect required")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeTruthy();
   });
 });

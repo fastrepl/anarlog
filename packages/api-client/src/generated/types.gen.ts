@@ -343,6 +343,29 @@ export type CreatedApiKey = ApiKeyInfo & {
     key: string;
 };
 
+export type CrmContact = {
+    companyName?: string | null;
+    email?: string | null;
+    id?: string | null;
+    jobTitle?: string | null;
+    linkedinUrl?: string | null;
+    name?: string | null;
+    phone?: string | null;
+    url?: string | null;
+};
+
+export type CrmSearchContactsRequest = {
+    connection_id: string;
+    email?: string | null;
+    limit?: number | null;
+    name?: string | null;
+    provider: string;
+};
+
+export type CrmSearchContactsResponse = {
+    contacts: Array<CrmContact>;
+};
+
 export type CurrentAttachmentBackup = {
     ciphertextSha256: string;
     ciphertextSizeBytes: number;
@@ -2290,6 +2313,41 @@ export type OutlookListEventsResponses = {
 };
 
 export type OutlookListEventsResponse2 = OutlookListEventsResponses[keyof OutlookListEventsResponses];
+
+export type CrmSearchContactsData = {
+    body: CrmSearchContactsRequest;
+    path?: never;
+    query?: never;
+    url: '/crm/search-contacts';
+};
+
+export type CrmSearchContactsErrors = {
+    /**
+     * Unknown provider or missing query
+     */
+    400: unknown;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * No Nango connection for the provider
+     */
+    404: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type CrmSearchContactsResponses = {
+    /**
+     * Matching CRM contacts
+     */
+    200: CrmSearchContactsResponse;
+};
+
+export type CrmSearchContactsResponse2 = CrmSearchContactsResponses[keyof CrmSearchContactsResponses];
 
 export type FathomImportMeetingsData = {
     body: ImportMeetingsRequest;
