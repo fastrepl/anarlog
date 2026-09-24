@@ -3,8 +3,6 @@ use tauri::Manager;
 mod commands;
 mod connected_cli;
 mod connected_mcp;
-mod crm;
-mod crm_hubspot;
 mod types;
 
 pub use types::*;
@@ -19,12 +17,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::cancel_connected_import,
             commands::complete_connected_import,
             commands::sync_connected_import,
-            commands::list_crm_providers,
-            commands::begin_crm_connection,
-            commands::cancel_crm_connection,
-            commands::complete_crm_connection,
-            commands::verify_crm_connection,
-            commands::lookup_crm_contacts,
             commands::read_text_files,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
