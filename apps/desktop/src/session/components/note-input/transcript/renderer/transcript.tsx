@@ -37,6 +37,7 @@ import { useVirtualSegments, VirtualSegmentRow } from "./virtual-segments";
 import {
   applyRenderRequestIdentitiesToSegments,
   getMaxSpeakerNumberForParticipants,
+  mergeAdjacentSpeakerSegments,
   mergeRenderedAndLiveSegments,
   SegmentKeyUtils,
   type RenderLabelContext,
@@ -127,9 +128,11 @@ function PersistedTranscript({
       liveSegments,
       currentActive ? request : null,
     );
-    return currentActive
-      ? applyRenderRequestIdentitiesToSegments(merged, request)
-      : merged;
+    return mergeAdjacentSpeakerSegments(
+      currentActive
+        ? applyRenderRequestIdentitiesToSegments(merged, request)
+        : merged,
+    );
   }, [currentActive, liveSegments, request, storedSegments]);
 
   return (

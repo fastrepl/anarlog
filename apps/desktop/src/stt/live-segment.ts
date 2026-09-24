@@ -355,6 +355,65 @@ export function applyRenderRequestIdentitiesToSegments(
   });
 }
 
+export function mergeAdjacentSpeakerSegments(segments: Segment[]): Segment[] {
+  const merged: Segment[] = [];
+  for (const segment of segments) {
+    const last = merged[merged.length - 1];
+    if (last && shouldMergeAdjacentSegmentKeys(last.key, segment.key)) {
+      merged[merged.length - 1] = mergeSegmentPair(last, segment);
+    } else {
+      merged.push(segment);
+    }
+  }
+  return merged;
+}
+
+// Mirrors `should_merge_adjacent_keys` in crates/transcript.
+function shouldMergeAdjacentSegmentKeys(
+  last: SegmentKey,
+  next: SegmentKey,
+): boolean {
+  if (last.channel !== next.channel) {
+    return false;
+  }
+
+  if (
+    last.speaker_human_id != null &&
+    last.speaker_human_id === next.speaker_human_id
+  ) {
+    return true;
+  }
+
+  return (
+    SegmentKeyUtils.serialize(last) === SegmentKeyUtils.serialize(next) &&
+    (next.speaker_index != null || next.speaker_human_id != null)
+  );
+}
+
+function mergeSegmentPair(first: Segment, second: Segment): Segment {
+  const words = [...first.words, ...second.words];
+  const head = words[0]!;
+  const tail = words[words.length - 1]!;
+  return {
+    ...first,
+    id: [
+      SegmentKeyUtils.serialize(first.key),
+      head.id ?? `start:${head.start_ms}`,
+      tail.id ?? `end:${tail.end_ms}`,
+    ].join(":"),
+    start_ms: head.start_ms,
+    end_ms: tail.end_ms,
+    text: words
+      .map((word) => word.text)
+      .join("")
+      .trim(),
+    words,
+    speaker_label: first.speaker_label ?? second.speaker_label,
+    provisional_speaker:
+      first.provisional_speaker ?? second.provisional_speaker,
+  };
+}
+
 function getCompleteChannels(
   request: RenderTranscriptRequest,
 ): Set<SegmentChannelProfile> {
