@@ -348,9 +348,24 @@ describe("contact summary", () => {
       expect(result.current.isGenerating).toBe(false);
     });
 
+    // The superseded run resolving late must not overwrite the newer saved
+    // summary: it is aborted, so it never reaches the write.
     resolveGeneration({
-      output: { facts: ["A.", "B.", "C."] },
+      output: { facts: ["Stale.", "Facts.", "Here."] },
     });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mocks.updateHumanContactSummary).toHaveBeenCalledTimes(2);
+    expect(mocks.updateHumanContactSummary).toHaveBeenLastCalledWith(
+      "human-1",
+      expect.objectContaining({
+        sourceHash: createContactSummarySourceHash(
+          makeSessions().map((session) => ({
+            ...session,
+            sourceUpdatedAt: "2026-08-11T12:00:04.000Z",
+          })),
+        ),
+      }),
+    );
   });
 
   it("automatically generates a stale summary when the contact is viewed", async () => {
