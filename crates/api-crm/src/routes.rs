@@ -82,7 +82,10 @@ pub async fn search_contacts(
         .map(|limit| limit as usize)
         .unwrap_or(MAX_CONTACT_RESULTS)
         .clamp(1, 50);
-    let contacts = (provider.search)(http, query.clone(), limit).await?;
+    // Fetch extra candidates upstream: `matching_contacts` may drop provider
+    // hits, so requesting only `limit` records can hide later matches.
+    let fetch = (limit * 2).clamp(10, 100);
+    let contacts = (provider.search)(http, query.clone(), fetch).await?;
     Ok(Json(CrmSearchContactsResponse {
         contacts: matching_contacts(contacts, &query, limit),
     }))
