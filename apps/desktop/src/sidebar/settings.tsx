@@ -5,6 +5,7 @@ import {
   ArrowsClockwise,
   Bell,
   BookOpen,
+  Buildings,
   CalendarDots,
   ChartLineUp,
   Code,
@@ -168,7 +169,10 @@ export function SettingsNav() {
     },
     {
       label: t`Data`,
-      items: [{ id: "imports", label: t`Imports`, icon: DownloadSimple }],
+      items: [
+        { id: "imports", label: t`Imports`, icon: DownloadSimple },
+        { id: "crm", label: t`CRM`, icon: Buildings },
+      ],
     },
     {
       label: t`Advanced`,

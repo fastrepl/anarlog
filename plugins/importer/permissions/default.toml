@@ -5,5 +5,11 @@ permissions = [
     "allow-cancel-connected-import",
     "allow-complete-connected-import",
     "allow-sync-connected-import",
+    "allow-list-crm-providers",
+    "allow-begin-crm-connection",
+    "allow-cancel-crm-connection",
+    "allow-complete-crm-connection",
+    "allow-verify-crm-connection",
+    "allow-lookup-crm-contacts",
     "allow-read-text-files",
 ]

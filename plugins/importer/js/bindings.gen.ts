@@ -38,6 +38,49 @@ async syncConnectedImport(providerId: string, credentials: ConnectedImportCreden
     else return { status: "error", error: e  as any };
 }
 },
+async listCrmProviders() : Promise<CrmProviderInfo[]> {
+    return await TAURI_INVOKE("plugin:importer|list_crm_providers");
+},
+async beginCrmConnection(providerId: string, client: CrmClientInput | null) : Promise<Result<ConnectedImportAuthorization, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|begin_crm_connection", { providerId, client }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelCrmConnection(providerId: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|cancel_crm_connection", { providerId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async completeCrmConnection(providerId: string) : Promise<Result<ConnectedImportCredentials, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|complete_crm_connection", { providerId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async verifyCrmConnection(providerId: string, credentials: ConnectedImportCredentials) : Promise<Result<ConnectedImportCredentials, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|verify_crm_connection", { providerId, credentials }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async lookupCrmContacts(providerId: string, credentials: ConnectedImportCredentials, query: CrmContactQuery) : Promise<Result<CrmContactLookupResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|lookup_crm_contacts", { providerId, credentials, query }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async readTextFiles(paths: string[]) : Promise<Result<ImportTextFile[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:importer|read_text_files", { paths }) };
@@ -61,6 +104,21 @@ async readTextFiles(paths: string[]) : Promise<Result<ImportTextFile[], string>>
 export type ConnectedImportAuthorization = { providerId: string; authorizationUrl: string }
 export type ConnectedImportCredentials = { providerId: string; clientId: string; clientSecret: string | null; tokenJson: string; tokenReceivedAt: number | null }
 export type ConnectedImportSyncResult = { files: ImportTextFile[]; credentials: ConnectedImportCredentials; warnings: string[] }
+export type CrmClientInput = { clientId: string; clientSecret: string | null }
+export type CrmContact = { id: string | null; name: string | null; email: string | null; companyName: string | null; jobTitle: string | null; phone: string | null; linkedinUrl: string | null; url: string | null }
+export type CrmContactLookupResult = { contacts: CrmContact[]; credentials: ConnectedImportCredentials }
+export type CrmContactQuery = { email: string | null; name: string | null }
+export type CrmProviderInfo = { id: string; name: string; 
+/**
+ * The provider has no dynamic client registration, so the user supplies
+ * an OAuth client from their own CRM account.
+ */
+requiresClient: boolean; 
+/**
+ * Redirect URL the user must register on the CRM side when
+ * `requires_client` is set.
+ */
+redirectUri: string | null }
 export type ImportTextFile = { path: string; name: string; content: string }
 
 /** tauri-specta globals **/

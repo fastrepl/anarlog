@@ -30,6 +30,16 @@ msgstr "(Unavailable — using current default)"
 msgid "{0} {noteLabel} deleted"
 msgstr "{0} {noteLabel} deleted"
 
+#. placeholder {0}: provider.name
+#: src/settings/crm/index.tsx
+msgid "{0} client ID"
+msgstr "{0} client ID"
+
+#. placeholder {0}: provider.name
+#: src/settings/crm/index.tsx
+msgid "{0} client secret"
+msgstr "{0} client secret"
+
 #. placeholder {0}: status.commandName
 #: src/settings/developers/cli.tsx
 msgid "{0} could not be installed"
@@ -908,6 +918,7 @@ msgstr "Can view"
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -1024,6 +1035,7 @@ msgid "Checking connection"
 msgstr "Checking connection"
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/crm/index.tsx
 msgid "Checking connection…"
 msgstr "Checking connection…"
 
@@ -1231,6 +1243,14 @@ msgstr "Click here, then use your dictation shortcut."
 msgid "Click the shortcut to record a new key combination. Press Escape to cancel."
 msgstr "Click the shortcut to record a new key combination. Press Escape to cancel."
 
+#: src/settings/crm/index.tsx
+msgid "Client ID"
+msgstr "Client ID"
+
+#: src/settings/crm/index.tsx
+msgid "Client secret (optional)"
+msgstr "Client secret (optional)"
+
 #: src/shared/ui/resource-list/preview-header.tsx
 msgid "Clone"
 msgstr "Clone"
@@ -1413,6 +1433,7 @@ msgstr "Confirm"
 
 #: src/imports/screen.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/crm/index.tsx
 msgid "Connect"
 msgstr "Connect"
 
@@ -1431,6 +1452,10 @@ msgstr "Connect {0}"
 #: src/calendar/components/oauth/provider-content.tsx
 msgid "Connect {0} Calendar"
 msgstr "Connect {0} Calendar"
+
+#: src/settings/crm/index.tsx
+msgid "Connect a CRM to look up your contacts from Anarlog. Access tokens stay on this device."
+msgstr "Connect a CRM to look up your contacts from Anarlog. Access tokens stay on this device."
 
 #: src/onboarding/calendar.tsx
 #: src/onboarding/index.tsx
@@ -1476,12 +1501,17 @@ msgid "Connect your integration"
 msgstr "Connect your integration"
 
 #: src/imports/screen.tsx
+#: src/settings/crm/index.tsx
 msgid "Connected"
 msgstr "Connected"
 
 #: src/settings/general/account.tsx
 msgid "Connected accounts"
 msgstr "Connected accounts"
+
+#: src/settings/crm/index.tsx
+msgid "Connected and working"
+msgstr "Connected and working"
 
 #. placeholder {0}: subscriptionProvider.displayName
 #: src/settings/ai/shared/index.tsx
@@ -1825,6 +1855,12 @@ msgstr "Create a Team to share a library"
 msgid "Create account"
 msgstr "Create account"
 
+#. placeholder {0}: provider.name
+#. placeholder {1}: provider.redirectUri
+#: src/settings/crm/index.tsx
+msgid "Create an OAuth app in {0} with redirect URL <0>{1}</0> and paste its credentials here."
+msgstr "Create an OAuth app in {0} with redirect URL <0>{1}</0> and paste its credentials here."
+
 #: src/settings/developers/cloud-api.tsx
 msgid "Create key"
 msgstr "Create key"
@@ -1873,6 +1909,11 @@ msgstr "Creating brief..."
 #: src/settings/general/summary-length.tsx
 msgid "Crisp"
 msgstr "Crisp"
+
+#: src/settings/crm/index.tsx
+#: src/sidebar/settings.tsx
+msgid "CRM"
+msgstr "CRM"
 
 #: src/settings/general/billing.tsx
 msgid "Current"
@@ -2087,6 +2128,7 @@ msgstr "Disable all notifications"
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/sync/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
@@ -3511,6 +3553,10 @@ msgstr "No community templates available"
 msgid "No content."
 msgstr "No content."
 
+#: src/settings/crm/index.tsx
+msgid "No CRM integrations are available yet."
+msgstr "No CRM integrations are available yet."
+
 #: src/task/resource-view.tsx
 msgid "No description provided."
 msgstr "No description provided."
@@ -3665,6 +3711,10 @@ msgstr "No upcoming bots."
 #: src/settings/stats/insights.tsx
 msgid "Not available"
 msgstr "Not available"
+
+#: src/settings/crm/index.tsx
+msgid "Not connected"
+msgstr "Not connected"
 
 #: src/settings/developers/cli.tsx
 msgid "Not installed"
@@ -5570,6 +5620,7 @@ msgid "Templates"
 msgstr "Templates"
 
 #: src/settings/automations/index.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/developers/webhooks.tsx
 msgid "Test"
 msgstr "Test"

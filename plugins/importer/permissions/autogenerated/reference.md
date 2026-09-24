@@ -8,6 +8,12 @@ Default permissions for the plugin
 - `allow-cancel-connected-import`
 - `allow-complete-connected-import`
 - `allow-sync-connected-import`
+- `allow-list-crm-providers`
+- `allow-begin-crm-connection`
+- `allow-cancel-crm-connection`
+- `allow-complete-crm-connection`
+- `allow-verify-crm-connection`
+- `allow-lookup-crm-contacts`
 - `allow-read-text-files`
 
 ## Permission Table
@@ -48,6 +54,32 @@ Denies the begin_connected_import command without any pre-configured scope.
 <tr>
 <td>
 
+`importer:allow-begin-crm-connection`
+
+</td>
+<td>
+
+Enables the begin_crm_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-begin-crm-connection`
+
+</td>
+<td>
+
+Denies the begin_crm_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `importer:allow-cancel-connected-import`
 
 </td>
@@ -74,6 +106,32 @@ Denies the cancel_connected_import command without any pre-configured scope.
 <tr>
 <td>
 
+`importer:allow-cancel-crm-connection`
+
+</td>
+<td>
+
+Enables the cancel_crm_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-cancel-crm-connection`
+
+</td>
+<td>
+
+Denies the cancel_crm_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `importer:allow-complete-connected-import`
 
 </td>
@@ -93,6 +151,84 @@ Enables the complete_connected_import command without any pre-configured scope.
 <td>
 
 Denies the complete_connected_import command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:allow-complete-crm-connection`
+
+</td>
+<td>
+
+Enables the complete_crm_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-complete-crm-connection`
+
+</td>
+<td>
+
+Denies the complete_crm_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:allow-list-crm-providers`
+
+</td>
+<td>
+
+Enables the list_crm_providers command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-list-crm-providers`
+
+</td>
+<td>
+
+Denies the list_crm_providers command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:allow-lookup-crm-contacts`
+
+</td>
+<td>
+
+Enables the lookup_crm_contacts command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-lookup-crm-contacts`
+
+</td>
+<td>
+
+Denies the lookup_crm_contacts command without any pre-configured scope.
 
 </td>
 </tr>
@@ -145,6 +281,32 @@ Enables the sync_connected_import command without any pre-configured scope.
 <td>
 
 Denies the sync_connected_import command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:allow-verify-crm-connection`
+
+</td>
+<td>
+
+Enables the verify_crm_connection command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-verify-crm-connection`
+
+</td>
+<td>
+
+Denies the verify_crm_connection command without any pre-configured scope.
 
 </td>
 </tr>

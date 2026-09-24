@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-lookup-crm-contacts"
+description = "Enables the lookup_crm_contacts command without any pre-configured scope."
+commands.allow = ["lookup_crm_contacts"]
+
+[[permission]]
+identifier = "deny-lookup-crm-contacts"
+description = "Denies the lookup_crm_contacts command without any pre-configured scope."
+commands.deny = ["lookup_crm_contacts"]

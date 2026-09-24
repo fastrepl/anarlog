@@ -1,6 +1,6 @@
 use crate::types::{
     ConnectedImportAuthorization, ConnectedImportCredentials, ConnectedImportSyncResult,
-    ImportTextFile,
+    CrmClientInput, CrmContactLookupResult, CrmContactQuery, CrmProviderInfo, ImportTextFile,
 };
 
 const MAX_IMPORT_FILE_COUNT: usize = 1_000;
@@ -62,6 +62,59 @@ pub async fn sync_connected_import(
     } else {
         crate::connected_mcp::sync(&provider_id, credentials, known_meeting_ids).await
     }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn list_crm_providers() -> Vec<CrmProviderInfo> {
+    crate::crm::providers()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn begin_crm_connection(
+    provider_id: String,
+    client: Option<CrmClientInput>,
+    mcp_state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+) -> Result<ConnectedImportAuthorization, String> {
+    crate::crm::begin_connection(&provider_id, client, &mcp_state).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn cancel_crm_connection(
+    provider_id: String,
+    mcp_state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+) -> Result<bool, String> {
+    crate::crm::cancel_connection(&provider_id, &mcp_state).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn complete_crm_connection(
+    provider_id: String,
+    mcp_state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+) -> Result<ConnectedImportCredentials, String> {
+    crate::crm::complete_connection(&provider_id, &mcp_state).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn verify_crm_connection(
+    provider_id: String,
+    credentials: ConnectedImportCredentials,
+) -> Result<ConnectedImportCredentials, String> {
+    crate::crm::verify_connection(&provider_id, credentials).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn lookup_crm_contacts(
+    provider_id: String,
+    credentials: ConnectedImportCredentials,
+    query: CrmContactQuery,
+) -> Result<CrmContactLookupResult, String> {
+    crate::crm::lookup_contacts(&provider_id, credentials, query).await
 }
 
 #[tauri::command]

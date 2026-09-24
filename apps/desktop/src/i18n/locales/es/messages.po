@@ -30,6 +30,16 @@ msgstr ""
 msgid "{0} {noteLabel} deleted"
 msgstr ""
 
+#. placeholder {0}: provider.name
+#: src/settings/crm/index.tsx
+msgid "{0} client ID"
+msgstr ""
+
+#. placeholder {0}: provider.name
+#: src/settings/crm/index.tsx
+msgid "{0} client secret"
+msgstr ""
+
 #. placeholder {0}: status.commandName
 #: src/settings/developers/cli.tsx
 msgid "{0} could not be installed"
@@ -908,6 +918,7 @@ msgstr ""
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -1024,6 +1035,7 @@ msgid "Checking connection"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
+#: src/settings/crm/index.tsx
 msgid "Checking connection…"
 msgstr ""
 
@@ -1231,6 +1243,14 @@ msgstr "Haz clic aquí y usa tu atajo de dictado."
 msgid "Click the shortcut to record a new key combination. Press Escape to cancel."
 msgstr "Haz clic en el atajo para grabar una nueva combinación de teclas. Pulsa Escape para cancelar."
 
+#: src/settings/crm/index.tsx
+msgid "Client ID"
+msgstr ""
+
+#: src/settings/crm/index.tsx
+msgid "Client secret (optional)"
+msgstr ""
+
 #: src/shared/ui/resource-list/preview-header.tsx
 msgid "Clone"
 msgstr ""
@@ -1413,6 +1433,7 @@ msgstr ""
 
 #: src/imports/screen.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/crm/index.tsx
 msgid "Connect"
 msgstr ""
 
@@ -1430,6 +1451,10 @@ msgstr ""
 #. placeholder {0}: config.displayName
 #: src/calendar/components/oauth/provider-content.tsx
 msgid "Connect {0} Calendar"
+msgstr ""
+
+#: src/settings/crm/index.tsx
+msgid "Connect a CRM to look up your contacts from Anarlog. Access tokens stay on this device."
 msgstr ""
 
 #: src/onboarding/calendar.tsx
@@ -1476,11 +1501,16 @@ msgid "Connect your integration"
 msgstr ""
 
 #: src/imports/screen.tsx
+#: src/settings/crm/index.tsx
 msgid "Connected"
 msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Connected accounts"
+msgstr ""
+
+#: src/settings/crm/index.tsx
+msgid "Connected and working"
 msgstr ""
 
 #. placeholder {0}: subscriptionProvider.displayName
@@ -1825,6 +1855,12 @@ msgstr ""
 msgid "Create account"
 msgstr ""
 
+#. placeholder {0}: provider.name
+#. placeholder {1}: provider.redirectUri
+#: src/settings/crm/index.tsx
+msgid "Create an OAuth app in {0} with redirect URL <0>{1}</0> and paste its credentials here."
+msgstr ""
+
 #: src/settings/developers/cloud-api.tsx
 msgid "Create key"
 msgstr ""
@@ -1872,6 +1908,11 @@ msgstr ""
 
 #: src/settings/general/summary-length.tsx
 msgid "Crisp"
+msgstr ""
+
+#: src/settings/crm/index.tsx
+#: src/sidebar/settings.tsx
+msgid "CRM"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -2087,6 +2128,7 @@ msgstr ""
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/sync/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
@@ -3511,6 +3553,10 @@ msgstr ""
 msgid "No content."
 msgstr ""
 
+#: src/settings/crm/index.tsx
+msgid "No CRM integrations are available yet."
+msgstr ""
+
 #: src/task/resource-view.tsx
 msgid "No description provided."
 msgstr ""
@@ -3664,6 +3710,10 @@ msgstr ""
 
 #: src/settings/stats/insights.tsx
 msgid "Not available"
+msgstr ""
+
+#: src/settings/crm/index.tsx
+msgid "Not connected"
 msgstr ""
 
 #: src/settings/developers/cli.tsx
@@ -5570,6 +5620,7 @@ msgid "Templates"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/developers/webhooks.tsx
 msgid "Test"
 msgstr ""
