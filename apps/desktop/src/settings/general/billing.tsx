@@ -1,7 +1,7 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -14,6 +14,7 @@ import {
   type MarketingPlanTier,
   PlanFeatureList,
   PLAN_TIERS,
+  PRO_TRIAL_DAYS,
   type TierAction,
 } from "@anlg/pricing";
 import { ArrowsClockwise } from "@anlg/ui/components/icons";
@@ -21,6 +22,7 @@ import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { requestSyncDevices } from "~/auth/sync-devices";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { getWorkspaceAccess, requireTeamContext } from "~/settings/team/client";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
@@ -31,8 +33,9 @@ import { useTabs } from "~/store/zustand/tabs";
 export function SettingsBilling() {
   const auth = useAuth();
   const openNew = useTabs((state) => state.openNew);
-  const { plan, isPaid, isTrialing, isPaused, trialDaysRemaining } =
-    useBillingAccess();
+  const billing = useBillingAccess();
+  const { plan, isPaid, isTrialing, isPaused, trialDaysRemaining } = billing;
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
 
   const workspaces = useMyWorkspacesWithMirror();
   const workspaceAccess = useQueries({
@@ -58,18 +61,37 @@ export function SettingsBilling() {
   const isCurrentTierPending =
     workspaces.isPending || workspaceAccess.some((query) => query.isPending);
 
+  const billingActions = useBillingActions(billingPeriod, trialDaysRemaining);
+
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Billing</Trans>} />
       {auth.session ? (
-        <PlanBillingSection
-          currentTier={currentTier}
-          isTrialing={isTrialing}
-          isPaused={isPaused}
-          trialDaysRemaining={trialDaysRemaining}
-          isPaid={isPaid}
-          isCurrentTierPending={isCurrentTierPending}
-        />
+        <>
+          <PlanBillingSection
+            currentTier={currentTier}
+            isTrialing={isTrialing}
+            isPaused={isPaused}
+            trialDaysRemaining={trialDaysRemaining}
+            isPaid={isPaid}
+            isCurrentTierPending={isCurrentTierPending}
+            billingActions={billingActions}
+          />
+          <PlanLimitsSection
+            billing={billing}
+            workspaces={workspaces.data ?? []}
+            workspaceAccess={workspaceAccess}
+          />
+          <PlansSection
+            currentTier={currentTier}
+            isTrialing={isTrialing}
+            isPaused={isPaused}
+            isCurrentTierPending={isCurrentTierPending}
+            billingPeriod={billingPeriod}
+            onBillingPeriodChange={setBillingPeriod}
+            billingActions={billingActions}
+          />
+        </>
       ) : (
         <>
           <button
@@ -88,6 +110,12 @@ export function SettingsBilling() {
   );
 }
 
+const BILLING_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+};
+
 function tierActionLabel(action: NonNullable<TierAction>): MessageDescriptor {
   switch (action.kind) {
     case "current":
@@ -99,39 +127,11 @@ function tierActionLabel(action: NonNullable<TierAction>): MessageDescriptor {
   }
 }
 
-function PlanBillingSection({
-  currentTier,
-  isTrialing,
-  isPaused,
-  trialDaysRemaining,
-  isPaid,
-  isCurrentTierPending,
-}: {
-  currentTier: MarketingPlanTier;
-  isTrialing: boolean;
-  isPaused: boolean;
-  trialDaysRemaining: number | null;
-  isPaid: boolean;
-  isCurrentTierPending: boolean;
-}) {
-  const { t } = useLingui();
-  const { canStartTrial: canStartTrialQuery, hasPaymentMethod } =
-    useBillingAccess();
-  const openNew = useTabs((state) => state.openNew);
-
+function useBillingActions(
+  billingPeriod: BillingPeriod,
+  trialDaysRemaining: number | null,
+) {
   const [actionPending, setActionPending] = useState(false);
-  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
-  const proPrice = getFixedPlanPrice("pro");
-  const canChooseBillingPeriod =
-    !isCurrentTierPending &&
-    currentTier === "free" &&
-    !isPaused &&
-    proPrice?.yearly != null;
-
-  // A cardless trial pauses at the end unless a card is added, so replace the
-  // static current-plan status with an explicit payment-method action.
-  const needsPaymentMethod =
-    currentTier === "pro" && isTrialing && !hasPaymentMethod;
 
   const openBillingUrl = useCallback(
     async (buildUrl: () => Promise<string>) => {
@@ -148,38 +148,11 @@ function PlanBillingSection({
     [],
   );
 
-  const planLabel =
-    currentTier === "free"
-      ? t`Free`
-      : (PLAN_TIERS.find((tier) => tier.id === currentTier)?.name ?? "Pro");
-  const trialDaysText =
-    trialDaysRemaining == null
-      ? null
-      : trialDaysRemaining === 1
-        ? t`${trialDaysRemaining} day left`
-        : t`${trialDaysRemaining} days left`;
-  const statusText = isCurrentTierPending ? (
-    <span
-      className="bg-muted block h-5 w-40 animate-pulse rounded"
-      aria-hidden="true"
-    />
-  ) : currentTier === "pro" && isTrialing ? (
-    <>
-      <Trans>Pro trial</Trans>
-      {trialDaysText != null && ` - ${trialDaysText}`}
-    </>
-  ) : currentTier !== "team" && currentTier !== "enterprise" && isPaused ? (
-    <Trans>Your Pro trial has ended</Trans>
-  ) : (
-    <Trans>
-      You're on the <span className="font-semibold">{planLabel}</span> plan
-    </Trans>
-  );
-  const handleOpenBillingPortal = useCallback(() => {
+  const openBillingPortal = useCallback(() => {
     void openBillingUrl(() => buildWebAppUrl("/app/portal"));
   }, [openBillingUrl]);
 
-  const handleAddPaymentMethod = useCallback(() => {
+  const addPaymentMethod = useCallback(() => {
     void analyticsCommands.event({
       event: "trial_payment_method_clicked",
       days_remaining: trialDaysRemaining,
@@ -191,7 +164,7 @@ function PlanBillingSection({
     );
   }, [openBillingUrl, trialDaysRemaining]);
 
-  const handleOpenEnterprise = useCallback(async () => {
+  const openEnterprise = useCallback(async () => {
     setActionPending(true);
     try {
       await openerCommands.openUrl("https://anarlog.so/enterprise/", null);
@@ -200,53 +173,12 @@ function PlanBillingSection({
     }
   }, []);
 
-  const renderAction = (tierId: MarketingPlanTier, action: TierAction) => {
-    if (tierId === "team") {
-      return (
-        <button
-          type="button"
-          onClick={() => openNew({ type: "settings", state: { tab: "team" } })}
-          className="bg-muted text-muted-foreground hover:text-foreground rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round]"
-        >
-          <Trans>Open Teams</Trans>
-        </button>
-      );
-    }
+  const runTierAction = useCallback(
+    async (action: TierAction, isPaused: boolean) => {
+      if (!action || action.kind === "current") {
+        return;
+      }
 
-    if (tierId === "enterprise") {
-      return (
-        <button
-          type="button"
-          onClick={handleOpenEnterprise}
-          disabled={actionPending}
-          className="bg-muted text-muted-foreground hover:text-foreground rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round] disabled:opacity-50"
-        >
-          <Trans>Talk to sales</Trans>
-        </button>
-      );
-    }
-
-    if (action == null) return null;
-
-    if (action.kind === "current") {
-      if (!needsPaymentMethod) return null;
-
-      return (
-        <button
-          type="button"
-          onClick={handleAddPaymentMethod}
-          disabled={actionPending}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round] disabled:opacity-50"
-        >
-          <Trans>Add payment method</Trans>
-        </button>
-      );
-    }
-
-    const isUpgrade =
-      action.kind === "startTrial" || action.direction === "upgrade";
-
-    const handleClick = async () => {
       if (action.kind === "startTrial") {
         void analyticsCommands.event({
           event: "trial_checkout_started",
@@ -284,15 +216,480 @@ function PlanBillingSection({
           source: "settings",
         }),
       );
+    },
+    [billingPeriod, openBillingUrl],
+  );
+
+  return {
+    actionPending,
+    openBillingPortal,
+    addPaymentMethod,
+    openEnterprise,
+    runTierAction,
+  };
+}
+
+const pillChipClassName =
+  "rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round] disabled:opacity-50";
+const pillButtonClassName =
+  "rounded-pill px-3 py-1.5 text-xs font-medium transition-colors [corner-shape:round] disabled:opacity-50";
+
+function PlanBillingSection({
+  currentTier,
+  isTrialing,
+  isPaused,
+  trialDaysRemaining,
+  isPaid,
+  isCurrentTierPending,
+  billingActions,
+}: {
+  currentTier: MarketingPlanTier;
+  isTrialing: boolean;
+  isPaused: boolean;
+  trialDaysRemaining: number | null;
+  isPaid: boolean;
+  isCurrentTierPending: boolean;
+  billingActions: ReturnType<typeof useBillingActions>;
+}) {
+  const { t, i18n } = useLingui();
+  const billing = useBillingAccess();
+  const openNew = useTabs((state) => state.openNew);
+  const { actionPending, openBillingPortal, addPaymentMethod, runTierAction } =
+    billingActions;
+
+  const proPrice = getFixedPlanPrice("pro");
+  const tierData = PLAN_TIERS.find((tier) => tier.id === currentTier);
+  const planLabel =
+    currentTier === "free" ? t`Free` : (tierData?.name ?? "Pro");
+
+  // A cardless trial pauses at the end unless a card is added, so replace the
+  // static current-plan status with an explicit payment-method action.
+  const needsPaymentMethod =
+    currentTier === "pro" && isTrialing && !billing.hasPaymentMethod;
+
+  const formattedTrialEnd =
+    billing.trialEnd != null
+      ? i18n.date(billing.trialEnd, BILLING_DATE_FORMAT)
+      : null;
+  const formattedPeriodEnd =
+    billing.currentPeriodEnd != null
+      ? i18n.date(billing.currentPeriodEnd, BILLING_DATE_FORMAT)
+      : null;
+
+  const trialDaysText =
+    trialDaysRemaining == null
+      ? null
+      : trialDaysRemaining === 1
+        ? t`${trialDaysRemaining} day left`
+        : t`${trialDaysRemaining} days left`;
+
+  const statusText = isCurrentTierPending ? null : currentTier === "pro" &&
+    isTrialing ? (
+    <>
+      <Trans>Pro trial</Trans>
+      {trialDaysText != null && ` - ${trialDaysText}`}
+      {formattedTrialEnd != null && ` · ${t`ends ${formattedTrialEnd}`}`}
+    </>
+  ) : currentTier !== "team" && currentTier !== "enterprise" && isPaused ? (
+    <Trans>Your Pro trial has ended</Trans>
+  ) : (
+    <>
+      <Trans>
+        You're on the <span className="font-semibold">{planLabel}</span> plan
+      </Trans>
+      {isPaid && formattedPeriodEnd != null && (
+        <>
+          {" · "}
+          {billing.cancelAtPeriodEnd
+            ? t`ends ${formattedPeriodEnd}`
+            : t`renews ${formattedPeriodEnd}`}
+        </>
+      )}
+    </>
+  );
+
+  // Paid Pro is intentionally price-less: the claims do not expose whether the
+  // subscription is monthly or yearly, so the renewal date is shown instead.
+  const priceText = isCurrentTierPending
+    ? null
+    : currentTier === "pro" && isTrialing && proPrice != null
+      ? t`$${proPrice.monthly} /month after trial`
+      : currentTier === "pro" && isPaid
+        ? null
+        : tierData != null
+          ? `${tierData.price}${tierData.period}`
+          : null;
+
+  const freePlanAction =
+    currentTier === "free" && !isPaused
+      ? getActionForTier("pro", "free", billing.canStartTrial.data)
+      : null;
+
+  const planAction = isCurrentTierPending ? (
+    <span
+      className="bg-muted rounded-pill inline-block h-7 w-24 animate-pulse [corner-shape:round]"
+      aria-hidden="true"
+    />
+  ) : needsPaymentMethod ? (
+    <button
+      type="button"
+      onClick={addPaymentMethod}
+      disabled={actionPending}
+      className={cn([
+        pillButtonClassName,
+        "bg-primary text-primary-foreground hover:bg-primary/90",
+      ])}
+    >
+      <Trans>Add payment method</Trans>
+    </button>
+  ) : isPaused && currentTier !== "team" && currentTier !== "enterprise" ? (
+    <button
+      type="button"
+      onClick={openBillingPortal}
+      disabled={actionPending}
+      className={cn([
+        pillButtonClassName,
+        "bg-primary text-primary-foreground hover:bg-primary/90",
+      ])}
+    >
+      <Trans>Resume</Trans>
+    </button>
+  ) : currentTier === "team" || currentTier === "enterprise" ? (
+    <button
+      type="button"
+      onClick={() => openNew({ type: "settings", state: { tab: "team" } })}
+      className={cn([
+        pillButtonClassName,
+        "bg-muted text-muted-foreground hover:text-foreground",
+      ])}
+    >
+      <Trans>Open Teams</Trans>
+    </button>
+  ) : isPaid && currentTier === "pro" ? (
+    <button
+      type="button"
+      onClick={openBillingPortal}
+      disabled={actionPending}
+      className={cn([
+        pillButtonClassName,
+        "bg-muted text-muted-foreground hover:text-foreground",
+      ])}
+    >
+      <Trans>Manage billing</Trans>
+    </button>
+  ) : freePlanAction ? (
+    <button
+      type="button"
+      onClick={() => void runTierAction(freePlanAction, false)}
+      disabled={actionPending}
+      className={cn([
+        pillButtonClassName,
+        "bg-primary text-primary-foreground hover:bg-primary/90",
+      ])}
+    >
+      {t(tierActionLabel(freePlanAction))}
+    </button>
+  ) : null;
+
+  return (
+    <section>
+      <div className="mb-2 flex flex-col gap-1">
+        <h2 className="font-sans text-lg font-semibold">
+          <Trans>Your plan</Trans>
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          <Trans>
+            Manage or cancel your subscription in the billing portal.
+          </Trans>
+        </p>
+      </div>
+
+      <div className="border-border/60 flex items-center justify-between gap-4 rounded-xl border px-4 py-4">
+        <div className="min-w-0">
+          {isCurrentTierPending ? (
+            <span
+              className="bg-muted block h-5 w-40 animate-pulse rounded"
+              aria-hidden="true"
+            />
+          ) : (
+            <>
+              <p className="font-sans text-base font-medium">
+                {`Anarlog ${planLabel}`}
+              </p>
+              <div className="text-muted-foreground mt-1 flex flex-col gap-0.5 text-sm">
+                {priceText != null && <p>{priceText}</p>}
+                {statusText != null && <p>{statusText}</p>}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {planAction}
+          <RefreshBillingButton />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function UsageLimitRow({
+  label,
+  sublabel,
+  metric,
+  fraction,
+}: {
+  label: string;
+  sublabel: ReactNode;
+  metric: string;
+  fraction: number | null;
+}) {
+  const percent =
+    fraction == null
+      ? null
+      : Math.min(100, Math.max(0, Math.round(fraction * 100)));
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="shrink-0 text-sm tabular-nums">{metric}</p>
+      </div>
+      {sublabel != null && (
+        <div className="text-muted-foreground mt-0.5 text-xs">{sublabel}</div>
+      )}
+      {percent != null && (
+        <div
+          className="bg-muted mt-2 h-1.5 w-full overflow-hidden rounded-full"
+          role="progressbar"
+          aria-valuenow={percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={label}
+        >
+          <div
+            className="bg-primary h-full rounded-full"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanLimitsSection({
+  billing,
+  workspaces,
+  workspaceAccess,
+}: {
+  billing: ReturnType<typeof useBillingAccess>;
+  workspaces: Array<{ workspaceId: string; name?: string }>;
+  workspaceAccess: Array<{
+    data?: {
+      tier: string;
+      seatLimit?: number | null;
+      usedSeats?: number;
     };
+  }>;
+}) {
+  const { t, i18n } = useLingui();
+  const auth = useAuth();
+  const session = auth.session;
+
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Cache by account; rotating access tokens must not become cache keys.
+  const devicesQuery = useQuery({
+    queryKey: ["sync-devices", session?.user.id],
+    queryFn: ({ signal }) => requestSyncDevices(session!.access_token, signal),
+    enabled: Boolean(session && billing.isPro),
+    staleTime: 60_000,
+  });
+
+  const rows: ReactNode[] = [];
+
+  if (billing.isTrialing && billing.trialDaysRemaining != null) {
+    const remaining = Math.min(
+      Math.max(billing.trialDaysRemaining, 0),
+      PRO_TRIAL_DAYS,
+    );
+    rows.push(
+      <UsageLimitRow
+        key="trial"
+        label={t`Pro trial`}
+        sublabel={
+          billing.trialEnd != null ? (
+            <Trans>
+              Ends {i18n.date(billing.trialEnd, BILLING_DATE_FORMAT)}
+            </Trans>
+          ) : null
+        }
+        metric={remaining === 1 ? t`1 day left` : t`${remaining} days left`}
+        fraction={remaining / PRO_TRIAL_DAYS}
+      />,
+    );
+  }
+
+  const devices = devicesQuery.data;
+  if (devices) {
+    const used = new Set([
+      ...devices.devices.map((device) => device.deviceFingerprint),
+      ...devices.pendingDevices.map((device) => device.deviceFingerprint),
+    ]).size;
+    rows.push(
+      <UsageLimitRow
+        key="devices"
+        label={t`Synced devices`}
+        sublabel={used >= devices.maxDevices ? t`At your device limit` : null}
+        metric={t`${used} of ${devices.maxDevices} used`}
+        fraction={used / devices.maxDevices}
+      />,
+    );
+  }
+
+  workspaces.forEach((workspace, index) => {
+    const access = workspaceAccess[index]?.data;
+    if (
+      !access ||
+      (access.tier !== "team" && access.tier !== "enterprise") ||
+      typeof access.usedSeats !== "number"
+    ) {
+      return;
+    }
+    rows.push(
+      <UsageLimitRow
+        key={`seats-${workspace.workspaceId}`}
+        label={t`Team seats`}
+        sublabel={workspace.name ?? null}
+        metric={
+          access.seatLimit != null
+            ? t`${access.usedSeats} of ${access.seatLimit} used`
+            : t`${access.usedSeats} in use`
+        }
+        fraction={
+          access.seatLimit != null && access.seatLimit > 0
+            ? access.usedSeats / access.seatLimit
+            : null
+        }
+      />,
+    );
+  });
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <section>
+      <div className="mb-2 flex flex-col gap-1">
+        <h2 className="font-sans text-lg font-semibold">
+          <Trans>Plan limits</Trans>
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          <Trans>Shared across cloud sync and your workspaces.</Trans>
+        </p>
+      </div>
+      <div className="border-border/60 divide-border/60 divide-y rounded-xl border">
+        {rows}
+      </div>
+    </section>
+  );
+}
+
+function PlansSection({
+  currentTier,
+  isTrialing,
+  isPaused,
+  isCurrentTierPending,
+  billingPeriod,
+  onBillingPeriodChange,
+  billingActions,
+}: {
+  currentTier: MarketingPlanTier;
+  isTrialing: boolean;
+  isPaused: boolean;
+  isCurrentTierPending: boolean;
+  billingPeriod: BillingPeriod;
+  onBillingPeriodChange: (period: BillingPeriod) => void;
+  billingActions: ReturnType<typeof useBillingActions>;
+}) {
+  const { t } = useLingui();
+  const billing = useBillingAccess();
+  const openNew = useTabs((state) => state.openNew);
+  const { actionPending, addPaymentMethod, openEnterprise, runTierAction } =
+    billingActions;
+
+  const proPrice = getFixedPlanPrice("pro");
+  const canChooseBillingPeriod =
+    !isCurrentTierPending &&
+    currentTier === "free" &&
+    !isPaused &&
+    proPrice?.yearly != null;
+
+  // A cardless trial pauses at the end unless a card is added, so replace the
+  // static current-plan status with an explicit payment-method action.
+  const needsPaymentMethod =
+    currentTier === "pro" && isTrialing && !billing.hasPaymentMethod;
+
+  const renderAction = (tierId: MarketingPlanTier, action: TierAction) => {
+    if (tierId === "team") {
+      return (
+        <button
+          type="button"
+          onClick={() => openNew({ type: "settings", state: { tab: "team" } })}
+          className={cn([
+            pillChipClassName,
+            "bg-muted text-muted-foreground hover:text-foreground",
+          ])}
+        >
+          <Trans>Open Teams</Trans>
+        </button>
+      );
+    }
+
+    if (tierId === "enterprise") {
+      return (
+        <button
+          type="button"
+          onClick={openEnterprise}
+          disabled={actionPending}
+          className={cn([
+            pillChipClassName,
+            "bg-muted text-muted-foreground hover:text-foreground",
+          ])}
+        >
+          <Trans>Talk to sales</Trans>
+        </button>
+      );
+    }
+
+    if (action == null) return null;
+
+    if (action.kind === "current") {
+      if (!needsPaymentMethod) return null;
+
+      return (
+        <button
+          type="button"
+          onClick={addPaymentMethod}
+          disabled={actionPending}
+          className={cn([
+            pillChipClassName,
+            "bg-primary text-primary-foreground hover:bg-primary/90",
+          ])}
+        >
+          <Trans>Add payment method</Trans>
+        </button>
+      );
+    }
+
+    const isUpgrade =
+      action.kind === "startTrial" || action.direction === "upgrade";
 
     return (
       <button
         type="button"
-        onClick={handleClick}
+        onClick={() => void runTierAction(action, isPaused)}
         disabled={actionPending}
         className={cn([
-          "rounded-pill px-2 py-0.5 text-[10px] font-medium transition-colors [corner-shape:round] disabled:opacity-50",
+          pillChipClassName,
           isUpgrade
             ? "bg-primary text-primary-foreground hover:bg-primary/90"
             : "bg-muted text-muted-foreground hover:text-foreground",
@@ -304,32 +701,17 @@ function PlanBillingSection({
   };
 
   return (
-    <div>
+    <section>
       <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
         <h2 className="font-sans text-lg font-semibold">
-          <Trans>Plan & Billing</Trans>
+          <Trans>Compare plans</Trans>
         </h2>
-        {!isCurrentTierPending && isPaid && currentTier === "pro" && (
-          <button
-            type="button"
-            onClick={handleOpenBillingPortal}
-            disabled={actionPending}
-            className="text-muted-foreground hover:text-muted-foreground text-xs transition-colors disabled:opacity-50"
-          >
-            <Trans>Manage billing</Trans>
-          </button>
-        )}
-      </div>
-
-      <div className="mb-4 flex items-center gap-2">
-        <p className="text-muted-foreground text-sm">{statusText}</p>
-        <RefreshBillingButton />
       </div>
 
       {canChooseBillingPeriod && proPrice?.yearly != null && (
         <BillingPeriodToggle
           value={billingPeriod}
-          onChange={setBillingPeriod}
+          onChange={onBillingPeriodChange}
           monthlyPrice={proPrice.monthly}
           yearlyPrice={proPrice.yearly}
         />
@@ -338,10 +720,10 @@ function PlanBillingSection({
       <PlanTierList
         currentTier={isCurrentTierPending ? null : currentTier}
         isTrialing={isTrialing}
-        canStartTrial={canStartTrialQuery.data}
+        canStartTrial={billing.canStartTrial.data}
         renderAction={renderAction}
       />
-    </div>
+    </section>
   );
 }
 

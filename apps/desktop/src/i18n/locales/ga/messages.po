@@ -40,6 +40,11 @@ msgstr ""
 msgid "{0} could not be installed"
 msgstr ""
 
+#. placeholder {0}: access.usedSeats
+#: src/settings/general/billing.tsx
+msgid "{0} in use"
+msgstr ""
+
 #. placeholder {0}: status.commandName
 #: src/settings/developers/cli.tsx
 msgid "{0} is ready to use"
@@ -53,6 +58,12 @@ msgstr ""
 #. placeholder {0}: transferTarget?.email
 #: src/settings/team/index.tsx
 msgid "{0} must accept before becoming Primary owner. Until then, ownership and permissions stay the same. After acceptance, you remain an Owner and they can delete the workspace."
+msgstr ""
+
+#. placeholder {0}: access.usedSeats
+#. placeholder {1}: access.seatLimit
+#: src/settings/general/billing.tsx
+msgid "{0} of {1} used"
 msgstr ""
 
 #. placeholder {0}: issue.user?.login
@@ -121,6 +132,10 @@ msgstr ""
 msgid "{primaryModifier} ↩ to send"
 msgstr ""
 
+#: src/settings/general/billing.tsx
+msgid "{remaining} days left"
+msgstr ""
+
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "{title} deleted"
 msgstr ""
@@ -131,6 +146,11 @@ msgstr ""
 
 #: src/settings/general/billing.tsx
 msgid "{trialDaysRemaining} days left"
+msgstr ""
+
+#. placeholder {0}: devices.maxDevices
+#: src/settings/general/billing.tsx
+msgid "{used} of {0} used"
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -145,8 +165,17 @@ msgstr ""
 msgid "{weeks} weeks ago"
 msgstr ""
 
+#. placeholder {0}: proPrice.monthly
+#: src/settings/general/billing.tsx
+msgid "${0} /month after trial"
+msgstr ""
+
 #: src/settings/general/audio-settings.tsx
 msgid "1 day"
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "1 day left"
 msgstr ""
 
 #: src/settings/general/audio-settings.tsx
@@ -710,6 +739,10 @@ msgstr ""
 
 #: src/task/resource-view.tsx
 msgid "Assignees:"
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "At your device limit"
 msgstr ""
 
 #: src/templates/auto-format-examples-dialog.tsx
@@ -1388,6 +1421,10 @@ msgstr ""
 
 #: src/settings/general/billing.tsx
 msgid "Compare Free, Pro, Team, and Enterprise."
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "Compare plans"
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -2282,6 +2319,19 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "End-to-end encryption"
+msgstr ""
+
+#. placeholder {0}: i18n.date(billing.trialEnd, BILLING_DATE_FORMAT)
+#: src/settings/general/billing.tsx
+msgid "Ends {0}"
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "ends {formattedPeriodEnd}"
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "ends {formattedTrialEnd}"
 msgstr ""
 
 #: src/session/components/outer-header/metadata/participants/chip.tsx
@@ -3239,6 +3289,10 @@ msgstr "Príomhtheanga"
 msgid "Manage billing"
 msgstr ""
 
+#: src/settings/general/billing.tsx
+msgid "Manage or cancel your subscription in the billing portal."
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Manage sign-in methods"
 msgstr ""
@@ -4123,7 +4177,7 @@ msgid "Pin"
 msgstr ""
 
 #: src/settings/general/billing.tsx
-msgid "Plan & Billing"
+msgid "Plan limits"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -4459,6 +4513,10 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Render canonical Markdown"
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "renews {formattedPeriodEnd}"
 msgstr ""
 
 #: src/instruction/index.tsx
@@ -5000,6 +5058,10 @@ msgstr ""
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
 msgstr "Comhroinn sonraí úsáide"
+
+#: src/settings/general/billing.tsx
+msgid "Shared across cloud sync and your workspaces."
+msgstr ""
 
 #: src/shared-notes/index.tsx
 msgid "Shared link · View only"
@@ -5602,6 +5664,10 @@ msgstr ""
 msgid "Synced"
 msgstr ""
 
+#: src/settings/general/billing.tsx
+msgid "Synced devices"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Syncing..."
 msgstr ""
@@ -5657,6 +5723,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Team plan"
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "Team seats"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -6413,6 +6483,10 @@ msgstr ""
 
 #: src/auth/connect-local-library-dialog.tsx
 msgid "Your personal notes and recordings stay on this device. Sync will connect them to this account and bring in its existing notes. Copies already in your previous account remain there. Team and shared notes stay with their workspace. Reconnect integrations for this account. After connecting, this library requires an app version that supports account switching."
+msgstr ""
+
+#: src/settings/general/billing.tsx
+msgid "Your plan"
 msgstr ""
 
 #: src/auth/cloudsync.ts
