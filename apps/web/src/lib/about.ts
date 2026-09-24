@@ -71,8 +71,8 @@ export const team = [
   },
   {
     name: "Artem",
-    role: "Engineering",
-    bio: "Builds the desktop app and the local-first pipeline that keeps recording, transcription, and notes on the device.",
+    role: "Design Engineer",
+    bio: "Design engineer and member of technical staff at Fastrepl, working across Anarlog and its sister product Char.",
     links: [{ label: "X", href: "https://x.com/s_II_a" }],
   },
 ] as const;
