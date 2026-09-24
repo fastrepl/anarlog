@@ -24,7 +24,11 @@ vi.mock("~/db", () => ({
   },
 }));
 
-import { loadSessionShareSource, useAvailableShareWorkspaces } from "./source";
+import {
+  loadSessionShareSource,
+  useAvailableShareWorkspaces,
+  usePersonalWorkspaceId,
+} from "./source";
 
 import { DEFAULT_USER_ID } from "~/shared/utils";
 
@@ -386,6 +390,36 @@ describe("useAvailableShareWorkspaces", () => {
     expect(
       renderHook(() => useAvailableShareWorkspaces(null)).result.current,
     ).toEqual([]);
+    expect(mocks.liveQueryOptions).toMatchObject({ enabled: false });
+  });
+});
+
+describe("usePersonalWorkspaceId", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.workspaceRows = [];
+    mocks.liveQueryOptions = null;
+  });
+
+  it("returns the active personal workspace for a signed-in account", () => {
+    mocks.workspaceRows = [{ id: ACCOUNT_ID, name: "Personal" }];
+
+    expect(
+      renderHook(() => usePersonalWorkspaceId(ACCOUNT_ID)).result.current,
+    ).toBe(ACCOUNT_ID);
+    expect(mocks.liveQueryOptions).toMatchObject({
+      params: [ACCOUNT_ID, ACCOUNT_ID],
+      enabled: true,
+    });
+    expect(mocks.liveQueryOptions?.sql).toContain(
+      "workspace.kind = 'personal'",
+    );
+  });
+
+  it("returns no personal workspace without a signed-in account", () => {
+    expect(renderHook(() => usePersonalWorkspaceId(null)).result.current).toBe(
+      "",
+    );
     expect(mocks.liveQueryOptions).toMatchObject({ enabled: false });
   });
 });

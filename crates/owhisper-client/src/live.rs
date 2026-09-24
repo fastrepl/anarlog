@@ -166,6 +166,8 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
             request,
             initial_message,
             connect_policy: self.connect_policy,
+            api_key: self.api_key,
+            params,
         })
     }
 }
@@ -187,6 +189,8 @@ pub struct ListenClientDual<A: RealtimeSttAdapter> {
     pub(crate) request: ClientRequestBuilder,
     pub(crate) initial_message: Option<Message>,
     pub(crate) connect_policy: Option<anlg_ws_client::client::WebSocketConnectPolicy>,
+    pub(crate) api_key: Option<String>,
+    pub(crate) params: ListenParams,
 }
 
 type FinalizeMessage = Arc<dyn Fn() -> Vec<Message> + Send + Sync>;
@@ -480,10 +484,11 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         let mic_outbound = tokio_stream::wrappers::ReceiverStream::new(mic_rx);
         let spk_outbound = tokio_stream::wrappers::ReceiverStream::new(spk_rx);
 
-        let mic_connect =
-            mic_ws.from_audio::<ListenClientIO, _>(self.initial_message.clone(), mic_outbound);
-        let spk_connect =
-            spk_ws.from_audio::<ListenClientIO, _>(self.initial_message, spk_outbound);
+        let mic_initial = mic_adapter.initial_message(self.api_key.as_deref(), &self.params, 1);
+        let spk_initial = spk_adapter.initial_message(self.api_key.as_deref(), &self.params, 1);
+
+        let mic_connect = mic_ws.from_audio::<ListenClientIO, _>(mic_initial, mic_outbound);
+        let spk_connect = spk_ws.from_audio::<ListenClientIO, _>(spk_initial, spk_outbound);
 
         let ((mic_raw, mic_handle), (spk_raw, spk_handle)) =
             tokio::try_join!(mic_connect, spk_connect)?;

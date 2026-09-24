@@ -6,10 +6,10 @@ use ractor::{ActorProcessingErr, ActorRef};
 
 use owhisper_client::{
     AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
-    DashScopeAdapter, DeepgramAdapter, DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter,
-    GladiaAdapter, GoogleGenerativeAiAdapter, MetaAdapter, MistralAdapter, NariAdapter,
-    OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter,
-    XaiAdapter, anlg_ws_client,
+    DashScopeAdapter, DashScopeStreamingAdapter, DeepgramAdapter, DeepgramFluxAdapter,
+    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleGenerativeAiAdapter, MetaAdapter,
+    MistralAdapter, NariAdapter, OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter,
+    SonioxAdapter, WisprFlowAdapter, XaiAdapter, anlg_ws_client,
 };
 use owhisper_interface::stream::{Extra, StreamResponse};
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -154,6 +154,15 @@ pub(super) async fn spawn_rx_task(
             spawn_rx_task_single_with_adapter::<DeepgramFluxAdapter>(args, myself).await?
         };
         return Ok((result.0, result.1, result.2, "deepgram".to_string()));
+    }
+
+    if adapter_kind == AdapterKind::DashScope && DashScopeStreamingAdapter::is_model(&args.model) {
+        let result = if is_dual {
+            spawn_rx_task_dual_with_adapter::<DashScopeStreamingAdapter>(args, myself).await?
+        } else {
+            spawn_rx_task_single_with_adapter::<DashScopeStreamingAdapter>(args, myself).await?
+        };
+        return Ok((result.0, result.1, result.2, "dashscope".to_string()));
     }
 
     macro_rules! dispatch_realtime {

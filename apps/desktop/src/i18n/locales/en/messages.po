@@ -914,6 +914,7 @@ msgid "Can view"
 msgstr "Can view"
 
 #: src/calendar/components/apple/permission.tsx
+#: src/folders/folder-editor.tsx
 #: src/imports/screen.tsx
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
@@ -1196,6 +1197,10 @@ msgstr "Choose which day begins your calendar week."
 msgid "Choose who can access notes from new meetings."
 msgstr "Choose who can access notes from new meetings."
 
+#: src/folders/folder-editor.tsx
+msgid "Choose who receives new notes created in this folder."
+msgstr "Choose who receives new notes created in this folder."
+
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
 msgstr "Claim email domain"
@@ -1427,6 +1432,7 @@ msgstr "Configure a chat model to use the quick composer."
 msgid "Configure Providers"
 msgstr "Configure Providers"
 
+#: src/folders/folder-editor.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
 msgstr "Confirm"
@@ -3490,6 +3496,11 @@ msgstr "New meetings are imported automatically while Anarlog is running."
 msgid "New Note"
 msgstr "New Note"
 
+#. placeholder {0}: workspaceConfirmation?.name
+#: src/folders/folder-editor.tsx
+msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+msgstr "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr "New template"
@@ -3811,6 +3822,7 @@ msgstr "On-device models can take a few minutes to warm up before text appears."
 msgid "On-device transcription, recordings, and your own keys."
 msgstr "On-device transcription, recordings, and your own keys."
 
+#: src/folders/folder-editor.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "Only me"
 msgstr "Only me"
@@ -4942,6 +4954,10 @@ msgstr "Share notes with others"
 msgid "Share one item with a guest, or add it to a Team for everyone."
 msgstr "Share one item with a guest, or add it to a Team for everyone."
 
+#: src/folders/folder-editor.tsx
+msgid "Share this folder?"
+msgstr "Share this folder?"
+
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
 msgstr "Share usage data"
@@ -5583,6 +5599,14 @@ msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team"
 msgstr "Team"
+
+#: src/folders/folder-editor.tsx
+msgid "Team folder"
+msgstr "Team folder"
+
+#: src/folders/folder-editor.tsx
+msgid "Team folder workspace"
+msgstr "Team folder workspace"
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team library"

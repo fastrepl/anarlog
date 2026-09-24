@@ -186,6 +186,10 @@ const displayModelId = (model: string): string => {
     return "Voxtral Realtime";
   }
 
+  if (model === "qwen-audio-3.1-asr-flash-streaming") {
+    return "Qwen-Audio 3.1 ASR Flash Streaming";
+  }
+
   if (model === "qwen3-asr-flash-realtime") {
     return "Qwen3 ASR Flash Realtime";
   }
@@ -541,7 +545,11 @@ const _PROVIDERS = [
     badge: null,
     icon: <ProviderLobeIcon icon={AlibabaCloud} />,
     baseUrl: "https://dashscope-intl.aliyuncs.com",
-    models: ["qwen3-asr-flash-realtime", "qwen3-asr-flash-realtime-2026-02-10"],
+    models: [
+      "qwen-audio-3.1-asr-flash-streaming",
+      "qwen3-asr-flash-realtime",
+      "qwen3-asr-flash-realtime-2026-02-10",
+    ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
