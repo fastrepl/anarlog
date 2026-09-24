@@ -100,7 +100,7 @@ describe("summary length policy", () => {
     });
   });
 
-  it("reduces output budgets for balanced and crisp modes", () => {
+  it("reduces guidance budgets for balanced and crisp modes while keeping the hard cap", () => {
     const transcripts = [
       {
         startedAt: null,
@@ -114,13 +114,46 @@ describe("summary length policy", () => {
       guidance: { maxCharacters: 7_500, minSections: 3, maxSections: 6 },
     });
     expect(getSummaryLengthPolicy(transcripts, "balanced")).toMatchObject({
-      maxCharacters: 5_000,
+      maxCharacters: 10_000,
       guidance: { maxCharacters: 4_000, minSections: 2, maxSections: 3 },
     });
     expect(getSummaryLengthPolicy(transcripts, "crisp")).toMatchObject({
-      maxCharacters: 3_000,
+      maxCharacters: 10_000,
       guidance: { maxCharacters: 2_000, minSections: 1, maxSections: 2 },
     });
+  });
+
+  it("keeps at least two guided sections for crisp summaries", () => {
+    const policy = getSummaryLengthPolicy(
+      [
+        {
+          startedAt: null,
+          endedAt: null,
+          segments: [{ speaker: "John", text: "a".repeat(1_000) }],
+        },
+      ],
+      "crisp",
+    );
+
+    expect(policy?.guidance).toMatchObject({ minSections: 1, maxSections: 2 });
+    expect(formatSummaryLengthGuidance(policy)).toContain("1 to 2 sections");
+  });
+
+  it("floors the guidance budget at 150 characters per template section", () => {
+    const policy = getSummaryLengthPolicy(
+      [
+        {
+          startedAt: null,
+          endedAt: null,
+          segments: [{ speaker: "John", text: "a".repeat(160) }],
+        },
+      ],
+      "crisp",
+      true,
+      12,
+    );
+
+    expect(policy?.guidance?.maxCharacters).toBe(1_800);
   });
 
   it.each([

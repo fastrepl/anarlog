@@ -5,6 +5,7 @@ const SHORT_TRANSCRIPT_CHARACTER_LIMIT = 1_200;
 export const MIN_SUMMARY_CHARACTERS = 320;
 const MAX_SUMMARY_GUIDANCE_CHARACTERS = 7_500;
 const SECTION_GUIDANCE_CHARACTER_STEP = 2_000;
+const TEMPLATE_SECTION_MIN_CHARACTERS = 150;
 const MAX_GUIDANCE_SECTIONS = 8;
 
 const SUMMARY_LENGTH_MODES = ["crisp", "balanced", "detailed"] as const;
@@ -60,6 +61,7 @@ export function getSummaryLengthPolicy(
   transcripts: readonly Transcript[],
   mode: SummaryLengthMode = DEFAULT_SUMMARY_LENGTH_MODE,
   customFormat = false,
+  templateSectionCount = 0,
 ): SummaryLengthPolicy | null {
   const transcriptCharacters = countNormalizedCharacters(
     transcripts
@@ -88,9 +90,7 @@ export function getSummaryLengthPolicy(
   return {
     transcriptCharacters,
     maxCharacters: Math.max(
-      Math.round(
-        Math.max(transcriptCharacters, MIN_SUMMARY_CHARACTERS) * ratio,
-      ),
+      Math.round(Math.max(transcriptCharacters, MIN_SUMMARY_CHARACTERS)),
       MIN_SUMMARY_CHARACTERS,
     ),
     maxSections:
@@ -98,13 +98,16 @@ export function getSummaryLengthPolicy(
         ? 2
         : null,
     guidance: {
-      maxCharacters: clamp(
-        Math.round(transcriptCharacters * ratio),
-        MIN_SUMMARY_CHARACTERS,
-        SUMMARY_GUIDANCE_CHARACTER_LIMITS[mode],
+      maxCharacters: Math.max(
+        clamp(
+          Math.round(transcriptCharacters * ratio),
+          MIN_SUMMARY_CHARACTERS,
+          SUMMARY_GUIDANCE_CHARACTER_LIMITS[mode],
+        ),
+        templateSectionCount * TEMPLATE_SECTION_MIN_CHARACTERS,
       ),
       minSections: Math.ceil(baseMinSections * ratio),
-      maxSections: Math.ceil(baseMaxSections * ratio),
+      maxSections: Math.max(2, Math.ceil(baseMaxSections * ratio)),
     },
   };
 }
