@@ -44,9 +44,8 @@ pub async fn search_contacts(
     Extension(nango_state): Extension<NangoConnectionState>,
     Json(req): Json<CrmSearchContactsRequest>,
 ) -> Result<Json<CrmSearchContactsResponse>> {
-    let provider = resolve(&req.provider).ok_or_else(|| {
-        CrmError::BadRequest(format!("unknown CRM provider: {}", req.provider))
-    })?;
+    let provider = resolve(&req.provider)
+        .ok_or_else(|| CrmError::BadRequest(format!("unknown CRM provider: {}", req.provider)))?;
     if req.connection_id.trim().is_empty() {
         return Err(CrmError::BadRequest(
             "connection_id is required".to_string(),
@@ -78,12 +77,12 @@ pub async fn search_contacts(
         )
         .await?;
 
-    let contacts = (provider.search)(http, query.clone()).await?;
     let limit = req
         .limit
         .map(|limit| limit as usize)
         .unwrap_or(MAX_CONTACT_RESULTS)
         .clamp(1, 50);
+    let contacts = (provider.search)(http, query.clone(), limit).await?;
     Ok(Json(CrmSearchContactsResponse {
         contacts: matching_contacts(contacts, &query, limit),
     }))

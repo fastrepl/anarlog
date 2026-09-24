@@ -86,6 +86,7 @@ function CrmProviderRow({
           provider,
           auth.getHeaders()!,
           controller.signal,
+          reconnectRequired ? connection?.connection_id : undefined,
         );
       } catch (error) {
         if (controller.signal.aborted) return null;

@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use crate::contacts::{CrmContact, CrmContactQuery};
 use crate::error::{CrmError, Result};
 
-use super::{CrmProvider, MAX_CONTACT_RESULTS};
+use super::CrmProvider;
 
 const PROPERTIES: &[&str] = &[
     "firstname",
@@ -29,11 +29,12 @@ pub const PROVIDER: CrmProvider = CrmProvider {
 fn search(
     http: OwnedNangoHttpClient,
     query: CrmContactQuery,
+    limit: usize,
 ) -> BoxFuture<'static, Result<Vec<CrmContact>>> {
     Box::pin(async move {
         let mut body = json!({
             "properties": PROPERTIES,
-            "limit": MAX_CONTACT_RESULTS,
+            "limit": limit.min(100),
         });
         if let Some(email) = &query.email {
             body["filterGroups"] = json!([{
@@ -68,12 +69,7 @@ fn search(
         Ok(payload
             .get("results")
             .and_then(Value::as_array)
-            .map(|results| {
-                results
-                    .iter()
-                    .filter_map(contact_from_result)
-                    .collect()
-            })
+            .map(|results| results.iter().filter_map(contact_from_result).collect())
             .unwrap_or_default())
     })
 }
@@ -103,10 +99,7 @@ fn contact_from_result(result: &Value) -> Option<CrmContact> {
     };
 
     Some(CrmContact {
-        id: result
-            .get("id")
-            .and_then(Value::as_str)
-            .map(str::to_string),
+        id: result.get("id").and_then(Value::as_str).map(str::to_string),
         name,
         email: string("email"),
         company_name: string("company"),

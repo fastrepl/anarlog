@@ -126,6 +126,7 @@ describe("SettingsCrm", () => {
         expect.objectContaining({ id: "acme" }),
         { Authorization: "Bearer test" },
         expect.any(AbortSignal),
+        undefined,
       ),
     );
   });
@@ -172,5 +173,23 @@ describe("SettingsCrm", () => {
 
     expect(await screen.findByText("Reconnect required")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reconnect" })).toBeTruthy();
+  });
+
+  it("passes the existing connection id when reconnecting", async () => {
+    mocks.connections = [{ ...connection, status: "reconnect_required" }];
+    mocks.connectCrm.mockResolvedValue(connection);
+    renderPage();
+
+    await screen.findByText("Reconnect required");
+    fireEvent.click(screen.getByRole("button", { name: "Reconnect" }));
+
+    await waitFor(() =>
+      expect(mocks.connectCrm).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "acme" }),
+        { Authorization: "Bearer test" },
+        expect.any(AbortSignal),
+        "conn-1",
+      ),
+    );
   });
 });
