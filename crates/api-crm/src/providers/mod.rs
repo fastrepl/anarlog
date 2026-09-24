@@ -9,11 +9,12 @@ use crate::error::Result;
 pub const MAX_CONTACT_RESULTS: usize = 5;
 
 pub type SearchFn =
-    fn(OwnedNangoHttpClient, CrmContactQuery) -> BoxFuture<'static, Result<Vec<CrmContact>>>;
+    fn(OwnedNangoHttpClient, CrmContactQuery, usize) -> BoxFuture<'static, Result<Vec<CrmContact>>>;
 
 /// A CRM reachable through a Nango integration. `nango_integration_id` must
 /// match the integration configured in the Nango dashboard; `search` issues
-/// the provider's contact search through the Nango proxy.
+/// the provider's contact search through the Nango proxy, requesting up to
+/// `limit` upstream records.
 pub struct CrmProvider {
     pub id: &'static str,
     pub name: &'static str,
