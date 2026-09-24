@@ -21,6 +21,18 @@ fn expand_path(path: &str, default_base: Option<&Path>) -> PathBuf {
     PathBuf::from(expanded.into_owned())
 }
 
+/// The custom storage location still recorded in the vault config, if one
+/// has not been consolidated into `default_base` yet. The recorded path is
+/// only cleared after the copy completes, so anything still present here is
+/// a pending migration source — nothing writes to it.
+pub fn recorded_vault_path(global_base: &Path, default_base: &Path) -> Option<PathBuf> {
+    let config = load_config(global_base)?;
+    config
+        .get(VAULT_PATH_KEY)
+        .and_then(|v| v.as_str())
+        .map(|path| expand_path(path, Some(default_base)))
+}
+
 /// Moves the notes and recordings of a custom storage location into
 /// `default_base` and clears the override that pointed at it. Returns the
 /// folder that was consolidated, if there was one.
@@ -237,6 +249,28 @@ mod tests {
 
             assert_eq!(result, Some(missing));
             assert!(read_config(&global_base).get(VAULT_PATH_KEY).is_none());
+        }
+
+        #[test]
+        fn recorded_path_is_a_source_until_consolidation_clears_it() {
+            let temp = tempdir().unwrap();
+            let global_base = temp.path().join("global");
+            let vault = temp.path().join("vault");
+            fs::create_dir_all(&global_base).unwrap();
+            seed_vault(&vault);
+            write_config(
+                &global_base,
+                serde_json::json!({ VAULT_PATH_KEY: vault.to_string_lossy() }),
+            );
+
+            assert_eq!(
+                recorded_vault_path(&global_base, &global_base),
+                Some(vault.clone())
+            );
+
+            consolidate_custom_vault(&global_base, &global_base).unwrap();
+
+            assert_eq!(recorded_vault_path(&global_base, &global_base), None);
         }
 
         #[test]

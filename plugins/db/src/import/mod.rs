@@ -201,6 +201,14 @@ fn resolve_startup_vault_base<R: tauri::Runtime>(
         .ok_or(std::io::Error::other("settings base unavailable"))?;
     std::fs::create_dir_all(&settings_base)?;
 
+    // A recorded vault_path means startup consolidation has not finished
+    // moving the old folder yet. Import straight from the recorded source
+    // so a failed copy cannot strand legacy notes behind a completed run.
+    if let Some(recorded) = anlg_storage::vault::recorded_vault_path(&settings_base, &settings_base)
+    {
+        return Ok(recorded);
+    }
+
     Ok(settings_base)
 }
 
