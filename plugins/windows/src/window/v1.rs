@@ -34,7 +34,7 @@ fn round_window_corners(window: &tauri::WebviewWindow<tauri::Wry>) {
         DwmSetWindowAttribute(
             windows::Win32::Foundation::HWND(hwnd.0),
             DWMWA_WINDOW_CORNER_PREFERENCE,
-            (&preference as *const _).cast(),
+            std::ptr::from_ref(&preference).cast(),
             std::mem::size_of_val(&preference) as u32,
         )
     };
