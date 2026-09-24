@@ -24,16 +24,20 @@ pub async fn import_legacy_data<R: tauri::Runtime>(
                     %error,
                     "legacy import could not read its source files; continuing with recovery copies intact"
                 );
-                continue;
+                return Ok(());
             }
             Err(error) => return Err(error),
         };
 
+        // Stop at the first unfinished source: the migration state can only
+        // point at one run, and a later clean run must not paper over this
+        // one — it stays published until an explicit retry clears it.
         if !legacy_migration_ready(pool).await? {
             tracing::warn!(
                 %run_id,
                 "legacy import needs attention; continuing with recovery copies intact"
             );
+            break;
         }
     }
 
