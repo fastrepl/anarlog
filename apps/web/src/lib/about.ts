@@ -33,7 +33,7 @@ export const differentiators = [
   },
   {
     title: "Your meeting data stays on your device",
-    body: "Most notetakers store transcripts in a hosted workspace they control. Anarlog keeps the canonical record in local SQLite, and the optional Cloud Sync encrypts content on the device before upload, so Fastrepl's servers only hold ciphertext.",
+    body: "Most notetakers store transcripts in a hosted workspace they control. Anarlog keeps the canonical record in local SQLite, and the optional Cloud Sync encrypts content on the device before upload, so sync servers only hold ciphertext. Shared notes and the Cloud API are separate opt-in paths that store a server-readable copy.",
   },
   {
     title: "Open source under the MIT license",
@@ -174,12 +174,12 @@ export const faqs = [
   {
     question: "Where is my meeting data stored?",
     answer:
-      "In a SQLite database on your device, with recordings as local files. If you enable Cloud Sync on Pro, content is encrypted on your device before upload and Fastrepl only stores ciphertext.",
+      "In a SQLite database on your device, with recordings as local files. If you enable Cloud Sync on Pro, content is encrypted on your device before upload and sync servers only store ciphertext. Shared notes and the Cloud API are opt-in and store a server-readable copy.",
   },
   {
     question: "Which AI models can I use?",
     answer:
-      "Hosted models on Pro, your own API keys for providers like OpenAI, Anthropic, and Deepgram, or local models through Ollama or LM Studio. Your meeting data is never used to train AI.",
+      "Hosted models on Pro, your own API keys for providers like OpenAI, Anthropic, and Deepgram, or local models through Ollama or LM Studio. Fastrepl never trains models on your notes, transcripts, or audio; hosted and BYOK providers handle requests under their own terms.",
   },
   {
     question: "Is Anarlog open source?",
