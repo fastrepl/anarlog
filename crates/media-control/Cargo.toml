@@ -1,0 +1,17 @@
+[package]
+name = "media-control"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Media_Control", "Foundation", "Foundation_Collections"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"

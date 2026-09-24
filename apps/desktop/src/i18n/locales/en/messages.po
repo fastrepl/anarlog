@@ -4113,6 +4113,14 @@ msgstr "Pause"
 msgid "Pause alerts while Do Not Disturb is on."
 msgstr "Pause alerts while Do Not Disturb is on."
 
+#: src/settings/general/meeting-settings.tsx
+msgid "Pause music and other media when listening starts."
+msgstr "Pause music and other media when listening starts."
+
+#: src/settings/general/meeting-settings.tsx
+msgid "Pause other media"
+msgstr "Pause other media"
+
 #: src/settings/developers/webhooks.tsx
 msgid "Paused"
 msgstr "Paused"

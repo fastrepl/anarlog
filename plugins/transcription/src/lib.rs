@@ -57,6 +57,24 @@ pub type MicIsolationCache = Arc<StdMutex<HashMap<String, bool>>>;
 #[derive(Clone, Default)]
 pub struct AudioCleanupStatus(Arc<StdMutex<HashMap<String, String>>>);
 
+/// Whether starting a capture should pause other media playback.
+/// Toggled from the frontend via `set_media_pause_enabled`; defaults to on
+/// until the settings side-effect syncs the stored value.
+#[derive(Clone)]
+pub struct MediaPauseEnabled(pub Arc<std::sync::atomic::AtomicBool>);
+
+impl Default for MediaPauseEnabled {
+    fn default() -> Self {
+        Self(Arc::new(std::sync::atomic::AtomicBool::new(true)))
+    }
+}
+
+impl MediaPauseEnabled {
+    pub fn enabled(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
 impl AudioCleanupStatus {
     fn acknowledge(&self, session_id: &str, error: &str) -> std::result::Result<(), String> {
         let mut status = self.0.lock().map_err(|error| error.to_string())?;
@@ -100,6 +118,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener::commands::get_current_microphone_device::<tauri::Wry>,
             listener::commands::get_mic_muted::<tauri::Wry>,
             listener::commands::set_mic_muted::<tauri::Wry>,
+            listener::commands::set_media_pause_enabled::<tauri::Wry>,
             listener::commands::start_capture::<tauri::Wry>,
             listener::commands::stop_capture::<tauri::Wry>,
             listener::commands::update_capture_config::<tauri::Wry>,
@@ -158,11 +177,14 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             app.manage(mic_isolation_cache.clone());
             let audio_cleanup_status = AudioCleanupStatus::default();
             app.manage(audio_cleanup_status.clone());
+            let media_pause_enabled = MediaPauseEnabled::default();
+            app.manage(media_pause_enabled.clone());
             let runtime = Arc::new(listener::TauriRuntime {
                 audio_cleanup_status,
                 app: app_handle.clone(),
                 session_state_cache,
                 mic_isolation_cache,
+                media_pause_enabled,
             });
 
             tauri::async_runtime::spawn(async move {

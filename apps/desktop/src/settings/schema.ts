@@ -49,6 +49,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "auto_join_scheduled_meetings"],
     default: false as boolean,
   },
+  auto_pause_media: {
+    type: "boolean",
+    path: ["general", "auto_pause_media"],
+    default: true as boolean,
+  },
   floating_bar_enabled: {
     type: "boolean",
     path: ["general", "floating_bar_enabled"],

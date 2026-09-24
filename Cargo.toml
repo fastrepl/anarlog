@@ -108,6 +108,7 @@ anlg-local-model = { path = "crates/local-model", package = "local-model" }
 anlg-local-stt-core = { path = "crates/local-stt-core", package = "local-stt-core" }
 anlg-loops = { path = "crates/loops", package = "loops" }
 anlg-mcp = { path = "crates/mcp", package = "mcp" }
+anlg-media-control = { path = "crates/media-control", package = "media-control" }
 anlg-meeting-capture = { path = "crates/meeting-capture", package = "meeting-capture" }
 anlg-meeting-import = { path = "crates/meeting-import", package = "meeting-import" }
 anlg-model-downloader = { path = "crates/model-downloader", package = "model-downloader" }

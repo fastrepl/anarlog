@@ -10010,6 +10010,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "media-control"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "thiserror 2.0.18",
+ "tracing",
+ "windows 0.62.2",
+ "zbus",
+]
+
+[[package]]
 name = "meeting-capture"
 version = "0.1.0"
 dependencies = [
@@ -17928,6 +17939,7 @@ dependencies = [
  "db-app",
  "embedding",
  "language",
+ "media-control",
  "owhisper-client",
  "owhisper-interface",
  "ractor",
