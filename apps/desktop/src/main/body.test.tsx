@@ -846,15 +846,14 @@ describe("ClassicMainBody", () => {
     }
   });
 
-  it("keeps Linux note actions in the sidebar", () => {
+  it("removes the Linux sidebar action row when actions are in the title bar", () => {
     mocks.runtimePlatform = "linux";
     render(<ClassicMainBody />);
 
-    expect(
-      document.querySelector("[data-sidebar-timeline-header]"),
-    ).not.toBeNull();
+    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
+    expect(document.querySelector("[data-sidebar-timeline-header]")).toBeNull();
     for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.getByRole("button", { name })).toBeTruthy();
+      expect(screen.queryByRole("button", { name })).toBeNull();
     }
   });
 });

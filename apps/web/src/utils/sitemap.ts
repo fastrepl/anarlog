@@ -18,7 +18,7 @@ function getArticleSlugs(): string[] {
   }
 }
 
-export function getSitemap(): Sitemap<TRoutes | "/security/"> {
+export function getSitemap(): Sitemap<TRoutes | "/security/" | "/about/"> {
   const slugs = getArticleSlugs();
 
   return {
@@ -28,6 +28,10 @@ export function getSitemap(): Sitemap<TRoutes | "/security/"> {
     routes: {
       "/": {
         priority: 1.0,
+        changeFrequency: "monthly",
+      },
+      "/about/": {
+        priority: 0.8,
         changeFrequency: "monthly",
       },
       "/blog/": {

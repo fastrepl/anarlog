@@ -136,6 +136,18 @@ impl NangoIntegrationId for MicrosoftTeams {
     const ID: &'static str = "microsoft-teams";
 }
 
+pub struct HubSpot;
+
+impl NangoIntegrationId for HubSpot {
+    const ID: &'static str = "hubspot";
+}
+
+pub struct Attio;
+
+impl NangoIntegrationId for Attio {
+    const ID: &'static str = "attio";
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
