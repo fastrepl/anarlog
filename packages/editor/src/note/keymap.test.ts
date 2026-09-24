@@ -207,7 +207,10 @@ describe("buildInputRules", () => {
 
   it("converts an ordered list item into a task item", () => {
     const doc = schema.node("doc", null, [
-      schema.node("orderedList", null, [
+      schema.node("orderedList", { start: 5 }, [
+        schema.node("listItem", null, [
+          schema.node("paragraph", null, [schema.text("one")]),
+        ]),
         schema.node("listItem", null, [
           schema.node("paragraph", null, [schema.text("[]")]),
         ]),
@@ -227,6 +230,21 @@ describe("buildInputRules", () => {
       type: "doc",
       content: [
         {
+          type: "orderedList",
+          attrs: { start: 5 },
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "one" }],
+                },
+              ],
+            },
+          ],
+        },
+        {
           type: "taskList",
           content: [
             {
@@ -243,7 +261,7 @@ describe("buildInputRules", () => {
         },
         {
           type: "orderedList",
-          attrs: { start: 1 },
+          attrs: { start: 7 },
           content: [
             {
               type: "listItem",
@@ -437,6 +455,30 @@ describe("buildInputRules", () => {
         },
       ],
     });
+  });
+
+  it("leaves <u>markup</u> literal inside a code span", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [
+        schema.text("<u>hi</u", [schema.marks.code.create()]),
+      ]),
+    ]);
+    const { handled, state } = runTextInput(doc, ">");
+
+    expect(handled).not.toBe(true);
+    expect(state.doc.toJSON()).toEqual(doc.toJSON());
+  });
+
+  it("leaves bold markup literal inside a code span", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [
+        schema.text("**hi*", [schema.marks.code.create()]),
+      ]),
+    ]);
+    const { handled, state } = runTextInput(doc, "*");
+
+    expect(handled).not.toBe(true);
+    expect(state.doc.toJSON()).toEqual(doc.toJSON());
   });
 
   it("replaces a known emoji shortcode with the emoji", () => {
@@ -890,6 +932,25 @@ describe("buildKeymap", () => {
     });
   });
 
+  it("does not undo the input rule on modified Backspace chords", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("paragraph", null, [schema.text("a -")]),
+    ]);
+    const { handled, state } = runInputThenBackspace(
+      doc,
+      ">",
+      undefined,
+      "Backspace",
+      { ctrlKey: true },
+    );
+
+    // A modified Backspace deletes backward instead of restoring the "-";
+    // nothing in the chain claimed it, so the arrow stays for the browser's
+    // own word-deletion to remove.
+    expect(handled).toBeFalsy();
+    expect(state.doc.firstChild?.textContent).toBe("a →");
+  });
+
   it("joins later task item paragraphs within the same task item", () => {
     const doc = schema.node("doc", null, [
       schema.node("taskList", null, [
@@ -1114,6 +1175,8 @@ function runInputThenBackspace(
   doc: ReturnType<typeof schema.node>,
   text: string,
   pos?: number,
+  key: string = "Backspace",
+  init?: KeyboardEventInit,
 ) {
   const inputRules = buildInputRules();
   const keymap = buildKeymap();
@@ -1154,7 +1217,7 @@ function runInputThenBackspace(
 
   const handled = keymap.props.handleKeyDown?.(
     view,
-    new KeyboardEvent("keydown", { key: "Backspace" }),
+    new KeyboardEvent("keydown", { key, ...init }),
   );
 
   return { handled, state };

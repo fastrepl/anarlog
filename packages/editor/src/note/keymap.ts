@@ -316,6 +316,7 @@ function horizontalRuleRule() {
 
 function markInputRule(pattern: RegExp, markType: MarkType, delimLen: number) {
   return new InputRule(pattern, (state, match, start, end) => {
+    if (isInCodeInputContext(state)) return null;
     const prefix = match[1];
     const content = match[2];
     const { tr } = state;
@@ -555,8 +556,17 @@ function taskListRule() {
       newNodes.push(taskList.create(null, Fragment.from(taskListChildren)));
 
       if (itemsAfter.length > 0) {
+        // A trailing ordered list must continue numbering after the
+        // converted item, not restart at the original `start`.
+        const afterAttrs =
+          listNode.type === orderedList
+            ? {
+                ...listNode.attrs,
+                start: listNode.attrs.start + itemIndex + 1,
+              }
+            : listNode.attrs;
         newNodes.push(
-          listNode.type.create(listNode.attrs, Fragment.from(itemsAfter)),
+          listNode.type.create(afterAttrs, Fragment.from(itemsAfter)),
         );
       }
 
@@ -598,6 +608,7 @@ function taskListRule() {
 
 function underlineRule() {
   return new InputRule(/<u>([^<]+)<\/u>$/i, (state, match, start, end) => {
+    if (isInCodeInputContext(state)) return null;
     const content = match[1];
     if (!content) return null;
     const contentStart = start + "<u>".length;
@@ -831,9 +842,7 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
     return setBlockType(schema.nodes.paragraph)(state, dispatch);
   };
 
-  const backspaceCmd: Command = chainCommands(
-    deleteSelection,
-    undoInputRule,
+  const backspaceCommands: Command[] = [
     (state, _dispatch) => {
       const { selection } = state;
       if (selection.$head.pos === 0 && selection.empty) return true;
@@ -843,10 +852,21 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
     joinTaskItemBackward,
     joinBackward,
     selectNodeBackward,
+  ];
+  // Only a plain Backspace should roll back a just-fired input rule;
+  // modified deletion chords (Mod/Shift/Alt-Backspace) always delete.
+  const backspaceCmd: Command = chainCommands(
+    deleteSelection,
+    undoInputRule,
+    ...backspaceCommands,
+  );
+  const modifiedBackspaceCmd: Command = chainCommands(
+    deleteSelection,
+    ...backspaceCommands,
   );
   keys["Backspace"] = backspaceCmd;
-  keys["Mod-Backspace"] = backspaceCmd;
-  keys["Shift-Backspace"] = backspaceCmd;
+  keys["Mod-Backspace"] = modifiedBackspaceCmd;
+  keys["Shift-Backspace"] = modifiedBackspaceCmd;
 
   const deleteCmd: Command = chainCommands(
     deleteSelection,
@@ -859,8 +879,8 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
   keys["Mod-a"] = selectAll;
 
   if (mac) {
-    keys["Ctrl-h"] = backspaceCmd;
-    keys["Alt-Backspace"] = backspaceCmd;
+    keys["Ctrl-h"] = modifiedBackspaceCmd;
+    keys["Alt-Backspace"] = modifiedBackspaceCmd;
     keys["Ctrl-d"] = deleteCmd;
     keys["Ctrl-Alt-Backspace"] = deleteCmd;
     keys["Alt-Delete"] = deleteCmd;
