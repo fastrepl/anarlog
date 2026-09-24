@@ -499,14 +499,6 @@ pub async fn connect_authorized(
         .set_credentials(&credentials.client_id, token)
         .await
         .map_err(|error| auth_error(provider.name, error))?;
-    let mut token_received_at = credentials.token_received_at;
-    if token_needs_refresh(&credentials.token_json, token_received_at) {
-        oauth
-            .refresh_token()
-            .await
-            .map_err(|error| auth_error(provider.name, error))?;
-        token_received_at = Some(now_epoch_secs());
-    }
     let mut manager = oauth.into_authorization_manager().ok_or_else(reconnect)?;
     if let Some(client_secret) = credentials.client_secret.as_deref() {
         manager
@@ -515,6 +507,14 @@ pub async fn connect_authorized(
                     .with_client_secret(client_secret),
             )
             .map_err(|error| auth_error(provider.name, error))?;
+    }
+    let mut token_received_at = credentials.token_received_at;
+    if token_needs_refresh(&credentials.token_json, token_received_at) {
+        manager
+            .refresh_token()
+            .await
+            .map_err(|error| auth_error(provider.name, error))?;
+        token_received_at = Some(now_epoch_secs());
     }
     let access_token = manager
         .get_access_token()
