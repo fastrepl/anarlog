@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use crate::contacts::{CrmContact, CrmContactQuery};
 use crate::error::{CrmError, Result};
 
-use super::{CrmProvider, MAX_CONTACT_RESULTS};
+use super::CrmProvider;
 
 const PROPERTIES: &[&str] = &[
     "firstname",
