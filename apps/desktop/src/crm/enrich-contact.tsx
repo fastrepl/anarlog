@@ -12,6 +12,8 @@ import {
   enrichHumanFromCrm,
 } from "./enrichment";
 
+import { useAuth } from "~/auth";
+import { useConnections } from "~/auth/useConnections";
 import { type HumanRecord } from "~/contacts/queries";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -29,6 +31,8 @@ export function EnrichContactFromCrm({
 }) {
   const { t } = useLingui();
   const openNew = useTabs((state) => state.openNew);
+  const auth = useAuth();
+  const connections = useConnections(!!auth?.session);
   const providers = useQuery(crmProvidersQueryOptions());
   const enrich = useMutation({
     mutationKey: ["crm", "enrich", human.id],
@@ -37,6 +41,8 @@ export function EnrichContactFromCrm({
         human,
         ownerUserId,
         providers: providers.data ?? [],
+        connections: connections.data ?? [],
+        headers: auth?.getHeaders() ?? {},
       }),
   });
 

@@ -3,14 +3,16 @@ import { describe, expect, test, vi } from "vitest";
 import type { CrmContact } from "./connection";
 
 const connection = vi.hoisted(() => ({
-  readCrmCredentials: vi.fn(),
   lookupCrmContacts: vi.fn(),
 }));
 const queries = vi.hoisted(() => ({
   applyContactEnhancement: vi.fn(async () => {}),
 }));
 
-vi.mock("./connection", () => connection);
+vi.mock("./connection", async () => {
+  const actual = await vi.importActual("./connection");
+  return { ...actual, lookupCrmContacts: connection.lookupCrmContacts };
+});
 vi.mock("~/contacts/queries", () => queries);
 
 import {
@@ -97,32 +99,67 @@ describe("pickBestCrmContact", () => {
 
 describe("enrichHumanFromCrm", () => {
   const providers = [
-    { id: "hubspot", name: "HubSpot", requiresClient: true, redirectUri: null },
-    { id: "attio", name: "Attio", requiresClient: false, redirectUri: null },
+    { id: "hubspot", name: "HubSpot", nangoIntegrationId: "hubspot" },
+    { id: "attio", name: "Attio", nangoIntegrationId: "attio" },
   ];
+  const headers = { Authorization: "Bearer test" };
+  const connections = [
+    {
+      integration_id: "hubspot",
+      connection_id: "conn-hubspot",
+      status: "connected",
+    },
+    {
+      integration_id: "attio",
+      connection_id: "conn-attio",
+      status: "connected",
+    },
+  ];
+  const enrich = (
+    overrides: Partial<Parameters<typeof enrichHumanFromCrm>[0]> = {},
+  ) =>
+    enrichHumanFromCrm({
+      human,
+      ownerUserId: "u1",
+      providers,
+      connections,
+      headers,
+      ...overrides,
+    });
 
   test("reports when no provider is connected", async () => {
-    connection.readCrmCredentials.mockResolvedValue(null);
-    await expect(
-      enrichHumanFromCrm({ human, ownerUserId: "u1", providers }),
-    ).resolves.toEqual({ status: "not_connected" });
+    await expect(enrich({ connections: [] })).resolves.toEqual({
+      status: "not_connected",
+    });
+    await expect(enrich({ connections: undefined })).resolves.toEqual({
+      status: "not_connected",
+    });
+    expect(connection.lookupCrmContacts).not.toHaveBeenCalled();
+  });
+
+  test("skips providers whose connection needs reconnect", async () => {
+    connection.lookupCrmContacts.mockReset().mockResolvedValue([contact()]);
+    const result = await enrich({
+      connections: connections.map((item) => ({
+        ...item,
+        status: "reconnect_required",
+      })),
+    });
+    expect(result.status).toBe("not_connected");
     expect(connection.lookupCrmContacts).not.toHaveBeenCalled();
   });
 
   test("applies the first match and stops", async () => {
-    connection.readCrmCredentials.mockResolvedValue({ clientId: "x" });
-    connection.lookupCrmContacts.mockResolvedValueOnce([contact()]);
-    const result = await enrichHumanFromCrm({
-      human,
-      ownerUserId: "u1",
-      providers,
-    });
+    connection.lookupCrmContacts.mockReset().mockResolvedValueOnce([contact()]);
+    const result = await enrich();
     expect(result.status).toBe("matched");
     expect(connection.lookupCrmContacts).toHaveBeenCalledTimes(1);
-    expect(connection.lookupCrmContacts).toHaveBeenCalledWith(providers[0], {
-      email: "ada@example.com",
-      name: "Ada Lovelace",
-    });
+    expect(connection.lookupCrmContacts).toHaveBeenCalledWith(
+      providers[0],
+      "conn-hubspot",
+      { email: "ada@example.com", name: "Ada Lovelace" },
+      headers,
+    );
     expect(queries.applyContactEnhancement).toHaveBeenCalledWith({
       humanId: "h1",
       ownerUserId: "u1",
@@ -136,25 +173,21 @@ describe("enrichHumanFromCrm", () => {
   });
 
   test("falls through to the next provider and reports no match", async () => {
-    connection.lookupCrmContacts.mockReset();
+    connection.lookupCrmContacts.mockReset().mockResolvedValue([]);
     queries.applyContactEnhancement.mockClear();
-    connection.readCrmCredentials.mockResolvedValue({ clientId: "x" });
-    connection.lookupCrmContacts.mockResolvedValue([]);
-    await expect(
-      enrichHumanFromCrm({ human, ownerUserId: "u1", providers }),
-    ).resolves.toEqual({ status: "no_match", providers: ["HubSpot", "Attio"] });
+    await expect(enrich()).resolves.toEqual({
+      status: "no_match",
+      providers: ["HubSpot", "Attio"],
+    });
     expect(connection.lookupCrmContacts).toHaveBeenCalledTimes(2);
     expect(queries.applyContactEnhancement).not.toHaveBeenCalled();
   });
 
   test("surfaces a provider error only when nothing matched", async () => {
-    connection.lookupCrmContacts.mockReset();
-    connection.readCrmCredentials.mockResolvedValue({ clientId: "x" });
     connection.lookupCrmContacts
+      .mockReset()
       .mockRejectedValueOnce(new Error("HubSpot down"))
       .mockResolvedValueOnce([]);
-    await expect(
-      enrichHumanFromCrm({ human, ownerUserId: "u1", providers }),
-    ).rejects.toThrow("HubSpot down");
+    await expect(enrich()).rejects.toThrow("HubSpot down");
   });
 });

@@ -1,8 +1,11 @@
+import type { ConnectionItem } from "@anlg/api-client";
+
 import {
   type CrmContact,
   type CrmProviderInfo,
+  findCrmConnection,
   lookupCrmContacts,
-  readCrmCredentials,
+  nangoConnectionIsReady,
 } from "./connection";
 
 import { applyContactEnhancement, type HumanRecord } from "~/contacts/queries";
@@ -93,40 +96,53 @@ export function pickBestCrmContact(
   return best;
 }
 
-export async function connectedCrmProviders(
+export function connectedCrmProviders(
   providers: CrmProviderInfo[],
-): Promise<CrmProviderInfo[]> {
-  const connected = await Promise.all(
-    providers.map(async (provider) =>
-      (await readCrmCredentials(provider.id)) ? provider : null,
-    ),
-  );
-  return connected.filter((provider) => provider !== null);
+  connections: ConnectionItem[] | undefined,
+): { provider: CrmProviderInfo; connectionId: string }[] {
+  return providers
+    .map((provider) => {
+      const connection = findCrmConnection(provider, connections);
+      return connection && nangoConnectionIsReady(connection)
+        ? { provider, connectionId: connection.connection_id }
+        : null;
+    })
+    .filter((entry) => entry !== null);
 }
 
 export async function enrichHumanFromCrm({
   human,
   ownerUserId,
   providers,
+  connections,
+  headers,
 }: {
   human: Pick<HumanRecord, "id"> & EnrichableHuman;
   ownerUserId: string;
   providers: CrmProviderInfo[];
+  connections: ConnectionItem[] | undefined;
+  headers: Record<string, string>;
 }): Promise<CrmEnrichmentResult> {
-  const connected = await connectedCrmProviders(providers);
+  const connected = connectedCrmProviders(providers, connections);
   if (connected.length === 0) return { status: "not_connected" };
 
-  const email = clean(human.email) ?? null;
-  const name = clean(human.name) ?? null;
+  const providerNames = connected.map(({ provider }) => provider.name);
+  const email = clean(human.email);
+  const name = clean(human.name);
   if (!email && !name) {
-    return { status: "no_match", providers: connected.map((p) => p.name) };
+    return { status: "no_match", providers: providerNames };
   }
 
   let firstError: unknown = null;
-  for (const provider of connected) {
+  for (const { provider, connectionId } of connected) {
     let contacts: CrmContact[];
     try {
-      contacts = await lookupCrmContacts(provider, { email, name });
+      contacts = await lookupCrmContacts(
+        provider,
+        connectionId,
+        { email, name },
+        headers,
+      );
     } catch (error) {
       firstError ??= error;
       continue;
@@ -144,7 +160,7 @@ export async function enrichHumanFromCrm({
   }
 
   if (firstError) throw firstError;
-  return { status: "no_match", providers: connected.map((p) => p.name) };
+  return { status: "no_match", providers: providerNames };
 }
 
 function clean(value: string | null | undefined): string | undefined {
