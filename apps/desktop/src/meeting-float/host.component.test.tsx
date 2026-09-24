@@ -79,6 +79,7 @@ vi.mock("@anlg/plugin-windows", () => ({
 
 vi.mock("./hooks", () => ({
   createMeetingFloatLabelContext: vi.fn(() => undefined),
+  createMeetingFloatRenderRequest: vi.fn(() => null),
   loadMeetingFloatData: vi.fn(async () => ({ sessions: {}, humanNames: {} })),
   subscribeMeetingFloatData: mocks.subscribeMeetingFloatData,
 }));

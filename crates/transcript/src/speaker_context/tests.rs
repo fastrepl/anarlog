@@ -75,8 +75,10 @@ fn unknown_title_leaves_remote_numbered_from_one() {
     assert_eq!(segments[1].speaker_label, "Speaker 1");
 }
 
+// Diarization indices restart with every stream refresh, so one invitee routinely shows up as
+// several remote voices over a long call.
 #[test]
-fn distinct_remote_voices_are_not_capped_by_one_invitee() {
+fn every_remote_voice_on_a_call_is_the_sole_other_invitee() {
     let mut context = context();
     context.intervals[0]
         .participants
@@ -88,6 +90,25 @@ fn distinct_remote_voices_are_not_capped_by_one_invitee() {
     req.participant_human_ids = vec!["remote".into()];
     let segments = render_transcript_segments(req);
     assert_eq!(segments.len(), 3);
+    assert!(segments.iter().all(|s| {
+        s.speaker_label == "Alex"
+            && s.key.speaker_human_id.is_none()
+            && s.provisional_speaker.as_ref().unwrap().human_id.as_deref() == Some("remote")
+    }));
+}
+
+#[test]
+fn several_remote_voices_stay_anonymous_when_several_people_were_invited() {
+    let mut context = context();
+    for (id, name) in [("a", "Alex"), ("b", "Bob")] {
+        context.intervals[0]
+            .participants
+            .push(RenderTranscriptHuman {
+                human_id: id.into(),
+                name: name.into(),
+            });
+    }
+    let segments = render_transcript_segments(request(context, &[(1, 0), (1, 1), (1, 2)]));
     assert_eq!(
         segments
             .iter()
@@ -95,6 +116,13 @@ fn distinct_remote_voices_are_not_capped_by_one_invitee() {
             .collect::<Vec<_>>(),
         ["Speaker 1", "Speaker 2", "Speaker 3"]
     );
+    assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
+}
+
+#[test]
+fn one_on_one_title_names_every_remote_voice() {
+    let segments = render_transcript_segments(request(context(), &[(1, 3), (1, 5)]));
+    assert!(segments.iter().all(|s| s.speaker_label == "덕행"));
 }
 
 #[test]
@@ -115,15 +143,37 @@ fn sole_remote_participant_wins_over_title() {
 }
 
 #[test]
-fn shared_or_multiple_local_voices_remain_anonymous() {
+fn shared_microphone_remains_anonymous() {
     let mut shared = context();
     shared.intervals[0].shared_microphone = true;
     assert_eq!(
         render_transcript_segments(request(shared, &[(0, 0)]))[0].speaker_label,
         "Speaker 1"
     );
+}
+
+#[test]
+fn headset_hears_only_its_wearer_however_diarization_splits_the_voice() {
     let segments = render_transcript_segments(request(context(), &[(0, 0), (0, 1)]));
     assert_eq!(segments.len(), 2);
+    assert!(segments.iter().all(|s| {
+        s.speaker_label == "John"
+            && s.provisional_speaker.as_ref().unwrap().reason
+                == SpeakerResolutionReason::PersonalMicrophone
+    }));
+}
+
+#[test]
+fn room_microphone_on_a_call_needs_a_single_local_voice() {
+    let mut context = context();
+    context.intervals[0].mic_isolated = Some(false);
+    let segments = render_transcript_segments(request(context.clone(), &[(0, 0)]));
+    assert_eq!(segments[0].speaker_label, "John");
+    assert_eq!(
+        segments[0].provisional_speaker.as_ref().unwrap().reason,
+        SpeakerResolutionReason::VirtualMeetingMicrophone
+    );
+    let segments = render_transcript_segments(request(context, &[(0, 0), (0, 1)]));
     assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
 }
 

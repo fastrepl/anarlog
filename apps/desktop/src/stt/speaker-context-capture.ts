@@ -21,6 +21,9 @@ import {
 const captures = new Map<string, ReturnType<typeof createCapture>>();
 const POLL_MS = 5_000;
 const EVIDENCE_LEASE_MS = 10_000;
+// Apps a scheduled meeting link can be joined from; browsers cover Meet and web clients.
+const MEETING_CAPABLE_MIC_APP =
+  /zoom|teams|slack|webex|chrome|chromium|safari|thebrowser|firefox|brave|edge|vivaldi|opera/i;
 
 export function startSpeakerContextCapture(sessionId: string) {
   if (getCurrentWebviewWindow().label !== "main") return;
@@ -46,6 +49,10 @@ function createCapture(sessionId: string) {
   let stopped = false;
   let device: string | null = null;
   let isolated: boolean | null = null;
+  // The app last seen in an active call. Accessibility reads flicker while the call
+  // continues, so the call is only over once that app releases the microphone or an
+  // inspection positively shows it out of the call.
+  let callAppId: string | null = null;
   let generation = 0;
   let pending: Promise<void> | null = null;
   let repoll = false;
@@ -132,10 +139,23 @@ function createCapture(sessionId: string) {
         )
       : [];
     if (stopped || observedGeneration !== generation) return;
+    if (active.length === 1) {
+      callAppId = active[0]!.app.id;
+    } else if (callAppId) {
+      // A failed lookup proves nothing; only a successful one can show the app let go.
+      const releasedMicrophone =
+        micResult?.status === "ok" &&
+        !micApps.some((app) => app.id === callAppId);
+      const leftCall = inspections.some(
+        (inspection) =>
+          inspection.app.id === callAppId && !inspection.activeCall,
+      );
+      if (releasedMicrophone || leftCall) callAppId = null;
+    }
     // An observed pre-join/ended window overrides a scheduled link. A link alone is never attendance.
     const calendarCall = Boolean(
       meetingLink &&
-      micApps.some((app) => /zoom|teams|slack|webex/i.test(app.id)) &&
+      micApps.some((app) => MEETING_CAPABLE_MIC_APP.test(app.id)) &&
       inspections.length === 0,
     );
     const inputDevice =
@@ -144,10 +164,15 @@ function createCapture(sessionId: string) {
       {
         start_ms: at,
         end_ms: at + EVIDENCE_LEASE_MS,
-        active_call: active.length === 1,
+        active_call: callAppId !== null,
         calendar_call: calendarCall,
-        mic_isolated:
-          isolated === true ? isPersonalMicrophone(inputDevice) : isolated,
+        // A headset is isolated by construction; the runtime verdict only tells a room
+        // microphone apart from one that also hears the speakers.
+        mic_isolated: isPersonalMicrophone(inputDevice)
+          ? true
+          : isolated === null
+            ? null
+            : false,
         shared_microphone: isSharedMicrophone(inputDevice),
         title: row.title,
         self_names: [row.name, ...aliases].filter(Boolean),
