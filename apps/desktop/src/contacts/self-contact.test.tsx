@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -48,6 +49,12 @@ vi.mock("./contact-summary", () => ({
 }));
 vi.mock("./related-notes", () => ({ RelatedNotesSection: () => null }));
 vi.mock("./new-person-form", () => ({ NewPersonForm: () => null }));
+vi.mock("~/crm/connection", () => ({
+  crmProvidersQueryOptions: () => ({
+    queryKey: ["crm", "providers"],
+    queryFn: () => Promise.resolve([{ id: "attio", name: "Attio" }]),
+  }),
+}));
 vi.mock("./shared", () => ({
   ContactFacehash: () => null,
   ColumnHeader: ({
@@ -127,30 +134,32 @@ it("prefers the signed-in identity over the local owner fallback", () => {
   ).toContain("Zoe");
 });
 
-it("renders your details without edit, photo, merge, or delete controls", () => {
-  const { rerender } = render(
-    <DetailsColumn
-      human={mocks.humans[1]}
-      humans={mocks.humans}
-      organizations={[]}
-      handleSessionClick={vi.fn()}
-      onDelete={vi.fn()}
-    />,
+it("renders your details without edit, photo, merge, enrich, or delete controls", async () => {
+  const queryClient = new QueryClient();
+  const details = (human: HumanRecord) => (
+    <QueryClientProvider client={queryClient}>
+      <DetailsColumn
+        human={human}
+        humans={mocks.humans}
+        organizations={[]}
+        handleSessionClick={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    </QueryClientProvider>
   );
+  const { rerender } = render(details(mocks.humans[1]));
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(screen.queryByRole("button", { name: "Change photo" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Contact options" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Merge" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Enrich contact from CRM" }),
+  ).toBeNull();
   expect(screen.getByText("Engineer")).not.toBeNull();
-  rerender(
-    <DetailsColumn
-      human={mocks.humans[0]}
-      humans={mocks.humans}
-      organizations={[]}
-      handleSessionClick={vi.fn()}
-      onDelete={vi.fn()}
-    />,
-  );
+  rerender(details(mocks.humans[0]));
+  expect(
+    await screen.findByRole("button", { name: "Enrich contact from CRM" }),
+  ).not.toBeNull();
   expect(screen.getAllByRole("textbox").length).toBeGreaterThan(0);
   expect(
     screen.getByRole("button", { name: "Contact options" }),

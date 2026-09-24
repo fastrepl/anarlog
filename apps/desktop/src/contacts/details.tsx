@@ -39,6 +39,7 @@ import { RelatedNotesSection } from "./related-notes";
 import { ContactFacehash } from "./shared";
 
 import { useOptionalAuth } from "~/auth";
+import { EnrichContactFromCrm } from "~/crm/enrich-contact";
 import { useOwnerUserId } from "~/shared/owner-user";
 
 export function DetailsColumn({
@@ -152,6 +153,14 @@ export function DetailsColumn({
                 </AvatarUploadButton>
               )}
             </div>
+
+            {!readOnly && ownerUserId && (
+              <EnrichContactFromCrm
+                key={`${human.id}:crm`}
+                human={human}
+                ownerUserId={ownerUserId}
+              />
+            )}
 
             {!readOnly && duplicatesWithData.length > 0 && (
               <div className="border-border border-b bg-red-50 px-6 py-4">

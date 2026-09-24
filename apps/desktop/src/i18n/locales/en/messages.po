@@ -1385,6 +1385,10 @@ msgstr "commented on"
 msgid "comments"
 msgstr "comments"
 
+#: src/crm/enrich-contact.tsx
+msgid "company"
+msgstr "company"
+
 #: src/contacts/details.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Company"
@@ -1482,6 +1486,10 @@ msgstr "Connect Linear"
 #: src/settings/automations/starter-config.tsx
 msgid "Connect Notion"
 msgstr "Connect Notion"
+
+#: src/crm/enrich-contact.tsx
+msgid "Connect one in Settings"
+msgstr "Connect one in Settings"
 
 #: src/onboarding/calendar.tsx
 msgid "Connect Outlook"
@@ -1706,6 +1714,10 @@ msgstr "Could not open the web copy."
 msgid "Could not publish the desktop edits. Check the latest web copy and try again."
 msgstr "Could not publish the desktop edits. Check the latest web copy and try again."
 
+#: src/crm/enrich-contact.tsx
+msgid "Could not reach the CRM"
+msgstr "Could not reach the CRM"
+
 #: src/auth/connect-local-library-dialog.tsx
 msgid "Could not read the local library"
 msgstr "Could not read the local library"
@@ -1910,6 +1922,7 @@ msgstr "Creating brief..."
 msgid "Crisp"
 msgstr "Crisp"
 
+#: src/crm/enrich-contact.tsx
 #: src/settings/crm/index.tsx
 #: src/sidebar/settings.tsx
 msgid "CRM"
@@ -2225,6 +2238,10 @@ msgstr "Edit date"
 msgid "Eligible for free trial"
 msgstr "Eligible for free trial"
 
+#: src/crm/enrich-contact.tsx
+msgid "email"
+msgstr "email"
+
 #: src/contacts/details.tsx
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/general/account-profile.tsx
@@ -2288,6 +2305,14 @@ msgstr "Enhance contact"
 #: src/session/components/outer-header/metadata/participants/chip.tsx
 msgid "Enhance contact {label}"
 msgstr "Enhance contact {label}"
+
+#: src/crm/enrich-contact.tsx
+msgid "Enrich contact from CRM"
+msgstr "Enrich contact from CRM"
+
+#: src/crm/enrich-contact.tsx
+msgid "Enrich from CRM"
+msgstr "Enrich from CRM"
 
 #: src/settings/ai/stt/select.tsx
 msgid "Enter a model identifier"
@@ -2446,6 +2471,10 @@ msgstr "File format"
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Filename"
 msgstr "Filename"
+
+#: src/crm/enrich-contact.tsx
+msgid "Filled {filled} from {provider}."
+msgstr "Filled {filled} from {provider}."
 
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
@@ -2915,6 +2944,10 @@ msgstr "Invited by {0}"
 msgid "Invited to join"
 msgstr "Invited to join"
 
+#: src/crm/enrich-contact.tsx
+msgid "job title"
+msgstr "job title"
+
 #: src/contacts/details.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Job Title"
@@ -3092,6 +3125,7 @@ msgid "Linear team"
 msgstr "Linear team"
 
 #: src/contacts/details.tsx
+#: src/crm/enrich-contact.tsx
 #: src/settings/general/account-profile.tsx
 msgid "LinkedIn"
 msgstr "LinkedIn"
@@ -3250,6 +3284,10 @@ msgstr "Match whole word"
 #: src/settings/appearance/theme.tsx
 msgid "Match your device"
 msgstr "Match your device"
+
+#: src/crm/enrich-contact.tsx
+msgid "Matched in {provider}; nothing new to add."
+msgstr "Matched in {provider}; nothing new to add."
 
 #: src/folders/folder-editor.tsx
 #: src/sidebar/folder-materials.tsx
@@ -3458,6 +3496,10 @@ msgstr "Move up"
 msgid "My automations"
 msgstr "My automations"
 
+#: src/crm/enrich-contact.tsx
+msgid "name"
+msgstr "name"
+
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/settings/general/account-profile.tsx
@@ -3553,6 +3595,10 @@ msgstr "No community templates available"
 msgid "No content."
 msgstr "No content."
 
+#: src/crm/enrich-contact.tsx
+msgid "No CRM connected."
+msgstr "No CRM connected."
+
 #: src/settings/crm/index.tsx
 msgid "No CRM integrations are available yet."
 msgstr "No CRM integrations are available yet."
@@ -3616,6 +3662,10 @@ msgstr "No items today"
 #: src/settings/dictionary/index.tsx
 msgid "No match"
 msgstr "No match"
+
+#: src/crm/enrich-contact.tsx
+msgid "No matching contact found in {providers}."
+msgstr "No matching contact found in {providers}."
 
 #: src/settings/general/main-language.tsx
 #: src/settings/general/spoken-languages.tsx
@@ -3887,6 +3937,10 @@ msgstr "Open in right panel"
 msgid "Open on GitHub"
 msgstr "Open on GitHub"
 
+#: src/crm/enrich-contact.tsx
+msgid "Open record"
+msgstr "Open record"
+
 #: src/settings/todo/github.tsx
 msgid "Open repository on GitHub"
 msgstr "Open repository on GitHub"
@@ -4062,6 +4116,10 @@ msgstr "Permissions for {0}"
 #: src/onboarding/index.tsx
 msgid "Permissions granted"
 msgstr "Permissions granted"
+
+#: src/crm/enrich-contact.tsx
+msgid "phone"
+msgstr "phone"
 
 #: src/contacts/details.tsx
 #: src/settings/general/account-profile.tsx

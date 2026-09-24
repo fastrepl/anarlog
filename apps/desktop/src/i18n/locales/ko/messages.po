@@ -1385,6 +1385,10 @@ msgstr ""
 msgid "comments"
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
+msgid "company"
+msgstr ""
+
 #: src/contacts/details.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Company"
@@ -1481,6 +1485,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Connect Notion"
+msgstr ""
+
+#: src/crm/enrich-contact.tsx
+msgid "Connect one in Settings"
 msgstr ""
 
 #: src/onboarding/calendar.tsx
@@ -1706,6 +1714,10 @@ msgstr ""
 msgid "Could not publish the desktop edits. Check the latest web copy and try again."
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
+msgid "Could not reach the CRM"
+msgstr ""
+
 #: src/auth/connect-local-library-dialog.tsx
 msgid "Could not read the local library"
 msgstr ""
@@ -1910,6 +1922,7 @@ msgstr ""
 msgid "Crisp"
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
 #: src/settings/crm/index.tsx
 #: src/sidebar/settings.tsx
 msgid "CRM"
@@ -2225,6 +2238,10 @@ msgstr ""
 msgid "Eligible for free trial"
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
+msgid "email"
+msgstr ""
+
 #: src/contacts/details.tsx
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/general/account-profile.tsx
@@ -2287,6 +2304,14 @@ msgstr ""
 
 #: src/session/components/outer-header/metadata/participants/chip.tsx
 msgid "Enhance contact {label}"
+msgstr ""
+
+#: src/crm/enrich-contact.tsx
+msgid "Enrich contact from CRM"
+msgstr ""
+
+#: src/crm/enrich-contact.tsx
+msgid "Enrich from CRM"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
@@ -2446,6 +2471,10 @@ msgstr ""
 #: src/settings/automations/markdown-export-options.tsx
 msgid "Filename"
 msgstr "파일 이름"
+
+#: src/crm/enrich-contact.tsx
+msgid "Filled {filled} from {provider}."
+msgstr ""
 
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
@@ -2915,6 +2944,10 @@ msgstr ""
 msgid "Invited to join"
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
+msgid "job title"
+msgstr ""
+
 #: src/contacts/details.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Job Title"
@@ -3092,6 +3125,7 @@ msgid "Linear team"
 msgstr ""
 
 #: src/contacts/details.tsx
+#: src/crm/enrich-contact.tsx
 #: src/settings/general/account-profile.tsx
 msgid "LinkedIn"
 msgstr ""
@@ -3249,6 +3283,10 @@ msgstr ""
 
 #: src/settings/appearance/theme.tsx
 msgid "Match your device"
+msgstr ""
+
+#: src/crm/enrich-contact.tsx
+msgid "Matched in {provider}; nothing new to add."
 msgstr ""
 
 #: src/folders/folder-editor.tsx
@@ -3458,6 +3496,10 @@ msgstr ""
 msgid "My automations"
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
+msgid "name"
+msgstr ""
+
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/settings/general/account-profile.tsx
@@ -3553,6 +3595,10 @@ msgstr ""
 msgid "No content."
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
+msgid "No CRM connected."
+msgstr ""
+
 #: src/settings/crm/index.tsx
 msgid "No CRM integrations are available yet."
 msgstr ""
@@ -3615,6 +3661,10 @@ msgstr ""
 
 #: src/settings/dictionary/index.tsx
 msgid "No match"
+msgstr ""
+
+#: src/crm/enrich-contact.tsx
+msgid "No matching contact found in {providers}."
 msgstr ""
 
 #: src/settings/general/main-language.tsx
@@ -3887,6 +3937,10 @@ msgstr ""
 msgid "Open on GitHub"
 msgstr ""
 
+#: src/crm/enrich-contact.tsx
+msgid "Open record"
+msgstr ""
+
 #: src/settings/todo/github.tsx
 msgid "Open repository on GitHub"
 msgstr ""
@@ -4061,6 +4115,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Permissions granted"
+msgstr ""
+
+#: src/crm/enrich-contact.tsx
+msgid "phone"
 msgstr ""
 
 #: src/contacts/details.tsx

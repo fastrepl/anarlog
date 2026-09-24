@@ -860,7 +860,14 @@ export function applyContactEnhancement({
 }: {
   humanId: string;
   ownerUserId: string;
-  changes: { name?: string; email?: string; companyName?: string };
+  changes: {
+    name?: string;
+    email?: string;
+    companyName?: string;
+    jobTitle?: string;
+    phone?: string;
+    linkedinUsername?: string;
+  };
   createIfMissing?: boolean;
 }): Promise<void> {
   return enqueueDatabaseWrite(`human:${humanId}`, async () => {
@@ -949,6 +956,18 @@ export function applyContactEnhancement({
     if (changes.email !== undefined) {
       assignments.push("email = ?");
       params.push(changes.email);
+    }
+    if (changes.jobTitle !== undefined) {
+      assignments.push("job_title = ?");
+      params.push(changes.jobTitle);
+    }
+    if (changes.phone !== undefined) {
+      assignments.push("phone = ?");
+      params.push(changes.phone);
+    }
+    if (changes.linkedinUsername !== undefined) {
+      assignments.push("linkedin_username = ?");
+      params.push(changes.linkedinUsername);
     }
     if (changes.companyName) {
       assignments.push(`
