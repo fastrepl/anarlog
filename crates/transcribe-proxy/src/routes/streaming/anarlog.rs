@@ -828,6 +828,33 @@ mod tests {
         assert_eq!(url.path(), "/api-ws/v1/inference");
         assert!(url.as_str().contains(&format!("model={model}")));
 
+        let workspace_host = "ws-o27c8mbs9cfv6xxo.ap-southeast-1.maas.aliyuncs.com";
+        let workspace_base = format!("https://{workspace_host}");
+        let url = build_upstream_url_with_adapter(
+            Provider::DashScope,
+            &workspace_base,
+            &params,
+            1,
+            Some(&adapter),
+        );
+        assert_eq!(url.scheme(), "wss");
+        assert_eq!(url.host_str(), Some(workspace_host));
+        assert_eq!(url.path(), "/api-ws/v1/inference");
+
+        let legacy_params = ListenParams {
+            model: Some("qwen3-asr-flash-realtime".to_string()),
+            ..params.clone()
+        };
+        let url = build_upstream_url_with_adapter(
+            Provider::DashScope,
+            &workspace_base,
+            &legacy_params,
+            1,
+            None,
+        );
+        assert_eq!(url.host_str(), Some(workspace_host));
+        assert_eq!(url.path(), "/api-ws/v1/realtime");
+
         let initial = build_initial_message_with_adapter(
             Provider::DashScope,
             Some("test-key"),

@@ -128,10 +128,10 @@ impl RealtimeSttAdapter for DashScopeStreamingAdapter {
     fn build_ws_url(&self, api_base: &str, params: &ListenParams, _channels: u8) -> url::Url {
         let (mut url, existing_params) = DashScopeAdapter::build_ws_url_from_base(api_base);
 
-        if url
-            .host_str()
-            .is_some_and(|host| Provider::DashScope.is_host(host))
-        {
+        // Direct endpoints (default, China, or workspace-specific `ws-*.maas.aliyuncs.com`
+        // hosts) speak the task protocol on `/api-ws/v1/inference`; the Anarlog proxy keeps
+        // its own `/listen` path and dispatches by model server-side.
+        if url.path() == Provider::DashScope.ws_path() {
             url.set_path(INFERENCE_WS_PATH);
         }
 
@@ -404,6 +404,50 @@ mod tests {
             url.as_str()
                 .contains("model=qwen-audio-3.1-asr-flash-streaming")
         );
+    }
+
+    #[test]
+    fn builds_inference_url_for_workspace_specific_hosts() {
+        const WORKSPACE_HOST: &str = "ws-o27c8mbs9cfv6xxo.ap-southeast-1.maas.aliyuncs.com";
+        let params = ListenParams {
+            model: Some(DASHSCOPE_STREAMING_MODEL.to_string()),
+            ..Default::default()
+        };
+        let adapter = DashScopeStreamingAdapter::default();
+
+        for api_base in [
+            format!("https://{WORKSPACE_HOST}"),
+            format!("wss://{WORKSPACE_HOST}"),
+            format!("https://{WORKSPACE_HOST}/"),
+            format!("wss://{WORKSPACE_HOST}/api-ws/v1/inference"),
+            format!("https://{WORKSPACE_HOST}/api-ws/v1/realtime"),
+        ] {
+            let url = adapter.build_ws_url(&api_base, &params, 1);
+            assert_eq!(url.scheme(), "wss", "{api_base}");
+            assert_eq!(url.host_str(), Some(WORKSPACE_HOST), "{api_base}");
+            assert_eq!(url.path(), "/api-ws/v1/inference", "{api_base}");
+            assert_eq!(
+                url.query(),
+                Some("model=qwen-audio-3.1-asr-flash-streaming"),
+                "{api_base}"
+            );
+        }
+
+        let url = adapter.build_ws_url(
+            &format!("https://{WORKSPACE_HOST}?workspace=demo"),
+            &params,
+            1,
+        );
+        assert!(url.query().unwrap().contains("workspace=demo"));
+
+        let url = adapter.build_ws_url("https://relay.example.com", &params, 1);
+        assert_eq!(url.host_str(), Some("relay.example.com"));
+        assert_eq!(url.path(), "/api-ws/v1/inference");
+
+        let legacy =
+            DashScopeAdapter.build_ws_url(&format!("https://{WORKSPACE_HOST}"), &params, 1);
+        assert_eq!(legacy.host_str(), Some(WORKSPACE_HOST));
+        assert_eq!(legacy.path(), "/api-ws/v1/realtime");
     }
 
     #[test]
