@@ -1,11 +1,10 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  getRecordingPermissionsAsync,
-  requestRecordingPermissionsAsync,
-} from "expo-audio";
 import { useRouter } from "expo-router";
-import { Linking, Platform } from "react-native";
 
+import { useMicrophonePermission } from "@/audio/microphone-permission";
+import {
+  deviceHasActionButton,
+  useActionButtonSetup,
+} from "@/quick-actions/action-button-setup";
 import {
   SettingsError,
   SettingsPage,
@@ -16,26 +15,19 @@ import { Text } from "@/settings/fields";
 
 export default function RecordingSettings() {
   const router = useRouter();
-  const permission = useQuery({
-    queryKey: ["microphone-permission"],
-    queryFn: getRecordingPermissionsAsync,
-    refetchInterval: 2000,
-  });
-  const request = useMutation({
-    mutationFn: async () => {
-      if (permission.data?.canAskAgain && !permission.data.granted)
-        await requestRecordingPermissionsAsync();
-      else await Linking.openSettings();
-      await permission.refetch();
-    },
-  });
+  const { permission, request } = useMicrophonePermission();
+  const actionButton = useActionButtonSetup();
   return (
     <SettingsPage title="Recording">
-      {Platform.OS === "ios" && (
+      {deviceHasActionButton && (
         <FieldGroup.Section>
           <SettingsRow
             title="Action Button"
-            description="Start or stop listening in one press"
+            description={
+              actionButton.data?.verified
+                ? "Ready: press and hold to start or stop listening"
+                : "Start or stop listening in one press"
+            }
             onPress={() => router.push("/action-button")}
           />
         </FieldGroup.Section>

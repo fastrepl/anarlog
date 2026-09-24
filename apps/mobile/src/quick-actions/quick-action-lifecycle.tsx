@@ -14,6 +14,7 @@ import {
   consumePendingQuickAction,
   subscribeQuickActions,
 } from "@/quick-actions";
+import { markActionButtonVerified } from "@/quick-actions/action-button-setup";
 
 export function QuickActionLifecycle({
   accountUserId,
@@ -59,6 +60,7 @@ export function QuickActionLifecycle({
   const handleAction = () => {
     const action = consumePendingQuickAction();
     if (action !== "toggle_listening") return;
+    void markActionButtonVerified();
     if (busyRef.current) {
       queuedToggleRef.current = !queuedToggleRef.current;
       return;
