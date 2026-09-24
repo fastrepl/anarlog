@@ -20,9 +20,10 @@ pub const PROVIDER: CrmProvider = CrmProvider {
     search_arguments: Some(search_arguments),
 };
 
-/// Builds `search-records` arguments from the advertised schema: full-text
-/// `query` by email (or name), restricted to the `people` object whether the
-/// tool takes a single slug or a list of slugs.
+/// Attio needs its own builder because the generic one targets a `contacts`
+/// object, which Attio rejects: people live under `people`, and the object
+/// parameter's name and shape (slug vs. slug list) are only known from the
+/// live tool schema.
 pub fn search_arguments(tool: &Tool, query: &CrmContactQuery) -> Option<JsonObject> {
     let text = query.email.clone().or_else(|| query.name.clone())?;
     let mut arguments = Map::new();

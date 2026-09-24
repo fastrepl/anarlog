@@ -291,6 +291,9 @@ fn collect_contacts(value: &Value, contacts: &mut Vec<CrmContact>) {
             }
         }
         Value::Object(record) => {
+            if is_non_person_record(record) {
+                return;
+            }
             if let Some(contact) = contact_from_record(record) {
                 if !contacts.contains(&contact) {
                     contacts.push(contact);
@@ -306,6 +309,14 @@ fn collect_contacts(value: &Value, contacts: &mut Vec<CrmContact>) {
 }
 
 const PROPERTY_BAGS: &[&str] = &["properties", "values", "attributes", "fields", "data"];
+
+/// Attio search hits carry the object they belong to; anything typed as a
+/// non-person object (companies, deals, ...) is skipped along with its nested
+/// values, which can hold generic emails that would otherwise pass as a contact.
+fn is_non_person_record(record: &Map<String, Value>) -> bool {
+    field(record, &["object_slug", "objectSlug"])
+        .is_some_and(|slug| !matches!(slug.as_str(), "people" | "person" | "contacts" | "contact"))
+}
 
 fn contact_from_record(record: &Map<String, Value>) -> Option<CrmContact> {
     let mut fields = Map::new();
@@ -335,9 +346,7 @@ fn contact_from_record(record: &Map<String, Value>) -> Option<CrmContact> {
         ],
     )
     .filter(|value| value.contains('@'));
-    if field(&fields, &["object_slug", "objectSlug"])
-        .is_some_and(|slug| !matches!(slug.as_str(), "people" | "person" | "contacts" | "contact"))
-    {
+    if is_non_person_record(&fields) {
         return None;
     }
 
@@ -515,6 +524,23 @@ mod tests {
                 url: Some("https://app.attio.com/w/person/rec_1".to_string()),
             }]
         );
+    }
+
+    #[test]
+    fn skips_emails_nested_in_non_person_attio_records() {
+        let payload = json!({
+            "results": [{
+                "id": { "record_id": "rec_company" },
+                "object_slug": "companies",
+                "record_text": "Acme",
+                "values": {
+                    "email_addresses": [{ "email_address": "sales@acme.test" }]
+                }
+            }]
+        });
+
+        let contacts = matching_contacts(&[payload], &query(Some("sales@acme.test"), None));
+        assert!(contacts.is_empty());
     }
 
     #[test]
