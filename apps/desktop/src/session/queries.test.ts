@@ -255,7 +255,9 @@ describe("session SQLite operations", () => {
     expect(statements[0].sql).toContain("folder_path");
     expect(statements[0].sql).toContain("cloudsync_workspace_binding");
     expect(statements[0].sql).toContain("folder.workspace_id");
-    expect(statements[0].sql).toContain("ORDER BY length(folder.path)");
+    expect(statements[0].sql).toContain("folder.path = ?");
+    expect(statements[0].sql).not.toContain("LIKE folder.path || '/%'");
+    expect(statements[0].sql).not.toContain("ORDER BY length(folder.path)");
     expect(statements[0].params).toContain('{"tracking_id":"welcome"}');
     expect(statements[0].params).toContain("CS 101");
     expect(statements[1].sql).toContain("session_documents");
@@ -267,17 +269,17 @@ describe("session SQLite operations", () => {
     );
   });
 
-  it("prefers the nearest team-folder workspace for new sessions", async () => {
+  it("matches the exact team-folder workspace for new sessions", async () => {
     await createSession("Team note", "user-1", { folder_id: "defcons" });
 
     const statement = mocks.executeTransaction.mock.calls[0][0][0] as {
       sql: string;
       params: unknown[];
     };
-    expect(statement.sql).toContain("folder.path = ? OR ? LIKE");
-    expect(statement.params.slice(0, 3)).toEqual([
+    expect(statement.sql).toContain("folder.path = ?");
+    expect(statement.sql).not.toContain("LIKE folder.path || '/%'");
+    expect(statement.params.slice(0, 2)).toEqual([
       expect.any(String),
-      "defcons",
       "defcons",
     ]);
     expect(mocks.executeTransaction.mock.calls[0][0][1].sql).toContain(
@@ -291,19 +293,6 @@ describe("session SQLite operations", () => {
     );
 
     mocks.executeTransaction.mockClear();
-    await createSession("Nested team note", "user-1", {
-      folder_id: "defcons/sub",
-    });
-    const nestedStatement = mocks.executeTransaction.mock.calls[0][0][0] as {
-      params: unknown[];
-    };
-    expect(nestedStatement.params.slice(0, 3)).toEqual([
-      expect.any(String),
-      "defcons/sub",
-      "defcons/sub",
-    ]);
-
-    mocks.executeTransaction.mockClear();
     await createSession("Personal note", "user-1", { folder_id: "personal" });
     const personalStatement = mocks.executeTransaction.mock.calls[0][0][0] as {
       sql: string;
@@ -312,9 +301,8 @@ describe("session SQLite operations", () => {
     expect(personalStatement.sql).toContain(
       "NULLIF((\n              SELECT json_extract",
     );
-    expect(personalStatement.params.slice(0, 3)).toEqual([
+    expect(personalStatement.params.slice(0, 2)).toEqual([
       expect.any(String),
-      "personal",
       "personal",
     ]);
   });

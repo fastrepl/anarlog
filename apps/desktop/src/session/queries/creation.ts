@@ -56,8 +56,8 @@ export async function createSession(
           ?, COALESCE(
             (SELECT NULLIF(folder.workspace_id, '') FROM folders AS folder
               WHERE folder.deleted_at IS NULL AND folder.workspace_id <> ''
-                AND (folder.path = ? OR ? LIKE folder.path || '/%')
-              ORDER BY length(folder.path) DESC, folder.id LIMIT 1),
+                AND folder.path = ?
+              LIMIT 1),
             NULLIF((
               SELECT json_extract(value_json, '$.workspace_id')
               FROM app_settings
@@ -76,7 +76,6 @@ export async function createSession(
       `,
       params: [
         sessionId,
-        folderPath,
         folderPath,
         userId,
         title,
