@@ -4,6 +4,7 @@ mod commands;
 mod connected_cli;
 mod connected_mcp;
 mod crm;
+mod crm_hubspot;
 mod types;
 
 pub use types::*;

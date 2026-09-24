@@ -9,7 +9,7 @@ use crate::types::{
 use rmcp::model::{JsonObject, Tool};
 use serde_json::{Map, Value};
 
-const MAX_CONTACT_RESULTS: usize = 10;
+pub const MAX_CONTACT_RESULTS: usize = 10;
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
@@ -31,7 +31,7 @@ pub struct CrmProvider {
     pub search_arguments: Option<SearchArguments>,
 }
 
-pub const CRM_PROVIDERS: &[CrmProvider] = &[];
+pub const CRM_PROVIDERS: &[CrmProvider] = &[crate::crm_hubspot::PROVIDER];
 
 impl CrmProvider {
     fn info(&self) -> CrmProviderInfo {
