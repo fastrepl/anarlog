@@ -340,31 +340,53 @@ export function applyRenderRequestIdentitiesToSegments(
         {
           ...segment,
           key: { ...segment.key, speaker_human_id: humanId },
+          speaker_label: undefined,
+          provisional_speaker: undefined,
         },
       ];
     }
 
-    return runs.map(({ humanId, words }) => ({
-      ...createSegmentFragment(
-        segment,
-        words,
-        `identity:${humanId ?? "unassigned"}`,
-      ),
-      key: { ...segment.key, speaker_human_id: humanId },
-    }));
+    return runs.map(({ humanId, words }) => {
+      const identityChanged =
+        (segment.key.speaker_human_id ?? null) !== humanId;
+      return {
+        ...createSegmentFragment(
+          segment,
+          words,
+          `identity:${humanId ?? "unassigned"}`,
+        ),
+        key: { ...segment.key, speaker_human_id: humanId },
+        speaker_label: identityChanged ? undefined : segment.speaker_label,
+        provisional_speaker: identityChanged
+          ? undefined
+          : segment.provisional_speaker,
+      };
+    });
   });
 }
 
 export function mergeAdjacentSpeakerSegments(segments: Segment[]): Segment[] {
   const merged: Segment[] = [];
-  for (const segment of segments) {
-    const last = merged[merged.length - 1];
-    if (last && shouldMergeAdjacentSegmentKeys(last.key, segment.key)) {
-      merged[merged.length - 1] = mergeSegmentPair(last, segment);
-    } else {
-      merged.push(segment);
+  let runStart = 0;
+  const flush = (runEnd: number) => {
+    if (runEnd - runStart > 1) {
+      merged.push(mergeSegmentRun(segments.slice(runStart, runEnd)));
+    } else if (runEnd > runStart) {
+      merged.push(segments[runStart]!);
+    }
+    runStart = runEnd;
+  };
+  for (let index = 1; index < segments.length; index++) {
+    if (
+      !shouldMergeAdjacentSegmentKeys(
+        segments[index - 1]!.key,
+        segments[index]!.key,
+      )
+    ) {
+      flush(index);
     }
   }
+  flush(segments.length);
   return merged;
 }
 
@@ -390,8 +412,14 @@ function shouldMergeAdjacentSegmentKeys(
   );
 }
 
-function mergeSegmentPair(first: Segment, second: Segment): Segment {
-  const words = [...first.words, ...second.words];
+function mergeSegmentRun(run: Segment[]): Segment {
+  const first = run[0]!;
+  const words = run
+    .flatMap((segment) => segment.words)
+    .map((word, index) => {
+      const text = normalizeMergedWordText(word.text, index === 0);
+      return text === word.text ? word : { ...word, text };
+    });
   const head = words[0]!;
   const tail = words[words.length - 1]!;
   return {
@@ -408,10 +436,30 @@ function mergeSegmentPair(first: Segment, second: Segment): Segment {
       .join("")
       .trim(),
     words,
-    speaker_label: first.speaker_label ?? second.speaker_label,
-    provisional_speaker:
-      first.provisional_speaker ?? second.provisional_speaker,
+    speaker_label: run.find((segment) => segment.speaker_label)?.speaker_label,
+    provisional_speaker: run.find((segment) => segment.provisional_speaker)
+      ?.provisional_speaker,
   };
+}
+
+// Mirrors `normalized_rendered_word_text` in crates/transcript: only the first
+// word of a segment loses its leading whitespace, and a non-first word that
+// lost it regains a space unless it opens with punctuation.
+function normalizeMergedWordText(text: string, isFirstWord: boolean): string {
+  const trimmedStart = text.trimStart();
+  if (trimmedStart.length === 0) {
+    return text;
+  }
+  if (isFirstWord) {
+    return trimmedStart;
+  }
+  if (text.startsWith(" ")) {
+    return text;
+  }
+  if (/^[,.;:!?)\]\}']/.test(trimmedStart)) {
+    return trimmedStart;
+  }
+  return ` ${trimmedStart}`;
 }
 
 function getCompleteChannels(
