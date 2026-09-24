@@ -52,20 +52,22 @@ export function findCrmConnection(
   provider: Pick<CrmProviderInfo, "nangoIntegrationId">,
   connections: ConnectionItem[] | undefined,
 ) {
-  return connections?.find(
+  const matches = connections?.filter(
     (item) => item.integration_id === provider.nangoIntegrationId,
   );
+  return matches?.find(nangoConnectionIsReady) ?? matches?.[0];
 }
 
 export async function connectCrm(
   provider: Pick<CrmProviderInfo, "name" | "nangoIntegrationId">,
   headers: Record<string, string>,
   signal?: AbortSignal,
+  connectionId?: string,
 ): Promise<ConnectionItem> {
   const opened = await openIntegrationUrl(
     provider.nangoIntegrationId,
-    undefined,
-    "connect",
+    connectionId,
+    connectionId ? "reconnect" : "connect",
     "crm",
     headers,
     false,
