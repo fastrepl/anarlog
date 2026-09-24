@@ -3,7 +3,6 @@ import type { Transcript } from "@anlg/plugin-template";
 export const MIN_TRANSCRIPT_CHARACTERS_FOR_SUMMARY = 160;
 const SHORT_TRANSCRIPT_CHARACTER_LIMIT = 1_200;
 export const MIN_SUMMARY_CHARACTERS = 320;
-const MAX_SUMMARY_GUIDANCE_CHARACTERS = 7_500;
 const SECTION_GUIDANCE_CHARACTER_STEP = 2_000;
 const TEMPLATE_SECTION_MIN_CHARACTERS = 150;
 const MAX_GUIDANCE_SECTIONS = 8;
@@ -13,18 +12,13 @@ export type SummaryLengthMode = (typeof SUMMARY_LENGTH_MODES)[number];
 const DEFAULT_SUMMARY_LENGTH_MODE: SummaryLengthMode = "detailed";
 
 const SUMMARY_LENGTH_RATIOS: Record<SummaryLengthMode, number> = {
-  crisp: 0.3,
+  crisp: 0.25,
   balanced: 0.5,
   detailed: 1,
 };
 
-const SUMMARY_GUIDANCE_CHARACTER_LIMITS: Record<SummaryLengthMode, number> = {
-  crisp: 2_000,
-  balanced: 4_000,
-  detailed: MAX_SUMMARY_GUIDANCE_CHARACTERS,
-};
-
 export type SummaryLengthPolicy = {
+  mode: SummaryLengthMode;
   maxCharacters: number;
   maxSections: number | null;
   transcriptCharacters: number;
@@ -88,6 +82,7 @@ export function getSummaryLengthPolicy(
   );
 
   return {
+    mode,
     transcriptCharacters,
     maxCharacters: Math.max(
       Math.round(Math.max(transcriptCharacters, MIN_SUMMARY_CHARACTERS)),
@@ -99,10 +94,9 @@ export function getSummaryLengthPolicy(
         : null,
     guidance: {
       maxCharacters: Math.max(
-        clamp(
+        Math.max(
           Math.round(transcriptCharacters * ratio),
           MIN_SUMMARY_CHARACTERS,
-          SUMMARY_GUIDANCE_CHARACTER_LIMITS[mode],
         ),
         templateSectionCount * TEMPLATE_SECTION_MIN_CHARACTERS,
       ),
@@ -116,6 +110,16 @@ export function normalizeSummaryLengthMode(value: unknown): SummaryLengthMode {
   return SUMMARY_LENGTH_MODES.includes(value as SummaryLengthMode)
     ? (value as SummaryLengthMode)
     : DEFAULT_SUMMARY_LENGTH_MODE;
+}
+
+export function getRelativeLengthDescription(mode: SummaryLengthMode): string {
+  if (mode === "crisp") {
+    return "about half the length of a balanced summary";
+  }
+  if (mode === "balanced") {
+    return "the baseline length";
+  }
+  return "about twice the length of a balanced summary";
 }
 
 export function formatSummaryLengthModeGuidance(
@@ -173,6 +177,7 @@ export function formatSummaryLengthGuidance(
 
   return [
     `Summary length: the transcript contains about ${policy.transcriptCharacters} characters.`,
+    `Summary length mode "${policy.mode}" is ${getRelativeLengthDescription(policy.mode)}.`,
     hasTemplateSections
       ? `Keep every requested template section and stay under ${guidance.maxCharacters} characters overall.`
       : customFormat

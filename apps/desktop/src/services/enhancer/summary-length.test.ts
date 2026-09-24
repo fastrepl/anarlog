@@ -29,6 +29,7 @@ describe("summary length policy", () => {
     ]);
 
     expect(policy).toEqual({
+      mode: "detailed",
       transcriptCharacters: 200,
       maxCharacters: 320,
       maxSections: 2,
@@ -61,7 +62,7 @@ describe("summary length policy", () => {
       maxSections: 4,
     });
     expect(policyFor(30_000)).toEqual({
-      maxCharacters: 7_500,
+      maxCharacters: 30_000,
       minSections: 5,
       maxSections: 8,
     });
@@ -111,15 +112,15 @@ describe("summary length policy", () => {
 
     expect(getSummaryLengthPolicy(transcripts, "detailed")).toMatchObject({
       maxCharacters: 10_000,
-      guidance: { maxCharacters: 7_500, minSections: 3, maxSections: 6 },
+      guidance: { maxCharacters: 10_000, minSections: 3, maxSections: 6 },
     });
     expect(getSummaryLengthPolicy(transcripts, "balanced")).toMatchObject({
       maxCharacters: 10_000,
-      guidance: { maxCharacters: 4_000, minSections: 2, maxSections: 3 },
+      guidance: { maxCharacters: 5_000, minSections: 2, maxSections: 3 },
     });
     expect(getSummaryLengthPolicy(transcripts, "crisp")).toMatchObject({
       maxCharacters: 10_000,
-      guidance: { maxCharacters: 2_000, minSections: 1, maxSections: 2 },
+      guidance: { maxCharacters: 2_500, minSections: 1, maxSections: 2 },
     });
   });
 
@@ -157,12 +158,12 @@ describe("summary length policy", () => {
   });
 
   it.each([
-    ["crisp", 2_000],
-    ["balanced", 4_000],
-    ["detailed", 7_500],
+    ["crisp", 7_500, "about half the length of a balanced summary"],
+    ["balanced", 15_000, "the baseline length"],
+    ["detailed", 30_000, "about twice the length of a balanced summary"],
   ] as const)(
-    "caps %s guidance at %s characters for a long transcript",
-    (mode, expected) => {
+    "scales %s guidance to %s characters relative to the transcript",
+    (mode, expected, description) => {
       const policy = getSummaryLengthPolicy(
         [
           {
@@ -175,6 +176,9 @@ describe("summary length policy", () => {
       );
 
       expect(policy?.guidance?.maxCharacters).toBe(expected);
+      expect(formatSummaryLengthGuidance(policy)).toContain(
+        `Summary length mode "${mode}" is ${description}.`,
+      );
     },
   );
 
@@ -197,7 +201,7 @@ describe("summary length policy", () => {
 
     expect(guidance).toContain("Summary length:");
     expect(guidance).toContain(
-      "Keep every requested template section and stay under 7500 characters overall.",
+      "Keep every requested template section and stay under 10000 characters overall.",
     );
     expect(guidance).not.toContain("sections and stay under");
     expect(guidance).not.toMatch(/\d to \d sections|exactly \d+ section/);
@@ -261,6 +265,7 @@ describe("summary length policy", () => {
 
 - ${"c".repeat(100)}`;
     const result = constrainSummaryLength(markdown, {
+      mode: "detailed",
       transcriptCharacters: 160,
       maxCharacters: 160,
       maxSections: 2,
@@ -280,6 +285,7 @@ describe("summary length policy", () => {
 
 # Follow-up`,
       {
+        mode: "detailed",
         transcriptCharacters: 60,
         maxCharacters: 60,
         maxSections: null,
@@ -296,6 +302,7 @@ describe("summary length policy", () => {
 
 - alpha beta gamma delta epsilon zeta`,
       {
+        mode: "detailed",
         transcriptCharacters: 30,
         maxCharacters: 30,
         maxSections: null,
