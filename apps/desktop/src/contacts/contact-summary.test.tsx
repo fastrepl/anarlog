@@ -243,6 +243,79 @@ describe("contact summary", () => {
     expect(prompt.existing_facts).toBeUndefined();
   });
 
+  it("does not restart generation while session updates keep arriving", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    let resolveGeneration!: (value: { output: { facts: string[] } }) => void;
+    mocks.generateText.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveGeneration = resolve;
+        }),
+    );
+
+    const props = {
+      human: makeHuman(),
+      organizationName: "Fastrepl",
+      sessions: makeSessions(),
+      settleMs: 200,
+    };
+    const { rerender, result } = renderHook(
+      (nextProps: typeof props) => useContactSummary(nextProps),
+      { wrapper, initialProps: props },
+    );
+
+    await waitFor(() => {
+      expect(mocks.generateText).toHaveBeenCalledOnce();
+    });
+
+    // Continuous writes (recording, enhance, edits) keep bumping the
+    // fingerprint; the in-flight run must not be aborted and restarted.
+    for (let bump = 1; bump <= 3; bump++) {
+      rerender({
+        ...props,
+        sessions: makeSessions().map((session) => ({
+          ...session,
+          sourceUpdatedAt: `2026-08-11T12:00:0${bump}.000Z`,
+        })),
+      });
+    }
+
+    expect(mocks.generateText).toHaveBeenCalledOnce();
+
+    resolveGeneration({
+      output: {
+        facts: [
+          "Prefers concise weekly updates.",
+          "Owns the launch timeline.",
+          "Needs pricing by Friday.",
+        ],
+      },
+    });
+    await waitFor(() => {
+      expect(result.current.facts).toHaveLength(3);
+    });
+
+    // Once the source goes quiet, exactly one follow-up run picks up the
+    // newest fingerprint instead of restarting per write.
+    mocks.generateText.mockResolvedValue({
+      output: {
+        facts: ["A.", "B.", "C."],
+      },
+    });
+    await waitFor(() => {
+      expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(result.current.isGenerating).toBe(false);
+    });
+  });
+
   it("automatically generates a stale summary when the contact is viewed", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
