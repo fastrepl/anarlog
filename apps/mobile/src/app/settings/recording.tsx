@@ -1,10 +1,7 @@
 import { useRouter } from "expo-router";
 
 import { useMicrophonePermission } from "@/audio/microphone-permission";
-import {
-  deviceHasActionButton,
-  useActionButtonSetup,
-} from "@/quick-actions/action-button-setup";
+import { deviceHasActionButton } from "@/quick-actions/action-button-setup";
 import {
   SettingsError,
   SettingsPage,
@@ -16,18 +13,13 @@ import { Text } from "@/settings/fields";
 export default function RecordingSettings() {
   const router = useRouter();
   const { permission, request } = useMicrophonePermission();
-  const actionButton = useActionButtonSetup();
   return (
     <SettingsPage title="Recording">
       {deviceHasActionButton && (
         <FieldGroup.Section>
           <SettingsRow
             title="Action Button"
-            description={
-              actionButton.data?.verified
-                ? "Ready: press and hold to start or stop listening"
-                : "Start or stop listening in one press"
-            }
+            description="Start or stop listening in one press"
             onPress={() => router.push("/action-button")}
           />
         </FieldGroup.Section>

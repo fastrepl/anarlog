@@ -30,7 +30,7 @@ export default function ActionButtonScreen() {
   const { permission, request } = useMicrophonePermission();
   const setup = useActionButtonSetup();
   const microphoneAllowed = permission.data?.granted === true;
-  const verified = setup.data?.verified === true;
+  const shortcutRan = setup.data?.shortcutRan === true;
 
   const handleBack = () => {
     if (router.canGoBack()) router.back();
@@ -79,11 +79,7 @@ export default function ActionButtonScreen() {
               />
             }
           />
-          <Text style={styles.title}>
-            {verified
-              ? "Your Action Button is ready"
-              : "Start listening in one press"}
-          </Text>
+          <Text style={styles.title}>Start listening in one press</Text>
           <Text style={styles.description}>
             Your iPhone Action Button can start a new Anarlog recording or stop
             the one already in progress.
@@ -118,21 +114,19 @@ export default function ActionButtonScreen() {
           </SetupStep>
           <SetupStep
             number={2}
-            done={verified}
+            done={false}
             title="Assign Start Listening"
             description="In iPhone Settings, tap Action Button, swipe to Shortcut, tap Choose a Shortcut, then pick Anarlog › Start Listening."
           >
-            {!verified && (
-              <AnarlogShortcutsButton style={styles.shortcutsButton} />
-            )}
+            <AnarlogShortcutsButton style={styles.shortcutsButton} />
           </SetupStep>
           <SetupStep
             number={3}
-            done={verified}
+            done={shortcutRan}
             title="Try it"
             description={
-              verified
-                ? "Press and hold to start listening, and again to stop."
+              shortcutRan
+                ? "Start Listening works. Press and hold the Action Button to start listening, and again to stop."
                 : "Press and hold the Action Button. Anarlog opens and starts listening; press and hold again to stop."
             }
           />

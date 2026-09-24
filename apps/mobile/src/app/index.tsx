@@ -58,8 +58,7 @@ export default function HomeScreen() {
   const showActionButtonCard =
     deviceHasActionButton &&
     actionButtonSetup.data !== undefined &&
-    !actionButtonSetup.data.cardDismissed &&
-    !actionButtonSetup.data.verified;
+    !actionButtonSetup.data.cardDismissed;
   const [buttonHeight, setButtonHeight] = useState(
     LISTENING_CONTROL_HEIGHT + Spacing.xs,
   );

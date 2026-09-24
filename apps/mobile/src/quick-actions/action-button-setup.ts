@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
 
@@ -9,17 +9,16 @@ import { queryClient } from "@/lib/query-client";
 import { modelHasActionButton } from "./action-button-model";
 
 const CARD_DISMISSED_KEY = "action-button-card-dismissed";
-const VERIFIED_KEY = "action-button-verified";
-const setupQueryKey = ["action-button-setup"] as const;
+const SHORTCUT_RAN_KEY = "action-button-shortcut-ran";
 
 export type ActionButtonSetup = {
   cardDismissed: boolean;
-  verified: boolean;
+  shortcutRan: boolean;
 };
 
 const initialSetup: ActionButtonSetup = {
   cardDismissed: false,
-  verified: false,
+  shortcutRan: false,
 };
 
 export const deviceHasActionButton =
@@ -28,11 +27,14 @@ export const deviceHasActionButton =
 
 async function loadSetup(): Promise<ActionButtonSetup> {
   try {
-    const [cardDismissed, verified] = await Promise.all([
+    const [cardDismissed, shortcutRan] = await Promise.all([
       AsyncStorage.getItem(CARD_DISMISSED_KEY),
-      AsyncStorage.getItem(VERIFIED_KEY),
+      AsyncStorage.getItem(SHORTCUT_RAN_KEY),
     ]);
-    return { cardDismissed: cardDismissed === "1", verified: verified === "1" };
+    return {
+      cardDismissed: cardDismissed === "1",
+      shortcutRan: shortcutRan === "1",
+    };
   } catch (error) {
     captureOperationalError(error, {
       operation: "action_button_setup_load",
@@ -42,12 +44,16 @@ async function loadSetup(): Promise<ActionButtonSetup> {
   }
 }
 
+export const actionButtonSetupQuery = queryOptions({
+  queryKey: ["action-button-setup"],
+  queryFn: loadSetup,
+  staleTime: Infinity,
+});
+
 export function useActionButtonSetup() {
   return useQuery({
-    queryKey: setupQueryKey,
-    queryFn: loadSetup,
+    ...actionButtonSetupQuery,
     enabled: deviceHasActionButton,
-    staleTime: Infinity,
   });
 }
 
@@ -56,7 +62,9 @@ async function persistFlag(
   patch: Partial<ActionButtonSetup>,
   operation: string,
 ) {
-  queryClient.setQueryData<ActionButtonSetup>(setupQueryKey, (previous) => ({
+  const { queryKey } = actionButtonSetupQuery;
+  await queryClient.cancelQueries({ queryKey });
+  queryClient.setQueryData(queryKey, (previous) => ({
     ...(previous ?? initialSetup),
     ...patch,
   }));
@@ -64,6 +72,8 @@ async function persistFlag(
     await AsyncStorage.setItem(key, "1");
   } catch (error) {
     captureOperationalError(error, { operation, level: "warning" });
+  } finally {
+    await queryClient.invalidateQueries({ queryKey, refetchType: "all" });
   }
 }
 
@@ -75,11 +85,11 @@ export function dismissActionButtonCard(): Promise<void> {
   );
 }
 
-export function markActionButtonVerified(): Promise<void> {
+export function markStartListeningShortcutRan(): Promise<void> {
   if (!deviceHasActionButton) return Promise.resolve();
   return persistFlag(
-    VERIFIED_KEY,
-    { verified: true },
-    "action_button_verified_save",
+    SHORTCUT_RAN_KEY,
+    { shortcutRan: true },
+    "action_button_shortcut_ran_save",
   );
 }
