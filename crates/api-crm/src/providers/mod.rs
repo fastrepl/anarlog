@@ -1,3 +1,5 @@
+mod hubspot;
+
 use anlg_nango::OwnedNangoHttpClient;
 use futures_util::future::BoxFuture;
 
@@ -26,4 +28,4 @@ pub fn resolve(provider_id: &str) -> Option<&'static CrmProvider> {
         .copied()
 }
 
-pub static PROVIDERS: &[&CrmProvider] = &[];
+pub static PROVIDERS: &[&CrmProvider] = &[&hubspot::PROVIDER];

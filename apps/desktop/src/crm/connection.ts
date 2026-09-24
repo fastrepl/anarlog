@@ -22,7 +22,13 @@ export type CrmProviderInfo = {
   nangoIntegrationId: string;
 };
 
-export const CRM_PROVIDERS: CrmProviderInfo[] = [];
+export const CRM_PROVIDERS: CrmProviderInfo[] = [
+  {
+    id: "hubspot",
+    name: "HubSpot",
+    nangoIntegrationId: "hubspot",
+  },
+];
 
 export type CrmContactQuery = {
   email?: string;
