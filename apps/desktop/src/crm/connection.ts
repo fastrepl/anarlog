@@ -33,6 +33,21 @@ export const CRM_PROVIDERS: CrmProviderInfo[] = [
     name: "Attio",
     nangoIntegrationId: "attio",
   },
+  {
+    id: "salesforce",
+    name: "Salesforce",
+    nangoIntegrationId: "salesforce",
+  },
+  {
+    id: "pipedrive",
+    name: "Pipedrive",
+    nangoIntegrationId: "pipedrive",
+  },
+  {
+    id: "close",
+    name: "Close",
+    nangoIntegrationId: "close",
+  },
 ];
 
 export type CrmContactQuery = {

@@ -1,5 +1,8 @@
 mod attio;
+mod close;
 mod hubspot;
+mod pipedrive;
+mod salesforce;
 
 use anlg_nango::OwnedNangoHttpClient;
 use futures_util::future::BoxFuture;
@@ -30,4 +33,10 @@ pub fn resolve(provider_id: &str) -> Option<&'static CrmProvider> {
         .copied()
 }
 
-pub static PROVIDERS: &[&CrmProvider] = &[&hubspot::PROVIDER, &attio::PROVIDER];
+pub static PROVIDERS: &[&CrmProvider] = &[
+    &hubspot::PROVIDER,
+    &attio::PROVIDER,
+    &salesforce::PROVIDER,
+    &pipedrive::PROVIDER,
+    &close::PROVIDER,
+];

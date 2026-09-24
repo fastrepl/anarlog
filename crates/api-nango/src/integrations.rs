@@ -148,6 +148,24 @@ impl NangoIntegrationId for Attio {
     const ID: &'static str = "attio";
 }
 
+pub struct Salesforce;
+
+impl NangoIntegrationId for Salesforce {
+    const ID: &'static str = "salesforce";
+}
+
+pub struct Pipedrive;
+
+impl NangoIntegrationId for Pipedrive {
+    const ID: &'static str = "pipedrive";
+}
+
+pub struct Close;
+
+impl NangoIntegrationId for Close {
+    const ID: &'static str = "close";
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
