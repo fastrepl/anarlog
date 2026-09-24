@@ -108,7 +108,8 @@
     func zoomActiveSpeakersChanged(_ participantIDs: [String]) {
       guard let startedAt = captureStartedAt else { return }
       let atMs = UInt64(max(0, Date().timeIntervalSince(startedAt) * 1000))
-      onEvent?(.payload(.activeSpeakers(ActiveSpeakers(atMs: atMs, participantIds: participantIDs))))
+      onEvent?(
+        .payload(.activeSpeakers(ActiveSpeakers(atMs: atMs, participantIds: participantIDs))))
     }
   }
 #endif

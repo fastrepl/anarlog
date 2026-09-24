@@ -103,7 +103,9 @@ var buffer = Data()
 stdin.readabilityHandler = { handle in
   let chunk = handle.availableData
   if chunk.isEmpty {
-    DispatchQueue.main.async { sidecar.handle(line: Data(#"{"type":"stop","data":{"job_id":""}}"#.utf8)) }
+    DispatchQueue.main.async {
+      sidecar.handle(line: Data(#"{"type":"stop","data":{"job_id":""}}"#.utf8))
+    }
     handle.readabilityHandler = nil
     return
   }

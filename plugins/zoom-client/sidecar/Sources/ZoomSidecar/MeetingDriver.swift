@@ -29,7 +29,8 @@ final class StubMeetingDriver: MeetingDriver {
         .failed,
         TerminalReason(
           kind: .providerError,
-          message: "char-sidecar-zoom was built without the Zoom Meeting SDK (set ANARLOG_ZOOM_SDK_PATH)"
+          message:
+            "char-sidecar-zoom was built without the Zoom Meeting SDK (set ANARLOG_ZOOM_SDK_PATH)"
         )))
   }
 

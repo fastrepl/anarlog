@@ -78,7 +78,10 @@ final class BridgeProtocolTests: XCTestCase {
     let parts = token.split(separator: ".")
     XCTAssertEqual(parts.count, 3)
     XCTAssertEqual(String(parts[0]), "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")
-    let payload = Data(base64Encoded: String(parts[1]).padding(toLength: 4 * ((parts[1].count + 3) / 4), withPad: "=", startingAt: 0).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/"))!
+    let payload = Data(
+      base64Encoded: String(parts[1]).padding(
+        toLength: 4 * ((parts[1].count + 3) / 4), withPad: "=", startingAt: 0
+      ).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/"))!
     let json = try! JSONSerialization.jsonObject(with: payload) as! [String: Any]
     XCTAssertEqual(json["sdkKey"] as? String, "key")
     XCTAssertEqual(json["mn"] as? String, "42")
