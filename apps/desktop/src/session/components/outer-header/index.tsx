@@ -20,6 +20,7 @@ import { OverflowButton } from "./overflow";
 import { useAudioPlayer } from "~/audio-player";
 import { useNow } from "~/calendar/hooks";
 import { useShell } from "~/contexts/shell";
+import { joinMeetInAnarlog, useMeetClientAvailable } from "~/meet-client";
 import {
   buildWelcomeNoteDemoUrl,
   WELCOME_NOTE_TRACKING_ID,
@@ -226,8 +227,15 @@ function HeaderMeetingAction({
   const { t } = useLingui();
   const zoomClientAvailable = useZoomClientAvailable();
   const ownerDisplayName = useOwnerDisplayName();
-  const joinInAnarlog =
-    zoomClientAvailable && !isWelcomeDemo && remote?.type === "zoom";
+  const meetClientAvailable = useMeetClientAvailable();
+  const embeddedClient = isWelcomeDemo
+    ? null
+    : remote?.type === "zoom" && zoomClientAvailable
+      ? "zoom"
+      : remote?.type === "google-meet" && meetClientAvailable
+        ? "meet"
+        : null;
+  const joinInAnarlog = embeddedClient !== null;
   const joiningMeetingRef = useRef(false);
   const [joiningMeeting, setJoiningMeeting] = useState(false);
   const start = useCallback(async () => {
@@ -243,7 +251,7 @@ function HeaderMeetingAction({
       return;
     }
 
-    if (joinInAnarlog) {
+    if (embeddedClient === "zoom") {
       try {
         await joinMeetingInAnarlog({
           sessionId,
@@ -253,6 +261,13 @@ function HeaderMeetingAction({
         return;
       } catch (error) {
         console.error("[zoom-client] in-app join failed, opening zoom", error);
+      }
+    } else if (embeddedClient === "meet") {
+      try {
+        await joinMeetInAnarlog({ sessionId, meetingUrl: meetingLink });
+        return;
+      } catch (error) {
+        console.error("[meet-client] in-app join failed, opening meet", error);
       }
     }
 
@@ -274,7 +289,7 @@ function HeaderMeetingAction({
     }
 
     void openerCommands.openUrl(url, null);
-  }, [isWelcomeDemo, joinInAnarlog, meetingLink, ownerDisplayName, sessionId]);
+  }, [embeddedClient, isWelcomeDemo, meetingLink, ownerDisplayName, sessionId]);
   const joinMeeting = useCallback(async () => {
     if (joiningMeetingRef.current) {
       return;

@@ -4823,6 +4823,7 @@ dependencies = [
  "tauri-plugin-local-llm",
  "tauri-plugin-local-stt",
  "tauri-plugin-mcp",
+ "tauri-plugin-meet-client",
  "tauri-plugin-messenger",
  "tauri-plugin-misc",
  "tauri-plugin-notification",
@@ -17404,6 +17405,24 @@ dependencies = [
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "tauri-plugin-meet-client"
+version = "0.1.0"
+dependencies = [
+ "meeting-capture",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tracing",
+ "url",
+ "uuid",
 ]
 
 [[package]]

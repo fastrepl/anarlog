@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-selectors"
+description = "Enables the set_selectors command without any pre-configured scope."
+commands.allow = ["set_selectors"]
+
+[[permission]]
+identifier = "deny-set-selectors"
+description = "Denies the set_selectors command without any pre-configured scope."
+commands.deny = ["set_selectors"]

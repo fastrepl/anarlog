@@ -150,6 +150,9 @@ importers:
       '@anlg/plugin-local-stt':
         specifier: workspace:*
         version: link:../../plugins/local-stt
+      '@anlg/plugin-meet-client':
+        specifier: workspace:*
+        version: link:../../plugins/meet-client
       '@anlg/plugin-misc':
         specifier: workspace:*
         version: link:../../plugins/misc
@@ -1480,6 +1483,12 @@ importers:
         version: 2.10.1
 
   plugins/mcp:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.10.1
+        version: 2.10.1
+
+  plugins/meet-client:
     dependencies:
       '@tauri-apps/api':
         specifier: ^2.10.1

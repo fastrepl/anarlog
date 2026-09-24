@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "meet-client",
+  "description": "Lets the injected observer inside the Google Meet webview report DOM snapshots",
+  "local": false,
+  "remote": {
+    "urls": ["https://meet.google.com/*"]
+  },
+  "windows": [
+    "meet-client"
+  ],
+  "permissions": [
+    "meet-client:allow-report-observation"
+  ]
+}

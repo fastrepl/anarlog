@@ -210,6 +210,7 @@ tauri-plugin-local-auth = { path = "plugins/local-auth" }
 tauri-plugin-local-llm = { path = "plugins/local-llm" }
 tauri-plugin-local-stt = { path = "plugins/local-stt" }
 tauri-plugin-mcp = { path = "plugins/mcp" }
+tauri-plugin-meet-client = { path = "plugins/meet-client" }
 tauri-plugin-messenger = { path = "plugins/messenger" }
 tauri-plugin-misc = { path = "plugins/misc" }
 tauri-plugin-notification = { path = "plugins/notification" }

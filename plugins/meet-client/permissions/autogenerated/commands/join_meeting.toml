@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-join-meeting"
+description = "Enables the join_meeting command without any pre-configured scope."
+commands.allow = ["join_meeting"]
+
+[[permission]]
+identifier = "deny-join-meeting"
+description = "Denies the join_meeting command without any pre-configured scope."
+commands.deny = ["join_meeting"]

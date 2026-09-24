@@ -58,6 +58,7 @@
     "template:default",
     "todo:default",
     "zoom-client:default",
+    "meet-client:default",
     "notification:default",
     "overlay:default",
     "notify:default",

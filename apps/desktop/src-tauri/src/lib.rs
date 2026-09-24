@@ -307,6 +307,7 @@ pub fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_sidecar2::init())
         .plugin(tauri_plugin_zoom_client::init())
+        .plugin(tauri_plugin_meet_client::init())
         .plugin(tauri_plugin_permissions::init());
 
     #[cfg(not(feature = "app-store"))]

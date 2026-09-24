@@ -97,6 +97,11 @@ vi.mock("~/zoom-client", () => ({
   joinMeetingInAnarlog: vi.fn(),
 }));
 
+vi.mock("~/meet-client", () => ({
+  useMeetClientAvailable: () => false,
+  joinMeetInAnarlog: vi.fn(),
+}));
+
 vi.mock("~/calendar/hooks", () => ({
   useNow: () => new Date(mocks.nowMs),
 }));
