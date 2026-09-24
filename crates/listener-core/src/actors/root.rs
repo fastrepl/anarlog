@@ -314,6 +314,7 @@ async fn start_session_impl(
             app_dir,
             started_at_instant: Instant::now(),
             started_at_system: SystemTime::now(),
+            live_transcript: Default::default(),
         };
 
         match spawn_session_supervisor(ctx).await {

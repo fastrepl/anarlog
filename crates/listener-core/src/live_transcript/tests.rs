@@ -652,6 +652,62 @@ fn preserves_provider_speakers_beyond_calendar_attendance() {
     );
 }
 
+// A listener reconnect keeps the session's engine and replays the last few seconds of audio into
+// the new stream, where the provider re-transcribes them with slightly different timing.
+#[test]
+fn checkpointed_engine_ignores_replayed_words_and_keeps_segments_continuous() {
+    let mut engine = LiveTranscriptEngine::new("deepgram", &[], Some("self"));
+    let final_at = |text: &str, start: f64, end: f64| {
+        transcript_response_at(
+            &format!(" {text}"),
+            vec![word(text, start, end)],
+            true,
+            0,
+            start,
+            end - start,
+        )
+    };
+    let emitted = |update: Option<LiveTranscriptUpdate>| {
+        update
+            .map(|update| {
+                update
+                    .transcript_delta
+                    .new_words
+                    .iter()
+                    .map(|word| word.text.trim().to_string())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    };
+
+    let mut words = emitted(engine.process(&final_at("hello", 0.0, 0.4)));
+    words.extend(emitted(engine.process(&final_at("there", 0.4, 0.9))));
+    let checkpoint = engine.checkpoint().expect("held word is delivered");
+    words.extend(emitted(Some(checkpoint.clone())));
+    assert_eq!(words, ["hello", "there"]);
+    let segment_id = checkpoint.segment_delta.unwrap().upserts[0].id.clone();
+
+    // Replay: "there" again with 30 ms of jitter, then new speech.
+    assert!(emitted(engine.process(&final_at("there", 0.43, 0.92))).is_empty());
+    words.extend(emitted(engine.process(&final_at("friend", 0.92, 1.3))));
+    let flushed = engine.flush().expect("flush delivers the held word");
+    words.extend(emitted(Some(flushed.clone())));
+    assert_eq!(words, ["hello", "there", "friend"]);
+
+    let segment_delta = flushed.segment_delta.unwrap();
+    assert_eq!(
+        segment_delta.upserts.len(),
+        1,
+        "the speaker's turn stays one segment"
+    );
+    assert_eq!(segment_delta.upserts[0].text, "hello there friend");
+    assert_eq!(
+        segment_delta.removed_ids,
+        [segment_id],
+        "the segment grows instead of a second one starting at the reconnect"
+    );
+}
+
 #[test]
 fn updating_attendance_does_not_merge_remote_voices() {
     let mut engine = LiveTranscriptEngine::new("deepgram", &[], Some("self"));

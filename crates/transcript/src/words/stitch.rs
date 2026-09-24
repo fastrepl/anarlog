@@ -1,9 +1,15 @@
 use crate::types::RawWord;
 
-pub(crate) fn dedup(words: Vec<RawWord>, watermark: i64) -> Vec<RawWord> {
+/// Drops the leading words an earlier stream already delivered. `watermark` is the end of the
+/// last delivered word. `resume_boundary` is where a resumed stream took over: it re-transcribes
+/// the replayed audio with slightly different timing, so a word lying mostly before that point is
+/// the same word again rather than new speech.
+pub(crate) fn dedup(words: Vec<RawWord>, watermark: i64, resume_boundary: i64) -> Vec<RawWord> {
     words
         .into_iter()
-        .skip_while(|word| word.end_ms <= watermark)
+        .skip_while(|word| {
+            word.end_ms <= watermark || word.start_ms + word.end_ms <= resume_boundary * 2
+        })
         .collect()
 }
 

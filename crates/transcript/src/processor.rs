@@ -258,19 +258,15 @@ impl TranscriptProcessor {
             .into_delta(corrected_words, replaced_ids)
     }
 
-    /// Drain all remaining state at session end.
-    pub fn flush(&mut self) -> TranscriptDelta {
+    /// Finalize everything pending while keeping each channel's delivery position, so a stream
+    /// that resumes over replayed audio (a listener reconnect) does not emit those words again.
+    pub fn checkpoint(&mut self) -> TranscriptDelta {
         let mut new_words = vec![];
 
         for state in self.channels.values_mut() {
-            if self.flush_partials {
-                new_words.extend(state.drain());
-            } else {
-                new_words.extend(state.drain_final_words());
-            }
+            new_words.extend(state.checkpoint(self.flush_partials));
         }
 
-        self.channels.clear();
         let promotion = self.promote_all_corrections();
         let mut replaced_ids = vec![];
         promotion.apply_to(&mut new_words, &mut replaced_ids);
@@ -280,6 +276,13 @@ impl TranscriptProcessor {
             replaced_ids,
             partials: vec![],
         }
+    }
+
+    /// Drain all remaining state at session end.
+    pub fn flush(&mut self) -> TranscriptDelta {
+        let delta = self.checkpoint();
+        self.channels.clear();
+        delta
     }
 
     /// Convert a complete batch response into a `TranscriptDelta`.
@@ -720,6 +723,72 @@ mod tests {
 
         assert_eq!(text, " tail");
         assert!(delta.partials.is_empty());
+    }
+
+    #[test]
+    fn checkpoint_keeps_replayed_words_from_finalizing_twice() {
+        let mut processor = TranscriptProcessor::new();
+        let word = |text: &str, start_ms: i64, end_ms: i64| RawWord {
+            text: text.to_string(),
+            start_ms,
+            end_ms,
+            channel: 0,
+            speaker: None,
+        };
+        let channel = processor
+            .channels
+            .entry(0)
+            .or_insert_with(ChannelState::new);
+        channel.apply_final(
+            vec![word(" hello", 0, 400), word(" there", 400, 900)],
+            WordState::Final,
+            true,
+            true,
+        );
+        channel.apply_partial(vec![word(" world", 900, 1_300)], true);
+
+        let checkpoint = processor.checkpoint();
+        assert_eq!(
+            checkpoint
+                .new_words
+                .iter()
+                .map(|word| word.text.as_str())
+                .collect::<Vec<_>>(),
+            [" there", " world"],
+            "the held word and the pending partial are delivered before the stream is replaced"
+        );
+
+        // The replacement stream replays the same audio and re-transcribes it with jittered
+        // timing; only the speech after the checkpoint is new.
+        let channel = processor.channels.get_mut(&0).expect("channel survives");
+        let partial = channel.apply_partial(vec![word(" world", 930, 1_340)], true);
+        assert!(partial.is_empty());
+        let finals = channel.apply_final(
+            vec![
+                word(" world", 930, 1_340),
+                word(" how", 1_340, 1_500),
+                word(" are", 1_500, 1_700),
+            ],
+            WordState::Final,
+            true,
+            true,
+        );
+        assert_eq!(
+            finals
+                .iter()
+                .map(|word| word.text.as_str())
+                .collect::<Vec<_>>(),
+            [" how"]
+        );
+        assert_eq!(
+            processor
+                .flush()
+                .new_words
+                .iter()
+                .map(|word| word.text.as_str())
+                .collect::<Vec<_>>(),
+            [" are"]
+        );
     }
 
     #[test]

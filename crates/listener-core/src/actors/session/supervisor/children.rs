@@ -147,6 +147,7 @@ pub(super) async fn spawn_listener(
             participant_human_ids: ctx.params.participant_human_ids.clone(),
             self_human_id: ctx.params.self_human_id.clone(),
             speaker_assignments: ctx.params.speaker_assignments.clone(),
+            live_transcript: ctx.live_transcript.clone(),
         },
         supervisor_cell,
     )

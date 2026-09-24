@@ -63,6 +63,7 @@ impl From<TranscriptDelta> for LiveTranscriptDelta {
 
 #[derive(Default)]
 pub struct LiveTranscriptEngine {
+    provider_name: String,
     processor: TranscriptProcessor,
     normalizer: TranscriptNormalizer,
     rendered_segments: RenderedSegmentState,
@@ -96,6 +97,7 @@ impl LiveTranscriptEngine {
         let normalizer = TranscriptNormalizer::for_provider(provider_name);
 
         Self {
+            provider_name: provider_name.to_owned(),
             processor: TranscriptProcessor::new()
                 .with_partial_finalization(normalizer.finalize_partials())
                 .with_flush_partial_finalization(normalizer.flush_partials())
@@ -157,8 +159,26 @@ impl LiveTranscriptEngine {
             .update_identities(Vec::new(), speaker_assignments, segment_options)
     }
 
+    pub fn provider_name(&self) -> &str {
+        &self.provider_name
+    }
+
+    /// Finalize pending words for a stream that is about to be replaced. Unlike `flush`, the
+    /// delivery position survives, so the replacement stream's replayed audio is not emitted twice.
+    pub fn checkpoint(&mut self) -> Option<LiveTranscriptUpdate> {
+        let delta = self.processor.checkpoint();
+        self.update_from(delta.into())
+    }
+
     pub fn flush(&mut self) -> Option<LiveTranscriptUpdate> {
-        let transcript_delta: LiveTranscriptDelta = self.processor.flush().into();
+        let delta = self.processor.flush();
+        self.update_from(delta.into())
+    }
+
+    fn update_from(
+        &mut self,
+        transcript_delta: LiveTranscriptDelta,
+    ) -> Option<LiveTranscriptUpdate> {
         let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
         if transcript_delta.is_empty() && segment_delta.is_none() {
             return None;
