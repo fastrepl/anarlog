@@ -6,7 +6,7 @@ use serde_json::{Map, Value, json};
 use crate::contacts::{CrmContact, CrmContactQuery};
 use crate::error::{CrmError, Result};
 
-use super::{CrmProvider, MAX_CONTACT_RESULTS};
+use super::CrmProvider;
 
 pub const PROVIDER: CrmProvider = CrmProvider {
     id: "attio",
@@ -18,6 +18,7 @@ pub const PROVIDER: CrmProvider = CrmProvider {
 fn search(
     http: OwnedNangoHttpClient,
     query: CrmContactQuery,
+    limit: usize,
 ) -> BoxFuture<'static, Result<Vec<CrmContact>>> {
     Box::pin(async move {
         let filter = if let Some(email) = &query.email {
@@ -37,7 +38,7 @@ fn search(
         };
         let body = json!({
             "filter": filter,
-            "limit": MAX_CONTACT_RESULTS,
+            "limit": limit.min(200),
         });
 
         let response = http
@@ -66,10 +67,7 @@ fn search(
     })
 }
 
-fn attribute_entries<'a>(
-    values: &'a Map<String, Value>,
-    slug: &str,
-) -> Option<&'a Vec<Value>> {
+fn attribute_entries<'a>(values: &'a Map<String, Value>, slug: &str) -> Option<&'a Vec<Value>> {
     values.get(slug).and_then(Value::as_array)
 }
 
@@ -93,7 +91,8 @@ fn first_entry_field<'a>(
 fn contact_from_record(record: &Value) -> Option<CrmContact> {
     let values = record.get("values")?.as_object()?;
 
-    let name = first_entry_field(values, "name", &["full_name"]).map(str::to_string)
+    let name = first_entry_field(values, "name", &["full_name"])
+        .map(str::to_string)
         .or_else(|| {
             let first = first_entry_field(values, "name", &["first_name"]);
             let last = first_entry_field(values, "name", &["last_name"]);
@@ -116,14 +115,12 @@ fn contact_from_record(record: &Value) -> Option<CrmContact> {
             .and_then(Value::as_str)
             .map(str::to_string),
         name,
-        email: first_entry_field(values, "email_addresses", &["email_address"])
-            .map(str::to_string),
+        email: first_entry_field(values, "email_addresses", &["email_address"]).map(str::to_string),
         // Attio's `company` attribute is a record reference and does not carry
         // the company's name, so it is left unset rather than resolved with
         // extra requests per result.
         company_name: None,
-        job_title: first_entry_field(values, "job_title", &["value"])
-            .map(str::to_string),
+        job_title: first_entry_field(values, "job_title", &["value"]).map(str::to_string),
         phone: first_entry_field(
             values,
             "phone_numbers",
