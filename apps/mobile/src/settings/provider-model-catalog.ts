@@ -36,6 +36,7 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
     "openai/whisper-1",
   ],
   dashscope: [
+    "qwen-audio-3.1-asr-flash-streaming",
     "qwen3-asr-flash-realtime",
     "qwen3-asr-flash-realtime-2026-02-10",
   ],

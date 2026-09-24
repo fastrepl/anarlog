@@ -540,6 +540,7 @@ dependencies = [
  "api-auth",
  "api-calendar",
  "api-cloud",
+ "api-crm",
  "api-env",
  "api-mail",
  "api-meeting-import",
@@ -654,6 +655,22 @@ dependencies = [
  "utoipa",
  "uuid",
  "wiremock",
+]
+
+[[package]]
+name = "api-crm"
+version = "0.1.0"
+dependencies = [
+ "api-auth",
+ "api-error",
+ "api-nango",
+ "axum",
+ "futures-util",
+ "nango",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "utoipa",
 ]
 
 [[package]]
@@ -11699,6 +11716,7 @@ dependencies = [
  "transcribe-speechanalyzer",
  "url",
  "user-error",
+ "uuid",
  "wiremock",
  "ws-client",
 ]

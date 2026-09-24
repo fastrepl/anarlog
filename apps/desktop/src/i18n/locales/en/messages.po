@@ -25,20 +25,15 @@ msgstr "(default)"
 msgid "(Unavailable — using current default)"
 msgstr "(Unavailable — using current default)"
 
+#. placeholder {0}: reconnectRequired ? "Reconnect" : "Connect"
+#: src/settings/crm/index.tsx
+msgid "{0}"
+msgstr "{0}"
+
 #. placeholder {0}: group.sessionIds.length
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "{0} {noteLabel} deleted"
 msgstr "{0} {noteLabel} deleted"
-
-#. placeholder {0}: provider.name
-#: src/settings/crm/index.tsx
-msgid "{0} client ID"
-msgstr "{0} client ID"
-
-#. placeholder {0}: provider.name
-#: src/settings/crm/index.tsx
-msgid "{0} client secret"
-msgstr "{0} client secret"
 
 #. placeholder {0}: status.commandName
 #: src/settings/developers/cli.tsx
@@ -914,6 +909,7 @@ msgid "Can view"
 msgstr "Can view"
 
 #: src/calendar/components/apple/permission.tsx
+#: src/folders/folder-editor.tsx
 #: src/imports/screen.tsx
 #: src/resource-sharing/library.tsx
 #: src/session-sharing/comments.tsx
@@ -1196,6 +1192,10 @@ msgstr "Choose which day begins your calendar week."
 msgid "Choose who can access notes from new meetings."
 msgstr "Choose who can access notes from new meetings."
 
+#: src/folders/folder-editor.tsx
+msgid "Choose who receives new notes created in this folder."
+msgstr "Choose who receives new notes created in this folder."
+
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
 msgstr "Claim email domain"
@@ -1242,14 +1242,6 @@ msgstr "Click here, then use your dictation shortcut."
 #: src/settings/dictation-shortcut.tsx
 msgid "Click the shortcut to record a new key combination. Press Escape to cancel."
 msgstr "Click the shortcut to record a new key combination. Press Escape to cancel."
-
-#: src/settings/crm/index.tsx
-msgid "Client ID"
-msgstr "Client ID"
-
-#: src/settings/crm/index.tsx
-msgid "Client secret (optional)"
-msgstr "Client secret (optional)"
 
 #: src/shared/ui/resource-list/preview-header.tsx
 msgid "Clone"
@@ -1427,13 +1419,13 @@ msgstr "Configure a chat model to use the quick composer."
 msgid "Configure Providers"
 msgstr "Configure Providers"
 
+#: src/folders/folder-editor.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Confirm"
 msgstr "Confirm"
 
 #: src/imports/screen.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
-#: src/settings/crm/index.tsx
 msgid "Connect"
 msgstr "Connect"
 
@@ -1454,8 +1446,8 @@ msgid "Connect {0} Calendar"
 msgstr "Connect {0} Calendar"
 
 #: src/settings/crm/index.tsx
-msgid "Connect a CRM to look up your contacts from Anarlog. Access tokens stay on this device."
-msgstr "Connect a CRM to look up your contacts from Anarlog. Access tokens stay on this device."
+msgid "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
+msgstr "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
 
 #: src/onboarding/calendar.tsx
 #: src/onboarding/index.tsx
@@ -1854,12 +1846,6 @@ msgstr "Create a Team to share a library"
 #: src/onboarding/index.tsx
 msgid "Create account"
 msgstr "Create account"
-
-#. placeholder {0}: provider.name
-#. placeholder {1}: provider.redirectUri
-#: src/settings/crm/index.tsx
-msgid "Create an OAuth app in {0} with redirect URL <0>{1}</0> and paste its credentials here."
-msgstr "Create an OAuth app in {0} with redirect URL <0>{1}</0> and paste its credentials here."
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Create key"
@@ -3490,6 +3476,11 @@ msgstr "New meetings are imported automatically while Anarlog is running."
 msgid "New Note"
 msgstr "New Note"
 
+#. placeholder {0}: workspaceConfirmation?.name
+#: src/folders/folder-editor.tsx
+msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+msgstr "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr "New template"
@@ -3811,6 +3802,7 @@ msgstr "On-device models can take a few minutes to warm up before text appears."
 msgid "On-device transcription, recordings, and your own keys."
 msgstr "On-device transcription, recordings, and your own keys."
 
+#: src/folders/folder-editor.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "Only me"
 msgstr "Only me"
@@ -4261,6 +4253,7 @@ msgid "Reconnect Notion"
 msgstr "Reconnect Notion"
 
 #: src/calendar/components/oauth/status.tsx
+#: src/settings/crm/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Reconnect required"
 msgstr "Reconnect required"
@@ -4942,6 +4935,10 @@ msgstr "Share notes with others"
 msgid "Share one item with a guest, or add it to a Team for everyone."
 msgstr "Share one item with a guest, or add it to a Team for everyone."
 
+#: src/folders/folder-editor.tsx
+msgid "Share this folder?"
+msgstr "Share this folder?"
+
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
 msgstr "Share usage data"
@@ -5121,6 +5118,10 @@ msgstr "Sign in to connect"
 #: src/settings/todo/provider-content.tsx
 msgid "Sign in to connect {0}"
 msgstr "Sign in to connect {0}"
+
+#: src/settings/crm/index.tsx
+msgid "Sign in to connect a CRM."
+msgstr "Sign in to connect a CRM."
 
 #: src/calendar/components/oauth/provider-content.tsx
 msgid "Sign in to connect your calendar"
@@ -5583,6 +5584,14 @@ msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team"
 msgstr "Team"
+
+#: src/folders/folder-editor.tsx
+msgid "Team folder"
+msgstr "Team folder"
+
+#: src/folders/folder-editor.tsx
+msgid "Team folder workspace"
+msgstr "Team folder workspace"
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team library"

@@ -1,9 +1,17 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 
 import { DotsThree, File, Plus, X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import {
   AppFloatingPanel,
   appFloatingMenuPanelClassName,
@@ -13,6 +21,13 @@ import {
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
 import { Input } from "@anlg/ui/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@anlg/ui/components/ui/select";
 import { cn } from "@anlg/utils";
 
 import { useFolderSelection } from "./selection";
@@ -29,6 +44,10 @@ import {
   useSharedResources,
 } from "~/resource-sharing/hooks";
 import {
+  useAvailableShareWorkspaces,
+  usePersonalWorkspaceId,
+} from "~/session-sharing/source";
+import {
   deleteLocalFolderMaterial,
   diskAttachmentId,
   useFolderMaterials,
@@ -37,6 +56,8 @@ import {
   deleteNamedFolder,
   renameNamedFolder,
   updateFolderIcon,
+  updateFolderWorkspace,
+  useFolderWorkspaceId,
 } from "~/session/folder-catalog";
 import { resolvedFolderIcon } from "~/session/folder-icon";
 import { FolderInstructionsField } from "~/session/folder-instructions";
@@ -46,9 +67,14 @@ import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { TemplateIconPicker } from "~/templates/template-icon-picker";
 
+const PERSONAL_WORKSPACE_VALUE = "__personal__";
+
 export function FolderEditor({ folderPath }: { folderPath: string }) {
   const { t } = useLingui();
   const auth = useOptionalAuth();
+  const accountUserId = auth?.session?.user.id ?? null;
+  const availableWorkspaces = useAvailableShareWorkspaces(accountUserId);
+  const personalWorkspaceId = usePersonalWorkspaceId(accountUserId);
   const queryClient = useQueryClient();
   const sharedFolders = useSharedResources("folder");
   const ownedShare = sharedFolders.data?.find(
@@ -76,6 +102,21 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
   const [busy, setBusy] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [workspaceConfirmation, setWorkspaceConfirmation] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const folderWorkspaceId = useFolderWorkspaceId(folderPath);
+  const selectedWorkspaceValue = availableWorkspaces.some(
+    (workspace) => workspace.id === folderWorkspaceId,
+  )
+    ? folderWorkspaceId
+    : PERSONAL_WORKSPACE_VALUE;
+  const workspaceMutation = useMutation({
+    mutationFn: (workspaceId: string) =>
+      updateFolderWorkspace(folderPath, workspaceId),
+    onSuccess: () => setWorkspaceConfirmation(null),
+  });
   const displayName = folderDisplayName(folderPath);
   const [draft, setDraft] = useState(displayName);
 
@@ -226,6 +267,54 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
 
       <div className="scrollbar-hide flex-1 overflow-y-auto px-3 pt-3 pb-6">
         <div className="flex max-w-2xl flex-col gap-6">
+          {auth?.session?.user.id && availableWorkspaces.length > 0 ? (
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-1.5">
+                <h4 className="text-sm font-medium">
+                  <Trans>Team folder</Trans>
+                </h4>
+                <p className="text-muted-foreground text-xs">
+                  <Trans>
+                    Choose who receives new notes created in this folder.
+                  </Trans>
+                </p>
+              </div>
+              <Select
+                value={selectedWorkspaceValue}
+                disabled={workspaceMutation.isPending}
+                onValueChange={(workspaceId) => {
+                  if (workspaceId === PERSONAL_WORKSPACE_VALUE) {
+                    workspaceMutation.mutate(personalWorkspaceId);
+                    return;
+                  }
+                  const workspace = availableWorkspaces.find(
+                    (candidate) => candidate.id === workspaceId,
+                  );
+                  if (workspace) {
+                    setWorkspaceConfirmation(workspace);
+                  }
+                }}
+              >
+                <SelectTrigger
+                  aria-label={t`Team folder workspace`}
+                  className="h-8 w-44 text-xs"
+                >
+                  <SelectValue placeholder={t`Only me`} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PERSONAL_WORKSPACE_VALUE}>
+                    <Trans>Only me</Trans>
+                  </SelectItem>
+                  {availableWorkspaces.map((workspace) => (
+                    <SelectItem key={workspace.id} value={workspace.id}>
+                      {workspace.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
           <div className="flex flex-col gap-1.5">
             <h4 className="text-sm font-medium">
               <Trans>Context</Trans>
@@ -323,6 +412,49 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={workspaceConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open && !workspaceMutation.isPending) {
+            setWorkspaceConfirmation(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              <Trans>Share this folder?</Trans>
+            </DialogTitle>
+            <DialogDescription>
+              <Trans>
+                New notes in this folder will sync to everyone in{" "}
+                {workspaceConfirmation?.name}. Notes already in the folder are
+                not moved.
+              </Trans>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={workspaceMutation.isPending}
+              onClick={() => setWorkspaceConfirmation(null)}
+            >
+              <Trans>Cancel</Trans>
+            </Button>
+            <Button
+              disabled={workspaceMutation.isPending}
+              onClick={() => {
+                if (workspaceConfirmation) {
+                  workspaceMutation.mutate(workspaceConfirmation.id);
+                }
+              }}
+            >
+              <Trans>Confirm</Trans>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <DestructiveConfirmationDialog
         open={deleting}

@@ -372,7 +372,7 @@ describe("ClassicMainBody", () => {
             "[data-left-sidebar-chrome] > div",
           );
 
-      if (runtimePlatform === "windows" && expanded) {
+      if (expanded) {
         expect(chromeFrame).toBeNull();
       } else {
         await waitFor(() => {
