@@ -12,7 +12,6 @@ use serde_json::{Map, Value};
 pub const MAX_CONTACT_RESULTS: usize = 10;
 
 #[derive(Clone, Copy)]
-#[allow(dead_code)]
 pub enum ClientRegistration {
     /// The server supports OAuth dynamic client registration.
     Dynamic,
@@ -31,7 +30,8 @@ pub struct CrmProvider {
     pub search_arguments: Option<SearchArguments>,
 }
 
-pub const CRM_PROVIDERS: &[CrmProvider] = &[crate::crm_hubspot::PROVIDER];
+pub const CRM_PROVIDERS: &[CrmProvider] =
+    &[crate::crm_hubspot::PROVIDER, crate::crm_attio::PROVIDER];
 
 impl CrmProvider {
     fn info(&self) -> CrmProviderInfo {
