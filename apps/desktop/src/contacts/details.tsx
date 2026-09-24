@@ -613,7 +613,7 @@ export function ContactOrganizationSelector({
         >
           {organization?.name ? (
             <div className="flex items-center">
-              <span className="text-base">{organization.name}</span>
+              <span className="text-base md:text-sm">{organization.name}</span>
               <span className="group text-muted-foreground ml-2">
                 <MinusCircle
                   className="text-muted-foreground size-4 cursor-pointer hover:text-red-600"
@@ -625,7 +625,7 @@ export function ContactOrganizationSelector({
               </span>
             </div>
           ) : (
-            <span className="text-muted-foreground flex items-center gap-1 text-base">
+            <span className="text-muted-foreground flex items-center gap-1 text-base md:text-sm">
               <Plus className="size-4" />
               <Trans>Add organization</Trans>
             </span>
