@@ -21,12 +21,14 @@ pub enum CaptureProviderKind {
     ZoomRtms,
     MicrosoftGraph,
     WebexMeetingsSdk,
+    /// The user's own device joins through the Zoom Meeting SDK; no bot is present.
+    ZoomMeetingSdk,
 }
 
 impl CaptureProviderKind {
     pub fn native_platform(self) -> Option<MeetingPlatform> {
         match self {
-            Self::ZoomRtms => Some(MeetingPlatform::Zoom),
+            Self::ZoomRtms | Self::ZoomMeetingSdk => Some(MeetingPlatform::Zoom),
             Self::MicrosoftGraph => Some(MeetingPlatform::MicrosoftTeams),
             Self::WebexMeetingsSdk => Some(MeetingPlatform::Webex),
             Self::Anarlog | Self::Recall => None,
@@ -84,6 +86,14 @@ pub struct Participant {
     pub email: Option<String>,
 }
 
+/// Participants the meeting platform reports as talking at `at_ms` since capture start.
+/// An empty list means silence.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActiveSpeakers {
+    pub at_ms: u64,
+    pub participant_ids: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TranscriptSegment {
     pub id: String,
@@ -130,6 +140,7 @@ pub enum CaptureEventPayload {
     SpeakerUpserted(Speaker),
     ParticipantUpserted(Participant),
     ParticipantLeft { participant_id: String },
+    ActiveSpeakers(ActiveSpeakers),
     RecordingChunkReady(RecordingChunk),
 }
 

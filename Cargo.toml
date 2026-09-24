@@ -233,6 +233,7 @@ tauri-plugin-transcription = { path = "plugins/transcription" }
 tauri-plugin-tray = { path = "plugins/tray", package = "tauri-plugin-anlg-tray" }
 tauri-plugin-updater2 = { path = "plugins/updater2" }
 tauri-plugin-windows = { path = "plugins/windows" }
+tauri-plugin-zoom-client = { path = "plugins/zoom-client" }
 
 anlg-supervisor = { path = "crates/supervisor", package = "supervisor" }
 async-stream = "0.3.6"

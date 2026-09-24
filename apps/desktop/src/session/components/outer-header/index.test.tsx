@@ -91,6 +91,12 @@ vi.mock("@anlg/plugin-deeplink2", () => ({
   },
 }));
 
+vi.mock("~/zoom-client", () => ({
+  useZoomClientAvailable: () => false,
+  useOwnerDisplayName: () => "Anarlog",
+  joinMeetingInAnarlog: vi.fn(),
+}));
+
 vi.mock("~/calendar/hooks", () => ({
   useNow: () => new Date(mocks.nowMs),
 }));

@@ -85,6 +85,7 @@ tauri-plugin-updater = { workspace = true }
 tauri-plugin-updater2 = { workspace = true }
 tauri-plugin-window-state = { workspace = true }
 tauri-plugin-windows = { workspace = true }
+tauri-plugin-zoom-client = { workspace = true }
 
 anlg-audio-actual = { workspace = true }
 anlg-audio-mock = { workspace = true, optional = true }

@@ -1,0 +1,3 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = ["allow-is-available", "allow-join-meeting", "allow-leave-meeting", "allow-get-status"]

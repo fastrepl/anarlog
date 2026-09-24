@@ -105,6 +105,7 @@ mod tests {
     fn pins_vendor_native_providers_to_their_platform() {
         for (provider, platform) in [
             (CaptureProviderKind::ZoomRtms, MeetingPlatform::Zoom),
+            (CaptureProviderKind::ZoomMeetingSdk, MeetingPlatform::Zoom),
             (
                 CaptureProviderKind::MicrosoftGraph,
                 MeetingPlatform::MicrosoftTeams,

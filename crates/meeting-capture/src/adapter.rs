@@ -2,9 +2,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    BotState, CaptureEvent, CaptureEventPayload, CaptureProviderKind, CaptureWorkerCheckpoint,
-    CaptureWorkerCheckpointError, MeetingPlatform, Participant, ProviderMetadata, RecordingChunk,
-    Speaker, TerminalReason, TranscriptSegment, TransitionError,
+    ActiveSpeakers, BotState, CaptureEvent, CaptureEventPayload, CaptureProviderKind,
+    CaptureWorkerCheckpoint, CaptureWorkerCheckpointError, MeetingPlatform, Participant,
+    ProviderMetadata, RecordingChunk, Speaker, TerminalReason, TranscriptSegment, TransitionError,
 };
 
 pub const MEETING_SDK_BRIDGE_PROTOCOL_VERSION: u16 = 1;
@@ -80,6 +80,7 @@ pub enum MeetingSdkBridgeEventPayload {
     Transcript(MeetingSdkBridgeTranscript),
     ParticipantUpserted(Participant),
     ParticipantLeft { participant_id: String },
+    ActiveSpeakers(ActiveSpeakers),
     RecordingChunkReady(RecordingChunk),
     Terminal(MeetingSdkBridgeTerminal),
 }
@@ -186,6 +187,15 @@ impl MeetingSdkBridgeNormalizer {
                 require_capturing(self.state)?;
                 CaptureEventPayload::ParticipantLeft { participant_id }
             }
+            MeetingSdkBridgeEventPayload::ActiveSpeakers(active) => {
+                require_capturing(self.state)?;
+                if active.participant_ids.len() > 64
+                    || active.participant_ids.iter().any(String::is_empty)
+                {
+                    return Err(MeetingSdkBridgeError::InvalidActiveSpeakers);
+                }
+                CaptureEventPayload::ActiveSpeakers(active)
+            }
             MeetingSdkBridgeEventPayload::RecordingChunkReady(chunk) => {
                 require_capturing(self.state)?;
                 CaptureEventPayload::RecordingChunkReady(chunk)
@@ -240,7 +250,7 @@ fn validate_bridge_provider(
         ) | (
             CaptureProviderKind::WebexMeetingsSdk,
             MeetingPlatform::Webex
-        )
+        ) | (CaptureProviderKind::ZoomMeetingSdk, MeetingPlatform::Zoom)
     ) {
         return Err(MeetingSdkBridgeError::UnsupportedProvider { provider, platform });
     }
@@ -267,6 +277,9 @@ fn validate_bridge_meeting_url(
             matches!(host.as_str(), "teams.microsoft.com" | "teams.live.com")
         }
         MeetingPlatform::Webex => host == "webex.com" || host.ends_with(".webex.com"),
+        MeetingPlatform::Zoom => {
+            host == "zoom.us" || host.ends_with(".zoom.us") || host.ends_with(".zoomgov.com")
+        }
         _ => false,
     };
     if !matches_platform {
@@ -305,6 +318,8 @@ pub enum MeetingSdkBridgeError {
     SequenceExhausted,
     #[error("meeting SDK bridge transcript is invalid for the current state")]
     InvalidTranscript,
+    #[error("meeting SDK bridge active speaker list is invalid")]
+    InvalidActiveSpeakers,
     #[error("meeting SDK bridge emitted capture payload while state was {0:?}")]
     PayloadBeforeCapture(BotState),
     #[error("meeting SDK bridge terminal state {0:?} is not terminal")]
@@ -331,6 +346,7 @@ mod tests {
         let url = match platform {
             MeetingPlatform::MicrosoftTeams => "https://teams.microsoft.com/l/meetup-join/test",
             MeetingPlatform::Webex => "https://anarlog.webex.com/meet/test",
+            MeetingPlatform::Zoom => "https://us02web.zoom.us/j/1234567890?pwd=abc",
             _ => "https://example.com/meeting",
         };
         CaptureWorkerCheckpoint {
@@ -420,6 +436,82 @@ mod tests {
             assert!(matches!(
                 events[3].payload,
                 CaptureEventPayload::Transcript(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn normalizes_zoom_meeting_sdk_active_speakers() {
+        let checkpoint = checkpoint(CaptureProviderKind::ZoomMeetingSdk, MeetingPlatform::Zoom);
+        MeetingSdkBridgeStart::new(checkpoint.clone(), "John").unwrap();
+        let mut normalizer = MeetingSdkBridgeNormalizer::new(&checkpoint).unwrap();
+        let accept = |normalizer: &mut MeetingSdkBridgeNormalizer, sequence, payload| {
+            normalizer.accept(
+                event(
+                    sequence,
+                    MeetingPlatform::Zoom,
+                    CaptureProviderKind::ZoomMeetingSdk,
+                    payload,
+                ),
+                now(),
+            )
+        };
+
+        let active = ActiveSpeakers {
+            at_ms: 1500,
+            participant_ids: vec!["16778240".into()],
+        };
+        assert!(matches!(
+            accept(
+                &mut normalizer,
+                0,
+                MeetingSdkBridgeEventPayload::ActiveSpeakers(active.clone()),
+            ),
+            Err(MeetingSdkBridgeError::PayloadBeforeCapture(
+                BotState::Queued
+            ))
+        ));
+
+        accept(&mut normalizer, 0, MeetingSdkBridgeEventPayload::Ready).unwrap();
+        accept(&mut normalizer, 1, MeetingSdkBridgeEventPayload::Joined).unwrap();
+        accept(&mut normalizer, 2, MeetingSdkBridgeEventPayload::Capturing).unwrap();
+        let normalized = accept(
+            &mut normalizer,
+            3,
+            MeetingSdkBridgeEventPayload::ActiveSpeakers(active.clone()),
+        )
+        .unwrap();
+        assert_eq!(
+            normalized.payload,
+            CaptureEventPayload::ActiveSpeakers(active)
+        );
+
+        assert!(matches!(
+            accept(
+                &mut normalizer,
+                4,
+                MeetingSdkBridgeEventPayload::ActiveSpeakers(ActiveSpeakers {
+                    at_ms: 1600,
+                    participant_ids: vec![String::new()],
+                }),
+            ),
+            Err(MeetingSdkBridgeError::InvalidActiveSpeakers)
+        ));
+
+        for url in [
+            "https://zoom.us.evil.example/j/1",
+            "https://example.com/j/1",
+        ] {
+            let unsafe_checkpoint = CaptureWorkerCheckpoint {
+                meeting: MeetingReference {
+                    url: url.into(),
+                    ..checkpoint.meeting.clone()
+                },
+                ..checkpoint.clone()
+            };
+            assert!(matches!(
+                MeetingSdkBridgeStart::new(unsafe_checkpoint, "John"),
+                Err(MeetingSdkBridgeError::InvalidMeetingUrl { .. })
             ));
         }
     }

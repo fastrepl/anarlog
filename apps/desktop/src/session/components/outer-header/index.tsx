@@ -44,6 +44,11 @@ import {
   isMainWebviewWindow,
   requestMainListenerControl,
 } from "~/stt/window-control";
+import {
+  joinMeetingInAnarlog,
+  useOwnerDisplayName,
+  useZoomClientAvailable,
+} from "~/zoom-client";
 
 export function OuterHeader({
   sessionId,
@@ -219,6 +224,10 @@ function HeaderMeetingAction({
       meetingStarted,
   );
   const { t } = useLingui();
+  const zoomClientAvailable = useZoomClientAvailable();
+  const ownerDisplayName = useOwnerDisplayName();
+  const joinInAnarlog =
+    zoomClientAvailable && !isWelcomeDemo && remote?.type === "zoom";
   const joiningMeetingRef = useRef(false);
   const [joiningMeeting, setJoiningMeeting] = useState(false);
   const start = useCallback(async () => {
@@ -232,6 +241,19 @@ function HeaderMeetingAction({
   const openMeeting = useCallback(async () => {
     if (!meetingLink) {
       return;
+    }
+
+    if (joinInAnarlog) {
+      try {
+        await joinMeetingInAnarlog({
+          sessionId,
+          meetingUrl: meetingLink,
+          displayName: ownerDisplayName,
+        });
+        return;
+      } catch (error) {
+        console.error("[zoom-client] in-app join failed, opening zoom", error);
+      }
     }
 
     let url = meetingLink;
@@ -252,7 +274,7 @@ function HeaderMeetingAction({
     }
 
     void openerCommands.openUrl(url, null);
-  }, [isWelcomeDemo, meetingLink]);
+  }, [isWelcomeDemo, joinInAnarlog, meetingLink, ownerDisplayName, sessionId]);
   const joinMeeting = useCallback(async () => {
     if (joiningMeetingRef.current) {
       return;
@@ -291,8 +313,10 @@ function HeaderMeetingAction({
       (isWelcomeDemo || !meetingStarted || !meetingMicInUse)
     ) {
       return {
-        label: t`Join & record`,
-        title: t`Join meeting and record`,
+        label: joinInAnarlog ? t`Join in Anarlog` : t`Join & record`,
+        title: joinInAnarlog
+          ? t`Join meeting inside Anarlog and record`
+          : t`Join meeting and record`,
         icon: isWelcomeDemo ? (
           <img
             src="/assets/anarlog-icon.png"

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-leave-meeting"
+description = "Enables the leave_meeting command without any pre-configured scope."
+commands.allow = ["leave_meeting"]
+
+[[permission]]
+identifier = "deny-leave-meeting"
+description = "Denies the leave_meeting command without any pre-configured scope."
+commands.deny = ["leave_meeting"]

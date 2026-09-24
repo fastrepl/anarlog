@@ -583,6 +583,72 @@ export function mergeTranscriptSegments({
   });
 }
 
+export type SessionTranscriptWords = {
+  id: string;
+  started_at_ms: number;
+  words: WordWithId[];
+};
+
+export async function getSessionTranscriptWords(
+  sessionId: string,
+): Promise<SessionTranscriptWords[]> {
+  const rows = await liveQueryClient.execute<
+    Pick<TranscriptSqlRow, "id" | "started_at_ms" | "words_json">
+  >(
+    `
+      SELECT id, started_at_ms, words_json
+      FROM transcripts
+      WHERE session_id = ? AND deleted_at IS NULL
+      ORDER BY started_at_ms, created_at, id
+    `,
+    [sessionId],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    started_at_ms: Number(row.started_at_ms),
+    words: parseWordsJson(row.words_json),
+  }));
+}
+
+function parseWordsJson(json: string): WordWithId[] {
+  try {
+    const parsed: unknown = JSON.parse(json || "[]");
+    return Array.isArray(parsed) ? (parsed as WordWithId[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function assignTranscriptWordsToHuman({
+  transcriptId,
+  assignments,
+}: {
+  transcriptId: string;
+  assignments: Array<{ humanId: string; wordIds: string[] }>;
+}): Promise<void> {
+  return mutateTranscript(transcriptId, (store) => {
+    const known = new Set(
+      parseTranscriptWords(store, transcriptId).map((word) => word.id),
+    );
+    let changed = false;
+    for (const { humanId, wordIds } of assignments) {
+      const scoped = wordIds.filter((id) => known.has(id));
+      const anchor = scoped[0];
+      if (!anchor) continue;
+      upsertSpeakerAssignment(
+        store,
+        transcriptId,
+        { channel: "RemoteParty", speaker_index: null },
+        humanId,
+        anchor,
+        { mode: "segment", wordIds: scoped, extendToAdjacent: false },
+      );
+      changed = true;
+    }
+    return changed;
+  });
+}
+
 export function assignTranscriptSpeaker({
   transcriptId,
   segmentKey,

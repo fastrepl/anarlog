@@ -4855,6 +4855,7 @@ dependencies = [
  "tauri-plugin-updater2",
  "tauri-plugin-window-state",
  "tauri-plugin-windows",
+ "tauri-plugin-zoom-client",
  "tauri-specta",
  "tempfile",
  "tokio",
@@ -18037,6 +18038,27 @@ dependencies = [
  "url",
  "uuid",
  "windows 0.62.2",
+]
+
+[[package]]
+name = "tauri-plugin-zoom-client"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "meeting-capture",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-shell",
+ "tauri-plugin-sidecar2",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

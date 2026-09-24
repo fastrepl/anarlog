@@ -57,6 +57,7 @@
     "transcription:default",
     "template:default",
     "todo:default",
+    "zoom-client:default",
     "notification:default",
     "overlay:default",
     "notify:default",

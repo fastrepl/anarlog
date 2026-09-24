@@ -2887,7 +2887,15 @@ msgid "Join automatically with a work email"
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx
+msgid "Join in Anarlog"
+msgstr ""
+
+#: src/session/components/outer-header/index.tsx
 msgid "Join meeting and record"
+msgstr ""
+
+#: src/session/components/outer-header/index.tsx
+msgid "Join meeting inside Anarlog and record"
 msgstr ""
 
 #: src/onboarding/final.tsx

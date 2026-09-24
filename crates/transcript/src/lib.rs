@@ -25,7 +25,8 @@ pub use render::{
 };
 pub use segments::build_segments;
 pub use types::{
-    ChannelProfile, FinalizedWord, IdentityAssignment, IdentityScope, PartialWord, RawWord,
-    Segment, SegmentBuilderOptions, SegmentKey, SegmentWord, TranscriptDelta, WordState,
-    channel_assignments_for_participants, segment_options_for_participants,
+    ActiveSpeakerSample, ChannelProfile, FinalizedWord, IdentityAssignment, IdentityScope,
+    PartialWord, RawWord, Segment, SegmentBuilderOptions, SegmentKey, SegmentWord, TranscriptDelta,
+    WordState, channel_assignments_for_participants, segment_options_for_participants,
+    word_assignments_from_active_speakers,
 };

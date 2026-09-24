@@ -66,6 +66,7 @@
     "@anlg/plugin-tray": "workspace:*",
     "@anlg/plugin-updater2": "workspace:*",
     "@anlg/plugin-windows": "workspace:*",
+    "@anlg/plugin-zoom-client": "workspace:*",
     "@anlg/pricing": "workspace:^",
     "@anlg/store": "workspace:*",
     "@anlg/supabase": "workspace:*",

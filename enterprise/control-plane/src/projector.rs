@@ -100,6 +100,7 @@ pub fn project(
                 participant.last_seen_at = event.occurred_at;
                 participant.left_at = Some(event.occurred_at);
             }
+            CaptureEventPayload::ActiveSpeakers(_) => {}
             CaptureEventPayload::RecordingChunkReady(chunk) => {
                 chunks.insert(chunk.id.clone(), chunk.clone());
             }
@@ -314,6 +315,7 @@ fn provider_name(provider: CaptureProviderKind) -> &'static str {
         CaptureProviderKind::ZoomRtms => "zoom_rtms",
         CaptureProviderKind::MicrosoftGraph => "microsoft_graph",
         CaptureProviderKind::WebexMeetingsSdk => "webex_meetings_sdk",
+        CaptureProviderKind::ZoomMeetingSdk => "zoom_meeting_sdk",
     }
 }
 

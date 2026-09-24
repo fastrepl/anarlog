@@ -201,6 +201,9 @@ importers:
       '@anlg/plugin-windows':
         specifier: workspace:*
         version: link:../../plugins/windows
+      '@anlg/plugin-zoom-client':
+        specifier: workspace:*
+        version: link:../../plugins/zoom-client
       '@anlg/pricing':
         specifier: workspace:^
         version: link:../../packages/pricing
@@ -1611,6 +1614,12 @@ importers:
         version: 2.10.1
 
   plugins/windows:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.10.1
+        version: 2.10.1
+
+  plugins/zoom-client:
     dependencies:
       '@tauri-apps/api':
         specifier: ^2.10.1

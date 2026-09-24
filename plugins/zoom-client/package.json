@@ -1,0 +1,12 @@
+{
+  "name": "@anlg/plugin-zoom-client",
+  "private": true,
+  "main": "./js/index.ts",
+  "scripts": {
+    "codegen": "cargo test -p tauri-plugin-zoom-client export_types",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1"
+  }
+}
