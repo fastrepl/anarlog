@@ -408,12 +408,23 @@ pub async fn window_expand_width(
                 return None;
             }
 
-            let new_width = frame.size.width + expansion;
-            let new_origin_x = if expand_left {
+            let mut new_width = frame.size.width + expansion;
+            let mut new_origin_x = if expand_left {
                 frame.origin.x - expansion
             } else {
                 frame.origin.x
             };
+            if let Some(screen) = ns_window.screen() {
+                let visible = screen.visibleFrame();
+                let visible_max_x = visible.origin.x + visible.size.width;
+                new_origin_x = new_origin_x
+                    .min(visible_max_x - new_width)
+                    .max(visible.origin.x);
+                new_width = new_width.min(visible_max_x - new_origin_x);
+            }
+            if new_width <= frame.size.width {
+                return None;
+            }
             ns_window.setFrame_display(
                 NSRect::new(
                     NSPoint::new(new_origin_x, frame.origin.y),

@@ -19,6 +19,7 @@ import {
 import { ChatPanelFrame, ChatSessionHost } from "~/chat/components/chat-panel";
 import { PersistentChatPanel } from "~/chat/components/persistent-chat";
 import { useShell } from "~/contexts/shell";
+import { readZoomFactor } from "~/shared/zoom";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 const RIGHT_CHAT_PANEL_MIN_WIDTH_PX = 320;
@@ -268,7 +269,7 @@ function useNoteSurfaceWindowWidthGuard({
     }
 
     void windowsCommands.windowExpandWidth(
-      widthDeficit,
+      Math.ceil(widthDeficit * readZoomFactor()),
       null,
       false,
       expandLeft,

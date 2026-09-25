@@ -9,6 +9,7 @@ import {
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { WINDOW_CONTROLS_SIDEBAR_MIN_WIDTH } from "~/shared/hooks/useWindowControlsGutter";
 import { resetSidebarNotes } from "~/sidebar/note-filter";
 
 const mocks = vi.hoisted(() => ({
@@ -301,7 +302,7 @@ describe("ClassicMainBody", () => {
     expect(panels[0]?.dataset.minSize).toBe("12.5");
     expect(panels[0]?.dataset.maxSize).toBe("22.5");
     expect(panels[0]?.dataset.flexGrow).toBe("var(--left-sidebar-panel-size)");
-    expect(panels[0]?.dataset.minWidth).toBe("200");
+    expect(panels[0]?.dataset.minWidth).toBe(WINDOW_CONTROLS_SIDEBAR_MIN_WIDTH);
     expect(panels[0]?.dataset.maxWidth).toBe("360");
     expect(panels[0]?.dataset.transition).toBeUndefined();
     expect(panels[1]?.dataset.panelId).toBe("classic-main-content");
