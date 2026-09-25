@@ -197,7 +197,7 @@ fn apply_identity_rules(
         && state
             .isolated_mic_ranges
             .iter()
-            .any(|(start, end)| word.start_ms >= *start && word.start_ms < *end)
+            .any(|(start, end)| word.start_ms >= *start && word.end_ms <= *end)
         && let Some((speaker_index, human_id)) = state.single_human_by_channel.get(&word.channel)
     {
         identity.speaker_index = *speaker_index;

@@ -518,6 +518,25 @@ fn indexless_words_stay_unnamed_outside_isolated_ranges() {
 }
 
 #[test]
+fn indexless_words_spanning_a_range_boundary_stay_unnamed() {
+    let finals = vec![
+        fw_si("0", 0, 100, 0, 0),
+        fw("1", 900, 1100, 0),
+        fw("2", 1200, 1300, 0),
+    ];
+    let assignments = vec![speaker_human("alice", ChannelProfile::DirectMic, 0)];
+    let result = build_segments(&finals, &[], &assignments, Some(&isolated_opts(400, 1000)));
+    assert_eq!(
+        result
+            .iter()
+            .filter(|segment| segment.key.speaker_human_id.as_deref() == Some("alice"))
+            .flat_map(|segment| texts(segment))
+            .collect::<Vec<_>>(),
+        vec!["0"]
+    );
+}
+
+#[test]
 fn indexless_words_stay_unnamed_with_multiple_channel_humans() {
     let finals = vec![
         fw_si("0", 0, 100, 0, 0),
