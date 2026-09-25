@@ -314,7 +314,10 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
             Data passes through Nango’s encrypted proxy and stays on your
             device.
           </li>
-          <li>Event context is only included if you sync or share a note.</li>
+          <li>
+            Event context is only included if you sync, share, or use AI on a
+            note.
+          </li>
         </ul>
       )}
 

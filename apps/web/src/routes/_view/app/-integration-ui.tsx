@@ -83,6 +83,6 @@ export function integrationIcon(integrationId: string, size = 20): ReactNode {
     case "microsoft-teams":
       return <Icon icon="logos:microsoft-teams" width={size} height={size} />;
     default:
-      return <PuzzlePiece size={size} className="text-[#756b5d]" />;
+      return <PuzzlePiece size={size} className="text-color-muted" />;
   }
 }
