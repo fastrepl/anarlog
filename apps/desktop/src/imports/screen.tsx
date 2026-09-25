@@ -6,7 +6,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { open as selectFiles } from "@tauri-apps/plugin-dialog";
-import { motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useRef } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
@@ -26,7 +25,6 @@ import {
   AccordionContent,
 } from "@anlg/ui/components/ui/accordion";
 import { Button } from "@anlg/ui/components/ui/button";
-import { ButtonGroup } from "@anlg/ui/components/ui/button-group";
 import {
   AppFloatingPanel,
   appFloatingMenuPanelClassName,
@@ -35,7 +33,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import {
@@ -68,6 +65,7 @@ import {
 
 import { useAuth } from "~/auth";
 import { useConnections } from "~/auth/useConnections";
+import { ConnectButtonGroup } from "~/shared/connect-button-group";
 
 const IMPORT_EXTENSIONS = [
   "csv",
@@ -78,45 +76,6 @@ const IMPORT_EXTENSIONS = [
   "txt",
   "vtt",
 ];
-
-function ImportSplitButtonGroup({
-  signedIn,
-  syncing = false,
-  children,
-}: {
-  signedIn: boolean;
-  syncing?: boolean;
-  children: ReactNode;
-}) {
-  const { t } = useLingui();
-  const reducedMotion = useReducedMotion();
-  const ref = useSquircleRef<HTMLDivElement>();
-  return (
-    <div
-      ref={ref}
-      className={cn([
-        "focus-within:ring-ring/50 relative w-56 shrink-0 overflow-hidden focus-within:ring-[3px]",
-        signedIn ? "bg-primary" : "border-input border",
-      ])}
-    >
-      {syncing && (
-        <motion.span
-          role="progressbar"
-          aria-label={t`Sync now`}
-          className={cn([
-            "bg-primary-foreground/20 pointer-events-none absolute inset-y-0 left-0",
-            reducedMotion ? "w-full" : "w-1/3",
-          ])}
-          animate={reducedMotion ? undefined : { x: ["-100%", "300%"] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
-        />
-      )}
-      <ButtonGroup className="relative w-full [&>button:first-child]:min-w-0 [&>button:first-child]:flex-1 [&>button:last-child]:shrink-0">
-        {children}
-      </ButtonGroup>
-    </div>
-  );
-}
 
 function ProviderIcon({
   provider,
@@ -491,9 +450,10 @@ export function MeetingImportScreen({
                       {connectedProvider ? (
                         <div className="flex shrink-0 items-center gap-1">
                           {connected ? (
-                            <ImportSplitButtonGroup
-                              signedIn
-                              syncing={syncQuery?.isFetching}
+                            <ConnectButtonGroup
+                              primary
+                              busy={syncQuery?.isFetching}
+                              busyLabel={t`Sync now`}
                             >
                               <Button
                                 type="button"
@@ -581,9 +541,9 @@ export function MeetingImportScreen({
                                   </AppFloatingPanel>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            </ImportSplitButtonGroup>
+                            </ConnectButtonGroup>
                           ) : (
-                            <ImportSplitButtonGroup signedIn={signedIn}>
+                            <ConnectButtonGroup primary={signedIn}>
                               <Button
                                 type="button"
                                 size="sm"
@@ -697,14 +657,14 @@ export function MeetingImportScreen({
                                   </AppFloatingPanel>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            </ImportSplitButtonGroup>
+                            </ConnectButtonGroup>
                           )}
                         </div>
                       ) : (
                         <Button
                           type="button"
                           size="sm"
-                          className="w-56 shrink-0"
+                          className="w-40 shrink-0"
                           variant="outline"
                           disabled={fileImportMutation.isPending}
                           onClick={() => fileImportMutation.mutate(provider)}

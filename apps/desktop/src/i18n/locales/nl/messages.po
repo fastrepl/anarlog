@@ -25,11 +25,6 @@ msgstr ""
 msgid "(Unavailable — using current default)"
 msgstr ""
 
-#. placeholder {0}: reconnectRequired ? "Reconnect" : "Connect"
-#: src/settings/crm/index.tsx
-msgid "{0}"
-msgstr ""
-
 #. placeholder {0}: group.sessionIds.length
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "{0} {noteLabel} deleted"
@@ -1467,6 +1462,7 @@ msgstr ""
 
 #: src/imports/screen.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/crm/index.tsx
 msgid "Connect"
 msgstr ""
 
@@ -3517,6 +3513,7 @@ msgstr ""
 
 #: src/imports/screen.tsx
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/crm/index.tsx
 msgid "More options"
 msgstr ""
 
@@ -4361,6 +4358,7 @@ msgstr ""
 
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/calendar/components/sidebar.tsx
+#: src/settings/crm/index.tsx
 msgid "Reconnect"
 msgstr ""
 

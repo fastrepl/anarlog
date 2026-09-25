@@ -20,6 +20,7 @@ export type CrmProviderInfo = {
   id: string;
   name: string;
   nangoIntegrationId: string;
+  icon?: string;
 };
 
 export const CRM_PROVIDERS: CrmProviderInfo[] = [
@@ -27,26 +28,31 @@ export const CRM_PROVIDERS: CrmProviderInfo[] = [
     id: "hubspot",
     name: "HubSpot",
     nangoIntegrationId: "hubspot",
+    icon: "/assets/hubspot.svg",
   },
   {
     id: "attio",
     name: "Attio",
     nangoIntegrationId: "attio",
+    icon: "/assets/attio.svg",
   },
   {
     id: "salesforce",
     name: "Salesforce",
     nangoIntegrationId: "salesforce",
+    icon: "/assets/salesforce.svg",
   },
   {
     id: "pipedrive",
     name: "Pipedrive",
     nangoIntegrationId: "pipedrive",
+    icon: "/assets/pipedrive.svg",
   },
   {
     id: "close",
     name: "Close",
     nangoIntegrationId: "close",
+    icon: "/assets/close.svg",
   },
 ];
 

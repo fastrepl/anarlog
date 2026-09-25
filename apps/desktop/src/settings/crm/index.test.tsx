@@ -158,7 +158,10 @@ describe("SettingsCrm", () => {
     );
     expect(await screen.findByText("Connected and working")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "More options" }));
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Disconnect" }),
+    );
     await waitFor(() =>
       expect(mocks.disconnectCrm).toHaveBeenCalledWith(
         expect.objectContaining({ nangoIntegrationId: "acme-nango" }),
