@@ -79,10 +79,10 @@ impl PendingPositions {
 }
 
 #[derive(Default)]
-pub struct WindowExpansions(pub Mutex<HashMap<String, Vec<(f64, f64, bool)>>>);
+pub struct WindowExpansions(pub Mutex<HashMap<String, Vec<(f64, f64, f64)>>>);
 
 impl WindowExpansions {
-    fn pop(&self, label: &str) -> Option<(f64, f64, bool)> {
+    fn pop(&self, label: &str) -> Option<(f64, f64, f64)> {
         let mut expansions = self.0.lock().unwrap();
         let entry = expansions.get_mut(label).and_then(Vec::pop);
 
