@@ -484,7 +484,8 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         let mic_outbound = tokio_stream::wrappers::ReceiverStream::new(mic_rx);
         let spk_outbound = tokio_stream::wrappers::ReceiverStream::new(spk_rx);
 
-        let mic_initial = mic_adapter.initial_message(self.api_key.as_deref(), &self.params, 1);
+        let mic_params = mic_stream_params(&self.params);
+        let mic_initial = mic_adapter.initial_message(self.api_key.as_deref(), &mic_params, 1);
         let spk_initial = spk_adapter.initial_message(self.api_key.as_deref(), &self.params, 1);
 
         let mic_connect = mic_ws.from_audio::<ListenClientIO, _>(mic_initial, mic_outbound);
@@ -572,6 +573,17 @@ async fn forward_dual_to_single<A: RealtimeSttAdapter>(
             }
         }
     }
+}
+
+// The mic stream of a split session may know its speaker count (an isolated microphone
+// carries only the local user) while the system-audio stream keeps the shared expectation.
+fn mic_stream_params(params: &ListenParams) -> ListenParams {
+    let mut mic_params = params.clone();
+    if let Some(mic_num_speakers) = mic_params.mic_num_speakers {
+        mic_params.num_speakers = Some(mic_num_speakers);
+        mic_params.max_speakers = Some(mic_num_speakers);
+    }
+    mic_params
 }
 
 fn merge_streams_with_channel_remap<S1, S2>(

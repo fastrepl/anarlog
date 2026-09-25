@@ -185,12 +185,22 @@ describe("capturing speaker context", () => {
     ).toBe(true);
   });
 
-  it("does not treat headphone output with a built-in input as an isolated microphone", async () => {
+  it("trusts the runtime isolation verdict for a built-in input on headphones", async () => {
     mocks.currentDevice.mockResolvedValue({
       status: "ok",
       data: "MacBook Pro Microphone",
     });
     observeSpeakerMicrophone("session", { isolated: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.context.intervals[0]?.mic_isolated).toBe(true);
+  });
+
+  it("does not treat a room microphone as isolated when the runtime rejects it", async () => {
+    mocks.currentDevice.mockResolvedValue({
+      status: "ok",
+      data: "MacBook Pro Microphone",
+    });
+    observeSpeakerMicrophone("session", { isolated: false });
     await vi.advanceTimersByTimeAsync(0);
     expect(mocks.context.intervals[0]?.mic_isolated).toBe(false);
   });

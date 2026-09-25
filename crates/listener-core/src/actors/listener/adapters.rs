@@ -491,6 +491,7 @@ fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams 
         keywords: args.keywords.clone(),
         num_speakers,
         max_speakers: num_speakers,
+        mic_num_speakers: args.mic_isolated.then_some(1),
         custom_query: Some(custom_query),
         ..Default::default()
     }
@@ -686,6 +687,7 @@ mod tests {
             self_human_id: None,
             speaker_assignments: vec![],
             live_transcript: Default::default(),
+            mic_isolated: false,
         }
     }
 
@@ -753,6 +755,26 @@ mod tests {
         assert_eq!(params.max_speakers, None);
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
+    }
+
+    #[test]
+    fn build_listen_params_marks_isolated_mic_as_single_speaker() {
+        let mut args = listener_args("https://api.soniox.com", "stt-rt-v4");
+        args.mic_isolated = true;
+
+        let params = build_listen_params(&args);
+
+        assert_eq!(params.mic_num_speakers, Some(1));
+        assert_eq!(params.num_speakers, None);
+    }
+
+    #[test]
+    fn build_listen_params_leaves_shared_mic_uncounted() {
+        let args = listener_args("https://api.soniox.com", "stt-rt-v4");
+
+        let params = build_listen_params(&args);
+
+        assert_eq!(params.mic_num_speakers, None);
     }
 
     #[test]

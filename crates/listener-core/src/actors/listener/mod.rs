@@ -71,6 +71,9 @@ pub struct ListenerArgs {
     pub self_human_id: Option<String>,
     pub speaker_assignments: Vec<IdentityAssignment>,
     pub live_transcript: SharedLiveTranscript,
+    /// The mic-isolation verdict the streams opened with: every playing output is a headphone
+    /// and the mic was not swapped away from the user's Bluetooth headset.
+    pub mic_isolated: bool,
 }
 
 pub struct ListenerState {

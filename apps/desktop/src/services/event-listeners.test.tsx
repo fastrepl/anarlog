@@ -9,6 +9,22 @@ import {
 } from "~/stt/auto-stop-notification";
 import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 
+const speakerContextJson = JSON.stringify({
+  intervals: [
+    {
+      start_ms: 0,
+      end_ms: 60_000,
+      active_call: false,
+      calendar_call: false,
+      mic_isolated: null,
+      shared_microphone: false,
+      title: "",
+      self_names: [],
+      participants: [],
+    },
+  ],
+});
+
 const {
   notificationListenMock,
   updaterListenMock,
@@ -479,6 +495,7 @@ describe("EventListeners notification events", () => {
       {
         id: "transcript-1",
         started_at_ms: 1_000,
+        speaker_context: speakerContextJson,
         words_json: JSON.stringify([
           { id: "w1", text: " hello", start_ms: 0, end_ms: 100, channel: 1 },
           { id: "w2", text: " there", start_ms: 100, end_ms: 200, channel: 1 },
@@ -539,6 +556,107 @@ describe("EventListeners notification events", () => {
     });
   });
 
+  test("live capture config sync adds channel defaults while the capture has no speaker context", async () => {
+    vi.useFakeTimers();
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "en",
+      spoken_languages: ["en"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
+    );
+    findLiveQueryHandlers("session_participants").onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-remote",
+      },
+    ]);
+    findLiveQueryHandlers("FROM transcripts").onData([
+      {
+        id: "transcript-1",
+        started_at_ms: 1_000,
+        speaker_context: null,
+        words_json: JSON.stringify([]),
+        speaker_hints_json: JSON.stringify([]),
+      },
+    ]);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledWith({
+      session_id: "session-1",
+      languages: ["en"],
+      participant_human_ids: ["human-remote"],
+      self_human_id: "human-self",
+      speaker_assignments: [
+        {
+          human_id: "human-self",
+          scope: { kind: "channel", channel: "DirectMic" },
+        },
+        {
+          human_id: "human-remote",
+          scope: { kind: "channel", channel: "RemoteParty" },
+        },
+      ],
+    });
+  });
+
+  test("live capture config sync skips remote defaults with more than one invitee", async () => {
+    vi.useFakeTimers();
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "en",
+      spoken_languages: ["en"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
+    );
+    findLiveQueryHandlers("session_participants").onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-a",
+      },
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-b",
+      },
+    ]);
+    findLiveQueryHandlers("FROM transcripts").onData([
+      {
+        id: "transcript-1",
+        started_at_ms: 1_000,
+        speaker_context: null,
+        words_json: JSON.stringify([]),
+        speaker_hints_json: JSON.stringify([]),
+      },
+    ]);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledWith({
+      session_id: "session-1",
+      languages: ["en"],
+      participant_human_ids: ["human-a", "human-b"],
+      self_human_id: "human-self",
+      speaker_assignments: [
+        {
+          human_id: "human-self",
+          scope: { kind: "channel", channel: "DirectMic" },
+        },
+      ],
+    });
+  });
+
   test("live capture config sync pushes again after a restart on the same session", async () => {
     vi.useFakeTimers();
     useConfigValuesMock.mockReturnValue({
@@ -574,6 +692,7 @@ describe("EventListeners notification events", () => {
       {
         id: "transcript-1",
         started_at_ms: 1_000,
+        speaker_context: speakerContextJson,
         words_json: JSON.stringify([
           { id: "w1", text: " hello", start_ms: 0, end_ms: 100, channel: 1 },
         ]),

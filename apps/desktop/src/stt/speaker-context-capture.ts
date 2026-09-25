@@ -166,13 +166,10 @@ function createCapture(sessionId: string) {
         end_ms: at + EVIDENCE_LEASE_MS,
         active_call: callAppId !== null,
         calendar_call: calendarCall,
-        // A headset is isolated by construction; the runtime verdict only tells a room
-        // microphone apart from one that also hears the speakers.
-        mic_isolated: isPersonalMicrophone(inputDevice)
-          ? true
-          : isolated === null
-            ? null
-            : false,
+        // A headset is isolated by construction; for anything else the runtime verdict
+        // decides — headphones already keep speaker output out of the mic, and a
+        // Bluetooth-swapped replacement is a room mic as far as we know.
+        mic_isolated: isPersonalMicrophone(inputDevice) ? true : isolated,
         shared_microphone: isSharedMicrophone(inputDevice),
         title: row.title,
         self_names: [row.name, ...aliases].filter(Boolean),

@@ -152,6 +152,10 @@ common_derives! {
         pub min_speakers: Option<u32>,
         #[serde(default)]
         pub max_speakers: Option<u32>,
+        // Expected speaker count on the local microphone stream only; applied when a
+        // split session opens a separate provider stream per channel.
+        #[serde(default)]
+        pub mic_num_speakers: Option<u32>,
         #[serde(default)]
         #[cfg_attr(feature = "openapi", schema(value_type = Option<Object>))]
         pub custom_query: Option<std::collections::HashMap<String, String>>,
@@ -169,6 +173,7 @@ impl Default for ListenParams {
             num_speakers: None,
             min_speakers: None,
             max_speakers: None,
+            mic_num_speakers: None,
             custom_query: None,
         }
     }

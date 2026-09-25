@@ -171,6 +171,14 @@ fn headphone_only_output() -> bool {
     anlg_audio_device::headphone_only_output().is_some()
 }
 
+// The same mic-isolation verdict `start_source_loop` emits as `MicIsolated`, recomputed
+// for callers that need it without a running source (e.g. listener spawn).
+pub(crate) fn mic_isolated(mic_device: &Option<String>, audio: &dyn AudioProvider) -> bool {
+    let mic_swapped =
+        mic_device.is_none() && stream::active_mic_device(mic_device.clone(), audio).is_some();
+    headphone_only_output() && !mic_swapped
+}
+
 // Holding a Bluetooth headset in HFP/SCO sets the system default input and can also move
 // the default output. Those Core Audio events must not bounce the source we just opened.
 fn device_switch_restarts_source(event: &DeviceSwitch, bluetooth_owns_defaults: bool) -> bool {
