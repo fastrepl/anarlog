@@ -378,10 +378,16 @@ pub async fn window_expand_width(
         let monitor = window.current_monitor().map_err(|e| e.to_string())?;
 
         if let Some(monitor) = monitor {
-            let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
-            let monitor_right = i64::from(monitor.position().x) + i64::from(monitor.size().width);
+            let available = if expand_left {
+                i64::from(outer_position.x) - i64::from(monitor.position().x)
+            } else {
+                let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
+                let monitor_right =
+                    i64::from(monitor.position().x) + i64::from(monitor.size().width);
+                monitor_right - window_right
+            };
 
-            if monitor_right - window_right < i64::from(expansion_physical) {
+            if available < i64::from(expansion_physical) {
                 return Ok(());
             }
         }
