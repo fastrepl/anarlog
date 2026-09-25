@@ -11,6 +11,9 @@ use typst::{Library, LibraryExt, World};
 static LIBRARY: OnceLock<LazyHash<Library>> = OnceLock::new();
 static FONTS: OnceLock<(Vec<Font>, LazyHash<FontBook>)> = OnceLock::new();
 
+// Keep in sync with apps/web/public/logo.svg.
+static WORDMARK: &[u8] = include_bytes!("../../assets/anarlog-logo.svg");
+
 fn library() -> &'static LazyHash<Library> {
     LIBRARY.get_or_init(|| LazyHash::new(Library::default()))
 }
@@ -69,6 +72,9 @@ impl World for TypstWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
+        if id.vpath().as_rootless_path().as_os_str() == "anarlog-logo.svg" {
+            return Ok(Bytes::new(WORDMARK));
+        }
         Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
     }
 

@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import type { HumanRecord } from "./queries";
+import type { HumanRecord, OrganizationRecord } from "./queries";
 
 const mocks = vi.hoisted(() => ({
   humans: [] as HumanRecord[],
+  organizations: [] as OrganizationRecord[],
   togglePin: vi.fn(),
   selectContact: vi.fn(),
   contextMenu: vi.fn(),
@@ -36,7 +37,7 @@ vi.mock("~/store/zustand/tabs", () => ({
 }));
 vi.mock("./queries", () => ({
   useHumans: () => mocks.humans,
-  useOrganizations: () => [],
+  useOrganizations: () => mocks.organizations,
   useHumanSessions: () => [],
   toggleContactPin: mocks.togglePin,
   deleteHuman: vi.fn(),
@@ -96,11 +97,30 @@ function human(id: string, name: string, pinned = false): HumanRecord {
   };
 }
 
+function organization(
+  id: string,
+  name: string,
+  teamWorkspace = false,
+): OrganizationRecord {
+  return {
+    id,
+    name,
+    userId: "self",
+    createdAt: "",
+    memo: "",
+    pinned: false,
+    pinOrder: null,
+    avatarDataUrl: null,
+    teamWorkspace,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.ownerId = "self";
   mocks.authId = null;
   mocks.humans = [human("other", "Alice", true), human("self", "Zoe")];
+  mocks.organizations = [];
   mocks.togglePin.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
@@ -126,6 +146,34 @@ it("keeps your unpinned card before draggable pins and visible during search", (
     target: { value: "nobody" },
   });
   expect(screen.getAllByRole("button", { name: /Zoe/ })).toHaveLength(1);
+});
+
+it("keeps your team organizations pinned below your card and uneditable", () => {
+  mocks.organizations = [
+    organization("team-1", "Fastrepl", true),
+    organization("org-1", "Acme"),
+  ];
+  render(<ContactsNav />);
+
+  const self = screen.getByRole("button", { name: /Zoe/ });
+  const team = screen.getByRole("button", { name: /Fastrepl/ });
+  const acme = screen.getByRole("button", { name: /Acme/ });
+  expect(
+    self.compareDocumentPosition(team) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    team.compareDocumentPosition(acme) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(team.closest("li")).toBeNull();
+
+  const pin = screen.getByRole("img", { name: "Pinned organization" });
+  fireEvent.click(pin);
+  expect(mocks.selectContact).toHaveBeenCalledWith(expect.anything(), {
+    selected: { type: "organization", id: "team-1" },
+  });
+  fireEvent.contextMenu(team);
+  expect(mocks.togglePin).not.toHaveBeenCalled();
+  expect(mocks.contextMenu).not.toHaveBeenCalled();
 });
 
 it("prefers the signed-in identity over the local owner fallback", () => {

@@ -118,7 +118,10 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: (key: string) => mocks.configValues[key],
 }));
 
-vi.mock("~/shared/hooks/useWindowControlsGutter", () => ({
+vi.mock("~/shared/hooks/useWindowControlsGutter", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("~/shared/hooks/useWindowControlsGutter")
+  >()),
   useWindowControlsGutter: () => mocks.windowControlsGutter,
   usesWindowsStyleTitleBar: () => mocks.windowsStyleTitleBar,
 }));
@@ -162,6 +165,11 @@ vi.mock("~/stt/window-control", () => ({
 }));
 
 import { OuterHeader } from "./index";
+
+import {
+  WINDOW_CONTROLS_GUTTER_CLASS,
+  WINDOW_CONTROLS_GUTTER_PLUS_32_CLASS,
+} from "~/shared/hooks/useWindowControlsGutter";
 
 describe("OuterHeader", () => {
   beforeEach(() => {
@@ -290,7 +298,7 @@ describe("OuterHeader", () => {
     const header = container.firstElementChild;
     const spacer = header?.firstElementChild;
 
-    expect(header?.className).toContain("pl-[108px]");
+    expect(header?.className).toContain(WINDOW_CONTROLS_GUTTER_PLUS_32_CLASS);
     expect(header?.className).toContain("h-12");
     expect(header?.className).not.toContain("pb-1");
     expect(spacer?.className).toContain("flex-1");
@@ -313,7 +321,9 @@ describe("OuterHeader", () => {
     );
 
     expect(container.firstElementChild?.className).toContain("pl-[32px]");
-    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
+    expect(container.firstElementChild?.className).not.toContain(
+      WINDOW_CONTROLS_GUTTER_PLUS_32_CLASS,
+    );
     expect(container.firstElementChild?.className).not.toContain("pl-2");
   });
 
@@ -330,7 +340,9 @@ describe("OuterHeader", () => {
     );
 
     expect(container.firstElementChild?.className).toContain("pl-2");
-    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
+    expect(container.firstElementChild?.className).not.toContain(
+      WINDOW_CONTROLS_GUTTER_PLUS_32_CLASS,
+    );
     expect(container.firstElementChild?.className).not.toContain("pl-[32px]");
   });
 
@@ -350,7 +362,9 @@ describe("OuterHeader", () => {
     expect(spacer?.className).not.toContain("right-[140px]");
     expect(spacer?.className).not.toContain("justify-center");
     expect(container.firstElementChild?.className).toContain("pl-2");
-    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
+    expect(container.firstElementChild?.className).not.toContain(
+      WINDOW_CONTROLS_GUTTER_PLUS_32_CLASS,
+    );
     expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
   });
 
@@ -388,7 +402,9 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
     expect(container.firstElementChild?.className).toContain("pl-2");
-    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
+    expect(container.firstElementChild?.className).not.toContain(
+      WINDOW_CONTROLS_GUTTER_PLUS_32_CLASS,
+    );
   });
 
   it("keeps the session header at 48px tall and centers controls on the sidebar toggle row", () => {
@@ -726,7 +742,7 @@ describe("OuterHeader", () => {
     const actionStrip = header?.lastElementChild;
     const actionChildren = [...(actionStrip?.children ?? [])];
 
-    expect(header?.className).toContain("pl-[76px]");
+    expect(header?.className).toContain(WINDOW_CONTROLS_GUTTER_CLASS);
     expect(header?.className).not.toContain("right-[153px]");
     expect(
       actionChildren.findIndex((child) => child.contains(stop)),
@@ -772,8 +788,10 @@ describe("OuterHeader", () => {
 
     const header = container.firstElementChild;
 
-    expect(header?.className).not.toContain("pl-[108px]");
-    expect(header?.className).toContain("pl-[76px]");
+    expect(header?.className).not.toContain(
+      WINDOW_CONTROLS_GUTTER_PLUS_32_CLASS,
+    );
+    expect(header?.className).toContain(WINDOW_CONTROLS_GUTTER_CLASS);
   });
 
   it.each([
@@ -796,7 +814,7 @@ describe("OuterHeader", () => {
       const header = container.firstElementChild;
 
       expect(header?.className).toContain("pl-2");
-      expect(header?.className).not.toContain("pl-[76px]");
+      expect(header?.className).not.toContain(WINDOW_CONTROLS_GUTTER_CLASS);
     },
   );
 

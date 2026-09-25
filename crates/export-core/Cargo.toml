@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 chrono = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-specta = { workspace = true }
+specta = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 
 pulldown-cmark = { version = "0.13.0", default-features = false }

@@ -12,13 +12,15 @@ export function OrganizationItem({
   active,
   onClick,
   onDelete,
+  readOnly = false,
 }: {
+  readOnly?: boolean;
   organization: OrganizationRecord;
   active: boolean;
   onClick: () => void;
   onDelete?: (id: string) => void;
 }) {
-  const isPinned = Boolean(organization.pinned);
+  const isPinned = readOnly || Boolean(organization.pinned);
 
   const togglePin = useCallback(() => {
     void toggleContactPin("organization", organization.id).catch((error) => {
@@ -52,7 +54,7 @@ export function OrganizationItem({
       role="button"
       tabIndex={0}
       onClick={onClick}
-      onContextMenu={showContextMenu}
+      onContextMenu={readOnly ? undefined : showContextMenu}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -74,18 +76,31 @@ export function OrganizationItem({
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{organization.name}</div>
       </div>
-      <button
-        onClick={handleTogglePin}
-        className={cn([
-          "shrink-0 rounded-xs p-1 transition-colors",
-          isPinned
-            ? "text-blue-600 hover:text-blue-700"
-            : "text-muted-foreground/70 hover:text-muted-foreground opacity-0 group-hover:opacity-100",
-        ])}
-        aria-label={isPinned ? "Unpin organization" : "Pin organization"}
-      >
-        <PushPin className="size-3.5" weight={isPinned ? "bold" : "regular"} />
-      </button>
+      {readOnly ? (
+        <span
+          role="img"
+          aria-label="Pinned organization"
+          className="shrink-0 p-1 text-blue-600"
+        >
+          <PushPin className="size-3.5" weight="bold" />
+        </span>
+      ) : (
+        <button
+          onClick={handleTogglePin}
+          className={cn([
+            "shrink-0 rounded-xs p-1 transition-colors",
+            isPinned
+              ? "text-blue-600 hover:text-blue-700"
+              : "text-muted-foreground/70 hover:text-muted-foreground opacity-0 group-hover:opacity-100",
+          ])}
+          aria-label={isPinned ? "Unpin organization" : "Pin organization"}
+        >
+          <PushPin
+            className="size-3.5"
+            weight={isPinned ? "bold" : "regular"}
+          />
+        </button>
+      )}
     </div>
   );
 }

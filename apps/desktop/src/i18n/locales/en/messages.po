@@ -2313,10 +2313,6 @@ msgstr "Enable dictation"
 msgid "Enabled"
 msgstr "Enabled"
 
-#: src/settings/sync/index.tsx
-msgid "End-to-end encryption"
-msgstr "End-to-end encryption"
-
 #. placeholder {0}: i18n.date(billing.trialEnd, BILLING_DATE_FORMAT)
 #: src/settings/general/billing.tsx
 msgid "Ends {0}"
@@ -3030,10 +3026,6 @@ msgstr "Keep notes current automatically."
 msgid "Keep notes encrypted and synced across your devices."
 msgstr "Keep notes encrypted and synced across your devices."
 
-#: src/settings/sync/index.tsx
-msgid "Keep synced notes readable only on your devices."
-msgstr "Keep synced notes readable only on your devices."
-
 #: src/session/components/note-conflict-banner.tsx
 msgid "Keep this version"
 msgstr "Keep this version"
@@ -3273,7 +3265,6 @@ msgid "macOS cannot access your login Keychain. Repairing briefly locks it and a
 msgstr "macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key."
 
 #: src/auth/cloudsync-keychain-repair.tsx
-#: src/settings/sync/index.tsx
 msgid "macOS could not access your recovery key. Repair Keychain access, then resume sync."
 msgstr "macOS could not access your recovery key. Repair Keychain access, then resume sync."
 
@@ -4539,7 +4530,6 @@ msgstr "Reopen sign-in page"
 
 #: src/auth/cloudsync-keychain-repair.tsx
 #: src/settings/ai/shared/index.tsx
-#: src/settings/sync/index.tsx
 msgid "Repair Keychain Access"
 msgstr "Repair Keychain Access"
 
@@ -4869,10 +4859,6 @@ msgstr "Seats"
 #: src/templates/sections-editor.tsx
 msgid "Section actions"
 msgstr "Section actions"
-
-#: src/settings/sync/index.tsx
-msgid "Security"
-msgstr "Security"
 
 #: src/session/components/folder-picker.tsx
 msgid "See all folders"
@@ -5832,10 +5818,6 @@ msgid "This device"
 msgstr "This device"
 
 #: src/settings/sync/index.tsx
-msgid "This device will start syncing after you approve it from another signed-in device."
-msgstr "This device will start syncing after you approve it from another signed-in device."
-
-#: src/settings/sync/index.tsx
 msgid "This device's clock is wrong. Fix the date and time, and sync will continue automatically."
 msgstr "This device's clock is wrong. Fix the date and time, and sync will continue automatically."
 
@@ -6000,10 +5982,6 @@ msgstr "Turn assigned follow-ups into Linear issue drafts."
 #: src/calendar/components/apple/permission.tsx
 msgid "Turn on Anarlog in System Settings → Privacy & Security → Calendars, then return here."
 msgstr "Turn on Anarlog in System Settings → Privacy & Security → Calendars, then return here."
-
-#: src/settings/sync/index.tsx
-msgid "Turn on sync to create or enter your recovery key."
-msgstr "Turn on sync to create or enter your recovery key."
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Typewriter Key"

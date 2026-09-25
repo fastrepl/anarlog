@@ -88,6 +88,7 @@ export function OrganizationDetailsColumn({
       {organization ? (
         <>
           <ContactPageHeader
+            readOnly={organization.teamWorkspace}
             title={organization.name || t`Unnamed`}
             compactIdentity={
               organization.avatarDataUrl ? (

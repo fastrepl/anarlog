@@ -221,15 +221,12 @@ describe("SettingsSync", () => {
 
   afterEach(cleanup);
 
-  it("shows sync status and encryption state", async () => {
+  it("shows sync status", async () => {
     renderSettings();
 
     expect(await screen.findByText("Synced")).toBeTruthy();
     expect(screen.getByRole("switch", { name: "Cloud sync" })).toBeTruthy();
-    expect(screen.getByText("End-to-end encryption")).toBeTruthy();
-    expect(
-      screen.getByText(/Keep synced notes readable only on your devices/),
-    ).toBeTruthy();
+    expect(screen.queryByText("End-to-end encryption")).toBeNull();
     expect(screen.queryByText(/conflicted copies/)).toBeNull();
   });
 
@@ -545,33 +542,17 @@ describe("SettingsSync", () => {
     expect(mocks.applyCloudsyncPreference).toHaveBeenCalledWith(mocks.session);
   });
 
-  it("repairs macOS Keychain access and retries cloud sync", async () => {
+  it("does not offer Keychain repair for keychain-access failures", async () => {
     mocks.credentialBlock = "keychain_access";
-    mocks.getE2eeIdentityStatus
-      .mockRejectedValueOnce(
-        "macOS couldn't access your login Keychain. Use “Repair Keychain Access” below, then try again.",
-      )
-      .mockResolvedValue({ configured: true });
+    mocks.getE2eeIdentityStatus.mockRejectedValue(
+      "macOS couldn't access your login Keychain.",
+    );
     renderSettings();
 
-    const repair = await screen.findByRole("button", {
-      name: "Repair Keychain Access",
-    });
-    expect(screen.getByText(/could not access your recovery key/)).toBeTruthy();
-    fireEvent.click(repair);
-
-    await vi.waitFor(() =>
-      expect(mocks.repairKeychainAccess).toHaveBeenCalledOnce(),
-    );
-    await vi.waitFor(() =>
-      expect(mocks.getE2eeIdentityStatus).toHaveBeenCalledTimes(2),
-    );
-    await vi.waitFor(() =>
-      expect(mocks.setSettingValue).toHaveBeenCalledWith(
-        "cloud_sync_enabled",
-        true,
-      ),
-    );
+    expect(await screen.findByText("Sync needs attention")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Repair Keychain Access" }),
+    ).toBeNull();
   });
 
   it("does not offer Keychain repair for generic sync failures", async () => {

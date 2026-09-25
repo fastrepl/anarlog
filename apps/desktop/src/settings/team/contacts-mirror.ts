@@ -112,6 +112,7 @@ export async function mirrorWorkspaceContacts(
   }
 
   await unlinkStaleWorkspaceContacts(keptIds);
+  await unmarkStaleWorkspaceOrganizations(keptIds);
 }
 
 async function upsertWorkspaceOrganization(
@@ -337,6 +338,66 @@ async function unlinkStaleWorkspaceContacts(keptIds: string[]): Promise<void> {
       unlinkWorkspaceContact(row.id),
     );
   }
+}
+
+/**
+ * Workspaces that dropped out of the account's list keep their organization
+ * contact, but the team marker is removed so the org behaves like a normal
+ * contact again (unpinned-able, deletable). Name, logo, and any other
+ * contact data the user edited are preserved.
+ */
+async function unmarkStaleWorkspaceOrganizations(
+  keptIds: string[],
+): Promise<void> {
+  const placeholders = keptIds.map(() => "?").join(", ") || "NULL";
+  const stale = await liveQueryClient.execute<OrganizationStateRow>(
+    `SELECT id, name, metadata_json, deleted_at
+     FROM organizations
+     WHERE deleted_at IS NULL
+       AND json_valid(metadata_json)
+       AND json_extract(metadata_json, '$.teamWorkspace') = 1
+       AND id NOT IN (${placeholders})`,
+    keptIds,
+  );
+
+  for (const row of stale) {
+    await enqueueDatabaseWrite(`organization:${row.id}`, () =>
+      unmarkWorkspaceOrganization(row.id),
+    );
+  }
+}
+
+async function unmarkWorkspaceOrganization(
+  organizationId: string,
+): Promise<void> {
+  const existing = await liveQueryClient.execute<OrganizationStateRow>(
+    `SELECT id, name, metadata_json, deleted_at FROM organizations WHERE id = ?`,
+    [organizationId],
+  );
+  const row = existing[0];
+  if (!row || row.deleted_at !== null) return;
+
+  const metadata = parseMetadata(row.metadata_json);
+  if (metadata.teamWorkspace !== true) return;
+
+  delete metadata.teamWorkspace;
+  delete metadata.teamName;
+  delete metadata.teamLogoDataUrl;
+
+  await executeTransaction([
+    {
+      sql: `
+        UPDATE organizations
+        SET metadata_json = ?, updated_at = ?
+        WHERE id = ?
+      `,
+      params: [
+        JSON.stringify(metadata),
+        new Date().toISOString(),
+        organizationId,
+      ],
+    },
+  ]);
 }
 
 async function unlinkWorkspaceContact(humanId: string): Promise<void> {
