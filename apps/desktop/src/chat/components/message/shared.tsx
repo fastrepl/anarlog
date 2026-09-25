@@ -1,9 +1,23 @@
-import { type ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 
 import { CaretRight, CircleNotch } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
+
+const FlatDisclosureContext = createContext(false);
+
+export function FlatDisclosureGroup({ children }: { children: ReactNode }) {
+  return (
+    <FlatDisclosureContext.Provider value={true}>
+      {children}
+    </FlatDisclosureContext.Provider>
+  );
+}
+
+export function useFlatDisclosure() {
+  return useContext(FlatDisclosureContext);
+}
 
 export function MessageContainer({
   align = "start",
@@ -105,6 +119,30 @@ export function Disclosure({
   children: ReactNode;
   disabled?: boolean;
 }) {
+  const flat = useContext(FlatDisclosureContext);
+
+  if (flat) {
+    return (
+      <div className="my-1.5 first:mt-0 last:mb-0">
+        <div
+          className={cn([
+            "text-muted-foreground flex items-center gap-2 text-xs select-none",
+          ])}
+        >
+          {disabled ? (
+            <CircleNotch className="h-3 w-3 shrink-0 animate-spin" />
+          ) : icon ? (
+            <span className="shrink-0">{icon}</span>
+          ) : null}
+          <span className="min-w-0 flex-1 truncate">{title}</span>
+        </div>
+        {children != null && children !== false ? (
+          <div className="mt-1 pl-5">{children}</div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <details
       className={cn([

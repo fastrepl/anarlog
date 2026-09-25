@@ -12,7 +12,13 @@ import {
 import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
 import { cn } from "@anlg/utils";
 
-import { Disclosure, MessageBubble, MessageContainer } from "./shared";
+import {
+  Disclosure,
+  FlatDisclosureGroup,
+  MessageBubble,
+  MessageContainer,
+  useFlatDisclosure,
+} from "./shared";
 import { MessageTimestamp } from "./timestamp";
 import { Tool } from "./tool";
 import type { Part } from "./types";
@@ -100,9 +106,11 @@ export function NormalMessage({
               }
               title={t`Activity`}
             >
-              {activityParts.map((part, i) => (
-                <Part key={i} part={part as Part} />
-              ))}
+              <FlatDisclosureGroup>
+                {activityParts.map((part, i) => (
+                  <Part key={i} part={part as Part} />
+                ))}
+              </FlatDisclosureGroup>
             </Disclosure>
           )}
           {visibleParts.map((part, i) => (
@@ -165,6 +173,7 @@ function Part({ part }: { part: Part }) {
 }
 
 function Reasoning({ part }: { part: Extract<Part, { type: "reasoning" }> }) {
+  const flat = useFlatDisclosure();
   const raw = part.text.trim();
 
   if (!raw) {
@@ -181,6 +190,21 @@ function Reasoning({ part }: { part: Extract<Part, { type: "reasoning" }> }) {
 
   if (!title) {
     return null;
+  }
+
+  if (flat) {
+    return (
+      <div className="my-1.5 flex items-start gap-2 first:mt-0 last:mb-0">
+        {streaming ? (
+          <CircleNotch className="mt-0.5 h-3 w-3 shrink-0 animate-spin" />
+        ) : (
+          <Brain className="text-muted-foreground mt-0.5 h-3 w-3 shrink-0" />
+        )}
+        <div className="text-muted-foreground min-w-0 flex-1 text-xs whitespace-pre-wrap">
+          {part.text}
+        </div>
+      </div>
+    );
   }
 
   return (
