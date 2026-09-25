@@ -201,16 +201,50 @@ describe("useZoomShortcuts", () => {
   });
 
   it("orders rapid same-millisecond changes by sequence", () => {
-    renderHook(() => useZoomShortcuts());
-    keydown({ key: "=", metaKey: true });
-    keydown({ key: "=", metaKey: true });
-    const payloads = mocks.emit.mock.calls.map(
-      (call) => call[1] as { sequence: number; timestamp: number },
-    );
-    expect(
-      payloads[1].timestamp > payloads[0].timestamp ||
-        payloads[1].sequence > payloads[0].sequence,
-    ).toBe(true);
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+    try {
+      renderHook(() => useZoomShortcuts());
+      keydown({ key: "=", metaKey: true });
+      keydown({ key: "=", metaKey: true });
+      const payloads = mocks.emit.mock.calls.map((call) => {
+        const payload = call[1] as { sequence: number; timestamp: number };
+        return { sequence: payload.sequence, timestamp: payload.timestamp };
+      });
+      expect(payloads).toEqual([
+        { sequence: 0, timestamp: 1000 },
+        { sequence: 1, timestamp: 1000 },
+      ]);
+
+      mocks.listeners[0]({
+        payload: {
+          factor: 0.5,
+          sequence: 0,
+          source: "note",
+          timestamp: 1000,
+        },
+      });
+      mocks.listeners[0]({
+        payload: {
+          factor: 0.5,
+          sequence: 1,
+          source: "aaa",
+          timestamp: 1000,
+        },
+      });
+      expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.25");
+      mocks.listeners[0]({
+        payload: {
+          factor: 0.5,
+          sequence: 2,
+          source: "note",
+          timestamp: 1000,
+        },
+      });
+      expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("0.5");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("accepts a later real timestamp after a same-millisecond burst", () => {
