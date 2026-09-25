@@ -1,7 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
@@ -24,8 +23,6 @@ import {
   PencilSimple,
   Plugs,
   Plus,
-  Shield,
-  ShieldCheck,
   Warning,
   Watch,
 } from "@anlg/ui/components/icons";
@@ -74,7 +71,6 @@ import {
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
-import { isKeychainAccessError, repairKeychainAccess } from "~/shared/keychain";
 import { buildWebAppUrl } from "~/shared/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -377,24 +373,6 @@ function SyncSettingsPreview() {
           </p>
         </div>
       </div>
-      <div>
-        <h2 className="mb-4 font-sans text-lg font-semibold">
-          <Trans>Security</Trans>
-        </h2>
-        <div className="flex items-start gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full">
-            <Shield className="text-muted-foreground size-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium">
-              <Trans>End-to-end encryption</Trans>
-            </h3>
-            <p className="text-muted-foreground mt-1 text-xs leading-5">
-              <Trans>Turn on sync to create or enter your recovery key.</Trans>
-            </p>
-          </div>
-        </div>
-      </div>
     </section>
   );
 }
@@ -484,9 +462,17 @@ export function SettingsSync() {
         await buildWebAppUrl("/app/account", { tab: "connections" }),
       );
       url.hash = "devices";
-      await openerCommands.openUrl(url.toString(), null);
+      const opened = await openerCommands.openUrl(url.toString(), null);
+      if (opened.status === "error") {
+        throw new Error(String(opened.error));
+      }
     },
-    onError: () => toast.error(t`Couldn't open device add-ons. Try again.`),
+    onError: (error) => {
+      captureOperationalError(error, {
+        operation: "open_sync_device_addons",
+      });
+      toast.error(t`Couldn't open device add-ons. Try again.`);
+    },
   });
   const renameDeviceMutation = useMutation({
     mutationFn: ({
@@ -611,16 +597,6 @@ export function SettingsSync() {
             }
           },
         });
-      }
-    },
-  });
-  const repairKeychainMutation = useMutation({
-    mutationKey: ["repair-keychain-access", "cloudsync"],
-    mutationFn: repairKeychainAccess,
-    onSuccess: async () => {
-      const identity = await e2eeIdentityQuery.refetch();
-      if (storedSyncEnabled && identity.data?.configured) {
-        setSyncEnabledMutation.mutate(true);
       }
     },
   });
@@ -922,17 +898,11 @@ export function SettingsSync() {
   const mutationError =
     setSyncEnabledMutation.error ??
     e2eePreflightMutation.error ??
-    repairKeychainMutation.error ??
     syncNowMutation.error;
   const deviceMutationError =
     approveDeviceMutation.error ??
     replaceDeviceMutation.error ??
     removeDeviceMutation.error;
-  const canRepairKeychainAccess =
-    platform() === "macos" &&
-    (credentialBlock === "keychain_access" ||
-      isKeychainAccessError(e2eeIdentityQuery.error));
-
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Sync</Trans>} />
@@ -952,6 +922,16 @@ export function SettingsSync() {
                 <p className="text-muted-foreground mt-1 font-mono text-[11px] leading-4 break-words">
                   {statusView.detail}
                 </p>
+              )}
+              {credentialBlock === "approval_pending" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => setE2eeSetupOpen(true)}
+                >
+                  <Trans>Use recovery key instead</Trans>
+                </Button>
               )}
             </div>
           </div>
@@ -1257,69 +1237,6 @@ export function SettingsSync() {
             {deviceMutationError.message}
           </p>
         )}
-      </section>
-
-      <section>
-        <h2 className="mb-4 font-sans text-lg font-semibold">
-          <Trans>Security</Trans>
-        </h2>
-        <div className="flex items-start gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full">
-            {e2eeIdentityQuery.data?.configured ? (
-              <ShieldCheck className="size-4 text-emerald-500" />
-            ) : (
-              <Shield className="text-muted-foreground size-4" />
-            )}
-          </div>
-          <div>
-            <h3 className="text-sm font-medium">
-              <Trans>End-to-end encryption</Trans>
-            </h3>
-            <p className="text-muted-foreground mt-1 text-xs leading-5">
-              {e2eeIdentityQuery.data?.configured ? (
-                <Trans>Keep synced notes readable only on your devices.</Trans>
-              ) : credentialBlock === "approval_pending" ? (
-                <Trans>
-                  This device will start syncing after you approve it from
-                  another signed-in device.
-                </Trans>
-              ) : canRepairKeychainAccess ? (
-                <Trans>
-                  macOS could not access your recovery key. Repair Keychain
-                  access, then resume sync.
-                </Trans>
-              ) : (
-                <Trans>
-                  Turn on sync to create or enter your recovery key.
-                </Trans>
-              )}
-            </p>
-            {canRepairKeychainAccess && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                disabled={repairKeychainMutation.isPending}
-                onClick={() => repairKeychainMutation.mutate()}
-              >
-                {repairKeychainMutation.isPending && (
-                  <CircleNotch className="size-3.5 animate-spin" />
-                )}
-                <Trans>Repair Keychain Access</Trans>
-              </Button>
-            )}
-            {credentialBlock === "approval_pending" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => setE2eeSetupOpen(true)}
-              >
-                <Trans>Use recovery key instead</Trans>
-              </Button>
-            )}
-          </div>
-        </div>
       </section>
 
       <ConnectLocalLibraryDialog
