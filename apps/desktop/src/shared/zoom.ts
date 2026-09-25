@@ -1,9 +1,11 @@
 import { isTauri } from "@tauri-apps/api/core";
+import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export const ZOOM_STORAGE_KEY = "anarlog-zoom-factor";
+export const ZOOM_CHANGED_EVENT = "anlg:zoom-factor-changed";
 
 export const ZOOM_STEPS = [
   0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3,
@@ -55,8 +57,11 @@ export function applyZoomFactor(factor: number): Promise<void> {
     return getCurrentWebview()
       .setZoom(factor)
       .then(() => {})
-      .catch(() => {});
-  } catch {
+      .catch((error: unknown) => {
+        console.warn("[zoom] failed to set webview zoom", error);
+      });
+  } catch (error) {
+    console.warn("[zoom] failed to set webview zoom", error);
     return Promise.resolve();
   }
 }
@@ -66,10 +71,16 @@ export function useZoomShortcuts() {
     let factor = readZoomFactor();
     void applyZoomFactor(factor);
 
-    const setFactor = (next: number) => {
+    const setFactor = (next: number, broadcast: boolean) => {
       factor = next;
       persistZoomFactor(factor);
       void applyZoomFactor(factor);
+
+      if (broadcast && isTauri()) {
+        void emit(ZOOM_CHANGED_EVENT, { factor }).catch((error: unknown) => {
+          console.warn("[zoom] failed to broadcast zoom factor", error);
+        });
+      }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -81,22 +92,48 @@ export function useZoomShortcuts() {
         case "-":
         case "_":
           event.preventDefault();
-          setFactor(stepZoomFactor(factor, "out"));
+          setFactor(stepZoomFactor(factor, "out"), true);
           return;
         case "=":
         case "+":
           event.preventDefault();
-          setFactor(stepZoomFactor(factor, "in"));
+          setFactor(stepZoomFactor(factor, "in"), true);
           return;
         case "0":
           event.preventDefault();
-          setFactor(stepZoomFactor(factor, "reset"));
+          setFactor(stepZoomFactor(factor, "reset"), true);
           return;
       }
     };
 
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    if (isTauri()) {
+      listen<{ factor: number }>(ZOOM_CHANGED_EVENT, (event) => {
+        const next = event.payload?.factor;
+        if (typeof next !== "number" || !Number.isFinite(next) || next <= 0) {
+          return;
+        }
+        if (next !== factor) {
+          setFactor(next, false);
+        }
+      })
+        .then((fn) => {
+          if (cancelled) {
+            fn();
+          } else {
+            unlisten = fn;
+          }
+        })
+        .catch((error: unknown) => {
+          console.warn("[zoom] failed to subscribe to zoom changes", error);
+        });
+    }
+
     window.addEventListener("keydown", handleKeyDown);
     return () => {
+      cancelled = true;
+      unlisten?.();
       window.removeEventListener("keydown", handleKeyDown);
     };
   });
