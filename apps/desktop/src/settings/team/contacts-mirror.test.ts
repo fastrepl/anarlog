@@ -477,6 +477,42 @@ describe("mirrorWorkspaceContacts", () => {
     expect(meta.avatarDataUrl).toBe("data:image/png;base64,OLD");
   });
 
+  it("re-marks an organization when the workspace is rejoined", async () => {
+    const unmarkedOrg = {
+      id: WORKSPACE_ID,
+      name: "Former Co",
+      metadata_json: JSON.stringify({
+        avatarDataUrl: "data:image/png;base64,OLD",
+      }),
+      deleted_at: null,
+    };
+    execute.mockImplementation((sql: string, params?: unknown[]) => {
+      if (sql.includes("FROM organizations WHERE id = ?")) {
+        if ((params ?? [])[0] === WORKSPACE_ID) {
+          return Promise.resolve([unmarkedOrg]);
+        }
+      }
+      return Promise.resolve([]);
+    });
+
+    await mirrorWorkspaceContacts([
+      workspace({ logoDataUrl: "data:image/png;base64,NEW" }),
+    ]);
+
+    const update = statements().find(
+      (s) =>
+        s.sql.includes("UPDATE organizations") &&
+        s.params.includes(WORKSPACE_ID),
+    );
+    expect(update).toBeDefined();
+    const meta = JSON.parse(update!.params[1] as string);
+    expect(meta.teamWorkspace).toBe(true);
+    expect(meta.teamName).toBe("Fastrepl");
+    expect(meta.teamLogoDataUrl).toBe("data:image/png;base64,NEW");
+    // The stale name is kept as user data; the workspace markers resume.
+    expect(meta.avatarDataUrl).toBe("data:image/png;base64,OLD");
+  });
+
   it("skips member mirroring when the roster could not be listed", async () => {
     await mirrorWorkspaceContacts([workspace({ members: undefined })]);
 
