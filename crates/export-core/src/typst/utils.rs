@@ -19,4 +19,5 @@ pub(super) fn escape_typst_literal(s: &str) -> String {
         .replace('"', "\\\"")
         .replace('\n', "\\n")
         .replace('\r', "\\r")
+        .replace('#', "\\#")
 }

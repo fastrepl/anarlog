@@ -153,16 +153,7 @@ fn build_cover_page(
     );
 
     cover.push_str("  #pad(x: 22mm)[\n");
-    cover.push_str("    #v(24mm)\n");
-    cover.push_str("    #image(\"anarlog-logo.svg\", width: 24mm)\n");
-    cover.push_str("    #v(22mm)\n");
-
-    cover.push_str(
-        "    #text(size: 9pt, weight: \"bold\", fill: muted, tracking: 0.2em)[SESSION NOTES]\n",
-    );
-    cover.push_str("    #v(3mm)\n");
-    cover.push_str("    #line(length: 16mm, stroke: 1.2pt + brand-yellow)\n");
-    cover.push_str("    #v(9mm)\n");
+    cover.push_str("    #v(46mm)\n");
 
     let escaped_title = escape_typst_string(title);
     cover.push_str(&format!(

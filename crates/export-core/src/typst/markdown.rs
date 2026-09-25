@@ -34,7 +34,6 @@ pub fn markdown_to_typst(md: &str) -> String {
     let mut in_table_header = false;
     let mut in_code_block = false;
     let mut code_block_close = String::from("\", block: true)");
-    let mut image_depth = 0usize;
 
     for event in parser {
         match event {
@@ -61,12 +60,6 @@ pub fn markdown_to_typst(md: &str) -> String {
                 result.push_str("\")[");
             }
             Event::End(TagEnd::Link) => result.push(']'),
-            Event::Start(Tag::Image { .. }) => {
-                image_depth += 1;
-            }
-            Event::End(TagEnd::Image) => {
-                image_depth = image_depth.saturating_sub(1);
-            }
             Event::Start(Tag::List(start_num)) => {
                 list_stack.push(start_num);
             }
@@ -109,12 +102,12 @@ pub fn markdown_to_typst(md: &str) -> String {
             Event::Start(Tag::CodeBlock(kind)) => {
                 in_code_block = true;
                 code_block_close = match kind {
-                    CodeBlockKind::Fenced(lang) if !lang.is_empty() => {
-                        format!(
-                            "\", lang: \"{}\", block: true)",
-                            escape_typst_literal(&lang)
-                        )
-                    }
+                    CodeBlockKind::Fenced(lang) => match lang.split_whitespace().next() {
+                        Some(lang) if !lang.is_empty() => {
+                            format!("\", lang: \"{}\", block: true)", escape_typst_literal(lang))
+                        }
+                        _ => "\", block: true)".to_string(),
+                    },
                     _ => "\", block: true)".to_string(),
                 };
                 result.push_str("\n#raw(\"");
@@ -129,9 +122,9 @@ pub fn markdown_to_typst(md: &str) -> String {
                 table_column = 0;
                 let aligns = table_alignments
                     .iter()
-                    .map(|a| alignment_to_typst(*a))
+                    .map(|a| format!("{},", alignment_to_typst(*a)))
                     .collect::<Vec<_>>()
-                    .join(", ");
+                    .join(" ");
                 result.push_str(&format!(
                     "\n#table(\n  columns: {},\n  align: (col, row) => ({}).at(col),\n  inset: (x: 8pt, y: 5.5pt),\n  stroke: none,\n",
                     table_alignments.len(),
@@ -178,9 +171,6 @@ pub fn markdown_to_typst(md: &str) -> String {
                 }
             }
             Event::Text(text) => {
-                if image_depth > 0 {
-                    continue;
-                }
                 if in_code_block {
                     result.push_str(&escape_typst_literal(&text));
                 } else {
@@ -197,4 +187,33 @@ pub fn markdown_to_typst(md: &str) -> String {
     }
 
     result.trim_end().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::markdown_to_typst;
+
+    #[test]
+    fn single_column_table_uses_array() {
+        let out = markdown_to_typst("| Status |\n| --- |\n| Done |");
+        assert!(out.contains("(left,).at(col)"), "{out}");
+    }
+
+    #[test]
+    fn image_alt_text_is_kept() {
+        let out = markdown_to_typst("See ![the diagram](https://x/img.png \"t\") now");
+        assert!(out.contains("the diagram"), "{out}");
+    }
+
+    #[test]
+    fn hash_in_link_url_is_escaped() {
+        let out = markdown_to_typst("[t](https://x/p#frag)");
+        assert!(out.contains("\\#frag"), "{out}");
+    }
+
+    #[test]
+    fn fence_metadata_uses_first_token() {
+        let out = markdown_to_typst("```rust title=main.rs\nfn main() {}\n```");
+        assert!(out.contains("lang: \"rust\""), "{out}");
+    }
 }
