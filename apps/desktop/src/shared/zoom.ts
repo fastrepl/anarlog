@@ -71,6 +71,7 @@ export function useZoomShortcuts() {
     const tauri = isTauri();
     const ownLabel = tauri ? getCurrentWebview().label : "";
     let lastRevision = 0;
+    let lastSource = "";
 
     let factor = readZoomFactor();
     void applyZoomFactor(factor);
@@ -81,7 +82,8 @@ export function useZoomShortcuts() {
       void applyZoomFactor(factor);
 
       if (broadcast && tauri) {
-        lastRevision = Date.now();
+        lastRevision = Math.max(Date.now(), lastRevision + 1);
+        lastSource = ownLabel;
         void emit(ZOOM_CHANGED_EVENT, {
           factor,
           source: ownLabel,
@@ -130,12 +132,18 @@ export function useZoomShortcuts() {
           typeof payload.factor !== "number" ||
           !Number.isFinite(payload.factor) ||
           payload.factor <= 0 ||
-          typeof payload.revision !== "number" ||
-          payload.revision <= lastRevision
+          typeof payload.revision !== "number"
         ) {
           return;
         }
+        const newer =
+          payload.revision > lastRevision ||
+          (payload.revision === lastRevision && payload.source > lastSource);
+        if (!newer) {
+          return;
+        }
         lastRevision = payload.revision;
+        lastSource = payload.source;
         if (payload.factor !== factor) {
           setFactor(payload.factor, false);
         }

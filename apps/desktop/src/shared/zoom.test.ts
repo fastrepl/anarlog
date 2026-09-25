@@ -179,6 +179,31 @@ describe("useZoomShortcuts", () => {
     expect(mocks.setZoom).toHaveBeenCalledTimes(calls);
   });
 
+  it("assigns increasing revisions to rapid changes", () => {
+    renderHook(() => useZoomShortcuts());
+    keydown({ key: "=", metaKey: true });
+    keydown({ key: "=", metaKey: true });
+    const revisions = mocks.emit.mock.calls.map(
+      (call) => (call[1] as { revision: number }).revision,
+    );
+    expect(revisions[1]).toBeGreaterThan(revisions[0]);
+  });
+
+  it("breaks equal-revision ties by source label", () => {
+    renderHook(() => useZoomShortcuts());
+    mocks.listeners[0]({
+      payload: { factor: 1.5, source: "note", revision: 1 },
+    });
+    mocks.listeners[0]({
+      payload: { factor: 0.5, source: "aaa", revision: 1 },
+    });
+    expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.5");
+    mocks.listeners[0]({
+      payload: { factor: 1.7, source: "zzz", revision: 1 },
+    });
+    expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.7");
+  });
+
   it("stops responding after unmount", () => {
     const { unmount } = renderHook(() => useZoomShortcuts());
     unmount();
