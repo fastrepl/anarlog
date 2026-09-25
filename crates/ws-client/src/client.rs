@@ -4,7 +4,9 @@ use futures_util::{
     SinkExt, Stream, StreamExt,
     future::{FutureExt, pending},
 };
-pub use tokio_tungstenite::tungstenite::{ClientRequestBuilder, Utf8Bytes, protocol::Message};
+pub use tokio_tungstenite::tungstenite::{
+    ClientRequestBuilder, Utf8Bytes, client::IntoClientRequest, protocol::Message,
+};
 
 pub use crate::retry::{WebSocketConnectPolicy, WebSocketRetryCallback, WebSocketRetryEvent};
 

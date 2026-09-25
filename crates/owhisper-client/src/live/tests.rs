@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anlg_ws_client::client::Message;
+use anlg_ws_client::client::{IntoClientRequest, Message};
 use bytes::Bytes;
 
 use super::{ListenClientDualInput, TransformedInput, forward_dual_to_single, mic_stream_params};
@@ -104,6 +104,72 @@ async fn valid_proxy_and_direct_endpoints_still_build() {
             .await
             .unwrap();
     }
+}
+
+#[tokio::test]
+async fn split_dual_builds_mic_request_from_mic_speaker_params() {
+    let client = ListenClient::builder()
+        .adapter::<AssemblyAIAdapter>()
+        .api_base("wss://api.assemblyai.com/v2/realtime/ws")
+        .api_key("test-key")
+        .params(owhisper_interface::ListenParams {
+            mic_num_speakers: Some(1),
+            ..Default::default()
+        })
+        .build_dual()
+        .await
+        .unwrap();
+
+    // URL-configured providers read the speaker cap from the connection URI, so
+    // the mic side of a split session needs a request built from the mic params.
+    let mic_uri = client
+        .mic_request
+        .as_ref()
+        .expect("split sessions should build a dedicated mic request")
+        .clone()
+        .into_client_request()
+        .unwrap()
+        .uri()
+        .to_string();
+    assert!(mic_uri.contains("max_speakers=1"), "mic URI: {mic_uri}");
+    let spk_uri = client
+        .request
+        .clone()
+        .into_client_request()
+        .unwrap()
+        .uri()
+        .to_string();
+    assert!(!spk_uri.contains("max_speakers"), "spk URI: {spk_uri}");
+}
+
+#[tokio::test]
+async fn split_dual_reuses_one_request_without_mic_speaker_params() {
+    let client = ListenClient::builder()
+        .adapter::<AssemblyAIAdapter>()
+        .api_base("wss://api.assemblyai.com/v2/realtime/ws")
+        .api_key("test-key")
+        .build_dual()
+        .await
+        .unwrap();
+
+    assert!(client.mic_request.is_none());
+}
+
+#[tokio::test]
+async fn native_multichannel_dual_does_not_build_mic_request() {
+    let client = ListenClient::builder()
+        .adapter::<DeepgramAdapter>()
+        .api_base("https://api.deepgram.com/v1")
+        .api_key("test-key")
+        .params(owhisper_interface::ListenParams {
+            mic_num_speakers: Some(1),
+            ..Default::default()
+        })
+        .build_dual()
+        .await
+        .unwrap();
+
+    assert!(client.mic_request.is_none());
 }
 
 #[tokio::test]

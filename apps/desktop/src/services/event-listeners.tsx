@@ -227,9 +227,25 @@ function getLiveSpeakerAssignments(
   if (parseSpeakerContext(row.speaker_context).intervals.length > 0) {
     return assignments;
   }
+  // Channel-scope assignments are last-write-wins in both renderers, so only
+  // synthesize a default for channels without an explicit channel assignment.
+  const claimedChannels = new Set(
+    assignments
+      .map((assignment) =>
+        assignment.scope.kind === "channel" ? assignment.scope.channel : null,
+      )
+      .filter((channel) => channel !== null),
+  );
   return [
     ...assignments,
-    ...channelAssignmentsForParticipants(participantHumanIds, selfHumanId),
+    ...channelAssignmentsForParticipants(
+      participantHumanIds,
+      selfHumanId,
+    ).filter(
+      (assignment) =>
+        assignment.scope.kind !== "channel" ||
+        !claimedChannels.has(assignment.scope.channel),
+    ),
   ];
 }
 

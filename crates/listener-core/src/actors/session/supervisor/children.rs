@@ -121,11 +121,14 @@ pub(super) async fn spawn_recorder(
     Ok(recorder_ref.get_cell())
 }
 
+// Returns the listener cell and the mic-isolation verdict the provider session
+// was configured with; the supervisor keeps it to spot routing changes that flip
+// the verdict after the stream is already open.
 pub(super) async fn spawn_listener(
     supervisor_cell: ActorCell,
     ctx: &SessionContext,
     stream_offset_secs: Option<f64>,
-) -> Result<ActorCell, ractor::SpawnErr> {
+) -> Result<(ActorCell, bool), ractor::SpawnErr> {
     let mode = ChannelMode::determine(ctx.params.onboarding);
     let mic_isolated = mode == ChannelMode::MicAndSpeaker
         && crate::actors::source::mic_isolated(&ctx.params.mic_device, ctx.audio.as_ref());
@@ -155,7 +158,7 @@ pub(super) async fn spawn_listener(
         supervisor_cell,
     )
     .await?;
-    Ok(listener_ref.get_cell())
+    Ok((listener_ref.get_cell(), mic_isolated))
 }
 
 pub(super) async fn try_restart_source(

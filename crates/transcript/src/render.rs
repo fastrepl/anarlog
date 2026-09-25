@@ -99,10 +99,26 @@ pub fn render_transcript_segments(
         let segment_options = if speaker_context.is_some() {
             crate::segment_options_for_assignments(&assignments)
         } else {
-            assignments.extend(channel_assignments_for_participants(
-                &participant_human_ids,
-                self_human_id.as_deref(),
-            ));
+            let claimed_channels: std::collections::HashSet<crate::ChannelProfile> = assignments
+                .iter()
+                .filter_map(|assignment| match &assignment.scope {
+                    crate::IdentityScope::Channel { channel } => Some(*channel),
+                    _ => None,
+                })
+                .collect();
+            assignments.extend(
+                channel_assignments_for_participants(
+                    &participant_human_ids,
+                    self_human_id.as_deref(),
+                )
+                .into_iter()
+                .filter(|assignment| match &assignment.scope {
+                    crate::IdentityScope::Channel { channel } => {
+                        !claimed_channels.contains(channel)
+                    }
+                    _ => true,
+                }),
+            );
             segment_options_for_participants(&participant_human_ids, self_human_id.as_deref())
         };
 
@@ -418,6 +434,45 @@ mod tests {
         assert_eq!(segments[0].speaker_label, "Me");
         assert_eq!(segments[0].key.speaker_index, Some(2));
         assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
+    }
+
+    #[test]
+    fn explicit_channel_assignment_wins_over_participant_default() {
+        let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
+            transcripts: vec![RenderTranscriptInput {
+                started_at: Some(0),
+                words: vec![
+                    word("w1", " hello", 0, 100, 0),
+                    word("w2", " world", 120, 240, 1),
+                ],
+                assignments: vec![channel_assignment(
+                    "human-pinned",
+                    ChannelProfile::RemoteParty,
+                )],
+            }],
+            participant_human_ids: vec!["self".to_string(), "remote".to_string()],
+            self_human_id: Some("self".to_string()),
+            humans: vec![
+                RenderTranscriptHuman {
+                    human_id: "self".to_string(),
+                    name: "Me".to_string(),
+                },
+                RenderTranscriptHuman {
+                    human_id: "human-pinned".to_string(),
+                    name: "Pinned".to_string(),
+                },
+                RenderTranscriptHuman {
+                    human_id: "remote".to_string(),
+                    name: "Remote".to_string(),
+                },
+            ],
+        });
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].speaker_label, "Me");
+        assert_eq!(segments[1].speaker_label, "Pinned");
     }
 
     #[test]

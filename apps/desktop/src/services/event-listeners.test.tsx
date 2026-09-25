@@ -657,6 +657,70 @@ describe("EventListeners notification events", () => {
     });
   });
 
+  test("live capture config sync keeps explicit channel assignments over defaults", async () => {
+    vi.useFakeTimers();
+    useConfigValuesMock.mockReturnValue({
+      ai_language: "en",
+      spoken_languages: ["en"],
+      current_stt_provider: "soniox",
+      current_stt_model: "stt-v4",
+    });
+
+    render(<EventListeners />);
+
+    await vi.waitFor(() =>
+      expect(liveQuerySubscribeMock).toHaveBeenCalledTimes(2),
+    );
+    findLiveQueryHandlers("session_participants").onData([
+      {
+        session_id: "session-1",
+        owner_user_id: "human-self",
+        human_id: "human-remote",
+      },
+    ]);
+    findLiveQueryHandlers("FROM transcripts").onData([
+      {
+        id: "transcript-1",
+        started_at_ms: 1_000,
+        speaker_context: null,
+        words_json: JSON.stringify([
+          { id: "w1", text: " hi", start_ms: 0, end_ms: 100, channel: 1 },
+        ]),
+        speaker_hints_json: JSON.stringify([
+          {
+            id: "w1:user_speaker_assignment",
+            word_id: "w1",
+            type: "user_speaker_assignment",
+            value: JSON.stringify({
+              human_id: "human-pinned",
+              scope: "speaker",
+              channel: 1,
+              speaker_index: null,
+            }),
+          },
+        ]),
+      },
+    ]);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(updateCaptureConfigMock).toHaveBeenCalledWith({
+      session_id: "session-1",
+      languages: ["en"],
+      participant_human_ids: ["human-remote"],
+      self_human_id: "human-self",
+      speaker_assignments: [
+        {
+          human_id: "human-pinned",
+          scope: { kind: "channel", channel: "RemoteParty" },
+        },
+        {
+          human_id: "human-self",
+          scope: { kind: "channel", channel: "DirectMic" },
+        },
+      ],
+    });
+  });
+
   test("live capture config sync pushes again after a restart on the same session", async () => {
     vi.useFakeTimers();
     useConfigValuesMock.mockReturnValue({

@@ -159,11 +159,24 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
         };
         let params = self.normalized_params();
         let request = self.build_request(&adapter, &params, channels).await?;
+        // URL-configured providers encode the speaker count in the connection itself
+        // (e.g. AssemblyAI's `max_speakers` query), so the mic side of a split session
+        // needs its own request built from the mic-specific params.
+        let mic_request =
+            if adapter.supports_native_multichannel() || params.mic_num_speakers.is_none() {
+                None
+            } else {
+                Some(
+                    self.build_request(&adapter, &mic_stream_params(&params), channels)
+                        .await?,
+                )
+            };
         let initial_message = adapter.initial_message(self.api_key.as_deref(), &params, channels);
 
         Ok(ListenClientDual {
             adapter,
             request,
+            mic_request,
             initial_message,
             connect_policy: self.connect_policy,
             api_key: self.api_key,
@@ -187,6 +200,7 @@ pub struct ListenClient<A: RealtimeSttAdapter = DeepgramAdapter> {
 pub struct ListenClientDual<A: RealtimeSttAdapter> {
     pub(crate) adapter: A,
     pub(crate) request: ClientRequestBuilder,
+    pub(crate) mic_request: Option<ClientRequestBuilder>,
     pub(crate) initial_message: Option<Message>,
     pub(crate) connect_policy: Option<anlg_ws_client::client::WebSocketConnectPolicy>,
     pub(crate) api_key: Option<String>,
@@ -474,7 +488,7 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         let (spk_tx, spk_rx) = tokio::sync::mpsc::channel::<TransformedInput>(32);
 
         let mic_ws = websocket_client_with_keep_alive(
-            &self.request,
+            self.mic_request.as_ref().unwrap_or(&self.request),
             &mic_adapter,
             self.connect_policy.clone(),
         );
