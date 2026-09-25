@@ -3,7 +3,7 @@ use export_core::*;
 fn fixture() -> ExportInput {
     ExportInput {
         metadata: Some(ExportMetadata {
-            title: "Q3 Product Roadmap Sync".to_string(),
+            title: "Q3 Product Roadmap Sync #2".to_string(),
             created_at: "Friday, September 25, 2026 at 9:30 AM".to_string(),
             participants: vec![
                 "John Smith".to_string(),

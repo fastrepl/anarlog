@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn hash_in_link_url_is_escaped() {
         let out = markdown_to_typst("[t](https://x/p#frag)");
-        assert!(out.contains("\\#frag"), "{out}");
+        assert!(out.contains("\\u{23}frag"), "{out}");
     }
 
     #[test]

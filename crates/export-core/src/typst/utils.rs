@@ -19,5 +19,7 @@ pub(super) fn escape_typst_literal(s: &str) -> String {
         .replace('"', "\\\"")
         .replace('\n', "\\n")
         .replace('\r', "\\r")
-        .replace('#', "\\#")
+        // `#` interpolates inside quoted strings; the unicode escape is a
+        // literal hash in the rendered output.
+        .replace('#', "\\u{23}")
 }
