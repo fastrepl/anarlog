@@ -9,13 +9,14 @@ import {
 import {
   useEditorEffect,
   useEditorEventCallback,
+  useEditorEventListener,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -117,12 +118,20 @@ export function FormatToolbar({
   const toolbarRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
 
+  // An active IME composition makes the DOM selection a range covering the
+  // composed text; that is not a real selection, so keep the toolbar hidden
+  // until the composition ends.
+  const [isComposing, setIsComposing] = useState(false);
+  useEditorEventListener("compositionstart", () => setIsComposing(true));
+  useEditorEventListener("compositionend", () => setIsComposing(false));
+
   const editorState = useEditorState();
   const canFormatSelection = editorState
     ? showFormatting && !selectionTouchesTitleHeading(editorState)
     : false;
   const shouldShowToolbar = editorState
     ? !editorState.selection.empty &&
+      !isComposing &&
       (canFormatSelection || onComment !== undefined)
     : false;
 
