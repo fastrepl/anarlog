@@ -10,7 +10,11 @@ import { useChangelogContent } from "./data";
 
 import { useShell } from "~/contexts/shell";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
+import {
+  useWindowControlsGutter,
+  WINDOW_CONTROLS_GUTTER_PLUS_28_CLASS,
+  WINDOW_CONTROLS_GUTTER_PLUS_80_CLASS,
+} from "~/shared/hooks/useWindowControlsGutter";
 import { StandardContentWrapper } from "~/shared/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
@@ -141,7 +145,9 @@ function ChangelogHeader({
       className={cn([
         "relative flex h-12 w-full items-center",
         showSidebarTimelineHeaderGutter &&
-          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
+          (showWindowControlsGutter
+            ? WINDOW_CONTROLS_GUTTER_PLUS_80_CLASS
+            : "pl-[80px]"),
       ])}
     >
       <div
@@ -153,7 +159,9 @@ function ChangelogHeader({
             : showSidebarTimelineHeaderGutter
               ? cn([
                   "right-[70px] justify-start",
-                  showWindowControlsGutter ? "left-[104px]" : "left-[28px]",
+                  showWindowControlsGutter
+                    ? WINDOW_CONTROLS_GUTTER_PLUS_28_CLASS
+                    : "left-[28px]",
                 ])
               : "left-1/2 w-[min(640px,calc(100%_-_160px))] -translate-x-1/2 justify-center",
         ])}

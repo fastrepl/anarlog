@@ -688,7 +688,7 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     const panels = screen.getAllByTestId("panel");
-    expect(panels[1]?.dataset.minWidth).toBe("500");
+    expect(panels[1]?.dataset.minWidth).toBe("min(500px, 100%)");
   });
 
   it("keeps the empty content panel at least 500px wide", () => {
@@ -702,7 +702,7 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     const panels = screen.getAllByTestId("panel");
-    expect(panels[1]?.dataset.minWidth).toBe("500");
+    expect(panels[1]?.dataset.minWidth).toBe("min(500px, 100%)");
   });
 
   it("lets the settings content panel shrink beside the sidebar", () => {

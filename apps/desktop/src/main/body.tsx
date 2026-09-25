@@ -39,8 +39,13 @@ import {
   usesTitleBarSidebarActions,
   usesWindowsStyleTitleBar,
   useWindowControlsGutter,
+  WINDOW_CONTROLS_GUTTER_CLASS,
+  WINDOW_CONTROLS_ROW_PADDING_TOP_CLASS,
 } from "~/shared/hooks/useWindowControlsGutter";
-import { getMainContentMinWidth } from "~/shared/main/layout-widths";
+import {
+  boundedMinWidthPx,
+  getMainContentMinWidth,
+} from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
 import { useSidebarNotes } from "~/sidebar/note-filter";
@@ -398,8 +403,13 @@ export function ClassicMainBody() {
         data-tauri-drag-region
         data-sidebar-timeline-header
         className={cn([
-          "flex h-9 shrink-0 items-start pt-[9px] pr-1",
-          showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+          "flex h-9 shrink-0 items-start pr-1",
+          showWindowControlsGutter
+            ? [
+                WINDOW_CONTROLS_GUTTER_CLASS,
+                WINDOW_CONTROLS_ROW_PADDING_TOP_CLASS,
+              ]
+            : "pt-[9px] pl-2",
         ])}
         onWheelCapture={handleSidebarTimelineHeaderWheel}
       >
@@ -437,8 +447,13 @@ export function ClassicMainBody() {
           <div
             data-tauri-drag-region
             className={cn([
-              "flex h-full min-w-0 items-start pt-[9px] pr-1",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+              "flex h-full min-w-0 items-start pr-1",
+              showWindowControlsGutter
+                ? [
+                    WINDOW_CONTROLS_GUTTER_CLASS,
+                    WINDOW_CONTROLS_ROW_PADDING_TOP_CLASS,
+                  ]
+                : "pt-[9px] pl-2",
             ])}
           >
             <SidebarTimelineChromeWithUpcomingMeeting
@@ -468,7 +483,7 @@ export function ClassicMainBody() {
             data-tauri-drag-region
             className={cn([
               "flex h-full min-w-0 items-start pt-1",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+              showWindowControlsGutter ? WINDOW_CONTROLS_GUTTER_CLASS : "pl-2",
             ])}
           />
         </div>
@@ -543,7 +558,12 @@ export function ClassicMainBody() {
           id="classic-main-content"
           order={2}
           className="min-h-0 min-w-0 flex-1 overflow-hidden"
-          style={{ minWidth: mainContentMinWidth }}
+          style={{
+            minWidth:
+              mainContentMinWidth == null
+                ? undefined
+                : boundedMinWidthPx(mainContentMinWidth),
+          }}
         >
           <div
             data-main-content-panel

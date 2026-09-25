@@ -49,6 +49,10 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 import { TabContentChangelog } from "./index";
 
+import {
+  WINDOW_CONTROLS_GUTTER_PLUS_28_CLASS,
+  WINDOW_CONTROLS_GUTTER_PLUS_80_CLASS,
+} from "~/shared/hooks/useWindowControlsGutter";
 import type { Tab } from "~/store/zustand/tabs";
 
 describe("TabContentChangelog", () => {
@@ -73,8 +77,12 @@ describe("TabContentChangelog", () => {
     });
     const titleSlot = heading.parentElement;
 
-    expect(getHeader().className).toContain("pl-[156px]");
-    expect(titleSlot?.className).toContain("left-[104px]");
+    expect(getHeader().className).toContain(
+      WINDOW_CONTROLS_GUTTER_PLUS_80_CLASS,
+    );
+    expect(titleSlot?.className).toContain(
+      WINDOW_CONTROLS_GUTTER_PLUS_28_CLASS,
+    );
     expect(titleSlot?.className).not.toContain("-translate-y-1");
     expect(titleSlot?.className).toContain("right-[70px]");
     expect(titleSlot?.className).toContain("justify-start");
@@ -85,7 +93,9 @@ describe("TabContentChangelog", () => {
   it("does not add the collapsed sidebar gutter while the left sidebar is expanded", () => {
     render(<TabContentChangelog tab={buildChangelogTab()} />);
 
-    expect(getHeader().className).not.toContain("pl-[156px]");
+    expect(getHeader().className).not.toContain(
+      WINDOW_CONTROLS_GUTTER_PLUS_80_CLASS,
+    );
   });
 
   it("uses the left-edge title slot while the sidebar is expanded", () => {

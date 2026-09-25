@@ -1,6 +1,11 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import {
+  currentMonitor,
+  getCurrentWindow,
+  LogicalSize,
+} from "@tauri-apps/api/window";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
@@ -12,6 +17,66 @@ export const ZOOM_STEPS = [
 ] as const;
 
 export const DEFAULT_ZOOM_FACTOR = 1;
+export const ZOOM_CSS_VARIABLE = "--anlg-zoom";
+
+// Logical (unzoomed) minimum inner sizes, mirroring plugins/windows v1.rs.
+const MAIN_WINDOW_BASE_MIN_SIZE = { width: 500, height: 500 };
+const NOTE_WINDOW_BASE_MIN_SIZE = { width: 420, height: 500 };
+
+export function getWindowBaseMinSize(label: string) {
+  if (label === "main") {
+    return MAIN_WINDOW_BASE_MIN_SIZE;
+  }
+  if (label.startsWith("note-")) {
+    return NOTE_WINDOW_BASE_MIN_SIZE;
+  }
+  return null;
+}
+
+export function scaleWindowMinSize(
+  base: { width: number; height: number },
+  factor: number,
+  monitor: { width: number; height: number } | null,
+) {
+  const width = Math.round(base.width * factor);
+  const height = Math.round(base.height * factor);
+  if (!monitor) {
+    return { width, height };
+  }
+  return {
+    width: Math.min(width, Math.floor(monitor.width)),
+    height: Math.min(height, Math.floor(monitor.height)),
+  };
+}
+
+async function syncWindowMinSize(factor: number) {
+  const appWindow = getCurrentWindow();
+  const base = getWindowBaseMinSize(appWindow.label);
+  if (!base) {
+    return;
+  }
+
+  const [monitor, scaleFactor, innerSize] = await Promise.all([
+    currentMonitor(),
+    appWindow.scaleFactor(),
+    appWindow.innerSize(),
+  ]);
+  const monitorLogical = monitor
+    ? monitor.size.toLogical(monitor.scaleFactor)
+    : null;
+  const min = scaleWindowMinSize(base, factor, monitorLogical);
+  await appWindow.setMinSize(new LogicalSize(min.width, min.height));
+
+  const current = innerSize.toLogical(scaleFactor);
+  if (current.width < min.width || current.height < min.height) {
+    await appWindow.setSize(
+      new LogicalSize(
+        Math.max(current.width, min.width),
+        Math.max(current.height, min.height),
+      ),
+    );
+  }
+}
 
 export function stepZoomFactor(
   current: number,
@@ -49,6 +114,8 @@ export function persistZoomFactor(
 }
 
 export function applyZoomFactor(factor: number): Promise<void> {
+  document.documentElement.style.setProperty(ZOOM_CSS_VARIABLE, String(factor));
+
   if (!isTauri()) {
     return Promise.resolve();
   }
@@ -56,7 +123,7 @@ export function applyZoomFactor(factor: number): Promise<void> {
   try {
     return getCurrentWebview()
       .setZoom(factor)
-      .then(() => {})
+      .then(() => syncWindowMinSize(factor))
       .catch((error: unknown) => {
         console.warn("[zoom] failed to set webview zoom", error);
       });
