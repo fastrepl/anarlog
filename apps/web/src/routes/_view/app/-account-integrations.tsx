@@ -41,6 +41,11 @@ const INTEGRATION_NAMES: Record<string, string> = {
   webex: "Webex",
   "google-meet": "Google Meet",
   "microsoft-teams": "Microsoft Teams",
+  attio: "Attio",
+  close: "Close",
+  hubspot: "HubSpot",
+  pipedrive: "Pipedrive",
+  salesforce: "Salesforce",
 };
 
 const INTEGRATION_ICONS: Record<string, ReactNode> = {
@@ -59,6 +64,11 @@ const INTEGRATION_ICONS: Record<string, ReactNode> = {
   "microsoft-teams": (
     <Icon icon="logos:microsoft-teams" width="20" height="20" />
   ),
+  attio: <Icon icon="thesvg-color:attio" width="20" height="20" />,
+  close: <Icon icon="logos:close" width="20" height="20" />,
+  hubspot: <Icon icon="logos:hubspot" width="20" height="20" />,
+  pipedrive: <Icon icon="logos:pipedrive" width="20" height="20" />,
+  salesforce: <Icon icon="logos:salesforce" width="20" height="20" />,
 };
 
 const connectionsQueryKey = ["account-integrations"];

@@ -93,6 +93,31 @@ const INTEGRATION_DISPLAY: Record<
     connectingHint:
       "Finish authorization with Microsoft, then return to Anarlog",
   },
+  attio: {
+    name: "Attio",
+    description: "Connect Attio to look up your contacts",
+    connectingHint: "Follow the prompts to connect your Attio workspace",
+  },
+  close: {
+    name: "Close",
+    description: "Connect Close to look up your contacts",
+    connectingHint: "Follow the prompts to connect your Close account",
+  },
+  hubspot: {
+    name: "HubSpot",
+    description: "Connect HubSpot to look up your contacts",
+    connectingHint: "Follow the prompts to connect your HubSpot account",
+  },
+  pipedrive: {
+    name: "Pipedrive",
+    description: "Connect Pipedrive to look up your contacts",
+    connectingHint: "Follow the prompts to connect your Pipedrive account",
+  },
+  salesforce: {
+    name: "Salesforce",
+    description: "Connect Salesforce to look up your contacts",
+    connectingHint: "Follow the prompts to connect your Salesforce account",
+  },
 };
 
 export function getIntegrationDisplay(integrationId: string) {
