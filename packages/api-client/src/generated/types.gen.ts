@@ -1137,6 +1137,12 @@ export type Meeting = {
 
 export type MeetingExport = Meeting & {
     /**
+     * Recorded microphone/call context intervals (`sessions.metadata_json`
+     * `speaker_context`) used to label speakers the same way the desktop
+     * transcript view does.
+     */
+    speaker_context?: unknown;
+    /**
      * People referenced by transcript speaker assignments (including the
      * recording user) who may not appear among the meeting participants.
      */

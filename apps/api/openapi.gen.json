@@ -9476,6 +9476,9 @@
               "transcripts"
             ],
             "properties": {
+              "speaker_context": {
+                "description": "Recorded microphone/call context intervals (`sessions.metadata_json`\n`speaker_context`) used to label speakers the same way the desktop\ntranscript view does."
+              },
               "speakers": {
                 "type": "array",
                 "items": {

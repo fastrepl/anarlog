@@ -701,6 +701,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                 speaker_hints: Vec::new(),
             }],
             speakers: Vec::new(),
+            speaker_context: None,
         }
     }
 

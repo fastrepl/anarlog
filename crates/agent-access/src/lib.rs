@@ -227,6 +227,11 @@ pub struct MeetingExport {
     /// recording user) who may not appear among the meeting participants.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub speakers: Vec<Speaker>,
+    /// Recorded microphone/call context intervals (`sessions.metadata_json`
+    /// `speaker_context`) used to label speakers the same way the desktop
+    /// transcript view does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker_context: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Type, utoipa::ToSchema)]
@@ -376,7 +381,7 @@ pub async fn get_recurring_meeting_history(
 }
 
 pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result<MeetingExport> {
-    let (meeting, transcript_rows) = tokio::try_join!(
+    let (meeting, transcript_rows, speaker_context) = tokio::try_join!(
         get_meeting(
             pool,
             GetMeetingInput {
@@ -384,6 +389,7 @@ pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result
             }
         ),
         load_transcript_rows(pool, &meeting_id),
+        load_speaker_context(pool, &meeting_id),
     )?;
     let self_human_id = transcript_rows
         .iter()
@@ -399,7 +405,25 @@ pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result
         meeting,
         transcripts,
         speakers,
+        speaker_context,
     })
+}
+
+async fn load_speaker_context(pool: &SqlitePool, meeting_id: &str) -> Result<Option<Value>> {
+    let raw: Option<String> = sqlx::query_scalar(
+        "SELECT json_extract(metadata_json, '$.speaker_context') FROM sessions WHERE id = ?",
+    )
+    .bind(meeting_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|source| Error::Database {
+        action: "load speaker context",
+        source,
+    })?
+    .flatten();
+    Ok(raw
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+        .filter(Value::is_object))
 }
 
 async fn load_speakers(

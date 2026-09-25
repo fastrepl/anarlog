@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anlg_transcript::{
     ChannelProfile, IdentityAssignment, IdentityScope, RenderTranscriptHuman,
-    RenderTranscriptInput, RenderTranscriptRequest, RenderTranscriptWordInput,
+    RenderTranscriptInput, RenderTranscriptRequest, RenderTranscriptWordInput, SpeakerContext,
     render_transcript_segments,
 };
 use serde_json::Value;
@@ -10,21 +10,48 @@ use serde_json::Value;
 use crate::{MeetingExport, Transcript};
 
 /// Renders transcripts as `Speaker: text` paragraphs, mirroring the desktop
-/// transcript view. Falls back to the flat per-transcript text when word-level
-/// data is unavailable (for example in trimmed cloud snapshots).
+/// transcript view. Transcript rows without complete word-level data (for
+/// example in trimmed cloud snapshots) keep their flat text, interleaved with
+/// the rendered segments by start time.
 pub fn render_transcripts_markdown(export: &MeetingExport) -> String {
-    let Some(request) = build_render_request(export) else {
-        return render_flat_transcripts(&export.transcripts);
-    };
-
-    let segments = render_transcript_segments(request);
-    if segments.is_empty() {
-        return render_flat_transcripts(&export.transcripts);
+    let mut flat = Vec::new();
+    let mut renderable = Vec::new();
+    for transcript in &export.transcripts {
+        match normalize_transcript(transcript) {
+            Some(input) => renderable.push(input),
+            None => {
+                let text = transcript.text.trim();
+                if !text.is_empty() {
+                    flat.push((transcript.started_at_ms, text.to_string()));
+                }
+            }
+        }
     }
 
-    segments
-        .iter()
-        .map(|segment| format!("{}: {}", segment.speaker_label, segment.text))
+    let mut paragraphs = flat;
+    if !renderable.is_empty() {
+        let base_started_at = renderable
+            .iter()
+            .filter_map(|transcript| transcript.started_at)
+            .min()
+            .unwrap_or(0);
+        let request = build_render_request(export, renderable);
+        paragraphs.extend(
+            render_transcript_segments(request)
+                .into_iter()
+                .map(|segment| {
+                    (
+                        base_started_at + segment.start_ms,
+                        format!("{}: {}", segment.speaker_label, segment.text),
+                    )
+                }),
+        );
+    }
+
+    paragraphs.sort_by_key(|(started_at, _)| *started_at);
+    paragraphs
+        .into_iter()
+        .map(|(_, text)| text)
         .collect::<Vec<_>>()
         .join("\n\n")
 }
@@ -62,16 +89,10 @@ pub(crate) fn assigned_human_ids(transcripts: &[Transcript]) -> Vec<String> {
     ids
 }
 
-fn build_render_request(export: &MeetingExport) -> Option<RenderTranscriptRequest> {
-    let transcripts = export
-        .transcripts
-        .iter()
-        .filter_map(normalize_transcript)
-        .collect::<Vec<_>>();
-    if transcripts.is_empty() {
-        return None;
-    }
-
+fn build_render_request(
+    export: &MeetingExport,
+    transcripts: Vec<RenderTranscriptInput>,
+) -> RenderTranscriptRequest {
     let participant_human_ids = export
         .meeting
         .participants
@@ -111,14 +132,29 @@ fn build_render_request(export: &MeetingExport) -> Option<RenderTranscriptReques
         .collect::<Vec<_>>();
     humans.sort_by(|a, b| a.human_id.cmp(&b.human_id));
 
-    Some(RenderTranscriptRequest {
-        speaker_context: None,
+    RenderTranscriptRequest {
+        speaker_context: export
+            .speaker_context
+            .as_ref()
+            .and_then(parse_speaker_context),
         preview: None,
         transcripts,
         participant_human_ids,
         self_human_id,
         humans,
-    })
+    }
+}
+
+fn parse_speaker_context(value: &Value) -> Option<SpeakerContext> {
+    let intervals = value.get("intervals")?.as_array()?;
+    let intervals = intervals
+        .iter()
+        .filter_map(|interval| {
+            serde_json::from_value::<anlg_transcript::SpeakerContextInterval>(interval.clone()).ok()
+        })
+        .filter(|interval| interval.start_ms < interval.end_ms)
+        .collect::<Vec<_>>();
+    (!intervals.is_empty()).then_some(SpeakerContext { intervals })
 }
 
 fn normalize_transcript(transcript: &Transcript) -> Option<RenderTranscriptInput> {
@@ -132,7 +168,7 @@ fn normalize_transcript(transcript: &Transcript) -> Option<RenderTranscriptInput
             word.get("start_ms").and_then(Value::as_i64),
             word.get("end_ms").and_then(Value::as_i64),
         ) else {
-            continue;
+            return None;
         };
         word_index_by_id.insert(id.to_string(), words.len());
         words.push(RenderTranscriptWordInput {
@@ -344,7 +380,54 @@ mod tests {
             },
             transcripts,
             speakers,
+            speaker_context: None,
         }
+    }
+
+    #[test]
+    fn keeps_flat_rows_when_only_some_rows_have_word_metadata() {
+        let mut rendered = transcript(vec![word("w1", "Hello", 0, 0)], Vec::new());
+        rendered.started_at_ms = 1_000;
+        let mut flat = transcript(vec![json!({"text": "Decision approved"})], Vec::new());
+        flat.started_at_ms = 5_000;
+        let mut partial = transcript(
+            vec![word("w2", "Later", 0, 0), json!({"text": "words"})],
+            Vec::new(),
+        );
+        partial.started_at_ms = 9_000;
+
+        let export = export(vec![flat, rendered, partial], Vec::new());
+        assert_eq!(
+            render_transcripts_markdown(&export),
+            "Speaker 1: Hello\n\nDecision approved\n\nLater words"
+        );
+    }
+
+    #[test]
+    fn shared_microphone_context_disables_owner_inference() {
+        let words = vec![word("w1", "Hello", 0, 0), word("w2", "Bob", 500, 0)];
+        let speakers = vec![Speaker {
+            human_id: "self-1".to_string(),
+            name: "Me".to_string(),
+            is_self: true,
+        }];
+        let mut export = export(vec![transcript(words, Vec::new())], speakers);
+        assert_eq!(render_transcripts_markdown(&export), "Me: Hello Bob");
+
+        export.speaker_context = Some(json!({
+            "intervals": [{
+                "start_ms": 0,
+                "end_ms": 60_000,
+                "active_call": false,
+                "calendar_call": false,
+                "mic_isolated": null,
+                "shared_microphone": true,
+                "title": "",
+                "self_names": [],
+                "participants": []
+            }]
+        }));
+        assert_ne!(render_transcripts_markdown(&export), "Me: Hello Bob");
     }
 
     #[test]
