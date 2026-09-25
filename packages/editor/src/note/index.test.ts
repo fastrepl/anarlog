@@ -302,6 +302,32 @@ describe("createReadOnlyPlugin", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
     await screen.findByRole("toolbar");
+
+    // A composition that starts inside the settle window must not be
+    // released by the previous composition's pending timer.
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 6)),
+      );
+    });
+    fireEvent.compositionStart(view!.dom);
+    fireEvent.compositionEnd(view!.dom);
+    fireEvent.compositionStart(view!.dom);
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    fireEvent.compositionEnd(view!.dom);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    await screen.findByRole("toolbar");
   });
 
   it("hides attachment mutation controls in read-only documents", async () => {

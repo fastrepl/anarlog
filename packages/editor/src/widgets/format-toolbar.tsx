@@ -16,7 +16,7 @@ import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -128,16 +128,21 @@ export function FormatToolbar({
   const [isComposing, setIsComposing] = useState(false);
   const compositionEndState = useRef<EditorState | null>(null);
   const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const releaseComposition = () => {
-    compositionEndState.current = null;
+  const cancelReleaseTimer = () => {
     if (releaseTimer.current != null) {
       clearTimeout(releaseTimer.current);
       releaseTimer.current = null;
     }
+  };
+  const releaseComposition = () => {
+    compositionEndState.current = null;
+    cancelReleaseTimer();
     setIsComposing(false);
   };
+  useEffect(() => cancelReleaseTimer, []);
   useEditorEventListener("compositionstart", () => {
     compositionEndState.current = null;
+    cancelReleaseTimer();
     setIsComposing(true);
   });
   useEditorEventListener("compositionend", (view) => {
