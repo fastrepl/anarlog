@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     FinalizedWord, IdentityAssignment, SegmentKey, SegmentWord, SpeakerLabelContext,
     SpeakerLabeler, WordState, build_segments, channel_assignments_for_participants,
-    render_speaker_label, segment_options_for_participants,
+    render_speaker_label, segment_options_for_participants, widen_isolated_mic_assignments,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -96,7 +96,14 @@ pub fn render_transcript_segments(
 
         let (words, mut assignments) =
             offset_transcript_data(transcript.words, transcript.assignments, offset);
-        let segment_options = if speaker_context.is_some() {
+        let segment_options = if let Some(context) = speaker_context.as_ref() {
+            if context
+                .intervals
+                .iter()
+                .any(|interval| interval.mic_isolated == Some(true))
+            {
+                assignments = widen_isolated_mic_assignments(assignments);
+            }
             crate::segment_options_for_assignments(&assignments)
         } else {
             let claimed_channels: std::collections::HashSet<crate::ChannelProfile> = assignments

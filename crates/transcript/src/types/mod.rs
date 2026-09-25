@@ -7,6 +7,6 @@ pub use delta::TranscriptDelta;
 pub use segment::{ChannelProfile, Segment, SegmentBuilderOptions, SegmentKey, SegmentWord};
 pub use speaker::{
     IdentityAssignment, IdentityScope, channel_assignments_for_participants,
-    segment_options_for_participants,
+    segment_options_for_participants, widen_isolated_mic_assignments,
 };
 pub use word::{FinalizedWord, PartialWord, RawWord, WordState};

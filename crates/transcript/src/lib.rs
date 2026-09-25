@@ -28,4 +28,5 @@ pub use types::{
     ChannelProfile, FinalizedWord, IdentityAssignment, IdentityScope, PartialWord, RawWord,
     Segment, SegmentBuilderOptions, SegmentKey, SegmentWord, TranscriptDelta, WordState,
     channel_assignments_for_participants, segment_options_for_participants,
+    widen_isolated_mic_assignments,
 };

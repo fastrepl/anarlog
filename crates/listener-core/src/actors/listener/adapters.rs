@@ -4,6 +4,7 @@ use std::time::{Duration, UNIX_EPOCH};
 use bytes::Bytes;
 use ractor::{ActorProcessingErr, ActorRef};
 
+use anlg_transcript::IdentityAssignment;
 use owhisper_client::{
     AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
     DashScopeAdapter, DashScopeStreamingAdapter, DeepgramAdapter, DeepgramFluxAdapter,
@@ -497,6 +498,15 @@ fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams 
     }
 }
 
+// An isolated mic disables provider diarization, so new words carry no speaker
+// index; index-scoped mic identities need widening to keep labeling them.
+pub(crate) fn effective_speaker_assignments(args: &ListenerArgs) -> Vec<IdentityAssignment> {
+    if !args.mic_isolated {
+        return args.speaker_assignments.clone();
+    }
+    anlg_transcript::widen_isolated_mic_assignments(args.speaker_assignments.clone())
+}
+
 fn expected_speakers(args: &ListenerArgs) -> Option<u32> {
     crate::expected_speakers_per_channel(&args.participant_human_ids, args.self_human_id.as_deref())
 }
@@ -644,6 +654,8 @@ mod tests {
     use std::sync::Arc;
     use std::time::{Instant, SystemTime};
 
+    use anlg_transcript::{ChannelProfile, IdentityScope};
+
     use super::*;
 
     struct NoopRuntime;
@@ -755,6 +767,62 @@ mod tests {
         assert_eq!(params.max_speakers, None);
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
+    }
+
+    fn mic_speaker_assignment(human_id: &str, speaker_index: i32) -> IdentityAssignment {
+        IdentityAssignment {
+            human_id: human_id.to_string(),
+            scope: IdentityScope::ChannelSpeaker {
+                channel: ChannelProfile::DirectMic,
+                speaker_index,
+            },
+        }
+    }
+
+    #[test]
+    fn isolated_mic_widens_consistent_index_scoped_identities() {
+        let mut args = listener_args("https://api.soniox.com", "stt-rt-v4");
+        args.mic_isolated = true;
+        args.speaker_assignments = vec![
+            mic_speaker_assignment("human-bob", 0),
+            mic_speaker_assignment("human-bob", 1),
+        ];
+
+        assert_eq!(
+            effective_speaker_assignments(&args),
+            vec![IdentityAssignment {
+                human_id: "human-bob".to_string(),
+                scope: IdentityScope::Channel {
+                    channel: ChannelProfile::DirectMic,
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn isolated_mic_keeps_mixed_index_scoped_identities() {
+        let mut args = listener_args("https://api.soniox.com", "stt-rt-v4");
+        args.mic_isolated = true;
+        args.speaker_assignments = vec![
+            mic_speaker_assignment("human-bob", 0),
+            mic_speaker_assignment("human-alice", 1),
+        ];
+
+        assert_eq!(
+            effective_speaker_assignments(&args),
+            args.speaker_assignments
+        );
+    }
+
+    #[test]
+    fn shared_mic_keeps_index_scoped_identities() {
+        let mut args = listener_args("https://api.soniox.com", "stt-rt-v4");
+        args.speaker_assignments = vec![mic_speaker_assignment("human-bob", 0)];
+
+        assert_eq!(
+            effective_speaker_assignments(&args),
+            args.speaker_assignments
+        );
     }
 
     #[test]

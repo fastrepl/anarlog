@@ -78,15 +78,83 @@ pub fn segment_options_for_participants(
     }
 }
 
+// An isolated mic disables provider diarization, so its words carry no speaker
+// index. Index-scoped DirectMic identities that all name the same human still
+// describe that one mic voice: widen them to the channel so they keep labeling
+// index-less words. Mixed-human index scopes stay index-scoped -- they can still
+// apply to words captured while diarization was on.
+pub fn widen_isolated_mic_assignments(
+    assignments: Vec<IdentityAssignment>,
+) -> Vec<IdentityAssignment> {
+    if assignments.iter().any(|assignment| {
+        matches!(
+            &assignment.scope,
+            IdentityScope::Channel {
+                channel: ChannelProfile::DirectMic,
+            }
+        )
+    }) {
+        return assignments;
+    }
+
+    let mut mic_human: Option<String> = None;
+    let mut consistent = true;
+    for assignment in &assignments {
+        if let IdentityScope::ChannelSpeaker {
+            channel: ChannelProfile::DirectMic,
+            ..
+        } = &assignment.scope
+        {
+            match &mic_human {
+                None => mic_human = Some(assignment.human_id.clone()),
+                Some(first) if *first == assignment.human_id => {}
+                Some(_) => {
+                    consistent = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    let Some(mic_human) = mic_human.filter(|_| consistent) else {
+        return assignments;
+    };
+
+    let mut widened = false;
+    assignments
+        .into_iter()
+        .filter_map(|assignment| match &assignment.scope {
+            IdentityScope::ChannelSpeaker {
+                channel: ChannelProfile::DirectMic,
+                ..
+            } => {
+                if widened {
+                    return None;
+                }
+                widened = true;
+                Some(IdentityAssignment {
+                    human_id: mic_human.to_string(),
+                    scope: IdentityScope::Channel {
+                        channel: ChannelProfile::DirectMic,
+                    },
+                })
+            }
+            _ => Some(assignment),
+        })
+        .collect()
+}
+
 fn unique_other_participant<'a>(
     participant_human_ids: &'a [String],
     self_human_id: &str,
 ) -> Option<&'a str> {
-    let others: Vec<&str> = participant_human_ids
-        .iter()
-        .map(|s| s.as_str())
-        .filter(|&id| !id.is_empty() && id != self_human_id)
-        .collect();
+    let mut others: Vec<&str> = Vec::new();
+    for id in participant_human_ids.iter().map(|s| s.as_str()) {
+        if id.is_empty() || id == self_human_id || others.contains(&id) {
+            continue;
+        }
+        others.push(id);
+    }
 
     if others.len() == 1 {
         Some(others[0])
@@ -118,6 +186,36 @@ mod tests {
     fn assigns_unique_remote_to_remote_party() {
         let assignments = channel_assignments_for_participants(
             &["self".to_string(), "remote".to_string()],
+            Some("self"),
+        );
+
+        assert_eq!(
+            assignments,
+            vec![
+                IdentityAssignment {
+                    human_id: "self".to_string(),
+                    scope: IdentityScope::Channel {
+                        channel: ChannelProfile::DirectMic,
+                    },
+                },
+                IdentityAssignment {
+                    human_id: "remote".to_string(),
+                    scope: IdentityScope::Channel {
+                        channel: ChannelProfile::RemoteParty,
+                    },
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn treats_repeated_remote_ids_as_one_remote() {
+        let assignments = channel_assignments_for_participants(
+            &[
+                "self".to_string(),
+                "remote".to_string(),
+                "remote".to_string(),
+            ],
             Some("self"),
         );
 
