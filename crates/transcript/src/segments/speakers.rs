@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::types::{ChannelProfile, IdentityAssignment, IdentityScope};
 use crate::types::{SegmentBuilderOptions, SegmentKey};
@@ -32,6 +32,52 @@ pub(super) fn create_speaker_state(
                 .insert((channel, speaker_index), assignment.human_id.clone());
         }
     }
+
+    // When every channel-level identity on a channel names the same human, an
+    // unindexed word on that channel can only be that voice: providers that skip
+    // diarization (or mics where it is disabled) emit index-less words that would
+    // otherwise lose an explicit speaker assignment. Indexed words keep their own
+    // scope, so earlier voices from a shared mic are unaffected.
+    let mut humans_by_channel: HashMap<ChannelProfile, HashSet<&str>> = HashMap::new();
+    let mut indices_by_channel: HashMap<ChannelProfile, HashSet<i32>> = HashMap::new();
+    for assignment in assignments {
+        match &assignment.scope {
+            IdentityScope::Channel { channel } => {
+                humans_by_channel
+                    .entry(*channel)
+                    .or_default()
+                    .insert(assignment.human_id.as_str());
+            }
+            IdentityScope::ChannelSpeaker {
+                channel,
+                speaker_index,
+            } => {
+                humans_by_channel
+                    .entry(*channel)
+                    .or_default()
+                    .insert(assignment.human_id.as_str());
+                indices_by_channel
+                    .entry(*channel)
+                    .or_default()
+                    .insert(*speaker_index);
+            }
+            IdentityScope::Words { .. } => {}
+        }
+    }
+    let single_human_by_channel: HashMap<ChannelProfile, (Option<i32>, String)> = humans_by_channel
+        .iter()
+        .filter(|(_, humans)| humans.len() == 1)
+        .map(|(channel, humans)| {
+            let speaker_index = indices_by_channel
+                .get(channel)
+                .filter(|indices| indices.len() == 1)
+                .and_then(|indices| indices.iter().next().copied());
+            (
+                *channel,
+                (speaker_index, humans.iter().next().unwrap().to_string()),
+            )
+        })
+        .collect();
 
     for word in normalized_words {
         if let Some(speaker_index) = word.speaker_index {
@@ -70,6 +116,7 @@ pub(super) fn create_speaker_state(
     SpeakerState {
         assignment_by_word_index,
         human_id_by_scoped_speaker,
+        single_human_by_channel,
         human_id_by_channel,
         last_speaker_by_channel: HashMap::new(),
         complete_channels,
@@ -136,6 +183,14 @@ fn apply_identity_rules(
         && state.complete_channels.contains(&word.channel)
         && let Some(human_id) = state.human_id_by_channel.get(&word.channel)
     {
+        identity.human_id = Some(human_id.clone());
+    }
+
+    if identity.human_id.is_none()
+        && identity.speaker_index.is_none()
+        && let Some((speaker_index, human_id)) = state.single_human_by_channel.get(&word.channel)
+    {
+        identity.speaker_index = *speaker_index;
         identity.human_id = Some(human_id.clone());
     }
 

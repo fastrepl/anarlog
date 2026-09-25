@@ -462,6 +462,39 @@ fn propagates_remote_party_identity_when_channel_marked_complete() {
 }
 
 #[test]
+fn indexless_words_inherit_the_only_channel_human() {
+    let finals = vec![
+        fw_si("0", 0, 100, 0, 0),
+        fw_si("1", 200, 300, 0, 1),
+        fw("2", 1200, 1300, 0),
+    ];
+    let assignments = vec![speaker_human("alice", ChannelProfile::DirectMic, 0)];
+    let result = build_segments(&finals, &[], &assignments, None);
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0].key, key_speaker_human(0, 0, "alice"));
+    assert_eq!(result[1].key, key_speaker(0, 1));
+    assert_eq!(result[2].key, key_speaker_human(0, 0, "alice"));
+}
+
+#[test]
+fn indexless_words_stay_unnamed_with_multiple_channel_humans() {
+    let finals = vec![
+        fw_si("0", 0, 100, 0, 0),
+        fw_si("1", 200, 300, 0, 1),
+        fw("2", 1200, 1300, 0),
+    ];
+    let assignments = vec![
+        speaker_human("alice", ChannelProfile::DirectMic, 0),
+        speaker_human("bob", ChannelProfile::DirectMic, 1),
+    ];
+    let result = build_segments(&finals, &[], &assignments, None);
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0].key, key_speaker_human(0, 0, "alice"));
+    assert_eq!(result[1].key, key_speaker_human(0, 1, "bob"));
+    assert_eq!(result[2].key, key(0));
+}
+
+#[test]
 fn channel_defaults_do_not_identify_speakers_on_incomplete_channels() {
     for channel in [ChannelProfile::RemoteParty, ChannelProfile::MixedCapture] {
         let finals = vec![

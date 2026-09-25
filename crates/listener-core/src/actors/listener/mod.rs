@@ -19,7 +19,7 @@ use crate::{
     SessionProgressEvent,
 };
 
-use adapters::{effective_speaker_assignments, spawn_rx_task};
+use adapters::spawn_rx_task;
 
 pub(super) const LISTEN_STREAM_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 pub(super) const FINALIZE_STREAM_TIMEOUT: Duration = Duration::from_secs(5);
@@ -310,7 +310,7 @@ impl Actor for ListenerActor {
                 if let Some(segment_delta) = state.transcript.update_identities(
                     &state.args.participant_human_ids,
                     state.args.self_human_id.as_deref(),
-                    effective_speaker_assignments(&state.args),
+                    state.args.speaker_assignments.clone(),
                 ) {
                     state
                         .args
@@ -436,7 +436,7 @@ fn resume_transcript(args: &ListenerArgs, adapter_name: &str) -> LiveTranscriptE
             if let Some(segment_delta) = engine.update_identities(
                 &args.participant_human_ids,
                 args.self_human_id.as_deref(),
-                effective_speaker_assignments(args),
+                args.speaker_assignments.clone(),
             ) {
                 args.runtime
                     .emit_data(SessionDataEvent::TranscriptSegmentDelta {
@@ -450,7 +450,7 @@ fn resume_transcript(args: &ListenerArgs, adapter_name: &str) -> LiveTranscriptE
             adapter_name,
             &args.participant_human_ids,
             args.self_human_id.as_deref(),
-            effective_speaker_assignments(args),
+            args.speaker_assignments.clone(),
         ),
     }
 }
