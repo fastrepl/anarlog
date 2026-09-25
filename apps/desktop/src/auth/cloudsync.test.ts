@@ -19,6 +19,8 @@ import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands as miscCommands } from "@anlg/plugin-misc";
 import { toast } from "@anlg/ui/components/ui/toast";
 
+import { startAutomaticDeviceEnrollment } from "./automatic-device-enrollment";
+import { establishAutomaticSyncIdentity } from "./automatic-sync-identity";
 import {
   applyCloudsyncPreference,
   bindCloudsyncAccountForAuth,
@@ -33,6 +35,13 @@ import {
 } from "./cloudsync-progress";
 
 import { getStoredSettingValues } from "~/settings/queries";
+
+vi.mock("./automatic-sync-identity", () => ({
+  establishAutomaticSyncIdentity: vi.fn().mockResolvedValue(false),
+}));
+vi.mock("./automatic-device-enrollment", () => ({
+  startAutomaticDeviceEnrollment: vi.fn(() => vi.fn()),
+}));
 
 vi.mock("./cloudsync-progress", () => ({
   startCloudsyncInitialSyncProgress: vi.fn(),
@@ -332,6 +341,22 @@ describe("CloudSync auth lifecycle", () => {
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
     expect(getCloudsyncCredentialBlock()).toBeNull();
+  });
+
+  test("starts syncing and sharing keys after automatic first-device setup", async () => {
+    vi.mocked(establishAutomaticSyncIdentity).mockResolvedValueOnce(true);
+    vi.mocked(getE2eeIdentityStatus).mockResolvedValueOnce({
+      configured: false,
+      keyId: null,
+      memberPublicKey: null,
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(credentialsResponse()));
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+    expect(configureCloudsyncToken).toHaveBeenCalled();
+    expect(startAutomaticDeviceEnrollment).toHaveBeenCalledWith(
+      "user-id",
+      "supabase-token",
+    );
   });
 
   test("keeps first-device recovery setup separate from enrollment", async () => {

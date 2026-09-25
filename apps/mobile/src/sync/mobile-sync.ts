@@ -11,6 +11,7 @@ import {
   inspectE2eeRecoveryKey,
   openE2eeDeviceEnrollment,
   stopSync,
+  sealE2eeDeviceEnrollment,
   syncNow,
 } from "@/db/client";
 import { env } from "@/lib/env";
@@ -20,6 +21,7 @@ import {
   DeviceEnrollmentError,
   consumeDeviceEnrollment,
   requestDeviceEnrollment,
+  shareDeviceEnrollments,
 } from "@/sync/device-enrollment";
 import { claimReplicaIdentity } from "@/sync/identity";
 
@@ -157,6 +159,25 @@ const controller = new MobileSyncController({
       recoveryKeyCode,
       device,
     }),
+  shareEnrollments: async (session, signal) => {
+    const recoveryKey = await SecureStore.getItemAsync(
+      recoveryKeyStorageKey(session.accountUserId),
+      keychainOptions,
+    );
+    if (!recoveryKey || signal.aborted) return;
+    await shareDeviceEnrollments({
+      apiUrl: session.apiUrl,
+      accessToken: session.accessToken,
+      signal,
+      seal: async (requestId, publicKey) =>
+        sealE2eeDeviceEnrollment(
+          session.accountUserId,
+          requestId,
+          recoveryKey,
+          publicKey,
+        ),
+    });
+  },
   stop: stopSync,
   syncNow,
   getStatus: getSyncStatus,

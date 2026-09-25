@@ -256,7 +256,8 @@ pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     account_user_id: String,
 ) -> Result<String, String> {
-    e2ee_recovery_key_name(&account_user_id)?;
+    let pending_key_name = format!("{}:pending", e2ee_recovery_key_name(&account_user_id)?);
+    let _identity_guard = E2EE_DEVICE_IDENTITY_LOCK.lock().await;
     if load_e2ee_recovery_key(app.clone(), &account_user_id)
         .await?
         .is_some()
@@ -264,9 +265,31 @@ pub(crate) async fn create_e2ee_identity<R: tauri::Runtime>(
         return Err("E2EE recovery key is already configured".to_string());
     }
 
+    // Keep the candidate durable before claiming it remotely, so interruption
+    // between the claim and import cannot strand an account without its key.
+    if let Some(code) = read_e2ee_secret_with_timeout(
+        E2EE_SECRET_READ_TIMEOUT,
+        tauri_plugin_store2::read_secret(
+            app.clone(),
+            E2EE_SECRET_SCOPE.to_string(),
+            pending_key_name.clone(),
+        ),
+    )
+    .await?
+    {
+        anlg_e2ee::RecoveryKey::parse(&code).map_err(|error| error.to_string())?;
+        return Ok(code);
+    }
     let recovery_key = anlg_e2ee::RecoveryKey::generate().map_err(|error| error.to_string())?;
-    let recovery_code = recovery_key.expose_code();
-    Ok(recovery_code.to_string())
+    let recovery_code = recovery_key.expose_code().to_string();
+    tauri_plugin_store2::write_secret(
+        app,
+        E2EE_SECRET_SCOPE.to_string(),
+        pending_key_name,
+        recovery_code.clone(),
+    )
+    .await?;
+    Ok(recovery_code)
 }
 
 #[tauri::command]

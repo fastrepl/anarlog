@@ -5,6 +5,7 @@ import {
   DeviceEnrollmentError,
   consumeDeviceEnrollment,
   requestDeviceEnrollment,
+  shareDeviceEnrollments,
 } from "./device-enrollment.ts";
 
 const input = {
@@ -73,4 +74,70 @@ test("consumes an approved enrollment package", async () => {
   assert.deepEqual(JSON.parse(request.init.body), {
     publicKey: input.publicKey,
   });
+});
+
+test("shares only valid pending requests, tolerating another device sealing first", async () => {
+  const device = {
+    requestId: "72e4b975-e6cb-4c00-a8a0-e61c55272377",
+    status: "pending",
+    publicKey: "A".repeat(43),
+    expiresAt: "2099-01-01",
+  };
+  const calls = [];
+  const packages = [];
+  await shareDeviceEnrollments({
+    ...input,
+    signal: new AbortController().signal,
+    seal: async (...args) => {
+      packages.push(args);
+      return { ciphertext: "encrypted" };
+    },
+    fetcher: async (url, init) => {
+      calls.push([String(url), init]);
+      if (calls.length === 1)
+        return new Response(
+          JSON.stringify({
+            pendingDevices: [
+              { ...device, status: "sealed" },
+              { ...device, expiresAt: "invalid" },
+              device,
+              { ...device, requestId: "../../bad" },
+            ],
+          }),
+        );
+      return new Response(null, { status: 409 });
+    },
+  });
+  assert.equal(calls.length, 2);
+  assert.deepEqual(packages, [[device.requestId, device.publicKey]]);
+  assert.equal(calls[1][1].headers.Authorization, "Bearer access-token");
+  assert.deepEqual(JSON.parse(calls[1][1].body), { ciphertext: "encrypted" });
+});
+test("does not publish after cancellation while sealing", async () => {
+  const controller = new AbortController();
+  let requests = 0;
+  await shareDeviceEnrollments({
+    ...input,
+    signal: controller.signal,
+    seal: async () => {
+      controller.abort();
+      return { ciphertext: "encrypted" };
+    },
+    fetcher: async () => {
+      requests++;
+      return new Response(
+        JSON.stringify({
+          pendingDevices: [
+            {
+              requestId: "72e4b975-e6cb-4c00-a8a0-e61c55272377",
+              status: "pending",
+              publicKey: "A".repeat(43),
+              expiresAt: "2099-01-01",
+            },
+          ],
+        }),
+      );
+    },
+  });
+  assert.equal(requests, 1);
 });

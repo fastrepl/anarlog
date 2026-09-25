@@ -522,6 +522,32 @@ impl MobileDbBridge {
         Ok(key.public_key())
     }
 
+    pub fn seal_e2ee_device_enrollment(
+        &self,
+        account_user_id: String,
+        request_id: String,
+        recovery_key_code: String,
+        recipient_public_key: String,
+    ) -> Result<String, BridgeError> {
+        self.with_state(|_| Ok(()))?;
+        let account_user_id = uuid::Uuid::parse_str(account_user_id.trim())
+            .map(|value| value.to_string())
+            .map_err(cloudsync_error)?;
+        let request_id = uuid::Uuid::parse_str(request_id.trim())
+            .map(|value| value.to_string())
+            .map_err(cloudsync_error)?;
+        let recovery_key =
+            anlg_e2ee::RecoveryKey::parse(&recovery_key_code).map_err(cloudsync_error)?;
+        let package = anlg_e2ee::seal_recovery_key_for_device(
+            &recovery_key,
+            &recipient_public_key,
+            &account_user_id,
+            &request_id,
+        )
+        .map_err(cloudsync_error)?;
+        serde_json::to_string(&package).map_err(serialization_error)
+    }
+
     pub fn open_e2ee_device_enrollment(
         &self,
         account_user_id: String,
@@ -1203,20 +1229,31 @@ mod tests {
             .inspect_e2ee_device_enrollment_key(key_code.clone())
             .unwrap();
         let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
-        let package = anlg_e2ee::seal_recovery_key_for_device(
-            &recovery_key,
-            &public_key,
-            account_user_id,
-            request_id,
-        )
-        .unwrap();
+        let package = bridge
+            .seal_e2ee_device_enrollment(
+                account_user_id.to_string(),
+                request_id.to_string(),
+                recovery_key.expose_code().to_string(),
+                public_key,
+            )
+            .unwrap();
+        assert!(
+            bridge
+                .open_e2ee_device_enrollment(
+                    uuid::Uuid::new_v4().to_string(),
+                    request_id.to_string(),
+                    key_code.clone(),
+                    package.clone(),
+                )
+                .is_err()
+        );
 
         let opened = bridge
             .open_e2ee_device_enrollment(
                 account_user_id.to_string(),
                 request_id.to_string(),
                 key_code,
-                serde_json::to_string(&package).unwrap(),
+                package,
             )
             .unwrap();
 

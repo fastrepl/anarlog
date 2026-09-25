@@ -111,7 +111,7 @@ export default function SyncSettings() {
             <Button
               label={
                 snapshot.phase === "approval_pending"
-                  ? "Check approval"
+                  ? "Check connection"
                   : "Try again"
               }
               onPress={retryMobileSync}

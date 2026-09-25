@@ -698,22 +698,9 @@ msgstr "Apply to memo"
 msgid "Apply to summary"
 msgstr "Apply to summary"
 
-#: src/settings/sync/index.tsx
-msgid "Approval requested"
-msgstr "Approval requested"
-
 #: src/session-sharing/access-management.tsx
-#: src/settings/sync/index.tsx
 msgid "Approve"
 msgstr "Approve"
-
-#: src/settings/sync/index.tsx
-msgid "Approved"
-msgstr "Approved"
-
-#: src/settings/sync/index.tsx
-msgid "Approved — waiting for this device to finish"
-msgstr "Approved — waiting for this device to finish"
 
 #: src/composer/index.tsx
 msgid "Ask Anarlog AI anything"
@@ -1554,6 +1541,22 @@ msgstr "Connected with your {0} subscription."
 #: src/settings/ai/shared/index.tsx
 msgid "Connected with your existing subscription."
 msgstr "Connected with your existing subscription."
+
+#: src/settings/sync/index.tsx
+msgid "Connecting"
+msgstr "Connecting"
+
+#: src/settings/sync/index.tsx
+msgid "Connecting — waiting for this device to finish"
+msgstr "Connecting — waiting for this device to finish"
+
+#: src/settings/sync/index.tsx
+msgid "Connecting automatically"
+msgstr "Connecting automatically"
+
+#: src/settings/sync/index.tsx
+msgid "Connecting this device"
+msgstr "Connecting this device"
 
 #: src/auth/connect-local-library-dialog.tsx
 #: src/settings/sync/index.tsx
@@ -2899,8 +2902,8 @@ msgid "Install"
 msgstr "Install"
 
 #: src/settings/sync/index.tsx
-msgid "Install Anarlog and sign in with this account on the new device. It will appear here automatically so you can approve it."
-msgstr "Install Anarlog and sign in with this account on the new device. It will appear here automatically so you can approve it."
+msgid "Install Anarlog and sign in with this account on the new device. Keep this device online and the new device will connect automatically."
+msgstr "Install Anarlog and sign in with this account on the new device. Keep this device online and the new device will connect automatically."
 
 #: src/settings/developers/skills.tsx
 msgid "Install to all agents"
@@ -3035,8 +3038,8 @@ msgid "Keep using locally"
 msgstr "Keep using locally"
 
 #: src/settings/sync/index.tsx
-msgid "Keep your recovery key saved somewhere safe. You can still use it if another approved device is unavailable."
-msgstr "Keep your recovery key saved somewhere safe. You can still use it if another approved device is unavailable."
+msgid "Keep your recovery key saved somewhere safe. You can still use it if another synced device is unavailable."
+msgstr "Keep your recovery key saved somewhere safe. You can still use it if another synced device is unavailable."
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Key name (e.g. Claude Code)"
@@ -3942,8 +3945,8 @@ msgid "Open Anarlog from the menu bar."
 msgstr "Open Anarlog from the menu bar."
 
 #: src/settings/sync/index.tsx
-msgid "Open Anarlog on a device that already has access, then approve this device."
-msgstr "Open Anarlog on a device that already has access, then approve this device."
+msgid "Open Anarlog on an existing synced device signed in to the same account. This device will connect automatically."
+msgstr "Open Anarlog on an existing synced device signed in to the same account. This device will connect automatically."
 
 #: src/sidebar/timeline/index.tsx
 msgid "Open calendar"
@@ -6263,16 +6266,12 @@ msgid "Wait until the transcript and note are complete."
 msgstr "Wait until the transcript and note are complete."
 
 #: src/settings/sync/index.tsx
-msgid "Waiting for approval"
-msgstr "Waiting for approval"
+msgid "Waiting for an existing device"
+msgstr "Waiting for an existing device"
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Waiting for authorization in your browser…"
 msgstr "Waiting for authorization in your browser…"
-
-#: src/settings/sync/index.tsx
-msgid "Waiting for device approval"
-msgstr "Waiting for device approval"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Walnut"

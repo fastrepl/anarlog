@@ -13,9 +13,9 @@ const phaseCopy: Record<
     description: "Preparing your encrypted workspace…",
   },
   approval_pending: {
-    title: "Approve this device on desktop",
+    title: "Connecting this device",
     description:
-      "Open Anarlog on a synced computer signed in to the same account. In Settings → Sync → Devices, approve this phone. Sync will start automatically. Your local notes are safe while you wait.",
+      "Open Anarlog on an existing synced device signed in to the same account. This device will connect automatically. Your local notes are safe while you wait.",
   },
   ready: {
     title: "Cloud sync is on",

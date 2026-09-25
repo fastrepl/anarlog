@@ -251,7 +251,7 @@ describe("SettingsSync", () => {
     expect(await screen.findByText("No devices registered yet.")).toBeTruthy();
   });
 
-  it("approves a pending device without sharing the recovery key", async () => {
+  it("shows automatic enrollment without requiring an approval button", async () => {
     mocks.requestSyncDevices.mockResolvedValue({
       devices: [],
       pendingDevices: [
@@ -269,24 +269,9 @@ describe("SettingsSync", () => {
     });
     renderSettings();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
-
-    await vi.waitFor(() =>
-      expect(mocks.sealE2eeRecoveryKeyForDevice).toHaveBeenCalledWith(
-        "user-1",
-        "11111111-1111-4111-8111-111111111111",
-        "A".repeat(43),
-      ),
-    );
-    expect(mocks.sealDeviceEnrollment).toHaveBeenCalledWith({
-      accessToken: "token",
-      requestId: "11111111-1111-4111-8111-111111111111",
-      packageValue: {
-        ephemeralPublicKey: "E".repeat(43),
-        nonce: "N".repeat(32),
-        ciphertext: "C".repeat(100),
-      },
-    });
+    expect(await screen.findByText("Connecting automatically")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(mocks.sealE2eeRecoveryKeyForDevice).not.toHaveBeenCalled();
   });
 
   it("shows this-device as a chip and disconnects other devices", async () => {
@@ -449,12 +434,12 @@ describe("SettingsSync", () => {
     );
   });
 
-  it("keeps recovery-key import available while approval is pending", async () => {
+  it("keeps recovery-key import available while automatic enrollment is pending", async () => {
     mocks.credentialBlock = "approval_pending";
     mocks.getE2eeIdentityStatus.mockResolvedValue({ configured: false });
     renderSettings();
 
-    expect(await screen.findByText("Waiting for device approval")).toBeTruthy();
+    expect(await screen.findByText("Connecting this device")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Use recovery key instead" }),
     ).toBeTruthy();

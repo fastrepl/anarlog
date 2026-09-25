@@ -7,7 +7,6 @@ import {
   getCloudsyncStatus,
   getE2eeIdentityStatus,
   getOrCreateE2eeDeviceIdentity,
-  sealE2eeRecoveryKeyForDevice,
   syncCloudsyncNow,
 } from "@anlg/plugin-db";
 import type { CloudsyncActivityEntry } from "@anlg/plugin-db";
@@ -60,7 +59,6 @@ import {
   removeSyncDevice,
   renameSyncDevice,
   requestSyncDevices,
-  sealDeviceEnrollment,
   type SyncDeviceKind,
 } from "~/auth/sync-devices";
 import { captureOperationalError } from "~/error-reporting";
@@ -489,30 +487,6 @@ export function SettingsSync() {
       });
     },
   });
-  const approveDeviceMutation = useMutation({
-    mutationFn: async ({
-      requestId,
-      publicKey,
-    }: {
-      requestId: string;
-      publicKey: string;
-    }) => {
-      const packageValue = await sealE2eeRecoveryKeyForDevice(
-        session!.user.id,
-        requestId,
-        publicKey,
-      );
-      await sealDeviceEnrollment({
-        accessToken: session!.access_token,
-        requestId,
-        packageValue,
-      });
-    },
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ["sync-devices", session?.user.id],
-      }),
-  });
   const replaceDeviceMutation = useMutation({
     mutationFn: async (replaceFingerprint: string) => {
       const [device, enrollmentIdentity] = await Promise.all([
@@ -768,8 +742,8 @@ export function SettingsSync() {
       if (credentialBlock === "approval_pending") {
         return {
           kind: "local" as const,
-          label: t`Waiting for device approval`,
-          description: t`Open Anarlog on a device that already has access, then approve this device.`,
+          label: t`Connecting this device`,
+          description: t`Open Anarlog on an existing synced device signed in to the same account. This device will connect automatically.`,
         };
       }
       if (credentialBlock === "device_limit") {
@@ -900,9 +874,7 @@ export function SettingsSync() {
     e2eePreflightMutation.error ??
     syncNowMutation.error;
   const deviceMutationError =
-    approveDeviceMutation.error ??
-    replaceDeviceMutation.error ??
-    removeDeviceMutation.error;
+    replaceDeviceMutation.error ?? removeDeviceMutation.error;
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Sync</Trans>} />
@@ -1178,38 +1150,15 @@ export function SettingsSync() {
                   />
                   <p className="text-muted-foreground text-[11px]">
                     {device.status === "sealed"
-                      ? t`Approved — waiting for this device to finish`
+                      ? t`Connecting — waiting for this device to finish`
                       : current
-                        ? t`Waiting for approval`
-                        : t`Approval requested`}
+                        ? t`Waiting for an existing device`
+                        : t`Connecting automatically`}
                   </p>
                 </div>
-                {!current &&
-                  device.status === "pending" &&
-                  e2eeIdentityQuery.data?.configured &&
-                  credentialBlock !== "identity_mismatch" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={approveDeviceMutation.isPending}
-                      onClick={() =>
-                        approveDeviceMutation.mutate({
-                          requestId: device.requestId,
-                          publicKey: device.publicKey,
-                        })
-                      }
-                    >
-                      {approveDeviceMutation.isPending &&
-                        approveDeviceMutation.variables?.requestId ===
-                          device.requestId && (
-                          <CircleNotch className="size-3.5 animate-spin" />
-                        )}
-                      <Trans>Approve</Trans>
-                    </Button>
-                  )}
                 {!current && device.status === "sealed" && (
                   <span className="text-xs text-emerald-500">
-                    <Trans>Approved</Trans>
+                    <Trans>Connecting</Trans>
                   </span>
                 )}
                 {!current && (
@@ -1291,14 +1240,15 @@ export function SettingsSync() {
             <DialogDescription>
               <Trans>
                 Install Anarlog and sign in with this account on the new device.
-                It will appear here automatically so you can approve it.
+                Keep this device online and the new device will connect
+                automatically.
               </Trans>
             </DialogDescription>
           </DialogHeader>
           <p className="text-muted-foreground text-xs leading-5">
             <Trans>
               Keep your recovery key saved somewhere safe. You can still use it
-              if another approved device is unavailable.
+              if another synced device is unavailable.
             </Trans>
           </p>
           <DialogFooter>

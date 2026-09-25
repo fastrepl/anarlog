@@ -8,13 +8,13 @@ const claimedBinding = JSON.stringify({
   account_user_id: "user-a",
 });
 
-test("stays off until the user opts in", () => {
+test("starts sync automatically for a fresh signed-in library", () => {
   assert.equal(resolveCloudSyncOptIn([]), false);
   assert.equal(
     resolveCloudSyncOptIn([
       { account_user_id: "user-a", preference_json: null, binding_json: null },
     ]),
-    false,
+    true,
   );
 });
 
@@ -38,19 +38,6 @@ test("does not claim a device bound to another account on sign-in", () => {
         account_user_id: "user-b",
         preference_json: null,
         binding_json: claimedBinding,
-      },
-    ]),
-    false,
-  );
-  assert.equal(
-    resolveCloudSyncOptIn([
-      {
-        account_user_id: "user-b",
-        preference_json: null,
-        binding_json: JSON.stringify({
-          workspace_id: "local-workspace",
-          account_user_id: "user-b",
-        }),
       },
     ]),
     false,
@@ -129,5 +116,38 @@ test("does not fall back to a legacy binding for an inactive connection", () => 
       },
     ]),
     false,
+  );
+});
+
+test("starts an unbound local library but respects an explicit pause", () => {
+  const row = {
+    account_user_id: "user-a",
+    preference_json: null,
+    binding_json: JSON.stringify({
+      workspace_id: "local-id",
+      account_user_id: null,
+    }),
+  };
+  assert.equal(resolveCloudSyncOptIn([row]), true);
+  assert.equal(
+    resolveCloudSyncOptIn([{ ...row, preference_json: "false" }]),
+    false,
+  );
+  assert.equal(resolveCloudSyncOptIn([{ ...row, account_user_id: "" }]), false);
+});
+
+test("retries an interrupted first connection for the same account", () => {
+  assert.equal(
+    resolveCloudSyncOptIn([
+      {
+        account_user_id: "user-b",
+        preference_json: null,
+        binding_json: JSON.stringify({
+          workspace_id: "local-workspace",
+          account_user_id: "user-b",
+        }),
+      },
+    ]),
+    true,
   );
 });

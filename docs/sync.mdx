@@ -5,10 +5,14 @@ description: "Keep notes end-to-end encrypted across devices, and avoid conflict
 
 Cloud sync keeps your notes up to date across your signed-in devices. It is part of Anarlog Pro.
 
+<Note>
+  Automatic device setup is forthcoming. Existing releases may still ask you to create a recovery key or approve a new device in **Settings → Sync**.
+</Note>
+
 ## Turn sync on or off
 
 1. Open **Settings → Sync**.
-2. Turn on **Cloud sync**. The first time, Anarlog asks you to create or enter a recovery key.
+2. Cloud sync starts automatically for a fresh Pro sign-in. If you previously turned it off, turn on **Cloud sync** to resume.
 
 Sync runs automatically in the background. Use **Sync now** to send and receive the latest changes immediately. Your notes always remain available locally, even while sync is paused or you are offline.
 
@@ -40,33 +44,24 @@ Saved recordings and file attachments remain on that computer. See [Where local 
 
 See [Data, privacy, and retention](/data-and-privacy) for what can leave your computer for hosted AI, sharing, and other features.
 
-## Save the recovery key
+## Recovery keys
 
-Your recovery key encrypts synced notes before they leave your device, so Anarlog cannot read or recover it.
+Anarlog creates your first sync key automatically and stores it on your device. An existing synced device transfers the key to new devices through an encrypted package. Anarlog cannot read or recover the key.
 
-When you create the key:
-
-1. Copy it into a password manager or download the text file.
-2. Confirm that you can find the saved copy before closing the setup window.
-3. Keep it separate from the computer you are syncing.
-
-The key is shown only during setup. Clipboard copies clear after 60 seconds when the operating system supports it.
+If you saved a recovery key during an earlier setup, keep it in your password manager. On a new desktop device, **Use recovery key instead** lets you connect while your other devices are offline.
 
 <Warning>
-  If you lose the recovery key, your existing local notes remain on their devices, but you cannot use that key to add another device. Anarlog support cannot recover it for you.
+  If you lose every device holding the key and have no saved recovery key, Anarlog support cannot restore your encrypted cloud data. Local notes remain available on devices where they are stored.
 </Warning>
 
 ## Add another device
 
-You do not need to type the recovery key on a new device. An existing device approves it instead.
+1. Install Anarlog and sign in with the same Pro account on the new device.
+2. Keep Anarlog open and sync enabled on an existing synced device. It transfers the key automatically; no approval button is required.
+3. Keep the new device open while it connects and downloads your notes. If all existing devices are offline, setup waits until one comes online.
+4. Re-enter any Transcription or Intelligence API keys you use on this computer, then select those models under **Settings → Transcription** and **Settings → Intelligence**.
 
-1. Install Anarlog and sign in with the same account on the new device.
-2. Open **Settings → Sync** and turn on Cloud sync. The status shows **Waiting for device approval**.
-3. On a device that already syncs, open **Settings → Sync**. The new device appears under **Devices**; click **Approve**.
-4. Return to the new device. It receives its key automatically, shows **Restoring cloud sync...** while it downloads your notes, and then **Synced**. Keep the app open until this finishes.
-5. Re-enter any Transcription or Intelligence API keys you use on this computer, then select those models under **Settings → Transcription** and **Settings → Intelligence**.
-
-If none of your approved devices is available, click **Use recovery key instead** on the new device and paste the key from your password manager.
+A device where you explicitly paused sync stays paused until you resume it. Connecting a local library previously used with another account still requires the **Connect library** choice below.
 
 Your plan determines how many devices you can sync. Personal Pro includes three devices; Team membership includes five. **Settings → Sync → Devices** shows your current usage and limit. If you reach the limit, remove an unused device or choose **Get more slots** to open your account page and add paid slots to a personal Pro subscription. Each add-on adds one slot.
 
@@ -94,7 +89,7 @@ To keep an Obsidian vault or another folder up to date, use the [Export every me
 ## Fix a blocked sync
 
 - **Setup required:** Create a recovery key or enter the key from an existing device.
-- **Waiting for device approval:** Approve the new device from a device that already syncs, or use the recovery key.
+- **Connecting this device:** Open Anarlog on an existing synced device signed in to the same account, or use a previously saved recovery key.
 - **Sign in again:** Sign out and sign back in, then resume sync.
 - **Identity mismatch:** Sign in again with the account that owns the synced notes. Check Sync settings before changing local files.
 - **Device limit reached:** Remove an unused device, then try again.

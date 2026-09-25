@@ -698,21 +698,8 @@ msgstr ""
 msgid "Apply to summary"
 msgstr ""
 
-#: src/settings/sync/index.tsx
-msgid "Approval requested"
-msgstr ""
-
 #: src/session-sharing/access-management.tsx
-#: src/settings/sync/index.tsx
 msgid "Approve"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Approved"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Approved — waiting for this device to finish"
 msgstr ""
 
 #: src/composer/index.tsx
@@ -1553,6 +1540,22 @@ msgstr ""
 
 #: src/settings/ai/shared/index.tsx
 msgid "Connected with your existing subscription."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Connecting"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Connecting — waiting for this device to finish"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Connecting automatically"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Connecting this device"
 msgstr ""
 
 #: src/auth/connect-local-library-dialog.tsx
@@ -2899,7 +2902,7 @@ msgid "Install"
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Install Anarlog and sign in with this account on the new device. It will appear here automatically so you can approve it."
+msgid "Install Anarlog and sign in with this account on the new device. Keep this device online and the new device will connect automatically."
 msgstr ""
 
 #: src/settings/developers/skills.tsx
@@ -3035,7 +3038,7 @@ msgid "Keep using locally"
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Keep your recovery key saved somewhere safe. You can still use it if another approved device is unavailable."
+msgid "Keep your recovery key saved somewhere safe. You can still use it if another synced device is unavailable."
 msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
@@ -3942,7 +3945,7 @@ msgid "Open Anarlog from the menu bar."
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Open Anarlog on a device that already has access, then approve this device."
+msgid "Open Anarlog on an existing synced device signed in to the same account. This device will connect automatically."
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -6263,15 +6266,11 @@ msgid "Wait until the transcript and note are complete."
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Waiting for approval"
+msgid "Waiting for an existing device"
 msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Waiting for authorization in your browser…"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Waiting for device approval"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx

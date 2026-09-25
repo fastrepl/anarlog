@@ -21,8 +21,6 @@ export function MobileSyncLifecycle({
   syncEnabled: boolean;
 }) {
   useMountEffect(() => {
-    // Claiming the local database for an account is the user's call, so a
-    // signed-in Pro session alone never starts sync.
     const deactivate = syncEnabled
       ? activateMobileSync({ accessToken, accountUserId })
       : () => {};
