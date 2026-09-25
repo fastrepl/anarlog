@@ -410,20 +410,21 @@ pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result
 }
 
 async fn load_speaker_context(pool: &SqlitePool, meeting_id: &str) -> Result<Option<Value>> {
-    let raw: Option<String> = sqlx::query_scalar(
-        "SELECT json_extract(metadata_json, '$.speaker_context') FROM sessions WHERE id = ?",
-    )
-    .bind(meeting_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|source| Error::Database {
-        action: "load speaker context",
-        source,
-    })?
-    .flatten();
-    Ok(raw
+    let metadata_json: Option<String> =
+        sqlx::query_scalar("SELECT metadata_json FROM sessions WHERE id = ?")
+            .bind(meeting_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|source| Error::Database {
+                action: "load speaker context",
+                source,
+            })?;
+    Ok(metadata_json
         .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-        .filter(Value::is_object))
+        .and_then(|mut metadata| match metadata.get_mut("speaker_context") {
+            Some(context) if context.is_object() => Some(context.take()),
+            _ => None,
+        }))
 }
 
 async fn load_speakers(
