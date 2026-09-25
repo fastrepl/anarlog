@@ -369,6 +369,9 @@ pub async fn window_expand_width(
     expand_left: bool,
     restore_on_close: bool,
 ) -> Result<(), String> {
+    let scale_factor = window.scale_factor().map_err(|e| e.to_string())?;
+    let expansion_physical = (f64::from(expansion_px) * scale_factor).ceil() as u32;
+
     if check_monitor_space {
         let outer_size = window.outer_size().map_err(|e| e.to_string())?;
         let outer_position = window.outer_position().map_err(|e| e.to_string())?;
@@ -378,7 +381,7 @@ pub async fn window_expand_width(
             let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
             let monitor_right = i64::from(monitor.position().x) + i64::from(monitor.size().width);
 
-            if monitor_right - window_right < i64::from(expansion_px) {
+            if monitor_right - window_right < i64::from(expansion_physical) {
                 return Ok(());
             }
         }
@@ -457,8 +460,6 @@ pub async fn window_expand_width(
         }
 
         let _ = expand_left;
-        let scale_factor = window.scale_factor().map_err(|e| e.to_string())?;
-        let expansion_physical = (f64::from(expansion_px) * scale_factor).ceil() as u32;
         let new_width = outer_size.width + expansion_physical;
         window
             .set_size(tauri::Size::Physical(tauri::PhysicalSize {
