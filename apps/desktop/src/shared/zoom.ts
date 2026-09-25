@@ -70,7 +70,8 @@ export function useZoomShortcuts() {
   useMountEffect(() => {
     const tauri = isTauri();
     const ownLabel = tauri ? getCurrentWebview().label : "";
-    let lastRevision = 0;
+    let lastTimestamp = 0;
+    let lastSequence = 0;
     let lastSource = "";
 
     let factor = readZoomFactor();
@@ -82,12 +83,19 @@ export function useZoomShortcuts() {
       void applyZoomFactor(factor);
 
       if (broadcast && tauri) {
-        lastRevision = Math.max(Date.now(), lastRevision + 1);
+        const now = Date.now();
+        if (now <= lastTimestamp) {
+          lastSequence += 1;
+        } else {
+          lastTimestamp = now;
+          lastSequence = 0;
+        }
         lastSource = ownLabel;
         void emit(ZOOM_CHANGED_EVENT, {
           factor,
           source: ownLabel,
-          revision: lastRevision,
+          timestamp: lastTimestamp,
+          sequence: lastSequence,
         }).catch((error: unknown) => {
           console.warn("[zoom] failed to broadcast zoom factor", error);
         });
@@ -123,7 +131,8 @@ export function useZoomShortcuts() {
       listen<{
         factor: number;
         source: string;
-        revision: number;
+        timestamp: number;
+        sequence: number;
       }>(ZOOM_CHANGED_EVENT, (event) => {
         const payload = event.payload;
         if (
@@ -132,17 +141,22 @@ export function useZoomShortcuts() {
           typeof payload.factor !== "number" ||
           !Number.isFinite(payload.factor) ||
           payload.factor <= 0 ||
-          typeof payload.revision !== "number"
+          typeof payload.timestamp !== "number" ||
+          typeof payload.sequence !== "number"
         ) {
           return;
         }
         const newer =
-          payload.revision > lastRevision ||
-          (payload.revision === lastRevision && payload.source > lastSource);
+          payload.timestamp > lastTimestamp ||
+          (payload.timestamp === lastTimestamp &&
+            (payload.sequence > lastSequence ||
+              (payload.sequence === lastSequence &&
+                payload.source > lastSource)));
         if (!newer) {
           return;
         }
-        lastRevision = payload.revision;
+        lastTimestamp = payload.timestamp;
+        lastSequence = payload.sequence;
         lastSource = payload.source;
         if (payload.factor !== factor) {
           setFactor(payload.factor, false);

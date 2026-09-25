@@ -2,10 +2,15 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  emit: vi.fn(() => Promise.resolve()),
+  emit: vi.fn((_event: string, _payload: unknown) => Promise.resolve()),
   listeners: [] as Array<
     (event: {
-      payload: { factor: number; revision: number; source: string };
+      payload: {
+        factor: number;
+        sequence: number;
+        source: string;
+        timestamp: number;
+      };
     }) => void
   >,
   setZoom: vi.fn(() => Promise.resolve()),
@@ -16,7 +21,12 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: (
     _event: string,
     handler: (event: {
-      payload: { factor: number; revision: number; source: string };
+      payload: {
+        factor: number;
+        sequence: number;
+        source: string;
+        timestamp: number;
+      };
     }) => void,
   ) => {
     mocks.listeners.push(handler);
@@ -123,7 +133,8 @@ describe("useZoomShortcuts", () => {
     expect(mocks.emit).toHaveBeenCalledWith(ZOOM_CHANGED_EVENT, {
       factor: 1.1,
       source: "main",
-      revision: expect.any(Number),
+      timestamp: expect.any(Number),
+      sequence: 0,
     });
   });
 
@@ -151,7 +162,7 @@ describe("useZoomShortcuts", () => {
   it("follows zoom changes broadcast from other windows", () => {
     renderHook(() => useZoomShortcuts());
     mocks.listeners[0]({
-      payload: { factor: 1.5, source: "note", revision: 1 },
+      payload: { factor: 1.5, source: "note", timestamp: 1, sequence: 0 },
     });
     expect(mocks.setZoom).toHaveBeenLastCalledWith(1.5);
     expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.5");
@@ -163,43 +174,76 @@ describe("useZoomShortcuts", () => {
     keydown({ key: "=", metaKey: true });
     const calls = mocks.setZoom.mock.calls.length;
     mocks.listeners[0]({
-      payload: { factor: 0.5, source: "main", revision: Date.now() },
+      payload: {
+        factor: 0.5,
+        source: "main",
+        timestamp: Date.now(),
+        sequence: 0,
+      },
     });
     expect(mocks.setZoom).toHaveBeenCalledTimes(calls);
     expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.1");
   });
 
-  it("ignores stale revisions from other windows", () => {
+  it("ignores stale timestamps from other windows", () => {
     renderHook(() => useZoomShortcuts());
     keydown({ key: "=", metaKey: true });
     const calls = mocks.setZoom.mock.calls.length;
     mocks.listeners[0]({
-      payload: { factor: 0.5, source: "note", revision: Date.now() - 60_000 },
+      payload: {
+        factor: 0.5,
+        source: "note",
+        timestamp: Date.now() - 60_000,
+        sequence: 0,
+      },
     });
     expect(mocks.setZoom).toHaveBeenCalledTimes(calls);
   });
 
-  it("assigns increasing revisions to rapid changes", () => {
+  it("orders rapid same-millisecond changes by sequence", () => {
     renderHook(() => useZoomShortcuts());
     keydown({ key: "=", metaKey: true });
     keydown({ key: "=", metaKey: true });
-    const revisions = mocks.emit.mock.calls.map(
-      (call) => (call[1] as { revision: number }).revision,
+    const payloads = mocks.emit.mock.calls.map(
+      (call) => call[1] as { sequence: number; timestamp: number },
     );
-    expect(revisions[1]).toBeGreaterThan(revisions[0]);
+    expect(
+      payloads[1].timestamp > payloads[0].timestamp ||
+        payloads[1].sequence > payloads[0].sequence,
+    ).toBe(true);
   });
 
-  it("breaks equal-revision ties by source label", () => {
+  it("accepts a later real timestamp after a same-millisecond burst", () => {
+    renderHook(() => useZoomShortcuts());
+    keydown({ key: "=", metaKey: true });
+    keydown({ key: "=", metaKey: true });
+    const calls = mocks.emit.mock.calls;
+    const last = calls[calls.length - 1][1] as {
+      timestamp: number;
+    };
+    expect(last.timestamp).toBeGreaterThan(0);
+    mocks.listeners[0]({
+      payload: {
+        factor: 0.5,
+        source: "note",
+        timestamp: last.timestamp + 1,
+        sequence: 0,
+      },
+    });
+    expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("0.5");
+  });
+
+  it("breaks equal-timestamp ties by sequence then source", () => {
     renderHook(() => useZoomShortcuts());
     mocks.listeners[0]({
-      payload: { factor: 1.5, source: "note", revision: 1 },
+      payload: { factor: 1.5, source: "note", timestamp: 1, sequence: 0 },
     });
     mocks.listeners[0]({
-      payload: { factor: 0.5, source: "aaa", revision: 1 },
+      payload: { factor: 0.5, source: "aaa", timestamp: 1, sequence: 0 },
     });
     expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.5");
     mocks.listeners[0]({
-      payload: { factor: 1.7, source: "zzz", revision: 1 },
+      payload: { factor: 1.7, source: "zzz", timestamp: 1, sequence: 0 },
     });
     expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.7");
   });
