@@ -25,6 +25,7 @@ type SessionShareSourceSqlRow = {
   id: string;
   document_id: string | null;
   workspace_id: string;
+  owner_user_id: string | null;
   title: string;
   created_at: string;
   started_at: string;
@@ -70,6 +71,7 @@ const SESSION_SHARE_SOURCE_SQL = `
     session.id,
     share_document.id AS document_id,
     session.workspace_id,
+    session.owner_user_id,
     session.title,
     session.created_at,
     session.started_at,
@@ -328,8 +330,11 @@ function resolveSourceWorkspace(
   if (row.assigned_workspace_kind === "shared") {
     if (
       row.assigned_workspace_deleted_at === null &&
+      row.assigned_workspace_role !== null &&
+      row.assigned_workspace_role !== "" &&
       (row.assigned_workspace_role === "owner" ||
-        row.assigned_workspace_role === "admin")
+        row.assigned_workspace_role === "admin" ||
+        row.owner_user_id === accountUserId)
     ) {
       return assignedWorkspaceId;
     }
