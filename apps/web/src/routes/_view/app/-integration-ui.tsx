@@ -1,5 +1,8 @@
+import { Icon } from "@iconify-icon/react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
+import { PuzzlePiece } from "@anlg/ui/components/icons";
+import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
 import { cn } from "@anlg/utils";
 
 const BUTTON_BASE =
@@ -53,4 +56,33 @@ export function IntegrationPageLayout({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
+}
+
+export function integrationIcon(integrationId: string, size = 20): ReactNode {
+  switch (integrationId) {
+    case "google-calendar":
+      return <Icon icon="logos:google-calendar" width={size} height={size} />;
+    case "outlook":
+      return <OutlookIcon size={size} />;
+    case "linear":
+      return <Icon icon="logos:linear-icon" width={size} height={size} />;
+    case "github":
+      return <Icon icon="logos:github-icon" width={size} height={size} />;
+    case "slack":
+      return <Icon icon="logos:slack-icon" width={size} height={size} />;
+    case "notion":
+      return <Icon icon="logos:notion-icon" width={size} height={size} />;
+    case "zoom":
+      return <Icon icon="logos:zoom-icon" width={size} height={size} />;
+    case "fathom":
+      return <Icon icon="simple-icons:fathom" width={size} height={size} />;
+    case "webex":
+      return <Icon icon="simple-icons:cisco" width={size} height={size} />;
+    case "google-meet":
+      return <Icon icon="logos:google-meet" width={size} height={size} />;
+    case "microsoft-teams":
+      return <Icon icon="logos:microsoft-teams" width={size} height={size} />;
+    default:
+      return <PuzzlePiece size={size} className="text-[#756b5d]" />;
+  }
 }

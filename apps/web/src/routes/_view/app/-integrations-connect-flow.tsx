@@ -22,7 +22,11 @@ import {
   usesHeadlessOAuth,
 } from "@/lib/integration-headless-auth";
 
-import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
+import {
+  IntegrationButton,
+  integrationIcon,
+  IntegrationPageLayout,
+} from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
 
 export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
@@ -286,7 +290,13 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
 
   return (
     <IntegrationPageLayout>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col items-center gap-3">
+        <span
+          aria-hidden="true"
+          className="flex size-12 items-center justify-center rounded-2xl border border-stone-200 bg-stone-50"
+        >
+          {integrationIcon(search.integration_id, 24)}
+        </span>
         <h1 className="font-sans text-3xl tracking-tight text-stone-700">
           Connect {display.name}
         </h1>
@@ -296,43 +306,16 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
       </div>
 
       {isConnectedCalendar && !isConnecting && status !== "success" && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-5 text-left text-sm leading-6 text-stone-700">
-          <p>
-            Anarlog reads your calendar and event details to show upcoming
-            events and link them to private notes. Access is read-only: Anarlog
-            cannot create, edit, or delete events.
-          </p>
-          <p>
-            Calendar data passes through Nango's encrypted proxy and is stored
-            locally on your device. Nango securely stores the credentials needed
-            to keep your calendar connected.
-          </p>
-          <p>
-            If you use encrypted Cloud Sync or share a note, its event context
-            may be included.
-          </p>
-          <p>
-            Contact enhancement from event details is processed locally on your
-            device. If you choose to use AI on an event-linked note, relevant
-            note context such as the event title and participants may go to the
-            language model you selected. Local models keep that processing on
-            your device.
-          </p>
-          <p>
-            Read our{" "}
-            <a className="underline" href="/privacy">
-              Privacy Policy
-            </a>{" "}
-            and{" "}
-            <a
-              className="underline"
-              href="https://docs.anarlog.so/calendar#manage-or-delete-connected-calendar-data"
-            >
-              calendar data instructions
-            </a>
-            .
-          </p>
-        </div>
+        <ul className="flex list-disc flex-col gap-2 pl-5 text-left text-sm leading-6 text-neutral-600">
+          <li>
+            Read-only access — Anarlog can’t create, edit, or delete events.
+          </li>
+          <li>
+            Data passes through Nango’s encrypted proxy and stays on your
+            device.
+          </li>
+          <li>Event context is only included if you sync or share a note.</li>
+        </ul>
       )}
 
       {!sessionFailed && (status === "idle" || isLoading) && (
@@ -352,6 +335,23 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
               ? `Continue to ${consentProvider}`
               : `Connect ${display.name}`}
         </IntegrationButton>
+      )}
+
+      {isConnectedCalendar && !isConnecting && status !== "success" && (
+        <p className="text-xs text-neutral-500">
+          Read our{" "}
+          <a className="underline" href="/privacy">
+            Privacy Policy
+          </a>{" "}
+          and{" "}
+          <a
+            className="underline"
+            href="https://docs.anarlog.so/calendar#manage-or-delete-connected-calendar-data"
+          >
+            calendar data instructions
+          </a>
+          .
+        </p>
       )}
 
       {(status === "error" || (sessionFailed && status === "idle")) && (
