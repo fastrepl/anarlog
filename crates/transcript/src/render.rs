@@ -98,19 +98,31 @@ pub fn render_transcript_segments(
             offset_transcript_data(transcript.words, transcript.assignments, offset);
         let segment_options = if let Some(context) = speaker_context.as_ref() {
             let mut options = crate::segment_options_for_assignments(&assignments);
-            options.isolated_mic_ranges = Some(
-                context
-                    .intervals
-                    .iter()
-                    .filter(|interval| interval.mic_isolated == Some(true))
-                    .map(|interval| {
-                        (
-                            interval.start_ms - base_started_at,
-                            interval.end_ms - base_started_at,
-                        )
-                    })
-                    .collect(),
-            );
+            // Call-evidence changes split context intervals even while isolation
+            // holds; coalesce overlapping or contiguous isolated ranges so a word
+            // straddling that boundary is still inside a verified isolated period.
+            let mut isolated_ranges: Vec<(i64, i64)> = context
+                .intervals
+                .iter()
+                .filter(|interval| interval.mic_isolated == Some(true))
+                .map(|interval| {
+                    (
+                        interval.start_ms - base_started_at,
+                        interval.end_ms - base_started_at,
+                    )
+                })
+                .collect();
+            isolated_ranges.sort_unstable();
+            let mut coalesced: Vec<(i64, i64)> = Vec::with_capacity(isolated_ranges.len());
+            for (start, end) in isolated_ranges {
+                match coalesced.last_mut() {
+                    Some((_, prev_end)) if start <= *prev_end => {
+                        *prev_end = (*prev_end).max(end);
+                    }
+                    _ => coalesced.push((start, end)),
+                }
+            }
+            options.isolated_mic_ranges = Some(coalesced);
             options
         } else {
             let claimed_channels: std::collections::HashSet<crate::ChannelProfile> = assignments

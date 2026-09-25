@@ -194,10 +194,9 @@ fn apply_identity_rules(
     if identity.human_id.is_none()
         && identity.speaker_index.is_none()
         && word.channel == ChannelProfile::DirectMic
-        && state
-            .isolated_mic_ranges
-            .iter()
-            .any(|(start, end)| word.start_ms >= *start && word.end_ms <= *end)
+        && state.isolated_mic_ranges.iter().any(|(start, end)| {
+            word.start_ms >= *start && word.start_ms < *end && word.end_ms <= *end
+        })
         && let Some((speaker_index, human_id)) = state.single_human_by_channel.get(&word.channel)
     {
         identity.speaker_index = *speaker_index;

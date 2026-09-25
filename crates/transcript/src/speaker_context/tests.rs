@@ -97,6 +97,42 @@ fn every_remote_voice_on_a_call_is_the_sole_other_invitee() {
     }));
 }
 
+// call-evidence changes split context intervals even while mic_isolated stays true on both
+// sides; the ranges must coalesce so a word straddling that seam still inherits the mic's
+// only named human.
+#[test]
+fn word_spanning_adjacent_isolated_intervals_keeps_the_mic_human() {
+    let mut context = context();
+    let template = context.intervals[0].clone();
+    context.intervals = vec![
+        SpeakerContextInterval {
+            start_ms: 1500,
+            end_ms: 2000,
+            ..template.clone()
+        },
+        SpeakerContextInterval {
+            start_ms: 2000,
+            end_ms: 2500,
+            ..template
+        },
+    ];
+    let mut req = request(context, &[(0, 0)]);
+    req.transcripts[0].assignments = vec![crate::IdentityAssignment {
+        human_id: "self".into(),
+        scope: crate::IdentityScope::ChannelSpeaker {
+            channel: ChannelProfile::DirectMic,
+            speaker_index: 0,
+        },
+    }];
+    req.transcripts[0].words[0].speaker_index = None;
+    req.transcripts[0].words[0].start_ms = 900;
+    req.transcripts[0].words[0].end_ms = 1100;
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 1);
+    assert_eq!(segments[0].speaker_label, "John");
+    assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
+}
+
 #[test]
 fn several_remote_voices_stay_anonymous_when_several_people_were_invited() {
     let mut context = context();
