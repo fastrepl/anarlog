@@ -401,14 +401,14 @@ test("Nari verifies keys using its non-billable authenticated voice catalog", as
     async (url, init) => {
       requests.push({ url, init });
       return requests.length === 1
-        ? Response.json({ object: "list", model: "qwen3-tts:free", data: [] })
+        ? Response.json({ object: "list", model: "qwen3-tts", data: [] })
         : new Response(null, { status: 401 });
     },
   );
   assert.equal(requests.length, 2);
   assert.equal(
     requests[0].url,
-    "https://api.narilabs.com/v1/voices?model=qwen3-tts:free",
+    "https://api.narilabs.com/v1/voices?model=qwen3-tts",
   );
   assert.equal(requests[0].init.headers.Authorization, "Bearer synthetic-key");
   assert.equal(

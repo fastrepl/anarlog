@@ -55,7 +55,7 @@ test("a saved recording uses the corresponding batch model after live failure", 
     ["custom", "own-model", "own-model"],
     ["wisprflow", "flow", "flow"],
     ["dashscope", "qwen3-asr-flash-realtime", null],
-    ["nari", "qwen3-asr-fast:free", null],
+    ["nari", "qwen3-asr-fast", null],
     ["nari", "qwen3-asr", null],
   ])
     assert.equal(batchTranscriptionModel(provider, live), batch);

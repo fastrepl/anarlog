@@ -236,7 +236,7 @@ function credentialRequest({ provider, baseUrl, apiKey }: ProviderCredential) {
         Array.isArray(value) || Array.isArray(record(value).data);
       break;
     case "nari":
-      url = `${origin}/v1/voices?model=qwen3-tts:free`;
+      url = `${origin}/v1/voices?model=qwen3-tts`;
       checkAuthentication = true;
       accept = (value) =>
         record(value).object === "list" && Array.isArray(record(value).data);

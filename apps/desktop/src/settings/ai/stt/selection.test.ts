@@ -32,6 +32,11 @@ describe("normalizeStoredSttModel", () => {
     expect(
       normalizeStoredSttModel("openrouter", "openai/gpt-4o-transcribe"),
     ).toBe("openai/gpt-transcribe");
+    expect(normalizeStoredSttModel("nari", "qwen3-asr-fast:free")).toBe(
+      "qwen3-asr-fast",
+    );
+    expect(normalizeStoredSttModel("nari", "qwen3-asr:free")).toBe("qwen3-asr");
+    expect(normalizeStoredSttModel("nari", "qwen3-asr")).toBe("qwen3-asr");
     expect(normalizeStoredSttModel("openai", "whisper-1")).toBe("whisper-1");
     expect(normalizeStoredSttModel("deepgram", "nova-3-general")).toBe(
       "nova-3-general",
@@ -56,7 +61,7 @@ describe("getDefaultSttModel", () => {
     expect(getDefaultSttModel("openrouter")).toBe("openai/gpt-transcribe");
     expect(getDefaultSttModel("xai")).toBe("xai-stt");
     expect(getDefaultSttModel("smallestai")).toBe("pulse");
-    expect(getDefaultSttModel("nari")).toBe("qwen3-asr-fast:free");
+    expect(getDefaultSttModel("nari")).toBe("qwen3-asr-fast");
     expect(getDefaultSttModel("meta")).toBe("muse-voice-transcribe-1.0");
     expect(getDefaultSttModel("google_generative_ai")).toBe(
       "gemini-3.5-transcribe-live",
@@ -87,6 +92,16 @@ describe("getPreferredProviderModel", () => {
         { id: "nova-2-meeting" },
       ]),
     ).toBe("nova-2-meeting");
+  });
+
+  test("moves a retired Nari beta model to its GA equivalent", () => {
+    const models = [{ id: "qwen3-asr-fast" }, { id: "qwen3-asr" }];
+    expect(getPreferredProviderModel("qwen3-asr:free", models)).toBe(
+      "qwen3-asr",
+    );
+    expect(getPreferredProviderModel("qwen3-asr-fast:free", models)).toBe(
+      "qwen3-asr-fast",
+    );
   });
 
   test("falls back to the first available model when none is remembered", () => {
