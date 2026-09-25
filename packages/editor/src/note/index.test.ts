@@ -254,10 +254,17 @@ describe("createReadOnlyPlugin", () => {
     });
     expect(screen.queryByRole("toolbar")).toBeNull();
 
-    // The composition ends and ProseMirror settles it with a state update
-    // that leaves a caret at the commit point; the gate releases only once
-    // that update arrives, so the toolbar stays hidden.
+    // The composition ends and an unrelated transaction arrives before
+    // ProseMirror applies the final caret; keeping the provisional range
+    // means it must not release the gate.
     fireEvent.compositionEnd(view!.dom);
+    act(() => {
+      view?.dispatch(view.state.tr.setMeta("meta-only", true));
+    });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    // The settle update collapses the selection to a caret, so the gate
+    // releases but the toolbar still has no real selection to show for.
     act(() => {
       view?.dispatch(
         view.state.tr.setSelection(TextSelection.create(view.state.doc, 6)),

@@ -122,8 +122,9 @@ export function FormatToolbar({
   // composed text; that is not a real selection, so keep the toolbar hidden
   // until the composition ends. ProseMirror only applies the final selection
   // a tick after compositionend, so stay suppressed until a state update
-  // actually arrives — a bare rerender must not release the gate early and
-  // flash the toolbar over the stale composition range.
+  // with a different selection arrives — a bare rerender or an unrelated
+  // transaction that keeps the provisional range must not release the gate
+  // early and flash the toolbar over the composed text.
   const [isComposing, setIsComposing] = useState(false);
   const compositionEndState = useRef<EditorState | null>(null);
   useEditorEventListener("compositionstart", () => {
@@ -135,7 +136,7 @@ export function FormatToolbar({
   });
   useEditorEffect((view) => {
     const snapshot = compositionEndState.current;
-    if (snapshot && view.state !== snapshot) {
+    if (snapshot && !view.state.selection.eq(snapshot.selection)) {
       compositionEndState.current = null;
       setIsComposing(false);
     }
