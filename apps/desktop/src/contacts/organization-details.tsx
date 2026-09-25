@@ -28,6 +28,7 @@ import {
   requireTeamContext,
   setWorkspaceLogo,
 } from "~/settings/team/client";
+import { isWorkspaceLogoDataUrl } from "~/settings/team/logo";
 import {
   MY_WORKSPACES_QUERY_KEY,
   useMyWorkspacesWithMirror,
@@ -137,9 +138,11 @@ export function OrganizationDetailsColumn({
                     organization.id,
                     dataUrl,
                   );
-                  pushToLinkedWorkspace((context) =>
-                    setWorkspaceLogo(context, organization.id, dataUrl),
-                  );
+                  if (isWorkspaceLogoDataUrl(dataUrl)) {
+                    pushToLinkedWorkspace((context) =>
+                      setWorkspaceLogo(context, organization.id, dataUrl),
+                    );
+                  }
                 }}
               >
                 {organization.avatarDataUrl ? (
@@ -161,6 +164,7 @@ export function OrganizationDetailsColumn({
                   <EditableOrganizationNameField
                     key={organization.id}
                     organization={organization}
+                    serverName={linkedWorkspace?.name}
                     onNameCommit={(name) =>
                       pushToLinkedWorkspace((context) =>
                         renameWorkspace(context, organization.id, name),
@@ -278,9 +282,11 @@ export function OrganizationDetailsColumn({
 
 function EditableOrganizationNameField({
   organization,
+  serverName,
   onNameCommit,
 }: {
   organization: OrganizationRecord;
+  serverName?: string;
   onNameCommit?: (name: string) => void;
 }) {
   const { t } = useLingui();
@@ -297,7 +303,10 @@ function EditableOrganizationNameField({
       }}
       onBlur={(event) => {
         const name = event.target.value.trim();
-        if (name && name !== organization.name) onNameCommit?.(name);
+        // organization.name is live and already reflects the local edit, so
+        // the push decision compares against the server's workspace name.
+        const baseline = serverName ?? organization.name;
+        if (name && name !== baseline) onNameCommit?.(name);
       }}
       placeholder={t`Organization name`}
       className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"

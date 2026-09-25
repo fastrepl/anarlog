@@ -23,6 +23,9 @@ const BINDING_WORKSPACE_SQL = `NULLIF((
   WHERE id = 'cloudsync_workspace_binding'
 ), '')`;
 
+// workspace_id is NOT NULL: the binding may not exist outside CloudSync.
+const WORKSPACE_ID_SQL = `COALESCE(${BINDING_WORKSPACE_SQL}, '')`;
+
 const OWNER_SQL = `COALESCE(
   (SELECT library_workspace_id FROM local_library_connections WHERE active = 1),
   NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
@@ -128,7 +131,7 @@ async function upsertWorkspaceOrganization(
           INSERT INTO organizations (
             id, workspace_id, owner_user_id, name, memo, pinned, pin_order,
             metadata_json, created_at, updated_at, deleted_at
-          ) VALUES (?, ${BINDING_WORKSPACE_SQL}, ${OWNER_SQL}, ?, '', 0, NULL,
+          ) VALUES (?, ${WORKSPACE_ID_SQL}, ${OWNER_SQL}, ?, '', 0, NULL,
             ?, ?, ?, NULL)
         `,
         params: [
@@ -149,31 +152,29 @@ async function upsertWorkspaceOrganization(
     return;
   }
 
+  // A contact the user deleted stays deleted.
+  if (row.deleted_at !== null) return;
+
   const metadata = parseMetadata(row.metadata_json);
   const trackedName = text(metadata.teamName);
   const trackedLogo = text(metadata.teamLogoDataUrl);
+  const avatarValue = text(metadata.avatarDataUrl);
   const untouchedName =
     row.name === "" ||
     (metadata.teamWorkspace === true && row.name === trackedName);
   const untouchedAvatar =
-    text(metadata.avatarDataUrl) === null ||
-    text(metadata.avatarDataUrl) === trackedLogo;
+    avatarValue === trackedLogo ||
+    (avatarValue === null && trackedLogo === null);
   const nextName = untouchedName ? workspace.name : row.name;
   const nextMetadata = {
     ...metadata,
     teamWorkspace: true,
     teamName: workspace.name,
     teamLogoDataUrl: workspace.logoDataUrl,
-    avatarDataUrl: untouchedAvatar
-      ? workspace.logoDataUrl
-      : (text(metadata.avatarDataUrl) ?? null),
+    avatarDataUrl: untouchedAvatar ? workspace.logoDataUrl : avatarValue,
   };
 
-  if (
-    row.deleted_at === null &&
-    row.name === nextName &&
-    metadataMatches(metadata, nextMetadata)
-  ) {
+  if (row.name === nextName && metadataMatches(metadata, nextMetadata)) {
     return;
   }
 
@@ -181,7 +182,7 @@ async function upsertWorkspaceOrganization(
     {
       sql: `
         UPDATE organizations
-        SET name = ?, metadata_json = ?, updated_at = ?, deleted_at = NULL
+        SET name = ?, metadata_json = ?, updated_at = ?
         WHERE id = ?
       `,
       params: [
@@ -214,7 +215,7 @@ async function upsertWorkspaceMember(
             id, workspace_id, owner_user_id, organization_id, name, email,
             phone, job_title, linkedin_username, memo, pinned, pin_order,
             metadata_json, created_at, updated_at, deleted_at
-          ) VALUES (?, ${BINDING_WORKSPACE_SQL}, ${OWNER_SQL}, ?, ?, ?,
+          ) VALUES (?, ${WORKSPACE_ID_SQL}, ${OWNER_SQL}, ?, ?, ?,
             '', '', '', '', 0, NULL, ?, ?, ?, NULL)
         `,
         params: [
@@ -236,32 +237,34 @@ async function upsertWorkspaceMember(
     return;
   }
 
+  // A contact the user deleted stays deleted.
+  if (row.deleted_at !== null) return;
+
   const metadata = parseMetadata(row.metadata_json);
   const trackedWorkspace = text(metadata.teamWorkspaceId);
+  const avatarValue = text(metadata.avatarDataUrl);
+  const trackedAvatar = text(metadata.teamAvatarUrl);
 
-  // A contact the user deleted stays deleted unless the mirror itself owned it.
-  if (row.deleted_at !== null && trackedWorkspace === null) return;
-
+  // An empty link only gets filled when the mirror never linked this
+  // contact: clearing a team-managed company stays cleared.
   const organizationId =
-    row.organization_id === "" || row.organization_id === trackedWorkspace
+    row.organization_id === trackedWorkspace ||
+    (row.organization_id === "" && trackedWorkspace === null)
       ? workspace.workspaceId
       : row.organization_id;
   const untouchedAvatar =
-    text(metadata.avatarDataUrl) === null ||
-    text(metadata.avatarDataUrl) === text(metadata.teamAvatarUrl);
+    avatarValue === trackedAvatar ||
+    (avatarValue === null && trackedAvatar === null);
   const nextMetadata = {
     ...metadata,
     teamWorkspaceId: workspace.workspaceId,
     teamAvatarUrl: member.avatarUrl,
-    avatarDataUrl: untouchedAvatar
-      ? member.avatarUrl
-      : (text(metadata.avatarDataUrl) ?? null),
+    avatarDataUrl: untouchedAvatar ? member.avatarUrl : avatarValue,
   };
   const nextName = row.name === "" ? (member.name ?? "") : row.name;
   const nextEmail = row.email === "" ? member.email : row.email;
 
   if (
-    row.deleted_at === null &&
     row.organization_id === organizationId &&
     row.name === nextName &&
     row.email === nextEmail &&
@@ -275,7 +278,7 @@ async function upsertWorkspaceMember(
       sql: `
         UPDATE humans
         SET organization_id = ?, name = ?, email = ?, metadata_json = ?,
-          updated_at = ?, deleted_at = NULL
+          updated_at = ?
         WHERE id = ?
       `,
       params: [

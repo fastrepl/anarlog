@@ -250,6 +250,114 @@ describe("mirrorWorkspaceContacts", () => {
     ).toBeUndefined();
   });
 
+  it("does not revive a mirrored member the user deleted", async () => {
+    execute.mockImplementation((sql: string) => {
+      if (sql.includes("FROM humans WHERE id = ?")) {
+        return Promise.resolve([
+          {
+            id: MEMBER_ID,
+            name: "Teammate",
+            email: "teammate@fastrepl.com",
+            organization_id: WORKSPACE_ID,
+            metadata_json: JSON.stringify({
+              teamWorkspaceId: WORKSPACE_ID,
+              teamAvatarUrl: MEMBER.avatarUrl,
+            }),
+            deleted_at: "2026-09-01T00:00:00Z",
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    await mirrorWorkspaceContacts([workspace()]);
+
+    expect(
+      statements().find((s) => s.sql.includes("UPDATE humans")),
+    ).toBeUndefined();
+  });
+
+  it("does not revive a workspace organization the user deleted", async () => {
+    execute.mockImplementation((sql: string) => {
+      if (sql.includes("FROM organizations")) {
+        return Promise.resolve([
+          {
+            id: WORKSPACE_ID,
+            name: "Fastrepl",
+            metadata_json: JSON.stringify({
+              teamWorkspace: true,
+              teamName: "Fastrepl",
+            }),
+            deleted_at: "2026-09-01T00:00:00Z",
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    await mirrorWorkspaceContacts([workspace()]);
+
+    expect(
+      statements().find((s) => s.sql.includes("UPDATE organizations")),
+    ).toBeUndefined();
+  });
+
+  it("keeps a company link the user cleared", async () => {
+    execute.mockImplementation((sql: string) => {
+      if (sql.includes("FROM humans WHERE id = ?")) {
+        return Promise.resolve([
+          {
+            id: MEMBER_ID,
+            name: "Teammate",
+            email: "teammate@fastrepl.com",
+            organization_id: "",
+            metadata_json: JSON.stringify({
+              teamWorkspaceId: WORKSPACE_ID,
+            }),
+            deleted_at: null,
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    await mirrorWorkspaceContacts([workspace()]);
+
+    const update = statements().find((s) => s.sql.includes("UPDATE humans"));
+    expect(update).toBeDefined();
+    expect(update!.params[0]).toBe("");
+  });
+
+  it("keeps a photo the user removed instead of restoring the logo", async () => {
+    execute.mockImplementation((sql: string) => {
+      if (sql.includes("FROM organizations")) {
+        return Promise.resolve([
+          {
+            id: WORKSPACE_ID,
+            name: "Fastrepl",
+            metadata_json: JSON.stringify({
+              teamWorkspace: true,
+              teamName: "Fastrepl",
+              teamLogoDataUrl: "data:image/png;base64,AAAA",
+            }),
+            deleted_at: null,
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    await mirrorWorkspaceContacts([workspace()]);
+
+    const update = statements().find((s) =>
+      s.sql.includes("UPDATE organizations"),
+    );
+    expect(update).toBeDefined();
+    const meta = JSON.parse(update!.params[1] as string);
+    expect(meta.avatarDataUrl).toBeNull();
+    expect(meta.teamLogoDataUrl).toBe("data:image/png;base64,AAAA");
+  });
+
   it("unlinks contacts of members who left the roster", async () => {
     execute.mockImplementation((sql: string, params?: unknown[]) => {
       if (sql.includes("teamWorkspaceId") && sql.includes("NOT IN")) {
