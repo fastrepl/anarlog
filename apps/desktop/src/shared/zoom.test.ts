@@ -14,6 +14,28 @@ const mocks = vi.hoisted(() => ({
     }) => void
   >,
   setZoom: vi.fn(() => Promise.resolve()),
+  setMinSize: vi.fn(() => Promise.resolve()),
+  setSize: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  LogicalSize: class {
+    constructor(
+      public width: number,
+      public height: number,
+    ) {}
+  },
+  currentMonitor: () => Promise.resolve(null),
+  getCurrentWindow: () => ({
+    label: "main",
+    scaleFactor: () => Promise.resolve(1),
+    innerSize: () =>
+      Promise.resolve({
+        toLogical: () => ({ width: 800, height: 600 }),
+      }),
+    setMinSize: mocks.setMinSize,
+    setSize: mocks.setSize,
+  }),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -40,14 +62,44 @@ vi.mock("@tauri-apps/api/webview", () => ({
 
 import {
   DEFAULT_ZOOM_FACTOR,
+  getWindowBaseMinSize,
   persistZoomFactor,
   readZoomFactor,
+  scaleWindowMinSize,
   stepZoomFactor,
   useZoomShortcuts,
+  ZOOM_CSS_VARIABLE,
   ZOOM_CHANGED_EVENT,
   ZOOM_STORAGE_KEY,
   ZOOM_STEPS,
 } from "./zoom";
+
+describe("scaleWindowMinSize", () => {
+  it("scales the base minimum size by the zoom factor", () => {
+    expect(scaleWindowMinSize({ width: 500, height: 500 }, 1.5, null)).toEqual({
+      width: 750,
+      height: 750,
+    });
+  });
+
+  it("never exceeds the monitor work area", () => {
+    expect(
+      scaleWindowMinSize({ width: 500, height: 500 }, 3, {
+        width: 1440,
+        height: 900,
+      }),
+    ).toEqual({ width: 1440, height: 900 });
+  });
+
+  it("resolves base sizes for main and note windows only", () => {
+    expect(getWindowBaseMinSize("main")).toEqual({ width: 500, height: 500 });
+    expect(getWindowBaseMinSize("note-abc")).toEqual({
+      width: 420,
+      height: 500,
+    });
+    expect(getWindowBaseMinSize("composer")).toBeNull();
+  });
+});
 
 describe("stepZoomFactor", () => {
   it("steps in from the default", () => {
@@ -129,6 +181,9 @@ describe("useZoomShortcuts", () => {
     renderHook(() => useZoomShortcuts());
     keydown({ key: "=", metaKey: true });
     expect(mocks.setZoom).toHaveBeenLastCalledWith(1.1);
+    expect(
+      document.documentElement.style.getPropertyValue(ZOOM_CSS_VARIABLE),
+    ).toBe("1.1");
     expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.1");
     expect(mocks.emit).toHaveBeenCalledWith(ZOOM_CHANGED_EVENT, {
       factor: 1.1,

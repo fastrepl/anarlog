@@ -158,6 +158,7 @@ vi.mock("~/store/zustand/tabs", () => ({
 }));
 
 import { ClassicMainBody } from "~/main/body";
+import { WINDOW_CONTROLS_GUTTER_CLASS } from "~/shared/hooks/useWindowControlsGutter";
 
 describe("ClassicMainBody", () => {
   beforeEach(() => {
@@ -307,7 +308,7 @@ describe("ClassicMainBody", () => {
         ? document.querySelector<HTMLElement>("[data-sidebar-timeline-header]")
         : sidebarToggle.parentElement?.parentElement?.parentElement;
 
-      expect(chromeFrame?.className).toContain("pl-[76px]");
+      expect(chromeFrame?.className).toContain(WINDOW_CONTROLS_GUTTER_CLASS);
 
       mocks.isFullscreen.mockResolvedValue(true);
       act(() => {
@@ -319,7 +320,9 @@ describe("ClassicMainBody", () => {
       await waitFor(() => {
         expect(chromeFrame?.className).toContain("pl-2");
       });
-      expect(chromeFrame?.className).not.toContain("pl-[76px]");
+      expect(chromeFrame?.className).not.toContain(
+        WINDOW_CONTROLS_GUTTER_CLASS,
+      );
     },
   );
 
@@ -348,7 +351,7 @@ describe("ClassicMainBody", () => {
       await waitFor(() => {
         expect(mocks.isFullscreen).toHaveBeenCalled();
       });
-      expect(chromeFrame?.className).toContain("pl-[76px]");
+      expect(chromeFrame?.className).toContain(WINDOW_CONTROLS_GUTTER_CLASS);
       expect(chromeFrame?.className).not.toContain("pl-2");
     },
   );
@@ -378,7 +381,9 @@ describe("ClassicMainBody", () => {
         await waitFor(() => {
           expect(chromeFrame?.className).toContain("pl-2");
         });
-        expect(chromeFrame?.className).not.toContain("pl-[76px]");
+        expect(chromeFrame?.className).not.toContain(
+          WINDOW_CONTROLS_GUTTER_CLASS,
+        );
       }
       expect(
         screen.queryByRole("button", {

@@ -113,7 +113,7 @@ function ContactsList({
   const self = humans.find((human) => human.id === ownerUserId);
   const organizations = useOrganizations();
 
-  const { pinnedItems, nonPinnedItems } = useMemo(() => {
+  const { pinnedItems, nonPinnedItems, teamItems } = useMemo(() => {
     const q = searchValue.toLowerCase().trim();
     const compare = (
       a: { name: string; createdAt: string },
@@ -143,6 +143,12 @@ function ContactsList({
         (organization) => !q || organization.name.toLowerCase().includes(q),
       )
       .sort(compare);
+    const teamOrganizations = filteredOrganizations.filter(
+      (organization) => organization.teamWorkspace,
+    );
+    const otherOrganizations = filteredOrganizations.filter(
+      (organization) => !organization.teamWorkspace,
+    );
     const allPinned: ContactItem[] = [
       ...filteredHumans
         .filter((human) => human.pinned)
@@ -151,7 +157,7 @@ function ContactsList({
           id: person.id,
           person,
         })),
-      ...filteredOrganizations
+      ...otherOrganizations
         .filter((organization) => organization.pinned)
         .map((organization) => ({
           kind: "organization" as const,
@@ -165,7 +171,7 @@ function ContactsList({
         b.kind === "person" ? b.person.pinOrder : b.organization.pinOrder;
       return (aOrder ?? Infinity) - (bOrder ?? Infinity);
     });
-    const unpinnedOrgs: ContactItem[] = filteredOrganizations
+    const unpinnedOrgs: ContactItem[] = otherOrganizations
       .filter((organization) => !organization.pinned)
       .map((organization) => ({
         kind: "organization" as const,
@@ -179,6 +185,7 @@ function ContactsList({
     return {
       pinnedItems: allPinned,
       nonPinnedItems: [...unpinnedOrgs, ...unpinnedPeople],
+      teamItems: teamOrganizations,
     };
   }, [humans, organizations, searchValue, sortOption, ownerUserId]);
 
@@ -242,6 +249,20 @@ function ContactsList({
             onCancel={() => setShowNewPerson(false)}
           />
         )}
+        {teamItems.map((organization) => (
+          <OrganizationItem
+            key={`team-org-${organization.id}`}
+            organization={organization}
+            readOnly
+            active={
+              selected?.type === "organization" &&
+              selected.id === organization.id
+            }
+            onClick={() =>
+              setSelected({ type: "organization", id: organization.id })
+            }
+          />
+        ))}
         {pinnedItems.length > 0 && !searchValue.trim() && (
           <Reorder.Group
             axis="y"

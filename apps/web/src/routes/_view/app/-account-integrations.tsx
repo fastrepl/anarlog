@@ -1,11 +1,8 @@
-import { Icon } from "@iconify-icon/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 
 import { listConnections } from "@anlg/api-client";
-import { DotsThree, PuzzlePiece } from "@anlg/ui/components/icons";
-import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
+import { DotsThree } from "@anlg/ui/components/icons";
 import {
   AppFloatingPanel,
   appFloatingMenuPanelClassName,
@@ -28,6 +25,7 @@ import {
   accountCardClassName,
   accountMenuTriggerClassName,
 } from "./-account-ui";
+import { integrationIcon } from "./-integration-ui";
 
 const INTEGRATION_NAMES: Record<string, string> = {
   "google-calendar": "Google Calendar",
@@ -46,29 +44,6 @@ const INTEGRATION_NAMES: Record<string, string> = {
   hubspot: "HubSpot",
   pipedrive: "Pipedrive",
   salesforce: "Salesforce",
-};
-
-const INTEGRATION_ICONS: Record<string, ReactNode> = {
-  "google-calendar": (
-    <Icon icon="logos:google-calendar" width="20" height="20" />
-  ),
-  outlook: <OutlookIcon size={20} />,
-  linear: <Icon icon="logos:linear-icon" width="20" height="20" />,
-  github: <Icon icon="logos:github-icon" width="20" height="20" />,
-  slack: <Icon icon="logos:slack-icon" width="20" height="20" />,
-  notion: <Icon icon="logos:notion-icon" width="20" height="20" />,
-  zoom: <Icon icon="logos:zoom-icon" width="20" height="20" />,
-  fathom: <Icon icon="simple-icons:fathom" width="20" height="20" />,
-  webex: <Icon icon="simple-icons:cisco" width="20" height="20" />,
-  "google-meet": <Icon icon="logos:google-meet" width="20" height="20" />,
-  "microsoft-teams": (
-    <Icon icon="logos:microsoft-teams" width="20" height="20" />
-  ),
-  attio: <Icon icon="thesvg-color:attio" width="20" height="20" />,
-  close: <Icon icon="logos:close" width="20" height="20" />,
-  hubspot: <Icon icon="logos:hubspot" width="20" height="20" />,
-  pipedrive: <Icon icon="logos:pipedrive" width="20" height="20" />,
-  salesforce: <Icon icon="logos:salesforce" width="20" height="20" />,
 };
 
 const connectionsQueryKey = ["account-integrations"];
@@ -130,9 +105,7 @@ export function IntegrationsSection() {
                     aria-hidden="true"
                     className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ede7dc] bg-[#fffaf0]"
                   >
-                    {INTEGRATION_ICONS[connection.integration_id] ?? (
-                      <PuzzlePiece size={20} className="text-[#756b5d]" />
-                    )}
+                    {integrationIcon(connection.integration_id)}
                   </span>
                   <div className="min-w-0">
                     <p className="text-base font-medium text-[#181613]">

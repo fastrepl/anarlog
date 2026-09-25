@@ -9,6 +9,8 @@ import { useShell } from "~/contexts/shell";
 import {
   usesWindowsStyleTitleBar,
   useWindowControlsGutter,
+  WINDOW_CONTROLS_GUTTER_CLASS,
+  WINDOW_CONTROLS_ROW_PADDING_TOP_CLASS,
 } from "~/shared/hooks/useWindowControlsGutter";
 import { leaveOverlayTab } from "~/shared/leave-overlay-tab";
 import { useTabs } from "~/store/zustand/tabs";
@@ -60,8 +62,13 @@ function InlineCustomSidebarHeader({ children }: { children?: ReactNode }) {
     <div
       data-tauri-drag-region
       className={cn([
-        "flex h-12 shrink-0 items-start py-0 pt-[9px] pr-1",
-        showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+        "flex h-12 shrink-0 items-start py-0 pr-1",
+        showWindowControlsGutter
+          ? [
+              WINDOW_CONTROLS_GUTTER_CLASS,
+              WINDOW_CONTROLS_ROW_PADDING_TOP_CLASS,
+            ]
+          : "pt-[9px] pl-2",
       ])}
     >
       <div
