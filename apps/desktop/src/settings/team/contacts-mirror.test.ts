@@ -87,7 +87,7 @@ describe("mirrorWorkspaceContacts", () => {
 
   it("follows server renames while the organization is untouched", async () => {
     execute.mockImplementation((sql: string) => {
-      if (sql.includes("FROM organizations")) {
+      if (sql.includes("FROM organizations WHERE id = ?")) {
         return Promise.resolve([
           {
             id: WORKSPACE_ID,
@@ -121,7 +121,7 @@ describe("mirrorWorkspaceContacts", () => {
 
   it("keeps a user-renamed organization name and a user avatar", async () => {
     execute.mockImplementation((sql: string) => {
-      if (sql.includes("FROM organizations")) {
+      if (sql.includes("FROM organizations WHERE id = ?")) {
         return Promise.resolve([
           {
             id: WORKSPACE_ID,
@@ -162,7 +162,7 @@ describe("mirrorWorkspaceContacts", () => {
       avatarDataUrl: "data:image/png;base64,AAAA",
     };
     execute.mockImplementation((sql: string) => {
-      if (sql.includes("FROM organizations")) {
+      if (sql.includes("FROM organizations WHERE id = ?")) {
         return Promise.resolve([
           {
             id: WORKSPACE_ID,
@@ -279,7 +279,7 @@ describe("mirrorWorkspaceContacts", () => {
 
   it("does not revive a workspace organization the user deleted", async () => {
     execute.mockImplementation((sql: string) => {
-      if (sql.includes("FROM organizations")) {
+      if (sql.includes("FROM organizations WHERE id = ?")) {
         return Promise.resolve([
           {
             id: WORKSPACE_ID,
@@ -330,7 +330,7 @@ describe("mirrorWorkspaceContacts", () => {
 
   it("keeps a photo the user removed instead of restoring the logo", async () => {
     execute.mockImplementation((sql: string) => {
-      if (sql.includes("FROM organizations")) {
+      if (sql.includes("FROM organizations WHERE id = ?")) {
         return Promise.resolve([
           {
             id: WORKSPACE_ID,
@@ -436,6 +436,45 @@ describe("mirrorWorkspaceContacts", () => {
     );
     expect(unlink).toBeDefined();
     expect(unlink!.params[0]).toBe("");
+  });
+
+  it("unmarks organizations of workspaces the account left entirely", async () => {
+    const staleOrg = {
+      id: OTHER_WORKSPACE_ID,
+      name: "Former Co",
+      metadata_json: JSON.stringify({
+        teamWorkspace: true,
+        teamName: "Former Co",
+        teamLogoDataUrl: "data:image/png;base64,OLD",
+        avatarDataUrl: "data:image/png;base64,OLD",
+      }),
+      deleted_at: null,
+    };
+    execute.mockImplementation((sql: string, params?: unknown[]) => {
+      if (sql.includes("$.teamWorkspace'") && sql.includes("NOT IN")) {
+        return Promise.resolve([staleOrg]);
+      }
+      if (sql.includes("FROM organizations WHERE id = ?")) {
+        if ((params ?? [])[0] === OTHER_WORKSPACE_ID) {
+          return Promise.resolve([staleOrg]);
+        }
+      }
+      return Promise.resolve([]);
+    });
+
+    await mirrorWorkspaceContacts([workspace()]);
+
+    const unmark = statements().find(
+      (s) =>
+        s.sql.includes("UPDATE organizations") &&
+        s.params.includes(OTHER_WORKSPACE_ID),
+    );
+    expect(unmark).toBeDefined();
+    const meta = JSON.parse(unmark!.params[0] as string);
+    expect(meta.teamWorkspace).toBeUndefined();
+    expect(meta.teamName).toBeUndefined();
+    expect(meta.teamLogoDataUrl).toBeUndefined();
+    expect(meta.avatarDataUrl).toBe("data:image/png;base64,OLD");
   });
 
   it("skips member mirroring when the roster could not be listed", async () => {
