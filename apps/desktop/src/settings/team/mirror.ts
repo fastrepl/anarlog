@@ -2,11 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 
 import {
   listMyWorkspaces,
+  listWorkspaceMembers,
   requireTeamContext,
   TeamError,
   type TeamContext,
   type WorkspaceRole,
 } from "./client";
+import { mirrorWorkspaceContacts } from "./contacts-mirror";
 
 import { useAuth } from "~/auth";
 import { executeTransaction } from "~/db";
@@ -36,6 +38,20 @@ export function useMyWorkspacesWithMirror() {
         await mirrorSharedWorkspaces(context, list);
       } catch {
         // A mirror failure must not blank the workspace list.
+      }
+      try {
+        const roster = await Promise.all(
+          list.map(async (workspace) => ({
+            ...workspace,
+            members: await listWorkspaceMembers(
+              context,
+              workspace.workspaceId,
+            ).catch(() => undefined),
+          })),
+        );
+        await mirrorWorkspaceContacts(roster);
+      } catch {
+        // Contacts mirroring is best-effort like the workspace mirror.
       }
       return list;
     },
