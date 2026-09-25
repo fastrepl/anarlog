@@ -239,6 +239,24 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
             ],
             "type": "object"
           },
+          "Speaker": {
+            "properties": {
+              "human_id": {
+                "type": "string"
+              },
+              "is_self": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "human_id",
+              "name"
+            ],
+            "type": "object"
+          },
           "Transcript": {
             "properties": {
               "ended_at_ms": {
@@ -338,6 +356,16 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
           },
           "series_id": {
             "type": "string"
+          },
+          "speaker_context": {
+            "description": "Recorded microphone/call context intervals (`sessions.metadata_json`\n`speaker_context`) used to label speakers the same way the desktop\ntranscript view does."
+          },
+          "speakers": {
+            "description": "People referenced by transcript speaker assignments (including the\nrecording user) who may not appear among the meeting participants.",
+            "items": {
+              "$ref": "#/$defs/Speaker"
+            },
+            "type": "array"
           },
           "started_at": {
             "type": "string"
