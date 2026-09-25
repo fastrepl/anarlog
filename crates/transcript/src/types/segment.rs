@@ -57,6 +57,11 @@ pub struct SegmentBuilderOptions {
     pub complete_channels: Option<Vec<ChannelProfile>>,
     pub min_segment_words: Option<usize>,
     pub min_segment_ms: Option<i64>,
+    /// `(start_ms, end_ms)` ranges, in the same clock as word timestamps, where the
+    /// microphone was isolated and provider diarization was off. Index-less mic
+    /// words inside a range may inherit the channel's only named speaker; words
+    /// outside it cannot, so voices from shared-mic intervals stay unnamed.
+    pub isolated_mic_ranges: Option<Vec<(i64, i64)>>,
 }
 
 impl Default for SegmentBuilderOptions {
@@ -66,6 +71,7 @@ impl Default for SegmentBuilderOptions {
             complete_channels: Some(vec![ChannelProfile::DirectMic]),
             min_segment_words: Some(3),
             min_segment_ms: Some(1500),
+            isolated_mic_ranges: None,
         }
     }
 }

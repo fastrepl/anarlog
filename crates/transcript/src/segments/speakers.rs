@@ -34,10 +34,10 @@ pub(super) fn create_speaker_state(
     }
 
     // When every channel-level identity on a channel names the same human, an
-    // unindexed word on that channel can only be that voice: providers that skip
-    // diarization (or mics where it is disabled) emit index-less words that would
-    // otherwise lose an explicit speaker assignment. Indexed words keep their own
-    // scope, so earlier voices from a shared mic are unaffected.
+    // unindexed mic word captured while diarization was off can only be that
+    // voice: it would otherwise lose an explicit speaker assignment. Indexed
+    // words keep their own scope, and words outside an isolated interval are
+    // untouched, so voices from a shared-mic era are unaffected.
     let mut humans_by_channel: HashMap<ChannelProfile, HashSet<&str>> = HashMap::new();
     let mut indices_by_channel: HashMap<ChannelProfile, HashSet<i32>> = HashMap::new();
     for assignment in assignments {
@@ -113,10 +113,15 @@ pub(super) fn create_speaker_state(
         }
     }
 
+    let isolated_mic_ranges = options
+        .and_then(|opts| opts.isolated_mic_ranges.clone())
+        .unwrap_or_default();
+
     SpeakerState {
         assignment_by_word_index,
         human_id_by_scoped_speaker,
         single_human_by_channel,
+        isolated_mic_ranges,
         human_id_by_channel,
         last_speaker_by_channel: HashMap::new(),
         complete_channels,
@@ -188,6 +193,11 @@ fn apply_identity_rules(
 
     if identity.human_id.is_none()
         && identity.speaker_index.is_none()
+        && word.channel == ChannelProfile::DirectMic
+        && state
+            .isolated_mic_ranges
+            .iter()
+            .any(|(start, end)| word.start_ms >= *start && word.start_ms < *end)
         && let Some((speaker_index, human_id)) = state.single_human_by_channel.get(&word.channel)
     {
         identity.speaker_index = *speaker_index;

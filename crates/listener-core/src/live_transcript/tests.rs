@@ -711,7 +711,7 @@ fn checkpointed_engine_ignores_replayed_words_and_keeps_segments_continuous() {
 #[test]
 fn updating_attendance_does_not_merge_remote_voices() {
     let mut engine = LiveTranscriptEngine::new("deepgram", &[], Some("self"));
-    engine.update_identities(&["remote".into()], Some("self"), vec![]);
+    engine.update_identities(&["remote".into()], Some("self"), vec![], false);
     let mut spoken = word("hello", 0.0, 0.5);
     spoken.speaker = Some(7);
     let response = transcript_response_at("hello", vec![spoken], true, 1, 0.0, 0.5);
@@ -755,6 +755,7 @@ fn speaker_assignment_names_later_segments_from_the_same_speaker() {
                     speaker_index: 0,
                 },
             }],
+            false,
         )
         .expect("assignment relabels the segment already on screen");
     assert_eq!(relabeled.upserts.len(), 1);

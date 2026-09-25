@@ -382,6 +382,7 @@ mod tests {
                     complete_channels: None,
                     min_segment_words: None,
                     min_segment_ms: None,
+                    isolated_mic_ranges: None,
                 },
             )
             .expect("assignment should change the rendered segments");
@@ -442,6 +443,7 @@ mod tests {
                 complete_channels: None,
                 min_segment_words: None,
                 min_segment_ms: None,
+                isolated_mic_ranges: None,
             },
         );
 
@@ -457,6 +459,7 @@ mod tests {
                 complete_channels: None,
                 min_segment_words: None,
                 min_segment_ms: None,
+                isolated_mic_ranges: None,
             },
         )
     }

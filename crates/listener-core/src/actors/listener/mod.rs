@@ -311,6 +311,7 @@ impl Actor for ListenerActor {
                     &state.args.participant_human_ids,
                     state.args.self_human_id.as_deref(),
                     state.args.speaker_assignments.clone(),
+                    state.args.mic_isolated,
                 ) {
                     state
                         .args
@@ -437,6 +438,7 @@ fn resume_transcript(args: &ListenerArgs, adapter_name: &str) -> LiveTranscriptE
                 &args.participant_human_ids,
                 args.self_human_id.as_deref(),
                 args.speaker_assignments.clone(),
+                args.mic_isolated,
             ) {
                 args.runtime
                     .emit_data(SessionDataEvent::TranscriptSegmentDelta {
@@ -451,6 +453,7 @@ fn resume_transcript(args: &ListenerArgs, adapter_name: &str) -> LiveTranscriptE
             &args.participant_human_ids,
             args.self_human_id.as_deref(),
             args.speaker_assignments.clone(),
+            args.mic_isolated,
         ),
     }
 }

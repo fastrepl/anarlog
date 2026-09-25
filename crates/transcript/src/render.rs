@@ -96,8 +96,22 @@ pub fn render_transcript_segments(
 
         let (words, mut assignments) =
             offset_transcript_data(transcript.words, transcript.assignments, offset);
-        let segment_options = if speaker_context.is_some() {
-            crate::segment_options_for_assignments(&assignments)
+        let segment_options = if let Some(context) = speaker_context.as_ref() {
+            let mut options = crate::segment_options_for_assignments(&assignments);
+            options.isolated_mic_ranges = Some(
+                context
+                    .intervals
+                    .iter()
+                    .filter(|interval| interval.mic_isolated == Some(true))
+                    .map(|interval| {
+                        (
+                            interval.start_ms - base_started_at,
+                            interval.end_ms - base_started_at,
+                        )
+                    })
+                    .collect(),
+            );
+            options
         } else {
             let claimed_channels: std::collections::HashSet<crate::ChannelProfile> = assignments
                 .iter()

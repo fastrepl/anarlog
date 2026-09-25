@@ -43,6 +43,7 @@ pub(super) struct SpeakerState {
     pub(super) human_id_by_scoped_speaker: HashMap<(ChannelProfile, i32), String>,
     pub(super) human_id_by_channel: HashMap<ChannelProfile, String>,
     pub(super) single_human_by_channel: HashMap<ChannelProfile, (Option<i32>, String)>,
+    pub(super) isolated_mic_ranges: Vec<(i64, i64)>,
     pub(super) last_speaker_by_channel: HashMap<ChannelProfile, SpeakerIdentity>,
     pub(super) complete_channels: HashSet<ChannelProfile>,
 }

@@ -67,6 +67,7 @@ pub struct LiveTranscriptEngine {
     processor: TranscriptProcessor,
     normalizer: TranscriptNormalizer,
     rendered_segments: RenderedSegmentState,
+    mic_isolated: bool,
 }
 
 impl LiveTranscriptEngine {
@@ -80,6 +81,7 @@ impl LiveTranscriptEngine {
             participant_human_ids,
             self_human_id,
             Vec::new(),
+            false,
         )
     }
 
@@ -91,8 +93,10 @@ impl LiveTranscriptEngine {
         _participant_human_ids: &[String],
         _self_human_id: Option<&str>,
         speaker_assignments: Vec<IdentityAssignment>,
+        mic_isolated: bool,
     ) -> Self {
-        let segment_options = segment_options_for_assignments(&speaker_assignments);
+        let mut segment_options = segment_options_for_assignments(&speaker_assignments);
+        segment_options.isolated_mic_ranges = isolated_mic_ranges(mic_isolated);
 
         let normalizer = TranscriptNormalizer::for_provider(provider_name);
 
@@ -108,6 +112,7 @@ impl LiveTranscriptEngine {
                 speaker_assignments,
                 segment_options,
             ),
+            mic_isolated,
         }
     }
 
@@ -153,8 +158,11 @@ impl LiveTranscriptEngine {
         _participant_human_ids: &[String],
         _self_human_id: Option<&str>,
         speaker_assignments: Vec<IdentityAssignment>,
+        mic_isolated: bool,
     ) -> Option<LiveTranscriptSegmentDelta> {
-        let segment_options = segment_options_for_assignments(&speaker_assignments);
+        self.mic_isolated = mic_isolated;
+        let mut segment_options = segment_options_for_assignments(&speaker_assignments);
+        segment_options.isolated_mic_ranges = isolated_mic_ranges(mic_isolated);
         self.rendered_segments
             .update_identities(Vec::new(), speaker_assignments, segment_options)
     }
@@ -189,6 +197,10 @@ impl LiveTranscriptEngine {
             segment_delta,
         })
     }
+}
+
+fn isolated_mic_ranges(mic_isolated: bool) -> Option<Vec<(i64, i64)>> {
+    mic_isolated.then(|| vec![(i64::MIN, i64::MAX)])
 }
 
 #[cfg(test)]
