@@ -36,18 +36,20 @@ export function getWindowBaseMinSize(label: string) {
 export function scaleWindowMinSize(
   base: { width: number; height: number },
   factor: number,
-  monitor: { width: number; height: number } | null,
+  bounds: { width: number; height: number } | null,
 ) {
   const width = Math.round(base.width * factor);
   const height = Math.round(base.height * factor);
-  if (!monitor) {
+  if (!bounds) {
     return { width, height };
   }
   return {
-    width: Math.min(width, Math.floor(monitor.width)),
-    height: Math.min(height, Math.floor(monitor.height)),
+    width: Math.min(width, Math.floor(bounds.width)),
+    height: Math.min(height, Math.floor(bounds.height)),
   };
 }
+
+let minSizeSyncGeneration = 0;
 
 async function syncWindowMinSize(factor: number) {
   const appWindow = getCurrentWindow();
@@ -56,18 +58,29 @@ async function syncWindowMinSize(factor: number) {
     return;
   }
 
-  const [monitor, scaleFactor, innerSize] = await Promise.all([
+  const generation = ++minSizeSyncGeneration;
+  const isStale = () => generation !== minSizeSyncGeneration;
+
+  const [monitor, scaleFactor] = await Promise.all([
     currentMonitor(),
     appWindow.scaleFactor(),
-    appWindow.innerSize(),
   ]);
-  const monitorLogical = monitor
-    ? monitor.size.toLogical(monitor.scaleFactor)
+  if (isStale()) {
+    return;
+  }
+  const workArea = monitor
+    ? monitor.workArea.size.toLogical(monitor.scaleFactor)
     : null;
-  const min = scaleWindowMinSize(base, factor, monitorLogical);
+  const min = scaleWindowMinSize(base, factor, workArea);
   await appWindow.setMinSize(new LogicalSize(min.width, min.height));
+  if (isStale()) {
+    return;
+  }
 
-  const current = innerSize.toLogical(scaleFactor);
+  const current = (await appWindow.innerSize()).toLogical(scaleFactor);
+  if (isStale()) {
+    return;
+  }
   if (current.width < min.width || current.height < min.height) {
     await appWindow.setSize(
       new LogicalSize(

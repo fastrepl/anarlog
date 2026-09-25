@@ -82,7 +82,7 @@ describe("scaleWindowMinSize", () => {
     });
   });
 
-  it("never exceeds the monitor's logical size", () => {
+  it("never exceeds the monitor work area", () => {
     expect(
       scaleWindowMinSize({ width: 500, height: 500 }, 3, {
         width: 1440,
