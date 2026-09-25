@@ -212,6 +212,68 @@ describe("createReadOnlyPlugin", () => {
     expect(onCommentSelection).toHaveBeenCalledOnce();
   });
 
+  it("hides the format toolbar during IME composition", async () => {
+    let view: EditorView | null = null;
+    render(
+      createElement(NoteEditor, {
+        initialContent: {
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 1 },
+              content: [{ type: "text", text: "t" }],
+            },
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "compose" }],
+            },
+          ],
+        },
+        onViewReady: (nextView) => {
+          view = nextView;
+        },
+      }),
+    );
+
+    await waitFor(() => expect(view).not.toBeNull());
+    vi.spyOn(view!, "coordsAtPos").mockReturnValue({
+      bottom: 20,
+      left: 0,
+      right: 40,
+      top: 0,
+    });
+
+    // An IME makes the DOM selection cover the composing text; the state
+    // selection follows it, but that range is not a user selection.
+    fireEvent.compositionStart(view!.dom);
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+      );
+    });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    // The composition ends and ProseMirror settles it with a state update
+    // that leaves a caret at the commit point; the gate releases only once
+    // that update arrives, so the toolbar stays hidden.
+    fireEvent.compositionEnd(view!.dom);
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 6)),
+      );
+    });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    // A real selection after composition still opens the toolbar.
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+      );
+    });
+    await screen.findByRole("toolbar");
+  });
+
   it("hides attachment mutation controls in read-only documents", async () => {
     const rendered = render(
       createElement(NoteEditor, {
