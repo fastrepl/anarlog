@@ -120,10 +120,25 @@ export function FormatToolbar({
 
   // An active IME composition makes the DOM selection a range covering the
   // composed text; that is not a real selection, so keep the toolbar hidden
-  // until the composition ends.
+  // until the composition ends. ProseMirror only applies the final selection
+  // a tick after compositionend, so wait for the next state update before
+  // unhiding — clearing on the event itself would flash the toolbar over the
+  // stale composition range.
   const [isComposing, setIsComposing] = useState(false);
-  useEditorEventListener("compositionstart", () => setIsComposing(true));
-  useEditorEventListener("compositionend", () => setIsComposing(false));
+  const compositionEnded = useRef(false);
+  useEditorEventListener("compositionstart", () => {
+    compositionEnded.current = false;
+    setIsComposing(true);
+  });
+  useEditorEventListener("compositionend", () => {
+    compositionEnded.current = true;
+  });
+  useEditorEffect(() => {
+    if (compositionEnded.current) {
+      compositionEnded.current = false;
+      setIsComposing(false);
+    }
+  });
 
   const editorState = useEditorState();
   const canFormatSelection = editorState
