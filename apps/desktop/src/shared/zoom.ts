@@ -68,6 +68,10 @@ export function applyZoomFactor(factor: number): Promise<void> {
 
 export function useZoomShortcuts() {
   useMountEffect(() => {
+    const tauri = isTauri();
+    const ownLabel = tauri ? getCurrentWebview().label : "";
+    let lastRevision = 0;
+
     let factor = readZoomFactor();
     void applyZoomFactor(factor);
 
@@ -76,8 +80,13 @@ export function useZoomShortcuts() {
       persistZoomFactor(factor);
       void applyZoomFactor(factor);
 
-      if (broadcast && isTauri()) {
-        void emit(ZOOM_CHANGED_EVENT, { factor }).catch((error: unknown) => {
+      if (broadcast && tauri) {
+        lastRevision = Date.now();
+        void emit(ZOOM_CHANGED_EVENT, {
+          factor,
+          source: ownLabel,
+          revision: lastRevision,
+        }).catch((error: unknown) => {
           console.warn("[zoom] failed to broadcast zoom factor", error);
         });
       }
@@ -108,14 +117,27 @@ export function useZoomShortcuts() {
 
     let unlisten: (() => void) | undefined;
     let cancelled = false;
-    if (isTauri()) {
-      listen<{ factor: number }>(ZOOM_CHANGED_EVENT, (event) => {
-        const next = event.payload?.factor;
-        if (typeof next !== "number" || !Number.isFinite(next) || next <= 0) {
+    if (tauri) {
+      listen<{
+        factor: number;
+        source: string;
+        revision: number;
+      }>(ZOOM_CHANGED_EVENT, (event) => {
+        const payload = event.payload;
+        if (
+          !payload ||
+          payload.source === ownLabel ||
+          typeof payload.factor !== "number" ||
+          !Number.isFinite(payload.factor) ||
+          payload.factor <= 0 ||
+          typeof payload.revision !== "number" ||
+          payload.revision <= lastRevision
+        ) {
           return;
         }
-        if (next !== factor) {
-          setFactor(next, false);
+        lastRevision = payload.revision;
+        if (payload.factor !== factor) {
+          setFactor(payload.factor, false);
         }
       })
         .then((fn) => {

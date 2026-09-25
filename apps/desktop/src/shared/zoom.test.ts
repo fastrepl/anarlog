@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   emit: vi.fn(() => Promise.resolve()),
-  listeners: [] as Array<(event: { payload: { factor: number } }) => void>,
+  listeners: [] as Array<
+    (event: {
+      payload: { factor: number; revision: number; source: string };
+    }) => void
+  >,
   setZoom: vi.fn(() => Promise.resolve()),
 }));
 
@@ -11,7 +15,9 @@ vi.mock("@tauri-apps/api/event", () => ({
   emit: mocks.emit,
   listen: (
     _event: string,
-    handler: (event: { payload: { factor: number } }) => void,
+    handler: (event: {
+      payload: { factor: number; revision: number; source: string };
+    }) => void,
   ) => {
     mocks.listeners.push(handler);
     return Promise.resolve(() => {});
@@ -19,7 +25,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 vi.mock("@tauri-apps/api/webview", () => ({
-  getCurrentWebview: () => ({ setZoom: mocks.setZoom }),
+  getCurrentWebview: () => ({ label: "main", setZoom: mocks.setZoom }),
 }));
 
 import {
@@ -116,6 +122,8 @@ describe("useZoomShortcuts", () => {
     expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.1");
     expect(mocks.emit).toHaveBeenCalledWith(ZOOM_CHANGED_EVENT, {
       factor: 1.1,
+      source: "main",
+      revision: expect.any(Number),
     });
   });
 
@@ -142,10 +150,33 @@ describe("useZoomShortcuts", () => {
 
   it("follows zoom changes broadcast from other windows", () => {
     renderHook(() => useZoomShortcuts());
-    mocks.listeners[0]({ payload: { factor: 1.5 } });
+    mocks.listeners[0]({
+      payload: { factor: 1.5, source: "note", revision: 1 },
+    });
     expect(mocks.setZoom).toHaveBeenLastCalledWith(1.5);
     expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.5");
     expect(mocks.emit).not.toHaveBeenCalled();
+  });
+
+  it("ignores its own broadcast echo", () => {
+    renderHook(() => useZoomShortcuts());
+    keydown({ key: "=", metaKey: true });
+    const calls = mocks.setZoom.mock.calls.length;
+    mocks.listeners[0]({
+      payload: { factor: 0.5, source: "main", revision: Date.now() },
+    });
+    expect(mocks.setZoom).toHaveBeenCalledTimes(calls);
+    expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1.1");
+  });
+
+  it("ignores stale revisions from other windows", () => {
+    renderHook(() => useZoomShortcuts());
+    keydown({ key: "=", metaKey: true });
+    const calls = mocks.setZoom.mock.calls.length;
+    mocks.listeners[0]({
+      payload: { factor: 0.5, source: "note", revision: Date.now() - 60_000 },
+    });
+    expect(mocks.setZoom).toHaveBeenCalledTimes(calls);
   });
 
   it("stops responding after unmount", () => {
