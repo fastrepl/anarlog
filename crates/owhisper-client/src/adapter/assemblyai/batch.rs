@@ -351,19 +351,19 @@ impl AssemblyAIAdapter {
         let mut next_speaker_id = 0;
 
         let channels = if num_channels <= 1 {
-            let words: Vec<BatchWord> = all_words
+            let mut words: Vec<BatchWord> = all_words
                 .into_iter()
-                .map(|word| {
-                    let mut word = Self::convert_word(word, &mut speaker_ids, &mut next_speaker_id);
-                    // Channel 0 (DirectMic) renders as exactly one speaker, so
-                    // diarized words from a single mixed-audio upload must use
-                    // the mixed-capture channel to keep their speaker labels.
-                    if word.speaker.is_some() {
-                        word.channel = MIXED_CAPTURE_CHANNEL;
-                    }
-                    word
-                })
+                .map(|word| Self::convert_word(word, &mut speaker_ids, &mut next_speaker_id))
                 .collect();
+            // Channel 0 (DirectMic) renders as exactly one speaker, the local
+            // user. Keep solo recordings there, but move words from a mixed
+            // single-track upload with several voices to the mixed-capture
+            // channel so their speaker labels survive.
+            if speaker_ids.len() > 1 {
+                for word in words.iter_mut().filter(|word| word.speaker.is_some()) {
+                    word.channel = MIXED_CAPTURE_CHANNEL;
+                }
+            }
             let transcript = response.text.unwrap_or_default();
             vec![BatchChannel {
                 alternatives: vec![BatchAlternatives {
@@ -564,6 +564,36 @@ mod tests {
         assert_eq!(words[0].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(words[1].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(words[2].channel, 0);
+    }
+
+    #[test]
+    fn mono_single_speaker_words_stay_on_direct_mic() {
+        let word = |text: &str| AssemblyAIBatchWord {
+            text: text.to_string(),
+            start: 0,
+            end: 500,
+            confidence: 0.9,
+            speaker: Some("A".to_string()),
+            channel: None,
+        };
+        let response = TranscriptResponse {
+            id: "id".to_string(),
+            status: "completed".to_string(),
+            text: Some("just me talking".to_string()),
+            words: Some(vec![word("just"), word("me"), word("talking")]),
+            utterances: None,
+            confidence: Some(0.9),
+            audio_duration: Some(1),
+            audio_channels: Some(1),
+            error: None,
+        };
+
+        let result = AssemblyAIAdapter::convert_to_batch_response(response);
+
+        // A solo recording keeps DirectMic so it still renders as the local user.
+        let words = &result.results.channels[0].alternatives[0].words;
+        assert!(words.iter().all(|word| word.channel == 0));
+        assert!(words.iter().all(|word| word.speaker == Some(0)));
     }
 
     #[test]
