@@ -6,6 +6,7 @@ use tauri_plugin_store2::Store2PluginExt;
 
 static REPORTED_QUEUE_FULL: AtomicBool = AtomicBool::new(false);
 static REPORTED_DELIVERY_FAILURE: AtomicBool = AtomicBool::new(false);
+static LEGACY_ID_MERGE_CLAIMED: AtomicBool = AtomicBool::new(false);
 
 fn report_delivery_problem_once(reported: &AtomicBool, event: &'static str) {
     if !reported.swap(true, Ordering::Relaxed) {
@@ -65,10 +66,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         client: anlg_analytics::AnalyticsClient,
         app_handle: tauri::AppHandle<R>,
     ) {
+        if LEGACY_ID_MERGE_CLAIMED.swap(true, Ordering::AcqRel) {
+            return;
+        }
+
         let machine_id = anlg_host::fingerprint();
         let legacy_id = anlg_analytics::legacy_pseudonymous_device_id(&machine_id);
-        if let Err(error) = client.alias(machine_id, legacy_id).await {
-            tracing::warn!(%error, "legacy analytics alias delivery failed");
+        if let Err(error) = client.merge_distinct_ids(machine_id, legacy_id).await {
+            LEGACY_ID_MERGE_CLAIMED.store(false, Ordering::Release);
+            tracing::warn!(%error, "legacy analytics id merge delivery failed");
             return;
         }
 

@@ -292,18 +292,20 @@ impl AnalyticsClient {
         Ok(())
     }
 
-    pub async fn alias(
+    /// Merges the person behind `other_distinct_id` into the person behind `distinct_id`,
+    /// even when both are already identified. Only for ids known to belong to the same device.
+    pub async fn merge_distinct_ids(
         &self,
         distinct_id: impl Into<String>,
-        alias: impl Into<String>,
+        other_distinct_id: impl Into<String>,
     ) -> Result<(), Error> {
         let distinct_id = distinct_id.into();
-        let alias = alias.into();
+        let other_distinct_id = other_distinct_id.into();
 
         if let Some(lazy) = &self.posthog {
             let state = lazy.get().await;
-            let mut event = Event::new("$create_alias", &distinct_id);
-            let _ = event.insert_prop("alias", &alias);
+            let mut event = Event::new("$merge_dangerously", &distinct_id);
+            let _ = event.insert_prop("alias", &other_distinct_id);
             state.client.capture(event).await?;
         } else {
             tracing::info!("analytics_backend_unavailable");
