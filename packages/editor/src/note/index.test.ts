@@ -279,6 +279,29 @@ describe("createReadOnlyPlugin", () => {
       );
     });
     await screen.findByRole("toolbar");
+
+    // If the settle leaves the provisional range in place and no selection
+    // change ever arrives, the gate still must not hold forever: after
+    // ProseMirror's settle window the same range counts as a real
+    // selection. Return to a caret first so the stale jsdom DOM selection
+    // cannot reconcile the previous range into a deletion.
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 6)),
+      );
+    });
+    fireEvent.compositionStart(view!.dom);
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+      );
+    });
+    fireEvent.compositionEnd(view!.dom);
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    await screen.findByRole("toolbar");
   });
 
   it("hides attachment mutation controls in read-only documents", async () => {
