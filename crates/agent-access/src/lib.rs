@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod proposals;
+mod transcript_render;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -222,6 +223,19 @@ pub struct MeetingExport {
     #[serde(flatten)]
     pub meeting: Meeting,
     pub transcripts: Vec<Transcript>,
+    /// People referenced by transcript speaker assignments (including the
+    /// recording user) who may not appear among the meeting participants.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub speakers: Vec<Speaker>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Type, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Speaker {
+    pub human_id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub is_self: bool,
 }
 
 pub async fn list_meetings(pool: &SqlitePool, input: ListMeetingsInput) -> Result<MeetingPage> {
@@ -362,19 +376,88 @@ pub async fn get_recurring_meeting_history(
 }
 
 pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result<MeetingExport> {
-    let (meeting, transcripts) = tokio::try_join!(
+    let (meeting, transcript_rows) = tokio::try_join!(
         get_meeting(
             pool,
             GetMeetingInput {
                 meeting_id: meeting_id.clone(),
             }
         ),
-        load_transcripts(pool, &meeting_id),
+        load_transcript_rows(pool, &meeting_id),
     )?;
+    let self_human_id = transcript_rows
+        .iter()
+        .map(|row| row.owner_user_id.trim())
+        .find(|id| !id.is_empty())
+        .map(str::to_string);
+    let transcripts = transcript_rows
+        .into_iter()
+        .map(Transcript::from)
+        .collect::<Vec<_>>();
+    let speakers = load_speakers(pool, &meeting, &transcripts, self_human_id).await?;
     Ok(MeetingExport {
         meeting,
         transcripts,
+        speakers,
     })
+}
+
+async fn load_speakers(
+    pool: &SqlitePool,
+    meeting: &Meeting,
+    transcripts: &[Transcript],
+    self_human_id: Option<String>,
+) -> Result<Vec<Speaker>> {
+    let mut human_ids = transcript_render::assigned_human_ids(transcripts);
+    if let Some(self_id) = &self_human_id
+        && !human_ids.contains(self_id)
+    {
+        human_ids.push(self_id.clone());
+    }
+    if human_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut query = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+        "SELECT id, name FROM humans WHERE deleted_at IS NULL AND id IN (",
+    );
+    let mut separated = query.separated(", ");
+    for id in &human_ids {
+        separated.push_bind(id);
+    }
+    separated.push_unseparated(") ORDER BY id");
+    let names = query
+        .build_query_as::<(String, String)>()
+        .fetch_all(pool)
+        .await
+        .map_err(|source| Error::Database {
+            action: "load speakers",
+            source,
+        })?
+        .into_iter()
+        .collect::<std::collections::HashMap<_, _>>();
+
+    Ok(human_ids
+        .into_iter()
+        .map(|human_id| {
+            let name = names
+                .get(&human_id)
+                .cloned()
+                .or_else(|| {
+                    meeting
+                        .participants
+                        .iter()
+                        .find(|participant| participant.human_id == human_id)
+                        .map(|participant| participant.display_name.clone())
+                })
+                .unwrap_or_default();
+            Speaker {
+                is_self: self_human_id.as_deref() == Some(human_id.as_str()),
+                human_id,
+                name,
+            }
+        })
+        .collect())
 }
 
 impl Meeting {
@@ -444,7 +527,7 @@ impl Meeting {
 impl MeetingExport {
     pub fn to_markdown(&self) -> String {
         let mut markdown = self.meeting.to_markdown();
-        let transcript = render_transcripts(&self.transcripts);
+        let transcript = transcript_render::render_transcripts_markdown(self);
         if !transcript.is_empty() {
             markdown.push_str("\n\n## Transcript\n\n");
             markdown.push_str(&transcript);
@@ -548,9 +631,17 @@ impl From<anlg_db_app::SessionTranscriptRow> for Transcript {
 }
 
 async fn load_transcripts(pool: &SqlitePool, meeting_id: &str) -> Result<Vec<Transcript>> {
-    anlg_db_app::list_session_transcripts(pool, meeting_id)
+    load_transcript_rows(pool, meeting_id)
         .await
         .map(|rows| rows.into_iter().map(Transcript::from).collect())
+}
+
+async fn load_transcript_rows(
+    pool: &SqlitePool,
+    meeting_id: &str,
+) -> Result<Vec<anlg_db_app::SessionTranscriptRow>> {
+    anlg_db_app::list_session_transcripts(pool, meeting_id)
+        .await
         .map_err(|source| Error::Database {
             action: "load transcript",
             source,
@@ -587,7 +678,7 @@ pub fn paginate_transcripts(
         .take(limit as usize)
         .collect::<Vec<_>>();
     let text = if total_words == 0 && offset_usize == 0 {
-        render_transcripts(transcripts)
+        transcript_render::render_flat_transcripts(transcripts)
     } else {
         transcript_page_text(&words)
     };
@@ -599,15 +690,6 @@ pub fn paginate_transcripts(
         pagination: pagination(offset, limit, words.len(), Some(total_words), has_more),
         words,
     }
-}
-
-fn render_transcripts(transcripts: &[Transcript]) -> String {
-    transcripts
-        .iter()
-        .filter(|transcript| !transcript.text.trim().is_empty())
-        .map(|transcript| transcript.text.trim())
-        .collect::<Vec<_>>()
-        .join("\n\n")
 }
 
 fn body_to_markdown(body: &str, format: &str) -> String {
@@ -770,6 +852,73 @@ mod tests {
         assert!(page.words.is_empty());
         assert_eq!(page.pagination.total, Some(0));
         assert_eq!(page.pagination.next_offset, None);
+    }
+
+    #[tokio::test]
+    async fn meeting_export_markdown_labels_speakers() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, title, started_at, owner_user_id)
+             VALUES ('meeting-1', 'Planning', '2026-07-13', 'self-1')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO humans (id, name) VALUES ('self-1', 'Me'), ('human-1', 'Alice')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO session_participants (id, session_id, human_id, display_name)
+             VALUES ('participant-1', 'meeting-1', 'human-1', 'Alice')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let words = serde_json::json!([
+            {"id": "w1", "text": "Hello", "start_ms": 0, "end_ms": 400, "channel": 0},
+            {"id": "w2", "text": "there", "start_ms": 500, "end_ms": 900, "channel": 0},
+            {"id": "w3", "text": "Hi", "start_ms": 1000, "end_ms": 1400, "channel": 1},
+        ]);
+        let hints = serde_json::json!([{
+            "type": "user_speaker_assignment",
+            "word_id": "w3",
+            "value": {"human_id": "human-1", "scope": "speaker", "channel": 1, "speaker_index": null},
+        }]);
+        sqlx::query(
+            "INSERT INTO transcripts
+             (id, session_id, owner_user_id, started_at_ms, words_json, speaker_hints_json)
+             VALUES ('transcript-1', 'meeting-1', 'self-1', 0, ?, ?)",
+        )
+        .bind(words.to_string())
+        .bind(hints.to_string())
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let export = get_meeting_export(db.pool(), "meeting-1".to_string())
+            .await
+            .unwrap();
+        assert_eq!(
+            export.speakers,
+            vec![
+                Speaker {
+                    human_id: "human-1".to_string(),
+                    name: "Alice".to_string(),
+                    is_self: false,
+                },
+                Speaker {
+                    human_id: "self-1".to_string(),
+                    name: "Me".to_string(),
+                    is_self: true,
+                },
+            ]
+        );
+        let markdown = export.to_markdown();
+        assert!(
+            markdown.ends_with("## Transcript\n\nMe: Hello there\n\nAlice: Hi"),
+            "{markdown}"
+        );
     }
 
     #[tokio::test]
