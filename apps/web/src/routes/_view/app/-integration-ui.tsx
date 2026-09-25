@@ -9,7 +9,7 @@ const BUTTON_BASE =
   "flex h-12 w-full items-center justify-center gap-2 rounded-full text-base font-medium transition-all";
 
 const BUTTON_VARIANTS = {
-  primary: "bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md",
+  primary: "bg-fg text-white shadow-md hover:bg-fg/90",
   danger: "bg-linear-to-t from-red-600 to-red-500 text-white shadow-md",
   secondary:
     "border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-neutral-700 shadow-xs",
