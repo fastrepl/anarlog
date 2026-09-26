@@ -117,7 +117,9 @@ export function useStartListeningState(
     }
 
     try {
-      await lifecycle.persistMarker();
+      await lifecycle.persistMarker({
+        batchOnly: liveTranscriptionConfig.transcriptionMode === "batch",
+      });
     } catch (error) {
       console.error(
         "[listener] failed to prepare durable capture state",

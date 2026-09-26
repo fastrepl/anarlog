@@ -1,7 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { events as transcriptionEvents } from "@anlg/plugin-transcription";
+import {
+  commands as transcriptionCommands,
+  events as transcriptionEvents,
+} from "@anlg/plugin-transcription";
 
 import { saveIncompleteCapture } from "./capture-result";
 import {
@@ -309,6 +312,7 @@ vi.mock("~/stt/queries", () => ({
   applyLiveTranscriptDeltaToDatabase: applyLiveTranscriptDeltaToDatabaseMock,
   createLiveTranscript: createLiveTranscriptMock,
   flushLiveTranscriptDeltasToDatabase: flushLiveTranscriptDeltasToDatabaseMock,
+  getTranscriptRecord: vi.fn(async () => null),
   softDeleteTranscript: softDeleteTranscriptMock,
   transcriptExists: transcriptExistsMock,
   useSessionParticipantHumanIds: useSessionParticipantHumanIdsMock,
@@ -550,6 +554,10 @@ describe("useStartListening", () => {
     startMock.mockResolvedValue(true);
     attachLiveSessionMock.mockResolvedValue("attached");
     runBatchMock.mockResolvedValue(undefined);
+    vi.mocked(transcriptionCommands.listCaptureAudioChunks).mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
     isSupportedLanguagesLiveMock.mockResolvedValue({
       status: "ok",
       data: true,
@@ -642,6 +650,248 @@ describe("useStartListening", () => {
     });
     expect(runBatchMock).not.toHaveBeenCalled();
   });
+
+  test("transcribes a retained batch-only recording once after stop instead of per chunk", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const capturedAt = new Date("2026-07-24T00:00:00.000Z").getTime();
+    vi.setSystemTime(capturedAt);
+    vi.mocked(transcriptionCommands.listCaptureAudioChunks).mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          id: "chunk-1",
+          path: "/tmp/chunk-1.ogg",
+          capture_started_at: capturedAt,
+          start_ms: 0,
+          audio_start_ms: 0,
+          end_ms: 60_000,
+        },
+      ],
+    });
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    vi.setSystemTime(capturedAt + 120_000);
+    const lifecycle = vi.mocked(
+      transcriptionEvents.captureLifecycleEvent.listen,
+    ).mock.calls[0]?.[0];
+    lifecycle?.({
+      payload: {
+        type: "started",
+        session_id: "session-1",
+        requested_live_transcription: false,
+        live_transcription_active: false,
+      },
+    } as never);
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 120,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+    expect(runBatchMock).toHaveBeenCalledOnce();
+    expect(runBatchMock).toHaveBeenCalledWith(
+      "/tmp/session.mp3",
+      expect.objectContaining({ notifyOnCompletion: true }),
+    );
+    expect(setBatchTranscriptionPendingMock).toHaveBeenCalledWith(
+      "session-1",
+      true,
+    );
+  });
+
+  test("keeps zero-retention batch-only recordings on the in-meeting chunk path", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    const lifecycle = vi.mocked(
+      transcriptionEvents.captureLifecycleEvent.listen,
+    ).mock.calls[0]?.[0];
+    lifecycle?.({
+      payload: {
+        type: "started",
+        session_id: "session-1",
+        requested_live_transcription: false,
+        live_transcription_active: false,
+      },
+    } as never);
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+    expect(runBatchMock).not.toHaveBeenCalled();
+  });
+
+  describe("retained batch-only recovery", () => {
+    const batchOnlyMarker = {
+      version: 1 as const,
+      chunkedAudio: true,
+      retainAudio: true,
+      postStopBatch: true,
+      phase: "finalizing" as const,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: Date.now() - 180_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 0,
+      preserveExistingTranscript: false,
+      ownerUserId: "user-1",
+      memo: "Existing memo",
+    };
+    const leftoverChunk = {
+      id: "chunk-1",
+      path: "/tmp/chunk-1.ogg",
+      capture_started_at: Date.now() - 180_000,
+      start_ms: 0,
+      audio_start_ms: 0,
+      end_ms: 60_000,
+    };
+    const recoverStoppedCapture = async () => {
+      attachLiveSessionMock.mockResolvedValue("inactive");
+      loadCaptureLifecycleMarkerMock
+        .mockResolvedValueOnce(batchOnlyMarker)
+        .mockResolvedValueOnce(batchOnlyMarker)
+        .mockResolvedValueOnce(null);
+      const { result } = renderHook(() =>
+        useResumeListeningLifecycle("session-1"),
+      );
+      await act(async () => {
+        await result.current();
+      });
+    };
+
+    test("reruns the full-file batch after a failed pass left no chunks", async () => {
+      await recoverStoppedCapture();
+
+      expect(runBatchMock).toHaveBeenCalledOnce();
+      expect(runBatchMock).toHaveBeenCalledWith(
+        "/tmp/existing-session.mp3",
+        expect.objectContaining({ deferAudioFinalization: true }),
+      );
+    });
+
+    test("transcribes the full file instead of leftover chunks after a restart", async () => {
+      vi.mocked(transcriptionCommands.listCaptureAudioChunks).mockResolvedValue(
+        { status: "ok", data: [leftoverChunk] },
+      );
+
+      await recoverStoppedCapture();
+
+      expect(runBatchMock.mock.calls.map(([path]) => path)).toEqual([
+        "/tmp/existing-session.mp3",
+      ]);
+    });
+
+    test("does not transcribe chunks after reattaching to a running capture", async () => {
+      vi.mocked(transcriptionCommands.listCaptureAudioChunks).mockResolvedValue(
+        { status: "ok", data: [leftoverChunk] },
+      );
+      loadCaptureLifecycleMarkerMock.mockResolvedValue({
+        ...batchOnlyMarker,
+        phase: "capturing",
+      });
+      const { result } = renderHook(() =>
+        useResumeListeningLifecycle("session-1"),
+      );
+      await act(async () => {
+        await expect(result.current()).resolves.toBe("attached");
+      });
+
+      await act(async () => {
+        await attachLiveSessionMock.mock.calls[0]?.[1]?.onStopped?.(
+          "session-1",
+          {
+            chunkedAudio: true,
+            durationSeconds: 180,
+            audioPath: "/tmp/session.mp3",
+            requestedLiveTranscription: false,
+            liveTranscriptionActive: false,
+            needsBatchRepair: false,
+          },
+        );
+      });
+
+      expect(runBatchMock.mock.calls.map(([path]) => path)).toEqual([
+        "/tmp/session.mp3",
+      ]);
+    });
+
+    test("transcribes chunks when the full file is missing at stop", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const capturedAt = new Date("2026-07-24T00:00:00.000Z").getTime();
+      vi.setSystemTime(capturedAt);
+      vi.mocked(transcriptionCommands.listCaptureAudioChunks).mockResolvedValue(
+        {
+          status: "ok",
+          data: [{ ...leftoverChunk, capture_started_at: capturedAt }],
+        },
+      );
+      const { result } = renderHook(() => useStartListening("session-1"));
+      await act(async () => {
+        await result.current();
+      });
+      vi.setSystemTime(capturedAt + 120_000);
+
+      await act(async () => {
+        await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+          chunkedAudio: true,
+          durationSeconds: 120,
+          audioPath: null,
+          requestedLiveTranscription: false,
+          liveTranscriptionActive: false,
+          needsBatchRepair: false,
+        });
+      });
+
+      expect(runBatchMock.mock.calls.map(([path]) => path)).toEqual([
+        "/tmp/chunk-1.ogg",
+      ]);
+    });
+  });
+
+  test.each([
+    ["batch-only with retained audio", "am-test", undefined, true],
+    ["live", "soniqo-parakeet-streaming", undefined, false],
+    ["batch-only with zero retention", "am-test", "none", false],
+  ])(
+    "persists the post-stop batch mode on the first marker: %s",
+    async (_label, model, retention, expected) => {
+      useSTTConnectionMock.mockReturnValue({
+        conn: {
+          provider: "anarlog",
+          model,
+          baseUrl: "http://localhost:8080",
+          apiKey: "",
+        },
+      });
+      if (retention)
+        useConfigValueMock.mockImplementation((key: string) =>
+          key === "audio_retention" ? retention : undefined,
+        );
+      const { result } = renderHook(() => useStartListening("session-1"));
+      await act(async () => {
+        await result.current();
+      });
+
+      const firstMarker = saveCaptureLifecycleMarkerMock.mock.calls[0]?.[0];
+      expect(firstMarker?.postStopBatch === true).toBe(expected);
+    },
+  );
 
   test("never claims that zero-retention audio was deleted when native cleanup failed", async () => {
     useConfigValueMock.mockImplementation((key: string) =>

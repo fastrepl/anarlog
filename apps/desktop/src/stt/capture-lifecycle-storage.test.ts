@@ -172,7 +172,12 @@ test("rejects when a newer capture marker owns the session", async () => {
 test.each([true, false])(
   "round-trips chunked capture and retention flags: %s",
   async (retainAudio) => {
-    const saved = { ...marker, chunkedAudio: true, retainAudio };
+    const saved = {
+      ...marker,
+      chunkedAudio: true,
+      retainAudio,
+      postStopBatch: retainAudio,
+    };
     await saveCaptureLifecycleMarker(saved);
     const statement = mocks.executeTransaction.mock.calls[0]![0][0];
     mocks.execute.mockResolvedValue([{ value_json: statement.params[1] }]);
@@ -191,6 +196,7 @@ test.each(["true", 1, null])(
           ...marker,
           chunkedAudio: value,
           retainAudio: value,
+          postStopBatch: value,
         }),
       },
     ]);

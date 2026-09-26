@@ -7,6 +7,7 @@ export type CaptureLifecycleMarker = {
   version: 1;
   chunkedAudio?: boolean;
   retainAudio?: boolean;
+  postStopBatch?: boolean;
   phase?: "capturing" | "finalizing";
   sessionId: string;
   transcriptId: string;
@@ -158,6 +159,9 @@ function parseCaptureLifecycleMarker(
         : {}),
       ...(typeof parsed.retainAudio === "boolean"
         ? { retainAudio: parsed.retainAudio }
+        : {}),
+      ...(typeof parsed.postStopBatch === "boolean"
+        ? { postStopBatch: parsed.postStopBatch }
         : {}),
       sessionId,
       transcriptId: parsed.transcriptId,

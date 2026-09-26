@@ -228,6 +228,9 @@ export function useCaptureLifecycle(sessionId: string) {
     ) => {
       let usesChunkedAudio =
         !recoveredMarker || recoveredMarker.chunkedAudio === true;
+      // Persisted on the marker so restarts still run the full-file pass the
+      // stop path deferred to, instead of chunks it may already have deleted.
+      let postStopBatch = recoveredMarker?.postStopBatch === true;
       const retainAudio =
         recoveredMarker?.retainAudio ?? audioRetention !== "none";
       const automatic = recoveredMarker
@@ -562,9 +565,13 @@ export function useCaptureLifecycle(sessionId: string) {
             if (payload.session_id !== sessionId) return;
             if (payload.type === "started") {
               if (payload.live_transcription_active) audioRecovery.connected();
-              else if (!payload.requested_live_transcription)
-                audioRecovery.batchOnly();
-              else audioRecovery.interrupted();
+              else if (!payload.requested_live_transcription) {
+                // Retained audio lets batch-only providers transcribe the whole
+                // file after stop; chunking mid-meeting is only needed when the
+                // file is deleted at stop.
+                if (!retainAudio) audioRecovery.batchOnly();
+                else postStopBatch = true;
+              } else audioRecovery.interrupted();
             } else if (payload.type === "finalizing" && !retainAudio) {
               void audioRecovery.stop(false);
             }
@@ -583,7 +590,7 @@ export function useCaptureLifecycle(sessionId: string) {
         ]).then((unlisten) => {
           recoveryUnlisten = unlisten;
           audioRecovery.start();
-          if (recoveredMarker) audioRecovery.recoverPending();
+          if (recoveredMarker && !postStopBatch) audioRecovery.recoverPending();
           if (provider === "anarlog" && model === "cloud") {
             refreshCredentialsActive = true;
             credentialTimer = setTimeout(
@@ -604,6 +611,7 @@ export function useCaptureLifecycle(sessionId: string) {
         version: 1,
         chunkedAudio: usesChunkedAudio,
         retainAudio,
+        ...(postStopBatch ? { postStopBatch: true } : {}),
         phase: capturePhase,
         sessionId,
         transcriptId,
@@ -750,7 +758,7 @@ export function useCaptureLifecycle(sessionId: string) {
                 refineSpeakerDiarization,
                 transcriptWriteFailed: Boolean(transcriptWriteError),
               },
-              canRunBatchRef.current && !usesChunkedAudio,
+              canRunBatchRef.current && (!usesChunkedAudio || postStopBatch),
             );
         const repairReasons = pendingSummaryMode
           ? []
@@ -1094,11 +1102,18 @@ export function useCaptureLifecycle(sessionId: string) {
           await transcriptPersistence.flush();
           if (transcriptPersistence.hasPendingFailure())
             audioRecovery.persistenceFailed();
+          postStopBatch =
+            retainAudio && details.requestedLiveTranscription === false;
+          if (postStopBatch && !details.audioPath) {
+            // Without the full file, the chunks are the only copy left.
+            postStopBatch = false;
+            audioRecovery.recoverPending();
+          }
           const recovery = await stopAudioRecovery();
           details = {
             ...details,
             needsBatchRepair: recovery.incomplete,
-            liveTranscriptionActive: !recovery.incomplete,
+            liveTranscriptionActive: !postStopBatch && !recovery.incomplete,
           };
           if (recovery.incomplete || details.audioDeletionFailed) {
             await saveIncompleteCapture(
@@ -1143,7 +1158,7 @@ export function useCaptureLifecycle(sessionId: string) {
         details: Parameters<OnStoppedCallback>[1],
       ) => {
         if (
-          !usesChunkedAudio &&
+          (!usesChunkedAudio || postStopBatch) &&
           !pendingSummaryMode &&
           details.audioPath &&
           canRunBatchRef.current &&
@@ -1156,12 +1171,20 @@ export function useCaptureLifecycle(sessionId: string) {
       };
       const recoverStopped: OnStoppedCallback = async (_sessionId, details) => {
         if (usesChunkedAudio) {
-          audioRecovery.recoverPending();
+          if (!postStopBatch || !details.audioPath) {
+            postStopBatch = false;
+            audioRecovery.recoverPending();
+          }
           const recovery = await stopAudioRecovery();
           details = {
             ...details,
             needsBatchRepair: recovery.incomplete,
-            liveTranscriptionActive: !recovery.incomplete,
+            ...(postStopBatch
+              ? {
+                  requestedLiveTranscription: false,
+                  liveTranscriptionActive: false,
+                }
+              : { liveTranscriptionActive: !recovery.incomplete }),
             ...(!retainAudio ? { audioPath: null } : {}),
           };
         }
@@ -1193,7 +1216,8 @@ export function useCaptureLifecycle(sessionId: string) {
           existingAudioPromise,
         ]).then(() => undefined),
         startAudioRecovery,
-        persistMarker: async () => {
+        persistMarker: async (options?: { batchOnly?: boolean }) => {
+          if (options?.batchOnly && retainAudio) postStopBatch = true;
           await startAudioRecovery();
           await persistTranscriptWrite(async () => {
             await saveCaptureLifecycleMarker(await marker());
