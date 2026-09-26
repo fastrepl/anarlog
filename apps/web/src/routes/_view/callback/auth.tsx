@@ -35,6 +35,7 @@ import {
   getDesktopAppOpenLinkProps,
   useDesktopAppAutoOpen,
 } from "@/lib/desktop-auth-handoff";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 const validateSearch = z.object({
   intent: z.literal("link_identity").optional(),
@@ -121,6 +122,14 @@ export const Route = createFileRoute("/_view/callback/auth")({
       if (!result.success) {
         throw redirectToExchangeError(search, result.error);
       }
+
+      capturePrivateRouteEvent("auth_completed", {
+        method: "oauth",
+        provider: search.method,
+        action: search.type ?? "sign_in",
+        flow: search.flow,
+        new_account: result.newAccount === true,
+      });
 
       if (search.type === "recovery") {
         throw redirect({

@@ -122,7 +122,7 @@ export function clearServerAnalyticsIdentity() {
 }
 
 /**
- * Server-side counterpart to `identifyPrivateRouteUser`.
+ * Server-side account identity; browser private-route analytics stay anonymous.
  *
  * Used by flows that complete during `beforeLoad` (OAuth code exchange), where
  * no browser code runs before the redirect. The posthog-js anonymous id rides

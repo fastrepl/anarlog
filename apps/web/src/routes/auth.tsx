@@ -41,10 +41,7 @@ import {
   buildDesktopAuthCallbackPath,
   resolveDesktopAuthCallbackMethod,
 } from "@/lib/desktop-auth-handoff";
-import {
-  capturePrivateRouteEvent,
-  identifyPrivateRouteUser,
-} from "@/lib/private-route-analytics";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: authSearchSchema,
@@ -114,6 +111,15 @@ function Component() {
   const { existingUser, lastSignInMethod } = Route.useRouteContext();
   const [view, setView] = useState<AuthView>(initialView ?? "main");
   const autoStartOAuth = flow === "desktop" && provider !== undefined;
+
+  useMountEffect(() => {
+    capturePrivateRouteEvent("auth_page_viewed", {
+      flow,
+      provider,
+      view: initialView ?? "main",
+      returning: existingUser !== null,
+    });
+  });
 
   if (existingUser && flow === "desktop") {
     return (
@@ -560,12 +566,12 @@ function PasswordForm({
         result.success &&
         "access_token" in result
       ) {
-        identifyPrivateRouteUser(
-          "userId" in result
-            ? (result.userId as string | undefined)
-            : undefined,
-          { method: "password", action: "sign_in", flow },
-        );
+        capturePrivateRouteEvent("auth_completed", {
+          method: "password",
+          action: "sign_in",
+          flow,
+          new_account: false,
+        });
         handlePasswordSuccess(
           result.access_token as string,
           result.refresh_token as string,
@@ -611,12 +617,14 @@ function PasswordForm({
         return;
       }
       if (result && "success" in result && result.success) {
-        identifyPrivateRouteUser(
-          "userId" in result
-            ? (result.userId as string | undefined)
-            : undefined,
-          { method: "password", action: "sign_up", flow },
-        );
+        capturePrivateRouteEvent("auth_completed", {
+          method: "password",
+          action: "sign_up",
+          flow,
+          new_account: true,
+          needs_confirmation:
+            "needsConfirmation" in result && result.needsConfirmation === true,
+        });
         if ("needsConfirmation" in result && result.needsConfirmation) {
           setSubmitted(true);
           return;
