@@ -9476,6 +9476,16 @@
               "transcripts"
             ],
             "properties": {
+              "speaker_context": {
+                "description": "Recorded microphone/call context intervals (`sessions.metadata_json`\n`speaker_context`) used to label speakers the same way the desktop\ntranscript view does."
+              },
+              "speakers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Speaker"
+                },
+                "description": "People referenced by transcript speaker assignments (including the\nrecording user) who may not appear among the meeting participants."
+              },
               "transcripts": {
                 "type": "array",
                 "items": {
@@ -11509,6 +11519,24 @@
             "format": "int64"
           },
           "session_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Speaker": {
+        "type": "object",
+        "required": [
+          "human_id",
+          "name"
+        ],
+        "properties": {
+          "human_id": {
+            "type": "string"
+          },
+          "is_self": {
+            "type": "boolean"
+          },
+          "name": {
             "type": "string"
           }
         }

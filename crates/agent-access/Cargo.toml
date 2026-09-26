@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anlg-db-app = { workspace = true }
 anlg-tiptap = { workspace = true }
+anlg-transcript = { workspace = true }
 
 schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

@@ -232,6 +232,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tiptap",
  "tokio",
+ "transcript",
  "utoipa",
  "uuid",
 ]

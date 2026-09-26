@@ -1136,6 +1136,17 @@ export type Meeting = {
 };
 
 export type MeetingExport = Meeting & {
+    /**
+     * Recorded microphone/call context intervals (`sessions.metadata_json`
+     * `speaker_context`) used to label speakers the same way the desktop
+     * transcript view does.
+     */
+    speaker_context?: unknown;
+    /**
+     * People referenced by transcript speaker assignments (including the
+     * recording user) who may not appear among the meeting participants.
+     */
+    speakers?: Array<Speaker>;
     transcripts: Array<Transcript>;
 };
 
@@ -1647,6 +1658,12 @@ export type SnapshotReceipt = {
     published_at: string;
     revision: number;
     session_id: string;
+};
+
+export type Speaker = {
+    human_id: string;
+    is_self?: boolean;
+    name: string;
 };
 
 export type StableSharedNoteSnapshot = {
