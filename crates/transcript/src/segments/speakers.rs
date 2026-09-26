@@ -116,12 +116,14 @@ pub(super) fn create_speaker_state(
     let isolated_mic_ranges = options
         .and_then(|opts| opts.isolated_mic_ranges.clone())
         .unwrap_or_default();
+    let isolated_mic_human = options.and_then(|opts| opts.isolated_mic_human.clone());
 
     SpeakerState {
         assignment_by_word_index,
         human_id_by_scoped_speaker,
         single_human_by_channel,
         isolated_mic_ranges,
+        isolated_mic_human,
         human_id_by_channel,
         last_speaker_by_channel: HashMap::new(),
         complete_channels,
@@ -197,10 +199,17 @@ fn apply_identity_rules(
         && state.isolated_mic_ranges.iter().any(|(start, end)| {
             word.start_ms >= *start && word.start_ms < *end && word.end_ms <= *end
         })
-        && let Some((speaker_index, human_id)) = state.single_human_by_channel.get(&word.channel)
     {
-        identity.speaker_index = *speaker_index;
-        identity.human_id = Some(human_id.clone());
+        if let Some(human_id) = &state.isolated_mic_human {
+            // The mic verdict says only the local voice can be here, so the
+            // word is named even when scoped assignments name other humans.
+            identity.human_id = Some(human_id.clone());
+        } else if let Some((speaker_index, human_id)) =
+            state.single_human_by_channel.get(&word.channel)
+        {
+            identity.speaker_index = *speaker_index;
+            identity.human_id = Some(human_id.clone());
+        }
     }
 
     if !(word.is_final || identity.speaker_index.is_some() && identity.human_id.is_some())

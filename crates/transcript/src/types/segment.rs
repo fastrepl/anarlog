@@ -62,6 +62,12 @@ pub struct SegmentBuilderOptions {
     /// words inside a range may inherit the channel's only named speaker; words
     /// outside it cannot, so voices from shared-mic intervals stay unnamed.
     pub isolated_mic_ranges: Option<Vec<(i64, i64)>>,
+    /// Human an index-less mic word inside `isolated_mic_ranges` falls back to
+    /// when the channel has no single named speaker. Set only by callers that
+    /// know the isolated mic can only carry the local voice (the live engine
+    /// under an isolation verdict); the settled render resolves the same
+    /// words through speaker-context intervals instead.
+    pub isolated_mic_human: Option<String>,
 }
 
 impl Default for SegmentBuilderOptions {
@@ -72,6 +78,7 @@ impl Default for SegmentBuilderOptions {
             min_segment_words: Some(3),
             min_segment_ms: Some(1500),
             isolated_mic_ranges: None,
+            isolated_mic_human: None,
         }
     }
 }
