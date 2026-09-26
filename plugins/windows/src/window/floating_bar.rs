@@ -368,12 +368,22 @@ mod cross_platform {
 
     pub fn update(mut state: FloatingBarState) -> Result<(), Error> {
         let app = app()?;
-        run_on_main_thread(app, move || {
-            if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-                state.layout = Some(apply_layout(&window, Some(&state), false)?);
-            }
-            publish_state(state)
-        })?
+        let state_for_layout = state.clone();
+        let layout = run_on_main_thread(
+            app,
+            move || -> Result<Option<FloatingBarOverlayLayout>, Error> {
+                match app.get_webview_window(WINDOW_LABEL) {
+                    Some(window) => {
+                        Ok(Some(apply_layout(&window, Some(&state_for_layout), false)?))
+                    }
+                    None => Ok(None),
+                }
+            },
+        )??;
+        if let Some(layout) = layout {
+            state.layout = Some(layout);
+        }
+        publish_state(state)
     }
 
     fn publish_state(state: FloatingBarState) -> Result<(), Error> {

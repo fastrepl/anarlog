@@ -89,33 +89,34 @@ mod macos {
 #[cfg(not(target_os = "macos"))]
 mod desktop {
     use super::{Error, Phase, phase_name};
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use tauri::Manager;
 
     pub struct Handler {
         app: tauri::AppHandle,
-        phase: Mutex<Phase>,
+        phase: Arc<Mutex<Phase>>,
     }
 
     impl Handler {
         pub fn new(app: tauri::AppHandle) -> Self {
             Self {
                 app,
-                phase: Mutex::new(Phase::Recording),
+                phase: Arc::new(Mutex::new(Phase::Recording)),
             }
         }
 
         pub fn show(&self) -> Result<(), Error> {
-            let phase = phase_name(*self.phase.lock().unwrap_or_else(|e| e.into_inner()));
-
             // Window/monitor queries hit the windowing system; on Linux/X11 they must
             // run on the GTK main thread. run_on_main_thread runs inline when the
-            // caller is already on it.
+            // caller is already on it. The phase is read inside the closure so a
+            // concurrent set_phase while queued still reaches the overlay.
             let app = self.app.clone();
             let handle = app.clone();
+            let phase = self.phase.clone();
             let (tx, rx) = std::sync::mpsc::sync_channel(1);
             handle
                 .run_on_main_thread(move || {
+                    let phase = phase_name(*phase.lock().unwrap_or_else(|e| e.into_inner()));
                     let _ = tx.send(show_overlay(&app, phase));
                 })
                 .map_err(|e| Error::Recording(e.to_string()))?;
