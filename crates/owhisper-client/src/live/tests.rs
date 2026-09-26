@@ -233,6 +233,21 @@ fn mic_stream_params_overrides_speaker_counts_for_the_mic_stream() {
 }
 
 #[test]
+fn mic_stream_params_clamps_min_speakers_below_the_mic_count() {
+    let params = owhisper_interface::ListenParams {
+        mic_num_speakers: Some(1),
+        min_speakers: Some(3),
+        ..Default::default()
+    };
+
+    let mic_params = mic_stream_params(&params);
+
+    assert_eq!(mic_params.num_speakers, Some(1));
+    assert_eq!(mic_params.max_speakers, Some(1));
+    assert_eq!(mic_params.min_speakers, Some(1));
+}
+
+#[test]
 fn mic_stream_params_without_mic_count_keeps_shared_expectation() {
     let params = owhisper_interface::ListenParams {
         num_speakers: Some(4),

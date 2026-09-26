@@ -596,6 +596,7 @@ fn mic_stream_params(params: &ListenParams) -> ListenParams {
     if let Some(mic_num_speakers) = mic_params.mic_num_speakers {
         mic_params.num_speakers = Some(mic_num_speakers);
         mic_params.max_speakers = Some(mic_num_speakers);
+        mic_params.min_speakers = mic_params.min_speakers.map(|min| min.min(mic_num_speakers));
     }
     mic_params
 }

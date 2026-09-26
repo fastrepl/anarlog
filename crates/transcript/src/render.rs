@@ -123,6 +123,13 @@ pub fn render_transcript_segments(
                 }
             }
             options.isolated_mic_ranges = Some(coalesced);
+            // Verified isolated intervals carry only the local voice, matching
+            // the live engine's `isolated_mic_human` fallback; without it an
+            // index-less word would inherit a guest's channel-level assignment.
+            options.isolated_mic_human = self_human_id
+                .as_deref()
+                .filter(|id| !id.is_empty())
+                .map(str::to_owned);
             options
         } else {
             let claimed_channels: std::collections::HashSet<crate::ChannelProfile> = assignments

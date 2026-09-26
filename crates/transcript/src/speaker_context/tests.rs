@@ -133,9 +133,9 @@ fn word_spanning_adjacent_isolated_intervals_keeps_the_mic_human() {
     assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
 }
 
-// Without an explicit assignment the seam check relies on the context intervals
-// alone: an index-less word straddling adjacent isolated intervals still gets
-// the provisional owner label rather than a number.
+// Without an explicit assignment the seam check relies on the context
+// intervals alone: an index-less word straddling adjacent isolated intervals
+// still resolves to the owner rather than a number.
 #[test]
 fn word_spanning_adjacent_isolated_intervals_is_named_via_context() {
     let mut context = context();
@@ -159,13 +159,27 @@ fn word_spanning_adjacent_isolated_intervals_is_named_via_context() {
     let segments = render_transcript_segments(req);
     assert_eq!(segments.len(), 1);
     assert_eq!(segments[0].speaker_label, "John");
-    assert_eq!(segments[0].key.speaker_human_id, None);
-    assert!(
-        segments[0]
-            .provisional_speaker
-            .as_ref()
-            .is_some_and(|speaker| speaker.name == "John")
-    );
+    assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
+}
+
+// A guest's speaker-scoped mic assignment must not stick to index-less words
+// recorded inside a verified isolated interval — the owner is the only voice
+// there, matching what the live engine emits.
+#[test]
+fn isolated_indexless_word_beats_scoped_guest_assignment() {
+    let mut req = request(context(), &[(0, 0)]);
+    req.transcripts[0].assignments = vec![crate::IdentityAssignment {
+        human_id: "guest".into(),
+        scope: crate::IdentityScope::ChannelSpeaker {
+            channel: ChannelProfile::DirectMic,
+            speaker_index: 0,
+        },
+    }];
+    req.transcripts[0].words[0].speaker_index = None;
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 1);
+    assert_eq!(segments[0].speaker_label, "John");
+    assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
 }
 
 #[test]
