@@ -429,6 +429,38 @@ fn channel_defaults_do_not_override_specific_corrections() {
     assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
 }
 
+// A live segment carrying the self identity must not surface a raw UUID when
+// the human row is unnamed (signed-out or local profiles keep `humans` empty).
+#[test]
+fn preview_names_unnamed_self_as_you() {
+    let mut req = request(context(), &[]);
+    req.humans.clear();
+    req.preview = Some(vec![RenderedTranscriptSegment {
+        provisional_speaker: None,
+        id: "seg".into(),
+        key: crate::SegmentKey {
+            channel: ChannelProfile::DirectMic,
+            speaker_index: None,
+            speaker_human_id: Some("self".into()),
+        },
+        speaker_label: String::new(),
+        start_ms: 0,
+        end_ms: 500,
+        text: "hello".into(),
+        words: vec![crate::SegmentWord {
+            text: "hello ".into(),
+            start_ms: 0,
+            end_ms: 500,
+            channel: ChannelProfile::DirectMic,
+            is_final: true,
+            id: None,
+        }],
+    }]);
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 1);
+    assert_eq!(segments[0].speaker_label, "You");
+}
+
 #[test]
 fn live_preview_and_saved_render_resolve_the_same_names() {
     let req = request(context(), &[(0, 0), (1, 1)]);

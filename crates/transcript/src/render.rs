@@ -71,11 +71,22 @@ pub fn render_transcript_segments(
     if let Some(mut segments) = preview {
         for segment in &mut segments {
             if let Some(id) = &segment.key.speaker_human_id {
+                // Unnamed humans are not in `humans` (name <> '' filter) — a
+                // raw UUID is never a good label, so fall back the way
+                // `resolve_speaker` does for the local user.
                 segment.speaker_label = humans
                     .iter()
                     .find(|human| &human.human_id == id)
-                    .map(|human| human.name.clone())
-                    .unwrap_or_else(|| id.clone());
+                    .map(|human| human.name.trim())
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| {
+                        if self_human_id.as_deref() == Some(id.as_str()) {
+                            "You".to_string()
+                        } else {
+                            id.clone()
+                        }
+                    });
             }
         }
         return match speaker_context {

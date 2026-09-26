@@ -140,9 +140,12 @@ export const SegmentKeyUtils = {
       }
     }
 
-    if (ctx && key.channel === "DirectMic" && assignedHumanId == null) {
+    if (ctx && key.channel === "DirectMic") {
       const selfHumanId = ctx.getSelfHumanId();
-      if (selfHumanId) {
+      if (
+        selfHumanId &&
+        (assignedHumanId == null || assignedHumanId === selfHumanId)
+      ) {
         const selfHuman = ctx.getHumanName(selfHumanId);
         return selfHuman || "You";
       }

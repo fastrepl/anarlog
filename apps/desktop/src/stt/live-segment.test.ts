@@ -49,6 +49,20 @@ describe("SegmentKeyUtils", () => {
     expect(SegmentKeyUtils.renderLabel(key, ctx)).toBe("Speaker 2");
   });
 
+  it("labels an unnamed assigned self as You on the direct mic", () => {
+    const unnamedSelfCtx: RenderLabelContext = {
+      getSelfHumanId: () => "self",
+      getHumanName: () => undefined,
+    };
+    const key: Parameters<typeof SegmentKeyUtils.renderLabel>[0] = {
+      channel: "DirectMic",
+      speaker_index: null,
+      speaker_human_id: "self",
+    };
+
+    expect(SegmentKeyUtils.renderLabel(key, unnamedSelfCtx)).toBe("You");
+  });
+
   it("caps unknown speaker labels when a participant max is provided", () => {
     const segments: Segment[] = [0, 1, 2].map(
       (speakerIndex) =>
