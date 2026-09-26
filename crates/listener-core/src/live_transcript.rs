@@ -1,6 +1,6 @@
 use anlg_transcript::{
-    FinalizedWord, IdentityAssignment, PartialWord, SegmentKey, SegmentWord, TranscriptDelta,
-    TranscriptProcessor, segment_options_for_assignments,
+    ChannelProfile, FinalizedWord, IdentityAssignment, IdentityScope, PartialWord, SegmentKey,
+    SegmentWord, TranscriptDelta, TranscriptProcessor, segment_options_for_assignments,
 };
 use owhisper_interface::stream::StreamResponse;
 
@@ -91,10 +91,12 @@ impl LiveTranscriptEngine {
     pub fn with_speaker_assignments(
         provider_name: &str,
         _participant_human_ids: &[String],
-        _self_human_id: Option<&str>,
+        self_human_id: Option<&str>,
         speaker_assignments: Vec<IdentityAssignment>,
         mic_isolated: bool,
     ) -> Self {
+        let speaker_assignments =
+            with_isolated_mic_self(speaker_assignments, self_human_id, mic_isolated);
         let mut segment_options = segment_options_for_assignments(&speaker_assignments);
         segment_options.isolated_mic_ranges = isolated_mic_ranges(mic_isolated);
 
@@ -156,11 +158,13 @@ impl LiveTranscriptEngine {
     pub fn update_identities(
         &mut self,
         _participant_human_ids: &[String],
-        _self_human_id: Option<&str>,
+        self_human_id: Option<&str>,
         speaker_assignments: Vec<IdentityAssignment>,
         mic_isolated: bool,
     ) -> Option<LiveTranscriptSegmentDelta> {
         self.mic_isolated = mic_isolated;
+        let speaker_assignments =
+            with_isolated_mic_self(speaker_assignments, self_human_id, mic_isolated);
         let mut segment_options = segment_options_for_assignments(&speaker_assignments);
         segment_options.isolated_mic_ranges = isolated_mic_ranges(mic_isolated);
         self.rendered_segments
@@ -201,6 +205,40 @@ impl LiveTranscriptEngine {
 
 fn isolated_mic_ranges(mic_isolated: bool) -> Option<Vec<(i64, i64)>> {
     mic_isolated.then(|| vec![(i64::MIN, i64::MAX)])
+}
+
+// The desktop stops synthesizing channel defaults once the session records a
+// speaker context, but the engine never sees that context, so index-less mic
+// words would stay anonymous until the settled render. An isolated mic only
+// carries the local voice — the same premise `resolve_speaker` uses for
+// isolated intervals — so the engine names the channel itself. Words keep
+// their own scope precedence, and a listener respawn on a verdict flip keeps
+// this from outliving isolation.
+fn with_isolated_mic_self(
+    mut speaker_assignments: Vec<IdentityAssignment>,
+    self_human_id: Option<&str>,
+    mic_isolated: bool,
+) -> Vec<IdentityAssignment> {
+    let Some(self_id) = self_human_id.filter(|id| !id.is_empty()) else {
+        return speaker_assignments;
+    };
+    let claimed = speaker_assignments.iter().any(|assignment| {
+        matches!(
+            assignment.scope,
+            IdentityScope::Channel {
+                channel: ChannelProfile::DirectMic
+            }
+        )
+    });
+    if mic_isolated && !claimed {
+        speaker_assignments.push(IdentityAssignment {
+            human_id: self_id.to_string(),
+            scope: IdentityScope::Channel {
+                channel: ChannelProfile::DirectMic,
+            },
+        });
+    }
+    speaker_assignments
 }
 
 #[cfg(test)]

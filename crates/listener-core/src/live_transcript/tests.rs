@@ -798,6 +798,58 @@ fn speaker_assignment_names_later_segments_from_the_same_speaker() {
 }
 
 #[test]
+fn isolated_mic_names_indexless_words_as_self() {
+    let participants = ["self".to_string()];
+    let mut engine = LiveTranscriptEngine::with_speaker_assignments(
+        "deepgram",
+        &participants,
+        Some("self"),
+        vec![],
+        true,
+    );
+
+    let update = engine
+        .process(&transcript_response_at(
+            "hello there",
+            words_from_text("hello there", 0.0, 1.0),
+            true,
+            0,
+            0.0,
+            1.0,
+        ))
+        .expect("update");
+    let segments = update.segment_delta.expect("segments").upserts;
+    assert_eq!(segments.len(), 1);
+    assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
+}
+
+#[test]
+fn shared_mic_keeps_indexless_words_anonymous() {
+    let participants = ["self".to_string()];
+    let mut engine = LiveTranscriptEngine::with_speaker_assignments(
+        "deepgram",
+        &participants,
+        Some("self"),
+        vec![],
+        false,
+    );
+
+    let update = engine
+        .process(&transcript_response_at(
+            "hello there",
+            words_from_text("hello there", 0.0, 1.0),
+            true,
+            0,
+            0.0,
+            1.0,
+        ))
+        .expect("update");
+    let segments = update.segment_delta.expect("segments").upserts;
+    assert_eq!(segments.len(), 1);
+    assert_eq!(segments[0].key.speaker_human_id, None);
+}
+
+#[test]
 fn live_transcript_delta_keeps_speaker_index_on_words() {
     let delta = TranscriptDelta {
         new_words: vec![FinalizedWord {
