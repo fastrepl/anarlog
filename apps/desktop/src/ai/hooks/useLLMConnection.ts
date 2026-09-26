@@ -41,6 +41,15 @@ import {
 import { useAiProvider } from "~/settings/providers";
 import { useConfigValues } from "~/shared/config";
 
+// App attribution per https://openrouter.ai/docs/app-attribution. Mirrors
+// crates/llm-proxy/src/provider/openrouter.rs's APP_REFERER/APP_TITLE/
+// APP_CATEGORIES, which only cover the "anarlog" hosted-provider case (it
+// routes through apps/api's llm-proxy); this BYOK "openrouter" case talks to
+// openrouter.ai directly from the client and needs its own headers.
+const OPENROUTER_APP_URL = "https://anarlog.so";
+const OPENROUTER_APP_NAME = "Anarlog";
+const OPENROUTER_APP_CATEGORIES = "writing-assistant,personal-agent";
+
 type LanguageModelV3 = Parameters<typeof wrapLanguageModel>[0]["model"];
 
 type LLMConnectionInfo = {
@@ -374,6 +383,9 @@ const createProviderModel = (
       const provider = createOpenRouter({
         fetch: providerFetch,
         apiKey: conn.apiKey,
+        appName: OPENROUTER_APP_NAME,
+        appUrl: OPENROUTER_APP_URL,
+        headers: { "X-OpenRouter-Categories": OPENROUTER_APP_CATEGORIES },
       });
       return wrapWithThinkingMiddleware(provider.chat(conn.modelId));
     }

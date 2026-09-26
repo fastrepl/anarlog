@@ -1,9 +1,11 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { renderHook } from "@testing-library/react";
 import { generateText, streamText } from "ai";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { normalizeLLMProviderId, useLanguageModel } from "./useLLMConnection";
+
+const mocks = vi.hoisted(() => ({ provider: "custom" as string }));
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: vi.fn() }));
 vi.mock("~/auth", () => ({ useAuth: () => ({ session: null }) }));
@@ -19,11 +21,15 @@ vi.mock("~/settings/providers", () => ({
 }));
 vi.mock("~/shared/config", () => ({
   useConfigValues: () => ({
-    current_llm_provider: "custom",
+    current_llm_provider: mocks.provider,
     current_llm_model: "mtplx",
     current_llm_reasoning_effort: "default",
   }),
 }));
+
+afterEach(() => {
+  mocks.provider = "custom";
+});
 
 it.each([false, true])(
   "generates through Custom with an origin-restricted local server (stream: %s)",
@@ -83,6 +89,42 @@ it.each([false, true])(
     unmount();
   },
 );
+
+it("sends OpenRouter app-attribution headers for the BYOK openrouter provider", async () => {
+  mocks.provider = "openrouter";
+  vi.mocked(tauriFetch).mockImplementation(async (input, init) => {
+    const headers = new Headers(
+      init?.headers ?? (input instanceof Request ? input.headers : undefined),
+    );
+    expect(headers.get("HTTP-Referer")).toBe("https://anarlog.so");
+    expect(headers.get("X-OpenRouter-Title")).toBe("Anarlog");
+    expect(headers.get("X-OpenRouter-Categories")).toBe(
+      "writing-assistant,personal-agent",
+    );
+    return Response.json({
+      id: "openrouter-completion",
+      model: "mtplx",
+      created: 0,
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "Hello from OpenRouter" },
+          finish_reason: "stop",
+        },
+      ],
+    });
+  });
+
+  const { result, unmount } = renderHook(() => useLanguageModel());
+  expect(result.current).not.toBeNull();
+  const completion = await generateText({
+    model: result.current!,
+    prompt: "Summarize the meeting",
+    maxRetries: 0,
+  });
+  expect(await completion.text).toBe("Hello from OpenRouter");
+  unmount();
+});
 
 describe("normalizeLLMProviderId", () => {
   it("maps the legacy hosted provider id to Anarlog", () => {
