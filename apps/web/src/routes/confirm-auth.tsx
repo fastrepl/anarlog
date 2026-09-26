@@ -21,7 +21,7 @@ import {
 } from "@/lib/auth-flow-context";
 import { authSignInMethods } from "@/lib/auth-last-sign-in-method";
 import { buildPostAuthDestination } from "@/lib/auth-redirect";
-import { identifyPrivateRouteUser } from "@/lib/private-route-analytics";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 const validateSearch = z.object({
   token_hash: z.string().min(1),
@@ -81,10 +81,11 @@ function Component() {
         return;
       }
 
-      identifyPrivateRouteUser(result.userId, {
+      capturePrivateRouteEvent("auth_completed", {
         method: "otp",
         action: search.type,
         flow: context.flow,
+        new_account: result.createdAccount === true,
       });
 
       if (search.type === "recovery") {

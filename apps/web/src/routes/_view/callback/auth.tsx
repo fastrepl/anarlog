@@ -21,7 +21,10 @@ import {
   resolveAuthFlowContext,
   toAuthFlowSearch,
 } from "@/lib/auth-flow-context";
-import { authSignInMethods } from "@/lib/auth-last-sign-in-method";
+import {
+  type AuthSignInMethod,
+  authSignInMethods,
+} from "@/lib/auth-last-sign-in-method";
 import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
@@ -35,6 +38,7 @@ import {
   getDesktopAppOpenLinkProps,
   useDesktopAppAutoOpen,
 } from "@/lib/desktop-auth-handoff";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 const validateSearch = z.object({
   intent: z.literal("link_identity").optional(),
@@ -64,6 +68,25 @@ const validateSearch = z.object({
   error_code: z.string().optional(),
   error_description: z.string().optional(),
 });
+
+function toAuthCompletionMethod(
+  method: AuthSignInMethod | undefined,
+  type: string | undefined,
+) {
+  switch (method) {
+    case "apple":
+    case "google":
+    case "azure":
+    case "github":
+      return { method: "oauth", provider: method };
+    case "sso":
+      return { method: "sso" };
+    case "email":
+      return { method: type === "magiclink" ? "magic_link" : "email_link" };
+    default:
+      return { method: "code_exchange" };
+  }
+}
 
 export const Route = createFileRoute("/_view/callback/auth")({
   // Exchange from a same-origin request after Safari's cross-site return.
@@ -121,6 +144,13 @@ export const Route = createFileRoute("/_view/callback/auth")({
       if (!result.success) {
         throw redirectToExchangeError(search, result.error);
       }
+
+      capturePrivateRouteEvent("auth_completed", {
+        ...toAuthCompletionMethod(search.method, search.type),
+        action: search.type ?? "sign_in",
+        flow: search.flow,
+        new_account: result.createdAccount === true,
+      });
 
       if (search.type === "recovery") {
         throw redirect({

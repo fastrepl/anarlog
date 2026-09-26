@@ -132,19 +132,3 @@ export function resetPrivateRouteAnalyticsIdentity() {
     .then(({ default: client }) => client.reset())
     .catch(() => undefined);
 }
-
-/**
- * Merges the anonymous browsing identity into the Supabase user id.
- *
- * `account_created` / `account_confirmed` are delivered server-side (Supabase
- * trigger -> outbox -> scheduled Netlify function) keyed on the Supabase user
- * uuid, while everything captured in the browser is keyed on the posthog-js
- * anonymous id. Without this $identify the two never resolve to the same
- * person and any funnel crossing signup silently under-reports.
- */
-export function identifyPrivateRouteUser(
-  _userId: string | undefined | null,
-  _properties: Record<string, unknown> = {},
-) {
-  // Private-route analytics stay browser-scoped and anonymous.
-}

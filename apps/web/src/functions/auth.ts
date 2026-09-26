@@ -89,7 +89,7 @@ async function prepareNewAccountTrial(
   method: NewAccountAuthMethod,
 ) {
   if (!isConfirmedNewAccount(session.user, method)) {
-    return { needsTrialCheckout: false, session };
+    return { createdAccount: false, needsTrialCheckout: false, session };
   }
 
   let result: Awaited<ReturnType<typeof ensureNewAccountTrial>>;
@@ -106,6 +106,7 @@ async function prepareNewAccountTrial(
       },
     });
     return {
+      createdAccount: true,
       needsTrialCheckout: shouldOfferNewAccountTrialCheckoutFallback({
         flow,
         method,
@@ -116,7 +117,7 @@ async function prepareNewAccountTrial(
   }
 
   if (flow !== "web" || result !== "started") {
-    return { needsTrialCheckout: false, session };
+    return { createdAccount: true, needsTrialCheckout: false, session };
   }
 
   const { data, error } = await supabase.auth.refreshSession({
@@ -134,10 +135,14 @@ async function prepareNewAccountTrial(
         },
       },
     );
-    return { needsTrialCheckout: false, session };
+    return { createdAccount: true, needsTrialCheckout: false, session };
   }
 
-  return { needsTrialCheckout: false, session: data.session };
+  return {
+    createdAccount: true,
+    needsTrialCheckout: false,
+    session: data.session,
+  };
 }
 
 function buildAuthCallbackParams(
@@ -454,7 +459,11 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
     if (!data.type || shouldRememberOtpSignIn(data.type)) {
       rememberSessionSignInMethod(authData.session, data.method);
     }
-    return { ...response, newAccount: trial.needsTrialCheckout };
+    return {
+      ...response,
+      newAccount: trial.needsTrialCheckout,
+      createdAccount: trial.createdAccount,
+    };
   });
 
 export const doPasswordSignUp = createServerFn({ method: "POST" })
@@ -509,7 +518,11 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
         return response;
       }
       rememberSessionSignInMethod(authData.session, "email");
-      return { ...response, newAccount: trial.needsTrialCheckout };
+      return {
+        ...response,
+        newAccount: trial.needsTrialCheckout,
+        createdAccount: trial.createdAccount,
+      };
     }
 
     return {
@@ -620,7 +633,11 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
     if (shouldRememberOtpSignIn(data.type)) {
       rememberSessionSignInMethod(authData.session, "email");
     }
-    return { ...response, newAccount: trial.needsTrialCheckout };
+    return {
+      ...response,
+      newAccount: trial.needsTrialCheckout,
+      createdAccount: trial.createdAccount,
+    };
   });
 
 export const createDesktopSession = createServerFn({ method: "POST" }).handler(

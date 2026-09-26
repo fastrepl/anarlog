@@ -122,11 +122,9 @@ export function clearServerAnalyticsIdentity() {
 }
 
 /**
- * Server-side counterpart to `identifyPrivateRouteUser`.
- *
- * Used by flows that complete during `beforeLoad` (OAuth code exchange), where
- * no browser code runs before the redirect. The posthog-js anonymous id rides
- * along on the request cookie, so the merge can be emitted from here.
+ * Compatibility no-op kept at auth call sites. Server auth flows do not merge
+ * the browser's anonymous analytics id into the account; the browser emits
+ * anonymous `auth_completed` events instead.
  */
 export async function identifyServerUserFromRequest(
   _userId: string,
