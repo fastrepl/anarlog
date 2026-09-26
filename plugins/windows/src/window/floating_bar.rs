@@ -314,6 +314,7 @@ mod cross_platform {
     };
     use super::{FloatingBarOverlayLayout, FloatingBarState, WINDOW_LABEL};
     use crate::Error;
+    use crate::ext::run_on_main_thread;
 
     static APP_HANDLE: OnceLock<tauri::AppHandle<tauri::Wry>> = OnceLock::new();
     static LAST_STATE: Mutex<Option<FloatingBarState>> = Mutex::new(None);
@@ -334,25 +335,30 @@ mod cross_platform {
 
     pub fn show() -> Result<(), Error> {
         let app = app()?;
-        let window = ensure_window(app)?;
-        let mut state = current_state();
-        let layout = apply_layout(&window, state.as_ref(), true)?;
-        if let Some(state) = state.as_mut() {
-            state.layout = Some(layout);
-        }
-        if let Some(state) = state {
-            publish_state(state)?;
-        }
-        window.show()?;
-        crate::window::exclude_from_capture(&window);
-        Ok(())
+        run_on_main_thread(app, move || {
+            let window = ensure_window(app)?;
+            let mut state = current_state();
+            let layout = apply_layout(&window, state.as_ref(), true)?;
+            if let Some(state) = state.as_mut() {
+                state.layout = Some(layout);
+            }
+            if let Some(state) = state {
+                publish_state(state)?;
+            }
+            window.show()?;
+            crate::window::exclude_from_capture(&window);
+            Ok(())
+        })?
     }
 
     pub fn hide() -> Result<(), Error> {
-        if let Ok(app) = app()
-            && let Some(window) = app.get_webview_window(WINDOW_LABEL)
-        {
-            window.hide()?;
+        if let Ok(app) = app() {
+            run_on_main_thread(app, move || -> Result<(), Error> {
+                if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
+                    window.hide()?;
+                }
+                Ok(())
+            })??;
         }
         if let Ok(mut state) = LAST_STATE.lock() {
             *state = None;
@@ -362,10 +368,12 @@ mod cross_platform {
 
     pub fn update(mut state: FloatingBarState) -> Result<(), Error> {
         let app = app()?;
-        if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-            state.layout = Some(apply_layout(&window, Some(&state), false)?);
-        }
-        publish_state(state)
+        run_on_main_thread(app, move || {
+            if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
+                state.layout = Some(apply_layout(&window, Some(&state), false)?);
+            }
+            publish_state(state)
+        })?
     }
 
     fn publish_state(state: FloatingBarState) -> Result<(), Error> {

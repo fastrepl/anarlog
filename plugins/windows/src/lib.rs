@@ -446,9 +446,9 @@ mod test {
             .0
             .lock()
             .unwrap()
-            .insert("note-1".into(), vec![(100.0, 120.0, false)]);
+            .insert("note-1".into(), vec![(100.0, 120.0, 0.0)]);
 
-        assert_eq!(expansions.pop("note-1"), Some((100.0, 120.0, false)));
+        assert_eq!(expansions.pop("note-1"), Some((100.0, 120.0, 0.0)));
         assert!(expansions.0.lock().unwrap().is_empty());
     }
 

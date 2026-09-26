@@ -1,7 +1,9 @@
 use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_specta::Event;
 
-use crate::{AppWindow, SavedFrame, WebviewHealthState, WindowImpl, WindowReadyState, events};
+#[cfg(target_os = "macos")]
+use crate::WebviewHealthState;
+use crate::{AppWindow, SavedFrame, WindowImpl, WindowReadyState, events};
 
 #[cfg(target_os = "macos")]
 const WEBVIEW_HEALTH_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);

@@ -92,6 +92,22 @@ impl AppWindow {
             return;
         }
 
+        // Monitor queries hit the windowing system; on Linux/X11 they must run on
+        // the GTK main thread. When already on it, run_on_main_thread runs inline.
+        let this = self.clone();
+        let app = app.clone();
+        let handle = app.clone();
+        let window = window.clone();
+        let _ = crate::ext::run_on_main_thread(&handle, move || {
+            this.ensure_visible_on_main_thread(&app, &window);
+        });
+    }
+
+    fn ensure_visible_on_main_thread(
+        &self,
+        app: &tauri::AppHandle<tauri::Wry>,
+        window: &tauri::WebviewWindow<tauri::Wry>,
+    ) {
         use tauri::PhysicalPosition;
 
         let (Ok(position), Ok(size), Ok(scale_factor), Ok(monitors)) = (
@@ -284,6 +300,24 @@ impl WindowImpl for AppWindow {
             return Ok(());
         };
 
+        // Monitor queries hit the windowing system; on Linux/X11 they must run on
+        // the GTK main thread. When already on it, run_on_main_thread runs inline.
+        let this = self.clone();
+        let app = app.clone();
+        let handle = app.clone();
+        let window = window.clone();
+        crate::ext::run_on_main_thread(&handle, move || {
+            this.position_new_window_on_main_thread(&app, &window)
+        })?
+    }
+}
+
+impl AppWindow {
+    fn position_new_window_on_main_thread(
+        &self,
+        app: &tauri::AppHandle<tauri::Wry>,
+        window: &tauri::WebviewWindow<tauri::Wry>,
+    ) -> Result<(), crate::Error> {
         use tauri::{Manager, Position};
 
         let _positioning_guard = NOTE_WINDOW_POSITIONING_LOCK

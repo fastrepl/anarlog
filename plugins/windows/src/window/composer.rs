@@ -12,7 +12,10 @@ use tauri::WebviewWindowBuilder;
 #[cfg(all(target_os = "macos", feature = "macos-private-api"))]
 use tauri::{LogicalSize, Size};
 
-#[cfg(all(target_os = "macos", feature = "macos-private-api"))]
+#[cfg(any(
+    not(target_os = "macos"),
+    all(target_os = "macos", feature = "macos-private-api")
+))]
 use crate::ext::run_on_main_thread;
 use crate::{AppWindow, Error, WindowImpl};
 
@@ -156,13 +159,18 @@ pub fn show(app: &AppHandle<tauri::Wry>) -> Result<WebviewWindow, Error> {
         all(target_os = "macos", not(feature = "macos-private-api"))
     ))]
     {
-        let window = app
-            .get_webview_window(&AppWindow::Composer.label())
-            .ok_or_else(|| Error::WindowNotFound(AppWindow::Composer.label()))?;
-        position(app, &window)?;
-        window.show()?;
-        window.set_focus()?;
-        Ok(window)
+        let app = app.clone();
+        let handle = app.clone();
+
+        run_on_main_thread(&handle, move || {
+            let window = app
+                .get_webview_window(&AppWindow::Composer.label())
+                .ok_or_else(|| Error::WindowNotFound(AppWindow::Composer.label()))?;
+            position(&app, &window)?;
+            window.show()?;
+            window.set_focus()?;
+            Ok(window)
+        })?
     }
 }
 

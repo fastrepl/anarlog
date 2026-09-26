@@ -373,17 +373,27 @@ pub async fn window_expand_width(
     let expansion_physical = (f64::from(expansion_px) * scale_factor).ceil() as u32;
 
     if check_monitor_space {
-        let outer_size = window.outer_size().map_err(|e| e.to_string())?;
-        let outer_position = window.outer_position().map_err(|e| e.to_string())?;
-        let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+        // Monitor queries hit the windowing system; on Linux/X11 they must run on
+        // the GTK main thread. When already on it, run_on_main_thread runs inline.
+        let window_clone = window.clone();
+        let (outer_position, outer_size, monitor_frame) =
+            crate::ext::run_on_main_thread(&app, move || -> tauri::Result<_> {
+                let outer_size = window_clone.outer_size()?;
+                let outer_position = window_clone.outer_position()?;
+                let monitor_frame = window_clone
+                    .current_monitor()?
+                    .map(|monitor| (*monitor.position(), *monitor.size()));
+                Ok((outer_position, outer_size, monitor_frame))
+            })
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
 
-        if let Some(monitor) = monitor {
+        if let Some((monitor_position, monitor_size)) = monitor_frame {
             let available = if expand_left {
-                i64::from(outer_position.x) - i64::from(monitor.position().x)
+                i64::from(outer_position.x) - i64::from(monitor_position.x)
             } else {
                 let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
-                let monitor_right =
-                    i64::from(monitor.position().x) + i64::from(monitor.size().width);
+                let monitor_right = i64::from(monitor_position.x) + i64::from(monitor_size.width);
                 monitor_right - window_right
             };
 
