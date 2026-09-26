@@ -182,6 +182,21 @@ fn isolated_indexless_word_beats_scoped_guest_assignment() {
     assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
 }
 
+// A shared microphone stays anonymous even inside an isolated interval:
+// `resolve_speaker` refuses self-labeling there, so the range fallback must
+// honor the same guard.
+#[test]
+fn shared_microphone_interval_never_inherits_the_owner() {
+    let mut context = context();
+    context.intervals[0].shared_microphone = true;
+    let mut req = request(context, &[(0, 0)]);
+    req.transcripts[0].words[0].speaker_index = None;
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 1);
+    assert_eq!(segments[0].key.speaker_human_id, None);
+    assert_eq!(segments[0].speaker_label, "Speaker 1");
+}
+
 #[test]
 fn several_remote_voices_stay_anonymous_when_several_people_were_invited() {
     let mut context = context();

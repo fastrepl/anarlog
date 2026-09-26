@@ -104,7 +104,12 @@ pub fn render_transcript_segments(
             let mut isolated_ranges: Vec<(i64, i64)> = context
                 .intervals
                 .iter()
-                .filter(|interval| interval.mic_isolated == Some(true))
+                // `resolve_speaker` refuses self-labeling on shared mics; the
+                // range fallback must honor the same guard or index-less room
+                // speech would permanently inherit the owner.
+                .filter(|interval| {
+                    interval.mic_isolated == Some(true) && !interval.shared_microphone
+                })
                 .map(|interval| {
                     (
                         interval.start_ms - base_started_at,
