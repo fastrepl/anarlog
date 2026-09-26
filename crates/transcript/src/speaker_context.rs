@@ -62,8 +62,37 @@ impl SpeakerContext {
                 && end_ms <= interval.end_ms
                 && interval.start_ms < interval.end_ms
         });
-        let (index, _) = matches.next()?;
-        matches.next().is_none().then_some(index)
+        if let Some((index, _)) = matches.next() {
+            return matches.next().is_none().then_some(index);
+        }
+        self.isolated_run_at(start_ms, end_ms)
+    }
+
+    // Call-evidence changes split context intervals even while `mic_isolated`
+    // stays true on both sides, so adjacent isolated intervals form one
+    // verified isolated period; a word straddling that seam still belongs to
+    // the run's first interval.
+    fn isolated_run_at(&self, start_ms: i64, end_ms: i64) -> Option<usize> {
+        let mut run: Option<(usize, i64, i64)> = None;
+        for (index, interval) in self.intervals.iter().enumerate() {
+            if interval.mic_isolated != Some(true) {
+                continue;
+            }
+            match &mut run {
+                Some((_, _, run_end)) if interval.start_ms <= *run_end => {
+                    *run_end = (*run_end).max(interval.end_ms);
+                }
+                _ => run = Some((index, interval.start_ms, interval.end_ms)),
+            }
+            if let Some((first, run_start, run_end)) = run
+                && run_start <= start_ms
+                && end_ms <= run_end
+                && run_start < run_end
+            {
+                return Some(first);
+            }
+        }
+        None
     }
 
     pub fn label_segments(

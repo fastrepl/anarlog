@@ -905,6 +905,59 @@ fn isolation_start_keeps_earlier_words_anonymous() {
 }
 
 #[test]
+fn isolation_end_keeps_earlier_isolated_words_named() {
+    let participants = ["self".to_string()];
+    let mut engine = LiveTranscriptEngine::with_speaker_assignments(
+        "deepgram",
+        &participants,
+        Some("self"),
+        vec![],
+        true,
+        0,
+    );
+
+    engine
+        .process(&transcript_response_at(
+            "owner speaks",
+            words_from_text("owner speaks", 0.0, 1.0),
+            true,
+            0,
+            0.0,
+            1.0,
+        ))
+        .expect("isolated-era update");
+
+    if let Some(delta) = engine.update_identities(&participants, Some("self"), vec![], false, 2000)
+    {
+        assert!(
+            delta
+                .upserts
+                .iter()
+                .filter(|segment| segment.text.contains("owner speaks"))
+                .all(|segment| segment.key.speaker_human_id.as_deref() == Some("self")),
+            "isolated-era words keep the owner after isolation ends"
+        );
+    }
+
+    let update = engine
+        .process(&transcript_response_at(
+            "guest speaks",
+            words_from_text("guest speaks", 3.0, 1.0),
+            true,
+            0,
+            3.0,
+            1.0,
+        ))
+        .expect("shared-era update");
+    let segments = update.segment_delta.expect("segments").upserts;
+    let guest = segments
+        .iter()
+        .find(|segment| segment.text.contains("guest speaks"))
+        .expect("shared-era segment");
+    assert_eq!(guest.key.speaker_human_id, None);
+}
+
+#[test]
 fn isolated_mic_self_wins_over_scoped_guest_assignment() {
     let participants = ["self".to_string()];
     let mut engine = LiveTranscriptEngine::with_speaker_assignments(

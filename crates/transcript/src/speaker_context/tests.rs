@@ -133,6 +133,41 @@ fn word_spanning_adjacent_isolated_intervals_keeps_the_mic_human() {
     assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
 }
 
+// Without an explicit assignment the seam check relies on the context intervals
+// alone: an index-less word straddling adjacent isolated intervals still gets
+// the provisional owner label rather than a number.
+#[test]
+fn word_spanning_adjacent_isolated_intervals_is_named_via_context() {
+    let mut context = context();
+    let template = context.intervals[0].clone();
+    context.intervals = vec![
+        SpeakerContextInterval {
+            start_ms: 1500,
+            end_ms: 2000,
+            ..template.clone()
+        },
+        SpeakerContextInterval {
+            start_ms: 2000,
+            end_ms: 2500,
+            ..template
+        },
+    ];
+    let mut req = request(context, &[(0, 0)]);
+    req.transcripts[0].words[0].speaker_index = None;
+    req.transcripts[0].words[0].start_ms = 900;
+    req.transcripts[0].words[0].end_ms = 1100;
+    let segments = render_transcript_segments(req);
+    assert_eq!(segments.len(), 1);
+    assert_eq!(segments[0].speaker_label, "John");
+    assert_eq!(segments[0].key.speaker_human_id, None);
+    assert!(
+        segments[0]
+            .provisional_speaker
+            .as_ref()
+            .is_some_and(|speaker| speaker.name == "John")
+    );
+}
+
 #[test]
 fn several_remote_voices_stay_anonymous_when_several_people_were_invited() {
     let mut context = context();

@@ -68,10 +68,12 @@ pub struct LiveTranscriptEngine {
     normalizer: TranscriptNormalizer,
     rendered_segments: RenderedSegmentState,
     mic_isolated: bool,
-    /// Session-relative ms at which the mic first became isolated; retained
-    /// words from before that point belong to a shared-mic era and must not
-    /// inherit the local speaker when the verdict flips mid-capture.
-    isolated_since_ms: Option<i64>,
+    /// Session-relative ms ranges where the mic verdict was isolated. The
+    /// verdict can flip mid-capture in both directions: words captured before
+    /// an era begins must not inherit the local speaker, and words captured
+    /// during a closed era keep it even after headphones disconnect. An open
+    /// era runs to `i64::MAX`.
+    isolated_ranges: Vec<(i64, i64)>,
 }
 
 impl LiveTranscriptEngine {
@@ -104,11 +106,16 @@ impl LiveTranscriptEngine {
         mic_isolated: bool,
         session_elapsed_ms: i64,
     ) -> Self {
-        let isolated_since_ms = mic_isolated.then_some(session_elapsed_ms);
+        let isolated_ranges = if mic_isolated {
+            vec![(session_elapsed_ms, i64::MAX)]
+        } else {
+            Vec::new()
+        };
         let mut segment_options = segment_options_for_assignments(&speaker_assignments);
         segment_options.isolated_mic_ranges =
-            isolated_since_ms.map(|since| vec![(since, i64::MAX)]);
-        segment_options.isolated_mic_human = isolated_mic_human(self_human_id, mic_isolated);
+            (!isolated_ranges.is_empty()).then(|| isolated_ranges.clone());
+        segment_options.isolated_mic_human =
+            isolated_mic_human(self_human_id, !isolated_ranges.is_empty());
 
         let normalizer = TranscriptNormalizer::for_provider(provider_name);
 
@@ -125,7 +132,7 @@ impl LiveTranscriptEngine {
                 segment_options,
             ),
             mic_isolated,
-            isolated_since_ms,
+            isolated_ranges,
         }
     }
 
@@ -175,15 +182,19 @@ impl LiveTranscriptEngine {
         session_elapsed_ms: i64,
     ) -> Option<LiveTranscriptSegmentDelta> {
         if mic_isolated && !self.mic_isolated {
-            self.isolated_since_ms = Some(session_elapsed_ms);
-        } else if !mic_isolated {
-            self.isolated_since_ms = None;
+            self.isolated_ranges.push((session_elapsed_ms, i64::MAX));
+        } else if !mic_isolated
+            && self.mic_isolated
+            && let Some((_, end)) = self.isolated_ranges.last_mut()
+        {
+            *end = session_elapsed_ms;
         }
         self.mic_isolated = mic_isolated;
         let mut segment_options = segment_options_for_assignments(&speaker_assignments);
         segment_options.isolated_mic_ranges =
-            self.isolated_since_ms.map(|since| vec![(since, i64::MAX)]);
-        segment_options.isolated_mic_human = isolated_mic_human(self_human_id, self.mic_isolated);
+            (!self.isolated_ranges.is_empty()).then(|| self.isolated_ranges.clone());
+        segment_options.isolated_mic_human =
+            isolated_mic_human(self_human_id, !self.isolated_ranges.is_empty());
         self.rendered_segments
             .update_identities(Vec::new(), speaker_assignments, segment_options)
     }
@@ -225,11 +236,11 @@ impl LiveTranscriptEngine {
 // words would stay anonymous until the settled render. An isolated mic only
 // carries the local voice — the same premise `resolve_speaker` uses for
 // isolated intervals — so the engine names it as the range-gated fallback.
-// Words keep their own scope precedence, and the range only covers audio from
-// the isolated era itself.
-fn isolated_mic_human(self_human_id: Option<&str>, mic_isolated: bool) -> Option<String> {
+// Words keep their own scope precedence, and the ranges only cover audio from
+// isolated eras themselves.
+fn isolated_mic_human(self_human_id: Option<&str>, has_isolated_ranges: bool) -> Option<String> {
     self_human_id
-        .filter(|id| mic_isolated && !id.is_empty())
+        .filter(|id| has_isolated_ranges && !id.is_empty())
         .map(String::from)
 }
 
