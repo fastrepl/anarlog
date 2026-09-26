@@ -10,13 +10,8 @@ use serde::Deserialize;
 use super::{LanguageQuality, LanguageSupport, RealtimeSttAdapter, parsing::WordBuilder};
 use crate::providers::Provider;
 
-pub(crate) const DEFAULT_MODEL: &str = "qwen3-asr-fast:free";
-const MODELS: &[&str] = &[
-    "qwen3-asr-fast:free",
-    "qwen3-asr:free",
-    "qwen3-asr-fast",
-    "qwen3-asr",
-];
+pub(crate) const DEFAULT_MODEL: &str = "qwen3-asr-fast";
+const MODELS: &[&str] = &["qwen3-asr-fast", "qwen3-asr"];
 const LANGUAGES: &[&str] = &[
     "ar", "cs", "da", "de", "el", "en", "es", "fa", "fi", "fil", "fr", "hi", "hu", "id", "it",
     "ja", "ko", "mk", "ms", "nl", "pl", "pt", "ro", "ru", "sv", "th", "tr", "vi", "yue", "zh",
@@ -71,13 +66,19 @@ struct ProviderFailure {
     message: String,
 }
 
+// Nari retired the `:free` beta IDs on 2026-09-16; each maps to its GA model.
+fn ga_model(model: &str) -> &str {
+    model.strip_suffix(":free").unwrap_or(model)
+}
+
 impl NariAdapter {
     pub fn language_support_live(
         languages: &[anlg_language::Language],
         model: Option<&str>,
     ) -> LanguageSupport {
-        let known_model = model
-            .is_none_or(|model| crate::providers::is_meta_model(model) || MODELS.contains(&model));
+        let known_model = model.is_none_or(|model| {
+            crate::providers::is_meta_model(model) || MODELS.contains(&ga_model(model))
+        });
         if known_model
             && languages.iter().all(|language| {
                 let code = language.iso639().code();
@@ -153,7 +154,7 @@ impl RealtimeSttAdapter for NariAdapter {
             .model
             .as_deref()
             .filter(|model| !crate::providers::is_meta_model(model))
-            .unwrap_or(DEFAULT_MODEL);
+            .map_or(DEFAULT_MODEL, ga_model);
         let language = if params.languages.len() == 1 {
             let code = params.languages[0].iso639().code();
             Some(if code == "tl" { "fil" } else { code })

@@ -35,3 +35,15 @@ test("incomplete custom endpoints show actionable validation instead of a URL ex
     }
   }
 });
+
+test("saved Nari beta models move to their GA equivalents", () => {
+  const nari = (model) =>
+    validateProviderConfig("stt", {
+      provider: "nari",
+      baseUrl: "https://api.narilabs.com",
+      model,
+    }).model;
+  assert.equal(nari("qwen3-asr-fast:free"), "qwen3-asr-fast");
+  assert.equal(nari("qwen3-asr:free"), "qwen3-asr");
+  assert.equal(nari("qwen3-asr"), "qwen3-asr");
+});

@@ -24,6 +24,35 @@ fn transcript(response: &StreamResponse) -> &str {
 }
 
 #[test]
+fn retired_free_models_use_ga_equivalents() {
+    let model = |model: Option<&str>| {
+        let params = ListenParams {
+            model: model.map(Into::into),
+            ..Default::default()
+        };
+        let Message::Text(config) = NariAdapter::default()
+            .initial_message(None, &params, 1)
+            .unwrap()
+        else {
+            panic!()
+        };
+        serde_json::from_str::<serde_json::Value>(&config).unwrap()["session"]["model"].clone()
+    };
+    assert_eq!(model(None), "qwen3-asr-fast");
+    assert_eq!(model(Some("qwen3-asr-fast:free")), "qwen3-asr-fast");
+    assert_eq!(model(Some("qwen3-asr:free")), "qwen3-asr");
+    assert_eq!(model(Some("qwen3-asr")), "qwen3-asr");
+    for retired in ["qwen3-asr-fast:free", "qwen3-asr:free"] {
+        assert!(
+            NariAdapter::language_support_live(&[ISO639::En.into()], Some(retired)).is_supported()
+        );
+    }
+    assert!(
+        !NariAdapter::language_support_live(&[ISO639::En.into()], Some("x:free")).is_supported()
+    );
+}
+
+#[test]
 fn config_uses_documented_models_languages_and_vad() {
     let adapter = NariAdapter::default();
     let params = ListenParams {
@@ -168,4 +197,24 @@ fn credit_errors_are_reported_and_pending_state_is_bounded() {
         adapter.parse_response(r#"{"type":"input_audio_buffer.committed","item_id":"overflow"}"#);
     assert!(matches!(&errors[0], StreamResponse::ErrorResponse { .. }));
     assert_eq!(adapter.state.lock().unwrap().items.len(), 64);
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_build_single_with_retired_free_model() {
+    let client = crate::ListenClient::builder()
+        .adapter::<NariAdapter>()
+        .api_base("https://api.narilabs.com")
+        .api_key(std::env::var("NARI_API_KEY").expect("NARI_API_KEY not set"))
+        .params(ListenParams {
+            model: Some("qwen3-asr-fast:free".into()),
+            languages: vec![ISO639::En.into()],
+            sample_rate: 16_000,
+            ..Default::default()
+        })
+        .build_single()
+        .await
+        .unwrap();
+
+    crate::test_utils::run_single_test_with_rate(client, "nari", 16_000).await;
 }

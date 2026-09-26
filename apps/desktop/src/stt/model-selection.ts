@@ -32,7 +32,7 @@ const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   groq: "whisper-large-v3-turbo",
   xai: "xai-stt",
   smallestai: "pulse",
-  nari: "qwen3-asr-fast:free",
+  nari: "qwen3-asr-fast",
   together: "openai/whisper-large-v3",
   speechmatics: "enhanced",
   azure_speech: "fast-transcription",
@@ -75,6 +75,11 @@ export function normalizeStoredSttModel(
     (model === "gpt-4o-transcribe" || model === "gpt-4o-mini-transcribe")
   ) {
     return "gpt-transcribe";
+  }
+
+  // Nari retired its :free beta IDs on 2026-09-16 in favor of the GA models.
+  if (provider === "nari" && model?.match(/^qwen3-asr(?:-fast)?:free$/)) {
+    return model.slice(0, -":free".length);
   }
 
   if (
@@ -151,6 +156,11 @@ const normalizeSavedModel = (
     models.some((model) => model.id === "openai/gpt-transcribe")
   ) {
     return "openai/gpt-transcribe";
+  }
+
+  const nariModel = savedModel?.match(/^(qwen3-asr(?:-fast)?):free$/)?.[1];
+  if (nariModel && models.some((model) => model.id === nariModel)) {
+    return nariModel;
   }
 
   return savedModel;
