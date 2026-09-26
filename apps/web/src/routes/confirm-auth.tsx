@@ -85,7 +85,7 @@ function Component() {
         method: "otp",
         action: search.type,
         flow: context.flow,
-        new_account: result.newAccount === true,
+        new_account: result.createdAccount === true,
       });
 
       if (search.type === "recovery") {

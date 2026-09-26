@@ -117,7 +117,6 @@ function Component() {
       flow,
       provider,
       view: initialView ?? "main",
-      returning: existingUser !== null,
     });
   });
 
@@ -570,7 +569,8 @@ function PasswordForm({
           method: "password",
           action: "sign_in",
           flow,
-          new_account: false,
+          new_account:
+            "createdAccount" in result && result.createdAccount === true,
         });
         handlePasswordSuccess(
           result.access_token as string,
@@ -617,19 +617,23 @@ function PasswordForm({
         return;
       }
       if (result && "success" in result && result.success) {
-        capturePrivateRouteEvent("auth_completed", {
-          method: "password",
-          action: "sign_up",
-          flow,
-          new_account: true,
-          needs_confirmation:
-            "needsConfirmation" in result && result.needsConfirmation === true,
-        });
         if ("needsConfirmation" in result && result.needsConfirmation) {
+          capturePrivateRouteEvent("auth_confirmation_sent", {
+            method: "password",
+            action: "sign_up",
+            flow,
+          });
           setSubmitted(true);
           return;
         }
         if ("access_token" in result) {
+          capturePrivateRouteEvent("auth_completed", {
+            method: "password",
+            action: "sign_up",
+            flow,
+            new_account:
+              "createdAccount" in result && result.createdAccount === true,
+          });
           handlePasswordSuccess(
             result.access_token as string,
             result.refresh_token as string,

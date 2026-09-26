@@ -26,9 +26,7 @@ test("keeps anonymous auth funnel properties and drops account identity", () => 
       action: "signup",
       flow: "web",
       view: "email",
-      returning: false,
       new_account: true,
-      needs_confirmation: false,
       user_id: "6d3f9d2e-1a3b-4c5d-8e7f-0123456789ab",
       email: "patient@example.com",
     }),
@@ -38,9 +36,7 @@ test("keeps anonymous auth funnel properties and drops account identity", () => 
       action: "signup",
       flow: "web",
       view: "email",
-      returning: false,
       new_account: true,
-      needs_confirmation: false,
     },
   );
 });

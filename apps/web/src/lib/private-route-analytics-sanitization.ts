@@ -10,10 +10,8 @@ const PRIVATE_ANALYTICS_PROPERTY_KEYS = new Set([
   "has_audio",
   "has_collaboration_actions",
   "method",
-  "needs_confirmation",
   "new_account",
   "provider",
-  "returning",
   "view",
 ]);
 
