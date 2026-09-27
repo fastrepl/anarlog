@@ -79,6 +79,26 @@ class ServiceSecretsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown"):
             select("misspelled", self.api, [])
 
+    def test_drive_callback_reaches_core_and_combined_roles(self):
+        key = "GOOGLE_DRIVE_PICKER_REDIRECT_URI"
+        url = "https://anarlog.so/app/google-drive-picker"
+        secrets = [secret for secret in self.api if secret["key"] != key]
+        for role in ["core", "all", "gateway", "legacy"]:
+            with self.subTest(role=role):
+                self.assertNotIn(key, select(role, secrets, []))
+                self.assertEqual(
+                    select(role, secrets + [{"key": key, "value": url}], [])[key],
+                    url,
+                )
+        for role in ["ai", "sync", "billing"]:
+            with self.subTest(role=role):
+                self.assertNotIn(
+                    key,
+                    select(
+                        role, secrets + [{"key": key, "value": url}], [], self.webhooks
+                    ),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

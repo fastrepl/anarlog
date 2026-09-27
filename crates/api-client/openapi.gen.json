@@ -5262,6 +5262,10 @@
     {
       "description": "LLM chat completions proxy",
       "name": "llm"
+    },
+    {
+      "description": "CRM contact lookup",
+      "name": "crm"
     }
   ]
 }
