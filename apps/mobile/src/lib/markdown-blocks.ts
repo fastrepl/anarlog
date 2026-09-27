@@ -50,6 +50,7 @@ export function parseInline(text: string): InlineSpan[] {
 export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   let paragraph: string[] = [];
+  let list: Extract<MarkdownBlock, { type: "list" }> | null = null;
 
   const flushParagraph = () => {
     if (paragraph.length === 0) return;
@@ -61,12 +62,14 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     const line = rawLine.trimEnd();
     if (!line.trim() || RULE.test(line)) {
       flushParagraph();
+      list = null;
       continue;
     }
 
     const heading = HEADING.exec(line);
     if (heading) {
       flushParagraph();
+      list = null;
       blocks.push({
         type: "heading",
         level: heading[1].length,
@@ -94,15 +97,15 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
         number: ordered ? Number(ordered[2]) : undefined,
         checked,
       };
-      const previous = blocks[blocks.length - 1];
-      if (previous?.type === "list") {
-        previous.items.push(entry);
-      } else {
-        blocks.push({ type: "list", items: [entry] });
+      if (!list) {
+        list = { type: "list", items: [] };
+        blocks.push(list);
       }
+      list.items.push(entry);
       continue;
     }
 
+    list = null;
     paragraph.push(line.trim());
   }
 
