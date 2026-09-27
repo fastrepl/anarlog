@@ -76,3 +76,44 @@ it.each(["crisp", "balanced", "detailed"] as const)(
     expect(request.prompt).not.toMatch(/\d to \d sections/);
   },
 );
+
+it("adds length guidance to prompts rendered from a template with sections", async () => {
+  const args: TaskArgsMapTransformed["enhance"] = {
+    language: "en",
+    formatOverride: "",
+    summaryLength: "detailed",
+    session: { title: "Launch", startedAt: null, endedAt: null, event: null },
+    participants: [],
+    template: {
+      title: "1:1 Meeting",
+      description: null,
+      sections: [
+        { title: "Updates", description: "" },
+        { title: "Next Steps", description: "" },
+      ],
+    },
+    preMeetingMemo: "",
+    postMeetingMemo: "",
+    transcripts: [
+      {
+        startedAt: null,
+        endedAt: null,
+        segments: [{ speaker: "John", text: "a".repeat(10_000) }],
+      },
+    ],
+    imageContext: [],
+    dictionaryTerms: [],
+  };
+  for await (const _ of enhanceWorkflow.executeWorkflow!({
+    model: {} as LanguageModel,
+    args,
+    onProgress: vi.fn(),
+    signal: new AbortController().signal,
+  })) {
+    // drain the stream
+  }
+  const request = mocks.streamText.mock.calls[0][0];
+  expect(request.prompt).toContain("Summary length:");
+  expect(request.prompt).toContain("Keep every requested template section");
+  expect(request.prompt).not.toMatch(/\d to \d sections/);
+});

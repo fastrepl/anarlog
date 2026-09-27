@@ -1,0 +1,79 @@
+---
+meta_title: "Meetily vs Granola: Local AI, Models, and Meeting Workflow"
+display_title: "Meetily vs Granola: Local Processing, AI Models, and Meeting Workflow"
+meta_description: "Compare Meetily and Granola by audio processing, AI model control, note editing, exports, and platform support. Choose the workflow that fits your meetings."
+author:
+  - "Anarlog Team"
+featured: !!bool "false"
+category: "Comparisons"
+date: "2026-09-22"
+---
+
+**Choose Meetily if running transcription and summaries on your own computer is a requirement. Choose Granola if you want a managed workspace that develops your own meeting notes into structured notes.** Both offer bot-free desktop capture. That alone does not tell you where your conversation is processed.
+
+We make Anarlog, another meeting notetaker. We checked official documentation on September 22, 2026, and tested one synthetic file in Meetily. Granola examples come from its documentation; we did not run a head-to-head accuracy test.
+
+## Compare the data path first
+
+| Decision | Meetily | Granola |
+| --- | --- | --- |
+| Transcription | Local engines or a configured server/cloud provider | Managed transcription services |
+| Summary models | Built-in models, Ollama, hosted AI, or supported external providers | Managed AI workflow; model selection in Chat is a separate feature |
+| Meeting record | Local desktop workflow; deployment and provider choices matter | Transcript and notes in the Granola account |
+| Offline requirement | Prepare both local transcription and summary models | Do not choose it for an entirely offline workflow |
+| Main reason to choose it | Control where processing happens | Develop and reuse notes without maintaining a local AI stack |
+
+Meetily's current [transcription documentation](https://docs.meetily.ai/features/transcription-providers) lists local and remote options. A cloud provider selection sends audio away from the computer. Its [summary provider documentation](https://docs.meetily.ai/features/summary-providers) separately controls the destination of transcript text. Check both settings before describing a Meetily installation as local-only.
+
+Granola describes its transcription and AI providers in its [security overview](https://www.granola.ai/security). Desktop audio is transcribed in real time without a stored audio recording; transcripts and notes remain in the account. An absent audio archive is useful, but it does not mean the transcript stays on your laptop.
+
+## What you do during and after the meeting
+
+Granola is built around the notes you write while listening. Its [enhanced-notes workflow](https://docs.granola.ai/help-center/taking-notes/ai-enhanced-notes) combines those notes with the transcript and calendar context. You can inspect the source of an enhanced point, edit the result, or regenerate it with a different template.
+
+That fits a founder who writes a few judgments during a customer call and wants the supporting detail filled in afterward. It also gives you a useful review habit: check whether a polished bullet reflects what was said or merely sounds plausible.
+
+Meetily suits a different constraint: you want the recording-to-summary workflow to use the engines you selected. Its [meeting workspace](https://docs.meetily.ai/features/meeting-workspace) and provider controls put the transcript, generated output, and configuration into the decision. A smaller local model may need more guidance on a long discussion.
+
+Use the same short, non-confidential sample when evaluating them. Include an explicit decision, a rejected idea, an owner, and a deadline. Compare whether each output preserves those distinctions. A summary that turns a rejected idea into an action item is a more consequential failure than awkward phrasing.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/meetily/meeting-summary/2026-09-22-windows-local-summary.png" alt="Meetily Community with a synthetic transcript and a completed local summary" width={900} height={506} />
+
+## Model control also means setup work
+
+For Meetily, prepare model downloads while online and verify the chosen summary endpoint. A local Ollama server and a remote Ollama server have different data paths, even though the provider name is identical.
+
+Granola reduces that setup burden. Its managed service is a reasonable trade when easy access to shared context matters more than choosing the transcription engine. Do not infer local inference from a model picker: selecting a model inside a hosted product does not move that model onto your computer.
+
+## Platforms, editions, and exports
+
+| Product | Documented platforms | What you can take out |
+| --- | --- | --- |
+| Meetily Community | Native macOS/Windows; Apple Silicon Mac download; Linux source build | Basic clipboard sharing; do not assume Pro file exports are included |
+| Meetily Pro | Native macOS/Windows | Summary: Markdown, DOCX, PDF. Transcript: TXT, DOCX. Clipboard copy; single-meeting GUI export |
+| Granola Basic / Business | macOS 14+, Windows, iOS, Android | CSV of owned notes, including summaries, transcripts, titles, and metadata |
+| Granola Enterprise | Same documented platforms | CSV export disabled by default; an administrator can enable it |
+
+Sources: Meetily [downloads](https://meetily.ai/downloads), [edition entitlements](https://meetily.ai/pricing), and [export formats](https://docs.meetily.ai/features/export-and-copy); Granola [setup](https://docs.granola.ai/help-center/getting-started/setting-up-granola-for-the-first-time) and [historical export](https://docs.granola.ai/help-center/sharing/exporting-notes). These sources do not establish a minimum Windows version for either product; verify the installer on your machine.
+
+In Granola, use **Settings → Profile → Generate CSV**. The export includes owned notes from selected workspaces, including Basic notes older than the visible history window. Deleted notes and notes without summaries are excluded. The guide limits requests to one per account per 24 hours, and the emailed download expires after 24 hours. This is useful for migration, but it is not an export of every teammate's private notes.
+
+In Meetily Pro, open a meeting and choose **Export → Export As**, then select the summary or transcript output. A Markdown summary and a timestamped TXT transcript serve different purposes; export both if you need a readable note and its source.
+
+Meetily's [Pro MCP server](https://docs.meetily.ai/developers/mcp) requires an enabled gateway and scoped access. Older comparisons that describe it as having no API or MCP are outdated. Granola's managed integrations and workspace features follow its [current plan entitlements](https://www.granola.ai/pricing).
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/granola/export/2026-09-22-csv-export.png" alt="Granola profile controls for generating a CSV export" width={840} height={578} />
+
+<p className="blog-image-credit">Source: <a href="https://docs.granola.ai/help-center/sharing/exporting-notes">Granola</a>.</p>
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/granola/export/2026-09-22-export-permission.png" alt="Granola workspace control for allowing members to export notes" width={840} height={429} />
+
+<p className="blog-image-credit">Source: <a href="https://docs.granola.ai/help-center/sharing/exporting-notes">Granola</a>.</p>
+
+## Make the choice around your non-negotiable
+
+Choose Meetily when a local processing path or a configurable AI stack comes first, and you are willing to maintain the models and verify the selected providers. Choose Granola when a managed note-taking and collaboration workflow is the stronger requirement.
+
+Check current installers and plan entitlements for your operating system; do not rely on an old Mac-only description of Granola or assume Meetily Community includes every Pro feature.
+
+If your priority is taking notes alongside a transcript while keeping the canonical meeting record in local SQLite, [Anarlog](https://anarlog.so/) is another option. It supports local, managed, and bring-your-own-key AI paths, with Markdown available for export. Our [local AI meeting notes guide](/blog/local-ai-meeting-notes/) explains the choices to verify before calling a setup offline.

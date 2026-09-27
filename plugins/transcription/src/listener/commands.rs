@@ -116,6 +116,19 @@ pub async fn set_mic_muted<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn set_media_pause_enabled<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    enabled: bool,
+) -> Result<(), String> {
+    use tauri::Manager;
+    app.state::<crate::MediaPauseEnabled>()
+        .0
+        .store(enabled, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn start_capture<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: CaptureParams,

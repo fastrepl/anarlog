@@ -357,6 +357,44 @@ describe("General Listener Slice", () => {
       expect(store.getState().live.lastErrorSessionId).toBe("session-1");
     });
 
+    test("connected clears a connection error but keeps an audio error", () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          updateLiveProgress(draft.live, {
+            type: "connection_error",
+            session_id: "session-1",
+            error: "socket closed",
+          });
+          updateLiveProgress(draft.live, {
+            type: "connected",
+            session_id: "session-1",
+            adapter: "deepgram",
+          });
+        }),
+      );
+      expect(store.getState().live.lastError).toBeNull();
+      expect(store.getState().live.lastErrorSessionId).toBeNull();
+
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          updateLiveProgress(draft.live, {
+            type: "audio_error",
+            session_id: "session-1",
+            error: "microphone unavailable",
+            device: null,
+            is_fatal: false,
+          });
+          updateLiveProgress(draft.live, {
+            type: "connected",
+            session_id: "session-1",
+            adapter: "deepgram",
+          });
+        }),
+      );
+      expect(store.getState().live.lastError).toBe("microphone unavailable");
+      expect(store.getState().live.lastErrorIsAudioRelated).toBe(true);
+    });
+
     test("markLiveActive preserves the need for batch repair after recovery", () => {
       const intervalId = setInterval(() => {}, 1000);
 

@@ -1,7 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Platform, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import Animated, {
   Easing,
   ReduceMotion,
@@ -38,10 +37,12 @@ import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { scrollVisibility } from "@/lib/scroll-visibility";
-import { useMountEffect } from "@/lib/use-mount-effect";
+import {
+  deviceHasActionButton,
+  dismissActionButtonCard,
+  useActionButtonSetup,
+} from "@/quick-actions/action-button-setup";
 import { createStyleHook } from "@/settings/theme-provider";
-
-const ACTION_BUTTON_CARD_DISMISSED_KEY = "action-button-card-dismissed";
 
 export default function HomeScreen() {
   const styles = useStyles();
@@ -53,7 +54,11 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const [searching, setSearching] = useState(false);
-  const [showActionButtonCard, setShowActionButtonCard] = useState(false);
+  const actionButtonSetup = useActionButtonSetup();
+  const showActionButtonCard =
+    deviceHasActionButton &&
+    actionButtonSetup.data !== undefined &&
+    !actionButtonSetup.data.cardDismissed;
   const [buttonHeight, setButtonHeight] = useState(
     LISTENING_CONTROL_HEIGHT + Spacing.xs,
   );
@@ -111,26 +116,6 @@ export default function HomeScreen() {
   // Ref, not state: two taps in the same frame both pass a state check.
   const busyRef = useRef(false);
 
-  useMountEffect(() => {
-    if (Platform.OS !== "ios") return;
-    let active = true;
-    void AsyncStorage.getItem(ACTION_BUTTON_CARD_DISMISSED_KEY).then(
-      (dismissed) => {
-        if (active && dismissed !== "1") setShowActionButtonCard(true);
-      },
-      (error) => {
-        if (active) setShowActionButtonCard(true);
-        captureOperationalError(error, {
-          operation: "action_button_card_load",
-          level: "warning",
-        });
-      },
-    );
-    return () => {
-      active = false;
-    };
-  });
-
   const handleDelete = async (session: TimelineSession) => {
     const confirmed = await confirmDestructive(
       `Delete "${session.title || "Untitled"}"?`,
@@ -168,18 +153,6 @@ export default function HomeScreen() {
     } finally {
       busyRef.current = false;
     }
-  };
-
-  const dismissActionButtonCard = () => {
-    setShowActionButtonCard(false);
-    void AsyncStorage.setItem(ACTION_BUTTON_CARD_DISMISSED_KEY, "1").catch(
-      (error) => {
-        captureOperationalError(error, {
-          operation: "action_button_card_dismiss",
-          level: "warning",
-        });
-      },
-    );
   };
 
   return (
@@ -229,7 +202,7 @@ export default function HomeScreen() {
             showActionButtonCard ? (
               <ActionButtonCard
                 onConfigure={() => router.push("/action-button")}
-                onDismiss={dismissActionButtonCard}
+                onDismiss={() => void dismissActionButtonCard()}
               />
             ) : null
           }

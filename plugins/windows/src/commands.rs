@@ -1,4 +1,7 @@
-use crate::{AppWindow, SavedFrames, WebviewHealthState, WindowImpl, WindowsPluginExt, events};
+use crate::{
+    AppWindow, SavedFrames, SavedWindowFrame, WebviewHealthState, WindowImpl, WindowsPluginExt,
+    events,
+};
 
 use tauri::Manager;
 
@@ -112,41 +115,24 @@ pub async fn window_set_frame_animated(
     width: f64,
     height: f64,
 ) -> Result<(), String> {
+    if matches!(window, AppWindow::Main)
+        && let Some(window_handle) = window.get(&app)
+    {
+        if window_handle.is_maximized().map_err(|e| e.to_string())? {
+            window_handle.unmaximize().map_err(|e| e.to_string())?;
+        }
+        window_handle
+            .set_always_on_top(true)
+            .map_err(|e| e.to_string())?;
+    }
+
     let visible_frame = app
         .windows()
         .visible_frame(window.clone())
         .map_err(|e| e.to_string())?;
 
     if let Some(screen) = visible_frame {
-        if matches!(window, AppWindow::Main)
-            && let Some(window_handle) = window.get(&app)
-        {
-            window_handle
-                .set_always_on_top(true)
-                .map_err(|e| e.to_string())?;
-        }
-
-        let margin = 8.0_f64;
-        let (x, y) = match anchor {
-            Anchor::TopRight => (
-                screen.x + screen.w - width - margin,
-                screen.y + screen.h - height - margin,
-            ),
-            Anchor::TopLeft => (screen.x + margin, screen.y + screen.h - height - margin),
-            Anchor::BottomRight => (screen.x + screen.w - width - margin, screen.y + margin),
-            Anchor::BottomLeft => (screen.x + margin, screen.y + margin),
-            Anchor::Center => (
-                screen.x + (screen.w - width) / 2.0,
-                screen.y + (screen.h - height) / 2.0,
-            ),
-        };
-
-        let frame = crate::SavedFrame {
-            x,
-            y,
-            w: width,
-            h: height,
-        };
+        let frame = anchored_frame(anchor, screen, width, height);
 
         app.windows()
             .set_frame_animated(window, frame)
@@ -156,12 +142,87 @@ pub async fn window_set_frame_animated(
     Ok(())
 }
 
+const ANCHOR_MARGIN: f64 = 8.0;
+
+fn anchored_frame(
+    anchor: Anchor,
+    screen: crate::SavedFrame,
+    width: f64,
+    height: f64,
+) -> crate::SavedFrame {
+    let left = screen.x + ANCHOR_MARGIN;
+    let right = screen.x + screen.w - width - ANCHOR_MARGIN;
+    let center_x = screen.x + (screen.w - width) / 2.0;
+
+    let (x, offset_from_top) = match anchor {
+        Anchor::TopRight => (right, ANCHOR_MARGIN),
+        Anchor::TopLeft => (left, ANCHOR_MARGIN),
+        Anchor::BottomRight => (right, screen.h - height - ANCHOR_MARGIN),
+        Anchor::BottomLeft => (left, screen.h - height - ANCHOR_MARGIN),
+        Anchor::Center => (center_x, (screen.h - height) / 2.0),
+    };
+
+    let y = if cfg!(target_os = "macos") {
+        screen.y + screen.h - height - offset_from_top
+    } else {
+        screen.y + offset_from_top
+    };
+
+    crate::SavedFrame {
+        x,
+        y,
+        w: width,
+        h: height,
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn window_save_frame(
     app: tauri::AppHandle<tauri::Wry>,
     window: AppWindow,
 ) -> Result<(), String> {
+    let maximized = if let Some(handle) = window.get(&app) {
+        let maximized = handle.is_maximized().map_err(|e| e.to_string())?;
+        if maximized {
+            handle.unmaximize().map_err(|e| e.to_string())?;
+            #[cfg(target_os = "linux")]
+            let restored = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                let mut previous_bounds = None;
+                let mut stable_since = std::time::Instant::now();
+                loop {
+                    if !handle.is_maximized().map_err(|e| e.to_string())? {
+                        let frame = app
+                            .windows()
+                            .frame(window.clone())
+                            .map_err(|e| e.to_string())?
+                            .ok_or("restored window frame is unavailable")?;
+                        let bounds = (frame.x, frame.y, frame.w, frame.h);
+                        if previous_bounds != Some(bounds) {
+                            previous_bounds = Some(bounds);
+                            stable_since = std::time::Instant::now();
+                        } else if stable_since.elapsed() >= std::time::Duration::from_millis(120) {
+                            return Ok::<(), String>(());
+                        }
+                    } else {
+                        previous_bounds = None;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+                }
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|result| result);
+            #[cfg(target_os = "linux")]
+            if let Err(error) = restored {
+                let _ = handle.maximize();
+                return Err(error);
+            }
+        }
+        maximized
+    } else {
+        false
+    };
     let frame = app
         .windows()
         .frame(window.clone())
@@ -172,7 +233,7 @@ pub async fn window_save_frame(
             .0
             .lock()
             .unwrap()
-            .insert(window.label(), frame);
+            .insert(window.label(), SavedWindowFrame { frame, maximized });
     }
 
     Ok(())
@@ -186,21 +247,115 @@ pub async fn window_restore_frame_animated(
 ) -> Result<(), String> {
     let saved = app.state::<SavedFrames>().take(&window.label());
 
-    if let Some(saved) = saved {
-        app.windows()
-            .set_frame_animated(window.clone(), saved)
-            .map_err(|e| e.to_string())?;
-    }
+    restore_saved_frame(&app, window, saved).await
+}
 
-    if matches!(window, AppWindow::Main)
-        && let Some(window_handle) = window.get(&app)
+#[cfg(target_os = "linux")]
+async fn wait_for_maximized(
+    handle: &tauri::WebviewWindow<tauri::Wry>,
+    maximized: bool,
+) -> Result<(), String> {
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            if handle.is_maximized().map_err(|e| e.to_string())? == maximized {
+                return Ok::<(), String>(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[cfg(target_os = "linux")]
+async fn wait_for_restored_frame(
+    app: &tauri::AppHandle<tauri::Wry>,
+    window: &AppWindow,
+    frame: crate::SavedFrame,
+) -> Result<(), String> {
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        let mut stable_since = None;
+        loop {
+            let current = app
+                .windows()
+                .frame(window.clone())
+                .map_err(|e| e.to_string())?
+                .ok_or("restored window frame is unavailable")?;
+            if (current.x - frame.x).abs() < 1.0
+                && (current.y - frame.y).abs() < 1.0
+                && (current.w - frame.w).abs() < 1.0
+                && (current.h - frame.h).abs() < 1.0
+            {
+                let since = stable_since.get_or_insert_with(std::time::Instant::now);
+                if since.elapsed() >= std::time::Duration::from_millis(120) {
+                    return Ok::<(), String>(());
+                }
+            } else {
+                stable_since = None;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub(crate) async fn restore_saved_frame(
+    app: &tauri::AppHandle<tauri::Wry>,
+    window: AppWindow,
+    saved: Option<SavedWindowFrame>,
+) -> Result<(), String> {
+    let restored = async {
+        if let Some(saved) = saved {
+            if let Some(handle) = window.get(app)
+                && handle.is_maximized().map_err(|e| e.to_string())?
+            {
+                handle.unmaximize().map_err(|e| e.to_string())?;
+                #[cfg(target_os = "linux")]
+                wait_for_maximized(&handle, false).await?;
+            }
+            app.windows()
+                .set_frame_animated(window.clone(), saved.frame)
+                .map_err(|e| e.to_string())?;
+            #[cfg(target_os = "linux")]
+            if window.get(app).is_some() {
+                wait_for_restored_frame(app, &window, saved.frame).await?;
+            }
+            if saved.maximized
+                && let Some(handle) = window.get(app)
+            {
+                handle.maximize().map_err(|e| e.to_string())?;
+                #[cfg(target_os = "linux")]
+                wait_for_maximized(&handle, true).await?;
+            }
+        }
+        Ok::<(), String>(())
+    }
+    .await;
+
+    if restored.is_err()
+        && let Some(saved) = saved
     {
-        window_handle
-            .set_always_on_top(false)
-            .map_err(|e| e.to_string())?;
+        let _ = app
+            .windows()
+            .set_frame_animated(window.clone(), saved.frame);
+        if saved.maximized
+            && let Some(handle) = window.get(app)
+        {
+            let _ = handle.maximize();
+        }
     }
 
-    Ok(())
+    let cleanup = if matches!(window, AppWindow::Main) {
+        window
+            .get(app)
+            .map(|handle| handle.set_always_on_top(false).map_err(|e| e.to_string()))
+            .unwrap_or(Ok(()))
+    } else {
+        Ok(())
+    };
+
+    restored.and(cleanup)
 }
 
 #[tauri::command]
@@ -214,16 +369,35 @@ pub async fn window_expand_width(
     expand_left: bool,
     restore_on_close: bool,
 ) -> Result<(), String> {
+    let scale_factor = window.scale_factor().map_err(|e| e.to_string())?;
+    let expansion_physical = (f64::from(expansion_px) * scale_factor).ceil() as u32;
+
     if check_monitor_space {
-        let outer_size = window.outer_size().map_err(|e| e.to_string())?;
-        let outer_position = window.outer_position().map_err(|e| e.to_string())?;
-        let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+        // Monitor queries hit the windowing system; on Linux/X11 they must run on
+        // the GTK main thread. When already on it, run_on_main_thread runs inline.
+        let window_clone = window.clone();
+        let (outer_position, outer_size, monitor_frame) =
+            crate::ext::run_on_main_thread(&app, move || -> tauri::Result<_> {
+                let outer_size = window_clone.outer_size()?;
+                let outer_position = window_clone.outer_position()?;
+                let monitor_frame = window_clone
+                    .current_monitor()?
+                    .map(|monitor| (*monitor.position(), *monitor.size()));
+                Ok((outer_position, outer_size, monitor_frame))
+            })
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
 
-        if let Some(monitor) = monitor {
-            let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
-            let monitor_right = i64::from(monitor.position().x) + i64::from(monitor.size().width);
+        if let Some((monitor_position, monitor_size)) = monitor_frame {
+            let available = if expand_left {
+                i64::from(outer_position.x) - i64::from(monitor_position.x)
+            } else {
+                let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
+                let monitor_right = i64::from(monitor_position.x) + i64::from(monitor_size.width);
+                monitor_right - window_right
+            };
 
-            if monitor_right - window_right < i64::from(expansion_px) {
+            if available < i64::from(expansion_physical) {
                 return Ok(());
             }
         }
@@ -253,12 +427,24 @@ pub async fn window_expand_width(
                 return None;
             }
 
-            let new_width = frame.size.width + expansion;
-            let new_origin_x = if expand_left {
+            let mut new_width = frame.size.width + expansion;
+            let mut new_origin_x = if expand_left {
                 frame.origin.x - expansion
             } else {
                 frame.origin.x
             };
+            if let Some(screen) = ns_window.screen() {
+                let visible = screen.visibleFrame();
+                let visible_max_x = visible.origin.x + visible.size.width;
+                new_origin_x = new_origin_x
+                    .min(visible_max_x - new_width)
+                    .max(visible.origin.x);
+                new_width = new_width.min(visible_max_x - new_origin_x);
+            }
+            if new_width <= frame.size.width {
+                return None;
+            }
+            let origin_shift = new_origin_x - frame.origin.x;
             ns_window.setFrame_display(
                 NSRect::new(
                     NSPoint::new(new_origin_x, frame.origin.y),
@@ -266,7 +452,7 @@ pub async fn window_expand_width(
                 ),
                 false,
             );
-            Some((frame.size.width, new_width, expand_left))
+            Some((frame.size.width, new_width, origin_shift))
         })
         .map_err(|e| e.to_string())?;
 
@@ -289,7 +475,8 @@ pub async fn window_expand_width(
             return Ok(());
         }
 
-        let new_width = outer_size.width + expansion_px;
+        let _ = expand_left;
+        let new_width = outer_size.width + expansion_physical;
         window
             .set_size(tauri::Size::Physical(tauri::PhysicalSize {
                 width: new_width,
@@ -304,11 +491,7 @@ pub async fn window_expand_width(
                 .unwrap()
                 .entry(window.label().to_string())
                 .or_default()
-                .push((
-                    f64::from(outer_size.width),
-                    f64::from(new_width),
-                    expand_left,
-                ));
+                .push((f64::from(outer_size.width), f64::from(new_width), 0.0));
         }
     }
 
@@ -323,7 +506,7 @@ pub async fn window_restore_width(
 ) -> Result<(), String> {
     let entry = app.state::<crate::WindowExpansions>().pop(window.label());
 
-    let Some((previous_w, expanded_w, expand_left)) = entry else {
+    let Some((previous_w, expanded_w, origin_shift)) = entry else {
         return Ok(());
     };
 
@@ -346,11 +529,7 @@ pub async fn window_restore_width(
 
             let frame = ns_window.frame();
             if (frame.size.width - expanded_w).abs() < 1.0 {
-                let restore_origin_x = if expand_left {
-                    frame.origin.x + (expanded_w - previous_w)
-                } else {
-                    frame.origin.x
-                };
+                let restore_origin_x = frame.origin.x - origin_shift;
                 ns_window.setFrame_display(
                     NSRect::new(
                         NSPoint::new(restore_origin_x, frame.origin.y),
@@ -365,6 +544,7 @@ pub async fn window_restore_width(
 
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = origin_shift;
         let outer_size = window.outer_size().map_err(|e| e.to_string())?;
         if (f64::from(outer_size.width) - expanded_w).abs() < 1.0 {
             window
@@ -467,4 +647,45 @@ pub async fn window_is_occluded(
         .is_occluded(window)
         .map_err(|e| e.to_string())?;
     Ok(occluded)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn screen() -> crate::SavedFrame {
+        crate::SavedFrame {
+            x: 100.0,
+            y: 50.0,
+            w: 1000.0,
+            h: 800.0,
+        }
+    }
+
+    #[test]
+    fn top_right_frame_hugs_the_top_right_corner() {
+        let frame = anchored_frame(Anchor::TopRight, screen(), 340.0, 500.0);
+
+        assert_eq!(frame.x, 100.0 + 1000.0 - 340.0 - ANCHOR_MARGIN);
+        assert_eq!((frame.w, frame.h), (340.0, 500.0));
+
+        if cfg!(target_os = "macos") {
+            assert_eq!(frame.y, 50.0 + 800.0 - 500.0 - ANCHOR_MARGIN);
+        } else {
+            assert_eq!(frame.y, 50.0 + ANCHOR_MARGIN);
+        }
+    }
+
+    #[test]
+    fn bottom_left_frame_hugs_the_bottom_left_corner() {
+        let frame = anchored_frame(Anchor::BottomLeft, screen(), 340.0, 500.0);
+
+        assert_eq!(frame.x, 100.0 + ANCHOR_MARGIN);
+
+        if cfg!(target_os = "macos") {
+            assert_eq!(frame.y, 50.0 + ANCHOR_MARGIN);
+        } else {
+            assert_eq!(frame.y, 50.0 + 800.0 - 500.0 - ANCHOR_MARGIN);
+        }
+    }
 }

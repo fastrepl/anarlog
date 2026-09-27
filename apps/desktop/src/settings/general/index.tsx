@@ -39,6 +39,7 @@ const SETTINGS_FORM_KEYS = [
   "auto_join_scheduled_meetings",
   "auto_start_scheduled_meetings",
   "auto_stop_meetings",
+  "auto_pause_media",
   "floating_bar_enabled",
   "show_app_in_dock",
   "show_tray_icon",
@@ -63,6 +64,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
       auto_start_scheduled_meetings:
         settingsValue.auto_start_scheduled_meetings,
       auto_stop_meetings: settingsValue.auto_stop_meetings,
+      auto_pause_media: settingsValue.auto_pause_media,
       floating_bar_enabled: settingsValue.floating_bar_enabled,
       show_app_in_dock: settingsValue.show_app_in_dock,
       show_tray_icon: settingsValue.show_tray_icon,
@@ -103,6 +105,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         auto_start_scheduled_meetings:
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
+        auto_pause_media: normalizedValue.auto_pause_media,
         floating_bar_enabled: normalizedValue.floating_bar_enabled,
         show_app_in_dock: normalizedValue.show_app_in_dock,
         show_tray_icon: normalizedValue.show_tray_icon,
@@ -122,6 +125,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         auto_start_scheduled_meetings:
           normalizedValue.auto_start_scheduled_meetings,
         auto_stop_meetings: normalizedValue.auto_stop_meetings,
+        auto_pause_media: normalizedValue.auto_pause_media,
         floating_bar_enabled: normalizedValue.floating_bar_enabled,
         show_app_in_dock: normalizedValue.show_app_in_dock,
         show_tray_icon: normalizedValue.show_tray_icon,
@@ -306,6 +310,11 @@ function SettingsSectionContent({
                   value: values.auto_stop_meetings,
                   onChange: (value) =>
                     submitFieldValue("auto_stop_meetings", value),
+                }}
+                autoPauseMedia={{
+                  value: values.auto_pause_media,
+                  onChange: (value) =>
+                    submitFieldValue("auto_pause_media", value),
                 }}
                 floatingBar={{
                   value: values.floating_bar_enabled,

@@ -36,6 +36,7 @@ function renderMeetingSettings({
         autoJoinScheduledMeetings={setting()}
         autoStartScheduledMeetings={setting(autoStartScheduledMeetings)}
         autoStopMeetings={setting()}
+        autoPauseMedia={setting()}
         floatingBar={setting(floatingBar)}
         meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}

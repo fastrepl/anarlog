@@ -1,11 +1,11 @@
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime};
 
 use anlg_audio::AudioProvider;
 use anlg_transcript::IdentityAssignment;
 
-use crate::{ListenerRuntime, TranscriptionMode};
+use crate::{ListenerRuntime, LiveTranscriptEngine, TranscriptionMode};
 
 pub const SESSION_SUPERVISOR_PREFIX: &str = "session_supervisor_";
 
@@ -145,7 +145,12 @@ pub struct SessionContext {
     pub app_dir: PathBuf,
     pub started_at_instant: Instant,
     pub started_at_system: SystemTime,
+    /// The live transcript outlives any one listener: a reconnecting listener resumes it so the
+    /// audio it replays cannot finalize words twice and segments continue across the gap.
+    pub live_transcript: SharedLiveTranscript,
 }
+
+pub type SharedLiveTranscript = Arc<Mutex<Option<LiveTranscriptEngine>>>;
 
 pub fn session_supervisor_name(session_id: &str) -> String {
     format!("{}{}", SESSION_SUPERVISOR_PREFIX, session_id)

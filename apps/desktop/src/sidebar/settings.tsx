@@ -5,6 +5,7 @@ import {
   ArrowsClockwise,
   Bell,
   BookOpen,
+  Buildings,
   CalendarDots,
   ChartLineUp,
   Code,
@@ -168,7 +169,10 @@ export function SettingsNav() {
     },
     {
       label: t`Data`,
-      items: [{ id: "imports", label: t`Imports`, icon: DownloadSimple }],
+      items: [
+        { id: "imports", label: t`Imports`, icon: DownloadSimple },
+        { id: "crm", label: t`CRM`, icon: Buildings },
+      ],
     },
     {
       label: t`Advanced`,
@@ -241,7 +245,7 @@ export function SettingsNav() {
         </div>
       </div>
       <div className="scrollbar-hide flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-5 pb-2">
+        <div className="flex flex-col gap-5 pb-6">
           {visibleGroups.length === 0 ? (
             <div className="text-muted-foreground px-3 py-8 text-center">
               <MagnifyingGlass

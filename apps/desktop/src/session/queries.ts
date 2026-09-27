@@ -33,8 +33,9 @@ export {
   loadSessionSummariesByFolder,
   useFolderIcons,
   useFolderPaths,
+  useFolderWorkspaces,
 } from "./queries/folders";
-export type { FolderSessionSummary } from "./queries/folders";
+export type { FolderSessionSummary, FolderWorkspace } from "./queries/folders";
 export {
   applySessionProposal,
   declineSessionProposal,

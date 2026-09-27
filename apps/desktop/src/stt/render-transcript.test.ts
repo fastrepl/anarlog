@@ -171,6 +171,24 @@ describe("buildRenderTranscriptRequestFromRows", () => {
     expect(request?.participant_human_ids).toEqual(["self", "remote", "third"]);
   });
 
+  it("does not enable context mode before recording evidence exists", () => {
+    const request = buildRenderTranscriptRequestFromRows(
+      [transcripts.early] as unknown as TranscriptRow[],
+      {
+        selfHumanId: "self",
+        humans: [
+          { human_id: "self", name: "Me" },
+          { human_id: "remote", name: "Marco" },
+        ],
+      },
+      ["remote"],
+      { intervals: [] },
+    );
+
+    expect(request?.speaker_context).toBeUndefined();
+    expect(request?.participant_human_ids).toEqual(["remote"]);
+  });
+
   it("applies provider speaker hints before user assignments regardless of storage order", () => {
     const request = createRequest(["unordered"]);
 

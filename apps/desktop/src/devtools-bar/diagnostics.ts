@@ -4,7 +4,9 @@ import { getCloudsyncStatus } from "@anlg/plugin-db";
 import { commands as miscCommands } from "@anlg/plugin-misc";
 
 import { getTopIpcCommands, useDevtoolsMetrics } from "./metrics";
+import { readReactScanReport } from "./react-tools";
 import { getTopRenderedComponents } from "./render-tracker";
+import { readScanData } from "./scan-data";
 
 import { copyText } from "~/settings/developers/clipboard";
 
@@ -71,6 +73,10 @@ async function buildDiagnostics() {
       httpRequestsInFlight: metrics.requestsInFlight,
       renders: summarize(metrics.renders),
       memoryBytes: summarize(metrics.memoryBytes),
+    },
+    reactScan: {
+      components: readReactScanReport(),
+      events: readScanData().events,
     },
     topIpcCommands: getTopIpcCommands(),
     topRenderedComponents: getTopRenderedComponents(),

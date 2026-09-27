@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { generateText, type LanguageModel, Output } from "ai";
+import { useDebounceValue } from "usehooks-ts";
 import { z } from "zod";
 
 import {
@@ -25,6 +26,14 @@ const MAX_TOTAL_SOURCE_LENGTH = 48_000;
 // JSON; a tight cap truncates the output and fails every generation.
 const MAX_OUTPUT_TOKENS = 4_096;
 const GENERATION_TIMEOUT_MS = 45_000;
+const ATTEMPT_TIMEOUT_MS = 90_000;
+// Session sources are written continuously during capture and post-meeting
+// processing; keying the query off the live fingerprint aborts and restarts
+// generation on every write, so it can never finish.
+const SOURCE_SETTLE_MS = 3_000;
+// Emit the first session change immediately so generation can start while
+// the source is still moving, then only re-emit after the source goes quiet.
+const DEBOUNCE_OPTIONS = { leading: true };
 const SPACE_REGEX = /\s+/g;
 
 const contactSummarySchema = z.object({
@@ -54,18 +63,28 @@ export function useContactSummary({
   human,
   organizationName,
   sessions,
+  settleMs = SOURCE_SETTLE_MS,
 }: {
   human: HumanRecord | null;
   organizationName: string | null;
   sessions: HumanSessionRecord[];
+  settleMs?: number;
 }) {
   const model = useLanguageModel("enhance");
-  const sourceHash = createContactSummarySourceHash(sessions);
+  const [settledSessions] = useDebounceValue(
+    sessions,
+    settleMs,
+    DEBOUNCE_OPTIONS,
+  );
+  const sourceHash = createContactSummarySourceHash(settledSessions);
   const savedSummary = human?.summary ?? null;
   const needsGeneration = Boolean(
-    human && sessions.length > 0 && savedSummary?.sourceHash !== sourceHash,
+    human &&
+    settledSessions.length > 0 &&
+    savedSummary?.sourceHash !== sourceHash,
   );
 
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- The human id and settled source hash are the summary identity; live inputs stay out of the key so in-flight generation is not restarted.
   const query = useQuery({
     queryKey: ["contact-summary", human?.id ?? "", sourceHash],
     queryFn: async ({ signal }) => {
@@ -73,15 +92,22 @@ export function useContactSummary({
         throw new Error("Language model needed");
       }
 
+      const attempt = new AbortController();
+      signal.addEventListener("abort", () => attempt.abort(), { once: true });
+
       try {
-        return await generateAndSaveContactSummary({
-          human,
-          organizationName,
-          sessions,
-          sourceHash,
-          model,
-          signal,
-        });
+        return await withTimeout(
+          generateAndSaveContactSummary({
+            human,
+            organizationName,
+            sessions: settledSessions,
+            sourceHash,
+            model,
+            signal: attempt.signal,
+          }),
+          ATTEMPT_TIMEOUT_MS,
+          () => attempt.abort(),
+        );
       } catch (error) {
         if (!signal.aborted) {
           console.error("[contacts] failed to generate contact summary", error);
@@ -235,6 +261,7 @@ export async function generateAndSaveContactSummary({
       updatedAt: session.sourceUpdatedAt,
     })),
   };
+  signal?.throwIfAborted();
   await updateHumanContactSummary(human.id, summary);
   return summary;
 }
@@ -299,6 +326,22 @@ function truncateAtWord(text: string, maxLength: number): string {
   const lastSpace = slice.lastIndexOf(" ");
   const end = lastSpace > maxLength * 0.6 ? lastSpace : maxLength;
   return `${slice.slice(0, end).trim()}...`;
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  onTimeout: () => void,
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) =>
+      setTimeout(() => {
+        onTimeout();
+        reject(new Error("Contact summary generation timed out"));
+      }, ms),
+    ),
+  ]);
 }
 
 function createSourceHash(text: string): string {

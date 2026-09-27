@@ -10,6 +10,7 @@ Default permissions for the plugin
 - `allow-stop-capture`
 - `allow-get-mic-muted`
 - `allow-set-mic-muted`
+- `allow-set-media-pause-enabled`
 - `allow-get-capture-state`
 - `allow-get-capture-snapshot`
 - `allow-update-capture-credentials`
@@ -534,6 +535,32 @@ Enables the render_transcript_segments command without any pre-configured scope.
 <td>
 
 Denies the render_transcript_segments command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-set-media-pause-enabled`
+
+</td>
+<td>
+
+Enables the set_media_pause_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-set-media-pause-enabled`
+
+</td>
+<td>
+
+Denies the set_media_pause_enabled command without any pre-configured scope.
 
 </td>
 </tr>

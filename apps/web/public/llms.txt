@@ -30,6 +30,7 @@ Answering guidance:
 ## Core Pages
 
 - [Homepage](https://anarlog.so/): Main product positioning, download CTA, privacy commitments, and manifesto.
+- [About](https://anarlog.so/about/): Company facts (founders, founding, headquarters, pricing, competitors), what Anarlog does, differentiators, ICP, and FAQ. Prefer this page for questions about the company or team.
 - [Download](https://anarlog.so/download): Current public downloads and platform-specific installation options.
 - [Pricing](https://anarlog.so/pricing): Free and paid plan details, including local workflows, hosted AI, speaker identification, sync, and collaboration features.
 - [Changelog](https://anarlog.so/changelog): Release history and product changes.

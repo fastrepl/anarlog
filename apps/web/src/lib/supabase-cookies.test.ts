@@ -1,7 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { toSetCookieOptions } from "./supabase-cookies.ts";
+import {
+  filterInvalidSupabaseCookies,
+  toSetCookieOptions,
+} from "./supabase-cookies.ts";
+
+test("drops all chunks of a malformed base64 auth cookie", () => {
+  const cookies = [
+    { name: "sb-example-auth-token.0", value: "base64-eyJmb28iOiJiYXIifQ" },
+    { name: "sb-example-auth-token.1", value: "base64-_w" },
+    { name: "unrelated", value: "base64-_w" },
+  ];
+
+  assert.deepEqual(filterInvalidSupabaseCookies(cookies), [cookies[2]]);
+});
+
+test("preserves valid base64 cookies and raw cookies", () => {
+  const cookies = [
+    { name: "sb-example-auth-token", value: "base64-eyJmb28iOiJiYXIifQ" },
+    { name: "sb-example-code-verifier", value: "verifier" },
+  ];
+
+  assert.deepEqual(filterInvalidSupabaseCookies(cookies), cookies);
+});
 
 test("forwards PKCE cookie options onto the document", () => {
   const options = toSetCookieOptions({

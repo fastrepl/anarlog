@@ -23,6 +23,7 @@
         "group": "Using Anarlog",
         "pages": [
           "meetings",
+          "dictation",
           "automatic-capture",
           "import-recordings",
           "imports",
@@ -33,6 +34,7 @@
           "chat",
           "customize-summaries",
           "calendar",
+          "contacts",
           "sync",
           "automations",
           "languages"

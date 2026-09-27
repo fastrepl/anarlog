@@ -5,7 +5,6 @@ mod error;
 mod ext;
 mod state;
 
-pub use anlg_storage::ObsidianVault;
 pub use error::{Error, Result};
 pub use ext::*;
 pub use state::*;
@@ -19,13 +18,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::settings_path::<tauri::Wry>,
             commands::global_base::<tauri::Wry>,
             commands::vault_base::<tauri::Wry>,
-            commands::copy_vault::<tauri::Wry>,
-            commands::move_vault::<tauri::Wry>,
-            commands::set_vault_base::<tauri::Wry>,
-            commands::is_empty_or_missing_dir::<tauri::Wry>,
             commands::load::<tauri::Wry>,
             commands::save::<tauri::Wry>,
-            commands::obsidian_vaults::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)

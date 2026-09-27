@@ -71,7 +71,7 @@ function HeaderViewRawButton({
     <IconHeaderView
       isActive={isActive}
       label={label || t`Memos`}
-      icon={<TextAlignLeft className="size-4" />}
+      icon={<TextAlignLeft className="size-3.5" />}
       onClick={onClick}
       onContextMenu={onContextMenu}
       size={standalone ? "standalone" : "tray"}

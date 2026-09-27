@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback } from "react";
 
 import { dismissInstruction } from "@anlg/plugin-windows";
@@ -26,6 +27,10 @@ function InstructionRoute() {
   const { type, url, integrationId } = Route.useSearch();
   const handleBack = useHandleBack();
   const onBack = useCallback(() => void handleBack(), [handleBack]);
+  const onClose = useCallback(
+    () => void handleBack().then(() => getCurrentWindow().close()),
+    [handleBack],
+  );
   const onCleanup = useCallback(() => {
     if (type === "billing") {
       void auth.refreshSession();
@@ -38,6 +43,7 @@ function InstructionRoute() {
       url={url}
       integrationId={integrationId}
       onBack={onBack}
+      onClose={onClose}
       onCleanup={onCleanup}
     />
   );

@@ -73,6 +73,10 @@ impl RealtimeSttAdapter for SonioxAdapter {
             .map(|lang| lang.iso639().code().to_string())
             .collect();
 
+        // The realtime API has no speaker-count fields; declaring exactly one speaker
+        // makes diarization pointless, so that is how a single-speaker stream opts out.
+        let single_speaker = params.num_speakers == Some(1) || params.max_speakers == Some(1);
+
         let cfg = SonioxConfig {
             api_key,
             model,
@@ -82,7 +86,7 @@ impl RealtimeSttAdapter for SonioxAdapter {
             language_hints_strict: language_hints.len() == 1,
             language_hints,
             enable_endpoint_detection: true,
-            enable_speaker_diarization: true,
+            enable_speaker_diarization: !single_speaker,
             context,
         };
 
@@ -369,6 +373,34 @@ mod tests {
                 || !json["language_hints_strict"].as_bool().unwrap_or(false),
             "Multiple language hints should not enable strict restriction"
         );
+    }
+
+    #[test]
+    fn initial_message_diarizes_open_ended_streams() {
+        let adapter = SonioxAdapter;
+        let params = owhisper_interface::ListenParams::default();
+
+        let json = extract_initial_message_json(&adapter, &params);
+
+        assert_eq!(json["enable_speaker_diarization"].as_bool(), Some(true));
+    }
+
+    #[test]
+    fn initial_message_skips_diarization_for_single_speaker_streams() {
+        let adapter = SonioxAdapter;
+        for params in [
+            owhisper_interface::ListenParams {
+                num_speakers: Some(1),
+                ..Default::default()
+            },
+            owhisper_interface::ListenParams {
+                max_speakers: Some(1),
+                ..Default::default()
+            },
+        ] {
+            let json = extract_initial_message_json(&adapter, &params);
+            assert_eq!(json["enable_speaker_diarization"].as_bool(), Some(false));
+        }
     }
 
     #[test]

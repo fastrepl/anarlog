@@ -40,6 +40,7 @@ function dependencies(overrides = {}) {
     getDevice: async () => ({ fingerprint: "device-1234" }),
     enrollDevice: async () => ({ status: "first_device" }),
     bootstrap: async () => "configured",
+    shareEnrollments: async () => {},
     stop: async () => {},
     syncNow: async () => {},
     getStatus: async () => status,
@@ -180,14 +181,16 @@ test("rolls back secure storage when the server rejects a new identity", async (
         saved = null;
       },
       claimIdentity: async () => {
-        throw new Error("identity mismatch");
+        throw Object.assign(new Error("identity mismatch"), {
+          code: "identity_mismatch",
+        });
       },
     }),
     0,
     0,
   );
   controller.activate(session);
-  await waitFor(() => controller.getSnapshot().phase === "error");
+  await waitFor(() => controller.getSnapshot().phase === "approval_pending");
   assert.equal(deleted, true);
   assert.equal(saved, null);
 });
@@ -260,7 +263,9 @@ test("keeps a recovered enrollment reusable until identity claim succeeds", asyn
         },
       }),
       claimIdentity: async () => {
-        throw new Error("identity mismatch");
+        throw Object.assign(new Error("identity mismatch"), {
+          code: "identity_mismatch",
+        });
       },
     }),
     0,
@@ -268,7 +273,7 @@ test("keeps a recovered enrollment reusable until identity claim succeeds", asyn
   );
   controller.activate(session);
 
-  await waitFor(() => controller.getSnapshot().phase === "error");
+  await waitFor(() => controller.getSnapshot().phase === "identity_mismatch");
   assert.equal(saved, null);
   assert.equal(enrollmentCompleted, false);
 });
@@ -401,4 +406,59 @@ test("coalesces foreground and manual sync requests while one is active", async 
   finishSync();
   await Promise.all([foregroundSync, manualSync]);
   assert.equal(controller.getSnapshot().syncingNow, false);
+});
+
+test("shares keys once sync is ready and cancels sharing on sign-out", async () => {
+  let activeSignal;
+  let sharedSession;
+  const controller = new MobileSyncController(
+    dependencies({
+      shareEnrollments: async (session, signal) => {
+        sharedSession = session;
+        activeSignal = signal;
+        await new Promise((resolve) =>
+          signal.addEventListener("abort", resolve),
+        );
+      },
+    }),
+    0,
+    0,
+  );
+  const stop = controller.activate(session);
+  await waitFor(() => activeSignal !== undefined);
+  assert.deepEqual(sharedSession, session);
+  stop();
+  assert.equal(activeSignal.aborted, true);
+});
+
+test("retains the first-device key when the claim response is lost", async () => {
+  let saved = null;
+  let bootstrapKey;
+  const controller = new MobileSyncController(
+    dependencies({
+      readRecoveryKey: async () => saved,
+      saveRecoveryKey: async (_account, key) => {
+        saved = key;
+      },
+      deleteRecoveryKey: async () => {
+        saved = null;
+      },
+      claimIdentity: async () => {
+        throw new Error("response lost");
+      },
+      bootstrap: async (_session, key) => {
+        bootstrapKey = key;
+        return "configured";
+      },
+    }),
+    0,
+    0,
+  );
+  controller.activate(session);
+  await waitFor(() => controller.getSnapshot().phase === "error");
+  assert.equal(saved, "generated-recovery-key");
+  controller.retry();
+  await waitFor(() => controller.getSnapshot().phase === "ready");
+  assert.equal(bootstrapKey, "generated-recovery-key");
+  controller.suspend();
 });

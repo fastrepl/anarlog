@@ -17,6 +17,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as DiscordRouteImport } from './routes/discord'
 import { Route as ConfirmAuthRouteImport } from './routes/confirm-auth'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as ViewRouteRouteImport } from './routes/_view/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as YcIndexRouteImport } from './routes/yc/index'
@@ -100,6 +101,11 @@ const ConfirmAuthRoute = ConfirmAuthRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ViewRouteRoute = ViewRouteRouteImport.update({
@@ -328,6 +334,7 @@ const ApiOgShareLinkShareIdRoute = ApiOgShareLinkShareIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/confirm-auth': typeof ConfirmAuthRoute
   '/discord': typeof DiscordRoute
@@ -381,6 +388,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/confirm-auth': typeof ConfirmAuthRoute
   '/discord': typeof DiscordRoute
@@ -435,6 +443,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_view': typeof ViewRouteRouteWithChildren
+  '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/confirm-auth': typeof ConfirmAuthRoute
   '/discord': typeof DiscordRoute
@@ -490,6 +499,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/auth'
     | '/confirm-auth'
     | '/discord'
@@ -543,6 +553,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/auth'
     | '/confirm-auth'
     | '/discord'
@@ -596,6 +607,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_view'
+    | '/about'
     | '/auth'
     | '/confirm-auth'
     | '/discord'
@@ -651,6 +663,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ViewRouteRoute: typeof ViewRouteRouteWithChildren
+  AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRoute
   ConfirmAuthRoute: typeof ConfirmAuthRoute
   DiscordRoute: typeof DiscordRoute
@@ -742,6 +755,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_view': {
@@ -1112,6 +1132,7 @@ const ViewRouteRouteWithChildren = ViewRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ViewRouteRoute: ViewRouteRouteWithChildren,
+  AboutRoute: AboutRoute,
   AuthRoute: AuthRoute,
   ConfirmAuthRoute: ConfirmAuthRoute,
   DiscordRoute: DiscordRoute,

@@ -1,20 +1,14 @@
 import { MDXContent } from "@content-collections/mdx/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import type { Article, ArticleSummary } from "content-collections";
-import {
-  Children,
-  cloneElement,
-  isValidElement,
-  type ComponentProps,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { ComponentProps } from "react";
 
 import { ArrowLeft, ArrowRight } from "@anlg/ui/components/icons";
 
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
 import { formatBlogDate } from "@/lib/blog-date";
+import { prepareBlogTable } from "@/lib/blog-table";
 import {
   getBlogOgImageUrl,
   getBlogPostingJsonLd,
@@ -243,100 +237,18 @@ function RelatedArticles({ articles }: { articles: ArticleSummary[] }) {
 }
 
 function BlogTable({ children, ...props }: ComponentProps<"table">) {
+  const table = prepareBlogTable(children);
   return (
     <div className="my-6 overflow-x-auto">
-      <table {...props}>{normalizeTableChildren(children)}</table>
+      <table
+        {...props}
+        role="table"
+        data-mobile-stack={table.stackOnMobile || undefined}
+      >
+        {table.children}
+      </table>
     </div>
   );
-}
-
-type ElementWithChildren = ReactElement<{ children?: ReactNode }>;
-
-function normalizeTableChildren(children: ReactNode) {
-  return Children.toArray(children).map((child) => {
-    const element = getElementWithChildren(child);
-
-    if (!element) {
-      return child;
-    }
-
-    if (element.type === "thead") {
-      const rows = Children.toArray(element.props.children);
-      return rows.length > 0 && rows.every(isBlankTableRow) ? null : child;
-    }
-
-    if (element.type !== "tbody") {
-      return child;
-    }
-
-    const rows = Children.toArray(element.props.children);
-    const visibleRows = rows.filter((row) => !isBlankTableRow(row));
-
-    if (visibleRows.length === rows.length) {
-      return child;
-    }
-
-    return visibleRows.length > 0
-      ? cloneElement(element, undefined, visibleRows)
-      : null;
-  });
-}
-
-function isBlankTableRow(row: ReactNode) {
-  const element = getElementWithChildren(row);
-
-  if (!element || element.type !== "tr") {
-    return false;
-  }
-
-  const cells = Children.toArray(element.props.children);
-  return cells.length > 0 && cells.every(isBlankTableCell);
-}
-
-function isBlankTableCell(cell: ReactNode) {
-  const element = getElementWithChildren(cell);
-
-  if (!element || (element.type !== "td" && element.type !== "th")) {
-    return false;
-  }
-
-  return isBlankNode(element.props.children);
-}
-
-function isBlankNode(node: ReactNode): boolean {
-  if (node === null || node === undefined || typeof node === "boolean") {
-    return true;
-  }
-
-  if (typeof node === "string" || typeof node === "number") {
-    return (
-      String(node)
-        .replace(/\u00a0/g, " ")
-        .trim() === ""
-    );
-  }
-
-  const element = getElementWithChildren(node);
-  if (element) {
-    const { children } = element.props;
-
-    if (
-      children === null ||
-      children === undefined ||
-      typeof children === "boolean"
-    ) {
-      return false;
-    }
-
-    return isBlankNode(children);
-  }
-
-  const children = Children.toArray(node);
-  return children.length === 0 || children.every(isBlankNode);
-}
-
-function getElementWithChildren(node: ReactNode): ElementWithChildren | null {
-  return isValidElement<{ children?: ReactNode }>(node) ? node : null;
 }
 
 function BlogArticleCta() {

@@ -262,6 +262,11 @@ export function SelectProviderAndModel() {
               <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
+              {providerOptions.length === 0 && (
+                <div className="text-muted-foreground px-2 py-3 text-center text-sm">
+                  <Trans>No providers found.</Trans>
+                </div>
+              )}
               {providerOptions.map((provider) => {
                 const configured =
                   configuredProviders[provider.id]?.configured ?? false;

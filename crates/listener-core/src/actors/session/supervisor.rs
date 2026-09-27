@@ -13,7 +13,7 @@ use crate::DegradedError;
 use crate::actors::session::types::{
     SessionConfigUpdate, SessionContext, SessionParams, session_span, session_supervisor_name,
 };
-use crate::actors::{ListenerConfigUpdate, ListenerInitError, ListenerMsg};
+use crate::actors::{ChannelMode, ListenerConfigUpdate, ListenerInitError, ListenerMsg};
 
 use self::children::ChildKind;
 use self::mode::SessionModeState;
@@ -26,6 +26,7 @@ const LISTENER_RETRY_DELAYS: [Duration; 5] = [
     Duration::from_secs(30),
 ];
 const MAX_LISTENER_RETRY_AFTER: Duration = Duration::from_secs(30);
+const RECORDER_RETRY_DELAY: Duration = Duration::from_secs(5);
 
 pub struct SessionState {
     ctx: SessionContext,
@@ -36,6 +37,7 @@ pub struct SessionState {
     recorder_restarts: anlg_supervisor::RestartTracker,
     mode: SessionModeState,
     listener_retry_attempt: usize,
+    listener_mic_isolated: bool,
     shutting_down: bool,
 }
 
@@ -72,7 +74,7 @@ impl Actor for SessionActor {
                 Ok(cell) => Some(cell),
                 Err(error) => {
                     emit_storage_error(&ctx, &error.to_string());
-                    myself.send_after(Duration::from_secs(30), || SessionMsg::RetryRecorder);
+                    myself.send_after(RECORDER_RETRY_DELAY, || SessionMsg::RetryRecorder);
                     None
                 }
             };
@@ -94,6 +96,7 @@ impl Actor for SessionActor {
                 recorder_restarts: anlg_supervisor::RestartTracker::new(),
                 mode,
                 listener_retry_attempt: 0,
+                listener_mic_isolated: false,
                 shutting_down: false,
             })
         }
@@ -116,8 +119,9 @@ impl Actor for SessionActor {
             }
 
             match children::spawn_listener(myself.get_cell(), &state.ctx, None).await {
-                Ok(listener_cell) => {
+                Ok((listener_cell, mic_isolated)) => {
                     state.listener_cell = Some(listener_cell);
+                    state.listener_mic_isolated = mic_isolated;
                     state.mode.on_listener_attached();
                     children::attach_listener_to_source(state).await;
                 }
@@ -162,7 +166,7 @@ impl Actor for SessionActor {
                         .recorder_restarts
                         .maybe_reset(&children::RECORDER_RESTART_BUDGET);
                     if !children::try_restart_recorder(myself.get_cell(), state).await {
-                        myself.send_after(Duration::from_secs(30), || SessionMsg::RetryRecorder);
+                        myself.send_after(RECORDER_RETRY_DELAY, || SessionMsg::RetryRecorder);
                     }
                 }
             }
@@ -224,6 +228,8 @@ impl Actor for SessionActor {
                             {
                                 tracing::error!("source_restart_limit_exceeded_meltdown");
                                 meltdown(myself, state).await;
+                            } else {
+                                refresh_listener_on_isolation_change(&myself, state).await;
                             }
                         }
                         Some(ChildKind::Recorder) => {
@@ -234,8 +240,7 @@ impl Actor for SessionActor {
                                 &state.ctx,
                                 reason.as_deref().unwrap_or("Audio saving stopped"),
                             );
-                            myself
-                                .send_after(Duration::from_secs(30), || SessionMsg::RetryRecorder);
+                            myself.send_after(RECORDER_RETRY_DELAY, || SessionMsg::RetryRecorder);
                         }
                         None => {
                             tracing::warn!("unknown_child_terminated");
@@ -263,6 +268,8 @@ impl Actor for SessionActor {
                             if !children::try_restart_source(myself.get_cell(), state, true).await {
                                 tracing::error!("source_restart_limit_exceeded_meltdown");
                                 meltdown(myself, state).await;
+                            } else {
+                                refresh_listener_on_isolation_change(&myself, state).await;
                             }
                         }
                         Some(ChildKind::Recorder) => {
@@ -270,8 +277,7 @@ impl Actor for SessionActor {
                             state.recorder_cell = None;
                             children::sync_source_recorder(state).await;
                             emit_storage_error(&state.ctx, &error.to_string());
-                            myself
-                                .send_after(Duration::from_secs(30), || SessionMsg::RetryRecorder);
+                            myself.send_after(RECORDER_RETRY_DELAY, || SessionMsg::RetryRecorder);
                         }
                         None => {
                             tracing::warn!("unknown_child_failed");
@@ -396,8 +402,9 @@ async fn refresh_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState
         (state.ctx.started_at_instant.elapsed().as_secs_f64() - replay_duration_secs).max(0.0);
 
     match children::spawn_listener(myself.get_cell(), &state.ctx, Some(replay_offset_secs)).await {
-        Ok(listener_cell) => {
+        Ok((listener_cell, mic_isolated)) => {
             state.listener_cell = Some(listener_cell);
+            state.listener_mic_isolated = mic_isolated;
             state.mode.on_listener_attached();
             children::attach_listener_to_source(state).await;
         }
@@ -407,6 +414,28 @@ async fn refresh_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState
             let degraded = classify_listener_spawn_failure(state, &error);
             handle_listener_failure(&myself, state, degraded, retry_after).await;
         }
+    }
+}
+
+// A source restart can change audio routing (headphones unplugging, a mic swap),
+// which can flip the mic-isolation verdict the listener's provider session was
+// opened with. That session cannot be renegotiated, so refresh the listener.
+async fn refresh_listener_on_isolation_change(
+    myself: &ActorRef<SessionMsg>,
+    state: &mut SessionState,
+) {
+    if state.listener_cell.is_none() {
+        return;
+    }
+
+    let mic_isolated = ChannelMode::determine(state.ctx.params.onboarding)
+        == ChannelMode::MicAndSpeaker
+        && crate::actors::source::mic_isolated(
+            &state.ctx.params.mic_device,
+            state.ctx.audio.as_ref(),
+        );
+    if mic_isolated != state.listener_mic_isolated {
+        refresh_listener(myself.clone(), state).await;
     }
 }
 
@@ -536,12 +565,13 @@ async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) 
         (state.ctx.started_at_instant.elapsed().as_secs_f64() - replay_duration_secs).max(0.0);
 
     match children::spawn_listener(myself.get_cell(), &state.ctx, Some(replay_offset_secs)).await {
-        Ok(listener_cell) => {
+        Ok((listener_cell, mic_isolated)) => {
             tracing::info!(
                 attempts = state.listener_retry_attempt,
                 "listener_reconnected"
             );
             state.listener_cell = Some(listener_cell);
+            state.listener_mic_isolated = mic_isolated;
             state.listener_retry_attempt = 0;
             state.mode.on_listener_attached();
             children::attach_listener_to_source(state).await;
@@ -782,6 +812,7 @@ mod tests {
             app_dir: std::env::temp_dir(),
             started_at_instant: Instant::now(),
             started_at_system: SystemTime::now(),
+            live_transcript: Default::default(),
         }
     }
 
@@ -795,6 +826,7 @@ mod tests {
             recorder_restarts: RestartTracker::new(),
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             listener_retry_attempt: 0,
+            listener_mic_isolated: false,
             shutting_down: false,
         }
     }
@@ -1164,6 +1196,7 @@ mod tests {
             recorder_restarts: RestartTracker::new(),
             mode: SessionModeState::new(TranscriptionMode::Live, TranscriptionMode::Live),
             listener_retry_attempt: 0,
+            listener_mic_isolated: false,
             shutting_down: false,
         };
 

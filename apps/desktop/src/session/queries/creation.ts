@@ -7,6 +7,10 @@ import {
 
 import type { SessionChanges } from "./types";
 
+import {
+  deriveContactIdentity,
+  HUMAN_NAME_IS_PLACEHOLDER_SQL,
+} from "~/contacts/identity";
 import { executeTransaction, liveQueryClient } from "~/db";
 import { ensureFolderCatalog } from "~/session/folder-catalog";
 import { normalizeFolderPath } from "~/session/folders";
@@ -49,11 +53,17 @@ export async function createSession(
           id, workspace_id, owner_user_id, title, event_json, folder_path,
           created_at, updated_at, deleted_at
         ) VALUES (
-          ?, NULLIF((
-            SELECT json_extract(value_json, '$.workspace_id')
-            FROM app_settings
-            WHERE id = 'cloudsync_workspace_binding'
-          ), ''), COALESCE(
+          ?, COALESCE(
+            (SELECT NULLIF(folder.workspace_id, '') FROM folders AS folder
+              WHERE folder.deleted_at IS NULL AND folder.workspace_id <> ''
+                AND folder.path = ?
+              LIMIT 1),
+            NULLIF((
+              SELECT json_extract(value_json, '$.workspace_id')
+              FROM app_settings
+              WHERE id = 'cloudsync_workspace_binding'
+            ), '')
+          ), COALESCE(
             (SELECT library_workspace_id FROM local_library_connections WHERE active = 1),
             NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
             NULLIF((
@@ -66,6 +76,7 @@ export async function createSession(
       `,
       params: [
         sessionId,
+        folderPath,
         userId,
         title,
         initial?.event_json ?? "",
@@ -305,14 +316,58 @@ function eventParticipantStatements(
     seenEmails.add(emailKey);
 
     const humanId = humansByEmail.get(emailKey) ?? id();
+    const identity = deriveContactIdentity({ name: participant.name, email });
     if (!humansByEmail.has(emailKey)) {
+      if (identity.companyName) {
+        statements.push({
+          sql: `
+            INSERT INTO organizations (
+              id, workspace_id, owner_user_id, name, memo, pinned, pin_order,
+              metadata_json, created_at, updated_at, deleted_at
+            )
+            SELECT ?, session.workspace_id, session.owner_user_id, ?, '', 0, NULL,
+              '{}', ?, ?, NULL
+            FROM sessions AS session
+            WHERE session.id = ? AND session.deleted_at IS NULL
+              AND ? <> session.owner_user_id
+              AND NOT EXISTS (
+                SELECT 1
+                FROM organizations
+                WHERE lower(name) = lower(?) AND deleted_at IS NULL
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM humans
+                WHERE lower(email) = lower(?) AND deleted_at IS NULL
+              )
+          `,
+          params: [
+            id(),
+            identity.companyName,
+            now,
+            now,
+            sessionId,
+            humanId,
+            identity.companyName,
+            email,
+          ],
+        });
+      }
       statements.push({
         sql: `
           INSERT INTO humans (
-            id, workspace_id, owner_user_id, name, email, created_at,
-            updated_at, deleted_at
+            id, workspace_id, owner_user_id, name, email, organization_id,
+            created_at, updated_at, deleted_at
           )
-          SELECT ?, session.workspace_id, session.owner_user_id, ?, ?, ?, ?, NULL
+          SELECT ?, session.workspace_id, session.owner_user_id, ?, ?,
+            COALESCE((
+              SELECT id
+              FROM organizations
+              WHERE deleted_at IS NULL AND ? <> '' AND lower(name) = lower(?)
+              ORDER BY created_at, id
+              LIMIT 1
+            ), ''),
+            ?, ?, NULL
           FROM sessions AS session
           WHERE session.id = ? AND session.deleted_at IS NULL
             AND ? <> session.owner_user_id
@@ -324,13 +379,92 @@ function eventParticipantStatements(
         `,
         params: [
           humanId,
-          participant.name || email,
+          identity.name,
           email,
+          identity.companyName ?? "",
+          identity.companyName ?? "",
           now,
           now,
           sessionId,
           humanId,
           email,
+        ],
+      });
+    } else {
+      if (identity.companyName) {
+        statements.push({
+          sql: `
+            INSERT INTO organizations (
+              id, workspace_id, owner_user_id, name, memo, pinned, pin_order,
+              metadata_json, created_at, updated_at, deleted_at
+            )
+            SELECT ?, session.workspace_id, session.owner_user_id, ?, '', 0, NULL,
+              '{}', ?, ?, NULL
+            FROM sessions AS session
+            WHERE session.id = ? AND session.deleted_at IS NULL
+              AND ? <> session.owner_user_id
+              AND EXISTS (
+                SELECT 1
+                FROM humans
+                WHERE id = ? AND organization_id = '' AND deleted_at IS NULL
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM organizations
+                WHERE lower(name) = lower(?) AND deleted_at IS NULL
+              )
+          `,
+          params: [
+            id(),
+            identity.companyName,
+            now,
+            now,
+            sessionId,
+            humanId,
+            humanId,
+            identity.companyName,
+          ],
+        });
+      }
+      statements.push({
+        sql: `
+          UPDATE humans
+          SET
+            name = CASE
+              WHEN ${HUMAN_NAME_IS_PLACEHOLDER_SQL} THEN ? ELSE name
+            END,
+            organization_id = CASE
+              WHEN organization_id = '' THEN COALESCE((
+                SELECT id
+                FROM organizations
+                WHERE deleted_at IS NULL AND ? <> '' AND lower(name) = lower(?)
+                ORDER BY created_at, id
+                LIMIT 1
+              ), '')
+              ELSE organization_id
+            END,
+            updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+            AND (
+              ${HUMAN_NAME_IS_PLACEHOLDER_SQL}
+              OR (organization_id = '' AND ? <> '')
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM sessions AS session
+              WHERE session.id = ? AND session.deleted_at IS NULL
+                AND ? <> session.owner_user_id
+            )
+        `,
+        params: [
+          identity.name,
+          identity.companyName ?? "",
+          identity.companyName ?? "",
+          now,
+          humanId,
+          identity.companyName ?? "",
+          sessionId,
+          humanId,
         ],
       });
     }
@@ -376,7 +510,7 @@ function eventParticipantStatements(
       params: [
         id(),
         humanId,
-        participant.name || email,
+        identity.name,
         email,
         now,
         now,

@@ -13,6 +13,8 @@ import {
 } from "@anlg/plugin-db";
 import { toast } from "@anlg/ui/components/ui/toast";
 
+import { startAutomaticDeviceEnrollment } from "./automatic-device-enrollment";
+import { establishAutomaticSyncIdentity } from "./automatic-sync-identity";
 import { configureCloudsyncCredentials } from "./cloudsync-configuration";
 import {
   DEVICE_LIMIT_ERROR_CODE,
@@ -67,6 +69,7 @@ export type CloudsyncAuthChangeResult = "ok" | "account_mismatch";
 
 type CloudsyncAccountMismatchHandler = () => Promise<void>;
 
+let stopAutomaticEnrollment: (() => void) | null = null;
 let generation = 0;
 let exchangeController: AbortController | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -86,6 +89,8 @@ let currentCloudsyncReactivation: {
 } | null = null;
 
 function beginTransition() {
+  stopAutomaticEnrollment?.();
+  stopAutomaticEnrollment = null;
   generation += 1;
   exchangeController?.abort();
   exchangeController = null;
@@ -468,6 +473,10 @@ function serviceCurrentCloudsyncCleanup() {
 async function suspendCloudsyncAfterCredentialRejection(
   activeGeneration: number,
 ) {
+  if (activeGeneration === generation) {
+    stopAutomaticEnrollment?.();
+    stopAutomaticEnrollment = null;
+  }
   const cleanup = await settleCloudsyncOperationWithin(
     suspendCloudsyncPreemptivelyForGeneration(activeGeneration, false),
   );
@@ -937,7 +946,19 @@ async function activateCloudsync(
     if (!identity.configured) {
       let enrollment: Awaited<ReturnType<typeof enrollCurrentDevice>>;
       try {
-        enrollment = await enrollCurrentDevice(session, activeGeneration);
+        const established = await establishAutomaticSyncIdentity(
+          session.user.id,
+          session.access_token,
+          () => activeGeneration === generation && !isCleanupSuspendRequired(),
+        );
+        if (activeGeneration !== generation) return "ok";
+        if (isCleanupSuspendRequired()) {
+          scheduleReactivation();
+          return "ok";
+        }
+        enrollment = established
+          ? "imported"
+          : await enrollCurrentDevice(session, activeGeneration);
       } catch (error) {
         if (activeGeneration !== generation) {
           return "ok";
@@ -1372,6 +1393,12 @@ async function activateCloudsync(
     scheduleActivationRetry(session, activeGeneration, onAccountMismatch);
     return "ok";
   }
+
+  stopAutomaticEnrollment?.();
+  stopAutomaticEnrollment = startAutomaticDeviceEnrollment(
+    session.user.id,
+    session.access_token,
+  );
 
   const timeUntilExpiryMs = expiresAtMs - Date.now();
   const refreshLeadMs = Math.min(

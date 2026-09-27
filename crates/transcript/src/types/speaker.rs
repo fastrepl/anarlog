@@ -82,11 +82,13 @@ fn unique_other_participant<'a>(
     participant_human_ids: &'a [String],
     self_human_id: &str,
 ) -> Option<&'a str> {
-    let others: Vec<&str> = participant_human_ids
-        .iter()
-        .map(|s| s.as_str())
-        .filter(|&id| !id.is_empty() && id != self_human_id)
-        .collect();
+    let mut others: Vec<&str> = Vec::new();
+    for id in participant_human_ids.iter().map(|s| s.as_str()) {
+        if id.is_empty() || id == self_human_id || others.contains(&id) {
+            continue;
+        }
+        others.push(id);
+    }
 
     if others.len() == 1 {
         Some(others[0])
@@ -118,6 +120,36 @@ mod tests {
     fn assigns_unique_remote_to_remote_party() {
         let assignments = channel_assignments_for_participants(
             &["self".to_string(), "remote".to_string()],
+            Some("self"),
+        );
+
+        assert_eq!(
+            assignments,
+            vec![
+                IdentityAssignment {
+                    human_id: "self".to_string(),
+                    scope: IdentityScope::Channel {
+                        channel: ChannelProfile::DirectMic,
+                    },
+                },
+                IdentityAssignment {
+                    human_id: "remote".to_string(),
+                    scope: IdentityScope::Channel {
+                        channel: ChannelProfile::RemoteParty,
+                    },
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn treats_repeated_remote_ids_as_one_remote() {
+        let assignments = channel_assignments_for_participants(
+            &[
+                "self".to_string(),
+                "remote".to_string(),
+                "remote".to_string(),
+            ],
             Some("self"),
         );
 

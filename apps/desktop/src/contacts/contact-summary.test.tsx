@@ -243,6 +243,131 @@ describe("contact summary", () => {
     expect(prompt.existing_facts).toBeUndefined();
   });
 
+  it("starts the first summary as soon as sessions arrive", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const props = {
+      human: makeHuman(),
+      organizationName: "Fastrepl",
+      sessions: [] as HumanSessionRecord[],
+      settleMs: 200,
+    };
+    const { rerender } = renderHook(
+      (nextProps: typeof props) => useContactSummary(nextProps),
+      { wrapper, initialProps: props },
+    );
+
+    expect(mocks.generateText).not.toHaveBeenCalled();
+
+    // A session appearing while writes keep arriving must not wait out the
+    // settle window before generating.
+    rerender({ ...props, sessions: makeSessions() });
+
+    await waitFor(() => {
+      expect(mocks.generateText).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("does not restart generation while session updates keep arriving", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    let resolveGeneration!: (value: { output: { facts: string[] } }) => void;
+    mocks.generateText.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveGeneration = resolve;
+        }),
+    );
+
+    const props = {
+      human: makeHuman(),
+      organizationName: "Fastrepl",
+      sessions: makeSessions(),
+      settleMs: 200,
+    };
+    const { rerender, result } = renderHook(
+      (nextProps: typeof props) => useContactSummary(nextProps),
+      { wrapper, initialProps: props },
+    );
+
+    await waitFor(() => {
+      expect(mocks.generateText).toHaveBeenCalledOnce();
+    });
+
+    // Writes landing in the same burst emit once at the leading edge, so a
+    // single restart picks up the newest fingerprint...
+    rerender({
+      ...props,
+      sessions: makeSessions().map((session) => ({
+        ...session,
+        sourceUpdatedAt: "2026-08-11T12:00:01.000Z",
+      })),
+    });
+    await waitFor(() => {
+      expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(result.current.isGenerating).toBe(false);
+    });
+
+    // ...and further continuous writes (recording, enhance, edits) spanning
+    // several settle windows emit nothing until the source goes quiet.
+    for (let bump = 2; bump <= 4; bump++) {
+      rerender({
+        ...props,
+        sessions: makeSessions().map((session) => ({
+          ...session,
+          sourceUpdatedAt: `2026-08-11T12:00:0${bump}.000Z`,
+        })),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+
+    // Once the source goes quiet, exactly one follow-up run picks up the
+    // newest fingerprint instead of restarting per write.
+    mocks.generateText.mockResolvedValue({
+      output: {
+        facts: ["A.", "B.", "C."],
+      },
+    });
+    await waitFor(() => {
+      expect(mocks.generateText).toHaveBeenCalledTimes(3);
+    });
+    await waitFor(() => {
+      expect(result.current.isGenerating).toBe(false);
+    });
+
+    // The superseded run resolving late must not overwrite the newer saved
+    // summary: it is aborted, so it never reaches the write.
+    resolveGeneration({
+      output: { facts: ["Stale.", "Facts.", "Here."] },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mocks.updateHumanContactSummary).toHaveBeenCalledTimes(2);
+    expect(mocks.updateHumanContactSummary).toHaveBeenLastCalledWith(
+      "human-1",
+      expect.objectContaining({
+        sourceHash: createContactSummarySourceHash(
+          makeSessions().map((session) => ({
+            ...session,
+            sourceUpdatedAt: "2026-08-11T12:00:04.000Z",
+          })),
+        ),
+      }),
+    );
+  });
+
   it("automatically generates a stale summary when the contact is viewed", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

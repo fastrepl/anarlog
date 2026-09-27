@@ -17,8 +17,9 @@ After applying a memo or summary edit, use the editor's **Undo** command to rest
 
 ## Correct a transcript
 
-- Click **Write** above the transcript to edit its text. Click **Done writing** when you finish.
-- Select words or a transcript segment and choose **Change speaker** to fix only that selection.
+- After recording stops, click **Write** above the transcript to edit its text. Save with Command/Ctrl+S and press Escape to return to reading.
+- Select words or a transcript segment and choose **Change speaker** to fix only that selection. In write mode, press Enter at the cursor to open the speaker picker; selected text can become its own speaker block.
+- Select transcript blocks and delete them together. Adjacent blocks assigned to the same speaker merge.
 - Select a speaker label to choose an existing participant or **Create new speaker**. Use **Apply to all** to update every matching speaker segment.
 - Right-click **Transcript** to copy the transcript, resume listening, re-transcribe retained audio, or delete the recording.
 
@@ -48,7 +49,7 @@ See [Share meetings](/sharing) for access levels, comments, and link controls.
 
 In the desktop app, open **Settings → Insights** to see your busiest weekdays, typical conversation length, and conversations per active day. Choose the last 7 days, last 30 days, or all time. Weekday patterns appear after at least five captured conversations in the selected range.
 
-Open **Settings → Stats** to see your activity and collectible badges. Badges recognize milestones such as your first conversation and recording in more weeks. Collected badges stay on the current device even when you delete a conversation.
+The same **Insights** page includes your activity and collectible badges. Badges recognize milestones such as your first conversation and recording in more weeks. Collected badges stay on the current device even when you delete a conversation.
 
 Insights and badge collections are desktop views. The CLI, local MCP, and Cloud API do not expose these views or badge collection controls; use their existing meeting and transcript commands to work with your conversations.
 
@@ -59,4 +60,4 @@ Insights and badge collections are desktop views. The CLI, local MCP, and Cloud 
 3. Select PDF, text, Markdown, or Org format.
 4. Include any combination of the memo, summary, and transcript.
 
-Anarlog writes the export to your Downloads folder and reveals the file when it is ready.
+Anarlog writes the export to your default export folder and reveals it when ready. Change the destination under **Settings → General**.

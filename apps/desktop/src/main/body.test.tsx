@@ -9,6 +9,7 @@ import {
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { WINDOW_CONTROLS_SIDEBAR_MIN_WIDTH } from "~/shared/hooks/useWindowControlsGutter";
 import { resetSidebarNotes } from "~/sidebar/note-filter";
 
 const mocks = vi.hoisted(() => ({
@@ -301,7 +302,7 @@ describe("ClassicMainBody", () => {
     expect(panels[0]?.dataset.minSize).toBe("12.5");
     expect(panels[0]?.dataset.maxSize).toBe("22.5");
     expect(panels[0]?.dataset.flexGrow).toBe("var(--left-sidebar-panel-size)");
-    expect(panels[0]?.dataset.minWidth).toBe("200");
+    expect(panels[0]?.dataset.minWidth).toBe(WINDOW_CONTROLS_SIDEBAR_MIN_WIDTH);
     expect(panels[0]?.dataset.maxWidth).toBe("360");
     expect(panels[0]?.dataset.transition).toBeUndefined();
     expect(panels[1]?.dataset.panelId).toBe("classic-main-content");
@@ -688,7 +689,7 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     const panels = screen.getAllByTestId("panel");
-    expect(panels[1]?.dataset.minWidth).toBe("500");
+    expect(panels[1]?.dataset.minWidth).toBe("min(500px, 100%)");
   });
 
   it("keeps the empty content panel at least 500px wide", () => {
@@ -702,7 +703,7 @@ describe("ClassicMainBody", () => {
     render(<ClassicMainBody />);
 
     const panels = screen.getAllByTestId("panel");
-    expect(panels[1]?.dataset.minWidth).toBe("500");
+    expect(panels[1]?.dataset.minWidth).toBe("min(500px, 100%)");
   });
 
   it("lets the settings content panel shrink beside the sidebar", () => {
@@ -846,15 +847,14 @@ describe("ClassicMainBody", () => {
     }
   });
 
-  it("keeps Linux note actions in the sidebar", () => {
+  it("removes the Linux sidebar action row when actions are in the title bar", () => {
     mocks.runtimePlatform = "linux";
     render(<ClassicMainBody />);
 
-    expect(
-      document.querySelector("[data-sidebar-timeline-header]"),
-    ).not.toBeNull();
+    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
+    expect(document.querySelector("[data-sidebar-timeline-header]")).toBeNull();
     for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.getByRole("button", { name })).toBeTruthy();
+      expect(screen.queryByRole("button", { name })).toBeNull();
     }
   });
 });

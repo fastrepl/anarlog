@@ -17,6 +17,22 @@ case "$(uname -m)" in
     ;;
 esac
 
+if ! command -v process-compose &> /dev/null; then
+  PROCESS_COMPOSE_VERSION=1.122.0
+  TEMP_DIR=$(mktemp -d)
+  PROCESS_COMPOSE_ARCHIVE="process-compose_linux_${RELEASE_ARCH}.tar.gz"
+  PROCESS_COMPOSE_URL="https://github.com/F1bonacc1/process-compose/releases/download/v${PROCESS_COMPOSE_VERSION}"
+  curl -fsSL "$PROCESS_COMPOSE_URL/$PROCESS_COMPOSE_ARCHIVE" -o "$TEMP_DIR/$PROCESS_COMPOSE_ARCHIVE"
+  curl -fsSL "$PROCESS_COMPOSE_URL/process-compose_checksums.txt" -o "$TEMP_DIR/checksums.txt"
+  (
+    cd "$TEMP_DIR"
+    awk -v archive="$PROCESS_COMPOSE_ARCHIVE" '$2 == archive' checksums.txt | sha256sum --check --strict -
+    tar -xzf "$PROCESS_COMPOSE_ARCHIVE"
+    sudo install -m 0755 process-compose /usr/local/bin/process-compose
+  )
+  rm -rf "$TEMP_DIR"
+fi
+
 if [[ -x "$HOME/.dprint/bin/dprint" ]]; then
   export PATH="$HOME/.dprint/bin:$PATH"
 elif ! command -v dprint &> /dev/null; then

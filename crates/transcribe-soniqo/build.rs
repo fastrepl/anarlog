@@ -56,8 +56,21 @@ fn xcrun(developer_dir: Option<&Path>) -> Command {
 
 #[cfg(target_os = "macos")]
 fn has_metal_compiler(developer_dir: Option<&Path>) -> bool {
-    xcrun(developer_dir)
+    let found = xcrun(developer_dir)
         .args(["--find", "metal"])
+        .output()
+        .is_ok_and(|output| output.status.success());
+
+    found && metal_compiler_runs(developer_dir)
+}
+
+/// Xcode 26 installs `metal` as a stub that exits non-zero until the Metal
+/// Toolchain component is downloaded, so locating the binary is not enough to
+/// know it can compile anything.
+#[cfg(target_os = "macos")]
+fn metal_compiler_runs(developer_dir: Option<&Path>) -> bool {
+    xcrun(developer_dir)
+        .args(["metal", "--version"])
         .output()
         .is_ok_and(|output| output.status.success())
 }
@@ -561,6 +574,12 @@ fn main() {
             );
             return;
         }
+
+        // The Swift package compiles Metal shaders, so check the toolchain up
+        // front. Otherwise a missing Metal Toolchain only surfaces once the MLX
+        // sources reach their first `.metal` file, roughly 240 compile units in,
+        // buried inside a nested build-script panic.
+        metal_developer_dir();
 
         let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is set by Cargo"));
         let swift_build_dir = out_dir.join("swift-rs").join("soniqo-swift");

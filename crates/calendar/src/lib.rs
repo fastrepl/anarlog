@@ -210,21 +210,34 @@ pub fn parse_meeting_link(text: &str) -> Option<String> {
 
     use regex::Regex;
 
+    // A trailing run of URL characters stops at whitespace and at the
+    // delimiters (`< > " '`) that surround a link in an HTML invitation body,
+    // so markup after the URL is not swallowed into the link. An optional
+    // `subdomain.` prefix keeps bare-domain links (e.g. a Whereby personal room
+    // at `whereby.com/room`, or `zoom.us/j/...`) matching too.
     static MEETING_REGEXES: LazyLock<Vec<Regex>> = LazyLock::new(|| {
         vec![
             Regex::new(r"https://meet\.google\.com/[a-z0-9]{3,4}-[a-z0-9]{3,4}-[a-z0-9]{3,4}")
                 .unwrap(),
-            Regex::new(r"https://[a-z0-9.-]+\.zoom\.us/j/\d+(\?pwd=[a-zA-Z0-9.]+)?").unwrap(),
+            Regex::new(r"https://(?:[a-z0-9.-]+\.)?zoom\.us/j/\d+(\?pwd=[a-zA-Z0-9.]+)?").unwrap(),
+            Regex::new(r#"https://teams\.microsoft\.com/l/meetup-join/[^\s<>"']+"#).unwrap(),
+            Regex::new(r#"https://teams\.live\.com/meet/[^\s<>"']+"#).unwrap(),
+            Regex::new(r#"https://(?:[a-z0-9.-]+\.)?webex\.com/(?:meet|j\.php)[^\s<>"']*"#)
+                .unwrap(),
+            Regex::new(r#"https://(?:[a-z0-9.-]+\.)?whereby\.com/[^\s<>"']+"#).unwrap(),
             Regex::new(r"https://app\.cal\.com/video/[a-zA-Z0-9]+").unwrap(),
         ]
     });
-    for regex in MEETING_REGEXES.iter() {
-        if let Some(m) = regex.find(text) {
-            return Some(m.as_str().to_string());
-        }
-    }
-    static URL_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://[^\s]+").unwrap());
-    URL_RE.find(text).map(|m| m.as_str().to_string())
+    // Only links from known conferencing providers count as meeting links. A
+    // generic-URL fallback would treat any link in the location or description
+    // (an agenda doc, a maps link, a calendar tool's footer such as Notion
+    // Calendar's `notion.com/product/calendar?source=blockedEvent` on a "Busy"
+    // hold) as a meeting link and trigger auto-record / auto-join for events
+    // that are not real meetings. A real provider link still wins when one is
+    // present alongside such a footer.
+    MEETING_REGEXES
+        .iter()
+        .find_map(|regex| regex.find(text).map(|m| m.as_str().to_string()))
 }
 
 // --- Apple helpers ---
@@ -380,6 +393,31 @@ mod tests {
                 "Google Meet으로 참석: https://meet.google.com/xkf-xcmo-rwh\n또는 다음 전화번호로",
                 "https://meet.google.com/xkf-xcmo-rwh",
             ),
+            (
+                "teams meetup-join",
+                "Join on your computer: https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0",
+                "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0",
+            ),
+            (
+                "webex",
+                "Join: https://acme.webex.com/meet/jane.doe",
+                "https://acme.webex.com/meet/jane.doe",
+            ),
+            (
+                "teams in html invitation",
+                "<p>Join the meeting<br/><a href=\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0\">Click here</a></p>",
+                "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0",
+            ),
+            (
+                "whereby personal room (bare domain)",
+                "Join here: https://whereby.com/jane-doe",
+                "https://whereby.com/jane-doe",
+            ),
+            (
+                "zoom bare domain",
+                "https://zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
+                "https://zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
+            ),
         ];
 
         for (name, input, expected) in cases {
@@ -389,5 +427,39 @@ mod tests {
                 "failed: {name}"
             );
         }
+    }
+
+    #[test]
+    fn parse_meeting_link_ignores_non_meeting_urls() {
+        // Notion Calendar stamps this URL into every "Busy" hold it mirrors
+        // across calendars. It is not a conferencing provider, so it resolves
+        // to no meeting link without any vendor-specific handling.
+        assert_eq!(
+            parse_meeting_link("Busy\nhttps://www.notion.com/product/calendar?source=blockedEvent"),
+            None,
+            "notion calendar hold must not resolve to a meeting link"
+        );
+
+        // A stray, non-conferencing link in the body is not a meeting link.
+        assert_eq!(
+            parse_meeting_link("Agenda: https://docs.google.com/document/d/abc123/edit"),
+            None,
+            "a generic document link must not be treated as a meeting link"
+        );
+
+        // No link at all.
+        assert_eq!(parse_meeting_link("Conference room 4"), None);
+    }
+
+    #[test]
+    fn parse_meeting_link_prefers_real_link_over_footer() {
+        // An event may carry both a real conferencing link and a calendar
+        // tool's footer URL. The real meeting link must still win.
+        assert_eq!(
+            parse_meeting_link(
+                "https://meet.google.com/abc-defg-hij\nhttps://www.notion.com/product/calendar?source=blockedEvent"
+            ),
+            Some("https://meet.google.com/abc-defg-hij".to_string()),
+        );
     }
 }

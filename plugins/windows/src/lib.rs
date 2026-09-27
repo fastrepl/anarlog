@@ -32,12 +32,45 @@ pub struct SavedFrame {
     pub h: f64,
 }
 
+#[derive(Clone, Copy)]
+pub struct SavedWindowFrame {
+    pub frame: SavedFrame,
+    pub maximized: bool,
+}
+
 #[derive(Default)]
-pub struct SavedFrames(pub Mutex<HashMap<String, SavedFrame>>);
+pub struct SavedFrames(pub Mutex<HashMap<String, SavedWindowFrame>>);
 
 impl SavedFrames {
-    fn take(&self, label: &str) -> Option<SavedFrame> {
+    fn take(&self, label: &str) -> Option<SavedWindowFrame> {
         self.0.lock().unwrap().remove(label)
+    }
+
+    fn remove(&self, label: &str) {
+        self.0.lock().unwrap().remove(label);
+    }
+
+    fn contains(&self, label: &str) -> bool {
+        self.0.lock().unwrap().contains_key(label)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+#[derive(Default)]
+pub struct PendingPositions(pub Mutex<HashMap<String, SavedFrame>>);
+
+#[cfg(not(target_os = "macos"))]
+impl PendingPositions {
+    fn insert(&self, label: String, frame: SavedFrame) {
+        self.0.lock().unwrap().insert(label, frame);
+    }
+
+    fn take_if_sized(&self, label: &str, size: tauri::LogicalSize<f64>) -> Option<SavedFrame> {
+        let mut pending = self.0.lock().unwrap();
+        let matches = pending.get(label).is_some_and(|frame| {
+            (frame.w - size.width).abs() < 1.0 && (frame.h - size.height).abs() < 1.0
+        });
+        if matches { pending.remove(label) } else { None }
     }
 
     fn remove(&self, label: &str) {
@@ -46,10 +79,10 @@ impl SavedFrames {
 }
 
 #[derive(Default)]
-pub struct WindowExpansions(pub Mutex<HashMap<String, Vec<(f64, f64, bool)>>>);
+pub struct WindowExpansions(pub Mutex<HashMap<String, Vec<(f64, f64, f64)>>>);
 
 impl WindowExpansions {
-    fn pop(&self, label: &str) -> Option<(f64, f64, bool)> {
+    fn pop(&self, label: &str) -> Option<(f64, f64, f64)> {
         let mut expansions = self.0.lock().unwrap();
         let entry = expansions.get_mut(label).and_then(Vec::pop);
 
@@ -213,6 +246,10 @@ pub(crate) fn clear_window_state(app: &tauri::AppHandle<tauri::Wry>, label: &str
     if let Some(state) = app.try_state::<SavedFrames>() {
         state.remove(label);
     }
+    #[cfg(not(target_os = "macos"))]
+    if let Some(state) = app.try_state::<PendingPositions>() {
+        state.remove(label);
+    }
     if let Some(state) = app.try_state::<WindowExpansions>() {
         state.remove(label);
     }
@@ -295,6 +332,9 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 app.manage(saved_frames);
             }
 
+            #[cfg(not(target_os = "macos"))]
+            app.manage(PendingPositions::default());
+
             {
                 let window_expansions = WindowExpansions::default();
                 app.manage(window_expansions);
@@ -317,9 +357,6 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 }
 
 pub fn extend_builder(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
-    #[cfg(target_os = "macos")]
-    let builder = builder.on_web_content_process_terminate(AppWindow::recover_terminated_webview);
-
     #[cfg(all(target_os = "macos", feature = "macos-private-api"))]
     {
         builder.plugin(tauri_nspanel::init())
@@ -409,9 +446,9 @@ mod test {
             .0
             .lock()
             .unwrap()
-            .insert("note-1".into(), vec![(100.0, 120.0, false)]);
+            .insert("note-1".into(), vec![(100.0, 120.0, 0.0)]);
 
-        assert_eq!(expansions.pop("note-1"), Some((100.0, 120.0, false)));
+        assert_eq!(expansions.pop("note-1"), Some((100.0, 120.0, 0.0)));
         assert!(expansions.0.lock().unwrap().is_empty());
     }
 
@@ -433,16 +470,21 @@ mod test {
         let frames = SavedFrames::default();
         frames.0.lock().unwrap().insert(
             "note-1".into(),
-            SavedFrame {
-                x: 1.0,
-                y: 2.0,
-                w: 3.0,
-                h: 4.0,
+            SavedWindowFrame {
+                frame: SavedFrame {
+                    x: 1.0,
+                    y: 2.0,
+                    w: 3.0,
+                    h: 4.0,
+                },
+                maximized: true,
             },
         );
 
-        let frame = frames.take("note-1").unwrap();
+        let saved = frames.take("note-1").unwrap();
+        let frame = saved.frame;
         assert_eq!((frame.x, frame.y, frame.w, frame.h), (1.0, 2.0, 3.0, 4.0));
+        assert!(saved.maximized);
         assert!(frames.0.lock().unwrap().is_empty());
     }
 

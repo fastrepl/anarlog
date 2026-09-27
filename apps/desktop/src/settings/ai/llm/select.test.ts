@@ -25,6 +25,7 @@ describe("LLM providers", () => {
       "anthropic",
       "google_generative_ai",
       "openrouter",
+      "venice",
       "moonshot",
       "zai",
       "deepseek",

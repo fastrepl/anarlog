@@ -9,7 +9,11 @@ vi.mock("~/db", () => ({
   useLiveQuery: () => ({ data: [] }),
 }));
 
-import { FOLDER_PATHS_SQL, loadSessionSummariesByFolder } from "./folders";
+import {
+  FOLDER_PATHS_SQL,
+  FOLDER_WORKSPACES_SQL,
+  loadSessionSummariesByFolder,
+} from "./folders";
 
 describe("folder path listing", () => {
   it("keeps folders that have notes, materials, or a catalog row", () => {
@@ -17,6 +21,14 @@ describe("folder path listing", () => {
     expect(FOLDER_PATHS_SQL).toContain("FROM folder_attachments");
     expect(FOLDER_PATHS_SQL).toContain("FROM folders");
     expect(FOLDER_PATHS_SQL).toContain("UNION");
+  });
+});
+
+describe("folder workspace listing", () => {
+  it("includes only shared workspace assignments", () => {
+    expect(FOLDER_WORKSPACES_SQL).toContain("JOIN workspaces AS workspace");
+    expect(FOLDER_WORKSPACES_SQL).not.toContain("LEFT JOIN");
+    expect(FOLDER_WORKSPACES_SQL).toContain("workspace.kind = 'shared'");
   });
 });
 

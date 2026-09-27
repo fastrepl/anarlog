@@ -1,0 +1,26 @@
+---
+title: "Dictate into other apps"
+description: "Use a keyboard shortcut to turn speech into text in the focused field."
+---
+
+Dictation is part of Anarlog Pro. Keep Anarlog running, focus a text field in another app, and use your shortcut to speak instead of type. This does not create a meeting note.
+
+## Set up dictation
+
+1. Open **Settings → Dictation** and enable dictation.
+2. Record your preferred shortcut and choose a microphone.
+3. Use **Language & transcription** to choose the language and Transcription provider. Hosted providers receive your audio; a supported local provider keeps transcription on your computer.
+4. Allow microphone access and any permissions requested under **Settings → Permissions**. On macOS, text insertion needs Accessibility permission.
+5. Click the **Try dictation** field in Settings and test the shortcut.
+
+Hold the shortcut while speaking and release it to finish. With **Hands-free dictation** enabled, press once to start and again to finish. Text is inserted when transcription finishes. **Live transcript preview** shows words in the floating panel when the selected provider supports a live connection.
+
+Dictation stops after five minutes and pauses while Anarlog records a meeting. Press Escape to cancel; on Wayland, use Control + Alt + Escape.
+
+## If insertion fails
+
+Keep the original text field focused until dictation finishes. If the target changed or the app cannot insert text, open **Settings → Dictation** and choose **Copy last dictation**, then paste it yourself. The last transcript stays in memory until you disable dictation or quit Anarlog.
+
+On Linux, approve the desktop's shortcut prompt on Wayland. The target app must expose an editable accessibility field; password fields are excluded. Clear a selected text range before dictating, or use the copy action to replace it yourself.
+
+Dictation is a desktop interaction. The CLI and MCP interfaces do not start dictation or insert text into other apps.

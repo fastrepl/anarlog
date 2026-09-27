@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/F1bonacc1/process-compose/main/schemas/process-compose-schema.json
+
+version: "0.5"
+
+processes:
+  supabase:
+    description: Start local Supabase, export its environment, and apply migrations
+    command: task supabase-start
+    log_location: ${PC_LOG_DIR:-.process-compose/logs}/supabase.log
+    availability:
+      restart: exit_on_failure
+
+  api:
+    description: Run the combined API on http://localhost:3001
+    command: cargo run --locked -p api
+    environment:
+      - PORT=3001
+      - ANARLOG_SERVICE=all
+      - API_BASE_URL=http://localhost:3001
+    log_location: ${PC_LOG_DIR:-.process-compose/logs}/api.log
+    depends_on:
+      supabase:
+        condition: process_completed_successfully
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 3001
+        path: /health/ready/api
+      initial_delay_seconds: 2
+      period_seconds: 2
+      timeout_seconds: 5
+      failure_threshold: 300
+    availability:
+      restart: exit_on_failure
+    shutdown:
+      timeout_seconds: 60
+
+  web:
+    depends_on:
+      api:
+        condition: process_healthy
+
+  desktop:
+    environment:
+      - VITE_APP_URL=http://localhost:3000
+      - VITE_API_URL=http://localhost:3001
+    depends_on:
+      web:
+        condition: process_healthy

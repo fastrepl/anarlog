@@ -345,7 +345,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::seal_e2ee_recovery_key_for_device<tauri::Wry>,
             commands::seal_workspace_e2ee_key_for_recipients<tauri::Wry>,
             commands::import_e2ee_device_enrollment<tauri::Wry>,
-            commands::subscribe,
+            commands::subscribe::<tauri::Wry>,
             commands::unsubscribe,
             commands::configure_cloudsync,
             commands::bind_cloudsync_account,
@@ -423,6 +423,19 @@ pub fn init<R: tauri::Runtime>(
     init_with_cloudsync(db, None)
 }
 
+pub fn close_webview_subscriptions<R: tauri::Runtime>(app: &tauri::AppHandle<R>, label: &str) {
+    let Some(runtime) = app.try_state::<ManagedState>() else {
+        return;
+    };
+    let subscriptions = runtime.close_webview_subscriptions(label);
+    let runtime = runtime.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        for subscription_id in subscriptions {
+            let _ = runtime.unsubscribe(&subscription_id).await;
+        }
+    });
+}
+
 pub fn init_with_cloudsync<R: tauri::Runtime>(
     db: std::sync::Arc<anlg_db_core::Db>,
     startup_config: Option<anlg_db_core::CloudsyncRuntimeConfig>,
@@ -451,7 +464,20 @@ pub fn init_with_cloudsync<R: tauri::Runtime>(
             app.manage(runtime);
             Ok(())
         })
+        .on_page_load(|webview, payload| {
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Started) {
+                close_webview_subscriptions(webview.app_handle(), webview.label());
+            }
+        })
         .on_event(|app, event| {
+            if let tauri::RunEvent::WindowEvent {
+                label,
+                event: tauri::WindowEvent::Destroyed,
+                ..
+            } = event
+            {
+                close_webview_subscriptions(app, label);
+            }
             if let tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::Focused(true),
                 ..

@@ -37,6 +37,7 @@ import { useVirtualSegments, VirtualSegmentRow } from "./virtual-segments";
 import {
   applyRenderRequestIdentitiesToSegments,
   getMaxSpeakerNumberForParticipants,
+  mergeAdjacentSpeakerSegments,
   mergeRenderedAndLiveSegments,
   SegmentKeyUtils,
   type RenderLabelContext,
@@ -122,14 +123,18 @@ function PersistedTranscript({
     segments: storedSegments,
   } = useRenderedTranscriptData(transcriptId, currentActive, captureGeneration);
   const mergedSegments = useMemo(() => {
-    const merged = mergeRenderedAndLiveSegments(
-      storedSegments,
-      liveSegments,
-      currentActive ? request : null,
+    if (!currentActive) {
+      // Settled transcripts are already merged and labeled by the native
+      // render; merging again would join segments the speaker-context
+      // labeler intentionally split across intervals.
+      return mergeRenderedAndLiveSegments(storedSegments, liveSegments, null);
+    }
+    return mergeAdjacentSpeakerSegments(
+      applyRenderRequestIdentitiesToSegments(
+        mergeRenderedAndLiveSegments(storedSegments, liveSegments, request),
+        request,
+      ),
     );
-    return currentActive
-      ? applyRenderRequestIdentitiesToSegments(merged, request)
-      : merged;
   }, [currentActive, liveSegments, request, storedSegments]);
 
   return (

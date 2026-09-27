@@ -1,7 +1,4 @@
-use camino::Utf8PathBuf;
-
 use crate::SettingsPluginExt;
-use anlg_storage::ObsidianVault;
 
 #[tauri::command]
 #[specta::specta]
@@ -32,61 +29,6 @@ pub(crate) async fn vault_base<R: tauri::Runtime>(
         .vault_base()
         .map(|p| p.to_string())
         .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn copy_vault<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    new_path: String,
-) -> Result<(), String> {
-    app.settings()
-        .copy_vault(Utf8PathBuf::from(&new_path))
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn move_vault<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    new_path: String,
-) -> Result<(), String> {
-    app.settings()
-        .move_vault(Utf8PathBuf::from(&new_path))
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn set_vault_base<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    new_path: String,
-) -> Result<(), String> {
-    app.settings()
-        .set_vault_base(Utf8PathBuf::from(&new_path))
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn is_empty_or_missing_dir<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    path: String,
-) -> Result<bool, String> {
-    app.settings()
-        .is_empty_or_missing_dir(Utf8PathBuf::from(&path))
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub(crate) fn obsidian_vaults<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<Vec<ObsidianVault>, String> {
-    app.settings().obsidian_vaults().map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -20,6 +20,7 @@ anlg-audio-utils = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-embedding = { workspace = true }
 anlg-language = { workspace = true }
+anlg-media-control = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-transcribe-soniqo = { workspace = true }
 anlg-transcribe-speechanalyzer = { workspace = true }

@@ -141,6 +141,20 @@ codex plugin marketplace add fastrepl/anarlog \
 
 Public listing in a host's plugin directory is a separate review step. Installing from the Fastrepl source does not submit or publish the connector.
 
+### Grok Bot
+
+Grok Bot has no settings form for custom MCP servers. Add Anarlog from a Bot conversation:
+
+```text
+Add this custom MCP server: https://api.anarlog.so/mcp
+```
+
+Confirm the server details when the bot asks, then finish the Anarlog sign-in and consent flow in your browser. The Anarlog tools are available from your next message. Grok Bot runs in the cloud, so it can only reach the hosted endpoint, not local MCP.
+
+### Instinct
+
+Add `https://api.anarlog.so/mcp` as an MCP connection in your Instinct account and name it **Anarlog**. Complete the Anarlog sign-in and consent flow with the account that has Cloud API & Connectors enabled. If Instinct asks for a token instead of opening a sign-in page, create a personal cloud API key and paste it as the bearer token.
+
 ### Other OAuth MCP clients
 
 Choose Streamable HTTP and use `https://api.anarlog.so/mcp` as the server URL. Do not paste an API key. The client must follow MCP OAuth 2.1 protected-resource discovery.
@@ -177,6 +191,23 @@ const response = await client.responses.create({
   ],
 });
 ```
+
+### Muse
+
+Meta Muse does not accept MCP servers. Instead, ask Muse to build a **Custom Connector** against the Anarlog REST API. Create a personal cloud API key named `muse` so you can revoke it separately, then send Muse:
+
+```text
+Create a custom connector for Anarlog, my meeting notes. The base URL is
+https://api.anarlog.so and the OpenAPI document is
+https://api.anarlog.so/openapi.json. Only use the /v1/meetings operations.
+Authenticate every request with the header "Authorization: Bearer <my key>".
+It is read-only: list meetings, read a meeting, read its transcript, and
+export it.
+```
+
+The OpenAPI paths already include the `/v1` prefix, so the base URL is the bare host. Check that the first request Muse makes targets `/v1/meetings`, not `/v1/v1/meetings`.
+
+Muse stores the key in its Secure Credentials Store; Anarlog never sees your Muse account. The connector appears under **Settings → Connectors** in Muse. Meta does not review custom connectors, so keep the key to yourself.
 
 ### Poke
 

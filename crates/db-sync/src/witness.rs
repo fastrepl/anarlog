@@ -2,6 +2,7 @@ use std::future::Future;
 use std::io;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ const MAX_RATE_LIMIT_RETRIES: usize = 3;
 const DEFAULT_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
 const MAX_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
 const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+const PROGRESS_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Clone, Default)]
 pub struct E2eeWitnessCancellation {
@@ -234,6 +236,8 @@ impl E2eeWitnessClient {
         F: FnMut() -> Fut,
         Fut: Future<Output = io::Result<()>>,
     {
+        let started = Instant::now();
+        tracing::info!(phase = "inspect", "initializing E2EE witness");
         let cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
         let status = self
             .read_page_cancellable(cursor, None, cancellation)
@@ -242,6 +246,15 @@ impl E2eeWitnessClient {
         if status.head_sequence < cursor {
             return Err(rollback_error());
         }
+
+        tracing::info!(
+            phase = "publish",
+            cursor,
+            head = status.head_sequence,
+            initialized = status.initialized,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "initializing E2EE witness"
+        );
 
         if status.initialized {
             // Receiving history can retire pending local versions. Publish them
@@ -263,13 +276,25 @@ impl E2eeWitnessClient {
                 .await?;
         }
 
-        self.refresh_keyring_with_page_handler_cancellable(
-            pool,
-            keyring,
-            &mut on_merged_page,
-            cancellation,
-        )
-        .await?;
+        tracing::info!(
+            phase = "refresh",
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "initializing E2EE witness"
+        );
+        let received_events = self
+            .refresh_keyring_with_page_handler_cancellable(
+                pool,
+                keyring,
+                &mut on_merged_page,
+                cancellation,
+            )
+            .await?;
+        tracing::info!(
+            phase = "complete",
+            received_events,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "initializing E2EE witness"
+        );
         Ok(())
     }
 
@@ -461,6 +486,8 @@ impl E2eeWitnessClient {
         G: FnMut() -> Fut,
         Fut: Future<Output = io::Result<()>>,
     {
+        let started = Instant::now();
+        let mut last_progress = started;
         let mut cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
         let mut page = self
             .read_page_cancellable(cursor, None, cancellation)
@@ -477,8 +504,25 @@ impl E2eeWitnessClient {
 
         let through = page.through_sequence;
         let mut received_events = 0_usize;
+        let mut pages = 0_u64;
         loop {
             let page_has_events = !page.events.is_empty();
+            let report_progress =
+                (pages == 0 && page_has_events) || last_progress.elapsed() >= PROGRESS_INTERVAL;
+            if report_progress {
+                tracing::info!(
+                    phase = "merge_and_hydrate",
+                    pages,
+                    cursor,
+                    through,
+                    page_events = page.events.len(),
+                    next_cursor = page.next_after_sequence,
+                    received_events,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "E2EE witness refresh progress"
+                );
+                last_progress = Instant::now();
+            }
             received_events = received_events.saturating_add(page.events.len());
             if page_has_events {
                 on_events();
@@ -518,7 +562,19 @@ impl E2eeWitnessClient {
                 cancellation.check()?;
                 cursor = after;
             }
+            pages += 1;
             if after == through {
+                if received_events > 0 || started.elapsed() >= PROGRESS_INTERVAL {
+                    tracing::info!(
+                        phase = "complete",
+                        pages,
+                        cursor,
+                        through,
+                        received_events,
+                        elapsed_ms = started.elapsed().as_millis() as u64,
+                        "E2EE witness refresh progress"
+                    );
+                }
                 break;
             }
             if after >= through {
@@ -539,6 +595,10 @@ impl E2eeWitnessClient {
         initialize: bool,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<()> {
+        let started = Instant::now();
+        let mut last_progress = started;
+        let mut batches = 0_u64;
+        let mut published_events = 0_usize;
         let cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
         let mut first_batch = true;
         loop {
@@ -559,6 +619,15 @@ impl E2eeWitnessClient {
                     return Err(io::Error::other(
                         "E2EE freshness initialization requires established encrypted state",
                     ));
+                }
+                if published_events > 0 || started.elapsed() >= PROGRESS_INTERVAL {
+                    tracing::info!(
+                        complete = true,
+                        batches,
+                        published_events,
+                        elapsed_ms = started.elapsed().as_millis() as u64,
+                        "E2EE witness publication progress"
+                    );
                 }
                 return Ok(());
             }
@@ -621,6 +690,18 @@ impl E2eeWitnessClient {
             .map_err(replica_error)?;
             cancellation.check()?;
             first_batch = false;
+            batches += 1;
+            published_events = published_events.saturating_add(uploads.len());
+            if last_progress.elapsed() >= PROGRESS_INTERVAL {
+                tracing::info!(
+                    complete = false,
+                    batches,
+                    published_events,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "E2EE witness publication progress"
+                );
+                last_progress = Instant::now();
+            }
         }
     }
 

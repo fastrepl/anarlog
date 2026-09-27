@@ -112,6 +112,15 @@ async fn run(
         "elevenlabs" => listen::<ElevenLabsAdapter>(config, receiver, updates).await,
         "gladia" => listen::<GladiaAdapter>(config, receiver, updates).await,
         "meta" => listen::<MetaAdapter>(config, receiver, updates).await,
+        "dashscope"
+            if config
+                .params
+                .model
+                .as_deref()
+                .is_some_and(DashScopeStreamingAdapter::is_model) =>
+        {
+            listen::<DashScopeStreamingAdapter>(config, receiver, updates).await
+        }
         "dashscope" => listen::<DashScopeAdapter>(config, receiver, updates).await,
         "wisprflow" => listen::<WisprFlowAdapter>(config, receiver, updates).await,
         "smallestai" => listen::<SmallestAIAdapter>(config, receiver, updates).await,

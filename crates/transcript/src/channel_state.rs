@@ -8,6 +8,7 @@ const MAX_PARTIAL_WINDOW_MS: i64 = 2 * 60 * 1000;
 pub(super) struct ChannelState {
     watermark: i64,
     partial_watermark: i64,
+    resume_boundary: i64,
     held: Option<RawWord>,
     partials: Vec<RawWord>,
 }
@@ -17,9 +18,25 @@ impl ChannelState {
         Self {
             watermark: 0,
             partial_watermark: 0,
+            resume_boundary: 0,
             held: None,
             partials: Vec::new(),
         }
+    }
+
+    /// Finalize everything pending and remember where delivery stopped, so a stream resumed over
+    /// replayed audio does not emit the same words a second time.
+    pub(super) fn checkpoint(&mut self, flush_partials: bool) -> Vec<FinalizedWord> {
+        let delivered = if flush_partials {
+            self.drain()
+        } else {
+            self.drain_final_words()
+        };
+        if let Some(end_ms) = delivered.iter().map(|word| word.end_ms).max() {
+            self.watermark = self.watermark.max(end_ms);
+        }
+        self.resume_boundary = self.watermark;
+        delivered
     }
 
     pub(super) fn clear_partials(&mut self, start_ms: i64, end_ms: i64) {
@@ -39,7 +56,7 @@ impl ChannelState {
         finalize_partials: bool,
         stitch_final_words: bool,
     ) -> Vec<FinalizedWord> {
-        let new_words = dedup(words, self.watermark);
+        let new_words = dedup(words, self.watermark, self.resume_boundary);
         if new_words.is_empty() {
             return vec![];
         }
@@ -84,7 +101,11 @@ impl ChannelState {
         words: Vec<RawWord>,
         finalize_partials: bool,
     ) -> Vec<FinalizedWord> {
-        let words = dedup(words, self.watermark.max(self.partial_watermark));
+        let words = dedup(
+            words,
+            self.watermark.max(self.partial_watermark),
+            self.resume_boundary,
+        );
         if words.is_empty() {
             return vec![];
         }

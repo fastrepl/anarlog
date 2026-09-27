@@ -259,6 +259,7 @@ describe("contact SQLite queries", () => {
         pinned: 0,
         pin_order: null,
         avatar_data_url: null,
+        team_workspace: 1,
       },
     ];
 
@@ -274,6 +275,7 @@ describe("contact SQLite queries", () => {
         pinned: false,
         pinOrder: null,
         avatarDataUrl: null,
+        teamWorkspace: true,
       },
     ]);
   });

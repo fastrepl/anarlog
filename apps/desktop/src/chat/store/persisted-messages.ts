@@ -120,7 +120,10 @@ export function rowToPersistedChatMessage(
     id: row.id,
     role: row.role as "user" | "assistant",
     parts: parseJson(row.parts_json, []),
-    metadata: parseJson(row.metadata_json, {}),
+    metadata: {
+      createdAt: Date.parse(row.created_at),
+      ...parseJson(row.metadata_json, {}),
+    },
   };
 
   return {

@@ -6,6 +6,7 @@ use tauri_plugin_store2::Store2PluginExt;
 
 static REPORTED_QUEUE_FULL: AtomicBool = AtomicBool::new(false);
 static REPORTED_DELIVERY_FAILURE: AtomicBool = AtomicBool::new(false);
+static LEGACY_ID_MERGE_CLAIMED: AtomicBool = AtomicBool::new(false);
 
 fn report_delivery_problem_once(reported: &AtomicBool, event: &'static str) {
     if !reported.swap(true, Ordering::Relaxed) {
@@ -28,6 +29,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         }
 
         Self::enrich_payload(self.manager, &mut payload);
+        self.alias_legacy_distinct_id().await;
 
         let machine_id = anlg_host::fingerprint();
         let state = self.manager.state::<crate::ManagedState>();
@@ -38,6 +40,51 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
             .map_err(crate::Error::AnlgAnalytics)?;
 
         Ok(())
+    }
+
+    fn legacy_distinct_id_aliased(&self) -> bool {
+        self.manager
+            .store2()
+            .scoped_store(crate::PLUGIN_NAME)
+            .and_then(|store| Ok(store.get(crate::StoreKey::LegacyDistinctIdAliased)?))
+            .ok()
+            .flatten()
+            .unwrap_or(false)
+    }
+
+    async fn alias_legacy_distinct_id(&self) {
+        if self.legacy_distinct_id_aliased() {
+            return;
+        }
+
+        let client = self.manager.state::<crate::ManagedState>().client.clone();
+        let app_handle = self.manager.app_handle().clone();
+        Self::alias_legacy_distinct_id_with(client, app_handle).await;
+    }
+
+    async fn alias_legacy_distinct_id_with(
+        client: anlg_analytics::AnalyticsClient,
+        app_handle: tauri::AppHandle<R>,
+    ) {
+        if LEGACY_ID_MERGE_CLAIMED.swap(true, Ordering::AcqRel) {
+            return;
+        }
+
+        let machine_id = anlg_host::fingerprint();
+        let legacy_id = anlg_analytics::legacy_pseudonymous_device_id(&machine_id);
+        if let Err(error) = client.merge_distinct_ids(machine_id, legacy_id).await {
+            LEGACY_ID_MERGE_CLAIMED.store(false, Ordering::Release);
+            tracing::warn!(%error, "legacy analytics id merge delivery failed");
+            return;
+        }
+
+        let stored = app_handle
+            .store2()
+            .scoped_store(crate::PLUGIN_NAME)
+            .and_then(|store| Ok(store.set(crate::StoreKey::LegacyDistinctIdAliased, true)?));
+        if let Err(error) = stored {
+            tracing::warn!(%error, "failed to persist legacy analytics alias marker");
+        }
     }
 
     pub fn event_fire_and_forget(&self, mut payload: anlg_analytics::AnalyticsPayload) {
@@ -54,12 +101,18 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
 
         Self::enrich_payload(self.manager, &mut payload);
 
+        let needs_alias = !self.legacy_distinct_id_aliased();
+        let app_handle = self.manager.app_handle().clone();
+
         let machine_id = anlg_host::fingerprint();
         let client = state.client.clone();
         let event = payload.event.clone();
 
         tauri::async_runtime::spawn(async move {
             let _permit = permit;
+            if needs_alias {
+                Self::alias_legacy_distinct_id_with(client.clone(), app_handle).await;
+            }
             if let Err(error) = client.event(machine_id, payload).await {
                 report_delivery_problem_once(
                     &REPORTED_DELIVERY_FAILURE,
@@ -162,6 +215,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         payload: anlg_analytics::PropertiesPayload,
     ) -> Result<(), crate::Error> {
         if !self.is_disabled()? {
+            self.alias_legacy_distinct_id().await;
             let machine_id = anlg_host::fingerprint();
 
             let state = self.manager.state::<crate::ManagedState>();
@@ -181,6 +235,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
         payload: anlg_analytics::PropertiesPayload,
     ) -> Result<(), crate::Error> {
         if !self.is_disabled()? {
+            self.alias_legacy_distinct_id().await;
             let machine_id = anlg_host::fingerprint();
             let user_id = user_id.into();
 

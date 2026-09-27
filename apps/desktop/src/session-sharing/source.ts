@@ -7,6 +7,7 @@ import { DEFAULT_USER_ID } from "~/shared/utils";
 
 const EMPTY_DOCUMENT: JSONContent = { type: "doc", content: [] };
 const EMPTY_WORKSPACES: AvailableShareWorkspace[] = [];
+const EMPTY_PERSONAL_WORKSPACE_ID = "";
 const MAX_DOCUMENT_DEPTH = 64;
 const MAX_DOCUMENT_NODES = 50_000;
 
@@ -41,6 +42,10 @@ type SessionShareSourceSqlRow = {
 type AvailableShareWorkspaceSqlRow = {
   id: string;
   name: string;
+};
+
+type PersonalWorkspaceSqlRow = {
+  id: string;
 };
 
 export type SessionShareSource = {
@@ -148,6 +153,21 @@ const AVAILABLE_SHARE_WORKSPACES_SQL = `
   ORDER BY workspace.name COLLATE NOCASE, workspace.id
 `;
 
+const PERSONAL_WORKSPACE_SQL = `
+  SELECT workspace.id
+  FROM workspaces AS workspace
+  JOIN workspace_memberships AS membership
+    ON membership.workspace_id = workspace.id
+    AND membership.user_id = ?
+    AND membership.role = 'owner'
+    AND membership.deleted_at IS NULL
+  WHERE workspace.owner_user_id = ?
+    AND workspace.kind = 'personal'
+    AND workspace.deleted_at IS NULL
+  ORDER BY workspace.id
+  LIMIT 1
+`;
+
 export async function loadSessionShareSource(
   sessionId: string,
   accountUserId: string,
@@ -248,6 +268,26 @@ export function useAvailableShareWorkspaces(
   });
 
   return enabled ? data : EMPTY_WORKSPACES;
+}
+
+export function usePersonalWorkspaceId(
+  accountUserId: string | null | undefined,
+): string {
+  const normalizedAccountUserId = accountUserId?.trim() ?? "";
+  const enabled = Boolean(
+    normalizedAccountUserId && normalizedAccountUserId !== DEFAULT_USER_ID,
+  );
+  const { data = EMPTY_PERSONAL_WORKSPACE_ID } = useLiveQuery<
+    PersonalWorkspaceSqlRow,
+    string
+  >({
+    sql: PERSONAL_WORKSPACE_SQL,
+    params: [normalizedAccountUserId, normalizedAccountUserId],
+    enabled,
+    mapRows: (rows) => rows[0]?.id ?? "",
+  });
+
+  return enabled ? data : EMPTY_PERSONAL_WORKSPACE_ID;
 }
 
 function resolveSourceWorkspace(

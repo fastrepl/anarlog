@@ -139,6 +139,20 @@ describe("LeftSidebar", () => {
     );
   });
 
+  it("does not reserve space for title bar actions in the Linux timeline", () => {
+    mocks.platform = "linux";
+    render(<LeftSidebar />);
+
+    const timeline = screen.getByTestId("timeline-view");
+    expect(timeline.getAttribute("data-top-chrome-inset")).toBe("false");
+    expect(timeline.getAttribute("data-top-chips-overlap-header")).toBe(
+      "false",
+    );
+    expect(timeline.getAttribute("data-show-open-calendar-button")).toBe(
+      "true",
+    );
+  });
+
   it("shows received notes without the personal timeline", () => {
     render(<LeftSidebar noteFilter="shared" />);
 

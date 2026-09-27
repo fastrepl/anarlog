@@ -82,6 +82,50 @@ export function useFolderIcons(): Record<string, TemplateIcon> {
   return data;
 }
 
+type FolderWorkspaceSqlRow = {
+  path: string;
+  workspace_id: string;
+  name: string;
+};
+
+export type FolderWorkspace = {
+  workspaceId: string;
+  name: string;
+};
+
+const EMPTY_FOLDER_WORKSPACES: Record<string, FolderWorkspace> = {};
+
+export const FOLDER_WORKSPACES_SQL = `
+  SELECT folder.path, folder.workspace_id, workspace.name
+  FROM folders AS folder
+  JOIN workspaces AS workspace
+    ON workspace.id = folder.workspace_id
+    AND workspace.kind = 'shared'
+    AND workspace.deleted_at IS NULL
+  WHERE folder.deleted_at IS NULL
+    AND folder.workspace_id <> ''
+`;
+
+export function useFolderWorkspaces(): Record<string, FolderWorkspace> {
+  const { data = EMPTY_FOLDER_WORKSPACES } = useLiveQuery<
+    FolderWorkspaceSqlRow,
+    Record<string, FolderWorkspace>
+  >({
+    sql: FOLDER_WORKSPACES_SQL,
+    mapRows: (rows) => {
+      const workspaces: Record<string, FolderWorkspace> = {};
+      for (const row of rows) {
+        workspaces[row.path] = {
+          workspaceId: row.workspace_id,
+          name: row.name,
+        };
+      }
+      return workspaces;
+    },
+  });
+  return data;
+}
+
 type FolderSessionSqlRow = {
   id: string;
   title: string;

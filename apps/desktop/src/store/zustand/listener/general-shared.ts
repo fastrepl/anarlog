@@ -369,6 +369,11 @@ export const updateLiveProgress = (
       return;
     case "connected":
       live.loadingPhase = "connected";
+      // A reconnect resolves a connection error; it does nothing for the audio device.
+      if (!live.lastErrorIsAudioRelated) {
+        live.lastError = null;
+        live.lastErrorSessionId = null;
+      }
       return;
     case "audio_error":
       live.lastError = payload.error;

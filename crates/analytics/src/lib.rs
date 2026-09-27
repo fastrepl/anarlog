@@ -8,6 +8,12 @@ pub use error::*;
 use posthog_rs::{ClientOptions, Event};
 use sha2::{Digest, Sha256};
 
+/// Distinct id format shipped in desktop 1.4.21–1.4.26. Kept only so installs can
+/// alias that id back onto the device fingerprint.
+pub fn legacy_pseudonymous_device_id(fingerprint: &str) -> String {
+    pseudonymous_id("device", fingerprint)
+}
+
 fn pseudonymous_id(scope: &str, value: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"anarlog-analytics-v1\0");
@@ -193,7 +199,7 @@ impl AnalyticsClient {
         distinct_id: impl Into<String>,
         payload: AnalyticsPayload,
     ) -> Result<(), Error> {
-        let distinct_id = pseudonymous_id("device", &distinct_id.into());
+        let distinct_id = distinct_id.into();
 
         if let Some(lazy) = &self.posthog {
             let state = lazy.get().await;
@@ -203,11 +209,7 @@ impl AnalyticsClient {
             }
             if let Some(groups) = &payload.groups {
                 for (group_type, group_key) in groups {
-                    let group_type = safe_event_name(group_type);
-                    event.add_group(
-                        group_type,
-                        &pseudonymous_id(&format!("group-{group_type}"), group_key),
-                    );
+                    event.add_group(safe_event_name(group_type), group_key);
                 }
             }
             state.client.capture(event).await?;
@@ -226,7 +228,7 @@ impl AnalyticsClient {
         distinct_id: impl Into<String>,
         payload: PropertiesPayload,
     ) -> Result<(), Error> {
-        let distinct_id = pseudonymous_id("device", &distinct_id.into());
+        let distinct_id = distinct_id.into();
 
         if let Some(lazy) = &self.posthog {
             let state = lazy.get().await;
@@ -253,19 +255,15 @@ impl AnalyticsClient {
         anon_distinct_id: impl Into<String>,
         payload: PropertiesPayload,
     ) -> Result<(), Error> {
-        let user_id = pseudonymous_id("user", &user_id.into());
-        let anon_distinct_id = pseudonymous_id("device", &anon_distinct_id.into());
+        let user_id = user_id.into();
+        let anon_distinct_id = anon_distinct_id.into();
 
         if let Some(lazy) = &self.posthog {
             let state = lazy.get().await;
             let mut event = Event::new("$identify", &user_id);
             let _ = event.insert_prop("$anon_distinct_id", &anon_distinct_id);
             if let Some(group) = &payload.group {
-                let group_type = safe_event_name(&group.r#type);
-                event.add_group(
-                    group_type,
-                    &pseudonymous_id(&format!("group-{group_type}"), &group.key),
-                );
+                event.add_group(safe_event_name(&group.r#type), &group.key);
             }
 
             let set_props = sanitized_properties(&payload.set);
@@ -282,12 +280,33 @@ impl AnalyticsClient {
                 let group_type = safe_event_name(&group.r#type);
                 let mut event = Event::new("$groupidentify", &user_id);
                 let _ = event.insert_prop("$group_type", group_type);
-                let group_key = pseudonymous_id(&format!("group-{group_type}"), &group.key);
-                let _ = event.insert_prop("$group_key", &group_key);
+                let _ = event.insert_prop("$group_key", &group.key);
                 let group_properties = sanitized_properties(&group.properties);
                 let _ = event.insert_prop("$group_set", &group_properties);
                 state.client.capture(event).await?;
             }
+        } else {
+            tracing::info!("analytics_backend_unavailable");
+        }
+
+        Ok(())
+    }
+
+    /// Merges the person behind `other_distinct_id` into the person behind `distinct_id`,
+    /// even when both are already identified. Only for ids known to belong to the same device.
+    pub async fn merge_distinct_ids(
+        &self,
+        distinct_id: impl Into<String>,
+        other_distinct_id: impl Into<String>,
+    ) -> Result<(), Error> {
+        let distinct_id = distinct_id.into();
+        let other_distinct_id = other_distinct_id.into();
+
+        if let Some(lazy) = &self.posthog {
+            let state = lazy.get().await;
+            let mut event = Event::new("$merge_dangerously", &distinct_id);
+            let _ = event.insert_prop("alias", &other_distinct_id);
+            state.client.capture(event).await?;
         } else {
             tracing::info!("analytics_backend_unavailable");
         }
@@ -427,11 +446,12 @@ mod tests {
     }
 
     #[test]
-    fn identifiers_are_stable_and_domain_separated() {
-        let first = pseudonymous_id("user", "person@example.com");
-        assert_eq!(first, pseudonymous_id("user", "person@example.com"));
-        assert_ne!(first, pseudonymous_id("anonymous", "person@example.com"));
-        assert!(!first.contains("person@example.com"));
+    fn legacy_device_id_is_stable() {
+        let id = legacy_pseudonymous_device_id("3f2a9c1d8b7e6f50");
+        assert_eq!(id, legacy_pseudonymous_device_id("3f2a9c1d8b7e6f50"));
+        assert!(id.starts_with("anon_"));
+        assert_eq!(id.len(), 69);
+        assert!(!id.contains("3f2a9c1d8b7e6f50"));
     }
 
     #[test]

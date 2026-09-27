@@ -42,6 +42,9 @@ pub(super) struct SpeakerState {
     pub(super) assignment_by_word_index: HashMap<usize, SpeakerIdentity>,
     pub(super) human_id_by_scoped_speaker: HashMap<(ChannelProfile, i32), String>,
     pub(super) human_id_by_channel: HashMap<ChannelProfile, String>,
+    pub(super) single_human_by_channel: HashMap<ChannelProfile, (Option<i32>, String)>,
+    pub(super) isolated_mic_ranges: Vec<(i64, i64)>,
+    pub(super) isolated_mic_human: Option<String>,
     pub(super) last_speaker_by_channel: HashMap<ChannelProfile, SpeakerIdentity>,
     pub(super) complete_channels: HashSet<ChannelProfile>,
 }

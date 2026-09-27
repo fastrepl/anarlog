@@ -5,6 +5,7 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as detectCommands } from "@anlg/plugin-detect";
 import { commands as localSttCommands } from "@anlg/plugin-local-stt";
 import { commands as templateCommands } from "@anlg/plugin-template";
+import { commands as listenerCommands } from "@anlg/plugin-transcription";
 import { commands as trayCommands } from "@anlg/plugin-tray";
 import { commands as updaterCommands } from "@anlg/plugin-updater2";
 import { commands as windowsCommands } from "@anlg/plugin-windows";
@@ -440,6 +441,11 @@ function applySettingSideEffects(values: SettingValues): void {
   if (values.respect_dnd !== undefined) {
     void detectCommands
       .setRespectDoNotDisturb(values.respect_dnd)
+      .catch(console.error);
+  }
+  if (values.auto_pause_media !== undefined) {
+    void listenerCommands
+      .setMediaPauseEnabled(values.auto_pause_media)
       .catch(console.error);
   }
   if (values.ignored_platforms !== undefined) {

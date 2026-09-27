@@ -44,16 +44,23 @@ concurrency:
 jobs:
   js_ci:
     if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F ui build
-      - run: pnpm -F desktop typecheck
-      - run: pnpm -F desktop test
+      - if: matrix.shard == 1
+        run: pnpm -F desktop typecheck
+      - env:
+          SHARD: ${{ matrix.shard }}
+          SHARD_TOTAL: ${{ strategy.job-total }}
+        run: pnpm -F desktop test --shard="$SHARD/$SHARD_TOTAL"
 
   macos_ci:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
@@ -629,7 +636,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F desktop i18n:check
 

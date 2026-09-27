@@ -206,7 +206,7 @@ describe("getFloatingRouteState", () => {
     ).toBe("error");
   });
 
-  it("returns error status when live transcription degrades", () => {
+  it("keeps recording status while a retryable degradation reconnects on its own", () => {
     expect(
       getFloatingRouteState(
         createListenerState({
@@ -215,7 +215,28 @@ describe("getFloatingRouteState", () => {
           degraded: { type: "connection_timeout" },
         }),
       )?.status,
-    ).toBe("error");
+    ).toBe("recording");
+  });
+
+  it("returns error status when live transcription needs the user", () => {
+    for (const degraded of [
+      { type: "authentication_failed" as const, provider: "deepgram" },
+      {
+        type: "provider_configuration" as const,
+        provider: "deepgram",
+        message: "invalid model",
+      },
+    ]) {
+      expect(
+        getFloatingRouteState(
+          createListenerState({
+            status: "active",
+            sessionId: "session-1",
+            degraded,
+          }),
+        )?.status,
+      ).toBe("error");
+    }
   });
 
   it("returns error status when the active listener reports an error", () => {
@@ -349,6 +370,76 @@ describe("getFloatingTranscriptBubbles", () => {
     );
 
     expect(bubbles[0]?.speakerLabel).toBe("Artem");
+  });
+
+  it("prefers the resolver's identity over the channel for label and ownership", () => {
+    const ctx: RenderLabelContext = {
+      getSelfHumanId: () => "self",
+      getHumanName: () => undefined,
+      getParticipantHumanIds: () => ["self", "remote", "other"],
+    };
+    const segments = [
+      createSegment({
+        id: "mic",
+        key: { channel: "DirectMic", speaker_index: 0, speaker_human_id: null },
+        start_ms: 0,
+        text: "hello",
+        words: [{ text: "hello" }],
+      }),
+      createSegment({
+        id: "remote",
+        key: {
+          channel: "RemoteParty",
+          speaker_index: 3,
+          speaker_human_id: null,
+        },
+        start_ms: 1000,
+        text: "hi",
+        words: [{ text: "hi" }],
+      }),
+      createSegment({
+        id: "guest-on-mic",
+        key: { channel: "DirectMic", speaker_index: 1, speaker_human_id: null },
+        start_ms: 2000,
+        text: "hey",
+        words: [{ text: "hey" }],
+      }),
+      createSegment({
+        id: "unresolved",
+        key: {
+          channel: "RemoteParty",
+          speaker_index: 5,
+          speaker_human_id: null,
+        },
+        start_ms: 3000,
+        text: "yo",
+        words: [{ text: "yo" }],
+      }),
+    ];
+    const bubbles = getFloatingTranscriptBubbles(
+      segments,
+      ctx,
+      new Map([
+        ["mic", { label: "John", humanId: "self" }],
+        ["remote", { label: "Artem", humanId: "remote" }],
+        ["guest-on-mic", { label: "Artem", humanId: "remote" }],
+        ["unresolved", { label: "Speaker 2" }],
+      ]),
+    );
+
+    expect(
+      bubbles.map((bubble) => [bubble.speakerLabel, bubble.isSelf]),
+    ).toEqual([
+      ["You", true],
+      ["Artem", false],
+      ["Artem", false],
+      ["Speaker 2", false],
+    ]);
+    expect(
+      getFloatingTranscriptBubbles(segments, ctx).map(
+        (bubble) => bubble.speakerLabel,
+      ),
+    ).toEqual(["You", "Speaker 4", "You", "Speaker 6"]);
   });
 
   it("labels assigned direct-mic bubbles as self", () => {

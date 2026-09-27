@@ -74,7 +74,7 @@ describe("SettingsPrivacy", () => {
     render(<SettingsPrivacy />);
 
     const posthog = screen.getByRole("switch", {
-      name: "Share usage data (PostHog)",
+      name: "Share usage data",
     });
     const errorReporting = screen.getByRole("switch", { name: "Error" });
 

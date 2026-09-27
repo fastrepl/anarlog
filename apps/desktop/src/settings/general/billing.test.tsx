@@ -24,17 +24,35 @@ const mocks = vi.hoisted(() => ({
     isPaid: false,
     isTrialing: false,
     isPaused: false,
+    isPro: false,
     plan: "free",
     trialDaysRemaining: null as number | null,
+    trialEnd: null as Date | null,
+    currentPeriodEnd: null as Date | null,
+    cancelAtPeriodEnd: false,
+  } as {
+    canStartTrial: { data: boolean; isPending: boolean };
+    hasPaymentMethod: boolean;
+    isPaid: boolean;
+    isTrialing: boolean;
+    isPaused: boolean;
+    isPro?: boolean;
+    plan: string;
+    trialDaysRemaining: number | null;
+    trialEnd?: Date | null;
+    currentPeriodEnd?: Date | null;
+    cancelAtPeriodEnd?: boolean;
   },
   session: { user: { id: "user-1", email: "john@example.com" } } as {
     user: { id: string; email: string };
+    access_token?: string;
   } | null,
   workspaces: {
-    data: [] as Array<{ workspaceId: string }>,
+    data: [] as Array<{ workspaceId: string; name?: string }>,
     isPending: false,
   },
   getWorkspaceAccess: vi.fn(),
+  requestSyncDevices: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-analytics", () => ({
@@ -74,6 +92,10 @@ vi.mock("~/settings/team/mirror", () => ({
 
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => mocks.billing,
+}));
+
+vi.mock("~/auth/sync-devices", () => ({
+  requestSyncDevices: mocks.requestSyncDevices,
 }));
 
 vi.mock("~/shared/utils", () => ({
@@ -121,6 +143,11 @@ describe("SettingsBilling", () => {
       plan: "free",
       trialDaysRemaining: null,
     };
+    mocks.requestSyncDevices.mockResolvedValue({
+      devices: [],
+      pendingDevices: [],
+      maxDevices: 3,
+    });
     globalThis.ResizeObserver = class {
       observe() {}
       unobserve() {}
@@ -182,7 +209,9 @@ describe("SettingsBilling", () => {
 
     expect(screen.queryByText("Cancel")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add payment method" }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Add payment method" })[0],
+    );
 
     await waitFor(() =>
       expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/portal", {
@@ -210,7 +239,7 @@ describe("SettingsBilling", () => {
     renderBilling();
 
     expect(screen.getByText("Your Pro trial has ended")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Resume" })[0]);
 
     await waitFor(() =>
       expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/portal"),
@@ -230,7 +259,9 @@ describe("SettingsBilling", () => {
 
     renderBilling();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start free trial" }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Start free trial" })[0],
+    );
 
     await waitFor(() =>
       expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/checkout", {
@@ -250,7 +281,7 @@ describe("SettingsBilling", () => {
   it("opens checkout for an upgrade when no trial is available", async () => {
     renderBilling();
 
-    fireEvent.click(screen.getByRole("button", { name: "Get Pro" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Get Pro" })[0]);
 
     await waitFor(() =>
       expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/checkout", {
@@ -337,5 +368,83 @@ describe("SettingsBilling", () => {
     expect(screen.getByText("Current")).toBeTruthy();
     expect(screen.queryByText("Cancel")).toBeNull();
     expect(screen.queryByRole("button", { name: /Current/ })).toBeNull();
+  });
+
+  it("shows trial and team seat usage in plan limits", async () => {
+    mocks.billing = {
+      canStartTrial: { data: false, isPending: false },
+      hasPaymentMethod: true,
+      isPaid: true,
+      isTrialing: true,
+      isPaused: false,
+      plan: "trial",
+      trialDaysRemaining: 3,
+      trialEnd: new Date("2025-10-01T00:00:00Z"),
+    };
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Acme",
+      },
+    ];
+    mocks.getWorkspaceAccess.mockResolvedValue({
+      tier: "team",
+      capabilities: [],
+      seatLimit: 5,
+      usedSeats: 2,
+    });
+
+    renderBilling();
+
+    expect(await screen.findByText("Team seats")).toBeTruthy();
+    expect(screen.getByText("Plan limits")).toBeTruthy();
+    expect(screen.getByText("Pro trial")).toBeTruthy();
+    expect(screen.getByText("3 days left")).toBeTruthy();
+    expect(screen.getByText("Ends Oct 1, 2025")).toBeTruthy();
+    expect(screen.getByText("Acme")).toBeTruthy();
+    expect(screen.getByText("2 of 5 used")).toBeTruthy();
+  });
+
+  it("shows synced device usage for Pro users", async () => {
+    mocks.session = {
+      user: { id: "user-1", email: "john@example.com" },
+      access_token: "token-1",
+    };
+    mocks.billing = {
+      canStartTrial: { data: false, isPending: false },
+      hasPaymentMethod: true,
+      isPaid: true,
+      isPro: true,
+      isTrialing: false,
+      isPaused: false,
+      plan: "pro",
+      trialDaysRemaining: null,
+      currentPeriodEnd: new Date("2025-10-15T00:00:00Z"),
+    };
+    mocks.requestSyncDevices.mockResolvedValue({
+      devices: [{ deviceFingerprint: "device-a" }],
+      pendingDevices: [{ deviceFingerprint: "device-b" }],
+      maxDevices: 3,
+    });
+
+    renderBilling();
+
+    expect(await screen.findByText("Synced devices")).toBeTruthy();
+    expect(screen.getByText("2 of 3 used")).toBeTruthy();
+    expect(screen.getByText(/renews Oct 15, 2025/)).toBeTruthy();
+    expect(
+      screen.getAllByRole("button", { name: "Manage billing" }),
+    ).toHaveLength(1);
+    expect(mocks.requestSyncDevices).toHaveBeenCalledWith(
+      "token-1",
+      expect.anything(),
+    );
+  });
+
+  it("hides plan limits for Free users", () => {
+    renderBilling();
+
+    expect(screen.queryByText("Plan limits")).toBeNull();
+    expect(screen.getByText("Compare plans")).toBeTruthy();
   });
 });

@@ -16,15 +16,35 @@ const MAX_UNFINALIZED_AUDIO_SAMPLES: usize = crate::actors::SAMPLE_RATE as usize
 
 pub(super) struct StreamProgress {
     last_progress_at: std::time::Instant,
+    last_response_at: std::time::Instant,
     last_partials_hash: Option<u64>,
     active_samples: usize,
     unfinalized_samples: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum StallReason {
+    NoProgress,
+    UnfinalizedCap,
+}
+
+/// What tripped the watchdog. A provider that kept answering (`secs_since_response` near zero)
+/// while `secs_since_progress` grew was alive but hearing nothing; a large `secs_since_response`
+/// is a wedged stream.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct StallDiagnostics {
+    pub(super) reason: StallReason,
+    pub(super) active_audio_secs: f64,
+    pub(super) unfinalized_audio_secs: f64,
+    pub(super) secs_since_progress: f64,
+    pub(super) secs_since_response: f64,
 }
 
 impl StreamProgress {
     pub(super) fn new(now: std::time::Instant) -> Self {
         Self {
             last_progress_at: now,
+            last_response_at: now,
             last_partials_hash: None,
             active_samples: 0,
             unfinalized_samples: 0,
@@ -34,9 +54,32 @@ impl StreamProgress {
     pub(super) fn observe_audio(&mut self, samples: usize, now: std::time::Instant) -> bool {
         self.active_samples = self.active_samples.saturating_add(samples);
         self.unfinalized_samples = self.unfinalized_samples.saturating_add(samples);
-        (self.active_samples >= MIN_ACTIVE_AUDIO_SAMPLES
-            && now.duration_since(self.last_progress_at) >= TRANSCRIPT_PROGRESS_TIMEOUT)
-            || self.unfinalized_samples >= MAX_UNFINALIZED_AUDIO_SAMPLES
+        self.no_progress(now) || self.unfinalized_samples >= MAX_UNFINALIZED_AUDIO_SAMPLES
+    }
+
+    /// Any provider message, including ones carrying no transcript progress.
+    pub(super) fn observe_response(&mut self, now: std::time::Instant) {
+        self.last_response_at = now;
+    }
+
+    pub(super) fn diagnostics(&self, now: std::time::Instant) -> StallDiagnostics {
+        let sample_rate = crate::actors::SAMPLE_RATE as f64;
+        StallDiagnostics {
+            reason: if self.no_progress(now) {
+                StallReason::NoProgress
+            } else {
+                StallReason::UnfinalizedCap
+            },
+            active_audio_secs: self.active_samples as f64 / sample_rate,
+            unfinalized_audio_secs: self.unfinalized_samples as f64 / sample_rate,
+            secs_since_progress: now.duration_since(self.last_progress_at).as_secs_f64(),
+            secs_since_response: now.duration_since(self.last_response_at).as_secs_f64(),
+        }
+    }
+
+    fn no_progress(&self, now: std::time::Instant) -> bool {
+        self.active_samples >= MIN_ACTIVE_AUDIO_SAMPLES
+            && now.duration_since(self.last_progress_at) >= TRANSCRIPT_PROGRESS_TIMEOUT
     }
 
     pub(super) fn observe_delta(
@@ -515,6 +558,31 @@ mod tests {
         progress.observe_delta(&transcript_delta(false, 29), now + Duration::from_secs(29));
         assert!(!progress.observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(30)));
         assert!(progress.observe_audio(0, now + Duration::from_secs(59)));
+    }
+
+    #[test]
+    fn stall_diagnostics_tell_a_silent_provider_from_a_wedged_stream() {
+        let now = Instant::now();
+        let sample_rate = crate::actors::SAMPLE_RATE as usize;
+
+        // Empty provider messages keep the stream alive but are not transcript progress.
+        let mut quiet = StreamProgress::new(now);
+        quiet.observe_response(now + Duration::from_secs(29));
+        assert!(quiet.observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(30)));
+        let diagnostics = quiet.diagnostics(now + Duration::from_secs(30));
+        assert_eq!(diagnostics.reason, StallReason::NoProgress);
+        assert_eq!(diagnostics.secs_since_progress, 30.0);
+        assert_eq!(diagnostics.secs_since_response, 1.0);
+        assert_eq!(diagnostics.active_audio_secs, 5.0);
+
+        // Recent partials rule out NoProgress, so the unfinalized cap is what tripped.
+        let mut capped = StreamProgress::new(now);
+        capped.observe_delta(&transcript_delta(false, 89), now + Duration::from_secs(89));
+        assert!(capped.observe_audio(sample_rate * 90, now + Duration::from_secs(90)));
+        let diagnostics = capped.diagnostics(now + Duration::from_secs(90));
+        assert_eq!(diagnostics.reason, StallReason::UnfinalizedCap);
+        assert_eq!(diagnostics.unfinalized_audio_secs, 90.0);
+        assert_eq!(diagnostics.secs_since_response, 90.0);
     }
 
     #[test]

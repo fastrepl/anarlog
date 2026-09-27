@@ -303,13 +303,6 @@ const routes = [
     },
   },
   {
-    src: "^/about/?$",
-    status: 301,
-    headers: {
-      Location: "/",
-    },
-  },
-  {
     src: "^/roadmap/?$",
     status: 301,
     headers: {

@@ -50,7 +50,7 @@ async function* executeWorkflow(params: {
   const prompt = withLengthGuidance(
     withImageContextNote(await getUserPrompt(args), args.imageContext.length),
     args.transcripts,
-    Boolean(args.template?.sections.length),
+    args.template?.sections.length ?? 0,
     args.summaryLength,
     Boolean(args.formatOverride.trim()),
   );
@@ -218,17 +218,19 @@ ${IMAGE_CONTEXT_NOTE}`;
 function withLengthGuidance(
   prompt: string,
   transcripts: TaskArgsMapTransformed["enhance"]["transcripts"],
-  hasTemplateSections: boolean,
+  templateSectionCount: number,
   summaryLength: TaskArgsMapTransformed["enhance"]["summaryLength"],
   customFormat: boolean,
 ): string {
-  if (hasTemplateSections) {
-    return prompt;
-  }
-
+  const hasTemplateSections = templateSectionCount > 0;
   const guidance = formatSummaryLengthGuidance(
-    getSummaryLengthPolicy(transcripts, summaryLength, customFormat),
-    customFormat,
+    getSummaryLengthPolicy(
+      transcripts,
+      summaryLength,
+      customFormat || hasTemplateSections,
+      templateSectionCount,
+    ),
+    { customFormat, hasTemplateSections },
   );
   if (!guidance) return prompt;
 

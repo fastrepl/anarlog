@@ -86,7 +86,10 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Cloud Transcription", included: true },
       { label: "Cloud LLM", included: true },
       { label: "Better Speaker Identification", included: true },
-      { label: "Cloud sync (up to 3 devices)", included: true },
+      {
+        label: "Cloud sync (3 devices included, add more anytime)",
+        included: true,
+      },
       { label: "End-to-end encryption (E2EE)", included: true },
       {
         label: "Share individual notes",

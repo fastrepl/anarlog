@@ -90,7 +90,7 @@ pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     check_e2ee_apply_cancellation(is_cancelled)?;
-    let repair_remaining = if snapshot_complete {
+    let repair = if snapshot_complete {
         repair_e2ee_replica_from_witness_bounded_cancellable(
             pool,
             keys,
@@ -100,9 +100,11 @@ pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
             is_cancelled,
         )
         .await?
-        .remaining
     } else {
-        false
+        super::E2eeWitnessRepairOutcome {
+            repaired_records: 0,
+            remaining: false,
+        }
     };
     check_e2ee_apply_cancellation(is_cancelled)?;
     let mut stats = apply_e2ee_replica_changes_inner(
@@ -115,7 +117,9 @@ pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
     )
     .await?;
     check_e2ee_apply_cancellation(is_cancelled)?;
-    stats.remaining_replica_changes |= repair_remaining;
+    stats.repaired_witness_records = repair.repaired_records;
+    stats.remaining_witness_repairs = repair.remaining;
+    stats.remaining_replica_changes |= repair.remaining;
     Ok(stats)
 }
 
@@ -643,6 +647,9 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 rollback_if_cancelled!(transaction, is_cancelled);
                 if !row_exists(&mut transaction, &table, &workspace_id, &row_id).await? {
                     rollback_if_cancelled!(transaction, is_cancelled);
+                    // Another workspace owns this row ID. Let hydration yield
+                    // instead of retrying the unchanged pending record forever.
+                    stats.skipped_local_changes += records.len() as u64 + 1;
                     remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
                     rollback_if_cancelled!(transaction, is_cancelled);
                     commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
@@ -729,6 +736,17 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 || record.field.deleted
             {
                 return Err(E2eeReplicaError::InvalidField);
+            }
+            // Chunk hydration retires the legacy field's state. Only apply that
+            // field again for a queued update, not while retrying another field.
+            if !row_materialized
+                && !selected_generations.contains_key(&record.record_id)
+                && states.values().any(|state| {
+                    parse_chunk_field(&table, &state.field_name)
+                        .is_some_and(|(column, _)| column == field_name)
+                })
+            {
+                continue;
             }
             if !row_materialized
                 && states

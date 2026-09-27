@@ -12,6 +12,7 @@ use crate::{QueryEvent, Result, TransactionStatement};
 mod e2ee_sync;
 mod open;
 mod recovery;
+mod renderer;
 mod replica_sync;
 mod sync_result;
 mod witness_watch;
@@ -55,25 +56,28 @@ fn focus_nudge_due(last: Option<std::time::Instant>, now: std::time::Instant) ->
 }
 
 #[derive(Clone)]
-pub struct QueryEventChannel(Channel<QueryEvent>);
+pub struct QueryEventChannel {
+    channel: Channel<QueryEvent>,
+    session: std::sync::Arc<renderer::RendererSession>,
+}
 
 impl QueryEventChannel {
+    #[cfg(test)]
     pub fn new(channel: Channel<QueryEvent>) -> Self {
-        Self(channel)
+        Self {
+            channel,
+            session: Default::default(),
+        }
     }
 }
 
 impl QueryEventSink for QueryEventChannel {
     fn send_result(&self, rows: Vec<serde_json::Value>) -> std::result::Result<(), String> {
-        self.0
-            .send(QueryEvent::Result(rows))
-            .map_err(|error| error.to_string())
+        self.session.send(&self.channel, QueryEvent::Result(rows))
     }
 
     fn send_error(&self, error: String) -> std::result::Result<(), String> {
-        self.0
-            .send(QueryEvent::Error(error))
-            .map_err(|error| error.to_string())
+        self.session.send(&self.channel, QueryEvent::Error(error))
     }
 }
 
@@ -140,6 +144,7 @@ pub struct PluginDbRuntime {
     synced_write_barrier: tokio::sync::RwLock<()>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
+    renderer_subscriptions: renderer::RendererSubscriptions,
     e2ee_sync_hook: std::sync::Arc<E2eeSyncHook>,
     scheduled_cloudsync_full_resync: std::sync::Arc<std::sync::Mutex<CloudsyncFullResyncSchedule>>,
     cloudsync_full_resync_task: tokio::sync::Mutex<Option<CloudsyncFullResyncTask>>,
@@ -229,6 +234,7 @@ impl PluginDbRuntime {
             synced_write_barrier: tokio::sync::RwLock::new(()),
             executor: DbExecutor::new(std::sync::Arc::clone(&db)),
             live_query_runtime: LiveQueryRuntime::new(db),
+            renderer_subscriptions: Default::default(),
             e2ee_sync_hook,
             _witness_watch: witness_watch,
             scheduled_cloudsync_full_resync: Default::default(),
@@ -643,11 +649,34 @@ impl PluginDbRuntime {
         sink: QueryEventChannel,
     ) -> Result<SubscriptionRegistration> {
         self.ensure_app_schema().await?;
-        Ok(self.live_query_runtime.subscribe(sql, params, sink).await?)
+        let session = sink.session.clone();
+        let registration = self.live_query_runtime.subscribe(sql, params, sink).await?;
+        if !session.register(&registration.id) {
+            let _ = self.live_query_runtime.unsubscribe(&registration.id).await;
+            return Err(std::io::Error::other("live query renderer has closed").into());
+        }
+        Ok(registration)
     }
 
     pub async fn unsubscribe(&self, subscription_id: &str) -> anlg_db_reactive::Result<()> {
-        self.live_query_runtime.unsubscribe(subscription_id).await
+        let result = self.live_query_runtime.unsubscribe(subscription_id).await;
+        self.renderer_subscriptions.remove(subscription_id);
+        result
+    }
+
+    pub(crate) fn query_channel(
+        &self,
+        label: &str,
+        channel: Channel<QueryEvent>,
+    ) -> QueryEventChannel {
+        QueryEventChannel {
+            channel,
+            session: self.renderer_subscriptions.session(label),
+        }
+    }
+
+    pub(crate) fn close_webview_subscriptions(&self, label: &str) -> Vec<String> {
+        self.renderer_subscriptions.close(label)
     }
 
     pub async fn configure_cloudsync(&self, config_json: String) -> Result<()> {
@@ -1431,8 +1460,15 @@ impl PluginDbRuntime {
         keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
         cancellation: &crate::e2ee_witness::E2eeWitnessCancellation,
     ) -> std::io::Result<()> {
+        let started = std::time::Instant::now();
+        let mut last_progress = started;
+        let mut batches = 0_u64;
+        let mut total_applied_fields = 0_u64;
+        let mut total_skipped_local_changes = 0_u64;
+        let mut total_repaired_witness_records = 0_u64;
         loop {
             cancellation.check()?;
+            let batch_started = std::time::Instant::now();
             let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
                 self.db.pool(),
                 keys,
@@ -1444,15 +1480,45 @@ impl PluginDbRuntime {
                 std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
             })?;
             cancellation.check()?;
+            batches += 1;
+            total_applied_fields = total_applied_fields.saturating_add(stats.applied_fields);
+            total_skipped_local_changes =
+                total_skipped_local_changes.saturating_add(stats.skipped_local_changes);
+            total_repaired_witness_records =
+                total_repaired_witness_records.saturating_add(stats.repaired_witness_records);
             tracing::debug!(
                 applied_fields = stats.applied_fields,
                 remaining = stats.remaining_replica_changes,
                 "materialized authenticated E2EE changes"
             );
             // Drain ready records before yielding stalled records to later pages or local encryption.
-            if !stats.remaining_replica_changes
-                || (stats.skipped_local_changes > 0 && stats.applied_fields == 0)
+            let yielded = !stats.remaining_replica_changes
+                || (stats.skipped_local_changes > 0 && stats.applied_fields == 0);
+            if last_progress.elapsed() >= std::time::Duration::from_secs(30)
+                || (yielded && started.elapsed() >= std::time::Duration::from_secs(30))
             {
+                tracing::info!(
+                    batches,
+                    applied_fields = stats.applied_fields,
+                    skipped_local_changes = stats.skipped_local_changes,
+                    incomplete_chunk_columns = stats.incomplete_chunk_columns,
+                    rejected_rollbacks = stats.rejected_rollbacks,
+                    rejected_unwitnessed = stats.rejected_unwitnessed,
+                    parked_records = stats.parked_records,
+                    repaired_witness_records = stats.repaired_witness_records,
+                    remaining_witness_repairs = stats.remaining_witness_repairs,
+                    total_applied_fields,
+                    total_skipped_local_changes,
+                    total_repaired_witness_records,
+                    remaining = stats.remaining_replica_changes,
+                    yielded,
+                    batch_elapsed_ms = batch_started.elapsed().as_millis() as u64,
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "E2EE witness hydration progress"
+                );
+                last_progress = std::time::Instant::now();
+            }
+            if yielded {
                 return Ok(());
             }
         }

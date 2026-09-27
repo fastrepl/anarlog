@@ -7,6 +7,7 @@ import {
 
 import {
   createMeetingFloatLabelContext,
+  createMeetingFloatRenderRequest,
   loadMeetingFloatData,
   type MeetingFloatData,
   subscribeMeetingFloatData,
@@ -26,6 +27,10 @@ import {
   getSettingsValuesFromNativeChange,
   type FloatingOverlaySettings,
 } from "./settings";
+import {
+  createFloatingSpeakerLabeler,
+  type FloatingSpeakerLabels,
+} from "./speaker-labels";
 import { isFloatingBarSupported } from "./support";
 import {
   createFloatingMeetingWindowSynchronizer,
@@ -191,6 +196,9 @@ function FloatingMeetingWindowSync({
     );
     let unsubscribeMeetingData: (() => Promise<void>) | null = null;
     const unlisteners: Array<() => void> = [];
+    const speakerLabeler = createFloatingSpeakerLabeler(() => {
+      if (!cancelled) refreshCurrentRouteState(true);
+    });
 
     const updateRouteState = (nextRouteState: FloatingRouteState | null) => {
       if (
@@ -222,8 +230,23 @@ function FloatingMeetingWindowSync({
                 getFloatingLiveCaptionToggleVisible(state),
                 meetingData,
                 transcriptBubbles,
+                speakerLabeler.labels,
               )
             : null,
+      );
+    };
+    const resolveSpeakerLabels = () => {
+      const state = listenerStore.getState();
+      const sessionId =
+        enabledRef.current && state.live.status === "active"
+          ? state.live.sessionId
+          : null;
+      speakerLabeler.update(
+        sessionId,
+        state.liveSegments,
+        sessionId
+          ? createMeetingFloatRenderRequest(meetingData, sessionId)
+          : null,
       );
     };
     refreshSettingsRef.current = refreshCurrentRouteState;
@@ -274,6 +297,7 @@ function FloatingMeetingWindowSync({
         if (cancelled) unlisten();
         else unlisteners.push(unlisten);
       });
+    resolveSpeakerLabels();
     refreshCurrentRouteState();
     const unsubscribeDictation = useDictationStatus.subscribe(() =>
       refreshCurrentRouteState(),
@@ -284,15 +308,19 @@ function FloatingMeetingWindowSync({
         return;
       }
 
-      refreshCurrentRouteState(
+      const transcriptChanged =
         state.liveSegments !== previousState.liveSegments ||
-          state.live.sessionId !== previousState.live.sessionId,
-      );
+        state.live.sessionId !== previousState.live.sessionId;
+      if (transcriptChanged) {
+        resolveSpeakerLabels();
+      }
+      refreshCurrentRouteState(transcriptChanged);
     });
 
     void subscribeMeetingFloatData(
       (nextData) => {
         meetingData = nextData;
+        resolveSpeakerLabels();
         refreshCurrentRouteState(true);
       },
       (error) => {
@@ -317,6 +345,7 @@ function FloatingMeetingWindowSync({
     return () => {
       cancelled = true;
       refreshSettingsRef.current = () => {};
+      speakerLabeler.dispose();
       unsubscribe();
       unsubscribeDictation();
       unsubscribeAppliedTheme();
@@ -350,6 +379,7 @@ function getCurrentFloatingRouteState(
   liveCaptionToggleVisible = false,
   meetingData?: MeetingFloatData,
   transcriptBubbles?: FloatingRouteState["transcriptBubbles"],
+  speakerLabels?: FloatingSpeakerLabels,
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
     sessionId,
@@ -358,6 +388,7 @@ function getCurrentFloatingRouteState(
     liveCaptionToggleVisible,
     sessionTitle: getFloatingSessionTitle(state, meetingData),
     speakerLabelContext: getFloatingSpeakerLabelContext(state, meetingData),
+    speakerLabels,
     transcriptBubbles,
   });
 }
@@ -374,7 +405,7 @@ export function haveFloatingRouteInputsChanged(
       previousState.live.lastErrorIsAudioRelated ||
     state.live.amplitude.mic !== previousState.live.amplitude.mic ||
     state.live.amplitude.speaker !== previousState.live.amplitude.speaker ||
-    Boolean(state.live.degraded) !== Boolean(previousState.live.degraded) ||
+    state.live.degraded?.type !== previousState.live.degraded?.type ||
     Boolean(state.live.lastError) !== Boolean(previousState.live.lastError) ||
     state.live.liveTranscriptionActive !==
       previousState.live.liveTranscriptionActive ||

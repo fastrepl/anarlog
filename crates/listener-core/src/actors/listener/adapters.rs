@@ -6,10 +6,10 @@ use ractor::{ActorProcessingErr, ActorRef};
 
 use owhisper_client::{
     AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
-    DashScopeAdapter, DeepgramAdapter, DeepgramFluxAdapter, ElevenLabsAdapter, FireworksAdapter,
-    GladiaAdapter, GoogleGenerativeAiAdapter, MetaAdapter, MistralAdapter, NariAdapter,
-    OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter,
-    XaiAdapter, anlg_ws_client,
+    DashScopeAdapter, DashScopeStreamingAdapter, DeepgramAdapter, DeepgramFluxAdapter,
+    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleGenerativeAiAdapter, MetaAdapter,
+    MistralAdapter, NariAdapter, OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter,
+    SonioxAdapter, WisprFlowAdapter, XaiAdapter, anlg_ws_client,
 };
 use owhisper_interface::stream::{Extra, StreamResponse};
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -154,6 +154,15 @@ pub(super) async fn spawn_rx_task(
             spawn_rx_task_single_with_adapter::<DeepgramFluxAdapter>(args, myself).await?
         };
         return Ok((result.0, result.1, result.2, "deepgram".to_string()));
+    }
+
+    if adapter_kind == AdapterKind::DashScope && DashScopeStreamingAdapter::is_model(&args.model) {
+        let result = if is_dual {
+            spawn_rx_task_dual_with_adapter::<DashScopeStreamingAdapter>(args, myself).await?
+        } else {
+            spawn_rx_task_single_with_adapter::<DashScopeStreamingAdapter>(args, myself).await?
+        };
+        return Ok((result.0, result.1, result.2, "dashscope".to_string()));
     }
 
     macro_rules! dispatch_realtime {
@@ -482,6 +491,7 @@ fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams 
         keywords: args.keywords.clone(),
         num_speakers,
         max_speakers: num_speakers,
+        mic_num_speakers: args.mic_isolated.then_some(1),
         custom_query: Some(custom_query),
         ..Default::default()
     }
@@ -676,6 +686,8 @@ mod tests {
             participant_human_ids: vec![],
             self_human_id: None,
             speaker_assignments: vec![],
+            live_transcript: Default::default(),
+            mic_isolated: false,
         }
     }
 
@@ -743,6 +755,26 @@ mod tests {
         assert_eq!(params.max_speakers, None);
         assert!(!custom_query.contains_key("speaker_labels"));
         assert!(!custom_query.contains_key("max_speakers"));
+    }
+
+    #[test]
+    fn build_listen_params_marks_isolated_mic_as_single_speaker() {
+        let mut args = listener_args("https://api.soniox.com", "stt-rt-v4");
+        args.mic_isolated = true;
+
+        let params = build_listen_params(&args);
+
+        assert_eq!(params.mic_num_speakers, Some(1));
+        assert_eq!(params.num_speakers, None);
+    }
+
+    #[test]
+    fn build_listen_params_leaves_shared_mic_uncounted() {
+        let args = listener_args("https://api.soniox.com", "stt-rt-v4");
+
+        let params = build_listen_params(&args);
+
+        assert_eq!(params.mic_num_speakers, None);
     }
 
     #[test]

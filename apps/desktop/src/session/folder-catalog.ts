@@ -192,6 +192,28 @@ export async function updateFolderInstructions(
   );
 }
 
+export async function updateFolderWorkspace(
+  folderPath: string,
+  workspaceId: string,
+): Promise<void> {
+  const path = await ensureFolderCatalog(folderPath);
+  await enqueueDatabaseWrite("folders", () =>
+    executeTransaction([
+      {
+        sql: `
+          UPDATE folders
+          SET
+            workspace_id = ?,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+          WHERE path = ?
+            AND deleted_at IS NULL
+        `,
+        params: [workspaceId, path],
+      },
+    ]),
+  );
+}
+
 export async function updateFolderIcon(
   folderPath: string,
   icon: TemplateIcon,
@@ -249,6 +271,43 @@ export function useFolderInstructions(folderPath: string): string {
     params: [folderPath],
     enabled: folderPath.length > 0,
     mapRows: (rows) => rows[0]?.instructions ?? "",
+  });
+  return data;
+}
+
+export async function loadFolderWorkspaceId(
+  folderPath: string,
+): Promise<string> {
+  const path = normalizeFolderPath(folderPath);
+  if (!path) {
+    return "";
+  }
+
+  const rows = await liveQueryClient.execute<{ workspace_id: string }>(
+    `
+      SELECT workspace_id
+      FROM folders
+      WHERE path = ?
+        AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [path],
+  );
+  return rows[0]?.workspace_id ?? "";
+}
+
+export function useFolderWorkspaceId(folderPath: string): string {
+  const { data = "" } = useLiveQuery<{ workspace_id: string }, string>({
+    sql: `
+      SELECT workspace_id
+      FROM folders
+      WHERE path = ?
+        AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    params: [folderPath],
+    enabled: folderPath.length > 0,
+    mapRows: (rows) => rows[0]?.workspace_id ?? "",
   });
   return data;
 }

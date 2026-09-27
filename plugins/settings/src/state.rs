@@ -45,28 +45,6 @@ impl StartupSnapshot {
         self.read_or_default().await.map(normalize_legacy_names)
     }
 
-    pub async fn load_with_legacy_fallback(
-        &self,
-        legacy_base: &Path,
-    ) -> crate::Result<serde_json::Value> {
-        let _guard = self.io_lock.read().await;
-        if let Some(settings) = Self::read_at(&self.settings_path()).await? {
-            return Ok(normalize_legacy_names(settings));
-        }
-
-        let legacy_path = anlg_storage::vault::compute_settings_path(legacy_base);
-        if legacy_path == self.settings_path() {
-            return Ok(serde_json::json!({}));
-        }
-
-        Ok(normalize_legacy_names(
-            match Self::read_or_default_at(&legacy_path).await {
-                Ok(legacy) if is_non_empty_object(&legacy) => legacy,
-                _ => serde_json::json!({}),
-            },
-        ))
-    }
-
     pub async fn save(&self, settings: serde_json::Value) -> crate::Result<()> {
         let _guard = self.io_lock.write().await;
 
@@ -82,10 +60,6 @@ impl StartupSnapshot {
         anlg_storage::fs::atomic_write(&self.settings_path(), "{}")?;
         Ok(())
     }
-}
-
-fn is_non_empty_object(value: &serde_json::Value) -> bool {
-    value.as_object().is_some_and(|object| !object.is_empty())
 }
 
 fn normalize_legacy_names(mut settings: serde_json::Value) -> serde_json::Value {
@@ -127,14 +101,12 @@ mod tests {
     use tempfile::tempdir;
 
     #[tokio::test]
-    async fn load_uses_global_legacy_settings_when_custom_vault_is_missing() {
+    async fn load_normalizes_legacy_provider_names() {
         let temp = tempdir().unwrap();
         let vault_base = temp.path().join("vault");
-        let global_base = temp.path().join("global");
         std::fs::create_dir_all(&vault_base).unwrap();
-        std::fs::create_dir_all(&global_base).unwrap();
         std::fs::write(
-            anlg_storage::vault::compute_settings_path(&global_base),
+            anlg_storage::vault::compute_settings_path(&vault_base),
             r#"{"ai":{"current_llm_provider":"hyprnote"}}"#,
         )
         .unwrap();
@@ -142,10 +114,7 @@ mod tests {
         let snapshot = StartupSnapshot::new(vault_base);
 
         assert_eq!(
-            snapshot
-                .load_with_legacy_fallback(&global_base)
-                .await
-                .unwrap(),
+            snapshot.load().await.unwrap(),
             json!({"ai": {"current_llm_provider": "anarlog"}}),
         );
     }
@@ -175,64 +144,6 @@ mod tests {
                     "current_stt_provider": "anarlog"
                 }
             }),
-        );
-    }
-
-    #[tokio::test]
-    async fn load_preserves_an_explicit_custom_vault_reset() {
-        let temp = tempdir().unwrap();
-        let vault_base = temp.path().join("vault");
-        let global_base = temp.path().join("global");
-        std::fs::create_dir_all(&vault_base).unwrap();
-        std::fs::create_dir_all(&global_base).unwrap();
-        std::fs::write(
-            anlg_storage::vault::compute_settings_path(&vault_base),
-            "{}",
-        )
-        .unwrap();
-        std::fs::write(
-            anlg_storage::vault::compute_settings_path(&global_base),
-            r#"{"general":{"theme":"light"}}"#,
-        )
-        .unwrap();
-
-        let snapshot = StartupSnapshot::new(vault_base);
-
-        assert_eq!(
-            snapshot
-                .load_with_legacy_fallback(&global_base)
-                .await
-                .unwrap(),
-            json!({}),
-        );
-    }
-
-    #[tokio::test]
-    async fn load_prefers_non_empty_custom_vault_settings() {
-        let temp = tempdir().unwrap();
-        let vault_base = temp.path().join("vault");
-        let global_base = temp.path().join("global");
-        std::fs::create_dir_all(&vault_base).unwrap();
-        std::fs::create_dir_all(&global_base).unwrap();
-        std::fs::write(
-            anlg_storage::vault::compute_settings_path(&vault_base),
-            r#"{"general":{"theme":"dark"}}"#,
-        )
-        .unwrap();
-        std::fs::write(
-            anlg_storage::vault::compute_settings_path(&global_base),
-            r#"{"general":{"theme":"light"}}"#,
-        )
-        .unwrap();
-
-        let snapshot = StartupSnapshot::new(vault_base);
-
-        assert_eq!(
-            snapshot
-                .load_with_legacy_fallback(&global_base)
-                .await
-                .unwrap(),
-            json!({"general": {"theme": "dark"}}),
         );
     }
 

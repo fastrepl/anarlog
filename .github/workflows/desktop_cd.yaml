@@ -8,7 +8,6 @@ on:
         type: choice
         options:
           - staging
-          - nightly
           - stable
       candidate_sha:
         description: "Immutable candidate commit to check out"
@@ -77,13 +76,10 @@ jobs:
           CHANNEL: ${{ inputs.channel }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
         run: |
-          case "$CHANNEL" in stable|staging|nightly) ;; *) exit 1 ;; esac
+          case "$CHANNEL" in stable|staging) ;; *) exit 1 ;; esac
           if [[ "$CHANNEL" != "staging" ]]; then
             git fetch origin main --no-tags
             bash scripts/verify-release-candidate.sh "$CANDIDATE_SHA"
-          fi
-          if [[ "$CHANNEL" == "nightly" ]]; then
-            test -s packages/changelog/nightly.md
           fi
       - uses: ./.github/actions/doxxer_install
       - id: version
@@ -102,15 +98,6 @@ jobs:
               echo "::error::Missing changelog for stable version $VERSION"
               exit 1
             fi
-          elif [[ "$RELEASE_CHANNEL" == "nightly" ]]; then
-            BASE=$(node -p 'require("./release-version.json").version')
-            # Sequential per base version: 1.4.24-nightly.1, 1.4.24-nightly.2, ... until
-            # stable 1.4.24 ships. The first restored Nightly used the workflow run ID
-            # as the number; digits beyond six are that legacy scheme and are ignored.
-            LAST=$(git tag --list "desktop_nightly_v${BASE}-nightly.*" \
-              | sed -E "s/^desktop_nightly_v${BASE//./\\.}-nightly\.//" \
-              | grep -Ex '[0-9]{1,6}' | sort -n | tail -1)
-            VERSION="${BASE}-nightly.$(( ${LAST:-0} + 1 ))"
           elif [[ -n "$INPUT_VERSION" ]]; then
             VERSION="$INPUT_VERSION"
           elif [[ "$RELEASE_CHANNEL" == "staging" ]]; then
@@ -1044,23 +1031,3 @@ jobs:
           path: release-provenance/manifest.json
           if-no-files-found: error
           retention-days: 30
-
-      # Use the checked-out candidate's release action, as in the build steps above.
-      - if: inputs.channel == 'nightly'
-        uses: ./.github/actions/cn_release # zizmor: ignore[self-repository]
-        with:
-          cmd: publish
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: nightly
-          key: ${{ secrets.CN_API_KEY }}
-      - if: inputs.channel == 'nightly'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.compute-version.outputs.version }}
-        run: |
-          gh release create "desktop_nightly_v$VERSION" \
-            --target "$GITHUB_SHA" \
-            --title "Anarlog Nightly $VERSION" \
-            --notes-file packages/changelog/nightly.md \
-            --prerelease --latest=false

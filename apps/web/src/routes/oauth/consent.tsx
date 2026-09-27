@@ -76,17 +76,10 @@ function OAuthConsent() {
     <AuthShell
       title="Connect Anarlog"
       description={`${details.client.name} is requesting read-only access to your opted-in Anarlog meeting data.`}
+      showEyebrow={false}
+      showMarketing={false}
     >
       <div className="flex flex-col gap-5">
-        <div className="surface-subtle border-color-subtle rounded-xl border p-4">
-          <p className="text-color text-sm font-medium">
-            {details.client.name}
-          </p>
-          <p className="text-color-muted mt-1 truncate text-xs">
-            {details.client.uri}
-          </p>
-        </div>
-
         <div>
           <p className="text-color text-sm font-medium">This connection can:</p>
           <ul className="mt-3 flex flex-col gap-3">
@@ -101,11 +94,6 @@ function OAuthConsent() {
             ))}
           </ul>
         </div>
-
-        <p className="text-color-muted text-xs leading-5">
-          The connector cannot edit or delete meetings. Disable Cloud API &amp;
-          Connectors in Anarlog to remove its server-readable meeting copies.
-        </p>
 
         {decision.isError && (
           <p className="text-sm text-red-600">

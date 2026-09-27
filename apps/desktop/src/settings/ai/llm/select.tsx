@@ -61,6 +61,7 @@ import {
 } from "~/settings/ai/shared/list-openai";
 import { listOpenRouterModels } from "~/settings/ai/shared/list-openrouter";
 import { listUnslothModels } from "~/settings/ai/shared/list-unsloth";
+import { listVeniceModels } from "~/settings/ai/shared/list-venice";
 import { ModelCombobox } from "~/settings/ai/shared/model-combobox";
 import { PersistAiSelection } from "~/settings/ai/shared/persist-selection";
 import {
@@ -393,6 +394,11 @@ export function SelectProviderAndModel() {
               <SelectValue placeholder={t`Select a provider`} />
             </SelectTrigger>
             <SelectContent>
+              {providerOptions.length === 0 && (
+                <div className="text-muted-foreground px-2 py-3 text-center text-sm">
+                  <Trans>No providers found.</Trans>
+                </div>
+              )}
               {providerOptions.map((provider) => {
                 const requiresPro = requiresEntitlement(
                   provider.requirements,
@@ -616,6 +622,9 @@ export function getLlmProviderStatus({
       break;
     case "unsloth":
       listModelsFunc = () => listUnslothModels(baseUrl, apiKey);
+      break;
+    case "venice":
+      listModelsFunc = () => listVeniceModels(baseUrl, apiKey);
       break;
     case "custom":
       listModelsFunc = () => listGenericModels(baseUrl, apiKey);

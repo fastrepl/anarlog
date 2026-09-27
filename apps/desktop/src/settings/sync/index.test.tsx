@@ -19,8 +19,6 @@ const mocks = vi.hoisted(() => ({
   renameSyncDevice: vi.fn(),
   getDeviceIdentity: vi.fn(),
   repairKeychainAccess: vi.fn(),
-  vaultBase: vi.fn(),
-  openUrl: vi.fn(),
   openNew: vi.fn(),
   signOut: vi.fn(),
   trackAnalyticsEvent: vi.fn(),
@@ -44,16 +42,8 @@ vi.mock("@anlg/plugin-db", () => ({
   syncCloudsyncNow: mocks.syncCloudsyncNow,
 }));
 
-vi.mock("@anlg/plugin-settings", () => ({
-  commands: { vaultBase: mocks.vaultBase },
-}));
-
 vi.mock("@anlg/plugin-store2", () => ({
   commands: { repairKeychainAccess: mocks.repairKeychainAccess },
-}));
-
-vi.mock("@anlg/plugin-opener2", () => ({
-  commands: { openUrl: mocks.openUrl },
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -220,10 +210,6 @@ describe("SettingsSync", () => {
     mocks.renameSyncDevice.mockResolvedValue(undefined);
     mocks.refreshCloudsyncForSession.mockResolvedValue("ok");
     mocks.getCloudsyncStatus.mockResolvedValue(syncedStatus());
-    mocks.vaultBase.mockResolvedValue({
-      status: "ok",
-      data: "/Users/test/Library/Application Support/anarlog",
-    });
     mocks.syncCloudsyncNow.mockResolvedValue({});
     mocks.setSettingValue.mockResolvedValue(undefined);
     mocks.applyCloudsyncPreference.mockResolvedValue("ok");
@@ -235,15 +221,12 @@ describe("SettingsSync", () => {
 
   afterEach(cleanup);
 
-  it("shows sync status and encryption state", async () => {
+  it("shows sync status", async () => {
     renderSettings();
 
     expect(await screen.findByText("Synced")).toBeTruthy();
     expect(screen.getByRole("switch", { name: "Cloud sync" })).toBeTruthy();
-    expect(screen.getByText("End-to-end encryption")).toBeTruthy();
-    expect(
-      screen.getByText(/Keep synced notes readable only on your devices/),
-    ).toBeTruthy();
+    expect(screen.queryByText("End-to-end encryption")).toBeNull();
     expect(screen.queryByText(/conflicted copies/)).toBeNull();
   });
 
@@ -268,7 +251,7 @@ describe("SettingsSync", () => {
     expect(await screen.findByText("No devices registered yet.")).toBeTruthy();
   });
 
-  it("approves a pending device without sharing the recovery key", async () => {
+  it("shows automatic enrollment without requiring an approval button", async () => {
     mocks.requestSyncDevices.mockResolvedValue({
       devices: [],
       pendingDevices: [
@@ -286,24 +269,9 @@ describe("SettingsSync", () => {
     });
     renderSettings();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
-
-    await vi.waitFor(() =>
-      expect(mocks.sealE2eeRecoveryKeyForDevice).toHaveBeenCalledWith(
-        "user-1",
-        "11111111-1111-4111-8111-111111111111",
-        "A".repeat(43),
-      ),
-    );
-    expect(mocks.sealDeviceEnrollment).toHaveBeenCalledWith({
-      accessToken: "token",
-      requestId: "11111111-1111-4111-8111-111111111111",
-      packageValue: {
-        ephemeralPublicKey: "E".repeat(43),
-        nonce: "N".repeat(32),
-        ciphertext: "C".repeat(100),
-      },
-    });
+    expect(await screen.findByText("Connecting automatically")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(mocks.sealE2eeRecoveryKeyForDevice).not.toHaveBeenCalled();
   });
 
   it("shows this-device as a chip and disconnects other devices", async () => {
@@ -466,12 +434,12 @@ describe("SettingsSync", () => {
     );
   });
 
-  it("keeps recovery-key import available while approval is pending", async () => {
+  it("keeps recovery-key import available while automatic enrollment is pending", async () => {
     mocks.credentialBlock = "approval_pending";
     mocks.getE2eeIdentityStatus.mockResolvedValue({ configured: false });
     renderSettings();
 
-    expect(await screen.findByText("Waiting for device approval")).toBeTruthy();
+    expect(await screen.findByText("Connecting this device")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Use recovery key instead" }),
     ).toBeTruthy();
@@ -539,23 +507,6 @@ describe("SettingsSync", () => {
     expect(screen.getByRole("button", { name: "Hide sync log" })).toBeTruthy();
   });
 
-  it("warns when the storage location is inside a cloud-synced folder", async () => {
-    mocks.vaultBase.mockResolvedValue({
-      status: "ok",
-      data: "/Users/test/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault",
-    });
-    renderSettings();
-
-    expect(await screen.findByText(/storage location is inside/)).toBeTruthy();
-    expect(screen.getAllByText(/iCloud Drive/).length).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole("button", { name: "Learn more" }));
-    expect(mocks.openUrl).toHaveBeenCalledWith(
-      "https://docs.anarlog.so/sync",
-      null,
-    );
-  });
-
   it("pauses cloud sync from its settings page", async () => {
     renderSettings();
 
@@ -576,33 +527,17 @@ describe("SettingsSync", () => {
     expect(mocks.applyCloudsyncPreference).toHaveBeenCalledWith(mocks.session);
   });
 
-  it("repairs macOS Keychain access and retries cloud sync", async () => {
+  it("does not offer Keychain repair for keychain-access failures", async () => {
     mocks.credentialBlock = "keychain_access";
-    mocks.getE2eeIdentityStatus
-      .mockRejectedValueOnce(
-        "macOS couldn't access your login Keychain. Use “Repair Keychain Access” below, then try again.",
-      )
-      .mockResolvedValue({ configured: true });
+    mocks.getE2eeIdentityStatus.mockRejectedValue(
+      "macOS couldn't access your login Keychain.",
+    );
     renderSettings();
 
-    const repair = await screen.findByRole("button", {
-      name: "Repair Keychain Access",
-    });
-    expect(screen.getByText(/could not access your recovery key/)).toBeTruthy();
-    fireEvent.click(repair);
-
-    await vi.waitFor(() =>
-      expect(mocks.repairKeychainAccess).toHaveBeenCalledOnce(),
-    );
-    await vi.waitFor(() =>
-      expect(mocks.getE2eeIdentityStatus).toHaveBeenCalledTimes(2),
-    );
-    await vi.waitFor(() =>
-      expect(mocks.setSettingValue).toHaveBeenCalledWith(
-        "cloud_sync_enabled",
-        true,
-      ),
-    );
+    expect(await screen.findByText("Sync needs attention")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Repair Keychain Access" }),
+    ).toBeNull();
   });
 
   it("does not offer Keychain repair for generic sync failures", async () => {

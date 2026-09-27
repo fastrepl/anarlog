@@ -6,11 +6,6 @@ Default permissions for the plugin
 
 - `allow-global-base`
 - `allow-vault-base`
-- `allow-copy-vault`
-- `allow-move-vault`
-- `allow-set-vault-base`
-- `allow-is-empty-or-missing-dir`
-- `allow-obsidian-vaults`
 - `allow-path`
 - `allow-load`
 - `allow-save`
@@ -23,32 +18,6 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
-
-<tr>
-<td>
-
-`settings:allow-copy-vault`
-
-</td>
-<td>
-
-Enables the copy_vault command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`settings:deny-copy-vault`
-
-</td>
-<td>
-
-Denies the copy_vault command without any pre-configured scope.
-
-</td>
-</tr>
 
 <tr>
 <td>
@@ -79,32 +48,6 @@ Denies the global_base command without any pre-configured scope.
 <tr>
 <td>
 
-`settings:allow-is-empty-or-missing-dir`
-
-</td>
-<td>
-
-Enables the is_empty_or_missing_dir command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`settings:deny-is-empty-or-missing-dir`
-
-</td>
-<td>
-
-Denies the is_empty_or_missing_dir command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `settings:allow-load`
 
 </td>
@@ -124,58 +67,6 @@ Enables the load command without any pre-configured scope.
 <td>
 
 Denies the load command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`settings:allow-move-vault`
-
-</td>
-<td>
-
-Enables the move_vault command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`settings:deny-move-vault`
-
-</td>
-<td>
-
-Denies the move_vault command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`settings:allow-obsidian-vaults`
-
-</td>
-<td>
-
-Enables the obsidian_vaults command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`settings:deny-obsidian-vaults`
-
-</td>
-<td>
-
-Denies the obsidian_vaults command without any pre-configured scope.
 
 </td>
 </tr>
@@ -228,32 +119,6 @@ Enables the save command without any pre-configured scope.
 <td>
 
 Denies the save command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`settings:allow-set-vault-base`
-
-</td>
-<td>
-
-Enables the set_vault_base command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`settings:deny-set-vault-base`
-
-</td>
-<td>
-
-Denies the set_vault_base command without any pre-configured scope.
 
 </td>
 </tr>

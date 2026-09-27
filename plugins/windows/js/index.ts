@@ -26,7 +26,10 @@ export async function openUrlWithInstruction(
   ) => Promise<{ status: "ok" | "error"; error?: unknown }>,
   instructionSearch?: Record<string, string | undefined>,
 ) {
-  await commands.windowSaveFrame({ type: "main" });
+  const saved = await commands.windowSaveFrame({ type: "main" });
+  if (saved.status === "error") {
+    throw new Error(saved.error);
+  }
   const search = Object.fromEntries(
     Object.entries({ type: instructionType, url, ...instructionSearch }).filter(
       ([, value]) => value !== undefined,
@@ -59,7 +62,10 @@ export async function dismissInstruction() {
     { path: "/app", search: null },
   );
   await new Promise((resolve) => setTimeout(resolve, 100));
-  await commands.windowRestoreFrameAnimated({ type: "main" });
+  const restored = await commands.windowRestoreFrameAnimated({ type: "main" });
+  if (restored.status === "error") {
+    console.warn("Failed to restore instruction window frame:", restored.error);
+  }
 }
 
 const DROP_PREVENTION_CLEANUP_KEY =

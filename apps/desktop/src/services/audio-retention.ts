@@ -83,6 +83,37 @@ export function isSessionAudioIdle(sessionId: string) {
   );
 }
 
+async function sessionAudioIsProcessed(sessionId: string): Promise<boolean> {
+  const rows = await liveQueryClient.execute<{
+    has_words: number;
+    transcript_processing: number;
+  }>(
+    `
+      SELECT
+        EXISTS(
+          SELECT 1
+          FROM transcripts
+          WHERE session_id = ?
+            AND deleted_at IS NULL
+            AND json_valid(words_json)
+            AND json_array_length(words_json) > 0
+        ) AS has_words,
+        EXISTS(
+          SELECT 1
+          FROM session_attachments
+          WHERE session_id = ?
+            AND source_type = 'session_audio'
+            AND source_id = 'primary'
+            AND deleted_at IS NULL
+            AND json_valid(metadata_json)
+            AND json_extract(metadata_json, '$.transcript_status') = 'processing'
+        ) AS transcript_processing
+    `,
+    [sessionId, sessionId],
+  );
+  return rows[0]?.has_words === 1 && rows[0]?.transcript_processing !== 1;
+}
+
 export async function deleteProcessedAudioForRetention(
   policy: AudioRetentionPolicy,
   sessionId: string,
@@ -96,6 +127,9 @@ export async function deleteProcessedAudioForRetention(
   }
 
   try {
+    if (!(await sessionAudioIsProcessed(sessionId))) {
+      return false;
+    }
     return await deleteWithRetentionLifecycle(sessionId, () =>
       deleteLocalSessionAudio(sessionId, () => isSessionAudioIdle(sessionId)),
     );
@@ -121,14 +155,45 @@ export async function cleanupExpiredAudio(
   const sessions = await liveQueryClient.execute<{
     id: string;
     created_at: string;
+    has_words: number;
+    transcript_processing: number;
   }>(`
-    SELECT id, created_at FROM sessions
-    WHERE deleted_at IS NULL
-    ORDER BY created_at, id
+    SELECT
+      session.id,
+      session.created_at,
+      EXISTS(
+        SELECT 1
+        FROM transcripts AS transcript
+        WHERE transcript.session_id = session.id
+          AND transcript.deleted_at IS NULL
+          AND json_valid(transcript.words_json)
+          AND json_array_length(transcript.words_json) > 0
+      ) AS has_words,
+      EXISTS(
+        SELECT 1
+        FROM session_attachments AS audio
+        WHERE audio.session_id = session.id
+          AND audio.source_type = 'session_audio'
+          AND audio.source_id = 'primary'
+          AND audio.deleted_at IS NULL
+          AND json_valid(audio.metadata_json)
+          AND json_extract(audio.metadata_json, '$.transcript_status') = 'processing'
+      ) AS transcript_processing
+    FROM sessions AS session
+    WHERE session.deleted_at IS NULL
+    ORDER BY session.created_at, session.id
   `);
 
   for (const session of sessions) {
     if (!isSessionAudioIdle(session.id)) {
+      continue;
+    }
+
+    if (session.transcript_processing === 1) {
+      continue;
+    }
+
+    if (policy === "none" && session.has_words !== 1) {
       continue;
     }
 

@@ -19,6 +19,8 @@ supabase/.seed/
 
 internal
 .turbo
+.process-compose/
+.pc_env
 
 **/examples/out/
 

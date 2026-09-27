@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo, useState } from "react";
 
 import {
+  Buildings,
   FolderSimple,
   MagnifyingGlass,
   Plus,
@@ -21,7 +22,11 @@ import {
 } from "~/resource-sharing";
 import { createNamedFolder } from "~/session/folder-catalog";
 import { resolvedFolderIcon } from "~/session/folder-icon";
-import { useFolderIcons, useFolderPaths } from "~/session/queries";
+import {
+  useFolderIcons,
+  useFolderPaths,
+  useFolderWorkspaces,
+} from "~/session/queries";
 import { CustomSidebarHeader } from "~/sidebar/custom-sidebar-header";
 import { FolderNameDialog } from "~/sidebar/folder-name-dialog";
 import { TemplateIconGlyph } from "~/templates/template-icon";
@@ -31,6 +36,7 @@ export function FoldersSidebar() {
   const auth = useOptionalAuth();
   const folders = useFolderPaths();
   const persistedIcons = useFolderIcons();
+  const folderWorkspaces = useFolderWorkspaces();
   const iconOverrides = useFolderSelection((state) => state.iconOverrides);
   const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
   const activeFolder = useActiveFolderPath(folders);
@@ -146,6 +152,14 @@ export function FoldersSidebar() {
                         className="size-4 text-sm"
                       />
                       <span className="min-w-0 truncate">{folder}</span>
+                      {folderWorkspaces[folder]?.workspaceId ? (
+                        <span
+                          className="text-muted-foreground shrink-0"
+                          title={folderWorkspaces[folder]?.name || undefined}
+                        >
+                          <Buildings className="size-3.5" aria-hidden="true" />
+                        </span>
+                      ) : null}
                     </span>
                   </button>
                 </li>

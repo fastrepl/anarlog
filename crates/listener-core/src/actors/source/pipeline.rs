@@ -30,6 +30,8 @@ const LISTENER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(10);
 const MAX_BACKLOG_DISPATCH_PER_FRAME: usize = 2;
 const RECORDER_DISPATCH_CAPACITY: usize = 32;
 const RECORDER_RPC_TIMEOUT: Duration = Duration::from_millis(100);
+const RECORDER_BACKPRESSURE_TIMEOUT: Duration = Duration::from_secs(2);
+const RECORDER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(25);
 const DROPOUT_WINDOW_SAMPLES: usize = SAMPLE_RATE as usize * 5;
 const DROPOUT_RATIO_THRESHOLD: f32 = 0.15;
 
@@ -284,11 +286,14 @@ impl RecorderDispatcher {
                 if failed_actor == Some(actor.get_id()) {
                     continue;
                 }
-                for attempt in 0..=8 {
+                let started_at = Instant::now();
+                loop {
                     match Pipeline::write_to_recorder(&actor, &item).await {
                         Ok(RecorderEnqueueResult::Accepted) => break,
-                        Ok(RecorderEnqueueResult::Backpressured) if attempt < 8 => {
-                            tokio::time::sleep(Duration::from_millis(25)).await;
+                        Ok(RecorderEnqueueResult::Backpressured)
+                            if started_at.elapsed() < RECORDER_BACKPRESSURE_TIMEOUT =>
+                        {
+                            tokio::time::sleep(RECORDER_BACKPRESSURE_RETRY_DELAY).await;
                         }
                         _ => {
                             // A timeout may already have accepted this frame; only
@@ -1045,6 +1050,38 @@ mod tests {
         }
     }
 
+    struct StalledRecorderProbe(tokio::sync::mpsc::UnboundedSender<Vec<f32>>, Duration);
+
+    #[ractor::async_trait]
+    impl Actor for StalledRecorderProbe {
+        type Msg = RecMsg;
+        type State = Instant;
+        type Arguments = ();
+        async fn pre_start(
+            &self,
+            _: ActorRef<Self::Msg>,
+            _: (),
+        ) -> Result<Instant, ActorProcessingErr> {
+            Ok(Instant::now())
+        }
+        async fn handle(
+            &self,
+            _: ActorRef<Self::Msg>,
+            message: RecMsg,
+            started_at: &mut Instant,
+        ) -> Result<(), ActorProcessingErr> {
+            if let RecMsg::AudioSingle(samples, reply) = message {
+                if started_at.elapsed() < self.1 {
+                    let _ = reply.send(RecorderEnqueueResult::Backpressured);
+                } else {
+                    let _ = self.0.send(samples.to_vec());
+                    let _ = reply.send(RecorderEnqueueResult::Accepted);
+                }
+            }
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     async fn transient_recorder_backpressure_preserves_frame_order_without_duplicates() {
         let mut pipeline = test_pipeline();
@@ -1486,11 +1523,41 @@ mod tests {
                 Some(ProbeEvent::ListenerDual)
             ));
         }
-        tokio::time::timeout(Duration::from_secs(1), recorder_task)
+        tokio::time::timeout(RECORDER_BACKPRESSURE_TIMEOUT * 2, recorder_task)
             .await
             .unwrap()
             .unwrap();
         listener_task.abort();
+    }
+
+    #[tokio::test]
+    async fn recorder_survives_a_writer_stall_shorter_than_the_backpressure_timeout() {
+        let mut pipeline = test_pipeline();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let stall = RECORDER_BACKPRESSURE_TIMEOUT / 2;
+        let (recorder, task) = Actor::spawn(None, StalledRecorderProbe(tx, stall), ())
+            .await
+            .unwrap();
+        for value in [1.0, 2.0, 3.0] {
+            pipeline
+                .dispatch_frame(
+                    source_frame_with_speaker_value(value),
+                    ChannelMode::SpeakerOnly,
+                    &ListenerRouting::Dropped,
+                    Some(&recorder),
+                )
+                .await
+                .unwrap();
+        }
+        tokio::time::timeout(RECORDER_BACKPRESSURE_TIMEOUT, pipeline.flush_recorder())
+            .await
+            .unwrap();
+        for value in [1.0, 2.0, 3.0] {
+            assert_eq!(rx.try_recv().unwrap(), vec![value; 4]);
+        }
+        assert!(rx.try_recv().is_err());
+        assert!(!task.is_finished());
+        task.abort();
     }
 
     #[test]

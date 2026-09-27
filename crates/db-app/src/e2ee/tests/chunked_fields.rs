@@ -476,3 +476,99 @@ async fn a_legacy_whole_column_record_still_applies() {
 
     assert_eq!(read_words(&db).await, items);
 }
+
+#[tokio::test]
+async fn mixed_transcript_formats_yield_when_a_local_field_is_deferred() {
+    let workspace_keys = keys("workspace-a");
+    let key = &workspace_keys["workspace-a"];
+    let items = words(0..300);
+    let (_, db) = seed_transcript(&workspace_keys, &items).await;
+    sqlx::query("UPDATE transcripts SET created_at = 'local edit' WHERE id = 'transcript-1'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    for (field, value) in [
+        ("created_at", json!("remote edit")),
+        ("words_json", Value::String(words_json(&items))),
+    ] {
+        let sealed = key
+            .seal_field(
+                "workspace-a",
+                "transcripts",
+                "transcript-1",
+                field,
+                "ffffffffffffffffffffffffffffffff",
+                2,
+                false,
+                value,
+            )
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_records (id, workspace_id, payload) VALUES (?, 'workspace-a', ?)
+             ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
+        )
+        .bind(&sealed.record_id)
+        .bind(&sealed.payload)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    }
+    let first = apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let second = apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    assert!(first.skipped_local_changes > 0, "{first:?}");
+    assert!(second.skipped_local_changes > 0, "{second:?}");
+    assert_eq!(second.applied_fields, 0, "{second:?}");
+    assert_eq!(read_words(&db).await, items);
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT created_at FROM transcripts WHERE id = 'transcript-1'"
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap(),
+        "local edit"
+    );
+
+    let mut newer_items = items.clone();
+    newer_items[0]["text"] = json!("new remote word");
+    let newer = key
+        .seal_field(
+            "workspace-a",
+            "transcripts",
+            "transcript-1",
+            "words_json",
+            "ffffffffffffffffffffffffffffffff",
+            3,
+            false,
+            Value::String(words_json(&newer_items)),
+        )
+        .unwrap();
+    sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+        .bind(newer.payload)
+        .bind(newer.record_id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    assert_eq!(read_words(&db).await, newer_items);
+    let deferred = apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    assert_eq!(deferred.applied_fields, 0);
+    assert!(deferred.skipped_local_changes > 0);
+
+    encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let settled = apply_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    assert!(!settled.remaining_replica_changes, "{settled:?}");
+    assert_eq!(read_words(&db).await, newer_items);
+}

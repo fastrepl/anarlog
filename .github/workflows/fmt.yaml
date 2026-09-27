@@ -25,19 +25,32 @@ jobs:
         with:
           node-version: "22"
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - uses: ./.github/actions/rust_install
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/dprint/cache/plugins
-          key: dprint-${{ hashFiles('dprint.json') }}
-      - name: Check formatting
+      - id: changed
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           if [ -n "$BASE_SHA" ] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
-            git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" | xargs -0 --no-run-if-empty pnpm exec dprint check --allow-no-files
+            git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA" > changed-files.nul
+            echo "scoped=true" >> "$GITHUB_OUTPUT"
+            if grep -zq '\.rs$' changed-files.nul; then echo "rust=true" >> "$GITHUB_OUTPUT"; fi
+          else
+            echo "scoped=false" >> "$GITHUB_OUTPUT"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changed.outputs.rust == 'true'
+        uses: $/.github/actions/rust_install
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/dprint/cache/plugins
+          key: dprint-${{ hashFiles('dprint.json') }}
+      - env:
+          SCOPED: ${{ steps.changed.outputs.scoped }}
+        run: |
+          set -euo pipefail
+          if [ "$SCOPED" = "true" ]; then
+            xargs -0 --no-run-if-empty pnpm exec dprint check --allow-no-files < changed-files.nul
           else
             pnpm fmt:check
           fi

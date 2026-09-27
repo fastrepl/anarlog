@@ -1,45 +1,45 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import type { ReactNode } from "react";
 import { ScrollView, Text, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+import { useMicrophonePermission } from "@/audio/microphone-permission";
 import { DancingSticks } from "@/components/dancing-sticks";
 import { IPhoneDeviceFrame } from "@/components/iphone-device-frame";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { ControlSize, Radius, Spacing, Typography } from "@/constants/theme";
+import {
+  dismissActionButtonCard,
+  useActionButtonSetup,
+} from "@/quick-actions/action-button-setup";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 import { AnarlogShortcutsButton } from "../../modules/quick-actions";
-
-const steps = [
-  {
-    title: "Open Action Button settings",
-    description: "In iPhone Settings, tap Action Button.",
-  },
-  {
-    title: "Choose Shortcut",
-    description: "Swipe to Shortcut, then tap Choose a Shortcut.",
-  },
-  {
-    title: "Pick Anarlog",
-    description: "Choose Anarlog, then Start Listening.",
-  },
-];
 
 export default function ActionButtonScreen() {
   const styles = useStyles();
   const Colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { permission, request } = useMicrophonePermission();
+  const setup = useActionButtonSetup();
+  const microphoneAllowed = permission.data?.granted === true;
+  const shortcutRan = setup.data?.shortcutRan === true;
 
   const handleBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/");
+  };
+
+  const handleDone = () => {
+    void dismissActionButtonCard();
+    handleBack();
   };
 
   return (
@@ -84,25 +84,52 @@ export default function ActionButtonScreen() {
             Your iPhone Action Button can start a new Anarlog recording or stop
             the one already in progress.
           </Text>
-          <AnarlogShortcutsButton style={styles.shortcutsButton} />
-          <Text style={styles.shortcutHint}>
-            Start Listening is ready to use in Shortcuts. Try it once to allow
-            microphone access, then assign it below.
-          </Text>
         </View>
 
         <Card style={styles.stepsCard}>
-          {steps.map((step, index) => (
-            <View key={step.title} style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberLabel}>{index + 1}</Text>
-              </View>
-              <View style={styles.stepCopy}>
-                <Text style={styles.stepTitle}>{step.title}</Text>
-                <Text style={styles.stepDescription}>{step.description}</Text>
-              </View>
-            </View>
-          ))}
+          <SetupStep
+            number={1}
+            done={microphoneAllowed}
+            title="Allow microphone access"
+            description={
+              microphoneAllowed
+                ? "Anarlog can start listening as soon as it opens."
+                : "Anarlog needs the microphone to record when you press the button."
+            }
+          >
+            {!microphoneAllowed && permission.data && (
+              <Button
+                label={
+                  permission.data.canAskAgain
+                    ? "Allow Microphone"
+                    : "Open Settings"
+                }
+                loading={request.isPending}
+                onPress={() => request.mutate()}
+                size="small"
+                style={styles.stepAction}
+                variant="outline"
+              />
+            )}
+          </SetupStep>
+          <SetupStep
+            number={2}
+            done={false}
+            title="Assign Start Listening"
+            description="In iPhone Settings, tap Action Button, swipe to Shortcut, tap Choose a Shortcut, then pick Anarlog › Start Listening."
+          >
+            <AnarlogShortcutsButton style={styles.shortcutsButton} />
+          </SetupStep>
+          <SetupStep
+            number={3}
+            done={shortcutRan}
+            title="Try it"
+            description={
+              shortcutRan
+                ? "Start Listening works. Press and hold the Action Button to start listening, and again to stop."
+                : "Press and hold the Action Button. Anarlog opens and starts listening; press and hold again to stop."
+            }
+          />
         </Card>
 
         <View style={styles.usage}>
@@ -127,9 +154,49 @@ export default function ActionButtonScreen() {
       <View
         style={[styles.footer, { paddingBottom: insets.bottom + Spacing.xs }]}
       >
-        <Button label="Done" onPress={handleBack} />
+        <Button label="Done" onPress={handleDone} />
       </View>
     </SafeAreaView>
+  );
+}
+
+function SetupStep({
+  children,
+  description,
+  done,
+  number,
+  title,
+}: {
+  children?: ReactNode;
+  description: string;
+  done: boolean;
+  number: number;
+  title: string;
+}) {
+  const styles = useStyles();
+  const Colors = useColors();
+  return (
+    <View
+      accessibilityLabel={done ? `${title}, done` : undefined}
+      style={styles.step}
+    >
+      <View style={[styles.stepNumber, done && styles.stepNumberDone]}>
+        {done ? (
+          <Ionicons
+            name="checkmark"
+            size={16}
+            color={Colors.primaryForeground}
+          />
+        ) : (
+          <Text style={styles.stepNumberLabel}>{number}</Text>
+        )}
+      </View>
+      <View style={styles.stepCopy}>
+        <Text style={styles.stepTitle}>{title}</Text>
+        <Text style={styles.stepDescription}>{description}</Text>
+        {children}
+      </View>
+    </View>
   );
 }
 
@@ -183,12 +250,10 @@ const useStyles = createStyleHook((Colors) => ({
   shortcutsButton: {
     height: ControlSize.default,
     alignSelf: "stretch",
-    marginTop: Spacing.lg,
+    marginTop: Spacing.sm,
   },
-  shortcutHint: {
-    ...Typography.caption,
-    color: Colors.muted,
-    textAlign: "center",
+  stepAction: {
+    alignSelf: "flex-start",
     marginTop: Spacing.sm,
   },
   step: {
@@ -202,6 +267,9 @@ const useStyles = createStyleHook((Colors) => ({
     justifyContent: "center",
     borderRadius: Radius.pill,
     backgroundColor: Colors.accentSurface,
+  },
+  stepNumberDone: {
+    backgroundColor: Colors.primary,
   },
   stepNumberLabel: {
     ...Typography.captionStrong,

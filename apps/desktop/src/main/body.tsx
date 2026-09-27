@@ -39,8 +39,14 @@ import {
   usesTitleBarSidebarActions,
   usesWindowsStyleTitleBar,
   useWindowControlsGutter,
+  WINDOW_CONTROLS_GUTTER_CLASS,
+  WINDOW_CONTROLS_ROW_PADDING_TOP_CLASS,
+  WINDOW_CONTROLS_SIDEBAR_MIN_WIDTH,
 } from "~/shared/hooks/useWindowControlsGutter";
-import { getMainContentMinWidth } from "~/shared/main/layout-widths";
+import {
+  boundedMinWidthPx,
+  getMainContentMinWidth,
+} from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
 import { useSidebarNotes } from "~/sidebar/note-filter";
@@ -343,18 +349,21 @@ export function ClassicMainBody() {
       resizeObserver?.disconnect();
     };
   });
+  const leftSidebarMinWidth = showWindowControlsGutter
+    ? WINDOW_CONTROLS_SIDEBAR_MIN_WIDTH
+    : LEFT_SIDEBAR_MIN_WIDTH_PX;
   const leftSidebarChromeStyle = useMemo(
     () =>
       ({
         width: canResizeLeftSidebarPanel
           ? "var(--left-sidebar-panel-width)"
           : LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-        minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
+        minWidth: leftSidebarMinWidth,
         maxWidth: canResizeLeftSidebarPanel
           ? LEFT_SIDEBAR_MAX_WIDTH_PX
           : LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
       }) satisfies CSSProperties,
-    [canResizeLeftSidebarPanel],
+    [canResizeLeftSidebarPanel, leftSidebarMinWidth],
   );
   const leftSidebarPanelStyle = useMemo(() => {
     if (!leftsidebar.expanded) {
@@ -377,9 +386,9 @@ export function ClassicMainBody() {
     return {
       flexGrow: "var(--left-sidebar-panel-size)",
       maxWidth: LEFT_SIDEBAR_MAX_WIDTH_PX,
-      minWidth: LEFT_SIDEBAR_MIN_WIDTH_PX,
+      minWidth: leftSidebarMinWidth,
     } satisfies CSSProperties;
-  }, [canResizeLeftSidebarPanel, leftsidebar.expanded]);
+  }, [canResizeLeftSidebarPanel, leftSidebarMinWidth, leftsidebar.expanded]);
   const leftSidebarPanelRenderConstraints = canResizeLeftSidebarPanel
     ? leftSidebarPanelConstraints
     : createFixedLeftSidebarPanelConstraints(
@@ -398,8 +407,13 @@ export function ClassicMainBody() {
         data-tauri-drag-region
         data-sidebar-timeline-header
         className={cn([
-          "flex h-9 shrink-0 items-start pt-[9px] pr-1",
-          showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+          "flex min-h-9 shrink-0 items-start pr-1",
+          showWindowControlsGutter
+            ? [
+                WINDOW_CONTROLS_GUTTER_CLASS,
+                WINDOW_CONTROLS_ROW_PADDING_TOP_CLASS,
+              ]
+            : "pt-[9px] pl-2",
         ])}
         onWheelCapture={handleSidebarTimelineHeaderWheel}
       >
@@ -437,8 +451,13 @@ export function ClassicMainBody() {
           <div
             data-tauri-drag-region
             className={cn([
-              "flex h-full min-w-0 items-start pt-[9px] pr-1",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+              "flex h-full min-w-0 items-start pr-1",
+              showWindowControlsGutter
+                ? [
+                    WINDOW_CONTROLS_GUTTER_CLASS,
+                    WINDOW_CONTROLS_ROW_PADDING_TOP_CLASS,
+                  ]
+                : "pt-[9px] pl-2",
             ])}
           >
             <SidebarTimelineChromeWithUpcomingMeeting
@@ -468,7 +487,7 @@ export function ClassicMainBody() {
             data-tauri-drag-region
             className={cn([
               "flex h-full min-w-0 items-start pt-1",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
+              showWindowControlsGutter ? WINDOW_CONTROLS_GUTTER_CLASS : "pl-2",
             ])}
           />
         </div>
@@ -543,7 +562,12 @@ export function ClassicMainBody() {
           id="classic-main-content"
           order={2}
           className="min-h-0 min-w-0 flex-1 overflow-hidden"
-          style={{ minWidth: mainContentMinWidth }}
+          style={{
+            minWidth:
+              mainContentMinWidth == null
+                ? undefined
+                : boundedMinWidthPx(mainContentMinWidth),
+          }}
         >
           <div
             data-main-content-panel

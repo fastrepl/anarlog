@@ -70,6 +70,10 @@ type ControllerDependencies = {
     recoveryKey: string,
     device: { fingerprint?: string | null; name?: string | null },
   ) => Promise<"configured" | "account_mismatch">;
+  shareEnrollments: (
+    session: MobileSyncSession,
+    signal: AbortSignal,
+  ) => Promise<void>;
   stop: () => Promise<void>;
   syncNow: () => Promise<void>;
   getStatus: () => Promise<NativeSyncStatus>;
@@ -123,6 +127,7 @@ export class MobileSyncController {
   private readonly listeners = new Set<() => void>();
   private session: MobileSyncSession | null = null;
   private generation = 0;
+  private enrollmentController: AbortController | null = null;
   private operationQueue: Promise<void> = Promise.resolve();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -232,6 +237,7 @@ export class MobileSyncController {
     await this.stopSafely();
     if (generation !== this.generation) return;
 
+    let generatedIdentity = false;
     let hasRecoveryKey =
       this.snapshot.accountUserId === session.accountUserId &&
       this.snapshot.hasRecoveryKey;
@@ -257,6 +263,7 @@ export class MobileSyncController {
           this.scheduleRetry(generation);
           return;
         }
+        generatedIdentity = enrollment.status === "first_device";
         recoveryKey =
           enrollment.status === "first_device"
             ? await this.dependencies.generateRecoveryKey()
@@ -314,9 +321,19 @@ export class MobileSyncController {
       await this.refreshStatus(generation);
       if (generation !== this.generation) return;
       this.startPolling(generation);
+      void this.shareEnrollments(generation);
     } catch (error) {
       if (generation !== this.generation) return;
       const phase = errorPhase(error);
+      if (generatedIdentity && phase === "identity_mismatch") {
+        this.update({
+          ...initialSnapshot,
+          phase: "approval_pending",
+          accountUserId: session.accountUserId,
+        });
+        this.scheduleRetry(generation);
+        return;
+      }
       this.dependencies.reportError(error, "mobile_sync_start");
       this.update({
         ...initialSnapshot,
@@ -353,7 +370,31 @@ export class MobileSyncController {
     if (this.pollIntervalMs <= 0) return;
     this.pollTimer = this.timers.setInterval(() => {
       void this.refreshStatus(generation);
+      void this.shareEnrollments(generation);
     }, this.pollIntervalMs);
+  }
+
+  private async shareEnrollments(generation: number): Promise<void> {
+    if (
+      generation !== this.generation ||
+      !this.session ||
+      this.enrollmentController ||
+      !this.snapshot.running
+    )
+      return;
+    const controller = new AbortController();
+    this.enrollmentController = controller;
+    const timeout = this.timers.setTimeout(() => controller.abort(), 25_000);
+    try {
+      await this.dependencies.shareEnrollments(this.session, controller.signal);
+    } catch (error) {
+      if (!controller.signal.aborted)
+        this.dependencies.reportError(error, "mobile_sync_enrollment_share");
+    } finally {
+      this.timers.clearTimeout(timeout);
+      if (this.enrollmentController === controller)
+        this.enrollmentController = null;
+    }
   }
 
   private scheduleRetry(generation: number): void {
@@ -382,6 +423,7 @@ export class MobileSyncController {
       session.accountUserId,
     );
     await this.dependencies.saveRecoveryKey(session.accountUserId, recoveryKey);
+    let claimStarted = false;
     try {
       const currentSession = this.session;
       if (
@@ -390,8 +432,12 @@ export class MobileSyncController {
       ) {
         throw new Error("The signed-in account changed during sync setup.");
       }
+      claimStarted = true;
       await this.dependencies.claimIdentity(currentSession, keyId);
     } catch (error) {
+      // A lost response can follow a successful remote claim. Keep its key
+      // unless the server definitively rejected it, so retries cannot lose data.
+      if (claimStarted && errorPhase(error) === "error") throw error;
       try {
         if (previousKey) {
           await this.dependencies.saveRecoveryKey(
@@ -412,6 +458,8 @@ export class MobileSyncController {
   }
 
   private clearTimers(): void {
+    this.enrollmentController?.abort();
+    this.enrollmentController = null;
     if (this.pollTimer) this.timers.clearInterval(this.pollTimer);
     if (this.retryTimer) this.timers.clearTimeout(this.retryTimer);
     this.pollTimer = null;

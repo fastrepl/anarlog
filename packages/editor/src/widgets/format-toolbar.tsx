@@ -9,13 +9,14 @@ import {
 import {
   useEditorEffect,
   useEditorEventCallback,
+  useEditorEventListener,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -117,12 +118,51 @@ export function FormatToolbar({
   const toolbarRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
 
+  // An active IME composition makes the DOM selection a range covering the
+  // composed text; that is not a real selection, so keep the toolbar hidden
+  // for the composition's lifetime. ProseMirror applies the committed text
+  // and final selection within its own ~20ms endComposition timer, so the
+  // gate releases on the first post-compositionend state update that
+  // changes the selection, or once that settle window has passed —
+  // afterwards a selected range can no longer be the provisional one.
+  const [isComposing, setIsComposing] = useState(false);
+  const compositionEndState = useRef<EditorState | null>(null);
+  const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelReleaseTimer = () => {
+    if (releaseTimer.current != null) {
+      clearTimeout(releaseTimer.current);
+      releaseTimer.current = null;
+    }
+  };
+  const releaseComposition = () => {
+    compositionEndState.current = null;
+    cancelReleaseTimer();
+    setIsComposing(false);
+  };
+  useEffect(() => cancelReleaseTimer, []);
+  useEditorEventListener("compositionstart", () => {
+    compositionEndState.current = null;
+    cancelReleaseTimer();
+    setIsComposing(true);
+  });
+  useEditorEventListener("compositionend", (view) => {
+    compositionEndState.current = view.state;
+    releaseTimer.current = setTimeout(releaseComposition, 50);
+  });
+  useEditorEffect((view) => {
+    const snapshot = compositionEndState.current;
+    if (snapshot && !view.state.selection.eq(snapshot.selection)) {
+      releaseComposition();
+    }
+  });
+
   const editorState = useEditorState();
   const canFormatSelection = editorState
     ? showFormatting && !selectionTouchesTitleHeading(editorState)
     : false;
   const shouldShowToolbar = editorState
     ? !editorState.selection.empty &&
+      !isComposing &&
       (canFormatSelection || onComment !== undefined)
     : false;
 

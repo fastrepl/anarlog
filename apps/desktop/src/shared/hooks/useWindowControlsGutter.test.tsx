@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getCurrentWindow: vi.fn(),
   isFullscreen: vi.fn(),
+  isMaximized: vi.fn(),
   onResized: vi.fn(),
   platform: vi.fn(),
 }));
@@ -17,6 +18,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 }));
 
 import {
+  useRoundedWindowFrame,
   usesWindowsStyleTitleBar,
   useWindowControlsGutter,
 } from "./useWindowControlsGutter";
@@ -25,9 +27,12 @@ describe("useWindowControlsGutter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isFullscreen.mockResolvedValue(false);
+    mocks.isMaximized.mockResolvedValue(false);
     mocks.onResized.mockResolvedValue(vi.fn());
     mocks.getCurrentWindow.mockReturnValue({
+      label: "main",
       isFullscreen: mocks.isFullscreen,
+      isMaximized: mocks.isMaximized,
       onResized: mocks.onResized,
     });
   });
@@ -77,5 +82,111 @@ describe("useWindowControlsGutter", () => {
     const { result } = renderHook(() => useWindowControlsGutter());
 
     await waitFor(() => expect(result.current).toBe(false));
+  });
+});
+
+describe("useRoundedWindowFrame", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.isFullscreen.mockResolvedValue(false);
+    mocks.isMaximized.mockResolvedValue(false);
+    mocks.onResized.mockResolvedValue(vi.fn());
+    mocks.getCurrentWindow.mockReturnValue({
+      label: "main",
+      isFullscreen: mocks.isFullscreen,
+      isMaximized: mocks.isMaximized,
+      onResized: mocks.onResized,
+    });
+    delete document.documentElement.dataset.roundedWindow;
+    delete document.documentElement.dataset.roundedWindowOwner;
+  });
+
+  afterEach(cleanup);
+
+  it("does nothing outside Linux", () => {
+    mocks.platform.mockReturnValue("windows");
+
+    renderHook(() => useRoundedWindowFrame());
+
+    expect(mocks.getCurrentWindow).not.toHaveBeenCalled();
+    expect(document.documentElement.dataset.roundedWindowOwner).toBeUndefined();
+  });
+
+  it("only owns the main window frame", () => {
+    mocks.platform.mockReturnValue("linux");
+    mocks.getCurrentWindow.mockReturnValue({ label: "note:1" });
+
+    renderHook(() => useRoundedWindowFrame());
+
+    expect(document.documentElement.dataset.roundedWindowOwner).toBeUndefined();
+  });
+
+  it("claims ownership on mount and releases it on unmount", async () => {
+    mocks.platform.mockReturnValue("linux");
+
+    const { unmount } = renderHook(() => useRoundedWindowFrame());
+
+    expect(document.documentElement.dataset.roundedWindowOwner).toBe("app");
+    await waitFor(() =>
+      expect(document.documentElement.dataset.roundedWindow).toBe(""),
+    );
+
+    unmount();
+
+    expect(document.documentElement.dataset.roundedWindowOwner).toBeUndefined();
+  });
+
+  it("drops the frame while maximized and restores it on resize", async () => {
+    mocks.platform.mockReturnValue("linux");
+    mocks.isMaximized.mockResolvedValue(true);
+    let onResized: (() => void) | undefined;
+    mocks.onResized.mockImplementation(async (handler: () => void) => {
+      onResized = handler;
+      return vi.fn();
+    });
+    document.documentElement.dataset.roundedWindow = "";
+
+    renderHook(() => useRoundedWindowFrame());
+
+    await waitFor(() =>
+      expect(document.documentElement.dataset.roundedWindow).toBeUndefined(),
+    );
+
+    mocks.isMaximized.mockResolvedValue(false);
+    onResized?.();
+
+    await waitFor(() =>
+      expect(document.documentElement.dataset.roundedWindow).toBe(""),
+    );
+  });
+
+  it("ignores stale window-state results", async () => {
+    mocks.platform.mockReturnValue("linux");
+    let onResized: (() => void) | undefined;
+    mocks.onResized.mockImplementation(async (handler: () => void) => {
+      onResized = handler;
+      return vi.fn();
+    });
+    let resolveStale: ((value: boolean) => void) | undefined;
+    mocks.isMaximized.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveStale = resolve;
+        }),
+    );
+
+    renderHook(() => useRoundedWindowFrame());
+    await waitFor(() => expect(onResized).toBeDefined());
+
+    onResized?.();
+    await waitFor(() =>
+      expect(document.documentElement.dataset.roundedWindow).toBe(""),
+    );
+
+    resolveStale?.(true);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(document.documentElement.dataset.roundedWindow).toBe("");
   });
 });

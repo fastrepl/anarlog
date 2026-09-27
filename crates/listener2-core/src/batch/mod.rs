@@ -322,6 +322,7 @@ fn build_listen_params(
         num_speakers: params.num_speakers,
         min_speakers: params.min_speakers,
         max_speakers: params.max_speakers,
+        mic_num_speakers: None,
         custom_query: None,
     }
 }

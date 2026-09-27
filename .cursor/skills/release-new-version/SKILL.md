@@ -1,6 +1,6 @@
 ---
 name: release-new-version
-description: Release a new desktop stable version for Anarlog. Use when asked to cut, publish, or prepare a new stable desktop release after checking and merging the changelog.
+description: Coordinate Anarlog stable desktop releases and focused Docs, API, CLI, MCP, and Telemetry skills, including changelog publication with the app.
 metadata:
   internal: true
 ---
@@ -12,5 +12,6 @@ canonical, universal instructions live at:
 
 `../../../.agents/skills/release-new-version/SKILL.md`
 
-Read that file completely and follow it. Do not maintain a second release
-checklist here; changes belong in `.agents/skills/release-new-version/`.
+Read that coordinator completely, then its required focused skills and the
+applicable desktop/mobile procedure references. Do not maintain a second release
+checklist here; changes belong in `.agents/skills/`.

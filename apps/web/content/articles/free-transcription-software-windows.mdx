@@ -1,0 +1,111 @@
+---
+meta_title: "Free Transcription Software for Windows: Local and Cloud"
+display_title: "Best Free Transcription Software for Windows: Local and Cloud Options"
+meta_description: "Choose free Windows transcription software for audio files or meetings. Compare Buzz, whisper.cpp, and Otter by setup, offline processing, exports, and limits."
+author:
+  - "Anarlog Team"
+featured: !!bool "false"
+category: "Guides"
+date: "2026-09-26"
+---
+
+**Start with Buzz for a free desktop interface, whisper.cpp for a scriptable local workflow, or Otter Basic for a limited cloud service.** The right choice depends on whether you have an existing recording, need live meeting capture, or only want to dictate into a text box.
+
+Those are different jobs. Before installing anything, decide what you need to hand off: a plain transcript, timed subtitles, or meeting notes with decisions and owners.
+
+We make Anarlog. Product facts and limits below were checked against official documentation on September 22, 2026. Screenshots identify their environment and source; this is not an accuracy ranking across Windows hardware.
+
+## Choose a workflow, not just a free tier
+
+| Tool | Best starting use | Processing | What “free” means |
+| --- | --- | --- | --- |
+| Buzz | Audio/video files through a desktop interface | Local engines available; check the chosen engine | Open-source application; external API usage is separate |
+| whisper.cpp | Repeatable file transcription and scripts | Local model inference | Open-source engine; you supply compute and setup |
+| Otter Basic | Trying a managed meeting/transcription workspace | Cloud | A recurring minute allowance plus separate conversation/import caps |
+
+Local software avoids a vendor minute allowance for local inference, but it still uses disk space, CPU/GPU time, and electricity. Cloud software avoids model setup but requires you to accept its upload path and service limits.
+
+## Windows requirements and outputs
+
+| Tool | Installation / platform evidence | Output relevant here |
+| --- | --- | --- |
+| Buzz | Windows installer; AVX2-capable CPU per its FAQ. Exact minimum Windows version is not specified in the installation page | TXT, SRT, VTT |
+| whisper.cpp | Windows x64 release binary used in our test; compiler/source route also available | TXT in the verified command below |
+| Otter | Windows 10+ desktop client or web browser | Basic: TXT/MP3; Pro adds DOCX/PDF/SRT |
+
+Sources: Buzz [installation](https://chidiwilliams.github.io/buzz/docs/installation) and [FAQ](https://chidiwilliams.github.io/buzz/docs/faq); [whisper.cpp releases](https://github.com/ggml-org/whisper.cpp/releases); Otter [desktop requirements](https://help.otter.ai/hc/en-us/articles/35973988280215-Otter-Desktop-App-Mac-Windows) and [exports](https://help.otter.ai/hc/en-us/articles/360047733634-Export-conversations).
+
+## Buzz for a desktop file workflow
+
+[Buzz](https://buzzcaptions.com/) provides a graphical route from a recording to a transcript. Its [project documentation](https://github.com/chidiwilliams/buzz) lists Windows installation, several transcription backends, and TXT, SRT, and VTT exports.
+
+Choose a local backend, download its model while online, and start with a short file. A bigger model is not automatically the right choice for a laptop you are also using for a video call. Verify that the app completes the job at an acceptable speed on your machine.
+
+Check the export before processing a folder of recordings. TXT is useful for reading and editing. SRT or VTT is useful when another tool needs time-aligned segments. Do not assume a plain-text file preserves the timing information visible inside the app.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-import-dialog.png" alt="Buzz import dialog selecting local Whisper Tiny for a WAV file" width={312} height={354} />
+
+### The file workflow we ran
+
+Our test used Buzz 1.4.5 on Windows Server 2022 Standard (build 20348), with a 75.55-second synthetic WAV and local Whisper Tiny. The VM had no audio endpoints, so we tested file import and export only. Live capture, a Windows 11 laptop, and network-disconnected operation were not tested.
+
+1. Install the Windows package from the project's official release/distribution link.
+2. Open **File → Import Media File** and select the WAV.
+3. Choose **Whisper**, **Tiny**, **Transcribe**, and **Detect Language**. Download the local model if prompted; do not select the OpenAI API backend for this local path.
+4. Select **Run**, then double-click the completed job to open the timestamped transcript.
+5. Open **Export**, choose **TXT**, and save. Repeat with **SRT** if you need timed segments.
+6. Reopen both files. In our check, `sample-buzz.txt` was 1,105 bytes and `sample-buzz.srt` was 1,894 bytes; both were read back from disk.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png" alt="Buzz completed transcript with TXT and SRT export choices" width={900} height={611} />
+
+## whisper.cpp for repeatable transcription
+
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp) is appropriate when you want a command-line engine and control over model files, input preparation, and output. Follow its current Windows build or release instructions rather than copying a Linux installation command into PowerShell.
+
+The work is more explicit: obtain a compatible binary, prepare the audio format, download the model, run transcription, and inspect the output. That makes it useful for repeated jobs with the same settings. It also makes you responsible for distinguishing a missing dependency from an audio or model problem.
+
+The verified Windows run used the x64 binary from [whisper.cpp v1.8.7](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.7) and the official [base.en model file](https://huggingface.co/ggerganov/whisper.cpp/blob/main/ggml-base.en.bin). Keep the extracted archive's DLLs alongside the executable. Use a 16-bit PCM WAV; the [pinned quick-start guide](https://github.com/ggml-org/whisper.cpp/blob/v1.8.7/README.md#quick-start) recommends 16 kHz mono input. Place the model and compatible test file named `sample.wav` in that folder, open PowerShell there, and run:
+
+```powershell
+.\whisper-cli.exe -m .\ggml-base.en.bin -f .\sample.wav -otxt
+Get-Content .\sample.wav.txt -TotalCount 5
+```
+
+The CPU run completed and wrote a transcript file. We used this pinned release for its Windows x64 archive; GPU acceleration and live capture were not tested.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/whisper-cpp/transcription/2026-09-22-windows-transcription.png" alt="whisper.cpp terminal showing completed transcription and saved text output" width={900} height={506} />
+
+## Otter Basic when you prefer a cloud workspace
+
+Otter is an alternative if avoiding local model setup matters more than offline processing. Its current [pricing table](https://otter.ai/pricing) lists 300 monthly transcription minutes, a 30-minute per-conversation limit, and three lifetime audio/video imports on Basic.
+
+These limits work independently. A remaining monthly minute allowance does not restore a used-up lifetime import allowance. A one-hour recording is also not a good test of a tier with a shorter conversation cap.
+
+Otter provides a [Windows desktop option](https://otter.ai/desktop) as well as web workflows. Installing a desktop client does not turn the service into local inference. Review the data policy and intended share audience before uploading a work recording.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png" alt="Otter official illustration of calendar joining, a visible meeting guest, and the transcript workspace" width={900} height={294} />
+
+<p className="blog-image-credit">Source: <a href="https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview">Otter</a>.</p>
+
+## Run the same small test before committing
+
+Start with a non-sensitive recording and a known reference text. Include a name, a date, a technical term, a decision, and a rejected idea. After the workflow succeeds, check accuracy with authorized audio from the kinds of meetings you actually hold.
+
+| Record | Why it matters |
+| --- | --- |
+| Windows version, CPU, RAM, and GPU | Another machine may behave differently |
+| Tool version, backend, and model | Results belong to this configuration |
+| Audio format and duration | Conversion and processing time depend on input |
+| Download/setup time separately from transcription | First-run setup can dominate the experience |
+| Export format and successful reopen | A transcript is useful only if you can use it afterward |
+| Errors in names, negation, numbers, and owners | These errors can change the meaning of meeting notes |
+
+For an offline requirement, finish installation and model downloads, disconnect, and repeat the file job. Verify the whole path, including exports. A local recording button alone does not establish offline transcription.
+
+## Where Anarlog fits on Windows
+
+[Anarlog](https://anarlog.so/) offers a Windows beta for a broader meeting-notes workflow. Its built-in Soniqo, Apple Speech, and on-device file transcription paths have Apple Silicon requirements; do not infer that those Mac features run in the Windows build. Check the current [platform notes](https://docs.anarlog.so/desktop-installation) and configure a supported provider for Windows.
+
+For free local file transcription, start with Buzz or whisper.cpp and verify the exported TXT or SRT. Our [general free-transcription guide](/blog/free-transcription-software/) covers additional platforms and use cases.
+
+If you need a meeting-notes workspace, review Anarlog's capture, notes, and provider choices first. Once those fit, [choose a Windows build](https://anarlog.so/download/#windows-downloads) and test one sample with the transcription provider you intend to use.

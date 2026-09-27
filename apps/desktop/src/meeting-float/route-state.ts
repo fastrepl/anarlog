@@ -5,6 +5,7 @@ import {
   type FloatingOverlaySettings,
   type LiveCaptionPosition,
 } from "./settings";
+import type { FloatingSpeakerLabels } from "./speaker-labels";
 
 import type { ListenerStore } from "~/store/zustand/listener";
 import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/transcript";
@@ -53,6 +54,7 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible = false,
     sessionTitle,
     speakerLabelContext,
+    speakerLabels,
     transcriptBubbles,
   }: {
     sessionId?: string;
@@ -61,6 +63,7 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible?: boolean;
     sessionTitle?: string | null;
     speakerLabelContext?: RenderLabelContext;
+    speakerLabels?: FloatingSpeakerLabels;
     transcriptBubbles?: FloatingTranscriptBubble[];
   } = {},
 ): FloatingRouteState | null {
@@ -87,7 +90,7 @@ export function getFloatingRouteState(
       state.live.loadingPhase === "connecting" &&
       !state.live.lastErrorIsAudioRelated
         ? "reconnecting"
-        : state.live.degraded || state.live.lastError
+        : state.live.lastError || isPermanentlyDegraded(state.live.degraded)
           ? "error"
           : "recording",
     colorScheme,
@@ -100,7 +103,11 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible,
     transcriptBubbles:
       transcriptBubbles ??
-      getFloatingTranscriptBubbles(state.liveSegments, speakerLabelContext),
+      getFloatingTranscriptBubbles(
+        state.liveSegments,
+        speakerLabelContext,
+        speakerLabels,
+      ),
   };
 }
 
@@ -109,9 +116,19 @@ function getFloatingTitle(title: string | null | undefined) {
   return normalized || "Live transcript";
 }
 
+// Mirrors `should_retry_listener_failure`: every other kind reconnects on its own
+// and repairs the gap from the recording, so only these need the user.
+function isPermanentlyDegraded(degraded: ListenerState["live"]["degraded"]) {
+  return (
+    degraded?.type === "authentication_failed" ||
+    degraded?.type === "provider_configuration"
+  );
+}
+
 export function getFloatingTranscriptBubbles(
   segments: ListenerState["liveSegments"],
   speakerLabelContext?: RenderLabelContext,
+  speakerLabels?: FloatingSpeakerLabels,
 ): FloatingTranscriptBubble[] {
   const bubbles = segments
     .slice()
@@ -128,11 +145,21 @@ export function getFloatingTranscriptBubbles(
         return null;
       }
 
+      // A resolved identity decides who is speaking; the channel only does so
+      // until the native labeler has answered.
+      const resolved = speakerLabels?.get(segment.id);
+      const isSelf = resolved?.humanId
+        ? resolved.humanId === speakerLabelContext?.getSelfHumanId()
+        : isFloatingSelfSpeaker(segment.key);
       return {
         id: segment.id,
-        speakerLabel: getFloatingSpeakerLabel(segment.key, speakerLabelContext),
+        speakerLabel: resolved
+          ? isSelf
+            ? "You"
+            : resolved.label
+          : getFloatingSpeakerLabel(segment.key, speakerLabelContext),
         text,
-        isSelf: isFloatingSelfSpeaker(segment.key),
+        isSelf,
         isFinal: segment.words.every((word) => word.is_final),
         startMs: segment.start_ms,
         endMs: segment.end_ms,

@@ -318,6 +318,14 @@ extern "C" {
         /*handle*/ uint64_t ptr, 
         RustBuffer request_json
     );
+    RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_seal_e2ee_device_enrollment(
+        /*handle*/ uint64_t ptr, 
+        RustBuffer account_user_id, 
+        RustBuffer request_id, 
+        RustBuffer recovery_key_code, 
+        RustBuffer recipient_public_key, 
+        RustCallStatus *uniffi_out_err
+    );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(
         /*handle*/ uint64_t ptr, 
         RustCallStatus *uniffi_out_err
@@ -658,6 +666,8 @@ extern "C" {
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(
+    );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_seal_e2ee_device_enrollment(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync(
     );
@@ -3454,6 +3464,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_seal_e2ee_device_enrollment"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_seal_e2ee_device_enrollment"),
+        5,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_seal_e2ee_device_enrollment(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync"),
@@ -4230,6 +4248,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_seal_e2ee_device_enrollment"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_seal_e2ee_device_enrollment"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_seal_e2ee_device_enrollment(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync"),
@@ -4822,6 +4848,16 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge
 
         
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_seal_e2ee_device_enrollment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_seal_e2ee_device_enrollment(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]), 
+            &status
+        );
+        uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
@@ -5601,6 +5637,13 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledb
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_seal_e2ee_device_enrollment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_seal_e2ee_device_enrollment(
         );
 
         

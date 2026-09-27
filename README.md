@@ -107,7 +107,7 @@ Product docs live at [docs.anarlog.so](https://docs.anarlog.so). To build the de
 
 The local-first desktop app and website start without secrets. Hosted AI, CloudSync, authentication, billing, and connected integrations need their optional local services and configuration.
 
-You need Node.js 22 or later, pnpm 11.1.1, Rust 1.94.0, and the [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/). On Debian or Ubuntu, the repository can install the required toolchains and system packages:
+You need Node.js 22 or later, pnpm 11.1.1, Rust 1.94.0, [process-compose](https://f1bonacc1.github.io/process-compose/installation/) 1.122.0 or later (`brew install process-compose` on macOS), and the [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/). On Debian or Ubuntu, the repository can install the required toolchains and system packages:
 
 ```bash
 bash scripts/setup-linux.sh
@@ -117,12 +117,14 @@ Install the workspace and start the app you want to work on:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm exec turbo dev:desktop
+pnpm dev:desktop
 # or
-pnpm exec turbo dev:web
+pnpm dev:web
 ```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for validation commands, code ownership, and the contribution workflow. Ask [DeepWiki](https://deepwiki.com/fastrepl/anarlog) for a code-indexed explanation of a subsystem.
+Process Compose builds shared UI first, manages the app processes, and saves logs under `.process-compose/`. Use `pnpm dev` for the combined desktop, web, API, and local Supabase stack after configuring the optional backend.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for backend setup, process controls, validation commands, code ownership, and the contribution workflow. Ask [DeepWiki](https://deepwiki.com/fastrepl/anarlog) for a code-indexed explanation of a subsystem.
 
 ## Name history
 

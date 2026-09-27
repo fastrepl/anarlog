@@ -80,8 +80,7 @@ if [[ "${ANARLOG_AUDIO_QA_IN_DBUS:-0}" != "1" ]]; then
     "$qa_root/cache" \
     "$qa_root/config" \
     "$qa_root/data" \
-    "$qa_root/state" \
-    "$qa_root/vault"
+    "$qa_root/state"
 
   cat > "$qa_root/asound.conf" <<'EOF'
 pcm.!default {
@@ -96,7 +95,6 @@ EOF
   export ALSA_CONFIG_PATH="$qa_root/asound.conf"
   export ANARLOG_AUDIO_QA_IN_DBUS=1
   export APP_BINARY_PATH="${package_binaries[0]}"
-  export CHAR_VAULT_BASE="$qa_root/vault"
   export PULSE_SERVER="unix:$qa_root/runtime/pulse/native"
   export PIPEWIRE_RUNTIME_DIR="$qa_root/runtime"
   export QA_ARTIFACT_DIR="$artifact_dir"
@@ -277,8 +275,8 @@ done < <(
 )
 
 for _ in $(seq 1 100); do
-  mic_candidate=$(find "$CHAR_VAULT_BASE" -type f -name audio_mic.wav -print -quit)
-  speaker_candidate=$(find "$CHAR_VAULT_BASE" -type f -name audio_spk.wav -print -quit)
+  mic_candidate=$(find "$qa_root/data" -type f -name audio_mic.wav -print -quit)
+  speaker_candidate=$(find "$qa_root/data" -type f -name audio_spk.wav -print -quit)
   if [[ -n "$mic_candidate" && -n "$speaker_candidate" ]] \
     && ffprobe -v error "$mic_candidate" >/dev/null 2>&1 \
     && ffprobe -v error "$speaker_candidate" >/dev/null 2>&1; then
@@ -288,17 +286,17 @@ for _ in $(seq 1 100); do
 done
 
 mapfile -t mic_tracks < <(
-  find "$CHAR_VAULT_BASE" -type f -name audio_mic.wav -print
+  find "$qa_root/data" -type f -name audio_mic.wav -print
 )
 mapfile -t speaker_tracks < <(
-  find "$CHAR_VAULT_BASE" -type f -name audio_spk.wav -print
+  find "$qa_root/data" -type f -name audio_spk.wav -print
 )
 
 verification_status=0
 if [[ ${#mic_tracks[@]} -ne 1 || ${#speaker_tracks[@]} -ne 1 ]]; then
   echo "Expected one persisted mic track and one persisted speaker track" \
     | tee "$artifact_dir/track-discovery-error.txt"
-  find "$CHAR_VAULT_BASE" -maxdepth 5 -type f -print \
+  find "$qa_root/data" -maxdepth 5 -type f -print \
     > "$artifact_dir/vault-files.txt"
   verification_status=1
 else

@@ -21,5 +21,3 @@ Docs-only or non-functional changes (formatting, comments, CI/config with no beh
 ## Verification
 
 <!-- List the commands and manual checks you ran. -->
-
-<!-- External contributors only: CLA Assistant will post a signing link after the PR is opened. The CLA check must pass before merge. Maintainers are not gated. -->

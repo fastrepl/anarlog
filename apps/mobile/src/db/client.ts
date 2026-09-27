@@ -405,6 +405,22 @@ export function inspectE2eeDeviceEnrollmentKey(keyCode: string): string {
   }
 }
 
+export function sealE2eeDeviceEnrollment(
+  accountUserId: string,
+  requestId: string,
+  recoveryKey: string,
+  publicKey: string,
+): { ephemeralPublicKey: string; nonce: string; ciphertext: string } {
+  return JSON.parse(
+    getBridge().sealE2eeDeviceEnrollment(
+      accountUserId,
+      requestId,
+      recoveryKey,
+      publicKey,
+    ),
+  );
+}
+
 export function openE2eeDeviceEnrollment({
   accountUserId,
   requestId,

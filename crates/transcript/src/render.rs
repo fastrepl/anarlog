@@ -71,11 +71,22 @@ pub fn render_transcript_segments(
     if let Some(mut segments) = preview {
         for segment in &mut segments {
             if let Some(id) = &segment.key.speaker_human_id {
+                // Unnamed humans are not in `humans` (name <> '' filter) — a
+                // raw UUID is never a good label, so fall back the way
+                // `resolve_speaker` does for the local user.
                 segment.speaker_label = humans
                     .iter()
                     .find(|human| &human.human_id == id)
-                    .map(|human| human.name.clone())
-                    .unwrap_or_else(|| id.clone());
+                    .map(|human| human.name.trim())
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| {
+                        if self_human_id.as_deref() == Some(id.as_str()) {
+                            "You".to_string()
+                        } else {
+                            id.clone()
+                        }
+                    });
             }
         }
         return match speaker_context {
@@ -96,13 +107,67 @@ pub fn render_transcript_segments(
 
         let (words, mut assignments) =
             offset_transcript_data(transcript.words, transcript.assignments, offset);
-        let segment_options = if speaker_context.is_some() {
-            crate::segment_options_for_assignments(&assignments)
+        let segment_options = if let Some(context) = speaker_context.as_ref() {
+            let mut options = crate::segment_options_for_assignments(&assignments);
+            // Call-evidence changes split context intervals even while isolation
+            // holds; coalesce overlapping or contiguous isolated ranges so a word
+            // straddling that boundary is still inside a verified isolated period.
+            let mut isolated_ranges: Vec<(i64, i64)> = context
+                .intervals
+                .iter()
+                // `resolve_speaker` refuses self-labeling on shared mics; the
+                // range fallback must honor the same guard or index-less room
+                // speech would permanently inherit the owner.
+                .filter(|interval| {
+                    interval.mic_isolated == Some(true) && !interval.shared_microphone
+                })
+                .map(|interval| {
+                    (
+                        interval.start_ms - base_started_at,
+                        interval.end_ms - base_started_at,
+                    )
+                })
+                .collect();
+            isolated_ranges.sort_unstable();
+            let mut coalesced: Vec<(i64, i64)> = Vec::with_capacity(isolated_ranges.len());
+            for (start, end) in isolated_ranges {
+                match coalesced.last_mut() {
+                    Some((_, prev_end)) if start <= *prev_end => {
+                        *prev_end = (*prev_end).max(end);
+                    }
+                    _ => coalesced.push((start, end)),
+                }
+            }
+            options.isolated_mic_ranges = Some(coalesced);
+            // Verified isolated intervals carry only the local voice, matching
+            // the live engine's `isolated_mic_human` fallback; without it an
+            // index-less word would inherit a guest's channel-level assignment.
+            options.isolated_mic_human = self_human_id
+                .as_deref()
+                .filter(|id| !id.is_empty())
+                .map(str::to_owned);
+            options
         } else {
-            assignments.extend(channel_assignments_for_participants(
-                &participant_human_ids,
-                self_human_id.as_deref(),
-            ));
+            let claimed_channels: std::collections::HashSet<crate::ChannelProfile> = assignments
+                .iter()
+                .filter_map(|assignment| match &assignment.scope {
+                    crate::IdentityScope::Channel { channel } => Some(*channel),
+                    _ => None,
+                })
+                .collect();
+            assignments.extend(
+                channel_assignments_for_participants(
+                    &participant_human_ids,
+                    self_human_id.as_deref(),
+                )
+                .into_iter()
+                .filter(|assignment| match &assignment.scope {
+                    crate::IdentityScope::Channel { channel } => {
+                        !claimed_channels.contains(channel)
+                    }
+                    _ => true,
+                }),
+            );
             segment_options_for_participants(&participant_human_ids, self_human_id.as_deref())
         };
 
@@ -418,6 +483,45 @@ mod tests {
         assert_eq!(segments[0].speaker_label, "Me");
         assert_eq!(segments[0].key.speaker_index, Some(2));
         assert_eq!(segments[0].key.speaker_human_id.as_deref(), Some("self"));
+    }
+
+    #[test]
+    fn explicit_channel_assignment_wins_over_participant_default() {
+        let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
+            transcripts: vec![RenderTranscriptInput {
+                started_at: Some(0),
+                words: vec![
+                    word("w1", " hello", 0, 100, 0),
+                    word("w2", " world", 120, 240, 1),
+                ],
+                assignments: vec![channel_assignment(
+                    "human-pinned",
+                    ChannelProfile::RemoteParty,
+                )],
+            }],
+            participant_human_ids: vec!["self".to_string(), "remote".to_string()],
+            self_human_id: Some("self".to_string()),
+            humans: vec![
+                RenderTranscriptHuman {
+                    human_id: "self".to_string(),
+                    name: "Me".to_string(),
+                },
+                RenderTranscriptHuman {
+                    human_id: "human-pinned".to_string(),
+                    name: "Pinned".to_string(),
+                },
+                RenderTranscriptHuman {
+                    human_id: "remote".to_string(),
+                    name: "Remote".to_string(),
+                },
+            ],
+        });
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].speaker_label, "Me");
+        assert_eq!(segments[1].speaker_label, "Pinned");
     }
 
     #[test]

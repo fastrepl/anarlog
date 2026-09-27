@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use anlg_ws_client::client::Message;
+use anlg_ws_client::client::{IntoClientRequest, Message};
 use bytes::Bytes;
 
-use super::{ListenClientDualInput, TransformedInput, forward_dual_to_single};
+use super::{ListenClientDualInput, TransformedInput, forward_dual_to_single, mic_stream_params};
 use crate::test_utils::{run_dual_test, run_single_test};
 use crate::{AssemblyAIAdapter, DeepgramAdapter, ListenClient, RealtimeSttAdapter, SonioxAdapter};
 
@@ -107,6 +107,72 @@ async fn valid_proxy_and_direct_endpoints_still_build() {
 }
 
 #[tokio::test]
+async fn split_dual_builds_mic_request_from_mic_speaker_params() {
+    let client = ListenClient::builder()
+        .adapter::<AssemblyAIAdapter>()
+        .api_base("wss://api.assemblyai.com/v2/realtime/ws")
+        .api_key("test-key")
+        .params(owhisper_interface::ListenParams {
+            mic_num_speakers: Some(1),
+            ..Default::default()
+        })
+        .build_dual()
+        .await
+        .unwrap();
+
+    // URL-configured providers read the speaker cap from the connection URI, so
+    // the mic side of a split session needs a request built from the mic params.
+    let mic_uri = client
+        .mic_request
+        .as_ref()
+        .expect("split sessions should build a dedicated mic request")
+        .clone()
+        .into_client_request()
+        .unwrap()
+        .uri()
+        .to_string();
+    assert!(mic_uri.contains("max_speakers=1"), "mic URI: {mic_uri}");
+    let spk_uri = client
+        .request
+        .clone()
+        .into_client_request()
+        .unwrap()
+        .uri()
+        .to_string();
+    assert!(!spk_uri.contains("max_speakers"), "spk URI: {spk_uri}");
+}
+
+#[tokio::test]
+async fn split_dual_reuses_one_request_without_mic_speaker_params() {
+    let client = ListenClient::builder()
+        .adapter::<AssemblyAIAdapter>()
+        .api_base("wss://api.assemblyai.com/v2/realtime/ws")
+        .api_key("test-key")
+        .build_dual()
+        .await
+        .unwrap();
+
+    assert!(client.mic_request.is_none());
+}
+
+#[tokio::test]
+async fn native_multichannel_dual_does_not_build_mic_request() {
+    let client = ListenClient::builder()
+        .adapter::<DeepgramAdapter>()
+        .api_base("https://api.deepgram.com/v1")
+        .api_key("test-key")
+        .params(owhisper_interface::ListenParams {
+            mic_num_speakers: Some(1),
+            ..Default::default()
+        })
+        .build_dual()
+        .await
+        .unwrap();
+
+    assert!(client.mic_request.is_none());
+}
+
+#[tokio::test]
 async fn forward_dual_to_single_forwards_all_audio_without_dropping() {
     let stream = futures_util::stream::iter(vec![
         ListenClientDualInput::Audio((Bytes::from_static(b"mic-1"), Bytes::from_static(b"spk-1"))),
@@ -150,6 +216,48 @@ async fn forward_dual_to_single_forwards_all_audio_without_dropping() {
     assert_eq!(second_spk.as_ref(), b"spk-2");
 
     let _: () = task.await.expect("forward task panicked");
+}
+
+#[test]
+fn mic_stream_params_overrides_speaker_counts_for_the_mic_stream() {
+    let params = owhisper_interface::ListenParams {
+        mic_num_speakers: Some(1),
+        ..Default::default()
+    };
+
+    let mic_params = mic_stream_params(&params);
+
+    assert_eq!(mic_params.num_speakers, Some(1));
+    assert_eq!(mic_params.max_speakers, Some(1));
+    assert_eq!(params.num_speakers, None, "shared params stay untouched");
+}
+
+#[test]
+fn mic_stream_params_clamps_min_speakers_below_the_mic_count() {
+    let params = owhisper_interface::ListenParams {
+        mic_num_speakers: Some(1),
+        min_speakers: Some(3),
+        ..Default::default()
+    };
+
+    let mic_params = mic_stream_params(&params);
+
+    assert_eq!(mic_params.num_speakers, Some(1));
+    assert_eq!(mic_params.max_speakers, Some(1));
+    assert_eq!(mic_params.min_speakers, Some(1));
+}
+
+#[test]
+fn mic_stream_params_without_mic_count_keeps_shared_expectation() {
+    let params = owhisper_interface::ListenParams {
+        num_speakers: Some(4),
+        ..Default::default()
+    };
+
+    let mic_params = mic_stream_params(&params);
+
+    assert_eq!(mic_params.num_speakers, Some(4));
+    assert_eq!(mic_params.mic_num_speakers, None);
 }
 
 #[tokio::test]

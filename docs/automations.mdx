@@ -29,6 +29,14 @@ The automation detail shows whether it is enabled and the result of its last run
 
 For Markdown exports, confirm that the chosen folder still exists and is writable. The local export does not need Slack, Notion, or Linear access.
 
+## Choose Markdown export content
+
+In a Markdown export action, choose any combination of **Memo**, **Summary**, **Transcript**, and **Collect action items**. Keep at least one section selected.
+
+Leave **Filename** blank to use the meeting date and title, or enter a pattern such as `{date} {title}.md`. **Include meeting ID** adds a short ID suffix to distinguish similarly named meetings. Anarlog refuses to overwrite a file belonging to a different meeting or an unrelated file; choose another name if an export reports a collision.
+
+These options belong to desktop Automations. CLI `meetings export` still exports a complete meeting and uses the output path you provide; it does not accept these automation settings.
+
 ## Build a custom workflow
 
 Click **+** in the Automations sidebar to start a workflow. Add a trigger, then stack actions the way you would in Zapier:

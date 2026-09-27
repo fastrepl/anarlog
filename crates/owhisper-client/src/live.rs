@@ -159,13 +159,28 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
         };
         let params = self.normalized_params();
         let request = self.build_request(&adapter, &params, channels).await?;
+        // URL-configured providers encode the speaker count in the connection itself
+        // (e.g. AssemblyAI's `max_speakers` query), so the mic side of a split session
+        // needs its own request built from the mic-specific params.
+        let mic_request =
+            if adapter.supports_native_multichannel() || params.mic_num_speakers.is_none() {
+                None
+            } else {
+                Some(
+                    self.build_request(&adapter, &mic_stream_params(&params), channels)
+                        .await?,
+                )
+            };
         let initial_message = adapter.initial_message(self.api_key.as_deref(), &params, channels);
 
         Ok(ListenClientDual {
             adapter,
             request,
+            mic_request,
             initial_message,
             connect_policy: self.connect_policy,
+            api_key: self.api_key,
+            params,
         })
     }
 }
@@ -185,8 +200,11 @@ pub struct ListenClient<A: RealtimeSttAdapter = DeepgramAdapter> {
 pub struct ListenClientDual<A: RealtimeSttAdapter> {
     pub(crate) adapter: A,
     pub(crate) request: ClientRequestBuilder,
+    pub(crate) mic_request: Option<ClientRequestBuilder>,
     pub(crate) initial_message: Option<Message>,
     pub(crate) connect_policy: Option<anlg_ws_client::client::WebSocketConnectPolicy>,
+    pub(crate) api_key: Option<String>,
+    pub(crate) params: ListenParams,
 }
 
 type FinalizeMessage = Arc<dyn Fn() -> Vec<Message> + Send + Sync>;
@@ -470,7 +488,7 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         let (spk_tx, spk_rx) = tokio::sync::mpsc::channel::<TransformedInput>(32);
 
         let mic_ws = websocket_client_with_keep_alive(
-            &self.request,
+            self.mic_request.as_ref().unwrap_or(&self.request),
             &mic_adapter,
             self.connect_policy.clone(),
         );
@@ -480,10 +498,12 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         let mic_outbound = tokio_stream::wrappers::ReceiverStream::new(mic_rx);
         let spk_outbound = tokio_stream::wrappers::ReceiverStream::new(spk_rx);
 
-        let mic_connect =
-            mic_ws.from_audio::<ListenClientIO, _>(self.initial_message.clone(), mic_outbound);
-        let spk_connect =
-            spk_ws.from_audio::<ListenClientIO, _>(self.initial_message, spk_outbound);
+        let mic_params = mic_stream_params(&self.params);
+        let mic_initial = mic_adapter.initial_message(self.api_key.as_deref(), &mic_params, 1);
+        let spk_initial = spk_adapter.initial_message(self.api_key.as_deref(), &self.params, 1);
+
+        let mic_connect = mic_ws.from_audio::<ListenClientIO, _>(mic_initial, mic_outbound);
+        let spk_connect = spk_ws.from_audio::<ListenClientIO, _>(spk_initial, spk_outbound);
 
         let ((mic_raw, mic_handle), (spk_raw, spk_handle)) =
             tokio::try_join!(mic_connect, spk_connect)?;
@@ -567,6 +587,18 @@ async fn forward_dual_to_single<A: RealtimeSttAdapter>(
             }
         }
     }
+}
+
+// The mic stream of a split session may know its speaker count (an isolated microphone
+// carries only the local user) while the system-audio stream keeps the shared expectation.
+fn mic_stream_params(params: &ListenParams) -> ListenParams {
+    let mut mic_params = params.clone();
+    if let Some(mic_num_speakers) = mic_params.mic_num_speakers {
+        mic_params.num_speakers = Some(mic_num_speakers);
+        mic_params.max_speakers = Some(mic_num_speakers);
+        mic_params.min_speakers = mic_params.min_speakers.map(|min| min.min(mic_num_speakers));
+    }
+    mic_params
 }
 
 fn merge_streams_with_channel_remap<S1, S2>(

@@ -125,6 +125,8 @@ pub struct E2eeReplicaStats {
     pub parked_records: u64,
     pub recorded_conflicts: u64,
     pub merged_fields: u64,
+    pub repaired_witness_records: u64,
+    pub remaining_witness_repairs: bool,
     pub remaining_replica_changes: bool,
 }
 

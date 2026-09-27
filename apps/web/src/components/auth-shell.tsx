@@ -30,28 +30,37 @@ export function AuthShell({
   title,
   description,
   showEyebrow = true,
+  showMarketing = true,
   children,
 }: {
   title: string;
   description?: string;
   showEyebrow?: boolean;
+  showMarketing?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <main className="min-h-screen bg-white text-[#181613]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1180px] flex-col px-5 sm:px-8">
-        <div className="grid flex-1 items-center gap-12 py-10 md:grid-cols-[minmax(0,1fr)_minmax(360px,440px)] lg:gap-20 lg:py-16">
-          <section className="hidden md:block">
-            <p className="font-hand text-2xl leading-none font-semibold text-[#756b5d]">
-              Stay present. Keep the notes.
-            </p>
-            <h2 className="font-hand mt-5 max-w-[620px] text-6xl leading-[0.95] font-semibold tracking-normal text-balance lg:text-7xl">
-              AI notepad for{" "}
-              <mark className="bg-[#fff0b3] px-1 text-[#181613]">
-                private meetings.
-              </mark>
-            </h2>
-          </section>
+        <div
+          className={cn([
+            "grid flex-1 items-center gap-12 py-10 lg:gap-20 lg:py-16",
+            showMarketing && "md:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]",
+          ])}
+        >
+          {showMarketing && (
+            <section className="hidden md:block">
+              <p className="font-hand text-2xl leading-none font-semibold text-[#756b5d]">
+                Stay present. Keep the notes.
+              </p>
+              <h2 className="font-hand mt-5 max-w-[620px] text-6xl leading-[0.95] font-semibold tracking-normal text-balance lg:text-7xl">
+                AI notepad for{" "}
+                <mark className="bg-[#fff0b3] px-1 text-[#181613]">
+                  private meetings.
+                </mark>
+              </h2>
+            </section>
+          )}
 
           <section className="mx-auto w-full max-w-[440px] overflow-hidden rounded-[24px] border border-[#e5ddcf] bg-white shadow-[0_24px_80px_rgba(24,22,19,0.10)]">
             <header className="border-b border-[#ede7dc] px-6 py-7 sm:px-8 sm:py-8">

@@ -114,7 +114,7 @@ export function PostHogProvider({
           api_host: env.VITE_POSTHOG_HOST,
           persistence_name: getPostHogPersistenceName(apiKey),
           autocapture: true,
-          capture_pageview: true,
+          capture_pageview: "history_change",
           mask_all_element_attributes: true,
           mask_all_text: true,
           session_recording: {
@@ -133,11 +133,14 @@ export function PostHogProvider({
       } else if (routeDisabledRef.current) {
         client.set_config({
           autocapture: true,
-          capture_pageview: true,
+          capture_pageview: "history_change",
           disable_session_recording: false,
         });
         client.startSessionRecording();
         routeDisabledRef.current = false;
+        // The history change that left the private route ran while pageview
+        // capture was disabled, so record the public destination explicitly.
+        client.capture("$pageview");
       }
 
       analyticsStatusRef.current = "ready";

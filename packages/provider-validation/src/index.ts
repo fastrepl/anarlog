@@ -192,6 +192,12 @@ function credentialRequest({ provider, baseUrl, apiKey }: ProviderCredential) {
       accept = (value) => Array.isArray(record(value).publisherModels);
       checkAuthentication = true;
       break;
+    case "venice":
+      // Venice's model catalog is public, even with an invalid bearer key.
+      url = `${base}/api_keys/rate_limits`;
+      accept = (value) => record(record(value).data).accessPermitted === true;
+      checkAuthentication = new URL(base).hostname !== "api.venice.ai";
+      break;
     case "openrouter":
       url = `${base}/key`;
       accept = (value) => typeof record(record(value).data).label === "string";

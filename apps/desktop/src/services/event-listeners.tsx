@@ -31,6 +31,7 @@ import {
   getTranscriptionLanguages,
 } from "~/stt/capabilities";
 import { buildRenderTranscriptRequestFromRows } from "~/stt/render-transcript";
+import { parseSpeakerContext } from "~/stt/speaker-context";
 
 type CaptureIdentitySqlRow = {
   session_id: string;
@@ -43,6 +44,7 @@ type LiveTranscriptIdentitySqlRow = {
   started_at_ms: number | string;
   words_json: string;
   speaker_hints_json: string;
+  speaker_context: string | null;
 };
 
 const CAPTURE_IDENTITY_SQL = `
@@ -98,7 +100,12 @@ const LIVE_TRANSCRIPT_IDENTITY_SQL = `
     transcript.id,
     transcript.started_at_ms,
     transcript.words_json,
-    transcript.speaker_hints_json
+    transcript.speaker_hints_json,
+    (
+      SELECT json_extract(session.metadata_json, '$.speaker_context')
+      FROM sessions AS session
+      WHERE session.id = transcript.session_id AND session.deleted_at IS NULL
+    ) AS speaker_context
   FROM transcripts AS transcript
   WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
   ORDER BY transcript.started_at_ms DESC, transcript.created_at DESC
@@ -197,6 +204,8 @@ function getSessionParticipantHumanIds(
 
 function getLiveSpeakerAssignments(
   rows: LiveTranscriptIdentitySqlRow[],
+  participantHumanIds: string[],
+  selfHumanId: string | null,
 ): IdentityAssignment[] {
   const row = rows[0];
   if (!row) {
@@ -210,7 +219,67 @@ function getLiveSpeakerAssignments(
       speaker_hints: parseJsonArray(row.speaker_hints_json),
     },
   ]);
-  return request?.transcripts[0]?.assignments ?? [];
+  const assignments = request?.transcripts[0]?.assignments ?? [];
+
+  // render_transcript_segments extends assignments with the participant channel
+  // defaults only while no speaker context describes the capture; the live
+  // engine has to mirror that or its segments stay anonymous until they settle.
+  if (parseSpeakerContext(row.speaker_context).intervals.length > 0) {
+    return assignments;
+  }
+  // Channel-scope assignments are last-write-wins in both renderers, so only
+  // synthesize a default for channels without an explicit channel assignment.
+  const claimedChannels = new Set(
+    assignments
+      .map((assignment) =>
+        assignment.scope.kind === "channel" ? assignment.scope.channel : null,
+      )
+      .filter((channel) => channel !== null),
+  );
+  return [
+    ...assignments,
+    ...channelAssignmentsForParticipants(
+      participantHumanIds,
+      selfHumanId,
+    ).filter(
+      (assignment) =>
+        assignment.scope.kind !== "channel" ||
+        !claimedChannels.has(assignment.scope.channel),
+    ),
+  ];
+}
+
+// Mirrors `channel_assignments_for_participants` in crates/transcript.
+function channelAssignmentsForParticipants(
+  participantHumanIds: string[],
+  selfHumanId: string | null,
+): IdentityAssignment[] {
+  if (!selfHumanId) {
+    return [];
+  }
+
+  const assignments: IdentityAssignment[] = [
+    {
+      human_id: selfHumanId,
+      scope: { kind: "channel", channel: "DirectMic" },
+    },
+  ];
+
+  const others = [
+    ...new Set(
+      participantHumanIds.filter(
+        (humanId) => humanId && humanId !== selfHumanId,
+      ),
+    ),
+  ];
+  if (others.length === 1) {
+    assignments.push({
+      human_id: others[0]!,
+      scope: { kind: "channel", channel: "RemoteParty" },
+    });
+  }
+
+  return assignments;
 }
 
 function parseJsonArray<T>(value: string): T[] {
@@ -317,17 +386,23 @@ function LiveCaptureConfigSyncReady({
       }
 
       const session = rows.find((row) => row.session_id === live.sessionId);
+      const participantHumanIds = getSessionParticipantHumanIds(
+        rows,
+        live.sessionId,
+      );
+      const selfHumanId = session?.owner_user_id || null;
       const nextConfig: CaptureConfigUpdate = {
         session_id: live.sessionId,
         languages: liveConfig.languages,
-        participant_human_ids: getSessionParticipantHumanIds(
-          rows,
-          live.sessionId,
-        ),
-        self_human_id: session?.owner_user_id || null,
+        participant_human_ids: participantHumanIds,
+        self_human_id: selfHumanId,
         speaker_assignments:
           transcriptSessionId === live.sessionId && hasTranscriptSnapshot
-            ? getLiveSpeakerAssignments(transcriptRows)
+            ? getLiveSpeakerAssignments(
+                transcriptRows,
+                participantHumanIds,
+                selfHumanId,
+              )
             : [],
       };
       // Every capture starts its engine without speaker assignments, so a

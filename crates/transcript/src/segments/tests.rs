@@ -461,6 +461,122 @@ fn propagates_remote_party_identity_when_channel_marked_complete() {
     assert_eq!(result[0].key.speaker_human_id.as_deref(), Some("remote"));
 }
 
+fn isolated_opts(start: i64, end: i64) -> SegmentBuilderOptions {
+    SegmentBuilderOptions {
+        isolated_mic_ranges: Some(vec![(start, end)]),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn indexless_words_inherit_the_only_channel_human_while_isolated() {
+    let finals = vec![
+        fw_si("0", 0, 100, 0, 0),
+        fw_si("1", 200, 300, 0, 1),
+        fw("2", 1200, 1300, 0),
+    ];
+    let assignments = vec![speaker_human("alice", ChannelProfile::DirectMic, 0)];
+    let result = build_segments(&finals, &[], &assignments, Some(&isolated_opts(1000, 2000)));
+    assert_eq!(result.len(), 2);
+    assert_eq!(
+        result
+            .iter()
+            .find(|segment| segment.key.speaker_human_id.as_deref() == Some("alice"))
+            .map(|segment| texts(segment)),
+        Some(vec!["0", "2"])
+    );
+    assert!(
+        result
+            .iter()
+            .any(|segment| segment.key == key_speaker(0, 1))
+    );
+}
+
+#[test]
+fn indexless_words_stay_unnamed_outside_isolated_ranges() {
+    let finals = vec![
+        fw_si("0", 0, 100, 0, 0),
+        fw_si("1", 200, 300, 0, 1),
+        fw("2", 1200, 1300, 0),
+    ];
+    let assignments = vec![speaker_human("alice", ChannelProfile::DirectMic, 0)];
+    for options in [None, Some(isolated_opts(400, 1000))] {
+        let result = build_segments(&finals, &[], &assignments, options.as_ref());
+        assert_eq!(result.len(), 3);
+        assert!(
+            result
+                .iter()
+                .any(|segment| segment.key == key_speaker_human(0, 0, "alice"))
+        );
+        assert!(
+            result
+                .iter()
+                .any(|segment| segment.key == key_speaker(0, 1))
+        );
+        assert!(result.iter().any(|segment| segment.key == key(0)));
+    }
+}
+
+#[test]
+fn indexless_words_spanning_a_range_boundary_stay_unnamed() {
+    let finals = vec![
+        fw_si("0", 0, 100, 0, 0),
+        fw("1", 900, 1100, 0),
+        fw("2", 1200, 1300, 0),
+    ];
+    let assignments = vec![speaker_human("alice", ChannelProfile::DirectMic, 0)];
+    let result = build_segments(&finals, &[], &assignments, Some(&isolated_opts(400, 1000)));
+    assert_eq!(
+        result
+            .iter()
+            .filter(|segment| segment.key.speaker_human_id.as_deref() == Some("alice"))
+            .flat_map(|segment| texts(segment))
+            .collect::<Vec<_>>(),
+        vec!["0"]
+    );
+}
+
+#[test]
+fn zero_duration_word_at_range_end_stays_unnamed() {
+    let finals = vec![fw_si("0", 0, 100, 0, 0), fw("1", 1000, 1000, 0)];
+    let assignments = vec![speaker_human("alice", ChannelProfile::DirectMic, 0)];
+    let result = build_segments(&finals, &[], &assignments, Some(&isolated_opts(0, 1000)));
+    assert_eq!(
+        result
+            .iter()
+            .filter(|segment| segment.key.speaker_human_id.as_deref() == Some("alice"))
+            .flat_map(|segment| texts(segment))
+            .collect::<Vec<_>>(),
+        vec!["0"]
+    );
+}
+
+#[test]
+fn indexless_words_stay_unnamed_with_multiple_channel_humans() {
+    let finals = vec![
+        fw_si("0", 0, 100, 0, 0),
+        fw_si("1", 200, 300, 0, 1),
+        fw("2", 1200, 1300, 0),
+    ];
+    let assignments = vec![
+        speaker_human("alice", ChannelProfile::DirectMic, 0),
+        speaker_human("bob", ChannelProfile::DirectMic, 1),
+    ];
+    let result = build_segments(&finals, &[], &assignments, Some(&isolated_opts(0, 5000)));
+    assert_eq!(result.len(), 3);
+    assert!(
+        result
+            .iter()
+            .any(|segment| segment.key == key_speaker_human(0, 0, "alice"))
+    );
+    assert!(
+        result
+            .iter()
+            .any(|segment| segment.key == key_speaker_human(0, 1, "bob"))
+    );
+    assert!(result.iter().any(|segment| segment.key == key(0)));
+}
+
 #[test]
 fn channel_defaults_do_not_identify_speakers_on_incomplete_channels() {
     for channel in [ChannelProfile::RemoteParty, ChannelProfile::MixedCapture] {

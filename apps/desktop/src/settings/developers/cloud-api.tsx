@@ -155,6 +155,14 @@ function CloudApiHeading({ error }: { error?: string }) {
           Uploads meeting content for remote access while Anarlog is closed.
         </Trans>
       </p>
+      <p className="text-muted-foreground mt-1 text-xs">
+        <Trans>
+          Enabling it uploads a separate server-readable copy of your meeting
+          titles, notes, summaries, participants, action items, and transcripts.
+          Your normal cloud sync stays end-to-end encrypted. Turning it off
+          deletes the server-readable copies.
+        </Trans>
+      </p>
       {error ? <p className="text-destructive mt-2 text-xs">{error}</p> : null}
     </div>
   );

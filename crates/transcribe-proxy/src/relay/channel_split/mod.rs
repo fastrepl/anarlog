@@ -18,11 +18,13 @@ use tokio_tungstenite::{
 use owhisper_client::Provider;
 
 use self::coordinator::{CoordinatorAction, SplitCoordinator, SplitEvent};
-use self::io::{relay_client_to_upstreams, relay_upstream_to_events, send_rewritten, send_text};
+use self::io::{
+    GatedUpstream, relay_client_to_upstreams, relay_upstream_to_events, send_rewritten, send_text,
+};
 use self::payload::{FinalizeMode, rewrite_split_response};
 use super::types::{
     ClientBinaryMessageMapper, ClientMessageFilter, DEFAULT_CLOSE_CODE, InitialMessage,
-    OnCloseCallback, ResponseTransformer, ShutdownSignal, convert,
+    OnCloseCallback, ResponseTransformer, ShutdownSignal, UpstreamEvent, convert, ready_channel,
 };
 
 fn proxy_debug_enabled() -> bool {
@@ -35,36 +37,21 @@ fn proxy_debug_enabled() -> bool {
 pub struct ChannelSplitProxy {
     mic_request: ClientRequestBuilder,
     spk_request: ClientRequestBuilder,
-    initial_message: Option<InitialMessage>,
+    initial_messages: [Option<InitialMessage>; 2],
     response_transformers: [Option<ResponseTransformer>; 2],
     connect_timeout: Duration,
     on_close: Option<OnCloseCallback>,
-    client_message_filter: Option<ClientMessageFilter>,
+    client_message_filters: [Option<ClientMessageFilter>; 2],
     client_binary_message_mapper: Option<ClientBinaryMessageMapper>,
+    upstream_readiness: Option<UpstreamEvent>,
+    upstream_completion: Option<UpstreamEvent>,
 }
 
 impl ChannelSplitProxy {
-    pub fn new(
-        upstream_request: ClientRequestBuilder,
-        initial_message: Option<InitialMessage>,
-        response_transformers: [Option<ResponseTransformer>; 2],
-        connect_timeout: Duration,
-        on_close: Option<OnCloseCallback>,
-    ) -> Self {
-        Self::with_split_requests(
-            upstream_request.clone(),
-            upstream_request,
-            initial_message,
-            response_transformers,
-            connect_timeout,
-            on_close,
-        )
-    }
-
     pub fn with_split_requests(
         mic_request: ClientRequestBuilder,
         spk_request: ClientRequestBuilder,
-        initial_message: Option<InitialMessage>,
+        initial_messages: [Option<InitialMessage>; 2],
         response_transformers: [Option<ResponseTransformer>; 2],
         connect_timeout: Duration,
         on_close: Option<OnCloseCallback>,
@@ -72,17 +59,32 @@ impl ChannelSplitProxy {
         Self {
             mic_request,
             spk_request,
-            initial_message,
+            initial_messages,
             response_transformers,
             connect_timeout,
             on_close,
-            client_message_filter: None,
+            client_message_filters: [None, None],
             client_binary_message_mapper: None,
+            upstream_readiness: None,
+            upstream_completion: None,
         }
     }
 
-    pub fn with_client_message_filter(mut self, filter: ClientMessageFilter) -> Self {
-        self.client_message_filter = Some(filter);
+    pub fn with_client_message_filters(
+        mut self,
+        filters: [Option<ClientMessageFilter>; 2],
+    ) -> Self {
+        self.client_message_filters = filters;
+        self
+    }
+
+    pub fn with_upstream_readiness(mut self, readiness: UpstreamEvent) -> Self {
+        self.upstream_readiness = Some(readiness);
+        self
+    }
+
+    pub fn with_upstream_completion(mut self, completion: UpstreamEvent) -> Self {
+        self.upstream_completion = Some(completion);
         self
     }
 
@@ -166,11 +168,17 @@ impl ChannelSplitProxy {
         let (mut spk_tx, mut spk_rx) = spk_upstream.split();
         let (mut client_tx, client_rx) = client_socket.split();
 
-        if let Some(message) = &self.initial_message {
-            let upstream_message =
-                tokio_tungstenite::tungstenite::Message::Text(message.as_str().into());
-            if mic_tx.send(upstream_message.clone()).await.is_err()
-                || spk_tx.send(upstream_message).await.is_err()
+        for (tx, message) in [
+            (&mut mic_tx, &self.initial_messages[0]),
+            (&mut spk_tx, &self.initial_messages[1]),
+        ] {
+            if let Some(message) = message
+                && tx
+                    .send(tokio_tungstenite::tungstenite::Message::Text(
+                        message.as_str().into(),
+                    ))
+                    .await
+                    .is_err()
             {
                 tracing::error!("channel_split_initial_message_send_failed");
                 return;
@@ -180,18 +188,37 @@ impl ChannelSplitProxy {
         let (shutdown_tx, _) = tokio::sync::broadcast::channel::<ShutdownSignal>(1);
         let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<SplitEvent>(64);
 
+        let readiness = self.upstream_readiness.as_ref();
+        let (mic_ready_tx, mic_ready_rx) = ready_channel(readiness);
+        let (spk_ready_tx, spk_ready_rx) = ready_channel(readiness);
+        let mic_readiness = readiness.map(|r| (r.clone(), mic_ready_tx));
+        let spk_readiness = readiness.map(|r| (r.clone(), spk_ready_tx));
+
         let client_to_upstreams = relay_client_to_upstreams(
             client_rx,
-            mic_tx,
-            spk_tx,
-            self.client_message_filter.clone(),
+            GatedUpstream::new(mic_tx, mic_ready_rx),
+            GatedUpstream::new(spk_tx, spk_ready_rx),
+            self.client_message_filters.clone(),
             self.client_binary_message_mapper.clone(),
             shutdown_tx.clone(),
             event_tx.clone(),
         );
-        let mic_to_events =
-            relay_upstream_to_events(&mut mic_rx, 0, event_tx.clone(), shutdown_tx.clone());
-        let spk_to_events = relay_upstream_to_events(&mut spk_rx, 1, event_tx, shutdown_tx.clone());
+        let mic_to_events = relay_upstream_to_events(
+            &mut mic_rx,
+            0,
+            event_tx.clone(),
+            shutdown_tx.clone(),
+            mic_readiness,
+            self.upstream_completion.as_ref(),
+        );
+        let spk_to_events = relay_upstream_to_events(
+            &mut spk_rx,
+            1,
+            event_tx,
+            shutdown_tx.clone(),
+            spk_readiness,
+            self.upstream_completion.as_ref(),
+        );
 
         let event_coordinator = {
             let shutdown_tx = shutdown_tx.clone();

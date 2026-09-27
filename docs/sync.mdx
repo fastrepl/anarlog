@@ -5,10 +5,14 @@ description: "Keep notes end-to-end encrypted across devices, and avoid conflict
 
 Cloud sync keeps your notes up to date across your signed-in devices. It is part of Anarlog Pro.
 
+<Note>
+  Automatic device setup is forthcoming. Existing releases may still ask you to create a recovery key or approve a new device in **Settings → Sync**.
+</Note>
+
 ## Turn sync on or off
 
 1. Open **Settings → Sync**.
-2. Turn on **Cloud sync**. The first time, Anarlog asks you to create or enter a recovery key.
+2. Cloud sync starts automatically for a fresh Pro sign-in. If you previously turned it off, turn on **Cloud sync** to resume.
 
 Sync runs automatically in the background. Use **Sync now** to send and receive the latest changes immediately. Your notes always remain available locally, even while sync is paused or you are offline.
 
@@ -26,7 +30,7 @@ Each synced device receives:
 - Action items
 - A few preferences: **Theme**, **App icon**, **Week starts on**, and **Default sharing**
 
-In 1.4.24, new daily notes, folders, tags, and note-tag assignments stay on the device where you create them. Their sync rollout is deferred to keep meeting-note sync compatible with 1.4.23. **Synced** applies to the supported data above, not these local-only items. Existing items already synced by Nightly continue using their existing format; use matching app versions on those devices.
+In 1.4.24 and 1.4.25, new daily notes, folders, tags, and note-tag assignments stay on the device where you create them. Their sync rollout is deferred to keep meeting-note sync compatible with 1.4.23. **Synced** applies to the supported data above, not these local-only items. Existing items already synced by Nightly continue using their existing format; use matching app versions on those devices.
 
 API keys, model selections, and most other settings stay on the computer where you entered them. After you add a new device, enter each Transcription and Intelligence API key again and choose the models you want on that computer. Anarlog stores those keys in the operating system's credential store and does not copy them between devices.
 
@@ -36,70 +40,56 @@ Also set up on each device:
 - Downloaded local models
 - Device-specific options such as audio devices, autostart, notifications, and recording retention
 
-Saved recordings and file attachments remain in the local storage folder on that computer. See [Don't combine sync with a cloud-storage folder](#dont-combine-sync-with-a-cloud-storage-folder).
+Saved recordings and file attachments remain on that computer. See [Where local data lives](#where-local-data-lives).
 
 See [Data, privacy, and retention](/data-and-privacy) for what can leave your computer for hosted AI, sharing, and other features.
 
-## Save the recovery key
+## Recovery keys
 
-Your recovery key encrypts synced notes before they leave your device, so Anarlog cannot read or recover it.
+Anarlog creates your first sync key automatically and stores it on your device. An existing synced device transfers the key to new devices through an encrypted package. Anarlog cannot read or recover the key.
 
-When you create the key:
-
-1. Copy it into a password manager or download the text file.
-2. Confirm that you can find the saved copy before closing the setup window.
-3. Keep it separate from the computer you are syncing.
-
-The key is shown only during setup. Clipboard copies clear after 60 seconds when the operating system supports it.
+If you saved a recovery key during an earlier setup, keep it in your password manager. On a new desktop device, **Use recovery key instead** lets you connect while your other devices are offline.
 
 <Warning>
-  If you lose the recovery key, your existing local notes remain on their devices, but you cannot use that key to add another device. Anarlog support cannot recover it for you.
+  If you lose every device holding the key and have no saved recovery key, Anarlog support cannot restore your encrypted cloud data. Local notes remain available on devices where they are stored.
 </Warning>
 
 ## Add another device
 
-You do not need to type the recovery key on a new device. An existing device approves it instead.
+1. Install Anarlog and sign in with the same Pro account on the new device.
+2. Keep Anarlog open and sync enabled on an existing synced device. It transfers the key automatically; no approval button is required.
+3. Keep the new device open while it connects and downloads your notes. If all existing devices are offline, setup waits until one comes online.
+4. Re-enter any Transcription or Intelligence API keys you use on this computer, then select those models under **Settings → Transcription** and **Settings → Intelligence**.
 
-1. Install Anarlog and sign in with the same account on the new device.
-2. Open **Settings → Sync** and turn on Cloud sync. The status shows **Waiting for device approval**.
-3. On a device that already syncs, open **Settings → Sync**. The new device appears under **Devices**; click **Approve**.
-4. Return to the new device. It receives its key automatically, shows **Restoring cloud sync...** while it downloads your notes, and then **Synced**. Keep the app open until this finishes.
-5. Re-enter any Transcription or Intelligence API keys you use on this computer, then select those models under **Settings → Transcription** and **Settings → Intelligence**.
+A device where you explicitly paused sync stays paused until you resume it. Connecting a local library previously used with another account still requires the **Connect library** choice below.
 
-If none of your approved devices is available, click **Use recovery key instead** on the new device and paste the key from your password manager.
-
-Your plan determines how many devices you can sync. **Settings → Sync → Devices** shows your current usage and limit. If you reach the limit, remove an unused device before enabling sync on another one.
+Your plan determines how many devices you can sync. Personal Pro includes three devices; Team membership includes five. **Settings → Sync → Devices** shows your current usage and limit. If you reach the limit, remove an unused device or choose **Get more slots** to open your account page and add paid slots to a personal Pro subscription. Each add-on adds one slot.
 
 Cloud API & Connectors is a separate, optional feature. If you enable it under **Settings → Developers**, Anarlog uploads a server-readable copy for remote agents; it does not decrypt or weaken your end-to-end encrypted sync data. See [Cloud API and connectors](/reference/api-cloud).
 
-## Don't combine sync with a cloud-storage folder
+## Switch accounts while keeping local notes
 
-<Warning>
-  Keep your Anarlog storage location out of folders managed by a file-syncing service such as iCloud Drive, Dropbox, Google Drive, or OneDrive. This includes Obsidian vaults stored in iCloud Drive.
-</Warning>
+In 1.4.25, signing in to another account keeps your personal notes and recordings available on this device. Sync waits for your choice in **Connect library**:
 
-Two sync systems changing the same files can cause:
+- **Keep using locally** leaves the library available without connecting it to the signed-in account.
+- **Connect library** connects the personal library to that account and brings in its existing notes. Copies already synced to your previous account remain there. Team and shared notes stay with their workspace.
 
-- Conflicted or duplicate copies of recordings and attachments
-- Incomplete audio files when a service uploads a recording while Anarlog is still writing it
-- Files that are offloaded to the cloud and unavailable offline
+Reconnect integrations for the account you are using. Connecting a different account opts this library into the new account-switching format; older app versions cannot open it. Keep a compatible version installed rather than downgrading after connecting.
 
-Anarlog shows a warning in **Settings → Sync** when your storage location is inside a known cloud-storage folder. Backup tools that snapshot files without continuously syncing them back are fine.
+This is an account-switching choice, not a repair for a delayed sync. Leave your account and recovery key unchanged while investigating a sync error.
 
-If you see this warning:
+## Where local data lives
 
-1. Pause Cloud sync so changes remain on this device while the files move.
-2. Open **Settings → General** and find **Storage**.
-3. Click **Change** and choose a local folder that is not managed by a file-syncing service.
-4. Wait for Anarlog to move the data and relaunch automatically.
-5. Return to **Settings → Sync**, confirm that the warning is gone, and resume sync.
+Anarlog keeps your notes, recordings, and settings in its application data folder, next to the local database. You don't pick a storage folder, so a file-syncing service such as iCloud Drive, Dropbox, Google Drive, or OneDrive never competes with Cloud sync for the same files. Backup tools that snapshot the folder are fine.
 
-Use **Change** instead of moving or deleting the storage folder manually. If the move fails, leave the existing folder in place and email [team@fastrepl.com](mailto:team@fastrepl.com) with your operating system and the error shown in Settings.
+Earlier versions let you point storage at a custom folder, often an Obsidian vault. The first launch after updating moves the notes and recordings from that folder back into the application data folder and removes only the files Anarlog created there. Your other files in that folder stay where they are.
+
+To keep an Obsidian vault or another folder up to date, use the [Export every meeting as Markdown](/automations) automation and choose that folder as its export location. It writes files one way, from Anarlog into the folder.
 
 ## Fix a blocked sync
 
 - **Setup required:** Create a recovery key or enter the key from an existing device.
-- **Waiting for device approval:** Approve the new device from a device that already syncs, or use the recovery key.
+- **Connecting this device:** Open Anarlog on an existing synced device signed in to the same account, or use a previously saved recovery key.
 - **Sign in again:** Sign out and sign back in, then resume sync.
 - **Identity mismatch:** Sign in again with the account that owns the synced notes. Check Sync settings before changing local files.
 - **Device limit reached:** Remove an unused device, then try again.

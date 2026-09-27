@@ -212,6 +212,124 @@ describe("createReadOnlyPlugin", () => {
     expect(onCommentSelection).toHaveBeenCalledOnce();
   });
 
+  it("hides the format toolbar during IME composition", async () => {
+    let view: EditorView | null = null;
+    render(
+      createElement(NoteEditor, {
+        initialContent: {
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 1 },
+              content: [{ type: "text", text: "t" }],
+            },
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "compose" }],
+            },
+          ],
+        },
+        onViewReady: (nextView) => {
+          view = nextView;
+        },
+      }),
+    );
+
+    await waitFor(() => expect(view).not.toBeNull());
+    vi.spyOn(view!, "coordsAtPos").mockReturnValue({
+      bottom: 20,
+      left: 0,
+      right: 40,
+      top: 0,
+    });
+
+    // An IME makes the DOM selection cover the composing text; the state
+    // selection follows it, but that range is not a user selection.
+    fireEvent.compositionStart(view!.dom);
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+      );
+    });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    // The composition ends and an unrelated transaction arrives before
+    // ProseMirror applies the final caret; keeping the provisional range
+    // means it must not release the gate.
+    fireEvent.compositionEnd(view!.dom);
+    act(() => {
+      view?.dispatch(view.state.tr.setMeta("meta-only", true));
+    });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    // The settle update collapses the selection to a caret, so the gate
+    // releases but the toolbar still has no real selection to show for.
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 6)),
+      );
+    });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    // A real selection after composition still opens the toolbar.
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+      );
+    });
+    await screen.findByRole("toolbar");
+
+    // If the settle leaves the provisional range in place and no selection
+    // change ever arrives, the gate still must not hold forever: after
+    // ProseMirror's settle window the same range counts as a real
+    // selection. Return to a caret first so the stale jsdom DOM selection
+    // cannot reconcile the previous range into a deletion.
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 6)),
+      );
+    });
+    fireEvent.compositionStart(view!.dom);
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+      );
+    });
+    fireEvent.compositionEnd(view!.dom);
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    await screen.findByRole("toolbar");
+
+    // A composition that starts inside the settle window must not be
+    // released by the previous composition's pending timer.
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 6)),
+      );
+    });
+    fireEvent.compositionStart(view!.dom);
+    fireEvent.compositionEnd(view!.dom);
+    fireEvent.compositionStart(view!.dom);
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(screen.queryByRole("toolbar")).toBeNull();
+
+    fireEvent.compositionEnd(view!.dom);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    await screen.findByRole("toolbar");
+  });
+
   it("hides attachment mutation controls in read-only documents", async () => {
     const rendered = render(
       createElement(NoteEditor, {

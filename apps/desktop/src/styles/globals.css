@@ -17,6 +17,10 @@ html[data-live-caption] #root {
   background: transparent !important;
 }
 
+html[data-rounded-window] #root {
+  border: 1px solid hsl(var(--border));
+}
+
 .undo-delete-toast-gauge {
   animation: undo-delete-toast-gauge var(--undo-delete-duration) linear
     forwards;

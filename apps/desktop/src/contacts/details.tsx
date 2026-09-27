@@ -39,6 +39,7 @@ import { RelatedNotesSection } from "./related-notes";
 import { ContactFacehash } from "./shared";
 
 import { useOptionalAuth } from "~/auth";
+import { EnrichContactFromCrm } from "~/crm/enrich-contact";
 import { useOwnerUserId } from "~/shared/owner-user";
 
 export function DetailsColumn({
@@ -152,6 +153,14 @@ export function DetailsColumn({
                 </AvatarUploadButton>
               )}
             </div>
+
+            {!readOnly && ownerUserId && (
+              <EnrichContactFromCrm
+                key={`${human.id}:crm`}
+                human={human}
+                ownerUserId={ownerUserId}
+              />
+            )}
 
             {!readOnly && duplicatesWithData.length > 0 && (
               <div className="border-border border-b bg-red-50 px-6 py-4">
@@ -604,7 +613,7 @@ export function ContactOrganizationSelector({
         >
           {organization?.name ? (
             <div className="flex items-center">
-              <span className="text-base">{organization.name}</span>
+              <span className="text-base md:text-sm">{organization.name}</span>
               <span className="group text-muted-foreground ml-2">
                 <MinusCircle
                   className="text-muted-foreground size-4 cursor-pointer hover:text-red-600"
@@ -616,7 +625,7 @@ export function ContactOrganizationSelector({
               </span>
             </div>
           ) : (
-            <span className="text-muted-foreground flex items-center gap-1 text-base">
+            <span className="text-muted-foreground flex items-center gap-1 text-base md:text-sm">
               <Plus className="size-4" />
               <Trans>Add organization</Trans>
             </span>

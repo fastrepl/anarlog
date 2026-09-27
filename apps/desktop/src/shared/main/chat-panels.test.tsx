@@ -142,6 +142,8 @@ vi.mock("~/chat/components/persistent-chat", () => ({
 
 import { MainChatPanels } from "./chat-panels";
 
+import { ZOOM_STORAGE_KEY } from "~/shared/zoom";
+
 let restorePanelWidths: (() => void) | null = null;
 
 describe("MainChatPanels", () => {
@@ -157,6 +159,7 @@ describe("MainChatPanels", () => {
     mocks.setLeftSidebarExpanded.mockClear();
     mocks.windowExpandWidth.mockClear();
     mocks.windowRestoreWidth.mockClear();
+    window.localStorage.removeItem(ZOOM_STORAGE_KEY);
   });
 
   it("renders the main content and persistent floating chat host", () => {
@@ -354,6 +357,59 @@ describe("MainChatPanels", () => {
 
     expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
       60,
+      null,
+      false,
+      true,
+      false,
+    );
+  });
+
+  it("scales the expansion into native points when the webview is zoomed", () => {
+    window.localStorage.setItem(ZOOM_STORAGE_KEY, "3");
+    mocks.currentTab = { type: "sessions" };
+    mocks.leftSidebarExpanded = true;
+    mockPanelWidths({
+      bodyPanelWidth: 640,
+      leftSidebarWidth: 200,
+    });
+
+    render(
+      <MainChatPanels>
+        <div data-left-sidebar-chrome />
+        <div data-chat-floating-anchor>
+          <div data-session-surface />
+        </div>
+      </MainChatPanels>,
+    );
+
+    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
+      180,
+      null,
+      false,
+      true,
+      false,
+    );
+  });
+
+  it("measures the expanded sidebar panel when no sidebar chrome is rendered", () => {
+    mocks.currentTab = { type: "sessions" };
+    mocks.leftSidebarExpanded = true;
+    mockPanelWidths({
+      bodyPanelWidth: 720,
+      leftSidebarWidth: 276,
+    });
+
+    render(
+      <MainChatPanels>
+        <div data-left-sidebar-panel-content />
+        <div data-chat-floating-anchor>
+          <div data-session-surface />
+        </div>
+      </MainChatPanels>,
+    );
+
+    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
+      56,
       null,
       false,
       true,
@@ -633,7 +689,10 @@ function mockPanelWidths(widths: {
         return rectWithWidth(widths.panelGroupWidth ?? 0);
       }
 
-      if (this.hasAttribute("data-left-sidebar-chrome")) {
+      if (
+        this.hasAttribute("data-left-sidebar-chrome") ||
+        this.hasAttribute("data-left-sidebar-panel-content")
+      ) {
         return rectWithWidth(widths.leftSidebarWidth);
       }
 

@@ -112,7 +112,44 @@ describe("session SQLite operations", () => {
         statement.sql.includes("session_participants"),
       ),
     ).toBe(true);
-    expect(statements[0]?.params).toContain("alice@example.com");
+    expect(
+      statements.find((statement) =>
+        statement.sql.includes("INSERT INTO humans"),
+      )?.params,
+    ).toContain("alice@example.com");
+  });
+
+  it("enriches an existing placeholder human when attaching to an event note", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([event])
+      .mockResolvedValueOnce([{ id: "session-existing" }])
+      .mockResolvedValueOnce([
+        { id: "human-alice", email: "alice@example.com" },
+      ]);
+
+    await getOrCreateSessionForEventId("event-1");
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(
+      statements.some((statement) =>
+        statement.sql.includes("INSERT INTO humans"),
+      ),
+    ).toBe(false);
+    const update = statements.find((statement) =>
+      statement.sql.includes("UPDATE humans"),
+    );
+    expect(update?.sql).toContain("ELSE name");
+    expect(update?.params).toEqual(
+      expect.arrayContaining(["Alice", "Example", "human-alice"]),
+    );
+    expect(
+      statements.find((statement) =>
+        statement.sql.includes("INSERT INTO organizations"),
+      )?.sql,
+    ).toContain("organization_id = ''");
   });
 
   it("does not attach the calendar self copy to an existing event note", async () => {
@@ -217,8 +254,10 @@ describe("session SQLite operations", () => {
     expect(statements[0].sql).toContain("event_json");
     expect(statements[0].sql).toContain("folder_path");
     expect(statements[0].sql).toContain("cloudsync_workspace_binding");
-    expect(statements[0].sql).toContain("NULLIF((");
-    expect(statements[0].sql).not.toContain("COALESCE((");
+    expect(statements[0].sql).toContain("folder.workspace_id");
+    expect(statements[0].sql).toContain("folder.path = ?");
+    expect(statements[0].sql).not.toContain("LIKE folder.path || '/%'");
+    expect(statements[0].sql).not.toContain("ORDER BY length(folder.path)");
     expect(statements[0].params).toContain('{"tracking_id":"welcome"}');
     expect(statements[0].params).toContain("CS 101");
     expect(statements[1].sql).toContain("session_documents");
@@ -228,6 +267,44 @@ describe("session SQLite operations", () => {
     expect(mocks.executeTransaction.mock.calls[1][0][1].sql).toContain(
       "INSERT INTO folders",
     );
+  });
+
+  it("matches the exact team-folder workspace for new sessions", async () => {
+    await createSession("Team note", "user-1", { folder_id: "defcons" });
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0] as {
+      sql: string;
+      params: unknown[];
+    };
+    expect(statement.sql).toContain("folder.path = ?");
+    expect(statement.sql).not.toContain("LIKE folder.path || '/%'");
+    expect(statement.params.slice(0, 2)).toEqual([
+      expect.any(String),
+      "defcons",
+    ]);
+    expect(mocks.executeTransaction.mock.calls[0][0][1].sql).toContain(
+      "SELECT ?, workspace_id, id",
+    );
+    expect(mocks.executeTransaction.mock.calls[0][0][2].sql).toContain(
+      "session.workspace_id",
+    );
+    expect(mocks.executeTransaction.mock.calls[0][0][3].sql).toContain(
+      "session.workspace_id",
+    );
+
+    mocks.executeTransaction.mockClear();
+    await createSession("Personal note", "user-1", { folder_id: "personal" });
+    const personalStatement = mocks.executeTransaction.mock.calls[0][0][0] as {
+      sql: string;
+      params: unknown[];
+    };
+    expect(personalStatement.sql).toContain(
+      "NULLIF((\n              SELECT json_extract",
+    );
+    expect(personalStatement.params.slice(0, 2)).toEqual([
+      expect.any(String),
+      "personal",
+    ]);
   });
 
   it("derives the default self identity from the bound workspace", async () => {

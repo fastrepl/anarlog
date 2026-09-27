@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/F1bonacc1/process-compose/main/schemas/process-compose-schema.json
+
+version: "0.5"
+is_strict: true
+ordered_shutdown: true
+
+log_configuration:
+  disable_json: true
+  no_metadata: true
+  no_color: true
+  flush_each_line: true
+  rotation:
+    max_size_mb: 50
+    max_age_days: 7
+    max_backups: 3
+    compress: true
+
+processes:
+  ui-build:
+    description: Build shared UI styles before starting the apps
+    command: pnpm exec turbo run build --filter=@anlg/ui
+    log_location: ${PC_LOG_DIR:-.process-compose/logs}/ui-build.log
+    availability:
+      restart: exit_on_failure
+
+  desktop:
+    description: Run the Tauri desktop app and its Vite dev server
+    command: pnpm -F @anlg/desktop tauri:dev
+    log_location: ${PC_LOG_DIR:-.process-compose/logs}/desktop.log
+    depends_on:
+      ui-build:
+        condition: process_completed_successfully
+
+  web:
+    description: Run the website on http://localhost:3000
+    command: pnpm -F @anlg/web dev --strictPort
+    log_location: ${PC_LOG_DIR:-.process-compose/logs}/web.log
+    depends_on:
+      ui-build:
+        condition: process_completed_successfully
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 3000
+        path: /@vite/client
+      initial_delay_seconds: 2
+      period_seconds: 2
+      timeout_seconds: 5
+      failure_threshold: 60
+    availability:
+      restart: exit_on_failure

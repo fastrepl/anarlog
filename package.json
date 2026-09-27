@@ -1,7 +1,9 @@
 {
   "scripts": {
-    "dev:desktop": "pnpm -F @anlg/desktop tauri:dev",
-    "dev:web": "pnpm -F @anlg/web dev",
+    "dev": "node scripts/dev.mjs stack",
+    "dev:desktop": "node scripts/dev.mjs desktop",
+    "dev:web": "node scripts/dev.mjs web",
+    "dev:api": "node scripts/dev.mjs api",
     "fmt:check": "dprint check",
     "fmt": "dprint fmt",
     "lint": "pnpm lint:oxlint && pnpm lint:eslint",

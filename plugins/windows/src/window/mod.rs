@@ -14,6 +14,7 @@ pub(crate) fn exclude_from_capture(window: &tauri::WebviewWindow<tauri::Wry>) {
 }
 
 pub type AppWindow = v1::AppWindow;
+pub(crate) use v1::MAIN_WINDOW_MIN_SIZE;
 
 pub trait WindowImpl:
     std::fmt::Display

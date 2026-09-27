@@ -74,7 +74,7 @@ export function SettingsPrivacy() {
           }}
         />
         <SettingSwitchRow
-          title={`${i18n._(privacyMessages.posthogTitle)} (PostHog)`}
+          title={i18n._(privacyMessages.posthogTitle)}
           description={i18n._(privacyMessages.posthogDescription)}
           checked={posthogEnabled}
           onChange={(telemetryConsent) => {

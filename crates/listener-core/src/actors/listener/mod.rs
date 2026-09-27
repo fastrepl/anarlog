@@ -13,7 +13,7 @@ use anlg_transcript::IdentityAssignment;
 use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, MixedMessage};
 
-use super::session::session_span;
+use super::session::{SharedLiveTranscript, session_span};
 use crate::{
     DegradedError, ListenerRuntime, LiveTranscriptEngine, SessionDataEvent, SessionErrorEvent,
     SessionProgressEvent,
@@ -70,6 +70,10 @@ pub struct ListenerArgs {
     pub participant_human_ids: Vec<String>,
     pub self_human_id: Option<String>,
     pub speaker_assignments: Vec<IdentityAssignment>,
+    pub live_transcript: SharedLiveTranscript,
+    /// The mic-isolation verdict the streams opened with: every playing output is a headphone
+    /// and the mic was not swapped away from the user's Bluetooth headset.
+    pub mic_isolated: bool,
 }
 
 pub struct ListenerState {
@@ -164,12 +168,7 @@ impl Actor for ListenerActor {
                 adapter: adapter_name.clone(),
             });
 
-            let transcript = LiveTranscriptEngine::with_speaker_assignments(
-                &adapter_name,
-                &args.participant_human_ids,
-                args.self_human_id.as_deref(),
-                args.speaker_assignments.clone(),
-            );
+            let transcript = resume_transcript(&args, &adapter_name);
 
             let state = ListenerState {
                 args,
@@ -203,7 +202,7 @@ impl Actor for ListenerActor {
             let _ = process_stream_response(state, response);
         }
 
-        if let Some(update) = state.transcript.flush() {
+        if let Some(update) = state.transcript.checkpoint() {
             if !update.transcript_delta.is_empty() {
                 state
                     .args
@@ -222,6 +221,9 @@ impl Actor for ListenerActor {
                         delta: Box::new(segment_delta),
                     });
             }
+        }
+        if let Ok(mut shared) = state.args.live_transcript.lock() {
+            *shared = Some(std::mem::take(&mut state.transcript));
         }
 
         Ok(())
@@ -252,13 +254,8 @@ impl Actor for ListenerActor {
                     ChannelSender::Dual(_) => ListenerAudioResult::ModeMismatch,
                 };
                 let _ = reply.send(result);
-                if result == ListenerAudioResult::Accepted
-                    && state.progress.as_mut().is_some_and(|progress| {
-                        progress.observe_audio(active_samples, Instant::now())
-                    })
-                {
-                    tracing::warn!("listen_stream_stalled_during_audio");
-                    stop_with_degraded_error(&myself, DegradedError::ConnectionTimeout);
+                if result == ListenerAudioResult::Accepted {
+                    stop_if_stalled(&myself, state, active_samples);
                 }
                 if matches!(
                     result,
@@ -289,13 +286,8 @@ impl Actor for ListenerActor {
                     ChannelSender::Single(_) => ListenerAudioResult::ModeMismatch,
                 };
                 let _ = reply.send(result);
-                if result == ListenerAudioResult::Accepted
-                    && state.progress.as_mut().is_some_and(|progress| {
-                        progress.observe_audio(active_samples, Instant::now())
-                    })
-                {
-                    tracing::warn!("listen_stream_stalled_during_audio");
-                    stop_with_degraded_error(&myself, DegradedError::ConnectionTimeout);
+                if result == ListenerAudioResult::Accepted {
+                    stop_if_stalled(&myself, state, active_samples);
                 }
                 if matches!(
                     result,
@@ -319,6 +311,8 @@ impl Actor for ListenerActor {
                     &state.args.participant_human_ids,
                     state.args.self_human_id.as_deref(),
                     state.args.speaker_assignments.clone(),
+                    state.args.mic_isolated,
+                    state.args.session_started_at.elapsed().as_millis() as i64,
                 ) {
                     state
                         .args
@@ -429,10 +423,71 @@ fn discard_final_stream_errors(responses: Vec<StreamResponse>) -> Vec<StreamResp
         .collect()
 }
 
+/// A reconnecting listener continues the session's transcript, so the audio the source replays
+/// into the new stream cannot finalize the same words twice and segments carry on across the gap.
+/// Identity inputs may have changed while no listener was attached, so they are re-applied.
+fn resume_transcript(args: &ListenerArgs, adapter_name: &str) -> LiveTranscriptEngine {
+    let resumed = args
+        .live_transcript
+        .lock()
+        .ok()
+        .and_then(|mut shared| shared.take())
+        .filter(|engine| engine.provider_name() == adapter_name);
+    match resumed {
+        Some(mut engine) => {
+            if let Some(segment_delta) = engine.update_identities(
+                &args.participant_human_ids,
+                args.self_human_id.as_deref(),
+                args.speaker_assignments.clone(),
+                args.mic_isolated,
+                args.session_started_at.elapsed().as_millis() as i64,
+            ) {
+                args.runtime
+                    .emit_data(SessionDataEvent::TranscriptSegmentDelta {
+                        session_id: args.session_id.clone(),
+                        delta: Box::new(segment_delta),
+                    });
+            }
+            engine
+        }
+        None => LiveTranscriptEngine::with_speaker_assignments(
+            adapter_name,
+            &args.participant_human_ids,
+            args.self_human_id.as_deref(),
+            args.speaker_assignments.clone(),
+            args.mic_isolated,
+            args.session_started_at.elapsed().as_millis() as i64,
+        ),
+    }
+}
+
+fn stop_if_stalled(myself: &ActorRef<ListenerMsg>, state: &mut ListenerState, samples: usize) {
+    let now = Instant::now();
+    let Some(progress) = state.progress.as_mut() else {
+        return;
+    };
+    if !progress.observe_audio(samples, now) {
+        return;
+    }
+    let diagnostics = progress.diagnostics(now);
+    tracing::warn!(
+        reason = ?diagnostics.reason,
+        active_audio_secs = diagnostics.active_audio_secs,
+        unfinalized_audio_secs = diagnostics.unfinalized_audio_secs,
+        secs_since_progress = diagnostics.secs_since_progress,
+        secs_since_response = diagnostics.secs_since_response,
+        "listen_stream_stalled_during_audio"
+    );
+    stop_with_degraded_error(myself, DegradedError::ConnectionTimeout);
+}
+
 fn process_stream_response(
     state: &mut ListenerState,
     mut response: StreamResponse,
 ) -> Option<DegradedError> {
+    if let Some(progress) = &mut state.progress {
+        progress.observe_response(Instant::now());
+    }
     if let StreamResponse::ErrorResponse {
         error_code,
         error_message,

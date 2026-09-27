@@ -24,6 +24,7 @@ import { AudioChip } from "@/components/audio-chip";
 import { EditorAccessory } from "@/components/editor-accessory";
 import { FolderPickerSheet } from "@/components/folder-picker-sheet";
 import { ListeningSheet } from "@/components/listening-sheet";
+import { MarkdownView } from "@/components/markdown-view";
 import { NoteActionsSheet } from "@/components/note-actions-sheet";
 import { NoteAttachmentCard } from "@/components/note-attachment-card";
 import { NoteConflictBanner } from "@/components/note-conflict-banner";
@@ -843,9 +844,7 @@ export default function NoteScreen() {
                       {data.summary.title}
                     </Text>
                   )}
-                  <Text selectable style={styles.summaryText}>
-                    {data.summary.text}
-                  </Text>
+                  <MarkdownView markdown={data.summary.text} />
                 </View>
               )}
               {!data.summary && (

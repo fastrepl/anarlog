@@ -1,7 +1,11 @@
 import { md2json } from "@anlg/editor/markdown";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
-import { catalogLocalSessionAudio, deleteSessionAudio } from "./attachments";
+import {
+  catalogLocalSessionAudio,
+  deleteSessionAudio,
+  markSessionAudioTranscriptionComplete,
+} from "./attachments";
 import { enqueueSessionAudioOperation } from "./audio-operations";
 import { loadSessionContentSnapshot } from "./content-queries";
 
@@ -222,6 +226,27 @@ export async function moveSessionContents({
       );
       if (copiedAudio) {
         await catalogLocalSessionAudio(targetSessionId);
+        const sourceAudio =
+          (await liveQueryClient.execute<{
+            metadata_json: string | null;
+          }>(
+            `SELECT metadata_json FROM session_attachments WHERE id = ? AND session_id = ?`,
+            [`session-audio:${sourceSessionId}`, sourceSessionId],
+          )) ?? [];
+        const sourceMetadata = sourceAudio[0]?.metadata_json;
+        let sourceStatus: unknown;
+        try {
+          const parsed = sourceMetadata ? JSON.parse(sourceMetadata) : null;
+          sourceStatus =
+            parsed && typeof parsed === "object"
+              ? parsed.transcript_status
+              : undefined;
+        } catch {
+          sourceStatus = undefined;
+        }
+        if (sourceStatus === "complete") {
+          await markSessionAudioTranscriptionComplete(targetSessionId);
+        }
       }
     }
 

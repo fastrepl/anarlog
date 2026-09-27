@@ -1,5 +1,7 @@
 import type Stripe from "stripe";
 
+import { selectBasePlanItem } from "./sync-device-addon.ts";
+
 const CURRENT_SUBSCRIPTION_STATUS_PRIORITY = [
   "active",
   "trialing",
@@ -48,10 +50,16 @@ export type BillingPeriod = "monthly" | "yearly";
 
 export function getSubscriptionBillingPeriod(subscription: {
   items: {
-    data: Array<{ price: { recurring?: { interval: string } | null } }>;
+    data: Array<{
+      price: {
+        lookup_key?: string | null;
+        recurring?: { interval: string } | null;
+      };
+    }>;
   };
 }): BillingPeriod | null {
-  const interval = subscription.items.data[0]?.price.recurring?.interval;
+  const interval = selectBasePlanItem(subscription.items.data)?.price.recurring
+    ?.interval;
   if (interval === "month") {
     return "monthly";
   }
@@ -69,7 +77,7 @@ export function getPlanSwitchRoute(
     return "portal";
   }
 
-  const item = subscription.items.data[0];
+  const item = selectBasePlanItem(subscription.items.data);
   if (!item) {
     return "checkout";
   }

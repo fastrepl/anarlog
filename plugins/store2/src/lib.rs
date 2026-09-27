@@ -62,7 +62,7 @@ fn migrate<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), Error> {
 #[cfg(test)]
 mod test {
     use std::ffi::OsString;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -71,10 +71,12 @@ mod test {
     static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
     static TEST_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
 
+    // The store lives under the platform data dir; the test redirects it
+    // through the env vars `dirs::data_dir` consults so nothing real is touched.
     struct TestVault {
         identifier: String,
-        previous_vault_base: Option<OsString>,
-        primary: PathBuf,
+        previous_home: Option<OsString>,
+        previous_xdg_data_home: Option<OsString>,
         paths: Vec<PathBuf>,
     }
 
@@ -87,9 +89,11 @@ mod test {
                 std::process::id()
             ));
             std::fs::create_dir_all(&primary).unwrap();
-            let previous_vault_base = std::env::var_os("CHAR_VAULT_BASE");
+            let previous_home = std::env::var_os("HOME");
+            let previous_xdg_data_home = std::env::var_os("XDG_DATA_HOME");
             unsafe {
-                std::env::set_var("CHAR_VAULT_BASE", &primary);
+                std::env::set_var("HOME", &primary);
+                std::env::set_var("XDG_DATA_HOME", &primary);
             }
 
             let mut paths = vec![primary.clone()];
@@ -99,36 +103,29 @@ mod test {
 
             Self {
                 identifier,
-                previous_vault_base,
-                primary,
+                previous_home,
+                previous_xdg_data_home,
                 paths,
             }
         }
 
-        fn add_path(&mut self, label: &str) -> PathBuf {
-            let path = self.primary.with_file_name(format!(
-                "anarlog-store2-{label}-{}-{}",
-                std::process::id(),
-                TEST_PATH_COUNTER.fetch_add(1, Ordering::Relaxed)
-            ));
-            std::fs::create_dir_all(&path).unwrap();
-            self.paths.push(path.clone());
-            path
-        }
-
-        fn select(&self, path: &Path) {
-            unsafe {
-                std::env::set_var("CHAR_VAULT_BASE", path);
-            }
+        fn store_file(&self) -> PathBuf {
+            anlg_storage::global::compute_default_base(&self.identifier)
+                .unwrap()
+                .join(FILENAME)
         }
     }
 
     impl Drop for TestVault {
         fn drop(&mut self) {
             unsafe {
-                match self.previous_vault_base.as_ref() {
-                    Some(value) => std::env::set_var("CHAR_VAULT_BASE", value),
-                    None => std::env::remove_var("CHAR_VAULT_BASE"),
+                match self.previous_home.as_ref() {
+                    Some(value) => std::env::set_var("HOME", value),
+                    None => std::env::remove_var("HOME"),
+                }
+                match self.previous_xdg_data_home.as_ref() {
+                    Some(value) => std::env::set_var("XDG_DATA_HOME", value),
+                    None => std::env::remove_var("XDG_DATA_HOME"),
                 }
             }
 
@@ -232,8 +229,8 @@ mod test {
     fn retries_after_an_existing_store_cannot_be_read() -> anyhow::Result<()> {
         let _guard = TEST_MUTEX.lock().unwrap();
         let vault = TestVault::new("unreadable-store");
-        let path = vault.primary.join(FILENAME);
-        std::fs::create_dir(&path)?;
+        let path = vault.store_file();
+        std::fs::create_dir_all(&path)?;
         let app = create_app(tauri::test::mock_builder(), &vault.identifier);
 
         let error = app.store2().store().err().expect("store read must fail");
@@ -264,7 +261,8 @@ mod test {
     fn refuses_to_open_a_malformed_existing_store() -> anyhow::Result<()> {
         let _guard = TEST_MUTEX.lock().unwrap();
         let vault = TestVault::new("malformed-store");
-        let path = vault.primary.join(FILENAME);
+        let path = vault.store_file();
+        std::fs::create_dir_all(path.parent().unwrap())?;
         std::fs::write(&path, "not json")?;
         let app = create_app(tauri::test::mock_builder(), &vault.identifier);
 
@@ -328,63 +326,12 @@ mod test {
     }
 
     #[test]
-    fn switches_store_cache_with_vault_path() -> anyhow::Result<()> {
+    fn the_store_path_is_the_default_base() -> anyhow::Result<()> {
         let _guard = TEST_MUTEX.lock().unwrap();
-        let mut vault = TestVault::new("vault-switch");
+        let vault = TestVault::new("path");
         let app = create_app(tauri::test::mock_builder(), &vault.identifier);
 
-        let first_path = app.store2().path()?;
-        let first_store = app.store2().store()?;
-        let first_scope = app.store2().scoped_store::<String>("test")?;
-        first_scope.set("key".to_string(), "from-first")?;
-
-        let second_vault = vault.add_path("vault-switch-second");
-        let second_path = second_vault.join(FILENAME);
-        let second_scope_json = serde_json::to_string(&serde_json::json!({
-            "key": "from-second"
-        }))?;
-        std::fs::write(
-            &second_path,
-            serde_json::to_string_pretty(&serde_json::json!({
-                "test": second_scope_json
-            }))?,
-        )?;
-
-        vault.select(&second_vault);
-        let second_store = app.store2().store()?;
-        assert!(!Arc::ptr_eq(&first_store, &second_store));
-        {
-            use tauri_plugin_store::StoreExt;
-            assert!(app.get_store(&second_path).is_none());
-        }
-
-        let second_scope = app.store2().scoped_store::<String>("test")?;
-        assert_eq!(
-            second_scope.get::<String>("key".to_string())?,
-            Some("from-second".to_string())
-        );
-        second_scope.set("key".to_string(), "updated-second")?;
-
-        vault.select(&vault.primary);
-        let first_store_again = app.store2().store()?;
-        assert!(Arc::ptr_eq(&first_store, &first_store_again));
-        let first_scope_again = app.store2().scoped_store::<String>("test")?;
-        assert_eq!(
-            first_scope_again.get::<String>("key".to_string())?,
-            Some("from-first".to_string())
-        );
-
-        let first_persisted: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(first_path)?)?;
-        let first_persisted_scope: serde_json::Value =
-            serde_json::from_str(first_persisted["test"].as_str().unwrap())?;
-        assert_eq!(first_persisted_scope["key"], "from-first");
-
-        let second_persisted: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(second_path)?)?;
-        let second_persisted_scope: serde_json::Value =
-            serde_json::from_str(second_persisted["test"].as_str().unwrap())?;
-        assert_eq!(second_persisted_scope["key"], "updated-second");
+        assert_eq!(app.store2().path()?, vault.store_file());
         Ok(())
     }
 }

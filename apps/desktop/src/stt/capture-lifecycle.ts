@@ -441,7 +441,6 @@ export function useCaptureLifecycle(sessionId: string) {
             ),
         },
       );
-      const recoveryToastId = `capture-recovery-${sessionId}`;
       const audioRecovery = createCaptureAudioRecovery({
         startedAt,
         list: async () => {
@@ -532,24 +531,6 @@ export function useCaptureLifecycle(sessionId: string) {
             listenerStore.getState().clearBatchSession(`${sessionId}:recovery`);
           }
         },
-        onStatus: (status) => {
-          if (status === "complete") {
-            toast.dismiss(recoveryToastId);
-            return;
-          }
-          toast.info(
-            status === "repairing"
-              ? "Filling in the missing transcript"
-              : "Waiting to recover the missing transcript",
-            {
-              id: recoveryToastId,
-              duration: Infinity,
-              description: !retainAudio
-                ? "Recovery runs while recording. Audio will be deleted when this meeting ends, even if recovery is unfinished."
-                : "Live transcription resumes separately. Saved audio is used to fill the gap.",
-            },
-          );
-        },
       });
       let recoveryUnlisten: (() => void)[] = [];
       let recoveryListening: Promise<void> | undefined;
@@ -617,9 +598,7 @@ export function useCaptureLifecycle(sessionId: string) {
         clearTimeout(credentialTimer);
         recoveryUnlisten.forEach((unlisten) => unlisten());
         recoveryUnlisten = [];
-        const result = await audioRecovery.stop(retainAudio);
-        toast.dismiss(recoveryToastId);
-        return result;
+        return audioRecovery.stop(retainAudio);
       };
       const marker = async (): Promise<CaptureLifecycleMarker> => ({
         version: 1,

@@ -19,6 +19,7 @@ import {
 import { ChatPanelFrame, ChatSessionHost } from "~/chat/components/chat-panel";
 import { PersistentChatPanel } from "~/chat/components/persistent-chat";
 import { useShell } from "~/contexts/shell";
+import { readZoomFactor } from "~/shared/zoom";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 const RIGHT_CHAT_PANEL_MIN_WIDTH_PX = 320;
@@ -268,7 +269,7 @@ function useNoteSurfaceWindowWidthGuard({
     }
 
     void windowsCommands.windowExpandWidth(
-      widthDeficit,
+      Math.ceil(widthDeficit * readZoomFactor()),
       null,
       false,
       expandLeft,
@@ -418,10 +419,10 @@ function getLeftSidebarWidth(bodyPanel: HTMLElement, leftPanelOpen: boolean) {
     return 0;
   }
 
-  const leftSidebarChrome = bodyPanel.querySelector<HTMLElement>(
-    "[data-left-sidebar-chrome]",
+  const leftSidebar = bodyPanel.querySelector<HTMLElement>(
+    "[data-left-sidebar-chrome], [data-left-sidebar-panel-content]",
   );
-  const measuredWidth = leftSidebarChrome?.getBoundingClientRect().width ?? 0;
+  const measuredWidth = leftSidebar?.getBoundingClientRect().width ?? 0;
 
   return measuredWidth > 0 ? measuredWidth : LEFT_SIDEBAR_MIN_WIDTH_PX;
 }

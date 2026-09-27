@@ -9,6 +9,7 @@ import {
   detectDownloadPlatform,
   getOrderedDownloadSections,
   mobileDownloadSections,
+  mobileLaunchLabel,
   windowsStoreDownloadUrl,
 } from "./download.ts";
 
@@ -23,7 +24,11 @@ test("offers macOS, Windows, and Linux downloads", () => {
   );
   assert.deepEqual(
     mobileDownloadSections.map((section) => section.status),
-    ["Beta", "Beta"],
+    [mobileLaunchLabel, mobileLaunchLabel],
+  );
+  assert.deepEqual(
+    mobileDownloadSections.map((section) => section.available),
+    [false, false],
   );
   assert.deepEqual(comingSoonPlatforms, ["Apple Watch", "Galaxy Watch"]);
 
@@ -86,7 +91,7 @@ test("detects supported desktop platforms from browser user agents", () => {
   );
 });
 
-test("routes phones and tablets to the matching public beta", () => {
+test("detects phones and tablets but keeps desktop downloads first until mobile launches", () => {
   for (const userAgent of [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15",
     "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15",
@@ -94,20 +99,14 @@ test("routes phones and tablets to the matching public beta", () => {
   ]) {
     const platform = detectDownloadPlatform(userAgent);
     assert.equal(platform, "ios");
-    assert.equal(
-      getOrderedDownloadSections(platform)[0].downloads[0].url,
-      "https://testflight.apple.com/join/y7WJCXvG",
-    );
+    assert.equal(getOrderedDownloadSections(platform)[0].platform, "macos");
   }
 
   const android = detectDownloadPlatform(
     "Mozilla/5.0 (Linux; Android 16; Pixel 10) AppleWebKit/537.36",
   );
   assert.equal(android, "android");
-  assert.equal(
-    getOrderedDownloadSections(android)[0].downloads[0].url,
-    "https://play.google.com/apps/testing/so.anarlog.mobile",
-  );
+  assert.equal(getOrderedDownloadSections(android)[0].platform, "macos");
   assert.deepEqual(
     mobileDownloadSections.map((section) => section.platform),
     ["ios", "android"],

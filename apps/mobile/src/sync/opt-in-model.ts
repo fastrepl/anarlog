@@ -24,16 +24,14 @@ function parseJson(value: string | null): unknown {
   }
 }
 
-// Sync is opt-in: signing in must not bind the local database to an account.
-// A device that already claimed its workspace for this account keeps syncing
-// so existing installs are not switched off by the upgrade.
 export function resolveCloudSyncOptIn(rows: CloudSyncOptInRow[]): boolean {
   const row = rows[0];
-  if (!row) return false;
+  if (!row || !row.account_user_id) return false;
   const preference = parseJson(row.preference_json);
   if (typeof preference === "boolean") return preference;
   if (row.connected_account) return true;
   if (row.has_connections) return false;
+  if (row.binding_json === null) return true;
   const binding = parseJson(row.binding_json);
   if (typeof binding !== "object" || binding === null) return false;
   const { workspace_id, account_user_id } = binding as {
@@ -41,7 +39,8 @@ export function resolveCloudSyncOptIn(rows: CloudSyncOptInRow[]): boolean {
     account_user_id?: unknown;
   };
   return (
-    workspace_id === row.account_user_id &&
-    account_user_id === row.account_user_id
+    typeof workspace_id === "string" &&
+    workspace_id.length > 0 &&
+    (account_user_id === null || account_user_id === row.account_user_id)
   );
 }

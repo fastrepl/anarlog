@@ -37,6 +37,8 @@ import {
   renameNamedFolder,
   updateFolderIcon,
   updateFolderInstructions,
+  updateFolderWorkspace,
+  loadFolderWorkspaceId,
 } from "./folder-catalog";
 
 describe("folder catalog", () => {
@@ -173,6 +175,21 @@ describe("folder catalog", () => {
     expect(update.sql).toContain("SET");
     expect(update.sql).toContain("instructions = ?");
     expect(update.params).toEqual(["Prefer the syllabus.", "CS 101"]);
+  });
+
+  it("saves a team workspace on the catalog row", async () => {
+    await updateFolderWorkspace("CS 101", "ws-team");
+
+    const updateStatements = mocks.executeTransaction.mock.calls[1]![0];
+    expect(updateStatements[0].sql).toContain("workspace_id = ?");
+    expect(updateStatements[0].params).toEqual(["ws-team", "CS 101"]);
+
+    mocks.execute.mockResolvedValueOnce([{ workspace_id: "ws-team" }]);
+    await expect(loadFolderWorkspaceId("CS 101")).resolves.toBe("ws-team");
+
+    await updateFolderWorkspace("CS 101", "");
+    const clearStatements = mocks.executeTransaction.mock.calls[3]![0];
+    expect(clearStatements[0].params).toEqual(["", "CS 101"]);
   });
 
   it("creates the target directory when the source is missing", async () => {

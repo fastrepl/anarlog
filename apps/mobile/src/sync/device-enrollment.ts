@@ -189,3 +189,66 @@ export async function consumeDeviceEnrollment({
   }
   if (!response.ok) throw await responseError(response);
 }
+
+export async function shareDeviceEnrollments({
+  apiUrl,
+  accessToken,
+  signal,
+  seal,
+  fetcher = fetch,
+}: {
+  apiUrl: string;
+  accessToken: string;
+  signal: AbortSignal;
+  seal: (
+    requestId: string,
+    publicKey: string,
+  ) => Promise<DeviceEnrollmentPackage>;
+  fetcher?: typeof fetch;
+}): Promise<void> {
+  const response = await fetcher(new URL("/sync/devices", apiUrl), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  });
+  if (!response.ok) throw await responseError(response);
+  const body: unknown = await response.json();
+  if (
+    !body ||
+    typeof body !== "object" ||
+    !("pendingDevices" in body) ||
+    !Array.isArray(body.pendingDevices)
+  )
+    throw new DeviceEnrollmentError("invalid_response");
+  for (const device of body.pendingDevices) {
+    if (signal.aborted) return;
+    if (!device || device.status !== "pending") continue;
+    if (
+      typeof device.requestId !== "string" ||
+      !requestIdPattern.test(device.requestId) ||
+      typeof device.publicKey !== "string" ||
+      device.publicKey.length !== 43 ||
+      !base64UrlPattern.test(device.publicKey) ||
+      typeof device.expiresAt !== "string" ||
+      !(Date.parse(device.expiresAt) > Date.now())
+    )
+      continue;
+    const packageValue = await seal(device.requestId, device.publicKey);
+    if (signal.aborted) return;
+    const sealed = await fetcher(
+      new URL(
+        `/sync/e2ee/device-enrollments/${encodeURIComponent(device.requestId)}/seal`,
+        apiUrl,
+      ),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(packageValue),
+        signal,
+      },
+    );
+    if (!sealed.ok && sealed.status !== 409) throw await responseError(sealed);
+  }
+}

@@ -7,7 +7,6 @@ on:
         type: choice
         options:
           - stable
-          - nightly
   workflow_call:
     inputs:
       channel:
@@ -49,10 +48,7 @@ jobs:
         env:
           RELEASE_CHANNEL: ${{ inputs.channel }}
         run: |
-          if [[ "$RELEASE_CHANNEL" == "nightly" ]]; then
-            VERSION="nightly"
-            FILE="packages/changelog/nightly.md"
-          elif [[ "$RELEASE_CHANNEL" == "stable" ]]; then
+          if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
             VERSION=$(doxxer --config doxxer.desktop.toml next patch)
             FILE="packages/changelog/content/$VERSION.md"
           else

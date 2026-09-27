@@ -447,6 +447,13 @@ async fn completed_snapshots_repair_large_witness_sets_in_bounded_cycles() {
         .unwrap();
         let repaired_records = after.0 - before.0;
         let repaired_bytes = after.1 - before.1;
+        assert_eq!(stats.repaired_witness_records, repaired_records as u64);
+        assert_eq!(
+            stats.remaining_witness_repairs,
+            has_pending_e2ee_witness_repairs(target.pool(), &workspace_keys, true)
+                .await
+                .unwrap()
+        );
         assert!(repaired_records > 0);
         assert!(repaired_records <= 64);
         assert!(usize::try_from(repaired_bytes).unwrap() <= max_repair_bytes);

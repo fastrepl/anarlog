@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
@@ -16,15 +17,15 @@ const validateSearch = z.object({
 export const Route = createFileRoute("/_view/app/switch-plan")({
   validateSearch,
   beforeLoad: async ({ search }) => {
-    let url: string | null | undefined;
+    let result: Awaited<ReturnType<typeof createPlanSwitchSession>> | undefined;
     try {
-      ({ url } = await createPlanSwitchSession({
+      result = await createPlanSwitchSession({
         data: {
           targetPlan: search.targetPlan,
           targetPeriod: search.targetPeriod,
           scheme: search.scheme,
         },
-      }));
+      });
     } catch (e) {
       captureOperationalError(e, {
         operation: "subscription_plan_switch",
@@ -32,9 +33,13 @@ export const Route = createFileRoute("/_view/app/switch-plan")({
       });
     }
 
-    if (url) {
-      throw redirect({ href: url } as any);
+    if (result?.url) {
+      throw redirect({ href: result.url } as any);
     }
+    return {
+      confirmation:
+        result && "confirmation" in result ? result.confirmation : null,
+    };
   },
   component: Component,
   head: () => ({
@@ -43,21 +48,59 @@ export const Route = createFileRoute("/_view/app/switch-plan")({
 });
 
 function Component() {
-  const { scheme } = Route.useSearch();
+  const search = Route.useSearch();
+  const { scheme, targetPeriod } = search;
+  const { confirmation } = Route.useRouteContext();
+  const confirm = useMutation({
+    mutationFn: () =>
+      createPlanSwitchSession({ data: { ...search, confirmed: true } }),
+    onSuccess: (result) => {
+      if (result.url) window.location.assign(result.url);
+    },
+  });
+  const formatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: confirmation?.currency ?? "usd",
+  });
+  const amount = confirmation
+    ? formatter.format(
+        confirmation.amountDue /
+          10 ** (formatter.resolvedOptions().maximumFractionDigits ?? 2),
+      )
+    : null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-white via-stone-50/20 to-white p-6">
       <div className="flex w-full max-w-md flex-col gap-8 text-center">
         <div className="flex flex-col gap-3">
           <h1 className="font-sans text-3xl tracking-tight text-stone-700">
-            We couldn't change your plan
+            {confirmation
+              ? `Switch to ${targetPeriod} billing`
+              : "We couldn't change your plan"}
           </h1>
           <p className="text-neutral-600">
-            Your subscription was not modified. Open billing to manage your
-            plan, payment method, and invoices.
+            {confirmation
+              ? `Your Pro plan and extra device slots will switch together. Estimated invoice amount: ${amount}. Any payment due will be charged to your saved payment method when you confirm.`
+              : "Your subscription was not modified. Open billing to manage your plan, payment method, and invoices."}
           </p>
         </div>
 
+        {confirmation && (
+          <button
+            type="button"
+            disabled={confirm.isPending}
+            onClick={() => confirm.mutate()}
+            className="h-12 rounded-full bg-stone-600 text-white disabled:opacity-50"
+          >
+            {confirm.isPending ? "Updating..." : "Confirm billing change"}
+          </button>
+        )}
+        {confirm.isError && (
+          <p role="alert" className="text-red-600">
+            We couldn't complete the change. Check your payment method in
+            billing and try again.
+          </p>
+        )}
         <a
           href={scheme ? `/app/portal?scheme=${scheme}` : "/app/portal"}
           className={cn([

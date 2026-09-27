@@ -1,12 +1,20 @@
 import type { EventParticipant } from "../../fetch/types";
 import type {
   HumanToCreate,
+  HumanToEnrich,
   ParticipantMappingToAdd,
   ParticipantsSyncInput,
   ParticipantsSyncOutput,
 } from "./types";
 
+import {
+  type DerivedContactIdentity,
+  deriveContactIdentity,
+  isEmailPlaceholderName,
+} from "~/contacts/identity";
 import { id } from "~/shared/utils";
+
+type SnapshotHuman = ParticipantsSyncInput["snapshot"]["humans"][number];
 
 export function syncSessionParticipants({
   incomingParticipants,
@@ -16,9 +24,12 @@ export function syncSessionParticipants({
     toDelete: [],
     toAdd: [],
     humansToCreate: [],
+    humansToEnrich: [],
   };
   const humansByEmail = new Map<string, string>();
+  const humansById = new Map<string, SnapshotHuman>();
   for (const human of snapshot.humans) {
+    humansById.set(human.id, human);
     const email = human.email.trim().toLowerCase();
     if (email && !humansByEmail.has(email)) {
       humansByEmail.set(email, human.id);
@@ -37,6 +48,7 @@ export function syncSessionParticipants({
     mappingsBySession.set(mapping.sessionId, sessionMappings);
   }
   const humansToCreate = new Map<string, HumanToCreate>();
+  const humansToEnrich = new Map<string, HumanToEnrich>();
 
   for (const session of snapshot.sessions) {
     const eventParticipants = incomingParticipants.get(session.trackingId);
@@ -47,7 +59,9 @@ export function syncSessionParticipants({
       ownerUserId: session.ownerUserId,
       eventParticipants,
       humansByEmail,
+      humansById,
       humansToCreate,
+      humansToEnrich,
       existingMappings:
         mappingsBySession.get(session.id) ??
         new Map<string, (typeof snapshot.mappings)[number]>(),
@@ -57,6 +71,7 @@ export function syncSessionParticipants({
   }
 
   output.humansToCreate = Array.from(humansToCreate.values());
+  output.humansToEnrich = Array.from(humansToEnrich.values());
   return output;
 }
 
@@ -65,14 +80,18 @@ function computeSessionParticipantChanges({
   ownerUserId,
   eventParticipants,
   humansByEmail,
+  humansById,
   humansToCreate,
+  humansToEnrich,
   existingMappings,
 }: {
   sessionId: string;
   ownerUserId: string;
   eventParticipants: EventParticipant[];
   humansByEmail: Map<string, string>;
+  humansById: Map<string, SnapshotHuman>;
   humansToCreate: Map<string, HumanToCreate>;
+  humansToEnrich: Map<string, HumanToEnrich>;
   existingMappings: Map<
     string,
     { id: string; humanId: string; source: string }
@@ -85,6 +104,7 @@ function computeSessionParticipantChanges({
     if (!email) continue;
 
     const emailKey = email.toLowerCase();
+    const identity = deriveContactIdentity({ name: participant.name, email });
     let humanId = humansByEmail.get(emailKey);
     if (!humanId) {
       humanId = id();
@@ -92,9 +112,29 @@ function computeSessionParticipantChanges({
       humansToCreate.set(emailKey, {
         id: humanId,
         ownerUserId,
-        name: participant.name || email,
+        name: identity.name,
         email,
+        ...(identity.companyName ? { companyName: identity.companyName } : {}),
       });
+    } else if (humansToCreate.has(emailKey)) {
+      const pending = humansToCreate.get(emailKey);
+      if (pending && identity.nameSource === "provider") {
+        pending.name = identity.name;
+      }
+    } else if (humanId !== ownerUserId) {
+      const existing = humansById.get(humanId);
+      if (existing) {
+        const enrichment = planHumanEnrichment({
+          existing,
+          identity,
+          email,
+          ownerUserId,
+          pending: humansToEnrich.get(humanId),
+        });
+        if (enrichment) {
+          humansToEnrich.set(humanId, enrichment);
+        }
+      }
     }
     eventHumans.set(humanId, { humanId, email });
   }
@@ -115,4 +155,37 @@ function computeSessionParticipantChanges({
   }
 
   return { toDelete, toAdd };
+}
+
+function planHumanEnrichment({
+  existing,
+  identity,
+  email,
+  ownerUserId,
+  pending,
+}: {
+  existing: SnapshotHuman;
+  identity: DerivedContactIdentity;
+  email: string;
+  ownerUserId: string;
+  pending: HumanToEnrich | undefined;
+}): HumanToEnrich | undefined {
+  const enrichment: HumanToEnrich = { id: existing.id, ownerUserId };
+
+  const currentName = existing.name.trim();
+  const nameNeedsFill = isEmailPlaceholderName(currentName);
+  if (pending?.name && identity.nameSource !== "provider") {
+    enrichment.name = pending.name;
+  } else if (
+    nameNeedsFill &&
+    identity.name !== email &&
+    identity.name !== currentName
+  ) {
+    enrichment.name = identity.name;
+  }
+  if (!existing.organizationId && identity.companyName) {
+    enrichment.companyName = identity.companyName;
+  }
+
+  return enrichment.name || enrichment.companyName ? enrichment : undefined;
 }
