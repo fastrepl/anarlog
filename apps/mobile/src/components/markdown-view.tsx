@@ -46,15 +46,20 @@ export function MarkdownView({ markdown }: { markdown: string }) {
       return (
         <View key={index} style={styles.list}>
           {block.items.map((item, itemIndex) => (
-            <View key={itemIndex} style={styles.item}>
+            <View
+              key={itemIndex}
+              style={[styles.item, { paddingLeft: item.depth * Spacing.md }]}
+            >
               <Text style={styles.marker}>
                 {item.checked !== undefined
                   ? item.checked
                     ? "☑"
                     : "☐"
-                  : block.ordered
-                    ? `${itemIndex + 1}.`
-                    : "•"}
+                  : item.number !== undefined
+                    ? `${item.number}.`
+                    : item.depth > 0
+                      ? "◦"
+                      : "•"}
               </Text>
               <Text selectable style={styles.itemText}>
                 {renderSpans(item.spans)}

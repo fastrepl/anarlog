@@ -10,13 +10,17 @@ export type MarkdownBlock =
   | { type: "paragraph"; spans: InlineSpan[] }
   | {
       type: "list";
-      ordered: boolean;
-      items: Array<{ spans: InlineSpan[]; checked?: boolean }>;
+      items: Array<{
+        spans: InlineSpan[];
+        depth: number;
+        number?: number;
+        checked?: boolean;
+      }>;
     };
 
 const HEADING = /^(#{1,6})\s+(.*)$/;
-const BULLET = /^\s*[-*+]\s+(.*)$/;
-const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
+const BULLET = /^(\s*)[-*+]\s+(.*)$/;
+const ORDERED = /^(\s*)(\d+)[.)]\s+(.*)$/;
 const CHECKBOX = /^\[([ xX])\]\s+(.*)$/;
 const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
 
@@ -76,23 +80,25 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     const item = bullet ?? ordered;
     if (item) {
       flushParagraph();
-      let content = item[1];
+      const depth = Math.floor(item[1].replace(/\t/g, "  ").length / 2);
+      let content = ordered ? ordered[3] : item[2];
       let checked: boolean | undefined;
       const checkbox = bullet ? CHECKBOX.exec(content) : null;
       if (checkbox) {
         checked = checkbox[1] !== " ";
         content = checkbox[2];
       }
-      const entry = { spans: parseInline(content), checked };
+      const entry = {
+        spans: parseInline(content),
+        depth,
+        number: ordered ? Number(ordered[2]) : undefined,
+        checked,
+      };
       const previous = blocks[blocks.length - 1];
-      if (previous?.type === "list" && previous.ordered === Boolean(ordered)) {
+      if (previous?.type === "list") {
         previous.items.push(entry);
       } else {
-        blocks.push({
-          type: "list",
-          ordered: Boolean(ordered),
-          items: [entry],
-        });
+        blocks.push({ type: "list", items: [entry] });
       }
       continue;
     }

@@ -3,6 +3,14 @@ import test from "node:test";
 
 import { parseInline, parseMarkdownBlocks } from "./markdown-blocks.ts";
 
+const item = (spans, extra = {}) => ({
+  spans,
+  depth: 0,
+  number: undefined,
+  checked: undefined,
+  ...extra,
+});
+
 test("parses headings, paragraphs, and lists", () => {
   const blocks = parseMarkdownBlocks(
     [
@@ -13,8 +21,8 @@ test("parses headings, paragraphs, and lists", () => {
       "- Speaker 1 stated they were testing the sound.",
       "- Speaker 3 confirmed it was **working**.",
       "",
-      "1. First",
-      "2. Second",
+      "3. Third",
+      "4. Fourth",
       "",
       "- [ ] Todo",
       "- [x] Done",
@@ -31,36 +39,27 @@ test("parses headings, paragraphs, and lists", () => {
     { type: "heading", level: 2, spans: [{ text: "Discussion Details" }] },
     {
       type: "list",
-      ordered: false,
       items: [
-        {
-          spans: [{ text: "Speaker 1 stated they were testing the sound." }],
-          checked: undefined,
-        },
-        {
-          spans: [
-            { text: "Speaker 3 confirmed it was " },
-            { text: "working", bold: true },
-            { text: "." },
-          ],
-          checked: undefined,
-        },
+        item([{ text: "Speaker 1 stated they were testing the sound." }]),
+        item([
+          { text: "Speaker 3 confirmed it was " },
+          { text: "working", bold: true },
+          { text: "." },
+        ]),
       ],
     },
     {
       type: "list",
-      ordered: true,
       items: [
-        { spans: [{ text: "First" }], checked: undefined },
-        { spans: [{ text: "Second" }], checked: undefined },
+        item([{ text: "Third" }], { number: 3 }),
+        item([{ text: "Fourth" }], { number: 4 }),
       ],
     },
     {
       type: "list",
-      ordered: false,
       items: [
-        { spans: [{ text: "Todo" }], checked: false },
-        { spans: [{ text: "Done" }], checked: true },
+        item([{ text: "Todo" }], { checked: false }),
+        item([{ text: "Done" }], { checked: true }),
       ],
     },
     {
@@ -71,6 +70,23 @@ test("parses headings, paragraphs, and lists", () => {
       ],
     },
   ]);
+});
+
+test("keeps nested list depth", () => {
+  assert.deepEqual(
+    parseMarkdownBlocks("- Parent\n  - Child\n    1. Grandchild\n- Sibling"),
+    [
+      {
+        type: "list",
+        items: [
+          item([{ text: "Parent" }]),
+          item([{ text: "Child" }], { depth: 1 }),
+          item([{ text: "Grandchild" }], { depth: 2, number: 1 }),
+          item([{ text: "Sibling" }]),
+        ],
+      },
+    ],
+  );
 });
 
 test("joins wrapped paragraph lines and skips rules", () => {
