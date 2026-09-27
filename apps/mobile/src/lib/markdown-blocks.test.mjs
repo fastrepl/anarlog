@@ -89,6 +89,24 @@ test("keeps nested list depth", () => {
   );
 });
 
+test("counts repeated ordered markers and four-space indents", () => {
+  assert.deepEqual(
+    parseMarkdownBlocks("1. One\n1. Two\n    - Child\n    - Child 2\n1. Three"),
+    [
+      {
+        type: "list",
+        items: [
+          item([{ text: "One" }], { number: 1 }),
+          item([{ text: "Two" }], { number: 2 }),
+          item([{ text: "Child" }], { depth: 1 }),
+          item([{ text: "Child 2" }], { depth: 1 }),
+          item([{ text: "Three" }], { number: 3 }),
+        ],
+      },
+    ],
+  );
+});
+
 test("joins wrapped paragraph lines and skips rules", () => {
   assert.deepEqual(parseMarkdownBlocks("one\ntwo\n\n---\n\nthree"), [
     { type: "paragraph", spans: [{ text: "one two" }] },

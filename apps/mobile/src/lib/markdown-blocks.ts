@@ -51,6 +51,7 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   let paragraph: string[] = [];
   let list: Extract<MarkdownBlock, { type: "list" }> | null = null;
+  let indents: number[] = [];
 
   const flushParagraph = () => {
     if (paragraph.length === 0) return;
@@ -83,7 +84,27 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
     const item = bullet ?? ordered;
     if (item) {
       flushParagraph();
-      const depth = Math.floor(item[1].replace(/\t/g, "  ").length / 2);
+      if (!list) {
+        list = { type: "list", items: [] };
+        blocks.push(list);
+        indents = [];
+      }
+      const indent = item[1].replace(/\t/g, "    ").length;
+      while (indents.length > 0 && indents[indents.length - 1] > indent) {
+        indents.pop();
+      }
+      if (indents.length === 0 || indents[indents.length - 1] < indent) {
+        indents.push(indent);
+      }
+      const depth = indents.length - 1;
+      const sibling = [...list.items]
+        .reverse()
+        .find((previous) => previous.depth <= depth);
+      const number = !ordered
+        ? undefined
+        : sibling?.depth === depth && sibling.number !== undefined
+          ? sibling.number + 1
+          : Number(ordered[2]);
       let content = ordered ? ordered[3] : item[2];
       let checked: boolean | undefined;
       const checkbox = bullet ? CHECKBOX.exec(content) : null;
@@ -94,13 +115,9 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
       const entry = {
         spans: parseInline(content),
         depth,
-        number: ordered ? Number(ordered[2]) : undefined,
+        number,
         checked,
       };
-      if (!list) {
-        list = { type: "list", items: [] };
-        blocks.push(list);
-      }
       list.items.push(entry);
       continue;
     }
