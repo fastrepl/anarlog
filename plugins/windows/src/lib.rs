@@ -199,7 +199,7 @@ impl WebviewHealthState {
             .lock()
             .unwrap()
             .entry(label.to_string())
-            .or_insert(1);
+            .or_insert(0);
         self.pending.lock().unwrap().remove(label);
         attempt
     }
@@ -436,8 +436,7 @@ mod test {
         assert_eq!(state.resume_recovery("main"), 2);
         assert!(state.pending.lock().unwrap().is_empty());
         state.ready("main");
-        assert_eq!(state.resume_recovery("main"), 1);
-        state.ready("main");
+        assert_eq!(state.resume_recovery("main"), 0);
         assert_eq!(state.retry_recovery("main"), 1);
     }
 
