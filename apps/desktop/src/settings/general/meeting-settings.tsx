@@ -14,7 +14,6 @@ export function MeetingSettingsView({
   autoJoinScheduledMeetings,
   autoStartScheduledMeetings,
   autoStopMeetings,
-  autoPauseMedia,
   floatingBar,
   meetingDisclosureAutoPost,
   captureMeetingChat,
@@ -22,7 +21,6 @@ export function MeetingSettingsView({
   autoJoinScheduledMeetings: SettingItem;
   autoStartScheduledMeetings: SettingItem;
   autoStopMeetings: SettingItem;
-  autoPauseMedia: SettingItem;
   floatingBar: SettingItem;
   meetingDisclosureAutoPost: SettingItem;
   captureMeetingChat: SettingItem;
@@ -60,14 +58,6 @@ export function MeetingSettingsView({
           onChange={autoStopMeetings.onChange}
         />
       )}
-      <SettingSwitchRow
-        title={<Trans>Pause other media</Trans>}
-        description={
-          <Trans>Pause music and other media when listening starts.</Trans>
-        }
-        checked={autoPauseMedia.value}
-        onChange={autoPauseMedia.onChange}
-      />
       {supportsMeetingAx && (
         <>
           <SettingSwitchRow
