@@ -11,6 +11,8 @@ const WEBVIEW_HEALTH_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::f
 const WEBVIEW_HEALTH_CHECK_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
 #[cfg(target_os = "macos")]
 const WEBVIEW_HEALTH_CHECK_ATTEMPTS: u8 = 2;
+#[cfg(target_os = "macos")]
+const WEBVIEW_RELOAD_ATTEMPTS: u8 = 3;
 
 #[cfg(target_os = "macos")]
 enum WebviewHealthCheckResult {
@@ -85,26 +87,53 @@ pub(crate) fn run_on_main_thread<R: Send + 'static>(
 
 impl AppWindow {
     #[cfg(target_os = "macos")]
-    fn reload_webview(app: &AppHandle<tauri::Wry>, label: &str) {
-        let Some(state) = app.try_state::<WebviewHealthState>() else {
-            return;
-        };
-        if !state.begin_recovery(label) {
-            return;
+    fn reload_main_webview(app: &AppHandle<tauri::Wry>) -> Result<(), crate::Error> {
+        let window = Self::Main
+            .get(app)
+            .ok_or(crate::Error::from(tauri::Error::WebviewNotFound))?;
+        let mut url = window.url()?;
+        url.set_path("/app");
+        url.set_query(None);
+        url.set_fragment(None);
+        window.navigate(url)?;
+
+        if let Some(saved) = app
+            .try_state::<crate::SavedFrames>()
+            .and_then(|frames| frames.take(window.label()))
+        {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) =
+                    crate::commands::restore_saved_frame(&app, AppWindow::Main, Some(saved)).await
+                {
+                    tracing::warn!(%error, "failed to restore main window frame after webview reload");
+                }
+            });
         }
 
-        let result = match app.get_webview_window(label) {
-            Some(window) => window.reload(),
-            None => Err(tauri::Error::WebviewNotFound),
-        };
-        if let Err(error) = result {
-            tracing::error!(%error, webview = %label, "failed to reload webview; restarting app");
-            use tauri_plugin_window_state::AppHandleExt;
-            if let Err(error) = app.save_window_state(crate::persisted_window_state_flags()) {
-                tracing::warn!(%error, "failed to save window state before app restart");
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn recover_main_webview(app: &AppHandle<tauri::Wry>, attempt: u8) {
+        if attempt <= WEBVIEW_RELOAD_ATTEMPTS {
+            match Self::reload_main_webview(app) {
+                Ok(()) => return,
+                Err(error) => tracing::error!(%error, "failed to reload main webview"),
             }
-            app.request_restart();
+        } else {
+            tracing::error!(
+                attempt,
+                "main webview kept terminating before it became ready"
+            );
         }
+
+        use tauri_plugin_window_state::AppHandleExt;
+        if let Err(error) = app.save_window_state(crate::persisted_window_state_flags()) {
+            tracing::warn!(%error, "failed to save window state before app restart");
+        }
+        tracing::error!("restarting app to recover main webview");
+        app.request_restart();
     }
 
     #[cfg(target_os = "macos")]
@@ -121,8 +150,12 @@ impl AppWindow {
             return;
         }
 
-        tracing::error!(webview = %label, "reloading webview after web content process termination");
-        Self::reload_webview(app, label);
+        let Some(state) = app.try_state::<WebviewHealthState>() else {
+            return;
+        };
+        let attempt = state.retry_recovery(label);
+        tracing::error!(webview = %label, attempt, "reloading webview after web content process termination");
+        Self::recover_main_webview(app, attempt);
     }
 
     pub fn request_webview_health_check(
@@ -173,7 +206,12 @@ impl AppWindow {
                         attempts = WEBVIEW_HEALTH_CHECK_ATTEMPTS,
                         "reloading main webview after repeated health check failures"
                     );
-                    Self::reload_webview(&app, &label);
+                    let Some(state) = app.try_state::<WebviewHealthState>() else {
+                        return;
+                    };
+                    if state.begin_recovery(&label) {
+                        Self::recover_main_webview(&app, 1);
+                    }
                 }
             });
         }

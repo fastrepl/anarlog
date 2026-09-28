@@ -11,7 +11,7 @@ pub use ext::{Windows, WindowsPluginExt};
 pub use tab::*;
 pub use window::*;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{
     Mutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -133,13 +133,13 @@ pub struct WindowReadyState {
 struct WebviewHealthState {
     next_registration_id: AtomicU64,
     pending: Mutex<HashMap<String, (u64, String, oneshot::Sender<()>)>>,
-    recovering: Mutex<HashSet<String>>,
+    recovering: Mutex<HashMap<String, u8>>,
 }
 
 impl WebviewHealthState {
     fn register(&self, label: String) -> Option<(u64, String, oneshot::Receiver<()>)> {
         let recovering = self.recovering.lock().unwrap();
-        if recovering.contains(&label) {
+        if recovering.contains_key(&label) {
             return None;
         }
 
@@ -187,11 +187,21 @@ impl WebviewHealthState {
 
     fn begin_recovery(&self, label: &str) -> bool {
         let mut recovering = self.recovering.lock().unwrap();
-        if !recovering.insert(label.to_string()) {
+        if recovering.contains_key(label) {
             return false;
         }
+        recovering.insert(label.to_string(), 1);
         self.pending.lock().unwrap().remove(label);
         true
+    }
+
+    fn retry_recovery(&self, label: &str) -> u8 {
+        let mut recovering = self.recovering.lock().unwrap();
+        let attempt = recovering.entry(label.to_string()).or_insert(0);
+        *attempt = attempt.saturating_add(1);
+        let attempt = *attempt;
+        self.pending.lock().unwrap().remove(label);
+        attempt
     }
 
     fn ready(&self, label: &str) {
@@ -422,6 +432,18 @@ mod test {
         assert!(!state.begin_recovery("main"));
         state.ready("main");
         assert!(state.register("main".into()).is_some());
+    }
+
+    #[test]
+    fn webview_termination_retries_count_until_ready() {
+        let state = WebviewHealthState::default();
+        assert_eq!(state.retry_recovery("main"), 1);
+        assert!(!state.begin_recovery("main"));
+        assert_eq!(state.retry_recovery("main"), 2);
+        assert!(state.register("main".into()).is_none());
+        state.ready("main");
+        assert!(state.register("main".into()).is_some());
+        assert_eq!(state.retry_recovery("main"), 1);
     }
 
     #[cfg(target_os = "macos")]
