@@ -123,6 +123,7 @@ pub struct E2eeReplicaStats {
     pub rejected_rollbacks: u64,
     pub rejected_unwitnessed: u64,
     pub deferred_unwitnessed_rows: u64,
+    pub deferred_incomplete_snapshot_rows: u64,
     pub parked_records: u64,
     pub recorded_conflicts: u64,
     pub merged_fields: u64,

@@ -17,8 +17,9 @@ use super::replica_storage::{
     insert_apply_guard, insert_row, load_or_create_writer_id, load_row_local_states,
     load_row_local_states_from_pool, mark_local_state_for_republish,
     normalize_replica_payload_hashes, park_records, queue_dirty_row, read_column, read_field,
-    record_version_order, remove_apply_guard, replica_records_still_current, restore_local_payload,
-    row_changed_since_snapshot, row_exists, table_columns, update_field, upsert_local_state,
+    record_version_order, remove_apply_guard, replica_records_still_current,
+    requeue_incomplete_snapshot_records, restore_local_payload, row_changed_since_snapshot,
+    row_exists, table_columns, update_field, upsert_local_state,
 };
 use super::witness::repair_e2ee_replica_from_witness_bounded_cancellable;
 use super::{
@@ -36,6 +37,7 @@ pub async fn apply_e2ee_replica_changes(
         pool,
         keys,
         false,
+        true,
         E2EE_APPLY_ROW_LIMIT,
         E2EE_APPLY_BYTE_LIMIT,
         &|| false,
@@ -107,10 +109,15 @@ pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
         }
     };
     check_e2ee_apply_cancellation(is_cancelled)?;
+    if snapshot_complete {
+        requeue_incomplete_snapshot_records(pool).await?;
+        check_e2ee_apply_cancellation(is_cancelled)?;
+    }
     let mut stats = apply_e2ee_replica_changes_inner(
         pool,
         keys,
         true,
+        snapshot_complete,
         E2EE_APPLY_ROW_LIMIT,
         E2EE_APPLY_BYTE_LIMIT,
         is_cancelled,
@@ -258,6 +265,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKeyring>,
     require_witness: bool,
+    snapshot_complete: bool,
     max_rows: usize,
     max_bytes: usize,
     is_cancelled: &(impl Fn() -> bool + Sync),
@@ -592,6 +600,29 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             .is_some_and(|state| state.payload_hash == manifest.payload_hash);
         let row_was_present = row_exists(&mut transaction, &table, &workspace_id, &row_id).await?;
         rollback_if_cancelled!(transaction, is_cancelled);
+        // While the CloudSync snapshot is still downloading, a row absent locally
+        // may be missing records that have not arrived yet, so it is parked
+        // until the snapshot completes and requeued from there.
+        if !row_was_present && !manifest.field.deleted && !snapshot_complete {
+            stats.deferred_incomplete_snapshot_rows += 1;
+            remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
+            let parked = pending
+                .iter()
+                .map(|(record_id, generation)| ParkedRecord {
+                    record_id: record_id.clone(),
+                    workspace_id: workspace_id.clone(),
+                    generation: *generation,
+                    reason: E2eeParkReason::IncompleteSnapshot,
+                    table_name: table.clone(),
+                    field_name: String::new(),
+                })
+                .collect::<Vec<_>>();
+            park_records(&mut transaction, &parked).await?;
+            rollback_if_cancelled!(transaction, is_cancelled);
+            commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
+            continue;
+        }
         // A row that does not exist locally yet waits until every field that
         // only exists in unwitnessed form is witnessed, so readers never see
         // an identity-only row. The witness merge re-queues the records.

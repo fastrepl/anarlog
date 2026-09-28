@@ -513,6 +513,9 @@ pub enum E2eeParkReason {
     UnknownTable,
     UnknownField,
     TooLarge,
+    /// A row absent locally whose records may still be mid-download; it is
+    /// requeued once the CloudSync snapshot has fully arrived.
+    IncompleteSnapshot,
 }
 
 impl E2eeParkReason {
@@ -521,6 +524,7 @@ impl E2eeParkReason {
             Self::UnknownTable => "unknown_table",
             Self::UnknownField => "unknown_field",
             Self::TooLarge => "too_large",
+            Self::IncompleteSnapshot => "incomplete_snapshot",
         }
     }
 }
@@ -588,6 +592,28 @@ pub async fn requeue_parked_e2ee_records(pool: &SqlitePool) -> sqlx::Result<u64>
     .await?
     .rows_affected();
     sqlx::query("DELETE FROM e2ee_parked_records")
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(requeued)
+}
+
+pub(super) async fn requeue_incomplete_snapshot_records(pool: &SqlitePool) -> sqlx::Result<u64> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let requeued = sqlx::query(
+        "INSERT INTO e2ee_replica_pending (record_id, workspace_id)
+         SELECT record_id, workspace_id FROM e2ee_parked_records
+         WHERE reason = ?
+         ON CONFLICT(record_id) DO UPDATE SET
+           workspace_id = excluded.workspace_id,
+           generation = e2ee_replica_pending.generation + 1",
+    )
+    .bind(E2eeParkReason::IncompleteSnapshot.as_str())
+    .execute(&mut *transaction)
+    .await?
+    .rows_affected();
+    sqlx::query("DELETE FROM e2ee_parked_records WHERE reason = ?")
+        .bind(E2eeParkReason::IncompleteSnapshot.as_str())
         .execute(&mut *transaction)
         .await?;
     transaction.commit().await?;

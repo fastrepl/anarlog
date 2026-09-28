@@ -504,6 +504,7 @@ async fn received_replica_rows_apply_in_bounded_cycles() {
         target.pool(),
         &workspace_keys,
         false,
+        true,
         3,
         usize::MAX,
         &|| false,
@@ -534,6 +535,7 @@ async fn received_replica_rows_apply_in_bounded_cycles() {
             target.pool(),
             &workspace_keys,
             false,
+            true,
             3,
             usize::MAX,
             &|| false,
@@ -729,19 +731,28 @@ async fn bounded_received_preflight_skips_foreign_and_unwitnessed_prefixes() {
             stats.rejected_unwitnessed <= u64::try_from(E2EE_APPLY_PREFLIGHT_RECORD_LIMIT).unwrap()
         );
         rejected_unwitnessed += stats.rejected_unwitnessed;
-        if sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM sessions WHERE id = 'witnessed-session'",
-        )
-        .fetch_one(db.pool())
-        .await
-        .unwrap()
-            == 1
-        {
+        if stats.deferred_incomplete_snapshot_rows == 1 {
             break;
         }
     }
 
     assert!(rejected_unwitnessed >= 256);
+    // The witnessed row was reached, but a row absent locally waits for the
+    // snapshot download to finish before it is materialized.
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM e2ee_parked_records
+             WHERE record_id = ? AND reason = 'incomplete_snapshot'",
+        )
+        .bind(&sealed.record_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap(),
+        1
+    );
+    apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, true)
+        .await
+        .unwrap();
     assert_eq!(
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM sessions WHERE id = 'witnessed-session'",
@@ -1176,6 +1187,7 @@ async fn oversized_rows_are_parked_instead_of_failing_the_round() {
             target.pool(),
             &workspace_keys,
             false,
+            true,
             E2EE_APPLY_ROW_LIMIT,
             20_000,
             &|| false,

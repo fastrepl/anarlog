@@ -416,6 +416,18 @@ async fn witness_uploads_send_session_metadata_before_bodies() {
     .fetch_one(db.pool())
     .await
     .unwrap();
+    let session_records = usize::try_from(session_records).unwrap();
+
+    // A single batch spanning every priority keeps metadata ahead of bodies.
+    let batch = pending_e2ee_witness_uploads(db.pool(), "workspace-a", key, 1_000, usize::MAX)
+        .await
+        .unwrap();
+    let mut batch_tables = Vec::with_capacity(batch.len());
+    for upload in &batch {
+        batch_tables.push(upload_table(db.pool(), &upload.record_id).await);
+    }
+    assert_metadata_before_bodies(&batch_tables, session_records);
+
     let mut seen_tables = Vec::new();
     loop {
         let batch = pending_e2ee_witness_uploads(db.pool(), "workspace-a", key, 1, usize::MAX)
@@ -424,31 +436,34 @@ async fn witness_uploads_send_session_metadata_before_bodies() {
         let Some(upload) = batch.first() else {
             break;
         };
-        let table: String =
-            sqlx::query_scalar("SELECT table_name FROM e2ee_local_state WHERE record_id = ?")
-                .bind(&upload.record_id)
-                .fetch_one(db.pool())
-                .await
-                .unwrap();
-        seen_tables.push(table);
+        seen_tables.push(upload_table(db.pool(), &upload.record_id).await);
         acknowledge_e2ee_witness_uploads(db.pool(), key, &batch)
             .await
             .unwrap();
     }
+    assert_eq!(seen_tables, batch_tables);
+    assert_metadata_before_bodies(&seen_tables, session_records);
+}
 
-    let session_records = usize::try_from(session_records).unwrap();
+async fn upload_table(pool: &SqlitePool, record_id: &str) -> String {
+    sqlx::query_scalar("SELECT table_name FROM e2ee_local_state WHERE record_id = ?")
+        .bind(record_id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+fn assert_metadata_before_bodies(tables: &[String], session_records: usize) {
     assert!(
-        seen_tables[..session_records]
+        tables[..session_records]
             .iter()
             .all(|table| table == "sessions")
     );
-    let document_position = seen_tables
-        .iter()
-        .position(|table| table == "session_documents");
-    let transcript_position = seen_tables.iter().position(|table| table == "transcripts");
+    let document_position = tables.iter().position(|table| table == "session_documents");
+    let transcript_position = tables.iter().position(|table| table == "transcripts");
     assert!(document_position.unwrap() < transcript_position.unwrap());
     assert!(
-        seen_tables[transcript_position.unwrap()..]
+        tables[transcript_position.unwrap()..]
             .iter()
             .all(|table| table == "transcripts")
     );

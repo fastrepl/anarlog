@@ -183,7 +183,8 @@ async fn pending_e2ee_witness_uploads_inner(
         selected_ids.push(record_id);
         selected_bytes = selected_bytes.saturating_add(upload_bytes);
     }
-    selected_ids.sort_unstable();
+    let mut lookup_ids = selected_ids.clone();
+    lookup_ids.sort_unstable();
 
     let mut query = QueryBuilder::<Sqlite>::new(
         "SELECT record_id, workspace_id, table_name, row_id, field_name, revision,
@@ -195,7 +196,7 @@ async fn pending_e2ee_witness_uploads_inner(
     query.push(" AND record_id IN (");
     {
         let mut separated = query.separated(", ");
-        for record_id in &selected_ids {
+        for record_id in &lookup_ids {
             separated.push_bind(record_id);
         }
     }
@@ -205,14 +206,23 @@ async fn pending_e2ee_witness_uploads_inner(
         transaction.rollback().await?;
         return Err(error);
     }
-    if states.len() != selected_ids.len()
+    if states.len() != lookup_ids.len()
         || !states
             .iter()
             .map(|state| state.record_id.as_str())
-            .eq(selected_ids.iter().map(String::as_str))
+            .eq(lookup_ids.iter().map(String::as_str))
     {
         return Err(E2eeReplicaError::InvalidRow);
     }
+    let mut states_by_id = states
+        .into_iter()
+        .map(|state| (state.record_id.clone(), state))
+        .collect::<HashMap<_, _>>();
+    let states = selected_ids
+        .iter()
+        .map(|record_id| states_by_id.remove(record_id))
+        .collect::<Option<Vec<_>>>()
+        .ok_or(E2eeReplicaError::InvalidRow)?;
     if let Err(error) = check_e2ee_cancellation(is_cancelled) {
         transaction.rollback().await?;
         return Err(error);

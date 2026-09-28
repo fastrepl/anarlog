@@ -761,6 +761,7 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
                     rejected_rollbacks = stats.rejected_rollbacks,
                     rejected_unwitnessed = stats.rejected_unwitnessed,
                     deferred_unwitnessed_rows = stats.deferred_unwitnessed_rows,
+                    deferred_incomplete_snapshot_rows = stats.deferred_incomplete_snapshot_rows,
                     parked_records = stats.parked_records,
                     snapshot_complete,
                     "applied encrypted CloudSync replica"
