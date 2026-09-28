@@ -66,7 +66,7 @@ fn webview_is_visible(app: &AppHandle<tauri::Wry>, label: &str) -> bool {
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn should_restart_terminated_webview(label: &str, is_visible: bool) -> bool {
+pub(crate) fn should_reload_terminated_webview(label: &str, is_visible: bool) -> bool {
     is_visible && matches!(label.parse::<AppWindow>(), Ok(AppWindow::Main))
 }
 
@@ -85,20 +85,26 @@ pub(crate) fn run_on_main_thread<R: Send + 'static>(
 
 impl AppWindow {
     #[cfg(target_os = "macos")]
-    fn prepare_clean_restart(app: &AppHandle<tauri::Wry>, label: &str) -> bool {
+    fn reload_webview(app: &AppHandle<tauri::Wry>, label: &str) {
         let Some(state) = app.try_state::<WebviewHealthState>() else {
-            return false;
+            return;
         };
         if !state.begin_recovery(label) {
-            return false;
+            return;
         }
 
-        use tauri_plugin_window_state::AppHandleExt;
-        if let Err(error) = app.save_window_state(crate::persisted_window_state_flags()) {
-            tracing::warn!(%error, "failed to save window state before webview recovery");
+        let result = match app.get_webview_window(label) {
+            Some(window) => window.reload(),
+            None => Err(tauri::Error::WebviewNotFound),
+        };
+        if let Err(error) = result {
+            tracing::error!(%error, webview = %label, "failed to reload webview; restarting app");
+            use tauri_plugin_window_state::AppHandleExt;
+            if let Err(error) = app.save_window_state(crate::persisted_window_state_flags()) {
+                tracing::warn!(%error, "failed to save window state before app restart");
+            }
+            app.request_restart();
         }
-
-        true
     }
 
     #[cfg(target_os = "macos")]
@@ -106,7 +112,7 @@ impl AppWindow {
         let app = webview.app_handle();
         let label = webview.label();
         let is_visible = webview_is_visible(app, label);
-        if !should_restart_terminated_webview(label, is_visible) {
+        if !should_reload_terminated_webview(label, is_visible) {
             tracing::warn!(
                 webview = %label,
                 is_visible,
@@ -115,10 +121,8 @@ impl AppWindow {
             return;
         }
 
-        if Self::prepare_clean_restart(app, label) {
-            tracing::error!(webview = %label, "restarting app after web content process termination");
-            app.request_restart();
-        }
+        tracing::error!(webview = %label, "reloading webview after web content process termination");
+        Self::reload_webview(app, label);
     }
 
     pub fn request_webview_health_check(
@@ -164,14 +168,12 @@ impl AppWindow {
                     if !webview_is_visible(&app, &label) {
                         return;
                     }
-                    if Self::prepare_clean_restart(&app, &label) {
-                        tracing::error!(
-                            %request_id,
-                            attempts = WEBVIEW_HEALTH_CHECK_ATTEMPTS,
-                            "restarting app after repeated main webview health check failures"
-                        );
-                        app.request_restart();
-                    }
+                    tracing::error!(
+                        %request_id,
+                        attempts = WEBVIEW_HEALTH_CHECK_ATTEMPTS,
+                        "reloading main webview after repeated health check failures"
+                    );
+                    Self::reload_webview(&app, &label);
                 }
             });
         }
