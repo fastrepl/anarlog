@@ -193,6 +193,17 @@ impl WebviewHealthState {
         attempt
     }
 
+    fn resume_recovery(&self, label: &str) -> u8 {
+        let attempt = *self
+            .recovering
+            .lock()
+            .unwrap()
+            .entry(label.to_string())
+            .or_insert(1);
+        self.pending.lock().unwrap().remove(label);
+        attempt
+    }
+
     fn ready(&self, label: &str) {
         self.recovering.lock().unwrap().remove(label);
     }
@@ -421,6 +432,11 @@ mod test {
 
         assert!(state.register("main".into()).is_some());
         assert_eq!(state.retry_recovery("main"), 2);
+        assert_eq!(state.resume_recovery("main"), 2);
+        assert_eq!(state.resume_recovery("main"), 2);
+        assert!(state.pending.lock().unwrap().is_empty());
+        state.ready("main");
+        assert_eq!(state.resume_recovery("main"), 1);
         state.ready("main");
         assert_eq!(state.retry_recovery("main"), 1);
     }

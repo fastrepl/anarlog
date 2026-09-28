@@ -91,38 +91,35 @@ impl AppWindow {
         let window = Self::Main
             .get(app)
             .ok_or(crate::Error::from(tauri::Error::WebviewNotFound))?;
+        if let Some(expansions) = app.try_state::<crate::WindowExpansions>() {
+            for entry in expansions.take(window.label()).into_iter().rev() {
+                if let Err(error) =
+                    crate::commands::restore_expanded_width(app, window.label(), entry)
+                {
+                    tracing::warn!(%error, "failed to restore main window width before webview reload");
+                }
+            }
+        }
+
         let mut url = window.url()?;
         url.set_path("/app");
         url.set_query(None);
         url.set_fragment(None);
         window.navigate(url)?;
 
-        let expansions = app
-            .try_state::<crate::WindowExpansions>()
-            .map(|expansions| expansions.take(window.label()))
-            .unwrap_or_default();
-        let saved = app
+        if let Some(saved) = app
             .try_state::<crate::SavedFrames>()
-            .and_then(|frames| frames.take(window.label()));
-        if expansions.is_empty() && saved.is_none() {
-            return Ok(());
-        }
-
-        let app = app.clone();
-        let label = window.label().to_string();
-        tauri::async_runtime::spawn(async move {
-            for entry in expansions.into_iter().rev() {
-                if let Err(error) = crate::commands::restore_expanded_width(&app, &label, entry) {
-                    tracing::warn!(%error, "failed to restore main window width after webview reload");
-                }
-            }
-            if let Some(saved) = saved
-                && let Err(error) =
+            .and_then(|frames| frames.take(window.label()))
+        {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) =
                     crate::commands::restore_saved_frame(&app, AppWindow::Main, Some(saved)).await
-            {
-                tracing::warn!(%error, "failed to restore main window frame after webview reload");
-            }
-        });
+                {
+                    tracing::warn!(%error, "failed to restore main window frame after webview reload");
+                }
+            });
+        }
 
         Ok(())
     }
@@ -222,7 +219,7 @@ impl AppWindow {
                     let Some(state) = app.try_state::<WebviewHealthState>() else {
                         return;
                     };
-                    let attempt = state.retry_recovery(&label);
+                    let attempt = state.resume_recovery(&label);
                     Self::recover_main_webview(&app, attempt);
                 }
             });
