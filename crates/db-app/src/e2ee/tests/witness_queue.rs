@@ -377,3 +377,79 @@ async fn remote_apply_guard_preserves_an_existing_local_dirty_marker() {
     assert_eq!(title_field.value, json!("Local"));
     assert_eq!(remaining_dirty, 0);
 }
+
+#[tokio::test]
+async fn witness_uploads_send_session_metadata_before_bodies() {
+    let db = test_db().await;
+    let workspace_keys = keys("workspace-a");
+    let key = &workspace_keys["workspace-a"];
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Title')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO session_documents (id, workspace_id, session_id, kind, body_format, body)
+             VALUES ('session-1', 'workspace-a', 'session-1', 'note', 'text', 'body')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO transcripts (id, workspace_id, owner_user_id, session_id, words_json)
+             VALUES ('transcript-1', 'workspace-a', 'user-a', 'session-1', '[]')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+        .await
+        .unwrap();
+
+    let session_records: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM e2ee_witness_pending AS pending
+         JOIN e2ee_local_state AS local ON local.record_id = pending.record_id
+         WHERE local.table_name = 'sessions'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    let mut seen_tables = Vec::new();
+    loop {
+        let batch = pending_e2ee_witness_uploads(db.pool(), "workspace-a", key, 1, usize::MAX)
+            .await
+            .unwrap();
+        let Some(upload) = batch.first() else {
+            break;
+        };
+        let table: String =
+            sqlx::query_scalar("SELECT table_name FROM e2ee_local_state WHERE record_id = ?")
+                .bind(&upload.record_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        seen_tables.push(table);
+        acknowledge_e2ee_witness_uploads(db.pool(), key, &batch)
+            .await
+            .unwrap();
+    }
+
+    let session_records = usize::try_from(session_records).unwrap();
+    assert!(
+        seen_tables[..session_records]
+            .iter()
+            .all(|table| table == "sessions")
+    );
+    let document_position = seen_tables
+        .iter()
+        .position(|table| table == "session_documents");
+    let transcript_position = seen_tables.iter().position(|table| table == "transcripts");
+    assert!(document_position.unwrap() < transcript_position.unwrap());
+    assert!(
+        seen_tables[transcript_position.unwrap()..]
+            .iter()
+            .all(|table| table == "transcripts")
+    );
+}

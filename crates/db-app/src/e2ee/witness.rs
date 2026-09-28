@@ -26,7 +26,7 @@ pub(super) const PENDING_E2EE_WITNESS_UPLOADS_SQL: &str = "
   WHERE pending.workspace_id = ?
     AND local.record_id = pending.record_id
     AND local.workspace_id = pending.workspace_id
-  ORDER BY pending.record_id
+  ORDER BY pending.priority, pending.record_id
   LIMIT ?";
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -183,6 +183,7 @@ async fn pending_e2ee_witness_uploads_inner(
         selected_ids.push(record_id);
         selected_bytes = selected_bytes.saturating_add(upload_bytes);
     }
+    selected_ids.sort_unstable();
 
     let mut query = QueryBuilder::<Sqlite>::new(
         "SELECT record_id, workspace_id, table_name, row_id, field_name, revision,

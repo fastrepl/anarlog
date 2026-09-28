@@ -397,8 +397,13 @@ pub(super) async fn reconcile_e2ee_witness_pending(
         .execute(&mut **transaction)
         .await?;
     sqlx::query(
-        "INSERT INTO e2ee_witness_pending (record_id, workspace_id)
-         SELECT local.record_id, local.workspace_id
+        "INSERT INTO e2ee_witness_pending (record_id, workspace_id, priority)
+         SELECT local.record_id, local.workspace_id,
+                CASE local.table_name
+                  WHEN 'session_documents' THEN 1
+                  WHEN 'transcripts' THEN 2
+                  ELSE 0
+                END
          FROM e2ee_local_state AS local
          LEFT JOIN e2ee_witness_records AS witness
            ON witness.workspace_id = local.workspace_id
