@@ -8,6 +8,7 @@ import {
   syntheticBatchProgress,
 } from "./general-batch";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { parseBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 import { BatchResponseProcessingError } from "~/stt/batch-response-processing-error";
 
@@ -32,6 +33,8 @@ const {
   startTranscriptionMock: vi.fn(),
   stopTranscriptionMock: vi.fn(),
 }));
+
+vi.mock("~/analytics", () => ({ trackAnalyticsEvent: vi.fn() }));
 
 vi.mock("@tauri-apps/api/window", () => ({
   UserAttentionType: { Critical: 1, Informational: 2 },
@@ -809,90 +812,117 @@ describe("runBatchSession", () => {
     expect(handleBatchFailed).not.toHaveBeenCalled();
   });
 
-  test("rejects completed responses that have no transcribed words", async () => {
-    const handleBatchStarted = vi.fn();
-    const handleBatchResponse = vi.fn(() => false);
-    const handleBatchCompleted = vi.fn();
-    const clearBatchPersist = vi.fn();
-    const clearBatchSession = vi.fn();
-    const handleBatchResponseStreamed = vi.fn();
-    const handleBatchFailed = vi.fn();
-    const handleBatchStopped = vi.fn();
-    const updateBatchProgress = vi.fn();
-    const setBatchPersist = vi.fn();
+  test.each([
+    { recovery: false, empty: true },
+    { recovery: true, empty: true },
+    { recovery: false, empty: false },
+    { recovery: true, empty: false },
+  ])(
+    "classifies persist failures (recovery=$recovery, empty=$empty)",
+    async ({ recovery, empty }) => {
+      const message = empty ? EMPTY_BATCH_TRANSCRIPT_ERROR : "disk full";
+      const handleBatchStarted = vi.fn();
+      const handleBatchResponse = vi.fn(() => {
+        if (empty) return false;
+        throw new Error(message);
+      });
+      const handleBatchCompleted = vi.fn();
+      const clearBatchPersist = vi.fn();
+      const clearBatchSession = vi.fn();
+      const handleBatchResponseStreamed = vi.fn();
+      const handleBatchFailed = vi.fn();
+      const handleBatchStopped = vi.fn();
+      const updateBatchProgress = vi.fn();
+      const setBatchPersist = vi.fn();
 
-    let handler:
-      | ((event: {
-          payload: {
-            type: string;
-            session_id: string;
-            response?: unknown;
-            mode?: "direct" | "streamed";
-          };
-        }) => void)
-      | undefined;
+      let handler:
+        | ((event: {
+            payload: {
+              type: string;
+              session_id: string;
+              response?: unknown;
+              mode?: "direct" | "streamed";
+            };
+          }) => void)
+        | undefined;
 
-    listenMock.mockImplementation(async (cb) => {
-      handler = cb;
-      return vi.fn();
-    });
-
-    startTranscriptionMock.mockImplementation(async () => {
-      queueMicrotask(() => {
-        handler?.({
-          payload: {
-            type: "completed",
-            session_id: "session-1",
-            mode: "direct",
-            response: {
-              metadata: null,
-              results: { channels: [] },
-            },
-          },
-        });
+      listenMock.mockImplementation(async (cb) => {
+        handler = cb;
+        return vi.fn();
       });
 
-      return {
-        status: "ok",
-        data: null,
-      };
-    });
+      startTranscriptionMock.mockImplementation(async () => {
+        queueMicrotask(() => {
+          handler?.({
+            payload: {
+              type: "completed",
+              session_id: "session-1",
+              mode: "direct",
+              response: {
+                metadata: null,
+                results: { channels: [] },
+              },
+            },
+          });
+        });
 
-    await expect(
-      runBatchSession(
-        () => ({
-          batch: {},
-          batchPreview: {},
-          batchPersist: {},
-          handleBatchStarted,
-          handleBatchResponse,
-          handleBatchCompleted,
-          clearBatchPersist,
-          clearBatchSession,
-          handleBatchResponseStreamed,
-          handleBatchFailed,
-          handleBatchStopped,
-          updateBatchProgress,
-          setBatchPersist,
-        }),
-        "session-1",
-        {
-          session_id: "session-1",
-          provider: "anarlog",
-          file_path: "/tmp/session.wav",
-          base_url: "",
-          api_key: "",
-        },
-      ),
-    ).rejects.toThrow(EMPTY_BATCH_TRANSCRIPT_ERROR);
+        return {
+          status: "ok",
+          data: null,
+        };
+      });
 
-    expect(handleBatchFailed).toHaveBeenCalledWith(
-      "session-1",
-      EMPTY_BATCH_TRANSCRIPT_ERROR,
-    );
-    expect(clearBatchPersist).toHaveBeenCalledWith("session-1");
-    expect(clearBatchSession).not.toHaveBeenCalled();
-  });
+      await expect(
+        runBatchSession(
+          () => ({
+            batch: {},
+            batchPreview: {},
+            batchPersist: {},
+            handleBatchStarted,
+            handleBatchResponse,
+            handleBatchCompleted,
+            clearBatchPersist,
+            clearBatchSession,
+            handleBatchResponseStreamed,
+            handleBatchFailed,
+            handleBatchStopped,
+            updateBatchProgress,
+            setBatchPersist,
+          }),
+          "session-1",
+          {
+            session_id: "session-1",
+            provider: "anarlog",
+            file_path: "/tmp/session.wav",
+            base_url: "",
+            api_key: "",
+          },
+          { recovery },
+        ),
+      ).rejects.toThrow(
+        empty ? EMPTY_BATCH_TRANSCRIPT_ERROR : BatchResponseProcessingError,
+      );
+
+      expect(handleBatchFailed).toHaveBeenCalledWith("session-1", message);
+      if (recovery && empty) {
+        expect(trackAnalyticsEvent).not.toHaveBeenCalledWith(
+          "transcription_failed",
+          expect.anything(),
+        );
+      } else {
+        expect(trackAnalyticsEvent).toHaveBeenCalledWith(
+          "transcription_failed",
+          { mode: "batch", failure_stage: "persist" },
+        );
+      }
+      expect(trackAnalyticsEvent).not.toHaveBeenCalledWith(
+        "transcription_completed",
+        expect.anything(),
+      );
+      expect(clearBatchPersist).toHaveBeenCalledWith("session-1");
+      expect(clearBatchSession).not.toHaveBeenCalled();
+    },
+  );
 
   test("rejects when the transcription is stopped", async () => {
     const handleBatchStarted = vi.fn();
@@ -965,87 +995,98 @@ describe("runBatchSession", () => {
     expect(clearBatchSession).not.toHaveBeenCalled();
   });
 
-  test("marks timed out failures distinctly", async () => {
-    const handleBatchStarted = vi.fn();
-    const handleBatchResponse = vi.fn();
-    const handleBatchCompleted = vi.fn();
-    const clearBatchPersist = vi.fn();
-    const clearBatchSession = vi.fn();
-    const handleBatchResponseStreamed = vi.fn();
-    const handleBatchFailed = vi.fn();
-    const handleBatchStopped = vi.fn();
-    const updateBatchProgress = vi.fn();
-    const setBatchPersist = vi.fn();
+  test.each(["timed_out", "direct_request_failed"] as const)(
+    "reports recovery provider failure %s",
+    async (code) => {
+      const handleBatchStarted = vi.fn();
+      const handleBatchResponse = vi.fn();
+      const handleBatchCompleted = vi.fn();
+      const clearBatchPersist = vi.fn();
+      const clearBatchSession = vi.fn();
+      const handleBatchResponseStreamed = vi.fn();
+      const handleBatchFailed = vi.fn();
+      const handleBatchStopped = vi.fn();
+      const updateBatchProgress = vi.fn();
+      const setBatchPersist = vi.fn();
 
-    let handler:
-      | ((event: {
-          payload:
-            | {
-                type: "failed";
-                session_id: string;
-                code: "timed_out";
-                error: string;
-              }
-            | { type: "started"; session_id: string };
-        }) => void)
-      | undefined;
+      let handler:
+        | ((event: {
+            payload:
+              | {
+                  type: "failed";
+                  session_id: string;
+                  code: "timed_out" | "direct_request_failed";
+                  error: string;
+                }
+              | { type: "started"; session_id: string };
+          }) => void)
+        | undefined;
 
-    listenMock.mockImplementation(async (cb) => {
-      handler = cb;
-      return vi.fn();
-    });
-
-    startTranscriptionMock.mockImplementation(async () => {
-      queueMicrotask(() => {
-        handler?.({
-          payload: {
-            type: "failed",
-            session_id: "session-1",
-            code: "timed_out",
-            error: "Transcription timed out after 60 seconds without progress.",
-          },
-        });
+      listenMock.mockImplementation(async (cb) => {
+        handler = cb;
+        return vi.fn();
       });
 
-      return { status: "ok", data: null };
-    });
+      startTranscriptionMock.mockImplementation(async () => {
+        queueMicrotask(() => {
+          handler?.({
+            payload: {
+              type: "failed",
+              session_id: "session-1",
+              code,
+              error:
+                "Transcription timed out after 60 seconds without progress.",
+            },
+          });
+        });
 
-    await expect(
-      runBatchSession(
-        () => ({
-          batch: {},
-          batchPreview: {},
-          batchPersist: {},
-          handleBatchStarted,
-          handleBatchResponse,
-          handleBatchCompleted,
-          clearBatchPersist,
-          clearBatchSession,
-          handleBatchResponseStreamed,
-          handleBatchFailed,
-          handleBatchStopped,
-          updateBatchProgress,
-          setBatchPersist,
-        }),
+        return { status: "ok", data: null };
+      });
+
+      await expect(
+        runBatchSession(
+          () => ({
+            batch: {},
+            batchPreview: {},
+            batchPersist: {},
+            handleBatchStarted,
+            handleBatchResponse,
+            handleBatchCompleted,
+            clearBatchPersist,
+            clearBatchSession,
+            handleBatchResponseStreamed,
+            handleBatchFailed,
+            handleBatchStopped,
+            updateBatchProgress,
+            setBatchPersist,
+          }),
+          "session-1",
+          {
+            session_id: "session-1",
+            provider: "anarlog",
+            file_path: "/tmp/session.wav",
+            base_url: "",
+            api_key: "",
+          },
+          { recovery: true },
+        ),
+      ).rejects.toBe(
+        "Transcription timed out after 60 seconds without progress.",
+      );
+
+      expect(handleBatchFailed).toHaveBeenCalledWith(
         "session-1",
-        {
-          session_id: "session-1",
-          provider: "anarlog",
-          file_path: "/tmp/session.wav",
-          base_url: "",
-          api_key: "",
-        },
-      ),
-    ).rejects.toBe(
-      "Transcription timed out after 60 seconds without progress.",
-    );
-
-    expect(handleBatchFailed).toHaveBeenCalledWith(
-      "session-1",
-      "Transcription timed out after 60 seconds without progress.",
-      "timed_out",
-      "timed_out",
-    );
-    expect(handleBatchStopped).not.toHaveBeenCalled();
-  });
+        "Transcription timed out after 60 seconds without progress.",
+        code === "timed_out" ? "timed_out" : "failed",
+        code,
+      );
+      expect(trackAnalyticsEvent).toHaveBeenCalledWith("transcription_failed", {
+        mode: "batch",
+        failure_stage: code === "timed_out" ? "timed_out" : "failed",
+        error_code: code,
+        provider: "anarlog",
+      });
+      expect(handleBatchStopped).not.toHaveBeenCalled();
+    },
+  );
 });

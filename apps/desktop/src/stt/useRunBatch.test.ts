@@ -1076,6 +1076,9 @@ describe("useRunBatch", () => {
     expect(startTranscriptionMock.mock.calls[0]?.[0]).toMatchObject({
       session_id: "session-1:recovery",
     });
+    expect(startTranscriptionMock.mock.calls[0]?.[1]).toMatchObject({
+      recovery: true,
+    });
     expect(completed).toBe(false);
     expect(createTranscriptMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();

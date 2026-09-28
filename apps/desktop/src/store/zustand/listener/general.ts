@@ -64,6 +64,7 @@ export type GeneralActions = {
       signal?: AbortSignal;
       handlePersist?: BatchPersistCallback;
       notifyOnCompletion?: boolean;
+      recovery?: boolean;
     },
   ) => Promise<void>;
   stopTranscription: (sessionId: string) => Promise<void>;
@@ -224,6 +225,7 @@ export const createGeneralSlice = <
 
     await runBatchSession(get, sessionId, params, {
       notifyOnCompletion: options?.notifyOnCompletion,
+      recovery: options?.recovery,
       signal: options?.signal,
     });
   },

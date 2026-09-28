@@ -927,6 +927,7 @@ export const useRunBatch = (sessionId: string) => {
                   return persist(...args);
                 },
                 notifyOnCompletion: false,
+                recovery: Boolean(options?.recovery),
               });
               options?.signal?.throwIfAborted();
             } finally {

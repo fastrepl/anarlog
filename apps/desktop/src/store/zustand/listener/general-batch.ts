@@ -93,7 +93,11 @@ export const runBatchSession = async <T extends BatchStore>(
   get: StoreApi<T>["getState"],
   sessionId: string,
   params: TranscriptionParams,
-  options?: { notifyOnCompletion?: boolean; signal?: AbortSignal },
+  options?: {
+    notifyOnCompletion?: boolean;
+    signal?: AbortSignal;
+    recovery?: boolean;
+  },
 ) => {
   get().handleBatchStarted(sessionId);
 
@@ -147,9 +151,11 @@ export const runBatchSession = async <T extends BatchStore>(
 
     settled = true;
 
+    let emptyResponse = false;
     try {
       const handled = get().handleBatchResponse(sessionId, output.response);
       if (handled === false) {
+        emptyResponse = true;
         throw new Error(EMPTY_BATCH_TRANSCRIPT_ERROR);
       }
       trackAnalyticsEvent("transcription_completed", {
@@ -162,10 +168,12 @@ export const runBatchSession = async <T extends BatchStore>(
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       get().handleBatchFailed(sessionId, errorMessage);
-      trackAnalyticsEvent("transcription_failed", {
-        mode: "batch",
-        failure_stage: "persist",
-      });
+      if (!(options?.recovery && emptyResponse)) {
+        trackAnalyticsEvent("transcription_failed", {
+          mode: "batch",
+          failure_stage: "persist",
+        });
+      }
       cleanup(false);
       reject(
         error instanceof Error && error.message === EMPTY_BATCH_TRANSCRIPT_ERROR
