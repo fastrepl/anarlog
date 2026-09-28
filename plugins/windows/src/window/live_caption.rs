@@ -26,7 +26,8 @@ pub struct LiveCaptionState {
 
 pub const WINDOW_LABEL: &str = "live-caption";
 
-pub(crate) mod layout {
+#[cfg(test)]
+mod layout {
     use super::LiveCaptionPosition;
 
     pub const MIN_WIDTH: f64 = 260.0;
