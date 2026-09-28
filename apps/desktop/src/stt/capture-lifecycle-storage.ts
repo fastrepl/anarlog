@@ -1,7 +1,7 @@
 import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
-const CAPTURE_LIFECYCLE_SETTING_PREFIX = "capture_lifecycle_pending:";
+export const CAPTURE_LIFECYCLE_SETTING_PREFIX = "capture_lifecycle_pending:";
 
 export type CaptureLifecycleMarker = {
   version: 1;

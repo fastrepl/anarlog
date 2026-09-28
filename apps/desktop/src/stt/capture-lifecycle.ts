@@ -57,7 +57,10 @@ import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
-import { isRealtimeLocalModel } from "~/stt/capabilities";
+import {
+  isRealtimeLocalModel,
+  requiresRetainedBatchAudio,
+} from "~/stt/capabilities";
 import {
   type CaptureLifecycleMarker,
   clearCaptureLifecycleMarker,
@@ -228,8 +231,6 @@ export function useCaptureLifecycle(sessionId: string) {
     ) => {
       let usesChunkedAudio =
         !recoveredMarker || recoveredMarker.chunkedAudio === true;
-      const retainAudio =
-        recoveredMarker?.retainAudio ?? audioRetention !== "none";
       const automatic = recoveredMarker
         ? recoveredMarker.automatic === true
         : startedAutomatically;
@@ -257,8 +258,12 @@ export function useCaptureLifecycle(sessionId: string) {
         recoveredMarker?.ownerUserId ?? session?.user_id ?? "";
       const provider = recoveredMarker?.provider ?? conn?.provider;
       const model = recoveredMarker?.model ?? conn?.model;
+      const retainAudio =
+        recoveredMarker?.retainAudio ??
+        (audioRetention !== "none" ||
+          requiresRetainedBatchAudio(provider, model));
       const batchFromRetainedAudio =
-        retainAudio && provider === "elevenlabs" && model === "scribe_v2";
+        retainAudio && requiresRetainedBatchAudio(provider, model);
       const hasMultipleRemoteParticipants =
         new Set(
           participantHumanIds.filter(

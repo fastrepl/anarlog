@@ -9,6 +9,7 @@ import {
   deleteLocalSessionAudio,
 } from "~/session/attachments";
 import { listenerStore } from "~/store/zustand/listener/instance";
+import { CAPTURE_LIFECYCLE_SETTING_PREFIX } from "~/stt/capture-lifecycle-storage";
 
 export const AUDIO_RETENTION_TASK_ID = "audio-retention-cleanup";
 export const AUDIO_RETENTION_INTERVAL = 60 * 1000;
@@ -157,7 +158,9 @@ export async function cleanupExpiredAudio(
     created_at: string;
     has_words: number;
     transcript_processing: number;
-  }>(`
+    capture_pending: number;
+  }>(
+    `
     SELECT
       session.id,
       session.created_at,
@@ -178,18 +181,25 @@ export async function cleanupExpiredAudio(
           AND audio.deleted_at IS NULL
           AND json_valid(audio.metadata_json)
           AND json_extract(audio.metadata_json, '$.transcript_status') = 'processing'
-      ) AS transcript_processing
+      ) AS transcript_processing,
+      EXISTS(
+        SELECT 1
+        FROM app_settings AS capture
+        WHERE capture.id = ? || session.id
+      ) AS capture_pending
     FROM sessions AS session
     WHERE session.deleted_at IS NULL
     ORDER BY session.created_at, session.id
-  `);
+  `,
+    [CAPTURE_LIFECYCLE_SETTING_PREFIX],
+  );
 
   for (const session of sessions) {
     if (!isSessionAudioIdle(session.id)) {
       continue;
     }
 
-    if (session.transcript_processing === 1) {
+    if (session.transcript_processing === 1 || session.capture_pending === 1) {
       continue;
     }
 

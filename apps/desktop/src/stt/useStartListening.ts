@@ -21,6 +21,7 @@ import { useTabs } from "~/store/zustand/tabs";
 import {
   getLiveTranscriptionConfig,
   getTranscriptionLanguages,
+  requiresRetainedBatchAudio,
 } from "~/stt/capabilities";
 import {
   getSessionParticipantHumanIds,
@@ -61,7 +62,8 @@ export function useStartListeningState(
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
   const microphoneDevice = useConfigValue("microphone_device");
   const retainAudio =
-    normalizeAudioRetention(useConfigValue("audio_retention")) !== "none";
+    normalizeAudioRetention(useConfigValue("audio_retention")) !== "none" ||
+    requiresRetainedBatchAudio(conn?.provider, conn?.model);
   const meetingDisclosureAutoSendChat = useConfigValue(
     "consent_auto_send_chat",
   );

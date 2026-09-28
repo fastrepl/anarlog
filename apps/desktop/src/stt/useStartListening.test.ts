@@ -680,6 +680,96 @@ describe("useStartListening", () => {
     });
   });
 
+  test("keeps zero-retention Scribe V2 audio until batch transcription finishes", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "elevenlabs",
+        model: "scribe_v2",
+        baseUrl: "https://api.elevenlabs.io/v1",
+        apiKey: "token",
+      },
+    });
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      transcription_mode: "batch",
+      retain_audio: true,
+    });
+    expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
+      expect.objectContaining({ retainAudio: true }),
+    );
+    expect(runBatchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.mp3", {
+      deferAudioFinalization: true,
+      notifyOnCompletion: true,
+      promotion: { scope: "whole_session" },
+    });
+    expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledWith(
+      "none",
+      "session-1",
+    );
+    expect(runBatchMock.mock.invocationCallOrder[0]!).toBeLessThan(
+      deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
+    );
+    expect(
+      markSessionAudioTranscriptionCompleteMock.mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  test("keeps temporary Scribe V2 audio when batch transcription fails", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "audio_retention" ? "none" : undefined,
+    );
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "elevenlabs",
+        model: "scribe_v2",
+        baseUrl: "https://api.elevenlabs.io/v1",
+        apiKey: "token",
+      },
+    });
+    runBatchMock.mockRejectedValueOnce(new Error("upload failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(runBatchMock).toHaveBeenCalledOnce();
+    expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
+    expect(requestCaptureRecoveryMock).toHaveBeenCalledWith("session-1");
+    consoleError.mockRestore();
+  });
+
   test("never claims that zero-retention audio was deleted when native cleanup failed", async () => {
     useConfigValueMock.mockImplementation((key: string) =>
       key === "audio_retention" ? "none" : undefined,
@@ -2137,41 +2227,56 @@ describe("useStartListening", () => {
     );
   });
 
-  test("transcribes a retained Scribe V2 capture after a stopped renderer recovers", async () => {
-    attachLiveSessionMock.mockResolvedValue("inactive");
-    const marker = {
-      version: 1 as const,
-      chunkedAudio: true,
-      retainAudio: true,
-      sessionId: "session-1",
-      transcriptId: "transcript-before-reload",
-      startedAt: 1_000,
-      createdAt: "2026-07-24T00:00:00.000Z",
-      audioOffsetMs: 0,
-      preserveExistingTranscript: false,
-      ownerUserId: "user-1",
-      memo: "",
-      provider: "elevenlabs",
-      model: "scribe_v2",
-    };
-    loadCaptureLifecycleMarkerMock
-      .mockResolvedValueOnce(marker)
-      .mockResolvedValueOnce(marker)
-      .mockResolvedValueOnce(null);
-    const { result } = renderHook(() =>
-      useResumeListeningLifecycle("session-1"),
-    );
+  test.each(["forever", "none"] as const)(
+    "transcribes a Scribe V2 capture with %s retention after a stopped renderer recovers",
+    async (retention) => {
+      useConfigValueMock.mockImplementation((key: string) =>
+        key === "audio_retention" ? retention : undefined,
+      );
+      attachLiveSessionMock.mockResolvedValue("inactive");
+      const marker = {
+        version: 1 as const,
+        chunkedAudio: true,
+        retainAudio: true,
+        sessionId: "session-1",
+        transcriptId: "transcript-before-reload",
+        startedAt: 1_000,
+        createdAt: "2026-07-24T00:00:00.000Z",
+        audioOffsetMs: 0,
+        preserveExistingTranscript: false,
+        ownerUserId: "user-1",
+        memo: "",
+        provider: "elevenlabs",
+        model: "scribe_v2",
+      };
+      loadCaptureLifecycleMarkerMock
+        .mockResolvedValueOnce(marker)
+        .mockResolvedValueOnce(marker)
+        .mockResolvedValueOnce(null);
+      const { result } = renderHook(() =>
+        useResumeListeningLifecycle("session-1"),
+      );
 
-    await act(async () => {
-      await expect(result.current()).resolves.toBe("inactive");
-    });
+      await act(async () => {
+        await expect(result.current()).resolves.toBe("inactive");
+      });
 
-    expect(runBatchMock).toHaveBeenCalledWith("/tmp/existing-session.mp3", {
-      deferAudioFinalization: true,
-      notifyOnCompletion: true,
-      promotion: { scope: "whole_session" },
-    });
-  });
+      expect(runBatchMock).toHaveBeenCalledWith("/tmp/existing-session.mp3", {
+        deferAudioFinalization: true,
+        notifyOnCompletion: true,
+        promotion: { scope: "whole_session" },
+      });
+      if (retention === "none") {
+        expect(deleteProcessedAudioForRetentionMock).toHaveBeenCalledWith(
+          "none",
+          "session-1",
+        );
+        expect(runBatchMock.mock.invocationCallOrder[0]!).toBeLessThan(
+          deleteProcessedAudioForRetentionMock.mock.invocationCallOrder[0]!,
+        );
+      }
+    },
+  );
 
   test("retries a durable summary without re-transcribing completed live text", async () => {
     attachLiveSessionMock.mockResolvedValue("inactive");

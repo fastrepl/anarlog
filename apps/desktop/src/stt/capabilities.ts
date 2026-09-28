@@ -85,6 +85,13 @@ export function isAnarlogCloudSttModel(
   return provider === "anarlog" && model === "cloud";
 }
 
+export function requiresRetainedBatchAudio(
+  provider?: string | null,
+  model?: string | null,
+) {
+  return provider === "elevenlabs" && model === "scribe_v2";
+}
+
 export function isOnDeviceSttModel(
   provider?: string | null,
   model?: string | null,

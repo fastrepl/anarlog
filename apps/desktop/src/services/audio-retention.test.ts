@@ -43,6 +43,7 @@ function mockCleanupRows(
     created_at: string;
     has_words: number;
     transcript_processing?: number;
+    capture_pending?: number;
   }>,
   logicallyDeleted: Array<{ session_id: string }> = [],
 ) {
@@ -152,6 +153,27 @@ describe("audio retention", () => {
       "processed",
       expect.any(Function),
     );
+  });
+
+  test("retention none preserves audio while batch capture recovery is pending", async () => {
+    mockCleanupRows([
+      {
+        id: "pending-batch",
+        created_at: "2026-05-13T00:00:00.000Z",
+        has_words: 1,
+        capture_pending: 1,
+      },
+    ]);
+
+    await expect(
+      cleanupExpiredAudio("none", Date.parse("2026-05-13T00:00:00.000Z")),
+    ).resolves.toEqual([]);
+    expect(mocks.deleteLocalSessionAudio).not.toHaveBeenCalled();
+    expect(
+      mocks.execute.mock.calls.find(([sql]) =>
+        sql.includes("AS capture_pending"),
+      )?.[1],
+    ).toEqual(["capture_lifecycle_pending:"]);
   });
 
   test.each(["none", "oneWeek"] as const)(
