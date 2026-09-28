@@ -1168,7 +1168,8 @@ export function useCaptureLifecycle(sessionId: string) {
           details = {
             ...details,
             needsBatchRepair: recovery.incomplete,
-            liveTranscriptionActive: !recovery.incomplete,
+            liveTranscriptionActive:
+              !recovery.incomplete && !batchFromRetainedAudio,
             ...(!retainAudio ? { audioPath: null } : {}),
           };
         }

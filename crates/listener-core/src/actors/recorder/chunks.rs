@@ -199,6 +199,14 @@ impl ChunkedSink {
         let Some(chunk) = self.chunk.take() else {
             return Ok(());
         };
+        let archive = self
+            .archive
+            .as_mut()
+            .map(|archive| {
+                archive.file.flush()?;
+                archive.file.get_ref().try_clone()
+            })
+            .transpose()?;
         let file = chunk.finish()?;
         let end_ms = self.start_ms + self.chunk_samples * 1000 / SAMPLE_RATE as u64;
         let partial = self.partial_path();
@@ -208,6 +216,9 @@ impl ChunkedSink {
         ));
         let sync = self.sync;
         let publish = move || {
+            if let Some(archive) = archive {
+                sync(&archive)?;
+            }
             sync(&file)?;
             std::fs::rename(partial, ready)
         };
@@ -474,6 +485,27 @@ pub(crate) fn recover_interrupted_captures_except(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn retained_chunk_publication_syncs_the_archive_and_the_chunk() {
+        static SYNCS: AtomicUsize = AtomicUsize::new(0);
+        SYNCS.store(0, Ordering::SeqCst);
+        let dir = tempfile::tempdir().unwrap();
+        let mut sink = ChunkedSink::new(dir.path(), 123, 0, true)
+            .unwrap()
+            .with_sync(|file| {
+                file.sync_all()?;
+                SYNCS.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            });
+        write_one_chunk(&mut sink);
+        sink.join_pending_sync().unwrap();
+
+        assert_eq!(SYNCS.load(Ordering::SeqCst), 2);
+        assert_eq!(list_recovery_chunks(dir.path()).unwrap().len(), 1);
+        sink.finish().unwrap();
+    }
 
     #[test]
     fn compressed_chunks_are_readable_and_acknowledged_independently_of_archive() {

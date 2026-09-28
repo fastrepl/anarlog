@@ -2137,6 +2137,42 @@ describe("useStartListening", () => {
     );
   });
 
+  test("transcribes a retained Scribe V2 capture after a stopped renderer recovers", async () => {
+    attachLiveSessionMock.mockResolvedValue("inactive");
+    const marker = {
+      version: 1 as const,
+      chunkedAudio: true,
+      retainAudio: true,
+      sessionId: "session-1",
+      transcriptId: "transcript-before-reload",
+      startedAt: 1_000,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      audioOffsetMs: 0,
+      preserveExistingTranscript: false,
+      ownerUserId: "user-1",
+      memo: "",
+      provider: "elevenlabs",
+      model: "scribe_v2",
+    };
+    loadCaptureLifecycleMarkerMock
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(marker)
+      .mockResolvedValueOnce(null);
+    const { result } = renderHook(() =>
+      useResumeListeningLifecycle("session-1"),
+    );
+
+    await act(async () => {
+      await expect(result.current()).resolves.toBe("inactive");
+    });
+
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/existing-session.mp3", {
+      deferAudioFinalization: true,
+      notifyOnCompletion: true,
+      promotion: { scope: "whole_session" },
+    });
+  });
+
   test("retries a durable summary without re-transcribing completed live text", async () => {
     attachLiveSessionMock.mockResolvedValue("inactive");
     const marker = {
