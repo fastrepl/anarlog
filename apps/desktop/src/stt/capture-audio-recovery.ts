@@ -36,6 +36,7 @@ export function createCaptureAudioRecovery(options: {
   let retryAt = 0;
   let recoverThrough = 0;
   let revision = 0;
+  let batchFromRetainedAudio = false;
 
   const elapsed = () => Math.max(0, now() - options.startedAt);
   const markGap = () => {
@@ -60,6 +61,10 @@ export function createCaptureAudioRecovery(options: {
       controller.signal.throwIfAborted();
       const range = chunkInterval(chunk, options.startedAt);
       if (!settle && range.end > elapsed() - 10_000) continue;
+      if (batchFromRetainedAudio) {
+        await options.acknowledge(chunk);
+        continue;
+      }
       await options.flush();
       controller.signal.throwIfAborted();
       const repairRevision = revision;
@@ -135,9 +140,10 @@ export function createCaptureAudioRecovery(options: {
       online = false;
       markGap();
     },
-    batchOnly() {
+    batchOnly(retainAudio: boolean) {
       online = true;
-      markGap();
+      batchFromRetainedAudio = retainAudio;
+      if (!retainAudio) markGap();
     },
     recoverPending() {
       recoverThrough = elapsed();

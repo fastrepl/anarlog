@@ -98,6 +98,12 @@ pub fn resolve_transcription_mode(
         return TranscriptionMode::Batch;
     }
 
+    if adapter_kind == AdapterKind::ElevenLabs
+        && model == Provider::ElevenLabs.default_batch_model()
+    {
+        return TranscriptionMode::Batch;
+    }
+
     if adapter_kind == AdapterKind::GoogleGenerativeAi
         && !owhisper_client::GoogleGenerativeAiAdapter::is_live_model(model)
     {
@@ -262,6 +268,34 @@ mod tests {
         assert_eq!(
             params.effective_transcription_mode(),
             TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_forces_elevenlabs_scribe_v2_to_batch() {
+        let params = session_params(
+            "https://api.elevenlabs.io/v1",
+            "scribe_v2",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_keeps_elevenlabs_scribe_v2_realtime_live() {
+        let params = session_params(
+            "https://api.elevenlabs.io/v1",
+            "scribe_v2_realtime",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Live
         );
     }
 

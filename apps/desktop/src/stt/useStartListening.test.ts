@@ -643,6 +643,43 @@ describe("useStartListening", () => {
     expect(runBatchMock).not.toHaveBeenCalled();
   });
 
+  test("transcribes retained Scribe V2 audio only after chunked capture stops", async () => {
+    useSTTConnectionMock.mockReturnValue({
+      conn: {
+        provider: "elevenlabs",
+        model: "scribe_v2",
+        baseUrl: "https://api.elevenlabs.io/v1",
+        apiKey: "token",
+      },
+    });
+    const { result } = renderHook(() => useStartListening("session-1"));
+    await act(async () => {
+      await result.current();
+    });
+    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+      transcription_mode: "batch",
+      retain_audio: true,
+    });
+    expect(runBatchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+        chunkedAudio: true,
+        durationSeconds: 60,
+        audioPath: "/tmp/session.mp3",
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+        needsBatchRepair: false,
+      });
+    });
+
+    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.mp3", {
+      deferAudioFinalization: true,
+      notifyOnCompletion: true,
+      promotion: { scope: "whole_session" },
+    });
+  });
+
   test("never claims that zero-retention audio was deleted when native cleanup failed", async () => {
     useConfigValueMock.mockImplementation((key: string) =>
       key === "audio_retention" ? "none" : undefined,

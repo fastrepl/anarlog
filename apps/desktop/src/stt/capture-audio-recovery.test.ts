@@ -107,9 +107,22 @@ describe("capture audio recovery", () => {
     expect(acknowledge).not.toHaveBeenCalled();
   });
 
-  it("processes batch-only capture in bounded chunks during the meeting", async () => {
+  it("releases retained batch-only chunks without transcribing during the meeting", async () => {
+    const { worker, list, repair, acknowledge } = setup();
+    list.mockResolvedValueOnce(await list()).mockResolvedValue([]);
+    list.mockClear();
+    worker.batchOnly(true);
+    await worker.tick();
+    expect(list).toHaveBeenCalledOnce();
+    expect(repair).not.toHaveBeenCalled();
+    expect(await worker.stop(true)).toEqual({ incomplete: false });
+    expect(repair).not.toHaveBeenCalled();
+    expect(acknowledge).toHaveBeenCalledOnce();
+  });
+
+  it("processes zero-retention batch-only capture before native cleanup", async () => {
     const { worker, repair, acknowledge } = setup();
-    worker.batchOnly();
+    worker.batchOnly(false);
     await worker.tick();
     expect(repair).toHaveBeenCalledOnce();
     expect(acknowledge).toHaveBeenCalledOnce();
