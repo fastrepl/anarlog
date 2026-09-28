@@ -511,36 +511,8 @@ pub async fn window_restore_width(
     };
 
     #[cfg(target_os = "macos")]
-    {
-        use crate::ext::run_on_main_thread;
-        use objc2_foundation::{NSPoint, NSRect, NSSize};
-
-        let label = window.label().to_string();
-        let app_clone = app.clone();
-
-        run_on_main_thread(&app, move || {
-            let Some(win) = app_clone.get_webview_window(&label) else {
-                return;
-            };
-            let Ok(ns_win_ptr) = win.ns_window() else {
-                return;
-            };
-            let ns_window = unsafe { &*(ns_win_ptr as *mut objc2_app_kit::NSWindow) };
-
-            let frame = ns_window.frame();
-            if (frame.size.width - expanded_w).abs() < 1.0 {
-                let restore_origin_x = frame.origin.x - origin_shift;
-                ns_window.setFrame_display(
-                    NSRect::new(
-                        NSPoint::new(restore_origin_x, frame.origin.y),
-                        NSSize::new(previous_w, frame.size.height),
-                    ),
-                    false,
-                );
-            }
-        })
+    restore_expanded_width(&app, window.label(), (previous_w, expanded_w, origin_shift))
         .map_err(|e| e.to_string())?;
-    }
 
     #[cfg(not(target_os = "macos"))]
     {
@@ -557,6 +529,41 @@ pub async fn window_restore_width(
     }
 
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn restore_expanded_width(
+    app: &tauri::AppHandle<tauri::Wry>,
+    label: &str,
+    (previous_w, expanded_w, origin_shift): (f64, f64, f64),
+) -> Result<(), crate::Error> {
+    use crate::ext::run_on_main_thread;
+    use objc2_foundation::{NSPoint, NSRect, NSSize};
+
+    let label = label.to_string();
+    let app_clone = app.clone();
+
+    run_on_main_thread(app, move || {
+        let Some(win) = app_clone.get_webview_window(&label) else {
+            return;
+        };
+        let Ok(ns_win_ptr) = win.ns_window() else {
+            return;
+        };
+        let ns_window = unsafe { &*(ns_win_ptr as *mut objc2_app_kit::NSWindow) };
+
+        let frame = ns_window.frame();
+        if (frame.size.width - expanded_w).abs() < 1.0 {
+            let restore_origin_x = frame.origin.x - origin_shift;
+            ns_window.setFrame_display(
+                NSRect::new(
+                    NSPoint::new(restore_origin_x, frame.origin.y),
+                    NSSize::new(previous_w, frame.size.height),
+                ),
+                false,
+            );
+        }
+    })
 }
 
 #[tauri::command]

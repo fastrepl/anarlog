@@ -97,19 +97,32 @@ impl AppWindow {
         url.set_fragment(None);
         window.navigate(url)?;
 
-        if let Some(saved) = app
+        let expansions = app
+            .try_state::<crate::WindowExpansions>()
+            .map(|expansions| expansions.take(window.label()))
+            .unwrap_or_default();
+        let saved = app
             .try_state::<crate::SavedFrames>()
-            .and_then(|frames| frames.take(window.label()))
-        {
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(error) =
-                    crate::commands::restore_saved_frame(&app, AppWindow::Main, Some(saved)).await
-                {
-                    tracing::warn!(%error, "failed to restore main window frame after webview reload");
-                }
-            });
+            .and_then(|frames| frames.take(window.label()));
+        if expansions.is_empty() && saved.is_none() {
+            return Ok(());
         }
+
+        let app = app.clone();
+        let label = window.label().to_string();
+        tauri::async_runtime::spawn(async move {
+            for entry in expansions.into_iter().rev() {
+                if let Err(error) = crate::commands::restore_expanded_width(&app, &label, entry) {
+                    tracing::warn!(%error, "failed to restore main window width after webview reload");
+                }
+            }
+            if let Some(saved) = saved
+                && let Err(error) =
+                    crate::commands::restore_saved_frame(&app, AppWindow::Main, Some(saved)).await
+            {
+                tracing::warn!(%error, "failed to restore main window frame after webview reload");
+            }
+        });
 
         Ok(())
     }
@@ -209,9 +222,8 @@ impl AppWindow {
                     let Some(state) = app.try_state::<WebviewHealthState>() else {
                         return;
                     };
-                    if state.begin_recovery(&label) {
-                        Self::recover_main_webview(&app, 1);
-                    }
+                    let attempt = state.retry_recovery(&label);
+                    Self::recover_main_webview(&app, attempt);
                 }
             });
         }

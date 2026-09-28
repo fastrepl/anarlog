@@ -96,6 +96,11 @@ impl WindowExpansions {
     fn remove(&self, label: &str) {
         self.0.lock().unwrap().remove(label);
     }
+
+    #[cfg(target_os = "macos")]
+    fn take(&self, label: &str) -> Vec<(f64, f64, f64)> {
+        self.0.lock().unwrap().remove(label).unwrap_or_default()
+    }
 }
 
 pub struct DockVisibilityState(AtomicBool);
@@ -138,11 +143,6 @@ struct WebviewHealthState {
 
 impl WebviewHealthState {
     fn register(&self, label: String) -> Option<(u64, String, oneshot::Receiver<()>)> {
-        let recovering = self.recovering.lock().unwrap();
-        if recovering.contains_key(&label) {
-            return None;
-        }
-
         let mut pending = self.pending.lock().unwrap();
         if pending.contains_key(&label) {
             return None;
@@ -152,7 +152,6 @@ impl WebviewHealthState {
         let registration_id = self.next_registration_id.fetch_add(1, Ordering::Relaxed);
         let request_id = uuid::Uuid::new_v4().to_string();
         pending.insert(label, (registration_id, request_id.clone(), tx));
-        drop(recovering);
 
         Some((registration_id, request_id, rx))
     }
@@ -183,16 +182,6 @@ impl WebviewHealthState {
             pending.remove(label);
         }
         is_match
-    }
-
-    fn begin_recovery(&self, label: &str) -> bool {
-        let mut recovering = self.recovering.lock().unwrap();
-        if recovering.contains_key(label) {
-            return false;
-        }
-        recovering.insert(label.to_string(), 1);
-        self.pending.lock().unwrap().remove(label);
-        true
     }
 
     fn retry_recovery(&self, label: &str) -> u8 {
@@ -424,25 +413,15 @@ mod test {
     }
 
     #[test]
-    fn webview_health_recovery_starts_once_and_blocks_probes() {
+    fn webview_recovery_attempts_count_until_ready() {
         let state = WebviewHealthState::default();
-        assert!(state.begin_recovery("main"));
-
-        assert!(state.register("main".into()).is_none());
-        assert!(!state.begin_recovery("main"));
-        state.ready("main");
         assert!(state.register("main".into()).is_some());
-    }
-
-    #[test]
-    fn webview_termination_retries_count_until_ready() {
-        let state = WebviewHealthState::default();
         assert_eq!(state.retry_recovery("main"), 1);
-        assert!(!state.begin_recovery("main"));
-        assert_eq!(state.retry_recovery("main"), 2);
-        assert!(state.register("main".into()).is_none());
-        state.ready("main");
+        assert!(state.pending.lock().unwrap().is_empty());
+
         assert!(state.register("main".into()).is_some());
+        assert_eq!(state.retry_recovery("main"), 2);
+        state.ready("main");
         assert_eq!(state.retry_recovery("main"), 1);
     }
 
