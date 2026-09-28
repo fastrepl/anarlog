@@ -218,7 +218,8 @@ pub use conflicts::{
 };
 use cooperative::yield_once;
 pub use replica_apply::{
-    apply_e2ee_replica_changes, apply_e2ee_replica_changes_with_witness,
+    E2eeReceivedApplyOptions, apply_e2ee_replica_changes, apply_e2ee_replica_changes_with_witness,
+    apply_received_e2ee_replica_changes_with_options_cancellable,
     apply_received_e2ee_replica_changes_with_witness,
     apply_received_e2ee_replica_changes_with_witness_cancellable,
 };

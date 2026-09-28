@@ -469,10 +469,13 @@ impl PluginDbRuntime {
                                 );
                             }
                             let keys = e2ee_sync_hook.snapshot();
-                            let apply = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
+                            let apply = anlg_db_app::apply_received_e2ee_replica_changes_with_options_cancellable(
                                 db.pool(),
                                 &keys,
-                                false,
+                                anlg_db_app::E2eeReceivedApplyOptions {
+                                    snapshot_complete: true,
+                                    repair_witness: false,
+                                },
                                 || cloudsync_recovery_cancelled(&recovery_cancelled),
                             )
                             .await

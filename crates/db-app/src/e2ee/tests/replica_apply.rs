@@ -424,7 +424,7 @@ async fn completed_snapshots_repair_large_witness_sets_in_bounded_cycles() {
         let stats = apply_received_e2ee_replica_changes_with_witness_bounded(
             target.pool(),
             &workspace_keys,
-            true,
+            E2eeReceivedApplyOptions::from_snapshot_complete(true),
             64,
             max_repair_bytes,
             &|| false,

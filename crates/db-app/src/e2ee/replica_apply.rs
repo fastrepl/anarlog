@@ -66,16 +66,53 @@ pub async fn apply_received_e2ee_replica_changes_with_witness(
     .await
 }
 
+/// How a received-replica apply round treats the CloudSync snapshot.
+///
+/// `snapshot_complete` says every record of the snapshot has been downloaded,
+/// so rows absent locally may be materialized (and rows parked while the
+/// download was incomplete are requeued first). `repair_witness` runs the
+/// bounded witness repair before applying; callers that drive witness repair
+/// themselves (CloudSync recovery) turn it off.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct E2eeReceivedApplyOptions {
+    pub snapshot_complete: bool,
+    pub repair_witness: bool,
+}
+
+impl E2eeReceivedApplyOptions {
+    pub fn from_snapshot_complete(snapshot_complete: bool) -> Self {
+        Self {
+            snapshot_complete,
+            repair_witness: snapshot_complete,
+        }
+    }
+}
+
 pub async fn apply_received_e2ee_replica_changes_with_witness_cancellable(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKeyring>,
     snapshot_complete: bool,
     is_cancelled: impl Fn() -> bool + Sync,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
+    apply_received_e2ee_replica_changes_with_options_cancellable(
+        pool,
+        keys,
+        E2eeReceivedApplyOptions::from_snapshot_complete(snapshot_complete),
+        is_cancelled,
+    )
+    .await
+}
+
+pub async fn apply_received_e2ee_replica_changes_with_options_cancellable(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKeyring>,
+    options: E2eeReceivedApplyOptions,
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<E2eeReplicaStats> {
     apply_received_e2ee_replica_changes_with_witness_bounded(
         pool,
         keys,
-        snapshot_complete,
+        options,
         E2EE_WITNESS_REPAIR_RECORD_LIMIT,
         E2EE_WITNESS_REPAIR_BYTE_LIMIT,
         &is_cancelled,
@@ -86,13 +123,17 @@ pub async fn apply_received_e2ee_replica_changes_with_witness_cancellable(
 pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKeyring>,
-    snapshot_complete: bool,
+    options: E2eeReceivedApplyOptions,
     max_repair_records: i64,
     max_repair_bytes: usize,
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
+    let E2eeReceivedApplyOptions {
+        snapshot_complete,
+        repair_witness,
+    } = options;
     check_e2ee_apply_cancellation(is_cancelled)?;
-    let repair = if snapshot_complete {
+    let repair = if repair_witness {
         repair_e2ee_replica_from_witness_bounded_cancellable(
             pool,
             keys,

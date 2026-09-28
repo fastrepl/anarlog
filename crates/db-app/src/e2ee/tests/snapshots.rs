@@ -393,11 +393,21 @@ async fn fresh_device_parks_new_rows_until_the_snapshot_download_completes() {
     assert!(parked > 0);
 
     copy_replica(source.pool(), fresh.pool()).await;
-    let stats =
-        apply_received_e2ee_replica_changes_with_witness(fresh.pool(), &workspace_keys, true)
-            .await
-            .unwrap();
+    // CloudSync recovery drives witness repair itself but still reports a
+    // complete snapshot, so parked rows must be requeued on that path too.
+    let stats = apply_received_e2ee_replica_changes_with_options_cancellable(
+        fresh.pool(),
+        &workspace_keys,
+        E2eeReceivedApplyOptions {
+            snapshot_complete: true,
+            repair_witness: false,
+        },
+        || false,
+    )
+    .await
+    .unwrap();
     assert_eq!(stats.deferred_incomplete_snapshot_rows, 0);
+    assert_eq!(stats.repaired_witness_records, 0);
 
     let (title, created_at): (String, String) =
         sqlx::query_as("SELECT title, created_at FROM sessions WHERE id = 'session-1'")
