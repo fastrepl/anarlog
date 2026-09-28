@@ -346,7 +346,14 @@ const createProviderModel = (
         oauth
           ? wrapLanguageModel({
               model,
-              middleware: streamOnlyGenerationMiddleware,
+              middleware: [
+                // The SDK must serialize history as stateless before fetch
+                // enforces the Codex request contract.
+                defaultSettingsMiddleware({
+                  settings: { providerOptions: { openai: { store: false } } },
+                }),
+                streamOnlyGenerationMiddleware,
+              ],
             })
           : model,
       );
