@@ -96,6 +96,44 @@ describe("enhanceTransform.transformArgs", () => {
     consoleError.mockRestore();
   });
 
+  it("keeps the renderer's channel grouping in generated-note transcript context", async () => {
+    mocks.buildRenderTranscriptRequestFromRows.mockReturnValue({
+      transcripts: [],
+    });
+    mocks.renderTranscriptSegments.mockResolvedValue([
+      {
+        speaker_label: "Speaker 1",
+        text: "Mic early",
+        start_ms: 0,
+        end_ms: 400,
+        words: [{ text: "Mic early", start_ms: 0, end_ms: 400 }],
+      },
+      {
+        speaker_label: "Speaker 1",
+        text: "Mic later",
+        start_ms: 29_500,
+        end_ms: 29_900,
+        words: [{ text: "Mic later", start_ms: 29_500, end_ms: 29_900 }],
+      },
+      {
+        speaker_label: "Speaker 2",
+        text: "Remote early",
+        start_ms: 0,
+        end_ms: 400,
+        words: [{ text: "Remote early", start_ms: 0, end_ms: 400 }],
+      },
+    ]);
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      settingsValues,
+    );
+
+    expect(
+      result.transcripts[0]?.segments.map((segment) => segment.text),
+    ).toEqual(["Mic early", "Mic later", "Remote early"]);
+  });
+
   it("uses the selected template when it can be loaded", async () => {
     mocks.getTemplateById.mockResolvedValue({
       title: "Standup",

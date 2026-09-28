@@ -12,9 +12,11 @@ vi.mock("@anlg/plugin-transcription", () => ({
 
 import {
   buildRenderTranscriptRequestFromRows,
+  buildUnsplitRenderTranscriptRequestFromRows,
   collectAssignedHumanIdsFromTranscriptRows,
   getRenderTranscriptRequestKey,
   renderTranscriptSegments,
+  resolveScopedWordHumanIds,
   type TranscriptRow,
 } from "./render-transcript";
 
@@ -211,6 +213,59 @@ describe("buildRenderTranscriptRequestFromRows", () => {
       " Hello",
       " world.",
     ]);
+  });
+
+  it("keeps identity and refinement inputs whole across synthetic channels", () => {
+    const rows = [
+      {
+        words: [
+          {
+            id: "mic",
+            text: " Mic",
+            start_ms: 0,
+            end_ms: 400,
+            channel: 0,
+            metadata: {
+              timing: { source: "synthetic_text", chunk_start_ms: 0 },
+            },
+          },
+          {
+            id: "remote",
+            text: " Remote",
+            start_ms: 0,
+            end_ms: 400,
+            channel: 1,
+            metadata: {
+              timing: { source: "synthetic_text", chunk_start_ms: 0 },
+            },
+          },
+        ],
+        speaker_hints: [
+          {
+            word_id: "remote",
+            type: "user_speaker_assignment",
+            value: {
+              human_id: "alice",
+              scope: "segment",
+              word_ids: ["remote"],
+            },
+          },
+        ],
+      },
+    ];
+
+    expect(
+      buildRenderTranscriptRequestFromRows(rows)?.transcripts,
+    ).toHaveLength(2);
+    const unsplit = buildUnsplitRenderTranscriptRequestFromRows(rows);
+    expect(unsplit?.transcripts).toHaveLength(1);
+    expect(unsplit?.transcripts[0]?.words.map((word) => word.id)).toEqual([
+      "mic",
+      "remote",
+    ]);
+    expect(
+      resolveScopedWordHumanIds(unsplit!.transcripts[0]!).get("remote"),
+    ).toBe("alice");
   });
 
   it("keeps genuinely timed channels in one chronological render input", () => {
@@ -776,11 +831,23 @@ describe("buildRenderTranscriptRequestFromRows", () => {
       "segment-remote-3",
     ]);
 
-    const mixed = structuredClone(request!);
-    (mixed.transcripts[0]!.words[0] as { metadata?: unknown }).metadata = {
+    const mixedWords = structuredClone(
+      request!.transcripts
+        .slice(0, 2)
+        .flatMap((transcript) => transcript.words),
+    );
+    (mixedWords[0] as { metadata?: unknown }).metadata = {
       timing: { source: "provider_word" },
     };
-    const genuinelyTimed = await renderTranscriptSegments(mixed);
+    const mixed = buildRenderTranscriptRequestFromRows([
+      { words: mixedWords },
+      {
+        words: request!.transcripts
+          .slice(2)
+          .flatMap((transcript) => transcript.words),
+      },
+    ]);
+    const genuinelyTimed = await renderTranscriptSegments(mixed!);
     expect(genuinelyTimed.map((segment) => segment.words[0]?.id)).toEqual([
       "mic-1",
       "remote-1",
@@ -863,6 +930,142 @@ describe("buildRenderTranscriptRequestFromRows", () => {
       "segment-remote-1",
       "segment-remote-2",
       "segment-mic-3",
+    ]);
+  });
+
+  it("orders chunk starts using each transcript row's started-at offset", async () => {
+    const rendered = (
+      id: string,
+      channel: "DirectMic" | "RemoteParty",
+      start_ms: number,
+    ) => ({
+      id: `segment-${id}`,
+      key: { channel, speaker_index: null, speaker_human_id: null },
+      speaker_label: channel,
+      start_ms,
+      end_ms: start_ms + 400,
+      text: id,
+      words: [
+        {
+          id,
+          text: id,
+          start_ms,
+          end_ms: start_ms + 400,
+          channel,
+          is_final: true,
+        },
+      ],
+    });
+    renderTranscriptSegmentsCommand.mockResolvedValue({
+      status: "ok",
+      data: [
+        rendered("early-mic", "DirectMic", 29_500),
+        rendered("early-remote", "RemoteParty", 29_500),
+        rendered("later-mic", "DirectMic", 59_000),
+        rendered("later-remote", "RemoteParty", 59_000),
+      ],
+    });
+    const word = (id: string, channel: number, chunk_start_ms: number) => ({
+      id,
+      text: id,
+      start_ms: chunk_start_ms,
+      end_ms: chunk_start_ms + 400,
+      channel,
+      metadata: { timing: { source: "synthetic_text", chunk_start_ms } },
+    });
+    const request = buildRenderTranscriptRequestFromRows([
+      {
+        started_at: 1_000,
+        words: [word("early-mic", 0, 29_500), word("early-remote", 1, 29_500)],
+      },
+      {
+        started_at: 60_000,
+        words: [word("later-mic", 0, 0), word("later-remote", 1, 0)],
+      },
+    ]);
+
+    const segments = await renderTranscriptSegments(request!);
+    expect(segments.map((segment) => segment.words[0]?.id)).toEqual([
+      "early-mic",
+      "early-remote",
+      "later-mic",
+      "later-remote",
+    ]);
+  });
+
+  it("groups a legacy synthetic portion beside a genuinely timed row", async () => {
+    const rendered = (
+      id: string,
+      channel: "DirectMic" | "RemoteParty",
+      start_ms: number,
+    ) => ({
+      id: `segment-${id}`,
+      key: { channel, speaker_index: null, speaker_human_id: null },
+      speaker_label: channel,
+      start_ms,
+      end_ms: start_ms + 400,
+      text: id,
+      words: [
+        {
+          id,
+          text: id,
+          start_ms,
+          end_ms: start_ms + 400,
+          channel,
+          is_final: true,
+        },
+      ],
+    });
+    renderTranscriptSegmentsCommand.mockResolvedValue({
+      status: "ok",
+      data: [
+        rendered("mic-1", "DirectMic", 0),
+        rendered("remote-1", "RemoteParty", 0),
+        rendered("mic-2", "DirectMic", 29_500),
+        rendered("remote-2", "RemoteParty", 29_500),
+        rendered("timed", "RemoteParty", 59_000),
+      ],
+    });
+    const legacy = (id: string, start_ms: number, channel: number) => ({
+      id,
+      text: id,
+      start_ms,
+      end_ms: start_ms + 400,
+      channel,
+      metadata: { timing: { source: "synthetic_text" } },
+    });
+    const request = buildRenderTranscriptRequestFromRows([
+      {
+        started_at: 1_000,
+        words: [
+          legacy("mic-1", 0, 0),
+          legacy("remote-1", 0, 1),
+          legacy("mic-2", 29_500, 0),
+          legacy("remote-2", 29_500, 1),
+        ],
+      },
+      {
+        started_at: 60_000,
+        words: [
+          {
+            id: "timed",
+            text: " Timed",
+            start_ms: 0,
+            end_ms: 400,
+            channel: 1,
+            metadata: { timing: { source: "provider_word" } },
+          },
+        ],
+      },
+    ]);
+
+    const segments = await renderTranscriptSegments(request!);
+    expect(segments.map((segment) => segment.words[0]?.id)).toEqual([
+      "mic-1",
+      "mic-2",
+      "remote-1",
+      "remote-2",
+      "timed",
     ]);
   });
 });

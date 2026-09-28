@@ -44,7 +44,7 @@ import {
   type TranscriptRecord,
 } from "~/stt/queries";
 import {
-  buildRenderTranscriptRequestFromRows,
+  buildUnsplitRenderTranscriptRequestFromRows,
   resolveScopedWordHumanIds,
 } from "~/stt/render-transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
@@ -548,7 +548,7 @@ function reconcileRefinedSpeakerAssignments(
     !source.speakerHints.some((hint) => hint.type === "user_speaker_assignment")
   )
     return hints;
-  const previous = buildRenderTranscriptRequestFromRows([
+  const previous = buildUnsplitRenderTranscriptRequestFromRows([
     {
       words: source.words,
       speaker_hints: source.speakerHints.filter(
@@ -556,7 +556,7 @@ function reconcileRefinedSpeakerAssignments(
       ),
     },
   ])?.transcripts[0];
-  const next = buildRenderTranscriptRequestFromRows([
+  const next = buildUnsplitRenderTranscriptRequestFromRows([
     { words, speaker_hints: hints },
   ])?.transcripts[0];
   if (!previous || !next) return hints;

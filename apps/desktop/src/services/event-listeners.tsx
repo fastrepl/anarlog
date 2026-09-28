@@ -30,7 +30,7 @@ import {
   getLiveTranscriptionConfig,
   getTranscriptionLanguages,
 } from "~/stt/capabilities";
-import { buildRenderTranscriptRequestFromRows } from "~/stt/render-transcript";
+import { buildUnsplitRenderTranscriptRequestFromRows } from "~/stt/render-transcript";
 import { parseSpeakerContext } from "~/stt/speaker-context";
 
 type CaptureIdentitySqlRow = {
@@ -212,7 +212,7 @@ function getLiveSpeakerAssignments(
     return [];
   }
 
-  const request = buildRenderTranscriptRequestFromRows([
+  const request = buildUnsplitRenderTranscriptRequestFromRows([
     {
       started_at: Number(row.started_at_ms),
       words: parseJsonArray(row.words_json),

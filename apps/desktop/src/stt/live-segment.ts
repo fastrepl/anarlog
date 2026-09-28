@@ -249,6 +249,10 @@ export function mergeRenderedAndLiveSegments(
     );
   });
 
+  if (liveSegments.length === 0) {
+    return renderedOnlySegments;
+  }
+
   return [...renderedOnlySegments, ...liveSegments].sort(
     (a, b) => a.start_ms - b.start_ms || a.end_ms - b.end_ms,
   );

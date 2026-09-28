@@ -536,6 +536,41 @@ describe("reconcileRefinedSpeakerClusters", () => {
   const fullSpeaker = () =>
     assignment({ scope: "speaker", channel: 1, speaker_index: 0 });
 
+  test("retains a remote manual assignment when synthetic channels are split for display", () => {
+    const synthetic = (id: string, channel: number): WordWithId => ({
+      ...word(id, 0, 100, channel),
+      metadata: JSON.stringify({ timing: { source: "synthetic_text", chunk_start_ms: 0 } }),
+    });
+    const source = [synthetic("old-mic", 0), synthetic("old-remote", 1)];
+    const replacement = [synthetic("new-mic", 0), synthetic("new-remote", 1)];
+    const result = refineAssignments(
+      source,
+      [
+        {
+          id: "old-remote:user_speaker_assignment:segment",
+          word_id: "old-remote",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "alice",
+            scope: "segment",
+            word_ids: ["old-remote"],
+          }),
+        },
+      ],
+      replacement,
+      [],
+    );
+
+    expect(result).toEqual([
+      {
+        word_id: "new-remote",
+        human_id: "alice",
+        scope: "segment",
+        word_ids: ["new-remote"],
+      },
+    ]);
+  });
+
   test.each([1, 2])(
     "reanchors manual names to validated replacement words on channel %s",
     (channel) => {

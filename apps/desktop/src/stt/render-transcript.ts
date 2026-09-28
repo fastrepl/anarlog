@@ -51,43 +51,108 @@ export async function renderTranscriptSegments(
   }
 
   const segments = attachWordMetadata(result.data, metadataByWordId);
-  if (hasLegacySyntheticMultiChannelTiming(normalizedRequest)) {
-    return groupLegacySyntheticSegmentsByChannel(normalizedRequest, segments);
-  }
-  return groupSyntheticChunkSegments(normalizedRequest, segments);
+  return orderSyntheticTranscriptSegments(normalizedRequest, segments);
 }
 
-function groupSyntheticChunkSegments(
+function orderSyntheticTranscriptSegments(
   request: RenderTranscriptRequest,
   segments: RenderedTranscriptSegmentWithWordMetadata[],
 ): RenderedTranscriptSegmentWithWordMetadata[] {
+  const startedAt = request.transcripts
+    .map((transcript) => transcript.started_at)
+    .filter((value): value is number => typeof value === "number");
+  const baseStartedAt = startedAt.length ? Math.min(...startedAt) : 0;
+  const sourceByWordId = new Map<
+    string,
+    { offsetMs: number; transcriptIndex: number; legacyRun: number | null }
+  >();
+  const legacyRuns = new Map<
+    number,
+    { startMs: number; channels: Set<number> }
+  >();
   const channels = new Set<number>();
-  let hasSyntheticChunk = false;
-  for (const transcript of request.transcripts) {
-    for (const word of transcript.words) {
+  let hasCompleteSyntheticChunk = false;
+  let legacyRun = -1;
+  let previousWasLegacy = false;
+  request.transcripts.forEach((transcript, transcriptIndex) => {
+    const offsetMs =
+      transcript.started_at == null ? 0 : transcript.started_at - baseStartedAt;
+    const timings = transcript.words.map((word) =>
+      syntheticTiming((word as { metadata?: unknown }).metadata),
+    );
+    const isLegacy =
+      timings.length > 0 &&
+      timings.every((timing) => timing.isSynthetic) &&
+      timings.some((timing) => timing.chunkStartMs === null);
+    if (isLegacy && !previousWasLegacy) legacyRun += 1;
+    previousWasLegacy = isLegacy;
+    transcript.words.forEach((word, index) => {
       channels.add(word.channel);
-      const timing = syntheticTiming((word as { metadata?: unknown }).metadata);
-      if (!timing.isSynthetic) continue;
-      if (timing.chunkStartMs === null) {
-        return segments;
+      const timing = timings[index];
+      hasCompleteSyntheticChunk ||=
+        timing.isSynthetic && timing.chunkStartMs !== null;
+      sourceByWordId.set(word.id, {
+        offsetMs,
+        transcriptIndex,
+        legacyRun: isLegacy ? legacyRun : null,
+      });
+      if (isLegacy) {
+        const run = legacyRuns.get(legacyRun) ?? {
+          startMs: Infinity,
+          channels: new Set<number>(),
+        };
+        run.startMs = Math.min(run.startMs, word.start_ms + offsetMs);
+        run.channels.add(word.channel);
+        legacyRuns.set(legacyRun, run);
       }
-      hasSyntheticChunk = true;
-    }
+    });
+  });
+  const hasMultiChannelLegacy = [...legacyRuns.values()].some(
+    (run) => run.channels.size > 1,
+  );
+  if (
+    !hasMultiChannelLegacy &&
+    !(channels.size > 1 && hasCompleteSyntheticChunk)
+  ) {
+    return segments;
   }
-  if (channels.size < 2 || !hasSyntheticChunk) return segments;
 
   const channelOrder = { DirectMic: 0, RemoteParty: 1, MixedCapture: 2 };
-  return [...segments].sort((left, right) => {
-    const leftTiming = syntheticTiming(left.words[0]?.metadata);
-    const rightTiming = syntheticTiming(right.words[0]?.metadata);
-    const leftStart = leftTiming.chunkStartMs ?? left.start_ms;
-    const rightStart = rightTiming.chunkStartMs ?? right.start_ms;
+  const sortKey = (segment: RenderedTranscriptSegmentWithWordMetadata) => {
+    const firstWord = segment.words[0];
+    const source = sourceByWordId.get(firstWord?.id ?? "");
+    const timing = syntheticTiming(firstWord?.metadata);
+    const run =
+      source?.legacyRun == null ? undefined : legacyRuns.get(source.legacyRun);
+    const groupedLegacy = Boolean(run && run.channels.size > 1);
+    return {
+      startMs: groupedLegacy
+        ? run!.startMs
+        : timing.chunkStartMs == null
+          ? segment.start_ms
+          : timing.chunkStartMs + (source?.offsetMs ?? 0),
+      group: groupedLegacy ? 0 : timing.chunkStartMs !== null ? 1 : 2,
+      legacyRun: source?.legacyRun ?? -1,
+      channel: channelOrder[segment.key.channel],
+      transcriptIndex: source?.transcriptIndex ?? -1,
+      wordStartMs: segment.start_ms,
+    };
+  };
+  return [...segments].sort((leftSegment, rightSegment) => {
+    const left = sortKey(leftSegment);
+    const right = sortKey(rightSegment);
     return (
-      leftStart - rightStart ||
-      Number(rightTiming.isSynthetic) - Number(leftTiming.isSynthetic) ||
-      (leftTiming.isSynthetic && rightTiming.isSynthetic
-        ? channelOrder[left.key.channel] - channelOrder[right.key.channel]
-        : 0)
+      left.startMs - right.startMs ||
+      left.group - right.group ||
+      (left.group === 0 && right.group === 0
+        ? left.legacyRun - right.legacyRun ||
+          left.channel - right.channel ||
+          left.transcriptIndex - right.transcriptIndex
+        : 0) ||
+      (left.group === 1 && right.group === 1
+        ? left.channel - right.channel
+        : 0) ||
+      left.wordStartMs - right.wordStartMs
     );
   });
 }
@@ -111,62 +176,6 @@ function syntheticTiming(metadata: unknown): {
         ? record.chunk_start_ms
         : null,
   };
-}
-
-function hasLegacySyntheticMultiChannelTiming(
-  request: RenderTranscriptRequest,
-): boolean {
-  const channels = new Set<number>();
-  let missingChunkStart = false;
-  let wordCount = 0;
-
-  for (const transcript of request.transcripts) {
-    for (const word of transcript.words) {
-      wordCount += 1;
-      channels.add(word.channel);
-      const metadata = normalizeWordMetadata(
-        (word as { metadata?: unknown }).metadata,
-      );
-      const timing = metadata?.timing;
-      if (
-        !timing ||
-        typeof timing !== "object" ||
-        Array.isArray(timing) ||
-        (timing as Record<string, unknown>).source !== "synthetic_text"
-      ) {
-        return false;
-      }
-      const chunkStart = (timing as Record<string, unknown>).chunk_start_ms;
-      missingChunkStart ||=
-        typeof chunkStart !== "number" || !Number.isFinite(chunkStart);
-    }
-  }
-
-  return wordCount > 0 && channels.size > 1 && missingChunkStart;
-}
-
-function groupLegacySyntheticSegmentsByChannel(
-  request: RenderTranscriptRequest,
-  segments: RenderedTranscriptSegmentWithWordMetadata[],
-): RenderedTranscriptSegmentWithWordMetadata[] {
-  const transcriptIndexByWordId = new Map<string, number>();
-  request.transcripts.forEach((transcript, index) => {
-    transcript.words.forEach((word) =>
-      transcriptIndexByWordId.set(word.id, index),
-    );
-  });
-  const channelOrder = { DirectMic: 0, RemoteParty: 1, MixedCapture: 2 };
-  return [...segments].sort((left, right) => {
-    const leftTranscript =
-      transcriptIndexByWordId.get(left.words[0]?.id ?? "") ?? 0;
-    const rightTranscript =
-      transcriptIndexByWordId.get(right.words[0]?.id ?? "") ?? 0;
-    return (
-      channelOrder[left.key.channel] - channelOrder[right.key.channel] ||
-      leftTranscript - rightTranscript ||
-      left.start_ms - right.start_ms
-    );
-  });
 }
 
 export function getRenderTranscriptRequestKey(
@@ -274,6 +283,14 @@ export function buildRenderTranscriptRequestFromRows(
     : request;
 }
 
+// Identity and refinement callers need every word in its original row. Only
+// display rendering should split synthetic words into channel/chunk inputs.
+export function buildUnsplitRenderTranscriptRequestFromRows(
+  transcripts: TranscriptRow[],
+): RenderTranscriptRequest | null {
+  return buildRenderTranscriptRequest(transcripts, undefined, undefined, false);
+}
+
 export function resolveScopedWordHumanIds(
   transcript: RenderTranscriptInput,
 ): Map<string, string> {
@@ -342,6 +359,7 @@ function buildRenderTranscriptRequest(
   transcripts: TranscriptRow[],
   humans?: RenderTranscriptRequestHumans,
   participantHumanIds?: string[],
+  splitSynthetic = true,
 ): RenderTranscriptRequest | null {
   if (transcripts.length === 0) {
     return null;
@@ -419,7 +437,9 @@ function buildRenderTranscriptRequest(
       assignments,
     };
     normalizedTranscripts.push(
-      ...splitSyntheticTranscriptByChannelChunk(normalizedTranscript),
+      ...(splitSynthetic
+        ? splitSyntheticTranscriptByChannelChunk(normalizedTranscript)
+        : [normalizedTranscript]),
     );
   }
 
