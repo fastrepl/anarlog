@@ -1,6 +1,6 @@
 ---
-title: "Models and providers"
-description: "See which models Anarlog uses for transcription, summaries, and chat."
+title: 'Models and providers'
+description: 'See which models Anarlog uses for transcription, summaries, and chat.'
 ---
 
 Anarlog does not hide one model behind the whole app. It keeps two independent selections:
@@ -64,6 +64,8 @@ Anarlog currently offers three built-in on-device Transcription providers. Setti
 | Soniqo | Parakeet Batch | After recording | Apple Silicon; speaker-labeled transcription for 25 European languages. Prefer this for hour-long calls. |
 | Apple Speech | Apple Speech | During the meeting | macOS 26 with a supported language added in System Settings. Live transcription uses one language at a time from German, English, Spanish, French, Italian, Japanese, Korean, Portuguese, Cantonese, or Chinese. |
 | On-device file | A whisper.cpp `.bin` you select | After recording | Apple Silicon. In Settings this is labeled **On-device file**, with **Choose a .bin model** for the file picker. transcribe.cpp `.gguf` files are not supported yet. |
+
+Parakeet Batch does not always provide word-level audio timestamps. When it returns text without a usable speech alignment, Anarlog keeps the individual words editable and groups the display by audio channel and processing chunk. The order between channels within a chunk is uncertain, and those words cannot be used for precise audio seeking. Speech-aligned words retain their timing.
 
 You can also keep audio on your network by pointing **Custom**, or Deepgram's **Advanced** base URL, at a Deepgram-compatible server on this computer or your local network.
 

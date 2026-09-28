@@ -671,6 +671,151 @@ describe("General Listener Slice", () => {
       expect(store.getState().batch[sessionId]).toBeUndefined();
     });
 
+    test("handleBatchResponse keeps synthetic chunk provenance on individual words", () => {
+      const sessionId = "session-synthetic-channel-chunks";
+      const persist = vi.fn();
+      const { handleBatchStarted, handleBatchResponse, setBatchPersist } =
+        store.getState();
+      handleBatchStarted(sessionId);
+      setBatchPersist(sessionId, persist);
+
+      const channel = (transcript: string, channelIndex: number) => ({
+        alternatives: [
+          {
+            transcript,
+            confidence: 1,
+            words: transcript.split(" ").map((word, index) => ({
+              word,
+              punctuated_word: word,
+              start: index * 0.4,
+              end: (index + 1) * 0.4,
+              confidence: 1,
+              channel: channelIndex,
+              speaker: null,
+            })),
+          },
+        ],
+      });
+      handleBatchResponse(sessionId, {
+        metadata: {
+          duration: 29.5,
+          timing_source: "synthetic_text",
+          timing_sources_by_channel: ["synthetic_text", "synthetic_text"],
+          synthetic_chunks: [
+            { channel: 0, start_seconds: 0, end_seconds: 29.5 },
+            { channel: 1, start_seconds: 0, end_seconds: 29.5 },
+          ],
+        },
+        results: {
+          channels: [channel("mic words", 0), channel("remote words", 1)],
+        },
+      });
+
+      const words = persist.mock.calls[0]?.[0];
+      expect(words).toHaveLength(4);
+      expect(words.map((word: { text: string }) => word.text.trim())).toEqual([
+        "mic",
+        "words",
+        "remote",
+        "words",
+      ]);
+      expect(
+        words.map(
+          (word: { metadata: { timing: unknown } }) => word.metadata.timing,
+        ),
+      ).toEqual(Array(4).fill({ source: "synthetic_text", chunk_start_ms: 0 }));
+    });
+
+    test("handleBatchResponse keeps mixed channel timing sources separate", () => {
+      const sessionId = "session-mixed-channel-timing";
+      const persist = vi.fn();
+      const { handleBatchStarted, handleBatchResponse, setBatchPersist } =
+        store.getState();
+      handleBatchStarted(sessionId);
+      setBatchPersist(sessionId, persist);
+      handleBatchResponse(sessionId, {
+        metadata: {
+          timing_source: "diarized_speech",
+          timing_sources_by_channel: [
+            "synthetic_text",
+            "provider_segment_interpolated",
+          ],
+          synthetic_chunks: [
+            { channel: 0, start_seconds: 0, end_seconds: 29.5 },
+            { channel: 1, start_seconds: 0, end_seconds: 29.5 },
+          ],
+        },
+        results: {
+          channels: [
+            {
+              alternatives: [
+                {
+                  transcript: "mic",
+                  confidence: 1,
+                  words: [
+                    {
+                      word: "mic",
+                      punctuated_word: "mic",
+                      start: 0,
+                      end: 0.4,
+                      confidence: 1,
+                      channel: 0,
+                      speaker: null,
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              alternatives: [
+                {
+                  transcript: "remote fallback",
+                  confidence: 1,
+                  words: [
+                    {
+                      word: "remote",
+                      punctuated_word: "remote",
+                      start: 1,
+                      end: 2,
+                      confidence: 1,
+                      channel: 1,
+                      speaker: 0,
+                    },
+                    {
+                      word: "fallback",
+                      punctuated_word: "fallback",
+                      start: 2,
+                      end: 2.4,
+                      confidence: 1,
+                      channel: 1,
+                      speaker: null,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      const [words, hints] = persist.mock.calls[0] ?? [];
+      expect(
+        words?.map(
+          (word: { metadata: { timing: unknown } }) => word.metadata.timing,
+        ),
+      ).toEqual([
+        { source: "synthetic_text", chunk_start_ms: 0 },
+        { source: "provider_segment_interpolated" },
+        { source: "synthetic_text", chunk_start_ms: 0 },
+      ]);
+      expect(hints).toEqual([
+        {
+          wordIndex: 1,
+          data: { type: "provider_speaker_index", speaker_index: 0 },
+        },
+      ]);
+    });
+
     test("handleBatchResponseStreamed replaces preview with transcript-only result", () => {
       const sessionId = "session-transcript-only-result";
       const persist = vi.fn();

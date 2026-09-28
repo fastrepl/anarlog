@@ -211,6 +211,100 @@ fn batch_response_offsets_synthetic_words_by_chunk_start() {
 }
 
 #[test]
+fn multichannel_synthetic_response_preserves_words_and_exposes_chunk_boundaries() {
+    let channel = |text: &str| {
+        FileTranscript::from_chunks(
+            vec![FileTranscriptChunk {
+                text: text.to_string(),
+                start_seconds: 29.5,
+                duration_seconds: 29.5,
+            }],
+            59.0,
+        )
+    };
+    let response = batch_response_from_channels(
+        SoniqoModel::ParakeetBatch,
+        vec![channel("mic first."), channel("remote second.")],
+    );
+
+    assert_eq!(response.metadata["timing_source"], "synthetic_text");
+    assert_eq!(
+        response.metadata["synthetic_chunks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(response.metadata["synthetic_chunks"][0]["channel"], 0);
+    assert_eq!(
+        response.metadata["synthetic_chunks"][0]["start_seconds"],
+        29.5
+    );
+    assert_eq!(
+        response.metadata["synthetic_chunks"][0]["end_seconds"],
+        59.0
+    );
+    assert_eq!(response.metadata["synthetic_chunks"][1]["channel"], 1);
+    let mic_words = &response.results.channels[0].alternatives[0].words;
+    let remote_words = &response.results.channels[1].alternatives[0].words;
+    assert_eq!(mic_words.len(), 2);
+    assert_eq!(remote_words.len(), 2);
+    assert_eq!(mic_words[0].word, "mic");
+    assert_eq!(mic_words[1].word, "first.");
+    assert_eq!(remote_words[0].word, "remote");
+}
+
+#[test]
+fn mixed_channel_diarization_marks_only_unaligned_channel_synthetic() {
+    let mic = FileTranscript::from_chunks(
+        vec![FileTranscriptChunk {
+            text: "mic words".to_string(),
+            start_seconds: 0.0,
+            duration_seconds: 4.0,
+        }],
+        4.0,
+    );
+    let mut remote = FileTranscript::from_chunks(
+        vec![FileTranscriptChunk {
+            text: "remote words".to_string(),
+            start_seconds: 0.0,
+            duration_seconds: 4.0,
+        }],
+        4.0,
+    );
+    remote.speaker_segments = vec![DiarizationSegment {
+        start_seconds: 0.0,
+        end_seconds: 4.0,
+        speaker_index: 0,
+    }];
+    let response = batch_response_from_channels(SoniqoModel::ParakeetBatch, vec![mic, remote]);
+
+    assert_eq!(
+        response.metadata["timing_sources_by_channel"][0],
+        "synthetic_text"
+    );
+    assert_eq!(
+        response.metadata["timing_sources_by_channel"][1],
+        "provider_segment_interpolated"
+    );
+    assert_eq!(
+        response.metadata["synthetic_chunks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(response.metadata["synthetic_chunks"][0]["channel"], 0);
+    assert_eq!(response.results.channels[0].alternatives[0].words.len(), 2);
+    assert!(
+        response.results.channels[1].alternatives[0]
+            .words
+            .iter()
+            .all(|word| word.speaker == Some(0))
+    );
+}
+
+#[test]
 fn batch_response_aligns_words_to_diarized_speech() {
     let mut transcript = FileTranscript::from_chunks(
         vec![FileTranscriptChunk {
@@ -244,6 +338,7 @@ fn batch_response_aligns_words_to_diarized_speech() {
     assert!(words[0].start >= 1.0);
     assert!(words[3].start >= 6.0);
     assert_eq!(response.metadata["timing_source"], "diarized_speech");
+    assert!(response.metadata.get("synthetic_chunks").is_none());
 }
 
 #[test]

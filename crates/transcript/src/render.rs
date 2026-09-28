@@ -437,6 +437,55 @@ mod tests {
     }
 
     #[test]
+    fn grouped_channel_inputs_keep_words_in_sentence_segments() {
+        let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
+            transcripts: vec![
+                RenderTranscriptInput {
+                    started_at: Some(0),
+                    words: vec![
+                        word("mic-1", " Hello", 0, 400, 0),
+                        word("mic-2", " world.", 400, 800, 0),
+                    ],
+                    assignments: vec![],
+                },
+                RenderTranscriptInput {
+                    started_at: Some(0),
+                    words: vec![
+                        word("remote-1", " Remote", 0, 400, 1),
+                        word("remote-2", " reply.", 400, 800, 1),
+                    ],
+                    assignments: vec![],
+                },
+            ],
+            participant_human_ids: vec![],
+            self_human_id: None,
+            humans: vec![],
+        });
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].text, "Hello world.");
+        assert_eq!(segments[1].text, "Remote reply.");
+        assert_eq!(
+            segments[0]
+                .words
+                .iter()
+                .map(|word| word.id.as_deref())
+                .collect::<Vec<_>>(),
+            vec![Some("mic-1"), Some("mic-2")]
+        );
+        assert_eq!(
+            segments[1]
+                .words
+                .iter()
+                .map(|word| word.id.as_deref())
+                .collect::<Vec<_>>(),
+            vec![Some("remote-1"), Some("remote-2")]
+        );
+    }
+
+    #[test]
     fn caps_unknown_speaker_labels_to_participant_count() {
         let segments = render_transcript_segments(RenderTranscriptRequest {
             speaker_context: None,

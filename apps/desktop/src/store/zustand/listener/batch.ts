@@ -340,27 +340,36 @@ function transformBatch(
       return;
     }
 
-    const timingSource = getWordTimingSourceForBatchResponse(
-      response,
-      Boolean(alternative.words?.length),
-      "synthetic_text",
-    );
-    const wordEntries = wordEntriesFromTranscript(
-      alternative.words,
-      alternative.transcript,
-      {
-        channel: channelIndex,
-        durationSeconds: getBatchDurationSeconds(response),
+    const timingSource =
+      getChannelTimingSource(response, channelIndex) ??
+      getWordTimingSourceForBatchResponse(
+        response,
+        Boolean(alternative.words?.length),
+        "synthetic_text",
+      );
+    const wordEntries = attachSyntheticChunkStarts(
+      markUnalignedDiarizedWordsSynthetic(
+        wordEntriesFromTranscript(alternative.words, alternative.transcript, {
+          channel: channelIndex,
+          durationSeconds: getBatchDurationSeconds(response),
+          timingSource,
+        }),
         timingSource,
-      },
+      ),
+      response,
+      channelIndex,
     );
 
-    const [words, hints] = transformWordEntries(
+    const [transformedWords, hints] = transformWordEntries(
       wordEntries,
       alternative.transcript,
       channelIndex,
       { timingSource },
     );
+    const words = transformedWords.map((word, index) => ({
+      ...word,
+      metadata: wordEntries[index]?.metadata ?? word.metadata,
+    }));
 
     hints.forEach((hint) => {
       allHints.push({
@@ -373,6 +382,97 @@ function transformBatch(
   });
 
   return [allWords, allHints];
+}
+
+function getChannelTimingSource(
+  response: BatchResponse,
+  channel: number,
+): TranscriptTimingSource | undefined {
+  const metadata = response.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return undefined;
+  }
+  const sources = (metadata as Record<string, unknown>)
+    .timing_sources_by_channel;
+  return Array.isArray(sources)
+    ? getValidTimingSource(sources[channel])
+    : undefined;
+}
+
+function markUnalignedDiarizedWordsSynthetic(
+  entries: WordEntry[],
+  timingSource: TranscriptTimingSource,
+): WordEntry[] {
+  if (timingSource !== "provider_segment_interpolated") return entries;
+  return entries.map((entry) =>
+    typeof entry.speaker === "number"
+      ? entry
+      : {
+          ...entry,
+          metadata: createTranscriptTimingMetadata(
+            "synthetic_text",
+            entry.metadata,
+          ),
+        },
+  );
+}
+
+function attachSyntheticChunkStarts(
+  entries: WordEntry[],
+  response: BatchResponse,
+  channel: number,
+): WordEntry[] {
+  const metadata = response.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return entries;
+  }
+  const rawChunks = (metadata as Record<string, unknown>).synthetic_chunks;
+  if (!Array.isArray(rawChunks)) return entries;
+
+  const chunks = rawChunks.filter(
+    (
+      chunk,
+    ): chunk is {
+      channel: number;
+      start_seconds: number;
+      end_seconds: number;
+    } =>
+      chunk !== null &&
+      typeof chunk === "object" &&
+      chunk.channel === channel &&
+      typeof chunk.start_seconds === "number" &&
+      Number.isFinite(chunk.start_seconds) &&
+      typeof chunk.end_seconds === "number" &&
+      Number.isFinite(chunk.end_seconds) &&
+      chunk.end_seconds > chunk.start_seconds,
+  );
+  if (!chunks.length) return entries;
+
+  return entries.map((entry) => {
+    const entryTiming = (
+      entry.metadata?.timing as Record<string, unknown> | undefined
+    )?.source;
+    if (entryTiming !== "synthetic_text") return entry;
+    const chunk = chunks.find(
+      (chunk) =>
+        entry.start >= chunk.start_seconds && entry.start < chunk.end_seconds,
+    );
+    if (!chunk) return entry;
+    const metadata = createTranscriptTimingMetadata(
+      "synthetic_text",
+      entry.metadata,
+    );
+    return {
+      ...entry,
+      metadata: {
+        ...metadata,
+        timing: {
+          ...(metadata.timing as Record<string, unknown>),
+          chunk_start_ms: Math.round(chunk.start_seconds * 1000),
+        },
+      },
+    };
+  });
 }
 
 function flattenBatchPreview(preview: {
