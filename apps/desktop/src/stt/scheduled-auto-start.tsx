@@ -279,6 +279,7 @@ export function ScheduledMeetingAutoStart() {
     let rows: ScheduledMeetingRow[] = [];
     let unsubscribe: (() => Promise<void>) | null = null;
     let starting = false;
+    let rowsRevision = 0;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const firedEventIds = new Set<string>();
     const temporarilyIneligibleEventIds = new Set<string>();
@@ -378,6 +379,7 @@ export function ScheduledMeetingAutoStart() {
         return;
       }
 
+      const startRevision = rowsRevision;
       starting = true;
       void startScheduledMeeting(next, Boolean(autoJoinRef.current))
         .then((outcome) => {
@@ -392,6 +394,10 @@ export function ScheduledMeetingAutoStart() {
           // next overlapping meeting immediately instead of letting the newer
           // ineligible event hide it for the full grace window.
           if (outcome === "ineligible") {
+            if (rowsRevision !== startRevision) {
+              scheduleTick(1);
+              return;
+            }
             temporarilyIneligibleEventIds.add(next.id);
             scheduleTick(1);
             return;
@@ -430,6 +436,7 @@ export function ScheduledMeetingAutoStart() {
       .subscribe<ScheduledMeetingRow>(SCHEDULED_MEETINGS_SQL, [], {
         onData: (nextRows) => {
           if (cancelled) return;
+          rowsRevision += 1;
           temporarilyIneligibleEventIds.clear();
           rows = nextRows;
           tick();

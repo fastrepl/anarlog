@@ -221,10 +221,14 @@ async fn create_session_for_event_reuses_existing_session_and_dedupes_participan
     let db = test_db().await;
     insert_event(db.pool()).await;
     insert_session(db.pool(), "session-existing", "user-1").await;
-    sqlx::query("UPDATE sessions SET event_id = 'event-1' WHERE id = 'session-existing'")
-        .execute(db.pool())
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE sessions
+        SET event_id = 'old-event', external_event_id = 'external-event-1'
+        WHERE id = 'session-existing'",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
 
     let request = event_request(vec![
         participant("alice@example.com", "Alice", Some("Example")),
@@ -243,6 +247,13 @@ async fn create_session_for_event_reuses_existing_session_and_dedupes_participan
         .unwrap();
     assert_eq!(second.session_id, "session-existing");
     assert!(!second.created);
+
+    let event_id: String =
+        sqlx::query_scalar("SELECT event_id FROM sessions WHERE id = 'session-existing'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(event_id, "event-1");
 
     let participant_count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM session_participants WHERE session_id = 'session-existing'",

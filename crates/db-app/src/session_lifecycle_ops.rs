@@ -196,6 +196,25 @@ pub async fn find_session_id_for_event(
     .await
 }
 
+pub async fn relink_session_to_event(
+    conn: &mut SqliteConnection,
+    session_id: &str,
+    event_id: &str,
+    now: &str,
+) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE sessions
+        SET event_id = ?, updated_at = ?
+        WHERE id = ? AND deleted_at IS NULL",
+    )
+    .bind(event_id)
+    .bind(now)
+    .bind(session_id)
+    .execute(&mut *conn)
+    .await?;
+    Ok(result.rows_affected())
+}
+
 pub async fn insert_event_session(
     conn: &mut SqliteConnection,
     session_id: &str,

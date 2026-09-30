@@ -555,6 +555,37 @@ describe("startScheduledMeeting", () => {
     expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/older", null);
     expect(mocks.openNew).toHaveBeenCalledTimes(1);
   });
+
+  test("retries an event when calendar data changes during an ineligible read", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    let resolveStaleRead: (rows: ScheduledMeetingRow[]) => void = () => {};
+    mocks.executeMeeting
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStaleRead = resolve;
+        }),
+      )
+      .mockImplementation(async (_sql, params: string[]) => [
+        currentMeeting(params[0] ?? "a"),
+      ]);
+    render(createElement(ScheduledMeetingAutoStart));
+    const onData = mocks.subscribeMeetings.mock.calls[0][2].onData;
+
+    onData([meeting("a", 0)]);
+    onData([meeting("a", 0, { meeting_link: "https://meet.example/fresh" })]);
+    resolveStaleRead([
+      currentMeeting("a", {
+        attendance_json: attendance("declined", {
+          observed_at: new Date().toISOString(),
+        }),
+      }),
+    ]);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/a", null);
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("getScheduledAutoStartAction", () => {

@@ -127,6 +127,14 @@ pub async fn create_session_for_event(
     .map_err(|error| error.to_string())?
     {
         let now = js_iso8601_timestamp();
+        anlg_db_app::relink_session_to_event(
+            &mut transaction,
+            &existing_session_id,
+            &event.id,
+            &now,
+        )
+        .await
+        .map_err(|error| error.to_string())?;
         run_event_participants(
             &mut transaction,
             &existing_session_id,
