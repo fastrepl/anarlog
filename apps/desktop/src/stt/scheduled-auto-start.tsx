@@ -141,6 +141,52 @@ async function readDueScheduledMeeting(
   );
 }
 
+export async function readDueScheduledSessionMeeting(
+  sessionId: string,
+): Promise<ScheduledMeetingRow | null> {
+  const [row] = await liveQueryClient.execute<ScheduledMeetingRow>(
+    `
+      SELECT
+        events.id,
+        events.started_at,
+        events.meeting_link,
+        events.tracking_id_event,
+        events.recurrence_series_id,
+        events.attendance_json
+      FROM sessions
+      JOIN events ON events.id = sessions.event_id
+      WHERE sessions.id = ?
+        AND sessions.deleted_at IS NULL
+        AND events.deleted_at IS NULL
+        AND events.is_all_day = 0
+        AND events.started_at <> ''
+        AND events.meeting_link <> ''
+      LIMIT 1
+    `,
+    [sessionId],
+  );
+
+  return (
+    selectDueMeetings({
+      rows: row ? [row] : [],
+      nowMs: Date.now(),
+      firedEventIds: new Set(),
+    })[0] ?? null
+  );
+}
+
+function isIgnoredScheduledMeeting(
+  row: ScheduledMeetingRow,
+  ignoredIds: ReadonlySet<string>,
+  ignoredSeriesIds: ReadonlySet<string>,
+): boolean {
+  return (
+    ignoredIds.has(row.tracking_id_event) ||
+    (Boolean(row.recurrence_series_id) &&
+      ignoredSeriesIds.has(row.recurrence_series_id))
+  );
+}
+
 export async function startScheduledMeeting(
   row: ScheduledMeetingRow,
   autoJoin: boolean,
@@ -152,8 +198,7 @@ export async function startScheduledMeeting(
   const { ignoredIds, ignoredSeriesIds } = await getIgnoredEventSets();
   if (
     listenerStore.getState().live.status === "active" ||
-    ignoredIds.has(row.tracking_id_event) ||
-    (row.recurrence_series_id && ignoredSeriesIds.has(row.recurrence_series_id))
+    isIgnoredScheduledMeeting(row, ignoredIds, ignoredSeriesIds)
   ) {
     return "ignored";
   }
@@ -177,6 +222,18 @@ export async function startScheduledMeeting(
   currentRow = await readDueScheduledMeeting(currentRow.id);
   if (!currentRow) {
     return "ineligible";
+  }
+
+  const latestIgnoredEvents = await getIgnoredEventSets();
+  if (
+    listenerStore.getState().live.status === "active" ||
+    isIgnoredScheduledMeeting(
+      currentRow,
+      latestIgnoredEvents.ignoredIds,
+      latestIgnoredEvents.ignoredSeriesIds,
+    )
+  ) {
+    return "ignored";
   }
 
   // Joining and listening are independent: the link opens as soon as the
@@ -224,6 +281,7 @@ export function ScheduledMeetingAutoStart() {
     let starting = false;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const firedEventIds = new Set<string>();
+    const temporarilyIneligibleEventIds = new Set<string>();
 
     const scheduleTick = (delayMs: number) => {
       clearTimeout(timeout);
@@ -289,25 +347,12 @@ export function ScheduledMeetingAutoStart() {
         rows,
         nowMs: Date.now(),
         firedEventIds,
-      });
+      }).filter((row) => !temporarilyIneligibleEventIds.has(row.id));
       const next = due[0];
       const scheduleAfterTransientBlock = () => {
         if (next) scheduleTick(TICK_MS);
         else scheduleNextStart();
       };
-      const scheduleAfterAttendanceBlock = () => {
-        if (!next) {
-          scheduleNextStart();
-          return;
-        }
-        const startMs = parseEventInstant(next.started_at)?.getTime();
-        scheduleTick(
-          startMs === undefined
-            ? SCHEDULED_AUTO_START_GRACE_MS
-            : startMs + SCHEDULED_AUTO_START_GRACE_MS - Date.now() + 1,
-        );
-      };
-
       const liveStatus = listenerStore.getState().live.status;
       const action = getScheduledAutoStartAction(liveStatus);
       if (action === "skip") {
@@ -343,11 +388,12 @@ export function ScheduledMeetingAutoStart() {
             return;
           }
 
-          // Keep the event dormant until calendar data changes. The live query
-          // will tick immediately on a fresh RSVP; this deadline only expires
-          // the grace window without a polling loop.
+          // Keep this event dormant until calendar data changes, then try the
+          // next overlapping meeting immediately instead of letting the newer
+          // ineligible event hide it for the full grace window.
           if (outcome === "ineligible") {
-            scheduleAfterAttendanceBlock();
+            temporarilyIneligibleEventIds.add(next.id);
+            scheduleTick(1);
             return;
           }
 
@@ -384,6 +430,7 @@ export function ScheduledMeetingAutoStart() {
       .subscribe<ScheduledMeetingRow>(SCHEDULED_MEETINGS_SQL, [], {
         onData: (nextRows) => {
           if (cancelled) return;
+          temporarilyIneligibleEventIds.clear();
           rows = nextRows;
           tick();
         },

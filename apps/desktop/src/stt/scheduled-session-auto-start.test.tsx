@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   beginScheduledAutoStart: vi.fn(),
   canStart: true,
   liveStatus: "inactive",
+  readDueScheduledSessionMeeting: vi.fn(),
   finishScheduledAutoStart: vi.fn(),
   inFlight: false,
   connectionReady: true,
@@ -73,6 +74,10 @@ vi.mock("~/stt/scheduled-auto-start-state", () => ({
   isScheduledAutoStartInFlight: () => mocks.inFlight,
 }));
 
+vi.mock("~/stt/scheduled-auto-start", () => ({
+  readDueScheduledSessionMeeting: mocks.readDueScheduledSessionMeeting,
+}));
+
 vi.mock("~/stt/useStartListening", () => ({
   useStartListeningState: () => ({
     connectionReady: mocks.connectionReady,
@@ -83,6 +88,9 @@ vi.mock("~/stt/useStartListening", () => ({
 beforeEach(() => {
   mocks.canStart = true;
   mocks.liveStatus = "inactive";
+  mocks.readDueScheduledSessionMeeting.mockReset().mockResolvedValue({
+    id: "event-1",
+  });
   mocks.inFlight = false;
   mocks.session = {
     id: "session-1",
@@ -110,31 +118,29 @@ afterEach(() => {
 test("starts scheduled recording when its connection state is ready", async () => {
   render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
-  expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
   expect(mocks.beginScheduledAutoStart).toHaveBeenCalledWith("session-1");
-  expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
-    view: null,
-    autoStart: null,
-  });
   await vi.waitFor(() =>
     expect(mocks.finishScheduledAutoStart).toHaveBeenCalledWith("session-1"),
   );
 });
 
-test("does not start a second lifecycle while a scheduled start is in flight", () => {
+test("does not start a second lifecycle while a scheduled start is in flight", async () => {
   mocks.inFlight = true;
 
   render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
+  await vi.waitFor(() =>
+    expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
+      view: null,
+      autoStart: null,
+    }),
+  );
   expect(mocks.startListening).not.toHaveBeenCalled();
   expect(mocks.beginScheduledAutoStart).not.toHaveBeenCalled();
-  expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
-    view: null,
-    autoStart: null,
-  });
 });
 
-test("starts when capture readiness becomes available", () => {
+test("starts when capture readiness becomes available", async () => {
   mocks.canStart = false;
   const view = render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
@@ -143,7 +149,7 @@ test("starts when capture readiness becomes available", () => {
   mocks.canStart = true;
   view.rerender(<ScheduledSessionAutoStart sessionId="session-1" />);
 
-  expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
 });
 
 test("abandons an armed auto-start immediately while another meeting is recording", () => {
@@ -175,7 +181,7 @@ test("abandons a pending auto-start when another meeting becomes active", () => 
   });
 });
 
-test("starts when the session record becomes available", () => {
+test("starts when the session record becomes available", async () => {
   mocks.session = null;
   const view = render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
@@ -194,10 +200,10 @@ test("starts when the session record becomes available", () => {
   };
   view.rerender(<ScheduledSessionAutoStart sessionId="session-1" />);
 
-  expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
 });
 
-test("waits for the recording hook's connection before auto-starting", () => {
+test("waits for the recording hook's connection before auto-starting", async () => {
   mocks.connectionReady = false;
   const view = render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
@@ -206,7 +212,7 @@ test("waits for the recording hook's connection before auto-starting", () => {
   mocks.connectionReady = true;
   view.rerender(<ScheduledSessionAutoStart sessionId="session-1" />);
 
-  expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
 });
 
 test.each([
@@ -270,7 +276,7 @@ test.each([
   });
 });
 
-test("starts a locked session after it has been revealed", () => {
+test("starts a locked session after it has been revealed", async () => {
   useAppLock.setState({ revealedNoteIds: { "session-1": true } });
   mocks.session = {
     ...mocks.session!,
@@ -279,5 +285,20 @@ test("starts a locked session after it has been revealed", () => {
 
   render(<ScheduledSessionAutoStart sessionId="session-1" />);
 
-  expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
+});
+
+test("re-checks attendance immediately before capture starts", async () => {
+  mocks.readDueScheduledSessionMeeting.mockResolvedValue(null);
+
+  render(<ScheduledSessionAutoStart sessionId="session-1" />);
+
+  await vi.waitFor(() =>
+    expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
+      view: null,
+      autoStart: null,
+    }),
+  );
+  expect(mocks.startListening).not.toHaveBeenCalled();
+  expect(mocks.beginScheduledAutoStart).not.toHaveBeenCalled();
 });

@@ -546,6 +546,15 @@ fn convert_outlook_attendance(event: &OutlookEvent) -> EventAttendance {
     let mut others = AttendanceResponseCounts::default();
     let mut seen = SeenAttendees::default();
     let has_external_organizer = event.is_organizer != Some(true) && event.organizer.is_some();
+    let self_organizer_email = (self_status == SelfAttendanceStatus::Organizer)
+        .then(|| {
+            event
+                .organizer
+                .as_ref()
+                .and_then(|organizer| organizer.email_address.as_ref())
+                .and_then(|email| email.address.as_deref())
+        })
+        .flatten();
     if let Some(organizer) = event.organizer.as_ref().filter(|_| has_external_organizer) {
         let email = organizer
             .email_address
@@ -563,6 +572,12 @@ fn convert_outlook_attendance(event: &OutlookEvent) -> EventAttendance {
             .email_address
             .as_ref()
             .and_then(|email| email.address.as_deref());
+        if self_organizer_email
+            .zip(email)
+            .is_some_and(|(organizer, attendee)| organizer.eq_ignore_ascii_case(attendee))
+        {
+            continue;
+        }
         if !seen.insert(None, email) {
             continue;
         }
@@ -1319,6 +1334,24 @@ mod attendance_tests {
         assert_eq!(attendance.others.accepted, 1);
         assert_eq!(attendance.others.pending, 1);
         assert_eq!(attendance.others.declined, 0);
+    }
+
+    #[test]
+    fn outlook_organizer_excludes_self_from_attendee_counts() {
+        let event = outlook_event(serde_json::json!({
+            "id": "event",
+            "isOrganizer": true,
+            "organizer": { "emailAddress": { "address": "ME@example.com" } },
+            "attendees": [
+                { "emailAddress": { "address": "me@example.com" }, "status": { "response": "accepted" } },
+                { "emailAddress": { "address": "declined@example.com" }, "status": { "response": "declined" } }
+            ]
+        }));
+
+        let attendance = attendance(&event);
+        assert_eq!(attendance.self_status, SelfAttendanceStatus::Organizer);
+        assert_eq!(attendance.others.accepted, 0);
+        assert_eq!(attendance.others.declined, 1);
     }
 
     #[test]

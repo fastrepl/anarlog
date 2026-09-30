@@ -7,6 +7,7 @@ import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
+import { readDueScheduledSessionMeeting } from "~/stt/scheduled-auto-start";
 import {
   beginScheduledAutoStart,
   finishScheduledAutoStart,
@@ -104,24 +105,30 @@ function StartScheduledSessionAutoStart({
       return;
     }
     attemptedRef.current = true;
-    clearPendingAutoStart(sessionId);
+    let cancelled = false;
 
-    // Re-arming a session whose start is still in flight (a second trigger
-    // before capture becomes active) must not start a second lifecycle: the
-    // two would race for the same capture marker and one fails with a toast.
-    if (isScheduledAutoStartInFlight(sessionId)) {
-      return;
-    }
-    beginScheduledAutoStart(sessionId);
+    void readDueScheduledSessionMeeting(sessionId)
+      .then((meeting) => {
+        if (cancelled) return;
+        clearPendingAutoStart(sessionId);
+        if (!meeting || isScheduledAutoStartInFlight(sessionId)) {
+          return;
+        }
 
-    void startListeningRef
-      .current()
-      .catch((error) => {
-        console.error("[listener] failed to auto-start session", error);
+        beginScheduledAutoStart(sessionId);
+        return startListeningRef.current().finally(() => {
+          finishScheduledAutoStart(sessionId);
+        });
       })
-      .finally(() => {
-        finishScheduledAutoStart(sessionId);
+      .catch((error) => {
+        if (cancelled) return;
+        clearPendingAutoStart(sessionId);
+        console.error("[listener] failed to auto-start session", error);
       });
+
+    return () => {
+      cancelled = true;
+    };
   });
 
   return null;

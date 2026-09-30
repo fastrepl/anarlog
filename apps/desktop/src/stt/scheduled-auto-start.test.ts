@@ -333,7 +333,6 @@ describe("startScheduledMeeting", () => {
       "ineligible",
     );
 
-    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
     expect(mocks.openUrl).not.toHaveBeenCalled();
     expect(mocks.openNew).not.toHaveBeenCalled();
   });
@@ -369,7 +368,6 @@ describe("startScheduledMeeting", () => {
       "ineligible",
     );
 
-    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
     expect(mocks.openUrl).not.toHaveBeenCalled();
     expect(mocks.openNew).not.toHaveBeenCalled();
   });
@@ -381,7 +379,6 @@ describe("startScheduledMeeting", () => {
       "ineligible",
     );
 
-    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
     expect(mocks.openUrl).not.toHaveBeenCalled();
     expect(mocks.openNew).not.toHaveBeenCalled();
   });
@@ -417,6 +414,28 @@ describe("startScheduledMeeting", () => {
       ignoredIds: new Set(["tracking-a"]),
       ignoredSeriesIds: new Set<string>(),
     });
+
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "ignored",
+    );
+
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).not.toHaveBeenCalled();
+  });
+
+  test("re-checks ignored identities before automatic actions", async () => {
+    mocks.getIgnoredEventSets
+      .mockResolvedValueOnce({
+        ignoredIds: new Set<string>(),
+        ignoredSeriesIds: new Set<string>(),
+      })
+      .mockResolvedValueOnce({
+        ignoredIds: new Set(["tracking-latest"]),
+        ignoredSeriesIds: new Set<string>(),
+      });
+    mocks.executeMeeting.mockResolvedValue([
+      currentMeeting("a", { tracking_id_event: "tracking-latest" }),
+    ]);
 
     await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
       "ignored",
@@ -509,6 +528,31 @@ describe("startScheduledMeeting", () => {
 
     expect(mocks.getOrCreateSessionForEventId).toHaveBeenCalledWith("a");
     expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/a", null);
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
+  });
+
+  test("tries an older overlapping meeting when the newest becomes ineligible", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    mocks.executeMeeting.mockImplementation(async (_sql, params: string[]) => [
+      params[0] === "newer"
+        ? currentMeeting("newer", {
+            attendance_json: attendance("declined", {
+              observed_at: new Date().toISOString(),
+            }),
+          })
+        : currentMeeting("older"),
+    ]);
+    render(createElement(ScheduledMeetingAutoStart));
+
+    mocks.subscribeMeetings.mock.calls[0][2].onData([
+      meeting("older", -60_000),
+      meeting("newer", 0),
+    ]);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(mocks.getOrCreateSessionForEventId).toHaveBeenCalledWith("older");
+    expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/older", null);
     expect(mocks.openNew).toHaveBeenCalledTimes(1);
   });
 });
