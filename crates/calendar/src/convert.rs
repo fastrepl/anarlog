@@ -1,10 +1,11 @@
 use anlg_apple_calendar::types::{
     AppleCalendar, AppleEvent, EventStatus as AppleEventStatus, Participant, ParticipantRole,
-    ParticipantStatus,
+    ParticipantStatus, ParticipantType,
 };
 use anlg_calendar_interface::{
-    AttendeeRole, AttendeeStatus, CalendarEvent, CalendarListItem, CalendarProviderType,
-    EventAttendee, EventPerson, EventStatus,
+    AttendanceResponseCounts, AttendanceRosterStatus, AttendeeRole, AttendeeStatus, CalendarEvent,
+    CalendarListItem, CalendarProviderType, EventAttendance, EventAttendee, EventPerson,
+    EventStatus, SelfAttendanceStatus,
 };
 use anlg_google_calendar::{
     AccessRole as GoogleAccessRole, Attendee as GoogleAttendee, AttendeeResponseStatus,
@@ -17,6 +18,7 @@ use anlg_outlook_calendar::{
     ResponseType as OutlookResponseType,
 };
 use chrono::{DateTime, MappedLocalTime, NaiveDateTime, Utc};
+use std::collections::HashSet;
 
 use crate::windows_tz::windows_tz_to_iana;
 
@@ -155,6 +157,7 @@ pub fn convert_apple_events(events: Vec<AppleEvent>) -> Vec<CalendarEvent> {
 
 fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent {
     let raw = serde_json::to_string(&event).unwrap_or_default();
+    let attendance = Some(convert_google_attendance(&event));
 
     let is_all_day = event
         .start
@@ -217,6 +220,7 @@ fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent 
         status: convert_google_status(event.status),
         organizer,
         attendees,
+        attendance,
         has_recurrence_rules,
         recurring_event_id: event.recurring_event_id,
         raw,
@@ -225,6 +229,7 @@ fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent 
 
 fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEvent {
     let raw = serde_json::to_string(&event).unwrap_or_default();
+    let attendance = Some(convert_outlook_attendance(&event));
     let is_all_day = event.is_all_day.unwrap_or(false);
 
     let started_at = event
@@ -293,6 +298,7 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
         status: convert_outlook_status(event.is_cancelled, event.show_as),
         organizer,
         attendees,
+        attendance,
         has_recurrence_rules: event.recurrence.is_some() || event.series_master_id.is_some(),
         recurring_event_id: event.series_master_id,
         raw,
@@ -301,6 +307,7 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
 
 fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
     let raw = serde_json::to_string(&event).unwrap_or_default();
+    let attendance = Some(convert_apple_attendance(&event));
 
     let (id, legacy_ids) = crate::apple_identity::identity(&event);
 
@@ -352,9 +359,344 @@ fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
         status: convert_apple_status(event.status),
         organizer,
         attendees,
+        attendance,
         has_recurrence_rules: event.has_recurrence_rules,
         recurring_event_id,
         raw,
+    }
+}
+
+#[derive(Clone, Copy)]
+enum AttendanceResponse {
+    Accepted,
+    Tentative,
+    Pending,
+    Declined,
+    Unknown,
+}
+
+impl AttendanceResponse {
+    fn add_to(self, counts: &mut AttendanceResponseCounts) {
+        match self {
+            Self::Accepted => counts.accepted += 1,
+            Self::Tentative => counts.tentative += 1,
+            Self::Pending => counts.pending += 1,
+            Self::Declined => counts.declined += 1,
+            Self::Unknown => counts.unknown += 1,
+        }
+    }
+}
+
+#[derive(Default)]
+struct SeenAttendees {
+    ids: HashSet<String>,
+    emails: HashSet<String>,
+}
+
+impl SeenAttendees {
+    fn insert(&mut self, id: Option<&str>, email: Option<&str>) -> bool {
+        let id = normalized_identity(id);
+        let email = normalized_identity(email);
+        if id.as_ref().is_some_and(|id| self.ids.contains(id))
+            || email
+                .as_ref()
+                .is_some_and(|email| self.emails.contains(email))
+        {
+            return false;
+        }
+
+        if let Some(id) = id {
+            self.ids.insert(id);
+        }
+        if let Some(email) = email {
+            self.emails.insert(email);
+        }
+        true
+    }
+}
+
+fn normalized_identity(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_lowercase)
+}
+
+fn convert_google_attendance(event: &GoogleEvent) -> EventAttendance {
+    let self_status = if event
+        .organizer
+        .as_ref()
+        .is_some_and(|organizer| organizer.is_self == Some(true))
+    {
+        SelfAttendanceStatus::Organizer
+    } else if let Some(attendee) = event
+        .attendees
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .find(|attendee| attendee.is_self == Some(true))
+    {
+        match attendee.response_status.as_ref() {
+            Some(AttendeeResponseStatus::Accepted) => SelfAttendanceStatus::Accepted,
+            Some(AttendeeResponseStatus::Tentative) => SelfAttendanceStatus::Tentative,
+            Some(AttendeeResponseStatus::Declined) => SelfAttendanceStatus::Declined,
+            Some(AttendeeResponseStatus::Unknown) => SelfAttendanceStatus::Unknown,
+            Some(AttendeeResponseStatus::NeedsAction) | None => SelfAttendanceStatus::Pending,
+        }
+    } else {
+        SelfAttendanceStatus::Unknown
+    };
+
+    let roster_status = if event.attendees_omitted == Some(true) {
+        AttendanceRosterStatus::Incomplete
+    } else if event.attendees.is_some() || self_status == SelfAttendanceStatus::Organizer {
+        AttendanceRosterStatus::Complete
+    } else {
+        AttendanceRosterStatus::Unknown
+    };
+
+    let mut others = AttendanceResponseCounts::default();
+    let mut seen = SeenAttendees::default();
+    let has_external_organizer = event
+        .organizer
+        .as_ref()
+        .is_some_and(|organizer| organizer.is_self != Some(true));
+    if let Some(organizer) = event.organizer.as_ref().filter(|_| has_external_organizer) {
+        seen.insert(organizer.id.as_deref(), organizer.email.as_deref());
+        AttendanceResponse::Accepted.add_to(&mut others);
+    }
+
+    for attendee in event.attendees.as_deref().unwrap_or_default() {
+        if attendee.is_self == Some(true) || attendee.resource == Some(true) {
+            continue;
+        }
+        if attendee.organizer == Some(true) && has_external_organizer {
+            continue;
+        }
+        if !seen.insert(attendee.id.as_deref(), attendee.email.as_deref()) {
+            continue;
+        }
+        if attendee.organizer == Some(true) {
+            AttendanceResponse::Accepted.add_to(&mut others);
+        } else {
+            google_attendance_response(attendee.response_status.as_ref()).add_to(&mut others);
+        }
+    }
+
+    EventAttendance {
+        self_status,
+        roster_status,
+        others,
+    }
+}
+
+fn google_attendance_response(status: Option<&AttendeeResponseStatus>) -> AttendanceResponse {
+    match status {
+        Some(AttendeeResponseStatus::Accepted) => AttendanceResponse::Accepted,
+        Some(AttendeeResponseStatus::Tentative) => AttendanceResponse::Tentative,
+        Some(AttendeeResponseStatus::Declined) => AttendanceResponse::Declined,
+        Some(AttendeeResponseStatus::Unknown) => AttendanceResponse::Unknown,
+        Some(AttendeeResponseStatus::NeedsAction) | None => AttendanceResponse::Pending,
+    }
+}
+
+fn convert_outlook_attendance(event: &OutlookEvent) -> EventAttendance {
+    let self_status = if event.is_organizer == Some(true)
+        || matches!(
+            event
+                .response_status
+                .as_ref()
+                .and_then(|status| status.response.as_ref()),
+            Some(OutlookResponseType::Organizer)
+        ) {
+        SelfAttendanceStatus::Organizer
+    } else {
+        match event
+            .response_status
+            .as_ref()
+            .and_then(|status| status.response.as_ref())
+        {
+            Some(OutlookResponseType::Accepted) => SelfAttendanceStatus::Accepted,
+            Some(OutlookResponseType::TentativelyAccepted) => SelfAttendanceStatus::Tentative,
+            Some(OutlookResponseType::Declined) => SelfAttendanceStatus::Declined,
+            Some(OutlookResponseType::None | OutlookResponseType::NotResponded) => {
+                SelfAttendanceStatus::Pending
+            }
+            Some(OutlookResponseType::Unknown) | None => SelfAttendanceStatus::Unknown,
+            Some(OutlookResponseType::Organizer) => SelfAttendanceStatus::Organizer,
+        }
+    };
+
+    let roster_status = if (event.hide_attendees == Some(true)
+        && !event.is_organizer.unwrap_or(false))
+        || event
+            .attendees
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .any(|attendee| matches!(attendee.type_, Some(AttendeeType::Unknown)))
+    {
+        AttendanceRosterStatus::Incomplete
+    } else if event.attendees.is_some() || self_status == SelfAttendanceStatus::Organizer {
+        AttendanceRosterStatus::Complete
+    } else {
+        AttendanceRosterStatus::Unknown
+    };
+
+    let mut others = AttendanceResponseCounts::default();
+    let mut seen = SeenAttendees::default();
+    let has_external_organizer = event.is_organizer != Some(true) && event.organizer.is_some();
+    if let Some(organizer) = event.organizer.as_ref().filter(|_| has_external_organizer) {
+        let email = organizer
+            .email_address
+            .as_ref()
+            .and_then(|email| email.address.as_deref());
+        seen.insert(None, email);
+        AttendanceResponse::Accepted.add_to(&mut others);
+    }
+
+    for attendee in event.attendees.as_deref().unwrap_or_default() {
+        if matches!(attendee.type_, Some(AttendeeType::Resource)) {
+            continue;
+        }
+        let email = attendee
+            .email_address
+            .as_ref()
+            .and_then(|email| email.address.as_deref());
+        if !seen.insert(None, email) {
+            continue;
+        }
+        outlook_attendance_response(
+            attendee
+                .status
+                .as_ref()
+                .and_then(|status| status.response.as_ref()),
+        )
+        .add_to(&mut others);
+    }
+
+    EventAttendance {
+        self_status,
+        roster_status,
+        others,
+    }
+}
+
+fn outlook_attendance_response(status: Option<&OutlookResponseType>) -> AttendanceResponse {
+    match status {
+        Some(OutlookResponseType::Accepted | OutlookResponseType::Organizer) => {
+            AttendanceResponse::Accepted
+        }
+        Some(OutlookResponseType::TentativelyAccepted) => AttendanceResponse::Tentative,
+        Some(OutlookResponseType::Declined) => AttendanceResponse::Declined,
+        Some(OutlookResponseType::None | OutlookResponseType::NotResponded) => {
+            AttendanceResponse::Pending
+        }
+        Some(OutlookResponseType::Unknown) | None => AttendanceResponse::Unknown,
+    }
+}
+
+fn convert_apple_attendance(event: &AppleEvent) -> EventAttendance {
+    let self_status = if event
+        .organizer
+        .as_ref()
+        .is_some_and(|organizer| organizer.is_current_user)
+    {
+        SelfAttendanceStatus::Organizer
+    } else if let Some(attendee) = event
+        .attendees
+        .iter()
+        .find(|attendee| attendee.is_current_user)
+    {
+        apple_self_attendance_status(&attendee.status)
+    } else {
+        SelfAttendanceStatus::Unknown
+    };
+
+    let roster_status = if event.attendees.iter().any(|attendee| {
+        matches!(
+            attendee.participant_type,
+            ParticipantType::Group | ParticipantType::Unknown
+        )
+    }) || (event.has_attendees && event.attendees.is_empty())
+    {
+        AttendanceRosterStatus::Incomplete
+    } else {
+        AttendanceRosterStatus::Complete
+    };
+
+    let mut others = AttendanceResponseCounts::default();
+    let mut seen = SeenAttendees::default();
+    let has_external_organizer = event
+        .organizer
+        .as_ref()
+        .is_some_and(|organizer| !organizer.is_current_user);
+    if let Some(organizer) = event.organizer.as_ref().filter(|_| has_external_organizer) {
+        insert_apple_identity(&mut seen, organizer);
+        AttendanceResponse::Accepted.add_to(&mut others);
+    }
+
+    for attendee in &event.attendees {
+        if attendee.is_current_user
+            || matches!(
+                attendee.participant_type,
+                ParticipantType::Room | ParticipantType::Resource
+            )
+            || matches!(attendee.role, ParticipantRole::NonParticipant)
+        {
+            continue;
+        }
+        if has_external_organizer && matches!(attendee.role, ParticipantRole::Chair) {
+            continue;
+        }
+        if !insert_apple_identity(&mut seen, attendee) {
+            continue;
+        }
+        if matches!(attendee.role, ParticipantRole::Chair) {
+            AttendanceResponse::Accepted.add_to(&mut others);
+        } else {
+            apple_attendance_response(&attendee.status).add_to(&mut others);
+        }
+    }
+
+    EventAttendance {
+        self_status,
+        roster_status,
+        others,
+    }
+}
+
+fn insert_apple_identity(seen: &mut SeenAttendees, participant: &Participant) -> bool {
+    let id = participant
+        .contact
+        .as_ref()
+        .map(|contact| contact.identifier.as_str());
+    seen.insert(id, participant.email.as_deref())
+}
+
+fn apple_self_attendance_status(status: &ParticipantStatus) -> SelfAttendanceStatus {
+    match status {
+        ParticipantStatus::Accepted
+        | ParticipantStatus::Delegated
+        | ParticipantStatus::Completed
+        | ParticipantStatus::InProgress => SelfAttendanceStatus::Accepted,
+        ParticipantStatus::Tentative => SelfAttendanceStatus::Tentative,
+        ParticipantStatus::Declined => SelfAttendanceStatus::Declined,
+        ParticipantStatus::Pending => SelfAttendanceStatus::Pending,
+        ParticipantStatus::Unknown => SelfAttendanceStatus::Unknown,
+    }
+}
+
+fn apple_attendance_response(status: &ParticipantStatus) -> AttendanceResponse {
+    match status {
+        ParticipantStatus::Accepted
+        | ParticipantStatus::Delegated
+        | ParticipantStatus::Completed
+        | ParticipantStatus::InProgress => AttendanceResponse::Accepted,
+        ParticipantStatus::Tentative => AttendanceResponse::Tentative,
+        ParticipantStatus::Declined => AttendanceResponse::Declined,
+        ParticipantStatus::Pending => AttendanceResponse::Pending,
+        ParticipantStatus::Unknown => AttendanceResponse::Unknown,
     }
 }
 
@@ -790,5 +1132,366 @@ mod meeting_link_tests {
             assert_eq!(converted[0].started_at, "2026-08-27T00:00:00");
             assert!(converted[0].is_all_day);
         }
+    }
+}
+
+#[cfg(test)]
+mod attendance_tests {
+    use super::*;
+
+    fn attendance(event: &CalendarEvent) -> &EventAttendance {
+        event.attendance.as_ref().unwrap()
+    }
+
+    fn google_event(value: serde_json::Value) -> CalendarEvent {
+        let event = serde_json::from_value(value).unwrap();
+        convert_google_event(event, "calendar")
+    }
+
+    fn outlook_event(value: serde_json::Value) -> CalendarEvent {
+        let event = serde_json::from_value(value).unwrap();
+        convert_outlook_event(event, "calendar")
+    }
+
+    fn apple_event(
+        organizer: Option<serde_json::Value>,
+        attendees: Vec<serde_json::Value>,
+        has_attendees: bool,
+    ) -> CalendarEvent {
+        let event = serde_json::from_value(serde_json::json!({
+            "event_identifier": "event",
+            "calendar_item_identifier": "item",
+            "external_identifier": "external",
+            "calendar": { "id": "calendar", "title": "Calendar" },
+            "title": "Meeting",
+            "location": null,
+            "url": null,
+            "notes": null,
+            "creation_date": null,
+            "last_modified_date": null,
+            "time_zone": "UTC",
+            "start_date": "2026-09-30T10:00:00Z",
+            "end_date": "2026-09-30T11:00:00Z",
+            "is_all_day": false,
+            "availability": "Busy",
+            "status": "Confirmed",
+            "has_alarms": false,
+            "has_attendees": has_attendees,
+            "has_notes": false,
+            "has_recurrence_rules": false,
+            "organizer": organizer,
+            "attendees": attendees,
+            "structured_location": null,
+            "recurrence": null,
+            "occurrence_date": null,
+            "is_detached": false,
+            "alarms": [],
+            "birthday_contact_identifier": null,
+            "is_birthday": false,
+        }))
+        .unwrap();
+        convert_apple_event(event)
+    }
+
+    fn apple_participant(
+        email: &str,
+        is_current_user: bool,
+        status: &str,
+        participant_type: &str,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "name": email,
+            "email": email,
+            "is_current_user": is_current_user,
+            "role": "Required",
+            "status": status,
+            "participant_type": participant_type,
+            "url": null,
+            "contact": null,
+        })
+    }
+
+    #[test]
+    fn google_organizer_excludes_self_and_resources() {
+        let event = google_event(serde_json::json!({
+            "id": "event",
+            "organizer": { "email": "me@example.com", "self": true },
+            "attendees": [
+                { "email": "me@example.com", "self": true, "organizer": true, "responseStatus": "accepted" },
+                { "email": "declined@example.com", "responseStatus": "declined" },
+                { "email": "room@example.com", "resource": true, "responseStatus": "accepted" }
+            ]
+        }));
+
+        assert_eq!(
+            attendance(&event).self_status,
+            SelfAttendanceStatus::Organizer
+        );
+        assert_eq!(
+            attendance(&event).roster_status,
+            AttendanceRosterStatus::Complete
+        );
+        assert_eq!(attendance(&event).others.declined, 1);
+        assert_eq!(attendance(&event).others.accepted, 0);
+    }
+
+    #[test]
+    fn google_uses_self_response_and_deduplicates_external_organizer() {
+        let event = google_event(serde_json::json!({
+            "id": "event",
+            "organizer": { "id": "organizer-id", "email": "HOST@example.com" },
+            "attendees": [
+                { "id": "organizer-id", "email": "host@example.com", "organizer": true, "responseStatus": "declined" },
+                { "email": "me@example.com", "self": true, "responseStatus": "accepted" },
+                { "email": "pending@example.com", "responseStatus": "needsAction" },
+                { "email": "unknown@example.com", "responseStatus": "futureValue" }
+            ]
+        }));
+
+        let attendance = attendance(&event);
+        assert_eq!(attendance.self_status, SelfAttendanceStatus::Accepted);
+        assert_eq!(attendance.others.accepted, 1);
+        assert_eq!(attendance.others.pending, 1);
+        assert_eq!(attendance.others.unknown, 1);
+        assert_eq!(attendance.others.declined, 0);
+    }
+
+    #[test]
+    fn google_marks_omitted_and_missing_rosters_conservatively() {
+        let omitted = google_event(serde_json::json!({
+            "id": "omitted",
+            "attendeesOmitted": true,
+            "attendees": [{ "self": true, "responseStatus": "tentative" }]
+        }));
+        let missing = google_event(serde_json::json!({ "id": "missing" }));
+
+        assert_eq!(
+            attendance(&omitted).self_status,
+            SelfAttendanceStatus::Tentative
+        );
+        assert_eq!(
+            attendance(&omitted).roster_status,
+            AttendanceRosterStatus::Incomplete
+        );
+        assert_eq!(
+            attendance(&missing).self_status,
+            SelfAttendanceStatus::Unknown
+        );
+        assert_eq!(
+            attendance(&missing).roster_status,
+            AttendanceRosterStatus::Unknown
+        );
+    }
+
+    #[test]
+    fn outlook_uses_top_level_response_status() {
+        for (response, expected) in [
+            ("accepted", SelfAttendanceStatus::Accepted),
+            ("tentativelyAccepted", SelfAttendanceStatus::Tentative),
+            ("declined", SelfAttendanceStatus::Declined),
+            ("notResponded", SelfAttendanceStatus::Pending),
+            ("none", SelfAttendanceStatus::Pending),
+            ("futureValue", SelfAttendanceStatus::Unknown),
+        ] {
+            let event = outlook_event(serde_json::json!({
+                "id": response,
+                "responseStatus": { "response": response },
+                "attendees": []
+            }));
+            assert_eq!(attendance(&event).self_status, expected, "{response}");
+        }
+    }
+
+    #[test]
+    fn outlook_counts_external_organizer_once_and_excludes_resources() {
+        let event = outlook_event(serde_json::json!({
+            "id": "event",
+            "responseStatus": { "response": "accepted" },
+            "organizer": { "emailAddress": { "address": "HOST@example.com" } },
+            "attendees": [
+                { "emailAddress": { "address": "host@example.com" }, "status": { "response": "declined" } },
+                { "emailAddress": { "address": "pending@example.com" }, "status": { "response": "notResponded" } },
+                { "type": "resource", "emailAddress": { "address": "room@example.com" }, "status": { "response": "accepted" } }
+            ]
+        }));
+
+        let attendance = attendance(&event);
+        assert_eq!(attendance.others.accepted, 1);
+        assert_eq!(attendance.others.pending, 1);
+        assert_eq!(attendance.others.declined, 0);
+    }
+
+    #[test]
+    fn outlook_organizer_and_hidden_roster_are_normalized() {
+        let organizer = outlook_event(serde_json::json!({
+            "id": "organizer",
+            "isOrganizer": true
+        }));
+        let hidden = outlook_event(serde_json::json!({
+            "id": "hidden",
+            "hideAttendees": true,
+            "responseStatus": { "response": "accepted" },
+            "attendees": [{ "status": { "response": "declined" } }]
+        }));
+        let unknown_kind = outlook_event(serde_json::json!({
+            "id": "unknown-kind",
+            "responseStatus": { "response": "accepted" },
+            "attendees": [{ "type": "futureValue", "status": { "response": "declined" } }]
+        }));
+
+        assert_eq!(
+            attendance(&organizer).self_status,
+            SelfAttendanceStatus::Organizer
+        );
+        assert_eq!(
+            attendance(&organizer).roster_status,
+            AttendanceRosterStatus::Complete
+        );
+        assert_eq!(
+            attendance(&hidden).roster_status,
+            AttendanceRosterStatus::Incomplete
+        );
+        assert_eq!(
+            attendance(&unknown_kind).roster_status,
+            AttendanceRosterStatus::Incomplete
+        );
+    }
+
+    #[test]
+    fn apple_maps_self_status_and_excludes_rooms_and_resources() {
+        let event = apple_event(
+            Some(apple_participant(
+                "host@example.com",
+                false,
+                "Accepted",
+                "Person",
+            )),
+            vec![
+                apple_participant("HOST@example.com", false, "Declined", "Person"),
+                apple_participant("me@example.com", true, "Delegated", "Person"),
+                apple_participant("declined@example.com", false, "Declined", "Person"),
+                apple_participant("room@example.com", false, "Accepted", "Room"),
+                apple_participant("resource@example.com", false, "Accepted", "Resource"),
+            ],
+            true,
+        );
+
+        let attendance = attendance(&event);
+        assert_eq!(attendance.self_status, SelfAttendanceStatus::Accepted);
+        assert_eq!(attendance.others.accepted, 1);
+        assert_eq!(attendance.others.declined, 1);
+    }
+
+    #[test]
+    fn apple_organizer_and_group_or_missing_rosters_are_conservative() {
+        let organizer = apple_participant("me@example.com", true, "Accepted", "Person");
+        let organized = apple_event(Some(organizer), Vec::new(), false);
+        let group = apple_event(
+            None,
+            vec![apple_participant(
+                "group@example.com",
+                false,
+                "Pending",
+                "Group",
+            )],
+            true,
+        );
+        let missing = apple_event(None, Vec::new(), true);
+        let unknown_kind = apple_event(
+            None,
+            vec![apple_participant(
+                "unknown@example.com",
+                false,
+                "Declined",
+                "Unknown",
+            )],
+            true,
+        );
+
+        assert_eq!(
+            attendance(&organized).self_status,
+            SelfAttendanceStatus::Organizer
+        );
+        assert_eq!(
+            attendance(&organized).roster_status,
+            AttendanceRosterStatus::Complete
+        );
+        assert_eq!(
+            attendance(&group).roster_status,
+            AttendanceRosterStatus::Incomplete
+        );
+        assert_eq!(attendance(&group).others.pending, 1);
+        assert_eq!(
+            attendance(&missing).roster_status,
+            AttendanceRosterStatus::Incomplete
+        );
+        assert_eq!(
+            attendance(&unknown_kind).roster_status,
+            AttendanceRosterStatus::Incomplete
+        );
+    }
+
+    #[test]
+    fn apple_distinguishes_unknown_from_pending_self_response() {
+        let unknown = apple_event(
+            None,
+            vec![apple_participant(
+                "me@example.com",
+                true,
+                "Unknown",
+                "Person",
+            )],
+            true,
+        );
+        let pending = apple_event(
+            None,
+            vec![apple_participant(
+                "me@example.com",
+                true,
+                "Pending",
+                "Person",
+            )],
+            true,
+        );
+
+        assert_eq!(
+            attendance(&unknown).self_status,
+            SelfAttendanceStatus::Unknown
+        );
+        assert_eq!(
+            attendance(&pending).self_status,
+            SelfAttendanceStatus::Pending
+        );
+    }
+
+    #[test]
+    fn attendance_contract_serializes_with_stable_lowercase_values() {
+        let value = serde_json::to_value(EventAttendance {
+            self_status: SelfAttendanceStatus::Organizer,
+            roster_status: AttendanceRosterStatus::Incomplete,
+            others: AttendanceResponseCounts {
+                accepted: 1,
+                tentative: 2,
+                pending: 3,
+                declined: 4,
+                unknown: 5,
+            },
+        })
+        .unwrap();
+
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "self_status": "organizer",
+                "roster_status": "incomplete",
+                "others": {
+                    "accepted": 1,
+                    "tentative": 2,
+                    "pending": 3,
+                    "declined": 4,
+                    "unknown": 5,
+                },
+            })
+        );
     }
 }

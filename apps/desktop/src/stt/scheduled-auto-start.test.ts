@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   getOrCreateSessionForEventId: vi.fn(),
   openNew: vi.fn(),
   openUrl: vi.fn(),
+  executeMeeting: vi.fn(),
   subscribeMeetings: vi.fn(),
   subscribeListener: vi.fn(),
   subscribeTabs: vi.fn(),
@@ -32,7 +33,10 @@ vi.mock("@anlg/plugin-windows", () => ({
 }));
 
 vi.mock("~/db", () => ({
-  liveQueryClient: { subscribe: mocks.subscribeMeetings },
+  liveQueryClient: {
+    execute: mocks.executeMeeting,
+    subscribe: mocks.subscribeMeetings,
+  },
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -73,6 +77,32 @@ vi.mock("~/store/zustand/tabs", () => ({
 
 const NOW = new Date("2026-05-15T12:00:00.000Z").getTime();
 
+function attendance(
+  selfStatus:
+    | "organizer"
+    | "accepted"
+    | "tentative"
+    | "pending"
+    | "declined"
+    | "unknown" = "accepted",
+  overrides: Record<string, unknown> = {},
+) {
+  return JSON.stringify({
+    version: 1,
+    self_status: selfStatus,
+    roster_status: "complete",
+    others: {
+      accepted: 1,
+      tentative: 0,
+      pending: 0,
+      declined: 0,
+      unknown: 0,
+    },
+    observed_at: new Date(NOW).toISOString(),
+    ...overrides,
+  });
+}
+
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
@@ -89,8 +119,22 @@ function meeting(
     meeting_link: `https://zoom.us/j/${id}`,
     tracking_id_event: `tracking-${id}`,
     recurrence_series_id: "",
+    attendance_json: attendance(),
     ...overrides,
   };
+}
+
+function currentMeeting(
+  id: string,
+  overrides: Partial<ScheduledMeetingRow> = {},
+): ScheduledMeetingRow {
+  return meeting(id, 0, {
+    started_at: new Date().toISOString(),
+    attendance_json: attendance("accepted", {
+      observed_at: new Date().toISOString(),
+    }),
+    ...overrides,
+  });
 }
 
 function select(rows: ScheduledMeetingRow[], firedEventIds: string[] = []) {
@@ -175,6 +219,26 @@ describe("selectDueMeetings", () => {
   ])("$name", ({ rows, fired, expected }) => {
     expect(select(rows, fired)).toEqual(expected);
   });
+
+  test.each(["tentative", "pending", "declined", "unknown"] as const)(
+    "does not select a meeting when self attendance is %s",
+    (selfStatus) => {
+      expect(
+        select([meeting("a", 0, { attendance_json: attendance(selfStatus) })]),
+      ).toEqual([]);
+    },
+  );
+
+  test("does not let a newer ineligible meeting hide an older eligible one", () => {
+    expect(
+      select([
+        meeting("older", -60_000),
+        meeting("newer", 0, {
+          attendance_json: attendance("pending"),
+        }),
+      ]),
+    ).toEqual(["older"]);
+  });
 });
 
 describe("hasPendingAutoStart", () => {
@@ -221,6 +285,11 @@ describe("startScheduledMeeting", () => {
     mocks.getOrCreateSessionForEventId
       .mockReset()
       .mockResolvedValue("session-a");
+    mocks.executeMeeting
+      .mockReset()
+      .mockImplementation(async (_sql, params: string[]) => [
+        currentMeeting(params[0] ?? "a"),
+      ]);
     mocks.openNew.mockReset();
     mocks.openUrl.mockReset().mockResolvedValue({ status: "ok", data: null });
     mocks.subscribeMeetings.mockReset().mockResolvedValue(async () => {});
@@ -249,6 +318,87 @@ describe("startScheduledMeeting", () => {
 
     expect(mocks.openUrl).not.toHaveBeenCalled();
     expect(mocks.openNew).toHaveBeenCalledTimes(1);
+  });
+
+  test("does nothing when the defensive read sees a decline", async () => {
+    mocks.executeMeeting.mockResolvedValue([
+      currentMeeting("a", {
+        attendance_json: attendance("declined", {
+          observed_at: new Date().toISOString(),
+        }),
+      }),
+    ]);
+
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "ineligible",
+    );
+
+    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).not.toHaveBeenCalled();
+  });
+
+  test("re-checks attendance after session creation before automatic actions", async () => {
+    mocks.executeMeeting
+      .mockResolvedValueOnce([currentMeeting("a")])
+      .mockResolvedValueOnce([
+        currentMeeting("a", {
+          attendance_json: attendance("declined", {
+            observed_at: new Date().toISOString(),
+          }),
+        }),
+      ]);
+
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "ineligible",
+    );
+
+    expect(mocks.getOrCreateSessionForEventId).toHaveBeenCalledWith("a");
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).not.toHaveBeenCalled();
+  });
+
+  test("does nothing when the meeting is rescheduled before starting", async () => {
+    mocks.executeMeeting.mockResolvedValue([
+      currentMeeting("a", {
+        started_at: new Date(Date.now() + 60_000).toISOString(),
+      }),
+    ]);
+
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "ineligible",
+    );
+
+    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).not.toHaveBeenCalled();
+  });
+
+  test("does nothing when the event disappeared before starting", async () => {
+    mocks.executeMeeting.mockResolvedValue([]);
+
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "ineligible",
+    );
+
+    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).not.toHaveBeenCalled();
+  });
+
+  test("uses the latest meeting link from the defensive read", async () => {
+    mocks.executeMeeting.mockResolvedValue([
+      currentMeeting("a", { meeting_link: "https://meet.example/latest" }),
+    ]);
+
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "started",
+    );
+
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      "https://meet.example/latest",
+      null,
+    );
   });
 
   test("does not open the link while the session cannot start yet", async () => {
@@ -343,6 +493,23 @@ describe("startScheduledMeeting", () => {
     expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
     expect(mocks.openUrl).not.toHaveBeenCalled();
     expect(mocks.openNew).not.toHaveBeenCalled();
+  });
+
+  test("starts when a due unanswered meeting becomes accepted", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    render(createElement(ScheduledMeetingAutoStart));
+    const onData = mocks.subscribeMeetings.mock.calls[0][2].onData;
+
+    onData([meeting("a", 0, { attendance_json: attendance("pending") })]);
+    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
+
+    onData([meeting("a", 0)]);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(mocks.getOrCreateSessionForEventId).toHaveBeenCalledWith("a");
+    expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/a", null);
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -1,6 +1,7 @@
 import { commands as calendarCommands } from "@anlg/plugin-calendar";
 import type { CalendarEvent } from "@anlg/plugin-calendar";
 
+import { createAttendanceSnapshot } from "../attendance";
 import type { Ctx } from "../ctx";
 import type {
   EventParticipant,
@@ -47,19 +48,20 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
   );
 
   const calendarEvents = results.flat();
+  const observedAt = new Date();
   const events: IncomingEvent[] = [];
   const participants: IncomingParticipants = new Map();
 
   for (const calendarEvent of calendarEvents) {
-    if (
-      calendarEvent.attendees.find(
-        (attendee) =>
-          attendee.is_current_user && attendee.status === "declined",
-      )
-    ) {
-      continue;
-    }
-    const { event, eventParticipants } = normalizeCalendarEvent(calendarEvent);
+    const attendance = createAttendanceSnapshot(
+      calendarEvent.attendance,
+      observedAt,
+    );
+    if (attendance?.self_status === "declined") continue;
+    const { event, eventParticipants } = normalizeCalendarEvent(
+      calendarEvent,
+      attendance,
+    );
     events.push(event);
     if (!event.is_cancelled) {
       participants.set(event.tracking_id_event, eventParticipants);
@@ -71,7 +73,10 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
 
 // Meeting links are fully resolved on the Rust side during provider
 // conversion, so no per-event parse IPC happens here.
-function normalizeCalendarEvent(calendarEvent: CalendarEvent): {
+function normalizeCalendarEvent(
+  calendarEvent: CalendarEvent,
+  attendance: IncomingEvent["attendance"],
+): {
   event: IncomingEvent;
   eventParticipants: EventParticipant[];
 } {
@@ -115,6 +120,7 @@ function normalizeCalendarEvent(calendarEvent: CalendarEvent): {
       recurrence_series_id: calendarEvent.recurring_event_id ?? undefined,
       has_recurrence_rules: calendarEvent.has_recurrence_rules,
       is_all_day: calendarEvent.is_all_day,
+      attendance,
     },
     eventParticipants,
   };

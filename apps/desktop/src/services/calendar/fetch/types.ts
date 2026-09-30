@@ -1,5 +1,7 @@
 import type { EventParticipant } from "@anlg/store";
 
+import type { EventAttendanceSnapshotV1 } from "../attendance";
+
 export type { EventParticipant };
 
 export type IncomingEvent = {
@@ -16,6 +18,7 @@ export type IncomingEvent = {
   recurrence_series_id?: string;
   has_recurrence_rules: boolean;
   is_all_day: boolean;
+  attendance?: EventAttendanceSnapshotV1 | null;
 };
 
 export type IncomingParticipants = Map<string, EventParticipant[]>;
@@ -35,6 +38,7 @@ export type ExistingEvent = {
   has_recurrence_rules: boolean;
   is_all_day: boolean;
   provider: string;
+  attendance_json?: string | null;
   created_at: string;
   deleted_at: string | null;
 };

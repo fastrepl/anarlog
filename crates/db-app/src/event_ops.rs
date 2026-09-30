@@ -22,8 +22,8 @@ pub async fn upsert_event(pool: &SqlitePool, input: UpsertEvent<'_>) -> Result<(
         "INSERT INTO events \
          (id, tracking_id_event, calendar_id, title, started_at, ended_at, \
           location, meeting_link, description, note, recurrence_series_id, \
-          has_recurrence_rules, is_all_day, provider, participants_json, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')) \
+          has_recurrence_rules, is_all_day, provider, participants_json, attendance_json, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')) \
          ON CONFLICT(id) DO UPDATE SET \
            tracking_id_event = excluded.tracking_id_event, \
            calendar_id = excluded.calendar_id, \
@@ -39,6 +39,7 @@ pub async fn upsert_event(pool: &SqlitePool, input: UpsertEvent<'_>) -> Result<(
            is_all_day = excluded.is_all_day, \
            provider = excluded.provider, \
            participants_json = excluded.participants_json, \
+           attendance_json = excluded.attendance_json, \
            deleted_at = NULL, \
            updated_at = excluded.updated_at",
     )
@@ -57,6 +58,7 @@ pub async fn upsert_event(pool: &SqlitePool, input: UpsertEvent<'_>) -> Result<(
     .bind(input.is_all_day)
     .bind(input.provider)
     .bind(input.participants_json)
+    .bind(input.attendance_json)
     .execute(pool)
     .await?;
 
@@ -72,8 +74,8 @@ pub async fn insert_event_if_missing(
          (id, tracking_id_event, calendar_id, title, started_at, ended_at, \
           location, meeting_link, description, note, recurrence_series_id, \
           has_recurrence_rules, is_all_day, provider, participants_json, \
-          created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
+          attendance_json, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \
           strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now')) \
          ON CONFLICT(id) DO NOTHING",
     )
@@ -92,6 +94,7 @@ pub async fn insert_event_if_missing(
     .bind(input.is_all_day)
     .bind(input.provider)
     .bind(input.participants_json)
+    .bind(input.attendance_json)
     .execute(pool)
     .await?;
 

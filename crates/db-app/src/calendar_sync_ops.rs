@@ -536,6 +536,7 @@ pub async fn update_synced_event(
     is_all_day: bool,
     provider: &str,
     participants_json: Option<&str>,
+    attendance_json: Option<&str>,
     now: &str,
 ) -> Result<u64, sqlx::Error> {
     let result = sqlx::query(
@@ -554,6 +555,7 @@ pub async fn update_synced_event(
           is_all_day = ?,
           provider = ?,
           participants_json = ?,
+          attendance_json = ?,
           updated_at = ?,
           deleted_at = NULL
         WHERE id = ?",
@@ -571,6 +573,7 @@ pub async fn update_synced_event(
     .bind(is_all_day)
     .bind(provider)
     .bind(participants_json)
+    .bind(attendance_json)
     .bind(now)
     .bind(id)
     .execute(&mut *conn)
@@ -595,6 +598,7 @@ pub async fn insert_synced_event(
     is_all_day: bool,
     provider: &str,
     participants_json: Option<&str>,
+    attendance_json: Option<&str>,
     now: &str,
 ) -> Result<u64, sqlx::Error> {
     let result = sqlx::query(
@@ -613,11 +617,12 @@ pub async fn insert_synced_event(
           is_all_day,
           provider,
           participants_json,
+          attendance_json,
           created_at,
           updated_at,
           deleted_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
     )
     .bind(id)
     .bind(tracking_id_event)
@@ -633,6 +638,7 @@ pub async fn insert_synced_event(
     .bind(is_all_day)
     .bind(provider)
     .bind(participants_json)
+    .bind(attendance_json)
     .bind(now)
     .bind(now)
     .execute(&mut *conn)
