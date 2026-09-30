@@ -11,7 +11,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@anlg/db-runtime": "workspace:*",
-    "drizzle-orm": "^0.44.2"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.3",

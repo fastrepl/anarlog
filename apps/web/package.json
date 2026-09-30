@@ -50,7 +50,7 @@
     "rehype-autolink-headings": "^7.1.0",
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "streamdown": "^2.5.0",
     "stripe": "^20.4.1",
     "tailwind-scrollbar-hide": "^4.0.0",
