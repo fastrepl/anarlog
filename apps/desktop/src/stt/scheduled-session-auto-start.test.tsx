@@ -1,4 +1,5 @@
 import { cleanup, render } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { ScheduledSessionAutoStart } from "./scheduled-session-auto-start";
@@ -301,4 +302,30 @@ test("re-checks attendance immediately before capture starts", async () => {
   );
   expect(mocks.startListening).not.toHaveBeenCalled();
   expect(mocks.beginScheduledAutoStart).not.toHaveBeenCalled();
+});
+
+test("retries the final attendance read after Strict Mode replays the effect", async () => {
+  let resolveFirstRead: (value: { id: string }) => void = () => {};
+  mocks.readDueScheduledSessionMeeting
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveFirstRead = resolve;
+      }),
+    )
+    .mockResolvedValue({ id: "event-1" });
+
+  render(
+    <StrictMode>
+      <ScheduledSessionAutoStart sessionId="session-1" />
+    </StrictMode>,
+  );
+
+  await vi.waitFor(() =>
+    expect(mocks.readDueScheduledSessionMeeting).toHaveBeenCalledTimes(2),
+  );
+  await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
+
+  resolveFirstRead({ id: "event-1" });
+  await Promise.resolve();
+  expect(mocks.startListening).toHaveBeenCalledTimes(1);
 });

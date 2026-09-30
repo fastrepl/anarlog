@@ -106,6 +106,7 @@ function StartScheduledSessionAutoStart({
     }
     attemptedRef.current = true;
     let cancelled = false;
+    let captureStarted = false;
 
     void readDueScheduledSessionMeeting(sessionId)
       .then((meeting) => {
@@ -115,6 +116,7 @@ function StartScheduledSessionAutoStart({
           return;
         }
 
+        captureStarted = true;
         beginScheduledAutoStart(sessionId);
         return startListeningRef.current().finally(() => {
           finishScheduledAutoStart(sessionId);
@@ -128,6 +130,9 @@ function StartScheduledSessionAutoStart({
 
     return () => {
       cancelled = true;
+      if (!captureStarted) {
+        attemptedRef.current = false;
+      }
     };
   });
 
