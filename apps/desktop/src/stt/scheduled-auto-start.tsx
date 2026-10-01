@@ -50,6 +50,20 @@ export type ScheduledMeetingRow = {
   attendance_json: string | null;
 };
 
+function isSameScheduledMeeting(
+  left: ScheduledMeetingRow,
+  right: ScheduledMeetingRow,
+): boolean {
+  return (
+    left.id === right.id &&
+    left.started_at === right.started_at &&
+    left.meeting_link === right.meeting_link &&
+    left.tracking_id_event === right.tracking_id_event &&
+    left.recurrence_series_id === right.recurrence_series_id &&
+    left.attendance_json === right.attendance_json
+  );
+}
+
 // Back-to-back meetings overlap inside the grace window; the one that just
 // started is the one the user is walking into, so the newest start comes first.
 export function selectDueMeetings({
@@ -279,7 +293,6 @@ export function ScheduledMeetingAutoStart() {
     let rows: ScheduledMeetingRow[] = [];
     let unsubscribe: (() => Promise<void>) | null = null;
     let starting = false;
-    let rowsRevision = 0;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const firedEventIds = new Set<string>();
     const temporarilyIneligibleEventIds = new Set<string>();
@@ -379,7 +392,7 @@ export function ScheduledMeetingAutoStart() {
         return;
       }
 
-      const startRevision = rowsRevision;
+      const startingRow = next;
       starting = true;
       void startScheduledMeeting(next, Boolean(autoJoinRef.current))
         .then((outcome) => {
@@ -394,7 +407,8 @@ export function ScheduledMeetingAutoStart() {
           // next overlapping meeting immediately instead of letting the newer
           // ineligible event hide it for the full grace window.
           if (outcome === "ineligible") {
-            if (rowsRevision !== startRevision) {
+            const latestRow = rows.find((row) => row.id === next.id);
+            if (latestRow && !isSameScheduledMeeting(startingRow, latestRow)) {
               scheduleTick(1);
               return;
             }
@@ -436,7 +450,6 @@ export function ScheduledMeetingAutoStart() {
       .subscribe<ScheduledMeetingRow>(SCHEDULED_MEETINGS_SQL, [], {
         onData: (nextRows) => {
           if (cancelled) return;
-          rowsRevision += 1;
           temporarilyIneligibleEventIds.clear();
           rows = nextRows;
           tick();

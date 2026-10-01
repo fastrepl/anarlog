@@ -586,6 +586,44 @@ describe("startScheduledMeeting", () => {
     expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/a", null);
     expect(mocks.openNew).toHaveBeenCalledTimes(1);
   });
+
+  test("does not let unrelated calendar updates starve an older meeting", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    let resolveNewestRead: (rows: ScheduledMeetingRow[]) => void = () => {};
+    mocks.executeMeeting
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNewestRead = resolve;
+        }),
+      )
+      .mockImplementation(async (_sql, params: string[]) => [
+        currentMeeting(params[0] ?? "older"),
+      ]);
+    render(createElement(ScheduledMeetingAutoStart));
+    const onData = mocks.subscribeMeetings.mock.calls[0][2].onData;
+    const newest = meeting("newer", 0);
+
+    onData([meeting("older", -60_000), newest]);
+    onData([
+      meeting("older", -60_000, {
+        meeting_link: "https://meet.example/older-updated",
+      }),
+      newest,
+    ]);
+    resolveNewestRead([
+      currentMeeting("newer", {
+        attendance_json: attendance("declined", {
+          observed_at: new Date().toISOString(),
+        }),
+      }),
+    ]);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(mocks.getOrCreateSessionForEventId).toHaveBeenCalledWith("older");
+    expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/older", null);
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("getScheduledAutoStartAction", () => {

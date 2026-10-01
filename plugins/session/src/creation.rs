@@ -121,6 +121,8 @@ pub async fn create_session_for_event(
         &mut transaction,
         &event.id,
         &event.tracking_id_event,
+        &event.calendar_id,
+        &event.provider,
         "",
     )
     .await
@@ -190,6 +192,8 @@ pub async fn create_session_for_event(
         &mut transaction,
         &event.id,
         &event.tracking_id_event,
+        &event.calendar_id,
+        &event.provider,
         &session_id,
     )
     .await

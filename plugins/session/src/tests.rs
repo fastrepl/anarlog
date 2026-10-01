@@ -223,7 +223,10 @@ async fn create_session_for_event_reuses_existing_session_and_dedupes_participan
     insert_session(db.pool(), "session-existing", "user-1").await;
     sqlx::query(
         "UPDATE sessions
-        SET event_id = 'old-event', external_event_id = 'external-event-1'
+        SET event_id = 'old-event',
+            external_event_id = 'external-event-1',
+            external_provider = 'google',
+            event_json = '{\"calendar_id\":\"calendar-1\"}'
         WHERE id = 'session-existing'",
     )
     .execute(db.pool())
@@ -268,6 +271,54 @@ async fn create_session_for_event_reuses_existing_session_and_dedupes_participan
             .unwrap();
     assert_eq!(participant_count, 1);
     assert_eq!(human_count, 1);
+}
+
+#[tokio::test]
+async fn create_session_for_event_does_not_reuse_tracking_id_from_another_calendar() {
+    let db = test_db().await;
+    insert_event(db.pool()).await;
+    sqlx::query(
+        "INSERT INTO events (
+            id, tracking_id_event, calendar_id, title, started_at, ended_at,
+            meeting_link, provider
+        ) VALUES (
+            'event-2', 'external-event-1', 'calendar-2', 'Other planning',
+            '2026-07-10T09:00:00.000Z', '2026-07-10T10:00:00.000Z',
+            'https://meet.example/2', 'google'
+        )",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    let first = create_session_for_event(db.pool(), event_request(Vec::new()))
+        .await
+        .unwrap()
+        .unwrap();
+    let mut second_request = event_request(Vec::new());
+    second_request.event_id = "event-2".to_string();
+    let second = create_session_for_event(db.pool(), second_request)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert!(first.created);
+    assert!(second.created);
+    assert_ne!(first.session_id, second.session_id);
+    let associations: Vec<(String, String)> =
+        sqlx::query_as("SELECT id, event_id FROM sessions WHERE id IN (?, ?) ORDER BY event_id")
+            .bind(&first.session_id)
+            .bind(&second.session_id)
+            .fetch_all(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        associations,
+        vec![
+            (first.session_id, "event-1".to_string()),
+            (second.session_id, "event-2".to_string()),
+        ]
+    );
 }
 
 #[tokio::test]
