@@ -51,9 +51,6 @@ export function isEmailPlaceholderName(name: string): boolean {
   return !trimmed || EMAIL_PATTERN.test(trimmed);
 }
 
-export const HUMAN_NAME_IS_PLACEHOLDER_SQL =
-  "(trim(name) = '' OR (name LIKE '%@%.%' AND instr(trim(name), ' ') = 0))";
-
 const SECOND_LEVEL_SUFFIX_LABELS = new Set([
   "co",
   "com",

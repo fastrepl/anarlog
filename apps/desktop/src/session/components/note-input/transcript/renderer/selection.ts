@@ -1,6 +1,6 @@
 import type { Segment, SegmentKey } from "~/stt/live-segment";
 
-export type TranscriptWordSelectionGroup = {
+type TranscriptWordSelectionGroup = {
   transcriptId: string;
   segmentKey: SegmentKey;
   inferredHumanId?: string;

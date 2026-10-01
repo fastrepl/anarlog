@@ -27,7 +27,7 @@ const MAX_CACHE_MUTATION_VIEWERS = 64;
 const cacheMutationTokens = new Map<string, symbol>();
 const EMPTY_SESSION_IDS = new Set<string>();
 
-export type SharedNoteCapability = "viewer" | "commenter" | "editor";
+type SharedNoteCapability = "viewer" | "commenter" | "editor";
 
 export type SharedNoteAttachment = {
   id: string;

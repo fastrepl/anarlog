@@ -45,7 +45,6 @@ export {
   CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
   getPostCaptureAction,
   getPostCaptureRepairReasons,
-  type PostCaptureRepairReason,
 } from "./capture-lifecycle";
 export { sendMeetingRecordingDisclosure } from "./meeting-disclosure";
 export { useResumeListeningLifecycle } from "./resume-listening";

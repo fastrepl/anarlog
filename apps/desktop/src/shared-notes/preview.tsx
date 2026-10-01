@@ -63,7 +63,7 @@ export type SharedNotePreviewSnapshot = {
   publishedAt: string;
 };
 
-export type SharedNotePreviewState =
+type SharedNotePreviewState =
   | { status: "loading" }
   | { status: "ready"; snapshot: SharedNotePreviewSnapshot }
   | { status: "unavailable" };

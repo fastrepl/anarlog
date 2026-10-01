@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 // Plain data only. The release renderer must never import React Scan's runtime.
 export type PromptMode = "fix" | "explanation" | "data";
-export type ScanComponent = Readonly<{
+type ScanComponent = Readonly<{
   name: string;
   renders: number;
   time: number;

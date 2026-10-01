@@ -16,7 +16,7 @@ import {
 
 import { useLiveQuery } from "~/db";
 
-export function useSavedCaptureAudio(sessionId: string) {
+function useSavedCaptureAudio(sessionId: string) {
   const { data } = useLiveQuery<{ saved: number }, boolean>({
     sql: `SELECT 1 AS saved FROM app_settings
       WHERE id = ? AND EXISTS (SELECT 1 FROM app_settings WHERE id = ?)

@@ -19,7 +19,7 @@ export type StartFailureKind =
   | "microphone_permission"
   | "recorder";
 
-export const START_FAILURE_TOAST_ID = "capture-start-failed";
+const START_FAILURE_TOAST_ID = "capture-start-failed";
 
 export function classifyStartFailure({
   stage,

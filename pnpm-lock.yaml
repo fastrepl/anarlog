@@ -174,9 +174,6 @@ importers:
       '@anlg/plugin-notification':
         specifier: workspace:*
         version: link:../../plugins/notification
-      '@anlg/plugin-notify':
-        specifier: workspace:*
-        version: link:../../plugins/notify
       '@anlg/plugin-opener2':
         specifier: workspace:*
         version: link:../../plugins/opener2
@@ -312,9 +309,6 @@ importers:
       '@tauri-apps/plugin-process':
         specifier: ^2.3.1
         version: 2.3.1
-      '@tauri-apps/plugin-updater':
-        specifier: ^2.10.1
-        version: 2.10.1
       '@uidotdev/usehooks':
         specifier: ^2.4.1
         version: 2.4.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -427,9 +421,6 @@ importers:
       '@rolldown/plugin-babel':
         specifier: ^0.2.3
         version: 0.2.3(@babel/core@7.29.0)(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.0))(@babel/runtime@8.0.5)(rolldown@1.0.3)(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
-      '@tanstack/react-router-devtools':
-        specifier: ^1.166.13
-        version: 1.166.13(@tanstack/react-router@1.168.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@tanstack/router-core@1.168.14)(csstype@3.2.3)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@tanstack/router-plugin':
         specifier: ^1.167.19
         version: 1.167.19(@tanstack/react-router@1.168.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(vite@8.0.16(@types/node@24.12.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
@@ -7635,18 +7626,6 @@ packages:
     peerDependencies:
       react: ^18 || ^19
 
-  '@tanstack/react-router-devtools@1.166.13':
-    resolution: {integrity: sha512-6yKRFFJrEEOiGp5RAAuGCYsl81M4XAhJmLcu9PKj+HZle4A3dsP60lwHoqQYWHMK9nKKFkdXR+D8qxzxqtQbEA==}
-    engines: {node: '>=20.19'}
-    peerDependencies:
-      '@tanstack/react-router': ^1.168.15
-      '@tanstack/router-core': ^1.168.11
-      react: '>=18.0.0 || >=19.0.0'
-      react-dom: '>=18.0.0 || >=19.0.0'
-    peerDependenciesMeta:
-      '@tanstack/router-core':
-        optional: true
-
   '@tanstack/react-router-ssr-query@1.166.11':
     resolution: {integrity: sha512-i81a5avRWgTjSKH5VYttbQ/Y86Il8GIkdcrIlyYUys0Lt1zMCxkTGHH9lBN5ZmhBe3mzwQ+9jOlx9xSxj8Kx0w==}
     engines: {node: '>=20.19'}
@@ -7712,16 +7691,6 @@ packages:
     resolution: {integrity: sha512-UhCJtjNrd5wcTmhgB2HyUP0+Rj1M7BD4dS11YsF9x6VC2KH/eqxzs/vK+nN5f+cOhPOLZdmLkWMW+WGmacZ8HA==}
     engines: {node: '>=20.19'}
     hasBin: true
-
-  '@tanstack/router-devtools-core@1.167.3':
-    resolution: {integrity: sha512-fJ1VMhyQgnoashTrP763c2HRc9kofgF61L7Jb3F6eTHAmCKtGVx8BRtiFt37sr3U0P0jmaaiiSPGP6nT5JtVNg==}
-    engines: {node: '>=20.19'}
-    peerDependencies:
-      '@tanstack/router-core': ^1.168.11
-      csstype: ^3.0.10
-    peerDependenciesMeta:
-      csstype:
-        optional: true
 
   '@tanstack/router-generator@1.166.30':
     resolution: {integrity: sha512-9njrzX6loaKgr3NnAZvdUmIv6IO19DzwZ+O15kQXkdZ8HaONDdZPeJ5lK7cYoxKaiuhLHtXG559KgzdsHxODEA==}
@@ -7888,9 +7857,6 @@ packages:
 
   '@tauri-apps/plugin-process@2.3.1':
     resolution: {integrity: sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==}
-
-  '@tauri-apps/plugin-updater@2.10.1':
-    resolution: {integrity: sha512-NFYMg+tWOZPJdzE/PpFj2qfqwAWwNS3kXrb1tm1gnBJ9mYzZ4WDRrwy8udzWoAnfGCHLuePNLY1WVCNHnh3eRA==}
 
   '@testing-library/dom@10.4.1':
     resolution: {integrity: sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg==}
@@ -10744,11 +10710,6 @@ packages:
   globals@14.0.0:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
     engines: {node: '>=18'}
-
-  goober@2.1.18:
-    resolution: {integrity: sha512-2vFqsaDVIT9Gz7N6kAL++pLpp41l3PfDuusHcjnGLfR6+huZkl6ziX+zgVC3ZxpqWhzH6pyDdGrCeDhMIvwaxw==}
-    peerDependencies:
-      csstype: ^3.0.10
 
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -21377,17 +21338,6 @@ snapshots:
       '@tanstack/query-core': 5.99.0
       react: 19.2.5
 
-  '@tanstack/react-router-devtools@1.166.13(@tanstack/react-router@1.168.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@tanstack/router-core@1.168.14)(csstype@3.2.3)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
-    dependencies:
-      '@tanstack/react-router': 1.168.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@tanstack/router-devtools-core': 1.167.3(@tanstack/router-core@1.168.14)(csstype@3.2.3)
-      react: 19.2.5
-      react-dom: 19.2.5(react@19.2.5)
-    optionalDependencies:
-      '@tanstack/router-core': 1.168.14
-    transitivePeerDependencies:
-      - csstype
-
   '@tanstack/react-router-ssr-query@1.166.11(@tanstack/query-core@5.99.0)(@tanstack/react-query@5.99.0(react@19.2.5))(@tanstack/react-router@1.168.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@tanstack/router-core@1.168.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
     dependencies:
       '@tanstack/query-core': 5.99.0
@@ -21491,14 +21441,6 @@ snapshots:
       cookie-es: 3.1.1
       seroval: 1.5.3
       seroval-plugins: 1.5.2(seroval@1.5.3)
-
-  '@tanstack/router-devtools-core@1.167.3(@tanstack/router-core@1.168.14)(csstype@3.2.3)':
-    dependencies:
-      '@tanstack/router-core': 1.168.14
-      clsx: 2.1.1
-      goober: 2.1.18(csstype@3.2.3)
-    optionalDependencies:
-      csstype: 3.2.3
 
   '@tanstack/router-generator@1.166.30':
     dependencies:
@@ -21705,10 +21647,6 @@ snapshots:
       '@tauri-apps/api': 2.10.1
 
   '@tauri-apps/plugin-process@2.3.1':
-    dependencies:
-      '@tauri-apps/api': 2.10.1
-
-  '@tauri-apps/plugin-updater@2.10.1':
     dependencies:
       '@tauri-apps/api': 2.10.1
 
@@ -25043,10 +24981,6 @@ snapshots:
       once: 1.4.0
 
   globals@14.0.0: {}
-
-  goober@2.1.18(csstype@3.2.3):
-    dependencies:
-      csstype: 3.2.3
 
   gopd@1.2.0: {}
 

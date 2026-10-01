@@ -108,7 +108,7 @@ function toSpeakerHintWithId(hint: StoredSpeakerHint): SpeakerHintWithId {
   };
 }
 
-export function toBatchRefinementSource(
+function toBatchRefinementSource(
   transcript: TranscriptRecord,
 ): BatchRefinementSource {
   return {

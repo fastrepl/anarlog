@@ -297,7 +297,7 @@ function updateRankedBoundaries(
   boundaries.splice(2);
 }
 
-export function shouldShowFloatingLiveCaptionToggle({
+function shouldShowFloatingLiveCaptionToggle({
   liveTranscriptionActive,
 }: {
   provider?: string | null;

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { hasRenderableContent } from "./shared";
-
+import { hasRenderableContent } from "~/chat/message-content";
 import type { AnlgUIMessage } from "~/chat/types";
 
 describe("hasRenderableContent", () => {

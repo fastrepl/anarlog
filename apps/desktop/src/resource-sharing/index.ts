@@ -10,4 +10,3 @@ export {
   sharedFolderPayload,
   sharedTemplatePayload,
 } from "./payloads";
-export type { SharedResource, SharedResourceType } from "./client";

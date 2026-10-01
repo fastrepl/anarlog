@@ -22,23 +22,3 @@ export type IncomingEvent = {
 };
 
 export type IncomingParticipants = Map<string, EventParticipant[]>;
-
-export type ExistingEvent = {
-  id: string;
-  tracking_id_event: string;
-  calendar_id: string;
-  title: string;
-  started_at: string;
-  ended_at: string;
-  location: string;
-  meeting_link: string;
-  description: string;
-  note: string;
-  recurrence_series_id: string;
-  has_recurrence_rules: boolean;
-  is_all_day: boolean;
-  provider: string;
-  attendance_json?: string | null;
-  created_at: string;
-  deleted_at: string | null;
-};

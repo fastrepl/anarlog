@@ -26,7 +26,7 @@ const WORKFLOW_STEP_TYPES = [
 ] as const;
 export type WorkflowStepType = (typeof WORKFLOW_STEP_TYPES)[number];
 
-export type DriveExportFormat = "markdown" | "google_docs";
+type DriveExportFormat = "markdown" | "google_docs";
 
 export type DriveExportRun = {
   format?: DriveExportFormat;

@@ -16,8 +16,8 @@ import {
   type TranscriptTimingSource,
 } from "~/stt/timing";
 
-export type BatchPhase = "importing" | "transcribing";
-export type BatchTerminalReason = "failed" | "timed_out" | "stopped";
+type BatchPhase = "importing" | "transcribing";
+type BatchTerminalReason = "failed" | "timed_out" | "stopped";
 
 export type BatchState = {
   batch: Record<

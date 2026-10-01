@@ -1,7 +1,8 @@
 import type { Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { createAttachmentBackupClient } from "./client";
+import { createAttachmentBackupClient } from "@anlg/supabase/attachment-backups";
+
 import { startAttachmentTransferRunner } from "./runner";
 
 import { useAuth } from "~/auth";

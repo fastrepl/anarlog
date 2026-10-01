@@ -144,9 +144,9 @@ export const createNavigationSlice = <T extends NavigationState & BasicState>(
   },
 });
 
-export type SlotId = string;
+type SlotId = string;
 export type TabHistory = { stack: Tab[]; currentIndex: number };
-export type HistoryMap = Map<SlotId, TabHistory>;
+type HistoryMap = Map<SlotId, TabHistory>;
 export const MAX_TAB_HISTORY_ENTRIES = 100;
 
 export const computeHistoryFlags = (

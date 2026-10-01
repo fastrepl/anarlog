@@ -885,8 +885,6 @@ dependencies = [
  "strum 0.28.0",
  "thiserror 2.0.18",
  "tokio",
- "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -8830,7 +8828,6 @@ dependencies = [
  "reqwest 0.13.2",
  "schemars 1.2.1",
  "serde",
- "serde_json",
  "specta",
  "thiserror 2.0.18",
  "tokio",
@@ -9483,7 +9480,6 @@ dependencies = [
  "sysinfo",
  "tauri-specta",
  "tempfile",
- "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite 0.29.0",
@@ -9495,7 +9491,6 @@ dependencies = [
  "transcript",
  "uuid",
  "vad-masking",
- "vorbis_rs",
 ]
 
 [[package]]
@@ -9507,11 +9502,9 @@ dependencies = [
  "audio-chunking",
  "audio-utils",
  "axum",
- "bytes",
  "data",
  "embedding",
  "futures-util",
- "host",
  "hound",
  "language",
  "mp3",
@@ -9529,7 +9522,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "tokio-stream",
  "tracing",
  "transcribe-core",
  "transcribe-soniqo",
@@ -14832,7 +14824,6 @@ dependencies = [
  "serde",
  "specta",
  "thiserror 2.0.18",
- "tracing",
 ]
 
 [[package]]
@@ -17036,7 +17027,6 @@ version = "0.1.0"
 dependencies = [
  "gix",
  "serde",
- "serde_json",
  "specta",
  "specta-typescript",
  "tauri",
@@ -17808,7 +17798,6 @@ dependencies = [
  "tauri-plugin-anlg-tray",
  "tauri-plugin-db",
  "tauri-plugin-fs-sync",
- "tauri-plugin-hooks",
  "tauri-plugin-local-stt",
  "tauri-plugin-settings",
  "tauri-plugin-store2",
@@ -17817,8 +17806,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "transcribe-soniqo",
- "transcribe-speechanalyzer",
  "transcript",
  "transcription-core",
  "uuid",

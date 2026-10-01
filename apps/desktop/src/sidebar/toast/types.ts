@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type ToastAction = {
+type ToastAction = {
   label: string;
   icon?: ReactNode;
   onClick: () => void | Promise<void>;
@@ -12,7 +12,7 @@ export type DownloadProgress = {
   progress: number;
 };
 
-export type ToastLifecycle =
+type ToastLifecycle =
   | { type: "condition-bound" }
   | {
       type: "persistent";

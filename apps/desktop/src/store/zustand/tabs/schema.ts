@@ -1,6 +1,5 @@
 import type {
   ChangelogState,
-  ContactsSelection,
   ContactsState,
   EditorView,
   SessionsState as WindowsSessionsState,
@@ -8,13 +7,7 @@ import type {
   TemplatesState,
 } from "@anlg/plugin-windows";
 
-export type {
-  ChangelogState,
-  ContactsSelection,
-  ContactsState,
-  EditorView,
-  TemplatesState,
-};
+export type { EditorView };
 
 export type SessionsState = WindowsSessionsState & {
   scheduledAutoStart?: boolean | null;
@@ -110,11 +103,11 @@ const normalizeSettingsTab = (
   }
 };
 
-export type SettingsState = {
+type SettingsState = {
   tab: SettingsTab | null;
 };
 
-export type DailySummaryState = {
+type DailySummaryState = {
   activeTab: "timeline" | "raw" | null;
 };
 

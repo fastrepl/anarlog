@@ -26,7 +26,7 @@ const scopes = ["restricted", "workspace", "link", "public"] as const;
 export const settableScopes = ["restricted", "workspace", "public"] as const;
 export const capabilities = ["viewer", "commenter", "editor"] as const;
 
-export type SessionShareScope = (typeof scopes)[number];
+type SessionShareScope = (typeof scopes)[number];
 export type SettableSessionShareScope = (typeof settableScopes)[number];
 export type SessionAccessCapability = (typeof capabilities)[number];
 export type ShareManagementContext = {

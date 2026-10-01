@@ -22,9 +22,6 @@ backon = { workspace = true, features = ["std-blocking-sleep"] }
 chrono = { workspace = true, features = ["serde"] }
 itertools = { workspace = true }
 thiserror = { workspace = true }
-uuid = { workspace = true }
-
-tracing = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

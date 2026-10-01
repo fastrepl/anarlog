@@ -46,11 +46,7 @@ import {
 import { resolveConfigValue } from "~/shared/config";
 import { isKeychainAccessError } from "~/shared/keychain";
 
-export {
-  getCloudsyncCredentialBlock,
-  subscribeCloudsyncCredentialBlock,
-  type CloudsyncCredentialBlock,
-};
+export { getCloudsyncCredentialBlock, subscribeCloudsyncCredentialBlock };
 
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;

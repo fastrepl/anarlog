@@ -22,7 +22,7 @@ export type CalendarEventSearchResult = {
   linkedSessionId: string | null;
 };
 
-export type WebSearchResult = {
+type WebSearchResult = {
   title: string;
   url: string;
   snippet: string;

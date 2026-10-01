@@ -44,7 +44,7 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { commands } from "~/types/tauri.gen";
 
-export type BuildChannel = "dev" | "staging" | "nightly" | "stable";
+type BuildChannel = "dev" | "staging" | "nightly" | "stable";
 
 function resolveBuildChannel(identifier: string): BuildChannel {
   if (identifier.endsWith(".nightly")) return "nightly";

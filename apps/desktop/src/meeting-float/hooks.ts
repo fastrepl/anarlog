@@ -21,7 +21,7 @@ type MeetingFloatSqlRow = {
   live_started_at_ms: number | null;
 };
 
-export type MeetingFloatSession = {
+type MeetingFloatSession = {
   title: string;
   ownerUserId: string;
   participantHumanIds: string[];
