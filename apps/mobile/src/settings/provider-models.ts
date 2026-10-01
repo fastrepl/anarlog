@@ -28,6 +28,7 @@ export async function discoverProviderModels(
     const headers: Record<string, string> = {};
     switch (config.provider) {
       case "venice":
+      case "cheaperinference":
         url += "?type=text";
         headers.Authorization = `Bearer ${apiKey}`;
         break;
@@ -118,6 +119,7 @@ export function parseProviderModels(
       (model.type !== "text" || record(model.model_spec).offline === true)
     )
       return [];
+    if (provider === "cheaperinference" && model.type !== "text") return [];
     const raw = model.id ?? model.name;
     if (typeof raw !== "string") return [];
     const id =

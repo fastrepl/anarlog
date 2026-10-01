@@ -1404,6 +1404,7 @@ for (const definition of providersFor("llm").filter(
       "azure_openai",
       "azure_ai",
       "venice",
+      "cheaperinference",
     ].includes(id) && !presetProviderModels("llm", id),
 )) {
   test(`${definition.name} discovers selectable models with its device key and authentication headers`, async () => {
@@ -1441,7 +1442,7 @@ for (const definition of providersFor("llm").filter(
     const { url, options } = fixture.requests[0];
     assert.equal(
       url,
-      `${config.baseUrl}${definition.id === "azure_openai" ? "/openai/models?api-version=2024-10-21" : definition.id === "venice" ? "/models?type=text" : "/models"}`,
+      `${config.baseUrl}${definition.id === "azure_openai" ? "/openai/models?api-version=2024-10-21" : definition.id === "venice" || definition.id === "cheaperinference" ? "/models?type=text" : "/models"}`,
     );
     const header =
       definition.id === "google_generative_ai"
@@ -2043,5 +2044,18 @@ test("Venice model discovery excludes offline and non-text entries", () => {
       ],
     }),
     ["venice-uncensored"],
+  );
+});
+
+test("Cheaper Inference model discovery excludes non-text entries", () => {
+  assert.deepEqual(
+    parseProviderModels("cheaperinference", {
+      data: [
+        { id: "gpt-5.4-mini", type: "text" },
+        { id: "image-model", type: "image" },
+        { id: "video-model", type: "video" },
+      ],
+    }),
+    ["gpt-5.4-mini"],
   );
 });

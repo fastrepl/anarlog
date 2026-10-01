@@ -256,6 +256,29 @@ const _PROVIDERS = [
     },
   },
   {
+    id: "cheaperinference",
+    displayName: "Cheaper Inference",
+    badge: null,
+    icon: (
+      <ProviderBrandImage
+        src="/assets/cheaperinference.svg"
+        alt="Cheaper Inference"
+      />
+    ),
+    baseUrl: "https://api.cheaperinference.com/v1",
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://cheaperinference.com/markets",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://cheaperinference.com/signup",
+      },
+    },
+  },
+  {
     id: "openrouter",
     displayName: "OpenRouter",
     badge: null,
@@ -690,6 +713,7 @@ const PROVIDER_ORDER = [
   "google_generative_ai",
   "openrouter",
   "venice",
+  "cheaperinference",
   "moonshot",
   "zai",
   "deepseek",

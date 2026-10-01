@@ -45,6 +45,7 @@ import { listAnthropicModels } from "~/settings/ai/shared/list-anthropic";
 import { listAppleFoundationModels } from "~/settings/ai/shared/list-apple-foundation";
 import { listAzureAIModels } from "~/settings/ai/shared/list-azure-ai";
 import { listAzureOpenAIModels } from "~/settings/ai/shared/list-azure-openai";
+import { listCheaperInferenceModels } from "~/settings/ai/shared/list-cheaperinference";
 import { listCloudflareWorkersAIModels } from "~/settings/ai/shared/list-cloudflare-workers-ai";
 import {
   type InputModality,
@@ -625,6 +626,9 @@ export function getLlmProviderStatus({
       break;
     case "venice":
       listModelsFunc = () => listVeniceModels(baseUrl, apiKey);
+      break;
+    case "cheaperinference":
+      listModelsFunc = () => listCheaperInferenceModels(baseUrl, apiKey);
       break;
     case "custom":
       listModelsFunc = () => listGenericModels(baseUrl, apiKey);

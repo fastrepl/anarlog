@@ -227,6 +227,12 @@ export const SUMMARY_PROVIDERS = [
     model: "",
   },
   {
+    id: "cheaperinference",
+    name: "Cheaper Inference",
+    baseUrl: "https://api.cheaperinference.com/v1",
+    model: "",
+  },
+  {
     id: "moonshot",
     name: "Moonshot AI",
     baseUrl: "https://api.moonshot.ai/v1",
