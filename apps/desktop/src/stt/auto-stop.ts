@@ -168,6 +168,8 @@ export async function showMeetingEndedPrompt({
       participants: null,
       event_details: null,
       action_label: "Stop",
+      action: null,
+      action_menu: null,
       action_variant: "destructive",
       options: null,
       footer: null,

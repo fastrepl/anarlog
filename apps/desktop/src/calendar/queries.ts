@@ -52,6 +52,7 @@ type SessionCalendarEventSqlRow = {
 };
 
 type CalendarEventStartSqlRow = { started_at: string };
+type CalendarEventMeetingLinkSqlRow = { meeting_link: string };
 
 type CalendarEventSearchSqlRow = {
   id: string;
@@ -282,6 +283,21 @@ export async function getCalendarEventStartedAt(
     [eventId],
   );
   return rows[0]?.started_at || null;
+}
+
+export async function getCalendarEventMeetingLink(
+  eventId: string,
+): Promise<string | null> {
+  const rows = await liveQueryClient.execute<CalendarEventMeetingLinkSqlRow>(
+    `
+      SELECT meeting_link
+      FROM events
+      WHERE id = ? AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [eventId],
+  );
+  return rows[0]?.meeting_link.trim() || null;
 }
 
 export async function searchCalendarEvents(

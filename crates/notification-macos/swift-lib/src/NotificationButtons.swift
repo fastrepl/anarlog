@@ -524,6 +524,25 @@ class OptionsButton: NotificationButton {
   }
 }
 
+class SemanticMenuButton: NotificationButton {
+  var menuLabel = "Open meeting"
+
+  override func performAction() {
+    guard notification != nil else { return }
+    let menu = NSMenu()
+    let item = NSMenuItem(title: menuLabel, action: #selector(selected(_:)), keyEquivalent: "")
+    item.target = self
+    menu.addItem(item)
+    menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height), in: self)
+  }
+
+  @objc func selected(_ sender: NSMenuItem) {
+    guard let notification = notification else { return }
+    RustBridge.onOptionSelected(key: notification.key, selectedIndex: 0)
+    notification.dismiss()
+  }
+}
+
 class CollapseButton: NSButton, TrackableButton {
   weak var notification: NotificationInstance?
   var trackingArea: NSTrackingArea?

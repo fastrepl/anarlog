@@ -170,6 +170,7 @@ pub enum NotificationIcon {
 pub struct NotificationContext {
     pub key: String,
     pub source: Option<NotificationSource>,
+    pub action: Option<NotificationAction>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -177,6 +178,22 @@ pub struct NotificationContext {
 pub enum NotificationActionVariant {
     Default,
     Destructive,
+}
+
+/// An explicit calendar reminder action. These are intentionally semantic so the
+/// app can decide whether foregrounding its window is appropriate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationAction {
+    JoinAndRecord,
+    OpenMeeting,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationActionMenu {
+    pub label: String,
+    pub action: NotificationAction,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -191,6 +208,8 @@ pub struct Notification {
     pub event_details: Option<EventDetails>,
     pub action_label: Option<String>,
     pub action_variant: Option<NotificationActionVariant>,
+    pub action: Option<NotificationAction>,
+    pub action_menu: Option<NotificationActionMenu>,
     pub options: Option<Vec<String>>,
     pub footer: Option<NotificationFooter>,
     pub icon: Option<NotificationIcon>,
@@ -292,6 +311,10 @@ impl Notification {
         self.options
             .as_deref()
             .is_some_and(|options| !options.is_empty())
+    }
+
+    pub fn has_action_menu(&self) -> bool {
+        self.action_menu.is_some()
     }
 
     pub fn has_expandable_content(&self) -> bool {
@@ -450,6 +473,8 @@ pub struct NotificationBuilder {
     event_details: Option<EventDetails>,
     action_label: Option<String>,
     action_variant: Option<NotificationActionVariant>,
+    action: Option<NotificationAction>,
+    action_menu: Option<NotificationActionMenu>,
     options: Option<Vec<String>>,
     footer: Option<NotificationFooter>,
     icon: Option<NotificationIcon>,
@@ -506,6 +531,19 @@ impl NotificationBuilder {
         self
     }
 
+    pub fn action(mut self, action: NotificationAction) -> Self {
+        self.action = Some(action);
+        self
+    }
+
+    pub fn action_menu(mut self, label: impl Into<String>, action: NotificationAction) -> Self {
+        self.action_menu = Some(NotificationActionMenu {
+            label: label.into(),
+            action,
+        });
+        self
+    }
+
     pub fn options(mut self, options: Vec<String>) -> Self {
         self.options = Some(options);
         self
@@ -538,6 +576,8 @@ impl NotificationBuilder {
             event_details: self.event_details,
             action_label: self.action_label,
             action_variant: self.action_variant,
+            action: self.action,
+            action_menu: self.action_menu,
             options: self.options,
             footer: self.footer,
             icon,
@@ -699,6 +739,26 @@ mod tests {
         assert_eq!(
             notification.primary_action(),
             PrimaryAction::Options(&["Design sync".to_string(), "Planning".to_string()])
+        );
+    }
+
+    #[test]
+    fn semantic_action_menu_keeps_the_primary_action() {
+        let notification = Notification::builder()
+            .title("Design sync")
+            .message("Starting soon")
+            .action_label("Join & record")
+            .action(NotificationAction::JoinAndRecord)
+            .action_menu("Open meeting", NotificationAction::OpenMeeting)
+            .build();
+
+        assert!(notification.has_action_menu());
+        assert_eq!(
+            notification.primary_action(),
+            PrimaryAction::Accept {
+                label: "Join & record",
+                destructive: false
+            }
         );
     }
 

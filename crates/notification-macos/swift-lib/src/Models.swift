@@ -226,6 +226,8 @@ struct NotificationPayload: Codable {
   let eventDetails: EventDetails?
   let actionLabel: String?
   let actionVariant: NotificationActionVariant?
+  let action: NotificationAction?
+  let actionMenu: NotificationActionMenu?
   let options: [String]?
   let footer: NotificationFooter?
   let icon: NotificationIcon?
@@ -255,4 +257,14 @@ struct NotificationPayload: Codable {
     let hasParticipants = participants?.isEmpty == false
     return hasParticipants || eventDetails != nil
   }
+}
+
+enum NotificationAction: String, Codable {
+  case joinAndRecord = "join_and_record"
+  case openMeeting = "open_meeting"
+}
+
+struct NotificationActionMenu: Codable {
+  let label: String
+  let action: NotificationAction
 }

@@ -70,6 +70,8 @@ function WorkspaceInvitationToast({
         participants: null,
         event_details: null,
         action_label: t`View`,
+        action: null,
+        action_menu: null,
         action_variant: null,
         options: null,
         footer: null,

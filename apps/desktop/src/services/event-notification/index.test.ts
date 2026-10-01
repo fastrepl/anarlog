@@ -48,6 +48,7 @@ describe("checkEventNotifications", () => {
         recurrence_series_id: "series-1",
         title: "Design Review",
         is_all_day: 0,
+        meeting_link: "https://meet.example.com/design-review",
       },
     ]);
 
@@ -58,6 +59,33 @@ describe("checkEventNotifications", () => {
         source: { type: "calendar_event", event_id: "event-1" },
         message: "Starting in 2 minutes",
         start_time: new Date("2026-05-15T12:02:00.000Z").getTime() / 1000,
+        action_label: "Join & record",
+        action: "join_and_record",
+        action_menu: { label: "Open meeting", action: "open_meeting" },
+      }),
+    );
+  });
+
+  test("offers recording without a meeting menu when the event has no link", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        id: "event-1",
+        started_at: "2026-05-15T12:02:00.000Z",
+        tracking_id_event: "tracking-1",
+        recurrence_series_id: "series-1",
+        title: "Design Review",
+        is_all_day: 0,
+        meeting_link: "",
+      },
+    ]);
+
+    await checkEventNotifications(true, new Map());
+
+    expect(mocks.showNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action_label: "Start recording",
+        action: "join_and_record",
+        action_menu: null,
       }),
     );
   });

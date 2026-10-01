@@ -89,7 +89,14 @@ impl<T> BoundedTimedMap<T> {
 }
 
 type RecentNotificationMap = Mutex<BoundedTimedMap<()>>;
-type NotificationContextMap = Mutex<BoundedTimedMap<Option<NotificationSource>>>;
+#[derive(Clone)]
+struct StoredNotificationContext {
+    source: Option<NotificationSource>,
+    action: Option<NotificationAction>,
+    action_menu: Option<NotificationAction>,
+}
+
+type NotificationContextMap = Mutex<BoundedTimedMap<StoredNotificationContext>>;
 
 static RECENT_NOTIFICATIONS: OnceLock<RecentNotificationMap> = OnceLock::new();
 static NOTIFICATION_CONTEXT: OnceLock<NotificationContextMap> = OnceLock::new();
@@ -119,22 +126,42 @@ pub enum NotificationMutation {
     Dismiss,
 }
 
-fn store_context(key: &str, source: Option<NotificationSource>) -> bool {
+fn store_context(key: &str, notification: &Notification) -> bool {
     let ctx_map = NOTIFICATION_CONTEXT.get_or_init(|| Mutex::new(BoundedTimedMap::default()));
     let mut map = ctx_map.lock().unwrap();
 
     let now = Instant::now();
     map.retain_recent(now, CONTEXT_TTL);
 
-    map.insert_without_eviction(key.to_string(), source, now, MAX_NOTIFICATION_CONTEXTS)
+    map.insert_without_eviction(
+        key.to_string(),
+        StoredNotificationContext {
+            source: notification.source.clone(),
+            action: notification.action,
+            action_menu: notification.action_menu.as_ref().map(|menu| menu.action),
+        },
+        now,
+        MAX_NOTIFICATION_CONTEXTS,
+    )
 }
 
 fn get_context(key: &str) -> NotificationContext {
     let ctx_map = NOTIFICATION_CONTEXT.get_or_init(|| Mutex::new(BoundedTimedMap::default()));
-    let source = ctx_map.lock().unwrap().remove(key).flatten();
+    let stored = ctx_map.lock().unwrap().remove(key);
     NotificationContext {
         key: key.to_string(),
-        source,
+        source: stored.as_ref().and_then(|ctx| ctx.source.clone()),
+        action: stored.and_then(|ctx| ctx.action),
+    }
+}
+
+fn get_menu_context(key: &str) -> NotificationContext {
+    let ctx_map = NOTIFICATION_CONTEXT.get_or_init(|| Mutex::new(BoundedTimedMap::default()));
+    let stored = ctx_map.lock().unwrap().remove(key);
+    NotificationContext {
+        key: key.to_string(),
+        source: stored.as_ref().and_then(|ctx| ctx.source.clone()),
+        action: stored.and_then(|ctx| ctx.action_menu),
     }
 }
 
@@ -174,7 +201,7 @@ pub fn show(notification: &anlg_notification_interface::Notification) {
             }
         }
 
-        if !store_context(key, notification.source.clone()) {
+        if !store_context(key, notification) {
             tracing::warn!(
                 key = key,
                 capacity = MAX_NOTIFICATION_CONTEXTS,
@@ -342,7 +369,7 @@ where
     {
         let f = f.clone();
         anlg_notification_macos::setup_option_selected_handler(move |key, tag| {
-            f(get_context(&key), tag);
+            f(get_menu_context(&key), tag);
         });
     }
 
@@ -350,7 +377,7 @@ where
     {
         let f = f.clone();
         anlg_notification_linux::setup_notification_option_selected_handler(move |key, index| {
-            f(get_context(&key), index);
+            f(get_menu_context(&key), index);
         });
     }
 
@@ -358,7 +385,7 @@ where
     {
         let f = f.clone();
         anlg_notification_windows::setup_notification_option_selected_handler(move |key, index| {
-            f(get_context(&key), index);
+            f(get_menu_context(&key), index);
         });
     }
 
