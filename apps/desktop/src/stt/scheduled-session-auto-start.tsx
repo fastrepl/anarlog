@@ -40,6 +40,7 @@ export function ScheduledSessionAutoStart({
 
   return canStartLiveSession && session ? (
     <ReadyScheduledSessionAutoStart
+      key={`${sessionId}:${requiresCalendarEligibility ? "scheduled" : "manual"}`}
       requiresCalendarEligibility={requiresCalendarEligibility}
       sessionId={sessionId}
     />

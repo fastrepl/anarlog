@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -138,6 +138,31 @@ test("starts manual recording without calendar eligibility", async () => {
 
   await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
   expect(mocks.readDueScheduledSessionMeeting).not.toHaveBeenCalled();
+  expect(mocks.beginScheduledAutoStart).not.toHaveBeenCalled();
+});
+
+test("manual recording supersedes a pending scheduled attendance read", async () => {
+  let resolveAttendance!: (value: null) => void;
+  mocks.readDueScheduledSessionMeeting.mockReturnValue(
+    new Promise((resolve) => {
+      resolveAttendance = resolve;
+    }),
+  );
+  const view = render(<ScheduledSessionAutoStart sessionId="session-1" />);
+
+  view.rerender(
+    <ScheduledSessionAutoStart
+      sessionId="session-1"
+      requiresCalendarEligibility={false}
+    />,
+  );
+
+  await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
+  mocks.updateSessionTabState.mockClear();
+  await act(async () => resolveAttendance(null));
+
+  expect(mocks.updateSessionTabState).not.toHaveBeenCalled();
+  expect(mocks.startListening).toHaveBeenCalledTimes(1);
   expect(mocks.beginScheduledAutoStart).not.toHaveBeenCalled();
 });
 
