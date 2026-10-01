@@ -698,7 +698,11 @@ describe("EventListeners notification events", () => {
     expect(openNewMock).toHaveBeenCalledWith({
       type: "sessions",
       id: "session-1",
-      state: { view: null, autoStart: null },
+      state: {
+        view: null,
+        autoStart: null,
+        scheduledAutoStart: null,
+      },
     });
   });
 
@@ -725,7 +729,11 @@ describe("EventListeners notification events", () => {
     expect(openNewMock).toHaveBeenCalledWith({
       type: "sessions",
       id: "session-event",
-      state: { view: null, autoStart: true },
+      state: {
+        view: null,
+        autoStart: true,
+        scheduledAutoStart: null,
+      },
     });
   });
 
@@ -780,7 +788,11 @@ describe("EventListeners notification events", () => {
         expect(openNewMock).toHaveBeenCalledWith({
           type: "sessions",
           id: "session-event",
-          state: { view: null, autoStart },
+          state: {
+            view: null,
+            autoStart,
+            scheduledAutoStart: null,
+          },
         }),
       );
       expect(setTriggerAppIdsMock).not.toHaveBeenCalled();

@@ -16,8 +16,10 @@ import {
 import { useStartListeningState } from "~/stt/useStartListening";
 
 export function ScheduledSessionAutoStart({
+  requiresCalendarEligibility = true,
   sessionId,
 }: {
+  requiresCalendarEligibility?: boolean;
   sessionId: string;
 }) {
   const canStartLiveSession = useListener((state) =>
@@ -37,7 +39,10 @@ export function ScheduledSessionAutoStart({
   }
 
   return canStartLiveSession && session ? (
-    <ReadyScheduledSessionAutoStart sessionId={sessionId} />
+    <ReadyScheduledSessionAutoStart
+      requiresCalendarEligibility={requiresCalendarEligibility}
+      sessionId={sessionId}
+    />
   ) : (
     <PendingScheduledSessionAutoStart sessionId={sessionId} />
   );
@@ -68,7 +73,13 @@ function PendingScheduledSessionAutoStart({
   return null;
 }
 
-function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
+function ReadyScheduledSessionAutoStart({
+  requiresCalendarEligibility,
+  sessionId,
+}: {
+  requiresCalendarEligibility: boolean;
+  sessionId: string;
+}) {
   const { connectionReady, startListening } = useStartListeningState(
     sessionId,
     { automatic: true },
@@ -83,6 +94,7 @@ function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
   return connectionReady ? (
     <StartScheduledSessionAutoStart
       attemptedRef={attemptedRef}
+      requiresCalendarEligibility={requiresCalendarEligibility}
       sessionId={sessionId}
       startListening={startListening}
     />
@@ -91,10 +103,12 @@ function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
 
 function StartScheduledSessionAutoStart({
   attemptedRef,
+  requiresCalendarEligibility,
   sessionId,
   startListening,
 }: {
   attemptedRef: { current: boolean };
+  requiresCalendarEligibility: boolean;
   sessionId: string;
   startListening: () => Promise<void>;
 }) {
@@ -108,15 +122,27 @@ function StartScheduledSessionAutoStart({
     let cancelled = false;
     let captureStarted = false;
 
-    void readDueScheduledSessionMeeting(sessionId)
-      .then((meeting) => {
+    const eligibility = requiresCalendarEligibility
+      ? readDueScheduledSessionMeeting(sessionId).then(Boolean)
+      : Promise.resolve(true);
+
+    void eligibility
+      .then((eligible) => {
         if (cancelled) return;
         clearPendingAutoStart(sessionId);
-        if (!meeting || isScheduledAutoStartInFlight(sessionId)) {
+        if (
+          !eligible ||
+          (requiresCalendarEligibility &&
+            isScheduledAutoStartInFlight(sessionId))
+        ) {
           return;
         }
 
         captureStarted = true;
+        if (!requiresCalendarEligibility) {
+          return startListeningRef.current();
+        }
+
         beginScheduledAutoStart(sessionId);
         return startListeningRef.current().finally(() => {
           finishScheduledAutoStart(sessionId);
@@ -152,5 +178,6 @@ function clearPendingAutoStart(sessionId: string) {
   tabsState.updateSessionTabState(currentTab, {
     ...currentTab.state,
     autoStart: null,
+    scheduledAutoStart: null,
   });
 }

@@ -128,7 +128,10 @@ function UnlockedTabContentNote({
       {tab.state.autoStart && !standaloneWindow ? (
         // Stay mounted under the lock overlay so a locked session can clear
         // autoStart instead of blocking later scheduled meetings.
-        <ScheduledSessionAutoStart sessionId={tab.id} />
+        <ScheduledSessionAutoStart
+          sessionId={tab.id}
+          requiresCalendarEligibility={Boolean(tab.state.scheduledAutoStart)}
+        />
       ) : null}
       <SearchProvider>
         <AudioPlayer.Provider sessionId={tab.id} url={audioUrl ?? ""}>

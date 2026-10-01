@@ -307,7 +307,7 @@ describe("startScheduledMeeting", () => {
     expect(mocks.openNew).toHaveBeenCalledWith({
       type: "sessions",
       id: "session-a",
-      state: { view: null, autoStart: true },
+      state: { view: null, autoStart: true, scheduledAutoStart: true },
     });
   });
 
@@ -622,6 +622,37 @@ describe("startScheduledMeeting", () => {
 
     expect(mocks.getOrCreateSessionForEventId).toHaveBeenCalledWith("older");
     expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/older", null);
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
+  });
+
+  test("retries a due meeting that disappears and returns during its read", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    let resolveMissingRead: (rows: ScheduledMeetingRow[]) => void = () => {};
+    mocks.executeMeeting
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveMissingRead = resolve;
+        }),
+      )
+      .mockImplementation(async (_sql, params: string[]) => [
+        currentMeeting(params[0] ?? "newer"),
+      ]);
+    render(createElement(ScheduledMeetingAutoStart));
+    const onData = mocks.subscribeMeetings.mock.calls[0][2].onData;
+    const newer = meeting("newer", 0);
+    const older = meeting("older", -60_000);
+
+    onData([older, newer]);
+    onData([older]);
+    onData([older, newer]);
+    resolveMissingRead([]);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(mocks.getOrCreateSessionForEventId).toHaveBeenLastCalledWith(
+      "newer",
+    );
+    expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/newer", null);
     expect(mocks.openNew).toHaveBeenCalledTimes(1);
   });
 });

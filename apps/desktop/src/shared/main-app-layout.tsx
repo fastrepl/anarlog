@@ -105,6 +105,7 @@ const useNavigationEvents = () => {
                   state: {
                     view: null,
                     autoStart: null,
+                    scheduledAutoStart: null,
                   },
                 });
               })

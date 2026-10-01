@@ -45,7 +45,7 @@ const tab = {
   active: true,
   slotId: "slot-1",
   pinned: false,
-  state: { view: null, autoStart: true },
+  state: { view: null, autoStart: true, scheduledAutoStart: true },
 };
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -126,6 +126,21 @@ test("starts scheduled recording when its connection state is ready", async () =
   );
 });
 
+test("starts manual recording without calendar eligibility", async () => {
+  mocks.readDueScheduledSessionMeeting.mockResolvedValue(null);
+
+  render(
+    <ScheduledSessionAutoStart
+      sessionId="session-1"
+      requiresCalendarEligibility={false}
+    />,
+  );
+
+  await vi.waitFor(() => expect(mocks.startListening).toHaveBeenCalledTimes(1));
+  expect(mocks.readDueScheduledSessionMeeting).not.toHaveBeenCalled();
+  expect(mocks.beginScheduledAutoStart).not.toHaveBeenCalled();
+});
+
 test("does not start a second lifecycle while a scheduled start is in flight", async () => {
   mocks.inFlight = true;
 
@@ -135,6 +150,7 @@ test("does not start a second lifecycle while a scheduled start is in flight", a
     expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
       view: null,
       autoStart: null,
+      scheduledAutoStart: null,
     }),
   );
   expect(mocks.startListening).not.toHaveBeenCalled();
@@ -164,6 +180,7 @@ test("abandons an armed auto-start immediately while another meeting is recordin
   expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
     view: null,
     autoStart: null,
+    scheduledAutoStart: null,
   });
 });
 
@@ -179,6 +196,7 @@ test("abandons a pending auto-start when another meeting becomes active", () => 
   expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
     view: null,
     autoStart: null,
+    scheduledAutoStart: null,
   });
 });
 
@@ -241,6 +259,7 @@ test.each([
     expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
       view: null,
       autoStart: null,
+      scheduledAutoStart: null,
     });
   } finally {
     vi.useRealTimers();
@@ -274,6 +293,7 @@ test.each([
   expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
     view: null,
     autoStart: null,
+    scheduledAutoStart: null,
   });
 });
 
@@ -298,6 +318,7 @@ test("re-checks attendance immediately before capture starts", async () => {
     expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
       view: null,
       autoStart: null,
+      scheduledAutoStart: null,
     }),
   );
   expect(mocks.startListening).not.toHaveBeenCalled();

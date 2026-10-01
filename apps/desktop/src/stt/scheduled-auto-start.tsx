@@ -260,7 +260,7 @@ export async function startScheduledMeeting(
   useTabs.getState().openNew({
     type: "sessions",
     id: sessionId,
-    state: { view: null, autoStart: true },
+    state: { view: null, autoStart: true, scheduledAutoStart: true },
   });
 
   return "started";
@@ -295,7 +295,8 @@ export function ScheduledMeetingAutoStart() {
     let starting = false;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const firedEventIds = new Set<string>();
-    const temporarilyIneligibleEventIds = new Set<string>();
+    const eventRevisions = new Map<string, number>();
+    const ineligibleEventRevisions = new Map<string, number>();
 
     const scheduleTick = (delayMs: number) => {
       clearTimeout(timeout);
@@ -354,6 +355,7 @@ export function ScheduledMeetingAutoStart() {
         tabsState.updateSessionTabState(tab, {
           ...tab.state,
           autoStart: null,
+          scheduledAutoStart: null,
         });
       }
 
@@ -361,7 +363,10 @@ export function ScheduledMeetingAutoStart() {
         rows,
         nowMs: Date.now(),
         firedEventIds,
-      }).filter((row) => !temporarilyIneligibleEventIds.has(row.id));
+      }).filter(
+        (row) =>
+          ineligibleEventRevisions.get(row.id) !== eventRevisions.get(row.id),
+      );
       const next = due[0];
       const scheduleAfterTransientBlock = () => {
         if (next) scheduleTick(TICK_MS);
@@ -392,7 +397,7 @@ export function ScheduledMeetingAutoStart() {
         return;
       }
 
-      const startingRow = next;
+      const startEventRevision = eventRevisions.get(next.id) ?? 0;
       starting = true;
       void startScheduledMeeting(next, Boolean(autoJoinRef.current))
         .then((outcome) => {
@@ -407,12 +412,12 @@ export function ScheduledMeetingAutoStart() {
           // next overlapping meeting immediately instead of letting the newer
           // ineligible event hide it for the full grace window.
           if (outcome === "ineligible") {
-            const latestRow = rows.find((row) => row.id === next.id);
-            if (latestRow && !isSameScheduledMeeting(startingRow, latestRow)) {
+            const currentEventRevision = eventRevisions.get(next.id) ?? 0;
+            if (currentEventRevision !== startEventRevision) {
               scheduleTick(1);
               return;
             }
-            temporarilyIneligibleEventIds.add(next.id);
+            ineligibleEventRevisions.set(next.id, currentEventRevision);
             scheduleTick(1);
             return;
           }
@@ -450,7 +455,26 @@ export function ScheduledMeetingAutoStart() {
       .subscribe<ScheduledMeetingRow>(SCHEDULED_MEETINGS_SQL, [], {
         onData: (nextRows) => {
           if (cancelled) return;
-          temporarilyIneligibleEventIds.clear();
+          const previousById = new Map(rows.map((row) => [row.id, row]));
+          const nextById = new Map(nextRows.map((row) => [row.id, row]));
+          for (const eventId of new Set([
+            ...previousById.keys(),
+            ...nextById.keys(),
+          ])) {
+            const previousRow = previousById.get(eventId);
+            const nextRow = nextById.get(eventId);
+            if (
+              !previousRow ||
+              !nextRow ||
+              !isSameScheduledMeeting(previousRow, nextRow)
+            ) {
+              eventRevisions.set(
+                eventId,
+                (eventRevisions.get(eventId) ?? 0) + 1,
+              );
+              ineligibleEventRevisions.delete(eventId);
+            }
+          }
           rows = nextRows;
           tick();
         },

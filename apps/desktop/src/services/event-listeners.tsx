@@ -640,7 +640,11 @@ function useNotificationEvents() {
             openNewRef.current({
               type: "sessions",
               id: sourceSessionId,
-              state: { view: null, autoStart: null },
+              state: {
+                view: null,
+                autoStart: null,
+                scheduledAutoStart: null,
+              },
             });
             return;
           }
@@ -657,7 +661,11 @@ function useNotificationEvents() {
               openNewRef.current({
                 type: "sessions",
                 id: sessionId,
-                state: { view: null, autoStart: autoStart ? true : null },
+                state: {
+                  view: null,
+                  autoStart: autoStart ? true : null,
+                  scheduledAutoStart: null,
+                },
               });
             })
             .catch((error) => {
@@ -692,7 +700,11 @@ function useNotificationEvents() {
               openNewRef.current({
                 type: "sessions",
                 id: sessionId,
-                state: { view: null, autoStart: true },
+                state: {
+                  view: null,
+                  autoStart: true,
+                  scheduledAutoStart: null,
+                },
               });
             })
             .catch((error) => {
