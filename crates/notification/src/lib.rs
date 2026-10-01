@@ -493,4 +493,33 @@ mod tests {
         assert_eq!(map.get("second").map(|entry| entry.value), Some(2));
         assert_eq!(map.entries.len(), 2);
     }
+
+    #[test]
+    fn semantic_actions_survive_stored_context_routing() {
+        let notification = Notification::builder()
+            .title("Design sync")
+            .message("Starting soon")
+            .source(NotificationSource::CalendarEvent {
+                event_id: "event-1".to_string(),
+            })
+            .action(NotificationAction::JoinAndRecord)
+            .action_menu("Open meeting", NotificationAction::OpenMeeting)
+            .build();
+
+        assert!(store_context("primary-action", &notification));
+        let primary = get_context("primary-action");
+        assert_eq!(primary.action, Some(NotificationAction::JoinAndRecord));
+        assert!(matches!(
+            primary.source,
+            Some(NotificationSource::CalendarEvent { event_id }) if event_id == "event-1"
+        ));
+
+        assert!(store_context("menu-action", &notification));
+        let menu = get_menu_context("menu-action");
+        assert_eq!(menu.action, Some(NotificationAction::OpenMeeting));
+        assert!(matches!(
+            menu.source,
+            Some(NotificationSource::CalendarEvent { event_id }) if event_id == "event-1"
+        ));
+    }
 }

@@ -160,7 +160,10 @@ async function createNotificationSession(
 async function openCalendarMeeting(eventId: string): Promise<void> {
   const meetingLink = await getCalendarEventMeetingLink(eventId);
   if (meetingLink) {
-    await openerCommands.openUrl(meetingLink, null);
+    const result = await openerCommands.openUrl(meetingLink, null);
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
   }
 }
 
@@ -693,8 +696,9 @@ function useNotificationEvents() {
             return;
           }
 
-          void getOrCreateSessionForEventId(eventId)
-            .then(async (sessionId) => {
+          void (async () => {
+            try {
+              const sessionId = await getOrCreateSessionForEventId(eventId);
               openNewRef.current({
                 type: "sessions",
                 id: sessionId,
@@ -703,17 +707,24 @@ function useNotificationEvents() {
                   autoStart: true,
                 },
               });
+            } catch (error) {
+              console.error(
+                "[notification] failed to start calendar event recording",
+                error,
+              );
+            }
 
+            try {
               // Opening the meeting last returns focus to the meeting client,
               // while the session starts from the route's auto-start state.
               await openCalendarMeeting(eventId);
-            })
-            .catch((error) => {
+            } catch (error) {
               console.error(
-                "[notification] failed to join and record calendar event",
+                "[notification] failed to open calendar meeting",
                 error,
               );
-            });
+            }
+          })();
         } else if (payload.type === "notification_option_selected") {
           const selectedIndex = payload.selected_index;
           const eventIds =

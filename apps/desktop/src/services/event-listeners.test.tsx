@@ -60,7 +60,11 @@ const {
   getOrCreateSessionForEventIdMock: vi.fn(async () => "session-event"),
   getCalendarEventStartedAtMock: vi.fn(),
   getCalendarEventMeetingLinkMock: vi.fn(),
-  openUrlMock: vi.fn(async () => ({ status: "ok", data: null })),
+  openUrlMock: vi.fn(
+    async (): Promise<
+      { status: "ok"; data: null } | { status: "error"; error: string }
+    > => ({ status: "ok", data: null }),
+  ),
   setTriggerAppIdsMock: vi.fn(),
   stopMock: vi.fn(),
   updateCaptureConfigMock: vi.fn(),
@@ -422,6 +426,66 @@ describe("EventListeners notification events", () => {
       }),
     );
     expect(openUrlMock).not.toHaveBeenCalled();
+  });
+
+  test("notification_action join_and_record still opens the meeting when recording setup fails", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    getOrCreateSessionForEventIdMock.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+    getCalendarEventMeetingLinkMock.mockResolvedValue(
+      "https://meet.example.com/current",
+    );
+    const handler = await renderNotificationHandler();
+
+    handler({
+      payload: {
+        type: "notification_action",
+        action: "join_and_record",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(openUrlMock).toHaveBeenCalledWith(
+        "https://meet.example.com/current",
+        null,
+      ),
+    );
+    expect(openNewMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("notification_action reports meeting opener result errors", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    openUrlMock.mockResolvedValue({
+      status: "error",
+      error: "No application",
+    });
+    getCalendarEventMeetingLinkMock.mockResolvedValue(
+      "https://meet.example.com/current",
+    );
+    const handler = await renderNotificationHandler();
+
+    handler({
+      payload: {
+        type: "notification_action",
+        action: "open_meeting",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        "[notification] failed to open calendar meeting",
+        expect.objectContaining({ message: "No application" }),
+      ),
+    );
+    consoleError.mockRestore();
   });
 
   test("live capture config sync pushes remotes before the transcript snapshot", async () => {
