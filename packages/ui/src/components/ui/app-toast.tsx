@@ -453,13 +453,6 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
 
   const dismiss = (direction: AppToastDirection = 1) =>
     dismissAppToast(toast.id, direction, "user");
-  const handleCardClick = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (!toast.dismissible || event.defaultPrevented) return;
-    const target = event.target as HTMLElement;
-    if (target.closest?.("button, a, input, textarea, select, [role=button]"))
-      return;
-    dismiss();
-  };
   const handleDragEnd = (
     _event: globalThis.MouseEvent | TouchEvent | PointerEvent,
     info: PanInfo,
@@ -520,7 +513,6 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
       dragElastic={0.7}
       dragMomentum={false}
       onDragEnd={handleDragEnd}
-      onClick={handleCardClick}
       whileDrag={reduceMotion ? undefined : { scale: 0.985 }}
       className={cn([
         "no-drag pointer-events-auto col-start-1 row-start-1 mx-auto origin-top touch-pan-y self-start select-none",
@@ -528,7 +520,7 @@ function AppToast({ toast, size, stackDepth, stacked }: AppToastProps) {
           ? "w-[min(20rem,calc(100vw-2rem))] rounded-[14px] shadow-md"
           : "w-[min(32rem,calc(100vw-2rem))] rounded-[20px] shadow-lg",
         toast.dismissible && toast.phase === "visible"
-          ? "cursor-pointer active:cursor-grabbing"
+          ? "cursor-grab active:cursor-grabbing"
           : null,
         toast.phase === "exiting" || stackedBehind
           ? "pointer-events-none"
