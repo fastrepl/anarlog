@@ -87,7 +87,7 @@ function EnterprisePage() {
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
               Enterprise adds org-wide security, policy, and deployment controls
-              to Anarlog Team — built to forward straight to IT, security, and
+              to Anarlog Pro — built to forward straight to IT, security, and
               legal.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3">
