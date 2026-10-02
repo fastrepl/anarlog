@@ -11,7 +11,7 @@ import { cn } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";
 
-export type GatedPlan = "pro" | "team" | "enterprise";
+export type GatedPlan = "pro" | "enterprise";
 
 export function useNotifyPlanRequired() {
   const { t } = useLingui();
@@ -22,9 +22,7 @@ export function useNotifyPlanRequired() {
       const message =
         plan === "pro"
           ? t`This requires Anarlog Pro`
-          : plan === "team"
-            ? t`This requires Anarlog Team`
-            : t`This requires Anarlog Enterprise`;
+          : t`This requires Anarlog Enterprise`;
 
       toast.warning(message, {
         ...(plan === "pro"

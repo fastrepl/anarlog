@@ -29,8 +29,7 @@ const routes = [
     src: "^/api/assets/blog/(.*)$",
     status: 301,
     headers: {
-      Location:
-        "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/$1",
+      Location: "https://static.anarlog.so/blog/$1",
     },
   },
   {

@@ -1,4 +1,4 @@
-export const ABOUT_UPDATED_ON = "2026-09-24";
+export const ABOUT_UPDATED_ON = "2026-10-02";
 
 export const VALUE_PROP =
   "Anarlog is an open-source, bot-free AI meeting notetaker that captures, transcribes, and summarizes meetings on your own device for engineers, founders, and privacy-conscious professionals who want to own their meeting data.";
@@ -85,7 +85,7 @@ export const originStory = [
 export const howAnarlogWorks = [
   {
     title: "Getting started",
-    body: "Download the desktop app for macOS, Windows, or Linux and start recording. Free works entirely locally with no account. Pro starts with a 3-week trial, and Team workspaces are created from the pricing page.",
+    body: "Download the desktop app for macOS, Windows, or Linux and start recording. Free works entirely locally with no account. Pro starts with a 2-week trial, and includes shared workspaces for teams.",
   },
   {
     title: "Support",
@@ -105,8 +105,7 @@ export const keyFacts = [
   { term: "Company name", detail: "Fastrepl, Inc. (product: Anarlog)" },
   {
     term: "Type",
-    detail:
-      "Open-source desktop software with hosted Pro, Team, and Enterprise plans",
+    detail: "Open-source desktop software with Free, Pro, and Enterprise plans",
   },
   {
     term: "Founded",
@@ -128,7 +127,7 @@ export const keyFacts = [
   {
     term: "Pricing",
     detail:
-      "Free (unlimited local use); Pro $15/month or $150/year; Team $20/person/month or $200/person/year; Enterprise custom",
+      "Free (unlimited local use); Pro $14/person/month or $140/person/year; Enterprise custom",
   },
   {
     term: "Contract terms",
@@ -165,7 +164,7 @@ export const faqs = [
   {
     question: "Is Anarlog free?",
     answer:
-      "Yes. The Free plan has no meeting or minute limits when you use on-device models or your own API keys. Pro ($15/month) adds hosted transcription and AI, Cloud Sync, and sharing.",
+      "Yes. The Free plan has no meeting or minute limits when you use on-device models or your own API keys. Pro ($14/person/month) adds hosted transcription and AI, Cloud Sync, and sharing.",
   },
   {
     question: "Does Anarlog join my meetings as a bot?",

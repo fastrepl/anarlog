@@ -24,6 +24,7 @@ import { createToolRegistry } from "./contexts/tool-registry/core";
 import {
   captureOperationalError,
   initializeErrorReporting,
+  reportCaughtReactError,
 } from "./error-reporting";
 import { AppI18nProvider } from "./i18n/provider";
 import { AppLockGate } from "./lock/gate";
@@ -166,7 +167,9 @@ async function renderApp() {
   }
 
   await Promise.all([bootstrapThemeFromSettings(), initializeAppStoreBuild()]);
-  const root = ReactDOM.createRoot(rootElement);
+  const root = ReactDOM.createRoot(rootElement, {
+    onCaughtError: reportCaughtReactError,
+  });
   root.render(
     <StrictMode>
       <AppRoot />

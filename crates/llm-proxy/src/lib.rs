@@ -16,6 +16,6 @@ pub use env::{ApiKey, Env};
 pub use handler::{chat_completions_router, router};
 pub use model::{
     CharTask, MODEL_KEY_AUDIO, MODEL_KEY_DEFAULT, MODEL_KEY_TOOL_CALLING, ModelContext,
-    ModelResolver, StaticModelResolver,
+    ModelResolver, SELECTABLE_MODELS, StaticModelResolver,
 };
 pub use openapi::openapi;

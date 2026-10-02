@@ -234,8 +234,7 @@ async function uploadToSupabase({ storagePath, bytes, contentType, upsert }) {
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from(BLOG_BUCKET).getPublicUrl(storagePath);
-  return data.publicUrl;
+  return `https://static.anarlog.so/blog/${storagePath.split("/").map(encodeURIComponent).join("/")}`;
 }
 
 async function checkExistingObject(storagePath) {

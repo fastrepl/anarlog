@@ -1605,7 +1605,7 @@ msgid "Continue"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Continue to Team checkout"
+msgid "Continue to Pro checkout"
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -3019,7 +3019,6 @@ msgstr ""
 msgid "Job Title"
 msgstr ""
 
-#: src/services/event-notification/index.ts
 #: src/session/components/outer-header/index.tsx
 msgid "Join & record"
 msgstr ""
@@ -3328,7 +3327,7 @@ msgid "Manage sign-in methods"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Manage Team billing"
+msgid "Manage workspace billing"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -3969,6 +3968,7 @@ msgstr ""
 #: src/composer/index.tsx
 #: src/onboarding/final.tsx
 #: src/services/enhancer/summary-notification.ts
+#: src/services/event-notification/index.ts
 #: src/store/zustand/listener/general-batch.ts
 msgid "Open Anarlog"
 msgstr ""
@@ -4005,10 +4005,6 @@ msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
 msgid "Open in right panel"
-msgstr ""
-
-#: src/services/event-notification/index.ts
-msgid "Open meeting"
 msgstr ""
 
 #: src/task/resource-view.tsx
@@ -4302,7 +4298,11 @@ msgid "Pro features available"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
+msgid "Pro for every member, shared workspaces, roles, and centralized billing. $14 per person monthly or $140 yearly."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Pro plan"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -5473,16 +5473,12 @@ msgstr ""
 msgid "Start listening when a scheduled meeting begins."
 msgstr ""
 
-#: src/services/event-notification/index.ts
-msgid "Start recording"
+#: src/settings/team/index.tsx
+msgid "Start Pro"
 msgstr ""
 
 #: src/main/empty.tsx
 msgid "Start Recording"
-msgstr ""
-
-#: src/settings/team/index.tsx
-msgid "Start Team"
 msgstr ""
 
 #: src/chat/components/input/index.tsx
@@ -5760,10 +5756,6 @@ msgstr ""
 msgid "Team library"
 msgstr ""
 
-#: src/settings/team/index.tsx
-msgid "Team plan"
-msgstr ""
-
 #: src/settings/general/billing.tsx
 msgid "Team seats"
 msgstr ""
@@ -5894,10 +5886,6 @@ msgstr ""
 
 #: src/settings/plan-gate.tsx
 msgid "This requires Anarlog Pro"
-msgstr ""
-
-#: src/settings/plan-gate.tsx
-msgid "This requires Anarlog Team"
 msgstr ""
 
 #. placeholder {0}: status.fileCount

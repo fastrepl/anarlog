@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{ChannelProfile, RenderTranscriptHuman, RenderedTranscriptSegment};
 
@@ -102,10 +102,10 @@ impl SpeakerContext {
         self_human_id: Option<&str>,
         humans: &[RenderTranscriptHuman],
     ) -> Vec<RenderedTranscriptSegment> {
-        // Distinct microphone voices per interval. Remote voices are not counted: diarization
+        // Mic words per diarization voice per interval. Remote voices are not counted: diarization
         // indices restart with every stream refresh, so their number says nothing about how
         // many people are on the far end of a call.
-        let mut local_voices = vec![HashSet::new(); self.intervals.len()];
+        let mut local_voices = vec![HashMap::<Option<i32>, usize>::new(); self.intervals.len()];
         for segment in &segments {
             if segment.key.channel != ChannelProfile::DirectMic {
                 continue;
@@ -115,7 +115,9 @@ impl SpeakerContext {
                     started_at.saturating_add(word.start_ms),
                     started_at.saturating_add(word.end_ms),
                 ) {
-                    local_voices[index].insert(segment.key.speaker_index);
+                    *local_voices[index]
+                        .entry(segment.key.speaker_index)
+                        .or_default() += 1;
                 }
             }
         }
@@ -174,7 +176,7 @@ impl SpeakerContext {
                     part.provisional_speaker = resolve_speaker(
                         &self.intervals[index],
                         part.key.channel,
-                        local_voices[index].len(),
+                        is_owner_voice(&local_voices[index], part.key.speaker_index),
                         self_human_id,
                         humans,
                     );
@@ -201,22 +203,40 @@ impl SpeakerContext {
     }
 }
 
+// A room mic on a call also catches nearby chatter and diarization splits of the owner's own
+// voice, so the voice carrying at least this share of the interval's mic words is the owner.
+const OWNER_VOICE_SHARE_PERCENT: usize = 80;
+
+fn is_owner_voice(voices: &HashMap<Option<i32>, usize>, speaker_index: Option<i32>) -> bool {
+    if voices.len() <= 1 {
+        return true;
+    }
+    // Unindexed words carry no voice identity once diarized voices are present.
+    if speaker_index.is_none() {
+        return false;
+    }
+    let total: usize = voices.values().sum();
+    voices
+        .get(&speaker_index)
+        .is_some_and(|count| count * 100 >= total * OWNER_VOICE_SHARE_PERCENT)
+}
+
 fn resolve_speaker(
     context: &SpeakerContextInterval,
     source: ChannelProfile,
-    local_voices: usize,
+    owner_voice: bool,
     self_id: Option<&str>,
     humans: &[RenderTranscriptHuman],
 ) -> Option<ProvisionalSpeakerLabel> {
     let self_id = self_id.filter(|id| !id.trim().is_empty())?;
     let virtual_call = context.active_call || context.calendar_call;
     // A headset only hears its wearer however diarization splits the voice; a room microphone
-    // on a call is the owner only while it hears a single voice.
+    // on a call is the owner only for the voice that dominates it.
     let personal_microphone = context.mic_isolated == Some(true);
     match source {
         ChannelProfile::DirectMic
             if !context.shared_microphone
-                && (personal_microphone || (virtual_call && local_voices <= 1)) =>
+                && (personal_microphone || (virtual_call && owner_voice)) =>
         {
             let name = humans
                 .iter()

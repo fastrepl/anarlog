@@ -16693,12 +16693,15 @@ dependencies = [
 name = "tauri-plugin-dock"
 version = "0.1.0"
 dependencies = [
+ "intercept",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-anlg-tray",
+ "tauri-plugin-window-state",
+ "tauri-plugin-windows",
 ]
 
 [[package]]
@@ -16842,6 +16845,7 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
 ]

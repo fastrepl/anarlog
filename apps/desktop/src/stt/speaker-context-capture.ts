@@ -23,7 +23,7 @@ const POLL_MS = 5_000;
 const EVIDENCE_LEASE_MS = 10_000;
 // Apps a scheduled meeting link can be joined from; browsers cover Meet and web clients.
 const MEETING_CAPABLE_MIC_APP =
-  /zoom|teams|slack|webex|chrome|chromium|safari|thebrowser|firefox|brave|edge|vivaldi|opera/i;
+  /zoom|teams|slack|webex|chrome|chromium|safari|thebrowser|aside|firefox|brave|edge|vivaldi|opera/i;
 
 export function startSpeakerContextCapture(sessionId: string) {
   if (getCurrentWebviewWindow().label !== "main") return;

@@ -163,6 +163,20 @@ describe("capturing speaker context", () => {
     });
   });
 
+  it("counts Aside holding the microphone toward a scheduled Meet link", async () => {
+    mocks.eventJson = JSON.stringify({
+      meeting_link: "https://meet.google.com/abc-defg-hij",
+    });
+    mocks.inspect.mockResolvedValue({ status: "ok", data: [] });
+    mocks.mic.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "at.studio.AsideBrowser", name: "Aside" }],
+    });
+    startSpeakerContextCapture("session");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.context.intervals[0]).toMatchObject({ calendar_call: true });
+  });
+
   it("closes headset evidence when the actual input changes to a room device", async () => {
     startSpeakerContextCapture("session");
     observeSpeakerMicrophone("session", { isolated: true });

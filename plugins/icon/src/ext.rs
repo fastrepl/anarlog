@@ -94,6 +94,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
 
             let icon_path_str = icon_path.to_string_lossy().to_string();
 
+            let (tx, rx) = std::sync::mpsc::sync_channel(1);
             let app_handle = self.manager.app_handle();
             app_handle
                 .run_on_main_thread(move || {
@@ -108,10 +109,16 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
                     let path_str = NSString::from_str(&icon_path_str);
                     let Some(image) = NSImage::initWithContentsOfFile(NSImage::alloc(), &path_str)
                     else {
+                        let _ = tx.send(Err(crate::Error::Custom(format!(
+                            "Failed to load icon: {icon_path_str}"
+                        ))));
                         return;
                     };
 
                     let Some(bytes) = icon_helpers::image_to_bytes(&image) else {
+                        let _ = tx.send(Err(crate::Error::Custom(
+                            "Failed to encode app icon".into(),
+                        )));
                         return;
                     };
 
@@ -124,10 +131,13 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
                     } else {
                         unsafe { ns_app.setApplicationIconImage(Some(&image)) };
                     }
+                    // Persist the base image; recording and notification overlays are transient.
+                    let _ = tx.send(crate::bundle_icon::set(Some(&image)));
                 })
                 .map_err(crate::Error::Tauri)?;
 
-            Ok(())
+            rx.recv()
+                .map_err(|e| crate::Error::Custom(format!("Failed to receive icon result: {e}")))?
         }
 
         #[cfg(not(target_os = "macos"))]
@@ -140,6 +150,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
     pub fn reset_dock_icon(&self) -> Result<(), crate::Error> {
         #[cfg(target_os = "macos")]
         {
+            let (tx, rx) = std::sync::mpsc::sync_channel(1);
             let app_handle = self.manager.app_handle();
             app_handle
                 .run_on_main_thread(move || {
@@ -150,6 +161,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
                         MainThreadMarker::new().expect("run_on_main_thread guarantees main thread");
                     let ns_app = NSApplication::sharedApplication(mtm);
 
+                    let result = crate::bundle_icon::set(None);
                     let state = overlay_state::update(|state| {
                         state.original_icon_data = None;
                     });
@@ -157,6 +169,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
 
                     if state.recording_active || state.notification_count.is_some() {
                         let Some(current) = ns_app.applicationIconImage() else {
+                            let _ = tx.send(result);
                             return;
                         };
 
@@ -164,10 +177,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
                             unsafe { ns_app.setApplicationIconImage(Some(&composite_image)) };
                         }
                     }
+                    let _ = tx.send(result);
                 })
                 .map_err(crate::Error::Tauri)?;
 
-            Ok(())
+            rx.recv()
+                .map_err(|e| crate::Error::Custom(format!("Failed to receive icon result: {e}")))?
         }
 
         #[cfg(not(target_os = "macos"))]

@@ -4,14 +4,12 @@ Use Napkin for conceptual blog figures such as workflows, privacy/data-flow
 diagrams, decision trees, comparisons, and abstract explainers. Never use it
 to fabricate product UI.
 
-Generated Napkin URLs expire after 30 minutes, so accepted figures are written
-immediately into the repository at:
+Generated Napkin URLs expire after 30 minutes, so accepted figures are uploaded
+immediately to the Supabase `blog` bucket at `articles/<slug>/<filename>`.
 
-`apps/web/public/images/blog/articles/<slug>/<filename>`
+Use the branded serving URL in posts:
 
-They are served by the website as:
-
-`/images/blog/articles/<slug>/<filename>`
+`https://static.anarlog.so/blog/articles/<slug>/<filename>`
 
 ## Batch usage
 
@@ -35,9 +33,9 @@ figure-less.
 pnpm -F @anlg/web media:figures:check
 ```
 
-The check needs no credentials. It validates the manifest and confirms every
-`/images/blog/...` reference in the website has a matching file under
-`public/images/blog/`.
+The check needs no credentials. It validates the manifest and checks every `https://static.anarlog.so/blog/...`
+reference with a public HEAD request. Direct Supabase, local, and legacy proxy
+image URLs are rejected.
 
 ## Single-figure usage
 
@@ -46,7 +44,7 @@ infisical run --silent \
   --env=prod \
   --projectId=87dad7b5-72a6-4791-9228-b3b86b169db1 \
   --path=/anarlog/web \
-  -- pnpm --dir apps/web exec node scripts/napkin-to-public.mjs \
+  -- pnpm --dir apps/web exec node scripts/napkin-to-supabase.mjs \
     --slug meeting-minutes-software \
     --filename meeting-minutes-workflow.png \
     --content-file /tmp/meeting-minutes-workflow.txt \
@@ -56,6 +54,6 @@ infisical run --silent \
     --width 1200
 ```
 
-The script prints the Napkin request ID, generated file metadata, local output
-path, and the `/images/blog/...` URL to use in MDX. It does not overwrite an
-existing file unless `--upsert` is passed.
+The script prints the Napkin request ID, generated file metadata, storage path,
+and the `https://static.anarlog.so/blog/...` URL to use in MDX. It does not
+overwrite an existing object unless `--upsert` is passed.

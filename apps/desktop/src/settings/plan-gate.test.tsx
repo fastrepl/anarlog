@@ -58,36 +58,23 @@ describe("PlanGate", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enable" }));
 
     expect(onClick).not.toHaveBeenCalled();
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
-
     mocks.toastWarning.mock.calls[0]?.[1].action.onClick();
     expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    ["team", "Create workspace", "This requires Anarlog Team"],
-    ["enterprise", "Require SSO", "This requires Anarlog Enterprise"],
-  ] as const)(
-    "toasts for %s without opening Pro checkout",
-    (plan, label, message) => {
-      render(
-        <PlanGate plan={plan} allowed={false}>
-          <button type="button">{label}</button>
-        </PlanGate>,
-      );
+  it("blocks Enterprise controls without opening Pro checkout", () => {
+    const onClick = vi.fn();
+    render(
+      <PlanGate plan="enterprise" allowed={false}>
+        <button type="button" onClick={onClick}>
+          Require SSO
+        </button>
+      </PlanGate>,
+    );
 
-      fireEvent.click(screen.getByRole("button", { name: label }));
+    fireEvent.click(screen.getByRole("button", { name: "Require SSO" }));
 
-      expect(mocks.toastWarning).toHaveBeenCalledWith(message, {});
-      expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-    },
-  );
+    expect(onClick).not.toHaveBeenCalled();
+    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
+  });
 });

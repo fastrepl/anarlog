@@ -91,11 +91,11 @@ export default function AccountSettings() {
           <FieldGroup.SectionFooter>
             <Text>
               {auth.billing.isTrialing
-                ? "Your three-week Pro trial includes cloud sync and Anarlog models. After it ends, you can keep using your notes, recording, and your own API keys."
+                ? "Your Pro trial includes cloud sync and Anarlog models. After it ends, you can keep using your notes, recording, and your own API keys."
                 : auth.billing.isPro
                   ? "Cloud sync and Anarlog models are included in your subscription."
                   : trial.isFetching
-                    ? "Checking your free three-week Pro trial. You can start taking notes and recording now."
+                    ? "Checking your free Pro trial. You can start taking notes and recording now."
                     : "Notes and recording are free. Cloud sync and Anarlog models require an active Pro trial or subscription. You can also use your own API keys."}
             </Text>
           </FieldGroup.SectionFooter>

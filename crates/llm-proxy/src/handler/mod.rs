@@ -234,6 +234,7 @@ async fn completions_handler(
 
     let ctx = ModelContext {
         task,
+        requested_model: request.model.clone(),
         needs_tool_calling,
         has_audio,
     };

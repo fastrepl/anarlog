@@ -3,7 +3,7 @@ meta_title: "How to Get a Mistral API Key (Free, No Credit Card)"
 meta_description: "Step-by-step guide to getting a Mistral API key for free. No credit card needed. Covers rate limits, pricing, models, and how to use your key securely."
 author:
   - "John Jeong"
-featured: !!bool "false"
+featured: false
 category: "Engineering"
 date: "2026-09-08"
 ---
@@ -28,12 +28,12 @@ One thing worth knowing upfront: on Free mode, Mistral may use your API inputs a
 3. Once inside Studio, navigate to **API Keys** in the left sidebar
 4. Click **Create new key**
 
-![Mistral Studio API Keys page with the Create new key button highlighted](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/mistral/console/2026-09-08-api-keys-create-button.png)
+![Mistral Studio API Keys page with the Create new key button highlighted](https://static.anarlog.so/blog/library/products/mistral/console/2026-09-08-api-keys-create-button.png)
 Source: [Mistral Docs, Activate Studio and generate an API key](https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key/), captured September 2026
 
 5. Give the key a name, set an expiration date (Mistral now prompts for one on every new key), choose a connector access scope, and confirm
 
-![Mistral's create new API key dialog with name and expiration fields](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/mistral/console/2026-09-08-create-key-modal.png)
+![Mistral's create new API key dialog with name and expiration fields](https://static.anarlog.so/blog/library/products/mistral/console/2026-09-08-create-key-modal.png)
 Source: [Mistral Docs, Activate Studio and generate an API key](https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key/), captured September 2026
 
 6. Copy the key immediately and store it somewhere safe. Mistral won't show it again
@@ -101,7 +101,7 @@ api_key = os.getenv("MISTRAL_API_KEY")
 
 ## Use your Mistral API key in Anarlog for AI meeting notes that stay on your device
 
-![Anarlog Settings → Intelligence with Mistral selected and an API key entered](https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-23-settings-intelligence-mistral.png)
+![Anarlog Settings → Intelligence with Mistral selected and an API key entered](https://static.anarlog.so/blog/library/products/anarlog/desktop/2026-09-23-settings-intelligence-mistral.png)
 
 *Paste your key under Settings → Intelligence → Mistral, then pick a Mistral model as the one being used.*
 
@@ -113,6 +113,6 @@ The workflow is simple: record, transcribe locally, summarize with your own Mist
 
 The local meeting record, audio, transcript, and summary remain on your device by default. Anarlog stores meeting data in local SQLite; if you enable cloud AI, CloudSync, or sharing, assess those services independently for the data you send to them.
 
-Plus, all core features, local transcription, and BYOK stay completely free. You’re already paying for the API key, you shouldn’t have to pay twice. But if you want cloud services and don't want to manage keys at all, there is a $15/month plan you can check out. 
+Plus, all core features, local transcription, and BYOK stay completely free. You’re already paying for the API key, you shouldn’t have to pay twice. But if you want cloud services and don't want to manage keys at all, there is a $14/month plan you can check out. 
 
 To connect Mistral, open Anarlog's settings, go to Intelligence, pick Mistral, paste your key, and that's it. Try it out for free now - [Download Anarlog](https://anarlog.so/download/).

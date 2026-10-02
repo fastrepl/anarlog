@@ -184,7 +184,7 @@ describe("app toast", () => {
     expect(onCleared).toHaveBeenCalledOnce();
   });
 
-  it("dismisses when the toast body is clicked", async () => {
+  it("keeps the toast visible when its body is clicked", async () => {
     vi.useFakeTimers();
     render(<AppToaster theme="light" />);
 
@@ -194,8 +194,12 @@ describe("app toast", () => {
 
     fireEvent.click(screen.getByText("Changes saved"));
     expect(screen.getByRole("status").getAttribute("data-phase")).toBe(
-      "exiting",
+      "visible",
     );
+    await act(() => vi.advanceTimersByTimeAsync(250));
+    expect(screen.getByText("Changes saved")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     await act(() => vi.advanceTimersByTimeAsync(250));
     expect(screen.queryByText("Changes saved")).toBeNull();
   });

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { deriveBillingInfo } from "./billing.ts";
 
-test("the shared 21-day trial ends at its exact server deadline, even with stale Pro claims", () => {
+test("an existing 21-day trial ends at its exact server deadline, even with stale Pro claims", () => {
   const start = Date.UTC(2026, 8, 6);
   const end = start + 21 * 24 * 60 * 60 * 1000;
   const payload = {

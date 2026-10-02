@@ -515,7 +515,7 @@ describe("SettingsTeam", () => {
       screen.getByRole("button", { name: "Delete workspace" }),
     ).toBeTruthy();
     const checkout = await screen.findByRole("button", {
-      name: "Continue to Team checkout",
+      name: "Continue to Pro checkout",
     });
     await waitFor(() =>
       expect((checkout as HTMLButtonElement).disabled).toBe(false),
@@ -546,8 +546,8 @@ describe("SettingsTeam", () => {
 
     renderTeam();
 
-    expect(screen.queryByText("Start Team")).toBeNull();
-    const button = screen.getByRole("button", { name: "Team plan" });
+    expect(screen.queryByText("Start Pro")).toBeNull();
+    const button = screen.getByRole("button", { name: "Pro plan" });
     expect((button as HTMLButtonElement).disabled).toBe(true);
   });
 
