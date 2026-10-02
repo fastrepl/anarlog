@@ -756,7 +756,10 @@ export const createTeamCheckoutSession = createServerFn({ method: "POST" })
             usedSeats: row.used_seats,
           } as WorkspaceCheckoutContext;
         },
-        getPriceId: getProPriceId,
+        proPrices: {
+          monthly: env.STRIPE_MONTHLY_PRICE_ID,
+          yearly: env.STRIPE_YEARLY_PRICE_ID,
+        },
         async createCustomer({ workspaceId, workspaceName }) {
           return stripe.customers.create(
             {

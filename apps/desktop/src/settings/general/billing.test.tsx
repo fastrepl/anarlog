@@ -170,7 +170,7 @@ describe("SettingsBilling", () => {
         isTrialing,
         isPaused,
         plan: "pro",
-        trialDaysRemaining: null,
+        trialDaysRemaining: 3,
       };
       mocks.workspaces.data = [
         { workspaceId: "00000000-0000-4000-8000-000000000001" },
@@ -189,6 +189,8 @@ describe("SettingsBilling", () => {
       ).toBeTruthy();
       expect(screen.queryByText("Your Pro trial has ended")).toBeNull();
       expect(screen.queryByText("Trial")).toBeNull();
+      expect(screen.queryByText("Pro trial")).toBeNull();
+      expect(screen.queryByText("3 days left")).toBeNull();
       expect(
         screen.queryByRole("button", { name: "Manage billing" }),
       ).toBeNull();

@@ -82,6 +82,7 @@ export function SettingsBilling() {
             billingActions={billingActions}
           />
           <PlanLimitsSection
+            isWorkspacePlan={workspaceTier != null}
             billing={billing}
             workspaces={workspaces.data ?? []}
             workspaceAccess={workspaceAccess}
@@ -483,10 +484,12 @@ function UsageLimitRow({
 }
 
 function PlanLimitsSection({
+  isWorkspacePlan,
   billing,
   workspaces,
   workspaceAccess,
 }: {
+  isWorkspacePlan: boolean;
   billing: ReturnType<typeof useBillingAccess>;
   workspaces: Array<{ workspaceId: string; name?: string }>;
   workspaceAccess: Array<{
@@ -511,7 +514,11 @@ function PlanLimitsSection({
 
   const rows: ReactNode[] = [];
 
-  if (billing.isTrialing && billing.trialDaysRemaining != null) {
+  if (
+    !isWorkspacePlan &&
+    billing.isTrialing &&
+    billing.trialDaysRemaining != null
+  ) {
     const remaining = Math.max(billing.trialDaysRemaining, 0);
     rows.push(
       <UsageLimitRow

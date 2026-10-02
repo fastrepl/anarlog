@@ -25,7 +25,10 @@ function dependencies(
     deletedCustomers,
     value: {
       getContext: async () => context,
-      getPriceId: (period: "monthly" | "yearly") => `price_team_${period}`,
+      proPrices: {
+        monthly: "price_pro_monthly",
+        yearly: "price_pro_yearly",
+      } as { monthly?: string; yearly?: string },
       createCustomer: async () => ({ id: "cus_created123" }),
       bindCustomer: async (_workspaceId: string, customerId: string) =>
         customerId,
@@ -58,31 +61,37 @@ const input = {
   returnUrl: "https://anarlog.test/team",
 };
 
-test("provisions a workspace customer and starts per-seat checkout", async () => {
-  const deps = dependencies({
-    workspaceName: "Checkout HQ",
-    stripeCustomerId: null,
-    usedSeats: 2,
-  });
+test("workspace checkout selects the configured Pro price for each billing period", async () => {
+  for (const period of ["monthly", "yearly"] as const) {
+    const deps = dependencies({
+      workspaceName: "Checkout HQ",
+      stripeCustomerId: null,
+      usedSeats: 2,
+    });
 
-  const result = await startWorkspaceCheckout(input, deps.value);
+    const result = await startWorkspaceCheckout(
+      { ...input, period },
+      deps.value,
+    );
 
-  assert.deepEqual(result, {
-    url: "https://checkout.stripe.test/team",
-    stripeCustomerId: "cus_created123",
-  });
-  assert.deepEqual(deps.checkoutInputs, [
-    {
-      customerId: "cus_created123",
-      priceId: "price_team_monthly",
-      quantity: 3,
-      minimumQuantity: 2,
-      workspaceId,
-      personalPlanReplacement: undefined,
-      successUrl: input.successUrl,
-      cancelUrl: input.cancelUrl,
-    },
-  ]);
+    assert.deepEqual(result, {
+      url: "https://checkout.stripe.test/team",
+      stripeCustomerId: "cus_created123",
+    });
+    assert.deepEqual(deps.checkoutInputs, [
+      {
+        customerId: "cus_created123",
+        priceId:
+          period === "monthly" ? "price_pro_monthly" : "price_pro_yearly",
+        quantity: 3,
+        minimumQuantity: 2,
+        workspaceId,
+        personalPlanReplacement: undefined,
+        successUrl: input.successUrl,
+        cancelUrl: input.cancelUrl,
+      },
+    ]);
+  }
 });
 
 test("carries a personal plan replacement into Team checkout", async () => {
@@ -100,7 +109,7 @@ test("carries a personal plan replacement into Team checkout", async () => {
   assert.deepEqual(deps.checkoutInputs, [
     {
       customerId: "cus_team123",
-      priceId: "price_team_monthly",
+      priceId: "price_pro_monthly",
       quantity: 3,
       minimumQuantity: 2,
       workspaceId,
@@ -135,16 +144,14 @@ test("a concurrent customer assignment wins without leaking the loser", async ()
   assert.deepEqual(deps.deletedCustomers, ["cus_created123"]);
 });
 
-test("missing Team pricing fails before provisioning a customer", async () => {
+test("missing Pro pricing fails before provisioning a customer", async () => {
   const deps = dependencies({
     workspaceName: "Checkout HQ",
     stripeCustomerId: null,
     usedSeats: 2,
   });
   let created = false;
-  deps.value.getPriceId = () => {
-    throw new Error("Missing Team price");
-  };
+  deps.value.proPrices = {};
   deps.value.createCustomer = async () => {
     created = true;
     return { id: "cus_created123" };
@@ -152,7 +159,7 @@ test("missing Team pricing fails before provisioning a customer", async () => {
 
   await assert.rejects(
     startWorkspaceCheckout(input, deps.value),
-    /Missing Team price/,
+    /Missing Pro price/,
   );
   assert.equal(created, false);
 });
@@ -179,11 +186,9 @@ test("live subscriptions reopen the portal instead of duplicating", async () => 
   }
 });
 
-test("an existing subscription can reach the portal without Team price config", async () => {
+test("an existing subscription can reach the portal without Pro price config", async () => {
   const deps = dependencies();
-  deps.value.getPriceId = () => {
-    throw new Error("Missing Team price");
-  };
+  deps.value.proPrices = {};
   deps.value.listSubscriptions = async () => [{ status: "active" }];
 
   const result = await startWorkspaceCheckout(input, deps.value);
