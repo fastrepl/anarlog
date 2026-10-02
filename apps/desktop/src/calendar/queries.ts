@@ -144,8 +144,95 @@ export function useTimelineTables(): {
   timelineSessionsTable: TimelineSessionsTable;
 } {
   const timelineEventsTable = useTimelineEventsTable();
-  const sessions = useTimelineSessionsTable();
-  const timelineSessionsTable = useMemo(() => {
+  const timelineSessionsTable = useTimelineSessionsTable();
+
+  return { timelineEventsTable, timelineSessionsTable };
+}
+
+export function useTimelineEventsTable(): TimelineEventsTable {
+  const { data: timelineEventsTable = EMPTY_EVENTS } = useLiveQuery<
+    TimelineEventSqlRow,
+    Record<string, TimelineEventRow>
+  >({
+    sql: `
+      SELECT
+        event.id,
+        event.title,
+        event.started_at,
+        event.ended_at,
+        event.calendar_id,
+        event.tracking_id_event,
+        event.has_recurrence_rules,
+        event.recurrence_series_id,
+        event.is_all_day,
+        event.location,
+        event.meeting_link,
+        event.description,
+        calendar.color AS calendar_color,
+        CASE
+          WHEN json_valid(event.attendance_json)
+            THEN json_extract(event.attendance_json, '$.self_status')
+        END AS self_status
+      FROM events AS event
+      LEFT JOIN calendars AS calendar
+        ON calendar.id = event.calendar_id AND calendar.deleted_at IS NULL
+      WHERE event.deleted_at IS NULL
+      ORDER BY event.started_at, event.id
+    `,
+    mapRows: mapTimelineEventRows,
+  });
+
+  return timelineEventsTable;
+}
+
+export function useTimelineSessionsTable(): TimelineSessionsTable {
+  const timelineEventsTable = useTimelineEventsTable();
+  const { data: timelineSessionsTable = EMPTY_SESSIONS } = useLiveQuery<
+    TimelineSessionSqlRow,
+    Record<string, TimelineSessionRow>
+  >({
+    sql: `
+      SELECT
+        id,
+        title,
+        created_at,
+        event_id,
+        event_json,
+        folder_path AS folder_id,
+        locked,
+        COALESCE((
+          SELECT json_group_array(tags.name)
+          FROM session_tags
+          INNER JOIN tags
+            ON tags.id = session_tags.tag_id
+            AND tags.deleted_at IS NULL
+          WHERE session_tags.session_id = sessions.id
+            AND session_tags.deleted_at IS NULL
+        ), '[]') AS tags_json
+      FROM sessions
+      WHERE deleted_at IS NULL
+      ORDER BY created_at, id
+    `,
+    mapRows: mapTimelineSessionRows,
+  });
+  const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
+
+  // Sessions with a pending deletion are hidden optimistically, before the
+  // soft-delete write commits and the live query re-emits.
+  const sessions = useMemo(() => {
+    const pendingIds = Object.keys(pendingDeletions).filter(
+      (sessionId) => sessionId in timelineSessionsTable,
+    );
+    if (pendingIds.length === 0) return timelineSessionsTable;
+
+    const filtered = { ...timelineSessionsTable };
+    for (const sessionId of pendingIds) {
+      delete filtered[sessionId];
+    }
+    return filtered;
+  }, [timelineSessionsTable, pendingDeletions]);
+
+  return useMemo(() => {
     if (!sessions || !timelineEventsTable) return sessions;
     const tracked = new Map<string, { id: string; event: TimelineEventRow }>();
     for (const [id, event] of Object.entries(timelineEventsTable)) {
@@ -191,91 +278,6 @@ export function useTimelineTables(): {
       }),
     );
   }, [sessions, timelineEventsTable]);
-
-  return { timelineEventsTable, timelineSessionsTable };
-}
-
-export function useTimelineEventsTable(): TimelineEventsTable {
-  const { data: timelineEventsTable = EMPTY_EVENTS } = useLiveQuery<
-    TimelineEventSqlRow,
-    Record<string, TimelineEventRow>
-  >({
-    sql: `
-      SELECT
-        event.id,
-        event.title,
-        event.started_at,
-        event.ended_at,
-        event.calendar_id,
-        event.tracking_id_event,
-        event.has_recurrence_rules,
-        event.recurrence_series_id,
-        event.is_all_day,
-        event.location,
-        event.meeting_link,
-        event.description,
-        calendar.color AS calendar_color,
-        CASE
-          WHEN json_valid(event.attendance_json)
-            THEN json_extract(event.attendance_json, '$.self_status')
-        END AS self_status
-      FROM events AS event
-      LEFT JOIN calendars AS calendar
-        ON calendar.id = event.calendar_id AND calendar.deleted_at IS NULL
-      WHERE event.deleted_at IS NULL
-      ORDER BY event.started_at, event.id
-    `,
-    mapRows: mapTimelineEventRows,
-  });
-
-  return timelineEventsTable;
-}
-
-export function useTimelineSessionsTable(): TimelineSessionsTable {
-  const { data: timelineSessionsTable = EMPTY_SESSIONS } = useLiveQuery<
-    TimelineSessionSqlRow,
-    Record<string, TimelineSessionRow>
-  >({
-    sql: `
-      SELECT
-        id,
-        title,
-        created_at,
-        event_id,
-        event_json,
-        folder_path AS folder_id,
-        locked,
-        COALESCE((
-          SELECT json_group_array(tags.name)
-          FROM session_tags
-          INNER JOIN tags
-            ON tags.id = session_tags.tag_id
-            AND tags.deleted_at IS NULL
-          WHERE session_tags.session_id = sessions.id
-            AND session_tags.deleted_at IS NULL
-        ), '[]') AS tags_json
-      FROM sessions
-      WHERE deleted_at IS NULL
-      ORDER BY created_at, id
-    `,
-    mapRows: mapTimelineSessionRows,
-  });
-  const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
-
-  // Sessions with a pending deletion are hidden optimistically, before the
-  // soft-delete write commits and the live query re-emits.
-  return useMemo(() => {
-    const pendingIds = Object.keys(pendingDeletions).filter(
-      (sessionId) => sessionId in timelineSessionsTable,
-    );
-    if (pendingIds.length === 0) return timelineSessionsTable;
-
-    const filtered = { ...timelineSessionsTable };
-    for (const sessionId of pendingIds) {
-      delete filtered[sessionId];
-    }
-    return filtered;
-  }, [timelineSessionsTable, pendingDeletions]);
 }
 
 export function useEnabledCalendarRows(): CalendarRow[] {

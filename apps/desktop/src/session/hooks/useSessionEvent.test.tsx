@@ -4,7 +4,10 @@ import { expect, it, vi } from "vitest";
 
 import { useSessionEvent } from "./useSessionEvent";
 
-import { useTimelineTables } from "~/calendar/queries";
+import {
+  useTimelineSessionsTable,
+  useTimelineTables,
+} from "~/calendar/queries";
 import { getItemTimeRange } from "~/sidebar/timeline/utils";
 
 const mocks = vi.hoisted(() => ({
@@ -113,6 +116,7 @@ it("refreshes the open note and sidebar together when a calendar event is resche
       event: useSessionEvent("session-1"),
       sidebar: tables.timelineEventsTable,
       notes: tables.timelineSessionsTable,
+      directNotes: useTimelineSessionsTable(),
     };
   });
 
@@ -146,6 +150,17 @@ it("refreshes the open note and sidebar together when a calendar event is resche
         type: "session",
         id: "session-1",
         data: result.current.notes?.["session-1"] ?? {},
+      }),
+    ).toEqual({
+      start: new Date("2026-10-02T11:00:00.000Z"),
+      end: new Date("2026-10-02T12:00:00.000Z"),
+    });
+
+    expect(
+      getItemTimeRange({
+        type: "session",
+        id: "session-1",
+        data: result.current.directNotes?.["session-1"] ?? {},
       }),
     ).toEqual({
       start: new Date("2026-10-02T11:00:00.000Z"),
