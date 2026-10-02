@@ -1,9 +1,15 @@
 import { t } from "@lingui/core/macro";
 import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { CircleNotch } from "@anlg/ui/components/icons";
+import {
+  CaretDown,
+  CaretLeft,
+  CircleNotch,
+  Folder,
+  Repeat,
+} from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -15,7 +21,15 @@ import { cn } from "@anlg/utils";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
+import {
+  clearSeriesFolderRule,
+  setSeriesFolderRule,
+  useSeriesFolderRules,
+} from "~/calendar/series-folders";
+import { useLiveQuery } from "~/db";
+import { FolderPickerContent } from "~/session/components/folder-picker";
 import { EventDisplay } from "~/session/components/outer-header/metadata";
+import { folderDisplayName } from "~/session/folders";
 import { getOrCreateSessionForEventId } from "~/session/queries";
 import {
   type MenuItemDef,
@@ -136,6 +150,11 @@ export function EventChip({
   );
 }
 
+type LinkedSessionSqlRow = {
+  id: string;
+  folder_path: string;
+};
+
 function EventPopoverContent({
   eventId,
   event,
@@ -156,6 +175,209 @@ function EventPopoverContent({
     },
   });
 
+  const seriesId = event.recurrence_series_id ?? "";
+  const rules = useSeriesFolderRules();
+  const ruleFolder = seriesId
+    ? (rules.find((rule) => rule.series_id === seriesId)?.folder_path ?? null)
+    : null;
+  const { data: linkedSession = null } = useLiveQuery<
+    LinkedSessionSqlRow,
+    LinkedSessionSqlRow | null
+  >({
+    sql: `
+      SELECT id, folder_path
+      FROM sessions
+      WHERE event_id = ? AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    params: [eventId],
+    mapRows: (rows) => rows[0] ?? null,
+  });
+
+  const [view, setView] = useState<"main" | "folders" | "manage">("main");
+  const [filing, setFiling] = useState(false);
+  const [pickerSessionId, setPickerSessionId] = useState<string | null>(null);
+  const [folderAtPickerOpen, setFolderAtPickerOpen] = useState("");
+  const [pickerClosed, setPickerClosed] = useState(false);
+  const declinedSeries = useRef<Set<string>>(new Set());
+
+  const sessionFolder = linkedSession?.folder_path ?? "";
+  const activeView = view === "manage" && !ruleFolder ? "main" : view;
+  const showAutoAdd =
+    activeView === "main" &&
+    seriesId !== "" &&
+    ruleFolder === null &&
+    pickerClosed &&
+    sessionFolder !== "" &&
+    sessionFolder !== folderAtPickerOpen &&
+    !declinedSeries.current.has(seriesId);
+
+  const openFolderPicker = useCallback(async () => {
+    setFiling(true);
+    try {
+      const sessionId = await getOrCreateSessionForEventId(
+        eventId,
+        event.title || "Untitled",
+      );
+      setPickerSessionId(sessionId);
+      setFolderAtPickerOpen(linkedSession?.folder_path ?? "");
+      setPickerClosed(false);
+      setView("folders");
+    } catch (error) {
+      console.error("[calendar] failed to open folder picker", error);
+    } finally {
+      setFiling(false);
+    }
+  }, [eventId, event.title, linkedSession?.folder_path]);
+
+  const handleFolderButton = useCallback(() => {
+    if (filing) return;
+    if (ruleFolder) {
+      setView("manage");
+      return;
+    }
+    void openFolderPicker();
+  }, [filing, ruleFolder, openFolderPicker]);
+
+  const handlePickerClose = useCallback(() => {
+    setPickerClosed(true);
+    setView("main");
+  }, []);
+
+  const handleAutoAdd = useCallback(async () => {
+    if (!seriesId || !sessionFolder) return;
+    try {
+      await setSeriesFolderRule(seriesId, sessionFolder);
+    } catch (error) {
+      console.error("[calendar] failed to set series folder rule", error);
+    } finally {
+      setPickerClosed(false);
+    }
+  }, [seriesId, sessionFolder]);
+
+  const handleDeclineAutoAdd = useCallback(() => {
+    if (seriesId) {
+      declinedSeries.current.add(seriesId);
+    }
+    setPickerClosed(false);
+  }, [seriesId]);
+
+  const handleStopAutoAdd = useCallback(async () => {
+    if (!seriesId) return;
+    try {
+      await clearSeriesFolderRule(seriesId);
+    } catch (error) {
+      console.error("[calendar] failed to clear series folder rule", error);
+    } finally {
+      setView("main");
+    }
+  }, [seriesId]);
+
+  if (activeView === "folders") {
+    return (
+      <div className="flex flex-col gap-1 p-2">
+        <button
+          type="button"
+          onClick={() => setView("main")}
+          className={cn([
+            "text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 text-xs transition-colors",
+          ])}
+        >
+          <CaretLeft className="size-3.5" aria-hidden="true" />
+          {t`Back`}
+        </button>
+        {pickerSessionId ? (
+          <FolderPickerContent
+            sessionId={pickerSessionId}
+            onClose={handlePickerClose}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  if (activeView === "manage" && ruleFolder) {
+    return (
+      <div className="flex flex-col gap-3 p-4">
+        <button
+          type="button"
+          onClick={() => setView("main")}
+          className={cn([
+            "text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors",
+          ])}
+        >
+          <CaretLeft className="size-3.5" aria-hidden="true" />
+          {t`Back`}
+        </button>
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">{t`This note`}</span>
+          <span className="min-w-0 truncate font-medium">
+            {sessionFolder ? folderDisplayName(sessionFolder) : t`Unfiled`}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground flex items-center gap-1.5">
+            <Repeat className="size-3.5" aria-hidden="true" />
+            {t`Future meetings`}
+          </span>
+          <span className="min-w-0 truncate font-medium">
+            {folderDisplayName(ruleFolder)}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="min-h-8 flex-1"
+            disabled={filing}
+            onClick={() => void openFolderPicker()}
+          >
+            {t`Change folder`}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="min-h-8 flex-1"
+            onClick={() => void handleStopAutoAdd()}
+          >
+            {t`Stop auto-add`}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (showAutoAdd) {
+    return (
+      <div className="flex flex-col gap-3 p-4">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Repeat className="size-4 shrink-0" aria-hidden="true" />
+          {t`Auto-add future meetings?`}
+        </div>
+        <p className="text-muted-foreground text-sm">
+          {t`Automatically put all future instances of this recurring meeting into a folder.`}
+        </p>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="min-h-8 flex-1"
+            onClick={() => void handleAutoAdd()}
+          >
+            {t`Auto-add`}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="min-h-8 flex-1"
+            onClick={handleDeclineAutoAdd}
+          >
+            {t`No`}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3 p-4">
       <EventDisplay
@@ -169,6 +391,23 @@ function EventPopoverContent({
           calendarId: event.calendar_id ?? undefined,
         }}
       />
+      <Button
+        size="sm"
+        variant="secondary"
+        className="min-h-8 w-full"
+        disabled={filing}
+        onClick={handleFolderButton}
+      >
+        {filing ? (
+          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+        ) : (
+          <Folder className="size-3.5" aria-hidden="true" />
+        )}
+        <span className="min-w-0 flex-1 truncate text-left">
+          {sessionFolder ? folderDisplayName(sessionFolder) : t`Add to folder`}
+        </span>
+        <CaretDown className="size-3.5 shrink-0" aria-hidden="true" />
+      </Button>
       <Button
         size="sm"
         className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-8 w-full"

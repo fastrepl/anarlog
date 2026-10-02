@@ -3,6 +3,7 @@ import { commands } from "@anlg/plugin-session";
 
 import { ancestorFolderPaths, normalizeFolderPath } from "./folders";
 
+import { remapSeriesFolderRules } from "~/calendar/series-folders";
 import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { normalizeFolderIcon } from "~/session/folder-icon";
@@ -55,6 +56,8 @@ export async function renameNamedFolder(
       throw new Error(result.error);
     }
   });
+
+  await remapSeriesFolderRules(oldPath, newPath);
 
   return newPath;
 }

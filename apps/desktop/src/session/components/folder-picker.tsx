@@ -106,7 +106,7 @@ export function FolderPicker({
   );
 }
 
-function FolderPickerContent({
+export function FolderPickerContent({
   sessionId,
   onClose,
 }: {
