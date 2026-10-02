@@ -1,5 +1,6 @@
 import type { Node as PMNode } from "prosemirror-model";
 import type { Transaction } from "prosemirror-state";
+import { Mapping } from "prosemirror-transform";
 
 export type ChangedRange = {
   from: number;
@@ -7,16 +8,20 @@ export type ChangedRange = {
 };
 
 export function getChangedRanges(transactions: readonly Transaction[]) {
-  const ranges: ChangedRange[] = [];
-
+  const mapping = new Mapping();
   for (const transaction of transactions) {
-    if (!transaction.docChanged) continue;
-    transaction.mapping.maps.forEach((stepMap) => {
-      stepMap.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
-        ranges.push({ from: newStart, to: newEnd });
-      });
-    });
+    if (transaction.docChanged) mapping.appendMapping(transaction.mapping);
   }
+
+  const ranges: ChangedRange[] = [];
+  mapping.maps.forEach((stepMap, index) => {
+    const rest = mapping.slice(index + 1);
+    stepMap.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+      const from = rest.map(newStart, -1);
+      const to = rest.map(newEnd, 1);
+      ranges.push({ from, to: Math.max(from, to) });
+    });
+  });
 
   return ranges;
 }
