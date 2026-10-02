@@ -5,6 +5,7 @@ import { eventParticipantSchema, type EventParticipant } from "@anlg/store";
 
 import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import { getSessionEvent } from "~/session/utils";
 import { parseSessionTagNames } from "~/sidebar/item-fields";
 import type {
   TimelineEventRow,
@@ -143,7 +144,53 @@ export function useTimelineTables(): {
   timelineSessionsTable: TimelineSessionsTable;
 } {
   const timelineEventsTable = useTimelineEventsTable();
-  const timelineSessionsTable = useTimelineSessionsTable();
+  const sessions = useTimelineSessionsTable();
+  const timelineSessionsTable = useMemo(() => {
+    if (!sessions || !timelineEventsTable) return sessions;
+    const tracked = new Map<string, { id: string; event: TimelineEventRow }>();
+    for (const [id, event] of Object.entries(timelineEventsTable)) {
+      if (!event.tracking_id_event) continue;
+      const key = JSON.stringify([
+        event.calendar_id ?? "",
+        event.tracking_id_event,
+      ]);
+      const previous = tracked.get(key);
+      const start = event.started_at ?? "";
+      const previousStart = previous?.event.started_at ?? "";
+      if (
+        !previous ||
+        start < previousStart ||
+        (start === previousStart && id < previous.id)
+      ) {
+        tracked.set(key, { id, event });
+      }
+    }
+    return Object.fromEntries(
+      Object.entries(sessions).map(([id, session]) => {
+        const saved = getSessionEvent(session);
+        const live =
+          timelineEventsTable[session.event_id ?? ""] ??
+          tracked.get(
+            JSON.stringify([saved?.calendar_id ?? "", saved?.tracking_id]),
+          )?.event;
+        return [
+          id,
+          live
+            ? {
+                ...session,
+                event_json: JSON.stringify({
+                  ...saved,
+                  tracking_id: live.tracking_id_event,
+                  calendar_id: live.calendar_id,
+                  started_at: live.started_at,
+                  ended_at: live.ended_at,
+                }),
+              }
+            : session,
+        ];
+      }),
+    );
+  }, [sessions, timelineEventsTable]);
 
   return { timelineEventsTable, timelineSessionsTable };
 }
@@ -194,23 +241,8 @@ export function useTimelineSessionsTable(): TimelineSessionsTable {
         id,
         title,
         created_at,
-        COALESCE((
-          SELECT json_patch(
-            CASE WHEN json_valid(session.event_json)
-              THEN session.event_json ELSE '{}' END,
-            json_object(
-              'tracking_id', event.tracking_id_event,
-              'calendar_id', event.calendar_id,
-              'started_at', event.started_at,
-              'ended_at', event.ended_at
-            )
-          )
-          FROM sessions AS session
-          JOIN events AS event ON ${SESSION_EVENT_MATCH}
-          WHERE session.id = sessions.id AND session.deleted_at IS NULL
-          ORDER BY ${SESSION_EVENT_ORDER}
-          LIMIT 1
-        ), event_json) AS event_json,
+        event_id,
+        event_json,
         folder_path AS folder_id,
         locked,
         COALESCE((

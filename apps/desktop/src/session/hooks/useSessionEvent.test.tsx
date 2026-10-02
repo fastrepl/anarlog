@@ -4,10 +4,7 @@ import { expect, it, vi } from "vitest";
 
 import { useSessionEvent } from "./useSessionEvent";
 
-import {
-  useTimelineEventsTable,
-  useTimelineSessionsTable,
-} from "~/calendar/queries";
+import { useTimelineTables } from "~/calendar/queries";
 import { getItemTimeRange } from "~/sidebar/timeline/utils";
 
 const mocks = vi.hoisted(() => ({
@@ -110,11 +107,14 @@ it("refreshes the open note and sidebar together when a calendar event is resche
     },
   );
 
-  const { result, unmount } = renderHook(() => ({
-    event: useSessionEvent("session-1"),
-    sidebar: useTimelineEventsTable(),
-    notes: useTimelineSessionsTable(),
-  }));
+  const { result, unmount } = renderHook(() => {
+    const tables = useTimelineTables();
+    return {
+      event: useSessionEvent("session-1"),
+      sidebar: tables.timelineEventsTable,
+      notes: tables.timelineSessionsTable,
+    };
+  });
 
   try {
     await waitFor(() =>
