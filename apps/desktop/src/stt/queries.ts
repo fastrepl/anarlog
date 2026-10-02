@@ -11,7 +11,7 @@ import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type { SegmentKey } from "~/stt/live-segment";
 import {
-  buildRenderTranscriptRequestFromRows,
+  buildUnsplitRenderTranscriptRequestFromRows,
   resolveScopedWordHumanIds,
 } from "~/stt/render-transcript";
 import { coalesceLiveTranscriptDeltas } from "~/stt/transcript-delta-coalescing";
@@ -638,7 +638,7 @@ export async function assignSessionTranscriptSpeaker({
               mode: "all",
             })
           : mutateTranscript(transcript.id, (store) => {
-              const input = buildRenderTranscriptRequestFromRows([
+              const input = buildUnsplitRenderTranscriptRequestFromRows([
                 {
                   words: parseTranscriptWords(store, transcript.id),
                   speaker_hints: parseTranscriptHints(store, transcript.id),

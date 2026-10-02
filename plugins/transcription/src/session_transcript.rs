@@ -6,8 +6,7 @@ use anlg_db_app::{
 use anlg_transcript::{
     RenderTranscriptHuman, RenderTranscriptRequest, RenderedTranscriptSegment,
     StoredLiveTranscriptDelta, StoredSpeakerHint, materialize_live_transcript,
-    parse_stored_speaker_hints, parse_stored_transcript_words, render_input_from_stored,
-    render_transcript_segments,
+    parse_stored_speaker_hints, parse_stored_transcript_words, render_stored_transcript_segments,
 };
 use serde_json::Value;
 use sqlx::SqlitePool;
@@ -76,18 +75,7 @@ pub async fn render_session_transcript(
                 insert_human_id(&mut human_ids, &mut seen_human_ids, &human_id);
             }
         }
-        if let Some(transcript) = render_input_from_stored(Some(row.started_at_ms), &words, &hints)
-        {
-            transcripts.push(transcript);
-        }
-    }
-
-    if transcripts.is_empty() {
-        transaction
-            .commit()
-            .await
-            .map_err(|error| error.to_string())?;
-        return Ok(None);
+        transcripts.push((Some(row.started_at_ms), words, hints));
     }
 
     let humans = load_render_humans(&mut transaction, &human_ids)
@@ -101,14 +89,19 @@ pub async fn render_session_transcript(
         .await
         .map_err(|error| error.to_string())?;
 
-    let segments = render_transcript_segments(RenderTranscriptRequest {
+    let Some(segments) = render_stored_transcript_segments(
         transcripts,
-        participant_human_ids,
-        self_human_id,
-        humans,
-        speaker_context: None,
-        preview: None,
-    });
+        RenderTranscriptRequest {
+            transcripts: vec![],
+            participant_human_ids,
+            self_human_id,
+            humans,
+            speaker_context: None,
+            preview: None,
+        },
+    ) else {
+        return Ok(None);
+    };
     Ok(Some(RenderedSessionTranscript {
         segments,
         started_at,

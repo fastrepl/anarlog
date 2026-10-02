@@ -128,6 +128,30 @@ pub enum BatchRefinementOutcome {
     Truncated,
 }
 
+fn rebase_synthetic_chunk_start(metadata: &mut Value, offset_ms: f64) {
+    if let Value::String(json) = metadata {
+        if let Ok(mut value) = serde_json::from_str::<Value>(json) {
+            rebase_synthetic_chunk_start(&mut value, offset_ms);
+            *json = value.to_string();
+        }
+        return;
+    }
+    let Some(timing) = metadata.get_mut("timing").and_then(Value::as_object_mut) else {
+        return;
+    };
+    if timing.get("source").and_then(Value::as_str) != Some("synthetic_text") {
+        return;
+    }
+    if let Some(start) = timing.get("chunk_start_ms").and_then(Value::as_f64)
+        && start.is_finite()
+    {
+        timing.insert(
+            "chunk_start_ms".into(),
+            Value::from((start - offset_ms).max(0.0)),
+        );
+    }
+}
+
 pub fn refine_batch_transcript(request: BatchRefinementRequest) -> BatchRefinementOutcome {
     let BatchRefinementRequest {
         words,
@@ -159,6 +183,9 @@ pub fn refine_batch_transcript(request: BatchRefinementRequest) -> BatchRefineme
                         }
                         word.start_ms = Some((start_ms - offset_ms).max(0.0));
                         word.end_ms = Some((end_ms - offset_ms).max(0.0));
+                        if let Some(metadata) = word.metadata.as_mut() {
+                            rebase_synthetic_chunk_start(metadata, offset_ms);
+                        }
                         Some(word)
                     })
                     .collect::<Vec<_>>();
@@ -1986,6 +2013,55 @@ mod tests {
         assert!(!replace_session);
         assert_eq!(replace_transcript_id.as_deref(), Some("live-current"));
         assert_eq!(started_at, Some(123_000.0));
+    }
+
+    #[test]
+    fn current_capture_rebases_synthetic_chunks_with_word_times_before_rendering() {
+        for encoded in [false, true] {
+            let mut synthetic = word("synthetic-mic", 61_000.0, 61_400.0, 0.0);
+            let metadata = serde_json::json!({
+                "timing": {"source": "synthetic_text", "chunk_start_ms": 60_000},
+                "retained": "context",
+            });
+            synthetic.metadata = Some(if encoded {
+                Value::String(metadata.to_string())
+            } else {
+                metadata
+            });
+            let (words, hints, _, _, _) = ready(refine_batch_transcript(current_request(
+                vec![synthetic, word("timed-remote", 62_000.0, 62_400.0, 1.0)],
+                vec![],
+                vec![],
+                60_000.0,
+                None,
+            )));
+            let metadata = match words[0].metadata.as_ref().unwrap() {
+                Value::String(json) => serde_json::from_str::<Value>(json).unwrap(),
+                metadata => metadata.clone(),
+            };
+            assert_eq!(metadata["timing"]["chunk_start_ms"].as_f64(), Some(0.0));
+            assert_eq!(metadata["retained"], "context");
+            let segments = crate::render_stored_transcript_segments(
+                vec![(Some(123_000), words, hints)],
+                crate::RenderTranscriptRequest {
+                    transcripts: vec![],
+                    participant_human_ids: vec![],
+                    self_human_id: None,
+                    humans: vec![],
+                    speaker_context: None,
+                    preview: None,
+                },
+            )
+            .unwrap();
+            assert_eq!(segments[0].words[0].id.as_deref(), Some("synthetic-mic"));
+            assert_eq!(segments[1].words[0].id.as_deref(), Some("timed-remote"));
+            assert_eq!(segments[0].start_ms, 1_000);
+            assert_eq!(segments[1].start_ms, 2_000);
+        }
+        let mut metadata =
+            serde_json::json!({"timing": {"source": "synthetic_text", "chunk_start_ms": 59_500}});
+        rebase_synthetic_chunk_start(&mut metadata, 60_000.0);
+        assert_eq!(metadata["timing"]["chunk_start_ms"].as_f64(), Some(0.0));
     }
 
     #[test]

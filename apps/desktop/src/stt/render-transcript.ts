@@ -50,7 +50,132 @@ export async function renderTranscriptSegments(
     throw new Error(result.error);
   }
 
-  return attachWordMetadata(result.data, metadataByWordId);
+  const segments = attachWordMetadata(result.data, metadataByWordId);
+  return orderSyntheticTranscriptSegments(normalizedRequest, segments);
+}
+
+function orderSyntheticTranscriptSegments(
+  request: RenderTranscriptRequest,
+  segments: RenderedTranscriptSegmentWithWordMetadata[],
+): RenderedTranscriptSegmentWithWordMetadata[] {
+  const startedAt = request.transcripts
+    .map((transcript) => transcript.started_at)
+    .filter((value): value is number => typeof value === "number");
+  const baseStartedAt = startedAt.length ? Math.min(...startedAt) : 0;
+  const sourceByWordId = new Map<
+    string,
+    { offsetMs: number; transcriptIndex: number; legacyRun: number | null }
+  >();
+  const legacyRuns = new Map<
+    number,
+    { startMs: number; channels: Set<number> }
+  >();
+  const channels = new Set<number>();
+  let hasCompleteSyntheticChunk = false;
+  let legacyRun = -1;
+  let previousWasLegacy = false;
+  request.transcripts.forEach((transcript, transcriptIndex) => {
+    const offsetMs =
+      transcript.started_at == null ? 0 : transcript.started_at - baseStartedAt;
+    const timings = transcript.words.map((word) =>
+      syntheticTiming((word as { metadata?: unknown }).metadata),
+    );
+    const isLegacy =
+      timings.length > 0 &&
+      timings.every((timing) => timing.isSynthetic) &&
+      timings.some((timing) => timing.chunkStartMs === null);
+    if (isLegacy && !previousWasLegacy) legacyRun += 1;
+    previousWasLegacy = isLegacy;
+    transcript.words.forEach((word, index) => {
+      channels.add(word.channel);
+      const timing = timings[index];
+      hasCompleteSyntheticChunk ||=
+        timing.isSynthetic && timing.chunkStartMs !== null;
+      sourceByWordId.set(word.id, {
+        offsetMs,
+        transcriptIndex,
+        legacyRun: isLegacy ? legacyRun : null,
+      });
+      if (isLegacy) {
+        const run = legacyRuns.get(legacyRun) ?? {
+          startMs: Infinity,
+          channels: new Set<number>(),
+        };
+        run.startMs = Math.min(run.startMs, word.start_ms + offsetMs);
+        run.channels.add(word.channel);
+        legacyRuns.set(legacyRun, run);
+      }
+    });
+  });
+  const hasMultiChannelLegacy = [...legacyRuns.values()].some(
+    (run) => run.channels.size > 1,
+  );
+  if (
+    !hasMultiChannelLegacy &&
+    !(channels.size > 1 && hasCompleteSyntheticChunk)
+  ) {
+    return segments;
+  }
+
+  const channelOrder = { DirectMic: 0, RemoteParty: 1, MixedCapture: 2 };
+  const sortKey = (segment: RenderedTranscriptSegmentWithWordMetadata) => {
+    const firstWord = segment.words[0];
+    const source = sourceByWordId.get(firstWord?.id ?? "");
+    const timing = syntheticTiming(firstWord?.metadata);
+    const run =
+      source?.legacyRun == null ? undefined : legacyRuns.get(source.legacyRun);
+    const groupedLegacy = Boolean(run && run.channels.size > 1);
+    return {
+      startMs: groupedLegacy
+        ? run!.startMs
+        : timing.chunkStartMs == null
+          ? segment.start_ms
+          : timing.chunkStartMs + (source?.offsetMs ?? 0),
+      group: groupedLegacy ? 0 : timing.chunkStartMs !== null ? 1 : 2,
+      legacyRun: source?.legacyRun ?? -1,
+      channel: channelOrder[segment.key.channel],
+      transcriptIndex: source?.transcriptIndex ?? -1,
+      wordStartMs: segment.start_ms,
+    };
+  };
+  return [...segments].sort((leftSegment, rightSegment) => {
+    const left = sortKey(leftSegment);
+    const right = sortKey(rightSegment);
+    return (
+      left.startMs - right.startMs ||
+      left.group - right.group ||
+      (left.group === 0 && right.group === 0
+        ? left.legacyRun - right.legacyRun ||
+          left.channel - right.channel ||
+          left.transcriptIndex - right.transcriptIndex
+        : 0) ||
+      (left.group === 1 && right.group === 1
+        ? left.channel - right.channel
+        : 0) ||
+      left.wordStartMs - right.wordStartMs
+    );
+  });
+}
+
+function syntheticTiming(metadata: unknown): {
+  isSynthetic: boolean;
+  chunkStartMs: number | null;
+} {
+  const timing = normalizeWordMetadata(metadata)?.timing;
+  if (!timing || typeof timing !== "object" || Array.isArray(timing)) {
+    return { isSynthetic: false, chunkStartMs: null };
+  }
+  const record = timing as Record<string, unknown>;
+  const isSynthetic = record.source === "synthetic_text";
+  return {
+    isSynthetic,
+    chunkStartMs:
+      isSynthetic &&
+      typeof record.chunk_start_ms === "number" &&
+      Number.isFinite(record.chunk_start_ms)
+        ? record.chunk_start_ms
+        : null,
+  };
 }
 
 export function getRenderTranscriptRequestKey(
@@ -158,6 +283,14 @@ export function buildRenderTranscriptRequestFromRows(
     : request;
 }
 
+// Identity and refinement callers need every word in its original row. Only
+// display rendering should split synthetic words into channel/chunk inputs.
+export function buildUnsplitRenderTranscriptRequestFromRows(
+  transcripts: TranscriptRow[],
+): RenderTranscriptRequest | null {
+  return buildRenderTranscriptRequest(transcripts, undefined, undefined, false);
+}
+
 export function resolveScopedWordHumanIds(
   transcript: RenderTranscriptInput,
 ): Map<string, string> {
@@ -226,6 +359,7 @@ function buildRenderTranscriptRequest(
   transcripts: TranscriptRow[],
   humans?: RenderTranscriptRequestHumans,
   participantHumanIds?: string[],
+  splitSynthetic = true,
 ): RenderTranscriptRequest | null {
   if (transcripts.length === 0) {
     return null;
@@ -294,14 +428,19 @@ function buildRenderTranscriptRequest(
       continue;
     }
 
-    normalizedTranscripts.push({
+    const normalizedTranscript: RenderTranscriptInput = {
       started_at:
         typeof transcript.started_at === "number"
           ? transcript.started_at
           : null,
       words,
       assignments,
-    });
+    };
+    normalizedTranscripts.push(
+      ...(splitSynthetic
+        ? splitSyntheticTranscriptByChannelChunk(normalizedTranscript)
+        : [normalizedTranscript]),
+    );
   }
 
   if (normalizedTranscripts.length === 0) {
@@ -314,6 +453,89 @@ function buildRenderTranscriptRequest(
     self_human_id: humans?.selfHumanId ?? null,
     humans: humans?.humans ?? [],
   };
+}
+
+function splitSyntheticTranscriptByChannelChunk(
+  transcript: RenderTranscriptInput,
+): RenderTranscriptInput[] {
+  const groups = new Map<
+    string,
+    { channel: number; startMs: number; words: RenderTranscriptInput["words"] }
+  >();
+  const channels = new Set<number>();
+  const timedWords: RenderTranscriptInput["words"] = [];
+
+  for (const word of transcript.words) {
+    channels.add(word.channel);
+    const metadata = normalizeWordMetadata(
+      (word as { metadata?: unknown }).metadata,
+    );
+    const timing = metadata?.timing;
+    if (
+      !timing ||
+      typeof timing !== "object" ||
+      Array.isArray(timing) ||
+      (timing as Record<string, unknown>).source !== "synthetic_text"
+    ) {
+      timedWords.push(word);
+      continue;
+    }
+    const chunkStartMs = (timing as Record<string, unknown>).chunk_start_ms;
+    if (typeof chunkStartMs !== "number" || !Number.isFinite(chunkStartMs)) {
+      return splitLegacySyntheticTranscriptByChannel(transcript);
+    }
+
+    const key = `${word.channel}:${chunkStartMs}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = { channel: word.channel, startMs: chunkStartMs, words: [] };
+      groups.set(key, group);
+    }
+    group.words.push(word);
+  }
+
+  if (channels.size < 2 || groups.size === 0) return [transcript];
+  const renderGroups = [...groups.values()];
+  if (timedWords.length) {
+    renderGroups.push({
+      channel: -1,
+      startMs: timedWords.reduce(
+        (earliest, word) => Math.min(earliest, word.start_ms),
+        Infinity,
+      ),
+      words: timedWords,
+    });
+  }
+  return renderGroups
+    .sort(
+      (left, right) =>
+        left.startMs - right.startMs || left.channel - right.channel,
+    )
+    .map((group) => ({ ...transcript, words: group.words }));
+}
+
+function splitLegacySyntheticTranscriptByChannel(
+  transcript: RenderTranscriptInput,
+): RenderTranscriptInput[] {
+  const groups = new Map<number, RenderTranscriptInput["words"]>();
+  for (const word of transcript.words) {
+    if (
+      !syntheticTiming((word as { metadata?: unknown }).metadata).isSynthetic
+    ) {
+      return [transcript];
+    }
+    let group = groups.get(word.channel);
+    if (!group) {
+      group = [];
+      groups.set(word.channel, group);
+    }
+    group.push(word);
+  }
+  return groups.size < 2
+    ? [transcript]
+    : [...groups.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([, words]) => ({ ...transcript, words }));
 }
 
 function normalizeSpeakerHint(

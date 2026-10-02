@@ -7,6 +7,7 @@ mod processor;
 mod render;
 mod segments;
 mod speaker_context;
+mod synthetic_render;
 pub use speaker_context::{
     ProvisionalSpeakerLabel, SpeakerContext, SpeakerContextInterval, SpeakerResolutionReason,
     segment_options_for_assignments,
@@ -37,6 +38,7 @@ pub use render::{
     render_transcript_segments, stable_segment_id,
 };
 pub use segments::build_segments;
+pub use synthetic_render::{StoredTranscriptRenderRow, render_stored_transcript_segments};
 pub use types::{
     ChannelProfile, FinalizedWord, IdentityAssignment, IdentityScope, PartialWord, RawWord,
     Segment, SegmentBuilderOptions, SegmentKey, SegmentWord, TranscriptDelta, WordState,
