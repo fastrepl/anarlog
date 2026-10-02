@@ -16700,6 +16700,8 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-anlg-tray",
+ "tauri-plugin-window-state",
+ "tauri-plugin-windows",
 ]
 
 [[package]]

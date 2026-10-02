@@ -9,6 +9,7 @@ description = ""
 
 [features]
 examples = []
+app-store = []
 
 [[example]]
 name = "test_overlay"

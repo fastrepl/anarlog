@@ -116,7 +116,7 @@ direct-distribution = [
   "tauri-plugin-permissions/private-tcc",
   "tauri-plugin-windows/macos-private-api",
 ]
-app-store = []
+app-store = ["tauri-plugin-icon/app-store"]
 dev = ["dep:anlg-audio-mock"]
 devtools = ["tauri/devtools", "dep:anlg-audio-mock"]
 automation = ["tauri-plugin-automation"]
