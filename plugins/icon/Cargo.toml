@@ -19,6 +19,7 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
+tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [target."cfg(target_os = \"macos\")".dev-dependencies]
@@ -37,5 +38,5 @@ thiserror = { workspace = true }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 objc2 = { workspace = true }
-objc2-app-kit = { workspace = true, features = ["NSApplication", "NSAttributedString", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphicsContext", "NSImage", "NSImageRep", "NSStringDrawing"] }
-objc2-foundation = { workspace = true, features = ["NSArray", "NSData", "NSDictionary", "NSObject", "NSString"] }
+objc2-app-kit = { workspace = true, features = ["NSApplication", "NSAttributedString", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphicsContext", "NSImage", "NSImageRep", "NSStringDrawing", "NSWorkspace"] }
+objc2-foundation = { workspace = true, features = ["NSArray", "NSBundle", "NSData", "NSDictionary", "NSObject", "NSString"] }
