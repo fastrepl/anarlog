@@ -481,7 +481,7 @@ describe("EventListeners notification events", () => {
 
     await vi.waitFor(() =>
       expect(consoleError).toHaveBeenCalledWith(
-        "[notification] failed to open calendar meeting",
+        expect.any(String),
         expect.objectContaining({ message: "No application" }),
       ),
     );

@@ -3019,6 +3019,7 @@ msgstr "job title"
 msgid "Job Title"
 msgstr "Job Title"
 
+#: src/services/event-notification/index.ts
 #: src/session/components/outer-header/index.tsx
 msgid "Join & record"
 msgstr "Join & record"
@@ -3968,7 +3969,6 @@ msgstr "Open AI Settings"
 #: src/composer/index.tsx
 #: src/onboarding/final.tsx
 #: src/services/enhancer/summary-notification.ts
-#: src/services/event-notification/index.ts
 #: src/store/zustand/listener/general-batch.ts
 msgid "Open Anarlog"
 msgstr "Open Anarlog"
@@ -4006,6 +4006,10 @@ msgstr "Open in New Window"
 #: src/chat/components/toolbar-controls.tsx
 msgid "Open in right panel"
 msgstr "Open in right panel"
+
+#: src/services/event-notification/index.ts
+msgid "Open meeting"
+msgstr "Open meeting"
 
 #: src/task/resource-view.tsx
 msgid "Open on GitHub"
@@ -5476,6 +5480,10 @@ msgstr "Start listening when a scheduled meeting begins."
 #: src/settings/team/index.tsx
 msgid "Start Pro"
 msgstr "Start Pro"
+
+#: src/services/event-notification/index.ts
+msgid "Start recording"
+msgstr "Start recording"
 
 #: src/main/empty.tsx
 msgid "Start Recording"
