@@ -121,7 +121,9 @@ export function startPrimaryDeviceCoordination({
   const onInteraction = (event: Event) => {
     if (
       event.target instanceof Element &&
-      event.target.closest("[data-primary-device-prompt]")
+      event.target
+        .closest("[data-app-toast]")
+        ?.querySelector("[data-primary-device-prompt]")
     ) {
       return;
     }
