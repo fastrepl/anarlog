@@ -31,6 +31,7 @@ const hoisted = vi.hoisted(() => ({
   audioExists: true,
   audioExistsResolved: true,
   hasTranscript: true,
+  enhancedNotes: [{ id: "note-1" }],
   canShowTranscript: true,
   liveSegments: [] as unknown[],
   liveSessionId: null as string | null,
@@ -184,10 +185,6 @@ vi.mock("~/stt/queries", async (importOriginal) => ({
   useSessionTranscriptMetadata: () => hoisted.transcriptMetadata,
 }));
 
-vi.mock("~/session/hooks/useEnhancedNotes", () => ({
-  useEnsureDefaultSummary: vi.fn(),
-}));
-
 vi.mock("~/session/hooks/useSessionEvent", () => ({
   useSessionEvent: () => hoisted.sessionEvent,
 }));
@@ -203,7 +200,7 @@ vi.mock("~/session/queries", () => ({
     templateId: "template-1",
     title: "Summary",
   }),
-  useEnhancedNoteRecords: () => [{ id: "note-1" }],
+  useEnhancedNoteRecords: () => hoisted.enhancedNotes,
   useFolderIcons: () => ({}),
   useFolderPaths: () => [],
   useSession: () => ({
@@ -687,11 +684,21 @@ describe("useEditorTabs", () => {
     "includes the transcript tab only when it can be shown (%s)",
     (canShowTranscript, expected) => {
       hoisted.canShowTranscript = canShowTranscript;
+      hoisted.hasTranscript = true;
+      hoisted.sessionMode = "inactive";
+      hoisted.enhancedNotes = [];
 
-      const { result } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         useEditorTabs({ sessionId: "session-1" }),
       );
 
+      expect(result.current).toEqual([
+        { type: "enhanced", id: "summary:session-1" },
+        { type: "raw" },
+        ...(canShowTranscript ? [{ type: "transcript" }] : []),
+      ]);
+      hoisted.enhancedNotes = [{ id: "note-1" }];
+      rerender();
       expect(result.current).toEqual(expected);
     },
   );

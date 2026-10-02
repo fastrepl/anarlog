@@ -22,7 +22,7 @@ async fn share_activation_backfills_only_previously_shared_manager_notes() {
     anlg_db_migrate::migrate(
         &db,
         anlg_db_migrate::DbSchema {
-            steps: migration_steps_before("20260804110000_session_share_activation"),
+            steps: migration_steps_before("20261002090000_session_share_activation_sync"),
             validate_cloudsync_table: cloudsync_alter_guard_required,
         },
     )
@@ -31,6 +31,7 @@ async fn share_activation_backfills_only_previously_shared_manager_notes() {
     for (share_id, session_id, manage_access, access_version) in [
         ("owner-draft", "session-draft", 1, 1),
         ("owner-shared", "session-shared", 1, 2),
+        ("owner-copied", "session-copied", 1, 1),
         ("recipient-shared", "session-recipient", 0, 2),
     ] {
         sqlx::query(
@@ -48,6 +49,15 @@ async fn share_activation_backfills_only_previously_shared_manager_notes() {
         .unwrap();
     }
 
+    sqlx::query("INSERT INTO sessions (id) VALUES ('session-draft'), ('session-shared'), ('session-recipient'), ('session-copied')")
+        .execute(db.pool()).await.unwrap();
+    sqlx::query(
+        "INSERT INTO session_share_activation (viewer_user_id, share_id, session_id)
+        VALUES ('user-1', 'owner-copied', 'session-copied')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
     prepare_schema(&db).await.unwrap();
 
     let activations: Vec<(String, String)> = sqlx::query_as(
@@ -61,8 +71,37 @@ async fn share_activation_backfills_only_previously_shared_manager_notes() {
     .unwrap();
     assert_eq!(
         activations,
-        [("owner-shared".to_string(), "session-shared".to_string())]
+        [
+            ("owner-copied".to_string(), "session-copied".to_string()),
+            ("owner-shared".to_string(), "session-shared".to_string())
+        ]
     );
+    let shared_marker: String = sqlx::query_scalar(
+        "SELECT share_activation_json FROM sessions WHERE id = 'session-shared'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&shared_marker).unwrap()["user-1"]["share_id"],
+        "owner-shared"
+    );
+    let copied_marker: String = sqlx::query_scalar(
+        "SELECT share_activation_json FROM sessions WHERE id = 'session-copied'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&copied_marker).unwrap()["user-1"]["share_id"],
+        "owner-copied"
+    );
+    let draft_marker: String =
+        sqlx::query_scalar("SELECT share_activation_json FROM sessions WHERE id = 'session-draft'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(draft_marker, "{}");
 }
 
 #[test]

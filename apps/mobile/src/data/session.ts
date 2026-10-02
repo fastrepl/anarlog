@@ -156,10 +156,16 @@ SELECT
   sessions.created_at,
   COALESCE(note.body, '') AS raw_body,
   COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format,
-  COALESCE(summary.id, '') AS summary_id,
-  COALESCE(summary.title, '') AS summary_title,
-  COALESCE(summary.body, '') AS summary_body,
-  COALESCE(summary.body_format, 'prosemirror_json') AS summary_body_format
+  COALESCE((
+    SELECT json_group_array(json_object(
+      'id', document.id, 'title', document.title,
+      'body', document.body, 'body_format', document.body_format,
+      'kind', document.kind, 'template_id', document.template_id,
+      'sort_order', document.sort_order
+    )) FROM session_documents AS document
+    WHERE document.session_id = sessions.id
+      AND document.kind IN ('summary', 'template_output') AND document.deleted_at IS NULL
+  ), '[]') AS summary_documents_json
 FROM sessions
 LEFT JOIN session_documents AS note
   ON note.id = COALESCE(
@@ -181,20 +187,6 @@ LEFT JOIN session_documents AS note
       ORDER BY fallback.created_at, fallback.id
       LIMIT 1
     )
-  )
-LEFT JOIN session_documents AS summary
-  ON summary.id = (
-    SELECT candidate.id
-    FROM session_documents AS candidate
-    WHERE candidate.session_id = sessions.id
-      AND candidate.kind IN ('summary', 'template_output')
-      AND candidate.deleted_at IS NULL
-    ORDER BY
-      CASE candidate.kind WHEN 'summary' THEN 0 ELSE 1 END,
-      candidate.sort_order,
-      candidate.created_at,
-      candidate.id
-    LIMIT 1
   )
 WHERE sessions.id = ? AND sessions.deleted_at IS NULL
 `;

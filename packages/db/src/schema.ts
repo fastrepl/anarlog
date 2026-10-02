@@ -205,6 +205,7 @@ export const sessions = sqliteTable(
     folderPath: text("folder_path").notNull().default(""),
     slug: text("slug").notNull().default(""),
     metadataJson: text("metadata_json").notNull().default("{}"),
+    shareActivationJson: text("share_activation_json").notNull().default("{}"),
     deletionContext: text("deletion_context").notNull().default(""),
     deletedAt: text("deleted_at"),
   },

@@ -10,6 +10,7 @@ import {
   requestMainAITaskCancel,
   requestMainEnhance,
 } from "~/ai/task-window-sync";
+import { getEnhancerService } from "~/services/enhancer";
 import { getEligibility } from "~/services/enhancer/eligibility";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { useEnhancedNote } from "~/session/queries";
@@ -27,8 +28,8 @@ export function useEnhancedNoteActions({
     ? createTaskId(enhancedNoteId, "enhance")
     : null;
 
-  const noteTemplateId =
-    useEnhancedNote(enhancedNoteId ?? "")?.templateId || undefined;
+  const note = useEnhancedNote(enhancedNoteId ?? "");
+  const noteTemplateId = note?.templateId || undefined;
 
   const enhanceTask = useAITaskTask(taskId, "enhance");
 
@@ -63,7 +64,7 @@ export function useEnhancedNoteActions({
       if (!isMainAITaskHostWindow()) {
         void requestMainEnhance(sessionId, {
           templateId: templateId ?? noteTemplateId,
-          targetNoteId: enhancedNoteId,
+          targetNoteId: note ? enhancedNoteId : undefined,
         });
         return;
       }
@@ -72,6 +73,13 @@ export function useEnhancedNoteActions({
         event: "note_enhanced",
         is_auto: false,
       });
+
+      if (!note) {
+        await getEnhancerService()?.enhance(sessionId, {
+          templateId: templateId ?? noteTemplateId,
+        });
+        return;
+      }
 
       await enhanceTask.start({
         model,
@@ -82,7 +90,7 @@ export function useEnhancedNoteActions({
         },
       });
     },
-    [enhancedNoteId, model, enhanceTask.start, sessionId, noteTemplateId],
+    [enhancedNoteId, model, enhanceTask.start, sessionId, noteTemplateId, note],
   );
 
   const onCancel = useCallback(() => {

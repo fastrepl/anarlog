@@ -579,6 +579,13 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260930120000_event_attendance.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20261002090000_session_share_activation_sync",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "sessions",
+        },
+        sql: include_str!("../migrations/20261002090000_session_share_activation_sync.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {
@@ -808,6 +815,27 @@ async fn backfill_session_share_activation(pool: &sqlx::SqlitePool) -> Result<()
              FROM shared_session_cache
              WHERE manage_access = 1
                AND access_version > 1",
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "UPDATE sessions SET share_activation_json = (
+          SELECT json_group_object(activation.viewer_user_id,
+            json_object('share_id', activation.share_id, 'activated_at', activation.activated_at))
+          FROM session_share_activation AS activation
+          JOIN shared_session_cache AS cache
+            ON cache.viewer_user_id = activation.viewer_user_id
+            AND cache.share_id = activation.share_id
+            AND cache.session_id = activation.session_id AND cache.manage_access = 1
+          WHERE activation.session_id = sessions.id
+        ) WHERE deleted_at IS NULL AND share_activation_json = '{}' AND EXISTS (
+          SELECT 1 FROM session_share_activation AS activation
+          JOIN shared_session_cache AS cache
+            ON cache.viewer_user_id = activation.viewer_user_id
+            AND cache.share_id = activation.share_id
+            AND cache.session_id = activation.session_id AND cache.manage_access = 1
+          WHERE activation.session_id = sessions.id
+        )",
     )
     .execute(pool)
     .await?;

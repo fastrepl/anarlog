@@ -1,4 +1,7 @@
 import { renderHook } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -207,38 +210,6 @@ describe("durable shared-note cache", () => {
     );
   });
 
-  it("backfills activation only after a managed share changed access", async () => {
-    const snapshot = {
-      ...parseDurableSharedNoteSnapshots([serverRow])[0]!,
-      attachments: [],
-      capability: "editor" as const,
-      manageAccess: true,
-      accessVersion: 1,
-    };
-
-    await upsertDurableSharedNoteCache("viewer-1", snapshot);
-    expect(mocks.executeTransaction.mock.calls[0]![0]).toHaveLength(2);
-
-    mocks.executeTransaction.mockClear();
-    await upsertDurableSharedNoteCache("viewer-1", {
-      ...snapshot,
-      accessVersion: 2,
-    });
-
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(4);
-    expect(statements[2]).toEqual({
-      sql: expect.stringContaining("DELETE FROM session_share_activation"),
-      params: ["viewer-1", "session-1", serverRow.share_id],
-    });
-    expect(statements[3]).toEqual({
-      sql: expect.stringContaining(
-        "ON CONFLICT(viewer_user_id, share_id) DO UPDATE",
-      ),
-      params: ["viewer-1", serverRow.share_id, "session-1"],
-    });
-  });
-
   it("removes only one viewer-owned cache row", async () => {
     await removeDurableSharedNoteCache("viewer-1", serverRow.share_id);
 
@@ -262,25 +233,123 @@ describe("durable shared-note cache", () => {
     });
   });
 
-  it("marks a share as activated only for its current session", async () => {
-    await markSessionShareActivated(
-      "viewer-1",
-      serverRow.share_id,
-      "session-1",
-    );
-
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(2);
-    expect(statements[0]).toEqual({
-      sql: expect.stringContaining("DELETE FROM session_share_activation"),
-      params: ["viewer-1", "session-1", serverRow.share_id],
+  it("a copied version-one link restores its icon on another device while drafts stay private", async () => {
+    const { DatabaseSync } = createRequire(import.meta.url)(
+      "node:sqlite",
+    ) as typeof import("node:sqlite");
+    const createDevice = () => {
+      const database = new DatabaseSync(":memory:");
+      for (const migration of [
+        "20260710223922_canonical_data_model",
+        "20260716173000_shared_session_cache",
+        "20260717171000_shared_session_attachment_cache",
+        "20260717172000_shared_session_cache_attachments",
+        "20260717190000_shared_session_cache_web_edits",
+        "20260717191000_session_share_sync_state",
+        "20260804110000_session_share_activation",
+        "20261002090000_session_share_activation_sync",
+      ]) {
+        database.exec(
+          readFileSync(
+            resolve(
+              process.cwd(),
+              "../../crates/db-app/migrations",
+              `${migration}.sql`,
+            ),
+            "utf8",
+          ),
+        );
+      }
+      database.exec("INSERT INTO sessions (id) VALUES ('session-1')");
+      return database;
+    };
+    const source = createDevice();
+    const target = createDevice();
+    let database = source;
+    mocks.executeTransaction.mockImplementation(async (statements) => {
+      database.exec("BEGIN");
+      try {
+        const changes = statements.map(({ sql, params = [] }) =>
+          Number(
+            database
+              .prepare(sql)
+              .run(...(params as import("node:sqlite").SQLInputValue[]))
+              .changes,
+          ),
+        );
+        database.exec("COMMIT");
+        return changes;
+      } catch (error) {
+        database.exec("ROLLBACK");
+        throw error;
+      }
     });
-    expect(statements[1]).toEqual({
-      sql: expect.stringContaining(
-        "ON CONFLICT(viewer_user_id, share_id) DO UPDATE",
-      ),
-      params: ["viewer-1", serverRow.share_id, "session-1"],
-    });
+    const snapshot = {
+      ...parseDurableSharedNoteSnapshots([serverRow])[0]!,
+      manageAccess: true,
+      capability: "editor" as const,
+      accessVersion: 1,
+      attachments: [],
+    };
+    const activatedIds = (viewer: string) => {
+      mocks.useDrizzleLiveQuery.mockClear();
+      renderHook(() => useActivatedSessionShareIds(viewer));
+      const { sql, params } =
+        mocks.useDrizzleLiveQuery.mock.calls[0]![0].toSQL();
+      return database
+        .prepare(sql)
+        .all(...(params as import("node:sqlite").SQLInputValue[]))
+        .map((row) => row.session_id);
+    };
+    try {
+      await upsertDurableSharedNoteCache("viewer-1", snapshot);
+      expect(activatedIds("viewer-1")).toEqual([]);
+      await markSessionShareActivated(
+        "viewer-1",
+        snapshot.shareId,
+        "session-1",
+      );
+      expect(activatedIds("viewer-1")).toEqual(["session-1"]);
+      const marker = source
+        .prepare(
+          "SELECT share_activation_json FROM sessions WHERE id = 'session-1'",
+        )
+        .get()!.share_activation_json;
+      database = target;
+      await upsertDurableSharedNoteCache("viewer-1", snapshot);
+      expect(activatedIds("viewer-1")).toEqual([]);
+      database
+        .prepare(
+          "UPDATE sessions SET share_activation_json = ? WHERE id = 'session-1'",
+        )
+        .run(marker as string);
+      expect(activatedIds("viewer-1")).toEqual(["session-1"]);
+      expect(
+        database
+          .prepare("SELECT count(*) AS count FROM session_share_activation")
+          .get()!.count,
+      ).toBe(0);
+      await upsertDurableSharedNoteCache("viewer-2", snapshot);
+      expect(activatedIds("viewer-2")).toEqual([]);
+      await markSessionShareActivated(
+        "viewer-2",
+        snapshot.shareId,
+        "session-1",
+      );
+      expect(activatedIds("viewer-2")).toEqual(["session-1"]);
+      expect(activatedIds("viewer-1")).toEqual(["session-1"]);
+      await upsertDurableSharedNoteCache("viewer-1", {
+        ...snapshot,
+        manageAccess: false,
+      });
+      expect(activatedIds("viewer-1")).toEqual([]);
+      await replaceDurableSharedNoteCache("viewer-1", []);
+      expect(activatedIds("viewer-1")).toEqual([]);
+    } finally {
+      source.close();
+      target.close();
+      mocks.executeTransaction.mockImplementation(async () => []);
+    }
   });
 
   it("loads the durable owner mapping used by fail-safe deletion", async () => {

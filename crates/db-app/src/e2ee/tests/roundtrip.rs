@@ -262,3 +262,73 @@ async fn applies_remote_changes_and_preserves_concurrent_local_edits() {
         1
     );
 }
+
+#[tokio::test]
+async fn copied_link_activation_survives_encrypted_restore_without_local_cache() {
+    let source = test_db().await;
+    let target = test_db().await;
+    let workspace_keys = keys("workspace-a");
+    let activation = r#"{"user-a":{"share_id":"share-a","activated_at":"2026-10-02T00:00:00Z"}}"#;
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, metadata_json)
+        VALUES ('copied', 'workspace-a', '{\"unrelated\":true}'), ('draft', 'workspace-a', '{}')",
+    )
+    .execute(source.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    copy_replica(source.pool(), target.pool()).await;
+    apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE sessions SET share_activation_json = ? WHERE id = 'copied'")
+        .bind(activation)
+        .execute(source.pool())
+        .await
+        .unwrap();
+    encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    copy_replica(source.pool(), target.pool()).await;
+    apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let received: Vec<(String, String)> =
+        sqlx::query_as("SELECT id, share_activation_json FROM sessions ORDER BY id")
+            .fetch_all(target.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        received,
+        [
+            ("copied".into(), activation.into()),
+            ("draft".into(), "{}".into())
+        ]
+    );
+    let local_markers: i64 = sqlx::query_scalar("SELECT count(*) FROM session_share_activation")
+        .fetch_one(target.pool())
+        .await
+        .unwrap();
+    assert_eq!(local_markers, 0);
+    sqlx::query(
+        "UPDATE sessions SET metadata_json = '{\"edited_elsewhere\":true}' WHERE id = 'copied'",
+    )
+    .execute(target.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(target.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    copy_replica(target.pool(), source.pool()).await;
+    apply_e2ee_replica_changes(source.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let retained: String =
+        sqlx::query_scalar("SELECT share_activation_json FROM sessions WHERE id = 'copied'")
+            .fetch_one(source.pool())
+            .await
+            .unwrap();
+    assert_eq!(retained, activation);
+}

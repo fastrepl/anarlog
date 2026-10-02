@@ -23,6 +23,7 @@ import { batchTranscriptionModel } from "@/settings/transcription-mode";
 
 import { requestProviderTranscription } from "./provider-transcription";
 import { generateSummaryAfterTranscription } from "./summarize";
+import { pendingSummaryStatement } from "./summary-job";
 import { TranscriptionAdmission } from "./transcription-admission";
 import {
   assertBoundedTranscriptionResponse,
@@ -524,6 +525,7 @@ async function runTranscription(sessionId: string): Promise<void> {
       sql: MARK_COMPLETE_SQL,
       params: [now, attachmentId, sessionId] as unknown[],
     },
+    pendingSummaryStatement(sessionId),
   ]).catch((error) => {
     throw withTranscriptionStage(error, "persist");
   });

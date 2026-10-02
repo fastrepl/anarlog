@@ -1,10 +1,4 @@
-import {
-  and,
-  desc,
-  eq,
-  sessionShareActivation,
-  sharedSessionCache,
-} from "@anlg/db";
+import { and, desc, eq, sql, sharedSessionCache } from "@anlg/db";
 import type { JSONContent } from "@anlg/editor/note";
 
 import {
@@ -331,6 +325,21 @@ export async function markSessionShareActivated(
         `,
         params: [viewerUserId, shareId, sessionId],
       },
+      {
+        sql: `UPDATE sessions SET share_activation_json = json_set(
+          CASE WHEN json_valid(share_activation_json) AND json_type(share_activation_json) = 'object'
+            THEN share_activation_json ELSE '{}' END,
+          ?, json_object('share_id', ?, 'activated_at',
+            (SELECT activated_at FROM session_share_activation WHERE viewer_user_id = ? AND share_id = ?))
+        ) WHERE id = ? AND deleted_at IS NULL`,
+        params: [
+          `$.${JSON.stringify(viewerUserId)}`,
+          shareId,
+          viewerUserId,
+          shareId,
+          sessionId,
+        ],
+      },
     ]),
   );
 }
@@ -450,9 +459,30 @@ export function useActivatedSessionShareIds(
   viewerUserId: string | null | undefined,
 ) {
   const query = db
-    .select({ sessionId: sessionShareActivation.sessionId })
-    .from(sessionShareActivation)
-    .where(eq(sessionShareActivation.viewerUserId, viewerUserId ?? ""));
+    .select({ sessionId: sharedSessionCache.sessionId })
+    .from(sharedSessionCache)
+    .where(
+      and(
+        eq(sharedSessionCache.viewerUserId, viewerUserId ?? ""),
+        eq(sharedSessionCache.manageAccess, true),
+        sql`(EXISTS (
+        SELECT 1 FROM session_share_activation AS activation
+        WHERE activation.viewer_user_id = ${sharedSessionCache.viewerUserId}
+          AND activation.share_id = ${sharedSessionCache.shareId}
+          AND activation.session_id = ${sharedSessionCache.sessionId}
+      ) OR EXISTS (
+        SELECT 1 FROM sessions AS session
+        WHERE session.id = ${sharedSessionCache.sessionId}
+          AND session.deleted_at IS NULL
+          AND json_extract(CASE WHEN json_valid(session.share_activation_json)
+            THEN session.share_activation_json ELSE '{}' END,
+            '$.' || json_quote(${sharedSessionCache.viewerUserId}) || '.share_id') = ${sharedSessionCache.shareId}
+          AND json_type(CASE WHEN json_valid(session.share_activation_json)
+            THEN session.share_activation_json ELSE '{}' END,
+            '$.' || json_quote(${sharedSessionCache.viewerUserId}) || '.activated_at') = 'text'
+      ))`,
+      ),
+    );
 
   const { data } = useDrizzleLiveQuery<{ session_id: string }, Set<string>>(
     query,
@@ -729,34 +759,75 @@ function attachmentReconciliationStatements(
   }));
 }
 
+function sessionShareActivationSyncStatement(
+  viewerUserId: string,
+  sessionId: string,
+) {
+  return {
+    sql: `
+      UPDATE sessions
+      SET share_activation_json = json_set(
+        CASE WHEN json_valid(share_activation_json) AND json_type(share_activation_json) = 'object'
+          THEN share_activation_json ELSE '{}' END,
+        ?, json((
+          SELECT json_object('share_id', activation.share_id, 'activated_at', activation.activated_at)
+          FROM session_share_activation AS activation
+          WHERE activation.viewer_user_id = ? AND activation.session_id = sessions.id
+        ))
+      )
+      WHERE id = ? AND deleted_at IS NULL
+        AND EXISTS (
+          SELECT 1 FROM session_share_activation AS activation
+          JOIN shared_session_cache AS cache
+            ON cache.viewer_user_id = activation.viewer_user_id
+            AND cache.share_id = activation.share_id
+            AND cache.session_id = activation.session_id
+            AND cache.manage_access = 1
+          WHERE activation.viewer_user_id = ? AND activation.session_id = sessions.id
+            AND json_extract(CASE WHEN json_valid(sessions.share_activation_json)
+              THEN sessions.share_activation_json ELSE '{}' END, ?) IS NOT activation.share_id
+        )
+    `,
+    params: [
+      `$.${JSON.stringify(viewerUserId)}`,
+      viewerUserId,
+      sessionId,
+      viewerUserId,
+      `$.${JSON.stringify(viewerUserId)}.share_id`,
+    ],
+  };
+}
+
 function sessionShareActivationBackfillStatements(
   viewerUserId: string,
   snapshot: SharedNoteSnapshot,
 ) {
-  if (!snapshot.manageAccess || snapshot.accessVersion <= 1) return [];
-  return [
-    {
-      sql: `
+  if (!snapshot.manageAccess) return [];
+  const activationStatements =
+    snapshot.accessVersion > 1
+      ? [
+          {
+            sql: `
         DELETE FROM session_share_activation
-        WHERE viewer_user_id = ?
-          AND session_id = ?
-          AND share_id <> ?
+        WHERE viewer_user_id = ? AND session_id = ? AND share_id <> ?
       `,
-      params: [viewerUserId, snapshot.sessionId, snapshot.shareId],
-    },
-    {
-      sql: `
+            params: [viewerUserId, snapshot.sessionId, snapshot.shareId],
+          },
+          {
+            sql: `
         INSERT INTO session_share_activation (
-          viewer_user_id,
-          share_id,
-          session_id,
-          activated_at
+          viewer_user_id, share_id, session_id, activated_at
         ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         ON CONFLICT(viewer_user_id, share_id) DO UPDATE SET
           session_id = excluded.session_id
       `,
-      params: [viewerUserId, snapshot.shareId, snapshot.sessionId],
-    },
+            params: [viewerUserId, snapshot.shareId, snapshot.sessionId],
+          },
+        ]
+      : [];
+  return [
+    ...activationStatements,
+    sessionShareActivationSyncStatement(viewerUserId, snapshot.sessionId),
   ];
 }
 

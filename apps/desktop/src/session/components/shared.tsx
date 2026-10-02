@@ -3,9 +3,9 @@ import { useMemo } from "react";
 import { computeCurrentNoteTab } from "@anlg/utils/session";
 
 import { extractPlainText } from "~/search/contexts/engine/utils";
+import { useEnhancedNotes } from "~/session/hooks/useEnhancedNotes";
 import {
   useEnhancedNote,
-  useEnhancedNoteRecords,
   useSession,
   useSessionHasTranscript,
 } from "~/session/queries";
@@ -50,7 +50,11 @@ export function useCurrentNoteTab(
   const isLiveSessionActive = sessionMode === "active";
   const canShowTranscript = useCanShowTranscript(tab.id, { audioExists });
 
-  const enhancedNoteIds = useEnhancedNoteRecords(tab.id).map((note) => note.id);
+  const hasTranscript = useHasTranscript(tab.id);
+  const enhancedNoteIds = useEnhancedNotes(
+    tab.id,
+    hasTranscript && sessionMode === "inactive",
+  );
 
   return useMemo(() => {
     return computeCurrentNoteTab(

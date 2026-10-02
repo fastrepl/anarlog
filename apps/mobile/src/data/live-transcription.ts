@@ -22,6 +22,7 @@ import {
   type LiveSpeakerHint,
   type LiveTranscriptWord,
 } from "./live-transcription-model";
+import { pendingSummaryStatement } from "./summary-job";
 
 export type LiveTranscriptionStatus = "connecting" | "live" | "fallback";
 
@@ -615,9 +616,11 @@ export class SessionLiveTranscription {
 export async function markSessionAudioTranscribed(
   sessionId: string,
 ): Promise<void> {
-  await execute(MARK_AUDIO_COMPLETE_SQL, [
-    nowIso(),
-    `session-audio:${sessionId}`,
-    sessionId,
+  await executeTransaction([
+    {
+      sql: MARK_AUDIO_COMPLETE_SQL,
+      params: [nowIso(), `session-audio:${sessionId}`, sessionId],
+    },
+    pendingSummaryStatement(sessionId),
   ]);
 }

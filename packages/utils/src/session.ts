@@ -156,3 +156,66 @@ export function hasSummaryContent(
     return true;
   }
 }
+
+export function defaultSummaryDocumentId(sessionId: string): string {
+  return `summary:${sessionId}`;
+}
+
+export function resolveSummaryDocument<
+  T extends {
+    id: string;
+    body: string;
+    kind: string;
+    template_id: string;
+    sort_order: number;
+  },
+>(
+  documents: readonly T[],
+  sessionTitle?: string,
+  templateId?: string,
+): T | undefined {
+  return [...documents].sort(
+    (left, right) =>
+      Number(hasSummaryContent(right.body, sessionTitle)) -
+        Number(hasSummaryContent(left.body, sessionTitle)) ||
+      Number(right.template_id === (templateId ?? "")) -
+        Number(left.template_id === (templateId ?? "")) ||
+      Number(left.kind !== "summary") - Number(right.kind !== "summary") ||
+      left.sort_order - right.sort_order ||
+      left.id.localeCompare(right.id),
+  )[0];
+}
+
+export function visibleSummaryDocuments<
+  T extends {
+    id: string;
+    body: string;
+    kind: string;
+    template_id: string;
+    title: string;
+    created_at: string;
+    updated_at: string;
+    generation_metadata_json: string;
+  },
+>(documents: readonly T[]): T[] {
+  return documents.filter((document) => {
+    const untouchedPlaceholder =
+      document.kind === "summary" &&
+      document.template_id === "" &&
+      document.body === "" &&
+      document.title === "Summary" &&
+      document.created_at === document.updated_at &&
+      document.generation_metadata_json === "{}";
+    // Keep the row: a later body field from sync must bring its tab back.
+    return (
+      !untouchedPlaceholder ||
+      !documents.some(
+        (other) =>
+          other.id !== document.id &&
+          other.kind === "summary" &&
+          other.template_id === "" &&
+          hasSummaryContent(other.body),
+      )
+    );
+  });
+}

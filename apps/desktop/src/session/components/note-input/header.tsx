@@ -10,10 +10,14 @@ import { HeaderViewRaw } from "./header-raw";
 import { HeaderViewTranscript } from "./header-transcript";
 
 import { FolderPicker } from "~/session/components/folder-picker";
-import { useCanShowTranscript } from "~/session/components/shared";
-import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
-import { deleteEnhancedNote, useEnhancedNoteRecords } from "~/session/queries";
+import {
+  useCanShowTranscript,
+  useHasTranscript,
+} from "~/session/components/shared";
+import { useEnhancedNotes } from "~/session/hooks/useEnhancedNotes";
+import { deleteEnhancedNote } from "~/session/queries";
 import { type EditorView } from "~/store/zustand/tabs/schema";
+import { useListener } from "~/stt/contexts";
 
 export function Header({ sessionId }: { sessionId: string }) {
   return <FolderPicker sessionId={sessionId} align="end" />;
@@ -136,11 +140,12 @@ export function useEditorTabs({
   audioExists?: boolean;
   sessionId: string;
 }): EditorView[] {
-  useEnsureDefaultSummary(sessionId);
   const canShowTranscript = useCanShowTranscript(sessionId, { audioExists });
-
-  const enhancedNoteIds = useEnhancedNoteRecords(sessionId).map(
-    (note) => note.id,
+  const hasTranscript = useHasTranscript(sessionId);
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const enhancedNoteIds = useEnhancedNotes(
+    sessionId,
+    hasTranscript && sessionMode === "inactive",
   );
 
   return createEditorTabs({

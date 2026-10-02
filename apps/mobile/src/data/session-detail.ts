@@ -1,4 +1,4 @@
-import { hasSummaryContent } from "@anlg/utils/session";
+import { hasSummaryContent, resolveSummaryDocument } from "@anlg/utils/session";
 
 import {
   docToPlainText,
@@ -22,10 +22,7 @@ export type SessionDetailRow = {
   created_at: string;
   raw_body: string;
   raw_body_format: string;
-  summary_id: string;
-  summary_title: string;
-  summary_body: string;
-  summary_body_format: string;
+  summary_documents_json: string;
 };
 
 function documentText(
@@ -47,12 +44,24 @@ export function mapSessionDetailRows(
   if (!row) return null;
   const isMarkdown = row.raw_body_format === "markdown";
   const note = documentText(row.raw_body, row.raw_body_format);
+  const summary = resolveSummaryDocument(
+    JSON.parse(row.summary_documents_json) as Array<{
+      id: string;
+      title: string;
+      body: string;
+      body_format: string;
+      kind: string;
+      template_id: string;
+      sort_order: number;
+    }>,
+    row.title,
+  );
   const summaryDocument = documentText(
-    row.summary_body,
-    row.summary_body_format,
+    summary?.body ?? "",
+    summary?.body_format ?? "prosemirror_json",
   );
   const summaryTitle =
-    row.summary_title.trim() || summaryDocument.title.trim() || "Summary";
+    summary?.title.trim() || summaryDocument.title.trim() || "Summary";
   const summaryText =
     summaryDocument.text.trim() ||
     (summaryDocument.title.trim() !== summaryTitle
@@ -67,7 +76,7 @@ export function mapSessionDetailRows(
     bodyFormat: isMarkdown ? "markdown" : "prosemirror_json",
     plainEditable: isMarkdown || isPlainTextDoc(row.raw_body),
     summary:
-      row.summary_id === "" || !hasSummaryContent(row.summary_body, row.title)
+      !summary || !hasSummaryContent(summary.body, row.title)
         ? null
         : {
             title: summaryTitle,

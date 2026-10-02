@@ -1,6 +1,6 @@
 import type { LanguageModel } from "ai";
 
-import { hasSummaryContent } from "@anlg/utils/session";
+import { hasSummaryContent, resolveSummaryDocument } from "@anlg/utils/session";
 
 import { type EnhanceEligibilitySkipCode, getEligibility } from "./eligibility";
 import {
@@ -686,25 +686,19 @@ function getSessionEnhancedNote(
   return snapshot.enhancedNotes.find((note) => note.id === noteId);
 }
 
-function getMatchingEnhancedNote(
-  snapshot: SessionContentSnapshot,
-  templateId?: string,
-): EnhancerNote | undefined {
-  const normalizedTemplateId = templateId ?? "";
-  return snapshot.enhancedNotes.find(
-    (note) => note.templateId === normalizedTemplateId,
-  );
-}
-
 function getAutoEnhancedNote(
   snapshot: SessionContentSnapshot,
   templateId?: string,
 ): EnhancerNote | undefined {
-  return (
-    getMatchingEnhancedNote(snapshot, templateId) ??
-    [...snapshot.enhancedNotes].sort(
-      (left, right) =>
-        left.position - right.position || left.id.localeCompare(right.id),
-    )[0]
+  return resolveSummaryDocument(
+    snapshot.enhancedNotes.map((note) => ({
+      ...note,
+      body: note.content,
+      template_id: note.templateId,
+      kind: note.templateId ? "template_output" : "summary",
+      sort_order: note.position,
+    })),
+    snapshot.title,
+    templateId,
   );
 }

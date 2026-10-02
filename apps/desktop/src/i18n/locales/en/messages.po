@@ -2642,6 +2642,10 @@ msgstr "General"
 msgid "General access"
 msgstr "General access"
 
+#: src/session/components/note-input/enhanced/index.tsx
+msgid "Generate summary"
+msgstr "Generate summary"
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 #: src/session/components/title-input.tsx
 msgid "Generating title..."
