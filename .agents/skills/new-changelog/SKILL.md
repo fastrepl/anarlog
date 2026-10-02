@@ -74,6 +74,10 @@ Ground stable notes in the preceding stable mobile release's source SHA so
 changes previously tested in beta remain included. With no prior release,
 review the initial mobile user-facing behavior without inventing publication.
 The changelog workflow accepts `stream`, `channel`, and an optional `version`.
+Use its optional `source_sha` to select an exact candidate or promote an existing
+beta build without including later commits. Without it, stable preparation uses
+HEAD when only a beta record exists for the version; revising notes for an
+already published release in the same channel uses its recorded source.
 
 Prepare notes before freezing the candidate. Do not create the publication
 record during preparation. After verified store/tester availability,

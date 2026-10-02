@@ -14,6 +14,7 @@ export function changelogBaseline(
   channel,
   version,
   cwd = process.cwd(),
+  source = "",
 ) {
   if (
     !versionPattern.test(version) ||
@@ -23,6 +24,8 @@ export function changelogBaseline(
   ) {
     throw new Error("Unsupported changelog stream, channel or version");
   }
+  if (source && !/^[a-f0-9]{40}$/.test(source))
+    throw new Error("Changelog source must be a full commit SHA");
   const git = (...args) =>
     execFileSync("git", args, {
       cwd,
@@ -67,8 +70,13 @@ export function changelogBaseline(
         };
       });
   }
-  const requested = releases.find((release) => release.version === version);
-  if (requested) current = requested.source;
+  const requested = releases.find(
+    (release) =>
+      release.version === version &&
+      (stream === "desktop" || release.channel === channel),
+  );
+  if (source) current = git("rev-parse", "--verify", `${source}^{commit}`);
+  else if (requested) current = requested.source;
   const previous = releases
     .filter(
       (release) =>
@@ -92,5 +100,13 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  console.log(JSON.stringify(changelogBaseline(...process.argv.slice(2))));
+  console.log(
+    JSON.stringify(
+      changelogBaseline(
+        ...process.argv.slice(2, 5),
+        process.cwd(),
+        process.argv[5],
+      ),
+    ),
+  );
 }

@@ -20,6 +20,10 @@ on:
         description: "Explicit version (defaults to next desktop patch or current mobile version)"
         required: false
         type: string
+      source_sha:
+        description: "Optional exact source commit SHA for candidate notes or build promotion"
+        required: false
+        type: string
   workflow_call:
     inputs:
       channel:
@@ -30,6 +34,9 @@ on:
         default: desktop
         type: string
       version:
+        required: false
+        type: string
+      source_sha:
         required: false
         type: string
       issue_number:
@@ -69,6 +76,7 @@ jobs:
           RELEASE_CHANNEL: ${{ inputs.channel }}
           RELEASE_STREAM: ${{ inputs.stream || 'desktop' }}
           RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           if [[ "$RELEASE_STREAM" == "desktop" && "$RELEASE_CHANNEL" == "stable" ]]; then
             VERSION="${RELEASE_VERSION:-$(doxxer --config doxxer.desktop.toml next patch)}"
@@ -82,7 +90,7 @@ jobs:
             echo "::error::Invalid changelog version"
             exit 1
           fi
-          BASELINE=$(node scripts/changelog-baseline.mjs "$RELEASE_STREAM" "$RELEASE_CHANNEL" "$VERSION")
+          BASELINE=$(node scripts/changelog-baseline.mjs "$RELEASE_STREAM" "$RELEASE_CHANNEL" "$VERSION" "$RELEASE_SOURCE_SHA")
           PREV=$(node -e 'console.log(JSON.parse(process.argv[1]).prev)' "$BASELINE")
           CURRENT=$(node -e 'console.log(JSON.parse(process.argv[1]).current)' "$BASELINE")
           INITIAL=$(node -e 'console.log(JSON.parse(process.argv[1]).initial)' "$BASELINE")

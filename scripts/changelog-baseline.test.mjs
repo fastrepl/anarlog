@@ -7,7 +7,7 @@ import test from "node:test";
 
 import { changelogBaseline } from "./changelog-baseline.mjs";
 
-test("release notes preserve backfill and promotion sources and identify root-inclusive initial releases", (t) => {
+test("release notes include post-beta fixes, honor explicit promotion sources and identify initial releases", (t) => {
   const cwd = mkdtempSync(join(tmpdir(), "anarlog-changelog-baseline-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const git = (...args) =>
@@ -76,9 +76,21 @@ test("release notes preserve backfill and promotion sources and identify root-in
   });
   assert.deepEqual(changelogBaseline("mobile", "stable", "1.4.3", cwd), {
     prev: sources[2],
-    current: sources[3],
+    current: "HEAD",
     initial: false,
   });
+  assert.deepEqual(
+    changelogBaseline("mobile", "stable", "1.4.3", cwd, sources[3]),
+    {
+      prev: sources[2],
+      current: sources[3],
+      initial: false,
+    },
+  );
+  assert.throws(
+    () => changelogBaseline("mobile", "stable", "1.4.3", cwd, "HEAD"),
+    /full commit SHA/,
+  );
   assert.throws(
     () => changelogBaseline("desktop", "beta", "1.4.1", cwd),
     /Unsupported/,
