@@ -85,11 +85,13 @@ jobs:
           BASELINE=$(node scripts/changelog-baseline.mjs "$RELEASE_STREAM" "$RELEASE_CHANNEL" "$VERSION")
           PREV=$(node -e 'console.log(JSON.parse(process.argv[1]).prev)' "$BASELINE")
           CURRENT=$(node -e 'console.log(JSON.parse(process.argv[1]).current)' "$BASELINE")
+          INITIAL=$(node -e 'console.log(JSON.parse(process.argv[1]).initial)' "$BASELINE")
           echo "file=packages/changelog/content/$RELEASE_STREAM/$VERSION.md" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "stream=$RELEASE_STREAM" >> "$GITHUB_OUTPUT"
           echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           echo "prev=$PREV" >> "$GITHUB_OUTPUT"
+          echo "initial=$INITIAL" >> "$GITHUB_OUTPUT"
 
       - uses: anomalyco/opencode/github@latest
         env:
@@ -103,7 +105,12 @@ jobs:
             Create or update ${{ steps.version.outputs.file }}.
             Follow .agents/skills/new-changelog/SKILL.md for the channel contract.
             Nightly notes must never be published in the website changelog.
-            Changelog should be generated from commits between ${{ steps.version.outputs.prev }} ~ ${{ steps.version.outputs.current }}.
+            Review the user-facing behavior at source ${{ steps.version.outputs.current }}.
+            Initial release: ${{ steps.version.outputs.initial }}.
+            For an initial release, review the complete source snapshot including
+            the root commit, rather than comparing it to a predecessor.
+            Otherwise, generate notes from commits between
+            ${{ steps.version.outputs.prev }} ~ ${{ steps.version.outputs.current }}.
             Follow guidelines in packages/changelog/content/AGENTS.md.
             Look up each merged PR author. If the PR came from someone
             outside the Fastrepl org (not MEMBER, OWNER, COLLABORATOR, or a

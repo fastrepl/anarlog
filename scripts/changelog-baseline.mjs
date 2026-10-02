@@ -67,11 +67,7 @@ export function changelogBaseline(
         };
       });
   }
-  const requested = releases.find(
-    (release) =>
-      release.version === version &&
-      (stream === "desktop" || release.channel === channel),
-  );
+  const requested = releases.find((release) => release.version === version);
   if (requested) current = requested.source;
   const previous = releases
     .filter(
@@ -89,7 +85,7 @@ export function changelogBaseline(
     throw new Error("Ambiguous initial release ancestry");
   const prev = previous?.source ?? roots[0];
   git("merge-base", "--is-ancestor", prev, current);
-  return { prev, current };
+  return { prev, current, initial: !previous };
 }
 
 if (
