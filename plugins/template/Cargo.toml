@@ -18,6 +18,7 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 [dependencies]
 anlg-db-app = { workspace = true }
 anlg-gbnf = { workspace = true }
+anlg-language = { workspace = true, features = ["dominant"] }
 anlg-summary = { workspace = true }
 anlg-template-app = { workspace = true }
 anlg-template-app-legacy = { workspace = true }

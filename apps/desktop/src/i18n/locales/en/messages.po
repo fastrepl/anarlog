@@ -532,6 +532,10 @@ msgstr "Allow public indexing"
 msgid "Already taken"
 msgstr "Already taken"
 
+#: src/session/components/outer-header/overflow/always-on-top.tsx
+msgid "Always on Top"
+msgstr "Always on Top"
+
 #: src/shared/control.tsx
 msgid "An unexpected error occurred."
 msgstr "An unexpected error occurred."

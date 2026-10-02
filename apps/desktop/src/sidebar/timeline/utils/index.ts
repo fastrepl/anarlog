@@ -36,6 +36,7 @@ export type TimelineEventRow = {
   meeting_link?: string | null;
   description?: string | null;
   calendar_color?: string | null;
+  self_status?: string | null;
 };
 
 export type TimelineSessionRow = {
@@ -46,6 +47,12 @@ export type TimelineSessionRow = {
   locked?: boolean | number | null;
   tags?: string[];
 };
+
+const UNACCEPTED_SELF_STATUSES = new Set(["pending", "tentative", "declined"]);
+
+export function isUnacceptedEvent(row: TimelineEventRow): boolean {
+  return !!row.self_status && UNACCEPTED_SELF_STATUSES.has(row.self_status);
+}
 
 export type TimelineEventsTable =
   | Record<string, TimelineEventRow>
@@ -425,6 +432,7 @@ export function deriveTimelineWindowData({
 
   if (timelineEventsTable && filteredEventsTable) {
     for (const [eventId, row] of Object.entries(timelineEventsTable)) {
+      if (isUnacceptedEvent(row)) continue;
       const ignored =
         !showIgnored &&
         isEventIgnored(row.tracking_id_event, row.recurrence_series_id);

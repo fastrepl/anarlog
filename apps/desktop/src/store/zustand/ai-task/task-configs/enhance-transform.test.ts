@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
   renderSessionTranscript: vi.fn(),
+  dominantLanguage: vi.fn(),
   summaryLengthPolicy: vi.fn(),
 }));
 
@@ -29,7 +30,10 @@ vi.mock("@anlg/plugin-transcription", () => ({
 }));
 
 vi.mock("@anlg/plugin-template", () => ({
-  commands: { summaryLengthPolicy: mocks.summaryLengthPolicy },
+  commands: {
+    dominantLanguage: mocks.dominantLanguage,
+    summaryLengthPolicy: mocks.summaryLengthPolicy,
+  },
 }));
 
 vi.mock("~/stt/meeting-chat-records", () => ({
@@ -84,6 +88,10 @@ describe("enhanceTransform.transformArgs", () => {
       data: null,
     });
     mocks.summaryLengthPolicy.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+    mocks.dominantLanguage.mockResolvedValue({
       status: "ok",
       data: null,
     });
@@ -295,8 +303,6 @@ describe("enhanceTransform.transformArgs", () => {
   it("builds the summary policy from the returned transcript segments", async () => {
     const lengthPolicy = {
       mode: "crisp",
-      max_characters: 320,
-      max_sections: 2,
       transcript_characters: 27,
       guidance: {
         max_characters: 320,
@@ -342,10 +348,48 @@ describe("enhanceTransform.transformArgs", () => {
     expect(mocks.summaryLengthPolicy).toHaveBeenCalledWith({
       transcript_texts: ["First segment", "Second segment"],
       mode: "crisp",
-      custom_format: true,
       template_section_count: 0,
     });
     expect(result.lengthPolicy).toEqual(lengthPolicy);
+  });
+
+  it("uses the dominant spoken language of transcript text for summaries", async () => {
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [
+          {
+            speaker_label: "Alice",
+            start_ms: 0,
+            end_ms: 10,
+            text: "Transcript segment in English",
+            words: [{ text: "Transcript", start_ms: 0, end_ms: 5 }],
+          },
+        ],
+      },
+    });
+    mocks.dominantLanguage.mockResolvedValue({ status: "ok", data: "ko" });
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      { ...settingsValues, spoken_languages: '["ko"]' },
+    );
+
+    expect(mocks.dominantLanguage).toHaveBeenCalledWith({
+      texts: ["Transcript segment in English"],
+      candidates: ["en", "ko"],
+    });
+    expect(result.language).toBe("ko");
+  });
+
+  it("keeps the main language when no additional spoken languages are set", async () => {
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      { ...settingsValues, spoken_languages: "[]" },
+    );
+
+    expect(mocks.dominantLanguage).not.toHaveBeenCalled();
+    expect(result.language).toBe("en");
   });
 
   it("includes personalization dictionary terms for summary spelling", async () => {

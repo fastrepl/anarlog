@@ -28,6 +28,7 @@ import {
 } from "@anlg/ui/components/ui/dropdown-menu";
 
 import { MetadataPanelContent } from "../metadata";
+import { AlwaysOnTop } from "./always-on-top";
 import { DeleteNote } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
@@ -243,6 +244,7 @@ export function OverflowButton({
                 </span>
               </DropdownMenuItem>
             )}
+            <AlwaysOnTop />
             <ShowInFolder sessionId={sessionId} />
             <LockNote sessionId={sessionId} />
             <DeleteNote sessionId={sessionId} />

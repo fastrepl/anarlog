@@ -2,6 +2,7 @@
 description = "Default permissions for the plugin"
 permissions = [
   "allow-summary-length-policy",
+  "allow-dominant-language",
   "allow-prepare-generated-summary",
   "allow-compose-generated-summary",
   "allow-save-generated-summary",

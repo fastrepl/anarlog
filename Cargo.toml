@@ -382,6 +382,7 @@ security-framework = "3.7"
 hmac = "0.13"
 sha2 = "0.11"
 
+whatlang = "0.18.0"
 whichlang = "0.1"
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "41a1605" }

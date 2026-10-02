@@ -302,6 +302,44 @@ describe("timeline utils", () => {
     ]);
   });
 
+  test("deriveTimelineWindowData hides events the user has not accepted", () => {
+    const event = (tracking: string, self_status?: string) => ({
+      title: tracking,
+      started_at: "2024-01-16T09:00:00.000Z",
+      ended_at: "2024-01-16T10:00:00.000Z",
+      calendar_id: "cal-1",
+      tracking_id_event: tracking,
+      has_recurrence_rules: false,
+      self_status,
+    });
+
+    const result = deriveTimelineWindowData({
+      timelineEventsTable: {
+        accepted: event("accepted", "accepted"),
+        organizer: event("organizer", "organizer"),
+        noAttendance: event("noAttendance"),
+        unknown: event("unknown", "unknown"),
+        pending: event("pending", "pending"),
+        tentative: event("tentative", "tentative"),
+        pendingLater: {
+          ...event("pendingLater", "pending"),
+          started_at: "2024-01-17T09:00:00.000Z",
+          ended_at: "2024-01-17T10:00:00.000Z",
+        },
+      },
+      timelineSessionsTable: null,
+      showIgnored: true,
+    });
+
+    expect(Object.keys(result.timelineEventsTable ?? {})).toEqual([
+      "accepted",
+      "organizer",
+      "noAttendance",
+      "unknown",
+    ]);
+    expect(result.hasMoreFutureItems).toBe(false);
+  });
+
   test("buildTimelineBuckets prioritizes sessions to events and avoid duplicate timeline items", () => {
     const timelineEventsTable: TimelineEventsTable = {
       "event-1": {

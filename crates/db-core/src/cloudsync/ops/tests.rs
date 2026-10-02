@@ -583,9 +583,25 @@ fn reconciled_send_reports_the_exact_preflighted_batch() {
         &status,
         false,
     );
-    assert_eq!(partial.send.unwrap().status, "out-of-sync");
+    assert_eq!(partial.send.unwrap().status, "syncing");
     let late_write = reconciled_send_result(batch, &status, true);
-    assert_eq!(late_write.send.unwrap().status, "out-of-sync");
+    assert_eq!(late_write.send.unwrap().status, "syncing");
+    let confirmed_prefix = reconciled_send_result(
+        batch,
+        &anlg_cloudsync::NetworkStatus {
+            last_optimistic_version: 7,
+            last_confirmed_version: 7,
+            ..status
+        },
+        false,
+    )
+    .send
+    .unwrap();
+    assert_eq!(confirmed_prefix.status, "syncing");
+    assert_eq!(confirmed_prefix.local_version, 9);
+    assert_eq!(confirmed_prefix.server_version, 7);
+    assert_eq!(confirmed_prefix.chunks, 0);
+    assert_eq!(confirmed_prefix.bytes, 0);
 }
 
 #[test]
@@ -747,7 +763,7 @@ async fn confirmed_send_recovery_preserves_later_local_edits() {
             .send
             .unwrap()
             .status,
-        "out-of-sync"
+        "syncing"
     );
 }
 

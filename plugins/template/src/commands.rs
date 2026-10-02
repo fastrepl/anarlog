@@ -1,5 +1,12 @@
 use crate::TemplatePluginExt;
+use std::str::FromStr;
 use tauri::Manager;
+
+#[derive(serde::Deserialize, specta::Type)]
+pub struct DominantLanguageRequest {
+    pub texts: Vec<String>,
+    pub candidates: Vec<String>,
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -9,9 +16,37 @@ pub fn summary_length_policy(
     Ok(anlg_summary::summary_length_policy_for_texts(
         &request.transcript_texts,
         request.mode,
-        request.custom_format,
         request.template_section_count as usize,
     ))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn dominant_language(request: DominantLanguageRequest) -> Result<Option<String>, String> {
+    let Ok(languages) = request
+        .candidates
+        .iter()
+        .map(|candidate| anlg_language::Language::from_str(candidate))
+        .collect::<Result<Vec<_>, _>>()
+    else {
+        return Ok(None);
+    };
+    let candidate_codes = languages
+        .iter()
+        .map(anlg_language::Language::iso639)
+        .collect::<Vec<_>>();
+    let dominant = anlg_language::dominant_language(
+        request.texts.iter().map(String::as_str),
+        &candidate_codes,
+    );
+
+    Ok(dominant
+        .and_then(|dominant| {
+            languages
+                .iter()
+                .position(|candidate| candidate.iso639() == dominant)
+        })
+        .map(|index| request.candidates[index].clone()))
 }
 
 #[tauri::command]

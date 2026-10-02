@@ -6,6 +6,11 @@ mod detect;
 #[cfg(feature = "detect")]
 pub use detect::detect;
 
+#[cfg(feature = "dominant")]
+mod dominant;
+#[cfg(feature = "dominant")]
+pub use dominant::dominant_language;
+
 #[cfg(feature = "whisper")]
 mod whisper;
 

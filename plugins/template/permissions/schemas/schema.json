@@ -319,6 +319,18 @@
           "markdownDescription": "Denies the compose_generated_summary command without any pre-configured scope."
         },
         {
+          "description": "Enables the dominant_language command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-dominant-language",
+          "markdownDescription": "Enables the dominant_language command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the dominant_language command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-dominant-language",
+          "markdownDescription": "Denies the dominant_language command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_template_source command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-template-source",
@@ -415,10 +427,10 @@
           "markdownDescription": "Denies the summary_length_policy command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-summary-length-policy`\n- `allow-prepare-generated-summary`\n- `allow-compose-generated-summary`\n- `allow-save-generated-summary`\n- `allow-save-generated-title`\n- `allow-apply-session-content-corrections`\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-summary-length-policy`\n- `allow-dominant-language`\n- `allow-prepare-generated-summary`\n- `allow-compose-generated-summary`\n- `allow-save-generated-summary`\n- `allow-save-generated-title`\n- `allow-apply-session-content-corrections`\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-summary-length-policy`\n- `allow-prepare-generated-summary`\n- `allow-compose-generated-summary`\n- `allow-save-generated-summary`\n- `allow-save-generated-title`\n- `allow-apply-session-content-corrections`\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-summary-length-policy`\n- `allow-dominant-language`\n- `allow-prepare-generated-summary`\n- `allow-compose-generated-summary`\n- `allow-save-generated-summary`\n- `allow-save-generated-title`\n- `allow-apply-session-content-corrections`\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`"
         }
       ]
     }

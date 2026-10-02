@@ -1291,7 +1291,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn confirmed_pending_payload_advances_only_to_the_preflighted_watermark() {
+    async fn confirmed_pending_payload_preserves_new_edits_when_retry_batch_grows() {
         let options = SqliteConnectOptions::from_str("sqlite::memory:").unwrap();
         let (options, _) = apply(options).unwrap();
         let pool = SqlitePoolOptions::new()
@@ -1345,6 +1345,42 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(cursors, (watermark.to_string(), "7".to_string()));
+
+        sqlx::query("INSERT INTO items VALUES ('confirmed-prefix', 'acknowledgement lost')")
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        let sent = pending_payload_batch(&mut connection, 8, u64::MAX, 32 * 1024 * 1024)
+            .await
+            .unwrap();
+        let confirmed_version = sent.watermark_db_version.unwrap();
+        sqlx::query("INSERT INTO items VALUES ('pending-tail', 'written before retry')")
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        let retry = pending_payload_batch(&mut connection, 8, u64::MAX, 32 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(retry.watermark_db_version.unwrap() > confirmed_version);
+        let confirmed_prefix = NetworkStatus {
+            last_optimistic_version: confirmed_version,
+            last_confirmed_version: confirmed_version,
+            gaps: Vec::new(),
+            failures: NetworkStatusFailures::default(),
+        };
+        assert!(
+            reconcile_confirmed_pending_payload(&mut connection, retry, &confirmed_prefix)
+                .await
+                .unwrap()
+        );
+        let tail = pending_payload_batch(&mut connection, 8, u64::MAX, 32 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert_eq!(tail.start_db_version, confirmed_version);
+        assert_eq!(tail.watermark_db_version, retry.watermark_db_version);
+        assert_eq!(tail.rows, 1);
+        assert_eq!(tail.local_db_versions, 1);
+        assert!(tail.complete && tail.fits);
         drop(connection);
         pool.close().await;
     }

@@ -11,8 +11,6 @@ import {
 
 const detailedPolicy: SummaryLengthPolicy = {
   mode: "detailed",
-  max_characters: 636,
-  max_sections: null,
   transcript_characters: 636,
   guidance: {
     max_characters: 636,

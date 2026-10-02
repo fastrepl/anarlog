@@ -532,6 +532,10 @@ msgstr ""
 msgid "Already taken"
 msgstr ""
 
+#: src/session/components/outer-header/overflow/always-on-top.tsx
+msgid "Always on Top"
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "An unexpected error occurred."
 msgstr ""

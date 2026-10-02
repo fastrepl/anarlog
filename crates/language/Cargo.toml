@@ -7,11 +7,13 @@ edition = "2024"
 default = ["whisper"]
 whisper = ["dep:anlg-whisper"]
 detect = ["dep:whichlang"]
+dominant = ["dep:whatlang"]
 
 [dependencies]
 codes-iso-639 = { workspace = true }
 
 anlg-whisper = { workspace = true, optional = true }
+whatlang = { workspace = true, optional = true }
 whichlang = { workspace = true, optional = true }
 
 schemars = { workspace = true }

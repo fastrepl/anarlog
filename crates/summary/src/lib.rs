@@ -5,7 +5,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-const SHORT_TRANSCRIPT_CHARACTER_LIMIT: usize = 1_200;
 const MIN_SUMMARY_CHARACTERS: usize = 320;
 const SECTION_GUIDANCE_CHARACTER_STEP: usize = 2_000;
 const TEMPLATE_SECTION_MIN_CHARACTERS: usize = 150;
@@ -29,8 +28,6 @@ pub struct SummaryLengthGuidance {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Type)]
 pub struct SummaryLengthPolicy {
     pub mode: SummaryLengthMode,
-    pub max_characters: u32,
-    pub max_sections: Option<u32>,
     pub transcript_characters: u32,
     pub guidance: Option<SummaryLengthGuidance>,
 }
@@ -39,30 +36,27 @@ pub struct SummaryLengthPolicy {
 pub struct SummaryLengthPolicyRequest {
     pub transcript_texts: Vec<String>,
     pub mode: SummaryLengthMode,
-    pub custom_format: bool,
     pub template_section_count: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Type)]
 pub struct PrepareGeneratedSummaryRequest {
     pub text: String,
-    pub length_policy: Option<SummaryLengthPolicy>,
     pub tag_sources: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Type)]
 pub struct PreparedGeneratedSummary {
-    pub constrained_text: String,
+    pub text: String,
     pub tag_names: Vec<String>,
     pub text_with_tags: String,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Type)]
 pub struct ComposeGeneratedSummaryRequest {
-    pub constrained_text: String,
+    pub text: String,
     pub title: Option<String>,
     pub tag_names: Vec<String>,
-    pub length_policy: Option<SummaryLengthPolicy>,
 }
 
 pub fn count_normalized_characters(text: &str) -> usize {
@@ -72,7 +66,6 @@ pub fn count_normalized_characters(text: &str) -> usize {
 pub fn summary_length_policy(
     transcript_characters: usize,
     mode: SummaryLengthMode,
-    custom_format: bool,
     template_section_count: usize,
 ) -> Option<SummaryLengthPolicy> {
     if transcript_characters == 0 {
@@ -96,7 +89,6 @@ pub fn summary_length_policy(
         MAX_GUIDANCE_SECTIONS as f64,
     );
     let minimum = MIN_SUMMARY_CHARACTERS as f64;
-    let max_characters = ((transcript_characters_f64.max(minimum)).round()).max(minimum);
     let guidance_max_characters = (transcript_characters_f64 * ratio)
         .round()
         .max(minimum)
@@ -109,13 +101,6 @@ pub fn summary_length_policy(
 
     Some(SummaryLengthPolicy {
         mode,
-        max_characters: to_u32(max_characters),
-        max_sections: if !custom_format && transcript_characters < SHORT_TRANSCRIPT_CHARACTER_LIMIT
-        {
-            Some(2)
-        } else {
-            None
-        },
         transcript_characters: usize_to_u32(transcript_characters),
         guidance: Some(guidance),
     })
@@ -124,7 +109,6 @@ pub fn summary_length_policy(
 pub fn summary_length_policy_for_texts(
     texts: &[String],
     mode: SummaryLengthMode,
-    custom_format: bool,
     template_section_count: usize,
 ) -> Option<SummaryLengthPolicy> {
     let joined = texts
@@ -136,41 +120,8 @@ pub fn summary_length_policy_for_texts(
     summary_length_policy(
         count_normalized_characters(&joined),
         mode,
-        custom_format,
         template_section_count,
     )
-}
-
-pub fn constrain_summary_length(markdown: &str, policy: Option<&SummaryLengthPolicy>) -> String {
-    let Some(policy) = policy else {
-        return trim_js(markdown).to_owned();
-    };
-
-    let section_limited = limit_sections(markdown, policy.max_sections);
-    if count_normalized_characters(&section_limited) <= policy.max_characters as usize {
-        return section_limited;
-    }
-
-    let mut kept_lines: Vec<String> = Vec::new();
-    for line in section_limited.split('\n') {
-        let candidate = join_lines(&kept_lines, line);
-        if count_normalized_characters(trim_js(&candidate)) <= policy.max_characters as usize {
-            kept_lines.push(line.to_owned());
-            continue;
-        }
-
-        let truncated_line =
-            truncate_line_to_safe_boundary(&kept_lines, line, policy.max_characters as usize);
-        if !truncated_line.is_empty() {
-            kept_lines.push(truncated_line);
-        }
-        break;
-    }
-
-    trim_js(&join_lines_slice(&remove_trailing_empty_heading(
-        &kept_lines,
-    )))
-    .to_owned()
 }
 
 pub fn extract_tag_names(sources: &[Option<&str>]) -> Vec<String> {
@@ -225,13 +176,13 @@ pub fn ensure_markdown_first_line_title(markdown: &str, title: Option<&str>) -> 
 pub fn prepare_generated_summary(
     request: PrepareGeneratedSummaryRequest,
 ) -> Option<PreparedGeneratedSummary> {
-    let constrained_text = constrain_summary_length(&request.text, request.length_policy.as_ref());
-    if constrained_text.is_empty() {
+    let text = trim_js(&request.text).to_owned();
+    if text.is_empty() {
         return None;
     }
 
     let mut sources = Vec::with_capacity(request.tag_sources.len() + 1);
-    sources.push(Some(constrained_text.as_str()));
+    sources.push(Some(text.as_str()));
     sources.extend(
         request
             .tag_sources
@@ -239,162 +190,18 @@ pub fn prepare_generated_summary(
             .map(|source| Some(source.as_str())),
     );
     let tag_names = extract_tag_names(&sources);
-    let text_with_tags = append_tag_line_to_markdown(&constrained_text, &tag_names);
+    let text_with_tags = append_tag_line_to_markdown(&text, &tag_names);
 
     Some(PreparedGeneratedSummary {
-        constrained_text,
+        text,
         tag_names,
         text_with_tags,
     })
 }
 
 pub fn compose_generated_summary(request: ComposeGeneratedSummaryRequest) -> String {
-    let titled =
-        ensure_markdown_first_line_title(&request.constrained_text, request.title.as_deref());
-    let tag_line = append_tag_line_to_markdown("", &request.tag_names);
-    let reserved_tag_characters = if tag_line.is_empty() {
-        0
-    } else {
-        count_normalized_characters(&tag_line).saturating_add(1)
-    };
-    let mut body_policy = request.length_policy;
-    if let Some(policy) = body_policy.as_mut() {
-        policy.max_characters = policy
-            .max_characters
-            .saturating_sub(usize_to_u32(reserved_tag_characters));
-        policy.max_sections = None;
-    }
-    let body = constrain_summary_length(&titled, body_policy.as_ref());
-    append_tag_line_to_markdown(&body, &request.tag_names)
-}
-
-fn limit_sections(markdown: &str, max_sections: Option<u32>) -> String {
-    if max_sections.is_none_or(|max_sections| max_sections == 0) {
-        return trim_js(markdown).to_owned();
-    }
-
-    let mut section_count = 0_u32;
-    let mut kept_lines = Vec::new();
-    for line in trim_js(markdown).split('\n') {
-        if is_summary_heading(line) {
-            section_count += 1;
-            if section_count > max_sections.unwrap_or_default() {
-                break;
-            }
-        }
-        kept_lines.push(line);
-    }
-
-    trim_js(&join_lines_slice(&kept_lines)).to_owned()
-}
-
-fn truncate_line_to_safe_boundary(
-    kept_lines: &[String],
-    line: &str,
-    max_characters: usize,
-) -> String {
-    let characters = line.chars().collect::<Vec<_>>();
-    let mut low = 0_usize;
-    let mut high = characters.len();
-
-    while low < high {
-        let midpoint = (low + high).div_ceil(2);
-        let mut candidate = join_lines_slice(kept_lines);
-        if !candidate.is_empty() {
-            candidate.push('\n');
-        }
-        candidate.push_str(&characters[..midpoint].iter().collect::<String>());
-        if count_normalized_characters(trim_js(&candidate)) <= max_characters {
-            low = midpoint;
-        } else {
-            high = midpoint - 1;
-        }
-    }
-
-    let truncated = trim_end_js(&characters[..low].iter().collect::<String>()).to_owned();
-    match last_sentence_ending(&truncated) {
-        Some((index, end)) if index != 0 => truncated[..end].to_owned(),
-        _ => word_boundary_fallback(&truncated).unwrap_or(truncated),
-    }
-}
-
-fn last_sentence_ending(text: &str) -> Option<(usize, usize)> {
-    let mut ending = None;
-    let mut characters = text.char_indices().peekable();
-    while let Some((index, character)) = characters.next() {
-        if matches!(character, '.' | '!' | '?')
-            && characters
-                .peek()
-                .is_none_or(|(_, next)| is_js_whitespace(*next))
-        {
-            ending = Some((index, index + character.len_utf8()));
-        }
-    }
-    ending
-}
-
-fn word_boundary_fallback(text: &str) -> Option<String> {
-    let characters = text.char_indices().collect::<Vec<_>>();
-    let mut suffix_start = characters.len();
-    while suffix_start > 0 && !is_js_whitespace(characters[suffix_start - 1].1) {
-        suffix_start -= 1;
-    }
-    if suffix_start == 0 || suffix_start == characters.len() {
-        return None;
-    }
-
-    let mut group_end = suffix_start;
-    while group_end > 0 && is_js_whitespace(characters[group_end - 1].1) {
-        group_end -= 1;
-    }
-    if group_end < 2
-        || characters[..group_end]
-            .iter()
-            .any(|(_, character)| matches!(character, '\n' | '\r' | '\u{2028}' | '\u{2029}'))
-    {
-        return None;
-    }
-
-    let (_, last_character) = characters[group_end - 1];
-    let end = characters[group_end - 1].0 + last_character.len_utf8();
-    Some(text[..end].to_owned())
-}
-
-fn remove_trailing_empty_heading(lines: &[String]) -> Vec<String> {
-    let mut last_content_index = lines.len();
-    while last_content_index > 0 && trim_js(&lines[last_content_index - 1]).is_empty() {
-        last_content_index -= 1;
-    }
-
-    if last_content_index > 0 && is_markdown_heading(&lines[last_content_index - 1]) {
-        lines[..last_content_index - 1].to_vec()
-    } else {
-        lines.to_vec()
-    }
-}
-
-fn is_summary_heading(line: &str) -> bool {
-    is_heading_with_hashes(line, 1, 1)
-}
-
-fn is_markdown_heading(line: &str) -> bool {
-    is_heading_with_hashes(line, 1, 6)
-}
-
-fn is_heading_with_hashes(line: &str, minimum: usize, maximum: usize) -> bool {
-    let hash_count = line
-        .chars()
-        .take_while(|character| *character == '#')
-        .count();
-    if !(minimum..=maximum).contains(&hash_count) {
-        return false;
-    }
-
-    let mut rest = line.chars().skip(hash_count);
-    if !rest.next().is_some_and(is_js_whitespace) {
-        return false;
-    }
-    rest.any(|character| !is_js_whitespace(character))
+    let titled = ensure_markdown_first_line_title(&request.text, request.title.as_deref());
+    append_tag_line_to_markdown(trim_js(&titled), &request.tag_names)
 }
 
 fn normalize_tag_names(tag_names: &[String]) -> Vec<String> {
@@ -449,23 +256,6 @@ fn is_tag_only_line(line: &str) -> bool {
                 .strip_prefix('#')
                 .is_some_and(|name| tag_name_regex().is_match(name))
         })
-}
-
-fn join_lines(kept_lines: &[String], line: &str) -> String {
-    let mut candidate = join_lines_slice(kept_lines);
-    if !candidate.is_empty() {
-        candidate.push('\n');
-    }
-    candidate.push_str(line);
-    trim_js(&candidate).to_owned()
-}
-
-fn join_lines_slice<T: AsRef<str>>(lines: &[T]) -> String {
-    lines
-        .iter()
-        .map(|line| line.as_ref())
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 fn hashtag_regex() -> &'static Regex {
@@ -567,21 +357,6 @@ fn usize_to_u32(value: usize) -> u32 {
 mod tests {
     use super::*;
 
-    fn policy(
-        mode: SummaryLengthMode,
-        transcript_characters: u32,
-        max_characters: u32,
-        max_sections: Option<u32>,
-    ) -> SummaryLengthPolicy {
-        SummaryLengthPolicy {
-            mode,
-            max_characters,
-            max_sections,
-            transcript_characters,
-            guidance: None,
-        }
-    }
-
     #[test]
     fn counts_normalized_code_points_with_javascript_whitespace() {
         assert_eq!(count_normalized_characters("이번 회의는 짧음"), 9);
@@ -595,11 +370,9 @@ mod tests {
     #[test]
     fn computes_the_short_transcript_policy() {
         assert_eq!(
-            summary_length_policy(200, SummaryLengthMode::Detailed, false, 0),
+            summary_length_policy(200, SummaryLengthMode::Detailed, 0),
             Some(SummaryLengthPolicy {
                 mode: SummaryLengthMode::Detailed,
-                max_characters: 320,
-                max_sections: Some(2),
                 transcript_characters: 200,
                 guidance: Some(SummaryLengthGuidance {
                     max_characters: 320,
@@ -616,8 +389,6 @@ mod tests {
             (
                 636,
                 SummaryLengthMode::Detailed,
-                636,
-                Some(2),
                 SummaryLengthGuidance {
                     max_characters: 636,
                     min_sections: 1,
@@ -627,8 +398,6 @@ mod tests {
             (
                 6_000,
                 SummaryLengthMode::Detailed,
-                6_000,
-                None,
                 SummaryLengthGuidance {
                     max_characters: 6_000,
                     min_sections: 2,
@@ -638,8 +407,6 @@ mod tests {
             (
                 10_000,
                 SummaryLengthMode::Detailed,
-                10_000,
-                None,
                 SummaryLengthGuidance {
                     max_characters: 10_000,
                     min_sections: 3,
@@ -649,8 +416,6 @@ mod tests {
             (
                 10_000,
                 SummaryLengthMode::Balanced,
-                10_000,
-                None,
                 SummaryLengthGuidance {
                     max_characters: 5_000,
                     min_sections: 2,
@@ -660,8 +425,6 @@ mod tests {
             (
                 10_000,
                 SummaryLengthMode::Crisp,
-                10_000,
-                None,
                 SummaryLengthGuidance {
                     max_characters: 2_500,
                     min_sections: 1,
@@ -671,8 +434,6 @@ mod tests {
             (
                 30_000,
                 SummaryLengthMode::Detailed,
-                30_000,
-                None,
                 SummaryLengthGuidance {
                     max_characters: 30_000,
                     min_sections: 5,
@@ -681,10 +442,8 @@ mod tests {
             ),
         ];
 
-        for (characters, mode, maximum, sections, guidance) in cases {
-            let result = summary_length_policy(characters, mode, false, 0).unwrap();
-            assert_eq!(result.max_characters, maximum);
-            assert_eq!(result.max_sections, sections);
+        for (characters, mode, guidance) in cases {
+            let result = summary_length_policy(characters, mode, 0).unwrap();
             assert_eq!(result.guidance, Some(guidance));
         }
     }
@@ -696,19 +455,14 @@ mod tests {
             (SummaryLengthMode::Balanced, 15_000),
             (SummaryLengthMode::Detailed, 30_000),
         ] {
-            let result = summary_length_policy(30_000, mode, false, 0).unwrap();
+            let result = summary_length_policy(30_000, mode, 0).unwrap();
             assert_eq!(result.guidance.unwrap().max_characters, max_characters);
         }
     }
 
     #[test]
-    fn policy_uses_the_template_section_floor_and_custom_format_rule() {
-        let policy = summary_length_policy(160, SummaryLengthMode::Crisp, true, 12).unwrap();
-        let standard_policy =
-            summary_length_policy(160, SummaryLengthMode::Crisp, false, 0).unwrap();
-        assert_eq!(policy.max_sections, None);
-        assert_eq!(standard_policy.max_sections, Some(2));
-        assert_eq!(policy.max_characters, standard_policy.max_characters);
+    fn policy_uses_the_template_section_floor() {
+        let policy = summary_length_policy(160, SummaryLengthMode::Crisp, 12).unwrap();
         assert_eq!(
             policy.guidance,
             Some(SummaryLengthGuidance {
@@ -723,69 +477,13 @@ mod tests {
     fn policy_for_texts_joins_nonempty_segments_before_counting() {
         let texts = vec!["first".to_owned(), String::new(), "second".to_owned()];
         let policy =
-            summary_length_policy_for_texts(&texts, SummaryLengthMode::Detailed, false, 0).unwrap();
+            summary_length_policy_for_texts(&texts, SummaryLengthMode::Detailed, 0).unwrap();
         assert_eq!(policy.transcript_characters, 12);
     }
 
     #[test]
     fn policy_is_absent_without_transcript_characters() {
-        assert!(summary_length_policy(0, SummaryLengthMode::Detailed, false, 0).is_none());
-    }
-
-    #[test]
-    fn constrain_limits_short_summaries_to_two_sections() {
-        let markdown = format!(
-            "# First\n\n- {}\n\n# Second\n\n- {}\n\n# Third\n\n- {}",
-            "a".repeat(40),
-            "b".repeat(40),
-            "c".repeat(100)
-        );
-        let result = constrain_summary_length(
-            &markdown,
-            Some(&policy(SummaryLengthMode::Detailed, 160, 160, Some(2))),
-        );
-        assert!(result.contains("# First"));
-        assert!(result.contains("# Second"));
-        assert!(!result.contains("# Third"));
-        assert!(count_normalized_characters(&result) <= 160);
-    }
-
-    #[test]
-    fn constrain_truncates_at_the_last_sentence_boundary() {
-        let result = constrain_summary_length(
-            "# Decision\n\n- The team approved the launch. This additional explanation does not fit within the summary limit.\n\n# Follow-up",
-            Some(&policy(SummaryLengthMode::Detailed, 60, 60, None)),
-        );
-        assert_eq!(result, "# Decision\n\n- The team approved the launch.");
-        assert!(count_normalized_characters(&result) <= 60);
-    }
-
-    #[test]
-    fn constrain_keeps_periodless_bullets_at_a_word_boundary() {
-        let result = constrain_summary_length(
-            "# Decision\n\n- alpha beta gamma delta epsilon zeta",
-            Some(&policy(SummaryLengthMode::Detailed, 30, 30, None)),
-        );
-        assert_eq!(result, "# Decision\n\n- alpha beta");
-        assert!(count_normalized_characters(&result) <= 30);
-    }
-
-    #[test]
-    fn sentence_ending_at_index_zero_uses_the_word_boundary_fallback() {
-        let result = constrain_summary_length(
-            ". alpha beta",
-            Some(&policy(SummaryLengthMode::Detailed, 11, 11, None)),
-        );
-        assert_eq!(result, ". alpha");
-    }
-
-    #[test]
-    fn constrain_removes_a_trailing_empty_heading() {
-        let result = constrain_summary_length(
-            "# Summary\n\nBody\n\n# Empty heading\n\n- More",
-            Some(&policy(SummaryLengthMode::Detailed, 30, 30, None)),
-        );
-        assert_eq!(result, "# Summary\n\nBody");
+        assert!(summary_length_policy(0, SummaryLengthMode::Detailed, 0).is_none());
     }
 
     #[test]
@@ -848,11 +546,10 @@ mod tests {
     fn prepare_generated_summary_extracts_sources_and_appends_tags() {
         let prepared = prepare_generated_summary(PrepareGeneratedSummaryRequest {
             text: "# Summary\n\nDiscussed #Launch.".to_owned(),
-            length_policy: None,
             tag_sources: vec!["Prep #prep #Launch".to_owned()],
         })
         .unwrap();
-        assert_eq!(prepared.constrained_text, "# Summary\n\nDiscussed #Launch.");
+        assert_eq!(prepared.text, "# Summary\n\nDiscussed #Launch.");
         assert_eq!(prepared.tag_names, ["launch", "prep"]);
         assert_eq!(
             prepared.text_with_tags,
@@ -861,11 +558,10 @@ mod tests {
     }
 
     #[test]
-    fn prepare_generated_summary_returns_none_for_empty_constrained_text() {
+    fn prepare_generated_summary_returns_none_for_empty_text() {
         assert!(
             prepare_generated_summary(PrepareGeneratedSummaryRequest {
                 text: "\u{FEFF} \n".to_owned(),
-                length_policy: None,
                 tag_sources: Vec::new(),
             })
             .is_none()
@@ -876,25 +572,11 @@ mod tests {
     fn compose_adds_title_and_tag_line_with_exact_markdown_output() {
         assert_eq!(
             compose_generated_summary(ComposeGeneratedSummaryRequest {
-                constrained_text: "# Summary\n\nDiscussed #Launch.".to_owned(),
+                text: "# Summary\n\nDiscussed #Launch.".to_owned(),
                 title: Some("Meeting Title".to_owned()),
                 tag_names: vec!["launch".to_owned(), "prep".to_owned()],
-                length_policy: None,
             }),
             "# Meeting Title\n\n# Summary\n\nDiscussed #Launch.\n\n#launch #prep"
-        );
-    }
-
-    #[test]
-    fn compose_truncates_and_reserves_tag_line_characters_exactly() {
-        assert_eq!(
-            compose_generated_summary(ComposeGeneratedSummaryRequest {
-                constrained_text: "# Summary\n\nAlpha beta gamma delta.".to_owned(),
-                title: Some("Title".to_owned()),
-                tag_names: vec!["launch".to_owned()],
-                length_policy: Some(policy(SummaryLengthMode::Detailed, 35, 35, Some(2))),
-            }),
-            "# Title\n\n# Summary\n\nAlpha\n\n#launch"
         );
     }
 }

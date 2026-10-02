@@ -8988,6 +8988,7 @@ dependencies = [
  "serde_json",
  "specta",
  "thiserror 2.0.18",
+ "whatlang",
  "whichlang",
  "whisper",
 ]
@@ -17429,6 +17430,7 @@ dependencies = [
  "db-app",
  "db-core",
  "gbnf",
+ "language",
  "serde",
  "serde_json",
  "specta",
@@ -20528,6 +20530,15 @@ name = "weezl"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
+
+[[package]]
+name = "whatlang"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5e8f38b596e2a359b755342473520a99421e43658548c79489ee221b728c107"
+dependencies = [
+ "hashbrown 0.15.5",
+]
 
 [[package]]
 name = "which"

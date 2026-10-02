@@ -38,12 +38,8 @@ export const runEnhanceSuccess = async ({
   signal,
   onPersisted,
 }: EnhanceSuccessParams) => {
-  const lengthPolicy = transformedArgs.template?.sections.length
-    ? null
-    : transformedArgs.lengthPolicy;
   const preparedResult = await templateCommands.prepareGeneratedSummary({
     text,
-    length_policy: lengthPolicy,
     tag_sources: [
       transformedArgs.preMeetingMemo,
       transformedArgs.postMeetingMemo,
@@ -62,8 +58,7 @@ export const runEnhanceSuccess = async ({
     return;
   }
 
-  const { constrained_text: constrainedText, tag_names: tagNames } =
-    preparedResult.data;
+  const { text: preparedText, tag_names: tagNames } = preparedResult.data;
   const textWithTags = preparedResult.data.text_with_tags;
   const cloudsyncLeaseKey = `${taskId}:${id()}`;
   const initialSnapshot = await loadSessionContentSnapshot(args.sessionId);
@@ -125,10 +120,9 @@ export const runEnhanceSuccess = async ({
     }
 
     const composedResult = await templateCommands.composeGeneratedSummary({
-      constrained_text: constrainedText,
+      text: preparedText,
       title: trimmedTitle || null,
       tag_names: tagNames,
-      length_policy: lengthPolicy,
     });
     if (composedResult.status === "error") {
       throw new Error(composedResult.error);

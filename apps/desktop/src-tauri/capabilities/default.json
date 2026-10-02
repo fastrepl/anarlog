@@ -26,6 +26,8 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-set-theme",
     "core:window:allow-request-user-attention",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-is-always-on-top",
     "core:webview:allow-set-webview-zoom",
     "calendar:default",
     "audio-priority:default",
