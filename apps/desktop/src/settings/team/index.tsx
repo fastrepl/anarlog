@@ -784,15 +784,15 @@ function WorkspacePanel({
                   aria-hidden="true"
                 />
               ) : hasPaidWorkspacePlan ? (
-                <Trans>Team plan</Trans>
+                <Trans>Pro plan</Trans>
               ) : (
-                <Trans>Start Team</Trans>
+                <Trans>Start Pro</Trans>
               )}
             </h2>
             <p className="text-muted-foreground mt-1 text-xs leading-5">
               <Trans>
                 Pro for every member, shared workspaces, roles, and centralized
-                billing. $20 per person monthly or $200 yearly.
+                billing. $14 per person monthly or $140 yearly.
               </Trans>
             </p>
           </div>
@@ -808,12 +808,12 @@ function WorkspacePanel({
             ) : null}
             {access.isPending ? (
               <span className="sr-only">
-                <Trans>Team plan</Trans>
+                <Trans>Pro plan</Trans>
               </span>
             ) : hasPaidWorkspacePlan ? (
-              <Trans>Manage Team billing</Trans>
+              <Trans>Manage workspace billing</Trans>
             ) : (
-              <Trans>Continue to Team checkout</Trans>
+              <Trans>Continue to Pro checkout</Trans>
             )}
           </Button>
         </section>

@@ -51,13 +51,13 @@ function fixture(workspaceTiers, failure) {
   };
 }
 
-test("a Team member with the shared Pro entitlement is shown as Team", async () => {
+test("a Team member with the shared Pro entitlement is shown as Pro", async () => {
   const billing = deriveBillingInfo({
     subscription_status: "active",
     entitlements: ["hyprnote_pro"],
   });
   const { load } = fixture(["free", "team"]);
-  assert.equal(accountPlanLabel(billing, await load()), "Anarlog Team");
+  assert.equal(accountPlanLabel(billing, await load()), "Anarlog Pro");
   assert.equal(billing.isPro, true);
 });
 
@@ -100,7 +100,7 @@ test("an account with no shared workspaces keeps its individual plan", async () 
     now,
   );
   assert.equal(accountPlanLabel(trial, tier), "Pro trial · 21 days left");
-  assert.equal(accountPlanLabel(trial, "team"), "Anarlog Team");
+  assert.equal(accountPlanLabel(trial, "team"), "Anarlog Pro");
 });
 
 test("a plan refresh reflects a workspace subscription ending", async () => {

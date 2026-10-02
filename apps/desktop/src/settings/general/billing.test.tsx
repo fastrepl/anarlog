@@ -161,7 +161,7 @@ describe("SettingsBilling", () => {
     { personalState: "trialing", isTrialing: true, isPaused: false },
     { personalState: "paused", isTrialing: false, isPaused: true },
   ])(
-    "shows Team as current without the $personalState Pro status",
+    "shows workspace Pro as current without the $personalState Pro status",
     async ({ isTrialing, isPaused }) => {
       mocks.billing = {
         canStartTrial: { data: false, isPending: false },
@@ -185,7 +185,7 @@ describe("SettingsBilling", () => {
       renderBilling();
 
       expect(
-        await screen.findByText(/You're on the .*Team.* plan/),
+        await screen.findByText(/You're on the .*Pro.* plan/),
       ).toBeTruthy();
       expect(screen.queryByText("Your Pro trial has ended")).toBeNull();
       expect(screen.queryByText("Trial")).toBeNull();

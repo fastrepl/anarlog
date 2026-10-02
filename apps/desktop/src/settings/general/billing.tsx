@@ -56,7 +56,11 @@ export function SettingsBilling() {
       ? "team"
       : null;
   const currentTier: MarketingPlanTier =
-    workspaceTier ?? (plan === "free" ? "free" : "pro");
+    workspaceTier === "enterprise"
+      ? "enterprise"
+      : workspaceTier === "team" || plan !== "free"
+        ? "pro"
+        : "free";
   const isCurrentTierPending =
     workspaces.isPending || workspaceAccess.some((query) => query.isPending);
 
@@ -69,10 +73,11 @@ export function SettingsBilling() {
         <>
           <PlanBillingSection
             currentTier={currentTier}
-            isTrialing={isTrialing}
-            isPaused={isPaused}
+            isWorkspacePlan={workspaceTier != null}
+            isTrialing={workspaceTier == null && isTrialing}
+            isPaused={workspaceTier == null && isPaused}
             trialDaysRemaining={trialDaysRemaining}
-            isPaid={isPaid}
+            isPaid={workspaceTier != null || isPaid}
             isCurrentTierPending={isCurrentTierPending}
             billingActions={billingActions}
           />
@@ -83,8 +88,8 @@ export function SettingsBilling() {
           />
           <PlansSection
             currentTier={currentTier}
-            isTrialing={isTrialing}
-            isPaused={isPaused}
+            isTrialing={workspaceTier == null && isTrialing}
+            isPaused={workspaceTier == null && isPaused}
             isCurrentTierPending={isCurrentTierPending}
             billingPeriod={billingPeriod}
             onBillingPeriodChange={setBillingPeriod}
@@ -235,6 +240,7 @@ const pillButtonClassName =
 
 function PlanBillingSection({
   currentTier,
+  isWorkspacePlan,
   isTrialing,
   isPaused,
   trialDaysRemaining,
@@ -243,6 +249,7 @@ function PlanBillingSection({
   billingActions,
 }: {
   currentTier: MarketingPlanTier;
+  isWorkspacePlan: boolean;
   isTrialing: boolean;
   isPaused: boolean;
   trialDaysRemaining: number | null;
@@ -289,14 +296,14 @@ function PlanBillingSection({
       {trialDaysText != null && ` - ${trialDaysText}`}
       {formattedTrialEnd != null && ` · ${t`ends ${formattedTrialEnd}`}`}
     </>
-  ) : currentTier !== "team" && currentTier !== "enterprise" && isPaused ? (
+  ) : !isWorkspacePlan && isPaused ? (
     <Trans>Your Pro trial has ended</Trans>
   ) : (
     <>
       <Trans>
         You're on the <span className="font-semibold">{planLabel}</span> plan
       </Trans>
-      {isPaid && formattedPeriodEnd != null && (
+      {!isWorkspacePlan && isPaid && formattedPeriodEnd != null && (
         <>
           {" · "}
           {billing.cancelAtPeriodEnd
@@ -341,7 +348,7 @@ function PlanBillingSection({
     >
       <Trans>Add payment method</Trans>
     </button>
-  ) : isPaused && currentTier !== "team" && currentTier !== "enterprise" ? (
+  ) : isPaused && !isWorkspacePlan ? (
     <button
       type="button"
       onClick={openBillingPortal}
@@ -353,7 +360,7 @@ function PlanBillingSection({
     >
       <Trans>Resume</Trans>
     </button>
-  ) : currentTier === "team" || currentTier === "enterprise" ? (
+  ) : isWorkspacePlan ? (
     <button
       type="button"
       onClick={() => openNew({ type: "settings", state: { tab: "team" } })}
@@ -608,7 +615,6 @@ function PlansSection({
 }) {
   const { t } = useLingui();
   const billing = useBillingAccess();
-  const openNew = useTabs((state) => state.openNew);
   const { actionPending, addPaymentMethod, openEnterprise, runTierAction } =
     billingActions;
 
@@ -625,21 +631,6 @@ function PlansSection({
     currentTier === "pro" && isTrialing && !billing.hasPaymentMethod;
 
   const renderAction = (tierId: MarketingPlanTier, action: TierAction) => {
-    if (tierId === "team") {
-      return (
-        <button
-          type="button"
-          onClick={() => openNew({ type: "settings", state: { tab: "team" } })}
-          className={cn([
-            pillChipClassName,
-            "bg-muted text-muted-foreground hover:text-foreground",
-          ])}
-        >
-          <Trans>Open Teams</Trans>
-        </button>
-      );
-    }
-
     if (tierId === "enterprise") {
       return (
         <button

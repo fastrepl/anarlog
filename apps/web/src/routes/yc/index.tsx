@@ -125,7 +125,8 @@ function YcPerkPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
             Get 1 year of the personal Anarlog Pro plan free for private,
-            bot-free meeting notes. Team and Enterprise plans are separate.
+            bot-free meeting notes. Workspace billing and Enterprise plans are
+            separate.
           </p>
 
           <div className="mx-auto mt-8 max-w-xl">

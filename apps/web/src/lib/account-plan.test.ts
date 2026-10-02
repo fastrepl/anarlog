@@ -13,22 +13,22 @@ import {
 test("account plan prices follow the selected billing period", () => {
   assert.equal(
     getAccountPlanPriceText(
-      { kind: "fixed", monthly: 15, yearly: 150 },
+      { kind: "fixed", monthly: 14, yearly: 140 },
       "monthly",
     ),
-    "$15/mo",
+    "$14/mo",
   );
   assert.equal(
     getAccountPlanPriceText(
       {
         kind: "fixed",
-        monthly: 20,
-        yearly: 200,
+        monthly: 14,
+        yearly: 140,
         billingUnit: "person",
       },
       "yearly",
     ),
-    "$200/person/yr",
+    "$140/person/yr",
   );
 });
 
@@ -131,7 +131,7 @@ test("plan label reflects workspace precedence over the personal subscription", 
   assert.equal(getAccountPlanCopy(paid).planLabel, "Pro");
   assert.equal(
     getAccountPlanCopy({ ...paid, workspacePlan: "team" }).planLabel,
-    "Team",
+    "Pro",
   );
   assert.equal(
     getAccountPlanCopy({
