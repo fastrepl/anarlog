@@ -22,6 +22,7 @@ jobs:
           scripts/release-version.test.mjs
           scripts/notarize-dmg.test.mjs
           scripts/changelog-bundle.test.mjs
+          scripts/changelog-baseline.test.mjs
           scripts/verify-release-candidate.test.mjs
           scripts/desktop-release-provenance.test.mjs
           scripts/publish-anarlog-skill.test.mjs
