@@ -41,10 +41,14 @@ type CalendarSqlRow = {
 };
 
 type SessionCalendarEventSqlRow = {
+  tracking_id: string;
+  calendar_id: string;
   title: string;
   started_at: string;
   ended_at: string;
   is_all_day: boolean | number;
+  has_recurrence_rules: boolean | number;
+  recurrence_series_id: string;
   location: string;
   meeting_link: string;
   description: string;
@@ -98,9 +102,10 @@ export type NearbyCalendarEvent = {
 
 export type SessionCalendarEvent = Omit<
   SessionCalendarEventSqlRow,
-  "is_all_day" | "participants_json"
+  "is_all_day" | "has_recurrence_rules" | "participants_json"
 > & {
   is_all_day: boolean;
+  has_recurrence_rules: boolean;
   participants: EventParticipant[];
 };
 
@@ -426,10 +431,14 @@ export function useSessionCalendarEvent(
   >({
     sql: `
       SELECT
+        event.tracking_id_event AS tracking_id,
+        event.calendar_id,
         event.title,
         event.started_at,
         event.ended_at,
         event.is_all_day,
+        event.has_recurrence_rules,
+        event.recurrence_series_id,
         event.location,
         event.meeting_link,
         event.description,
@@ -462,10 +471,14 @@ export function useSessionCalendarEvent(
       const row = rows[0];
       return row
         ? {
+            tracking_id: row.tracking_id,
+            calendar_id: row.calendar_id,
             title: row.title,
             started_at: row.started_at,
             ended_at: row.ended_at,
             is_all_day: Boolean(row.is_all_day),
+            has_recurrence_rules: Boolean(row.has_recurrence_rules),
+            recurrence_series_id: row.recurrence_series_id,
             location: row.location,
             meeting_link: row.meeting_link,
             description: row.description,
