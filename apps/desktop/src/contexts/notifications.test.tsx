@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   listen: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
-  setSettingValues: vi.fn(),
+  setDownloadedSttSelection: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-local-stt", () => ({
@@ -28,7 +28,7 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
 }));
 
 vi.mock("~/settings/queries", () => ({
-  setSettingValues: mocks.setSettingValues,
+  setDownloadedSttSelection: mocks.setDownloadedSttSelection,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -71,7 +71,7 @@ describe("NotificationProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     usePendingSttSelection.setState({ selection: null, queuedDownloads: [] });
-    mocks.setSettingValues.mockResolvedValue(undefined);
+    mocks.setDownloadedSttSelection.mockResolvedValue(undefined);
     mocks.downloadHandler = null;
     mocks.listen.mockImplementation(async (handler) => {
       mocks.downloadHandler = handler;
@@ -139,7 +139,7 @@ describe("NotificationProvider", () => {
         },
       });
     });
-    expect(mocks.setSettingValues).not.toHaveBeenCalled();
+    expect(mocks.setDownloadedSttSelection).not.toHaveBeenCalled();
     expect(screen.getByTestId("download-status").textContent).toBe("50%");
     expect(usePendingSttSelection.getState().selection?.model).toBe(
       "soniqo-parakeet-batch",
@@ -152,16 +152,16 @@ describe("NotificationProvider", () => {
     await waitFor(() => {
       expect(usePendingSttSelection.getState().selection).toBeNull();
     });
-    expect(mocks.setSettingValues).toHaveBeenCalledWith({
-      current_stt_provider: "soniqo",
-      current_stt_model: "soniqo-parakeet-batch",
+    expect(mocks.setDownloadedSttSelection).toHaveBeenCalledWith({
+      provider: "soniqo",
+      model: "soniqo-parakeet-batch",
     });
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Model downloaded", {
       description: "Soniqo Parakeet Batch",
     });
     expect(screen.getByTestId("download-status").textContent).toBe("");
 
-    mocks.setSettingValues.mockClear();
+    mocks.setDownloadedSttSelection.mockClear();
     usePendingSttSelection.setState({
       selection: { provider: "apple_speech", model: "apple-speech" },
     });
@@ -170,7 +170,7 @@ describe("NotificationProvider", () => {
         payload: { model: "soniqo-parakeet-batch", status: "completed" },
       });
     });
-    expect(mocks.setSettingValues).not.toHaveBeenCalled();
+    expect(mocks.setDownloadedSttSelection).not.toHaveBeenCalled();
     expect(usePendingSttSelection.getState().selection?.model).toBe(
       "apple-speech",
     );

@@ -223,6 +223,10 @@ export function SelectProviderAndModel() {
 
     if (!nextModel) {
       setPendingProvider(providerId);
+      setSelection({
+        current_stt_provider: provider,
+        current_stt_model: "",
+      });
       return;
     }
 

@@ -17,7 +17,7 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
-import { setSettingValues } from "~/settings/queries";
+import { setDownloadedSttSelection } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 import type { DownloadProgress } from "~/sidebar/toast/types";
 import { usePendingSttSelection } from "~/store/zustand/pending-stt-selection";
@@ -126,16 +126,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (isFailed) {
           clearPendingSelection();
         } else if (status === "completed") {
-          void setSettingValues({
-            current_stt_provider: pendingSelection.provider,
-            current_stt_model: pendingSelection.model,
-          }).then(clearPendingSelection, (error) => {
-            clearPendingSelection();
-            console.error(
-              "[settings] failed to select downloaded model",
-              error,
-            );
-          });
+          void setDownloadedSttSelection(pendingSelection).then(
+            clearPendingSelection,
+            (error) => {
+              clearPendingSelection();
+              console.error(
+                "[settings] failed to select downloaded model",
+                error,
+              );
+            },
+          );
         }
       }
 
