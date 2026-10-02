@@ -159,7 +159,7 @@ test("asks when another device is recording, and interaction claims", async () =
     expect.objectContaining({ intent: "present" }),
   );
   expect(mocks.toast).toHaveBeenCalledWith(
-    "Is this the device you're joining from?",
+    "Is this your primary device?",
     expect.objectContaining({ id: "primary-device:session-1" }),
   );
 
