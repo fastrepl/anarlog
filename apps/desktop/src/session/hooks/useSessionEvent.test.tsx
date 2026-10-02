@@ -105,7 +105,7 @@ it("refreshes the open note and sidebar together when a calendar event is resche
     `);
     act(() => listeners.forEach((emit) => emit()));
 
-    expect(result.current.sidebar["event-1"].started_at).toBe(
+    expect(result.current.sidebar?.["event-1"]?.started_at).toBe(
       "2026-10-02T11:00:00.000Z",
     );
     expect(result.current.event).toMatchObject({
