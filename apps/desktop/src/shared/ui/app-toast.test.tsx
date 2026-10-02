@@ -204,6 +204,60 @@ describe("app toast", () => {
     expect(screen.queryByText("Changes saved")).toBeNull();
   });
 
+  it("toggles details from the body without hiding or triggering actions", () => {
+    render(<AppToaster theme="light" />);
+    let opened = false;
+    let resumed = false;
+    act(() => {
+      showAppToast({
+        message: "Saved audio",
+        description: "Choose what to do with the recording.",
+        durationMs: Infinity,
+        action: {
+          label: "Create note",
+          onClick: () => {
+            opened = true;
+          },
+          dismissOnClick: false,
+        },
+        secondaryAction: {
+          label: "Resume listening",
+          onClick: () => {
+            resumed = true;
+          },
+          dismissOnClick: false,
+        },
+      });
+    });
+
+    fireEvent.click(screen.getByText("Choose what to do with the recording."));
+    expect(
+      screen
+        .getByRole("button", { name: "Expand notification" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Resume listening" }));
+    expect(resumed).toBe(true);
+    expect(opened).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "Expand notification" }),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Expand notification" }),
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Collapse notification" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Create note" }));
+    expect(opened).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "Collapse notification" }),
+    ).toBeTruthy();
+  });
+
   it("pauses and resumes auto-dismiss from the expanded footer", async () => {
     vi.useFakeTimers();
     render(<AppToaster theme="light" />);
