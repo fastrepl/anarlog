@@ -1605,7 +1605,7 @@ msgid "Continue"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Continue to Team checkout"
+msgid "Continue to Pro checkout"
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -3327,7 +3327,7 @@ msgid "Manage sign-in methods"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Manage Team billing"
+msgid "Manage workspace billing"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -4298,7 +4298,11 @@ msgid "Pro features available"
 msgstr ""
 
 #: src/settings/team/index.tsx
-msgid "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
+msgid "Pro for every member, shared workspaces, roles, and centralized billing. $14 per person monthly or $140 yearly."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Pro plan"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -5469,12 +5473,12 @@ msgstr ""
 msgid "Start listening when a scheduled meeting begins."
 msgstr ""
 
-#: src/main/empty.tsx
-msgid "Start Recording"
+#: src/settings/team/index.tsx
+msgid "Start Pro"
 msgstr ""
 
-#: src/settings/team/index.tsx
-msgid "Start Team"
+#: src/main/empty.tsx
+msgid "Start Recording"
 msgstr ""
 
 #: src/chat/components/input/index.tsx
@@ -5750,10 +5754,6 @@ msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team library"
-msgstr ""
-
-#: src/settings/team/index.tsx
-msgid "Team plan"
 msgstr ""
 
 #: src/settings/general/billing.tsx

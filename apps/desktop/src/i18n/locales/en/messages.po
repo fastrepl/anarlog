@@ -1605,8 +1605,8 @@ msgid "Continue"
 msgstr "Continue"
 
 #: src/settings/team/index.tsx
-msgid "Continue to Team checkout"
-msgstr "Continue to Team checkout"
+msgid "Continue to Pro checkout"
+msgstr "Continue to Pro checkout"
 
 #: src/onboarding/account/after-login.tsx
 msgid "Continuing without trial"
@@ -3327,8 +3327,8 @@ msgid "Manage sign-in methods"
 msgstr "Manage sign-in methods"
 
 #: src/settings/team/index.tsx
-msgid "Manage Team billing"
-msgstr "Manage Team billing"
+msgid "Manage workspace billing"
+msgstr "Manage workspace billing"
 
 #: src/settings/general/account.tsx
 msgid "Manage your sign-in methods on the Anarlog website."
@@ -4298,8 +4298,12 @@ msgid "Pro features available"
 msgstr "Pro features available"
 
 #: src/settings/team/index.tsx
-msgid "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
-msgstr "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
+msgid "Pro for every member, shared workspaces, roles, and centralized billing. $14 per person monthly or $140 yearly."
+msgstr "Pro for every member, shared workspaces, roles, and centralized billing. $14 per person monthly or $140 yearly."
+
+#: src/settings/team/index.tsx
+msgid "Pro plan"
+msgstr "Pro plan"
 
 #: src/settings/general/billing.tsx
 msgid "Pro trial"
@@ -5469,13 +5473,13 @@ msgstr "Start free trial"
 msgid "Start listening when a scheduled meeting begins."
 msgstr "Start listening when a scheduled meeting begins."
 
+#: src/settings/team/index.tsx
+msgid "Start Pro"
+msgstr "Start Pro"
+
 #: src/main/empty.tsx
 msgid "Start Recording"
 msgstr "Start Recording"
-
-#: src/settings/team/index.tsx
-msgid "Start Team"
-msgstr "Start Team"
 
 #: src/chat/components/input/index.tsx
 msgid "Start voice input"
@@ -5751,10 +5755,6 @@ msgstr "Team folder workspace"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team library"
 msgstr "Team library"
-
-#: src/settings/team/index.tsx
-msgid "Team plan"
-msgstr "Team plan"
 
 #: src/settings/general/billing.tsx
 msgid "Team seats"
