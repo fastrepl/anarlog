@@ -5888,10 +5888,6 @@ msgstr "This requires Anarlog Enterprise"
 msgid "This requires Anarlog Pro"
 msgstr "This requires Anarlog Pro"
 
-#: src/settings/plan-gate.tsx
-msgid "This requires Anarlog Team"
-msgstr "This requires Anarlog Team"
-
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
 #: src/settings/general/storage/legacy-cleanup.tsx
