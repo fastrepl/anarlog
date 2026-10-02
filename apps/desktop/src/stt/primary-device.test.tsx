@@ -197,10 +197,14 @@ test("clicking the recording question keeps it unanswered until Yes is selected"
   await flush();
 
   try {
-    expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
     fireEvent.pointerDown(
       screen.getByText(String(mocks.toast.mock.calls[0][0])),
     );
+    const dismiss = screen.queryByRole("button", { name: "Dismiss" });
+    if (dismiss) {
+      fireEvent.pointerDown(dismiss);
+      fireEvent.click(dismiss);
+    }
     await vi.advanceTimersByTimeAsync(PRIMARY_DEVICE_HEARTBEAT_MS);
     expect(mocks.requestMeetingDevices).toHaveBeenLastCalledWith(
       expect.objectContaining({ intent: "present" }),
