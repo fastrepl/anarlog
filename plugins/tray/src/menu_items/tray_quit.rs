@@ -2,6 +2,7 @@ use tauri::{
     AppHandle, Result,
     menu::{MenuItem, MenuItemKind},
 };
+use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
 
 use super::MenuItemHandler;
 
@@ -16,6 +17,8 @@ impl MenuItemHandler for TrayQuit {
     }
 
     fn handle(app: &AppHandle<tauri::Wry>) {
-        app.exit(0);
+        if let Err(error) = app.windows().close(AppWindow::Main) {
+            tracing::warn!(%error, "failed to close main window from Quit");
+        }
     }
 }

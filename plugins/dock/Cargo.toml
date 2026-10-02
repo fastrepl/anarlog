@@ -14,7 +14,8 @@ tauri-plugin = { workspace = true, features = ["build"] }
 tauri = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+anlg-intercept = { workspace = true }
 objc2 = { workspace = true }
-objc2-app-kit = { workspace = true, features = ["NSApplication", "NSMenu", "NSMenuItem", "NSRunningApplication"] }
-objc2-foundation = { workspace = true, features = ["NSString", "NSArray", "NSObject"] }
+objc2-app-kit = { workspace = true, features = ["NSApplication", "NSMenu", "NSMenuItem", "NSRunningApplication", "NSWorkspace"] }
+objc2-foundation = { workspace = true, features = ["NSString", "NSArray", "NSObject", "NSNotification"] }
 tauri-plugin-tray = { workspace = true }
