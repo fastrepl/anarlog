@@ -211,6 +211,10 @@ fn is_owner_voice(voices: &HashMap<Option<i32>, usize>, speaker_index: Option<i3
     if voices.len() <= 1 {
         return true;
     }
+    // Unindexed words carry no voice identity once diarized voices are present.
+    if speaker_index.is_none() {
+        return false;
+    }
     let total: usize = voices.values().sum();
     voices
         .get(&speaker_index)

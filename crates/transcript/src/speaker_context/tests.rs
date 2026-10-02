@@ -294,7 +294,14 @@ fn room_microphone_on_a_call_names_only_the_dominant_local_voice() {
         };
         assert_eq!(segment.speaker_label, expected);
     }
-    let segments = render_transcript_segments(request(context, &[(0, 0), (0, 0), (0, 0), (0, 1)]));
+    let segments =
+        render_transcript_segments(request(context.clone(), &[(0, 0), (0, 0), (0, 0), (0, 1)]));
+    assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
+    let mut req = request(context, &[(0, 0), (0, 0), (0, 0), (0, 0), (0, 1)]);
+    for word in &mut req.transcripts[0].words[..4] {
+        word.speaker_index = None;
+    }
+    let segments = render_transcript_segments(req);
     assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
 }
 
