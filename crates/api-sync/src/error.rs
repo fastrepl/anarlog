@@ -107,6 +107,9 @@ pub enum SyncError {
     #[error("Shared attachment verification is busy")]
     SharedAttachmentVerificationBusy,
 
+    #[error("Meeting device is not a registered sync device")]
+    MeetingDeviceNotRegistered,
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -277,6 +280,11 @@ impl IntoResponse for SyncError {
                 StatusCode::SERVICE_UNAVAILABLE,
                 "shared_attachment_verification_busy",
                 "Shared attachment verification is busy".to_string(),
+            ),
+            Self::MeetingDeviceNotRegistered => (
+                StatusCode::NOT_FOUND,
+                "meeting_device_not_registered",
+                "This device is not a registered sync device".to_string(),
             ),
             Self::Internal(message) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

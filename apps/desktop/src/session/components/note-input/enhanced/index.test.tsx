@@ -346,81 +346,50 @@ describe("Enhanced", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("shows config errors for hosted subscription blockers", () => {
-    hoisted.llmStatus = {
-      status: "error",
-      reason: "not_pro",
-      providerId: "anarlog",
-    };
+  it.each([
+    [
+      "hosted subscription",
+      { status: "error", reason: "not_pro", providerId: "anarlog" },
+    ],
+    [
+      "hosted authentication",
+      { status: "error", reason: "unauthenticated", providerId: "anarlog" },
+    ],
+    [
+      "provider API key",
+      {
+        status: "error",
+        reason: "missing_config",
+        providerId: "openai",
+        missing: ["api_key"],
+      },
+    ],
+    [
+      "provider base URL",
+      {
+        status: "error",
+        reason: "missing_config",
+        providerId: "openai",
+        missing: ["base_url"],
+      },
+    ],
+    ["provider setup", { status: "pending", reason: "missing_provider" }],
+    [
+      "model selection",
+      { status: "pending", reason: "missing_model", providerId: "openai" },
+    ],
+  ])(
+    "shows a config error instead of the editor for missing %s",
+    (_label, llmStatus) => {
+      hoisted.llmStatus = llmStatus as typeof hoisted.llmStatus;
 
-    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
+      render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
 
-    expect(screen.getByText("Config error")).not.toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("shows config errors when hosted generation requires authentication", () => {
-    hoisted.llmStatus = {
-      status: "error",
-      reason: "unauthenticated",
-      providerId: "anarlog",
-    };
-
-    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
-
-    expect(screen.getByText("Config error")).not.toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("shows config errors when a provider API key is missing", () => {
-    hoisted.llmStatus = {
-      status: "error",
-      reason: "missing_config",
-      providerId: "openai",
-      missing: ["api_key"],
-    };
-
-    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
-
-    expect(screen.getByText("Config error")).not.toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("shows config errors when a provider base URL is missing", () => {
-    hoisted.llmStatus = {
-      status: "error",
-      reason: "missing_config",
-      providerId: "openai",
-      missing: ["base_url"],
-    };
-
-    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
-
-    expect(screen.getByText("Config error")).not.toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("shows config errors for missing provider setup", () => {
-    hoisted.llmStatus = { status: "pending", reason: "missing_provider" };
-
-    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
-
-    expect(screen.getByText("Config error")).not.toBeNull();
-    expect(screen.queryByText("Enhanced editor")).toBeNull();
-  });
-
-  it("shows config errors when a model has not been selected", () => {
-    hoisted.llmStatus = {
-      status: "pending",
-      reason: "missing_model",
-      providerId: "openai",
-    };
-
-    render(<Enhanced sessionId="session-1" enhancedNoteId="note-1" />);
-
-    expect(screen.getByText("Config error")).not.toBeNull();
-    expect(screen.queryByText("Enhanced editor")).toBeNull();
-  });
+      expect(screen.getByText("Config error")).not.toBeNull();
+      expect(screen.queryByText("Enhanced editor")).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+    },
+  );
 
   it("renders the editor when the enhanced note already has content", () => {
     hoisted.content = JSON.stringify({

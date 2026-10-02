@@ -232,6 +232,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tiptap",
  "tokio",
+ "transcript",
  "utoipa",
  "uuid",
 ]
@@ -329,7 +330,6 @@ dependencies = [
 name = "am"
 version = "0.1.0"
 dependencies = [
- "dirs 6.0.0",
  "download-interface",
  "file",
  "language",
@@ -342,7 +342,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -486,53 +485,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apalis"
-version = "1.0.0-rc.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83ca73a2477b3e6cf2650296c0441149ba50c40506b5aeb8ba75399e81181ce0"
-dependencies = [
- "apalis-core",
- "futures-util",
- "pin-project",
- "thiserror 2.0.18",
- "tower",
- "tracing",
-]
-
-[[package]]
-name = "apalis-core"
-version = "1.0.0-rc.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbc053b8daf9235fd974cf2a7d7f8ed7ee8108ba1736d3ecce20529d26c32f66"
-dependencies = [
- "futures-channel",
- "futures-core",
- "futures-sink",
- "futures-timer",
- "futures-util",
- "pin-project",
- "serde",
- "thiserror 2.0.18",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
-name = "apalis-cron"
-version = "1.0.0-rc.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "623a80caf0a084acf22cc3f43e49b984214e1c00b79779b16683ab55d46fa764"
-dependencies = [
- "apalis-core",
- "chrono",
- "cron",
- "futures-util",
- "serde",
- "ulid",
-]
-
-[[package]]
 name = "api"
 version = "0.1.0"
 dependencies = [
@@ -568,7 +520,6 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
- "owhisper-client",
  "reqwest 0.13.2",
  "rustls 0.23.38",
  "sentry",
@@ -686,7 +637,6 @@ name = "api-error"
 version = "0.1.0"
 dependencies = [
  "axum",
- "sentry",
  "serde",
  "tracing",
  "utoipa",
@@ -701,7 +651,6 @@ dependencies = [
  "api-nango",
  "axum",
  "google-mail",
- "nango",
  "serde",
  "thiserror 2.0.18",
  "utoipa",
@@ -719,7 +668,6 @@ dependencies = [
  "meeting-import",
  "nango",
  "serde",
- "serde_json",
  "thiserror 2.0.18",
  "url",
  "urlencoding",
@@ -734,7 +682,6 @@ dependencies = [
  "api-nango",
  "axum",
  "serde",
- "serde_json",
  "slack-web",
  "thiserror 2.0.18",
  "utoipa",
@@ -755,7 +702,6 @@ dependencies = [
  "hmac 0.13.0",
  "nango",
  "reqwest 0.13.2",
- "sentry",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -804,7 +750,6 @@ dependencies = [
  "sha2 0.11.0",
  "tokio",
  "tower",
- "tracing",
  "utoipa",
  "wiremock",
 ]
@@ -821,9 +766,7 @@ dependencies = [
  "rmcp",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -844,7 +787,6 @@ dependencies = [
  "loops",
  "observability",
  "reqwest 0.13.2",
- "sentry",
  "serde",
  "serde_json",
  "supabase-storage",
@@ -872,7 +814,6 @@ dependencies = [
  "hmac 0.13.0",
  "loops",
  "reqwest 0.13.2",
- "sentry",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -898,7 +839,6 @@ dependencies = [
  "axum",
  "github-issues",
  "linear",
- "nango",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -946,8 +886,6 @@ dependencies = [
  "strum 0.28.0",
  "thiserror 2.0.18",
  "tokio",
- "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -1657,13 +1595,11 @@ dependencies = [
  "audio-interface",
  "audio-sync",
  "audio-utils",
- "bytes",
  "cidre",
  "cpal",
  "dasp",
  "data",
  "ebur128",
- "futures-channel",
  "futures-util",
  "hound",
  "libpulse-binding",
@@ -1672,10 +1608,7 @@ dependencies = [
  "resampler",
  "ringbuf",
  "rodio",
- "serde",
- "serde_json",
  "serial_test",
- "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -1712,7 +1645,6 @@ dependencies = [
  "cidre",
  "libpulse-binding",
  "serde",
- "serde_json",
  "specta",
  "thiserror 2.0.18",
  "tokio",
@@ -2421,31 +2353,6 @@ dependencies = [
  "mime",
  "pin-project-lite",
  "sync_wrapper",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
-name = "axum-extra"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be44683b41ccb9ab2d23a5230015c9c3c55be97a25e4428366de8873103f7970"
-dependencies = [
- "axum",
- "axum-core",
- "bytes",
- "form_urlencoded",
- "futures-core",
- "futures-util",
- "http 1.4.0",
- "http-body 1.0.1",
- "http-body-util",
- "mime",
- "pin-project-lite",
- "serde_core",
- "serde_html_form 0.2.8",
- "serde_path_to_error",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -3444,7 +3351,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "tokio-stream",
  "tokio-util",
 ]
 
@@ -3571,7 +3477,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "tokio-stream",
  "tokio-util",
  "toml 0.8.2",
  "url",
@@ -4014,18 +3919,6 @@ checksum = "d8d80a2f4f5b554395e47b5d8305bc3d27813bacb73493eb1001e8f76dae29ea"
 dependencies = [
  "cast",
  "itertools 0.13.0",
-]
-
-[[package]]
-name = "cron"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "089df96cf6a25253b4b6b6744d86f91150a3d4df546f31a95def47976b8cba97"
-dependencies = [
- "chrono",
- "once_cell",
- "phf 0.11.3",
- "winnow 0.7.15",
 ]
 
 [[package]]
@@ -4476,7 +4369,6 @@ version = "0.1.0"
 dependencies = [
  "owhisper-interface",
  "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -4836,7 +4728,6 @@ dependencies = [
  "tauri-plugin-export",
  "tauri-plugin-fs-sync",
  "tauri-plugin-fs2",
- "tauri-plugin-git",
  "tauri-plugin-hooks",
  "tauri-plugin-http",
  "tauri-plugin-icon",
@@ -4860,8 +4751,8 @@ dependencies = [
  "tauri-plugin-prevent-default",
  "tauri-plugin-process",
  "tauri-plugin-relay",
- "tauri-plugin-screen",
  "tauri-plugin-sentry",
+ "tauri-plugin-session",
  "tauri-plugin-settings",
  "tauri-plugin-sfx",
  "tauri-plugin-shell",
@@ -4895,9 +4786,7 @@ dependencies = [
  "block2",
  "bundle",
  "cidre",
- "isolang",
  "language",
- "lazy_static",
  "libpulse-binding",
  "macos-accessibility-client",
  "objc2",
@@ -4906,7 +4795,6 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-foundation",
  "plist",
- "regex",
  "serde",
  "specta",
  "sys-locale",
@@ -5044,15 +4932,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dlib"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab8ecd87370524b461f8557c119c405552c396ed91fc0a8eec68679eab26f94a"
-dependencies = [
- "libloading 0.8.9",
-]
-
-[[package]]
 name = "dlopen2"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5157,7 +5036,6 @@ checksum = "117240f60069e65410b3ae1bb213295bd828f707b5bec6596a1afc8793ce0cbc"
 name = "download-interface"
 version = "0.1.0"
 dependencies = [
- "dirs 6.0.0",
  "serde",
 ]
 
@@ -5168,46 +5046,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "drm"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80bc8c5c6c2941f70a55c15f8d9f00f9710ebda3ffda98075f996a0e6c92756f"
-dependencies = [
- "bitflags 2.11.1",
- "bytemuck",
- "drm-ffi",
- "drm-fourcc",
- "libc",
- "rustix 0.38.44",
-]
-
-[[package]]
-name = "drm-ffi"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51a91c9b32ac4e8105dec255e849e0d66e27d7c34d184364fb93e469db08f690"
-dependencies = [
- "drm-sys",
- "rustix 1.1.4",
-]
-
-[[package]]
-name = "drm-fourcc"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0aafbcdb8afc29c1a7ee5fbe53b5d62f4565b35a042a662ca9fecd0b54dae6f4"
-
-[[package]]
-name = "drm-sys"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecc8e1361066d91f5ffccff060a3c3be9c3ecde15be2959c1937595f7a82a9f8"
-dependencies = [
- "libc",
- "linux-raw-sys 0.9.4",
 ]
 
 [[package]]
@@ -6247,30 +6085,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gbm"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce852e998d3ca5e4a97014fb31c940dc5ef344ec7d364984525fd11e8a547e6a"
-dependencies = [
- "bitflags 2.11.1",
- "drm",
- "drm-fourcc",
- "gbm-sys",
- "libc",
- "wayland-backend",
- "wayland-server",
-]
-
-[[package]]
-name = "gbm-sys"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c13a5f2acc785d8fb6bf6b7ab6bfb0ef5dad4f4d97e8e70bb8e470722312f76f"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "gbnf"
 version = "0.1.0"
 dependencies = [
@@ -6281,7 +6095,6 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
- "tracing",
 ]
 
 [[package]]
@@ -6561,7 +6374,6 @@ dependencies = [
  "gix-command",
  "gix-commitgraph",
  "gix-config",
- "gix-credentials",
  "gix-date",
  "gix-diff",
  "gix-dir",
@@ -6575,13 +6387,11 @@ dependencies = [
  "gix-ignore",
  "gix-index",
  "gix-lock",
- "gix-negotiate",
  "gix-object",
  "gix-odb",
  "gix-pack",
  "gix-path",
  "gix-pathspec",
- "gix-prompt",
  "gix-protocol",
  "gix-ref",
  "gix-refspec",
@@ -6593,13 +6403,11 @@ dependencies = [
  "gix-submodule",
  "gix-tempfile",
  "gix-trace",
- "gix-transport",
  "gix-traverse",
  "gix-url",
  "gix-utils",
  "gix-validate",
  "gix-worktree",
- "gix-worktree-state",
  "parking_lot",
  "signal-hook 0.3.18",
  "smallvec 1.15.1",
@@ -6715,24 +6523,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gix-credentials"
-version = "0.34.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "316a12842fb761a7a6e9ae963d7bae9f0f4c433f242282df91192ef084b1891c"
-dependencies = [
- "bstr",
- "gix-command",
- "gix-config-value",
- "gix-date",
- "gix-path",
- "gix-prompt",
- "gix-sec",
- "gix-trace",
- "gix-url",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "gix-date"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6811,7 +6601,6 @@ version = "0.45.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d56aad357ae016449434705033df644ac6253dfcf1281aad3af3af9e907560d1"
 dependencies = [
- "bytes",
  "crc32fast",
  "gix-path",
  "gix-trace",
@@ -6947,22 +6736,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gix-negotiate"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3cee7e32e6198e356caef0e4b8321bc2f9b2afeb76f870c0bf9aa05fe53edb6"
-dependencies = [
- "bitflags 2.11.1",
- "gix-commitgraph",
- "gix-date",
- "gix-hash",
- "gix-object",
- "gix-revwalk",
- "smallvec 1.15.1",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "gix-object"
 version = "0.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7017,9 +6790,7 @@ dependencies = [
  "gix-hashtable",
  "gix-object",
  "gix-path",
- "gix-tempfile",
  "memmap2",
- "parking_lot",
  "smallvec 1.15.1",
  "thiserror 2.0.18",
 ]
@@ -7064,37 +6835,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "gix-prompt"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "974b142ea650fb0050a301958f49c8cc68929c36f686e9606a381ce39da34fd9"
-dependencies = [
- "gix-command",
- "gix-config-value",
- "parking_lot",
- "rustix 1.1.4",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "gix-protocol"
 version = "0.55.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02c5dfd068789442c5709e702ef42d851765f2c09a11bf0a13749d24363f4d07"
 dependencies = [
  "bstr",
- "gix-credentials",
  "gix-date",
  "gix-features",
  "gix-hash",
- "gix-lock",
- "gix-negotiate",
- "gix-object",
  "gix-ref",
- "gix-refspec",
- "gix-revwalk",
  "gix-shallow",
- "gix-trace",
  "gix-transport",
  "gix-utils",
  "maybe-async",
@@ -7271,16 +7022,13 @@ version = "0.52.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4d4ed02a2ebe771a26111896ecda0b98b58ed35e1d9c0ccf07251c1abb4918d"
 dependencies = [
- "base64 0.22.1",
  "bstr",
  "gix-command",
- "gix-credentials",
  "gix-features",
  "gix-packetline",
  "gix-quote",
  "gix-sec",
  "gix-url",
- "reqwest 0.13.2",
  "thiserror 2.0.18",
 ]
 
@@ -7352,44 +7100,6 @@ dependencies = [
  "gix-object",
  "gix-path",
  "gix-validate",
-]
-
-[[package]]
-name = "gix-worktree-state"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f34c19e29e0a359b97faaf92fdd053d4cc33aa0e69cabb30f0e120effe4ff3b"
-dependencies = [
- "bstr",
- "gix-features",
- "gix-filter",
- "gix-fs",
- "gix-index",
- "gix-object",
- "gix-path",
- "gix-worktree",
- "io-close",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "gl"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a94edab108827d67608095e269cf862e60d920f144a5026d3dbcfd8b877fb404"
-dependencies = [
- "gl_generator",
-]
-
-[[package]]
-name = "gl_generator"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a95dfc23a2b4a9a2f5ab41d194f8bfda3cabec42af4e39f08c339eb2a0c124d"
-dependencies = [
- "khronos_api",
- "log",
- "xml-rs",
 ]
 
 [[package]]
@@ -7954,7 +7664,6 @@ dependencies = [
 name = "host"
 version = "0.1.0"
 dependencies = [
- "mac_address2",
  "machine-uid",
  "sysinfo",
 ]
@@ -8767,16 +8476,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "io-close"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cadcf447f06744f8ce713d2d6239bb5bde2c357a452397a9ed90c625da390bc"
-dependencies = [
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "ipnet"
 version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8942,11 +8641,9 @@ dependencies = [
  "reqwest 0.13.2",
  "schemars 1.2.1",
  "serde",
- "serde_json",
  "specta",
  "thiserror 2.0.18",
  "tokio",
- "url",
 ]
 
 [[package]]
@@ -9153,22 +8850,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "khronos-egl"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aae1df220ece3c0ada96b8153459b67eebe9ae9212258bb0134ae60416fdf76"
-dependencies = [
- "libc",
- "pkg-config",
-]
-
-[[package]]
-name = "khronos_api"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
-
-[[package]]
 name = "knf-rs"
 version = "0.3.2"
 source = "git+https://github.com/thewh1teagle/pyannote-rs?rev=e23bd29#e23bd292298750ca8441039ae588afd5e4351c49"
@@ -9307,6 +8988,7 @@ dependencies = [
  "serde_json",
  "specta",
  "thiserror 2.0.18",
+ "whatlang",
  "whichlang",
  "whisper",
 ]
@@ -9501,27 +9183,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libwayshot-xcap"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "558a3a7ca16a17a14adf8f051b3adcd7766d397532f5f6d6a48034db11e54c22"
-dependencies = [
- "drm",
- "gbm",
- "gl",
- "image",
- "khronos-egl",
- "memmap2",
- "rustix 1.1.4",
- "thiserror 2.0.18",
- "tracing",
- "wayland-backend",
- "wayland-client",
- "wayland-protocols",
- "wayland-protocols-wlr",
-]
-
-[[package]]
 name = "linear"
 version = "0.1.0"
 dependencies = [
@@ -9546,12 +9207,6 @@ name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
-
-[[package]]
-name = "linux-raw-sys"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
 
 [[package]]
 name = "linux-raw-sys"
@@ -9596,7 +9251,6 @@ dependencies = [
  "sysinfo",
  "tauri-specta",
  "tempfile",
- "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite 0.29.0",
@@ -9608,7 +9262,6 @@ dependencies = [
  "transcript",
  "uuid",
  "vad-masking",
- "vorbis_rs",
 ]
 
 [[package]]
@@ -9620,11 +9273,9 @@ dependencies = [
  "audio-chunking",
  "audio-utils",
  "axum",
- "bytes",
  "data",
  "embedding",
  "futures-util",
- "host",
  "hound",
  "language",
  "mp3",
@@ -9642,7 +9293,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "tokio-stream",
  "tracing",
  "transcribe-core",
  "transcribe-soniqo",
@@ -9681,7 +9331,6 @@ dependencies = [
  "async-stream",
  "axum",
  "backon",
- "bytes",
  "futures-util",
  "observability",
  "openrouter",
@@ -9828,18 +9477,6 @@ name = "mac"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
-
-[[package]]
-name = "mac_address2"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc5e04aa39a4dc96076bca67bf60b63201ff06f9568e62f7904293d39de8cb0b"
-dependencies = [
- "nix 0.28.0",
- "thiserror 1.0.69",
- "widestring",
- "windows-sys 0.52.0",
-]
 
 [[package]]
 name = "mach2"
@@ -10016,17 +9653,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51c55d61e72fc3ab704396c5fa16f4c184db37978ae4e94ca8959693a235fc0e"
 dependencies = [
  "log",
-]
-
-[[package]]
-name = "media-control"
-version = "0.1.0"
-dependencies = [
- "libc",
- "thiserror 2.0.18",
- "tracing",
- "windows 0.62.2",
- "zbus",
 ]
 
 [[package]]
@@ -10498,7 +10124,6 @@ dependencies = [
  "cfg-if",
  "cfg_aliases 0.1.1",
  "libc",
- "memoffset",
 ]
 
 [[package]]
@@ -10558,7 +10183,6 @@ dependencies = [
  "notification-linux",
  "notification-macos",
  "notification-windows",
- "serde",
  "tracing",
 ]
 
@@ -11048,7 +10672,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05ec576860167a15dd9fce7fbee7512beb4e31f532159d3482d1f9c6caedf31d"
 dependencies = [
  "bitflags 2.11.1",
- "block2",
  "dispatch2",
  "objc2",
  "objc2-core-audio",
@@ -11088,12 +10711,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d425caf1df73233f29fd8a5c3e5edbc30d2d4307870f802d18f00d83dc5141a6"
 dependencies = [
  "bitflags 2.11.1",
- "block2",
  "objc2",
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-io-surface",
- "objc2-metal",
 ]
 
 [[package]]
@@ -11429,7 +11050,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "tokio-stream",
  "tokio-util",
  "url",
 ]
@@ -11708,7 +11328,6 @@ version = "0.0.1"
 dependencies = [
  "am",
  "audio-utils",
- "backon",
  "base64 0.22.1",
  "bytes",
  "data",
@@ -11731,6 +11350,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
+ "tokio-tungstenite 0.29.0",
  "tracing",
  "tracing-subscriber",
  "transcribe-soniqo",
@@ -11746,8 +11366,6 @@ dependencies = [
 name = "owhisper-interface"
 version = "0.1.0"
 dependencies = [
- "chrono",
- "codes-iso-639",
  "deepgram",
  "language",
  "schemars 1.2.1",
@@ -12477,12 +12095,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "port-killer"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f8f8abaf06419461fc718f5a0929c18d06dd825f26c066e376f365f2d8c2ec2"
-
-[[package]]
 name = "port_check"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12927,15 +12539,6 @@ name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
-
-[[package]]
-name = "quick-xml"
-version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eff6510e86862b57b210fd8cbe8ed3f0d7d600b9c2863cd4549a2e033c66e956"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "quick-xml"
@@ -14269,15 +13872,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
-name = "screen-core"
-version = "0.1.0"
-dependencies = [
- "image",
- "thiserror 2.0.18",
- "xcap",
-]
-
-[[package]]
 name = "scroll"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14649,19 +14243,6 @@ dependencies = [
 
 [[package]]
 name = "serde_html_form"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2f2d7ff8a2140333718bb329f5c40fc5f0865b84c426183ce14c97d2ab8154f"
-dependencies = [
- "form_urlencoded",
- "indexmap 2.14.0",
- "itoa",
- "ryu",
- "serde_core",
-]
-
-[[package]]
-name = "serde_html_form"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0946d52b4b7e28823148aebbeceb901012c595ad737920d504fa8634bb099e6f"
@@ -14994,7 +14575,6 @@ dependencies = [
  "serde",
  "specta",
  "thiserror 2.0.18",
- "tracing",
 ]
 
 [[package]]
@@ -15836,6 +15416,15 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "summary"
+version = "0.1.0"
+dependencies = [
+ "regex",
+ "serde",
+ "specta",
+]
 
 [[package]]
 name = "supabase-auth"
@@ -16773,7 +16362,6 @@ dependencies = [
 name = "tauri-plugin-anlg-tray"
 version = "0.1.0"
 dependencies = [
- "host",
  "intercept",
  "libloading 0.8.9",
  "objc2",
@@ -16851,7 +16439,6 @@ dependencies = [
  "specta",
  "specta-typescript",
  "storage",
- "strum 0.28.0",
  "supabase-auth",
  "tauri",
  "tauri-plugin",
@@ -16914,15 +16501,26 @@ version = "0.1.0"
 dependencies = [
  "calendar",
  "calendar-interface",
+ "chrono",
+ "db-app",
+ "db-core",
+ "indexmap 2.14.0",
+ "regex",
  "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-auth",
+ "tauri-plugin-db",
  "tauri-plugin-permissions",
  "tauri-specta",
  "thiserror 2.0.18",
+ "tokio",
+ "unicode-normalization",
+ "uuid",
 ]
 
 [[package]]
@@ -16954,8 +16552,6 @@ dependencies = [
  "db-sync",
  "e2ee",
  "fs-sync-core",
- "futures-util",
- "reqwest 0.13.2",
  "serde",
  "serde_json",
  "session-ingest",
@@ -17006,12 +16602,10 @@ dependencies = [
  "docs",
  "open",
  "serde",
- "serde_json",
  "serde_qs",
  "serde_yaml",
  "specta",
  "specta-typescript",
- "strum 0.28.0",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-deep-link",
@@ -17029,7 +16623,6 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "detect",
- "host",
  "notification-interface",
  "objc2",
  "objc2-app-kit",
@@ -17086,15 +16679,12 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
- "tauri-plugin-shortcut",
  "tauri-specta",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "tokio-stream",
  "tokio-tungstenite 0.29.0",
  "tokio-util",
- "tracing",
  "url",
  "windows 0.62.2",
 ]
@@ -17109,7 +16699,6 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-anlg-tray",
- "tauri-plugin-windows",
 ]
 
 [[package]]
@@ -17117,13 +16706,11 @@ name = "tauri-plugin-export"
 version = "0.1.0"
 dependencies = [
  "export-core",
- "serde",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
- "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -17157,18 +16744,15 @@ version = "0.1.0"
 dependencies = [
  "fs-sync-core",
  "rayon",
- "serde",
  "serde_json",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-notify",
- "tauri-plugin-opener",
  "tauri-plugin-settings",
  "tauri-specta",
  "tempfile",
- "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
@@ -17186,23 +16770,6 @@ dependencies = [
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
-]
-
-[[package]]
-name = "tauri-plugin-git"
-version = "0.1.0"
-dependencies = [
- "gix",
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-specta",
- "thiserror 2.0.18",
- "tokio",
- "walkdir",
 ]
 
 [[package]]
@@ -17227,7 +16794,6 @@ dependencies = [
  "docs",
  "hooks",
  "serde",
- "serde_json",
  "serde_yaml",
  "specta",
  "specta-typescript",
@@ -17236,7 +16802,6 @@ dependencies = [
  "tauri-plugin-settings",
  "tauri-specta",
  "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
@@ -17349,7 +16914,6 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-local-authentication",
- "serde",
  "specta",
  "specta-typescript",
  "tauri",
@@ -17365,7 +16929,6 @@ version = "0.1.0"
 dependencies = [
  "dirs 6.0.0",
  "local-llm-core",
- "local-model",
  "model-downloader",
  "reqwest 0.13.2",
  "serde",
@@ -17388,41 +16951,29 @@ name = "tauri-plugin-local-stt"
 version = "0.1.0"
 dependencies = [
  "am",
- "audio-utils",
  "axum",
- "axum-extra",
  "backon",
  "data",
  "dirs 6.0.0",
- "download-interface",
  "file",
- "futures-util",
  "host",
- "json-patch 4.1.0",
- "language",
  "local-model",
  "local-stt-core",
  "model-downloader",
- "owhisper-client",
- "owhisper-interface",
- "port-killer",
  "port_check",
  "ractor",
  "reqwest 0.13.2",
  "rodio",
  "serde",
- "serde_json",
  "similar",
  "specta",
  "specta-typescript",
- "strum 0.28.0",
  "supervisor",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-settings",
  "tauri-plugin-shell",
  "tauri-plugin-sidecar2",
- "tauri-plugin-windows",
  "tauri-specta",
  "tempfile",
  "thiserror 2.0.18",
@@ -17458,7 +17009,6 @@ name = "tauri-plugin-messenger"
 version = "0.1.0"
 dependencies = [
  "serde",
- "serde_json",
  "specta",
  "specta-typescript",
  "tauri",
@@ -17488,21 +17038,13 @@ dependencies = [
 name = "tauri-plugin-notification"
 version = "0.1.0"
 dependencies = [
- "apalis",
- "apalis-cron",
- "chrono",
- "detect",
- "host",
- "intercept",
  "notification",
  "serde",
  "specta",
  "specta-typescript",
- "strum 0.28.0",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-analytics",
- "tauri-plugin-dialog",
  "tauri-plugin-windows",
  "tauri-specta",
  "thiserror 2.0.18",
@@ -17513,7 +17055,6 @@ dependencies = [
 name = "tauri-plugin-notify"
 version = "0.1.0"
 dependencies = [
- "camino",
  "notify",
  "notify-debouncer-full",
  "serde",
@@ -17555,7 +17096,6 @@ dependencies = [
 name = "tauri-plugin-opener2"
 version = "0.1.0"
 dependencies = [
- "serde",
  "specta",
  "specta-typescript",
  "tauri",
@@ -17603,14 +17143,11 @@ name = "tauri-plugin-path2"
 version = "0.1.0"
 dependencies = [
  "sanitize-filename",
- "serde",
- "serde_json",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
- "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -17621,7 +17158,6 @@ dependencies = [
  "audio",
  "block2",
  "bundle",
- "futures-util",
  "macos-accessibility-client",
  "objc2",
  "objc2-app-kit",
@@ -17688,22 +17224,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-screen"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "screen-core",
- "serde",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-specta",
- "thiserror 2.0.18",
- "tokio",
-]
-
-[[package]]
 name = "tauri-plugin-sentry"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17717,6 +17237,26 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "tauri-plugin-session"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db-app",
+ "db-core",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "sqlx",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-db",
+ "tauri-specta",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -17746,7 +17286,6 @@ dependencies = [
  "serde",
  "specta",
  "specta-typescript",
- "strum 0.28.0",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
@@ -17870,13 +17409,11 @@ version = "0.1.0"
 dependencies = [
  "language",
  "serde",
- "serde_json",
  "specta",
  "specta-typescript",
  "tantivy",
  "tauri",
  "tauri-plugin",
- "tauri-plugin-notify",
  "tauri-plugin-settings",
  "tauri-specta",
  "tempfile",
@@ -17889,15 +17426,24 @@ dependencies = [
 name = "tauri-plugin-template"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "db-app",
+ "db-core",
  "gbnf",
+ "language",
+ "serde",
  "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
+ "summary",
  "tauri",
  "tauri-plugin",
+ "tauri-plugin-db",
  "tauri-specta",
  "template-app",
  "template-app-legacy",
+ "tokio",
  "tracing",
 ]
 
@@ -17916,7 +17462,6 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-auth",
- "tauri-plugin-permissions",
  "tauri-specta",
  "thiserror 2.0.18",
  "ticket-interface",
@@ -17936,7 +17481,6 @@ dependencies = [
  "specta-typescript",
  "tauri",
  "tauri-plugin",
- "tauri-plugin-sentry",
  "tauri-specta",
  "tempfile",
  "thiserror 2.0.18",
@@ -17955,9 +17499,10 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "db-app",
+ "db-core",
  "embedding",
+ "futures-util",
  "language",
- "media-control",
  "owhisper-client",
  "owhisper-interface",
  "ractor",
@@ -17972,7 +17517,7 @@ dependencies = [
  "tauri-plugin",
  "tauri-plugin-anlg-tray",
  "tauri-plugin-db",
- "tauri-plugin-hooks",
+ "tauri-plugin-fs-sync",
  "tauri-plugin-local-stt",
  "tauri-plugin-settings",
  "tauri-plugin-store2",
@@ -17981,8 +17526,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "transcribe-soniqo",
- "transcribe-speechanalyzer",
  "transcript",
  "transcription-core",
  "uuid",
@@ -18077,7 +17620,6 @@ dependencies = [
  "tauri-plugin",
  "tauri-plugin-analytics",
  "tauri-plugin-os",
- "tauri-plugin-sfx",
  "tauri-plugin-window-state",
  "tauri-specta",
  "thiserror 2.0.18",
@@ -18256,14 +17798,11 @@ dependencies = [
 name = "template-app-legacy"
 version = "0.1.0"
 dependencies = [
- "codes-iso-639",
  "data",
  "htmd",
  "insta",
- "itertools 0.14.0",
  "minijinja",
  "minijinja-contrib",
- "owhisper-interface",
  "reqwest 0.13.2",
  "serde",
  "serde_json",
@@ -18284,8 +17823,6 @@ dependencies = [
  "openrouter",
  "serde",
  "serde_json",
- "specta",
- "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -19070,7 +18607,6 @@ dependencies = [
  "axum",
  "futures-util",
  "owhisper-interface",
- "rodio",
  "serde_json",
  "tokio",
  "tracing",
@@ -19102,11 +18638,10 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "reqwest 0.13.2",
- "reqwest-middleware",
  "rodio",
  "sentry",
  "serde",
- "serde_html_form 0.4.0",
+ "serde_html_form",
  "serde_json",
  "supabase-storage",
  "tempfile",
@@ -19171,13 +18706,12 @@ dependencies = [
  "pyannote-local",
  "reqwest 0.13.2",
  "rodio",
- "serde_html_form 0.4.0",
+ "serde_html_form",
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite 0.29.0",
- "tokio-util",
  "tower",
  "tracing",
  "transcribe-core",
@@ -19192,6 +18726,7 @@ version = "0.1.0"
 dependencies = [
  "json-patch 4.1.0",
  "owhisper-interface",
+ "regex",
  "serde",
  "serde_json",
  "specta",
@@ -19726,16 +19261,6 @@ dependencies = [
  "memoffset",
  "tempfile",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "ulid"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "470dbf6591da1b39d43c14523b2b469c86879a53e8b758c8e090a470fe7b1fbe"
-dependencies = [
- "rand 0.9.4",
- "web-time",
 ]
 
 [[package]]
@@ -20791,7 +20316,6 @@ dependencies = [
  "cc",
  "downcast-rs 1.2.1",
  "rustix 1.1.4",
- "scoped-tls",
  "smallvec 1.15.1",
  "wayland-sys",
 ]
@@ -20845,28 +20369,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "wayland-server"
-version = "0.31.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc1846eb04c49182e04f4a099e2a830a2b745610bbc1d61246e206f29c7000a0"
-dependencies = [
- "bitflags 2.11.1",
- "downcast-rs 1.2.1",
- "rustix 1.1.4",
- "wayland-backend",
- "wayland-scanner",
-]
-
-[[package]]
 name = "wayland-sys"
 version = "0.31.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8eab23fefc9e41f8e841df4a9c707e8a8c4ed26e944ef69297184de2785e3be"
 dependencies = [
- "dlib",
- "libc",
- "log",
- "memoffset",
  "pkg-config",
 ]
 
@@ -21025,6 +20532,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
 
 [[package]]
+name = "whatlang"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5e8f38b596e2a359b755342473520a99421e43658548c79489ee221b728c107"
+dependencies = [
+ "hashbrown 0.15.5",
+]
+
+[[package]]
 name = "which"
 version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21053,9 +20569,6 @@ dependencies = [
 name = "whisper-local"
 version = "0.1.0"
 dependencies = [
- "audio-interface",
- "audio-utils",
- "dasp",
  "data",
  "dirs 6.0.0",
  "futures-util",
@@ -21115,12 +20628,6 @@ dependencies = [
  "libredox",
  "wasite",
 ]
-
-[[package]]
-name = "widestring"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72069c3113ab32ab29e5584db3c6ec55d416895e60715417b5b883a357c3e471"
 
 [[package]]
 name = "winapi"
@@ -21907,7 +21414,6 @@ version = "0.1.0"
 dependencies = [
  "async-stream",
  "backon",
- "bytes",
  "futures-util",
  "serde",
  "serde_json",
@@ -21995,58 +21501,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "xcap"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03d20dc4057d755e2b78da287f9057065a89c507af69e1a5eac19e868c21cd8a"
-dependencies = [
- "dispatch2",
- "image",
- "libwayshot-xcap",
- "log",
- "objc2",
- "objc2-app-kit",
- "objc2-av-foundation",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-core-media",
- "objc2-core-video",
- "objc2-foundation",
- "percent-encoding",
- "pipewire",
- "rand 0.9.4",
- "scopeguard",
- "serde",
- "thiserror 2.0.18",
- "url",
- "widestring",
- "windows 0.62.2",
- "xcb",
- "zbus",
-]
-
-[[package]]
-name = "xcb"
-version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee4c580d8205abb0a5cf4eb7e927bd664e425b6c3263f9c5310583da96970cf6"
-dependencies = [
- "bitflags 1.3.2",
- "libc",
- "quick-xml 0.30.0",
-]
-
-[[package]]
 name = "xkeysym"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
-
-[[package]]
-name = "xml-rs"
-version = "0.8.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xml5ever"
@@ -22096,7 +21554,6 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "pathdiff",
  "tempfile",
  "toml 0.8.2",
  "xshell",

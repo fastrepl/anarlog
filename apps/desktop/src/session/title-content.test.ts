@@ -5,7 +5,6 @@ import { schema } from "@anlg/editor/note";
 import {
   documentTitlePlaceholder,
   ensureFirstLineTitle,
-  ensureMarkdownFirstLineTitle,
   extractFirstLineTitle,
   removeDocumentTitle,
 } from "./title-content";
@@ -256,22 +255,5 @@ describe("ensureFirstLineTitle", () => {
     };
 
     expect(ensureFirstLineTitle(content, "Meeting Title")).toBe(content);
-  });
-});
-
-describe("ensureMarkdownFirstLineTitle", () => {
-  it("prepends the session title before markdown summary headings", () => {
-    expect(
-      ensureMarkdownFirstLineTitle(
-        "# Summary Section\n\n- Follow up",
-        "Meeting Title",
-      ),
-    ).toBe("# Meeting Title\n\n# Summary Section\n\n- Follow up");
-  });
-
-  it("does not duplicate an exact markdown heading without a trailing newline", () => {
-    expect(
-      ensureMarkdownFirstLineTitle("# Meeting Title", "Meeting Title"),
-    ).toBe("# Meeting Title");
   });
 });

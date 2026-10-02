@@ -25,7 +25,7 @@ macro_rules! spawn_blocking {
     };
 }
 
-fn resolve_session_dir<R: tauri::Runtime>(
+pub(crate) fn resolve_session_dir<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     session_id: &str,
 ) -> Result<PathBuf, String> {
@@ -270,8 +270,8 @@ pub(crate) async fn audio_delete<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
 ) -> Result<bool, String> {
-    let session_dir = resolve_session_dir(&app, &session_id)?;
-    crate::audio::delete(&session_dir).map_err(|e| e.to_string())
+    let _guard = app.fs_sync().lock_session_audio(&session_id).await;
+    app.fs_sync().delete_session_audio_locked(&session_id)
 }
 
 #[tauri::command]
@@ -294,7 +294,7 @@ pub(crate) async fn audio_delete_orphaned_expired<R: tauri::Runtime>(
 ) -> Result<Vec<String>, String> {
     let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     let sessions_dir = base.join("sessions").into_std_path_buf();
-    spawn_blocking!({
+    let deleted = spawn_blocking!({
         crate::audio::delete_orphaned_expired(
             &sessions_dir,
             &known_session_ids,
@@ -302,7 +302,11 @@ pub(crate) async fn audio_delete_orphaned_expired<R: tauri::Runtime>(
             now_ms,
         )
         .map_err(|e| e.to_string())
-    })
+    })?;
+    for session_id in &deleted {
+        remove_audio_peaks_cache(&app, session_id);
+    }
+    Ok(deleted)
 }
 
 #[tauri::command]
@@ -312,6 +316,7 @@ pub(crate) async fn audio_import<R: tauri::Runtime>(
     session_id: String,
     source_path: String,
 ) -> Result<String, String> {
+    let _guard = app.fs_sync().lock_session_audio(&session_id).await;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     let source_path = PathBuf::from(&source_path);
     let runtime = crate::runtime::TauriAudioImportRuntime::new(app);
@@ -385,6 +390,7 @@ pub(crate) async fn audio_import_data<R: tauri::Runtime>(
     filename: String,
     content_type: Option<String>,
 ) -> Result<String, String> {
+    let _guard = app.fs_sync().lock_session_audio(&session_id).await;
     let session_dir = resolve_session_dir(&app, &session_id)?;
     let runtime = crate::runtime::TauriAudioImportRuntime::new(app);
     spawn_blocking!({
@@ -455,6 +461,42 @@ pub(crate) async fn audio_path<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn audio_peaks<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<crate::audio::AudioPeaks, String> {
+    let session_dir = resolve_session_dir(&app, &session_id)?;
+    let cache_path = audio_peaks_cache_path(&app, &session_id)?;
+    spawn_blocking!({
+        let path = crate::audio::path(&session_dir).ok_or("audio_path_not_found")?;
+        crate::audio::cached_peaks(&path, &cache_path).map_err(|e| e.to_string())
+    })
+}
+
+pub(crate) fn remove_audio_peaks_cache<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+) {
+    if let Ok(cache_path) = audio_peaks_cache_path(app, session_id) {
+        let _ = std::fs::remove_file(cache_path);
+    }
+}
+
+fn audio_peaks_cache_path<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    session_id: &str,
+) -> Result<PathBuf, String> {
+    if !crate::is_uuid(session_id) {
+        return Err("invalid_session_id".to_string());
+    }
+    let cache_dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    Ok(cache_dir
+        .join("audio-peaks")
+        .join(format!("{session_id}.json")))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn audio_copy<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     source_session_id: String,
@@ -464,6 +506,10 @@ pub(crate) async fn audio_copy<R: tauri::Runtime>(
         return Err("audio_copy_same_session".into());
     }
 
+    let _guards = app
+        .state::<crate::SessionAudioLocks>()
+        .lock_pair(&source_session_id, &target_session_id)
+        .await;
     let source_dir = resolve_session_dir(&app, &source_session_id)?;
     let target_dir = resolve_session_dir(&app, &target_session_id)?;
     spawn_blocking!({ crate::audio::copy(&source_dir, &target_dir).map_err(|e| e.to_string()) })
@@ -495,7 +541,9 @@ pub(crate) async fn delete_session_folder<R: tauri::Runtime>(
     session_id: String,
 ) -> Result<(), String> {
     let session_dir = resolve_session_dir(&app, &session_id)?;
-    crate::session::delete_session_dir(&session_dir).map_err(|e| e.to_string())
+    crate::session::delete_session_dir(&session_dir).map_err(|e| e.to_string())?;
+    remove_audio_peaks_cache(&app, &session_id);
+    Ok(())
 }
 
 #[tauri::command]
@@ -713,38 +761,19 @@ mod tests {
     }
 
     #[test]
-    fn audio_import_source_extension_uses_supported_filename_extension() {
-        assert_eq!(
-            audio_import_source_extension("recording.WEBM", Some("audio/mp4")),
-            "webm"
-        );
-        assert_eq!(audio_import_source_extension("recording.aac", None), "aac");
-    }
-
-    #[test]
-    fn audio_import_source_extension_recognizes_voice_memos_transfers() {
-        assert_eq!(audio_import_source_extension("Brian Shin.qta", None), "m4a");
-        assert_eq!(
-            audio_import_source_extension("Brian Shin", Some("audio/mp4; codecs=alac")),
-            "m4a"
-        );
-        assert_eq!(
-            audio_import_source_extension("Brian Shin", Some("audio/quicktime")),
-            "m4a"
-        );
-    }
-
-    #[test]
-    fn create_parent_dir_error_includes_parent_and_target_paths() {
-        let temp = tempfile::tempdir().unwrap();
-        let blocker = temp.path().join("sessions");
-        std::fs::write(&blocker, "not a directory").unwrap();
-
-        let target = blocker.join("session-1").join("_meta.json");
-        let error = create_parent_dir_for_write(&target).unwrap_err();
-
-        assert!(error.contains("failed to create parent directory"));
-        assert!(error.contains(&target.parent().unwrap().display().to_string()));
-        assert!(error.contains(&target.display().to_string()));
+    fn audio_import_source_extension_prefers_supported_names_then_mime() {
+        for (filename, content_type, expected) in [
+            ("recording.WEBM", Some("audio/mp4"), "webm"),
+            ("recording.aac", None, "aac"),
+            ("Brian Shin.qta", None, "m4a"),
+            ("Brian Shin", Some("audio/mp4; codecs=alac"), "m4a"),
+            ("Brian Shin", Some("audio/quicktime"), "m4a"),
+        ] {
+            assert_eq!(
+                audio_import_source_extension(filename, content_type),
+                expected,
+                "unexpected extension for {filename:?} and {content_type:?}"
+            );
+        }
     }
 }

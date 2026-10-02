@@ -35,6 +35,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { chipSquircle } from "@anlg/ui/lib/squircle";
 import { cn } from "@anlg/utils";
@@ -81,7 +82,6 @@ import { getBaseLanguageDisplayName } from "~/settings/general/language";
 import { useAiProvidersState } from "~/settings/providers";
 import { useSetSettingValues } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 import {
   canAppleSpeechTranscribe,
@@ -163,7 +163,7 @@ export function SelectProviderAndModel() {
     ? (configuredProviders[visibleProvider]?.models ?? [])
     : [];
   const displayedSttModel =
-    visibleProvider === "custom"
+    visibleProvider === "custom" || visibleProvider === "nvidia"
       ? effectiveSelection.model
       : effectiveSelection.model
         ? getPreferredProviderModel(effectiveSelection.model, selectedModels, {
@@ -201,7 +201,10 @@ export function SelectProviderAndModel() {
       getPreferredProviderModel(
         lastSelectedModelsRef.current[provider],
         nextModels,
-        { allowSavedModelWithoutChoices: providerId === "custom" },
+        {
+          allowSavedModelWithoutChoices:
+            providerId === "custom" || providerId === "nvidia",
+        },
       ) ||
       getDefaultSttModel(providerId) ||
       "";
@@ -318,7 +321,7 @@ export function SelectProviderAndModel() {
           <div className="min-w-0 flex-3">
             <LocalFileModel healthStatus={health.status} />
           </div>
-        ) : visibleProvider === "custom" ? (
+        ) : visibleProvider === "custom" || visibleProvider === "nvidia" ? (
           <div className="min-w-0 flex-3">
             <Input
               value={displayedSttModel || ""}
@@ -763,7 +766,7 @@ export function useConfiguredMapping(): {
         ];
       }
 
-      if (provider.id === "custom") {
+      if (provider.id === "custom" || provider.id === "nvidia") {
         return [provider.id, { configured: true, models: [] }];
       }
 

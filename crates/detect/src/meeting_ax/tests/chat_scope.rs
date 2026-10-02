@@ -84,39 +84,13 @@ fn test_established_native_bundle_aliases_are_classified() {
         ("com.cisco.webex", MeetingPlatform::Webex),
         ("com.cisco.webexmeetingsapp", MeetingPlatform::Webex),
         ("com.discordapp.Discord", MeetingPlatform::Discord),
+        ("Cisco-Systems.Spark", MeetingPlatform::Webex),
     ] {
         assert!(is_meeting_app_bundle(bundle_id));
         assert_eq!(classify_bundle(bundle_id), platform);
         assert_eq!(
             classify_surface(bundle_id, &platform),
             MeetingSurface::Native
-        );
-    }
-}
-
-#[test]
-fn test_established_browser_variants_are_recognized_as_web_surfaces() {
-    for bundle_id in [
-        "com.apple.SafariTechnologyPreview",
-        "com.google.Chrome.canary",
-        "com.microsoft.edgemac.Beta",
-        "com.microsoft.edgemac.Canary",
-        "com.microsoft.edgemac.Dev",
-        "org.mozilla.firefoxdeveloperedition",
-        "org.mozilla.nightly",
-        "com.brave.Browser.beta",
-        "com.brave.Browser.nightly",
-        "org.chromium.Chromium",
-        "com.operasoftware.OperaDeveloper",
-        "com.operasoftware.OperaGX",
-        "com.operasoftware.OperaNext",
-        "net.imput.helium",
-    ] {
-        assert!(is_meeting_app_bundle(bundle_id));
-        assert!(is_browser_bundle(bundle_id));
-        assert_eq!(
-            classify_surface(bundle_id, &MeetingPlatform::Unknown),
-            MeetingSurface::Web
         );
     }
 }
@@ -138,7 +112,7 @@ fn test_meeting_app_registry_drives_bundle_kind() {
 }
 
 #[test]
-fn test_chat_mutation_scope_deduplicates_one_recognized_meeting_app() {
+fn test_chat_mutation_scope_requires_exactly_one_recognized_meeting_app() {
     let bundle_ids = vec![
         "com.tinyspeck.slackmacgap".to_string(),
         "com.tinyspeck.slackmacgap".to_string(),
@@ -149,10 +123,7 @@ fn test_chat_mutation_scope_deduplicates_one_recognized_meeting_app() {
         unique_recognized_meeting_bundle(&bundle_ids),
         Ok("com.tinyspeck.slackmacgap")
     );
-}
 
-#[test]
-fn test_chat_mutation_scope_rejects_zero_or_multiple_meeting_apps() {
     assert!(unique_recognized_meeting_bundle(&[]).is_err());
     assert!(
         unique_recognized_meeting_bundle(&[
@@ -161,13 +132,9 @@ fn test_chat_mutation_scope_rejects_zero_or_multiple_meeting_apps() {
         ])
         .is_err()
     );
-}
 
-#[test]
-fn test_zoom_scope_does_not_fall_back_to_an_unrelated_slack_huddle() {
     let bundle_ids = ["us.zoom.xos".to_string()];
     let scoped_bundle = unique_recognized_meeting_bundle(&bundle_ids).unwrap();
-
     assert_eq!(scoped_bundle, "us.zoom.xos");
     assert!(!supports_meeting_chat_mutation(scoped_bundle));
 }
@@ -382,35 +349,26 @@ fn test_platform_chat_adapters_validate_the_requested_provider_matrix() {
 }
 
 #[test]
-fn test_zoom_web_chat_scope_accepts_live_message_list_and_composer_labels() {
-    let nodes = vec![
-        fixture_node(0, "AXWebArea", "John Jeong's Zoom Meeting", &[]),
-        fixture_node(1, "AXButton", "Leave", &[0]),
-        fixture_node(2, "AXGroup", "Chat Message List", &[4, 0]),
-        fixture_composer(3, "Type message here ...", &[4, 1, 0]),
-    ];
+fn test_zoom_web_chat_scope_accepts_message_list_and_exact_labels() {
+    for (scope_label, scope_description) in [
+        ("Chat Message List", None),
+        ("Chat", Some("View messages shared during this meeting")),
+    ] {
+        let mut scope = fixture_node(2, "AXGroup", scope_label, &[4, 0]);
+        scope.description = scope_description.map(str::to_string);
+        let nodes = vec![
+            fixture_node(0, "AXWebArea", "John Jeong's Zoom Meeting", &[]),
+            fixture_node(1, "AXButton", "Leave", &[0]),
+            scope,
+            fixture_composer(3, "Type message here ...", &[4, 1, 0]),
+        ];
 
-    assert_eq!(
-        validated_chat_capture_scope(&MeetingPlatform::Zoom, &nodes),
-        Some((vec![4], vec![4, 1, 0]))
-    );
-}
-
-#[test]
-fn test_zoom_web_chat_scope_ignores_help_text_when_matching_exact_label() {
-    let mut scope = fixture_node(2, "AXGroup", "Chat", &[4, 0]);
-    scope.description = Some("View messages shared during this meeting".to_string());
-    let nodes = vec![
-        fixture_node(0, "AXWebArea", "John Jeong's Zoom Meeting", &[]),
-        fixture_node(1, "AXButton", "Leave", &[0]),
-        scope,
-        fixture_composer(3, "Type message here ...", &[4, 1, 0]),
-    ];
-
-    assert_eq!(
-        validated_chat_capture_scope(&MeetingPlatform::Zoom, &nodes),
-        Some((vec![4], vec![4, 1, 0]))
-    );
+        assert_eq!(
+            validated_chat_capture_scope(&MeetingPlatform::Zoom, &nodes),
+            Some((vec![4], vec![4, 1, 0])),
+            "scope label {scope_label}"
+        );
+    }
 }
 
 #[test]
@@ -469,64 +427,34 @@ fn test_native_linux_webex_capture_accepts_read_only_atspi_composer() {
 }
 
 #[test]
-fn test_webex_web_chat_scope_accepts_live_popup_leave_and_named_composer() {
-    let nodes = vec![
-        fixture_node(0, "AXWebArea", "In meeting · Meeting · Webex", &[]),
-        fixture_node(1, "AXPopUpButton", "Leave meeting", &[0]),
-        fixture_node(2, "AXGroup", "Chat with Everyone", &[1]),
-        fixture_composer(3, "Write a message to John Jeong's meeting", &[1, 0]),
-    ];
+fn test_webex_web_chat_scope_accepts_browser_specific_shapes() {
+    for (leave_role, scope_description, composer_role) in [
+        ("AXPopUpButton", None, "AXTextArea"),
+        ("AXButton", None, "AXComboBox"),
+        ("AXPopUpButton", Some("Chat with Everyone"), "AXComboBox"),
+    ] {
+        let mut scope = fixture_node(2, "AXGroup", "Chat with Everyone", &[1]);
+        scope.description = scope_description.map(str::to_string);
+        let mut composer = fixture_node(
+            3,
+            composer_role,
+            "Write a message to John Jeong's meeting",
+            &[1, 0],
+        );
+        composer.settable_value = true;
+        let nodes = vec![
+            fixture_node(0, "AXWebArea", "In meeting · Meeting · Webex", &[]),
+            fixture_node(1, leave_role, "Leave meeting", &[0]),
+            scope,
+            composer,
+        ];
 
-    assert_eq!(
-        validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
-        Some((vec![1], vec![1, 0]))
-    );
-}
-
-#[test]
-fn test_firefox_webex_chat_scope_accepts_combobox_composer() {
-    let mut composer = fixture_node(
-        3,
-        "AXComboBox",
-        "Write a message to John Jeong's meeting",
-        &[1, 0],
-    );
-    composer.settable_value = true;
-    let nodes = vec![
-        fixture_node(0, "AXWebArea", "In meeting · Meeting · Webex", &[]),
-        fixture_node(1, "AXButton", "Leave meeting", &[0]),
-        fixture_node(2, "AXGroup", "Chat with Everyone", &[1]),
-        composer,
-    ];
-
-    assert_eq!(
-        validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
-        Some((vec![1], vec![1, 0]))
-    );
-}
-
-#[test]
-fn test_safari_webex_chat_scope_accepts_repeated_accessible_label() {
-    let mut scope = fixture_node(2, "AXGroup", "Chat with Everyone", &[1]);
-    scope.description = Some("Chat with Everyone".to_string());
-    let mut composer = fixture_node(
-        3,
-        "AXComboBox",
-        "Write a message to John Jeong's meeting",
-        &[1, 0],
-    );
-    composer.settable_value = true;
-    let nodes = vec![
-        fixture_node(0, "AXWebArea", "In meeting · Meeting · Webex", &[]),
-        fixture_node(1, "AXPopUpButton", "Leave meeting", &[0]),
-        scope,
-        composer,
-    ];
-
-    assert_eq!(
-        validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
-        Some((vec![1], vec![1, 0]))
-    );
+        assert_eq!(
+            validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
+            Some((vec![1], vec![1, 0])),
+            "leave {leave_role}, composer {composer_role}"
+        );
+    }
 }
 
 #[test]

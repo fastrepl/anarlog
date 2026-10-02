@@ -72,35 +72,22 @@ describe("PlanGate", () => {
     expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
   });
 
-  it("toasts for Team without opening Pro checkout", () => {
-    render(
-      <PlanGate plan="team" allowed={false}>
-        <button type="button">Create workspace</button>
-      </PlanGate>,
-    );
+  it.each([
+    ["team", "Create workspace", "This requires Anarlog Team"],
+    ["enterprise", "Require SSO", "This requires Anarlog Enterprise"],
+  ] as const)(
+    "toasts for %s without opening Pro checkout",
+    (plan, label, message) => {
+      render(
+        <PlanGate plan={plan} allowed={false}>
+          <button type="button">{label}</button>
+        </PlanGate>,
+      );
 
-    fireEvent.click(screen.getByRole("button", { name: "Create workspace" }));
+      fireEvent.click(screen.getByRole("button", { name: label }));
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Team",
-      {},
-    );
-    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-  });
-
-  it("toasts for Enterprise without opening Pro checkout", () => {
-    render(
-      <PlanGate plan="enterprise" allowed={false}>
-        <button type="button">Require SSO</button>
-      </PlanGate>,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Require SSO" }));
-
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Enterprise",
-      {},
-    );
-    expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
-  });
+      expect(mocks.toastWarning).toHaveBeenCalledWith(message, {});
+      expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
+    },
+  );
 });

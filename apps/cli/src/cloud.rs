@@ -269,6 +269,7 @@ mod tests {
             .list_meetings(ListMeetingsInput {
                 query: Some("planning".to_string()),
                 series_id: None,
+                folder_path: None,
                 limit: Some(10),
                 offset: Some(20),
             })

@@ -314,22 +314,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn completed_issue_run_is_not_repeated_automatically() {
-        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
-        anlg_db_app::prepare_schema(&db).await.unwrap();
-
-        assert!(legacy_import_attempt_required(db.pool()).await.unwrap());
-        assert_eq!(
-            finish_issue_run(db.pool(), "issue-run", "partial", 1, 0).await,
-            "completed_with_issues"
-        );
-
-        assert!(!legacy_import_attempt_required(db.pool()).await.unwrap());
-        assert!(!legacy_migration_verified(db.pool()).await.unwrap());
-        assert!(!legacy_migration_ready(db.pool()).await.unwrap());
-    }
-
-    #[tokio::test]
     async fn failed_source_scan_is_left_for_explicit_retry() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();
@@ -552,12 +536,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn skipped_and_error_imports_remain_unverified_for_explicit_retry() {
+    async fn skipped_and_error_imports_are_not_repeated_and_remain_unverified() {
         for (run_id, item_status, skipped_count) in
             [("skipped-run", "partial", 1), ("error-run", "error", 0)]
         {
             let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
             anlg_db_app::prepare_schema(&db).await.unwrap();
+            assert!(legacy_import_attempt_required(db.pool()).await.unwrap());
 
             assert_eq!(
                 finish_issue_run(db.pool(), run_id, item_status, skipped_count, 0).await,

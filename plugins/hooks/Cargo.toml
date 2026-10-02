@@ -12,7 +12,6 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt"] }
 
 anlg-docs = { workspace = true }
 
@@ -20,12 +19,9 @@ anlg-docs = { workspace = true }
 anlg-hooks = { workspace = true }
 
 serde = { workspace = true }
+serde_yaml = { workspace = true }
 specta = { workspace = true }
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-settings = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
-
-serde_json = { workspace = true }
-serde_yaml = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["process", "time"] }

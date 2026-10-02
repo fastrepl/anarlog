@@ -157,18 +157,101 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::GgufExt;
+    use super::{ChatTemplate, Error, GgufExt, LlamaCppRegistry};
+    use std::io::Write;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    fn write_string(buf: &mut Vec<u8>, s: &str) {
+        buf.extend_from_slice(&(s.len() as u64).to_le_bytes());
+        buf.extend_from_slice(s.as_bytes());
+    }
+
+    fn write_kv_u32(buf: &mut Vec<u8>, key: &str, value: u32) {
+        write_string(buf, key);
+        buf.extend_from_slice(&4u32.to_le_bytes());
+        buf.extend_from_slice(&value.to_le_bytes());
+    }
+
+    fn write_kv_string(buf: &mut Vec<u8>, key: &str, value: &str) {
+        write_string(buf, key);
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        write_string(buf, value);
+    }
+
+    fn write_gguf(kvs: impl FnOnce(&mut Vec<u8>), kv_count: u64) -> PathBuf {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "gguf-test-{}-{}-{}.gguf",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed),
+            nanos
+        ));
+
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&0x46554747u32.to_le_bytes());
+        buf.extend_from_slice(&3u32.to_le_bytes());
+        buf.extend_from_slice(&0u64.to_le_bytes());
+        buf.extend_from_slice(&kv_count.to_le_bytes());
+        kvs(&mut buf);
+
+        std::fs::File::create(&path)
+            .unwrap()
+            .write_all(&buf)
+            .unwrap();
+        path
+    }
 
     #[test]
-    #[ignore]
-    fn test_chat_format() {
-        let test_path = dirs::data_dir()
-            .unwrap()
-            .join("anarlog")
-            .join("models/llm/hypr-llm.gguf");
+    fn reads_model_name_and_explicit_chat_template() {
+        let path = write_gguf(
+            |buf| {
+                write_kv_u32(buf, "general.alignment", 32);
+                write_kv_string(buf, "general.architecture", "llama");
+                write_kv_string(buf, "general.name", "Test Model");
+                write_kv_string(buf, "tokenizer.chat_template", "{{ messages }}");
+            },
+            4,
+        );
 
-        assert!(test_path.exists());
-        println!("{:?}", test_path.chat_format().unwrap().unwrap());
-        println!("{:?}", test_path.model_name().unwrap().unwrap());
+        assert_eq!(path.model_name().unwrap(), Some("Test Model".to_string()));
+        match path.chat_format().unwrap() {
+            Some(ChatTemplate::TemplateValue(template)) => {
+                assert_eq!(template, "{{ messages }}")
+            }
+            other => panic!("expected explicit template, got {other:?}"),
+        }
+
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn infers_chat_template_from_architecture_and_rejects_bad_magic() {
+        let path = write_gguf(
+            |buf| {
+                write_kv_string(buf, "general.architecture", "gemma3");
+            },
+            1,
+        );
+
+        assert_eq!(path.model_name().unwrap(), None);
+        match path.chat_format().unwrap() {
+            Some(ChatTemplate::TemplateKey(LlamaCppRegistry::Gemma)) => {}
+            other => panic!("expected gemma template key, got {other:?}"),
+        }
+        std::fs::remove_file(&path).unwrap();
+
+        let bad_path =
+            std::env::temp_dir().join(format!("gguf-test-bad-{}.gguf", std::process::id()));
+        std::fs::File::create(&bad_path)
+            .unwrap()
+            .write_all(&[0xDE, 0xAD, 0xBE, 0xEF, 0x03, 0x00, 0x00, 0x00])
+            .unwrap();
+        assert!(matches!(bad_path.model_name(), Err(Error::InvalidMagic)));
+        std::fs::remove_file(&bad_path).unwrap();
     }
 }

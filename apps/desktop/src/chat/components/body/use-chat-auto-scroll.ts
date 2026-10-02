@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 const AUTO_SCROLL_BOTTOM_THRESHOLD = 24;
 const PINNED_BOTTOM_THRESHOLD = 1;

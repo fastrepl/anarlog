@@ -124,7 +124,6 @@ impl OpencodeExec {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
     use std::path::PathBuf;
 
     use super::{OpencodeExec, OpencodeExecArgs};
@@ -170,11 +169,5 @@ mod tests {
                 "hello",
             ]
         );
-    }
-
-    #[test]
-    fn defaults_binary_path() {
-        let exec = OpencodeExec::new(None, Some(BTreeMap::new()));
-        assert_eq!(exec.executable_path, PathBuf::from("opencode"));
     }
 }

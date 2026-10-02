@@ -24,38 +24,13 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn sorts_top_level_keys_alphabetically() {
-        let input = json!({"zebra": 1, "apple": 2, "mango": 3});
+    fn serialize_sorts_keys_recursively_and_preserves_values() {
+        let input = json!({"z": {"b": 1, "a": [{"d": true, "c": null}]}, "m": "s", "a": 4.5});
         let result = serialize(input).unwrap();
 
-        assert!(result.find("apple").unwrap() < result.find("mango").unwrap());
-        assert!(result.find("mango").unwrap() < result.find("zebra").unwrap());
-    }
-
-    #[test]
-    fn sorts_nested_object_keys() {
-        let input = json!({"outer": {"z": 1, "a": 2}});
-        let result = serialize(input).unwrap();
-
-        assert!(result.find("\"a\"").unwrap() < result.find("\"z\"").unwrap());
-    }
-
-    #[test]
-    fn sorts_keys_in_array_objects() {
-        let input = json!([{"b": 1, "a": 2}]);
-        let result = serialize(input).unwrap();
-
-        assert!(result.find("\"a\"").unwrap() < result.find("\"b\"").unwrap());
-    }
-
-    #[test]
-    fn preserves_primitive_values() {
-        let input = json!({"str": "hello", "num": 42, "bool": true, "null": null});
-        let result = serialize(input).unwrap();
-
-        assert!(result.contains("\"hello\""));
-        assert!(result.contains("42"));
-        assert!(result.contains("true"));
-        assert!(result.contains("null"));
+        assert_eq!(
+            result,
+            "{\n  \"a\": 4.5,\n  \"m\": \"s\",\n  \"z\": {\n    \"a\": [\n      {\n        \"c\": null,\n        \"d\": true\n      }\n    ],\n    \"b\": 1\n  }\n}"
+        );
     }
 }

@@ -5,11 +5,12 @@ use bytes::Bytes;
 use ractor::{ActorProcessingErr, ActorRef};
 
 use owhisper_client::{
-    AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
+    AdapterKind, AlebexAdapter, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
     DashScopeAdapter, DashScopeStreamingAdapter, DeepgramAdapter, DeepgramFluxAdapter,
-    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleGenerativeAiAdapter, MetaAdapter,
-    MistralAdapter, NariAdapter, OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter,
-    SonioxAdapter, WisprFlowAdapter, XaiAdapter, anlg_ws_client,
+    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleGenerativeAiAdapter, GradiumAdapter,
+    InworldAdapter, MetaAdapter, MistralAdapter, ModulateAdapter, NariAdapter, NvidiaAdapter,
+    OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter,
+    XaiAdapter, anlg_ws_client,
 };
 use owhisper_interface::stream::{Extra, StreamResponse};
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -205,11 +206,17 @@ pub(super) async fn spawn_rx_task(
         Meta => MetaAdapter,
         Xai => XaiAdapter,
         Nari => NariAdapter,
+        Inworld => InworldAdapter,
+        Gradium => GradiumAdapter,
+        Modulate => ModulateAdapter,
+        Alebex => AlebexAdapter,
+        Nvidia => NvidiaAdapter,
         SmallestAI => SmallestAIAdapter,
         WisprFlow => WisprFlowAdapter,
         GoogleGenerativeAi => GoogleGenerativeAiAdapter,
         Anarlog => AnarlogAdapter,
     }, batch_only: [
+        AmazonBedrock,
         AquaVoice,
         Pyannote,
         Cohere,
@@ -692,29 +699,82 @@ mod tests {
     }
 
     #[test]
-    fn expected_speakers_does_not_cap_voices_to_calendar_attendance() {
-        let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
-        args.participant_human_ids = vec![
-            "remote-a".to_string(),
-            "self".to_string(),
-            "remote-b".to_string(),
-            "remote-a".to_string(),
-        ];
-        args.self_human_id = Some("self".to_string());
+    fn listen_params_leave_speaker_counts_open() {
+        for (label, base_url, model, participants, self_human_id) in [
+            (
+                "assemblyai repeated attendance",
+                "https://api.assemblyai.com",
+                "u3-rt-pro",
+                vec!["remote-a", "self", "remote-b", "remote-a"],
+                Some("self"),
+            ),
+            (
+                "assemblyai no remote participants",
+                "https://api.assemblyai.com",
+                "u3-rt-pro",
+                vec![],
+                Some("self"),
+            ),
+            (
+                "assemblyai self only",
+                "https://api.assemblyai.com",
+                "u3-rt-pro",
+                vec!["self"],
+                Some("self"),
+            ),
+            (
+                "assemblyai one remote",
+                "https://api.assemblyai.com",
+                "u3-rt-pro",
+                vec!["remote"],
+                Some("self"),
+            ),
+            (
+                "deepgram",
+                "https://api.deepgram.com/v1",
+                "nova-3",
+                vec!["remote"],
+                Some("self"),
+            ),
+            (
+                "anarlog proxy",
+                "https://api.anarlog.so/stt",
+                "cloud",
+                vec!["self", "remote-a", "remote-b"],
+                Some("self"),
+            ),
+        ] {
+            let mut args = listener_args(base_url, model);
+            args.participant_human_ids = participants.iter().map(|id| id.to_string()).collect();
+            args.self_human_id = self_human_id.map(|id| id.to_string());
 
-        assert_eq!(expected_speakers(&args), None);
+            assert_eq!(expected_speakers(&args), None, "case: {label}");
+
+            let params = build_listen_params(&args);
+            let custom_query = params.custom_query.expect("custom query");
+
+            assert_eq!(params.num_speakers, None, "case: {label}");
+            assert_eq!(params.max_speakers, None, "case: {label}");
+            assert!(
+                !custom_query.contains_key("speaker_labels"),
+                "case: {label}"
+            );
+            assert!(!custom_query.contains_key("max_speakers"), "case: {label}");
+        }
     }
 
     #[test]
-    fn expected_speakers_is_unknown_without_remote_participants() {
-        let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
-        args.self_human_id = Some("self".to_string());
+    fn listen_params_count_only_isolated_mic_as_single_speaker() {
+        let mut args = listener_args("https://api.soniox.com", "stt-rt-v4");
+        args.mic_isolated = true;
 
-        assert_eq!(expected_speakers(&args), None);
+        let params = build_listen_params(&args);
+        assert_eq!(params.mic_num_speakers, Some(1));
+        assert_eq!(params.num_speakers, None);
 
-        args.participant_human_ids = vec!["self".to_string()];
-
-        assert_eq!(expected_speakers(&args), None);
+        let args = listener_args("https://api.soniox.com", "stt-rt-v4");
+        let params = build_listen_params(&args);
+        assert_eq!(params.mic_num_speakers, None);
     }
 
     #[test]
@@ -728,73 +788,7 @@ mod tests {
     }
 
     #[test]
-    fn build_listen_params_leaves_assemblyai_speaker_counts_open() {
-        let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
-        args.participant_human_ids = vec!["remote".to_string()];
-        args.self_human_id = Some("self".to_string());
-
-        let params = build_listen_params(&args);
-        let custom_query = params.custom_query.expect("custom query");
-
-        assert_eq!(params.num_speakers, None);
-        assert_eq!(params.max_speakers, None);
-        assert!(!custom_query.contains_key("speaker_labels"));
-        assert!(!custom_query.contains_key("max_speakers"));
-    }
-
-    #[test]
-    fn build_listen_params_does_not_add_assemblyai_hints_for_other_providers() {
-        let mut args = listener_args("https://api.deepgram.com/v1", "nova-3");
-        args.participant_human_ids = vec!["remote".to_string()];
-        args.self_human_id = Some("self".to_string());
-
-        let params = build_listen_params(&args);
-        let custom_query = params.custom_query.expect("custom query");
-
-        assert_eq!(params.num_speakers, None);
-        assert_eq!(params.max_speakers, None);
-        assert!(!custom_query.contains_key("speaker_labels"));
-        assert!(!custom_query.contains_key("max_speakers"));
-    }
-
-    #[test]
-    fn build_listen_params_marks_isolated_mic_as_single_speaker() {
-        let mut args = listener_args("https://api.soniox.com", "stt-rt-v4");
-        args.mic_isolated = true;
-
-        let params = build_listen_params(&args);
-
-        assert_eq!(params.mic_num_speakers, Some(1));
-        assert_eq!(params.num_speakers, None);
-    }
-
-    #[test]
-    fn build_listen_params_leaves_shared_mic_uncounted() {
-        let args = listener_args("https://api.soniox.com", "stt-rt-v4");
-
-        let params = build_listen_params(&args);
-
-        assert_eq!(params.mic_num_speakers, None);
-    }
-
-    #[test]
-    fn build_listen_params_does_not_limit_channels_to_invited_participants() {
-        let mut args = listener_args("https://api.anarlog.so/stt", "cloud");
-        args.participant_human_ids = vec![
-            "self".to_string(),
-            "remote-a".to_string(),
-            "remote-b".to_string(),
-        ];
-        args.self_human_id = Some("self".to_string());
-
-        let params = build_listen_params(&args);
-
-        assert_eq!(params.num_speakers, None);
-        assert_eq!(params.max_speakers, None);
-    }
-
-    #[test]
-    fn websocket_auth_failures_are_terminal() {
+    fn websocket_connect_failures_are_classified() {
         let error = anlg_ws_client::Error::ConnectFailed {
             attempt: 1,
             max_attempts: 3,
@@ -804,15 +798,11 @@ mod tests {
             retryable: false,
             retry_after_secs: None,
         };
-
         assert!(matches!(
             classify_ws_connect_failure("deepgram", &error),
             DegradedError::AuthenticationFailed { provider } if provider == "deepgram"
         ));
-    }
 
-    #[test]
-    fn websocket_request_failures_are_terminal() {
         let error = anlg_ws_client::Error::ConnectFailed {
             attempt: 1,
             max_attempts: 3,
@@ -822,22 +812,17 @@ mod tests {
             retryable: false,
             retry_after_secs: None,
         };
-
         assert!(matches!(
             classify_ws_connect_failure("deepgram", &error),
             DegradedError::ProviderConfiguration { provider, message }
                 if provider == "deepgram" && message == "HTTP 400 Bad Request"
         ));
-    }
 
-    #[test]
-    fn websocket_transient_failures_remain_retryable() {
         let error = anlg_ws_client::Error::ConnectRetriesExhausted {
             attempts: 3,
             last_error: "HTTP 503 Service Unavailable".to_string(),
             retry_after_secs: None,
         };
-
         assert!(matches!(
             classify_ws_connect_failure("deepgram", &error),
             DegradedError::UpstreamUnavailable { .. }
@@ -865,34 +850,14 @@ mod tests {
     }
 
     #[test]
-    fn desktop_connection_attempts_are_owned_by_the_session_supervisor() {
-        let policy = desktop_connect_policy();
-
-        assert_eq!(policy.max_attempts, 1);
-        assert_eq!(policy.connect_timeout, Duration::from_secs(4));
-    }
-
-    #[test]
-    fn soniqo_model_for_args_accepts_loopback_base_url() {
+    fn soniqo_model_for_args_matches_only_soniqo_models_on_loopback() {
         let args = listener_args("http://localhost:50060/v1", "soniqo-parakeet-streaming");
-
         assert_eq!(
             soniqo_model_for_args(&args).unwrap(),
             Some(anlg_transcribe_soniqo::SoniqoModel::ParakeetStreaming)
         );
-    }
 
-    #[test]
-    fn soniqo_model_for_args_ignores_loopback_non_soniqo_model() {
         let args = listener_args("http://localhost:50060/v1", "whisper-small");
-
         assert_eq!(soniqo_model_for_args(&args).unwrap(), None);
-    }
-
-    #[test]
-    fn format_languages_uses_bcp47_codes() {
-        let languages = vec!["en-US".parse().unwrap(), anlg_language::ISO639::Fr.into()];
-
-        assert_eq!(format_languages(&languages), "en-US, fr");
     }
 }

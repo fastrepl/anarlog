@@ -14,7 +14,6 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 import {
-  COMPLETION_SOUND_NAMES,
   normalizeCompletionSoundName,
   playCompletionSound,
   previewCompletionSound,
@@ -33,30 +32,15 @@ describe("completion sounds", () => {
     mocks.getStoredSettingValues.mockResolvedValue(stored());
   });
 
-  it("offers the five curated completion sounds", () => {
-    expect(COMPLETION_SOUND_NAMES).toEqual([
-      "ready",
-      "success",
-      "chime",
-      "sparkle",
-      "bloom",
-    ]);
-  });
-
-  it("uses Ready by default", async () => {
-    await playCompletionSound();
-
-    expect(mocks.play).toHaveBeenCalledWith("ready", { volume: 0.7 });
-  });
-
-  it("plays the selected completion sound", async () => {
-    mocks.getStoredSettingValues.mockResolvedValue(
-      stored({ notification_completion_sound_name: "sparkle" }),
-    );
+  it.each([
+    [{}, "ready"],
+    [{ notification_completion_sound_name: "sparkle" }, "sparkle"],
+  ])("plays the configured completion sound", async (values, expected) => {
+    mocks.getStoredSettingValues.mockResolvedValue(stored(values));
 
     await playCompletionSound();
 
-    expect(mocks.play).toHaveBeenCalledWith("sparkle", { volume: 0.7 });
+    expect(mocks.play).toHaveBeenCalledWith(expected, { volume: 0.7 });
   });
 
   it("falls back to Ready for an unknown stored sound", () => {

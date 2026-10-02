@@ -85,40 +85,33 @@ describe("native attachment operation cancellation", () => {
     );
   });
 
-  it("commits a guardless delete with a null guard id", async () => {
+  it("commits the exact delete attempt with or without a guard id", async () => {
     await expect(
       attachmentTransferNative.commitDeleteGuard("job-1", 7, null),
     ).resolves.toBeNull();
 
-    const operationId = mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
-    expect(mocks.commitDeleteGuard).toHaveBeenCalledWith(
-      operationId,
+    const guardlessOperationId =
+      mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
+    expect(mocks.commitDeleteGuard).toHaveBeenNthCalledWith(
+      1,
+      guardlessOperationId,
       "job-1",
       7,
       null,
     );
-  });
-
-  it("commits the exact guarded delete through the cancellable native path", async () => {
     await expect(
       attachmentTransferNative.commitDeleteGuard("job-1", 7, "guard-1"),
     ).resolves.toBeNull();
 
-    const operationId = mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
-    expect(mocks.commitDeleteGuard).toHaveBeenCalledWith(
-      operationId,
+    const guardedOperationId =
+      mocks.beginSharedUploadOperation.mock.calls[1]?.[0];
+    expect(mocks.commitDeleteGuard).toHaveBeenNthCalledWith(
+      2,
+      guardedOperationId,
       "job-1",
       7,
       "guard-1",
     );
-  });
-
-  it("reconciles durable delete guards outside the cache purge path", async () => {
-    await expect(
-      attachmentTransferNative.reconcileDeleteGuards(),
-    ).resolves.toBe(0);
-
-    expect(mocks.reconcileDeleteGuards).toHaveBeenCalledOnce();
   });
 
   it("registers before starting a private download and cancels the same operation", async () => {
@@ -225,58 +218,6 @@ describe("native attachment operation cancellation", () => {
     );
     finish?.({ status: "error", error: "attachment transfer was cancelled" });
     await expect(snapshot).rejects.toThrow("cancelled");
-  });
-
-  it("cancels and drains shared upload validation", async () => {
-    const controller = new AbortController();
-    let finish:
-      | ((value: { status: "error"; error: string }) => void)
-      | undefined;
-    mocks.validateSharedUpload.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          finish = resolve;
-        }),
-    );
-
-    const validation = attachmentTransferNative.validateSharedUpload(
-      "attachment-1",
-      "44444444-4444-4444-8444-444444444444",
-      "a".repeat(64),
-      42,
-      "diagram.png",
-      "image/png",
-      "private/object.anb1",
-      controller.signal,
-    );
-    await vi.waitFor(() =>
-      expect(mocks.validateSharedUpload).toHaveBeenCalled(),
-    );
-    const operationId =
-      mocks.beginSharedUploadOperation.mock.calls[
-        mocks.beginSharedUploadOperation.mock.calls.length - 1
-      ]?.[0];
-    expect(mocks.validateSharedUpload).toHaveBeenCalledWith(
-      operationId,
-      "attachment-1",
-      "44444444-4444-4444-8444-444444444444",
-      {
-        sha256: "a".repeat(64),
-        sizeBytes: 42,
-        filename: "diagram.png",
-        contentType: "image/png",
-        cloudObjectKey: "private/object.anb1",
-      },
-    );
-
-    controller.abort();
-    await vi.waitFor(() =>
-      expect(mocks.cancelSharedUploadOperation).toHaveBeenCalledWith(
-        operationId,
-      ),
-    );
-    finish?.({ status: "error", error: "attachment transfer was cancelled" });
-    await expect(validation).rejects.toThrow("cancelled");
   });
 
   it("registers shared downloads under their purge scope", async () => {

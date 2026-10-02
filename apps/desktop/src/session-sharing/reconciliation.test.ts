@@ -171,6 +171,41 @@ function stateRow(input: {
   };
 }
 
+async function seedAcknowledgedBaseline(
+  overrides: {
+    title?: string;
+    body?: JSONContent;
+    revision?: number;
+    status?: "clean" | "conflict";
+  } = {},
+) {
+  const title = overrides.title ?? "Base title";
+  const body = overrides.body ?? baseBody;
+  const hash = await hashSessionShareProjection({ title, body });
+  mocks.liveQueryExecute.mockResolvedValue([
+    stateRow({
+      revision: overrides.revision ?? 1,
+      hash,
+      status: overrides.status,
+    }),
+  ]);
+  return hash;
+}
+
+function remoteSnapshot(overrides: Partial<SharedNoteSnapshot> = {}) {
+  return snapshot({
+    contentRevision: 2,
+    title: "Remote title",
+    body: remoteBody,
+    webEditBase: {
+      contentRevision: 1,
+      title: "Base title",
+      body: baseBody,
+    },
+    ...overrides,
+  });
+}
+
 describe("session share reconciliation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -257,13 +292,7 @@ describe("session share reconciliation", () => {
   });
 
   it("keeps an unchanged acknowledged snapshot idle", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
+    await seedAcknowledgedBaseline();
 
     await expect(
       reconcileManagedSessionShareSnapshot({
@@ -281,16 +310,7 @@ describe("session share reconciliation", () => {
     await expect(
       reconcileManagedSessionShareSnapshot({
         viewerUserId: VIEWER_ID,
-        snapshot: snapshot({
-          contentRevision: 2,
-          title: "Remote title",
-          body: remoteBody,
-          webEditBase: {
-            contentRevision: 1,
-            title: "Base title",
-            body: baseBody,
-          },
-        }),
+        snapshot: remoteSnapshot(),
         acknowledge,
         isSessionEditorActive,
       }),
@@ -313,46 +333,8 @@ describe("session share reconciliation", () => {
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
   });
 
-  it("defers a pending editor write before its 500ms persistence debounce", async () => {
-    vi.useFakeTimers();
-    const persistPendingChange = vi.fn();
-    const acknowledge = vi.fn(async () => {});
-    const isSessionEditorActive = vi.fn(async () => true);
-    setTimeout(persistPendingChange, 500);
-
-    await vi.advanceTimersByTimeAsync(499);
-    await expect(
-      reconcileManagedSessionShareSnapshot({
-        viewerUserId: VIEWER_ID,
-        snapshot: snapshot({
-          contentRevision: 2,
-          title: "Remote title",
-          body: remoteBody,
-          webEditBase: {
-            contentRevision: 1,
-            title: "Base title",
-            body: baseBody,
-          },
-        }),
-        acknowledge,
-        isSessionEditorActive,
-      }),
-    ).resolves.toBe("deferred");
-
-    expect(persistPendingChange).not.toHaveBeenCalled();
-    expect(mocks.executeTransaction).not.toHaveBeenCalled();
-    expect(acknowledge).not.toHaveBeenCalled();
-    vi.useRealTimers();
-  });
-
   it("holds the activation interlock across the native import transaction", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
+    await seedAcknowledgedBaseline();
     const acknowledge = vi.fn(async () => {});
     const isSessionEditorActive = vi.fn(async () => false);
     let importLocked = false;
@@ -371,16 +353,7 @@ describe("session share reconciliation", () => {
     await expect(
       reconcileManagedSessionShareSnapshot({
         viewerUserId: VIEWER_ID,
-        snapshot: snapshot({
-          contentRevision: 2,
-          title: "Remote title",
-          body: remoteBody,
-          webEditBase: {
-            contentRevision: 1,
-            title: "Base title",
-            body: baseBody,
-          },
-        }),
+        snapshot: remoteSnapshot(),
         acknowledge,
         isSessionEditorActive,
         acquireSessionImportLock,
@@ -394,13 +367,7 @@ describe("session share reconciliation", () => {
   });
 
   it("cancels an import while its database write is still queued", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
+    await seedAcknowledgedBaseline();
     let runQueuedWrite: (() => void) | undefined;
     mocks.enqueueDatabaseWrite.mockImplementationOnce(
       (_key, write) =>
@@ -414,11 +381,7 @@ describe("session share reconciliation", () => {
     const acknowledge = vi.fn(async () => {});
     const reconciliation = reconcileManagedSessionShareSnapshot({
       viewerUserId: VIEWER_ID,
-      snapshot: snapshot({
-        contentRevision: 2,
-        title: "Remote title",
-        body: remoteBody,
-      }),
+      snapshot: remoteSnapshot({ webEditBase: null }),
       signal: controller.signal,
       acknowledge,
     });
@@ -438,14 +401,8 @@ describe("session share reconciliation", () => {
   });
 
   it("leaves a local-only change pending for the CAS publisher", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
+    await seedAcknowledgedBaseline();
     mocks.loadSource.mockResolvedValue(source("Local title", localBody));
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
 
     await expect(
       reconcileManagedSessionShareSnapshot({
@@ -457,18 +414,12 @@ describe("session share reconciliation", () => {
   });
 
   it("recovers when a newer cloud snapshot already matches local content", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
+    await seedAcknowledgedBaseline();
     const remoteHash = await hashSessionShareProjection({
       title: "Remote title",
       body: remoteBody,
     });
     mocks.loadSource.mockResolvedValue(source("Remote title", remoteBody));
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
 
     await expect(
       reconcileManagedSessionShareSnapshot({
@@ -490,28 +441,13 @@ describe("session share reconciliation", () => {
   });
 
   it("imports a remote-only change with exact local CAS predicates and then acknowledges", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
+    await seedAcknowledgedBaseline();
     const acknowledge = vi.fn(async () => {});
 
     await expect(
       reconcileManagedSessionShareSnapshot({
         viewerUserId: VIEWER_ID,
-        snapshot: snapshot({
-          contentRevision: 2,
-          title: "Remote title",
-          body: remoteBody,
-          webEditBase: {
-            contentRevision: 1,
-            title: "Base title",
-            body: baseBody,
-          },
-        }),
+        snapshot: remoteSnapshot(),
         acknowledge,
       }),
     ).resolves.toBe("imported");
@@ -527,6 +463,13 @@ describe("session share reconciliation", () => {
     expect(statements[1].sql).not.toContain("kind = 'note'");
     expect(statements[1].sql).toContain("AND body = ?");
     expect(statements[1].sql).toContain("AND body_format = ?");
+    expect(statements[2]).toMatchObject({ expectedRowsAffected: 1 });
+    expect(statements[2].sql).toContain(
+      "WHERE session_share_sync_state.acknowledged_content_revision",
+    );
+    expect(statements[2].sql).toContain(
+      "<= excluded.acknowledged_content_revision",
+    );
     expect(statements[2].params).toContain("clean");
     expect(acknowledge).toHaveBeenCalledWith(SHARE_ID, 2);
     expect(mocks.executeTransaction.mock.invocationCallOrder[0]).toBeLessThan(
@@ -535,17 +478,13 @@ describe("session share reconciliation", () => {
   });
 
   it("imports a remote-only edit while preserving its attachment manifest", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
+    await seedAcknowledgedBaseline({
       body: attachedBaseBody,
     });
     mocks.loadSource.mockResolvedValue(
       source("Base title", localAttachedBaseBody),
     );
     mocks.loadAttachments.mockResolvedValue([localAttachment]);
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
 
     await expect(
       reconcileManagedSessionShareSnapshot({
@@ -564,43 +503,9 @@ describe("session share reconciliation", () => {
     expect(nextBody).not.toContain(SHARED_ATTACHMENT_ID);
   });
 
-  it("makes a stale import state write fail closed behind a newer revision", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
-
-    await reconcileManagedSessionShareSnapshot({
-      viewerUserId: VIEWER_ID,
-      snapshot: snapshot({
-        contentRevision: 2,
-        title: "Remote title",
-        body: remoteBody,
-      }),
-    });
-
-    const stateStatement = mocks.executeTransaction.mock.calls[0]![0][2];
-    expect(stateStatement).toMatchObject({ expectedRowsAffected: 1 });
-    expect(stateStatement.sql).toContain(
-      "WHERE session_share_sync_state.acknowledged_content_revision",
-    );
-    expect(stateStatement.sql).toContain(
-      "<= excluded.acknowledged_content_revision",
-    );
-  });
-
   it("marks both-changed content conflicting without overwriting local content", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
+    await seedAcknowledgedBaseline();
     mocks.loadSource.mockResolvedValue(source("Local title", localBody));
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
 
     await expect(
       reconcileManagedSessionShareSnapshot({
@@ -800,13 +705,7 @@ describe("session share reconciliation", () => {
   });
 
   it("rolls back an import race and never acknowledges it", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
+    await seedAcknowledgedBaseline();
     mocks.executeTransaction.mockRejectedValueOnce(
       new Error("unexpected rows affected"),
     );
@@ -827,17 +726,11 @@ describe("session share reconciliation", () => {
   });
 
   it("CAS-updates the exact selected summary document", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
+    await seedAcknowledgedBaseline();
     mocks.loadSource.mockResolvedValue({
       ...source(),
       documentId: "summary-2",
     });
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline }),
-    ]);
 
     await expect(
       reconcileManagedSessionShareSnapshot({
@@ -855,13 +748,7 @@ describe("session share reconciliation", () => {
   });
 
   it("recovers a conflict when the local projection is restored to the baseline", async () => {
-    const baseline = await hashSessionShareProjection({
-      title: "Base title",
-      body: baseBody,
-    });
-    mocks.liveQueryExecute.mockResolvedValue([
-      stateRow({ revision: 1, hash: baseline, status: "conflict" }),
-    ]);
+    await seedAcknowledgedBaseline({ status: "conflict" });
 
     await expect(
       reconcileManagedSessionShareSnapshot({

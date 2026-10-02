@@ -23,24 +23,8 @@ vi.mock("~/sidebar/folder-materials", () => ({
 }));
 
 vi.mock("~/sidebar/timeline", () => ({
-  TimelineView: ({
-    folderFilter = null,
-    showOpenCalendarButton = true,
-    topChipsOverlapHeader = false,
-    topChromeInset = false,
-  }: {
-    folderFilter?: string | null;
-    showOpenCalendarButton?: boolean;
-    topChipsOverlapHeader?: boolean;
-    topChromeInset?: boolean;
-  }) => (
-    <div
-      data-testid="timeline-view"
-      data-folder-filter={folderFilter ?? ""}
-      data-show-open-calendar-button={String(showOpenCalendarButton)}
-      data-top-chips-overlap-header={String(topChipsOverlapHeader)}
-      data-top-chrome-inset={String(topChromeInset)}
-    />
+  TimelineView: ({ folderFilter = null }: { folderFilter?: string | null }) => (
+    <div data-testid="timeline-view" data-folder-filter={folderFilter ?? ""} />
   ),
 }));
 
@@ -84,75 +68,6 @@ describe("LeftSidebar", () => {
     cleanup();
   });
 
-  it("uses the timeline layout without a duplicate sidebar top offset", () => {
-    const { container } = render(<LeftSidebar />);
-
-    expect(screen.getByTestId("timeline-view")).toBeTruthy();
-    expect(
-      screen
-        .getByTestId("timeline-view")
-        .getAttribute("data-show-open-calendar-button"),
-    ).toBe("true");
-    expect(
-      screen.getByTestId("timeline-view").getAttribute("data-top-chrome-inset"),
-    ).toBe("true");
-    expect(
-      screen
-        .getByTestId("timeline-view")
-        .getAttribute("data-top-chips-overlap-header"),
-    ).toBe("false");
-    expect(container.firstElementChild?.className).toContain("pt-0");
-    expect(container.firstElementChild?.className).not.toContain("pr-1");
-  });
-
-  it("renders timeline header as normal sidebar content", () => {
-    render(
-      <LeftSidebar timelineHeader={<div data-testid="timeline-header" />} />,
-    );
-
-    expect(
-      screen
-        .getByTestId("timeline-header")
-        .parentElement?.contains(screen.getByTestId("timeline-view")),
-    ).toBe(true);
-    expect(
-      screen.getByTestId("timeline-view").getAttribute("data-top-chrome-inset"),
-    ).toBe("false");
-    expect(
-      screen
-        .getByTestId("timeline-view")
-        .getAttribute("data-top-chips-overlap-header"),
-    ).toBe("true");
-  });
-
-  it("does not reserve space for title bar actions in the Windows timeline", () => {
-    mocks.platform = "windows";
-    render(<LeftSidebar />);
-
-    const timeline = screen.getByTestId("timeline-view");
-    expect(timeline.getAttribute("data-top-chrome-inset")).toBe("false");
-    expect(timeline.getAttribute("data-top-chips-overlap-header")).toBe(
-      "false",
-    );
-    expect(timeline.getAttribute("data-show-open-calendar-button")).toBe(
-      "true",
-    );
-  });
-
-  it("does not reserve space for title bar actions in the Linux timeline", () => {
-    mocks.platform = "linux";
-    render(<LeftSidebar />);
-
-    const timeline = screen.getByTestId("timeline-view");
-    expect(timeline.getAttribute("data-top-chrome-inset")).toBe("false");
-    expect(timeline.getAttribute("data-top-chips-overlap-header")).toBe(
-      "false",
-    );
-    expect(timeline.getAttribute("data-show-open-calendar-button")).toBe(
-      "true",
-    );
-  });
-
   it("shows received notes without the personal timeline", () => {
     render(<LeftSidebar noteFilter="shared" />);
 
@@ -186,18 +101,12 @@ describe("LeftSidebar", () => {
     ["templates", "templates-nav"],
     ["automations", "automations-nav"],
     ["folders", "folders-nav"],
-  ])(
-    "lets the %s nav place its own header in the chrome row",
-    (type, testId) => {
-      mocks.currentTab = { type };
+  ])("shows the %s nav instead of the timeline", (type, testId) => {
+    mocks.currentTab = { type };
 
-      const { container } = render(<LeftSidebar />);
-      const classList = container.firstElementChild?.className.split(" ") ?? [];
+    render(<LeftSidebar />);
 
-      expect(screen.getByTestId(testId)).toBeTruthy();
-      expect(classList).toContain("pt-0");
-      expect(classList).toContain("pr-1");
-      expect(classList).not.toContain("pt-11");
-    },
-  );
+    expect(screen.getByTestId(testId)).toBeTruthy();
+    expect(screen.queryByTestId("timeline-view")).toBeNull();
+  });
 });

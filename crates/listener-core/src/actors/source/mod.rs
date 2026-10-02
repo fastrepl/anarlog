@@ -603,27 +603,19 @@ mod tests {
     }
 
     #[test]
-    fn output_routing_restart_needs_two_consecutive_flipped_polls() {
+    fn output_routing_restart_is_debounced_across_two_polls() {
         let mut tracker = OutputRoutingTracker::new(true);
 
         assert!(!tracker.observe(true));
         assert!(!tracker.observe(false));
         assert!(tracker.observe(false));
-    }
 
-    #[test]
-    fn output_routing_blip_does_not_restart() {
         let mut tracker = OutputRoutingTracker::new(true);
-
         assert!(!tracker.observe(false));
         assert!(!tracker.observe(true));
         assert!(!tracker.observe(false));
-    }
 
-    #[test]
-    fn output_routing_tracks_the_new_verdict_after_firing() {
         let mut tracker = OutputRoutingTracker::new(true);
-
         assert!(!tracker.observe(false));
         assert!(tracker.observe(false));
         assert!(!tracker.observe(false));
@@ -632,12 +624,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unspecified_mic_uses_capture_provider_default() {
+    async fn source_opens_requested_or_default_mic() {
         assert_source_uses_mic_device(None).await;
-    }
-
-    #[tokio::test]
-    async fn explicit_mic_selection_is_preserved() {
         assert_source_uses_mic_device(Some("external-mic")).await;
     }
 

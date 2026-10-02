@@ -144,20 +144,4 @@ mod test {
         let content = std::fs::read_to_string(OUTPUT_FILE).unwrap();
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
     }
-
-    fn create_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
-        builder
-            .plugin(tauri_plugin_settings::init())
-            .plugin(init())
-            .build(tauri::test::mock_context(tauri::test::noop_assets()))
-            .unwrap()
-    }
-
-    #[test]
-    fn test_auth() {
-        let app = create_app(tauri::test::mock_builder());
-
-        let _ = app.set_item("test_key".to_string(), "test_value".to_string());
-        let _ = app.get_item("test_key".to_string());
-    }
 }

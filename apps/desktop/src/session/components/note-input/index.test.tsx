@@ -144,6 +144,10 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
+vi.mock("~/stt/saved-capture-audio", () => ({
+  SavedCaptureAudioPrompt: () => null,
+}));
+
 vi.mock("react-hotkeys-hook", () => ({
   useHotkeys: (keys: string, callback: () => void) => {
     hoisted.hotkeys.push({ keys, callback });
@@ -239,7 +243,10 @@ describe("NoteInput tab selection", () => {
     expect(screen.getByTestId("current-tab").textContent).toBe("raw");
   });
 
-  it("switches to the next note view with Command+Option+Right", () => {
+  it.each([
+    ["mod+alt+right", { type: "transcript" }],
+    ["mod+alt+left", { type: "enhanced", id: "summary-1" }],
+  ])("switches note views with %s", (keys, expected) => {
     hoisted.editorTabs = [
       { type: "enhanced", id: "summary-1" },
       { type: "raw" },
@@ -247,30 +254,9 @@ describe("NoteInput tab selection", () => {
     ];
     const { handleTabChange } = renderNoteInput();
 
-    hoisted.hotkeys
-      .find((hotkey) => hotkey.keys === "mod+alt+right")
-      ?.callback();
+    hoisted.hotkeys.find((hotkey) => hotkey.keys === keys)?.callback();
 
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-    expect(hoisted.onBeforeTabChange).toHaveBeenCalledOnce();
-  });
-
-  it("switches to the previous note view with Command+Option+Left", () => {
-    hoisted.editorTabs = [
-      { type: "enhanced", id: "summary-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-    const { handleTabChange } = renderNoteInput();
-
-    hoisted.hotkeys
-      .find((hotkey) => hotkey.keys === "mod+alt+left")
-      ?.callback();
-
-    expect(handleTabChange).toHaveBeenCalledWith({
-      type: "enhanced",
-      id: "summary-1",
-    });
+    expect(handleTabChange).toHaveBeenCalledWith(expected);
     expect(hoisted.onBeforeTabChange).toHaveBeenCalledOnce();
   });
 
@@ -299,39 +285,16 @@ describe("NoteInput tab selection", () => {
     expect(screen.getByTestId("current-tab").textContent).toBe("transcript");
   });
 
-  it("passes transcript edit mode into the transcript view", () => {
-    renderNoteInput({
-      currentTab: { type: "transcript" },
-      transcriptEditMode: true,
-    });
-
-    expect(
-      screen.getByTestId("transcript").getAttribute("data-edit-mode"),
-    ).toBe("true");
-  });
-
-  it("does not show the transcript spinner while a meeting is active", () => {
-    hoisted.sessionMode = "active";
+  it.each([
+    ["active", "false"],
+    ["finalizing", "true"],
+    ["running_batch", "true"],
+  ])("reports transcription progress while %s", (mode, expected) => {
+    hoisted.sessionMode = mode;
 
     renderNoteInput();
 
-    expect(screen.getByTestId("is-transcribing").textContent).toBe("false");
-  });
-
-  it("keeps the transcript spinner while finalizing", () => {
-    hoisted.sessionMode = "finalizing";
-
-    renderNoteInput();
-
-    expect(screen.getByTestId("is-transcribing").textContent).toBe("true");
-  });
-
-  it("keeps the transcript spinner while batch transcription is running", () => {
-    hoisted.sessionMode = "running_batch";
-
-    renderNoteInput();
-
-    expect(screen.getByTestId("is-transcribing").textContent).toBe("true");
+    expect(screen.getByTestId("is-transcribing").textContent).toBe(expected);
   });
 
   it("passes hydrated session content to the memo editor", () => {
@@ -394,23 +357,6 @@ describe("NoteInput tab selection", () => {
     );
   });
 
-  it("passes the hydrated session title to the summary editor", () => {
-    hoisted.editorTabs = [
-      { type: "enhanced", id: "summary-1" },
-      { type: "raw" },
-    ];
-
-    renderNoteInput({
-      currentTab: { type: "enhanced", id: "summary-1" },
-    });
-
-    expect(
-      hoisted.enhancedEditorProps[hoisted.enhancedEditorProps.length - 1],
-    ).toMatchObject({
-      sessionTitle: "Stored title",
-    });
-  });
-
   it("focuses the trailing body line when blank editor space is clicked", () => {
     renderNoteInput();
 
@@ -449,17 +395,14 @@ describe("NoteInput tab selection", () => {
     expect(hoisted.focusAtTrailingEmptyLine).not.toHaveBeenCalled();
   });
 
-  it("shows the keyword search bar on the transcript tab", () => {
-    hoisted.searchVisible = true;
+  it.each([true, false])(
+    "shows the transcript search bar only when find is open (%s)",
+    (searchVisible) => {
+      hoisted.searchVisible = searchVisible;
 
-    renderNoteInput({ currentTab: { type: "transcript" } });
+      renderNoteInput({ currentTab: { type: "transcript" } });
 
-    expect(screen.getByTestId("search-bar")).toBeTruthy();
-  });
-
-  it("hides the search bar until find is opened", () => {
-    renderNoteInput({ currentTab: { type: "transcript" } });
-
-    expect(screen.queryByTestId("search-bar")).toBeNull();
-  });
+      expect(screen.queryByTestId("search-bar") !== null).toBe(searchVisible);
+    },
+  );
 });

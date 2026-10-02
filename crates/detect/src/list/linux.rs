@@ -303,32 +303,4 @@ mod tests {
             ContextReadiness::Failed
         );
     }
-
-    #[test]
-    #[ignore]
-    fn test_list_installed_apps() {
-        let apps = list_installed_apps();
-        println!("Got {} apps\n---", apps.len());
-        println!(
-            "{}",
-            apps.iter()
-                .map(|a| format!("- {} ({})", a.name, a.id))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
-    }
-
-    #[test]
-    #[ignore]
-    fn test_list_mic_using_apps() {
-        let apps = list_mic_using_apps().unwrap();
-        println!("Got {} apps\n---", apps.len());
-        println!(
-            "{}",
-            apps.iter()
-                .map(|a| format!("- {} ({})", a.name, a.id))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
-    }
 }

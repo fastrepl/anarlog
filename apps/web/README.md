@@ -57,7 +57,7 @@ Vercel CNAME target in Cloudflare with proxying disabled. The desktop download
 and update aliases remain on Vercel for installed-client compatibility.
 Netlify is no longer a deployment, scheduler, or rollback target for Anarlog.
 
-Local development still uses `pnpm exec turbo dev:web`. Local image requests
+Local development uses `pnpm dev:web` from the repository root. Local image requests
 redirect to their original assets; Vercel performs width-based image
 optimization in deployment, while CSS controls cropping. A local production
 build uses `.output`; `NITRO_PRESET=vercel pnpm -F @anlg/web build` produces

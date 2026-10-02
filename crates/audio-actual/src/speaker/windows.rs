@@ -551,13 +551,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn endpoint_follower_ignores_unchanged_endpoint() {
-        let mut follower = EndpointFollower::new("speakers".into());
-        assert_eq!(follower.observe("speakers".into()), None);
-        assert_eq!(follower.observe("speakers".into()), None);
-    }
-
-    #[test]
     fn endpoint_follower_switches_after_consecutive_confirmations() {
         let mut follower = EndpointFollower::new("speakers".into());
         assert_eq!(follower.observe("headset".into()), None);

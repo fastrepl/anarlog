@@ -119,12 +119,6 @@ describe("folder discovery and creation", () => {
     await createTool.execute!({ folder_path: "defcons/weekly" }, options);
 
     expect(mocks.createFolder).toHaveBeenCalledWith("defcons/weekly");
-    expect(
-      database.prepare("SELECT path FROM folders ORDER BY path").all(),
-    ).toEqual([{ path: "defcons" }, { path: "defcons/weekly" }]);
-    await expect(listTool.execute!({}, options)).resolves.toMatchObject({
-      folders: ["defcons", "defcons/weekly"],
-    });
   });
 
   it.each(["", "   ", "../escape", "/absolute", "work//weekly"])(

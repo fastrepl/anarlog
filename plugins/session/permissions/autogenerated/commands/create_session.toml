@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-create-session"
+description = "Enables the create_session command without any pre-configured scope."
+commands.allow = ["create_session"]
+
+[[permission]]
+identifier = "deny-create-session"
+description = "Denies the create_session command without any pre-configured scope."
+commands.deny = ["create_session"]

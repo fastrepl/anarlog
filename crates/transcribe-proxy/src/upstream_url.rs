@@ -126,7 +126,7 @@ mod tests {
     }
 
     #[test]
-    fn test_defaults_only() {
+    fn client_params_override_defaults_without_duplicates() {
         let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
         let defaults: &[(&str, &str)] = &[("model", "nova-3-general"), ("mip_opt_out", "false")];
 
@@ -138,10 +138,7 @@ mod tests {
         assert_eq!(params.get("model"), Some(&"nova-3-general".to_string()));
         assert_eq!(params.get("mip_opt_out"), Some(&"false".to_string()));
         assert_eq!(params.len(), 2);
-    }
 
-    #[test]
-    fn test_client_params_only() {
         let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
         let client = make_params(&[
             ("encoding", "linear16"),
@@ -156,10 +153,7 @@ mod tests {
         assert_eq!(params.get("sample_rate"), Some(&"16000".to_string()));
         assert_eq!(params.get("channels"), Some(&"1".to_string()));
         assert_eq!(params.len(), 3);
-    }
 
-    #[test]
-    fn test_client_overrides_defaults() {
         let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
         let defaults: &[(&str, &str)] = &[("model", "nova-3-general"), ("mip_opt_out", "false")];
         let client = make_params(&[("model", "nova-3"), ("mip_opt_out", "true")]);
@@ -181,10 +175,7 @@ mod tests {
             "client mip_opt_out should override default"
         );
         assert_eq!(params.len(), 2);
-    }
 
-    #[test]
-    fn test_partial_override() {
         let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
         let defaults: &[(&str, &str)] = &[("model", "nova-3-general"), ("mip_opt_out", "false")];
         let client = make_params(&[("model", "nova-3"), ("encoding", "linear16")]);
@@ -211,20 +202,64 @@ mod tests {
             "client encoding should be added"
         );
         assert_eq!(params.len(), 3);
+
+        let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
+        let defaults: &[(&str, &str)] = &[("model", "nova-3-general"), ("mip_opt_out", "false")];
+        let client = make_params(&[
+            ("model", "nova-3"),
+            ("mip_opt_out", "true"),
+            ("encoding", "linear16"),
+            ("sample_rate", "16000"),
+            ("channels", "1"),
+            ("keywords", "hello,world"),
+        ]);
+
+        let url = UpstreamUrlBuilder::new(base)
+            .default_params(defaults)
+            .client_params(&client)
+            .build();
+
+        let params = get_query_params(&url);
+        assert_eq!(
+            params.get("model"),
+            Some(&"nova-3".to_string()),
+            "client model should override default nova-3-general"
+        );
+        assert_eq!(
+            params.get("mip_opt_out"),
+            Some(&"true".to_string()),
+            "client mip_opt_out should override default false"
+        );
+        assert_eq!(params.get("encoding"), Some(&"linear16".to_string()));
+        assert_eq!(params.get("sample_rate"), Some(&"16000".to_string()));
+        assert_eq!(params.get("channels"), Some(&"1".to_string()));
+        assert_eq!(
+            params.get("keywords"),
+            Some(&"hello,world".to_string()),
+            "keywords should be passed through"
+        );
+        assert_eq!(params.len(), 6);
+
+        let query = url.query().unwrap();
+        let model_count = query.matches("model=").count();
+        let mip_opt_out_count = query.matches("mip_opt_out=").count();
+
+        assert_eq!(model_count, 1, "model should appear exactly once");
+        assert_eq!(
+            mip_opt_out_count, 1,
+            "mip_opt_out should appear exactly once"
+        );
     }
 
     #[test]
-    fn test_empty_params() {
+    fn base_query_is_replaced() {
         let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
 
         let url = UpstreamUrlBuilder::new(base.clone()).build();
 
         assert_eq!(url.query(), None);
         assert_eq!(url.as_str(), "wss://api.deepgram.com/v1/listen");
-    }
 
-    #[test]
-    fn test_base_url_query_is_cleared() {
         let base: url::Url = "wss://api.deepgram.com/v1/listen?existing=param"
             .parse()
             .unwrap();
@@ -265,70 +300,7 @@ mod tests {
     }
 
     #[test]
-    fn test_deepgram_real_world_scenario() {
-        let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
-        let defaults: &[(&str, &str)] = &[("model", "nova-3-general"), ("mip_opt_out", "false")];
-        let client = make_params(&[
-            ("model", "nova-3"),
-            ("mip_opt_out", "true"),
-            ("encoding", "linear16"),
-            ("sample_rate", "16000"),
-            ("channels", "1"),
-            ("keywords", "hello,world"),
-        ]);
-
-        let url = UpstreamUrlBuilder::new(base)
-            .default_params(defaults)
-            .client_params(&client)
-            .build();
-
-        let params = get_query_params(&url);
-
-        assert_eq!(
-            params.get("model"),
-            Some(&"nova-3".to_string()),
-            "client model should override default nova-3-general"
-        );
-        assert_eq!(
-            params.get("mip_opt_out"),
-            Some(&"true".to_string()),
-            "client mip_opt_out should override default false"
-        );
-        assert_eq!(params.get("encoding"), Some(&"linear16".to_string()));
-        assert_eq!(params.get("sample_rate"), Some(&"16000".to_string()));
-        assert_eq!(params.get("channels"), Some(&"1".to_string()));
-        assert_eq!(
-            params.get("keywords"),
-            Some(&"hello,world".to_string()),
-            "keywords should be passed through"
-        );
-        assert_eq!(params.len(), 6);
-    }
-
-    #[test]
-    fn test_no_duplicate_params() {
-        let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
-        let defaults: &[(&str, &str)] = &[("model", "nova-3-general"), ("mip_opt_out", "false")];
-        let client = make_params(&[("model", "nova-3"), ("mip_opt_out", "true")]);
-
-        let url = UpstreamUrlBuilder::new(base)
-            .default_params(defaults)
-            .client_params(&client)
-            .build();
-
-        let query = url.query().unwrap();
-        let model_count = query.matches("model=").count();
-        let mip_opt_out_count = query.matches("mip_opt_out=").count();
-
-        assert_eq!(model_count, 1, "model should appear exactly once");
-        assert_eq!(
-            mip_opt_out_count, 1,
-            "mip_opt_out should appear exactly once"
-        );
-    }
-
-    #[test]
-    fn test_multi_value_params() {
+    fn multi_value_params_replace_defaults() {
         let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
         let client = make_params_multi(&[
             ("encoding", vec!["linear16"]),
@@ -347,10 +319,7 @@ mod tests {
                 "test".to_string()
             ])
         );
-    }
 
-    #[test]
-    fn test_multi_value_overrides_default() {
         let base: url::Url = "wss://api.deepgram.com/v1/listen".parse().unwrap();
         let defaults: &[(&str, &str)] = &[("keywords", "default")];
         let client = make_params_multi(&[("keywords", vec!["hello", "world"])]);

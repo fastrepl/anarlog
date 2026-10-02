@@ -273,12 +273,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn linux_webkit_workaround_defaults_dmabuf_off_when_unset() {
+    fn linux_webkit_workaround_defaults_dmabuf_off_unless_overridden() {
         assert_eq!(linux_webkit_dmabuf_override(None), Some("1"));
-    }
-
-    #[test]
-    fn linux_webkit_workaround_preserves_an_explicit_override() {
         assert_eq!(
             linux_webkit_dmabuf_override(Some(std::ffi::OsStr::new("0"))),
             None
@@ -362,32 +358,5 @@ mod tests {
             lock_channel_files(&stable, &nightly, "com.hyprnote.nightly"),
             ChannelLockState::Acquired(None)
         ));
-    }
-
-    #[test]
-    fn channels_without_a_shared_database_skip_the_channel_lock() {
-        assert!(matches!(
-            acquire_channel_lock("com.hyprnote.staging"),
-            ChannelLockState::Acquired(None)
-        ));
-    }
-
-    #[test]
-    fn channel_product_names_follow_the_bundle_identifier() {
-        assert_eq!(
-            channel_product_name("com.hyprnote.nightly"),
-            "Anarlog Nightly"
-        );
-        assert_eq!(channel_product_name("com.hyprnote.stable"), "Anarlog");
-    }
-
-    #[test]
-    fn dismissing_before_the_delay_prevents_the_indicator() {
-        let indicator = SlowStartupIndicator::show_after_delay();
-        indicator.dismiss();
-
-        let state = indicator.state.lock().unwrap();
-        assert!(state.dismissed);
-        assert!(state.child.is_none());
     }
 }

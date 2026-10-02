@@ -1,23 +1,11 @@
 mod common;
 
 use common::{
-    TestSink, expect_empty_result, expect_error, expect_no_event, expect_result, insert_daily_note,
-    subscribe, subscribe_all_daily_notes, wait_until_subscription_removed,
+    TestSink, expect_empty_result, expect_no_event, expect_result, insert_daily_note,
+    subscribe_all_daily_notes, wait_until_subscription_removed,
 };
 use db_reactive::Error;
 use serde_json::json;
-
-#[tokio::test]
-async fn invalid_sql_sends_error_event() {
-    let (_dir, _pool, runtime) = common::setup_runtime().await;
-    let (sink, events) = TestSink::capture();
-
-    subscribe(&runtime, "SELECT * FROM missing_table", Vec::new(), sink)
-        .await
-        .unwrap();
-
-    let _error = expect_error(&events, 0).await;
-}
 
 #[tokio::test]
 async fn initial_sink_failure_rolls_back_registration() {

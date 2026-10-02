@@ -54,55 +54,46 @@ function loadShim() {
   };
 }
 
-test("timed-out disconnected invokes are not replayed", async () => {
-  const relay = loadShim();
-  const invocation = relay.invoke("test", {}).then(
-    () => "resolved",
-    (error) => error.message,
-  );
-
-  relay.timers.find((timer) => timer.delay === 30_000).callback();
-  assert.equal(await invocation, "relay invoke timed out");
-
+function connect(relay) {
   const socket = relay.sockets[0];
   socket.readyState = 1;
   socket.onopen();
+  return socket;
+}
+
+function fireInvokeTimeout(relay) {
+  relay.timers.find((timer) => timer.delay === 30_000).callback();
+}
+
+test("timed-out disconnected invokes are not replayed", async () => {
+  const relay = loadShim();
+  const invocation = relay.invoke("test", {}).catch((error) => error.message);
+
+  fireInvokeTimeout(relay);
+  assert.equal(await invocation, "relay invoke timed out");
+
+  const socket = connect(relay);
   assert.deepEqual(socket.sent, []);
 });
 
-test("disconnected invoke queue is bounded", async () => {
-  const relay = loadShim();
-  const queued = Array.from({ length: 64 }, (_, index) =>
-    relay.invoke(`queued-${index}`, {}).catch((error) => error.message),
-  );
+for (const connected of [false, true]) {
+  test(`pending invokes are bounded (connected: ${connected})`, async () => {
+    const relay = loadShim();
+    const socket = connected ? connect(relay) : relay.sockets[0];
+    const pending = Array.from({ length: 64 }, (_, index) =>
+      relay.invoke(`pending-${index}`, {}).catch((error) => error.message),
+    );
 
-  await assert.rejects(
-    relay.invoke("overflow", {}),
-    /relay invoke limit reached/,
-  );
+    await assert.rejects(
+      relay.invoke("overflow", {}),
+      /relay invoke limit reached/,
+    );
+    assert.equal(socket.sent.length, connected ? 64 : 0);
 
-  relay.sockets[0].onclose({ code: 1006 });
-  await Promise.all(queued);
-});
-
-test("connected stalled invokes are bounded", async () => {
-  const relay = loadShim();
-  const socket = relay.sockets[0];
-  socket.readyState = 1;
-  socket.onopen();
-  const pending = Array.from({ length: 64 }, (_, index) =>
-    relay.invoke(`stalled-${index}`, {}).catch((error) => error.message),
-  );
-
-  await assert.rejects(
-    relay.invoke("overflow", {}),
-    /relay invoke limit reached/,
-  );
-  assert.equal(socket.sent.length, 64);
-
-  socket.onclose({ code: 1006 });
-  await Promise.all(pending);
-});
+    socket.onclose({ code: 1006 });
+    await Promise.all(pending);
+  });
+}
 
 test("slow-client close reloads the browser to resubscribe", () => {
   const relay = loadShim();
@@ -112,61 +103,51 @@ test("slow-client close reloads the browser to resubscribe", () => {
   assert.equal(relay.reloads(), 1);
 });
 
-test("unregistering an event listener releases its callback", () => {
+test("unregistering listeners and channels releases callbacks", () => {
   const relay = loadShim();
-  const eventId = relay.window.__TAURI_INTERNALS__.transformCallback(() => {});
+  const internals = relay.window.__TAURI_INTERNALS__;
+  const listenerId = internals.transformCallback(() => {});
+  const channelId = internals.transformCallback(() => {});
+  assert.equal(typeof relay.window[`_${listenerId}`], "function");
 
-  assert.equal(typeof relay.window[`_${eventId}`], "function");
   relay.window.__TAURI_EVENT_PLUGIN_INTERNALS__.unregisterListener(
     "test-event",
-    eventId,
+    listenerId,
   );
-  assert.equal(relay.window[`_${eventId}`], undefined);
+  internals.unregisterCallback(channelId);
+
+  assert.equal(relay.window[`_${listenerId}`], undefined);
+  assert.equal(relay.window[`_${channelId}`], undefined);
 });
 
-test("failed event listens release their transformed callback", async () => {
-  const relay = loadShim();
-  const callbackId = relay.window.__TAURI_INTERNALS__.transformCallback(
-    () => {},
-  );
-  const socket = relay.sockets[0];
-  socket.readyState = 1;
-  socket.onopen();
+for (const [outcome, settle, expected] of [
+  [
+    "failed",
+    (relay, socket) =>
+      socket.onmessage({
+        data: JSON.stringify({
+          id: JSON.parse(socket.sent[0]).id,
+          ok: false,
+          payload: "listen failed",
+        }),
+      }),
+    "listen failed",
+  ],
+  ["timed-out", (relay) => fireInvokeTimeout(relay), "relay invoke timed out"],
+]) {
+  test(`${outcome} event listens release their transformed callback`, async () => {
+    const relay = loadShim();
+    const callbackId = relay.window.__TAURI_INTERNALS__.transformCallback(
+      () => {},
+    );
+    const socket = connect(relay);
+    const listening = relay
+      .invoke("plugin:event|listen", { handler: callbackId })
+      .catch((error) => error.message);
 
-  const listening = relay
-    .invoke("plugin:event|listen", { handler: callbackId })
-    .catch((error) => error.message);
-  const invokeId = JSON.parse(socket.sent[0]).id;
-  socket.onmessage({
-    data: JSON.stringify({ id: invokeId, ok: false, payload: "listen failed" }),
+    settle(relay, socket);
+
+    assert.equal(await listening, expected);
+    assert.equal(relay.window[`_${callbackId}`], undefined);
   });
-
-  assert.equal(await listening, "listen failed");
-  assert.equal(relay.window[`_${callbackId}`], undefined);
-});
-
-test("timed-out event listens release their transformed callback", async () => {
-  const relay = loadShim();
-  const callbackId = relay.window.__TAURI_INTERNALS__.transformCallback(
-    () => {},
-  );
-  const listening = relay
-    .invoke("plugin:event|listen", { handler: callbackId })
-    .catch((error) => error.message);
-
-  relay.timers.find((timer) => timer.delay === 30_000).callback();
-
-  assert.equal(await listening, "relay invoke timed out");
-  assert.equal(relay.window[`_${callbackId}`], undefined);
-});
-
-test("unregisterCallback releases channel callbacks", () => {
-  const relay = loadShim();
-  const callbackId = relay.window.__TAURI_INTERNALS__.transformCallback(
-    () => {},
-  );
-
-  relay.window.__TAURI_INTERNALS__.unregisterCallback(callbackId);
-
-  assert.equal(relay.window[`_${callbackId}`], undefined);
-});
+}

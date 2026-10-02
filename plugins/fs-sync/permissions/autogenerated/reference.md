@@ -22,6 +22,7 @@ Default permissions for the fs-sync plugin
 - `allow-audio-source-metadata`
 - `allow-audio-has-speech`
 - `allow-audio-path`
+- `allow-audio-peaks`
 - `allow-audio-copy`
 - `allow-session-dir`
 - `allow-load-session-content`
@@ -381,6 +382,32 @@ Enables the audio_path command without any pre-configured scope.
 <td>
 
 Denies the audio_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-audio-peaks`
+
+</td>
+<td>
+
+Enables the audio_peaks command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-audio-peaks`
+
+</td>
+<td>
+
+Denies the audio_peaks command without any pre-configured scope.
 
 </td>
 </tr>

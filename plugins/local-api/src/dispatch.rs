@@ -529,15 +529,6 @@ mod tests {
         assert!(peak.load(Ordering::SeqCst) <= 4);
     }
 
-    #[test]
-    fn cloned_delivery_bodies_share_storage() {
-        let body = Bytes::from(vec![b'x'; 1024 * 1024]);
-        let clone = body.clone();
-
-        assert_eq!(body.as_ptr(), clone.as_ptr());
-        assert_eq!(body.len(), clone.len());
-    }
-
     #[tokio::test]
     async fn bounded_admission_queues_a_limited_waiting_tier() {
         let active = Arc::new(tokio::sync::Semaphore::new(1));

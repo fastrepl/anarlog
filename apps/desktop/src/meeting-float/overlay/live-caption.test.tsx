@@ -22,18 +22,6 @@ describe("LiveCaptionOverlay", () => {
     cleanup();
   });
 
-  it("renders rolling caption text", () => {
-    render(
-      <LiveCaptionOverlay
-        state={state()}
-        onOpacityChange={vi.fn()}
-        onHide={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText("we should ship this")).toBeTruthy();
-  });
-
   it("emits opacity and hide from the footer", () => {
     const onOpacityChange = vi.fn();
     const onHide = vi.fn();

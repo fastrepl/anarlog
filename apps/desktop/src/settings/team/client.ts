@@ -43,7 +43,7 @@ const WORKSPACE_CAPABILITIES = [
 ] as const;
 
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
-export type WorkspaceTier = "free" | "team" | "enterprise";
+type WorkspaceTier = "free" | "team" | "enterprise";
 
 export type WorkspaceAccess = {
   role: WorkspaceRole;

@@ -185,224 +185,145 @@ mod tests {
     }
 
     #[test]
-    fn effective_mode_keeps_explicit_batch() {
-        let params = session_params(
-            anlg_transcribe_soniqo::LOCAL_BASE_URL,
-            "soniqo-parakeet-streaming",
-            TranscriptionMode::Batch,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Batch
-        );
-    }
-
-    #[test]
-    fn effective_mode_forces_soniqo_batch_models_to_batch() {
-        let params = session_params(
-            anlg_transcribe_soniqo::LOCAL_BASE_URL,
-            "soniqo-parakeet-batch",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Batch
-        );
-    }
-
-    #[test]
-    fn effective_mode_detects_soniqo_loopback_base_url() {
-        let params = session_params(
-            "http://localhost:50060/v1",
-            "soniqo-parakeet-streaming",
-            TranscriptionMode::Live,
-        );
-        let expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+    fn effective_transcription_mode_by_provider_and_model() {
+        let soniqo_loopback_expected = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
             TranscriptionMode::Live
         } else {
             TranscriptionMode::Batch
         };
 
-        assert_eq!(params.effective_transcription_mode(), expected);
+        for (base_url, model, mode, languages, expected, label) in [
+            (
+                anlg_transcribe_soniqo::LOCAL_BASE_URL,
+                "soniqo-parakeet-streaming",
+                TranscriptionMode::Batch,
+                vec![],
+                TranscriptionMode::Batch,
+                "explicit batch is kept",
+            ),
+            (
+                anlg_transcribe_soniqo::LOCAL_BASE_URL,
+                "soniqo-parakeet-batch",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Batch,
+                "soniqo batch models forced to batch",
+            ),
+            (
+                "http://localhost:50060/v1",
+                "soniqo-parakeet-streaming",
+                TranscriptionMode::Live,
+                vec![],
+                soniqo_loopback_expected,
+                "soniqo loopback base url",
+            ),
+            (
+                anlg_transcribe_soniqo::LOCAL_BASE_URL,
+                "soniqo-parakeet-streaming",
+                TranscriptionMode::Live,
+                vec![anlg_language::ISO639::Ko.into()],
+                TranscriptionMode::Batch,
+                "soniqo live rejected for unsupported language",
+            ),
+            (
+                "https://api.openai.com/v1",
+                "gpt-live-transcribe",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Live,
+                "openai live model stays live",
+            ),
+            (
+                "https://api.openai.com/v1",
+                "whisper-1",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Batch,
+                "openai batch models forced to batch",
+            ),
+            (
+                "https://api.elevenlabs.io/v1",
+                "scribe_v2",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Batch,
+                "elevenlabs scribe_v2 forced to batch",
+            ),
+            (
+                "https://api.elevenlabs.io/v1",
+                "scribe_v2_realtime",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Live,
+                "elevenlabs scribe_v2_realtime stays live",
+            ),
+            (
+                "https://generativelanguage.googleapis.com/v1beta",
+                "gemini-3.5-transcribe-live",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Live,
+                "gemini transcribe live stays live",
+            ),
+            (
+                "https://generativelanguage.googleapis.com/v1beta",
+                "gemini-3.5-transcribe",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Batch,
+                "gemini file model forced to batch",
+            ),
+            (
+                "https://api.groq.com/openai/v1",
+                "whisper-large-v3",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Batch,
+                "adapters without live mode forced to batch",
+            ),
+            (
+                "https://api.deepgram.com/v1",
+                "nova-3-general",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Live,
+                "realtime providers stay live",
+            ),
+            (
+                anlg_transcribe_soniqo::LOCAL_BASE_URL,
+                "missing-model",
+                TranscriptionMode::Live,
+                vec![],
+                TranscriptionMode::Batch,
+                "invalid soniqo model defaults to batch",
+            ),
+        ] {
+            let mut params = session_params(base_url, model, mode);
+            params.languages = languages;
+
+            assert_eq!(
+                params.effective_transcription_mode(),
+                expected,
+                "case: {label}"
+            );
+        }
     }
 
     #[test]
-    fn effective_mode_rejects_soniqo_live_for_unsupported_language() {
-        let mut params = session_params(
-            anlg_transcribe_soniqo::LOCAL_BASE_URL,
-            "soniqo-parakeet-streaming",
-            TranscriptionMode::Live,
-        );
-        params.languages = vec![anlg_language::ISO639::Ko.into()];
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Batch
-        );
-    }
-
-    #[test]
-    fn effective_mode_uses_live_for_openai_live_model() {
-        let params = session_params(
-            "https://api.openai.com/v1",
-            "gpt-live-transcribe",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Live
-        );
-    }
-
-    #[test]
-    fn effective_mode_forces_openai_batch_models_to_batch() {
-        let params = session_params(
-            "https://api.openai.com/v1",
-            "whisper-1",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Batch
-        );
-    }
-
-    #[test]
-    fn effective_mode_forces_elevenlabs_scribe_v2_to_batch() {
-        let params = session_params(
-            "https://api.elevenlabs.io/v1",
-            "scribe_v2",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Batch
-        );
-    }
-
-    #[test]
-    fn effective_mode_keeps_elevenlabs_scribe_v2_realtime_live() {
-        let params = session_params(
-            "https://api.elevenlabs.io/v1",
-            "scribe_v2_realtime",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Live
-        );
-    }
-
-    #[test]
-    fn effective_mode_uses_live_for_gemini_transcribe_live() {
-        let params = session_params(
-            "https://generativelanguage.googleapis.com/v1beta",
-            "gemini-3.5-transcribe-live",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Live
-        );
-    }
-
-    #[test]
-    fn effective_mode_forces_gemini_file_model_to_batch() {
-        let params = session_params(
-            "https://generativelanguage.googleapis.com/v1beta",
-            "gemini-3.5-transcribe",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Batch
-        );
-    }
-
-    #[test]
-    fn effective_mode_forces_batch_for_adapters_without_live_mode() {
-        let params = session_params(
-            "https://api.groq.com/openai/v1",
-            "whisper-large-v3",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Batch
-        );
-    }
-
-    #[test]
-    fn effective_mode_keeps_realtime_providers_live() {
-        let params = session_params(
-            "https://api.deepgram.com/v1",
-            "nova-3-general",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Live
-        );
-    }
-
-    #[test]
-    fn detects_local_soniqo_live_model() {
+    fn uses_local_soniqo_live_model_only_for_streaming_model() {
         let params = session_params(
             anlg_transcribe_soniqo::LOCAL_BASE_URL,
             "soniqo-parakeet-streaming",
             TranscriptionMode::Live,
         );
-
         assert!(params.uses_local_soniqo_live_model());
-    }
 
-    #[test]
-    fn rejects_soniqo_batch_model_as_live_model() {
         let params = session_params(
             anlg_transcribe_soniqo::LOCAL_BASE_URL,
             "soniqo-parakeet-batch",
             TranscriptionMode::Live,
         );
-
         assert!(!params.uses_local_soniqo_live_model());
-    }
-
-    #[test]
-    fn effective_mode_defaults_invalid_soniqo_model_to_batch() {
-        let params = session_params(
-            anlg_transcribe_soniqo::LOCAL_BASE_URL,
-            "missing-model",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Batch
-        );
-    }
-
-    #[test]
-    fn effective_mode_keeps_non_soniqo_live() {
-        let params = session_params(
-            "https://api.deepgram.com/v1",
-            "nova-3-general",
-            TranscriptionMode::Live,
-        );
-
-        assert_eq!(
-            params.effective_transcription_mode(),
-            TranscriptionMode::Live
-        );
     }
 
     #[test]

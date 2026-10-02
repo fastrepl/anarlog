@@ -19,6 +19,8 @@ On Linux, sessions use Secret Service when available and otherwise use the deskt
 ```bash
 anarlog --json doctor
 anarlog --json meetings list --query "planning" --limit 20 --offset 0
+anarlog --json meetings folders --query "clients"
+anarlog --json meetings list --folder "Clients/ACME" --limit 20
 anarlog --json meetings --source cloud list --query "planning" --limit 20 --offset 0
 anarlog --json meetings --source auto get MEETING_ID
 anarlog --json meetings get MEETING_ID
@@ -33,7 +35,7 @@ anarlog --json proposals decline PROPOSAL_ID
 
 `proposals create` stages a pending edit. Do not claim the meeting changed. A human applies or declines it in the Anarlog desktop app.
 
-Meeting commands default to `--source local`. `--source cloud` reads hosted snapshots using `anarlog auth login`; `--source auto` uses Cloud only when the local database is absent. Cloud access is read-only, so proposals remain local.
+Meeting commands default to `--source local`. `--source cloud` reads hosted snapshots using `anarlog auth login`; `--source auto` uses Cloud only when the local database is absent. Cloud access is read-only, so proposals remain local. Folder listing and `--folder` filtering are local only; meetings include `folder_path`, or `null` outside a folder.
 
 `doctor` exits with status 1 when its response contains `ready: false`.
 
@@ -53,6 +55,8 @@ anarlog meetings export MEETING_ID --format json --output meeting.json
 ```
 
 Export refuses to replace an existing file. Pass `--force` only after the user explicitly approves overwriting that exact path.
+
+Markdown exports label transcript paragraphs with speaker names when word-level speaker information is available. Exports without that information retain flat text. JSON exports can include optional `speakers` and `speaker_context` fields.
 
 Global database overrides:
 

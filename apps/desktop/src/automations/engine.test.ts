@@ -834,7 +834,7 @@ describe("configured Markdown workflows", () => {
 });
 
 describe("Google Drive workflow delivery", () => {
-  function setupDrive() {
+  function setupDrive(format = "markdown") {
     const workflow = {
       id: "drive-workflow",
       title: "Drive",
@@ -853,6 +853,7 @@ describe("Google Drive workflow delivery", () => {
           id: "drive",
           type: "google_drive_export",
           connectionId: "connection",
+          format,
           target: { id: "folder", name: "Meeting notes" },
         },
       ],
@@ -893,11 +894,13 @@ describe("Google Drive workflow delivery", () => {
   it("persists the file ID before uploading and retries only Drive after Slack succeeds", async () => {
     const current = setupDrive();
     mocks.googleDriveExportMarkdown.mockImplementationOnce(async () => {
+      expect(mocks.googleDrivePrepareExport).toHaveBeenCalledTimes(1);
       expect(current().driveExports[0].fileId).toBe("stable-file");
       return { error: { error: { message: "Temporary failure" } } };
     });
     await runNoteEnhancedAutomations("meeting-1");
     expect(current().driveExports[0].status).toBe("error");
+    expect(current().driveExports[0].detail).toBe("Temporary failure");
     expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
     await retryDriveExport("drive-workflow", current().driveExports[0]);
     expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
@@ -920,6 +923,44 @@ describe("Google Drive workflow delivery", () => {
         ([request]) => request.body.file_id === "stable-file",
       ),
     ).toBe(true);
+  });
+
+  it("searches again after an ambiguous Docs creation and stores the recovered ID", async () => {
+    const current = setupDrive("google_docs");
+    mocks.googleDrivePrepareExport.mockResolvedValue({
+      data: { file_id: "", url: "" },
+    });
+    mocks.googleDriveExportMarkdown.mockImplementationOnce(async () => {
+      throw new Error("Response lost");
+    });
+    await runNoteEnhancedAutomations("meeting-1");
+    expect(current().driveExports[0].status).toBe("error");
+    await retryDriveExport("drive-workflow", current().driveExports[0]);
+    expect(mocks.googleDriveExportMarkdown.mock.calls[1][0].body).toMatchObject(
+      { format: "google_docs" },
+    );
+    expect(mocks.googleDrivePrepareExport).toHaveBeenCalledTimes(2);
+    expect(current().driveExports[0].fileId).toBe("stable-file");
+    expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reuse a failed Markdown export after changing to Docs", async () => {
+    const current = setupDrive();
+    mocks.googleDriveExportMarkdown.mockResolvedValueOnce({
+      error: { error: { message: "Temporary failure" } },
+    });
+    await runNoteEnhancedAutomations("meeting-1");
+    const workflow = current();
+    const failed = workflow.driveExports[0];
+    workflow.steps[1].format = "google_docs";
+    await mocks.setSettingValue(
+      "automation_workflows",
+      JSON.stringify([workflow]),
+    );
+    await expect(retryDriveExport("drive-workflow", failed)).rejects.toThrow(
+      "destination or format has changed",
+    );
+    expect(mocks.googleDriveExportMarkdown).toHaveBeenCalledTimes(1);
   });
 
   it("does not send a note without a summary or use the meeting-completed trigger", async () => {

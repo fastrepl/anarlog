@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reorder-pinned-contacts"
+description = "Enables the reorder_pinned_contacts command without any pre-configured scope."
+commands.allow = ["reorder_pinned_contacts"]
+
+[[permission]]
+identifier = "deny-reorder-pinned-contacts"
+description = "Denies the reorder_pinned_contacts command without any pre-configured scope."
+commands.deny = ["reorder_pinned_contacts"]

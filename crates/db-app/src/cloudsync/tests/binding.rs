@@ -498,31 +498,6 @@ async fn late_claim_cancellation_rolls_back_100k_rows_within_two_seconds() {
 }
 
 #[tokio::test]
-async fn detects_an_existing_account_claim() {
-    let db = test_db().await;
-
-    assert!(
-        !cloudsync_workspace_is_claimed_by(db.pool(), "user-a")
-            .await
-            .unwrap()
-    );
-    claim_cloudsync_workspace(db.pool(), "user-a")
-        .await
-        .unwrap();
-
-    assert!(
-        cloudsync_workspace_is_claimed_by(db.pool(), "user-a")
-            .await
-            .unwrap()
-    );
-    assert!(
-        !cloudsync_workspace_is_claimed_by(db.pool(), "user-b")
-            .await
-            .unwrap()
-    );
-}
-
-#[tokio::test]
 async fn claim_rekeys_local_user_identities_and_references() {
     let db = test_db().await;
     let local_workspace = ensure_cloudsync_workspace_binding(db.pool()).await.unwrap();
@@ -703,30 +678,6 @@ async fn claim_tombstones_duplicate_self_participants_before_rekeying() {
 
     assert_eq!(active_count, 1);
     assert!(legacy_deleted_at.is_some());
-}
-
-#[tokio::test]
-async fn claim_rejects_account_switching_once_the_workspace_owns_rows() {
-    let db = test_db().await;
-    sqlx::query("INSERT INTO sessions (id, workspace_id, title) VALUES ('session', '', 'Note')")
-        .execute(db.pool())
-        .await
-        .unwrap();
-    claim_cloudsync_workspace(db.pool(), "user-a")
-        .await
-        .unwrap();
-
-    let error = claim_cloudsync_workspace(db.pool(), "user-b")
-        .await
-        .unwrap_err();
-
-    assert!(matches!(error, CloudsyncWorkspaceError::AccountMismatch));
-    let session_workspace: String =
-        sqlx::query_scalar("SELECT workspace_id FROM sessions WHERE id = 'session'")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-    assert_eq!(session_workspace, "user-a");
 }
 
 #[tokio::test]

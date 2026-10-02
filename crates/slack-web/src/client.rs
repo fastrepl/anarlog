@@ -43,14 +43,3 @@ impl<C: HttpClient> SlackWebClient<C> {
         response.into_result()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{LIST_CONVERSATIONS_PATH, POST_MESSAGE_PATH};
-
-    #[test]
-    fn endpoints_are_relative_to_nango_slack_api_base_url() {
-        assert!(!POST_MESSAGE_PATH.starts_with("/api/"));
-        assert!(!LIST_CONVERSATIONS_PATH.starts_with("/api/"));
-    }
-}

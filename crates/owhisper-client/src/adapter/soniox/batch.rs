@@ -201,8 +201,6 @@ impl BatchSttAdapter for SonioxAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_client::create_client;
-
     #[test]
     fn speaker_labeled_tokens_use_mixed_capture_channel() {
         let transcript = soniox::TranscriptResponse {
@@ -338,30 +336,5 @@ mod tests {
         assert_eq!(words[3].start, 0.32);
         assert_eq!(words[3].end, 0.5);
         assert_eq!(words[3].punctuated_word.as_deref(), Some("require?"));
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_soniox_batch_transcription() {
-        let api_key = std::env::var("SONIOX_API_KEY").expect("SONIOX_API_KEY not set");
-        let client = create_client();
-        let adapter = SonioxAdapter::default();
-        let params = ListenParams::default();
-
-        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
-
-        let result = adapter
-            .transcribe_file(&client, "", &api_key, &params, &audio_path)
-            .await
-            .expect("transcription failed");
-
-        assert!(!result.results.channels.is_empty());
-        assert!(!result.results.channels[0].alternatives.is_empty());
-        assert!(
-            !result.results.channels[0].alternatives[0]
-                .transcript
-                .is_empty()
-        );
-        assert!(!result.results.channels[0].alternatives[0].words.is_empty());
     }
 }

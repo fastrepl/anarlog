@@ -1077,50 +1077,49 @@ describe("getRenderTranscriptRequestKey", () => {
     expect(getRenderTranscriptRequestKey(request)).toMatch(/^\d+:\d+:\d+:/);
   });
 
-  it("changes when rendered transcript inputs change", () => {
+  it.each([
+    {
+      name: "rendered transcript inputs change",
+      change: (request: NonNullable<ReturnType<typeof createRequest>>) => ({
+        ...request,
+        transcripts: request.transcripts.map((transcript, index) =>
+          index === 0
+            ? {
+                ...transcript,
+                words: transcript.words.map((word, wordIndex) =>
+                  wordIndex === 0 ? { ...word, text: " changed" } : word,
+                ),
+              }
+            : transcript,
+        ),
+      }),
+    },
+    {
+      name: "speaker assignments change",
+      change: (request: NonNullable<ReturnType<typeof createRequest>>) => ({
+        ...request,
+        transcripts: request.transcripts.map((transcript, index) =>
+          index === 0
+            ? {
+                ...transcript,
+                assignments: [
+                  {
+                    human_id: "third",
+                    scope: {
+                      kind: "channel",
+                      channel: "RemoteParty",
+                    },
+                  } as const,
+                ],
+              }
+            : transcript,
+        ),
+      }),
+    },
+  ])("changes when $name", ({ change }) => {
     const request = createRequest();
-    const changedRequest = {
-      ...request!,
-      transcripts: request!.transcripts.map((transcript, index) =>
-        index === 0
-          ? {
-              ...transcript,
-              words: transcript.words.map((word, wordIndex) =>
-                wordIndex === 0 ? { ...word, text: " changed" } : word,
-              ),
-            }
-          : transcript,
-      ),
-    };
 
-    expect(getRenderTranscriptRequestKey(changedRequest)).not.toBe(
-      getRenderTranscriptRequestKey(request),
-    );
-  });
-
-  it("changes when speaker assignments change", () => {
-    const request = createRequest();
-    const changedRequest = {
-      ...request!,
-      transcripts: request!.transcripts.map((transcript, index) =>
-        index === 0
-          ? {
-              ...transcript,
-              assignments: [
-                {
-                  human_id: "third",
-                  scope: {
-                    kind: "channel",
-                    channel: "RemoteParty",
-                  },
-                } as const,
-              ],
-            }
-          : transcript,
-      ),
-    };
-
-    expect(getRenderTranscriptRequestKey(changedRequest)).not.toBe(
+    expect(getRenderTranscriptRequestKey(change(request!))).not.toBe(
       getRenderTranscriptRequestKey(request),
     );
   });

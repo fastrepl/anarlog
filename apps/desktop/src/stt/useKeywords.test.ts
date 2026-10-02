@@ -235,27 +235,35 @@ describe("buildKeywords", () => {
 });
 
 describe("dictionary term helpers", () => {
-  it("parses stored JSON dictionary terms", () => {
-    expect(
-      parseDictionaryTermsJson(JSON.stringify(["Anarlog", "Char"])),
-    ).toEqual(["Anarlog", "Char"]);
-    expect(parseDictionaryTermsJson(["Anarlog", " anarlog "])).toEqual([
-      "Anarlog",
-    ]);
-    expect(parseDictionaryTermsJson("not-json")).toEqual([]);
-  });
-
-  it("parses newline and comma separated terms", () => {
-    expect(
-      parseDictionaryTermsText("Anarlog\nFastConformer, Parakeet TDT"),
-    ).toEqual(["Anarlog", "FastConformer", "Parakeet TDT"]);
-  });
-
-  it("normalizes duplicate terms while preserving first spelling", () => {
-    expect(normalizeKeywordList(["Anarlog", " anarlog ", "Parakeet"])).toEqual([
-      "Anarlog",
-      "Parakeet",
-    ]);
+  it.each([
+    {
+      name: "parses stored JSON dictionary terms",
+      run: () => parseDictionaryTermsJson(JSON.stringify(["Anarlog", "Char"])),
+      expected: ["Anarlog", "Char"],
+    },
+    {
+      name: "parses an array payload and drops duplicate spellings",
+      run: () => parseDictionaryTermsJson(["Anarlog", " anarlog "]),
+      expected: ["Anarlog"],
+    },
+    {
+      name: "returns no terms for malformed JSON",
+      run: () => parseDictionaryTermsJson("not-json"),
+      expected: [],
+    },
+    {
+      name: "parses newline and comma separated terms",
+      run: () =>
+        parseDictionaryTermsText("Anarlog\nFastConformer, Parakeet TDT"),
+      expected: ["Anarlog", "FastConformer", "Parakeet TDT"],
+    },
+    {
+      name: "normalizes duplicate terms while preserving first spelling",
+      run: () => normalizeKeywordList(["Anarlog", " anarlog ", "Parakeet"]),
+      expected: ["Anarlog", "Parakeet"],
+    },
+  ])("$name", ({ run, expected }) => {
+    expect(run()).toEqual(expected);
   });
 
   it("formats stored terms one per line", () => {

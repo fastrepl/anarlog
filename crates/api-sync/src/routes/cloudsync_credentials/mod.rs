@@ -17,6 +17,7 @@ use crate::{
 mod enrollment;
 mod grants;
 mod identity;
+mod meeting_presence;
 mod projection;
 mod token;
 mod transport;
@@ -37,6 +38,10 @@ use identity::{
     SyncDeviceRow, claim_personal_e2ee_key, claim_sync_device, fetch_sync_device_limit,
     is_valid_e2ee_key_id, list_sync_devices, publish_e2ee_member_identity, remove_sync_device,
     rename_sync_device,
+};
+use meeting_presence::{
+    __path_heartbeat_meeting_device, MeetingDevice, MeetingDeviceHeartbeatRequest,
+    MeetingDeviceIntent, MeetingDevicesResponse, heartbeat_meeting_device,
 };
 pub use projection::CloudsyncWorkspace;
 pub(super) use projection::encode_workspace_token_attributes;
@@ -129,6 +134,7 @@ pub struct E2eeIdentity {
         register_e2ee_device_enrollment,
         seal_e2ee_device_enrollment,
         consume_e2ee_device_enrollment,
+        heartbeat_meeting_device,
         get_workspace_e2ee_key_recipients,
         set_workspace_e2ee_key
     ),
@@ -150,6 +156,10 @@ pub struct E2eeIdentity {
         RegisterE2eeDeviceEnrollmentRequest,
         RegisterE2eeDeviceEnrollmentResponse,
         ConsumeE2eeDeviceEnrollmentRequest,
+        MeetingDeviceHeartbeatRequest,
+        MeetingDeviceIntent,
+        MeetingDevice,
+        MeetingDevicesResponse,
         LegacyCloudsyncCredentials,
         ReplicaCredentials
     ))
@@ -196,6 +206,10 @@ pub(super) fn device_router() -> Router<ReplicaState> {
         .route(
             "/e2ee/device-enrollments/{request_id}/consume",
             post(consume_e2ee_device_enrollment),
+        )
+        .route(
+            "/meetings/{meeting_key}/devices",
+            post(heartbeat_meeting_device),
         )
 }
 

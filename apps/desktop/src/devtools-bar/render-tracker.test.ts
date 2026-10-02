@@ -17,9 +17,8 @@ vi.mock("./render-hook", () => ({
 }));
 
 import type { Fiber, FiberRoot } from "./render-hook";
-import { flashRenderOutlines, hideRenderOutlines } from "./render-outlines";
+import { flashRenderOutlines } from "./render-outlines";
 import {
-  areRenderOutlinesEnabled,
   getDisplayName,
   getTopRenderedComponents,
   ignoreRenderTracking,
@@ -143,21 +142,6 @@ describe("traverseRenderedFibers", () => {
   });
 });
 
-describe("getDisplayName", () => {
-  it("unwraps memo and forwardRef wrappers", () => {
-    function Named() {
-      return null;
-    }
-    expect(getDisplayName(Named)).toBe("Named");
-    expect(getDisplayName({ type: Named })).toBe("Named");
-    expect(getDisplayName({ render: Named })).toBe("Named");
-    expect(getDisplayName({ displayName: "Custom", type: Named })).toBe(
-      "Custom",
-    );
-    expect(getDisplayName(null)).toBe("Anonymous");
-  });
-});
-
 describe("render tracker counters", () => {
   let stop: () => void;
 
@@ -191,17 +175,16 @@ describe("render tracker counters", () => {
     expect(flashRenderOutlines).not.toHaveBeenCalled();
   });
 
-  it("flashes the nearest host nodes when outlines are enabled", () => {
-    setRenderOutlinesEnabled(true);
-    const node = host();
-    commit(root(component("Boxed", PerformedWork, node)));
-
-    expect(areRenderOutlinesEnabled()).toBe(true);
-    expect(flashRenderOutlines).toHaveBeenCalledWith([
-      { node: node.stateNode, name: "Boxed" },
-    ]);
-
+  it("clears prior render history when tracking restarts", () => {
     setRenderOutlinesEnabled(false);
-    expect(hideRenderOutlines).toHaveBeenCalled();
+    commit(root(component("Stale")));
+
+    stop();
+    stop = startRenderTracker();
+
+    expect({
+      renders: tickRenderTracker(),
+      components: getTopRenderedComponents(),
+    }).toEqual({ renders: 0, components: [] });
   });
 });

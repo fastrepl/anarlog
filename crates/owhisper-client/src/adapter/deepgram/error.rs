@@ -86,97 +86,103 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_invalid_auth() {
-        let data = br#"{"err_code": "INVALID_AUTH", "err_msg": "Invalid credentials.", "request_id": "uuid"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 401);
-        assert_eq!(err.message, "Invalid credentials.");
-        assert_eq!(err.provider_code, Some("INVALID_AUTH".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4401);
+    fn classifies_error_messages() {
+        for (data, http_code, provider_code, ws_close_code, message_check) in [
+            (
+                br#"{"err_code": "INVALID_AUTH", "err_msg": "Invalid credentials.", "request_id": "uuid"}"#
+                    .as_slice(),
+                401,
+                Some("INVALID_AUTH"),
+                4401,
+                Some("Invalid credentials."),
+            ),
+            (
+                br#"{"err_code": "Bad Request", "err_msg": "Bad Request: failed to process audio: corrupt or unsupported data", "request_id": "uuid"}"#
+                    .as_slice(),
+                400,
+                Some("Bad Request"),
+                4400,
+                Some("failed to process audio"),
+            ),
+            (
+                br#"{"category": "INVALID_JSON", "message": "Invalid JSON submitted.", "details": "Json deserialize error"}"#
+                    .as_slice(),
+                400,
+                Some("INVALID_JSON"),
+                4400,
+                Some("Invalid JSON submitted."),
+            ),
+            (
+                br#"{"err_code": "TOO_MANY_REQUESTS", "err_msg": "Too many requests. Please try again later", "request_id": "uuid"}"#
+                    .as_slice(),
+                429,
+                Some("TOO_MANY_REQUESTS"),
+                4429,
+                None,
+            ),
+            (
+                br#"{"err_code": "ASR_PAYMENT_REQUIRED", "err_msg": "Project does not have enough credits", "request_id": "uuid"}"#
+                    .as_slice(),
+                402,
+                Some("ASR_PAYMENT_REQUIRED"),
+                4402,
+                None,
+            ),
+            (
+                br#"{"err_code": "INSUFFICIENT_PERMISSIONS", "err_msg": "Access denied"}"#
+                    .as_slice(),
+                401,
+                Some("INSUFFICIENT_PERMISSIONS"),
+                4401,
+                Some("Access denied"),
+            ),
+            (
+                br#"{"err_code": "PROJECT_NOT_FOUND", "err_msg": "Project not found"}"#.as_slice(),
+                404,
+                Some("PROJECT_NOT_FOUND"),
+                4404,
+                None,
+            ),
+            (
+                br#"{"err_code": "UNKNOWN_ERROR", "err_msg": "Something happened"}"#.as_slice(),
+                500,
+                Some("UNKNOWN_ERROR"),
+                4500,
+                None,
+            ),
+            (
+                br#"{"err_msg": "An error occurred during processing"}"#.as_slice(),
+                500,
+                None,
+                4500,
+                Some("An error occurred during processing"),
+            ),
+        ] {
+            let err = detect_error(data).unwrap();
+            assert_eq!(err.http_code, http_code, "{data:?}");
+            if let Some(expected) = message_check {
+                assert!(
+                    err.message == expected || err.message.contains(expected),
+                    "{data:?}"
+                );
+            }
+            assert_eq!(
+                err.provider_code,
+                provider_code.map(str::to_string),
+                "{data:?}"
+            );
+            assert_eq!(err.to_ws_close_code(), ws_close_code, "{data:?}");
+        }
     }
 
     #[test]
-    fn test_bad_request() {
-        let data = br#"{"err_code": "Bad Request", "err_msg": "Bad Request: failed to process audio: corrupt or unsupported data", "request_id": "uuid"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert!(err.message.contains("failed to process audio"));
-        assert_eq!(err.to_ws_close_code(), 4400);
-    }
-
-    #[test]
-    fn test_invalid_json() {
-        let data = br#"{"category": "INVALID_JSON", "message": "Invalid JSON submitted.", "details": "Json deserialize error"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert_eq!(err.message, "Invalid JSON submitted.");
-        assert_eq!(err.provider_code, Some("INVALID_JSON".to_string()));
-    }
-
-    #[test]
-    fn test_rate_limit() {
-        let data = br#"{"err_code": "TOO_MANY_REQUESTS", "err_msg": "Too many requests. Please try again later", "request_id": "uuid"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 429);
-        assert_eq!(err.to_ws_close_code(), 4429);
-    }
-
-    #[test]
-    fn test_payment_required() {
-        let data = br#"{"err_code": "ASR_PAYMENT_REQUIRED", "err_msg": "Project does not have enough credits", "request_id": "uuid"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 402);
-        assert_eq!(err.to_ws_close_code(), 4402);
-    }
-
-    #[test]
-    fn test_insufficient_permissions() {
-        let data = br#"{"err_code": "INSUFFICIENT_PERMISSIONS", "err_msg": "Access denied"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 401);
-        assert_eq!(err.message, "Access denied");
-        assert_eq!(err.to_ws_close_code(), 4401);
-    }
-
-    #[test]
-    fn test_project_not_found() {
-        let data = br#"{"err_code": "PROJECT_NOT_FOUND", "err_msg": "Project not found"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 404);
-        assert_eq!(err.to_ws_close_code(), 4404);
-    }
-
-    #[test]
-    fn test_unknown_err_code() {
-        let data = br#"{"err_code": "UNKNOWN_ERROR", "err_msg": "Something happened"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 500);
-        assert_eq!(err.provider_code, Some("UNKNOWN_ERROR".to_string()));
-    }
-
-    #[test]
-    fn test_message_with_error_keyword() {
-        let data = br#"{"err_msg": "An error occurred during processing"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 500);
-        assert_eq!(err.message, "An error occurred during processing");
-    }
-
-    #[test]
-    fn test_message_without_error_keyword() {
-        let data = br#"{"message": "Processing complete"}"#;
-        assert!(detect_error(data).is_none());
-    }
-
-    #[test]
-    fn test_non_error_message() {
-        let data = br#"{"type": "Results", "channel_index": [0, 1], "duration": 1.0}"#;
-        assert!(detect_error(data).is_none());
-    }
-
-    #[test]
-    fn test_empty_json() {
-        let data = br#"{}"#;
-        assert!(detect_error(data).is_none());
+    fn ignores_non_error_and_empty_messages() {
+        for data in [
+            br#"{"message": "Processing complete"}"#.as_slice(),
+            br#"{"type": "Results", "channel_index": [0, 1], "duration": 1.0}"#.as_slice(),
+            br#"{}"#.as_slice(),
+        ] {
+            assert!(detect_error(data).is_none(), "{data:?}");
+        }
     }
 }

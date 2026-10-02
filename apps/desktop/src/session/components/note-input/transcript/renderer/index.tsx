@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
 import {
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   type RefObject,
   useCallback,
   useDeferredValue,
@@ -58,7 +59,9 @@ export function TranscriptViewer({
   scrollRef,
   editMode = false,
   onEditModeChange,
+  footer,
 }: {
+  footer?: ReactNode;
   transcriptIds: string[];
   liveSegments: Segment[];
   currentActive: boolean;
@@ -504,6 +507,8 @@ export function TranscriptViewer({
               </div>
             );
           })}
+
+          {footer}
 
           <SelectionMenu
             containerRef={containerRef}

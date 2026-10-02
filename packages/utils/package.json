@@ -3,7 +3,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./session": "./src/session.ts",
-    "./folders": "./src/folders.ts"
+    "./folders": "./src/folders.ts",
+    "./summary-eligibility": "./src/summary-eligibility.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.4.1",

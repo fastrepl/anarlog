@@ -128,7 +128,7 @@ describe("meeting chat records", () => {
     },
   );
 
-  test("reads ordered valid records and ignores malformed rows", () => {
+  test("reads ordered valid records, ignores malformed rows, and keeps every platform", () => {
     useLiveQueryMock.mockImplementation(
       ({ mapRows }: { mapRows: (rows: unknown[]) => unknown }) => ({
         data: mapRows([
@@ -146,45 +146,20 @@ describe("meeting chat records", () => {
             body: "not json",
             created_at: "2026-07-13T10:00:01.000Z",
           },
-        ]),
-      }),
-    );
-
-    const { result } = renderHook(() => useMeetingChatRecords("session-1"));
-
-    expect(result.current).toEqual([
-      {
-        ...message,
-        links: ["https://example.com/spec"],
-        capturedAt: "2026-07-13T10:00:00.000Z",
-      },
-    ]);
-    expect(useLiveQueryMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        params: ["session-1"],
-        enabled: true,
-      }),
-    );
-  });
-
-  test("reads records from every meeting platform without relabeling them", () => {
-    useLiveQueryMock.mockImplementation(
-      ({ mapRows }: { mapRows: (rows: unknown[]) => unknown }) => ({
-        data: mapRows([
           ...platformLabels.map(([platform], index) => ({
-            id: `document-${index}`,
+            id: `platform-${index}`,
             body: JSON.stringify({
               ...message,
               id: `message-${index}`,
               platform,
               surface: platform === "unknown" ? "unknown" : "web",
             }),
-            created_at: "2026-07-13T10:00:00.000Z",
+            created_at: "2026-07-13T10:00:02.000Z",
           })),
           {
             id: "unsupported-platform",
             body: JSON.stringify({ ...message, platform: "other" }),
-            created_at: "2026-07-13T10:00:00.000Z",
+            created_at: "2026-07-13T10:00:03.000Z",
           },
         ]),
       }),
@@ -192,10 +167,21 @@ describe("meeting chat records", () => {
 
     const { result } = renderHook(() => useMeetingChatRecords("session-1"));
 
-    expect(result.current.map(({ platform }) => platform)).toEqual(
+    expect(result.current[0]).toEqual({
+      ...message,
+      links: ["https://example.com/spec"],
+      capturedAt: "2026-07-13T10:00:00.000Z",
+    });
+    expect(result.current.slice(1).map(({ platform }) => platform)).toEqual(
       platformLabels.map(([platform]) => platform),
     );
-    expect(result.current[platformLabels.length - 1]?.surface).toBe("unknown");
+    expect(result.current[platformLabels.length]?.surface).toBe("unknown");
+    expect(useLiveQueryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: ["session-1"],
+        enabled: true,
+      }),
+    );
   });
 
   test("loads ordered records imperatively and ignores malformed rows", async () => {

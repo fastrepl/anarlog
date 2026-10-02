@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-delete-transcribed-capture-audio"
+description = "Enables the delete_transcribed_capture_audio command without any pre-configured scope."
+commands.allow = ["delete_transcribed_capture_audio"]
+
+[[permission]]
+identifier = "deny-delete-transcribed-capture-audio"
+description = "Denies the delete_transcribed_capture_audio command without any pre-configured scope."
+commands.deny = ["delete_transcribed_capture_audio"]

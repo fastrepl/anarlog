@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-delete-folder-catalog"
+description = "Enables the delete_folder_catalog command without any pre-configured scope."
+commands.allow = ["delete_folder_catalog"]
+
+[[permission]]
+identifier = "deny-delete-folder-catalog"
+description = "Denies the delete_folder_catalog command without any pre-configured scope."
+commands.deny = ["delete_folder_catalog"]

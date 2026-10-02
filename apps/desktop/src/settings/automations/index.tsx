@@ -24,6 +24,7 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
+import { GoogleDriveConfig, DriveExportResult } from "./google-drive-config";
 import {
   AutomationLastRunLine,
   LinearIssuesConfig,
@@ -51,6 +52,10 @@ import {
 } from "~/automations/starters";
 import {
   type AutomationWorkflow,
+  type WorkflowStep,
+  GOOGLE_DRIVE_STARTER_WORKFLOW_ID,
+  createGoogleDriveWorkflow,
+  mutateAutomationWorkflows,
   createEmptyWorkflow,
   isWorkflowReady,
   parseAutomationWorkflows,
@@ -433,21 +438,57 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
   const notifyPlanRequired = useNotifyPlanRequired();
   const starter = useStarterAutomations().find((item) => item.id === starterId);
   const [showPreview, setShowPreview] = useState(false);
+  const workflows = useAutomationWorkflows();
+  const driveFallback = useMemo(
+    () => ({
+      ...createGoogleDriveWorkflow(starter?.title ?? ""),
+      id: GOOGLE_DRIVE_STARTER_WORKFLOW_ID,
+    }),
+    [starter?.title],
+  );
+  const driveWorkflow =
+    workflows.find((item) => item.id === GOOGLE_DRIVE_STARTER_WORKFLOW_ID) ??
+    driveFallback;
+  const driveStep = driveWorkflow.steps.find(
+    (step) => step.type === "google_drive_export",
+  );
+  const legacyKeys =
+    starterId === "google-drive" ? null : STARTER_AUTOMATIONS[starterId];
+  const saveDrive = (
+    updates: { enabled?: boolean; steps?: WorkflowStep[] } = {},
+  ) =>
+    mutateAutomationWorkflows((items) => {
+      const current =
+        items.find((item) => item.id === GOOGLE_DRIVE_STARTER_WORKFLOW_ID) ??
+        driveFallback;
+      return [
+        { ...current, ...updates },
+        ...items.filter((item) => item.id !== current.id),
+      ];
+    });
+  const configureDrive = useMutation({
+    mutationFn: (step: WorkflowStep) => saveDrive({ steps: [step] }),
+    onError: () => toast.error(t`Could not update the automation`),
+  });
   const { values: settingValues } = useStoredSettingValues();
   const removeStarterDraft = useRemoveStarterDraft();
 
   const saveDraftMutation = useMutation({
     mutationKey: ["automation-draft-template"],
-    mutationFn: () => setSettingValue("automation_draft_template", starterId),
+    mutationFn: async () => {
+      if (starterId === "google-drive") await saveDrive();
+      await setSettingValue("automation_draft_template", starterId);
+    },
     onSuccess: () => toast.success(t`Automation draft saved`),
     onError: () => toast.error(t`Could not save the automation draft`),
   });
 
   const setEnabledMutation = useMutation({
     mutationKey: ["automation-starter-enabled"],
-    mutationFn: ({ enabled }: { enabled: boolean }) => {
+    mutationFn: async ({ enabled }: { enabled: boolean }) => {
       const updates: SettingValues = { automation_draft_template: starterId };
-      updates[STARTER_AUTOMATIONS[starterId].enabledKey] = enabled;
+      if (legacyKeys) updates[legacyKeys.enabledKey] = enabled;
+      else await saveDrive({ enabled });
       return setSettingValues(updates);
     },
     onSuccess: (_, { enabled }) =>
@@ -459,17 +500,22 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
     return null;
   }
 
-  const isEnabled = Boolean(
-    settingValues[STARTER_AUTOMATIONS[starterId].enabledKey],
-  );
-  const targetRaw =
-    settingValues[STARTER_AUTOMATIONS[starterId].targetKey] ?? "";
+  const isEnabled = legacyKeys
+    ? Boolean(settingValues[legacyKeys.enabledKey])
+    : driveWorkflow.enabled;
+  const targetRaw = legacyKeys
+    ? (settingValues[legacyKeys.targetKey] ?? "")
+    : "";
   const isReady =
-    starterId === "markdown-export"
-      ? targetRaw.trim().length > 0
-      : parseAutomationTargetRef(targetRaw) !== null;
+    starterId === "google-drive"
+      ? isWorkflowReady(driveWorkflow)
+      : starterId === "markdown-export"
+        ? targetRaw.trim().length > 0
+        : parseAutomationTargetRef(targetRaw) !== null;
   const readinessHint = (() => {
     switch (starterId) {
+      case "google-drive":
+        return t`Choose a Google Drive folder first.`;
       case "markdown-export":
         return t`Choose an export folder first.`;
       case "slack-recap":
@@ -643,7 +689,15 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
         </div>
 
         <div className="border-border border-t px-5 py-4">
-          {starterId === "markdown-export" ? (
+          {starterId === "google-drive" && driveStep ? (
+            <>
+              <GoogleDriveConfig
+                step={driveStep}
+                onChange={(step) => configureDrive.mutate(step)}
+              />
+              <DriveExportResult workflow={driveWorkflow} step={driveStep} />
+            </>
+          ) : starterId === "markdown-export" ? (
             <MarkdownExportConfig />
           ) : starterId === "slack-recap" ? (
             <SlackRecapConfig />
@@ -652,9 +706,9 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
           ) : (
             <NotionUpdateConfig />
           )}
-          <AutomationLastRunLine
-            settingKey={STARTER_AUTOMATIONS[starterId].lastRunKey}
-          />
+          {legacyKeys ? (
+            <AutomationLastRunLine settingKey={legacyKeys.lastRunKey} />
+          ) : null}
         </div>
 
         {showPreview ? (

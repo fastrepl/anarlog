@@ -1,20 +1,58 @@
-#[cfg(test)]
-use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use backon::{BackoffBuilder, ExponentialBuilder};
 use sqlx::pool::PoolConnection;
-use sqlx::{Sqlite, SqliteConnection, SqlitePool};
+use sqlx::{Sqlite, SqlitePool};
 use tokio::sync::oneshot;
 
 use super::super::state::CloudsyncRuntimeState;
 use super::super::types::{
-    CloudsyncActivityEntry, CloudsyncActivityStatus, CloudsyncActivityTrigger,
-    CloudsyncNetworkResult, cloudsync_receive_error,
+    CloudsyncActivityStatus, CloudsyncActivityTrigger, CloudsyncNetworkResult,
+    cloudsync_receive_error,
 };
 
-pub(super) const MAX_ACTIVITY_LOG_ENTRIES: usize = 50;
+struct SyncActivity {
+    trigger: CloudsyncActivityTrigger,
+    status: CloudsyncActivityStatus,
+    sent_bytes: u64,
+    received_bytes: u64,
+    error: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum SyncLogLevel {
+    Info,
+    Debug,
+}
+
+pub(super) fn sync_result_log_level(
+    trigger: CloudsyncActivityTrigger,
+    status: CloudsyncActivityStatus,
+    transferred_data: bool,
+    last_logged: Option<CloudsyncActivityStatus>,
+) -> Option<SyncLogLevel> {
+    match status {
+        CloudsyncActivityStatus::Failed => Some(SyncLogLevel::Info),
+        CloudsyncActivityStatus::Progress
+            if last_logged == Some(CloudsyncActivityStatus::Progress) =>
+        {
+            Some(SyncLogLevel::Debug)
+        }
+        CloudsyncActivityStatus::Progress if transferred_data => Some(SyncLogLevel::Info),
+        CloudsyncActivityStatus::Completed
+            if transferred_data
+                || matches!(
+                    last_logged,
+                    Some(CloudsyncActivityStatus::Progress | CloudsyncActivityStatus::Failed)
+                ) =>
+        {
+            Some(SyncLogLevel::Info)
+        }
+        _ if trigger == CloudsyncActivityTrigger::Manual => Some(SyncLogLevel::Info),
+        _ => None,
+    }
+}
 
 pub(super) fn record_sync_result(
     runtime: &Mutex<CloudsyncRuntimeState>,
@@ -22,19 +60,29 @@ pub(super) fn record_sync_result(
     local_work_remaining: bool,
     trigger: CloudsyncActivityTrigger,
 ) {
-    let (activity, transferred_data) =
-        activity_entry_from_result(&result, local_work_remaining, trigger);
+    let (activity, transferred_data) = activity_from_result(&result, local_work_remaining, trigger);
     let mut runtime = runtime.lock().unwrap();
-    let should_record_activity = trigger == CloudsyncActivityTrigger::Manual
-        || activity.status == CloudsyncActivityStatus::Failed
-        || transferred_data
-        || (activity.status == CloudsyncActivityStatus::Completed
-            && runtime.activity_log.back().is_some_and(|previous| {
-                matches!(
-                    previous.status,
-                    CloudsyncActivityStatus::Progress | CloudsyncActivityStatus::Failed
-                )
-            }));
+    if activity.status != CloudsyncActivityStatus::Failed && runtime.consecutive_failures > 0 {
+        tracing::info!(
+            failures = runtime.consecutive_failures,
+            "CloudSync recovered after failures"
+        );
+    }
+    if let Some(level) = sync_result_log_level(
+        trigger,
+        activity.status,
+        transferred_data,
+        runtime.last_logged_activity,
+    ) {
+        log_sync_result(
+            &result,
+            &activity,
+            level,
+            local_work_remaining,
+            runtime.consecutive_failures.saturating_add(1),
+        );
+        runtime.last_logged_activity = Some(activity.status);
+    }
     runtime.last_sync = Some(result);
 
     if let Some(error) = runtime.last_sync.as_ref().and_then(embedded_sync_error) {
@@ -44,9 +92,6 @@ pub(super) fn record_sync_result(
             .last_error
             .as_deref()
             .map(|error| anlg_cloudsync::Error::Io(std::io::Error::other(error)).kind());
-        if should_record_activity {
-            push_activity(&mut runtime, activity);
-        }
         return;
     }
 
@@ -60,16 +105,13 @@ pub(super) fn record_sync_result(
     runtime.last_error = None;
     runtime.last_error_kind = None;
     runtime.consecutive_failures = 0;
-    if should_record_activity {
-        push_activity(&mut runtime, activity);
-    }
 }
 
-fn activity_entry_from_result(
+fn activity_from_result(
     result: &CloudsyncNetworkResult,
     local_work_remaining: bool,
     trigger: CloudsyncActivityTrigger,
-) -> (CloudsyncActivityEntry, bool) {
+) -> (SyncActivity, bool) {
     let error = embedded_sync_error(result);
     let sent_bytes = result
         .send
@@ -93,8 +135,7 @@ fn activity_entry_from_result(
     };
 
     (
-        CloudsyncActivityEntry {
-            timestamp_ms: now_ms(),
+        SyncActivity {
             trigger,
             status,
             sent_bytes,
@@ -105,11 +146,60 @@ fn activity_entry_from_result(
     )
 }
 
-fn push_activity(runtime: &mut CloudsyncRuntimeState, activity: CloudsyncActivityEntry) {
-    if runtime.activity_log.len() >= MAX_ACTIVITY_LOG_ENTRIES {
-        runtime.activity_log.pop_front();
+fn log_sync_result(
+    result: &CloudsyncNetworkResult,
+    activity: &SyncActivity,
+    level: SyncLogLevel,
+    local_work_remaining: bool,
+    failures: u32,
+) {
+    if activity.status == CloudsyncActivityStatus::Failed {
+        tracing::warn!(
+            trigger = ?activity.trigger,
+            send_failed = result.send.as_ref().is_some_and(|send| {
+                send.last_failure.is_some()
+                    || (!send.status.eq_ignore_ascii_case("synced")
+                        && !send.status.eq_ignore_ascii_case("syncing"))
+            }),
+            receive_failed = result.receive.as_ref().is_some_and(|receive| {
+                receive.error.is_some() || receive.last_failure.is_some()
+            }),
+            error_kind = ?activity.error.as_deref().map(|error| {
+                anlg_cloudsync::Error::Io(std::io::Error::other(error)).kind()
+            }),
+            failures,
+            sent_bytes = activity.sent_bytes,
+            received_bytes = activity.received_bytes,
+            "CloudSync failed"
+        );
+    } else {
+        let message = match activity.status {
+            CloudsyncActivityStatus::Completed => "CloudSync complete",
+            _ => "CloudSync transfer progress",
+        };
+        macro_rules! log_activity {
+            ($macro:ident) => {
+                tracing::$macro!(
+                    trigger = ?activity.trigger,
+                    sent_bytes = activity.sent_bytes,
+                    sent_chunks = result.send.as_ref().map(|send| send.chunks),
+                    local_version = result.send.as_ref().map(|send| send.local_version),
+                    server_version = result.send.as_ref().map(|send| send.server_version),
+                    received_bytes = activity.received_bytes,
+                    received_chunks = result.receive.as_ref().map(|receive| receive.chunks),
+                    received_rows = result.receive.as_ref().map(|receive| receive.rows),
+                    received_tables = result.receive.as_ref().map(|receive| receive.tables.len()),
+                    receive_complete = result.receive.as_ref().map(|receive| receive.complete),
+                    local_work_remaining,
+                    "{message}"
+                )
+            };
+        }
+        match level {
+            SyncLogLevel::Info => log_activity!(info),
+            SyncLogLevel::Debug => log_activity!(debug),
+        }
     }
-    runtime.activity_log.push_back(activity);
 }
 
 fn sync_result_settled(result: &CloudsyncNetworkResult) -> bool {
@@ -182,17 +272,13 @@ pub(super) fn record_sync_error(
     runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
     runtime.last_error = Some(error.to_string());
     runtime.last_error_kind = Some(error.kind());
-    push_activity(
-        &mut runtime,
-        CloudsyncActivityEntry {
-            timestamp_ms: now_ms(),
-            trigger,
-            status: CloudsyncActivityStatus::Failed,
-            sent_bytes: 0,
-            received_bytes: 0,
-            error: Some(error.to_string()),
-        },
+    tracing::warn!(
+        ?trigger,
+        error_kind = ?error.kind(),
+        failures = runtime.consecutive_failures,
+        "CloudSync operation failed"
     );
+    runtime.last_logged_activity = Some(CloudsyncActivityStatus::Failed);
     runtime.consecutive_failures
 }
 const MAX_BACKOFF_SECS: u64 = 300;
@@ -376,6 +462,7 @@ pub(super) async fn cloudsync_background_loop(
                 );
                 let mut runtime = context.runtime_state.lock().unwrap();
                 runtime.running = false;
+                tracing::warn!(error_kind = ?error.kind(), "CloudSync stopped after failure");
                 break;
             }
         }
@@ -407,10 +494,10 @@ async fn sync_cloudsync_with_retry(
                     CloudsyncActivityTrigger::Background,
                 );
                 tracing::warn!(
-                    error = %error,
-                    retry_after = ?retry_after,
+                    error_kind = ?error.kind(),
+                    retry_after_ms = retry_after.as_millis() as u64,
                     failures,
-                    "cloudsync transient error, retrying",
+                    "CloudSync retry scheduled",
                 );
 
                 if !wait_for_retry_request_or_shutdown(
@@ -462,18 +549,6 @@ async fn run_sync_or_shutdown(
     }
 }
 
-#[cfg(test)]
-pub(super) async fn run_or_shutdown<T>(
-    future: impl Future<Output = T>,
-    shutdown_rx: &mut oneshot::Receiver<()>,
-) -> Option<T> {
-    tokio::select! {
-        biased;
-        _ = &mut *shutdown_rx => None,
-        result = future => Some(result),
-    }
-}
-
 pub(super) async fn wait_for_retry_request_or_shutdown(
     retry_after: Duration,
     sync_requested: &tokio::sync::Notify,
@@ -489,7 +564,7 @@ pub(super) async fn wait_for_retry_request_or_shutdown(
 
 pub(super) async fn sync_cloudsync_connection(
     pool: &SqlitePool,
-    connection: &tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>,
+    connection: &Arc<tokio::sync::Mutex<Option<PoolConnection<Sqlite>>>>,
     interrupt: &super::super::CloudsyncInterruptHandle,
     sync_operation: &tokio::sync::Mutex<()>,
     runtime_state: &Mutex<CloudsyncRuntimeState>,
@@ -501,15 +576,10 @@ pub(super) async fn sync_cloudsync_connection(
         return Ok(CloudsyncStepOutcome::Deferred);
     }
     let pending_batch_exists = {
-        let mut connection = connection.lock().await;
-        if connection.is_none() {
-            *connection = Some(pool.acquire().await?);
-        }
-        let result =
-            pending_cloudsync_payload_exists(connection.as_mut().unwrap(), interrupt).await;
-        if pool.options().get_max_connections() == 1 {
-            connection.take();
-        }
+        let mut reserved =
+            super::super::pinned::reserve_pinned_connection(pool, connection).await?;
+        let result = pending_cloudsync_payload_exists(&mut reserved, interrupt).await;
+        super::super::pinned::release_pinned_connection(reserved);
         result
     };
     let pending_batch_exists = match pending_batch_exists {
@@ -529,19 +599,13 @@ pub(super) async fn sync_cloudsync_connection(
     if cloudsync_activity_paused(sync_hook) {
         return Ok(CloudsyncStepOutcome::Deferred);
     }
-    let mut connection = connection.lock().await;
-    if connection.is_none() {
-        *connection = Some(pool.acquire().await?);
-    }
+    let mut connection = super::super::pinned::reserve_pinned_connection(pool, connection).await?;
     let has_outbound_work = match directive {
         super::super::CloudsyncSyncDirective::SendAndReceive if !pending_batch_exists => {
-            let result =
-                pending_cloudsync_payload_exists(connection.as_mut().unwrap(), interrupt).await;
+            let result = pending_cloudsync_payload_exists(&mut connection, interrupt).await;
             match result {
                 Err(_) if cloudsync_activity_paused(sync_hook) => {
-                    if pool.options().get_max_connections() == 1 {
-                        connection.take();
-                    }
+                    super::super::pinned::release_pinned_connection(connection);
                     return Ok(CloudsyncStepOutcome::Deferred);
                 }
                 result => result?,
@@ -555,15 +619,13 @@ pub(super) async fn sync_cloudsync_connection(
     };
     runtime_state.lock().unwrap().outbound_work_state = Some(has_outbound_work);
     if cloudsync_activity_paused(sync_hook) {
-        if pool.options().get_max_connections() == 1 {
-            connection.take();
-        }
+        super::super::pinned::release_pinned_connection(connection);
         return Ok(CloudsyncStepOutcome::Deferred);
     }
     let send = match (directive, has_outbound_work) {
         (super::super::CloudsyncSyncDirective::SendAndReceive, true) => {
             super::super::ops::guarded_interruptible_network_send_changes(
-                connection.as_mut().unwrap(),
+                &mut connection,
                 interrupt,
                 || cloudsync_activity_paused(sync_hook),
             )
@@ -583,9 +645,7 @@ pub(super) async fn sync_cloudsync_connection(
     };
     let send = match send {
         Err(_) if cloudsync_activity_paused(sync_hook) => {
-            if pool.options().get_max_connections() == 1 {
-                connection.take();
-            }
+            super::super::pinned::release_pinned_connection(connection);
             return Ok(CloudsyncStepOutcome::Deferred);
         }
         result => result?,
@@ -594,30 +654,20 @@ pub(super) async fn sync_cloudsync_connection(
         runtime_state.lock().unwrap().outbound_work_state = Some(false);
     }
     if cloudsync_activity_paused(sync_hook) {
-        if pool.options().get_max_connections() == 1 {
-            connection.take();
-        }
+        super::super::pinned::release_pinned_connection(connection);
         return Ok(CloudsyncStepOutcome::Deferred);
     }
-    let receive = super::super::ops::interruptible_network_receive_changes(
-        connection.as_mut().unwrap(),
-        interrupt,
-    )
-    .await;
+    let receive =
+        super::super::ops::interruptible_network_receive_changes(&mut connection, interrupt).await;
     let receive = match receive {
         Err(_) if cloudsync_activity_paused(sync_hook) => {
-            if pool.options().get_max_connections() == 1 {
-                connection.take();
-            }
+            super::super::pinned::release_pinned_connection(connection);
             return Ok(CloudsyncStepOutcome::Deferred);
         }
         result => result?,
     };
     let result = merge_bounded_sync_results(send, receive);
-    if pool.options().get_max_connections() == 1 {
-        connection.take();
-    }
-    drop(connection);
+    super::super::pinned::release_pinned_connection(connection);
     let outcome = run_after_sync_hook(sync_hook, pool, &result).await?;
     if outcome.deferred || cloudsync_activity_paused(sync_hook) {
         return Ok(CloudsyncStepOutcome::Deferred);
@@ -631,11 +681,13 @@ pub(super) async fn sync_cloudsync_connection(
     )))
 }
 
-pub(super) async fn pending_cloudsync_payload_exists(
-    connection: &mut SqliteConnection,
+pub(super) async fn pending_cloudsync_payload_exists<C: anlg_cloudsync::OwnedSqliteConnection>(
+    connection: &mut anlg_cloudsync::ReservedConnection<C>,
     interrupt: &super::super::CloudsyncInterruptHandle,
 ) -> Result<bool, anlg_cloudsync::Error> {
-    if !super::super::ops::cloudsync_has_local_unsent_changes_on(&mut *connection).await? {
+    if !super::super::ops::cloudsync_has_local_unsent_changes_on(connection.connection().await?)
+        .await?
+    {
         return Ok(false);
     }
     Ok(

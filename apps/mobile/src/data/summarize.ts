@@ -6,12 +6,14 @@ import {
 import { fetch } from "expo/fetch";
 
 import { hasSummaryContent } from "@anlg/utils/session";
+import { getSummaryEligibility } from "@anlg/utils/summary-eligibility";
 
 import { execute, executeTransaction } from "@/db";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { id, nowIso } from "@/lib/ids";
 import { queryClient } from "@/lib/query-client";
+import { showToast } from "@/lib/toast";
 import { readPreferences } from "@/settings/preferences";
 import { resolveProvider } from "@/settings/providers";
 
@@ -25,6 +27,25 @@ import {
   type TranscriptRow,
 } from "./transcript-model";
 import { readBoundedTranscriptionResponse } from "./transcription-response";
+
+export class SummarySkippedError extends Error {
+  readonly reason: string;
+
+  constructor(reason: string) {
+    super(`Summary wasn't generated. ${reason}.`);
+    this.reason = reason;
+    this.name = "SummarySkippedError";
+  }
+}
+
+export function notifySummarySkipped(sessionId: string, error: unknown) {
+  if (!(error instanceof SummarySkippedError)) return;
+  showToast({
+    id: `auto-summary-too-short-${sessionId}`,
+    title: "Summary wasn't generated",
+    description: error.reason,
+  });
+}
 
 async function runSummary(
   sessionId: string,
@@ -69,13 +90,29 @@ async function runSummary(
       ).text
     : "";
   const names = new Map(humans.map((human) => [human.id, human.name]));
-  const transcript = transcripts
-    .flatMap((row) => transcriptSegments(row, names))
+  const segments = transcripts.flatMap((row) => transcriptSegments(row, names));
+  const transcript = segments
     .map((segment) => `${segment.speaker}: ${segment.text}`)
     .join("\n");
   const source = `Notes:\n${text}\n\nTranscript:\n${transcript}`;
   if (!text.trim() && !transcript.trim())
     throw new Error("Add notes or transcribe a recording first.");
+  const eligibility = getSummaryEligibility({
+    transcriptCount: transcripts.length,
+    wordCount: segments.reduce(
+      (total, segment) => total + segment.wordCount,
+      0,
+    ),
+    characterCount: Array.from(
+      segments
+        .map((segment) => segment.text)
+        .join(" ")
+        .replace(/\s+/gu, " ")
+        .trim(),
+    ).length,
+  });
+  if (!eligibility.eligible && eligibility.code === "transcript_too_short")
+    throw new SummarySkippedError(eligibility.reason);
   if (source.length > 200_000)
     throw new Error(
       "This meeting is too long to summarize on mobile. Open it on desktop.",
@@ -169,8 +206,10 @@ export function summarizeSession(
       await runSummary(sessionId, automatic);
     },
     retry: false,
-    onError: (error) =>
-      captureOperationalError(error, { operation: "session_summary" }),
+    onError: (error) => {
+      if (error instanceof SummarySkippedError) return;
+      captureOperationalError(error, { operation: "session_summary" });
+    },
   });
   const promise = mutation
     .execute(undefined)
@@ -181,7 +220,9 @@ export function summarizeSession(
 
 export function generateSummaryAfterTranscription(sessionId: string): void {
   // Summary failures are visible in the note; they must never fail audio persistence.
-  void summarizeSession(sessionId, { automatic: true }).catch(() => {});
+  void summarizeSession(sessionId, { automatic: true }).catch((error) =>
+    notifySummarySkipped(sessionId, error),
+  );
 }
 
 export function automaticSummaryOptions(sessionId: string) {

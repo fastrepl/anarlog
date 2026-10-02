@@ -1,35 +1,40 @@
 import { describe, expect, test } from "vitest";
 
-import { hasRenderableContent } from "./shared";
+import { hasRenderableContent } from "~/chat/message-content";
+import type { AnlgUIMessage } from "~/chat/types";
 
 describe("hasRenderableContent", () => {
-  test("returns false for blank reasoning-only messages", () => {
-    expect(
-      hasRenderableContent({
+  const cases: Array<[string, AnlgUIMessage, boolean]> = [
+    [
+      "blank reasoning",
+      {
         id: "message-1",
-        role: "assistant",
+        role: "assistant" as const,
         parts: [{ type: "reasoning", text: "   ", state: "done" }],
-      }),
-    ).toBe(false);
-  });
-
-  test("returns true for non-empty reasoning messages", () => {
-    expect(
-      hasRenderableContent({
+      },
+      false,
+    ],
+    [
+      "non-empty reasoning",
+      {
         id: "message-2",
-        role: "assistant",
+        role: "assistant" as const,
         parts: [{ type: "reasoning", text: "Thinking", state: "done" }],
-      }),
-    ).toBe(true);
-  });
-
-  test("returns false for blank text-only messages", () => {
-    expect(
-      hasRenderableContent({
+      },
+      true,
+    ],
+    [
+      "blank text",
+      {
         id: "message-3",
-        role: "assistant",
+        role: "assistant" as const,
         parts: [{ type: "text", text: " " }],
-      }),
-    ).toBe(false);
+      },
+      false,
+    ],
+  ];
+
+  test.each(cases)("%s content", (_name, message, expected) => {
+    expect(hasRenderableContent(message)).toBe(expected);
   });
 });

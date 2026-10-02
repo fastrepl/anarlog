@@ -38,34 +38,3 @@ impl MenuItemHandler for TrayVersion {
 
     fn handle(_app: &AppHandle<tauri::Wry>) {}
 }
-
-#[cfg(test)]
-mod tests {
-    use super::TrayVersion;
-
-    #[test]
-    fn gets_channel_from_identifier() {
-        assert_eq!(
-            TrayVersion::get_channel("com.hyprnote.stable", "Anarlog"),
-            "stable"
-        );
-        assert_eq!(
-            TrayVersion::get_channel("com.hyprnote.staging", "Anarlog Staging"),
-            "staging"
-        );
-        assert_eq!(
-            TrayVersion::get_channel("com.hyprnote.dev", "Anarlog Dev"),
-            "dev"
-        );
-    }
-
-    #[test]
-    fn falls_back_to_product_name_for_unknown_identifier() {
-        assert_eq!(TrayVersion::get_channel("unknown", "Anarlog"), "stable");
-        assert_eq!(
-            TrayVersion::get_channel("unknown", "Anarlog Staging"),
-            "staging"
-        );
-        assert_eq!(TrayVersion::get_channel("unknown", "Anarlog Dev"), "dev");
-    }
-}

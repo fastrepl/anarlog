@@ -309,35 +309,21 @@ describe("session correction chat tool", () => {
     expect(plan.updates[0]?.nextMemo).toBe("Speaker 1: Char");
   });
 
-  it("does not plan a partial transcript row update", () => {
+  it.each([
+    ["partial transcript row", "Speaker 1: no correction here", "Y"],
+    ["blank replacement text", "Speaker 1: X", "   "],
+  ])("does not plan a correction for %s", (_scenario, memo, newText) => {
     const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
       transcripts: [
         transcript({
           words: [
             { id: "w1", text: "X", start_ms: 0, end_ms: 100, channel: 0 },
           ],
-          memo: "Speaker 1: no correction here",
+          memo,
         }),
       ] as any,
       oldText: "X",
-      newText: "Y",
-    });
-
-    expect(plan).toEqual({ changes: [], updates: [] });
-  });
-
-  it("does not remove transcript words for blank replacement text", () => {
-    const plan = sessionCorrectionTestInternals.planTranscriptCorrections({
-      transcripts: [
-        transcript({
-          words: [
-            { id: "w1", text: "X", start_ms: 0, end_ms: 100, channel: 0 },
-          ],
-          memo: "Speaker 1: X",
-        }),
-      ] as any,
-      oldText: "X",
-      newText: "   ",
+      newText,
     });
 
     expect(plan).toEqual({ changes: [], updates: [] });

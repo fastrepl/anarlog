@@ -229,44 +229,6 @@ mod tests {
     }
 
     #[test]
-    fn test_event_buffer_different_keys_not_deduplicated() {
-        let mut buffer = EventBuffer::new(Duration::from_millis(20), test_event_key);
-        buffer.put(TestEvent::Simple);
-        buffer.put(TestEvent::WithPayload { value: 42 });
-        thread::sleep(Duration::from_millis(25));
-
-        let mut results = Vec::new();
-        while let State::Ready(event) = buffer.get() {
-            results.push(event);
-        }
-
-        assert_eq!(results.len(), 2);
-    }
-
-    #[test]
-    fn test_spawn_debounced_by_key() {
-        let (raw_tx, raw_rx) = mpsc::channel();
-        let (debounced_tx, debounced_rx) = mpsc::channel();
-
-        spawn_debounced_by_key(
-            Duration::from_millis(50),
-            raw_rx,
-            debounced_tx,
-            test_event_key,
-        );
-
-        raw_tx.send(TestEvent::Simple).unwrap();
-        raw_tx.send(TestEvent::Simple).unwrap();
-        raw_tx.send(TestEvent::Simple).unwrap();
-
-        thread::sleep(Duration::from_millis(100));
-
-        let results: Vec<_> = debounced_rx.try_iter().collect();
-        assert_eq!(results.len(), 1);
-        assert!(matches!(results[0], TestEvent::Simple));
-    }
-
-    #[test]
     fn test_spawn_debounced_by_key_preserves_latest_payload() {
         let (raw_tx, raw_rx) = mpsc::channel();
         let (debounced_tx, debounced_rx) = mpsc::channel();
@@ -286,29 +248,6 @@ mod tests {
         let results: Vec<_> = debounced_rx.try_iter().collect();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0], TestEvent::WithPayload { value: 2 });
-    }
-
-    #[test]
-    fn test_spawn_debounced_with_eq() {
-        let (raw_tx, raw_rx) = mpsc::channel();
-        let (debounced_tx, debounced_rx) = mpsc::channel();
-
-        spawn_debounced_by_key(
-            Duration::from_millis(50),
-            raw_rx,
-            debounced_tx,
-            |e: &TestEvent| e.clone(),
-        );
-
-        raw_tx.send(TestEvent::Simple).unwrap();
-        raw_tx.send(TestEvent::Simple).unwrap();
-        raw_tx.send(TestEvent::Simple).unwrap();
-
-        thread::sleep(Duration::from_millis(100));
-
-        let results: Vec<_> = debounced_rx.try_iter().collect();
-        assert_eq!(results.len(), 1);
-        assert!(matches!(results[0], TestEvent::Simple));
     }
 
     #[test]

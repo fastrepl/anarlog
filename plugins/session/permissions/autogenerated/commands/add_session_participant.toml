@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-add-session-participant"
+description = "Enables the add_session_participant command without any pre-configured scope."
+commands.allow = ["add_session_participant"]
+
+[[permission]]
+identifier = "deny-add-session-participant"
+description = "Denies the add_session_participant command without any pre-configured scope."
+commands.deny = ["add_session_participant"]

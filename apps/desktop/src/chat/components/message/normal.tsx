@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import {
@@ -10,6 +10,7 @@ import {
   Copy,
 } from "@anlg/ui/components/icons";
 import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import {
@@ -23,7 +24,7 @@ import { MessageTimestamp } from "./timestamp";
 import { Tool } from "./tool";
 import type { Part } from "./types";
 
-import { hasRenderableContent } from "~/chat/components/shared";
+import { hasRenderableContent } from "~/chat/message-content";
 import type { AnlgUIMessage } from "~/chat/types";
 
 function getMessageText(message: AnlgUIMessage): string {
@@ -57,13 +58,13 @@ export function NormalMessage({
   const [copied, setCopied] = useState(false);
   const copiedResetTimeoutRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       if (copiedResetTimeoutRef.current !== null) {
         window.clearTimeout(copiedResetTimeoutRef.current);
       }
     };
-  }, []);
+  });
 
   const handleCopy = useCallback(async () => {
     const text = getMessageText(message);

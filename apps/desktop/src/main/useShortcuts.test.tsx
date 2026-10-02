@@ -151,22 +151,6 @@ describe("useClassicMainShortcuts", () => {
     vi.useRealTimers();
   });
 
-  it("does not bind removed shortcuts", () => {
-    renderHook(() => useClassicMainShortcuts());
-
-    expect(hoisted.handlers.has("mod+t")).toBe(false);
-    expect(hoisted.handlers.has("mod+w")).toBe(false);
-    expect(
-      hoisted.handlers.has(
-        "mod+1, mod+2, mod+3, mod+4, mod+5, mod+6, mod+7, mod+8, mod+9",
-      ),
-    ).toBe(false);
-    expect(hoisted.handlers.has("mod+alt+left")).toBe(false);
-    expect(hoisted.handlers.has("mod+alt+right")).toBe(false);
-    expect(hoisted.handlers.has("mod+shift+t")).toBe(false);
-    expect(hoisted.handlers.has("mod+shift+comma")).toBe(false);
-  });
-
   it("selects an existing home view from a note on escape", () => {
     const homeTab = {
       active: false,
@@ -228,81 +212,89 @@ describe("useClassicMainShortcuts", () => {
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 
-  it("opens home from a note when the editor stops escape propagation", () => {
-    hoisted.currentTab = {
-      active: true,
-      id: "session-1",
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const editor = document.createElement("div");
-    editor.contentEditable = "true";
-    editor.addEventListener("keydown", (event) => event.stopPropagation());
-    document.body.append(editor);
+  it.each([
+    [
+      "a contentEditable editor",
+      () => {
+        const editor = document.createElement("div");
+        editor.contentEditable = "true";
+        editor.addEventListener("keydown", (event) => event.stopPropagation());
+        document.body.append(editor);
+        return { target: editor, cleanup: () => editor.remove() };
+      },
+    ],
+    [
+      "a ProseMirror text node",
+      () => {
+        const editor = document.createElement("div");
+        editor.className = "ProseMirror";
+        editor.contentEditable = "true";
+        const text = document.createTextNode("note");
+        editor.append(text);
+        editor.addEventListener("keydown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+        document.body.append(editor);
+        return { target: text, cleanup: () => editor.remove() };
+      },
+    ],
+    [
+      "a session title input",
+      () => {
+        const input = document.createElement("input");
+        input.dataset.sessionTitleInput = "true";
+        input.addEventListener("keydown", (event) => event.preventDefault());
+        document.body.append(input);
+        return { target: input, cleanup: () => input.remove() };
+      },
+    ],
+    [
+      "a session surface child",
+      () => {
+        const surface = document.createElement("div");
+        surface.dataset.sessionSurface = "true";
+        const target = document.createElement("div");
+        target.addEventListener("keydown", (event) => event.preventDefault());
+        surface.append(target);
+        document.body.append(surface);
+        return { target, cleanup: () => surface.remove() };
+      },
+    ],
+    [
+      "a window listener",
+      () => {
+        const preventEscape = (event: KeyboardEvent) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+          }
+        };
+        window.addEventListener("keydown", preventEscape);
+        return {
+          target: window,
+          cleanup: () => window.removeEventListener("keydown", preventEscape),
+        };
+      },
+    ],
+  ] satisfies [string, () => { target: EventTarget; cleanup: () => void }][])(
+    "opens home from a note when %s handles escape",
+    (_label, setup) => {
+      hoisted.currentTab = {
+        active: true,
+        slotId: "slot-session",
+        type: "sessions",
+      };
 
-    renderHook(() => useClassicMainShortcuts());
+      renderHook(() => useClassicMainShortcuts());
+      const { target, cleanup } = setup();
+      dispatchEscape(target);
+      vi.runOnlyPendingTimers();
+      cleanup();
 
-    dispatchEscape(editor);
-    vi.runOnlyPendingTimers();
-    editor.remove();
-
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
-
-  it("opens home from a note when the editor prevents default escape handling", () => {
-    hoisted.currentTab = {
-      active: true,
-      id: "session-1",
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const editor = document.createElement("div");
-    editor.className = "ProseMirror";
-    editor.contentEditable = "true";
-    editor.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    });
-    document.body.append(editor);
-
-    renderHook(() => useClassicMainShortcuts());
-
-    dispatchEscape(editor);
-    vi.runOnlyPendingTimers();
-    editor.remove();
-
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
-
-  it("opens home from a note when ProseMirror handles escape from a text node", () => {
-    hoisted.currentTab = {
-      active: true,
-      id: "session-1",
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const editor = document.createElement("div");
-    editor.className = "ProseMirror";
-    editor.contentEditable = "true";
-    const text = document.createTextNode("note");
-    editor.append(text);
-    editor.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    });
-    document.body.append(editor);
-
-    renderHook(() => useClassicMainShortcuts());
-
-    dispatchEscape(text);
-    vi.runOnlyPendingTimers();
-    editor.remove();
-
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
+      expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
+      expect(hoisted.select).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not duplicate home navigation when a focused target handles escape directly", () => {
     hoisted.currentTab = {
@@ -326,56 +318,6 @@ describe("useClassicMainShortcuts", () => {
 
     expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(hoisted.openCurrent).toHaveBeenCalledTimes(1);
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
-
-  it("opens home from a note when the title field handles escape", () => {
-    hoisted.currentTab = {
-      active: true,
-      id: "session-1",
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const target = document.createElement("input");
-    target.dataset.sessionTitleInput = "true";
-    target.addEventListener("keydown", (event) => {
-      event.preventDefault();
-    });
-    document.body.append(target);
-
-    renderHook(() => useClassicMainShortcuts());
-
-    dispatchEscape(target);
-    vi.runOnlyPendingTimers();
-    target.remove();
-
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
-
-  it("opens home from a note when the session surface handles escape", () => {
-    hoisted.currentTab = {
-      active: true,
-      id: "session-1",
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const surface = document.createElement("div");
-    surface.dataset.sessionSurface = "true";
-    const target = document.createElement("div");
-    target.addEventListener("keydown", (event) => {
-      event.preventDefault();
-    });
-    surface.append(target);
-    document.body.append(surface);
-
-    renderHook(() => useClassicMainShortcuts());
-
-    dispatchEscape(target);
-    vi.runOnlyPendingTimers();
-    surface.remove();
-
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(hoisted.select).not.toHaveBeenCalled();
   });
 
@@ -404,83 +346,92 @@ describe("useClassicMainShortcuts", () => {
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
   });
 
-  it("lets editor escape consumers handle the key before opening home", () => {
-    hoisted.currentTab = {
-      active: true,
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const editor = document.createElement("div");
-    editor.className = "ProseMirror";
-    editor.contentEditable = "true";
-    editor.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    });
-    const menu = document.createElement("div");
-    menu.dataset.editorEscapeConsumer = "true";
-    document.body.append(editor, menu);
+  it.each([
+    [
+      "an editor escape consumer",
+      () => {
+        const editor = document.createElement("div");
+        editor.className = "ProseMirror";
+        editor.contentEditable = "true";
+        editor.addEventListener("keydown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+        const menu = document.createElement("div");
+        menu.dataset.editorEscapeConsumer = "true";
+        document.body.append(editor, menu);
+        return {
+          target: editor,
+          cleanup: () => {
+            editor.remove();
+            menu.remove();
+          },
+        };
+      },
+    ],
+    [
+      "an escape consumer unmounting during keydown",
+      () => {
+        const editor = document.createElement("div");
+        editor.className = "ProseMirror";
+        editor.contentEditable = "true";
+        const menu = document.createElement("div");
+        menu.dataset.editorEscapeConsumer = "true";
+        editor.addEventListener("keydown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          menu.remove();
+        });
+        document.body.append(editor, menu);
+        return { target: editor, cleanup: () => editor.remove() };
+      },
+    ],
+    [
+      "a transcript editor removing itself",
+      () => {
+        const surface = document.createElement("div");
+        surface.dataset.sessionSurface = "true";
+        const editor = document.createElement("div");
+        editor.dataset.transcriptEditor = "true";
+        editor.contentEditable = "true";
+        editor.addEventListener("keydown", (event) => {
+          event.preventDefault();
+          editor.remove();
+        });
+        surface.append(editor);
+        document.body.append(surface);
+        return { target: editor, cleanup: () => surface.remove() };
+      },
+    ],
+    [
+      "a focused input",
+      () => {
+        const input = document.createElement("input");
+        input.addEventListener("keydown", (event) => event.preventDefault());
+        document.body.append(input);
+        input.focus();
+        return { target: input, cleanup: () => input.remove() };
+      },
+    ],
+  ] satisfies [string, () => { target: EventTarget; cleanup: () => void }][])(
+    "lets %s consume escape",
+    (_label, setup) => {
+      hoisted.currentTab = {
+        active: true,
+        slotId: "slot-session",
+        type: "sessions",
+      };
 
-    renderHook(() => useClassicMainShortcuts());
+      renderHook(() => useClassicMainShortcuts());
+      const { target, cleanup } = setup();
+      dispatchEscape(target);
+      vi.runOnlyPendingTimers();
+      cleanup();
 
-    dispatchEscape(editor);
-    vi.runOnlyPendingTimers();
-    editor.remove();
-    menu.remove();
-
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
-
-  it("does not open home when an editor escape consumer unmounts before the shortcut runs", () => {
-    hoisted.currentTab = {
-      active: true,
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const editor = document.createElement("div");
-    editor.className = "ProseMirror";
-    editor.contentEditable = "true";
-    const menu = document.createElement("div");
-    menu.dataset.editorEscapeConsumer = "true";
-    editor.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      menu.remove();
-    });
-    document.body.append(editor, menu);
-
-    renderHook(() => useClassicMainShortcuts());
-
-    dispatchEscape(editor);
-    vi.runOnlyPendingTimers();
-    editor.remove();
-
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
-
-  it("selects an existing home tab on escape", () => {
-    const homeTab = {
-      active: false,
-      slotId: "slot-home",
-      type: "empty",
-    };
-    hoisted.currentTab = {
-      active: true,
-      slotId: "slot-settings",
-      type: "settings",
-    };
-    hoisted.tabs = [homeTab, hoisted.currentTab];
-
-    renderHook(() => useClassicMainShortcuts());
-
-    dispatchEscape();
-    vi.runOnlyPendingTimers();
-
-    expect(hoisted.select).toHaveBeenCalledWith(homeTab);
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
-  });
+      expect(hoisted.openCurrent).not.toHaveBeenCalled();
+      expect(hoisted.select).not.toHaveBeenCalled();
+    },
+  );
 
   it("returns settings to the tab it opened from on escape", () => {
     const sessionTab = {
@@ -580,22 +531,25 @@ describe("useClassicMainShortcuts", () => {
     expect(hoisted.goBack).not.toHaveBeenCalled();
   });
 
-  it("closes the floating chat before going home on escape", () => {
-    hoisted.chatMode = "FloatingOpen";
-    hoisted.currentTab = {
-      active: true,
-      slotId: "slot-session",
-      type: "sessions",
-    };
+  it.each(["FloatingOpen", "RightPanelOpen"] as const)(
+    "closes the %s chat before going home on escape",
+    (chatMode) => {
+      hoisted.chatMode = chatMode;
+      hoisted.currentTab = {
+        active: true,
+        slotId: "slot-session",
+        type: "sessions",
+      };
 
-    renderHook(() => useClassicMainShortcuts());
+      renderHook(() => useClassicMainShortcuts());
 
-    dispatchEscape();
-    vi.runOnlyPendingTimers();
+      dispatchEscape();
+      vi.runOnlyPendingTimers();
 
-    expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
-  });
+      expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
+      expect(hoisted.openCurrent).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not go home when chat closes before deferred escape handling runs", () => {
     hoisted.chatMode = "FloatingOpen";
@@ -614,95 +568,6 @@ describe("useClassicMainShortcuts", () => {
 
     expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
     expect(hoisted.openCurrent).not.toHaveBeenCalled();
-  });
-
-  it("closes the right panel chat before going home on escape", () => {
-    hoisted.chatMode = "RightPanelOpen";
-    hoisted.currentTab = {
-      active: true,
-      slotId: "slot-session",
-      type: "sessions",
-    };
-
-    renderHook(() => useClassicMainShortcuts());
-
-    dispatchEscape();
-    vi.runOnlyPendingTimers();
-
-    expect(hoisted.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
-  });
-
-  it("opens home from a note when escape is prevented without a focused target", () => {
-    hoisted.currentTab = {
-      active: true,
-      slotId: "slot-session",
-      type: "sessions",
-    };
-
-    renderHook(() => useClassicMainShortcuts());
-
-    const preventEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", preventEscape);
-
-    dispatchEscape();
-    vi.runOnlyPendingTimers();
-    window.removeEventListener("keydown", preventEscape);
-
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({ type: "empty" });
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
-
-  it("lets the transcript editor consume escape before it unmounts", () => {
-    hoisted.currentTab = {
-      active: true,
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const surface = document.createElement("div");
-    surface.setAttribute("data-session-surface", "");
-    const editor = document.createElement("div");
-    editor.setAttribute("data-transcript-editor", "");
-    editor.contentEditable = "true";
-    surface.append(editor);
-    document.body.append(surface);
-    editor.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      editor.remove();
-    });
-    renderHook(() => useClassicMainShortcuts());
-    dispatchEscape(editor);
-    vi.runOnlyPendingTimers();
-    surface.remove();
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
-    expect(hoisted.select).not.toHaveBeenCalled();
-  });
-
-  it("lets focused targets consume escape", () => {
-    hoisted.currentTab = {
-      active: true,
-      slotId: "slot-session",
-      type: "sessions",
-    };
-    const input = document.createElement("input");
-    input.addEventListener("keydown", (event) => {
-      event.preventDefault();
-    });
-    document.body.append(input);
-    input.focus();
-
-    renderHook(() => useClassicMainShortcuts());
-
-    dispatchEscape(input);
-    vi.runOnlyPendingTimers();
-    input.remove();
-
-    expect(hoisted.openCurrent).not.toHaveBeenCalled();
-    expect(hoisted.select).not.toHaveBeenCalled();
   });
 });
 

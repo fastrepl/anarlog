@@ -137,7 +137,7 @@ jobs:
           app=$(find "$RUNNER_TEMP/anarlog-mobile-ios" -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$app"
           test -f "$app/Frameworks/CloudSync.framework/CloudSync"
-          strings "$app/Frameworks/CloudSync.framework/CloudSync" | grep -F CLOUDSYNC_CURL_TIMEOUT_MS >/dev/null
+          strings "$app/Frameworks/CloudSync.framework/CloudSync" | grep -F network_connect_timeout >/dev/null
           node apps/mobile/scripts/verify-ios-shortcuts.mjs "$app"
 
   android_build:
@@ -205,7 +205,7 @@ jobs:
                   assert packaged_abis == supported_abis, f"{apk}: unexpected Android architectures {sorted(packaged_abis)}"
                   for abi in sorted(supported_abis):
                       library = package.read(f"lib/{abi}/libcloudsync.so")
-                      assert b"CLOUDSYNC_CURL_TIMEOUT_MS" in library, f"{apk}: unpatched CloudSync for {abi}"
+                      assert b"network_connect_timeout" in library, f"{apk}: stale CloudSync for {abi}"
 
   mobile_ci:
     if: always()

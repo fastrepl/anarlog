@@ -5,8 +5,6 @@ export const FLOATING_BAR_COMPACT_SOLO_STOP_WIDTH = 68;
 export const FLOATING_BAR_COMPACT_ICON_SIZE = 30;
 export const FLOATING_BAR_COMPACT_GAP = 0;
 export const FLOATING_BAR_COMPACT_HORIZONTAL_PADDING = 4;
-export const FLOATING_BAR_EXPANDED_WIDTH = 360;
-export const FLOATING_BAR_EXPANDED_HEIGHT = 430;
 export const FLOATING_BAR_HOVER_HANDLE_HEIGHT = 12;
 export const FLOATING_BAR_HOVER_HANDLE_TOP_PADDING = 7;
 const FLOATING_BAR_HOVER_HANDLE_GAP = 2;
@@ -24,11 +22,4 @@ export function compactControlsWidth(showsExpand: boolean) {
         FLOATING_BAR_COMPACT_GAP +
         FLOATING_BAR_COMPACT_ICON_SIZE
     : FLOATING_BAR_COMPACT_SOLO_STOP_WIDTH;
-}
-
-export function compactWidth(showsExpand: boolean) {
-  return (
-    compactControlsWidth(showsExpand) +
-    FLOATING_BAR_COMPACT_HORIZONTAL_PADDING * 2
-  );
 }

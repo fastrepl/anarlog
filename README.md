@@ -71,7 +71,7 @@ anarlog keeps audio transcription separate from the language model used for summ
 
 | Stage                                       | App setting       | Anarlog Cloud                                                                                                                                            | Local or bring your own                                                                   |
 | ------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Audio → transcript                          | **Transcription** | Managed **Pro (Cloud)** chooses by language and live or batch mode. Current primary paths include Deepgram Nova, Soniox 5, and AssemblyAI Universal 3.5. | Soniqo or Apple Speech when available, or your selected transcription provider and model  |
+| Audio → transcript                          | **Transcription** | Managed **Pro (Cloud)** prefers Soniox 5 for live and batch transcription, with eligible fallbacks based on language and mode. | Soniqo or Apple Speech when available, or your selected transcription provider and model  |
 | Transcript + memo → summary, title, or chat | **Intelligence**  | Managed **Auto** (also shown as Pro (Cloud)) currently uses the latest Claude Sonnet alias through OpenRouter.                                           | Your selected API, subscription, OpenAI-compatible server, or eligible Apple Intelligence |
 
 The active provider and model are always visible under **Settings → Transcription** and **Settings → Intelligence**. Read [Models and providers](https://docs.anarlog.so/models-and-providers) for the current routes, local model list, and privacy boundaries.
@@ -93,7 +93,7 @@ Product docs live at [docs.anarlog.so](https://docs.anarlog.so). To build the de
 | `apps/web`         | anarlog.so website, account portal, and shared-note pages; not the desktop notepad         |
 | `apps/api`         | Optional hosted services for AI, sync, sharing, and integrations                           |
 | `apps/cli`         | Local CLI and MCP server                                                                   |
-| `apps/mobile`      | Mobile client source; no mobile app is currently distributed                               |
+| `apps/mobile`      | iOS and Android client, available as a beta through TestFlight and Google Play             |
 | `apps/stripe`      | Billing integration                                                                        |
 | `apps/watch/apple` | watchOS companion source built with the mobile app                                         |
 | `plugins/*`        | Tauri capabilities such as local STT, database access, calendar, export, and notifications |

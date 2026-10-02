@@ -46,18 +46,21 @@ anarlog meetings --source auto get MEETING_ID
 
 `local` is the default and reads Anarlog's database on this computer. `cloud` reads the opted-in hosted snapshots using the account saved by `anarlog auth login`. `auto` uses the local database when it exists and falls back to Cloud when it does not. Set `ANARLOG_SOURCE` to choose the same behavior without a flag.
 
-All meeting read commands support all three sources. `--base`, `--db-path`, and `doctor` apply only to local data. Proposals and `anarlog mcp` remain local because hosted Cloud access is read-only.
+All meeting read commands except `meetings folders` and `meetings list --folder` support all three sources. `--base`, `--db-path`, and `doctor` apply only to local data. Proposals and `anarlog mcp` remain local because hosted Cloud access is read-only.
 
 ## Meeting commands
 
 | Command | Options | Result |
 | --- | --- | --- |
-| `meetings list` | `-q, --query TEXT`, `--series-id ID`, `--limit 1..200`, `--offset NUMBER` | Meetings ordered by the application query layer. Defaults to 20 results. |
+| `meetings list` | `-q, --query TEXT`, `--series-id ID`, `--folder PATH`, `--limit 1..200`, `--offset NUMBER` | Meetings ordered by the application query layer. Defaults to 20 results. `--folder` includes subfolders and is local only. Each meeting includes `folder_path`, or `null` outside a folder. |
+| `meetings folders` | `-q, --query TEXT`, `--limit 1..200`, `--offset NUMBER` | Local folder paths with `path`, `name`, and `parent_path`, including empty and parent folders. Defaults to 100 results. |
 | `meetings get ID` | — | Metadata, canonical memo, summaries, participants, and action items. |
 | `meetings note ID` | `--kind note\|summary\|all` | The selected note documents. Defaults to `note`. |
 | `meetings transcript ID` | `--limit 1..500`, `--offset NUMBER` | A bounded transcript word page. Defaults to 200 words from offset 0. |
 | `meetings history ID` | `--limit 1..200`, `--offset NUMBER` | A page of meetings from the same recurring series. Defaults to 20 from offset 0. |
 | `meetings export ID` | `--format markdown\|json`, `-o, --output FILE`, `--force` | A complete meeting export, including transcripts. Defaults to Markdown on stdout. Existing files require `--force`. |
+
+Markdown exports include speaker-labeled transcript paragraphs when word-level speaker information is available. Exports without that information retain the flat transcript text. JSON exports can include a `speakers` field with the names used for rendering.
 
 ## Proposal commands
 

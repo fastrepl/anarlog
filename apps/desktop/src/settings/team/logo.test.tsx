@@ -11,16 +11,11 @@ afterEach(() => {
 });
 
 describe("isWorkspaceLogoDataUrl", () => {
-  it("accepts a bounded JPEG data URL", () => {
-    expect(isWorkspaceLogoDataUrl("data:image/jpeg;base64,/9j/4AAQ")).toBe(
-      true,
-    );
-  });
-
-  it("accepts a bounded PNG data URL", () => {
-    expect(isWorkspaceLogoDataUrl("data:image/png;base64,iVBORw0KGgo=")).toBe(
-      true,
-    );
+  it.each([
+    { format: "JPEG", dataUrl: "data:image/jpeg;base64,/9j/4AAQ" },
+    { format: "PNG", dataUrl: "data:image/png;base64,iVBORw0KGgo=" },
+  ])("accepts a bounded $format data URL", ({ dataUrl }) => {
+    expect(isWorkspaceLogoDataUrl(dataUrl)).toBe(true);
   });
 
   it("rejects unsupported image formats and oversized payloads", () => {

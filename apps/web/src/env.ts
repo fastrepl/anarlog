@@ -49,6 +49,7 @@ export const env = createEnv({
     VITE_OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     VITE_OTEL_SAMPLE_RATE: z.coerce.number().int().positive().default(10),
     VITE_SENTRY_DSN: z.string().min(1).optional(),
+    VITE_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     VITE_APP_VERSION: z.string().min(1).optional(),
   },
 

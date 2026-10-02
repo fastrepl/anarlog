@@ -135,14 +135,19 @@ mod tests {
     }
 
     #[test]
-    fn test_batch_api_url_empty_uses_default() {
-        let url = ElevenLabsAdapter::batch_api_url("");
-        assert_eq!(url, "https://api.elevenlabs.io/v1/speech-to-text");
-    }
-
-    #[test]
-    fn test_batch_api_url_custom() {
-        let url = ElevenLabsAdapter::batch_api_url("https://custom.elevenlabs.io");
-        assert_eq!(url, "https://custom.elevenlabs.io/v1/speech-to-text");
+    fn test_batch_api_url() {
+        for (input, expected) in [
+            ("", "https://api.elevenlabs.io/v1/speech-to-text"),
+            (
+                "https://custom.elevenlabs.io",
+                "https://custom.elevenlabs.io/v1/speech-to-text",
+            ),
+        ] {
+            assert_eq!(
+                ElevenLabsAdapter::batch_api_url(input),
+                expected,
+                "input: {input}"
+            );
+        }
     }
 }

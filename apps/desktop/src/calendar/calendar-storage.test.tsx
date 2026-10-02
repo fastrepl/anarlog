@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
-  executeTransaction: vi.fn(),
+  setCalendarEnabled: vi.fn(),
   liveRows: [] as Array<Record<string, unknown>>,
   liveQueryOptions: null as null | {
     sql: string;
@@ -12,8 +12,11 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("@anlg/plugin-calendar", () => ({
+  commands: { setCalendarEnabled: mocks.setCalendarEnabled },
+}));
+
 vi.mock("~/db", () => ({
-  executeTransaction: mocks.executeTransaction,
   liveQueryClient: { execute: mocks.execute },
   useLiveQuery: (options: {
     sql: string;
@@ -36,7 +39,6 @@ import {
   getCalendarEventStartedAt,
   getNearbyCalendarEvents,
   searchCalendarEvents,
-  setCalendarEnabled,
   useCalendarRows,
 } from "./queries";
 
@@ -46,7 +48,7 @@ describe("calendar SQLite selection", () => {
     mocks.liveRows = [];
     mocks.liveQueryOptions = null;
     mocks.execute.mockResolvedValue([]);
-    mocks.executeTransaction.mockResolvedValue([]);
+    mocks.setCalendarEnabled.mockResolvedValue({ status: "ok", data: null });
   });
 
   test("reads provider calendars from the canonical table", () => {
@@ -73,19 +75,6 @@ describe("calendar SQLite selection", () => {
         enabled: true,
       },
     ]);
-  });
-
-  test("disabling a calendar tombstones its events in the same transaction", async () => {
-    await setCalendarEnabled("calendar-1", false);
-
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain("UPDATE calendars");
-    expect(statements[0].params[0]).toBe(0);
-    expect(statements[1].sql).toContain("UPDATE events");
-    expect(statements[1].sql).toContain("deleted_at");
-    expect(statements[1].params).toContain("calendar-1");
   });
 
   test("reads an event start time from SQLite", async () => {

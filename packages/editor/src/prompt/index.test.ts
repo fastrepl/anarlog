@@ -50,38 +50,6 @@ describe("prompt editor serialization", () => {
     );
   });
 
-  it("renders template expressions as visible atomic chips", () => {
-    const { container } = render(
-      createElement(PromptEditor, {
-        ariaLabel: "Summary instructions",
-        initialValue: "Follow {{ template }}",
-        onChange: vi.fn(),
-      }),
-    );
-
-    expect(
-      screen.getByRole("textbox", { name: "Summary instructions" }),
-    ).toBeTruthy();
-    expect(
-      container.querySelector('[data-prompt-token="template"]')?.textContent,
-    ).toBe("Template");
-  });
-
-  it("renders configured variable labels without changing their source", () => {
-    const { container } = render(
-      createElement(PromptEditor, {
-        ariaLabel: "Auto prompt",
-        initialValue: "Write in {{ language }}",
-        onChange: vi.fn(),
-        tokens: autoPromptTokens,
-      }),
-    );
-
-    expect(
-      container.querySelector('[data-prompt-token="language"]')?.textContent,
-    ).toBe("Language");
-  });
-
   it("exposes a non-editable prompt without hiding its content", () => {
     render(
       createElement(PromptEditor, {

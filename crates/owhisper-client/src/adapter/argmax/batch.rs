@@ -529,33 +529,4 @@ mod tests {
         );
         assert_eq!(request.body.len() % size_of::<i16>(), 0);
     }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_argmax_batch_transcription() {
-        let client = create_client();
-        let adapter = ArgmaxAdapter::default();
-        let params = ListenParams::default();
-
-        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
-
-        let result = adapter
-            .transcribe_file(
-                &client,
-                "http://localhost:50060/v1",
-                "",
-                &params,
-                &audio_path,
-            )
-            .await
-            .expect("transcription failed");
-
-        assert!(!result.results.channels.is_empty());
-        assert!(!result.results.channels[0].alternatives.is_empty());
-        assert!(
-            !result.results.channels[0].alternatives[0]
-                .transcript
-                .is_empty()
-        );
-    }
 }

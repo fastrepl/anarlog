@@ -461,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    fn nightly_auth_uses_its_own_callback_and_token_store() {
+    fn each_channel_uses_its_own_login_callback_and_token_store() {
         let environment = Environment::for_executable("anarlog-nightly");
         assert_eq!(environment.scheme, "anarlog-nightly");
         assert_eq!(environment.bundle_id, "com.hyprnote.nightly");
@@ -475,10 +475,6 @@ mod tests {
             Environment::for_executable("anarlog").bundle_id,
             "com.hyprnote.stable"
         );
-    }
-
-    #[test]
-    fn builds_headless_browser_login_url() {
         assert_eq!(
             login_url("anarlog").unwrap().as_str(),
             "https://anarlog.so/auth?flow=desktop&scheme=anarlog"

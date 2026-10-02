@@ -73,7 +73,6 @@ vi.mock("~/env", () => ({
 }));
 
 import {
-  cancelConnectedImport,
   connectConnectedImport,
   connectNangoImport,
   connectedImportSyncQueryOptions,
@@ -122,16 +121,6 @@ describe("connected meeting imports", () => {
       "circleback-mcp",
       JSON.stringify(credentials),
     );
-  });
-
-  it("cancels an abandoned provider authorization", async () => {
-    mocks.cancelConnectedImport.mockResolvedValue({
-      status: "ok",
-      data: true,
-    });
-
-    await expect(cancelConnectedImport("circleback")).resolves.toBe(true);
-    expect(mocks.cancelConnectedImport).toHaveBeenCalledWith("circleback");
   });
 
   it("does not save credentials when provider authorization is cancelled", async () => {

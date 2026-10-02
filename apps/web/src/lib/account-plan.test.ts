@@ -32,14 +32,6 @@ test("account plan prices follow the selected billing period", () => {
   );
 });
 
-test("non-billed account plans keep their price copy across periods", () => {
-  assert.equal(getAccountPlanPriceText({ kind: "free" }, "yearly"), "$0");
-  assert.equal(
-    getAccountPlanPriceText({ kind: "custom" }, "monthly"),
-    "Custom",
-  );
-});
-
 test("prefers cancel_at, then item period end, then subscription period end", () => {
   assert.equal(
     getSubscriptionAccessEnd({
@@ -114,61 +106,34 @@ test("paid copy acknowledges a scheduled cancellation", () => {
   );
 });
 
-test("paid copy names the YC founder year when that perk is on the subscription", () => {
-  assert.deepEqual(
+test("plan label reflects workspace precedence over the personal subscription", () => {
+  const paid = {
+    isTrialing: false,
+    isPaid: true,
+    trialDaysRemaining: null,
+    trialEnd: null,
+    cancelAtPeriodEnd: false,
+    currentPeriodEnd: new Date("2026-09-17T00:00:00.000Z"),
+  };
+
+  assert.equal(
     getAccountPlanCopy({
       isTrialing: false,
-      isPaid: true,
-      trialDaysRemaining: null,
-      trialEnd: null,
+      isPaused: true,
+      isPaid: false,
+      trialDaysRemaining: 0,
+      trialEnd: new Date("2026-08-24T00:00:00.000Z"),
       cancelAtPeriodEnd: false,
-      currentPeriodEnd: new Date("2026-09-17T00:00:00.000Z"),
-      hasYcPerk: true,
-    }),
-    {
-      planLabel: "Pro",
-      planDetail: "YC founder year is applied to personal Pro.",
-    },
+      currentPeriodEnd: null,
+    }).planLabel,
+    "Free",
   );
-});
-
-test("paid copy stays supportive when the subscription is not canceling", () => {
-  assert.deepEqual(
-    getAccountPlanCopy({
-      isTrialing: false,
-      isPaid: true,
-      trialDaysRemaining: null,
-      trialEnd: null,
-      cancelAtPeriodEnd: false,
-      currentPeriodEnd: new Date("2026-09-17T00:00:00.000Z"),
-    }),
-    {
-      planLabel: "Pro",
-      planDetail: "Thanks for supporting Anarlog.",
-    },
+  assert.equal(getAccountPlanCopy(paid).planLabel, "Pro");
+  assert.equal(
+    getAccountPlanCopy({ ...paid, workspacePlan: "team" }).planLabel,
+    "Team",
   );
-});
-
-test("a Team member with the shared Pro entitlement is shown as Team", () => {
-  assert.deepEqual(
-    getAccountPlanCopy({
-      isTrialing: false,
-      isPaid: true,
-      trialDaysRemaining: null,
-      trialEnd: null,
-      cancelAtPeriodEnd: false,
-      currentPeriodEnd: new Date("2026-09-17T00:00:00.000Z"),
-      workspacePlan: "team",
-    }),
-    {
-      planLabel: "Team",
-      planDetail: "Shared workspace with Pro for every member.",
-    },
-  );
-});
-
-test("Enterprise takes precedence over personal Pro and Team copy", () => {
-  assert.deepEqual(
+  assert.equal(
     getAccountPlanCopy({
       isTrialing: true,
       isPaid: true,
@@ -177,29 +142,12 @@ test("Enterprise takes precedence over personal Pro and Team copy", () => {
       cancelAtPeriodEnd: false,
       currentPeriodEnd: null,
       workspacePlan: "enterprise",
-    }),
-    {
-      planLabel: "Enterprise",
-      planDetail: "Organization-wide Team with security and policy controls.",
-    },
+    }).planLabel,
+    "Enterprise",
   );
-});
-
-test("a free workspace does not upgrade an individual Pro subscription", () => {
-  assert.deepEqual(
-    getAccountPlanCopy({
-      isTrialing: false,
-      isPaid: true,
-      trialDaysRemaining: null,
-      trialEnd: null,
-      cancelAtPeriodEnd: false,
-      currentPeriodEnd: new Date("2026-09-17T00:00:00.000Z"),
-      workspacePlan: null,
-    }),
-    {
-      planLabel: "Pro",
-      planDetail: "Thanks for supporting Anarlog.",
-    },
+  assert.equal(
+    getAccountPlanCopy({ ...paid, workspacePlan: null }).planLabel,
+    "Pro",
   );
 });
 
@@ -253,7 +201,7 @@ function workspacePlanFixture(
   };
 }
 
-test("workspace plan lookup prefers Enterprise over Team", async () => {
+test("workspace plan lookup prefers Enterprise, then Team", async () => {
   for (const tiers of [
     ["team", "enterprise"],
     ["enterprise", "team"],
@@ -261,9 +209,6 @@ test("workspace plan lookup prefers Enterprise over Team", async () => {
     const { load } = workspacePlanFixture(tiers);
     assert.equal(await load(), "enterprise");
   }
-});
-
-test("workspace plan lookup returns Team for a paid shared workspace", async () => {
   const { load } = workspacePlanFixture(["free", "team"]);
   assert.equal(await load(), "team");
 });

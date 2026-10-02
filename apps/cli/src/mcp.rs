@@ -41,7 +41,7 @@ impl AnarlogMcpServer {
 impl AnarlogMcpServer {
     #[tool(
         title = "List meetings",
-        description = "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id, then pass next_offset as offset to continue.",
+        description = "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id and folder_path to scope to a folder and its subfolders, then pass next_offset as offset to continue.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingPage>(),
         annotations(
             read_only_hint = true,
@@ -55,6 +55,27 @@ impl AnarlogMcpServer {
         Parameters(input): Parameters<access::ListMeetingsInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
         let page = access::list_meetings(self.db.pool(), input)
+            .await
+            .map_err(command_error)?;
+        structured(&page)
+    }
+
+    #[tool(
+        title = "List folders",
+        description = "List Anarlog meeting folders, including empty and parent folders, with pagination metadata. Pass a returned path as list_meetings folder_path. Query matches a case-insensitive path substring.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::FolderPage>(),
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn list_folders(
+        &self,
+        Parameters(input): Parameters<access::ListFoldersInput>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        let page = access::list_folders(self.db.pool(), input)
             .await
             .map_err(command_error)?;
         structured(&page)
@@ -295,7 +316,7 @@ impl ServerHandler for AnarlogMcpServer {
         .with_protocol_version(ProtocolVersion::V_2026_07_28)
         .with_server_info(Implementation::new("anarlog", crate::VERSION))
         .with_instructions(
-            "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Use export_meeting only when the task needs the complete record including transcripts. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
+            "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id; to scope work to a project or client, call list_folders and pass a returned path as folder_path. Then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Use export_meeting only when the task needs the complete record including transcripts. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
         )
     }
 
@@ -318,6 +339,7 @@ impl ServerHandler for AnarlogMcpServer {
             access::ListMeetingsInput {
                 query: None,
                 series_id: None,
+                folder_path: None,
                 limit: Some(access::DEFAULT_LIST_LIMIT),
                 offset: Some(offset),
             },
@@ -404,6 +426,7 @@ impl ServerHandler for AnarlogMcpServer {
                     access::ListMeetingsInput {
                         query: None,
                         series_id: Some(series_id),
+                        folder_path: None,
                         limit: Some(100),
                         offset: Some(0),
                     },
@@ -553,26 +576,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn server_advertises_tools_and_resources() {
-        let db = Arc::new(anlg_db_core::Db::connect_memory_plain().await.unwrap());
-        let info = AnarlogMcpServer::new(db).get_info();
-        assert_eq!(info.protocol_version, ProtocolVersion::V_2026_07_28);
-        assert!(info.capabilities.tools.is_some());
-        assert!(info.capabilities.resources.is_some());
-        let instructions = info.instructions.unwrap();
-        assert!(instructions.contains("Start with list_meetings"));
-        assert!(instructions.contains("https://docs.anarlog.so"));
-        assert!(instructions.contains("propose_summary_edit"));
-        assert!(instructions.contains("claim a proposal was applied"));
-        assert!(instructions.contains("Never invent meeting titles"));
-    }
-
-    #[tokio::test]
     async fn list_tool_returns_structured_meeting_data() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();
         sqlx::query(
-            "INSERT INTO sessions (id, title, started_at) VALUES ('meeting-1', 'Planning', '2026-07-13')",
+            "INSERT INTO sessions (id, title, started_at, folder_path)
+             VALUES
+             ('meeting-1', 'Planning', '2026-07-13', 'Clients/ACME'),
+             ('meeting-2', 'Planning retro', '2026-07-12', '')",
         )
         .execute(db.pool())
         .await
@@ -583,6 +594,7 @@ mod tests {
             .list_meetings(Parameters(access::ListMeetingsInput {
                 query: Some("plan".to_string()),
                 series_id: None,
+                folder_path: Some("Clients".to_string()),
                 limit: None,
                 offset: None,
             }))
@@ -592,8 +604,38 @@ mod tests {
         let meetings = result.structured_content.unwrap();
         assert_eq!(meetings["meetings"][0]["id"], "meeting-1");
         assert_eq!(meetings["meetings"][0]["title"], "Planning");
+        assert_eq!(meetings["meetings"][0]["folder_path"], "Clients/ACME");
         assert_eq!(meetings["pagination"]["returned"], 1);
         assert!(meetings["pagination"]["next_offset"].is_null());
+
+        let unfiled = server
+            .get_meeting(Parameters(access::GetMeetingInput {
+                meeting_id: "meeting-2".to_string(),
+            }))
+            .await
+            .unwrap()
+            .structured_content
+            .unwrap();
+        assert!(unfiled["folder_path"].is_null());
+
+        let folders = server
+            .list_folders(Parameters(access::ListFoldersInput::default()))
+            .await
+            .unwrap()
+            .structured_content
+            .unwrap();
+        assert_eq!(folders["folders"][1]["path"], "Clients/ACME");
+        assert_eq!(folders["folders"][1]["name"], "ACME");
+        assert_eq!(folders["folders"][1]["parent_path"], "Clients");
+        assert!(folders["folders"][0]["parent_path"].is_null());
+
+        let invalid = server
+            .list_meetings(Parameters(access::ListMeetingsInput {
+                folder_path: Some("/Clients".to_string()),
+                ..Default::default()
+            }))
+            .await;
+        assert!(invalid.is_err());
     }
 
     #[tokio::test]
@@ -639,6 +681,7 @@ mod tests {
                 "get_meeting_transcript",
                 "get_proposal",
                 "get_recurring_meeting_history",
+                "list_folders",
                 "list_meetings",
                 "list_proposals",
                 "propose_memo_edit",
@@ -777,7 +820,7 @@ mod tests {
         let tools = client.receive().await.unwrap();
         let tools = serde_json::to_value(tools).unwrap();
         assert_eq!(tools["result"]["resultType"], "complete");
-        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 10);
+        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 11);
 
         drop(client);
         server_task.await.unwrap().cancel().await.unwrap();

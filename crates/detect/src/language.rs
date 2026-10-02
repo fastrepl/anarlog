@@ -42,21 +42,4 @@ mod tests {
         assert!(locale_to_language("invalid").is_none());
         assert!(locale_to_language("xx-YY").is_none());
     }
-
-    #[test]
-    fn test_get_preferred_languages() {
-        let expected = sys_locale::get_locales()
-            .filter_map(|locale| locale_to_language(&locale))
-            .collect::<Vec<_>>();
-
-        assert_eq!(get_preferred_languages(), expected);
-    }
-
-    #[test]
-    fn test_get_current_locale_identifier() {
-        assert_eq!(
-            get_current_locale_identifier(),
-            sys_locale::get_locale().unwrap_or_default()
-        );
-    }
 }

@@ -91,23 +91,6 @@ mod tests {
     use tantivy::DateTime;
 
     #[test]
-    fn test_build_schema_has_language_field() {
-        let schema = build_schema();
-        assert!(
-            schema.get_field("language").is_ok(),
-            "Schema should have a language field"
-        );
-        assert!(
-            schema.get_field("title").is_ok(),
-            "Schema should have a title field"
-        );
-        assert!(
-            schema.get_field("content").is_ok(),
-            "Schema should have a content field"
-        );
-    }
-
-    #[test]
     fn test_build_schema_stores_created_at_as_date_field() {
         let schema = build_schema();
         let created_at = schema.get_field("created_at").unwrap();

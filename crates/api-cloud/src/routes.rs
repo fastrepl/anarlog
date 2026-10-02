@@ -679,6 +679,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                 timezone: "Asia/Seoul".to_string(),
                 language: "en".to_string(),
                 series_id: String::new(),
+                folder_path: None,
                 note: None,
                 summaries: Vec::new(),
                 participants: Vec::new(),
@@ -700,6 +701,8 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                 })],
                 speaker_hints: Vec::new(),
             }],
+            speakers: Vec::new(),
+            speaker_context: None,
         }
     }
 
@@ -712,18 +715,14 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
     }
 
     #[tokio::test]
-    async fn mcp_supports_current_stateless_tool_discovery_on_the_public_api_host() {
-        assert_mcp_tool_discovery("api.anarlog.so").await;
-    }
-
-    #[tokio::test]
-    async fn mcp_supports_tool_discovery_on_the_renamed_gateway_host() {
-        assert_mcp_tool_discovery("anarlog-gateway.fly.dev").await;
-    }
-
-    #[tokio::test]
-    async fn mcp_supports_tool_discovery_on_the_gateway_upstream_host() {
-        assert_mcp_tool_discovery("anarlog-sync.fly.dev").await;
+    async fn mcp_supports_stateless_tool_discovery_on_every_public_host() {
+        for host in [
+            "api.anarlog.so",
+            "anarlog-gateway.fly.dev",
+            "anarlog-sync.fly.dev",
+        ] {
+            assert_mcp_tool_discovery(host).await;
+        }
     }
 
     async fn assert_mcp_tool_discovery(host: &str) {

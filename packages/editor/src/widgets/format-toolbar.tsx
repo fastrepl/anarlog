@@ -16,7 +16,7 @@ import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -28,6 +28,7 @@ import {
   TextStrikethrough,
   TextUnderline,
 } from "@anlg/ui/components/icons";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { schema } from "../note/schema";
@@ -139,7 +140,7 @@ export function FormatToolbar({
     cancelReleaseTimer();
     setIsComposing(false);
   };
-  useEffect(() => cancelReleaseTimer, []);
+  useMountEffect(() => cancelReleaseTimer);
   useEditorEventListener("compositionstart", () => {
     compositionEndState.current = null;
     cancelReleaseTimer();

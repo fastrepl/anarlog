@@ -386,7 +386,7 @@ mod tests {
     use crate::relay::types::DEFAULT_CLOSE_CODE;
 
     #[test]
-    fn deinterleave_basic() {
+    fn deinterleave_splits_stereo_frames() {
         let mic: [u8; 2] = [0x01, 0x00];
         let spk: [u8; 2] = [0x02, 0x00];
         let interleaved = [mic[0], mic[1], spk[0], spk[1]];
@@ -394,44 +394,31 @@ mod tests {
         let (ch0, ch1) = deinterleave(&interleaved);
         assert_eq!(ch0, mic);
         assert_eq!(ch1, spk);
-    }
 
-    #[test]
-    fn deinterleave_multiple_frames() {
         let interleaved = [0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00];
-
         let (ch0, ch1) = deinterleave(&interleaved);
         assert_eq!(ch0, [0x01, 0x00, 0x03, 0x00]);
         assert_eq!(ch1, [0x02, 0x00, 0x04, 0x00]);
-    }
 
-    #[test]
-    fn deinterleave_empty() {
         let (ch0, ch1) = deinterleave(&[]);
         assert!(ch0.is_empty());
         assert!(ch1.is_empty());
     }
 
     #[test]
-    fn upstream_disconnects_map_to_structured_close_signal() {
+    fn upstream_failures_map_to_structured_close_signals() {
         assert!(matches!(
             upstream_disconnected_signal(),
             ShutdownSignal::Close { code, reason }
                 if code == DEFAULT_CLOSE_CODE && reason == "upstream_disconnected"
         ));
-    }
 
-    #[test]
-    fn upstream_send_failures_map_to_structured_close_signal() {
         assert!(matches!(
             upstream_send_failed_signal(),
             ShutdownSignal::Close { code, reason }
                 if code == DEFAULT_CLOSE_CODE && reason == "upstream_send_failed"
         ));
-    }
 
-    #[test]
-    fn upstream_receive_errors_preserve_the_transport_error_string() {
         let error = tokio_tungstenite::tungstenite::Error::ConnectionClosed;
         let ShutdownSignal::Close { code, reason } = upstream_receive_error_signal(&error) else {
             panic!("expected structured close signal");

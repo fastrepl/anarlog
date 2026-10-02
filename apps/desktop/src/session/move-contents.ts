@@ -1,5 +1,6 @@
 import { md2json } from "@anlg/editor/markdown";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands } from "@anlg/plugin-session";
 
 import {
   catalogLocalSessionAudio,
@@ -9,7 +10,7 @@ import {
 import { enqueueSessionAudioOperation } from "./audio-operations";
 import { loadSessionContentSnapshot } from "./content-queries";
 
-import { executeTransaction, liveQueryClient } from "~/db";
+import { liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
@@ -250,9 +251,6 @@ export async function moveSessionContents({
       }
     }
 
-    const now = new Date().toISOString();
-    const sourceAudioId = `session-audio:${sourceSessionId}`;
-    const targetAudioId = `session-audio:${targetSessionId}`;
     const shouldRewriteAudioIds = copiedAudio;
     const targetHasNotes = hasNoteContent(target.rawMarkdown);
     const nextTargetNote = sourceHasNotes
@@ -272,128 +270,16 @@ export async function moveSessionContents({
     await withOrderedLocks(
       enqueueDatabaseWrite,
       [`session:${sourceSessionId}`, `session:${targetSessionId}`],
-      () =>
-        executeTransaction([
-          {
-            sql: `
-              UPDATE transcripts
-              SET
-                session_id = ?,
-                audio_attachment_id = CASE
-                  WHEN ? = 1 AND audio_attachment_id = ? THEN ?
-                  ELSE audio_attachment_id
-                END,
-                updated_at = ?
-              WHERE session_id = ? AND deleted_at IS NULL
-            `,
-            params: [
-              targetSessionId,
-              shouldRewriteAudioIds ? 1 : 0,
-              sourceAudioId,
-              targetAudioId,
-              now,
-              sourceSessionId,
-            ],
-          },
-          {
-            sql: `
-              UPDATE session_documents
-              SET session_id = ?, updated_at = ?
-              WHERE session_id = ?
-                AND kind IN ('summary', 'template_output')
-                AND deleted_at IS NULL
-            `,
-            params: [targetSessionId, now, sourceSessionId],
-          },
-          {
-            sql: `
-              UPDATE action_items
-              SET session_id = ?, updated_at = ?
-              WHERE session_id = ? AND deleted_at IS NULL
-            `,
-            params: [targetSessionId, now, sourceSessionId],
-          },
-          {
-            sql: `
-              UPDATE voiceprint_exemplars
-              SET
-                source_session_id = ?,
-                source_attachment_id = CASE
-                  WHEN ? = 1 AND source_attachment_id = ? THEN ?
-                  ELSE source_attachment_id
-                END,
-                updated_at = ?
-              WHERE source_session_id = ? AND deleted_at IS NULL
-            `,
-            params: [
-              targetSessionId,
-              shouldRewriteAudioIds ? 1 : 0,
-              sourceAudioId,
-              targetAudioId,
-              now,
-              sourceSessionId,
-            ],
-          },
-          {
-            sql: `
-              UPDATE voiceprint_candidates
-              SET
-                source_session_id = ?,
-                source_attachment_id = CASE
-                  WHEN ? = 1 AND source_attachment_id = ? THEN ?
-                  ELSE source_attachment_id
-                END,
-                updated_at = ?
-              WHERE source_session_id = ? AND deleted_at IS NULL
-            `,
-            params: [
-              targetSessionId,
-              shouldRewriteAudioIds ? 1 : 0,
-              sourceAudioId,
-              targetAudioId,
-              now,
-              sourceSessionId,
-            ],
-          },
-          ...(nextTargetNote
-            ? [
-                {
-                  sql: `
-                    UPDATE session_documents
-                    SET body = ?, body_format = 'prosemirror_json', updated_at = ?
-                    WHERE id = ?
-                      AND session_id = ?
-                      AND kind = 'note'
-                      AND deleted_at IS NULL
-                  `,
-                  params: [
-                    nextTargetNote,
-                    now,
-                    targetSessionId,
-                    targetSessionId,
-                  ],
-                  expectedRowsAffected: 1,
-                },
-                {
-                  sql: `
-                    UPDATE session_documents
-                    SET body = ?, body_format = 'prosemirror_json', updated_at = ?
-                    WHERE id = ?
-                      AND session_id = ?
-                      AND kind = 'note'
-                      AND deleted_at IS NULL
-                  `,
-                  params: [
-                    emptyNoteBody(),
-                    now,
-                    sourceSessionId,
-                    sourceSessionId,
-                  ],
-                  expectedRowsAffected: 1,
-                },
-              ]
-            : []),
-        ]),
+      async () => {
+        const result = await commands.moveSessionContents({
+          source_session_id: sourceSessionId,
+          target_session_id: targetSessionId,
+          rewrite_audio_ids: shouldRewriteAudioIds,
+          next_target_note: nextTargetNote,
+          empty_source_note: nextTargetNote ? emptyNoteBody() : null,
+        });
+        if (result.status === "error") throw new Error(result.error);
+      },
     );
   } catch (error) {
     console.error("Failed to move meeting contents", error);

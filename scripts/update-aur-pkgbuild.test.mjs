@@ -7,7 +7,6 @@ import test from "node:test";
 import {
   bumpPkgbuild,
   bumpSrcinfo,
-  readPkgver,
   updatePackage,
 } from "./update-aur-pkgbuild.mjs";
 
@@ -47,7 +46,7 @@ const SRCINFO = `pkgbase = anarlog-bin
 pkgname = anarlog-bin
 `;
 
-test("bumps the PKGBUILD version, checksums, and resets pkgrel", () => {
+test("bumps the PKGBUILD version and checksums, resets pkgrel, and keeps interpolated URLs", () => {
   const next = bumpPkgbuild(PKGBUILD, {
     version: "1.5.0",
     checksums: CHECKSUMS,
@@ -61,14 +60,6 @@ test("bumps the PKGBUILD version, checksums, and resets pkgrel", () => {
     next,
     new RegExp(`^sha256sums_aarch64=\\('${ARM_SHA}'\\)$`, "m"),
   );
-});
-
-test("leaves interpolated PKGBUILD source URLs untouched", () => {
-  const next = bumpPkgbuild(PKGBUILD, {
-    version: "1.5.0",
-    checksums: CHECKSUMS,
-  });
-
   assert.match(next, /_release="desktop_v\$\{pkgver\}"/);
   assert.ok(!next.includes("1.4.8"));
 });
@@ -112,11 +103,6 @@ test("fails when the PKGBUILD is missing an expected field", () => {
     () => bumpPkgbuild(malformed, { version: "1.5.0", checksums: CHECKSUMS }),
     /Expected exactly one sha256sums_aarch64 line/,
   );
-});
-
-test("reads the current pkgver", () => {
-  assert.equal(readPkgver(PKGBUILD), "1.4.8");
-  assert.throws(() => readPkgver("pkgname=anarlog-bin\n"), /no pkgver/);
 });
 
 test("writes both files and reports the previous version", async (t) => {

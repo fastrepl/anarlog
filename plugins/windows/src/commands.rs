@@ -660,39 +660,35 @@ pub async fn window_is_occluded(
 mod tests {
     use super::*;
 
-    fn screen() -> crate::SavedFrame {
-        crate::SavedFrame {
+    #[test]
+    fn anchored_frames_hug_their_screen_corner() {
+        let screen = crate::SavedFrame {
             x: 100.0,
             y: 50.0,
             w: 1000.0,
             h: 800.0,
-        }
-    }
-
-    #[test]
-    fn top_right_frame_hugs_the_top_right_corner() {
-        let frame = anchored_frame(Anchor::TopRight, screen(), 340.0, 500.0);
-
-        assert_eq!(frame.x, 100.0 + 1000.0 - 340.0 - ANCHOR_MARGIN);
-        assert_eq!((frame.w, frame.h), (340.0, 500.0));
-
-        if cfg!(target_os = "macos") {
-            assert_eq!(frame.y, 50.0 + 800.0 - 500.0 - ANCHOR_MARGIN);
+        };
+        let top_y = if cfg!(target_os = "macos") {
+            50.0 + 800.0 - 500.0 - ANCHOR_MARGIN
         } else {
-            assert_eq!(frame.y, 50.0 + ANCHOR_MARGIN);
-        }
-    }
-
-    #[test]
-    fn bottom_left_frame_hugs_the_bottom_left_corner() {
-        let frame = anchored_frame(Anchor::BottomLeft, screen(), 340.0, 500.0);
-
-        assert_eq!(frame.x, 100.0 + ANCHOR_MARGIN);
-
-        if cfg!(target_os = "macos") {
-            assert_eq!(frame.y, 50.0 + ANCHOR_MARGIN);
+            50.0 + ANCHOR_MARGIN
+        };
+        let bottom_y = if cfg!(target_os = "macos") {
+            50.0 + ANCHOR_MARGIN
         } else {
-            assert_eq!(frame.y, 50.0 + 800.0 - 500.0 - ANCHOR_MARGIN);
+            50.0 + 800.0 - 500.0 - ANCHOR_MARGIN
+        };
+
+        for (anchor, x, y) in [
+            (
+                Anchor::TopRight,
+                100.0 + 1000.0 - 340.0 - ANCHOR_MARGIN,
+                top_y,
+            ),
+            (Anchor::BottomLeft, 100.0 + ANCHOR_MARGIN, bottom_y),
+        ] {
+            let frame = anchored_frame(anchor, screen, 340.0, 500.0);
+            assert_eq!((frame.x, frame.y, frame.w, frame.h), (x, y, 340.0, 500.0));
         }
     }
 }

@@ -215,61 +215,6 @@ mod tests {
         }
     }
 
-    // --- AppCategory tests ---
-
-    #[test]
-    fn test_app_category_find() {
-        assert_eq!(
-            AppCategory::find_category("com.hyprnote.dev"),
-            Some(AppCategory::Anarlog)
-        );
-        assert_eq!(AppCategory::find_category("com.zoom.us"), None);
-    }
-
-    #[test]
-    fn test_app_category_find_all_categories() {
-        assert_eq!(
-            AppCategory::find_category("com.electron.aqua-voice"),
-            Some(AppCategory::Dictation)
-        );
-        assert_eq!(
-            AppCategory::find_category("com.microsoft.VSCode"),
-            Some(AppCategory::IDE)
-        );
-        assert_eq!(
-            AppCategory::find_category("so.cap.desktop"),
-            Some(AppCategory::ScreenRecording)
-        );
-        assert_eq!(
-            AppCategory::find_category("pl.maketheweb.cleanshotx"),
-            Some(AppCategory::ScreenRecording)
-        );
-        assert_eq!(
-            AppCategory::find_category("com.apple.QuickTimePlayerX"),
-            Some(AppCategory::ScreenRecording)
-        );
-        assert_eq!(
-            AppCategory::find_category("com.openai.chat"),
-            Some(AppCategory::AIAssistant)
-        );
-        assert_eq!(
-            AppCategory::find_category("com.raycast.macos"),
-            Some(AppCategory::Other)
-        );
-    }
-
-    #[test]
-    fn test_app_category_all_returns_every_variant() {
-        let all = AppCategory::all();
-        assert!(all.contains(&AppCategory::Anarlog));
-        assert!(all.contains(&AppCategory::Dictation));
-        assert!(all.contains(&AppCategory::IDE));
-        assert!(all.contains(&AppCategory::ScreenRecording));
-        assert!(all.contains(&AppCategory::AIAssistant));
-        assert!(all.contains(&AppCategory::Other));
-        assert_eq!(all.len(), 6);
-    }
-
     #[test]
     fn test_every_bundle_id_resolves_to_its_category() {
         for category in AppCategory::all() {
@@ -281,12 +226,11 @@ mod tests {
                 );
             }
         }
+        assert_eq!(AppCategory::find_category("com.zoom.us"), None);
     }
 
-    // --- default_ignored_bundle_ids tests ---
-
     #[test]
-    fn test_default_ignored_bundle_ids_covers_all_categories() {
+    fn test_default_ignored_bundle_ids_cover_all_categories_once() {
         let ignored = default_ignored_bundle_ids();
         for category in AppCategory::all() {
             for &bundle_id in category.bundle_ids() {
@@ -296,130 +240,64 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn test_default_ignored_bundle_ids_no_duplicates() {
-        let ignored = default_ignored_bundle_ids();
         let deduped: HashSet<_> = ignored.iter().collect();
         assert_eq!(ignored.len(), deduped.len(), "no duplicate bundle IDs");
     }
 
-    // --- should_track_app tests ---
-
     #[test]
-    fn test_should_track_unknown_app() {
-        let policy = MicNotificationPolicy::default();
-        assert!(policy.should_track_app("us.zoom.xos"));
-    }
+    fn test_should_track_app_applies_categories_then_user_overrides() {
+        let cases: [(HashSet<String>, HashSet<String>, &[&str], bool); 6] = [
+            (HashSet::new(), HashSet::new(), &["us.zoom.xos"], true),
+            (
+                HashSet::new(),
+                HashSet::new(),
+                &[
+                    "com.hyprnote.dev",
+                    "com.electron.aqua-voice",
+                    "com.microsoft.VSCode",
+                ],
+                false,
+            ),
+            (
+                HashSet::from(["us.zoom.xos".to_string()]),
+                HashSet::new(),
+                &["us.zoom.xos"],
+                false,
+            ),
+            (
+                HashSet::from(["us.zoom.xos".to_string()]),
+                HashSet::new(),
+                &["com.tinyspeck.slackmacgap"],
+                true,
+            ),
+            (
+                HashSet::new(),
+                HashSet::from(["com.microsoft.VSCode".to_string()]),
+                &["com.microsoft.VSCode"],
+                true,
+            ),
+            (
+                HashSet::from(["com.microsoft.VSCode".to_string()]),
+                HashSet::from(["com.microsoft.VSCode".to_string()]),
+                &["com.microsoft.VSCode"],
+                false,
+            ),
+        ];
 
-    #[test]
-    fn test_should_not_track_categorized_app() {
-        let policy = MicNotificationPolicy::default();
-        assert!(!policy.should_track_app("com.hyprnote.dev"));
-        assert!(!policy.should_track_app("com.electron.aqua-voice"));
-        assert!(!policy.should_track_app("com.microsoft.VSCode"));
-    }
-
-    #[test]
-    fn test_should_not_track_user_ignored_app() {
-        let policy = MicNotificationPolicy {
-            user_ignored_bundle_ids: HashSet::from(["us.zoom.xos".to_string()]),
-            ..Default::default()
-        };
-        assert!(!policy.should_track_app("us.zoom.xos"));
-    }
-
-    #[test]
-    fn test_should_track_user_included_categorized_app() {
-        let policy = MicNotificationPolicy {
-            user_included_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
-            ..Default::default()
-        };
-        assert!(policy.should_track_app("com.microsoft.VSCode"));
-    }
-
-    #[test]
-    fn test_user_ignored_does_not_affect_other_apps() {
-        let policy = MicNotificationPolicy {
-            user_ignored_bundle_ids: HashSet::from(["us.zoom.xos".to_string()]),
-            ..Default::default()
-        };
-        assert!(policy.should_track_app("com.tinyspeck.slackmacgap"));
-    }
-
-    // --- evaluate / filter_apps tests (through public evaluate) ---
-
-    #[test]
-    fn test_evaluate_passes_unknown_app() {
-        let policy = MicNotificationPolicy::default();
-        let apps = vec![app("us.zoom.xos")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: false,
-            event_type: MicEventType::Started,
-        };
-        let result = policy.evaluate(&ctx).unwrap();
-        assert_eq!(result.filtered_apps.len(), 1);
-        assert_eq!(result.filtered_apps[0].id, "us.zoom.xos");
-    }
-
-    #[test]
-    fn test_evaluate_filters_all_categorized_apps() {
-        let policy = MicNotificationPolicy::default();
-        let apps = vec![app("com.hyprnote.dev"), app("com.electron.aqua-voice")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: false,
-            event_type: MicEventType::Started,
-        };
-        let result = policy.evaluate(&ctx);
-        assert_eq!(result.unwrap_err(), SkipReason::AllAppsFiltered);
-    }
-
-    #[test]
-    fn test_evaluate_filters_user_ignored_apps() {
-        let policy = MicNotificationPolicy {
-            user_ignored_bundle_ids: HashSet::from(["us.zoom.xos".to_string()]),
-            ..Default::default()
-        };
-        let apps = vec![app("us.zoom.xos")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: false,
-            event_type: MicEventType::Started,
-        };
-        assert_eq!(
-            policy.evaluate(&ctx).unwrap_err(),
-            SkipReason::AllAppsFiltered
-        );
-    }
-
-    #[test]
-    fn test_evaluate_keeps_user_included_default_app() {
-        let policy = MicNotificationPolicy {
-            user_included_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
-            ..Default::default()
-        };
-        let apps = vec![app("com.microsoft.VSCode")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: false,
-            event_type: MicEventType::Started,
-        };
-        let result = policy.evaluate(&ctx).unwrap();
-        assert_eq!(result.filtered_apps.len(), 1);
-        assert_eq!(result.filtered_apps[0].id, "com.microsoft.VSCode");
-    }
-
-    #[test]
-    fn test_user_ignored_overrides_user_included() {
-        let policy = MicNotificationPolicy {
-            user_ignored_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
-            user_included_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
-            ..Default::default()
-        };
-        assert!(!policy.should_track_app("com.microsoft.VSCode"));
+        for (ignored, included, apps, expected) in cases {
+            let policy = MicNotificationPolicy {
+                user_ignored_bundle_ids: ignored,
+                user_included_bundle_ids: included,
+                ..Default::default()
+            };
+            for app in apps {
+                assert_eq!(
+                    policy.should_track_app(app),
+                    expected,
+                    "unexpected tracking decision for {app}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -441,72 +319,95 @@ mod tests {
     }
 
     #[test]
-    fn test_evaluate_dnd_respected_skips() {
-        let policy = MicNotificationPolicy {
-            respect_dnd: true,
-            ..Default::default()
-        };
-        let apps = vec![app("us.zoom.xos")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: true,
-            event_type: MicEventType::Started,
-        };
-        assert_eq!(policy.evaluate(&ctx).unwrap_err(), SkipReason::DoNotDisturb);
-    }
-
-    #[test]
-    fn test_evaluate_dnd_not_respected_passes() {
-        let policy = MicNotificationPolicy {
-            respect_dnd: false,
-            ..Default::default()
-        };
-        let apps = vec![app("us.zoom.xos")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: true,
-            event_type: MicEventType::Started,
-        };
-        let result = policy.evaluate(&ctx).unwrap();
-        assert_eq!(result.filtered_apps.len(), 1);
-    }
-
-    #[test]
-    fn test_evaluate_dnd_respected_but_not_active_passes() {
-        let policy = MicNotificationPolicy {
-            respect_dnd: true,
-            ..Default::default()
-        };
-        let apps = vec![app("us.zoom.xos")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: false,
-            event_type: MicEventType::Started,
-        };
-        let result = policy.evaluate(&ctx).unwrap();
-        assert_eq!(result.filtered_apps.len(), 1);
-    }
-
-    #[test]
-    fn test_evaluate_empty_apps_list() {
+    fn test_evaluate_rejects_when_no_trackable_apps_remain() {
         let policy = MicNotificationPolicy::default();
-        let apps: Vec<anlg_detect::InstalledApp> = vec![];
-        let ctx = PolicyContext {
-            apps: &apps,
+        for apps in [
+            vec![app("com.hyprnote.dev"), app("com.electron.aqua-voice")],
+            Vec::new(),
+        ] {
+            let ctx = PolicyContext {
+                apps: &apps,
+                is_dnd: false,
+                event_type: MicEventType::Started,
+            };
+            assert_eq!(
+                policy.evaluate(&ctx).unwrap_err(),
+                SkipReason::AllAppsFiltered,
+                "expected all apps to be filtered from {apps:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_evaluate_applies_user_overrides() {
+        let ignored_policy = MicNotificationPolicy {
+            user_ignored_bundle_ids: HashSet::from(["us.zoom.xos".to_string()]),
+            ..Default::default()
+        };
+        let ignored_apps = vec![app("us.zoom.xos")];
+        let ignored_ctx = PolicyContext {
+            apps: &ignored_apps,
             is_dnd: false,
             event_type: MicEventType::Started,
         };
         assert_eq!(
-            policy.evaluate(&ctx).unwrap_err(),
+            ignored_policy.evaluate(&ignored_ctx).unwrap_err(),
             SkipReason::AllAppsFiltered
         );
+
+        let included_policy = MicNotificationPolicy {
+            user_included_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
+            ..Default::default()
+        };
+        let included_apps = vec![app("com.microsoft.VSCode")];
+        let included_ctx = PolicyContext {
+            apps: &included_apps,
+            is_dnd: false,
+            event_type: MicEventType::Started,
+        };
+        let result = included_policy.evaluate(&included_ctx).unwrap();
+        assert_eq!(result.filtered_apps.len(), 1);
+        assert_eq!(result.filtered_apps[0].id, "com.microsoft.VSCode");
     }
 
     #[test]
-    fn test_evaluate_started_vs_stopped_produce_different_dedup_keys() {
+    fn test_evaluate_dnd_only_skips_when_respected_and_active() {
+        for (respect_dnd, is_dnd, expected_skip) in [
+            (true, true, true),
+            (false, true, false),
+            (true, false, false),
+        ] {
+            let policy = MicNotificationPolicy {
+                respect_dnd,
+                ..Default::default()
+            };
+            let apps = vec![app("us.zoom.xos")];
+            let ctx = PolicyContext {
+                apps: &apps,
+                is_dnd,
+                event_type: MicEventType::Started,
+            };
+            let result = policy.evaluate(&ctx);
+            if expected_skip {
+                assert_eq!(
+                    result.unwrap_err(),
+                    SkipReason::DoNotDisturb,
+                    "expected skip for respect_dnd={respect_dnd}, is_dnd={is_dnd}"
+                );
+            } else {
+                assert_eq!(
+                    result.unwrap().filtered_apps.len(),
+                    1,
+                    "expected app to pass for respect_dnd={respect_dnd}, is_dnd={is_dnd}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_dedup_key_depends_on_event_type_and_app_set_not_order() {
         let policy = MicNotificationPolicy::default();
         let apps = vec![app("us.zoom.xos")];
-
         let started_ctx = PolicyContext {
             apps: &apps,
             is_dnd: false,
@@ -521,25 +422,10 @@ mod tests {
         let started_key = policy.evaluate(&started_ctx).unwrap().dedup_key;
         let stopped_key = policy.evaluate(&stopped_ctx).unwrap().dedup_key;
         assert_ne!(started_key, stopped_key);
-    }
-
-    #[test]
-    fn test_evaluate_same_apps_same_dedup_key() {
-        let policy = MicNotificationPolicy::default();
-        let apps = vec![app("us.zoom.xos")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: false,
-            event_type: MicEventType::Started,
-        };
-
-        let key1 = policy.evaluate(&ctx).unwrap().dedup_key;
-        let key2 = policy.evaluate(&ctx).unwrap().dedup_key;
+        let key1 = policy.evaluate(&started_ctx).unwrap().dedup_key;
+        let key2 = policy.evaluate(&started_ctx).unwrap().dedup_key;
         assert_eq!(key1, key2);
-    }
 
-    #[test]
-    fn test_notification_key_dedup() {
         let key1 = NotificationKey::mic_started(["com.zoom.us".to_string()]);
         let key2 = NotificationKey::mic_started(["com.zoom.us".to_string()]);
         assert_eq!(key1.to_dedup_key(), key2.to_dedup_key());
@@ -556,36 +442,27 @@ mod tests {
     }
 
     #[test]
-    fn test_policy_with_no_ignored_categories_passes_all() {
-        let policy = MicNotificationPolicy {
-            ignored_categories: vec![],
-            ..Default::default()
-        };
-        let apps = vec![app("com.hyprnote.dev"), app("us.zoom.xos")];
-        let ctx = PolicyContext {
-            apps: &apps,
-            is_dnd: false,
-            event_type: MicEventType::Started,
-        };
-        let result = policy.evaluate(&ctx).unwrap();
-        assert_eq!(result.filtered_apps.len(), 2);
-    }
-
-    #[test]
-    fn test_policy_with_selective_ignored_categories() {
-        let policy = MicNotificationPolicy {
-            ignored_categories: vec![AppCategory::Dictation],
-            ..Default::default()
-        };
+    fn test_ignored_categories_control_category_filtering() {
         let apps = vec![
             app("com.electron.aqua-voice"),
             app("com.hyprnote.dev"),
             app("us.zoom.xos"),
         ];
+
+        let policy = MicNotificationPolicy {
+            ignored_categories: vec![],
+            ..Default::default()
+        };
         let ctx = PolicyContext {
             apps: &apps,
             is_dnd: false,
             event_type: MicEventType::Started,
+        };
+        assert_eq!(policy.evaluate(&ctx).unwrap().filtered_apps.len(), 3);
+
+        let policy = MicNotificationPolicy {
+            ignored_categories: vec![AppCategory::Dictation],
+            ..Default::default()
         };
         let result = policy.evaluate(&ctx).unwrap();
         let ids: Vec<_> = result.filtered_apps.iter().map(|a| a.id.as_str()).collect();

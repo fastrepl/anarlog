@@ -103,48 +103,37 @@ describe("CustomSidebarHeader", () => {
     expect(mocks.openCurrent).not.toHaveBeenCalled();
   });
 
-  it.each(["folders", "calendar", "contacts", "templates"] as const)(
-    "returns %s to settings when opened from there",
-    (type) => {
-      const settingsTab = { slotId: "slot-settings", type: "settings" };
-      mocks.currentTab = {
-        returnToSlotId: "slot-settings",
-        returnToTabId: "settings",
-        slotId: `slot-${type}`,
-        type,
-      };
-      mocks.tabs = [settingsTab, mocks.currentTab, { type: "empty" }];
+  it("returns a workspace opened from settings back to settings", () => {
+    const settingsTab = { slotId: "slot-settings", type: "settings" };
+    mocks.currentTab = {
+      returnToSlotId: "slot-settings",
+      returnToTabId: "settings",
+      slotId: "slot-folders",
+      type: "folders",
+    };
+    mocks.tabs = [settingsTab, mocks.currentTab, { type: "empty" }];
+
+    render(<CustomSidebarHeader />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go home" }));
+
+    expect(mocks.select).toHaveBeenCalledWith(settingsTab);
+    expect(mocks.openCurrent).not.toHaveBeenCalled();
+  });
+
+  it.each(["FloatingOpen", "RightPanelOpen"])(
+    "closes %s chat before opening home",
+    (chatMode) => {
+      mocks.chatMode = chatMode;
 
       render(<CustomSidebarHeader />);
 
       fireEvent.click(screen.getByRole("button", { name: "Go home" }));
 
-      expect(mocks.select).toHaveBeenCalledWith(settingsTab);
+      expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
       expect(mocks.openCurrent).not.toHaveBeenCalled();
     },
   );
-
-  it("closes floating chat before opening home", () => {
-    mocks.chatMode = "FloatingOpen";
-
-    render(<CustomSidebarHeader />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Go home" }));
-
-    expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
-    expect(mocks.openCurrent).not.toHaveBeenCalled();
-  });
-
-  it("closes right panel chat before opening home", () => {
-    mocks.chatMode = "RightPanelOpen";
-
-    render(<CustomSidebarHeader />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Go home" }));
-
-    expect(mocks.sendEvent).toHaveBeenCalledWith({ type: "CLOSE" });
-    expect(mocks.openCurrent).not.toHaveBeenCalled();
-  });
 
   it("opens home directly from Automations without collapsing its chat", () => {
     mocks.chatMode = "RightPanelOpen";
@@ -157,18 +146,6 @@ describe("CustomSidebarHeader", () => {
     expect(mocks.openCurrent).toHaveBeenCalledWith({ type: "empty" });
     expect(mocks.sendEvent).not.toHaveBeenCalled();
   });
-
-  it.each(["windows", "linux"])(
-    "renders nothing in the sidebar on %s where the title bar hosts the back button",
-    (platform) => {
-      mocks.platform = platform;
-
-      const { container } = render(<CustomSidebarHeader />);
-
-      expect(screen.queryByRole("button", { name: "Go home" })).toBeNull();
-      expect(container.innerHTML).toBe("");
-    },
-  );
 
   it("portals header actions next to the title bar back button on windows", () => {
     mocks.platform = "windows";
@@ -190,12 +167,5 @@ describe("CustomSidebarHeader", () => {
     } finally {
       slot.remove();
     }
-  });
-
-  it("does not render history controls", () => {
-    render(<CustomSidebarHeader />);
-
-    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
   });
 });

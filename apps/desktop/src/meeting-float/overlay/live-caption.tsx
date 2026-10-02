@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   commands as windowsCommands,
   events as windowsEvents,
   type LiveCaptionState,
 } from "@anlg/plugin-windows";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 const LIVE_CAPTION_MIN_WIDTH = 260;
 const LIVE_CAPTION_MAX_WIDTH = 640;
@@ -22,7 +23,7 @@ const LIVE_CAPTION_MAX_OPACITY = 1;
 export function LiveCaptionOverlayScreen() {
   const [state, setState] = useState<LiveCaptionState | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     document.documentElement.dataset.liveCaption = "";
 
     let cancelled = false;
@@ -54,7 +55,7 @@ export function LiveCaptionOverlayScreen() {
       delete document.documentElement.dataset.liveCaption;
       unlisteners.forEach((unlisten) => unlisten());
     };
-  }, []);
+  });
 
   if (!state || state.minimized) {
     return <div className="h-screen w-screen bg-transparent" />;

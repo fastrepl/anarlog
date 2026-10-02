@@ -508,11 +508,14 @@ export type DriveExportFile = {
     url: string;
 };
 
+export type DriveExportFormat = 'markdown' | 'google_docs';
+
 export type DriveExportRequest = {
     connection_id: string;
     file_id: string;
     filename: string;
     folder_id: string;
+    format?: DriveExportFormat;
     markdown: string;
     meeting_id: string;
 };
@@ -531,6 +534,7 @@ export type DriveFolderRequest = {
 export type DrivePrepareExportRequest = {
     connection_id: string;
     folder_id: string;
+    format?: DriveExportFormat;
     meeting_id: string;
 };
 
@@ -1165,6 +1169,10 @@ export type Meeting = {
     action_items: Array<ActionItem>;
     created_at: string;
     ended_at: string;
+    /**
+     * Folder path such as `Projects/Launch`; null when the meeting is not in a folder.
+     */
+    folder_path?: string | null;
     id: string;
     kind: string;
     language: string;
@@ -1179,13 +1187,44 @@ export type Meeting = {
     updated_at: string;
 };
 
+export type MeetingDevice = {
+    deviceFingerprint: string;
+    deviceName?: string | null;
+    primary: boolean;
+};
+
+export type MeetingDeviceHeartbeatRequest = {
+    intent: MeetingDeviceIntent;
+};
+
+export type MeetingDeviceIntent = 'present' | 'claim' | 'release';
+
+export type MeetingDevicesResponse = {
+    devices: Array<MeetingDevice>;
+};
+
 export type MeetingExport = Meeting & {
+    /**
+     * Recorded microphone/call context intervals (`sessions.metadata_json`
+     * `speaker_context`) used to label speakers the same way the desktop
+     * transcript view does.
+     */
+    speaker_context?: unknown;
+    /**
+     * People referenced by transcript speaker assignments (including the
+     * recording user) who may not appear among the meeting participants.
+     */
+    speakers?: Array<Speaker>;
     transcripts: Array<Transcript>;
 };
 
 export type MeetingListItem = {
     created_at: string;
     ended_at: string;
+    /**
+     * Folder path such as `Projects/Launch`; null when the meeting is not in a folder.
+     */
+    folder_path?: string | null;
     id: string;
     kind: string;
     series_id: string;
@@ -1702,6 +1741,12 @@ export type SnapshotReceipt = {
     published_at: string;
     revision: number;
     session_id: string;
+};
+
+export type Speaker = {
+    human_id: string;
+    is_self?: boolean;
+    name: string;
 };
 
 export type StableSharedNoteSnapshot = {
@@ -4969,6 +5014,56 @@ export type GetWorkspaceE2EeKeyRecipientsResponses = {
 };
 
 export type GetWorkspaceE2EeKeyRecipientsResponse = GetWorkspaceE2EeKeyRecipientsResponses[keyof GetWorkspaceE2EeKeyRecipientsResponses];
+
+export type HeartbeatMeetingDeviceData = {
+    body: MeetingDeviceHeartbeatRequest;
+    headers: {
+        /**
+         * Fingerprint of the calling device
+         */
+        'x-device-fingerprint': string;
+    };
+    path: {
+        /**
+         * Opaque key derived from the calendar event
+         */
+        meeting_key: string;
+    };
+    query?: never;
+    url: '/sync/meetings/{meeting_key}/devices';
+};
+
+export type HeartbeatMeetingDeviceErrors = {
+    /**
+     * Invalid meeting key or device fingerprint
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * The calling device is not a registered sync device
+     */
+    404: unknown;
+    /**
+     * Device service unavailable
+     */
+    502: unknown;
+};
+
+export type HeartbeatMeetingDeviceResponses = {
+    /**
+     * Devices present for the meeting
+     */
+    200: MeetingDevicesResponse;
+};
+
+export type HeartbeatMeetingDeviceResponse = HeartbeatMeetingDeviceResponses[keyof HeartbeatMeetingDeviceResponses];
 
 export type CreateReplicaCredentialsData = {
     body?: never;

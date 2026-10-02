@@ -1,12 +1,9 @@
 import type { LanguageModel } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { json2md } from "@anlg/editor/markdown";
-
 import type { TaskConfig } from ".";
 import { enhanceSuccess, runEnhanceSuccess } from "./enhance-success";
 
-import { MIN_SUMMARY_CHARACTERS } from "~/services/enhancer/summary-length";
 import { useLiveTitle } from "~/store/zustand/live-title";
 
 const mocks = vi.hoisted(() => ({
@@ -16,12 +13,21 @@ const mocks = vi.hoisted(() => ({
   playCompletionSound: vi.fn(),
   persistGeneratedEnhancedNote: vi.fn().mockResolvedValue(undefined),
   persistGeneratedTitle: vi.fn().mockResolvedValue(true),
+  prepareGeneratedSummary: vi.fn(),
+  composeGeneratedSummary: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@anlg/plugin-db")>()),
   beginCloudsyncActivity: mocks.beginCloudsyncActivity,
   endCloudsyncActivity: mocks.endCloudsyncActivity,
+}));
+
+vi.mock("@anlg/plugin-template", () => ({
+  commands: {
+    prepareGeneratedSummary: mocks.prepareGeneratedSummary,
+    composeGeneratedSummary: mocks.composeGeneratedSummary,
+  },
 }));
 
 vi.mock("~/session/content-queries", () => ({
@@ -99,6 +105,7 @@ function createTransformedArgs(): EnhanceSuccessParams["transformedArgs"] {
     transcripts: [],
     imageContext: [],
     summaryLength: "detailed",
+    lengthPolicy: null,
     dictionaryTerms: [],
   };
 }
@@ -132,55 +139,28 @@ describe("enhanceSuccess.onSuccess", () => {
     mocks.loadSessionContentSnapshot.mockResolvedValue(createSnapshot());
     mocks.persistGeneratedEnhancedNote.mockResolvedValue(undefined);
     mocks.persistGeneratedTitle.mockResolvedValue(true);
+    mocks.prepareGeneratedSummary
+      .mockReset()
+      .mockImplementation(async ({ text }) => ({
+        status: "ok",
+        data: text.trim()
+          ? {
+              constrained_text: text,
+              tag_names: [],
+              text_with_tags: text,
+            }
+          : null,
+      }));
+    mocks.composeGeneratedSummary
+      .mockReset()
+      .mockImplementation(async ({ constrained_text }) => ({
+        status: "ok",
+        data: constrained_text,
+      }));
   });
 
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  it("persists custom prose, mixed lists, and all requested sections", async () => {
-    mocks.loadSessionContentSnapshot.mockResolvedValue(
-      createSnapshot("Review"),
-    );
-    const text =
-      "# Executive Overview\n\nThe launch is ready.\n\n# Discussion\n\nWe reviewed the plan.\n\n- Ship Friday.\n\n# Risks\n\nNone identified.";
-    await enhanceSuccess.onSuccess?.(
-      createParams({
-        text,
-        transformedArgs: {
-          ...createTransformedArgs(),
-          formatOverride:
-            "Write an executive overview in prose, discussion prose followed by bullets, and risks.",
-          transcripts: [
-            {
-              startedAt: null,
-              endedAt: null,
-              segments: [
-                {
-                  speaker: "John",
-                  text: "The team reviewed the launch plan and agreed to ship Friday.",
-                },
-              ],
-            },
-          ],
-        },
-      }),
-    );
-    const content =
-      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
-    expect(json2md(JSON.parse(content)).trim()).toBe(`# Review\n\n${text}`);
-    expect(
-      JSON.parse(content).content.map((node: { type: string }) => node.type),
-    ).toEqual([
-      "heading",
-      "heading",
-      "paragraph",
-      "heading",
-      "paragraph",
-      "bulletList",
-      "heading",
-      "paragraph",
-    ]);
   });
 
   it("persists generated content and tags through one guarded SQLite write", async () => {
@@ -191,9 +171,22 @@ describe("enhanceSuccess.onSuccess", () => {
         preMeetingMemo: "Prep #prep #Launch",
       },
     });
+    mocks.prepareGeneratedSummary.mockResolvedValueOnce({
+      status: "ok",
+      data: {
+        constrained_text: "# Summary\n\nDiscussed #Launch.",
+        tag_names: ["launch", "prep"],
+        text_with_tags: "# Summary\n\nDiscussed #Launch.\n\n#launch #prep",
+      },
+    });
 
     await enhanceSuccess.onSuccess?.(params);
 
+    expect(mocks.prepareGeneratedSummary).toHaveBeenCalledWith({
+      text: "# Summary\n\nDiscussed #Launch.",
+      length_policy: null,
+      tag_sources: ["Prep #prep #Launch", ""],
+    });
     expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledWith({
       sessionId: "session-1",
       ownerUserId: "user-1",
@@ -205,10 +198,19 @@ describe("enhanceSuccess.onSuccess", () => {
       },
       tagNames: ["launch", "prep"],
     });
-    const content =
-      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
-    expect(json2md(JSON.parse(content)).trim()).toBe(
-      "# Summary\n\nDiscussed #Launch.\n\n#launch #prep",
+    expect(mocks.composeGeneratedSummary).toHaveBeenCalledWith({
+      constrained_text: "# Summary\n\nDiscussed #Launch.",
+      title: null,
+      tag_names: ["launch", "prep"],
+      length_policy: null,
+    });
+    expect(params.startTask).toHaveBeenCalledWith(
+      "session-1-title",
+      expect.objectContaining({
+        args: expect.objectContaining({
+          enhancedNote: "# Summary\n\nDiscussed #Launch.\n\n#launch #prep",
+        }),
+      }),
     );
     const cloudsyncLeaseKey = mocks.beginCloudsyncActivity.mock.calls[0]?.[1];
     expect(cloudsyncLeaseKey).toMatch(/^note-1-enhance:/);
@@ -317,10 +319,16 @@ describe("enhanceSuccess.onSuccess", () => {
     expect(mocks.persistGeneratedTitle).toHaveBeenCalledBefore(
       mocks.endCloudsyncActivity,
     );
-    const content =
-      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
-    expect(json2md(JSON.parse(content)).trim()).toBe(
-      "# Generated title\n\n# Summary\n\n- Point",
+    expect(startTask).toHaveBeenCalledWith(
+      "session-1-title",
+      expect.objectContaining({
+        args: expect.objectContaining({
+          enhancedNote: "# Summary\n\n- Point",
+        }),
+      }),
+    );
+    expect(mocks.composeGeneratedSummary).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Generated title" }),
     );
     expect(mocks.persistGeneratedTitle).toHaveBeenCalledWith({
       text: "Generated title",
@@ -338,92 +346,9 @@ describe("enhanceSuccess.onSuccess", () => {
 
     expect(params.startTask).not.toHaveBeenCalled();
     expect(mocks.persistGeneratedTitle).not.toHaveBeenCalled();
-    const content =
-      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
-    expect(json2md(JSON.parse(content)).trim()).toBe(
-      "# Existing title\n\n# Summary\n\n- Point",
+    expect(mocks.composeGeneratedSummary).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Existing title" }),
     );
-  });
-
-  it("persists a short summary and tags within the transcript length and section cap", async () => {
-    mocks.loadSessionContentSnapshot.mockResolvedValue(
-      createSnapshot("Meeting title"),
-    );
-    const transformedArgs = createTransformedArgs();
-    transformedArgs.preMeetingMemo = "Follow up with #launch";
-    transformedArgs.transcripts = [
-      {
-        startedAt: null,
-        endedAt: null,
-        segments: [{ speaker: "John", text: "x".repeat(160) }],
-      },
-    ];
-
-    await enhanceSuccess.onSuccess?.(
-      createParams({
-        text: `# First
-
-- ${"a".repeat(100)}
-
-# Second
-
-- ${"b".repeat(100)}
-
-# Third
-
-- ${"c".repeat(100)}`,
-        transformedArgs,
-      }),
-    );
-
-    const content =
-      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
-    const markdown = json2md(JSON.parse(content)).trim();
-    expect(markdown).toContain("# First");
-    expect(markdown).toContain("# Second");
-    expect(markdown).not.toContain("# Third");
-    expect(markdown).toContain("#launch");
-    expect(
-      Array.from(markdown.replace(/\s+/gu, " ")).length,
-    ).toBeLessThanOrEqual(MIN_SUMMARY_CHARACTERS);
-  });
-
-  it("keeps every selected template section for a short transcript", async () => {
-    mocks.loadSessionContentSnapshot.mockResolvedValue(
-      createSnapshot("Meeting title"),
-    );
-    const transformedArgs = createTransformedArgs();
-    transformedArgs.summaryLength = "crisp";
-    transformedArgs.template = {
-      title: "1:1 Meeting",
-      description: null,
-      sections: [
-        { title: "Updates", description: null },
-        { title: "Feedback", description: null },
-        { title: "Next Steps", description: null },
-      ],
-    };
-    transformedArgs.transcripts = [
-      {
-        startedAt: null,
-        endedAt: null,
-        segments: [{ speaker: "John", text: "x".repeat(160) }],
-      },
-    ];
-
-    await enhanceSuccess.onSuccess?.(
-      createParams({
-        text: "# Updates\n\n- One\n\n# Feedback\n\n- Two\n\n# Next Steps\n\n- Three",
-        transformedArgs,
-      }),
-    );
-
-    const content =
-      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
-    const markdown = json2md(JSON.parse(content));
-    expect(markdown).toContain("# Updates");
-    expect(markdown).toContain("# Feedback");
-    expect(markdown).toContain("# Next Steps");
   });
 
   it("does not claim success when the guarded SQLite write fails", async () => {
@@ -498,17 +423,6 @@ describe("enhanceSuccess.onSuccess", () => {
     expect(mocks.persistGeneratedTitle).not.toHaveBeenCalled();
     expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledOnce();
     expect(mocks.endCloudsyncActivity).not.toHaveBeenCalled();
-  });
-
-  it("retries a transient activity release without rerunning persistence", async () => {
-    mocks.endCloudsyncActivity
-      .mockRejectedValueOnce(new Error("bridge busy"))
-      .mockResolvedValueOnce(undefined);
-
-    await enhanceSuccess.onSuccess?.(createParams());
-
-    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledOnce();
-    expect(mocks.endCloudsyncActivity).toHaveBeenCalledTimes(2);
   });
 
   it("keeps a persisted summary successful while release retries in the background", async () => {

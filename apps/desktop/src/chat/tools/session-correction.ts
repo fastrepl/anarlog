@@ -3,6 +3,10 @@ import { z } from "zod";
 
 import { md2json } from "@anlg/editor/markdown";
 
+import {
+  resolveActiveEnhancedNoteId,
+  resolveCurrentSessionId,
+} from "./current-session";
 import type { ToolDependencies } from "./types";
 
 import {
@@ -468,7 +472,9 @@ export const buildApplySessionCorrectionTool = (
       sessionId: z
         .string()
         .optional()
-        .describe("The session ID to edit. Defaults to the current session."),
+        .describe(
+          "Session ID of the note to edit. Omit to edit the current note (the one marked as current in context). Pass another note's Session ID only when the user asks to edit that note.",
+        ),
       target: z
         .enum(["summary", "transcript", "summary_and_transcript"])
         .default("summary_and_transcript")
@@ -493,15 +499,19 @@ export const buildApplySessionCorrectionTool = (
           "Uncommon names, company/product names, acronyms, or jargon from the correction to save for future transcription. Skip common names.",
         ),
     }),
-    execute: async (params: {
-      sessionId?: string;
-      target?: CorrectionTarget;
-      enhancedNoteId?: string;
-      oldText: string;
-      newText: string;
-      dictionaryTerms?: string[];
-    }) => {
-      const sessionId = params.sessionId ?? deps.getSessionId();
+    execute: async (
+      params: {
+        sessionId?: string;
+        target?: CorrectionTarget;
+        enhancedNoteId?: string;
+        oldText: string;
+        newText: string;
+        dictionaryTerms?: string[];
+      },
+      options,
+    ) => {
+      const sessionId =
+        params.sessionId ?? resolveCurrentSessionId(deps, options);
       const target = params.target ?? "summary_and_transcript";
 
       if (!sessionId) {
@@ -523,7 +533,9 @@ export const buildApplySessionCorrectionTool = (
 
       const enhancedNoteId =
         params.enhancedNoteId ??
-        (params.sessionId ? undefined : deps.getEnhancedNoteId());
+        (params.sessionId
+          ? undefined
+          : resolveActiveEnhancedNoteId(deps, sessionId));
       const snapshot = await loadSessionContentSnapshot(sessionId);
       if (!snapshot) {
         return {

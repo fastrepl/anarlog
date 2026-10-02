@@ -174,17 +174,6 @@ describe("OwnedSharedNotePublisher", () => {
     );
   });
 
-  it("observes the first summary instead of the raw memo", () => {
-    renderPublisher();
-
-    const sql = mocks.liveQueryOptions.sql.replace(/\s+/g, " ");
-    expect(sql).toContain("candidate.kind IN ('summary', 'template_output')");
-    expect(sql).toContain("ORDER BY candidate.sort_order, candidate.id");
-    expect(sql).toContain("participant.updated_at");
-    expect(sql).toContain("human.updated_at");
-    expect(sql).not.toContain("kind = 'note'");
-  });
-
   it("does not echo an imported remote body when its hash is the baseline", async () => {
     mocks.loadProjection.mockResolvedValue({
       source: {

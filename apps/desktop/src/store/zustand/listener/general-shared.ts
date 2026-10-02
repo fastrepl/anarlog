@@ -10,7 +10,7 @@ export type LiveSessionStatus = "inactive" | "active" | "finalizing";
 export type SessionMode = LiveSessionStatus | "running_batch";
 export type LiveCaptureUiMode = "live" | "record_only" | "fallback_record_only";
 
-export type LoadingPhase =
+type LoadingPhase =
   | "idle"
   | "audio_initializing"
   | "audio_ready"
@@ -417,6 +417,22 @@ export const getLiveCaptureUiMode = (
 
   return "live";
 };
+
+export const isLiveTranscriptInterrupted = (
+  live: Pick<
+    LiveState,
+    | "status"
+    | "requestedLiveTranscription"
+    | "liveTranscriptionActive"
+    | "degraded"
+    | "transcriptionStalled"
+  >,
+) =>
+  live.status === "active" &&
+  live.requestedLiveTranscription === true &&
+  (live.liveTranscriptionActive === false ||
+    live.degraded !== null ||
+    live.transcriptionStalled);
 
 export const isBatchTranscriptionPending = (
   sessionMode: SessionMode,

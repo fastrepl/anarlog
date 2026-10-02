@@ -130,25 +130,26 @@ mod tests {
     }
 
     #[test]
-    fn test_select_with_custom_upstream_url() {
-        let mut upstream_urls = HashMap::new();
-        upstream_urls.insert(Provider::Deepgram, "wss://custom.example.com".to_string());
+    fn custom_upstream_url_is_used_only_when_configured() {
+        {
+            let mut upstream_urls = HashMap::new();
+            upstream_urls.insert(Provider::Deepgram, "wss://custom.example.com".to_string());
 
-        let mut api_keys = HashMap::new();
-        api_keys.insert(Provider::Deepgram, "test_key".to_string());
+            let mut api_keys = HashMap::new();
+            api_keys.insert(Provider::Deepgram, "test_key".to_string());
 
-        let selector = ProviderSelector::new(api_keys, Provider::Deepgram, upstream_urls);
-        let result = selector.select(None).unwrap();
+            let selector = ProviderSelector::new(api_keys, Provider::Deepgram, upstream_urls);
+            let result = selector.select(None).unwrap();
 
-        assert_eq!(result.upstream_url(), Some("wss://custom.example.com"));
-    }
+            assert_eq!(result.upstream_url(), Some("wss://custom.example.com"));
+        }
 
-    #[test]
-    fn test_select_without_custom_upstream_url() {
-        let selector = make_selector(&[Provider::Deepgram]);
-        let result = selector.select(None).unwrap();
+        {
+            let selector = make_selector(&[Provider::Deepgram]);
+            let result = selector.select(None).unwrap();
 
-        assert_eq!(result.upstream_url(), None);
+            assert_eq!(result.upstream_url(), None);
+        }
     }
 
     #[test]

@@ -10,6 +10,13 @@ import { describe, expect, it } from "vitest";
 import { buildInputRules, buildKeymap } from "./keymap";
 import { schema } from "./schema";
 
+const createParagraphDoc = (text: string, isCode = false) =>
+  schema.node("doc", null, [
+    schema.node("paragraph", null, [
+      schema.text(text, isCode ? [schema.marks.code.create()] : undefined),
+    ]),
+  ]);
+
 describe("buildInputRules", () => {
   it("creates an unchecked task item when typing [] followed by space", () => {
     const inputRules = buildInputRules();
@@ -457,46 +464,15 @@ describe("buildInputRules", () => {
     });
   });
 
-  it("leaves <u>markup</u> literal inside a code span", () => {
-    const doc = schema.node("doc", null, [
-      schema.node("paragraph", null, [
-        schema.text("<u>hi</u", [schema.marks.code.create()]),
-      ]),
-    ]);
-    const { handled, state } = runTextInput(doc, ">");
+  it.each([
+    { name: "underline markup", text: "<u>hi</u", input: ">" },
+    { name: "bold markup", text: "**hi*", input: "*" },
+  ])("leaves $name literal inside a code span", ({ text, input }) => {
+    const doc = createParagraphDoc(text, true);
+    const { handled, state } = runTextInput(doc, input);
 
     expect(handled).not.toBe(true);
     expect(state.doc.toJSON()).toEqual(doc.toJSON());
-  });
-
-  it("leaves bold markup literal inside a code span", () => {
-    const doc = schema.node("doc", null, [
-      schema.node("paragraph", null, [
-        schema.text("**hi*", [schema.marks.code.create()]),
-      ]),
-    ]);
-    const { handled, state } = runTextInput(doc, "*");
-
-    expect(handled).not.toBe(true);
-    expect(state.doc.toJSON()).toEqual(doc.toJSON());
-  });
-
-  it("replaces a known emoji shortcode with the emoji", () => {
-    const doc = schema.node("doc", null, [
-      schema.node("paragraph", null, [schema.text("launch :rocket")]),
-    ]);
-    const { handled, state } = runTextInput(doc, ":");
-
-    expect(handled).toBe(true);
-    expect(state.doc.toJSON()).toEqual({
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: "launch 🚀" }],
-        },
-      ],
-    });
   });
 
   it("leaves an unknown emoji shortcode as literal text", () => {
@@ -509,40 +485,37 @@ describe("buildInputRules", () => {
     expect(state.doc.toJSON()).toEqual(doc.toJSON());
   });
 
-  it("replaces typed arrow shorthand with an arrow symbol", () => {
-    const doc = schema.node("doc", null, [
-      schema.node("paragraph", null, [schema.text("-")]),
-    ]);
-    const { handled, state } = runTextInput(doc, ">");
+  it.each([
+    {
+      shorthand: "known emoji shortcode",
+      text: "launch :rocket",
+      input: ":",
+      expected: "launch 🚀",
+    },
+    {
+      shorthand: "typed arrow shorthand",
+      text: "-",
+      input: ">",
+      expected: "→",
+    },
+    {
+      shorthand: "double dash after a word",
+      text: "wait-",
+      input: "-",
+      expected: "wait—",
+    },
+    {
+      shorthand: "typed copyright shorthand",
+      text: "(c",
+      input: ")",
+      expected: "©",
+    },
+  ])("replaces $shorthand", ({ text, input, expected }) => {
+    const doc = createParagraphDoc(text);
+    const { handled, state } = runTextInput(doc, input);
 
     expect(handled).toBe(true);
-    expect(state.doc.toJSON()).toEqual({
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: "→" }],
-        },
-      ],
-    });
-  });
-
-  it("replaces a double dash after a word with an em dash", () => {
-    const doc = schema.node("doc", null, [
-      schema.node("paragraph", null, [schema.text("wait-")]),
-    ]);
-    const { handled, state } = runTextInput(doc, "-");
-
-    expect(handled).toBe(true);
-    expect(state.doc.toJSON()).toEqual({
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: "wait—" }],
-        },
-      ],
-    });
+    expect(state.doc.toJSON()).toEqual(createParagraphDoc(expected).toJSON());
   });
 
   it("leaves a third dash alone so --- can still become a horizontal rule", () => {
@@ -573,24 +546,6 @@ describe("buildInputRules", () => {
     expect(state.doc.toJSON()).toEqual({
       type: "doc",
       content: [{ type: "horizontalRule" }, { type: "paragraph" }],
-    });
-  });
-
-  it("replaces typed copyright shorthand with a copyright symbol", () => {
-    const doc = schema.node("doc", null, [
-      schema.node("paragraph", null, [schema.text("(c")]),
-    ]);
-    const { handled, state } = runTextInput(doc, ")");
-
-    expect(handled).toBe(true);
-    expect(state.doc.toJSON()).toEqual({
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: "©" }],
-        },
-      ],
     });
   });
 

@@ -79,42 +79,6 @@ describe("useChatAutoScroll", () => {
     globalThis.ResizeObserver = MockResizeObserver;
   });
 
-  it("does not clamp back to bottom after a slow upward wheel during streaming", () => {
-    render(<TestAutoScroll />);
-
-    const scrollArea = screen.getByTestId("scroll-area");
-
-    scrollArea.scrollTop = 500;
-    fireEvent.scroll(scrollArea);
-
-    fireEvent.wheel(scrollArea, { deltaY: -8 });
-    scrollArea.scrollTop = 492;
-    fireEvent.scroll(scrollArea);
-
-    act(() => {
-      resizeObservers.forEach((observer) => observer.trigger());
-    });
-
-    expect(scrollArea.scrollTop).toBe(492);
-  });
-
-  it("does not clamp back to bottom after scrolling up with the scrollbar", () => {
-    render(<TestAutoScroll />);
-
-    const scrollArea = screen.getByTestId("scroll-area");
-
-    scrollArea.scrollTop = 500;
-    fireEvent.scroll(scrollArea);
-    scrollArea.scrollTop = 420;
-    fireEvent.scroll(scrollArea);
-
-    act(() => {
-      resizeObservers.forEach((observer) => observer.trigger());
-    });
-
-    expect(scrollArea.scrollTop).toBe(420);
-  });
-
   it("stays pinned when streaming content grows without user input", () => {
     render(<TestAutoScroll />);
 
@@ -137,35 +101,40 @@ describe("useChatAutoScroll", () => {
 
   it.each([
     [
+      "wheel",
+      (scrollArea: HTMLElement) => fireEvent.wheel(scrollArea, { deltaY: -8 }),
+      492,
+    ],
+    ["scrollbar", (_scrollArea: HTMLElement) => {}, 420],
+    [
       "pointer",
-      () => {
-        const scrollArea = screen.getByTestId("scroll-area");
+      (scrollArea: HTMLElement) =>
         fireEvent.pointerMove(scrollArea, {
           buttons: 1,
           pointerType: "mouse",
-        });
-      },
+        }),
+      420,
     ],
     [
       "keyboard",
-      () => {
-        fireEvent.keyDown(screen.getByTestId("scroll-area"), { key: "PageUp" });
-      },
+      (scrollArea: HTMLElement) =>
+        fireEvent.keyDown(scrollArea, { key: "PageUp" }),
+      420,
     ],
-  ])("stops following after explicit %s scroll intent", (_, signalIntent) => {
+  ])("stops following after %s scroll intent", (_, signalIntent, scrollTop) => {
     render(<TestAutoScroll />);
 
     const scrollArea = screen.getByTestId("scroll-area");
     scrollArea.scrollTop = 500;
     fireEvent.scroll(scrollArea);
-    signalIntent();
-    scrollArea.scrollTop = 420;
+    signalIntent(scrollArea);
+    scrollArea.scrollTop = scrollTop;
     fireEvent.scroll(scrollArea);
 
     act(() => {
       resizeObservers.forEach((observer) => observer.trigger());
     });
 
-    expect(scrollArea.scrollTop).toBe(420);
+    expect(scrollArea.scrollTop).toBe(scrollTop);
   });
 });

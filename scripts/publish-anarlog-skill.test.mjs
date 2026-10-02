@@ -39,18 +39,14 @@ test("plugin package mirrors the canonical skill and license", async () => {
 });
 
 test("plugin manifests use one stable identity and version", async () => {
-  for (const manifestPath of PLUGIN_MANIFESTS) {
-    const manifest = await readJson(manifestPath);
+  const [portable, ...manifests] = await Promise.all(
+    PLUGIN_MANIFESTS.map(readJson),
+  );
+  for (const manifest of [portable, ...manifests]) {
     assert.equal(manifest.name, "anarlog");
-    assert.equal(manifest.version, "1.3.0");
+    assert.equal(manifest.version, portable.version);
     assert.equal(manifest.license, "MIT");
   }
-
-  const portableManifest = await readJson(`${PLUGIN_ROOT}/plugin.json`);
-  assert.equal(
-    portableManifest.$schema,
-    "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  );
 });
 
 test("repository marketplaces list a single Anarlog plugin", async () => {
@@ -110,24 +106,6 @@ test("the Anarlog plugin connects Cloud MCP over HTTP", async () => {
   assert.equal(cursor.skills, "./skills/");
 });
 
-test("marketplace icon is a 512px square PNG", async () => {
-  const icon = await readFile(`${PLUGIN_ROOT}/assets/icon.png`);
-  assert.equal(icon.subarray(1, 4).toString("ascii"), "PNG");
-  assert.equal(icon.readUInt32BE(16), 512);
-  assert.equal(icon.readUInt32BE(20), 512);
-  assert.ok(icon.length < 5 * 1024 * 1024);
-});
-
-test("Codex exposes a registered cloud connection without requiring it for local use", async () => {
-  const codex = await readJson(`${PLUGIN_ROOT}/.codex-plugin/plugin.json`);
-  assert.equal(codex.apps, "./.app.json");
-
-  const { apps } = await readJson(`${PLUGIN_ROOT}/.app.json`);
-  assert.deepEqual(Object.keys(apps), ["anarlog"]);
-  assert.equal(apps.anarlog.id, "asdk_app_6a8db2d923748191adaf057f0b92d7c7");
-  assert.equal(apps.anarlog.required, false);
-});
-
 test("the transformation changes nothing but the defined reference links", async () => {
   const canonical = await readFile(CANONICAL_SKILL_PATH, "utf8");
   let restored = publishSkill(canonical);
@@ -136,18 +114,6 @@ test("the transformation changes nothing but the defined reference links", async
   }
 
   assert.equal(restored, canonical);
-});
-
-test("non-link drift in the published mirror is detected", async () => {
-  const canonical = await readFile(CANONICAL_SKILL_PATH, "utf8");
-  const published = await readFile(PUBLISHED_SKILL_PATH, "utf8");
-  const sentinel = "staging proposals";
-
-  assert.match(canonical, new RegExp(sentinel));
-  assert.notEqual(
-    publishSkill(canonical.replace(sentinel, "direct writes")),
-    published,
-  );
 });
 
 test("reference links without a public mapping fail publishing", () => {

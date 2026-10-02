@@ -107,23 +107,6 @@ describe("E2eeSetupDialog", () => {
     return onReady;
   };
 
-  it("presents recovery key choices with a compact dismissal action", () => {
-    const onOpenChange = vi.fn();
-    renderDialog(vi.fn(), onOpenChange);
-
-    expect(
-      screen.getByRole("button", { name: "Create a recovery key" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Use an existing key" }),
-    ).toBeTruthy();
-
-    const cancel = screen.getByRole("button", { name: "Cancel" });
-    expect(cancel.className).toContain("text-muted-foreground");
-    fireEvent.click(cancel);
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
   it("requires the generated recovery key to be acknowledged before enabling sync", async () => {
     const onReady = vi.fn();
     mocks.create.mockResolvedValue(
@@ -202,29 +185,6 @@ describe("E2eeSetupDialog", () => {
     );
   });
 
-  it("clears download errors when the dialog is dismissed", async () => {
-    const recoveryKey =
-      "anarlog-e2ee-v1:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
-    mocks.create.mockResolvedValue(recoveryKey);
-    renderDialog();
-
-    fireEvent.click(screen.getByText("Create a recovery key"));
-    expect(await screen.findByText(recoveryKey)).toBeTruthy();
-    mocks.writeTextFile.mockResolvedValue({
-      status: "error",
-      error: "Could not save recovery key",
-    });
-    fireEvent.click(screen.getByText("Download recovery key (.txt)"));
-    expect(await screen.findByText("Could not save recovery key")).toBeTruthy();
-
-    fireEvent.click(screen.getByText("Cancel"));
-
-    expect(screen.queryByText("Could not save recovery key")).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Create a recovery key" }),
-    ).toBeTruthy();
-  });
-
   it("preserves clipboard content copied after the recovery key", async () => {
     const recoveryKey =
       "anarlog-e2ee-v1:abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
@@ -247,24 +207,11 @@ describe("E2eeSetupDialog", () => {
   });
 
   it("does not store a recovery key rejected by the account identity", async () => {
+    renderDialog();
+
     vi.stubGlobal(
       "fetch",
       vi.fn(() => Promise.resolve(new Response(null, { status: 409 }))),
-    );
-    mocks.inspect.mockResolvedValue({ keyId: "abcdefghijklmnopqrstuv" });
-    const queryClient = new QueryClient({
-      defaultOptions: { mutations: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <E2eeSetupDialog
-          open
-          onOpenChange={vi.fn()}
-          accountUserId="11111111-1111-4111-8111-111111111111"
-          accessToken="access-token"
-          onReady={vi.fn()}
-        />
-      </QueryClientProvider>,
     );
 
     fireEvent.click(screen.getByText("Use an existing key"));

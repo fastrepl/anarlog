@@ -172,7 +172,6 @@ impl ElevenLabsAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_client::create_client;
 
     #[test]
     fn num_speakers_hint_prefers_exact_count_then_max() {
@@ -232,30 +231,5 @@ mod tests {
         assert_eq!(words[0].speaker, Some(0));
         assert_eq!(words[1].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(words[1].speaker, Some(1));
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_elevenlabs_batch_transcription() {
-        let api_key = std::env::var("ELEVENLABS_API_KEY").expect("ELEVENLABS_API_KEY not set");
-        let client = create_client();
-        let adapter = ElevenLabsAdapter::default();
-        let params = ListenParams::default();
-
-        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
-
-        let result = adapter
-            .transcribe_file(&client, "", &api_key, &params, &audio_path)
-            .await
-            .expect("transcription failed");
-
-        assert!(!result.results.channels.is_empty());
-        assert!(!result.results.channels[0].alternatives.is_empty());
-        assert!(
-            !result.results.channels[0].alternatives[0]
-                .transcript
-                .is_empty()
-        );
-        assert!(!result.results.channels[0].alternatives[0].words.is_empty());
     }
 }

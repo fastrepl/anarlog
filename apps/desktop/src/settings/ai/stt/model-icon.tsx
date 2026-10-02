@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { cn } from "@anlg/utils";
 
 import { AiIconSlot, ProviderLobeIcon } from "~/settings/ai/shared";
+import { staticAssetUrl, fallbackToLocalAsset } from "~/shared/static-assets";
 
 type ModelIconSpec = {
   title: string;
@@ -17,7 +18,7 @@ type ModelIconSpec = {
 const MODEL_ICON_ASSET_BASE = "/assets/model-icons";
 const ANARLOG_ICON_SRC = "/assets/anarlog-icon.png";
 
-export function getLocalModelIcon(model: string): ModelIconSpec | null {
+function getLocalModelIcon(model: string): ModelIconSpec | null {
   const value = model.toLowerCase();
 
   if (value === "cloud") {
@@ -87,7 +88,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
   return null;
 }
 
-export function getLocalModelBackendBadge(model: string): ModelIconSpec | null {
+function getLocalModelBackendBadge(model: string): ModelIconSpec | null {
   const value = model.toLowerCase();
 
   if (value.includes("nvidia") || value.includes("cuda")) {
@@ -146,7 +147,8 @@ export function LocalModelLabel({
           {icon.node ??
             (icon.imageSrc ? (
               <img
-                src={icon.imageSrc}
+                src={staticAssetUrl(icon.imageSrc)}
+                onError={fallbackToLocalAsset(icon.imageSrc)}
                 alt=""
                 className={cn([
                   "object-contain object-center",

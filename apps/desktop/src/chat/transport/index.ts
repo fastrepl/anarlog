@@ -14,8 +14,13 @@ import {
 } from "@anlg/plugin-template";
 
 import type { ContextRef } from "../context/entities";
-import { extractContextRefsFromMessages } from "../context/refs";
+import {
+  extractContextRefsFromMessages,
+  getCurrentSessionIdFromMessages,
+  orderPromptContextRefs,
+} from "../context/refs";
 import { CONTEXT_TEXT_FIELD } from "../tools/context-text";
+import type { ChatToolContext } from "../tools/current-session";
 import type { AnlgUIMessage } from "../types";
 import {
   getMeetingIdsFromSearchOutput,
@@ -47,12 +52,13 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
   private async renderContextBlock(
     contextRefs: ContextRef[],
     cache: Map<string, string | null>,
+    currentSessionId?: string,
   ): Promise<string | null> {
     if (!this.resolveContextRef || contextRefs.length === 0) {
       return null;
     }
 
-    const cacheKey = JSON.stringify(contextRefs);
+    const cacheKey = JSON.stringify([contextRefs, currentSessionId ?? null]);
     if (cache.has(cacheKey)) {
       return cache.get(cacheKey) ?? null;
     }
@@ -85,7 +91,10 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
     if (sessionContexts.length > 0) {
       // Rendered by Rust-side template engine via Tauri plugin
       const rendered = await templateCommands.render({
-        contextBlock: { contexts: sessionContexts },
+        contextBlock: {
+          contexts: sessionContexts,
+          currentSessionId: currentSessionId ?? null,
+        },
       });
       if (rendered.status === "ok" && rendered.data.trim()) {
         blocks.push(rendered.data.trim());
@@ -177,12 +186,15 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
     const cache = new Map<string, string | null>();
     const tools = this.buildHydratingToolSet(cache);
 
-    const effectiveContextRefs = extractContextRefsFromMessages(
-      options.messages,
+    const currentSessionId = getCurrentSessionIdFromMessages(options.messages);
+    const effectiveContextRefs = orderPromptContextRefs(
+      extractContextRefsFromMessages(options.messages),
+      currentSessionId,
     );
     const effectiveContextBlock = await this.renderContextBlock(
       effectiveContextRefs,
       cache,
+      currentSessionId,
     );
 
     let lastUserMessageIndex = -1;
@@ -197,6 +209,7 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       model: this.model,
       instructions: this.systemPrompt,
       tools,
+      experimental_context: { currentSessionId } satisfies ChatToolContext,
       stopWhen: stepCountIs(MAX_TOOL_STEPS),
       prepareStep: async ({ messages, stepNumber }) => {
         const finalStep = stepNumber >= MAX_TOOL_STEPS - 1;

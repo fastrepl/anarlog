@@ -6,6 +6,11 @@ mod detect;
 #[cfg(feature = "detect")]
 pub use detect::detect;
 
+#[cfg(feature = "dominant")]
+mod dominant;
+#[cfg(feature = "dominant")]
+pub use dominant::dominant_language;
+
 #[cfg(feature = "whisper")]
 mod whisper;
 
@@ -341,13 +346,21 @@ mod tests {
     }
 
     #[test]
-    fn test_serde_round_trips_full_tags() {
-        for tag in ["zh-Hans-CN", "zh-Hant", "es-419", "de-DE-1996", "ko-US"] {
+    fn test_serde_round_trips_tags() {
+        for tag in [
+            "en-US",
+            "ko",
+            "zh-Hans-CN",
+            "zh-Hant",
+            "es-419",
+            "de-DE-1996",
+            "ko-US",
+        ] {
             let lang: Language = tag.parse().unwrap();
             let json = serde_json::to_string(&lang).unwrap();
-            assert_eq!(json, format!("\"{tag}\""));
+            assert_eq!(json, format!("\"{tag}\""), "tag: {tag}");
             let parsed: Language = serde_json::from_str(&json).unwrap();
-            assert_eq!(parsed, lang);
+            assert_eq!(parsed, lang, "tag: {tag}");
         }
     }
 
@@ -380,23 +393,6 @@ mod tests {
         assert_eq!(lang.iso639(), ISO639::Ko);
         assert_eq!(lang.region(), Some("US"));
         assert_eq!(lang.bcp47_code(), "ko-US");
-    }
-
-    #[test]
-    fn test_serde_roundtrip() {
-        let lang: Language = "en-US".parse().unwrap();
-        let json = serde_json::to_string(&lang).unwrap();
-        assert_eq!(json, "\"en-US\"");
-
-        let parsed: Language = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed, lang);
-    }
-
-    #[test]
-    fn test_serde_iso639_only() {
-        let lang: Language = "ko".parse().unwrap();
-        let json = serde_json::to_string(&lang).unwrap();
-        assert_eq!(json, "\"ko\"");
     }
 
     #[test]

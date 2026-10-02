@@ -1,13 +1,5 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { resetSidebarNotes, useSidebarNotes } from "~/sidebar/note-filter";
 
 const mocks = vi.hoisted(() => ({
   close: vi.fn().mockResolvedValue(undefined),
@@ -28,7 +20,6 @@ const mocks = vi.hoisted(() => ({
   openCurrent: vi.fn(),
   sendEvent: vi.fn(),
   platform: "windows",
-  upcomingMeetingStatus: null as null | { itemKey: string },
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -70,7 +61,7 @@ vi.mock("~/shared/open-note-dialog", () => ({
 }));
 
 vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
-  useSidebarUpcomingMeetingStatus: () => mocks.upcomingMeetingStatus,
+  useSidebarUpcomingMeetingStatus: () => null,
 }));
 
 vi.mock("~/store/zustand/tabs", () => {
@@ -115,35 +106,10 @@ describe("WindowsTitleBar", () => {
     mocks.currentTab = { type: "empty" };
     mocks.leftSidebarExpanded = true;
     mocks.platform = "windows";
-    mocks.upcomingMeetingStatus = null;
-    resetSidebarNotes();
   });
 
   afterEach(() => {
     cleanup();
-    resetSidebarNotes();
-  });
-
-  it("renders the sidebar and application menus in the draggable title bar", async () => {
-    render(<WindowsTitleBar showSidebarTimelineChrome />);
-
-    const titleBar = screen.getByTestId("windows-title-bar");
-    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
-
-    expect(titleBar.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expect(titleBar.className).toContain("bg-background");
-    expect(titleBar.className).not.toContain("border-b");
-    expect(
-      sidebarToggle.compareDocumentPosition(
-        screen.getByRole("menuitem", { name: "File" }),
-      ),
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(screen.getByRole("menuitem", { name: "File" })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: "Edit" })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: "View" })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: "Help" })).toBeTruthy();
-
-    await waitFor(() => expect(mocks.isMaximized).toHaveBeenCalledOnce());
   });
 
   it("connects the sidebar and native window controls", () => {
@@ -190,15 +156,13 @@ describe("WindowsTitleBar", () => {
   it("shows note actions beside the sidebar toggle only while expanded", () => {
     const { rerender } = render(<WindowsTitleBar showSidebarTimelineChrome />);
 
-    expect(
-      screen
-        .getAllByRole("button")
-        .slice(0, 4)
-        .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Hide sidebar", "Search", "New note", "Sort notes"]);
+    for (const name of ["Search", "New note", "Sort notes"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
 
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     fireEvent.click(screen.getByRole("button", { name: "New note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort notes" }));
     expect(mocks.openNoteDialog).toHaveBeenCalledOnce();
     expect(mocks.createNewNote).toHaveBeenCalledOnce();
 
@@ -208,73 +172,5 @@ describe("WindowsTitleBar", () => {
     for (const name of ["Search", "New note", "Sort notes"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
-    expect(screen.getByRole("button", { name: "Show sidebar" })).toBeTruthy();
-
-    mocks.leftSidebarExpanded = true;
-    rerender(<WindowsTitleBar showSidebarTimelineChrome />);
-    for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.getByRole("button", { name })).toBeTruthy();
-    }
-  });
-
-  it("hides note actions outside timeline screens and restores them on return", () => {
-    const { rerender } = render(
-      <WindowsTitleBar showSidebarTimelineChrome={false} />,
-    );
-
-    for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
-    }
-    expect(screen.getByRole("button", { name: "Hide sidebar" })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: "File" })).toBeTruthy();
-
-    rerender(<WindowsTitleBar showSidebarTimelineChrome />);
-
-    for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.getByRole("button", { name })).toBeTruthy();
-    }
-
-    rerender(<WindowsTitleBar showSidebarTimelineChrome={false} />);
-
-    for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
-    }
-  });
-
-  it("changes timeline grouping from the title bar", () => {
-    render(<WindowsTitleBar showSidebarTimelineChrome />);
-
-    const filter = screen.getByRole("button", { name: "Sort notes" });
-    fireEvent.pointerDown(filter);
-    fireEvent.click(filter);
-    const grouping = screen.getByRole("menuitem", { name: "Grouping, Date" });
-    fireEvent.focus(grouping);
-    fireEvent.keyDown(grouping, { key: "ArrowRight" });
-    fireEvent.click(screen.getByRole("menuitem", { name: "Folder" }));
-
-    expect(useSidebarNotes.getState().groupBy).toBe("folder");
-  });
-
-  it("shows note actions in the Linux title bar", () => {
-    mocks.platform = "linux";
-    render(<WindowsTitleBar showSidebarTimelineChrome />);
-
-    for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.getByRole("button", { name })).toBeTruthy();
-    }
-  });
-
-  it("preserves the collapsed-sidebar upcoming meeting badge", () => {
-    mocks.leftSidebarExpanded = false;
-    mocks.upcomingMeetingStatus = { itemKey: "session-upcoming" };
-
-    render(<WindowsTitleBar showSidebarTimelineChrome />);
-
-    const toggle = screen.getByRole("button", { name: "Show sidebar" });
-    expect(
-      toggle.querySelector(
-        "[data-testid='collapsed-sidebar-upcoming-meeting-badge']",
-      ),
-    ).not.toBeNull();
   });
 });

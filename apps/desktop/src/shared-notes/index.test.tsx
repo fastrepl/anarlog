@@ -19,7 +19,6 @@ const mocks = vi.hoisted(() => ({
   preview: { status: "unavailable" } as any,
   signIn: vi.fn(),
   startCommentDraft: vi.fn(),
-  commentDraft: null as Record<string, unknown> | null,
   commentInputs: [] as Array<Record<string, unknown>>,
 }));
 
@@ -48,7 +47,7 @@ vi.mock("~/session-sharing/comments", () => ({
       onCommentAnchorsEvent: vi.fn(),
       onViewDisposed: vi.fn(),
       onViewReady: vi.fn(),
-      draft: input.canCompose ? mocks.commentDraft : null,
+      draft: null,
       selection: input.canCompose ? {} : null,
       startDraft: mocks.startCommentDraft,
     };
@@ -77,19 +76,16 @@ vi.mock("~/session/components/session-surface", () => ({
 vi.mock("@anlg/editor/note", () => ({
   NoteEditor: ({
     readOnly,
-    showFormatToolbar,
     initialContent,
     onCommentSelection,
   }: {
     readOnly?: boolean;
-    showFormatToolbar?: boolean;
     initialContent?: unknown;
     onCommentSelection?: () => void;
   }) => (
     <div
       data-content={JSON.stringify(initialContent)}
       data-read-only={String(readOnly)}
-      data-show-format-toolbar={String(showFormatToolbar)}
       data-comment-action={String(Boolean(onCommentSelection))}
       data-testid="shared-note-editor"
     />
@@ -110,6 +106,24 @@ const tab = {
   pinned: false,
 };
 
+function sharedSnapshot(overrides: Record<string, unknown> = {}) {
+  return {
+    shareId: "share-1",
+    workspaceId: "workspace-1",
+    sessionId: "session-1",
+    schemaVersion: 1,
+    contentRevision: 2,
+    title: "Shared plan",
+    body: { type: "doc", content: [{ type: "paragraph" }] },
+    attachments: [],
+    capability: "viewer",
+    manageAccess: false,
+    accessVersion: 3,
+    publishedAt: "2026-07-16T17:30:00.000Z",
+    ...overrides,
+  };
+}
+
 function renderSharedNote() {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -128,7 +142,6 @@ describe("TabContentSharedNote", () => {
     mocks.query = { data: null, isLoading: false, error: null };
     mocks.preview = { status: "unavailable" };
     mocks.signIn.mockResolvedValue(undefined);
-    mocks.commentDraft = null;
     mocks.commentInputs = [];
   });
 
@@ -167,102 +180,40 @@ describe("TabContentSharedNote", () => {
 
   afterEach(cleanup);
 
-  it("renders cached content through the read-only editor", () => {
-    mocks.query.data = {
-      shareId: "share-1",
-      workspaceId: "workspace-1",
-      sessionId: "session-1",
-      schemaVersion: 1,
-      contentRevision: 2,
-      title: "Shared plan",
-      body: { type: "doc", content: [{ type: "paragraph" }] },
-      attachments: [],
+  it.each([
+    {
       capability: "viewer",
-      manageAccess: false,
-      accessVersion: 3,
-      publishedAt: "2026-07-16T17:30:00.000Z",
-    };
-
-    renderSharedNote();
-
-    expect(screen.getByText("Shared with me · View only")).toBeTruthy();
-    expect(
-      screen.getByTestId("shared-note-editor").getAttribute("data-read-only"),
-    ).toBe("true");
-    expect(
-      screen
-        .getByTestId("shared-note-editor")
-        .getAttribute("data-show-format-toolbar"),
-    ).toBe("false");
-    expect(screen.getByTestId("shared-note-editor").dataset.content).toContain(
-      "Shared plan",
-    );
-    expect(mocks.commentInputs[mocks.commentInputs.length - 1]).toMatchObject({
+      label: "Shared with me · View only",
       canCompose: false,
-      manageAccess: false,
-      shareId: "share-1",
-    });
-    expect(screen.getByTestId("shared-note-editor").dataset.commentAction).toBe(
-      "false",
-    );
-  });
-
-  it("allows commenters to compose without making the shared note editable", () => {
-    mocks.query.data = {
-      shareId: "share-1",
-      workspaceId: "workspace-1",
-      sessionId: "session-1",
-      schemaVersion: 1,
-      contentRevision: 2,
-      title: "Shared plan",
-      body: { type: "doc", content: [{ type: "paragraph" }] },
-      attachments: [],
+      commentAction: "false",
+    },
+    {
       capability: "commenter",
-      manageAccess: false,
-      accessVersion: 3,
-      publishedAt: "2026-07-16T17:30:00.000Z",
-    };
-
-    renderSharedNote();
-
-    expect(screen.getByText("Shared with me · Can comment")).toBeTruthy();
-    expect(
-      screen.getByTestId("shared-note-editor").getAttribute("data-read-only"),
-    ).toBe("true");
-    expect(mocks.commentInputs[mocks.commentInputs.length - 1]).toMatchObject({
+      label: "Shared with me · Can comment",
       canCompose: true,
-      currentRevision: 2,
-      manageAccess: false,
-      shareId: "share-1",
-    });
-    expect(screen.getByTestId("shared-note-editor").dataset.commentAction).toBe(
-      "true",
-    );
-  });
+      commentAction: "true",
+    },
+  ])(
+    "renders a $capability shared note with a read-only editor",
+    ({ capability, label, canCompose, commentAction }) => {
+      mocks.query.data = sharedSnapshot({ capability });
 
-  it("hides the selection comment action while a draft is open", () => {
-    mocks.commentDraft = {};
-    mocks.query.data = {
-      shareId: "share-1",
-      workspaceId: "workspace-1",
-      sessionId: "session-1",
-      schemaVersion: 1,
-      contentRevision: 2,
-      title: "Shared plan",
-      body: { type: "doc", content: [{ type: "paragraph" }] },
-      attachments: [],
-      capability: "commenter",
-      manageAccess: false,
-      accessVersion: 3,
-      publishedAt: "2026-07-16T17:30:00.000Z",
-    };
+      renderSharedNote();
 
-    renderSharedNote();
-
-    expect(screen.getByTestId("shared-note-editor").dataset.commentAction).toBe(
-      "false",
-    );
-  });
+      const editor = screen.getByTestId("shared-note-editor");
+      expect(screen.getByText(label)).toBeTruthy();
+      expect(editor.getAttribute("data-read-only")).toBe("true");
+      expect(editor.dataset.content).toContain("Shared plan");
+      expect(mocks.commentInputs[mocks.commentInputs.length - 1]).toMatchObject(
+        {
+          canCompose,
+          manageAccess: false,
+          shareId: "share-1",
+        },
+      );
+      expect(editor.dataset.commentAction).toBe(commentAction);
+    },
+  );
 
   it("removes content when access is no longer cached", () => {
     renderSharedNote();
@@ -271,24 +222,17 @@ describe("TabContentSharedNote", () => {
     expect(screen.queryByTestId("shared-note-editor")).toBeNull();
   });
 
-  it("requires the account the note was shared with", async () => {
-    mocks.session = null;
+  it.each([null, { user: { id: "anonymous-1", is_anonymous: true } }])(
+    "requires sign-in for session %s",
+    async (session) => {
+      mocks.session = session;
 
-    renderSharedNote();
+      renderSharedNote();
 
-    expect(screen.getByText("Sign in to view this shared note")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledTimes(1));
-  });
-
-  it("treats an anonymous session as signed out", async () => {
-    mocks.session = { user: { id: "anonymous-1", is_anonymous: true } };
-
-    renderSharedNote();
-
-    expect(screen.getByText("Sign in to view this shared note")).toBeTruthy();
-    expect(screen.queryByText("Access no longer available")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledTimes(1));
-  });
+      expect(screen.getByText("Sign in to view this shared note")).toBeTruthy();
+      expect(screen.queryByText("Access no longer available")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+      await waitFor(() => expect(mocks.signIn).toHaveBeenCalledTimes(1));
+    },
+  );
 });

@@ -158,7 +158,6 @@ mod tests {
             .zip(expected.probabilities.iter())
             .enumerate()
         {
-            assert_abs_diff_eq!(a, e, epsilon = 0.02);
             if (a - e).abs() > 0.02 {
                 panic!("probability mismatch at chunk {i}: actual={a}, expected={e}");
             }
@@ -210,27 +209,16 @@ mod tests {
     }
 
     #[test]
-    fn test_silero_v6_english_1() {
-        run_snapshot_test(anlg_data::english_1::AUDIO, "silero_v6_english_1");
-    }
-
-    #[test]
-    fn test_silero_v6_english_2() {
-        run_snapshot_test(anlg_data::english_2::AUDIO, "silero_v6_english_2");
-    }
-
-    #[test]
-    fn test_silero_v6_english_3() {
-        run_snapshot_test(anlg_data::english_3::AUDIO, "silero_v6_english_3");
-    }
-
-    #[test]
-    fn test_silero_v6_korean_1() {
-        run_snapshot_test(anlg_data::korean_1::AUDIO, "silero_v6_korean_1");
-    }
-
-    #[test]
-    fn test_silero_v6_korean_2() {
-        run_snapshot_test(anlg_data::korean_2::AUDIO, "silero_v6_korean_2");
+    fn silero_v6_matches_snapshots() {
+        let cases = [
+            (anlg_data::english_1::AUDIO, "silero_v6_english_1"),
+            (anlg_data::english_2::AUDIO, "silero_v6_english_2"),
+            (anlg_data::english_3::AUDIO, "silero_v6_english_3"),
+            (anlg_data::korean_1::AUDIO, "silero_v6_korean_1"),
+            (anlg_data::korean_2::AUDIO, "silero_v6_korean_2"),
+        ];
+        for (audio, snapshot_name) in cases {
+            run_snapshot_test(audio, snapshot_name);
+        }
     }
 }

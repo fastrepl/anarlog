@@ -112,131 +112,104 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_unauthorized_missing_header() {
-        let data = br#"{"error": "Unauthorized Connection: Missing Authorization header"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 401);
-        assert!(err.message.contains("Missing Authorization"));
-        assert_eq!(err.provider_code, Some("UNAUTHORIZED".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4401);
+    fn classifies_error_messages() {
+        for (data, http_code, provider_code, ws_close_code, message_part) in [
+            (
+                br#"{"error": "Unauthorized Connection: Missing Authorization header"}"#.as_slice(),
+                401,
+                Some("UNAUTHORIZED"),
+                4401,
+                "Missing Authorization",
+            ),
+            (
+                br#"{"error": "Unauthorized Connection: Too many concurrent sessions"}"#.as_slice(),
+                429,
+                Some("TOO_MANY_CONCURRENT"),
+                4429,
+                "Too many concurrent",
+            ),
+            (
+                br#"{"error": "Session Expired: Maximum session duration exceeded"}"#.as_slice(),
+                408,
+                Some("SESSION_EXPIRED"),
+                4000,
+                "session duration",
+            ),
+            (
+                br#"{"error": "Input duration violation: 25 ms. Expected between 50 and 1000 ms"}"#
+                    .as_slice(),
+                400,
+                Some("INPUT_DURATION_VIOLATION"),
+                4400,
+                "duration violation",
+            ),
+            (
+                br#"{"error": "Invalid JSON: unexpected token"}"#.as_slice(),
+                400,
+                Some("INVALID_JSON"),
+                4400,
+                "Invalid JSON",
+            ),
+            (
+                br#"{"error": "Invalid Message Type: unknown_type"}"#.as_slice(),
+                400,
+                Some("INVALID_MESSAGE"),
+                4400,
+                "Invalid Message",
+            ),
+            (
+                br#"{"error": "Audio Transmission Rate Exceeded: Received 10 sec. audio in 5 sec"}"#
+                    .as_slice(),
+                429,
+                Some("AUDIO_RATE_EXCEEDED"),
+                4429,
+                "Audio Transmission Rate",
+            ),
+            (
+                br#"{"error": "Session Cancelled: An error occurred"}"#.as_slice(),
+                500,
+                Some("SESSION_CANCELLED"),
+                4500,
+                "Session Cancelled",
+            ),
+            (
+                br#"{"status": "error", "error": "Download error, unable to access file at https://example.com"}"#
+                    .as_slice(),
+                400,
+                Some("DOWNLOAD_ERROR"),
+                4400,
+                "Download error",
+            ),
+            (
+                br#"{"error": "Something unexpected happened"}"#.as_slice(),
+                500,
+                None,
+                4500,
+                "Something unexpected happened",
+            ),
+        ] {
+            let err = detect_error(data).unwrap();
+            assert_eq!(err.http_code, http_code, "{data:?}");
+            assert!(err.message.contains(message_part), "{data:?}");
+            assert_eq!(
+                err.provider_code,
+                provider_code.map(str::to_string),
+                "{data:?}"
+            );
+            assert_eq!(err.to_ws_close_code(), ws_close_code, "{data:?}");
+        }
     }
 
     #[test]
-    fn test_too_many_concurrent() {
-        let data = br#"{"error": "Unauthorized Connection: Too many concurrent sessions"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 429);
-        assert!(err.message.contains("Too many concurrent"));
-        assert_eq!(err.provider_code, Some("TOO_MANY_CONCURRENT".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4429);
-    }
-
-    #[test]
-    fn test_session_expired() {
-        let data = br#"{"error": "Session Expired: Maximum session duration exceeded"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 408);
-        assert!(err.message.contains("session duration"));
-        assert_eq!(err.provider_code, Some("SESSION_EXPIRED".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4000);
-    }
-
-    #[test]
-    fn test_input_duration_violation() {
-        let data =
-            br#"{"error": "Input duration violation: 25 ms. Expected between 50 and 1000 ms"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert!(err.message.contains("duration violation"));
-        assert_eq!(
-            err.provider_code,
-            Some("INPUT_DURATION_VIOLATION".to_string())
-        );
-        assert_eq!(err.to_ws_close_code(), 4400);
-    }
-
-    #[test]
-    fn test_invalid_json() {
-        let data = br#"{"error": "Invalid JSON: unexpected token"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert!(err.message.contains("Invalid JSON"));
-        assert_eq!(err.provider_code, Some("INVALID_JSON".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4400);
-    }
-
-    #[test]
-    fn test_invalid_message_type() {
-        let data = br#"{"error": "Invalid Message Type: unknown_type"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert!(err.message.contains("Invalid Message"));
-        assert_eq!(err.provider_code, Some("INVALID_MESSAGE".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4400);
-    }
-
-    #[test]
-    fn test_audio_rate_exceeded() {
-        let data =
-            br#"{"error": "Audio Transmission Rate Exceeded: Received 10 sec. audio in 5 sec"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 429);
-        assert!(err.message.contains("Audio Transmission Rate"));
-        assert_eq!(err.provider_code, Some("AUDIO_RATE_EXCEEDED".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4429);
-    }
-
-    #[test]
-    fn test_session_cancelled() {
-        let data = br#"{"error": "Session Cancelled: An error occurred"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 500);
-        assert!(err.message.contains("Session Cancelled"));
-        assert_eq!(err.provider_code, Some("SESSION_CANCELLED".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4500);
-    }
-
-    #[test]
-    fn test_status_error() {
-        let data = br#"{"status": "error", "error": "Download error, unable to access file at https://example.com"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert!(err.message.contains("Download error"));
-        assert_eq!(err.provider_code, Some("DOWNLOAD_ERROR".to_string()));
-    }
-
-    #[test]
-    fn test_unknown_error() {
-        let data = br#"{"error": "Something unexpected happened"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 500);
-        assert_eq!(err.message, "Something unexpected happened");
-        assert_eq!(err.provider_code, None);
-        assert_eq!(err.to_ws_close_code(), 4500);
-    }
-
-    #[test]
-    fn test_non_error_begin_message() {
-        let data = br#"{"type": "Begin", "id": "abc123", "expires_at": "2024-01-01T00:00:00Z"}"#;
-        assert!(detect_error(data).is_none());
-    }
-
-    #[test]
-    fn test_non_error_turn_message() {
-        let data = br#"{"type": "Turn", "turn_order": 1, "transcript": "hello"}"#;
-        assert!(detect_error(data).is_none());
-    }
-
-    #[test]
-    fn test_non_error_termination_message() {
-        let data =
-            br#"{"type": "Termination", "audio_duration_seconds": 60, "session_duration_seconds": 65}"#;
-        assert!(detect_error(data).is_none());
-    }
-
-    #[test]
-    fn test_empty_json() {
-        let data = br#"{}"#;
-        assert!(detect_error(data).is_none());
+    fn ignores_non_error_and_empty_messages() {
+        for data in [
+            br#"{"type": "Begin", "id": "abc123", "expires_at": "2024-01-01T00:00:00Z"}"#.as_slice(),
+            br#"{"type": "Turn", "turn_order": 1, "transcript": "hello"}"#.as_slice(),
+            br#"{"type": "Termination", "audio_duration_seconds": 60, "session_duration_seconds": 65}"#
+                .as_slice(),
+            br#"{}"#.as_slice(),
+        ] {
+            assert!(detect_error(data).is_none(), "{data:?}");
+        }
     }
 }

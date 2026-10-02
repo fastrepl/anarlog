@@ -39,35 +39,19 @@ test("pins the active card at its desired top and pushes neighbors", () => {
   assert.equal(byId.get("b"), 110);
   assert.ok(byId.get("a")! + 80 + 10 <= byId.get("b")!);
   assert.ok(byId.get("c")! >= byId.get("b")! + 60 + 10);
-});
 
-test("normalizes when upward pushes go negative", () => {
-  const placements = layoutRailCards(
+  const normalized = layoutRailCards(
     [
       { id: "a", desiredTop: 0, height: 100 },
       { id: "b", desiredTop: 10, height: 50 },
     ],
     { gap: 8, activeId: "b" },
   );
-  for (const placement of placements) {
+  for (const placement of normalized) {
     assert.ok(placement.top >= 0);
   }
-  const byId = new Map(placements.map((p) => [p.id, p.top]));
-  assert.ok(byId.get("a")! + 100 + 8 <= byId.get("b")!);
-});
-
-test("orders deterministically for equal desired tops", () => {
-  const placements = layoutRailCards(
-    [
-      { id: "z", desiredTop: 50, height: 30 },
-      { id: "a", desiredTop: 50, height: 30 },
-    ],
-    { gap: 6, activeId: null },
-  );
-  assert.deepEqual(
-    placements.map((placement) => placement.id),
-    ["a", "z"],
-  );
+  const normalizedById = new Map(normalized.map((p) => [p.id, p.top]));
+  assert.ok(normalizedById.get("a")! + 100 + 8 <= normalizedById.get("b")!);
 });
 
 test("picks the smallest overlapping highlight", () => {

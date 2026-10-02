@@ -37,11 +37,6 @@ impl DependencyWatchIndex {
         }
     }
 
-    #[cfg(test)]
-    pub fn targets_for(&self, id: WatchId) -> Option<HashSet<DependencyTarget>> {
-        self.forward.get(&id).cloned()
-    }
-
     pub fn affected(&self, changed_targets: &HashSet<DependencyTarget>) -> HashSet<WatchId> {
         let mut result = HashSet::new();
         for target in changed_targets {
@@ -58,7 +53,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn register_and_affected() {
+    fn affected_returns_watches_depending_on_changed_targets() {
         let mut deps = DependencyWatchIndex::default();
 
         let w1 = deps.register(HashSet::from([
@@ -69,90 +64,40 @@ mod tests {
             DependencyTarget::Table("sessions".into()),
             DependencyTarget::Table("chat_messages".into()),
         ]));
+        let empty_watch = deps.register(HashSet::new());
 
-        let affected = deps.affected(&HashSet::from([DependencyTarget::Table("words".into())]));
-        assert!(affected.contains(&w1));
-        assert!(!affected.contains(&w2));
-
-        let affected = deps.affected(&HashSet::from([DependencyTarget::Table("sessions".into())]));
+        let affected = deps.affected(&HashSet::from([
+            DependencyTarget::Table("words".into()),
+            DependencyTarget::Table("sessions".into()),
+        ]));
         assert!(affected.contains(&w1));
         assert!(affected.contains(&w2));
-    }
-
-    #[test]
-    fn unregister_removes_from_index() {
-        let mut deps = DependencyWatchIndex::default();
-
-        let w1 = deps.register(HashSet::from([DependencyTarget::Table("sessions".into())]));
-        let w2 = deps.register(HashSet::from([DependencyTarget::Table("sessions".into())]));
-
-        deps.unregister(w1);
-
-        let affected = deps.affected(&HashSet::from([DependencyTarget::Table("sessions".into())]));
-        assert!(!affected.contains(&w1));
-        assert!(affected.contains(&w2));
-    }
-
-    #[test]
-    fn empty_changed_tables() {
-        let mut deps = DependencyWatchIndex::default();
-        deps.register(HashSet::from([DependencyTarget::Table("sessions".into())]));
-
-        let affected = deps.affected(&HashSet::new());
-        assert!(affected.is_empty());
-    }
-
-    #[test]
-    fn unregister_nonexistent_is_noop() {
-        let mut deps = DependencyWatchIndex::default();
-        deps.unregister(WatchId(999));
-    }
-
-    #[test]
-    fn register_empty_tables_never_matches() {
-        let mut deps = DependencyWatchIndex::default();
-        let watch = deps.register(HashSet::new());
-
-        assert!(
-            deps.affected(&HashSet::from([DependencyTarget::Table("sessions".into())]))
-                .is_empty()
-        );
-
-        deps.unregister(watch);
-        assert!(
-            deps.affected(&HashSet::from([DependencyTarget::Table("sessions".into())]))
-                .is_empty()
-        );
-    }
-
-    #[test]
-    fn duplicate_changed_tables_are_deduped() {
-        let mut deps = DependencyWatchIndex::default();
-        let watch = deps.register(HashSet::from([DependencyTarget::Table("sessions".into())]));
+        assert!(!affected.contains(&empty_watch));
 
         let affected = deps.affected(&HashSet::from([
             DependencyTarget::Table("sessions".into()),
             DependencyTarget::Table("sessions".into()),
         ]));
-        assert_eq!(affected.len(), 1);
-        assert!(affected.contains(&watch));
+        assert_eq!(affected.len(), 2);
+
+        assert!(deps.affected(&HashSet::new()).is_empty());
     }
 
     #[test]
-    fn tables_for_returns_registered_tables() {
+    fn unregister_removes_only_that_watch() {
         let mut deps = DependencyWatchIndex::default();
-        let watch = deps.register(HashSet::from([
-            DependencyTarget::Table("sessions".into()),
-            DependencyTarget::Table("words".into()),
-        ]));
+        let w1 = deps.register(HashSet::from([DependencyTarget::Table("sessions".into())]));
+        let w2 = deps.register(HashSet::from([DependencyTarget::Table("sessions".into())]));
 
-        let targets = deps.targets_for(watch).unwrap();
+        deps.unregister(WatchId(999));
         assert_eq!(
-            targets,
-            HashSet::from([
-                DependencyTarget::Table("sessions".into()),
-                DependencyTarget::Table("words".into()),
-            ])
+            deps.affected(&HashSet::from([DependencyTarget::Table("sessions".into())])),
+            HashSet::from([w1, w2])
         );
+
+        deps.unregister(w1);
+        let affected = deps.affected(&HashSet::from([DependencyTarget::Table("sessions".into())]));
+        assert!(!affected.contains(&w1));
+        assert!(affected.contains(&w2));
     }
 }

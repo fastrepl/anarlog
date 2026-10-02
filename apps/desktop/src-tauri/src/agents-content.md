@@ -11,6 +11,7 @@ meetings.
 Prefer the Anarlog MCP tools when they are available:
 
 - `list_meetings` to resolve a meeting ID
+- `list_folders` to scope `list_meetings` to a folder with `folder_path`
 - `get_meeting` for notes, summaries, participants, and action items
 - `get_meeting_transcript` for bounded transcript pages
 - `get_recurring_meeting_history` for meetings in the same recurring series
@@ -19,6 +20,8 @@ If MCP is unavailable, use the Anarlog CLI with `--json`:
 
 ```sh
 anarlog --json meetings list --query "planning"
+anarlog --json meetings folders
+anarlog --json meetings list --folder "Projects/Launch"
 anarlog --json meetings get MEETING_ID
 anarlog --json meetings transcript MEETING_ID --limit 200 --offset 0
 anarlog --json meetings history MEETING_ID

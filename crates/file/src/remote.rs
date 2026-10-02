@@ -154,7 +154,6 @@ mod tests {
 
     use futures_util::{StreamExt, pin_mut};
     use std::io::Write;
-    use testcontainers_modules::{minio, testcontainers::runners::AsyncRunner};
 
     #[tokio::test]
     async fn file_range_stream_reads_exact_bounded_chunks() {
@@ -198,45 +197,5 @@ mod tests {
         assert_eq!(body.len(), MAX_ERROR_BODY_BYTES);
         assert_eq!(body.last(), Some(&b'b'));
         assert!(truncated);
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_upload() {
-        let container = minio::MinIO::default().start().await.unwrap();
-        let port = container.get_host_port_ipv4(9000).await.unwrap();
-
-        let admin_s3 = anlg_s3::Client::builder()
-            .endpoint_url(format!("http://127.0.0.1:{}", port))
-            .bucket("test")
-            .credentials("minioadmin", "minioadmin")
-            .build()
-            .await;
-
-        let _ = admin_s3.create_bucket().await.unwrap();
-
-        let user_s3 = admin_s3.for_user("test-user");
-
-        let file_key = "audio.wav";
-        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
-        let test_data = vec![0u8; 120 * 1024 * 1024];
-        temp_file.write_all(&test_data).unwrap();
-
-        let upload_id = user_s3.create_multipart_upload(file_key).await.unwrap();
-        let presigned_urls = user_s3
-            .presigned_url_for_multipart_upload(file_key, &upload_id, 2)
-            .await
-            .unwrap();
-        assert!(presigned_urls.len() == 2);
-
-        let etags = upload(presigned_urls, temp_file.into_temp_path().to_path_buf())
-            .await
-            .unwrap();
-        assert!(etags.len() == 2);
-
-        // let _ = user_s3
-        //     .complete_multipart_upload(file_key, &upload_id, etags)
-        //     .await
-        //     .unwrap();
     }
 }

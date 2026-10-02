@@ -143,19 +143,6 @@ mod tests {
         }
 
         #[test]
-        fn does_nothing_without_a_config_file() {
-            let temp = tempdir().unwrap();
-            let global_base = temp.path().to_path_buf();
-            let default_base = temp.path().join("default");
-
-            assert_eq!(
-                consolidate_custom_vault(&global_base, &default_base).unwrap(),
-                None
-            );
-            assert!(!compute_vault_config_path(&global_base).exists());
-        }
-
-        #[test]
         fn moves_owned_items_into_the_default_base_and_clears_the_override() {
             let temp = tempdir().unwrap();
             let global_base = temp.path().join("global");

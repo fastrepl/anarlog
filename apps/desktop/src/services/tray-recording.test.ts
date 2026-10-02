@@ -38,71 +38,58 @@ describe("createTrayRecordingTitlePublisher", () => {
 });
 
 describe("getTrayRecordingSessionId", () => {
-  test.each(["active", "finalizing"] as const)(
-    "keeps the recording session while %s",
-    (status) => {
-      expect(getTrayRecordingSessionId(status, "session-1")).toBe("session-1");
-    },
-  );
-
-  test("clears the recording session when inactive", () => {
-    expect(getTrayRecordingSessionId("inactive", "session-1")).toBe("");
+  test.each([
+    ["active", "session-1"],
+    ["finalizing", "session-1"],
+    ["inactive", ""],
+  ] as const)("while %s returns %j", (status, expected) => {
+    expect(getTrayRecordingSessionId(status, "session-1")).toBe(expected);
   });
 });
 
 describe("getTrayRecordingTitle", () => {
-  test("returns a real session title", () => {
-    expect(getTrayRecordingTitle("  Customer call  ")).toBe("Customer call");
+  test.each([
+    ["  Customer call  ", "Customer call"],
+    [undefined, null],
+    ["  ", null],
+    ["Untitled", null],
+    ["Untitled event", null],
+  ])("maps %j to %j", (title, expected) => {
+    expect(getTrayRecordingTitle(title)).toBe(expected);
   });
-
-  test.each([undefined, null, "", "  ", "Untitled", "Untitled event"])(
-    "hides an ad-hoc placeholder title: %s",
-    (title) => {
-      expect(getTrayRecordingTitle(title)).toBeNull();
-    },
-  );
 });
 
 describe("resolveLiveSessionTitle", () => {
-  test("keeps a persisted optimistic title until the live query catches up", () => {
+  test.each([
+    [
+      "keeps a persisted optimistic title until the live query catches up",
+      Date.now(),
+      "Untitled",
+      "Customer call",
+    ],
+    [
+      "uses a newer store title after the optimistic write is acknowledged",
+      Date.now(),
+      "Customer follow-up",
+      "Customer follow-up",
+    ],
+    [
+      "drops an unacknowledged optimistic title after the live-query window",
+      0,
+      "Untitled",
+      "Untitled",
+    ],
+  ])("%s", (_name, persistedAt, storeTitle, expected) => {
     expect(
       resolveLiveSessionTitle(
         {
           value: "Customer call",
           persisted: true,
-          persistedAt: Date.now(),
+          persistedAt,
           previousTitle: "Untitled",
         },
-        "Untitled",
+        storeTitle,
       ),
-    ).toBe("Customer call");
-  });
-
-  test("uses a newer store title after the optimistic write is acknowledged", () => {
-    expect(
-      resolveLiveSessionTitle(
-        {
-          value: "Customer call",
-          persisted: true,
-          persistedAt: Date.now(),
-          previousTitle: "Untitled",
-        },
-        "Customer follow-up",
-      ),
-    ).toBe("Customer follow-up");
-  });
-
-  test("drops an unacknowledged optimistic title after the live-query window", () => {
-    expect(
-      resolveLiveSessionTitle(
-        {
-          value: "Customer call",
-          persisted: true,
-          persistedAt: 0,
-          previousTitle: "Untitled",
-        },
-        "Untitled",
-      ),
-    ).toBe("Untitled");
+    ).toBe(expected);
   });
 });

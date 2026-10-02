@@ -5,10 +5,6 @@ description: "Keep notes end-to-end encrypted across devices, and avoid conflict
 
 Cloud sync keeps your notes up to date across your signed-in devices. It is part of Anarlog Pro.
 
-<Note>
-  Automatic device setup is forthcoming. Existing releases may still ask you to create a recovery key or approve a new device in **Settings → Sync**.
-</Note>
-
 ## Turn sync on or off
 
 1. Open **Settings → Sync**.
@@ -30,7 +26,7 @@ Each synced device receives:
 - Action items
 - A few preferences: **Theme**, **App icon**, **Week starts on**, and **Default sharing**
 
-In 1.4.24 and 1.4.25, new daily notes, folders, tags, and note-tag assignments stay on the device where you create them. Their sync rollout is deferred to keep meeting-note sync compatible with 1.4.23. **Synced** applies to the supported data above, not these local-only items. Existing items already synced by Nightly continue using their existing format; use matching app versions on those devices.
+Since 1.4.24, new daily notes, folders, tags, and note-tag assignments stay on the device where you create them. Their sync rollout is deferred to keep meeting-note sync compatible with 1.4.23. **Synced** applies to the supported data above, not these local-only items. Existing items already synced by Nightly continue using their existing format; use matching app versions on those devices.
 
 API keys, model selections, and most other settings stay on the computer where you entered them. After you add a new device, enter each Transcription and Intelligence API key again and choose the models you want on that computer. Anarlog stores those keys in the operating system's credential store and does not copy them between devices.
 
@@ -88,7 +84,7 @@ To keep an Obsidian vault or another folder up to date, use the [Export every me
 
 ## Fix a blocked sync
 
-- **Setup required:** Create a recovery key or enter the key from an existing device.
+- **Sync needs attention / setup required:** Open Anarlog on an existing synced device signed in to the same account, or enter a recovery key you saved during an earlier setup.
 - **Connecting this device:** Open Anarlog on an existing synced device signed in to the same account, or use a previously saved recovery key.
 - **Sign in again:** Sign out and sign back in, then resume sync.
 - **Identity mismatch:** Sign in again with the account that owns the synced notes. Check Sync settings before changing local files.
@@ -117,7 +113,7 @@ Email [team@fastrepl.com](mailto:team@fastrepl.com) with those details and any i
 - **macOS:** In Finder, choose **Go → Go to Folder** and enter `~/Library/Logs/com.hyprnote.stable/`.
 - **Windows:** In File Explorer's address bar, enter `%LOCALAPPDATA%\com.hyprnote.stable\logs`.
 
-Nightly and Staging keep separate logs; use `com.hyprnote.nightly` or `com.hyprnote.staging` in place of `com.hyprnote.stable`. Review logs before sharing them, and never send your recovery key, API keys, or sign-in tokens.
+Staging and the retired Nightly app keep separate logs; use `com.hyprnote.staging` or `com.hyprnote.nightly` in place of `com.hyprnote.stable`. Review logs before sharing them, and never send your recovery key, API keys, or sign-in tokens.
 
 <Warning>
   Do not delete your local data or create a replacement recovery key to troubleshoot delayed sync. Keep the existing notes and recovery key until sync completes and you have verified your notes on another device.

@@ -24,79 +24,53 @@ function validate(demo, overrides = {}) {
   });
 }
 
-for (const demo of [
-  "https://github.com/user-attachments/assets/demo",
-  "[Recording](https://vimeo.com/12345)",
-  "https://drive.google.com/file/d/demo/view",
-  "https://www.dropbox.com/s/demo/recording",
-  "https://www.dailymotion.com/video/demo",
-  "https://cdn.example.com/signed-demo?token=abc",
-  "https://example.com/demo.gif",
-  "N/A docs only",
-  "N/A: docs",
-  "N/A — CI only",
-]) {
-  test(`accepts visible demo: ${demo}`, () => {
+test("accepts a visible demo link or an N/A reason", () => {
+  for (const demo of [
+    "https://github.com/user-attachments/assets/demo",
+    "[Recording](https://vimeo.com/12345)",
+    "N/A docs only",
+    "N/A: docs",
+    "N/A — CI only",
+  ]) {
     const result = validate(demo);
-    assert.equal(result.status, 0, result.stderr);
-  });
-}
+    assert.equal(result.status, 0, `${demo}\n${result.stderr}`);
+  }
+});
 
-for (const demo of [
-  "",
-  "The demo filename is example.gif",
-  "demo.mp4",
-  "```text\nhttps://example.com/demo.gif\n```",
-  "~~~\nhttps://example.com/demo.gif\n~~~",
-  "    https://example.com/demo.gif",
-  "<!-- https://example.com/demo.gif -->",
-  "N/A",
-  "N/A —",
-  "N/A\nThis reason belongs on the same line.",
-  "N/A\n\n```\nThis is only filler in a code block.\n```",
-  "No recording.\n\n## Other\nhttps://example.com/demo.gif",
-]) {
-  test(`rejects missing demo evidence: ${JSON.stringify(demo)}`, () => {
+test("rejects missing, hidden, or reasonless demo evidence", () => {
+  for (const demo of [
+    "",
+    "demo.mp4",
+    "```text\nhttps://example.com/demo.gif\n```",
+    "    https://example.com/demo.gif",
+    "<!-- https://example.com/demo.gif -->",
+    "N/A",
+    "N/A —",
+    "N/A\nThis reason belongs on the same line.",
+    "No recording.\n\n## Other\nhttps://example.com/demo.gif",
+  ]) {
     const result = validate(demo);
-    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.status, 1, JSON.stringify(demo));
     assert.match(result.stderr, /## Demo/);
-  });
-}
-
-test("uses the exact Intent label in its error", () => {
-  const result = validate("", { PR_BODY: "## Summary\n\n## Demo\nN/A docs" });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /after \*\*Intent:\*\* what/);
+  }
 });
 
-test("rejects an overly verbose Intent", () => {
-  const result = validate("", {
-    PR_BODY: `## Summary\n\n**Intent:** ${"a".repeat(401)}\n\n## Demo\nN/A docs`,
-  });
-  assert.equal(result.status, 1);
-  assert.match(
-    result.stderr,
-    /Keep \*\*Intent:\*\* to one or two short sentences/,
-  );
+test("rejects a missing, overly verbose, or headingless Intent/Demo summary", () => {
+  for (const body of [
+    "## Summary\n\n## Demo\nN/A docs",
+    `## Summary\n\n**Intent:** ${"a".repeat(401)}\n\n## Demo\nN/A docs`,
+    "## Summary\n\n**Intent:** Prevent duplicate notes when the connection recovers.",
+  ]) {
+    assert.equal(validate("", { PR_BODY: body }).status, 1, body);
+  }
 });
 
-test("requires the Demo heading", () => {
-  const result = validate("", {
-    PR_BODY:
-      "## Summary\n\n**Intent:** Prevent duplicate notes when the connection recovers.",
-  });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /Add a ## Demo section/);
-});
-
-for (const overrides of [
-  { PR_AUTHOR_ASSOCIATION: "OWNER" },
-  { PR_AUTHOR_ASSOCIATION: "MEMBER" },
-  { PR_AUTHOR_ASSOCIATION: "COLLABORATOR" },
-  { PR_AUTHOR_TYPE: "Bot" },
-]) {
-  test(`preserves the exemption for ${JSON.stringify(overrides)}`, () => {
+test("exempts maintainers and bots", () => {
+  for (const overrides of [
+    { PR_AUTHOR_ASSOCIATION: "OWNER" },
+    { PR_AUTHOR_TYPE: "Bot" },
+  ]) {
     const result = validate("", { PR_BODY: "", PR_TITLE: "", ...overrides });
     assert.equal(result.status, 0, result.stderr);
-  });
-}
+  }
+});

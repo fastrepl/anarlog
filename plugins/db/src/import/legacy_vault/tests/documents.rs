@@ -113,105 +113,63 @@ async fn identical_duplicate_document_ids_do_not_fork() {
 }
 
 #[tokio::test]
-async fn nonempty_canonical_summary_shadows_empty_hidden_artifact() {
-    let db = test_db().await;
-    let dir = tempfile::tempdir().unwrap();
-    let session_dir = dir.path().join("sessions/session-1");
-    std::fs::create_dir_all(&session_dir).unwrap();
-    std::fs::write(
-        session_dir.join("_meta.json"),
-        r#"{"id":"session-1","created_at":"2026-07-12T01:00:00Z","title":"Planning"}"#,
-    )
-    .unwrap();
-    std::fs::write(
-        session_dir.join(".md"),
-        "---\nid: summary-1\nsession_id: session-1\ntemplate_id: ''\ntitle: Summary\n---\n\n",
-    )
-    .unwrap();
-    std::fs::write(
-        session_dir.join("_summary.md"),
-        "---\nid: summary-1\nsession_id: session-1\ntitle: Summary\n---\n\nCurrent summary",
-    )
-    .unwrap();
+async fn only_nonempty_summary_copy_is_imported_when_the_other_is_empty() {
+    for (hidden_body, canonical_body, expected_body, expected_hidden_items) in [
+        ("", "Current summary", "Current summary", 0),
+        ("Keep this summary", "", "Keep this summary", 1),
+    ] {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let session_dir = dir.path().join("sessions/session-1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(
+            session_dir.join("_meta.json"),
+            r#"{"id":"session-1","created_at":"2026-07-12T01:00:00Z","title":"Planning"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            session_dir.join(".md"),
+            format!(
+                "---\nid: summary-1\nsession_id: session-1\ntemplate_id: ''\ntitle: Summary\n---\n\n{hidden_body}"
+            ),
+        )
+        .unwrap();
+        std::fs::write(
+            session_dir.join("_summary.md"),
+            format!(
+                "---\nid: summary-1\nsession_id: session-1\ntitle: Summary\n---\n\n{canonical_body}"
+            ),
+        )
+        .unwrap();
 
-    let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+        let run_id = import_legacy_vault(db.pool(), dir.path(), false)
+            .await
+            .unwrap();
+
+        let run: (String, i64) =
+            sqlx::query_as("SELECT status, conflict_count FROM migration_import_runs WHERE id = ?")
+                .bind(&run_id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let body: String =
+            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        let hidden_item_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM migration_import_items
+             WHERE run_id = ? AND source_path = 'sessions/session-1/.md'",
+        )
+        .bind(&run_id)
+        .fetch_one(db.pool())
         .await
         .unwrap();
 
-    let status: String =
-        sqlx::query_scalar("SELECT status FROM migration_import_runs WHERE id = ?")
-            .bind(&run_id)
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-    let body: String =
-        sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-    let hidden_item_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM migration_import_items \
-         WHERE run_id = ? AND source_path = 'sessions/session-1/.md'",
-    )
-    .bind(&run_id)
-    .fetch_one(db.pool())
-    .await
-    .unwrap();
-
-    assert_eq!(status, "completed");
-    assert_eq!(body, "Current summary");
-    assert_eq!(hidden_item_count, 0);
-}
-
-#[tokio::test]
-async fn nonempty_hidden_summary_is_not_shadowed_by_empty_canonical_summary() {
-    let db = test_db().await;
-    let dir = tempfile::tempdir().unwrap();
-    let session_dir = dir.path().join("sessions/session-1");
-    std::fs::create_dir_all(&session_dir).unwrap();
-    std::fs::write(
-        session_dir.join("_meta.json"),
-        r#"{"id":"session-1","created_at":"2026-07-12T01:00:00Z","title":"Planning"}"#,
-    )
-    .unwrap();
-    std::fs::write(
-        session_dir.join(".md"),
-        "---\nid: summary-1\nsession_id: session-1\ntemplate_id: ''\ntitle: Summary\n---\n\nKeep this summary",
-    )
-    .unwrap();
-    std::fs::write(
-        session_dir.join("_summary.md"),
-        "---\nid: summary-1\nsession_id: session-1\ntitle: Summary\n---\n\n",
-    )
-    .unwrap();
-
-    let run_id = import_legacy_vault(db.pool(), dir.path(), false)
-        .await
-        .unwrap();
-
-    let run: (String, i64) =
-        sqlx::query_as("SELECT status, conflict_count FROM migration_import_runs WHERE id = ?")
-            .bind(&run_id)
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-    let body: String =
-        sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-    let hidden_item_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM migration_import_items
-         WHERE run_id = ? AND source_path = 'sessions/session-1/.md'",
-    )
-    .bind(&run_id)
-    .fetch_one(db.pool())
-    .await
-    .unwrap();
-
-    assert_eq!(run, ("completed".to_string(), 0));
-    assert_eq!(body, "Keep this summary");
-    assert_eq!(hidden_item_count, 1);
+        assert_eq!(run, ("completed".to_string(), 0));
+        assert_eq!(body, expected_body);
+        assert_eq!(hidden_item_count, expected_hidden_items);
+    }
 }
 
 #[tokio::test]

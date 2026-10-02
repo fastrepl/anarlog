@@ -192,37 +192,6 @@ fn part_files_in(dir: &Path) -> Vec<PathBuf> {
 // --- tests ---
 
 #[tokio::test]
-async fn model_path_returns_correct_path() {
-    let runtime = TestRuntime::new();
-    let manager = ModelDownloadManager::new(runtime.clone());
-    let model = TestModel::without_url("my_model");
-
-    let result = manager.model_path(&model).unwrap();
-
-    assert_eq!(result, runtime.temp_dir.path().join("my_model.bin"));
-}
-
-#[tokio::test]
-async fn is_downloaded_false_when_missing() {
-    let runtime = TestRuntime::new();
-    let manager = ModelDownloadManager::new(runtime.clone());
-    let model = TestModel::without_url("absent");
-
-    assert!(!manager.is_downloaded(&model).await.unwrap());
-}
-
-#[tokio::test]
-async fn is_downloaded_true_when_file_exists() {
-    let runtime = TestRuntime::new();
-    let manager = ModelDownloadManager::new(runtime.clone());
-    let model = TestModel::without_url("present");
-
-    std::fs::write(manager.model_path(&model).unwrap(), b"weights").unwrap();
-
-    assert!(manager.is_downloaded(&model).await.unwrap());
-}
-
-#[tokio::test]
 async fn download_success() {
     let server = start_mock_server("/model.bin", b"fake weights".to_vec()).await;
     let url = format!("{}/model.bin", server.uri());

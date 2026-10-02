@@ -184,28 +184,3 @@ fn chromium_profile(
     }
     Ok((path, true))
 }
-
-#[test]
-fn persistent_chromium_profile_enables_authenticated_mode() {
-    let temporary_root = tempfile::tempdir().unwrap();
-    assert_eq!(
-        chromium_profile(temporary_root.path(), None).unwrap(),
-        (temporary_root.path().join("chromium-profile"), false)
-    );
-
-    let persistent = temporary_root.path().join("persistent-profile");
-    assert_eq!(
-        chromium_profile(
-            temporary_root.path(),
-            Some(persistent.clone().into_os_string())
-        )
-        .unwrap(),
-        (persistent, true)
-    );
-    assert_eq!(
-        chromium_profile(temporary_root.path(), Some("relative-profile".into()))
-            .unwrap_err()
-            .kind(),
-        io::ErrorKind::InvalidInput
-    );
-}

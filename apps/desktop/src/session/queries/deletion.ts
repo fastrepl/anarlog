@@ -1,12 +1,12 @@
 import { json2md } from "@anlg/editor/markdown";
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands } from "@anlg/plugin-session";
 
-import { executeTransaction, liveQueryClient } from "~/db";
+import { liveQueryClient } from "~/db";
 import { waitForPendingSoftDelete } from "~/session/pending-soft-deletes";
 import type { DeletedSessionData } from "~/store/zustand/undo-delete";
 
 type SessionIdentitySqlRow = { id: string };
-type SessionDeleteSqlRow = { id: string; title: string };
 type SessionEmptySqlRow = {
   title: string;
   event_json: string;
@@ -23,19 +23,15 @@ export async function softDeleteSession(
   sessionId: string,
   tombstone = new Date().toISOString(),
 ): Promise<DeletedSessionData | null> {
-  const [session] = await liveQueryClient.execute<SessionDeleteSqlRow>(
-    `SELECT id, title FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
-    [sessionId],
-  );
-  if (!session) return null;
-
-  const rowsAffected = await executeTransaction(
-    buildSessionTombstoneStatements(sessionId, tombstone),
-  );
-  if (rowsAffected[rowsAffected.length - 1] !== 1) return null;
+  const result = await commands.softDeleteSession({
+    session_id: sessionId,
+    tombstone,
+  });
+  if (result.status === "error") throw new Error(result.error);
+  if (!result.data) return null;
 
   return {
-    session: { id: session.id, title: session.title },
+    session: { id: result.data.id, title: result.data.title },
     tombstone,
     deletedAt: Date.now(),
   };
@@ -122,16 +118,12 @@ export async function restoreDeletedSession(
   // is not restored, it just isn't tombstoned yet.
   await waitForPendingSoftDelete(data.session.id);
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const rowsAffected = await executeTransaction(
-      buildSessionTombstoneStatements(data.session.id, data.tombstone, true),
-    );
-    if (rowsAffected[rowsAffected.length - 1] === 1) return;
-
-    const [alive] = await liveQueryClient.execute<SessionIdentitySqlRow>(
-      `SELECT id FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
-      [data.session.id],
-    );
-    if (alive) return;
+    const result = await commands.restoreDeletedSession({
+      session_id: data.session.id,
+      tombstone: data.tombstone,
+    });
+    if (result.status === "error") throw new Error(result.error);
+    if (result.data !== "not_deleted") return;
 
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
@@ -155,55 +147,6 @@ export async function finalizeSessionDeletion(
       error,
     });
   }
-}
-
-export function buildSessionTombstoneStatements(
-  sessionId: string,
-  tombstone: string,
-  restore = false,
-) {
-  const value = restore ? null : tombstone;
-  const predicate = restore ? "deleted_at = ?" : "deleted_at IS NULL";
-  const predicateParams = restore ? [tombstone] : [];
-  const directTables = [
-    "session_documents",
-    "transcripts",
-    "session_participants",
-    "session_tags",
-    "action_items",
-    "session_attachments",
-  ];
-
-  const statements = directTables.map((table) => ({
-    sql: `
-      UPDATE ${table}
-      SET deleted_at = ?, updated_at = ?
-      WHERE session_id = ? AND ${predicate}
-    `,
-    params: [value, tombstone, sessionId, ...predicateParams],
-  }));
-
-  statements.push({
-    sql: `
-      UPDATE entity_mentions
-      SET deleted_at = ?, updated_at = ?
-      WHERE (
-        (source_type = 'session' AND source_id = ?)
-        OR (target_type = 'session' AND target_id = ?)
-      ) AND ${predicate}
-    `,
-    params: [value, tombstone, sessionId, sessionId, ...predicateParams],
-  });
-  statements.push({
-    sql: `
-      UPDATE sessions
-      SET deleted_at = ?, updated_at = ?
-      WHERE id = ? AND ${predicate}
-    `,
-    params: [value, tombstone, sessionId, ...predicateParams],
-  });
-
-  return statements;
 }
 
 function hasNoteContent(body: string, format: string): boolean {

@@ -168,147 +168,66 @@ mod tests {
     }
 
     #[test]
-    fn test_is_control_message_empty_types() {
-        let types = HashSet::new();
-        let data = br#"{"type": "KeepAlive"}"#;
-        assert!(!is_control_message(data, &types));
+    fn is_control_message_matches_only_configured_string_types() {
+        let cases: &[(&[u8], &[&str], bool)] = &[
+            (br#"{"type": "KeepAlive"}"#, &[], false),
+            (
+                br#"{"type": "KeepAlive"}"#,
+                &["KeepAlive", "CloseStream"],
+                true,
+            ),
+            (
+                br#"{"type": "CloseStream"}"#,
+                &["KeepAlive", "CloseStream"],
+                true,
+            ),
+            (br#"{"type": "DataMessage"}"#, &["KeepAlive"], false),
+            (b"not json", &["KeepAlive"], false),
+            (br#"{"message": "hello"}"#, &["KeepAlive"], false),
+            (br#"{"type": 123}"#, &["KeepAlive"], false),
+            (b"", &["KeepAlive"], false),
+            (br#"["type", "KeepAlive"]"#, &["KeepAlive"], false),
+            (br#" {"type": "KeepAlive"}"#, &["KeepAlive"], false),
+            (br#"{"data": {"type": "KeepAlive"}}"#, &["KeepAlive"], false),
+            (br#"{"type": null}"#, &["KeepAlive"], false),
+            (br#"{"type": ""}"#, &[""], true),
+            (
+                br#"{"type": "KeepAlive", "timestamp": 12345, "data": {"foo": "bar"}}"#,
+                &["KeepAlive"],
+                true,
+            ),
+        ];
+
+        for (data, configured_types, expected) in cases {
+            let types = configured_types.iter().copied().collect();
+            assert_eq!(
+                is_control_message(data, &types),
+                *expected,
+                "data: {}",
+                String::from_utf8_lossy(data)
+            );
+        }
     }
 
     #[test]
-    fn test_is_control_message_matching_type() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-        types.insert("CloseStream");
-
-        let data = br#"{"type": "KeepAlive"}"#;
-        assert!(is_control_message(data, &types));
-
-        let data = br#"{"type": "CloseStream"}"#;
-        assert!(is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_non_matching_type() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = br#"{"type": "DataMessage"}"#;
-        assert!(!is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_invalid_json() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = b"not json";
-        assert!(!is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_no_type_field() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = br#"{"message": "hello"}"#;
-        assert!(!is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_type_not_string() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = br#"{"type": 123}"#;
-        assert!(!is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_normalize_close_code_valid_codes() {
-        assert_eq!(normalize_close_code(1000), 1000);
-        assert_eq!(normalize_close_code(1001), 1001);
-        assert_eq!(normalize_close_code(1002), 1002);
-        assert_eq!(normalize_close_code(1003), 1003);
-        assert_eq!(normalize_close_code(4999), 4999);
-    }
-
-    #[test]
-    fn test_normalize_close_code_reserved_codes() {
-        assert_eq!(normalize_close_code(1005), DEFAULT_CLOSE_CODE);
-        assert_eq!(normalize_close_code(1006), DEFAULT_CLOSE_CODE);
-        assert_eq!(normalize_close_code(1015), DEFAULT_CLOSE_CODE);
-    }
-
-    #[test]
-    fn test_normalize_close_code_high_codes() {
-        assert_eq!(normalize_close_code(5000), DEFAULT_CLOSE_CODE);
-        assert_eq!(normalize_close_code(5001), DEFAULT_CLOSE_CODE);
-        assert_eq!(normalize_close_code(9999), DEFAULT_CLOSE_CODE);
-    }
-
-    #[test]
-    fn test_is_control_message_empty_data() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = b"";
-        assert!(!is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_not_starting_with_brace() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = br#"["type", "KeepAlive"]"#;
-        assert!(!is_control_message(data, &types));
-
-        let data = br#" {"type": "KeepAlive"}"#;
-        assert!(!is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_nested_type() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = br#"{"data": {"type": "KeepAlive"}}"#;
-        assert!(!is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_type_null() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = br#"{"type": null}"#;
-        assert!(!is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_type_empty_string() {
-        let mut types = HashSet::new();
-        types.insert("");
-
-        let data = br#"{"type": ""}"#;
-        assert!(is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_is_control_message_with_extra_fields() {
-        let mut types = HashSet::new();
-        types.insert("KeepAlive");
-
-        let data = br#"{"type": "KeepAlive", "timestamp": 12345, "data": {"foo": "bar"}}"#;
-        assert!(is_control_message(data, &types));
-    }
-
-    #[test]
-    fn test_normalize_close_code_boundary_values() {
-        assert_eq!(normalize_close_code(4999), 4999);
-        assert_eq!(normalize_close_code(5000), DEFAULT_CLOSE_CODE);
-        assert_eq!(normalize_close_code(0), 0);
-        assert_eq!(normalize_close_code(u16::MAX), DEFAULT_CLOSE_CODE);
+    fn normalize_close_code_replaces_reserved_and_out_of_range_codes() {
+        for (input, expected) in [
+            (1000, 1000),
+            (1001, 1001),
+            (1002, 1002),
+            (1003, 1003),
+            (4999, 4999),
+            (1005, DEFAULT_CLOSE_CODE),
+            (1006, DEFAULT_CLOSE_CODE),
+            (1015, DEFAULT_CLOSE_CODE),
+            (5000, DEFAULT_CLOSE_CODE),
+            (5001, DEFAULT_CLOSE_CODE),
+            (9999, DEFAULT_CLOSE_CODE),
+            (0, 0),
+            (u16::MAX, DEFAULT_CLOSE_CODE),
+        ] {
+            assert_eq!(normalize_close_code(input), expected, "close code {input}");
+        }
     }
 
     mod convert_tests {
@@ -321,7 +240,7 @@ mod tests {
         };
 
         #[test]
-        fn test_extract_axum_close_with_frame() {
+        fn extract_close_normalizes_code_and_defaults_missing_frames() {
             let frame = Some(AxumCloseFrame {
                 code: 1000,
                 reason: "normal closure".into(),
@@ -329,17 +248,11 @@ mod tests {
             let (code, reason) = extract_axum_close(frame, "default");
             assert_eq!(code, 1000);
             assert_eq!(reason, "normal closure");
-        }
 
-        #[test]
-        fn test_extract_axum_close_without_frame() {
             let (code, reason) = extract_axum_close(None, "client_disconnected");
             assert_eq!(code, DEFAULT_CLOSE_CODE);
             assert_eq!(reason, "client_disconnected");
-        }
 
-        #[test]
-        fn test_extract_axum_close_normalizes_reserved_code() {
             let frame = Some(AxumCloseFrame {
                 code: 1006,
                 reason: "abnormal".into(),
@@ -347,10 +260,7 @@ mod tests {
             let (code, reason) = extract_axum_close(frame, "default");
             assert_eq!(code, DEFAULT_CLOSE_CODE);
             assert_eq!(reason, "abnormal");
-        }
 
-        #[test]
-        fn test_extract_axum_close_empty_reason() {
             let frame = Some(AxumCloseFrame {
                 code: 1000,
                 reason: "".into(),
@@ -358,10 +268,7 @@ mod tests {
             let (code, reason) = extract_axum_close(frame, "default");
             assert_eq!(code, 1000);
             assert_eq!(reason, "");
-        }
 
-        #[test]
-        fn test_extract_tungstenite_close_with_frame() {
             let frame = Some(TungsteniteCloseFrame {
                 code: CloseCode::Normal,
                 reason: "goodbye".into(),
@@ -369,17 +276,11 @@ mod tests {
             let (code, reason) = extract_tungstenite_close(frame, "default");
             assert_eq!(code, 1000);
             assert_eq!(reason, "goodbye");
-        }
 
-        #[test]
-        fn test_extract_tungstenite_close_without_frame() {
             let (code, reason) = extract_tungstenite_close(None, "upstream_closed");
             assert_eq!(code, DEFAULT_CLOSE_CODE);
             assert_eq!(reason, "upstream_closed");
-        }
 
-        #[test]
-        fn test_extract_tungstenite_close_normalizes_reserved_code() {
             let frame = Some(TungsteniteCloseFrame {
                 code: CloseCode::Abnormal,
                 reason: "abnormal".into(),
@@ -387,10 +288,7 @@ mod tests {
             let (code, reason) = extract_tungstenite_close(frame, "default");
             assert_eq!(code, DEFAULT_CLOSE_CODE);
             assert_eq!(reason, "abnormal");
-        }
 
-        #[test]
-        fn test_extract_tungstenite_close_with_custom_code() {
             let frame = Some(TungsteniteCloseFrame {
                 code: CloseCode::from(4001),
                 reason: "custom error".into(),
@@ -401,7 +299,7 @@ mod tests {
         }
 
         #[test]
-        fn test_to_axum_close() {
+        fn to_close_messages_preserve_code_and_reason() {
             let msg = to_axum_close(1000, "normal".to_string());
             match msg {
                 AxumMessage::Close(Some(frame)) => {
@@ -410,10 +308,7 @@ mod tests {
                 }
                 _ => panic!("expected Close message"),
             }
-        }
 
-        #[test]
-        fn test_to_axum_close_with_custom_code() {
             let msg = to_axum_close(4400, "bad request".to_string());
             match msg {
                 AxumMessage::Close(Some(frame)) => {
@@ -422,10 +317,7 @@ mod tests {
                 }
                 _ => panic!("expected Close message"),
             }
-        }
 
-        #[test]
-        fn test_to_axum_close_empty_reason() {
             let msg = to_axum_close(1000, "".to_string());
             match msg {
                 AxumMessage::Close(Some(frame)) => {
@@ -434,10 +326,7 @@ mod tests {
                 }
                 _ => panic!("expected Close message"),
             }
-        }
 
-        #[test]
-        fn test_to_tungstenite_close() {
             let msg = to_tungstenite_close(1000, "normal".to_string());
             match msg {
                 TungsteniteMessage::Close(Some(frame)) => {
@@ -446,10 +335,7 @@ mod tests {
                 }
                 _ => panic!("expected Close message"),
             }
-        }
 
-        #[test]
-        fn test_to_tungstenite_close_with_custom_code() {
             let msg = to_tungstenite_close(4429, "rate limited".to_string());
             match msg {
                 TungsteniteMessage::Close(Some(frame)) => {
@@ -458,10 +344,7 @@ mod tests {
                 }
                 _ => panic!("expected Close message"),
             }
-        }
 
-        #[test]
-        fn test_to_tungstenite_close_empty_reason() {
             let msg = to_tungstenite_close(1001, "".to_string());
             match msg {
                 TungsteniteMessage::Close(Some(frame)) => {
@@ -470,10 +353,7 @@ mod tests {
                 }
                 _ => panic!("expected Close message"),
             }
-        }
 
-        #[test]
-        fn test_to_tungstenite_close_long_reason() {
             let long_reason = "a".repeat(1000);
             let msg = to_tungstenite_close(1000, long_reason.clone());
             match msg {

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-mark-session-audio-absent"
+description = "Enables the mark_session_audio_absent command without any pre-configured scope."
+commands.allow = ["mark_session_audio_absent"]
+
+[[permission]]
+identifier = "deny-mark-session-audio-absent"
+description = "Denies the mark_session_audio_absent command without any pre-configured scope."
+commands.deny = ["mark_session_audio_absent"]

@@ -75,29 +75,6 @@ export function ensureFirstLineTitle(
   return { ...content, content: [titleBlock, ...blocks] };
 }
 
-export function ensureMarkdownFirstLineTitle(
-  markdown: string,
-  title: string | null | undefined,
-) {
-  const trimmedTitle = title?.trim();
-  if (!trimmedTitle) {
-    return markdown;
-  }
-
-  const trimmedMarkdown = markdown.trimStart();
-  const firstLineEnd = trimmedMarkdown.indexOf("\n");
-  const firstLine =
-    firstLineEnd === -1
-      ? trimmedMarkdown
-      : trimmedMarkdown.slice(0, firstLineEnd);
-
-  if (firstLine === `# ${trimmedTitle}`) {
-    return markdown;
-  }
-
-  return `# ${trimmedTitle}\n\n${markdown.trimStart()}`.trim();
-}
-
 function buildTitleBlock(title: string): JSONContent {
   return {
     type: "heading",

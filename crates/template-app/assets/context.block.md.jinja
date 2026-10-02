@@ -5,7 +5,14 @@
 
 ---
 
-{% endif -%}
+{%- endif -%}
+{%- if let Some(session_id) = ctx.session_id %}
+
+Session ID: {{ session_id }}
+{%- if self.is_current(ctx) %}
+Current note: the user is viewing this note right now.
+{%- endif -%}
+{%- endif -%}
 {{ macros::session_context_details(ctx=ctx) }}
 {%- endfor %}
 </context>

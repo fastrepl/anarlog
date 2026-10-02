@@ -21,3 +21,11 @@ Expo (SDK 57) app for Anarlog. Expo has changed significantly — read the exact
 - Keep schema/SQL parity with desktop; do not invent mobile-only columns or enums.
 - Store marketing version lives in `apps/mobile/release-version.json` and is independent of desktop `release-version.json`. Bump it with `node scripts/release-version.mjs --mobile <major.minor.patch>`.
 - UX reference: `design/README.md`.
+
+## Keep implementations simple
+
+- Keep `src/app/` for routes and navigation. Put substantial screen workflows beside their feature (for example, `src/note/`), with components owning the state they render. Keep app initialization and providers in the root layout.
+- Use queries and mutations for async status and errors; use TanStack Form for editable form values. Derive values instead of mirroring them in state. Keep synchronous guards when async state cannot prevent same-frame taps.
+- Give mutually exclusive UI states one representation, such as the currently open sheet. Use a keyed screen boundary to scope drafts and async work to a route's entity.
+- Extract code when it separates a responsibility or removes duplication. Avoid generic controllers, wrapper hooks, and interfaces that only rename a single call. Prefer explicit domain functions over configurable frameworks.
+- Preserve native input/caret behavior, focus and modal dismissal ordering, accessibility, local-save guarantees, and cancellation/retry semantics during refactors. Add tests for persistence and lifecycle guarantees, not component or file layout.

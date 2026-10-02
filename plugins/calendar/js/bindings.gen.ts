@@ -56,6 +56,142 @@ async createEvent(provider: CalendarProviderType, input: CreateEventInput) : Pro
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async applyCalendarInventory(request: ApplyCalendarInventoryRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|apply_calendar_inventory", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async tombstoneCalendarConnection(request: TombstoneCalendarConnectionRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|tombstone_calendar_connection", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setCalendarEnabled(request: SetCalendarEnabledRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|set_calendar_enabled", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async syncCalendarConnectionEvents(request: SyncCalendarConnectionEventsRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|sync_calendar_connection_events", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateIgnoredCalendarItem(request: UpdateIgnoredCalendarItemRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|update_ignored_calendar_item", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createHuman(request: CreateHumanRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|create_human", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createOrganization(request: CreateOrganizationRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|create_organization", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async savePersonalContact(request: SavePersonalContactRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|save_personal_contact", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateHuman(request: UpdateHumanRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|update_human", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateOrganization(request: UpdateOrganizationRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|update_organization", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async softDeleteContact(request: SoftDeleteContactRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|soft_delete_contact", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateContactAvatar(request: UpdateContactAvatarRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|update_contact_avatar", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateHumanContactSummary(request: UpdateHumanContactSummaryRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|update_human_contact_summary", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async toggleContactPin(request: ToggleContactPinRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|toggle_contact_pin", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async reorderPinnedContacts(request: ReorderPinnedContactsRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|reorder_pinned_contacts", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async mergeHumans(request: MergeHumansRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|merge_humans", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async applyContactEnhancement(request: ApplyContactEnhancementRequest) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|apply_contact_enhancement", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -74,6 +210,10 @@ calendarChangedEvent: "plugin:calendar:calendar-changed-event"
 
 /** user-defined types **/
 
+export type ApplyCalendarInventoryRequest = { provider: CalendarProviderType; requested_connection_ids: string[]; successful_connections: CalendarInventoryConnection[] }
+export type ApplyContactEnhancementRequest = { human_id: string; owner_user_id: string; create_if_missing: boolean; name: string | null; email: string | null; company_name: string | null; job_title: string | null; phone: string | null; linkedin_username: string | null }
+export type AttendanceResponseCounts = { accepted: number; tentative: number; pending: number; declined: number; unknown: number }
+export type AttendanceRosterStatus = "complete" | "incomplete" | "unknown"
 export type AttendeeRole = "chair" | "required" | "optional" | "nonparticipant"
 export type AttendeeStatus = "pending" | "accepted" | "tentative" | "declined"
 export type CalendarChangedEvent = null
@@ -111,7 +251,11 @@ ended_at: string; timezone: string | null; is_all_day: boolean;
  * Apple: None | Confirmed | Tentative | Canceled -> map None to Confirmed.
  * Google: confirmed | tentative | cancelled.
  */
-status: EventStatus; organizer: EventPerson | null; attendees: EventAttendee[]; has_recurrence_rules: boolean; 
+status: EventStatus; organizer: EventPerson | null; attendees: EventAttendee[];
+/**
+ * Provider-normalized attendance evidence for automatic meeting actions.
+ */
+attendance?: EventAttendance | null; has_recurrence_rules: boolean;
 /**
  * Google's approach: for an instance of a recurring event, this is the id of the recurring
  * event to which this instance belongs. For Apple, this is the recurrence's series_identifier
@@ -122,9 +266,14 @@ recurring_event_id: string | null;
  * Raw data. JSON for both Apple and Google.
  */
 raw: string }
+export type CalendarInventoryConnection = { connection_id: string; calendars: CalendarListItem[] }
 export type CalendarListItem = { provider: CalendarProviderType; id: string; title: string; source: string | null; color: string | null; is_primary: boolean | null; can_edit: boolean | null; raw: string }
 export type CalendarProviderType = "apple" | "google" | "outlook"
+export type ContactKind = "human" | "organization"
 export type CreateEventInput = { calendar_tracking_id: string; title: string; started_at: string; ended_at: string; is_all_day: boolean | null; location: string | null; notes: string | null; url: string | null }
+export type CreateHumanRequest = { id: string; owner_user_id: string; name: string; email: string }
+export type CreateOrganizationRequest = { id: string; owner_user_id: string; name: string }
+export type EventAttendance = { self_status: SelfAttendanceStatus; roster_status: AttendanceRosterStatus; others: AttendanceResponseCounts }
 export type EventAttendee = { name: string | null; 
 /**
  * Apple calendar events only provide a contact entry, which can possibly not have an email.
@@ -161,7 +310,27 @@ email: string | null;
  */
 is_current_user: boolean }
 export type EventStatus = "confirmed" | "tentative" | "cancelled"
+export type IgnoredCalendarItemKind = "events" | "series"
+export type IncomingCalendarEvent = { tracking_id_event: string; tracking_id_calendar: string; legacy_tracking_ids?: string[]; is_cancelled?: boolean; title: string | null; started_at: string | null; ended_at: string | null; location: string | null; meeting_link: string | null; description: string | null; recurrence_series_id: string | null; has_recurrence_rules: boolean; is_all_day: boolean; attendance_json?: string | null }
+export type IncomingEventParticipant = { name?: string | null; email?: string | null; is_organizer?: boolean; is_current_user?: boolean }
+export type IncomingEventParticipants = { tracking_id_event: string; participants: IncomingEventParticipant[] }
+export type MergeHumansRequest = { selected_human_id: string; duplicate_human_id: string }
+export type PinnedContactEntry = { kind: ContactKind; id: string }
 export type ProviderConnectionIds = { provider: CalendarProviderType; connection_ids: string[] }
+export type ReorderPinnedContactsRequest = { contacts: PinnedContactEntry[] }
+export type SavePersonalContactRequest = { human_id: string; name: string; email: string; phone: string; job_title: string; linkedin_username: string; memo: string; organization_id: string; avatar_data_url: string | null; remove_avatar: boolean }
+export type SelfAttendanceStatus = "organizer" | "accepted" | "tentative" | "pending" | "declined" | "unknown"
+export type SetCalendarEnabledRequest = { calendar_id: string; enabled: boolean }
+export type SoftDeleteContactRequest = { kind: ContactKind; contact_id: string }
+export type SyncCalendarConnectionEventsRequest = { provider: CalendarProviderType; connection_id: string; from: string; to: string; calendars: SyncCalendarRef[]; events: IncomingCalendarEvent[]; participants: IncomingEventParticipants[] }
+export type SyncCalendarRef = { id: string; tracking_id_calendar: string }
+export type ToggleContactPinRequest = { kind: ContactKind; contact_id: string }
+export type TombstoneCalendarConnectionRequest = { provider: CalendarProviderType; connection_id: string }
+export type UpdateContactAvatarRequest = { kind: ContactKind; contact_id: string; avatar_data_url: string | null }
+export type UpdateHumanContactSummaryRequest = { human_id: string; summary_json: string }
+export type UpdateHumanRequest = { human_id: string; name: string | null; email: string | null; phone: string | null; job_title: string | null; linkedin_username: string | null; memo: string | null; organization_id: string | null }
+export type UpdateIgnoredCalendarItemRequest = { kind: IgnoredCalendarItemKind; item_id: string; ignored: boolean }
+export type UpdateOrganizationRequest = { organization_id: string; name: string | null; memo: string | null }
 
 /** tauri-specta globals **/
 

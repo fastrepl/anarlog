@@ -43,12 +43,14 @@ async fn assert_interrupts_stalled_native_request_once() {
     let request_db = Arc::clone(&db);
     let request = tokio::spawn(async move {
         let _sync_operation = request_db.cloudsync_sync_operation.lock().await;
-        let mut connection = request_db.cloudsync_connection.lock().await;
-        super::super::super::ops::interruptible_network_receive_changes(
-            connection.as_mut().unwrap(),
+        let mut connection = request_db.reserve_cloudsync_connection().await.unwrap();
+        let result = super::super::super::ops::interruptible_network_receive_changes(
+            &mut connection,
             &request_db.cloudsync_interrupt,
         )
-        .await
+        .await;
+        drop(connection);
+        result
     });
     tokio::task::spawn_blocking(move || {
         accepted_rx
@@ -77,16 +79,17 @@ async fn assert_interrupts_stalled_native_request_once() {
     .await
     .expect("sync operation released before its SQLite worker became idle");
 
-    {
-        let mut connection = db.cloudsync_connection.lock().await;
-        let value: i64 = sqlx::query_scalar("SELECT 1")
-            .fetch_one(&mut **connection.as_mut().unwrap())
-            .await
-            .unwrap();
-        assert_eq!(value, 1);
-        let worker_idle = connection.as_mut().unwrap().lock_handle().await.unwrap();
-        drop(worker_idle);
-    }
+    let mut connection = tokio::time::timeout(Duration::from_secs(2), db.pool().acquire())
+        .await
+        .expect("single-pool reservation did not return its connection")
+        .unwrap();
+    let value: i64 = sqlx::query_scalar("SELECT 1")
+        .fetch_one(&mut *connection)
+        .await
+        .unwrap();
+    assert_eq!(value, 1);
+    let worker_idle = connection.lock_handle().await.unwrap();
+    drop(worker_idle);
 
     let _ = release_tx.send(());
     server.join().unwrap();

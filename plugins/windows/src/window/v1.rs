@@ -552,176 +552,99 @@ fn window_frame_at_scale(
 mod tests {
     use super::*;
 
+    type StaggerCase<'a> = (f64, f64, &'a [(f64, f64)], usize, (f64, f64));
+
     #[test]
-    fn staggers_note_windows_around_the_center() {
-        assert_eq!(
-            staggered_note_window_position(0.0, 0.0, 1600.0, 1100.0, 720.0, 820.0, &[], 0),
-            (440.0, 140.0)
-        );
-        assert_eq!(
-            staggered_note_window_position(0.0, 0.0, 1600.0, 1100.0, 720.0, 820.0, &[], 1),
-            (584.0, 212.0)
-        );
-        assert_eq!(
-            staggered_note_window_position(0.0, 0.0, 1600.0, 1100.0, 720.0, 820.0, &[], 2),
-            (296.0, 212.0)
-        );
+    fn staggers_note_windows_into_free_slots_inside_the_monitor() {
+        let cascade = [
+            (440.0, 140.0),
+            (584.0, 212.0),
+            (296.0, 212.0),
+            (728.0, 280.0),
+            (152.0, 280.0),
+            (440.0, 356.0),
+        ];
+        let cases: [StaggerCase; 7] = [
+            (1600.0, 1100.0, &[], 0, (440.0, 140.0)),
+            (1600.0, 1100.0, &[], 1, (584.0, 212.0)),
+            (1600.0, 1100.0, &[], 2, (296.0, 212.0)),
+            (1600.0, 1100.0, &[(584.0, 212.0)], 1, (296.0, 212.0)),
+            (1600.0, 1100.0, &cascade, 6, (488.0, 188.0)),
+            (900.0, 840.0, &[], 3, (180.0, 20.0)),
+            (640.0, 480.0, &[], 1, (0.0, 0.0)),
+        ];
+
+        for (monitor_width, monitor_height, occupied, index, expected) in cases {
+            assert_eq!(
+                staggered_note_window_position(
+                    0.0,
+                    0.0,
+                    monitor_width,
+                    monitor_height,
+                    720.0,
+                    820.0,
+                    occupied,
+                    index,
+                ),
+                expected,
+                "{monitor_width}x{monitor_height} {occupied:?} {index}"
+            );
+        }
     }
 
     #[test]
-    fn keeps_staggered_note_windows_inside_the_monitor() {
-        assert_eq!(
-            staggered_note_window_position(0.0, 0.0, 900.0, 840.0, 720.0, 820.0, &[], 3),
-            (180.0, 20.0)
-        );
-        assert_eq!(
-            staggered_note_window_position(0.0, 0.0, 640.0, 480.0, 720.0, 820.0, &[], 1),
-            (0.0, 0.0)
-        );
-    }
-
-    #[test]
-    fn skips_occupied_stagger_slots() {
-        assert_eq!(
-            staggered_note_window_position(
-                0.0,
-                0.0,
-                1600.0,
-                1100.0,
-                720.0,
-                820.0,
-                &[(584.0, 212.0)],
-                1,
-            ),
-            (296.0, 212.0)
-        );
-        assert_eq!(
-            staggered_note_window_position(
-                0.0,
-                0.0,
-                1600.0,
-                1100.0,
-                720.0,
-                820.0,
-                &[(440.0, 140.0)],
-                1,
-            ),
-            (584.0, 212.0)
-        );
-    }
-
-    #[test]
-    fn cascades_when_stagger_slots_are_full() {
-        assert_eq!(
-            staggered_note_window_position(
-                0.0,
-                0.0,
-                1600.0,
-                1100.0,
-                720.0,
-                820.0,
-                &[
-                    (440.0, 140.0),
-                    (584.0, 212.0),
-                    (296.0, 212.0),
-                    (728.0, 280.0),
-                    (152.0, 280.0),
-                    (440.0, 356.0),
-                ],
-                6,
-            ),
-            (488.0, 188.0)
-        );
-    }
-
-    #[test]
-    fn keeps_windows_with_an_accessible_titlebar_in_place() {
+    fn titlebar_accessibility_accounts_for_position_and_scale() {
         let monitor = WindowFrame::new(0.0, 0.0, 1920.0, 1050.0);
+        let cases = [
+            (WindowFrame::new(200.0, 100.0, 900.0, 600.0), 1.0, true),
+            (WindowFrame::new(1792.0, 100.0, 900.0, 600.0), 1.0, true),
+            (WindowFrame::new(1800.0, 100.0, 900.0, 600.0), 1.0, false),
+            (WindowFrame::new(200.0, -50.0, 900.0, 600.0), 1.0, false),
+            (WindowFrame::new(2200.0, 100.0, 900.0, 600.0), 1.0, false),
+            (WindowFrame::new(1800.0, 100.0, 900.0, 600.0), 0.5, true),
+            (WindowFrame::new(1792.0, 100.0, 900.0, 600.0), 2.0, false),
+        ];
 
-        assert!(has_accessible_titlebar(
-            WindowFrame::new(200.0, 100.0, 900.0, 600.0),
-            &[monitor],
-            1.0,
-        ));
-        assert!(has_accessible_titlebar(
-            WindowFrame::new(1792.0, 100.0, 900.0, 600.0),
-            &[monitor],
-            1.0,
-        ));
+        for (window, scale_factor, expected) in cases {
+            assert_eq!(
+                has_accessible_titlebar(window, &[monitor], scale_factor),
+                expected,
+                "{window:?} @ {scale_factor}"
+            );
+        }
     }
 
     #[test]
-    fn recenters_windows_without_an_accessible_titlebar() {
-        let monitor = WindowFrame::new(0.0, 0.0, 1920.0, 1050.0);
-
-        assert!(!has_accessible_titlebar(
-            WindowFrame::new(1800.0, 100.0, 900.0, 600.0),
-            &[monitor],
-            1.0,
-        ));
-        assert!(!has_accessible_titlebar(
-            WindowFrame::new(200.0, -50.0, 900.0, 600.0),
-            &[monitor],
-            1.0,
-        ));
-        assert!(!has_accessible_titlebar(
-            WindowFrame::new(2200.0, 100.0, 900.0, 600.0),
-            &[monitor],
-            1.0,
-        ));
-    }
-
-    #[test]
-    fn applies_the_window_scale_factor_to_titlebar_visibility() {
-        let monitor = WindowFrame::new(0.0, 0.0, 3840.0, 2100.0);
-        let window = WindowFrame::new(3600.0, 200.0, 1800.0, 1200.0);
-
-        assert!(has_accessible_titlebar(window, &[monitor], 1.0));
-        assert!(!has_accessible_titlebar(window, &[monitor], 2.0));
-    }
-
-    #[test]
-    fn recenters_on_the_display_with_the_largest_overlap() {
+    fn recenters_on_the_best_display() {
         let primary = WindowFrame::new(0.0, 0.0, 1920.0, 1050.0);
         let secondary = WindowFrame::new(1920.0, 50.0, 1496.0, 939.0);
-        let window = WindowFrame::new(3300.0, 300.0, 900.0, 600.0);
+        let overlapping = WindowFrame::new(3300.0, 300.0, 900.0, 600.0);
+        let offscreen = WindowFrame::new(5000.0, 300.0, 900.0, 600.0);
 
         assert_eq!(
-            recenter_work_area(window, &[primary, secondary], Some(primary)),
+            recenter_work_area(overlapping, &[primary, secondary], Some(primary)),
             Some(secondary)
         );
-        assert_eq!(centered_window_position(window, secondary), (2218, 220));
-    }
-
-    #[test]
-    fn recenters_fully_offscreen_windows_on_the_primary_display() {
-        let primary = WindowFrame::new(-1920.0, 0.0, 1920.0, 1050.0);
-        let secondary = WindowFrame::new(0.0, 0.0, 1496.0, 939.0);
-        let window = WindowFrame::new(4000.0, 300.0, 900.0, 600.0);
-
         assert_eq!(
-            recenter_work_area(window, &[primary, secondary], Some(primary)),
+            centered_window_position(overlapping, secondary),
+            (2218, 220)
+        );
+        assert_eq!(
+            recenter_work_area(offscreen, &[primary, secondary], Some(primary)),
             Some(primary)
         );
-        assert_eq!(centered_window_position(window, primary), (-1410, 225));
+        assert_eq!(centered_window_position(offscreen, primary), (510, 225));
     }
 
     #[test]
-    fn keeps_the_titlebar_visible_when_the_window_is_larger_than_the_display() {
-        let monitor = WindowFrame::new(1920.0, 50.0, 1496.0, 939.0);
-        let window = WindowFrame::new(4000.0, 300.0, 1800.0, 1200.0);
-
-        assert_eq!(centered_window_position(window, monitor), (1920, 50));
-    }
-
-    #[test]
-    fn recenters_using_the_target_display_scale() {
+    fn recentered_windows_scale_to_the_target_and_keep_the_titlebar_visible() {
         let window = WindowFrame::new(4000.0, 300.0, 1800.0, 1200.0);
         let target = WindowFrame::new(0.0, 0.0, 1920.0, 1050.0);
-        let scaled_window = window_frame_at_scale(window, 2.0, 1.0);
+        let small_display = WindowFrame::new(1920.0, 50.0, 1496.0, 939.0);
 
-        assert_eq!(scaled_window.width, 900.0);
-        assert_eq!(scaled_window.height, 600.0);
+        let scaled_window = window_frame_at_scale(window, 2.0, 1.0);
+        assert_eq!((scaled_window.width, scaled_window.height), (900.0, 600.0));
         assert_eq!(centered_window_position(scaled_window, target), (510, 225));
+        assert_eq!(centered_window_position(window, small_display), (1920, 50));
     }
 }

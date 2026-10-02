@@ -108,7 +108,6 @@ anlg-local-model = { path = "crates/local-model", package = "local-model" }
 anlg-local-stt-core = { path = "crates/local-stt-core", package = "local-stt-core" }
 anlg-loops = { path = "crates/loops", package = "loops" }
 anlg-mcp = { path = "crates/mcp", package = "mcp" }
-anlg-media-control = { path = "crates/media-control", package = "media-control" }
 anlg-meeting-capture = { path = "crates/meeting-capture", package = "meeting-capture" }
 anlg-meeting-import = { path = "crates/meeting-import", package = "meeting-import" }
 anlg-model-downloader = { path = "crates/model-downloader", package = "model-downloader" }
@@ -127,11 +126,11 @@ anlg-pyannote-cloud = { path = "crates/pyannote-cloud", package = "pyannote-clou
 anlg-pyannote-local = { path = "crates/pyannote-local", package = "pyannote-local" }
 anlg-resampler = { path = "crates/resampler", package = "resampler" }
 anlg-s3 = { path = "crates/s3", package = "s3" }
-anlg-screen-core = { path = "crates/screen-core", package = "screen-core" }
 anlg-session-ingest = { path = "crates/session-ingest", package = "session-ingest" }
 anlg-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 anlg-slack-web = { path = "crates/slack-web", package = "slack-web" }
 anlg-storage = { path = "crates/storage", package = "storage" }
+anlg-summary = { path = "crates/summary", package = "summary" }
 anlg-supabase-auth = { path = "crates/supabase-auth", package = "supabase-auth" }
 anlg-supabase-storage = { path = "crates/supabase-storage", package = "supabase-storage" }
 anlg-tcc = { path = "crates/tcc", package = "tcc" }
@@ -202,7 +201,6 @@ tauri-plugin-dock = { path = "plugins/dock" }
 tauri-plugin-export = { path = "plugins/export" }
 tauri-plugin-fs-sync = { path = "plugins/fs-sync" }
 tauri-plugin-fs2 = { path = "plugins/fs2" }
-tauri-plugin-git = { path = "plugins/git" }
 tauri-plugin-hooks = { path = "plugins/hooks" }
 tauri-plugin-icon = { path = "plugins/icon" }
 tauri-plugin-importer = { path = "plugins/importer" }
@@ -221,7 +219,7 @@ tauri-plugin-overlay = { path = "plugins/overlay" }
 tauri-plugin-path2 = { path = "plugins/path2" }
 tauri-plugin-permissions = { path = "plugins/permissions" }
 tauri-plugin-relay = { path = "plugins/relay" }
-tauri-plugin-screen = { path = "plugins/screen" }
+tauri-plugin-session = { path = "plugins/session" }
 tauri-plugin-settings = { path = "plugins/settings" }
 tauri-plugin-sfx = { path = "plugins/sfx" }
 tauri-plugin-shortcut = { path = "plugins/shortcut" }
@@ -269,6 +267,7 @@ envy = "0.4"
 governor = "0.10.4"
 http = "1"
 image = { version = "0.25.10", default-features = false, features = ["webp"] }
+indexmap = "2"
 indoc = "2"
 isolang = "2.4"
 itertools = "0.14.0"
@@ -292,6 +291,7 @@ strum = "0.28"
 tempfile = "3"
 thiserror = "2"
 toml = "0.8"
+unicode-normalization = "0.1.25"
 unicode-width = "0.2"
 url = "2"
 urlencoding = "2.1"
@@ -382,6 +382,7 @@ security-framework = "3.7"
 hmac = "0.13"
 sha2 = "0.11"
 
+whatlang = "0.18.0"
 whichlang = "0.1"
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "41a1605" }

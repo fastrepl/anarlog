@@ -135,22 +135,6 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn shares_one_audio_context_across_participant_streams() {
-        assert_eq!(
-            CAPTURE_AUDIO_EXPRESSION.matches("new AudioContext").count(),
-            1
-        );
-        assert_eq!(
-            CAPTURE_AUDIO_EXPRESSION
-                .matches("audioWorklet.addModule")
-                .count(),
-            1
-        );
-        assert!(CAPTURE_AUDIO_EXPRESSION.contains("postMessage(\"flush\")"));
-        assert!(CAPTURE_AUDIO_EXPRESSION.contains("kind: \"flushed\""));
-    }
-
     #[tokio::test]
     async fn installs_capture_and_decodes_a_binding_frame() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

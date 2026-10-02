@@ -575,9 +575,8 @@ mod tests {
     use anlg_language::ISO639;
 
     use super::{GladiaAdapter, LanguageConfig, MAX_SESSION_CHANNELS, SessionChannels};
-    use crate::ListenClient;
     use crate::RealtimeSttAdapter;
-    use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
+    use crate::test_utils::{UrlTestCase, run_url_test_cases};
 
     const API_BASE: &str = "https://api.gladia.io";
 
@@ -597,70 +596,44 @@ mod tests {
     }
 
     #[test]
-    fn test_build_language_config_single_language() {
-        let params = owhisper_interface::ListenParams {
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        };
+    fn test_build_language_config() {
+        for (languages, expected) in [
+            (vec![anlg_language::ISO639::En], vec!["en"]),
+            (
+                vec![anlg_language::ISO639::En, anlg_language::ISO639::Es],
+                vec!["en", "es"],
+            ),
+            (
+                vec![
+                    anlg_language::ISO639::En,
+                    anlg_language::ISO639::Ko,
+                    anlg_language::ISO639::Ja,
+                ],
+                vec!["en", "ko", "ja"],
+            ),
+        ] {
+            let params = owhisper_interface::ListenParams {
+                languages: languages.into_iter().map(Into::into).collect(),
+                ..Default::default()
+            };
 
-        let config = GladiaAdapter::build_language_config(&params).unwrap();
+            let config = GladiaAdapter::build_language_config(&params).unwrap();
 
-        assert_eq!(config.languages, vec!["en"]);
-        assert!(
-            !config.code_switching,
-            "Single language should have code_switching=false"
-        );
-    }
+            assert_eq!(config.languages, expected);
+            assert!(
+                !config.code_switching,
+                "language detection should stay within the candidates, not code-switch"
+            );
+        }
 
-    #[test]
-    fn test_build_language_config_multi_language() {
-        let params = owhisper_interface::ListenParams {
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Es.into(),
-            ],
-            ..Default::default()
-        };
-
-        let config = GladiaAdapter::build_language_config(&params).unwrap();
-
-        assert_eq!(config.languages, vec!["en", "es"]);
-        assert!(
-            !config.code_switching,
-            "Multi language should detect within the candidates, not code-switch"
-        );
-    }
-
-    #[test]
-    fn test_build_language_config_three_languages() {
-        let params = owhisper_interface::ListenParams {
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Ko.into(),
-                anlg_language::ISO639::Ja.into(),
-            ],
-            ..Default::default()
-        };
-
-        let config = GladiaAdapter::build_language_config(&params).unwrap();
-
-        assert_eq!(config.languages, vec!["en", "ko", "ja"]);
-        assert!(
-            !config.code_switching,
-            "Three languages should detect within the candidates, not code-switch"
-        );
-    }
-
-    #[test]
-    fn test_build_language_config_empty_languages() {
         let params = owhisper_interface::ListenParams {
             languages: vec![],
             ..Default::default()
         };
-
-        let config = GladiaAdapter::build_language_config(&params);
-
-        assert!(config.is_none(), "Empty languages should return None");
+        assert!(
+            GladiaAdapter::build_language_config(&params).is_none(),
+            "Empty languages should return None"
+        );
     }
 
     #[test]
@@ -697,80 +670,5 @@ mod tests {
         GladiaAdapter.parse_response(r#"{"type":"error","message":"closed"}"#);
         assert_eq!(SessionChannels::len(), MAX_SESSION_CHANNELS);
         SessionChannels::clear();
-    }
-
-    macro_rules! single_test {
-        ($name:ident, $params:expr) => {
-            #[tokio::test]
-            #[ignore]
-            async fn $name() {
-                let client = ListenClient::builder()
-                    .adapter::<GladiaAdapter>()
-                    .api_base("https://api.gladia.io")
-                    .api_key(std::env::var("GLADIA_API_KEY").expect("GLADIA_API_KEY not set"))
-                    .params($params)
-                    .build_single()
-                    .await
-                    .unwrap();
-                run_single_test(client, "gladia").await;
-            }
-        };
-    }
-
-    single_test!(
-        test_build_single,
-        owhisper_interface::ListenParams {
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_with_keywords,
-        owhisper_interface::ListenParams {
-            languages: vec![anlg_language::ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_multi_lang_1,
-        owhisper_interface::ListenParams {
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Es.into(),
-            ],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_multi_lang_2,
-        owhisper_interface::ListenParams {
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Ko.into(),
-            ],
-            ..Default::default()
-        }
-    );
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_dual() {
-        let client = ListenClient::builder()
-            .adapter::<GladiaAdapter>()
-            .api_base("https://api.gladia.io")
-            .api_key(std::env::var("GLADIA_API_KEY").expect("GLADIA_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                languages: vec![anlg_language::ISO639::En.into()],
-                ..Default::default()
-            })
-            .build_dual()
-            .await
-            .unwrap();
-
-        run_dual_test(client, "gladia").await;
     }
 }

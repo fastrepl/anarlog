@@ -147,17 +147,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn embeds_the_complete_skill_package() {
+    fn install_writes_and_refreshes_every_embedded_skill_file() {
         assert!(SKILL_FILES.iter().any(|(path, _)| *path == "SKILL.md"));
         for (path, content) in SKILL_FILES {
             assert!(!content.trim().is_empty(), "{path} is empty");
         }
-    }
 
-    #[test]
-    fn install_writes_every_skill_file() {
         let home = tempfile::tempdir().unwrap();
-        let skill_dir = skill_dir(SkillAgent::ClaudeCode, home.path());
+        let skill_dir = skill_dir(SkillAgent::Codex, home.path());
+        install_at(&skill_dir).unwrap();
+        std::fs::write(skill_dir.join("SKILL.md"), "outdated").unwrap();
 
         install_at(&skill_dir).unwrap();
 
@@ -167,21 +166,6 @@ mod tests {
                 *content
             );
         }
-    }
-
-    #[test]
-    fn reinstall_overwrites_stale_content() {
-        let home = tempfile::tempdir().unwrap();
-        let skill_dir = skill_dir(SkillAgent::Codex, home.path());
-        install_at(&skill_dir).unwrap();
-        std::fs::write(skill_dir.join("SKILL.md"), "outdated").unwrap();
-
-        install_at(&skill_dir).unwrap();
-
-        assert_ne!(
-            std::fs::read_to_string(skill_dir.join("SKILL.md")).unwrap(),
-            "outdated"
-        );
     }
 
     #[test]

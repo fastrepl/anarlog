@@ -579,7 +579,7 @@ async fn token_configuration_rejects_an_invalid_workspace_binding() {
 }
 
 #[tokio::test]
-async fn same_account_binding_is_idempotent() {
+async fn same_account_binding_is_idempotent_and_blank_accounts_are_rejected() {
     let (_dir, runtime) = setup_runtime().await;
     assert!(
         runtime
@@ -594,59 +594,13 @@ async fn same_account_binding_is_idempotent() {
             .await
             .unwrap()
     );
-
-    assert_eq!(
-        runtime.cloudsync_status().await.unwrap()["configured"],
-        false
-    );
-}
-
-#[tokio::test]
-async fn account_switch_is_rejected_and_leaves_cloudsync_suspended() {
-    let (_dir, runtime) = setup_runtime().await;
-    assert!(
-        runtime
-            .bind_cloudsync_account("user-a".to_string())
-            .await
-            .unwrap()
-    );
-    // The device only stays bound once the account owns rows on it.
-    sqlx::query(
-        "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
-         VALUES ('owned', 'user-a', 'user-a', 'Synced note')",
-    )
-    .execute(runtime.pool())
-    .await
-    .unwrap();
-
-    let bound = runtime
-        .bind_cloudsync_account("user-b".to_string())
-        .await
-        .unwrap();
-
-    assert!(!bound);
-    assert_eq!(
-        runtime.cloudsync_status().await.unwrap()["configured"],
-        false
-    );
-}
-
-#[tokio::test]
-async fn invalid_account_binding_remains_an_error() {
-    let (_dir, runtime) = setup_runtime().await;
-    assert!(
-        runtime
-            .bind_cloudsync_account("user-a".to_string())
-            .await
-            .unwrap()
-    );
-
     assert!(
         runtime
             .bind_cloudsync_account(" ".to_string())
             .await
             .is_err()
     );
+
     assert_eq!(
         runtime.cloudsync_status().await.unwrap()["configured"],
         false

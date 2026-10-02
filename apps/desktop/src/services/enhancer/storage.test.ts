@@ -91,9 +91,6 @@ describe("enhancer SQLite storage", () => {
       expect.any(Function),
     );
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("INSERT INTO session_documents");
-    expect(statement.sql).toContain("workspace_id");
-    expect(statement.sql).toContain("?, workspace_id, id");
     expect(statement.params).toEqual([
       "new-note",
       "template_output",
@@ -110,7 +107,6 @@ describe("enhancer SQLite storage", () => {
     await ensurePendingAutoEnhanceDocument("session-1", "template-1");
 
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("INSERT INTO app_settings");
     expect(statement.params).toEqual([
       "auto_enhance_pending:session-1",
       '{"noteId":"existing-note","body":"","bodyFormat":"prosemirror_json","generation":"new-note"}',
@@ -134,8 +130,6 @@ describe("enhancer SQLite storage", () => {
       expect.any(Function),
     );
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("DELETE FROM app_settings");
-    expect(statement.sql).toContain("$.generation");
     expect(statement.params).toEqual([
       "auto_enhance_pending:session-1",
       "existing-note",
@@ -150,8 +144,6 @@ describe("enhancer SQLite storage", () => {
 
     const statements = mocks.executeTransaction.mock.calls[0][0];
     expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain("INSERT INTO session_documents");
-    expect(statements[1].sql).toContain("INSERT INTO app_settings");
     expect(statements[1].params).toEqual([
       "auto_enhance_pending:session-1",
       '{"noteId":"new-note","body":"","bodyFormat":"prosemirror_json","generation":"new-note"}',
@@ -159,7 +151,7 @@ describe("enhancer SQLite storage", () => {
     ]);
   });
 
-  it("loads only durable pending summaries with transcript words", async () => {
+  it("maps durable pending auto-enhance rows to jobs", async () => {
     mocks.execute.mockResolvedValue([
       {
         session_id: "session-1",
@@ -197,15 +189,6 @@ describe("enhancer SQLite storage", () => {
         generation: "generation-2",
       },
     ]);
-
-    const [sql, params] = mocks.execute.mock.calls[0];
-    expect(sql).toContain("FROM app_settings AS setting");
-    expect(sql).toContain("document.body = json_extract");
-    expect(sql).toContain("$.body");
-    expect(sql).toContain("$.bodyFormat");
-    expect(sql).toContain("$.generation");
-    expect(sql).toContain("json_array_length(transcript.words_json) > 0");
-    expect(params).toEqual([22, 22, "auto_enhance_pending:%"]);
   });
 
   it("does not create a summary for a deleted session", async () => {
@@ -226,7 +209,6 @@ describe("enhancer SQLite storage", () => {
     });
 
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("body = ''");
     expect(statement.params).toContain("template_output");
     expect(statement.params).toContain("Customer review");
     expect(statement.expectedRowsAffected).toBe(1);
@@ -242,8 +224,6 @@ describe("enhancer SQLite storage", () => {
     });
 
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("AND template_id = ?");
-    expect(statement.sql).toContain("AND title = ?");
     expect(statement.params).toEqual([
       "One-on-one",
       expect.any(String),

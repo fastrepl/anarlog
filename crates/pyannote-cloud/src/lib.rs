@@ -41,7 +41,7 @@ impl ClientBuilder {
 
 pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut spec: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
+        env!("OUT_DIR"),
         "/openapi-filtered.gen.json"
     )))
     .expect("invalid pyannote openapi json");
@@ -59,13 +59,7 @@ mod tests {
         matchers::{header, method, path},
     };
 
-    use super::{Client, DEFAULT_BASE_URL, openapi};
-
-    #[test]
-    fn builder_defaults_to_pyannote_api() {
-        let client = Client::builder("test-key").build().unwrap();
-        assert_eq!(client.baseurl, DEFAULT_BASE_URL);
-    }
+    use super::{Client, openapi};
 
     #[tokio::test]
     async fn builder_applies_authorization_header() {

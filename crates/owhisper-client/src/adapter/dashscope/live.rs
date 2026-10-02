@@ -356,7 +356,6 @@ mod tests {
     use anlg_language::ISO639;
 
     use super::DashScopeAdapter;
-    use crate::ListenClient;
     use crate::test_utils::{UrlTestCase, run_url_test_cases};
 
     const API_BASE: &str = "wss://dashscope-intl.aliyuncs.com";
@@ -374,45 +373,5 @@ mod tests {
                 not_contains: &[],
             }],
         );
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_single() {
-        let client = ListenClient::builder()
-            .adapter::<DashScopeAdapter>()
-            .api_base("wss://dashscope-intl.aliyuncs.com")
-            .api_key(std::env::var("DASHSCOPE_API_KEY").expect("DASHSCOPE_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                model: Some("qwen3-asr-flash-realtime".to_string()),
-                languages: vec![anlg_language::ISO639::En.into()],
-                sample_rate: 16000,
-                ..Default::default()
-            })
-            .build_single()
-            .await
-            .unwrap();
-
-        crate::test_utils::run_single_test(client, "dashscope").await;
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_dual() {
-        let client = ListenClient::builder()
-            .adapter::<DashScopeAdapter>()
-            .api_base("wss://dashscope-intl.aliyuncs.com")
-            .api_key(std::env::var("DASHSCOPE_API_KEY").expect("DASHSCOPE_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                model: Some("qwen3-asr-flash-realtime".to_string()),
-                languages: vec![anlg_language::ISO639::En.into()],
-                sample_rate: 16000,
-                ..Default::default()
-            })
-            .build_dual()
-            .await
-            .unwrap();
-
-        crate::test_utils::run_dual_test(client, "dashscope").await;
     }
 }

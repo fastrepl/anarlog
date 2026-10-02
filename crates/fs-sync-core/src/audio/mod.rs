@@ -11,7 +11,9 @@ use chrono::{DateTime, Utc};
 use sha2::{Digest, Sha256};
 
 mod activity;
+mod peaks;
 pub use activity::has_speech;
+pub use peaks::{AudioPeaks, PEAKS_PER_CHANNEL, cached_peaks, compute_peaks};
 
 const AUDIO_FORMATS: [&str; 3] = ["audio.mp3", "audio.wav", "audio.ogg"];
 const AUDIO_ARTIFACTS: [&str; 7] = [

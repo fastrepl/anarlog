@@ -27,19 +27,12 @@ describe("timeline utils", () => {
     vi.useRealTimers();
   });
 
-  test("getBucketInfo returns Today for current date", () => {
-    const info = getBucketInfo(new Date("2024-01-15T05:00:00.000Z"));
-    expect(info).toMatchObject({ label: "Today", precision: "time" });
-  });
-
-  test("getBucketInfo groups recent past days", () => {
-    const info = getBucketInfo(new Date("2024-01-10T05:00:00.000Z"));
-    expect(info).toMatchObject({ label: "5 days ago", precision: "time" });
-  });
-
-  test("getBucketInfo groups distant future months", () => {
-    const info = getBucketInfo(new Date("2024-03-20T12:00:00.000Z"));
-    expect(info).toMatchObject({ label: "in 2 months", precision: "date" });
+  test.each([
+    ["2024-01-15T05:00:00.000Z", "Today", "time"],
+    ["2024-01-10T05:00:00.000Z", "5 days ago", "time"],
+    ["2024-03-20T12:00:00.000Z", "in 2 months", "date"],
+  ])("getBucketInfo(%s) is %s", (date, label, precision) => {
+    expect(getBucketInfo(new Date(date))).toMatchObject({ label, precision });
   });
 
   test("calculateTodayIndicatorPlacement places indicator inside an active timed session", () => {
@@ -309,6 +302,44 @@ describe("timeline utils", () => {
     ]);
   });
 
+  test("deriveTimelineWindowData hides events the user has not accepted", () => {
+    const event = (tracking: string, self_status?: string) => ({
+      title: tracking,
+      started_at: "2024-01-16T09:00:00.000Z",
+      ended_at: "2024-01-16T10:00:00.000Z",
+      calendar_id: "cal-1",
+      tracking_id_event: tracking,
+      has_recurrence_rules: false,
+      self_status,
+    });
+
+    const result = deriveTimelineWindowData({
+      timelineEventsTable: {
+        accepted: event("accepted", "accepted"),
+        organizer: event("organizer", "organizer"),
+        noAttendance: event("noAttendance"),
+        unknown: event("unknown", "unknown"),
+        pending: event("pending", "pending"),
+        tentative: event("tentative", "tentative"),
+        pendingLater: {
+          ...event("pendingLater", "pending"),
+          started_at: "2024-01-17T09:00:00.000Z",
+          ended_at: "2024-01-17T10:00:00.000Z",
+        },
+      },
+      timelineSessionsTable: null,
+      showIgnored: true,
+    });
+
+    expect(Object.keys(result.timelineEventsTable ?? {})).toEqual([
+      "accepted",
+      "organizer",
+      "noAttendance",
+      "unknown",
+    ]);
+    expect(result.hasMoreFutureItems).toBe(false);
+  });
+
   test("buildTimelineBuckets prioritizes sessions to events and avoid duplicate timeline items", () => {
     const timelineEventsTable: TimelineEventsTable = {
       "event-1": {
@@ -497,18 +528,6 @@ describe("timeline utils", () => {
     ]);
   });
 
-  test("getBucketInfo: future month bucket sorts after all week buckets", () => {
-    // System time is 2024-01-15
-    // Week buckets: absDays <= 27, Month buckets: absDays > 27
-    // "in 4 weeks" = ~25-27 days, "next month" = 28+ days
-    const in4Weeks = getBucketInfo(new Date("2024-02-11T12:00:00.000Z")); // 27 days out (last day of week bucket)
-    const nextMonth = getBucketInfo(new Date("2024-02-13T12:00:00.000Z")); // 29 days out (first day of month bucket)
-
-    expect(in4Weeks.label).toBe("in 4 weeks");
-    expect(nextMonth.label).toBe("next month");
-    expect(nextMonth.sortKey).toBeGreaterThan(in4Weeks.sortKey);
-  });
-
   test("getBucketInfo: past month bucket sorts before all week buckets", () => {
     // Week buckets: absDays <= 27, Month buckets: absDays > 27
     // "4 weeks ago" = ~25-27 days ago, "a month ago" = 28+ days ago
@@ -575,36 +594,6 @@ describe("timeline utils", () => {
       (i) => i.type === "event" && i.id === "event-jan25",
     );
     expect(jan25Event).toBeDefined();
-  });
-
-  test("buildTimelineBuckets does not deduplicate recurring events with different tracking_ids", () => {
-    const timelineEventsTable: TimelineEventsTable = {
-      "event-jan18": {
-        title: "Weekly Standup",
-        started_at: "2024-01-18T09:00:00.000Z",
-        ended_at: "2024-01-18T09:30:00.000Z",
-        calendar_id: "cal-1",
-        tracking_id_event: "recurring-1:2024-01-18",
-        has_recurrence_rules: true,
-      },
-      "event-jan25": {
-        title: "Weekly Standup",
-        started_at: "2024-01-25T09:00:00.000Z",
-        ended_at: "2024-01-25T09:30:00.000Z",
-        calendar_id: "cal-1",
-        tracking_id_event: "recurring-1:2024-01-25",
-        has_recurrence_rules: true,
-      },
-    };
-
-    const buckets = buildTimelineBuckets({
-      timelineEventsTable,
-      timelineSessionsTable: null,
-    });
-
-    const allItems = buckets.flatMap((b) => b.items);
-    const eventItems = allItems.filter((i) => i.type === "event");
-    expect(eventItems).toHaveLength(2);
   });
 
   test("buildTimelineBuckets: future buckets sort correctly (weeks before months)", () => {

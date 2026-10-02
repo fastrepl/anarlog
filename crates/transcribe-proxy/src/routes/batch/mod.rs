@@ -334,7 +334,7 @@ mod tests {
     use anlg_language::ISO639;
 
     #[test]
-    fn test_build_listen_params_normalizes_duplicate_base_languages() {
+    fn build_listen_params_normalizes_languages_speakers_and_audio_format() {
         let mut params = QueryParams::default();
         params.insert(
             "language".to_string(),
@@ -353,10 +353,7 @@ mod tests {
         assert_eq!(listen_params.languages[0].region(), None);
         assert_eq!(listen_params.languages[1].iso639(), ISO639::Ko);
         assert_eq!(listen_params.languages[1].region(), Some("KR"));
-    }
 
-    #[test]
-    fn test_build_listen_params_with_speaker_counts() {
         let mut params = QueryParams::default();
         params.insert(
             "num_speakers".to_string(),
@@ -376,10 +373,7 @@ mod tests {
         assert_eq!(listen_params.num_speakers, Some(3));
         assert_eq!(listen_params.min_speakers, Some(2));
         assert_eq!(listen_params.max_speakers, Some(4));
-    }
 
-    #[test]
-    fn test_build_listen_params_with_audio_format() {
         let mut params = QueryParams::default();
         params.insert("channels".to_string(), QueryValue::Single("2".to_string()));
         params.insert(
@@ -422,16 +416,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_read_callback_body_accepts_protocol_sized_json() {
+    async fn test_read_callback_body_enforces_protocol_size_limit() {
         let body = Body::from(r#"{"url":"recordings/meeting.wav"}"#);
 
         let bytes = read_callback_body(body).await.unwrap();
 
         assert_eq!(bytes, r#"{"url":"recordings/meeting.wav"}"#);
-    }
 
-    #[tokio::test]
-    async fn test_read_callback_body_rejects_oversized_payloads() {
         let body = Body::from(vec![0; MAX_BATCH_CALLBACK_BODY_BYTES + 1]);
 
         let error = read_callback_body(body).await.unwrap_err();

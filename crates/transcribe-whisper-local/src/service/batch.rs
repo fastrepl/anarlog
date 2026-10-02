@@ -777,20 +777,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn batch_request_body_is_spooled_to_disk() {
+    async fn batch_body_spooling_enforces_limit() {
         let audio = spool_batch_audio_with_limit(Body::from("audio"), "audio/wav", 16)
             .await
             .unwrap();
 
         assert_eq!(audio.len, 5);
         assert_eq!(std::fs::read(audio.path()).unwrap(), b"audio");
-    }
 
-    #[tokio::test]
-    async fn small_rejected_batch_body_is_drained() {
-        drain_rejected_batch_audio(Body::from("audio"))
+        let error = spool_batch_audio_with_limit(Body::from("12345"), "audio/wav", 4)
             .await
-            .unwrap();
+            .unwrap_err();
+
+        assert!(matches!(error, BatchAudioWriteError::TooLarge));
     }
 
     #[tokio::test]
@@ -823,15 +822,6 @@ mod tests {
         drain_rejected_batch_audio(body).await.unwrap();
 
         assert!(started.elapsed() < Duration::from_secs(1));
-    }
-
-    #[tokio::test]
-    async fn oversized_batch_request_is_rejected_while_spooling() {
-        let error = spool_batch_audio_with_limit(Body::from("12345"), "audio/wav", 4)
-            .await
-            .unwrap_err();
-
-        assert!(matches!(error, BatchAudioWriteError::TooLarge));
     }
 
     #[test]

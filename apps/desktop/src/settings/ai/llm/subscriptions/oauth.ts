@@ -38,7 +38,7 @@ export type DeviceConnectSession = {
   intervalMs: number;
 };
 
-export type ApiKeyConnectSession = {
+type ApiKeyConnectSession = {
   kind: "api_key";
   docsUrl: string;
 };

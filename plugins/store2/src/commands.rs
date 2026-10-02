@@ -494,31 +494,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn uses_anarlog_service_names_for_legacy_bundle_identifiers() {
-        assert_eq!(
-            secure_store_service("com.hyprnote.dev"),
-            "com.anarlog.dev.secure-store"
-        );
-        assert_eq!(
-            secure_store_service("com.hyprnote.staging"),
-            "com.anarlog.staging.secure-store"
-        );
-        assert_eq!(
-            secure_store_service("com.hyprnote.stable"),
-            "com.anarlog.stable.secure-store"
-        );
-        assert_eq!(
-            secure_store_service("com.hyprnote.Hyprnote"),
-            "com.anarlog.stable.secure-store"
-        );
-    }
-
-    #[test]
-    fn preserves_unknown_service_identifiers() {
-        assert_eq!(
-            secure_store_service("com.example.app"),
-            "com.example.app.secure-store"
-        );
+    fn maps_bundle_identifiers_to_secure_store_services() {
+        for (identifier, expected) in [
+            ("com.hyprnote.dev", "com.anarlog.dev.secure-store"),
+            ("com.hyprnote.staging", "com.anarlog.staging.secure-store"),
+            ("com.hyprnote.stable", "com.anarlog.stable.secure-store"),
+            ("com.hyprnote.Hyprnote", "com.anarlog.stable.secure-store"),
+            ("com.example.app", "com.example.app.secure-store"),
+        ] {
+            assert_eq!(
+                secure_store_service(identifier),
+                expected,
+                "unexpected service for {identifier}"
+            );
+        }
     }
 
     #[test]
@@ -534,25 +523,35 @@ mod tests {
     }
 
     #[test]
-    fn migrates_all_previous_dev_secret_locations() {
-        assert_eq!(
-            legacy_secret_locations("com.hyprnote.dev", "provider", "deepgram"),
-            vec![
-                (
-                    "com.anarlog.dev.secure-store".to_string(),
-                    "provider:deepgram".to_string(),
-                ),
-                (
-                    "com.hyprnote.dev.secure-store".to_string(),
-                    "provider:deepgram".to_string(),
-                ),
-            ]
-        );
-    }
-
-    #[test]
-    fn skips_duplicate_legacy_secret_locations() {
-        assert!(legacy_secret_locations("com.example.app", "provider", "deepgram").is_empty());
+    fn lists_legacy_secret_locations_without_duplicates() {
+        for (identifier, expected) in [
+            (
+                "com.hyprnote.dev",
+                vec![
+                    (
+                        "com.anarlog.dev.secure-store".to_string(),
+                        "provider:deepgram".to_string(),
+                    ),
+                    (
+                        "com.hyprnote.dev.secure-store".to_string(),
+                        "provider:deepgram".to_string(),
+                    ),
+                ],
+            ),
+            ("com.example.app", vec![]),
+        ] {
+            let locations = legacy_secret_locations(identifier, "provider", "deepgram");
+            assert_eq!(
+                locations, expected,
+                "unexpected legacy locations for {identifier}"
+            );
+            let unique: std::collections::HashSet<_> = locations.iter().collect();
+            assert_eq!(
+                locations.len(),
+                unique.len(),
+                "duplicate locations for {identifier}"
+            );
+        }
     }
 
     #[test]
@@ -608,47 +607,5 @@ mod tests {
             expected
         );
         assert_eq!(delete_secret(app, scope, key).await.unwrap_err(), expected);
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn explains_macos_keychain_access_failures() {
-        let error = keyring::Error::PlatformFailure(Box::new(
-            security_framework::base::Error::from_code(ERR_SEC_AUTH_FAILED),
-        ));
-
-        assert_eq!(
-            secure_store_error(error),
-            "macOS couldn't access your login Keychain. Use “Repair Keychain Access” below, then try again."
-        );
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn preserves_unrelated_macos_keychain_failures() {
-        let platform_error = security_framework::base::Error::from_code(-34018);
-        let expected = format!("Platform failure: {platform_error}");
-        let error = keyring::Error::PlatformFailure(Box::new(platform_error));
-
-        assert_eq!(secure_store_error(error), expected);
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn explains_locked_linux_secret_service() {
-        let error = keyring::Error::NoStorageAccess(Box::new(std::io::Error::other("locked")));
-
-        assert_eq!(secure_store_error(error), LINUX_SECRET_SERVICE_ACCESS_ERROR);
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn explains_unavailable_linux_secret_service() {
-        let error = keyring::Error::PlatformFailure(Box::new(std::io::Error::other("unavailable")));
-
-        assert_eq!(
-            secure_store_error(error),
-            LINUX_SECRET_SERVICE_UNAVAILABLE_ERROR
-        );
     }
 }

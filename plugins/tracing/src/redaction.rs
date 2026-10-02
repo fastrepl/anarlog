@@ -383,30 +383,68 @@ mod tests {
         assert_eq!(result.trim(), expected, "input: {}", input);
     }
 
-    macro_rules! redact_test {
-        ($name:ident, home = $home:expr, $input:literal => $expected:literal) => {
-            #[test]
-            fn $name() {
-                assert_redaction($home, $input, $expected);
-            }
-        };
+    #[test]
+    fn redacts_sensitive_text() {
+        for (home, input, expected) in [
+            (
+                Some("/home/alice"),
+                "/home/alice/file and /home/alice/other",
+                "[HOME]/file and [HOME]/other",
+            ),
+            (
+                Some("/Users/janedoe"),
+                "/Users/janedoe/projects/app",
+                "[HOME]/projects/app",
+            ),
+            (
+                Some(r"C:\Users\johndoe"),
+                r"C:\Users\johndoe\Desktop\file.txt",
+                r"[HOME]\Desktop\file.txt",
+            ),
+            (
+                Some("/home/alice"),
+                "/home/bob/documents/file.txt",
+                "/home/bob/documents/file.txt",
+            ),
+            (
+                None,
+                "From alice@test.org to bob@example.com",
+                "From [EMAIL_REDACTED] to [EMAIL_REDACTED]",
+            ),
+            (
+                None,
+                "Email: john.doe+tag@sub.example.co.uk",
+                "Email: [EMAIL_REDACTED]",
+            ),
+            (
+                None,
+                "Listening on 127.0.0.1:8080",
+                "Listening on [IP_REDACTED]:8080",
+            ),
+            (
+                Some("/home/alice"),
+                "User alice@test.com at /home/alice connected from 192.168.1.50",
+                "User [EMAIL_REDACTED] at [HOME] connected from [IP_REDACTED]",
+            ),
+            (
+                None,
+                "session 550e8400-e29b-41d4-a716-446655440000 failed",
+                "session [ID_REDACTED] failed",
+            ),
+            (
+                None,
+                "authorization Bearer abcdefghijklmnop",
+                "authorization Bearer [SECRET_REDACTED]",
+            ),
+            (
+                None,
+                "Application started successfully",
+                "Application started successfully",
+            ),
+        ] {
+            assert_redaction(home, input, expected);
+        }
     }
-
-    redact_test!(redact_home_linux, home = Some("/home/johndoe"), "/home/johndoe/documents/file.txt" => "[HOME]/documents/file.txt");
-    redact_test!(redact_home_linux_multiple, home = Some("/home/alice"), "/home/alice/file and /home/alice/other" => "[HOME]/file and [HOME]/other");
-    redact_test!(redact_home_macos, home = Some("/Users/janedoe"), "/Users/janedoe/projects/app" => "[HOME]/projects/app");
-    redact_test!(redact_home_windows, home = Some(r"C:\Users\johndoe"), r"C:\Users\johndoe\Desktop\file.txt" => r"[HOME]\Desktop\file.txt");
-    redact_test!(redact_other_user_paths_preserved, home = Some("/home/alice"), "/home/bob/documents/file.txt" => "/home/bob/documents/file.txt");
-    redact_test!(redact_email_single, home = None, "Contact: user@example.com for help" => "Contact: [EMAIL_REDACTED] for help");
-    redact_test!(redact_email_multiple, home = None, "From alice@test.org to bob@example.com" => "From [EMAIL_REDACTED] to [EMAIL_REDACTED]");
-    redact_test!(redact_email_complex, home = None, "Email: john.doe+tag@sub.example.co.uk" => "Email: [EMAIL_REDACTED]");
-    redact_test!(redact_ip_single, home = None, "Connected to 192.168.1.1 successfully" => "Connected to [IP_REDACTED] successfully");
-    redact_test!(redact_ip_multiple, home = None, "From 10.0.0.1 to 192.168.0.100" => "From [IP_REDACTED] to [IP_REDACTED]");
-    redact_test!(redact_ip_localhost, home = None, "Listening on 127.0.0.1:8080" => "Listening on [IP_REDACTED]:8080");
-    redact_test!(redact_mixed_content, home = Some("/home/alice"), "User alice@test.com at /home/alice connected from 192.168.1.50" => "User [EMAIL_REDACTED] at [HOME] connected from [IP_REDACTED]");
-    redact_test!(redact_uuid, home = None, "session 550e8400-e29b-41d4-a716-446655440000 failed" => "session [ID_REDACTED] failed");
-    redact_test!(redact_bearer, home = None, "authorization Bearer abcdefghijklmnop" => "authorization Bearer [SECRET_REDACTED]");
-    redact_test!(redact_no_sensitive_data, home = None, "Application started successfully" => "Application started successfully");
 
     #[test]
     fn writer_drops_user_account_errors() {
@@ -433,28 +471,6 @@ mod tests {
     }
 
     #[test]
-    fn writer_handles_empty_input() {
-        let mut output = Vec::new();
-        {
-            let mut writer = RedactingWriter::new(&mut output);
-            writer.write_all(b"").unwrap();
-            writer.flush().unwrap();
-        }
-        assert_eq!(String::from_utf8(output).unwrap(), "");
-    }
-
-    #[test]
-    fn writer_handles_only_newlines() {
-        let mut output = Vec::new();
-        {
-            let mut writer = RedactingWriter::new(&mut output);
-            writer.write_all(b"\n\n\n").unwrap();
-            writer.flush().unwrap();
-        }
-        assert_eq!(String::from_utf8(output).unwrap(), "\n\n\n");
-    }
-
-    #[test]
     fn writer_handles_interleaved_writes() {
         let mut output = Vec::new();
         {
@@ -470,23 +486,20 @@ mod tests {
     }
 
     #[test]
-    fn multiline_redaction() {
-        let mut output = Vec::new();
-        {
-            let mut writer =
-                RedactingWriter::with_home_dir(&mut output, Some("/home/testuser".into()));
-            writeln!(writer, "User logged in from /home/testuser/app").unwrap();
-            writeln!(writer, "Email: user@example.com").unwrap();
-            writeln!(writer, "Connection from 192.168.1.100").unwrap();
-            writer.flush().unwrap();
+    fn writer_passes_through_empty_and_blank_input() {
+        for input in ["", "\n\n\n"] {
+            let mut output = Vec::new();
+            {
+                let mut writer = RedactingWriter::new(&mut output);
+                writer.write_all(input.as_bytes()).unwrap();
+                writer.flush().unwrap();
+            }
+            assert_eq!(
+                String::from_utf8(output).unwrap(),
+                input,
+                "unexpected output for input {input:?}"
+            );
         }
-        let content = String::from_utf8(output).unwrap();
-        assert!(content.contains("[HOME]/app"));
-        assert!(content.contains("[EMAIL_REDACTED]"));
-        assert!(content.contains("[IP_REDACTED]"));
-        assert!(!content.contains("/home/testuser"));
-        assert!(!content.contains("user@example.com"));
-        assert!(!content.contains("192.168.1.100"));
     }
 
     #[test]

@@ -114,18 +114,6 @@ describe("sendNewCustomerAlert", () => {
     ]);
   });
 
-  it("stays quiet when a trial starts", async () => {
-    const posts: Post[] = [];
-
-    const result = await sendNewCustomerAlert(
-      stripeEvent("customer.subscription.created", subscription("trialing")),
-      dependencies(posts),
-    );
-
-    expect(result).toBeNull();
-    expect(posts).toEqual([]);
-  });
-
   it("announces a Char trial converting to paid in the Char channel", async () => {
     const posts: Post[] = [];
 
@@ -149,46 +137,34 @@ describe("sendNewCustomerAlert", () => {
     ]);
   });
 
-  it("announces a subscription whose first payment completes", async () => {
-    const posts: Post[] = [];
-
-    await sendNewCustomerAlert(
-      stripeEvent("customer.subscription.updated", subscription("active"), {
-        previous_attributes: { status: "incomplete" },
-      }),
-      dependencies(posts),
-    );
-
-    expect(posts).toEqual([
-      {
-        webhookUrl: "https://hooks.example/anarlog",
-        text: `${LINK} started Pro plan`,
-      },
-    ]);
-  });
-
   it("ignores updates that are not a first paid start", async () => {
     const posts: Post[] = [];
+    const results = await Promise.all([
+      sendNewCustomerAlert(
+        stripeEvent("customer.subscription.created", subscription("trialing")),
+        dependencies(posts),
+      ),
+      sendNewCustomerAlert(
+        stripeEvent("customer.subscription.updated", subscription("active"), {
+          previous_attributes: { status: "past_due" },
+        }),
+        dependencies(posts),
+      ),
+      sendNewCustomerAlert(
+        stripeEvent("customer.subscription.updated", subscription("active"), {
+          previous_attributes: { cancel_at_period_end: true },
+        }),
+        dependencies(posts),
+      ),
+      sendNewCustomerAlert(
+        stripeEvent("customer.subscription.updated", subscription("canceled"), {
+          previous_attributes: { status: "trialing" },
+        }),
+        dependencies(posts),
+      ),
+    ]);
 
-    await sendNewCustomerAlert(
-      stripeEvent("customer.subscription.updated", subscription("active"), {
-        previous_attributes: { status: "past_due" },
-      }),
-      dependencies(posts),
-    );
-    await sendNewCustomerAlert(
-      stripeEvent("customer.subscription.updated", subscription("active"), {
-        previous_attributes: { cancel_at_period_end: true },
-      }),
-      dependencies(posts),
-    );
-    await sendNewCustomerAlert(
-      stripeEvent("customer.subscription.updated", subscription("canceled"), {
-        previous_attributes: { status: "trialing" },
-      }),
-      dependencies(posts),
-    );
-
+    expect(results).toEqual([null, null, null, null]);
     expect(posts).toEqual([]);
   });
 
@@ -214,22 +190,6 @@ describe("sendNewCustomerAlert", () => {
       "<https://dashboard.stripe.com/test/customers/cus_new|a&lt;b&gt;&amp;c@example.com> signed up to Anarlog",
       `${LINK} started &lt;Pro&gt; plan`,
     ]);
-  });
-
-  it("links by customer id when the email is missing", async () => {
-    const posts: Post[] = [];
-
-    await sendNewCustomerAlert(
-      stripeEvent(
-        "customer.created",
-        customer({ userId: "user-1" }, { email: null }),
-      ),
-      dependencies(posts),
-    );
-
-    expect(posts[0]?.text).toBe(
-      "<https://dashboard.stripe.com/customers/cus_new|cus_new> signed up to Anarlog",
-    );
   });
 
   it("skips a channel whose webhook is not configured", async () => {

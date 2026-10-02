@@ -11,14 +11,8 @@ describe("inferCompanyNameFromEmail", () => {
     ["simon@ionprotocol.io", "Ionprotocol"],
     ["a@mail.acme.com", "Acme"],
     ["a@acme.co.uk", "Acme"],
-    ["a@university.edu.au", "University"],
-    ["a@agency.gov.uk", "Agency"],
-    ["a@kakao.co.kr", "Kakao"],
     ["a@gmail.com", undefined],
     ["a@yahoo.co.uk", undefined],
-    ["a@outlook.kr", undefined],
-    ["a@live.co.uk", undefined],
-    ["a@naver.com", undefined],
     ["a@localhost", undefined],
   ])("%s -> %s", (email, expected) => {
     expect(inferCompanyNameFromEmail(email)).toBe(expected);

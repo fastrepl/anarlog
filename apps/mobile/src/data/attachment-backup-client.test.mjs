@@ -33,38 +33,30 @@ test("accepts a matching attachment download grant", () => {
   );
 });
 
-test("rejects a grant for another object", () => {
+test("rejects grants for another object or unsupported format", () => {
+  const grant = {
+    objectId,
+    objectKey,
+    ciphertextSizeBytes: 123,
+    ciphertextSha256: "a".repeat(64),
+    formatVersion: 1,
+    signedUrl: "https://project.supabase.co/download?token=one",
+  };
+
   assert.throws(
     () =>
       parseAttachmentBackupDownload(
         {
-          objectId,
+          ...grant,
           objectKey: `e8d8149f-af6a-4c14-8b91-066fa196187c/${crypto.randomUUID()}.anb1`,
-          ciphertextSizeBytes: 123,
-          ciphertextSha256: "a".repeat(64),
-          formatVersion: 1,
-          signedUrl: "https://project.supabase.co/download?token=one",
         },
         objectKey,
       ),
     /invalid recording download/,
   );
-});
-
-test("rejects unsupported attachment format versions", () => {
   assert.throws(
     () =>
-      parseAttachmentBackupDownload(
-        {
-          objectId,
-          objectKey,
-          ciphertextSizeBytes: 123,
-          ciphertextSha256: "a".repeat(64),
-          formatVersion: 2,
-          signedUrl: "https://project.supabase.co/download?token=one",
-        },
-        objectKey,
-      ),
+      parseAttachmentBackupDownload({ ...grant, formatVersion: 2 }, objectKey),
     /invalid recording download/,
   );
 });

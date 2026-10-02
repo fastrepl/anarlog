@@ -1,6 +1,6 @@
 import { isRecord } from "~/chat/transport/helpers";
 
-export type McpTextContentOutput = {
+type McpTextContentOutput = {
   content: Array<{
     type: string;
     text?: string;

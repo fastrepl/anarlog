@@ -156,34 +156,34 @@ mod tests {
     }
 
     #[test]
-    fn build_ws_url_adds_transcription_intent() {
-        let (url, params) = OpenAIAdapter::build_ws_url_from_base("");
-
-        assert_eq!(url.as_str(), "wss://api.openai.com/v1/realtime");
-        assert_eq!(
-            params,
-            vec![("intent".to_string(), "transcription".to_string())]
-        );
-    }
-
-    #[test]
-    fn build_ws_url_preserves_proxy_provider() {
-        let (url, params) =
-            OpenAIAdapter::build_ws_url_from_base("https://api.anarlog.so?provider=openai");
-
-        assert_eq!(url.as_str(), "wss://api.anarlog.so/listen");
-        assert_eq!(params, vec![("provider".to_string(), "openai".to_string())]);
-    }
-
-    #[test]
-    fn build_ws_url_preserves_custom_port() {
-        let (url, params) =
-            OpenAIAdapter::build_ws_url_from_base("https://stt.example.com:8443/v1");
-
-        assert_eq!(url.as_str(), "wss://stt.example.com:8443/v1/realtime");
-        assert_eq!(
-            params,
-            vec![("intent".to_string(), "transcription".to_string())]
-        );
+    fn build_ws_url_resolves_intent_and_proxy_params() {
+        for (input, expected_url, expected_params) in [
+            (
+                "",
+                "wss://api.openai.com/v1/realtime",
+                vec![("intent", "transcription")],
+            ),
+            (
+                "https://api.anarlog.so?provider=openai",
+                "wss://api.anarlog.so/listen",
+                vec![("provider", "openai")],
+            ),
+            (
+                "https://stt.example.com:8443/v1",
+                "wss://stt.example.com:8443/v1/realtime",
+                vec![("intent", "transcription")],
+            ),
+        ] {
+            let (url, params) = OpenAIAdapter::build_ws_url_from_base(input);
+            assert_eq!(url.as_str(), expected_url, "input: {input}");
+            assert_eq!(
+                params,
+                expected_params
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>(),
+                "input: {input}"
+            );
+        }
     }
 }

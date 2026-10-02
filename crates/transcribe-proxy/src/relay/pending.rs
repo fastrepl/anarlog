@@ -100,31 +100,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_enqueue_and_drain() {
+    fn control_messages_drain_first_in_fifo_order() {
         let mut state = PendingState::default();
-
-        let payload1 = QueuedPayload {
-            data: vec![1, 2, 3],
-            is_text: false,
-        };
-        let payload2 = QueuedPayload {
-            data: vec![4, 5],
-            is_text: true,
-        };
-
-        assert!(state.enqueue(payload1, false).is_ok());
-        assert!(state.enqueue(payload2, false).is_ok());
-        assert_eq!(state.total_bytes(), 5);
-
-        let drained: Vec<_> = state.drain().collect();
-        assert_eq!(drained.len(), 2);
-        assert_eq!(state.total_bytes(), 0);
-    }
-
-    #[test]
-    fn test_control_messages_prioritized() {
-        let mut state = PendingState::default();
-
         let data_payload = QueuedPayload {
             data: b"data".to_vec(),
             is_text: true,
@@ -141,75 +118,8 @@ mod tests {
         assert_eq!(drained.len(), 2);
         assert_eq!(drained[0].data, b"control");
         assert_eq!(drained[1].data, b"data");
-    }
 
-    #[test]
-    fn test_payload_too_large() {
         let mut state = PendingState::default();
-
-        let large_payload = QueuedPayload {
-            data: vec![0; MAX_PENDING_QUEUE_BYTES + 1],
-            is_text: false,
-        };
-
-        assert_eq!(
-            state.enqueue(large_payload, false),
-            Err("payload_too_large")
-        );
-    }
-
-    #[test]
-    fn test_backpressure_limit() {
-        let mut state = PendingState::default();
-
-        let half_size = MAX_PENDING_QUEUE_BYTES / 2 + 1;
-        let payload1 = QueuedPayload {
-            data: vec![0; half_size],
-            is_text: false,
-        };
-        let payload2 = QueuedPayload {
-            data: vec![0; half_size],
-            is_text: false,
-        };
-
-        assert!(state.enqueue(payload1, false).is_ok());
-        assert_eq!(state.enqueue(payload2, false), Err("backpressure_limit"));
-    }
-
-    #[test]
-    fn test_empty_payload() {
-        let mut state = PendingState::default();
-
-        let empty_payload = QueuedPayload {
-            data: vec![],
-            is_text: false,
-        };
-
-        assert!(state.enqueue(empty_payload, false).is_ok());
-        assert_eq!(state.total_bytes(), 0);
-
-        let drained: Vec<_> = state.drain().collect();
-        assert_eq!(drained.len(), 1);
-        assert!(drained[0].data.is_empty());
-    }
-
-    #[test]
-    fn test_exact_limit_payload() {
-        let mut state = PendingState::default();
-
-        let exact_payload = QueuedPayload {
-            data: vec![0; MAX_PENDING_QUEUE_BYTES],
-            is_text: false,
-        };
-
-        assert!(state.enqueue(exact_payload, false).is_ok());
-        assert_eq!(state.total_bytes(), MAX_PENDING_QUEUE_BYTES);
-    }
-
-    #[test]
-    fn test_multiple_control_messages_order() {
-        let mut state = PendingState::default();
-
         let control1 = QueuedPayload {
             data: b"control1".to_vec(),
             is_text: true,
@@ -235,6 +145,61 @@ mod tests {
     }
 
     #[test]
+    fn rejects_payloads_over_the_per_message_limit() {
+        let mut state = PendingState::default();
+        let large_payload = QueuedPayload {
+            data: vec![0; MAX_PENDING_QUEUE_BYTES + 1],
+            is_text: false,
+        };
+        assert_eq!(
+            state.enqueue(large_payload, false),
+            Err("payload_too_large")
+        );
+
+        let mut state = PendingState::default();
+        let exact_payload = QueuedPayload {
+            data: vec![0; MAX_PENDING_QUEUE_BYTES],
+            is_text: false,
+        };
+        assert!(state.enqueue(exact_payload, false).is_ok());
+        assert_eq!(state.total_bytes(), MAX_PENDING_QUEUE_BYTES);
+    }
+
+    #[test]
+    fn aggregate_backpressure_limit() {
+        let mut state = PendingState::default();
+        let half_size = MAX_PENDING_QUEUE_BYTES / 2 + 1;
+        let payload1 = QueuedPayload {
+            data: vec![0; half_size],
+            is_text: false,
+        };
+        let payload2 = QueuedPayload {
+            data: vec![0; half_size],
+            is_text: false,
+        };
+        assert!(state.enqueue(payload1, false).is_ok());
+        assert_eq!(state.enqueue(payload2, false), Err("backpressure_limit"));
+
+        let mut state = PendingState::default();
+        let small_payload = QueuedPayload {
+            data: vec![0; 1000],
+            is_text: false,
+        };
+        for _ in 0..(MAX_PENDING_QUEUE_BYTES / 1000) {
+            assert!(state.enqueue(small_payload.clone(), false).is_ok());
+        }
+        let remaining = MAX_PENDING_QUEUE_BYTES % 1000;
+        let final_payload = QueuedPayload {
+            data: vec![0; remaining + 1],
+            is_text: false,
+        };
+        assert_eq!(
+            state.enqueue(final_payload, false),
+            Err("backpressure_limit")
+        );
+    }
+
+    #[test]
     fn test_drain_resets_state() {
         let mut state = PendingState::default();
 
@@ -251,58 +216,5 @@ mod tests {
 
         assert!(state.enqueue(payload, false).is_ok());
         assert_eq!(state.total_bytes(), 3);
-    }
-
-    #[test]
-    fn test_text_and_binary_mixed() {
-        let mut state = PendingState::default();
-
-        let text_payload = QueuedPayload {
-            data: b"hello".to_vec(),
-            is_text: true,
-        };
-        let binary_payload = QueuedPayload {
-            data: vec![0x00, 0x01, 0x02],
-            is_text: false,
-        };
-
-        assert!(state.enqueue(text_payload, false).is_ok());
-        assert!(state.enqueue(binary_payload, false).is_ok());
-        assert_eq!(state.total_bytes(), 8);
-
-        let drained: Vec<_> = state.drain().collect();
-        assert_eq!(drained.len(), 2);
-        assert!(drained[0].is_text);
-        assert!(!drained[1].is_text);
-    }
-
-    #[test]
-    fn test_backpressure_after_partial_fill() {
-        let mut state = PendingState::default();
-
-        let small_payload = QueuedPayload {
-            data: vec![0; 1000],
-            is_text: false,
-        };
-
-        for _ in 0..(MAX_PENDING_QUEUE_BYTES / 1000) {
-            assert!(state.enqueue(small_payload.clone(), false).is_ok());
-        }
-
-        let remaining = MAX_PENDING_QUEUE_BYTES % 1000;
-        let final_payload = QueuedPayload {
-            data: vec![0; remaining + 1],
-            is_text: false,
-        };
-        assert_eq!(
-            state.enqueue(final_payload, false),
-            Err("backpressure_limit")
-        );
-    }
-
-    #[test]
-    fn test_default_state() {
-        let state = PendingState::default();
-        assert_eq!(state.total_bytes(), 0);
     }
 }

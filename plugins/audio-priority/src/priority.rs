@@ -225,52 +225,24 @@ impl PriorityManager {
 mod tests {
     use super::*;
 
-    fn make_device(id: &str, name: &str, direction: AudioDirection) -> AudioDevice {
-        AudioDevice::new(
-            id,
-            name,
-            direction,
-            anlg_audio_device::TransportType::Unknown,
-        )
-    }
-
     #[test]
-    fn test_remember_device() {
-        let mut manager = PriorityManager::new();
+    fn legacy_priority_state_keys_still_deserialize() {
+        let state = serde_json::from_value::<PriorityState>(serde_json::json!({
+            "speaker_priorities": ["output-1"],
+            "hidden_mics": ["input-1"],
+            "hidden_speakers": ["output-2"]
+        }))
+        .unwrap();
 
-        manager.remember_device("uid1", "Device 1", true);
-        assert!(manager.get_stored_device("uid1").is_some());
-        assert_eq!(manager.get_stored_device("uid1").unwrap().name, "Device 1");
+        assert_eq!(state.output_priorities, ["output-1"]);
+        assert_eq!(state.hidden_inputs, ["input-1"]);
+        assert_eq!(state.hidden_outputs, ["output-2"]);
 
-        manager.remember_device("uid1", "Device 1 Updated", true);
-        assert_eq!(
-            manager.get_stored_device("uid1").unwrap().name,
-            "Device 1 Updated"
-        );
-    }
-
-    #[test]
-    fn test_forget_device() {
-        let mut manager = PriorityManager::new();
-
-        manager.remember_device("uid1", "Device 1", true);
-        assert!(manager.get_stored_device("uid1").is_some());
-
-        manager.forget_device("uid1");
-        assert!(manager.get_stored_device("uid1").is_none());
-    }
-
-    #[test]
-    fn test_hide_unhide_device() {
-        let mut manager = PriorityManager::new();
-        let device = make_device("uid1", "Device 1", AudioDirection::Input);
-
-        assert!(!manager.is_hidden(&device));
-
-        manager.hide_device(&device);
-        assert!(manager.is_hidden(&device));
-
-        manager.unhide_device(&device);
-        assert!(!manager.is_hidden(&device));
+        let state = serde_json::from_value::<PriorityState>(serde_json::json!({})).unwrap();
+        assert!(state.input_priorities.is_empty());
+        assert!(state.output_priorities.is_empty());
+        assert!(state.hidden_inputs.is_empty());
+        assert!(state.hidden_outputs.is_empty());
+        assert!(state.known_devices.is_empty());
     }
 }

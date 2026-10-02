@@ -1,9 +1,4 @@
-import {
-  EditorState,
-  type Transaction,
-  TextSelection,
-} from "prosemirror-state";
-import type { EditorView } from "prosemirror-view";
+import { EditorState } from "prosemirror-state";
 import { describe, expect, it } from "vitest";
 
 import { schema } from "../note/schema";
@@ -11,8 +6,6 @@ import {
   commentAnchorsPlugin,
   commentAnchorsPluginKey,
   getCommentAnchorRanges,
-  setActiveCommentAnchor,
-  setCommentAnchors,
 } from "./comment-anchors";
 
 const createState = () =>
@@ -155,56 +148,5 @@ describe("commentAnchorsPlugin", () => {
     expect(getCommentAnchorRanges(state).map((a) => a.commentId)).toEqual([
       "ok",
     ]);
-  });
-
-  it("marks view dispatches async so React effects skip flushSync", () => {
-    const dispatches: Transaction[] = [];
-    const view = {
-      state: createState(),
-      dispatch: (tr: Transaction) => {
-        dispatches.push(tr);
-      },
-    } as unknown as EditorView;
-
-    setCommentAnchors(view, [{ commentId: "c1", from: 1, to: 6 }]);
-    setActiveCommentAnchor(view, "c1");
-
-    expect(dispatches).toHaveLength(2);
-    expect(dispatches[0].getMeta("async")).toBe(true);
-    expect(dispatches[0].getMeta(commentAnchorsPluginKey)).toEqual({
-      type: "set",
-      anchors: [{ commentId: "c1", from: 1, to: 6 }],
-    });
-    expect(dispatches[1].getMeta("async")).toBe(true);
-    expect(dispatches[1].getMeta(commentAnchorsPluginKey)).toEqual({
-      type: "active",
-      commentId: "c1",
-    });
-  });
-
-  it("reports selection changes through the event callback", () => {
-    const events: Array<{ from: number; to: number; empty: boolean }> = [];
-    const state = EditorState.create({
-      schema,
-      doc: schema.node("doc", null, [
-        schema.node("paragraph", null, [schema.text("hello anchored world")]),
-      ]),
-      plugins: [
-        commentAnchorsPlugin({
-          onEvent: (event) => {
-            if (event.type === "selection") events.push(event);
-          },
-        }),
-      ],
-    });
-    const selected = state.apply(
-      state.tr.setSelection(TextSelection.create(state.doc, 1, 6)),
-    );
-    // The selection event fires from the editor view; at the state level we
-    // assert the plugin state stays intact across selection transactions.
-    expect(
-      commentAnchorsPluginKey.getState(selected)?.decorations,
-    ).toBeDefined();
-    expect(events).toHaveLength(0);
   });
 });

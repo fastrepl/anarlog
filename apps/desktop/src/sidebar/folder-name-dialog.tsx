@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -37,13 +37,18 @@ export function FolderNameDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  const [syncedSource, setSyncedSource] = useState({ open, initialValue });
+  if (
+    syncedSource.open !== open ||
+    syncedSource.initialValue !== initialValue
+  ) {
+    setSyncedSource({ open, initialValue });
     if (open) {
       setValue(initialValue);
       setError(null);
       setBusy(false);
     }
-  }, [initialValue, open]);
+  }
 
   const submit = async () => {
     const normalized = normalizeFolderPath(value.trim());

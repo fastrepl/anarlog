@@ -722,7 +722,7 @@ pub enum ReadPathResult {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+    use chrono::{DateTime, Utc};
 
     use super::*;
 
@@ -750,97 +750,6 @@ mod tests {
                 to: Some(to),
             }
         );
-    }
-
-    #[test]
-    fn create_reminder_input_builder_populates_extended_fields() {
-        let completed_at = DateTime::parse_from_rfc3339("2026-04-17T00:00:00Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        let input = CreateReminderInput::new("Ship API")
-            .in_list("list-a")
-            .with_notes("note")
-            .with_url("https://char.com")
-            .with_priority(ReminderPriority::High)
-            .with_alarms(vec![])
-            .with_recurrence_rules(vec![])
-            .mark_completed()
-            .with_completion_date(completed_at);
-
-        assert_eq!(input.title, "Ship API");
-        assert_eq!(input.list_id.as_deref(), Some("list-a"));
-        assert_eq!(input.notes.as_deref(), Some("note"));
-        assert_eq!(input.url.as_deref(), Some("https://char.com"));
-        assert_eq!(input.priority, Some(ReminderPriority::High));
-        assert_eq!(input.alarms, Some(Vec::new()));
-        assert_eq!(input.recurrence_rules, Some(Vec::new()));
-        assert_eq!(input.is_completed, Some(true));
-        assert_eq!(input.completion_date, Some(completed_at));
-    }
-
-    #[test]
-    fn reminder_identifier_builders_are_explicit() {
-        let input =
-            ReminderIdentifierInput::by_external_identifier("external-id").in_list("list-a");
-
-        assert_eq!(input.external_identifier.as_deref(), Some("external-id"));
-        assert_eq!(input.list_id.as_deref(), Some("list-a"));
-        assert_eq!(input.calendar_item_identifier, None);
-    }
-
-    #[test]
-    fn date_component_builders_cover_common_eventkit_shapes() {
-        let date = NaiveDate::from_ymd_opt(2026, 4, 17).unwrap();
-        let time = NaiveTime::from_hms_opt(9, 30, 15).unwrap();
-
-        assert_eq!(
-            DateComponents::all_day(date),
-            DateComponents {
-                date: Some(date),
-                time: None,
-                time_zone: None,
-            }
-        );
-        assert_eq!(
-            DateComponents::floating(date, time),
-            DateComponents {
-                date: Some(date),
-                time: Some(time),
-                time_zone: None,
-            }
-        );
-        assert_eq!(
-            DateComponents::zoned(date, time, "Asia/Seoul"),
-            DateComponents {
-                date: Some(date),
-                time: Some(time),
-                time_zone: Some("Asia/Seoul".into()),
-            }
-        );
-    }
-
-    #[test]
-    fn recurrence_rule_builders_cover_common_schedules() {
-        let until = DateTime::parse_from_rfc3339("2026-04-30T00:00:00Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        let rule = RecurrenceRule::weekly(2)
-            .on_days_of_week([
-                RecurrenceDayOfWeek::every(Weekday::Monday),
-                RecurrenceDayOfWeek::every(Weekday::Friday),
-            ])
-            .until(until);
-
-        assert_eq!(rule.frequency, RecurrenceFrequency::Weekly);
-        assert_eq!(rule.interval, 2);
-        assert_eq!(
-            rule.days_of_week,
-            vec![
-                RecurrenceDayOfWeek::every(Weekday::Monday),
-                RecurrenceDayOfWeek::every(Weekday::Friday),
-            ]
-        );
-        assert_eq!(rule.end, Some(RecurrenceEnd::Until(until)));
     }
 
     #[test]

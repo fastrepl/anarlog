@@ -11,14 +11,23 @@ description = ""
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
+anlg-db-core = { workspace = true }
 specta-typescript = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [dependencies]
+anlg-db-app = { workspace = true }
 anlg-gbnf = { workspace = true }
+anlg-language = { workspace = true, features = ["dominant"] }
+anlg-summary = { workspace = true }
 anlg-template-app = { workspace = true }
 anlg-template-app-legacy = { workspace = true }
+tauri-plugin-db = { workspace = true }
 
+chrono = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
 tracing = { workspace = true }
 
 specta = { workspace = true, features = ["serde_json"] }

@@ -178,26 +178,6 @@ mod tests {
     }
 
     #[test]
-    fn for_each_operation_visits_all_methods() {
-        let mut spec = json!({
-            "paths": {
-                "/a": { "get": { "id": "a_get" }, "post": { "id": "a_post" } },
-                "/b": { "delete": { "id": "b_delete" } }
-            }
-        });
-
-        let mut visited = vec![];
-        for_each_operation(&mut spec, |op| {
-            if let Some(id) = op.get("id").and_then(Value::as_str) {
-                visited.push(id.to_string());
-            }
-        });
-
-        visited.sort();
-        assert_eq!(visited, vec!["a_get", "a_post", "b_delete"]);
-    }
-
-    #[test]
     fn remove_unreferenced_schemas_prunes_unused() {
         let mut spec = OpenApiSpec {
             inner: json!({

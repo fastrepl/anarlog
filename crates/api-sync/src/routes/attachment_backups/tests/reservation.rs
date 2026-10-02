@@ -11,16 +11,7 @@ async fn reserves_identity_without_issuing_a_storage_capability() {
     .await;
 
     let response = test_router(&server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/reserve",
-            json!({
-                "attachmentRef": ATTACHMENT_REF,
-                "versionRef": VERSION_REF,
-                "ciphertextSizeBytes": 1234,
-                "formatVersion": 1
-            }),
-        ))
+        .oneshot(reserve_request())
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -35,68 +26,49 @@ async fn reserves_identity_without_issuing_a_storage_capability() {
         requests[0].url.path(),
         "/rest/v1/rpc/reserve_attachment_backup"
     );
+    assert_no_storage_requests(&server).await;
 }
 
 #[tokio::test]
-async fn reports_reservation_races_as_conflicts() {
-    let server = MockServer::start().await;
-    mount_rpc(
-        &server,
-        "reserve_attachment_backup",
-        ResponseTemplate::new(409).set_body_json(json!({
-            "code": "40001",
-            "message": "reservation-secret-must-not-leak"
-        })),
-    )
-    .await;
+async fn reports_reservation_conflicts_without_leaking_database_details() {
+    for (case, pg_code, secret_message, secret_fragment) in [
+        (
+            "reservation race",
+            "40001",
+            "reservation-secret-must-not-leak",
+            "reservation-secret",
+        ),
+        (
+            "reservation limit",
+            "55000",
+            "reservation-limit-secret-must-not-leak",
+            "reservation-limit-secret",
+        ),
+    ] {
+        let server = MockServer::start().await;
+        mount_rpc(
+            &server,
+            "reserve_attachment_backup",
+            ResponseTemplate::new(409).set_body_json(json!({
+                "code": pg_code,
+                "message": secret_message
+            })),
+        )
+        .await;
 
-    let response = test_router(&server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/reserve",
-            json!({
-                "attachmentRef": ATTACHMENT_REF,
-                "versionRef": VERSION_REF,
-                "ciphertextSizeBytes": 1234,
-                "formatVersion": 1
-            }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::CONFLICT);
-    let body = response_json(response).await;
-    assert_eq!(body["error"]["code"], "attachment_backup_conflict");
-    assert!(!body.to_string().contains("reservation-secret"));
-}
-
-#[tokio::test]
-async fn reports_reservation_limit_as_conflict() {
-    let server = MockServer::start().await;
-    mount_rpc(
-        &server,
-        "reserve_attachment_backup",
-        ResponseTemplate::new(409).set_body_json(json!({
-            "code": "55000",
-            "message": "reservation-limit-secret-must-not-leak"
-        })),
-    )
-    .await;
-
-    let response = test_router(&server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/reserve",
-            json!({
-                "attachmentRef": ATTACHMENT_REF,
-                "versionRef": VERSION_REF,
-                "ciphertextSizeBytes": 1234,
-                "formatVersion": 1
-            }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::CONFLICT);
-    let body = response_json(response).await;
-    assert_eq!(body["error"]["code"], "attachment_backup_conflict");
-    assert!(!body.to_string().contains("reservation-limit-secret"));
+        let response = test_router(&server, true)
+            .oneshot(reserve_request())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CONFLICT, "{case}");
+        let body = response_json(response).await;
+        assert_eq!(
+            body["error"]["code"], "attachment_backup_conflict",
+            "{case}"
+        );
+        let body = body.to_string();
+        assert!(!body.contains(secret_message), "{case}");
+        assert!(!body.contains(secret_fragment), "{case}");
+        assert_no_storage_requests(&server).await;
+    }
 }

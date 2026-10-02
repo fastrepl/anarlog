@@ -13,6 +13,21 @@ use crate::{
     state::AppState,
 };
 
+#[derive(Debug, serde::Deserialize, rmcp::schemars::JsonSchema)]
+#[schemars(crate = "rmcp::schemars")]
+#[serde(rename_all = "snake_case")]
+struct ListMeetingsInput {
+    #[schemars(description = "Case-insensitive title or meeting id substring")]
+    query: Option<String>,
+    #[schemars(description = "Exact recurring series id")]
+    series_id: Option<String>,
+    #[schemars(description = "Maximum results; defaults to 20 and is capped at 200")]
+    #[schemars(range(min = 1, max = 200))]
+    limit: Option<u32>,
+    #[schemars(description = "Number of results to skip; defaults to 0")]
+    offset: Option<u32>,
+}
+
 #[derive(Clone)]
 pub(crate) struct CloudMcpServer {
     state: AppState,
@@ -36,7 +51,7 @@ impl CloudMcpServer {
     async fn list_meetings(
         &self,
         McpAuth(auth): McpAuth,
-        Parameters(input): Parameters<access::ListMeetingsInput>,
+        Parameters(input): Parameters<ListMeetingsInput>,
     ) -> Result<CallToolResult, McpError> {
         let Some(user_id) = user_id(auth) else {
             return Ok(authentication_required(&self.state));

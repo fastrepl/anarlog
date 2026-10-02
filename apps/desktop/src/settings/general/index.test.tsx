@@ -135,24 +135,4 @@ describe("SettingsApp", () => {
       );
     });
   });
-
-  it("keeps audio controls with meeting settings", () => {
-    mocks.useStoredSettingValuesQuery.mockReturnValue({
-      data: {
-        values: {},
-        hasValues: new Set(),
-      },
-      isLoading: false,
-      error: null,
-    });
-
-    render(<SettingsMeetings />);
-
-    expect(screen.getByText("Meetings")).toBeTruthy();
-    expect(screen.getByText("Meeting settings")).toBeTruthy();
-    expect(screen.getByText("Summaries")).toBeTruthy();
-    expect(screen.getByText("Summary length selector")).toBeTruthy();
-    expect(screen.getByText("Audio")).toBeTruthy();
-    expect(screen.getByText("Audio settings")).toBeTruthy();
-  });
 });

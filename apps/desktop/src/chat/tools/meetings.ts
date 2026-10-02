@@ -41,13 +41,19 @@ const historyOffsetSchema = z
 export const buildListMeetingsTool = () =>
   tool({
     description:
-      "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id, then pass next_offset as offset to continue.",
+      "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id and folder_path to scope to a folder and its subfolders, then pass next_offset as offset to continue.",
     inputSchema: z.object({
       query: z
         .string()
         .optional()
         .describe("Case-insensitive title or meeting id substring"),
       series_id: z.string().optional().describe("Exact recurring series id"),
+      folder_path: z
+        .string()
+        .optional()
+        .describe(
+          "Folder path from list_folders, such as Projects/Launch; includes meetings in its subfolders",
+        ),
       limit: listLimitSchema,
       offset: offsetSchema,
     }),

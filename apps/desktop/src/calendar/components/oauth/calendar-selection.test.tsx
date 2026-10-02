@@ -50,23 +50,23 @@ describe("useOAuthCalendarSelection", () => {
     mocks.calendars = [];
   });
 
-  it("does not sync on mount while calendar rows are still empty", () => {
-    render(<HookHarness />);
-
-    expect(mocks.scheduleSync).not.toHaveBeenCalled();
-  });
-
-  it("does not sync on mount when calendars are already present", () => {
-    mocks.calendars = [
-      {
-        id: "cal-1",
-        name: "Work",
-        enabled: true,
-        source: "user@example.com",
-        color: "#4285f4",
-        connection_id: "conn-1",
-      },
-    ];
+  it.each([
+    ["still empty", []],
+    [
+      "already present",
+      [
+        {
+          id: "cal-1",
+          name: "Work",
+          enabled: true,
+          source: "user@example.com",
+          color: "#4285f4",
+          connection_id: "conn-1",
+        },
+      ],
+    ],
+  ])("does not sync on mount when calendar rows are %s", (_label, rows) => {
+    mocks.calendars = rows;
 
     render(<HookHarness />);
 

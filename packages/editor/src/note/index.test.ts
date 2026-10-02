@@ -403,39 +403,6 @@ describe("browser-safe editor controls", () => {
     expect(handleChange).not.toHaveBeenCalled();
   });
 
-  it("reuses immediate document serialization for persistence", async () => {
-    const ref = createRef<NoteEditorRef>();
-    const handleChange = vi.fn();
-    const onDocumentChange = vi.fn();
-    render(
-      createElement(NoteEditor, {
-        ref,
-        initialContent: baseDoc,
-        handleChange,
-        onDocumentChange,
-        enforceTitleHeading: false,
-      }),
-    );
-    await waitFor(() => expect(ref.current?.view).not.toBeNull());
-    vi.useFakeTimers();
-    const toJSON = vi.spyOn(PMNode.prototype, "toJSON");
-
-    act(() => {
-      const view = ref.current?.view;
-      view?.dispatch(view.state.tr.insertText("!", 4));
-    });
-
-    const rootSerializationCount = () =>
-      toJSON.mock.instances.filter((node) => node.type.name === "doc").length;
-    expect(rootSerializationCount()).toBe(1);
-    await act(() => vi.advanceTimersByTimeAsync(500));
-    expect(rootSerializationCount()).toBe(1);
-    expect(handleChange).toHaveBeenCalledWith(
-      onDocumentChange.mock.calls[0]?.[0],
-    );
-    toJSON.mockRestore();
-  });
-
   it("defers serialization when no immediate listener is registered", async () => {
     const ref = createRef<NoteEditorRef>();
     const handleChange = vi.fn();

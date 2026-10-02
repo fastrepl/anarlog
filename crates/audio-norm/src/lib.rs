@@ -113,40 +113,42 @@ mod tests {
 
     const MIN_MP3_BYTES: u64 = 1024;
 
-    macro_rules! test_normalize_audio {
-        ($($name:ident: $path:expr),* $(,)?) => {
-            $(
-                #[test]
-                fn $name() {
-                    let source_path = std::path::Path::new($path);
-                    let temp = TempDir::new().unwrap();
-                    let tmp_path = temp.path().join("tmp.mp3");
-                    let target_path = temp.path().join("target.mp3");
+    #[test]
+    fn normalize_file_imports_supported_formats() {
+        for (label, path) in [
+            ("wav", anlg_data::english_1::AUDIO_PATH),
+            ("mp3", anlg_data::english_1::AUDIO_MP3_PATH),
+            ("mp4", anlg_data::english_1::AUDIO_MP4_PATH),
+            ("m4a", anlg_data::english_1::AUDIO_M4A_PATH),
+            ("ogg", anlg_data::english_1::AUDIO_OGG_PATH),
+            ("flac", anlg_data::english_1::AUDIO_FLAC_PATH),
+            ("aac", anlg_data::english_1::AUDIO_AAC_PATH),
+            ("aiff", anlg_data::english_1::AUDIO_AIFF_PATH),
+            ("caf", anlg_data::english_1::AUDIO_CAF_PATH),
+        ] {
+            let source_path = std::path::Path::new(path);
+            let temp = TempDir::new().unwrap();
+            let tmp_path = temp.path().join("tmp.mp3");
+            let target_path = temp.path().join("target.mp3");
 
-                    let result = normalize_file(source_path, &tmp_path, &target_path, None, None::<fn(f64)>);
-                    assert!(result.is_ok(), "normalize failed: {:?}", result.err());
-                    assert!(target_path.exists());
+            let result =
+                normalize_file(source_path, &tmp_path, &target_path, None, None::<fn(f64)>);
+            assert!(
+                result.is_ok(),
+                "{label}: normalize failed: {:?}",
+                result.err()
+            );
+            assert!(
+                target_path.exists(),
+                "{label}: normalized output is missing"
+            );
 
-                    let size = std::fs::metadata(&target_path).unwrap().len();
-                    assert!(
-                        size > MIN_MP3_BYTES,
-                        "Output too small ({size} bytes), likely empty audio"
-                    );
-                }
-            )*
-        };
-    }
-
-    test_normalize_audio! {
-        test_import_wav: anlg_data::english_1::AUDIO_PATH,
-        test_import_mp3: anlg_data::english_1::AUDIO_MP3_PATH,
-        test_import_mp4: anlg_data::english_1::AUDIO_MP4_PATH,
-        test_import_m4a: anlg_data::english_1::AUDIO_M4A_PATH,
-        test_import_ogg: anlg_data::english_1::AUDIO_OGG_PATH,
-        test_import_flac: anlg_data::english_1::AUDIO_FLAC_PATH,
-        test_import_aac: anlg_data::english_1::AUDIO_AAC_PATH,
-        test_import_aiff: anlg_data::english_1::AUDIO_AIFF_PATH,
-        test_import_caf: anlg_data::english_1::AUDIO_CAF_PATH,
+            let size = std::fs::metadata(&target_path).unwrap().len();
+            assert!(
+                size > MIN_MP3_BYTES,
+                "{label}: output too small ({size} bytes), likely empty audio"
+            );
+        }
     }
 
     #[test]

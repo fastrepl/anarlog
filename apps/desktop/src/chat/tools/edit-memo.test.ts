@@ -94,4 +94,49 @@ describe("edit memo chat tool", () => {
     expect(mocks.declineSessionProposal).toHaveBeenCalledWith("request-1");
     expect(mocks.applySessionProposal).not.toHaveBeenCalled();
   });
+
+  it("targets the note from the triggering message instead of the active tab", async () => {
+    const editTool = buildEditMemoTool({
+      getSessionId: () => "session-active",
+      openEditTab: (requestId) => {
+        usePendingEditStore.getState().resolveEdit(requestId, true);
+      },
+    });
+
+    await expect(
+      (editTool as any).execute(
+        { content: "Replacement" },
+        {
+          toolCallId: "request-1",
+          messages: [],
+          experimental_context: { currentSessionId: "session-1" },
+        },
+      ),
+    ).resolves.toEqual({ status: "applied" });
+
+    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledWith("session-1");
+    expect(mocks.persistChatSessionProposal).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "session-1" }),
+    );
+  });
+
+  it("does not fall back to the active tab when the message had no current note", async () => {
+    const editTool = buildEditMemoTool({
+      getSessionId: () => "session-active",
+      openEditTab: vi.fn(),
+    });
+
+    await expect(
+      (editTool as any).execute(
+        { content: "Replacement" },
+        {
+          toolCallId: "request-1",
+          messages: [],
+          experimental_context: { currentSessionId: undefined },
+        },
+      ),
+    ).resolves.toMatchObject({ status: "error" });
+
+    expect(mocks.persistChatSessionProposal).not.toHaveBeenCalled();
+  });
 });

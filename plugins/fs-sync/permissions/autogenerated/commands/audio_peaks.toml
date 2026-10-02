@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-audio-peaks"
+description = "Enables the audio_peaks command without any pre-configured scope."
+commands.allow = ["audio_peaks"]
+
+[[permission]]
+identifier = "deny-audio-peaks"
+description = "Denies the audio_peaks command without any pre-configured scope."
+commands.deny = ["audio_peaks"]

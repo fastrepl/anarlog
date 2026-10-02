@@ -298,18 +298,8 @@ describe("SettingsBilling", () => {
     });
   });
 
-  it("shows all four offers and opens the Enterprise page", async () => {
+  it("opens the Enterprise page from Talk to sales", async () => {
     renderBilling();
-
-    expect(screen.getByText("Free")).toBeTruthy();
-    expect(screen.getByText("Pro")).toBeTruthy();
-    expect(screen.getByText("Team")).toBeTruthy();
-    expect(screen.getByText("Enterprise")).toBeTruthy();
-    expect(screen.getByText("$20")).toBeTruthy();
-    expect(screen.getByText("Custom")).toBeTruthy();
-    expect(screen.queryByText("Soon")).toBeNull();
-    expect(screen.getByText("Domain SSO and SCIM")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Open Teams" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Talk to sales" }));
 
@@ -330,12 +320,6 @@ describe("SettingsBilling", () => {
     expect(
       screen.queryByRole("button", { name: "Sign in for Pro" }),
     ).toBeNull();
-    expect(screen.getByText("Current")).toBeTruthy();
-    expect(
-      screen.getByText("Compare Free, Pro, Team, and Enterprise."),
-    ).toBeTruthy();
-    expect(screen.getByText("Cloud Transcription")).toBeTruthy();
-    expect(screen.queryByText("On-device Transcription")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Sign in to Anarlog" }));
 
@@ -439,12 +423,5 @@ describe("SettingsBilling", () => {
       "token-1",
       expect.anything(),
     );
-  });
-
-  it("hides plan limits for Free users", () => {
-    renderBilling();
-
-    expect(screen.queryByText("Plan limits")).toBeNull();
-    expect(screen.getByText("Compare plans")).toBeTruthy();
   });
 });

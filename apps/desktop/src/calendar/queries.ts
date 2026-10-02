@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 
+import { commands as calendarCommands } from "@anlg/plugin-calendar";
 import { eventParticipantSchema, type EventParticipant } from "@anlg/store";
 
-import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
+import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { parseSessionTagNames } from "~/sidebar/item-fields";
 import type {
@@ -141,7 +142,11 @@ export function useTimelineEventsTable(): TimelineEventsTable {
         event.location,
         event.meeting_link,
         event.description,
-        calendar.color AS calendar_color
+        calendar.color AS calendar_color,
+        CASE
+          WHEN json_valid(event.attendance_json)
+            THEN json_extract(event.attendance_json, '$.self_status')
+        END AS self_status
       FROM events AS event
       LEFT JOIN calendars AS calendar
         ON calendar.id = event.calendar_id AND calendar.deleted_at IS NULL
@@ -258,25 +263,13 @@ export function setCalendarEnabled(
   enabled: boolean,
 ): Promise<void> {
   return enqueueDatabaseWrite(`calendar-selection:${calendarId}`, async () => {
-    const now = new Date().toISOString();
-    await executeTransaction([
-      {
-        sql: `
-          UPDATE calendars
-          SET enabled = ?, updated_at = ?
-          WHERE id = ? AND deleted_at IS NULL
-        `,
-        params: [Number(enabled), now, calendarId],
-      },
-      {
-        sql: `
-          UPDATE events
-          SET deleted_at = ?, updated_at = ?
-          WHERE calendar_id = ? AND deleted_at IS NULL AND ? = 0
-        `,
-        params: [now, now, calendarId, Number(enabled)],
-      },
-    ]);
+    const result = await calendarCommands.setCalendarEnabled({
+      calendar_id: calendarId,
+      enabled,
+    });
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
   });
 }
 

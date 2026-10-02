@@ -136,42 +136,29 @@ mod tests {
     use anlg_language::{ISO639, Language};
 
     #[test]
-    fn injects_provider_for_anarlog_proxy() {
+    fn injects_or_rewrites_provider_param_for_anarlog_proxy() {
         let client = BatchClient::<AnarlogAdapter>::builder()
             .api_base("https://api.anarlog.so/stt")
             .api_key("test")
             .build();
-
         assert!(client.api_base.contains("provider=hyprnote"));
-    }
 
-    #[test]
-    fn does_not_inject_provider_for_direct_provider_url() {
         let client = BatchClient::<OpenAIAdapter>::builder()
             .api_base("https://api.openai.com/v1")
             .api_key("test")
             .build();
-
         assert_eq!(client.api_base, "https://api.openai.com/v1");
-    }
 
-    #[test]
-    fn injects_provider_for_direct_provider_adapter_on_anarlog_proxy() {
         let client = BatchClient::<DeepgramAdapter>::builder()
             .api_base("https://api.anarlog.so/stt")
             .api_key("test")
             .build();
-
         assert!(client.api_base.contains("provider=deepgram"));
-    }
 
-    #[test]
-    fn rewrites_existing_provider_for_direct_provider_adapter() {
         let client = BatchClient::<OpenAIAdapter>::builder()
             .api_base("https://api.anarlog.so/stt?provider=anarlog&model=whisper-1")
             .api_key("test")
             .build();
-
         assert!(client.api_base.contains("provider=openai"));
         assert!(!client.api_base.contains("provider=anarlog"));
         assert!(client.api_base.contains("model=whisper-1"));

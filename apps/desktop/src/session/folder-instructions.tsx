@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { cn } from "@anlg/utils";
 
@@ -18,10 +18,11 @@ export function FolderInstructionsField({
   const { t } = useLingui();
   const saved = useFolderInstructions(folderPath);
   const [value, setValue] = useState(saved);
-
-  useEffect(() => {
+  const [syncedSource, setSyncedSource] = useState({ folderPath, saved });
+  if (syncedSource.folderPath !== folderPath || syncedSource.saved !== saved) {
+    setSyncedSource({ folderPath, saved });
     setValue(saved);
-  }, [folderPath, saved]);
+  }
 
   return (
     <textarea

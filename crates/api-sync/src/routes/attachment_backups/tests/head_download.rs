@@ -35,6 +35,7 @@ async fn reports_head_cas_conflict_without_leaking_upstream_details() {
     let body = response_json(response).await;
     assert_eq!(body["error"]["code"], "attachment_backup_conflict");
     assert!(!body.to_string().contains("current-key-secret"));
+    assert_no_storage_requests(&server).await;
 }
 
 #[tokio::test]
@@ -65,6 +66,7 @@ async fn returns_version_and_integrity_for_current_and_promoted_heads() {
     let body = response_json(current).await;
     assert_eq!(body["versionRef"], VERSION_REF);
     assert_eq!(body["ciphertextSha256"], CIPHERTEXT_SHA256);
+    assert_no_storage_requests(&server).await;
 
     let promote_server = MockServer::start().await;
     mount_rpc(
@@ -100,6 +102,7 @@ async fn returns_version_and_integrity_for_current_and_promoted_heads() {
     let body = response_json(promoted).await;
     assert_eq!(body["currentVersionRef"], VERSION_REF);
     assert_eq!(body["currentCiphertextSha256"], CIPHERTEXT_SHA256);
+    assert_no_storage_requests(&promote_server).await;
 }
 
 #[tokio::test]
@@ -187,11 +190,7 @@ async fn never_signs_a_download_for_an_unsafe_cleanup_window() {
     assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
     let requests = server.received_requests().await.unwrap();
     assert_eq!(requests.len(), 1);
-    assert!(
-        !requests
-            .iter()
-            .any(|request| request.url.path().contains("/storage/v1/"))
-    );
+    assert_no_storage_requests(&server).await;
 }
 
 #[tokio::test]
@@ -216,4 +215,5 @@ async fn never_signs_a_noncurrent_download() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::CONFLICT);
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    assert_no_storage_requests(&server).await;
 }

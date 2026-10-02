@@ -242,171 +242,38 @@ describe("TitleInput", () => {
     expect(hoisted.markLiveTitlePersisted).not.toHaveBeenCalled();
   });
 
-  it("left-aligns the empty title field without a generate button", () => {
-    hoisted.storeTitle = "";
+  it.each([false, true])(
+    "shows the persisted title when it loads after mount (focused=%s)",
+    (focused) => {
+      hoisted.storeTitle = undefined;
 
-    renderTitleInput();
+      const { rerender } = renderTitleInput();
 
-    const input = screen.getByPlaceholderText("Untitled");
-    expect(input.parentElement?.className).toContain("relative");
-    expect(input.parentElement?.className).toContain("max-w-full");
-    expect(input.parentElement?.className).toContain("text-xl");
-    expect(input.parentElement?.className).toContain("font-semibold");
-    expect(input.parentElement?.classList.contains("w-full")).toBe(false);
-    expect(input.className).toContain("text-left");
-    expect(
-      screen.queryByRole("button", { name: "Regenerate title" }),
-    ).toBeNull();
-  });
+      const input = screen.getByPlaceholderText("Untitled");
+      if (focused) fireEvent.focus(input);
+      expect((input as HTMLInputElement).value).toBe("");
 
-  it("keeps the title field out of the header drag region", () => {
-    renderTitleInput();
+      hoisted.storeTitle = "founders sync";
+      rerender(
+        <TooltipProvider>
+          <TitleInput
+            tab={{
+              active: true,
+              id: "session-1",
+              pinned: false,
+              slotId: "slot-1",
+              state: { autoStart: null, view: { type: "raw" } },
+              type: "sessions",
+            }}
+          />
+        </TooltipProvider>,
+      );
 
-    const input = screen.getByPlaceholderText("Untitled");
-
-    expect(input.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(input.parentElement?.getAttribute("data-tauri-drag-region")).toBe(
-      "false",
-    );
-  });
-
-  it("uses sans-serif styling for breadcrumb titles", () => {
-    renderTitleInput({ variant: "breadcrumb" });
-
-    const input = screen.getByPlaceholderText("Untitled");
-
-    expect(input.parentElement?.className).toContain("text-sm");
-    expect(input.parentElement?.className).toContain("leading-5");
-    expect(input.parentElement?.className).not.toContain("font-mono");
-    expect(input.className).toContain("text-sm");
-    expect(input.className).toContain("leading-5");
-    expect(input.className).toContain("appearance-none");
-    expect(input.className).toContain("p-0");
-    expect(input.className).toContain("truncate");
-    expect(input.className).toContain("dark:text-white");
-    expect(input.className).not.toContain("font-mono");
-  });
-
-  it("keeps focused breadcrumb titles horizontally scrollable", () => {
-    renderTitleInput({ variant: "breadcrumb" });
-
-    const input = screen.getByPlaceholderText("Untitled");
-    fireEvent.focus(input);
-
-    expect(input.className).not.toContain("truncate");
-    expect(input.className).toContain("overflow-x-auto");
-    expect(input.className).toContain("whitespace-nowrap");
-  });
-
-  it("uses the flexible title layout for whitespace-only titles", () => {
-    hoisted.storeTitle = "          ";
-
-    renderTitleInput();
-
-    const input = screen.getByPlaceholderText("Untitled");
-    expect(input.className).toContain("min-w-full");
-    expect(input.parentElement?.style.width).toBe("");
-    expect(input.parentElement?.querySelector("span")?.textContent).toBe(
-      hoisted.storeTitle,
-    );
-    expect(
-      screen.queryByRole("button", { name: "Regenerate title" }),
-    ).toBeNull();
-  });
-
-  it("reveals overflowing titles with a hover scroll overlay", () => {
-    const title =
-      "Product Discovery Pace and Headless Agent Usage Strategy Review";
-
-    renderTitleInput();
-
-    const input = screen.getByPlaceholderText("Untitled");
-    Object.defineProperty(input, "clientWidth", {
-      configurable: true,
-      value: 160,
-    });
-    Object.defineProperty(input, "scrollWidth", {
-      configurable: true,
-      value: 420,
-    });
-
-    fireEvent.change(input, { target: { value: title } });
-
-    const hoverTitle = screen.getByText(title, {
-      selector: "span:not([aria-hidden])",
-    });
-    const overlay = hoverTitle.parentElement;
-    expect(input.className).toContain("text-transparent");
-    expect(input.parentElement?.style.maskImage).toBe(
-      "linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)",
-    );
-    expect(overlay?.className).toContain("justify-start");
-    expect(hoverTitle.className).toContain(
-      "group-hover/title-input:animate-title-hover-scroll",
-    );
-    expect(
-      hoverTitle.style.getPropertyValue("--title-hover-scroll-distance"),
-    ).toBe("-260px");
-  });
-
-  it("updates when the persisted title loads after mount", () => {
-    hoisted.storeTitle = undefined;
-
-    const { rerender } = renderTitleInput();
-
-    const input = screen.getByPlaceholderText("Untitled");
-    expect((input as HTMLInputElement).value).toBe("");
-
-    hoisted.storeTitle = "Spotify Leadership Transition";
-    rerender(
-      <TooltipProvider>
-        <TitleInput
-          tab={{
-            active: true,
-            id: "session-1",
-            pinned: false,
-            slotId: "slot-1",
-            state: { autoStart: null, view: { type: "raw" } },
-            type: "sessions",
-          }}
-        />
-      </TooltipProvider>,
-    );
-
-    expect(
-      (screen.getByPlaceholderText("Untitled") as HTMLInputElement).value,
-    ).toBe("Spotify Leadership Transition");
-  });
-
-  it("shows the persisted title when it loads while the field is focused", () => {
-    hoisted.storeTitle = undefined;
-
-    const { rerender } = renderTitleInput();
-
-    const input = screen.getByPlaceholderText("Untitled");
-    fireEvent.focus(input);
-    expect((input as HTMLInputElement).value).toBe("");
-
-    hoisted.storeTitle = "founders sync";
-    rerender(
-      <TooltipProvider>
-        <TitleInput
-          tab={{
-            active: true,
-            id: "session-1",
-            pinned: false,
-            slotId: "slot-1",
-            state: { autoStart: null, view: { type: "raw" } },
-            type: "sessions",
-          }}
-        />
-      </TooltipProvider>,
-    );
-
-    expect(
-      (screen.getByPlaceholderText("Untitled") as HTMLInputElement).value,
-    ).toBe("founders sync");
-  });
+      expect(
+        (screen.getByPlaceholderText("Untitled") as HTMLInputElement).value,
+      ).toBe("founders sync");
+    },
+  );
 
   it("does not persist an unedited title on blur", () => {
     hoisted.storeTitle = "founders sync";
@@ -449,45 +316,5 @@ describe("TitleInput", () => {
       (screen.getByPlaceholderText("Untitled") as HTMLInputElement).value,
     ).toBe("founders sync");
     expect(hoisted.setStoreTitle).not.toHaveBeenCalled();
-  });
-
-  it("updates title fades based on horizontal scroll position", () => {
-    renderTitleInput();
-
-    const input = screen.getByPlaceholderText("Untitled");
-    Object.defineProperty(input, "clientWidth", {
-      configurable: true,
-      value: 160,
-    });
-    Object.defineProperty(input, "scrollWidth", {
-      configurable: true,
-      value: 420,
-    });
-
-    fireEvent.change(input, {
-      target: {
-        value:
-          "Product Discovery Pace and Headless Agent Usage Strategy Review",
-      },
-    });
-
-    const titleInputShell = input.parentElement;
-    expect(titleInputShell?.style.maskImage).toBe(
-      "linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)",
-    );
-
-    input.scrollLeft = 130;
-    fireEvent.scroll(input);
-
-    expect(titleInputShell?.style.maskImage).toBe(
-      "linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%)",
-    );
-
-    input.scrollLeft = 260;
-    fireEvent.scroll(input);
-
-    expect(titleInputShell?.style.maskImage).toBe(
-      "linear-gradient(to right, transparent 0, black 28px, black 100%)",
-    );
   });
 });

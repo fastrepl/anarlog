@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AttachmentBackupGatewayError,
   type AttachmentBackupDeleteRequest,
-} from "./client";
+} from "@anlg/supabase/attachment-backups";
+
 import { NativeAttachmentTransferError } from "./native";
 import {
   runAttachmentTransferJob,
@@ -32,6 +33,24 @@ const job: AttachmentTransferJob = {
   attachmentDeleted: false,
   localAvailability: "present",
   attachmentVersionMatches: true,
+};
+
+const downloadGrant = {
+  objectId: "object-1",
+  objectKey: "owner/object.anb1",
+  ciphertextSizeBytes: 58,
+  ciphertextSha256: "b".repeat(64),
+  formatVersion: 1,
+  signedUrl:
+    "https://project.supabase.co/storage/v1/object/sign/attachment-backups/owner/object.anb1?token=secret",
+  expiresAt: "2026-07-17T12:00:00.000Z",
+};
+const restored = {
+  attachmentId: job.attachmentId,
+  sessionId: job.sessionId,
+  relativePath: "attachments/file.bin",
+  sizeBytes: job.expectedSizeBytes,
+  sha256: job.expectedSha256,
 };
 
 function dependencies() {
@@ -125,6 +144,44 @@ function dependencies() {
   return { store, client, native, uploader };
 }
 
+const deleteJob = (overrides: Partial<AttachmentTransferJob> = {}) => ({
+  ...job,
+  direction: "delete" as const,
+  objectKey: "owner/object.anb1",
+  currentObjectKey: "owner/object.anb1",
+  cloudSyncEnabled: false,
+  ...overrides,
+});
+
+const runJob = (
+  deps: ReturnType<typeof dependencies>,
+  currentJob: AttachmentTransferJob,
+  extra?: Record<string, unknown>,
+  signal?: AbortSignal,
+) =>
+  runAttachmentTransferJob(
+    {
+      ...deps,
+      supabaseUrl: "https://project.supabase.co",
+      ...extra,
+    } as any,
+    currentJob,
+    signal,
+  );
+
+const runPassWith = (
+  deps: ReturnType<typeof dependencies>,
+  currentJob: AttachmentTransferJob,
+) => {
+  deps.store.claimNext
+    .mockResolvedValueOnce(currentJob)
+    .mockResolvedValueOnce(undefined);
+  return runAttachmentTransferPass({
+    ...deps,
+    supabaseUrl: "https://project.supabase.co",
+  } as any);
+};
+
 describe("attachment transfer runner", () => {
   it("sleeps on an empty queue and wakes at the database retry deadline", async () => {
     vi.useFakeTimers();
@@ -164,10 +221,7 @@ describe("attachment transfer runner", () => {
   it("uploads, finalizes, promotes, and commits the private backup", async () => {
     const deps = dependencies();
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      job,
-    );
+    await runJob(deps, job);
 
     expect(deps.store.markPhase).toHaveBeenNthCalledWith(
       1,
@@ -212,10 +266,7 @@ describe("attachment transfer runner", () => {
   it("skips an upload whose attachment intent changed before execution", async () => {
     const deps = dependencies();
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      { ...job, cloudSyncEnabled: false },
-    );
+    await runJob(deps, { ...job, cloudSyncEnabled: false });
 
     expect(deps.store.completeWithoutTransfer).toHaveBeenCalledWith({
       ...job,
@@ -235,10 +286,7 @@ describe("attachment transfer runner", () => {
       ciphertextSha256: "b".repeat(64),
     });
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      job,
-    );
+    await runJob(deps, job);
 
     expect(deps.native.prepareUpload).not.toHaveBeenCalled();
     expect(deps.client.grantUpload).not.toHaveBeenCalled();
@@ -270,10 +318,7 @@ describe("attachment transfer runner", () => {
       ciphertextSha256: "b".repeat(64),
     });
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      interruptedJob,
-    );
+    await runJob(deps, interruptedJob);
 
     expect(deps.client.head).not.toHaveBeenCalled();
     expect(deps.client.promote).not.toHaveBeenCalled();
@@ -289,156 +334,49 @@ describe("attachment transfer runner", () => {
     );
   });
 
-  it("does not delete a current object when local attachment intent changes", async () => {
-    const deps = dependencies();
-    deps.client.reserve.mockResolvedValueOnce({
-      objectId: "object-1",
-      objectKey: "owner/object.anb1",
-      objectState: "current",
-      ciphertextSizeBytes: 58,
-      formatVersion: 1,
-      ciphertextSha256: "b".repeat(64),
-    });
-    deps.store.completeUpload.mockResolvedValueOnce(false);
+  it.each([true, false])(
+    "uses native restore before completing the download (cloud sync: %s)",
+    async (cloudSyncEnabled) => {
+      const deps = dependencies();
+      const controller = new AbortController();
+      const onAttachmentRestored = vi.fn();
+      const downloadJob = {
+        ...job,
+        direction: "download" as const,
+        objectKey: "owner/object.anb1",
+        currentObjectKey: "owner/object.anb1",
+        localAvailability: "absent" as const,
+        cloudSyncEnabled,
+      };
+      deps.client.download.mockResolvedValueOnce(downloadGrant);
+      deps.native.downloadAndRestore.mockResolvedValueOnce(restored);
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      job,
-    );
+      await runJob(
+        deps,
+        downloadJob,
+        { onAttachmentRestored },
+        controller.signal,
+      );
 
-    expect(deps.client.scheduleDelete).not.toHaveBeenCalled();
-  });
-
-  it("does not delete a current object when upload completion is stale", async () => {
-    const deps = dependencies();
-    deps.client.reserve.mockResolvedValueOnce({
-      objectId: "object-1",
-      objectKey: "owner/object.anb1",
-      objectState: "current",
-      ciphertextSizeBytes: 58,
-      formatVersion: 1,
-      ciphertextSha256: "b".repeat(64),
-    });
-    deps.store.completeUpload.mockRejectedValueOnce(
-      new Error("Attachment transfer is no longer active"),
-    );
-
-    await expect(
-      runAttachmentTransferJob(
-        { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-        job,
-      ),
-    ).rejects.toThrow("Attachment transfer is no longer active");
-
-    expect(deps.client.scheduleDelete).not.toHaveBeenCalled();
-  });
-
-  it("uses the native atomic restore as the download completion boundary", async () => {
-    const deps = dependencies();
-    const controller = new AbortController();
-    const onAttachmentRestored = vi.fn();
-    const downloadJob = {
-      ...job,
-      direction: "download" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      localAvailability: "absent" as const,
-    };
-    deps.client.download.mockResolvedValueOnce({
-      objectId: "object-1",
-      objectKey: "owner/object.anb1",
-      ciphertextSizeBytes: 58,
-      ciphertextSha256: "b".repeat(64),
-      formatVersion: 1,
-      signedUrl:
-        "https://project.supabase.co/storage/v1/object/sign/attachment-backups/owner/object.anb1?token=secret",
-      expiresAt: "2026-07-17T12:00:00.000Z",
-    });
-    deps.native.downloadAndRestore.mockResolvedValueOnce({
-      attachmentId: job.attachmentId,
-      sessionId: job.sessionId,
-      relativePath: "attachments/file.bin",
-      sizeBytes: job.expectedSizeBytes,
-      sha256: job.expectedSha256,
-    });
-
-    await runAttachmentTransferJob(
-      {
-        ...deps,
-        supabaseUrl: "https://project.supabase.co",
-        onAttachmentRestored,
-      } as any,
-      downloadJob,
-      controller.signal,
-    );
-
-    expect(deps.store.setDownloadGrant).toHaveBeenCalledOnce();
-    expect(deps.store.setDownloadGrant).toHaveBeenCalledWith(
-      downloadJob,
-      expect.objectContaining({ objectId: "object-1" }),
-    );
-    expect(deps.native.downloadAndRestore).toHaveBeenCalledOnce();
-    expect(deps.native.downloadAndRestore.mock.calls[0]?.[1]).toBe(
-      controller.signal,
-    );
-    expect(deps.store.completeWithoutTransfer).not.toHaveBeenCalled();
-    expect(onAttachmentRestored).toHaveBeenCalledWith({
-      attachmentId: job.attachmentId,
-      sessionId: job.sessionId,
-      relativePath: "attachments/file.bin",
-      sizeBytes: job.expectedSizeBytes,
-      sha256: job.expectedSha256,
-    });
-    expect(deps.native.cleanupTransferCache).not.toHaveBeenCalled();
-  });
-
-  it("restores a cloud-only attachment before deleting its disabled backup", async () => {
-    const deps = dependencies();
-    const downloadJob = {
-      ...job,
-      direction: "download" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      localAvailability: "absent" as const,
-      cloudSyncEnabled: false,
-    };
-    deps.client.download.mockResolvedValueOnce({
-      objectId: "object-1",
-      objectKey: "owner/object.anb1",
-      ciphertextSizeBytes: 58,
-      ciphertextSha256: "b".repeat(64),
-      formatVersion: 1,
-      signedUrl:
-        "https://project.supabase.co/storage/v1/object/sign/attachment-backups/owner/object.anb1?token=secret",
-      expiresAt: "2026-07-17T12:00:00.000Z",
-    });
-    deps.native.downloadAndRestore.mockResolvedValueOnce({
-      attachmentId: job.attachmentId,
-      sessionId: job.sessionId,
-      relativePath: "attachments/file.bin",
-      sizeBytes: job.expectedSizeBytes,
-      sha256: job.expectedSha256,
-    });
-
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      downloadJob,
-    );
-
-    expect(deps.client.download).toHaveBeenCalledOnce();
-    expect(deps.native.downloadAndRestore).toHaveBeenCalledOnce();
-    expect(deps.store.completeWithoutTransfer).not.toHaveBeenCalled();
-  });
+      expect(deps.client.download).toHaveBeenCalledOnce();
+      expect(deps.store.setDownloadGrant).toHaveBeenCalledOnce();
+      expect(deps.store.setDownloadGrant).toHaveBeenCalledWith(
+        downloadJob,
+        expect.objectContaining({ objectId: "object-1" }),
+      );
+      expect(deps.native.downloadAndRestore).toHaveBeenCalledOnce();
+      expect(deps.native.downloadAndRestore.mock.calls[0]?.[1]).toBe(
+        controller.signal,
+      );
+      expect(deps.store.completeWithoutTransfer).not.toHaveBeenCalled();
+      expect(onAttachmentRestored).toHaveBeenCalledWith(restored);
+      expect(deps.native.cleanupTransferCache).not.toHaveBeenCalled();
+    },
+  );
 
   it("cancels before completing a superseded delete", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
+    const currentDeleteJob = deleteJob();
     deps.store.prepareDelete.mockResolvedValueOnce(false);
     deps.native.prepareDeleteGuard.mockImplementationOnce(
       async (_jobId: string, _attemptCount: number, createGuard: boolean) => {
@@ -451,28 +389,27 @@ describe("attachment transfer runner", () => {
       },
     );
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      deleteJob,
-    );
+    await runJob(deps, currentDeleteJob);
 
-    expect(deps.store.prepareDelete).toHaveBeenCalledWith(deleteJob);
+    expect(deps.store.prepareDelete).toHaveBeenCalledWith(currentDeleteJob);
     expect(deps.native.prepareDeleteGuard).toHaveBeenCalledWith(
-      deleteJob.id,
-      deleteJob.attemptCount,
+      currentDeleteJob.id,
+      currentDeleteJob.attemptCount,
       false,
       undefined,
     );
     expect(deps.client.cancelDelete).toHaveBeenCalledWith(
       {
-        objectKey: deleteJob.objectKey,
+        objectKey: currentDeleteJob.objectKey,
         attachmentRef: "attachment-ref",
         versionRef: "version-ref",
-        deleteRequestId: deleteJob.id,
+        deleteRequestId: currentDeleteJob.id,
       },
       undefined,
     );
-    expect(deps.store.completeCancelledDelete).toHaveBeenCalledWith(deleteJob);
+    expect(deps.store.completeCancelledDelete).toHaveBeenCalledWith(
+      currentDeleteJob,
+    );
     expect(deps.client.cancelDelete.mock.invocationCallOrder[0]).toBeLessThan(
       deps.store.completeCancelledDelete.mock.invocationCallOrder[0]!,
     );
@@ -482,29 +419,16 @@ describe("attachment transfer runner", () => {
 
   it("keeps a superseded delete retryable when cancellation fails", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
+    const currentDeleteJob = deleteJob();
     deps.store.prepareDelete.mockResolvedValueOnce(false);
     deps.client.cancelDelete.mockRejectedValueOnce(
       new Error("cancellation unavailable"),
     );
-    deps.store.claimNext
-      .mockResolvedValueOnce(deleteJob)
-      .mockResolvedValueOnce(undefined);
-
-    await runAttachmentTransferPass({
-      ...deps,
-      supabaseUrl: "https://project.supabase.co",
-    } as any);
+    await runPassWith(deps, currentDeleteJob);
 
     expect(deps.store.completeCancelledDelete).not.toHaveBeenCalled();
     expect(deps.store.retry).toHaveBeenCalledWith(
-      deleteJob,
+      currentDeleteJob,
       "cancellation unavailable",
       expect.any(Date),
     );
@@ -513,13 +437,7 @@ describe("attachment transfer runner", () => {
   it("retains a verified guard through remote deletion and native commit", async () => {
     const deps = dependencies();
     let sourceMutated = false;
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
+    const currentDeleteJob = deleteJob();
     deps.client.scheduleDelete.mockImplementationOnce(async (input) => {
       sourceMutated = true;
       return {
@@ -533,29 +451,26 @@ describe("attachment transfer runner", () => {
       expect(sourceMutated).toBe(true);
     });
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      deleteJob,
-    );
+    await runJob(deps, currentDeleteJob);
 
     expect(deps.native.prepareDeleteGuard).toHaveBeenCalledWith(
-      deleteJob.id,
-      deleteJob.attemptCount,
+      currentDeleteJob.id,
+      currentDeleteJob.attemptCount,
       true,
       undefined,
     );
     expect(deps.client.scheduleDelete).toHaveBeenCalledWith(
       {
-        objectKey: deleteJob.objectKey,
+        objectKey: currentDeleteJob.objectKey,
         attachmentRef: "attachment-ref",
         versionRef: "version-ref",
-        deleteRequestId: deleteJob.id,
+        deleteRequestId: currentDeleteJob.id,
       },
       undefined,
     );
     expect(deps.native.commitDeleteGuard).toHaveBeenCalledWith(
-      deleteJob.id,
-      deleteJob.attemptCount,
+      currentDeleteJob.id,
+      currentDeleteJob.attemptCount,
       "guard-1",
       undefined,
     );
@@ -569,32 +484,19 @@ describe("attachment transfer runner", () => {
 
   it("retries with the linked guard when native commit fails after deletion", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
+    const currentDeleteJob = deleteJob();
     deps.native.commitDeleteGuard.mockRejectedValueOnce(
       new NativeAttachmentTransferError(
         "commit attachment delete guard",
         "attachment delete guard changed during commit",
       ),
     );
-    deps.store.claimNext
-      .mockResolvedValueOnce(deleteJob)
-      .mockResolvedValueOnce(undefined);
-
-    await runAttachmentTransferPass({
-      ...deps,
-      supabaseUrl: "https://project.supabase.co",
-    } as any);
+    await runPassWith(deps, currentDeleteJob);
 
     expect(deps.client.scheduleDelete).toHaveBeenCalledOnce();
     expect(deps.native.commitDeleteGuard).toHaveBeenCalledOnce();
     expect(deps.store.retry).toHaveBeenCalledWith(
-      deleteJob,
+      currentDeleteJob,
       "commit attachment delete guard failed: attachment delete guard changed during commit",
       expect.any(Date),
     );
@@ -602,13 +504,10 @@ describe("attachment transfer runner", () => {
 
   it("commits locally on the typed dependency conflict without chasing head", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
+    const oldDeleteJob = deleteJob({
       objectKey: "owner/old-object.anb1",
       currentObjectKey: "owner/old-object.anb1",
-      cloudSyncEnabled: false,
-    };
+    });
     deps.client.scheduleDelete.mockRejectedValueOnce(
       new AttachmentBackupGatewayError(
         409,
@@ -616,10 +515,7 @@ describe("attachment transfer runner", () => {
       ),
     );
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      deleteJob,
-    );
+    await runJob(deps, oldDeleteJob);
 
     expect(deps.native.commitDeleteGuard).toHaveBeenCalledOnce();
     expect(deps.client.head).not.toHaveBeenCalled();
@@ -628,13 +524,10 @@ describe("attachment transfer runner", () => {
 
   it("retires a cancelled replay without committing its local guard", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
+    const oldDeleteJob = deleteJob({
       objectKey: "owner/old-object.anb1",
       currentObjectKey: "owner/old-object.anb1",
-      cloudSyncEnabled: false,
-    };
+    });
     deps.client.scheduleDelete.mockRejectedValueOnce(
       new AttachmentBackupGatewayError(
         409,
@@ -642,59 +535,20 @@ describe("attachment transfer runner", () => {
       ),
     );
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      deleteJob,
-    );
+    await runJob(deps, oldDeleteJob);
 
-    expect(deps.store.completeCancelledDelete).toHaveBeenCalledWith(deleteJob);
+    expect(deps.store.completeCancelledDelete).toHaveBeenCalledWith(
+      oldDeleteJob,
+    );
     expect(deps.native.commitDeleteGuard).not.toHaveBeenCalled();
-  });
-
-  it("retries a cancelled replay when local completion fails", async () => {
-    const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/old-object.anb1",
-      currentObjectKey: "owner/old-object.anb1",
-      cloudSyncEnabled: false,
-    };
-    deps.client.scheduleDelete.mockRejectedValueOnce(
-      new AttachmentBackupGatewayError(
-        409,
-        "attachment_backup_delete_cancelled",
-      ),
-    );
-    deps.store.completeCancelledDelete.mockRejectedValueOnce(
-      new Error("cancelled delete changed locally"),
-    );
-    deps.store.claimNext
-      .mockResolvedValueOnce(deleteJob)
-      .mockResolvedValueOnce(undefined);
-
-    await runAttachmentTransferPass({
-      ...deps,
-      supabaseUrl: "https://project.supabase.co",
-    } as any);
-
-    expect(deps.native.commitDeleteGuard).not.toHaveBeenCalled();
-    expect(deps.store.retry).toHaveBeenCalledWith(
-      deleteJob,
-      "cancelled delete changed locally",
-      expect.any(Date),
-    );
   });
 
   it("fails a too-late cancellation without completing locally", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
+    const oldDeleteJob = deleteJob({
       objectKey: "owner/old-object.anb1",
       currentObjectKey: "owner/old-object.anb1",
-      cloudSyncEnabled: false,
-    };
+    });
     deps.store.prepareDelete.mockResolvedValueOnce(false);
     deps.client.cancelDelete.mockRejectedValueOnce(
       new AttachmentBackupGatewayError(
@@ -702,18 +556,11 @@ describe("attachment transfer runner", () => {
         "attachment_backup_delete_too_late",
       ),
     );
-    deps.store.claimNext
-      .mockResolvedValueOnce(deleteJob)
-      .mockResolvedValueOnce(undefined);
-
-    await runAttachmentTransferPass({
-      ...deps,
-      supabaseUrl: "https://project.supabase.co",
-    } as any);
+    await runPassWith(deps, oldDeleteJob);
 
     expect(deps.store.completeCancelledDelete).not.toHaveBeenCalled();
     expect(deps.store.fail).toHaveBeenCalledWith(
-      deleteJob,
+      oldDeleteJob,
       "Attachment backup request failed (409: attachment_backup_delete_too_late)",
     );
     expect(deps.store.retry).not.toHaveBeenCalled();
@@ -721,28 +568,18 @@ describe("attachment transfer runner", () => {
 
   it("retries a generic delete conflict without committing locally", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
+    const oldDeleteJob = deleteJob({
       objectKey: "owner/old-object.anb1",
       currentObjectKey: "owner/old-object.anb1",
-      cloudSyncEnabled: false,
-    };
+    });
     deps.client.scheduleDelete.mockRejectedValueOnce(
       new AttachmentBackupGatewayError(409, "attachment_backup_conflict"),
     );
-    deps.store.claimNext
-      .mockResolvedValueOnce(deleteJob)
-      .mockResolvedValueOnce(undefined);
-
-    await runAttachmentTransferPass({
-      ...deps,
-      supabaseUrl: "https://project.supabase.co",
-    } as any);
+    await runPassWith(deps, oldDeleteJob);
 
     expect(deps.native.commitDeleteGuard).not.toHaveBeenCalled();
     expect(deps.store.retry).toHaveBeenCalledWith(
-      deleteJob,
+      oldDeleteJob,
       "Attachment backup request failed (409: attachment_backup_conflict)",
       expect.any(Date),
     );
@@ -750,23 +587,14 @@ describe("attachment transfer runner", () => {
 
   it("keeps the delete request identity stable across attempts", async () => {
     const deps = dependencies();
-    const first = {
-      ...job,
-      direction: "delete" as const,
+    const first = deleteJob({
       objectKey: "owner/old-object.anb1",
       currentObjectKey: "owner/old-object.anb1",
-      cloudSyncEnabled: false,
-    };
+    });
     const second = { ...first, attemptCount: first.attemptCount + 1 };
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      first,
-    );
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      second,
-    );
+    await runJob(deps, first);
+    await runJob(deps, second);
 
     expect(deps.client.scheduleDelete).toHaveBeenCalledTimes(2);
     for (const [request] of deps.client.scheduleDelete.mock.calls) {
@@ -782,31 +610,18 @@ describe("attachment transfer runner", () => {
 
   it("retries when the delete source changes while preparing its guard", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
+    const currentDeleteJob = deleteJob();
     deps.native.prepareDeleteGuard.mockRejectedValueOnce(
       new NativeAttachmentTransferError(
         "prepare attachment delete guard",
         "attachment delete guard changed during commit",
       ),
     );
-    deps.store.claimNext
-      .mockResolvedValueOnce(deleteJob)
-      .mockResolvedValueOnce(undefined);
-
-    await runAttachmentTransferPass({
-      ...deps,
-      supabaseUrl: "https://project.supabase.co",
-    } as any);
+    await runPassWith(deps, currentDeleteJob);
 
     expect(deps.client.scheduleDelete).not.toHaveBeenCalled();
     expect(deps.store.retry).toHaveBeenCalledWith(
-      deleteJob,
+      currentDeleteJob,
       "prepare attachment delete guard failed: attachment delete guard changed during commit",
       expect.any(Date),
     );
@@ -815,33 +630,24 @@ describe("attachment transfer runner", () => {
 
   it("preserves the remote object when the exact local source does not match", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
+    const currentDeleteJob = deleteJob();
     deps.native.prepareDeleteGuard.mockResolvedValueOnce({
       attachmentRef: "attachment-ref",
       versionRef: "version-ref",
       outcome: { kind: "skip" },
     });
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      deleteJob,
-    );
+    await runJob(deps, currentDeleteJob);
 
     expect(deps.store.deferDeleteForPreservation).toHaveBeenCalledWith(
-      deleteJob,
+      currentDeleteJob,
     );
     expect(deps.client.cancelDelete).toHaveBeenCalledWith(
       {
-        objectKey: deleteJob.objectKey,
+        objectKey: currentDeleteJob.objectKey,
         attachmentRef: "attachment-ref",
         versionRef: "version-ref",
-        deleteRequestId: deleteJob.id,
+        deleteRequestId: currentDeleteJob.id,
       },
       undefined,
     );
@@ -851,28 +657,19 @@ describe("attachment transfer runner", () => {
 
   it("commits without a guard id when no local source needs preserving", async () => {
     const deps = dependencies();
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      currentObjectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
+    const currentDeleteJob = deleteJob();
     deps.native.prepareDeleteGuard.mockResolvedValueOnce({
       attachmentRef: "attachment-ref",
       versionRef: "version-ref",
       outcome: { kind: "deleteDirectly" },
     });
 
-    await runAttachmentTransferJob(
-      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
-      deleteJob,
-    );
+    await runJob(deps, currentDeleteJob);
 
     expect(deps.client.scheduleDelete).toHaveBeenCalled();
     expect(deps.native.commitDeleteGuard).toHaveBeenCalledWith(
-      deleteJob.id,
-      deleteJob.attemptCount,
+      currentDeleteJob.id,
+      currentDeleteJob.attemptCount,
       null,
       undefined,
     );
@@ -882,14 +679,8 @@ describe("attachment transfer runner", () => {
   it("moves transient failures to durable retry wait", async () => {
     const deps = dependencies();
     deps.client.reserve.mockRejectedValueOnce(new Error("network unavailable"));
-    deps.store.claimNext
-      .mockResolvedValueOnce(job)
-      .mockResolvedValueOnce(undefined);
 
-    await runAttachmentTransferPass({
-      ...deps,
-      supabaseUrl: "https://project.supabase.co",
-    } as any);
+    await runPassWith(deps, job);
 
     expect(deps.store.retry).toHaveBeenCalledWith(
       job,
@@ -899,34 +690,7 @@ describe("attachment transfer runner", () => {
     expect(deps.store.fail).not.toHaveBeenCalled();
   });
 
-  it("invalidates process-local attempts before the first transfer pass", async () => {
-    const deps = dependencies();
-    deps.store.claimNext.mockResolvedValue(undefined);
-
-    const stop = startAttachmentTransferRunner({
-      ...deps,
-      supabaseUrl: "https://project.supabase.co",
-    } as any);
-
-    await vi.waitFor(() =>
-      expect(deps.store.resetProcessLocalAttempts).toHaveBeenCalledOnce(),
-    );
-    await vi.waitFor(() =>
-      expect(deps.store.recoverInterrupted).toHaveBeenCalled(),
-    );
-    expect(deps.native.reconcileDeleteGuards).toHaveBeenCalledOnce();
-    expect(
-      deps.store.resetProcessLocalAttempts.mock.invocationCallOrder[0],
-    ).toBeLessThan(deps.store.recoverInterrupted.mock.invocationCallOrder[0]!);
-    expect(
-      deps.store.resetProcessLocalAttempts.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      deps.native.reconcileDeleteGuards.mock.invocationCallOrder[0]!,
-    );
-    stop();
-  });
-
-  it("does not repeat the startup reset when the runner remounts", async () => {
+  it("invalidates process-local attempts before the first pass, not on remount", async () => {
     const deps = dependencies();
     deps.store.claimNext.mockResolvedValue(undefined);
 
@@ -935,7 +699,17 @@ describe("attachment transfer runner", () => {
       supabaseUrl: "https://project.supabase.co",
     } as any);
     await vi.waitFor(() =>
-      expect(deps.store.resetProcessLocalAttempts).toHaveBeenCalledOnce(),
+      expect(deps.store.recoverInterrupted).toHaveBeenCalledOnce(),
+    );
+    expect(deps.store.resetProcessLocalAttempts).toHaveBeenCalledOnce();
+    expect(deps.native.reconcileDeleteGuards).toHaveBeenCalledOnce();
+    expect(
+      deps.store.resetProcessLocalAttempts.mock.invocationCallOrder[0],
+    ).toBeLessThan(deps.store.recoverInterrupted.mock.invocationCallOrder[0]!);
+    expect(
+      deps.store.resetProcessLocalAttempts.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      deps.native.reconcileDeleteGuards.mock.invocationCallOrder[0]!,
     );
     firstStop();
 

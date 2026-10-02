@@ -149,26 +149,6 @@ mod tests {
     use super::windows_tz_to_iana;
 
     #[test]
-    fn maps_common_windows_zones_to_iana() {
-        assert_eq!(
-            windows_tz_to_iana("Turkey Standard Time"),
-            Some("Europe/Istanbul")
-        );
-        assert_eq!(
-            windows_tz_to_iana("Taipei Standard Time"),
-            Some("Asia/Taipei")
-        );
-        assert_eq!(
-            windows_tz_to_iana("W. Australia Standard Time"),
-            Some("Australia/Perth")
-        );
-        assert_eq!(
-            windows_tz_to_iana("Central Standard Time (Mexico)"),
-            Some("America/Mexico_City")
-        );
-    }
-
-    #[test]
     fn mapped_iana_names_parse_in_chrono_tz() {
         for windows_tz in [
             "Turkey Standard Time",

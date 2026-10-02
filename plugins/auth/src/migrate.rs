@@ -358,7 +358,11 @@ mod test {
         let temp = tempdir().unwrap();
         let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
         let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+        let new_auth_path = temp
+            .path()
+            .join("nested")
+            .join("com.hyprnote.stable")
+            .join(FILENAME);
 
         std::fs::create_dir_all(legacy_auth_path.parent().unwrap()).unwrap();
         std::fs::write(&legacy_auth_path, auth_json("legacy-token")).unwrap();
@@ -444,25 +448,6 @@ mod test {
             migrated_store.get("other").unwrap(),
             &serde_json::json!("value")
         );
-    }
-
-    #[test]
-    fn migration_creates_new_auth_parent_directory() {
-        let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let new_auth_path = temp
-            .path()
-            .join("nested")
-            .join("com.hyprnote.stable")
-            .join(FILENAME);
-
-        std::fs::create_dir_all(legacy_auth_path.parent().unwrap()).unwrap();
-        std::fs::write(&legacy_auth_path, auth_json("legacy-token")).unwrap();
-
-        migrate_auth_state(&legacy_auth_path, &legacy_store_json_path, &new_auth_path).unwrap();
-
-        assert!(new_auth_path.exists());
     }
 
     #[test]

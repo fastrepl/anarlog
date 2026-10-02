@@ -8,7 +8,6 @@ anlg-api-auth = { workspace = true }
 anlg-api-error = { workspace = true }
 anlg-api-nango = { workspace = true }
 anlg-google-mail = { workspace = true, features = ["utoipa"] }
-anlg-nango = { workspace = true }
 
 axum = { workspace = true }
 utoipa = { workspace = true }

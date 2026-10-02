@@ -56,6 +56,9 @@ import {
   sanitizeErrorEvent,
 } from "./error-reporting";
 
+const creditBalanceMessage =
+  "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.";
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.listener = undefined;
@@ -83,7 +86,7 @@ beforeEach(() => {
 });
 
 describe("normalizeOperationalError", () => {
-  it("removes structured API failure messages", () => {
+  it("removes structured, primitive, and arbitrary object failure messages", () => {
     expect(
       normalizeOperationalError(
         {
@@ -95,9 +98,6 @@ describe("normalizeOperationalError", () => {
         "integration_connect",
       ).message,
     ).toBe("integration_connect failed");
-  });
-
-  it("removes primitive failures and arbitrary object data", () => {
     expect(
       normalizeOperationalError("connection refused", "sync").message,
     ).toBe("sync failed");
@@ -241,9 +241,6 @@ describe("sanitizeErrorEvent", () => {
 });
 
 describe("user-caused failures", () => {
-  const creditBalanceMessage =
-    "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.";
-
   it("drops account and credential failures before they reach Sentry", () => {
     expect(
       sanitizeErrorEvent({
@@ -270,11 +267,17 @@ describe("user-caused failures", () => {
       }),
     ).not.toBeNull();
   });
+});
 
-  it("never captures them as operational errors", () => {
+describe("captureOperationalError", () => {
+  it("drops user-caused and archived errors but captures operational failures", () => {
     captureOperationalError(new Error(creditBalanceMessage), {
       operation: "chat_completion",
     });
+    captureOperationalError(
+      new Error("[runBatch] error handling batch response"),
+      { operation: "batch_persist" },
+    );
 
     expect(mocks.withScope).not.toHaveBeenCalled();
 
@@ -315,15 +318,6 @@ describe("archived operational noise", () => {
         message: "native_error:tauri_plugin_tracing::ext:35",
       }),
     ).toBeNull();
-  });
-
-  it("never captures archived types as operational errors", () => {
-    captureOperationalError(
-      new Error("[runBatch] error handling batch response"),
-      { operation: "batch_persist" },
-    );
-
-    expect(mocks.withScope).not.toHaveBeenCalled();
   });
 });
 

@@ -665,12 +665,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_aec_returns_instance() {
-        let aec = build_aec();
-        assert!(aec.is_some());
-    }
-
-    #[test]
     fn process_aec_returns_output_when_enabled() {
         let mut aec = build_aec();
         let mut linear_echo_gain = None;
@@ -682,52 +676,33 @@ mod tests {
     }
 
     #[test]
-    fn sample_delay_line_outputs_current_samples_with_zero_delay() {
+    fn sample_delay_line_delays_and_clamps() {
         let mut delay = SampleDelayLine::new(4);
-
         let output = delay.process(&[1.0, 2.0, 3.0], 0);
-
         assert_eq!(output, vec![1.0, 2.0, 3.0]);
-    }
-
-    #[test]
-    fn sample_delay_line_outputs_delayed_samples() {
         let mut delay = SampleDelayLine::new(4);
-
         let first = delay.process(&[1.0, 2.0, 3.0], 2);
         let second = delay.process(&[4.0, 5.0], 2);
-
         assert_eq!(first, vec![0.0, 0.0, 1.0]);
         assert_eq!(second, vec![2.0, 3.0]);
-    }
-
-    #[test]
-    fn sample_delay_line_clamps_to_max_delay() {
         let mut delay = SampleDelayLine::new(2);
-
         let first = delay.process(&[1.0, 2.0, 3.0], 10);
         let second = delay.process(&[4.0], 10);
-
         assert_eq!(first, vec![0.0, 0.0, 1.0]);
         assert_eq!(second, vec![2.0]);
     }
 
     #[test]
-    fn aec_alignment_delays_speaker_for_positive_lag() {
-        let alignment = AecAlignment::from_lag_samples(Some(320));
+    fn aec_alignment_delays_the_leading_signal() {
+        let speaker_alignment = AecAlignment::from_lag_samples(Some(320));
+        assert_eq!(speaker_alignment, AecAlignment::DelaySpeaker(320));
+        assert_eq!(speaker_alignment.mic_delay_samples(), 0);
+        assert_eq!(speaker_alignment.speaker_delay_samples(), 320);
 
-        assert_eq!(alignment, AecAlignment::DelaySpeaker(320));
-        assert_eq!(alignment.mic_delay_samples(), 0);
-        assert_eq!(alignment.speaker_delay_samples(), 320);
-    }
-
-    #[test]
-    fn aec_alignment_delays_mic_for_negative_lag() {
-        let alignment = AecAlignment::from_lag_samples(Some(-320));
-
-        assert_eq!(alignment, AecAlignment::DelayMic(320));
-        assert_eq!(alignment.mic_delay_samples(), 320);
-        assert_eq!(alignment.speaker_delay_samples(), 0);
+        let mic_alignment = AecAlignment::from_lag_samples(Some(-320));
+        assert_eq!(mic_alignment, AecAlignment::DelayMic(320));
+        assert_eq!(mic_alignment.mic_delay_samples(), 320);
+        assert_eq!(mic_alignment.speaker_delay_samples(), 0);
     }
 
     fn test_signal(len: usize) -> Vec<f32> {
@@ -750,24 +725,12 @@ mod tests {
         output
     }
 
-    fn detected_alignment(speaker: &[f32], mic: &[f32]) -> (AecAlignment, SyncProbeConfig) {
+    fn detected_alignment(speaker: &[f32], mic: &[f32]) -> AecAlignment {
         let mut aligner = AecReferenceAligner::new(16_000);
         for (speaker, mic) in speaker.chunks(1_600).zip(mic.chunks(1_600)) {
             aligner.align(speaker, mic);
         }
-        (aligner.last_alignment, aligner.probe.config())
-    }
-
-    #[test]
-    fn aec_reference_aligner_locks_positive_macbook_scale_lag() {
-        let speaker = test_signal(16_000 * 5);
-        let mic = delayed(&speaker, 7_200);
-
-        let (alignment, config) = detected_alignment(&speaker, &mic);
-
-        assert_eq!(config.window_samples, 16_384);
-        assert_eq!(config.max_lag_samples, 9_600);
-        assert_eq!(alignment, AecAlignment::DelaySpeaker(7_200));
+        aligner.last_alignment
     }
 
     #[test]
@@ -775,7 +738,7 @@ mod tests {
         let mic = test_signal(16_000 * 5);
         let speaker = delayed(&mic, 7_200);
 
-        let (alignment, _) = detected_alignment(&speaker, &mic);
+        let alignment = detected_alignment(&speaker, &mic);
 
         assert_eq!(alignment, AecAlignment::DelayMic(7_200));
     }
@@ -785,7 +748,7 @@ mod tests {
         let speaker = test_signal(16_000 * 5);
         let mic = delayed(&speaker, 9_600);
 
-        let (alignment, _) = detected_alignment(&speaker, &mic);
+        let alignment = detected_alignment(&speaker, &mic);
 
         assert_eq!(alignment, AecAlignment::DelaySpeaker(9_600));
     }

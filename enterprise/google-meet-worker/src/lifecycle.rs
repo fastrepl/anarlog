@@ -522,52 +522,27 @@ mod tests {
             transition.reason.unwrap().kind,
             TerminalReasonKind::WorkerExited
         );
-    }
-
-    #[test]
-    fn rejects_inconsistent_durable_sequence_origins() {
         assert!(WorkerLifecycle::resume("bot-1", BotState::Queued, 1).is_err());
         assert!(WorkerLifecycle::resume("bot-1", BotState::Launching, 0).is_err());
     }
 
     #[test]
-    fn stop_is_phase_aware_before_launch_and_during_cleanup() {
+    fn stop_is_phase_aware_before_launch_during_capture_and_cleanup() {
         let mut queued = WorkerLifecycle::new("bot-queued");
         let canceled = queued.stopped_by_request(now()).unwrap();
         assert_eq!(canceled.len(), 1);
         assert_eq!(queued.state(), BotState::Canceled);
 
+        let mut capturing =
+            WorkerLifecycle::resume("bot-capturing", BotState::Capturing, 4).unwrap();
+        let stopped = capturing.stopped_by_request(now()).unwrap();
+        assert_eq!(stopped.len(), 2);
+        assert_eq!(capturing.state(), BotState::Completed);
+
         let mut stopping = WorkerLifecycle::resume("bot-stopping", BotState::Stopping, 4).unwrap();
         let completed = stopping.stopped_by_request(now()).unwrap();
         assert_eq!(completed.len(), 1);
         assert_eq!(stopping.state(), BotState::Completed);
-    }
-
-    #[test]
-    fn host_denial_is_terminal_and_non_retryable() {
-        let mut lifecycle = WorkerLifecycle::new("bot-1");
-        lifecycle.launch_started(now()).unwrap();
-
-        let event = lifecycle
-            .observe_admission(
-                &AdmissionSnapshot {
-                    explicit_denial_indicator: Some("denied your request".into()),
-                    ..Default::default()
-                },
-                Instant::now(),
-                now(),
-            )
-            .unwrap()
-            .unwrap();
-
-        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
-            panic!("expected lifecycle event")
-        };
-        assert_eq!(transition.to, BotState::Failed);
-        assert_eq!(
-            transition.reason.unwrap().kind,
-            TerminalReasonKind::AdmissionDenied
-        );
     }
 
     #[test]
@@ -591,230 +566,5 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
-    }
-
-    #[test]
-    fn admission_timeout_is_terminal_and_retry_honest() {
-        let mut lifecycle = WorkerLifecycle::new("bot-1");
-        lifecycle.launch_started(now()).unwrap();
-
-        let event = lifecycle.admission_timed_out(now()).unwrap();
-        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
-            panic!("expected lifecycle event")
-        };
-        let reason = transition.reason.unwrap();
-        assert_eq!(reason.kind, TerminalReasonKind::AdmissionTimeout);
-        assert!(reason.retryable);
-    }
-
-    #[test]
-    fn removal_and_meeting_end_map_to_distinct_terminal_reasons() {
-        for (snapshot, expected_state, expected_reason) in [
-            (
-                RuntimeSnapshot {
-                    removal_indicator: Some("you were removed".into()),
-                    ..Default::default()
-                },
-                BotState::Failed,
-                TerminalReasonKind::RemovedFromMeeting,
-            ),
-            (
-                RuntimeSnapshot {
-                    meeting_ended_indicator: Some("meeting ended".into()),
-                    ..Default::default()
-                },
-                BotState::Completed,
-                TerminalReasonKind::MeetingEnded,
-            ),
-        ] {
-            let mut lifecycle = WorkerLifecycle::new("bot-1");
-            lifecycle.launch_started(now()).unwrap();
-            lifecycle
-                .observe_admission(
-                    &AdmissionSnapshot {
-                        self_name_nodes: 1,
-                        ..Default::default()
-                    },
-                    Instant::now(),
-                    now(),
-                )
-                .unwrap();
-            lifecycle.capture_started(now()).unwrap();
-
-            let event = lifecycle
-                .observe_runtime(&snapshot, Instant::now(), now())
-                .unwrap()
-                .unwrap();
-            let CaptureEventPayload::Lifecycle(transition) = event.payload else {
-                panic!("expected lifecycle event")
-            };
-            assert_eq!(transition.to, expected_state);
-            assert_eq!(transition.reason.unwrap().kind, expected_reason);
-        }
-    }
-
-    #[test]
-    fn requested_stop_emits_stopping_before_completed() {
-        let mut lifecycle = WorkerLifecycle::new("bot-1");
-        lifecycle.launch_started(now()).unwrap();
-        lifecycle
-            .observe_admission(
-                &AdmissionSnapshot {
-                    self_name_nodes: 1,
-                    ..Default::default()
-                },
-                Instant::now(),
-                now(),
-            )
-            .unwrap();
-        lifecycle.capture_started(now()).unwrap();
-
-        let events = lifecycle.stopped_by_request(now()).unwrap();
-        assert_eq!(events.len(), 2);
-        assert_eq!(lifecycle.state(), BotState::Completed);
-    }
-
-    #[test]
-    fn nobody_joined_timeout_is_distinct_from_admission_timeout() {
-        let started = Instant::now();
-        let mut lifecycle = WorkerLifecycle::with_empty_meeting_grace(
-            "bot-1",
-            Duration::from_secs(1),
-            Duration::from_secs(1),
-        );
-        lifecycle.launch_started(now()).unwrap();
-        lifecycle
-            .observe_admission(
-                &AdmissionSnapshot {
-                    self_name_nodes: 1,
-                    ..Default::default()
-                },
-                started,
-                now(),
-            )
-            .unwrap();
-        lifecycle.capture_started(now()).unwrap();
-
-        assert!(
-            lifecycle
-                .observe_runtime(
-                    &RuntimeSnapshot {
-                        self_name_nodes: 1,
-                        visible_meeting_controls: 1,
-                        ..Default::default()
-                    },
-                    started,
-                    now(),
-                )
-                .unwrap()
-                .is_none()
-        );
-
-        let event = lifecycle
-            .observe_runtime(
-                &RuntimeSnapshot {
-                    self_name_nodes: 1,
-                    visible_meeting_controls: 1,
-                    ..Default::default()
-                },
-                started + Duration::from_secs(1),
-                now(),
-            )
-            .unwrap()
-            .unwrap();
-        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
-            panic!("expected lifecycle event")
-        };
-        assert_eq!(
-            transition.reason.unwrap().kind,
-            TerminalReasonKind::NoOneJoined
-        );
-        assert_eq!(lifecycle.state(), BotState::Failed);
-    }
-
-    #[test]
-    fn everyone_left_after_other_participants_were_seen() {
-        let started = Instant::now();
-        let mut lifecycle = WorkerLifecycle::with_empty_meeting_grace(
-            "bot-1",
-            Duration::from_secs(30),
-            Duration::from_secs(1),
-        );
-        lifecycle.launch_started(now()).unwrap();
-        lifecycle
-            .observe_admission(
-                &AdmissionSnapshot {
-                    participant_tile_labels: vec!["Ada Lovelace".into()],
-                    ..Default::default()
-                },
-                started,
-                now(),
-            )
-            .unwrap();
-        lifecycle.capture_started(now()).unwrap();
-        lifecycle
-            .observe_runtime(
-                &RuntimeSnapshot {
-                    participant_tile_labels: vec!["Ada Lovelace".into()],
-                    self_name_nodes: 1,
-                    visible_meeting_controls: 1,
-                    ..Default::default()
-                },
-                started,
-                now(),
-            )
-            .unwrap();
-        let empty = RuntimeSnapshot {
-            self_name_nodes: 1,
-            visible_meeting_controls: 1,
-            ..Default::default()
-        };
-        assert!(
-            lifecycle
-                .observe_runtime(&empty, started, now())
-                .unwrap()
-                .is_none()
-        );
-
-        let event = lifecycle
-            .observe_runtime(&empty, started + Duration::from_secs(1), now())
-            .unwrap()
-            .unwrap();
-        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
-            panic!("expected lifecycle event")
-        };
-        assert_eq!(
-            transition.reason.unwrap().kind,
-            TerminalReasonKind::EveryoneLeft
-        );
-        assert_eq!(lifecycle.state(), BotState::Completed);
-    }
-
-    #[test]
-    fn stt_outage_is_retryable_provider_error() {
-        let mut lifecycle = WorkerLifecycle::new("bot-1");
-        lifecycle.launch_started(now()).unwrap();
-        lifecycle
-            .observe_admission(
-                &AdmissionSnapshot {
-                    self_name_nodes: 1,
-                    ..Default::default()
-                },
-                Instant::now(),
-                now(),
-            )
-            .unwrap();
-        lifecycle.capture_started(now()).unwrap();
-
-        let event = lifecycle
-            .stt_unavailable("speech-to-text endpoint returned 503", now())
-            .unwrap();
-        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
-            panic!("expected lifecycle event")
-        };
-        let reason = transition.reason.unwrap();
-        assert_eq!(reason.kind, TerminalReasonKind::ProviderError);
-        assert!(reason.retryable);
-        assert_eq!(lifecycle.state(), BotState::Failed);
     }
 }

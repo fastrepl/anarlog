@@ -6,6 +6,8 @@ pub struct ListSessions<'a> {
     pub query: Option<&'a str>,
     /// Exact recurring-series id match.
     pub series_id: Option<&'a str>,
+    /// Exact folder path match, including meetings in its subfolders.
+    pub folder_path: Option<&'a str>,
     pub limit: u32,
     pub offset: u32,
 }
@@ -21,6 +23,7 @@ pub struct SessionListItem {
     pub started_at: String,
     pub ended_at: String,
     pub series_id: String,
+    pub folder_path: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]

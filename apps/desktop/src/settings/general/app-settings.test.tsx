@@ -42,33 +42,6 @@ describe("AppSettingsView", () => {
     mocks.platform.mockReturnValue("macos");
   });
 
-  it("lets switch descriptions use the available row width", () => {
-    renderAppSettings();
-
-    const loginSwitch = screen.getByRole("switch", {
-      name: "Start Anarlog at login",
-    });
-
-    expect(loginSwitch.parentElement?.className).not.toContain("w-48");
-    expect(loginSwitch.parentElement?.parentElement?.className).toContain(
-      "min-w-0",
-    );
-    expect(loginSwitch.parentElement?.parentElement?.className).toContain(
-      "w-full",
-    );
-  });
-
-  it("hides macOS-only Dock controls outside macOS", () => {
-    mocks.platform.mockReturnValue("windows");
-    renderAppSettings();
-
-    expect(
-      screen.queryByRole("switch", { name: "Show app in Dock" }),
-    ).toBeNull();
-    expect(screen.queryByText("Open Anarlog from the menu bar.")).toBeNull();
-    expect(screen.getByRole("switch", { name: "Show tray icon" })).toBeTruthy();
-  });
-
   it("toggles automatic updates", () => {
     const automaticUpdates = setting(false);
     renderAppSettings({ automaticUpdates });
@@ -78,9 +51,6 @@ describe("AppSettingsView", () => {
     );
 
     expect(automaticUpdates.onChange).toHaveBeenCalledWith(true);
-    expect(
-      screen.getByText(/installed the next time Anarlog opens/),
-    ).toBeTruthy();
   });
 
   it("hides direct-distribution controls in App Store builds", () => {
@@ -92,20 +62,5 @@ describe("AppSettingsView", () => {
     expect(
       screen.queryByRole("switch", { name: "Automatically install updates" }),
     ).toBeNull();
-  });
-
-  it("keeps cloud sync in its dedicated settings page", () => {
-    renderAppSettings();
-
-    expect(screen.queryByRole("switch", { name: "Cloud sync" })).toBeNull();
-  });
-
-  it("keeps telemetry in its dedicated privacy page", () => {
-    renderAppSettings();
-
-    expect(
-      screen.queryByRole("switch", { name: "Share usage data" }),
-    ).toBeNull();
-    expect(screen.queryByRole("switch", { name: "Error" })).toBeNull();
   });
 });

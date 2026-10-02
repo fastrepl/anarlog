@@ -341,9 +341,17 @@ export type LegacyImportItemReport = { sourcePath: string; sourceKind: string; s
 export type LegacyImportReport = { state: StorageMigrationState; latestRun: LegacyImportRun | null; items: LegacyImportItemReport[]; targets: LegacyImportTargetReport[] }
 export type LegacyImportRun = { id: string; importerVersion: number; sourceRoot: string; dryRun: boolean; status: string; discoveredCount: number; importedCount: number; matchedCount: number; skippedCount: number; conflictCount: number; errorCount: number; startedAt: string; completedAt: string | null; error: string }
 export type LegacyImportTargetReport = { sourcePath: string; tableName: string; targetId: string; status: string; error: string }
-export type ListMeetingsInput = { query: string | null; series_id: string | null; limit: number | null; offset: number | null }
-export type Meeting = { id: string; title: string; kind: string; status: string; created_at: string; updated_at: string; started_at: string; ended_at: string; timezone: string; language: string; series_id: string; note: Document | null; summaries: Document[]; participants: Participant[]; action_items: ActionItem[] }
-export type MeetingListItem = { id: string; title: string; kind: string; status: string; created_at: string; updated_at: string; started_at: string; ended_at: string; series_id: string }
+export type ListMeetingsInput = { query: string | null; series_id: string | null; folder_path?: string | null; limit: number | null; offset: number | null }
+export type Meeting = { id: string; title: string; kind: string; status: string; created_at: string; updated_at: string; started_at: string; ended_at: string; timezone: string; language: string; series_id: string; 
+/**
+ * Folder path such as `Projects/Launch`; null when the meeting is not in a folder.
+ */
+folder_path?: string | null; note: Document | null; summaries: Document[]; participants: Participant[]; action_items: ActionItem[] }
+export type MeetingListItem = { id: string; title: string; kind: string; status: string; created_at: string; updated_at: string; started_at: string; ended_at: string; series_id: string; 
+/**
+ * Folder path such as `Projects/Launch`; null when the meeting is not in a folder.
+ */
+folder_path?: string | null }
 export type MeetingPage = { meetings: MeetingListItem[]; pagination: Pagination }
 export type Pagination = { offset: number; limit: number; returned: number; total: number | null; next_offset: number | null }
 export type Participant = { human_id: string; display_name: string; email: string; role: string; job_title: string; organization_id: string; organization_name: string }

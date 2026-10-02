@@ -3,7 +3,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -15,7 +14,6 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useBillingAccess } from "~/auth/billing-context";
-import { useToastAction } from "~/store/zustand/toast-action";
 
 type SttSettingsContextType = {
   accordionValue: string;
@@ -36,15 +34,6 @@ export function SttSettingsProvider({
 }) {
   const [accordionValue, setAccordionValue] = useState<string>("");
   const { upgradeToPro } = useBillingAccess();
-
-  const toastActionTarget = useToastAction((state) => state.target);
-  const clearToastActionTarget = useToastAction((state) => state.clearTarget);
-
-  useEffect(() => {
-    if (toastActionTarget === "stt") {
-      clearToastActionTarget();
-    }
-  }, [toastActionTarget, clearToastActionTarget]);
 
   const [queuedDownloads, setQueuedDownloads] = useState<LocalModel[]>([]);
   const queuedDownloadsRef = useRef<Set<LocalModel>>(new Set());

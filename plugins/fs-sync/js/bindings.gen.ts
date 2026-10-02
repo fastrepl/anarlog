@@ -150,6 +150,14 @@ async audioPath(sessionId: string) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async audioPeaks(sessionId: string) : Promise<Result<AudioPeaks, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_peaks", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async audioCopy(sourceSessionId: string, targetSessionId: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_copy", { sourceSessionId, targetSessionId }) };
@@ -291,6 +299,7 @@ export type AttachmentInfo = { attachmentId: string; path: string; extension: st
 export type AttachmentSaveResult = { path: string; attachmentId: string }
 export type AudioFileMetadata = { filename: string; contentType: string; sizeBytes: number; sha256: string }
 export type AudioImportEvent = { type: "audioImportStarted"; session_id: string } | { type: "audioImportProgress"; session_id: string; percentage: number } | { type: "audioImportCompleted"; session_id: string } | { type: "audioImportFailed"; session_id: string; error: string }
+export type AudioPeaks = { duration: number; channels: number[][] }
 export type AudioSourceMetadata = { createdAt: string | null; modifiedAt: string | null; durationMs: number | null }
 export type FolderInfo = { name: string; parent_folder_id: string | null }
 export type FolderSessionUpdate = { sessionId: string; folderId: string }

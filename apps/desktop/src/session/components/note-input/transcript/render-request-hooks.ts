@@ -4,6 +4,9 @@ import type { RenderTranscriptRequest } from "@anlg/plugin-transcription";
 
 import {
   type TranscriptRecord,
+  getSessionParticipantHumanIds,
+  getSessionTranscriptRecords,
+  getTranscriptHumans,
   useSessionParticipantHumanIds,
   useSessionTranscripts,
   useTranscript,
@@ -14,12 +17,72 @@ import {
   collectAssignedHumanIdsFromTranscriptRows,
   type TranscriptRow,
 } from "~/stt/render-transcript";
-import { useSpeakerContext } from "~/stt/speaker-context-query";
+import {
+  getSpeakerContext,
+  useSpeakerContext,
+} from "~/stt/speaker-context-query";
 
 export type TranscriptRowWithId = {
   transcriptId: string;
   row: TranscriptRow;
 };
+
+export function toTranscriptRows(
+  transcripts: readonly TranscriptRecord[],
+): TranscriptRowWithId[] {
+  return transcripts.map((transcript) => ({
+    transcriptId: transcript.id,
+    row: {
+      started_at: transcript.startedAt,
+      words: transcript.words,
+      speaker_hints: transcript.speakerHints,
+    },
+  }));
+}
+
+export function collectRenderHumanIds(
+  participantHumanIds: readonly string[],
+  assignedHumanIds: readonly string[],
+  selfHumanId?: string,
+): string[] {
+  return [
+    ...new Set([
+      ...participantHumanIds,
+      ...assignedHumanIds,
+      selfHumanId ?? "",
+    ]),
+  ].filter(Boolean);
+}
+
+export async function getSessionTranscriptRenderRequest(
+  sessionId: string,
+): Promise<RenderTranscriptRequest | null> {
+  if (!sessionId) {
+    return null;
+  }
+
+  const [transcripts, participantHumanIds, speakerContext] = await Promise.all([
+    getSessionTranscriptRecords(sessionId),
+    getSessionParticipantHumanIds(sessionId),
+    getSpeakerContext(sessionId),
+  ]);
+  const transcriptRows = toTranscriptRows(transcripts).map(({ row }) => row);
+  const selfHumanId = transcripts[0]?.ownerUserId;
+  const humans = await getTranscriptHumans(
+    collectRenderHumanIds(
+      participantHumanIds,
+      collectAssignedHumanIdsFromTranscriptRows(transcriptRows),
+      selfHumanId,
+    ),
+  );
+
+  return buildRenderTranscriptRequestFromRows(
+    transcriptRows,
+    { humans, selfHumanId },
+    participantHumanIds,
+    speakerContext,
+  );
+}
 
 export function useTranscriptRenderData(
   transcriptId: string,
@@ -57,16 +120,10 @@ function useRenderData(
   const participantHumanIds = useSessionParticipantHumanIds(sessionId);
   const selfHumanId = transcripts[0]?.ownerUserId;
 
-  const transcriptRows = useMemo(() => {
-    return transcripts.map((transcript) => ({
-      transcriptId: transcript.id,
-      row: {
-        started_at: transcript.startedAt,
-        words: transcript.words,
-        speaker_hints: transcript.speakerHints,
-      },
-    }));
-  }, [transcripts]);
+  const transcriptRows = useMemo(
+    () => toTranscriptRows(transcripts),
+    [transcripts],
+  );
 
   const assignedHumanIds = useMemo(
     () =>
@@ -78,13 +135,7 @@ function useRenderData(
 
   const humanIds = useMemo(
     () =>
-      [
-        ...new Set([
-          ...participantHumanIds,
-          ...assignedHumanIds,
-          selfHumanId ?? "",
-        ]),
-      ].filter(Boolean),
+      collectRenderHumanIds(participantHumanIds, assignedHumanIds, selfHumanId),
     [assignedHumanIds, participantHumanIds, selfHumanId],
   );
   const humans = useTranscriptHumans(humanIds);

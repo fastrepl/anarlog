@@ -2,7 +2,7 @@ import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 
-export type WorkspaceContactMember = {
+type WorkspaceContactMember = {
   userId: string;
   email: string;
   name: string | null;

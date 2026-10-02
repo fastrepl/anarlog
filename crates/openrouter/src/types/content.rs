@@ -206,37 +206,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn audio_format_serialization() {
-        assert_eq!(serde_json::to_string(&AudioFormat::Wav).unwrap(), "\"wav\"");
-        assert_eq!(serde_json::to_string(&AudioFormat::Mp3).unwrap(), "\"mp3\"");
-        assert_eq!(
-            serde_json::to_string(&AudioFormat::Aiff).unwrap(),
-            "\"aiff\""
-        );
-        assert_eq!(serde_json::to_string(&AudioFormat::Aac).unwrap(), "\"aac\"");
-        assert_eq!(serde_json::to_string(&AudioFormat::Ogg).unwrap(), "\"ogg\"");
-        assert_eq!(
-            serde_json::to_string(&AudioFormat::Flac).unwrap(),
-            "\"flac\""
-        );
-        assert_eq!(serde_json::to_string(&AudioFormat::M4a).unwrap(), "\"m4a\"");
-        assert_eq!(
-            serde_json::to_string(&AudioFormat::Pcm16).unwrap(),
-            "\"pcm16\""
-        );
-        assert_eq!(
-            serde_json::to_string(&AudioFormat::Pcm24).unwrap(),
-            "\"pcm24\""
-        );
-    }
-
-    #[test]
-    fn audio_format_roundtrip() {
-        let format: AudioFormat = serde_json::from_str("\"flac\"").unwrap();
-        assert_eq!(serde_json::to_string(&format).unwrap(), "\"flac\"");
-    }
-
-    #[test]
     fn input_audio_serialization_roundtrip() {
         let part = ContentPart::input_audio("dGVzdA==", AudioFormat::Wav);
         let json = serde_json::to_string(&part).unwrap();

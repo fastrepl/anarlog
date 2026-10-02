@@ -134,6 +134,9 @@ final class FloatingBarManager {
     {
       model.transcriptBubbles = transcriptBubbles
     }
+    if model.transcriptNotice != state.transcriptNotice {
+      model.transcriptNotice = state.transcriptNotice
+    }
     settingsModel.apply(floatingBarState: state)
     let minimized =
       state.dictation == nil ? settingsModel.liveCaptionMinimized : state.liveCaptionMinimized

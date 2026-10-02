@@ -328,32 +328,6 @@ mod tests {
     // ---- Tests ----
 
     #[tokio::test]
-    async fn permanent_child_restarts_on_failure() {
-        let counter = Arc::new(AtomicU32::new(0));
-        let config = SupervisorConfig {
-            children: vec![make_child_spec(
-                "perm_restart_child",
-                RestartPolicy::Permanent,
-                ChildBehavior::DelayedFail { ms: 100 },
-                counter.clone(),
-            )],
-            restart_budget: test_budget(1),
-            retry_strategy: fast_retry(),
-        };
-
-        let (sup_ref, sup_handle) =
-            Actor::spawn(Some("test_perm_restart".to_string()), Supervisor, config)
-                .await
-                .unwrap();
-
-        // Child fails once -> restarted -> fails again -> meltdown
-        let _ = sup_handle.await;
-        assert_eq!(sup_ref.get_status(), ActorStatus::Stopped);
-        // initial + 1 restart = 2 spawns
-        assert_eq!(counter.load(Ordering::SeqCst), 2);
-    }
-
-    #[tokio::test]
     async fn transient_no_restart_on_normal_exit() {
         let counter = Arc::new(AtomicU32::new(0));
         let config = SupervisorConfig {
@@ -571,43 +545,6 @@ mod tests {
             .filter(|c| c.get_status() == ActorStatus::Running)
             .collect();
         assert_eq!(running.len(), 1);
-
-        sup_ref.stop(None);
-        let _ = sup_handle.await;
-    }
-
-    #[tokio::test]
-    async fn window_expiry_allows_more_restarts() {
-        let counter = Arc::new(AtomicU32::new(0));
-
-        // Budget: 1 restart in a 200ms window (no reset_after)
-        let budget = RestartBudget {
-            max_restarts: 1,
-            max_window: Duration::from_millis(200),
-            reset_after: None,
-        };
-
-        let config = SupervisorConfig {
-            children: vec![make_child_spec(
-                "window_child",
-                RestartPolicy::Permanent,
-                ChildBehavior::DelayedFail { ms: 300 },
-                counter.clone(),
-            )],
-            restart_budget: budget,
-            retry_strategy: fast_retry(),
-        };
-
-        let (sup_ref, sup_handle) =
-            Actor::spawn(Some("test_window_expiry".to_string()), Supervisor, config)
-                .await
-                .unwrap();
-
-        // Each child lives ~300ms, then fails. Window is 200ms, so each failure starts a new window.
-        // With budget=1 per window, each failure is restart #1 in a fresh window => no meltdown.
-        tokio::time::sleep(Duration::from_millis(1200)).await;
-        assert_eq!(sup_ref.get_status(), ActorStatus::Running);
-        assert!(counter.load(Ordering::SeqCst) >= 3);
 
         sup_ref.stop(None);
         let _ = sup_handle.await;

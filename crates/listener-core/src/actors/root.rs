@@ -22,6 +22,7 @@ pub enum RootMsg {
     StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
     UpdateSessionConfig(SessionConfigUpdate, RpcReplyPort<()>),
     StopSession(RpcReplyPort<()>),
+    StopSessionIfActive(String, RpcReplyPort<bool>),
     GetState(RpcReplyPort<State>),
     GetSnapshot(RpcReplyPort<Snapshot>),
 }
@@ -113,6 +114,13 @@ impl Actor for RootActor {
             RootMsg::StopSession(reply) => {
                 stop_session_impl(state).await;
                 let _ = reply.send(());
+            }
+            RootMsg::StopSessionIfActive(session_id, reply) => {
+                let active = state.active_session_id.as_deref() == Some(session_id.as_str());
+                if active {
+                    stop_session_impl(state).await;
+                }
+                let _ = reply.send(active);
             }
             RootMsg::GetState(reply) => {
                 let _ = reply.send(root_snapshot(state).state);

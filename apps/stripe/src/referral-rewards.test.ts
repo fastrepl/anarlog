@@ -3,6 +3,14 @@ import type Stripe from "stripe";
 
 import { issueReferralReward } from "./referral-rewards";
 
+const preparedReward = {
+  referral_id: "referral_1",
+  referrer_user_id: "user_referrer",
+  referrer_customer_id: "cus_referrer",
+  reward_amount_cents: 1500,
+  reward_currency: "usd",
+};
+
 function invoiceEvent(overrides: Partial<Stripe.Invoice> = {}): Stripe.Event {
   return {
     id: "evt_referral",
@@ -42,13 +50,7 @@ describe("issueReferralReward", () => {
       },
       prepareReward: async (userId, invoiceId) => {
         calls.push(`prepare:${userId}:${invoiceId}`);
-        return {
-          referral_id: "referral_1",
-          referrer_user_id: "user_referrer",
-          referrer_customer_id: "cus_referrer",
-          reward_amount_cents: 1500,
-          reward_currency: "usd",
-        };
+        return preparedReward;
       },
       createCredit: async (reward, invoiceId) => {
         calls.push(
@@ -80,13 +82,7 @@ describe("issueReferralReward", () => {
     await expect(
       issueReferralReward(invoiceEvent({ currency: "eur" }), {
         getReferredUserId: async () => "user_referred",
-        prepareReward: async () => ({
-          referral_id: "referral_1",
-          referrer_user_id: "user_referrer",
-          referrer_customer_id: "cus_referrer",
-          reward_amount_cents: 1500,
-          reward_currency: "usd",
-        }),
+        prepareReward: async () => preparedReward,
         createCredit: async () => "cbtxn_unused",
         completeReward: async () => true,
       }),

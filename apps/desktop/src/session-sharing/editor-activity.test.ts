@@ -43,23 +43,18 @@ describe("canonical session editor activity", () => {
     vi.useRealTimers();
   });
 
-  it("treats a mounted focused editor as active", async () => {
-    const view = { hasFocus: () => true } as never;
-    registerCanonicalSessionEditor("session-1", view, vi.fn());
-
+  it("treats a mounted editor as active whether or not it is focused", async () => {
+    const focusedView = { hasFocus: () => true } as never;
+    registerCanonicalSessionEditor("session-1", focusedView, vi.fn());
     await expect(isCanonicalSessionEditorActive("session-1")).resolves.toBe(
       true,
     );
-    expect(mocks.getAllWebviewWindows).not.toHaveBeenCalled();
+    unregisterCanonicalSessionEditor("session-1", focusedView);
 
-    unregisterCanonicalSessionEditor("session-1", view);
-  });
-
-  it("keeps an unfocused mounted editor active through its pending 500ms write", async () => {
     vi.useFakeTimers();
-    const view = { hasFocus: () => false } as never;
+    const unfocusedView = { hasFocus: () => false } as never;
     const persistPendingChange = vi.fn();
-    registerCanonicalSessionEditor("session-1", view, vi.fn());
+    registerCanonicalSessionEditor("session-1", unfocusedView, vi.fn());
     setTimeout(persistPendingChange, 500);
 
     await vi.advanceTimersByTimeAsync(499);
@@ -69,7 +64,7 @@ describe("canonical session editor activity", () => {
     );
     expect(persistPendingChange).not.toHaveBeenCalled();
 
-    unregisterCanonicalSessionEditor("session-1", view);
+    unregisterCanonicalSessionEditor("session-1", unfocusedView);
   });
 
   it("detects the current session tab before its editor view mounts", async () => {
@@ -78,7 +73,6 @@ describe("canonical session editor activity", () => {
     await expect(isCanonicalSessionEditorActive("session-1")).resolves.toBe(
       true,
     );
-    expect(mocks.getAllWebviewWindows).not.toHaveBeenCalled();
   });
 
   it("forces every mounted editor change before draining database writes", async () => {

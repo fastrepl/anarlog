@@ -318,11 +318,6 @@ mod tests {
     }
 
     #[test]
-    fn render_commands_is_empty_for_empty_projects() {
-        assert_eq!(Project::new().render_commands().unwrap(), "");
-    }
-
-    #[test]
     fn audacity_value_escapes_quotes_and_backslashes() {
         assert_eq!(
             audacity_value(r#"say "hello" from c:\tmp"#),

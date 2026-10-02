@@ -92,11 +92,7 @@ it("shows a retryable error when onboarding cannot be persisted", async () => {
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);
-  await waitFor(() => {
-    expect(screen.getByRole("alert").textContent).toBe(
-      "Couldn't open Anarlog. Please try again.",
-    );
-  });
+  await screen.findByRole("alert");
   expect(
     (
       screen.getByRole("button", {

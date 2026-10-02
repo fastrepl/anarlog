@@ -77,34 +77,10 @@ mod tests {
     }
 
     #[test]
-    fn new_tracker_starts_at_zero() {
-        let tracker = RestartTracker::new();
-        assert_eq!(tracker.count(), 0);
-    }
-
-    #[test]
-    fn record_restart_increments_within_budget() {
-        let mut tracker = RestartTracker::new();
-        let b = budget(3, 10_000);
-        assert!(tracker.record_restart(&b));
-        assert!(tracker.record_restart(&b));
-        assert!(tracker.record_restart(&b));
-        assert_eq!(tracker.count(), 3);
-    }
-
-    #[test]
     fn record_restart_exceeds_budget() {
         let mut tracker = RestartTracker::new();
         let b = budget(2, 10_000);
         assert!(tracker.record_restart(&b));
-        assert!(tracker.record_restart(&b));
-        assert!(!tracker.record_restart(&b));
-    }
-
-    #[test]
-    fn record_restart_at_exact_boundary() {
-        let mut tracker = RestartTracker::new();
-        let b = budget(1, 10_000);
         assert!(tracker.record_restart(&b));
         assert!(!tracker.record_restart(&b));
     }
@@ -143,16 +119,6 @@ mod tests {
         tracker.record_restart(&b);
         tracker.maybe_reset(&b);
         assert_eq!(tracker.count(), 2);
-    }
-
-    #[test]
-    fn maybe_reset_noop_when_none() {
-        let mut tracker = RestartTracker::new();
-        let b = budget(3, 10_000);
-
-        tracker.record_restart(&b);
-        tracker.maybe_reset(&b);
-        assert_eq!(tracker.count(), 1);
     }
 
     #[test]

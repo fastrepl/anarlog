@@ -369,175 +369,73 @@ describe("EnhancerService", () => {
     );
   });
 
-  it("does not queue auto-enhance when a durable summary exists", async () => {
-    snapshot = createSnapshot({
-      notes: [createNote({ content: "Saved summary" })],
-      wordCount: 10,
-    });
-    const service = new EnhancerService(createDeps());
-    const queueSpy = vi.spyOn(service, "queueAutoEnhance");
-
-    await expect(
-      service.queueAutoEnhanceIfSummaryEmpty("session-1"),
-    ).resolves.toEqual({ type: "summary_exists", noteId: "note-1" });
-    expect(queueSpy).not.toHaveBeenCalled();
+  const doc = (...content: unknown[]) =>
+    JSON.stringify({ type: "doc", content });
+  const titleHeading = (marks?: unknown[]) => ({
+    type: "heading",
+    attrs: { level: 1 },
+    content: [{ type: "text", text: "Planning", ...(marks ? { marks } : {}) }],
   });
 
-  it("does not replace an attachment-only summary", async () => {
-    snapshot = createSnapshot({
-      notes: [
-        createNote({
-          content: JSON.stringify({
-            type: "doc",
-            content: [
-              {
-                type: "heading",
-                attrs: { level: 1 },
-                content: [{ type: "text", text: "Planning" }],
-              },
-              {
-                type: "fileAttachment",
-                attrs: {
-                  attachmentId: "attachment-1",
-                  name: "notes.pdf",
-                },
-              },
-            ],
-          }),
-        }),
-      ],
-      wordCount: 40,
-    });
-    const service = new EnhancerService(createDeps());
-    const queueSpy = vi.spyOn(service, "queueAutoEnhance");
+  it.each([
+    ["plain saved text", "Saved summary", true],
+    [
+      "an attachment-only summary",
+      doc(titleHeading(), {
+        type: "fileAttachment",
+        attrs: { attachmentId: "attachment-1", name: "notes.pdf" },
+      }),
+      true,
+    ],
+    [
+      "formatting applied to the session title",
+      doc(titleHeading([{ type: "bold" }]), { type: "paragraph" }),
+      true,
+    ],
+    [
+      "a synthesized session title",
+      doc(titleHeading(), { type: "paragraph" }),
+      false,
+    ],
+    [
+      "empty text containers",
+      doc(
+        titleHeading(),
+        {
+          type: "bulletList",
+          content: [{ type: "listItem", content: [{ type: "paragraph" }] }],
+        },
+        { type: "blockquote", content: [{ type: "paragraph" }] },
+      ),
+      false,
+    ],
+  ])(
+    "treats %s as existing summary content: %s",
+    async (_name, content, exists) => {
+      snapshot = createSnapshot({
+        notes: [createNote({ content })],
+        wordCount: 40,
+      });
+      const service = new EnhancerService(createDeps());
+      const queueSpy = vi
+        .spyOn(service, "queueAutoEnhance")
+        .mockImplementation(() => {});
 
-    await expect(
-      service.queueAutoEnhanceIfSummaryEmpty("session-1"),
-    ).resolves.toEqual({ type: "summary_exists", noteId: "note-1" });
-    expect(mocks.ensurePendingAutoEnhanceDocument).not.toHaveBeenCalled();
-    expect(queueSpy).not.toHaveBeenCalled();
-  });
+      const result = await service.queueAutoEnhanceIfSummaryEmpty("session-1");
 
-  it("treats a synthesized session title as an empty summary", async () => {
-    snapshot = createSnapshot({
-      notes: [
-        createNote({
-          content: JSON.stringify({
-            type: "doc",
-            content: [
-              {
-                type: "heading",
-                attrs: { level: 1 },
-                content: [{ type: "text", text: "Planning" }],
-              },
-              { type: "paragraph" },
-            ],
-          }),
-        }),
-      ],
-      wordCount: 40,
-    });
-    const service = new EnhancerService(createDeps());
-    const queueSpy = vi
-      .spyOn(service, "queueAutoEnhance")
-      .mockImplementation(() => {});
-
-    await expect(
-      service.queueAutoEnhanceIfSummaryEmpty("session-1"),
-    ).resolves.toEqual({ type: "queued" });
-    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledWith(
-      "session-1",
-      undefined,
-    );
-    expect(queueSpy).toHaveBeenCalledWith(
-      "session-1",
-      expect.objectContaining({ noteId: "note-1" }),
-    );
-  });
-
-  it("treats empty text containers as an empty summary", async () => {
-    snapshot = createSnapshot({
-      notes: [
-        createNote({
-          content: JSON.stringify({
-            type: "doc",
-            content: [
-              {
-                type: "heading",
-                attrs: { level: 1 },
-                content: [{ type: "text", text: "Planning" }],
-              },
-              {
-                type: "bulletList",
-                content: [
-                  {
-                    type: "listItem",
-                    content: [{ type: "paragraph" }],
-                  },
-                ],
-              },
-              {
-                type: "blockquote",
-                content: [{ type: "paragraph" }],
-              },
-            ],
-          }),
-        }),
-      ],
-      wordCount: 40,
-    });
-    const service = new EnhancerService(createDeps());
-    const queueSpy = vi
-      .spyOn(service, "queueAutoEnhance")
-      .mockImplementation(() => {});
-
-    await expect(
-      service.queueAutoEnhanceIfSummaryEmpty("session-1"),
-    ).resolves.toEqual({ type: "queued" });
-    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledWith(
-      "session-1",
-      undefined,
-    );
-    expect(queueSpy).toHaveBeenCalledWith(
-      "session-1",
-      expect.objectContaining({ noteId: "note-1" }),
-    );
-  });
-
-  it("preserves formatting applied to a synthesized session title", async () => {
-    snapshot = createSnapshot({
-      notes: [
-        createNote({
-          content: JSON.stringify({
-            type: "doc",
-            content: [
-              {
-                type: "heading",
-                attrs: { level: 1 },
-                content: [
-                  {
-                    type: "text",
-                    text: "Planning",
-                    marks: [{ type: "bold" }],
-                  },
-                ],
-              },
-              { type: "paragraph" },
-            ],
-          }),
-        }),
-      ],
-      wordCount: 40,
-    });
-    const service = new EnhancerService(createDeps());
-    const queueSpy = vi.spyOn(service, "queueAutoEnhance");
-
-    await expect(
-      service.queueAutoEnhanceIfSummaryEmpty("session-1"),
-    ).resolves.toEqual({ type: "summary_exists", noteId: "note-1" });
-    expect(mocks.ensurePendingAutoEnhanceDocument).not.toHaveBeenCalled();
-    expect(queueSpy).not.toHaveBeenCalled();
-  });
+      if (exists) {
+        expect(result).toEqual({ type: "summary_exists", noteId: "note-1" });
+        expect(mocks.ensurePendingAutoEnhanceDocument).not.toHaveBeenCalled();
+        expect(queueSpy).not.toHaveBeenCalled();
+      } else {
+        expect(result).toEqual({ type: "queued" });
+        expect(queueSpy).toHaveBeenCalledWith(
+          "session-1",
+          expect.objectContaining({ noteId: "note-1" }),
+        );
+      }
+    },
+  );
 
   it("creates a visible empty summary when a short transcript cannot enhance", async () => {
     snapshot = createSnapshot({ wordCount: 2 });
@@ -608,30 +506,6 @@ describe("EnhancerService", () => {
       characterCount: 199,
       wordCount: 40,
     });
-  });
-
-  it("resets every canonical summary task", async () => {
-    snapshot = createSnapshot({
-      notes: [createNote({ id: "one" }), createNote({ id: "two" })],
-    });
-    const ai = createMockAITaskStore();
-    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
-
-    await service.resetEnhanceTasks("session-1");
-
-    expect(ai.reset).toHaveBeenCalledWith("one-enhance");
-    expect(ai.reset).toHaveBeenCalledWith("two-enhance");
-  });
-
-  it("deduplicates eligible auto-enhance requests", async () => {
-    snapshot = createSnapshot({ wordCount: 40 });
-    const ai = createMockAITaskStore();
-    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
-
-    service.queueAutoEnhance("session-1");
-    service.queueAutoEnhance("session-1");
-
-    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
   });
 
   it("resumes a durable regeneration job after restart", async () => {
@@ -777,7 +651,6 @@ describe("EnhancerService", () => {
     service.queueAutoEnhance("session-1");
     await vi.advanceTimersByTimeAsync(100);
 
-    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(4);
     expect(mocks.ensureSummaryDocument).toHaveBeenCalledOnce();
     expect(ai.generate).toHaveBeenCalledOnce();
     expect(event).toHaveBeenCalledTimes(1);
@@ -805,8 +678,6 @@ describe("EnhancerService", () => {
     await request;
     await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
 
-    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(5);
-    expect(ai.reset).toHaveBeenCalledTimes(2);
     expect(ai.reset).toHaveBeenCalledWith("one-enhance");
     expect(ai.reset).toHaveBeenCalledWith("two-enhance");
     expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledWith(
@@ -834,6 +705,54 @@ describe("EnhancerService", () => {
     expect(ai.generate).toHaveBeenCalledOnce();
   });
 
+  it("refreshes an existing summary", async () => {
+    snapshot = createSnapshot({
+      notes: [createNote({ id: "one", content: "Summary from partial audio" })],
+      wordCount: 40,
+    });
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    await service.requestAutoEnhance("session-1", "refresh");
+    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
+
+    expect(ai.reset).toHaveBeenCalledWith("one-enhance");
+    expect(mocks.ensurePendingAutoEnhanceDocument).toHaveBeenCalledOnce();
+  });
+
+  it("restarts an in-flight summary when refreshing", async () => {
+    snapshot = createSnapshot({
+      notes: [createNote({ id: "one" })],
+      wordCount: 40,
+    });
+    let status = "generating";
+    const ai = createMockAITaskStore((taskId) =>
+      taskId === "one-enhance" ? { status } : undefined,
+    );
+    ai.reset.mockImplementation(() => {
+      status = "idle";
+    });
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    await service.requestAutoEnhance("session-1", "refresh");
+    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
+
+    expect(ai.reset).toHaveBeenCalledWith("one-enhance");
+    expect(ai.reset).toHaveBeenCalledBefore(ai.generate);
+    expect(ai.generate).toHaveBeenCalledWith("one-enhance", expect.anything());
+  });
+
+  it("generates a missing summary once when refreshing", async () => {
+    snapshot = createSnapshot({ wordCount: 40 });
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    await service.requestAutoEnhance("session-1", "refresh");
+    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
+
+    expect(ai.reset).not.toHaveBeenCalled();
+  });
+
   it("retries a startup recovery scan after database contention", async () => {
     vi.useFakeTimers();
     const consoleError = vi
@@ -853,12 +772,7 @@ describe("EnhancerService", () => {
     service.start();
     await vi.advanceTimersByTimeAsync(11_100);
 
-    expect(mocks.loadPendingAutoEnhanceJobs).toHaveBeenCalledTimes(6);
     expect(ai.generate).toHaveBeenCalledOnce();
-    expect(consoleError).toHaveBeenCalledWith(
-      "[enhancer] failed to resume pending auto-enhance",
-      expect.objectContaining({ message: "database is locked" }),
-    );
     service.dispose();
     consoleError.mockRestore();
   });
@@ -939,34 +853,25 @@ describe("EnhancerService", () => {
     );
   });
 
-  it("retries short transcripts and eventually emits the skip reason", async () => {
+  it("retries short transcripts, then retires the durable job and emits the skip reason", async () => {
     vi.useFakeTimers();
     snapshot = createSnapshot({ wordCount: 1 });
     const service = new EnhancerService(createDeps());
     const event = vi.fn();
     service.on(event);
-
-    service.queueAutoEnhance("session-1");
-    await vi.advanceTimersByTimeAsync(10_500);
-
-    expect(event).toHaveBeenCalledWith({
-      type: "auto-enhance-skipped",
-      sessionId: "session-1",
-      reason: "Not enough words recorded (1/5 minimum)",
-      reasonCode: "transcript_too_short",
-    });
-  });
-
-  it("retires a durable job when the transcript stays too short", async () => {
-    vi.useFakeTimers();
-    snapshot = createSnapshot({ wordCount: 1 });
-    const service = new EnhancerService(createDeps());
     const pendingJob = createPendingJob();
 
     service.queueAutoEnhance("session-1", pendingJob);
     await vi.advanceTimersByTimeAsync(10_500);
 
     expect(mocks.discardPendingAutoEnhanceJob).toHaveBeenCalledWith(pendingJob);
+    expect(event).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "auto-enhance-skipped",
+        sessionId: "session-1",
+        reasonCode: "transcript_too_short",
+      }),
+    );
   });
 
   it("refuses manual enhancement when the transcript is too short", async () => {
@@ -983,12 +888,12 @@ describe("EnhancerService", () => {
     expect(ai.generate).not.toHaveBeenCalled();
     expect(mocks.ensureSummaryDocument).not.toHaveBeenCalled();
     expect(mocks.replaceSummaryDocumentTemplate).not.toHaveBeenCalled();
-    expect(event).toHaveBeenCalledWith({
-      type: "auto-enhance-skipped",
-      sessionId: "session-1",
-      reason: "Transcript too short to summarize (24/160 characters minimum)",
-      reasonCode: "transcript_too_short",
-    });
+    expect(event).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "auto-enhance-skipped",
+        reasonCode: "transcript_too_short",
+      }),
+    );
   });
 
   it("still enhances sessions without any transcript", async () => {

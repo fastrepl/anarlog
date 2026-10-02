@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
-import { useEffect } from "react";
+
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { DEVICE_AUTH_REASON } from "~/lock/auth";
 import { useAppLock } from "~/lock/store";
@@ -23,9 +24,9 @@ export function SettingsPrivacy() {
   const lockApp = useAppLock((state) => state.lockApp);
   const refreshAvailability = useAppLock((state) => state.refreshAvailability);
 
-  useEffect(() => {
+  useMountEffect(() => {
     void refreshAvailability();
-  }, [refreshAvailability]);
+  });
 
   if (settingsQuery.error) {
     throw settingsQuery.error;

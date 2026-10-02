@@ -17,7 +17,6 @@ chrono = { workspace = true }
 futures-util = { workspace = true }
 hmac = { workspace = true }
 reqwest = { workspace = true, features = ["json", "query", "stream"] }
-sentry = { workspace = true }
 sha2 = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time"] }
 tracing = { workspace = true }

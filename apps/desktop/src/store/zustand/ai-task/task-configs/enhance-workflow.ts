@@ -16,7 +16,6 @@ import { appendPreferredNamesGuidance } from "./preferred-names";
 import {
   formatSummaryLengthModeGuidance,
   formatSummaryLengthGuidance,
-  getSummaryLengthPolicy,
 } from "~/services/enhancer/summary-length";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
@@ -49,9 +48,8 @@ async function* executeWorkflow(params: {
   const system = await getSystemPrompt(args);
   const prompt = withLengthGuidance(
     withImageContextNote(await getUserPrompt(args), args.imageContext.length),
-    args.transcripts,
+    args.lengthPolicy,
     args.template?.sections.length ?? 0,
-    args.summaryLength,
     Boolean(args.formatOverride.trim()),
   );
 
@@ -217,21 +215,15 @@ ${IMAGE_CONTEXT_NOTE}`;
 
 function withLengthGuidance(
   prompt: string,
-  transcripts: TaskArgsMapTransformed["enhance"]["transcripts"],
+  lengthPolicy: TaskArgsMapTransformed["enhance"]["lengthPolicy"],
   templateSectionCount: number,
-  summaryLength: TaskArgsMapTransformed["enhance"]["summaryLength"],
   customFormat: boolean,
 ): string {
   const hasTemplateSections = templateSectionCount > 0;
-  const guidance = formatSummaryLengthGuidance(
-    getSummaryLengthPolicy(
-      transcripts,
-      summaryLength,
-      customFormat || hasTemplateSections,
-      templateSectionCount,
-    ),
-    { customFormat, hasTemplateSections },
-  );
+  const guidance = formatSummaryLengthGuidance(lengthPolicy, {
+    customFormat,
+    hasTemplateSections,
+  });
   if (!guidance) return prompt;
 
   return `${prompt}

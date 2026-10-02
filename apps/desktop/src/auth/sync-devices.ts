@@ -9,7 +9,7 @@ export const ENROLLMENT_REQUIRES_EXISTING_KEY_ERROR_CODE =
 
 export type SyncDeviceKind = "desktop" | "mobile" | "watch";
 
-export type SyncDevice = {
+type SyncDevice = {
   deviceFingerprint: string;
   deviceName: string | null;
   deviceKind?: SyncDeviceKind | null;
@@ -17,7 +17,7 @@ export type SyncDevice = {
   lastSeenAt: string;
 };
 
-export type PendingSyncDevice = {
+type PendingSyncDevice = {
   requestId: string;
   deviceFingerprint: string;
   deviceName: string | null;
@@ -333,4 +333,69 @@ function isBase64url(value: unknown, length?: number) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+export type MeetingDeviceIntent = "present" | "claim" | "release";
+
+export type MeetingDevice = {
+  deviceFingerprint: string;
+  deviceName: string | null;
+  primary: boolean;
+};
+
+function isMeetingDevice(value: unknown): value is MeetingDevice {
+  return (
+    isRecord(value) &&
+    typeof value.deviceFingerprint === "string" &&
+    (value.deviceName === null || typeof value.deviceName === "string") &&
+    typeof value.primary === "boolean"
+  );
+}
+
+// Returns null when this account or device can't coordinate meetings
+// (signed out, not Pro, or not a registered sync device).
+export async function requestMeetingDevices({
+  accessToken,
+  fingerprint,
+  meetingKey,
+  intent,
+  signal,
+}: {
+  accessToken: string;
+  fingerprint: string;
+  meetingKey: string;
+  intent: MeetingDeviceIntent;
+  signal?: AbortSignal;
+}): Promise<MeetingDevice[] | null> {
+  const response = await fetch(
+    new URL(
+      `/sync/meetings/${encodeURIComponent(meetingKey)}/devices`,
+      env.VITE_API_URL,
+    ),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "x-device-fingerprint": fingerprint,
+      },
+      body: JSON.stringify({ intent }),
+      signal,
+    },
+  );
+  if (response.status >= 400 && response.status < 500) {
+    return null;
+  }
+  if (!response.ok) {
+    throw await responseError(response, "Could not reach the device service.");
+  }
+  const body: unknown = await response.json();
+  if (
+    !isRecord(body) ||
+    !Array.isArray(body.devices) ||
+    !body.devices.every(isMeetingDevice)
+  ) {
+    throw new Error("The device service returned an invalid response.");
+  }
+  return body.devices;
 }

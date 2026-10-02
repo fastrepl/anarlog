@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
     | null
     | ((event: { payload: { sessionId: string; action: string } }) => void),
   meetingStop: null as null | (() => void),
-  platform: vi.fn(() => "macos"),
   settings: {
     current: {
       floating_bar_opacity: 0.78,
@@ -46,7 +45,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
-  platform: mocks.platform,
+  platform: () => "macos",
 }));
 
 vi.mock("@anlg/plugin-windows", () => ({
@@ -91,6 +90,7 @@ vi.mock("~/settings/queries", () => ({
   })),
   setSettingValue: mocks.setSettingValue,
   useSetSettingValues: () => mocks.setSettingValues,
+  useStoredSettingValue: () => ({ value: undefined, hasValue: false }),
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -117,7 +117,6 @@ describe("FloatingMeetingWindowHost", () => {
     mocks.enabled = true;
     mocks.listenerState.live.status = "active";
     useDictationStatus.setState(useDictationStatus.getInitialState());
-    mocks.platform.mockReturnValue("macos");
     mocks.settings.current = {
       floating_bar_opacity: 0.78,
       live_caption_opacity: 0.3,
@@ -162,98 +161,63 @@ describe("FloatingMeetingWindowHost", () => {
     expect(mocks.floatingBarHide).not.toHaveBeenCalled();
   });
 
-  it.each(["windows", "linux"] as const)(
-    "uses the floating bar on %s like macOS, without the old caption overlay",
-    async (currentPlatform) => {
-      mocks.platform.mockReturnValue(currentPlatform);
-
-      const view = render(<FloatingMeetingWindowHost />);
-
-      await waitFor(() => {
-        expect(mocks.floatingBarShow).toHaveBeenCalledOnce();
-        expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
-          expect.objectContaining({ liveCaptionMinimized: true }),
-        );
+  it("keeps dictation usable when meeting panels are disabled on macos", async () => {
+    mocks.enabled = false;
+    mocks.listenerState.live.status = "inactive";
+    const finish = vi.fn();
+    const cancel = vi.fn();
+    useDictationStatus.setState({
+      phase: "recording",
+      owner: "dictation-1",
+      text: "Hello",
+      finish,
+      cancel,
+    });
+    render(<FloatingMeetingWindowHost />);
+    await waitFor(() =>
+      expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          dictation: expect.objectContaining({ text: "Hello" }),
+        }),
+      ),
+    );
+    expect(mocks.floatingBarUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.floatingBarShow.mock.invocationCallOrder[0]!,
+    );
+    await act(async () => {
+      mocks.dictationAction!({
+        payload: { sessionId: "old-recording", action: "finish" },
       });
-
-      mocks.settings.current = {
-        ...mocks.settings.current,
-        live_caption_minimized: false,
-      };
-      view.rerender(<FloatingMeetingWindowHost />);
-
-      await waitFor(() => {
-        expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
-          expect.objectContaining({ liveCaptionMinimized: false }),
-        );
+      mocks.meetingStop!();
+    });
+    expect(finish).not.toHaveBeenCalled();
+    expect(mocks.listenerState.stop).not.toHaveBeenCalled();
+    expect(mocks.floatingBarHide).not.toHaveBeenCalled();
+    await act(async () => {
+      mocks.dictationAction!({
+        payload: { sessionId: "dictation-1", action: "togglePreview" },
       });
-      expect(mocks.liveCaptionHide).toHaveBeenCalled();
-      expect(mocks.liveCaptionShow).not.toHaveBeenCalled();
-      expect(mocks.liveCaptionUpdate).not.toHaveBeenCalled();
-      expect(mocks.floatingBarHide).not.toHaveBeenCalled();
-    },
-  );
-  it.each(["macos", "windows", "linux"])(
-    "keeps dictation usable when meeting panels are disabled on %s",
-    async (platform) => {
-      mocks.platform.mockReturnValue(platform);
-      mocks.enabled = false;
-      mocks.listenerState.live.status = "inactive";
-      const finish = vi.fn();
-      const cancel = vi.fn();
-      useDictationStatus.setState({
-        phase: "recording",
-        owner: "dictation-1",
-        text: "Hello",
-        finish,
-        cancel,
+    });
+    await waitFor(() =>
+      expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
+        expect.objectContaining({ liveCaptionMinimized: false }),
+      ),
+    );
+    await act(async () => {
+      mocks.dictationAction!({
+        payload: { sessionId: "dictation-1", action: "finish" },
       });
-      render(<FloatingMeetingWindowHost />);
-      await waitFor(() =>
-        expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
-          expect.objectContaining({
-            dictation: expect.objectContaining({ text: "Hello" }),
-          }),
-        ),
-      );
-      expect(mocks.floatingBarUpdate.mock.invocationCallOrder[0]).toBeLessThan(
-        mocks.floatingBarShow.mock.invocationCallOrder[0]!,
-      );
-      await act(async () => {
-        mocks.dictationAction!({
-          payload: { sessionId: "old-recording", action: "finish" },
-        });
-        mocks.meetingStop!();
+      mocks.dictationAction!({
+        payload: { sessionId: "dictation-1", action: "cancel" },
       });
-      expect(finish).not.toHaveBeenCalled();
-      expect(mocks.listenerState.stop).not.toHaveBeenCalled();
-      expect(mocks.floatingBarHide).not.toHaveBeenCalled();
-      await act(async () => {
-        mocks.dictationAction!({
-          payload: { sessionId: "dictation-1", action: "togglePreview" },
-        });
-      });
-      await waitFor(() =>
-        expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
-          expect.objectContaining({ liveCaptionMinimized: false }),
-        ),
-      );
-      await act(async () => {
-        mocks.dictationAction!({
-          payload: { sessionId: "dictation-1", action: "finish" },
-        });
-        mocks.dictationAction!({
-          payload: { sessionId: "dictation-1", action: "cancel" },
-        });
-      });
-      expect(finish).toHaveBeenCalledOnce();
-      expect(cancel).toHaveBeenCalledOnce();
-      await act(async () => {
-        useDictationStatus.setState({ phase: "idle" });
-      });
-      await waitFor(() => expect(mocks.floatingBarHide).toHaveBeenCalledOnce());
-    },
-  );
+    });
+    expect(finish).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledOnce();
+    await act(async () => {
+      useDictationStatus.setState({ phase: "idle" });
+    });
+    await waitFor(() => expect(mocks.floatingBarHide).toHaveBeenCalledOnce());
+  });
 
   it("gives an active meeting ownership of the panel", async () => {
     useDictationStatus.setState({ phase: "recording", owner: "dictation-1" });

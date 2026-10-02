@@ -148,42 +148,23 @@ mod tests {
     }
 
     #[test]
-    fn merge_both_objects() {
-        let existing = json!({"a": 1, "b": 2});
-        let incoming = json!({"b": 3, "c": 4});
-        let result = merge_settings(existing, incoming);
-        assert_eq!(result, json!({"a": 1, "b": 3, "c": 4}));
-    }
-
-    #[test]
-    fn merge_empty_existing() {
-        let existing = json!({});
-        let incoming = json!({"a": 1});
-        let result = merge_settings(existing, incoming);
-        assert_eq!(result, json!({"a": 1}));
-    }
-
-    #[test]
-    fn merge_empty_incoming() {
-        let existing = json!({"a": 1});
-        let incoming = json!({});
-        let result = merge_settings(existing, incoming);
-        assert_eq!(result, json!({"a": 1}));
-    }
-
-    #[test]
-    fn merge_incoming_replaces_non_object_existing() {
-        let existing = json!(null);
-        let incoming = json!({"a": 1});
-        let result = merge_settings(existing, incoming);
-        assert_eq!(result, json!({"a": 1}));
-    }
-
-    #[test]
-    fn merge_non_object_incoming_replaces_existing() {
-        let existing = json!({"a": 1});
-        let incoming = json!([1, 2, 3]);
-        let result = merge_settings(existing, incoming);
-        assert_eq!(result, json!([1, 2, 3]));
+    fn merge_settings_overlays_objects_and_replaces_non_objects() {
+        for (existing, incoming, expected) in [
+            (
+                json!({"a": 1, "b": 2}),
+                json!({"b": 3, "c": 4}),
+                json!({"a": 1, "b": 3, "c": 4}),
+            ),
+            (json!({}), json!({"a": 1}), json!({"a": 1})),
+            (json!({"a": 1}), json!({}), json!({"a": 1})),
+            (json!(null), json!({"a": 1}), json!({"a": 1})),
+            (json!({"a": 1}), json!([1, 2, 3]), json!([1, 2, 3])),
+        ] {
+            assert_eq!(
+                merge_settings(existing.clone(), incoming.clone()),
+                expected,
+                "unexpected merge for existing={existing} incoming={incoming}"
+            );
+        }
     }
 }

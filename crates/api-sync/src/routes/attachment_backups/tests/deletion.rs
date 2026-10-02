@@ -50,6 +50,7 @@ async fn schedules_exact_delete_identity_with_stable_replay_shape_without_storag
             "p_delete_request_id": DELETE_REQUEST_ID
         })
     );
+    assert_no_storage_requests(&created_server).await;
 
     let replay_server = MockServer::start().await;
     mount_rpc(
@@ -71,11 +72,7 @@ async fn schedules_exact_delete_identity_with_stable_replay_shape_without_storag
     assert_eq!(response_json(replay_response).await, created_body);
     let replay_requests = replay_server.received_requests().await.unwrap();
     assert_eq!(replay_requests.len(), 1);
-    assert!(
-        replay_requests
-            .iter()
-            .all(|request| !request.url.path().contains("/storage/v1/"))
-    );
+    assert_no_storage_requests(&replay_server).await;
 
     let dependency_server = MockServer::start().await;
     mount_rpc(
@@ -108,119 +105,67 @@ async fn schedules_exact_delete_identity_with_stable_replay_shape_without_storag
     );
     let dependency_requests = dependency_server.received_requests().await.unwrap();
     assert_eq!(dependency_requests.len(), 1);
-    assert!(
-        dependency_requests
-            .iter()
-            .all(|request| !request.url.path().contains("/storage/v1/"))
-    );
+    assert_no_storage_requests(&dependency_server).await;
 }
 
 #[tokio::test]
 async fn distinguishes_delete_outcomes_from_generic_conflicts_without_storage() {
-    let dependency_server = MockServer::start().await;
-    mount_rpc(
-        &dependency_server,
-        "schedule_attachment_backup_deletion",
-        ResponseTemplate::new(200).set_body_json(json!([{
-            "outcome": "dependency_appeared",
-            "object_id": null,
-            "object_key": object_key(),
-            "delete_request_id": DELETE_REQUEST_ID,
-            "delete_fence_id": null,
-            "delete_generation": null,
-            "delete_not_before": null,
-            "was_created": false
-        }])),
-    )
-    .await;
-    let dependency = test_router(&dependency_server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/delete",
-            delete_request_body(),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(dependency.status(), StatusCode::CONFLICT);
-    assert_eq!(
-        response_json(dependency).await["error"]["code"],
-        "attachment_backup_dependency_appeared"
-    );
-    let dependency_requests = dependency_server.received_requests().await.unwrap();
-    assert_eq!(dependency_requests.len(), 1);
-    assert!(
-        dependency_requests
-            .iter()
-            .all(|request| !request.url.path().contains("/storage/v1/"))
-    );
-
-    let cancelled_server = MockServer::start().await;
-    mount_rpc(
-        &cancelled_server,
-        "schedule_attachment_backup_deletion",
-        ResponseTemplate::new(200).set_body_json(json!([{
-            "outcome": "cancelled",
-            "object_id": null,
-            "object_key": object_key(),
-            "delete_request_id": DELETE_REQUEST_ID,
-            "delete_fence_id": null,
-            "delete_generation": null,
-            "delete_not_before": null,
-            "was_created": false
-        }])),
-    )
-    .await;
-    let cancelled = test_router(&cancelled_server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/delete",
-            delete_request_body(),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(cancelled.status(), StatusCode::CONFLICT);
-    assert_eq!(
-        response_json(cancelled).await["error"]["code"],
-        "attachment_backup_delete_cancelled"
-    );
-    let cancelled_requests = cancelled_server.received_requests().await.unwrap();
-    assert_eq!(cancelled_requests.len(), 1);
-    assert!(
-        cancelled_requests
-            .iter()
-            .all(|request| !request.url.path().contains("/storage/v1/"))
-    );
-
-    let conflict_server = MockServer::start().await;
-    mount_rpc(
-        &conflict_server,
-        "schedule_attachment_backup_deletion",
-        ResponseTemplate::new(409).set_body_json(json!({
-            "code": "40001",
-            "message": "delete identity changed"
-        })),
-    )
-    .await;
-    let conflict = test_router(&conflict_server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/delete",
-            delete_request_body(),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(conflict.status(), StatusCode::CONFLICT);
-    assert_eq!(
-        response_json(conflict).await["error"]["code"],
-        "attachment_backup_conflict"
-    );
-    let conflict_requests = conflict_server.received_requests().await.unwrap();
-    assert_eq!(conflict_requests.len(), 1);
-    assert!(
-        conflict_requests
-            .iter()
-            .all(|request| !request.url.path().contains("/storage/v1/"))
-    );
+    for (case, response, expected_code) in [
+        (
+            "dependency appeared",
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "dependency_appeared",
+                "object_id": null,
+                "object_key": object_key(),
+                "delete_request_id": DELETE_REQUEST_ID,
+                "delete_fence_id": null,
+                "delete_generation": null,
+                "delete_not_before": null,
+                "was_created": false
+            }])),
+            "attachment_backup_dependency_appeared",
+        ),
+        (
+            "deletion cancelled",
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "outcome": "cancelled",
+                "object_id": null,
+                "object_key": object_key(),
+                "delete_request_id": DELETE_REQUEST_ID,
+                "delete_fence_id": null,
+                "delete_generation": null,
+                "delete_not_before": null,
+                "was_created": false
+            }])),
+            "attachment_backup_delete_cancelled",
+        ),
+        (
+            "generic database conflict",
+            ResponseTemplate::new(409).set_body_json(json!({
+                "code": "40001",
+                "message": "delete identity changed"
+            })),
+            "attachment_backup_conflict",
+        ),
+    ] {
+        let server = MockServer::start().await;
+        mount_rpc(&server, "schedule_attachment_backup_deletion", response).await;
+        let result = test_router(&server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/delete",
+                delete_request_body(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(result.status(), StatusCode::CONFLICT, "{case}");
+        assert_eq!(
+            response_json(result).await["error"]["code"],
+            expected_code,
+            "{case}"
+        );
+        assert_no_storage_requests(&server).await;
+    }
 }
 
 #[tokio::test]
@@ -271,11 +216,7 @@ async fn cancels_exact_delete_identity_with_a_stable_idempotent_shape() {
             "p_delete_request_id": DELETE_REQUEST_ID
         })
     );
-    assert!(
-        requests
-            .iter()
-            .all(|request| !request.url.path().contains("/storage/v1/"))
-    );
+    assert_no_storage_requests(&created_server).await;
 
     let replay_server = MockServer::start().await;
     mount_rpc(
@@ -300,11 +241,7 @@ async fn cancels_exact_delete_identity_with_a_stable_idempotent_shape() {
     assert_eq!(response_json(replay).await, created_body);
     let replay_requests = replay_server.received_requests().await.unwrap();
     assert_eq!(replay_requests.len(), 1);
-    assert!(
-        replay_requests
-            .iter()
-            .all(|request| !request.url.path().contains("/storage/v1/"))
-    );
+    assert_no_storage_requests(&replay_server).await;
 }
 
 #[tokio::test]
@@ -332,4 +269,5 @@ async fn reports_delete_cancellation_after_gc_as_too_late() {
         response_json(response).await["error"]["code"],
         "attachment_backup_delete_too_late"
     );
+    assert_no_storage_requests(&server).await;
 }

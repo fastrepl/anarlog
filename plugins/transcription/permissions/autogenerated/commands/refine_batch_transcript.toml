@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-refine-batch-transcript"
+description = "Enables the refine_batch_transcript command without any pre-configured scope."
+commands.allow = ["refine_batch_transcript"]
+
+[[permission]]
+identifier = "deny-refine-batch-transcript"
+description = "Denies the refine_batch_transcript command without any pre-configured scope."
+commands.deny = ["refine_batch_transcript"]

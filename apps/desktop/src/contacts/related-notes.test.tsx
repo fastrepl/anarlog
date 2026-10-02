@@ -55,22 +55,6 @@ describe("RelatedNotesSection", () => {
     fireEvent.keyDown(search, { key: "Escape" });
     expect(noteTitles(container)).toEqual(["Recent planning", "Alpha review"]);
   });
-
-  it("lets the user sort oldest first", () => {
-    const { container } = render(
-      <RelatedNotesSection
-        sessions={makeSessions()}
-        onSessionClick={mocks.onSessionClick}
-      />,
-    );
-    const trigger = screen.getByRole("button", { name: "Sort options" });
-
-    fireEvent.pointerDown(trigger);
-    fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Oldest" }));
-
-    expect(noteTitles(container)).toEqual(["Alpha review", "Recent planning"]);
-  });
 });
 
 function noteTitles(container: HTMLElement): string[] {

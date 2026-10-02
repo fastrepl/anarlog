@@ -10,57 +10,31 @@ const verifiedGate = {
   verificationFailed: false,
 };
 
-test("uses refreshed paid claims before connecting", () => {
-  assert.equal(
-    getIntegrationBillingGate({
-      ...verifiedGate,
-      verifiedIsPaid: true,
-    }),
-    "connect",
-  );
-});
+test("billing gate stays closed until refreshed claims resolve", () => {
+  const cases = [
+    [{ ...verifiedGate, verifiedIsPaid: true }, "connect"],
+    [{ ...verifiedGate, verifiedIsPaid: false }, "upgrade"],
+    [
+      { ...verifiedGate, isVerifying: true, verifiedIsPaid: undefined },
+      "loading",
+    ],
+    [
+      { ...verifiedGate, verificationFailed: true, verifiedIsPaid: undefined },
+      "retry",
+    ],
+    [
+      {
+        action: "disconnect",
+        isBillingReady: false,
+        isVerifying: false,
+        verificationFailed: false,
+        verifiedIsPaid: undefined,
+      },
+      "disconnect",
+    ],
+  ] as const;
 
-test("shows upgrade only after refreshed claims confirm a free plan", () => {
-  assert.equal(
-    getIntegrationBillingGate({
-      ...verifiedGate,
-      verifiedIsPaid: false,
-    }),
-    "upgrade",
-  );
-});
-
-test("keeps the gate closed while billing claims refresh", () => {
-  assert.equal(
-    getIntegrationBillingGate({
-      ...verifiedGate,
-      isVerifying: true,
-      verifiedIsPaid: undefined,
-    }),
-    "loading",
-  );
-});
-
-test("offers a retry instead of showing a false paywall after refresh failure", () => {
-  assert.equal(
-    getIntegrationBillingGate({
-      ...verifiedGate,
-      verificationFailed: true,
-      verifiedIsPaid: undefined,
-    }),
-    "retry",
-  );
-});
-
-test("disconnect does not wait for billing verification", () => {
-  assert.equal(
-    getIntegrationBillingGate({
-      action: "disconnect",
-      isBillingReady: false,
-      isVerifying: false,
-      verificationFailed: false,
-      verifiedIsPaid: undefined,
-    }),
-    "disconnect",
-  );
+  for (const [input, expected] of cases) {
+    assert.equal(getIntegrationBillingGate(input), expected);
+  }
 });

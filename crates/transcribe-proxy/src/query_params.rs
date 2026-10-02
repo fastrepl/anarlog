@@ -171,30 +171,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_single_value() {
+    fn parses_single_multi_and_empty_queries() {
         let params = parse_query("?foo=hello");
         assert!(matches!(params.get("foo"), Some(QueryValue::Single(s)) if s == "hello"));
-    }
 
-    #[test]
-    fn parse_multiple_values() {
         let params = parse_query("?value=one&value=two");
         assert!(
             matches!(params.get("value"), Some(QueryValue::Multi(v)) if v == &vec!["one", "two"])
         );
-    }
 
-    #[test]
-    fn parse_empty_query() {
         let params = parse_query("");
         assert!(params.is_empty());
 
         let params = parse_query("?");
         assert!(params.is_empty());
-    }
 
-    #[test]
-    fn parse_mixed_params() {
         let params = parse_query("?single=one&multi=a&multi=b&another=value");
 
         assert!(matches!(params.get("single"), Some(QueryValue::Single(s)) if s == "one"));
@@ -203,69 +194,48 @@ mod tests {
     }
 
     #[test]
-    fn get_first_returns_value() {
+    fn get_first_and_remove_first() {
         let params = parse_query("?foo=hello&bar=one&bar=two");
         assert_eq!(params.get_first("foo"), Some("hello"));
         assert_eq!(params.get_first("bar"), Some("one"));
-    }
 
-    #[test]
-    fn get_first_returns_none() {
         let params = parse_query("?foo=hello");
         assert_eq!(params.get_first("missing"), None);
-    }
 
-    #[test]
-    fn remove_first_single() {
         let mut params = parse_query("?foo=hello");
         assert_eq!(params.remove_first("foo"), Some("hello".to_string()));
         assert!(params.get("foo").is_none());
-    }
 
-    #[test]
-    fn remove_first_multi() {
         let mut params = parse_query("?value=one&value=two&value=three");
         assert_eq!(params.remove_first("value"), Some("one".to_string()));
         assert!(params.get("value").is_none());
     }
 
     #[test]
-    fn get_languages_single() {
+    fn get_languages_normalizes_aliases_commas_regions_and_drops_invalid() {
         let params = parse_query("?language=en");
         let languages = params.get_languages();
         assert_eq!(languages.len(), 1);
         assert_eq!(languages[0].iso639(), ISO639::En);
-    }
 
-    #[test]
-    fn get_languages_multi_params() {
         let params = parse_query("?language=en&language=ko");
         let languages = params.get_languages();
         assert_eq!(languages.len(), 2);
         assert_eq!(languages[0].iso639(), ISO639::En);
         assert_eq!(languages[1].iso639(), ISO639::Ko);
-    }
 
-    #[test]
-    fn get_languages_comma_separated() {
         let params = parse_query("?language=en,ko,ja");
         let languages = params.get_languages();
         assert_eq!(languages.len(), 3);
         assert_eq!(languages[0].iso639(), ISO639::En);
         assert_eq!(languages[1].iso639(), ISO639::Ko);
         assert_eq!(languages[2].iso639(), ISO639::Ja);
-    }
 
-    #[test]
-    fn get_languages_uses_languages_key() {
         let params = parse_query("?languages=en");
         let languages = params.get_languages();
         assert_eq!(languages.len(), 1);
         assert_eq!(languages[0].iso639(), ISO639::En);
-    }
 
-    #[test]
-    fn get_languages_with_region() {
         let params = parse_query("?language=en-US,ko-KR");
         let languages = params.get_languages();
         assert_eq!(languages.len(), 2);
@@ -273,10 +243,7 @@ mod tests {
         assert_eq!(languages[0].region(), Some("US"));
         assert_eq!(languages[1].iso639(), ISO639::Ko);
         assert_eq!(languages[1].region(), Some("KR"));
-    }
 
-    #[test]
-    fn get_languages_invalid_ignored() {
         let params = parse_query("?language=en,invalid,ko");
         let languages = params.get_languages();
         assert_eq!(languages.len(), 2);

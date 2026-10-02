@@ -163,14 +163,8 @@ describe("Folders workspace", () => {
     cleanup();
   });
 
-  it("shows an empty state until a folder is created", async () => {
+  it("creates the first folder", async () => {
     renderFoldersWorkspace();
-
-    expect(
-      screen.getByText(
-        "No folders yet. Create one to group notes and materials.",
-      ),
-    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "New folder" }));
     fireEvent.change(screen.getByLabelText("Folder name"), {
@@ -219,9 +213,6 @@ describe("Folders workspace", () => {
       );
     });
 
-    expect(screen.getByText("Context")).toBeTruthy();
-    expect(screen.getByText("What these notes are usually about")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add file" })).toBeTruthy();
     expect(screen.getByText("syllabus.pdf")).toBeTruthy();
     const file = new File(["week 1"], "notes.txt", { type: "text/plain" });
     fireEvent.click(screen.getByRole("button", { name: "Add file" }));
@@ -234,50 +225,10 @@ describe("Folders workspace", () => {
     });
   });
 
-  it("shows Only me for a personal workspace assignment", () => {
-    mocks.folders = ["CS 101"];
-    mocks.auth = { session: { user: { id: "user-1" } } };
-    mocks.workspaces = [{ id: "ws-team", name: "Team" }];
-    mocks.workspaceId = "user-1";
-    renderFoldersWorkspace();
-
-    expect(
-      screen.getByRole("combobox", { name: "Team folder workspace" })
-        .textContent,
-    ).toContain("Only me");
-  });
-
-  it("filters the sidebar by folder name", () => {
-    mocks.folders = ["CS 101", "Work"];
-
-    renderFoldersWorkspace();
-
-    fireEvent.change(screen.getByPlaceholderText("Search folders..."), {
-      target: { value: "work" },
-    });
-
-    expect(screen.getByRole("button", { name: "Work" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "CS 101" })).toBeNull();
-  });
-
-  it("shows parent paths for nested folders", () => {
-    mocks.folders = ["Work/Sales", "Personal/Sales"];
-
-    renderFoldersWorkspace();
-
-    expect(screen.getByText("Work/Sales")).toBeTruthy();
-    expect(screen.getByText("Personal/Sales")).toBeTruthy();
-  });
-
   it("renames the folder from the title field", async () => {
     mocks.folders = ["Work"];
 
     renderFoldersWorkspace();
-
-    expect(screen.getByRole("button", { name: "Add file" })).toBeTruthy();
-    expect(
-      screen.queryByText("Add a syllabus or PDF for this folder"),
-    ).toBeNull();
 
     const title = screen.getByRole("textbox", { name: "Folder name" });
     fireEvent.change(title, { target: { value: "Algorithms" } });

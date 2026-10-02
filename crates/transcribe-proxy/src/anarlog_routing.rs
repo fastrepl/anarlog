@@ -31,8 +31,8 @@ impl Default for AnarlogRoutingConfig {
     fn default() -> Self {
         Self {
             priorities: vec![
-                Provider::Deepgram,
                 Provider::Soniox,
+                Provider::Deepgram,
                 Provider::AssemblyAI,
                 Provider::Gladia,
                 Provider::ElevenLabs,
@@ -88,7 +88,7 @@ impl AnarlogRouter {
         languages: &[Language],
         available_providers: &HashSet<Provider>,
     ) -> Vec<Provider> {
-        let priorities = self.priorities_for_mode(mode);
+        let priorities = &self.priorities;
         let mut candidates: Vec<_> = priorities
             .iter()
             .copied()
@@ -105,7 +105,7 @@ impl AnarlogRouter {
         candidates.sort_by(|a, b| {
             let (p1, s1) = a;
             let (p2, s2) = b;
-            if mode == RoutingMode::Batch {
+            if mode == RoutingMode::Batch || priorities.first() == Some(&Provider::Soniox) {
                 match (*p1 == Provider::Soniox, *p2 == Provider::Soniox) {
                     (true, false) => return std::cmp::Ordering::Less,
                     (false, true) => return std::cmp::Ordering::Greater,
@@ -154,17 +154,6 @@ impl AnarlogRouter {
 
     pub fn retry_config(&self) -> &RetryConfig {
         &self.retry_config
-    }
-
-    fn priorities_for_mode(&self, mode: RoutingMode) -> Vec<Provider> {
-        let mut priorities = self.priorities.clone();
-        if mode == RoutingMode::Batch
-            && let Some(index) = priorities.iter().position(|p| *p == Provider::Soniox)
-        {
-            let soniox = priorities.remove(index);
-            priorities.insert(0, soniox);
-        }
-        priorities
     }
 }
 
@@ -275,50 +264,50 @@ mod tests {
         insta::assert_snapshot!(
             table,
             @r###"
-            en             -> [Deepgram, Soniox]
-            es             -> [Deepgram, Soniox]
-            fr             -> [Deepgram, Soniox]
-            de             -> [Deepgram, Soniox]
+            en             -> [Soniox, Deepgram]
+            es             -> [Soniox, Deepgram]
+            fr             -> [Soniox, Deepgram]
+            de             -> [Soniox, Deepgram]
             hi             -> [Soniox, Deepgram]
-            ru             -> [Deepgram, Soniox]
+            ru             -> [Soniox, Deepgram]
             pt             -> [Soniox, Deepgram]
             ja             -> [Soniox, Deepgram]
-            it             -> [Deepgram, Soniox]
-            nl             -> [Deepgram, Soniox]
+            it             -> [Soniox, Deepgram]
+            nl             -> [Soniox, Deepgram]
             ko             -> [Soniox, Deepgram]
-            en+es          -> [Deepgram, Soniox]
-            en+fr          -> [Deepgram, Soniox]
-            en+de          -> [Deepgram, Soniox]
+            en+es          -> [Soniox, Deepgram]
+            en+fr          -> [Soniox, Deepgram]
+            en+de          -> [Soniox, Deepgram]
             en+hi          -> [Soniox, Deepgram]
-            en+ru          -> [Deepgram, Soniox]
-            en+pt          -> [Deepgram, Soniox]
+            en+ru          -> [Soniox, Deepgram]
+            en+pt          -> [Soniox, Deepgram]
             en+ja          -> [Soniox, Deepgram]
-            en+it          -> [Deepgram, Soniox]
-            en+nl          -> [Deepgram, Soniox]
+            en+it          -> [Soniox, Deepgram]
+            en+nl          -> [Soniox, Deepgram]
             en+ko          -> [Soniox]
-            es+fr          -> [Deepgram, Soniox]
-            es+de          -> [Deepgram, Soniox]
+            es+fr          -> [Soniox, Deepgram]
+            es+de          -> [Soniox, Deepgram]
             es+hi          -> [Soniox, Deepgram]
-            es+ru          -> [Deepgram, Soniox]
+            es+ru          -> [Soniox, Deepgram]
             es+pt          -> [Soniox, Deepgram]
             es+ja          -> [Soniox, Deepgram]
-            es+it          -> [Deepgram, Soniox]
-            es+nl          -> [Deepgram, Soniox]
+            es+it          -> [Soniox, Deepgram]
+            es+nl          -> [Soniox, Deepgram]
             es+ko          -> [Soniox]
-            fr+de          -> [Deepgram, Soniox]
+            fr+de          -> [Soniox, Deepgram]
             fr+hi          -> [Soniox, Deepgram]
-            fr+ru          -> [Deepgram, Soniox]
-            fr+pt          -> [Deepgram, Soniox]
+            fr+ru          -> [Soniox, Deepgram]
+            fr+pt          -> [Soniox, Deepgram]
             fr+ja          -> [Soniox, Deepgram]
-            fr+it          -> [Deepgram, Soniox]
-            fr+nl          -> [Deepgram, Soniox]
+            fr+it          -> [Soniox, Deepgram]
+            fr+nl          -> [Soniox, Deepgram]
             fr+ko          -> [Soniox]
             de+hi          -> [Soniox, Deepgram]
-            de+ru          -> [Deepgram, Soniox]
-            de+pt          -> [Deepgram, Soniox]
+            de+ru          -> [Soniox, Deepgram]
+            de+pt          -> [Soniox, Deepgram]
             de+ja          -> [Soniox, Deepgram]
-            de+it          -> [Deepgram, Soniox]
-            de+nl          -> [Deepgram, Soniox]
+            de+it          -> [Soniox, Deepgram]
+            de+nl          -> [Soniox, Deepgram]
             de+ko          -> [Soniox]
             hi+ru          -> [Soniox, Deepgram]
             hi+pt          -> [Soniox, Deepgram]
@@ -326,44 +315,44 @@ mod tests {
             hi+it          -> [Soniox, Deepgram]
             hi+nl          -> [Soniox, Deepgram]
             hi+ko          -> [Soniox]
-            ru+pt          -> [Deepgram, Soniox]
+            ru+pt          -> [Soniox, Deepgram]
             ru+ja          -> [Soniox, Deepgram]
-            ru+it          -> [Deepgram, Soniox]
-            ru+nl          -> [Deepgram, Soniox]
+            ru+it          -> [Soniox, Deepgram]
+            ru+nl          -> [Soniox, Deepgram]
             ru+ko          -> [Soniox]
             pt+ja          -> [Soniox, Deepgram]
             pt+it          -> [Soniox, Deepgram]
-            pt+nl          -> [Deepgram, Soniox]
+            pt+nl          -> [Soniox, Deepgram]
             pt+ko          -> [Soniox]
             ja+it          -> [Soniox, Deepgram]
             ja+nl          -> [Soniox, Deepgram]
             ja+ko          -> [Soniox]
-            it+nl          -> [Deepgram, Soniox]
+            it+nl          -> [Soniox, Deepgram]
             it+ko          -> [Soniox]
             nl+ko          -> [Soniox]
-            en+es+fr       -> [Deepgram, Soniox]
-            en+es+de       -> [Deepgram, Soniox]
+            en+es+fr       -> [Soniox, Deepgram]
+            en+es+de       -> [Soniox, Deepgram]
             en+es+hi       -> [Soniox, Deepgram]
-            en+es+ru       -> [Deepgram, Soniox]
-            en+es+pt       -> [Deepgram, Soniox]
+            en+es+ru       -> [Soniox, Deepgram]
+            en+es+pt       -> [Soniox, Deepgram]
             en+es+ja       -> [Soniox, Deepgram]
-            en+es+it       -> [Deepgram, Soniox]
-            en+es+nl       -> [Deepgram, Soniox]
+            en+es+it       -> [Soniox, Deepgram]
+            en+es+nl       -> [Soniox, Deepgram]
             en+es+ko       -> [Soniox]
-            en+fr+de       -> [Deepgram, Soniox]
+            en+fr+de       -> [Soniox, Deepgram]
             en+fr+hi       -> [Soniox, Deepgram]
-            en+fr+ru       -> [Deepgram, Soniox]
-            en+fr+pt       -> [Deepgram, Soniox]
+            en+fr+ru       -> [Soniox, Deepgram]
+            en+fr+pt       -> [Soniox, Deepgram]
             en+fr+ja       -> [Soniox, Deepgram]
-            en+fr+it       -> [Deepgram, Soniox]
-            en+fr+nl       -> [Deepgram, Soniox]
+            en+fr+it       -> [Soniox, Deepgram]
+            en+fr+nl       -> [Soniox, Deepgram]
             en+fr+ko       -> [Soniox]
             en+de+hi       -> [Soniox, Deepgram]
-            en+de+ru       -> [Deepgram, Soniox]
-            en+de+pt       -> [Deepgram, Soniox]
+            en+de+ru       -> [Soniox, Deepgram]
+            en+de+pt       -> [Soniox, Deepgram]
             en+de+ja       -> [Soniox, Deepgram]
-            en+de+it       -> [Deepgram, Soniox]
-            en+de+nl       -> [Deepgram, Soniox]
+            en+de+it       -> [Soniox, Deepgram]
+            en+de+nl       -> [Soniox, Deepgram]
             en+de+ko       -> [Soniox]
             en+hi+ru       -> [Soniox, Deepgram]
             en+hi+pt       -> [Soniox, Deepgram]
@@ -371,35 +360,35 @@ mod tests {
             en+hi+it       -> [Soniox, Deepgram]
             en+hi+nl       -> [Soniox, Deepgram]
             en+hi+ko       -> [Soniox]
-            en+ru+pt       -> [Deepgram, Soniox]
+            en+ru+pt       -> [Soniox, Deepgram]
             en+ru+ja       -> [Soniox, Deepgram]
-            en+ru+it       -> [Deepgram, Soniox]
-            en+ru+nl       -> [Deepgram, Soniox]
+            en+ru+it       -> [Soniox, Deepgram]
+            en+ru+nl       -> [Soniox, Deepgram]
             en+ru+ko       -> [Soniox]
             en+pt+ja       -> [Soniox, Deepgram]
-            en+pt+it       -> [Deepgram, Soniox]
-            en+pt+nl       -> [Deepgram, Soniox]
+            en+pt+it       -> [Soniox, Deepgram]
+            en+pt+nl       -> [Soniox, Deepgram]
             en+pt+ko       -> [Soniox]
             en+ja+it       -> [Soniox, Deepgram]
             en+ja+nl       -> [Soniox, Deepgram]
             en+ja+ko       -> [Soniox]
-            en+it+nl       -> [Deepgram, Soniox]
+            en+it+nl       -> [Soniox, Deepgram]
             en+it+ko       -> [Soniox]
             en+nl+ko       -> [Soniox]
-            es+fr+de       -> [Deepgram, Soniox]
+            es+fr+de       -> [Soniox, Deepgram]
             es+fr+hi       -> [Soniox, Deepgram]
-            es+fr+ru       -> [Deepgram, Soniox]
-            es+fr+pt       -> [Deepgram, Soniox]
+            es+fr+ru       -> [Soniox, Deepgram]
+            es+fr+pt       -> [Soniox, Deepgram]
             es+fr+ja       -> [Soniox, Deepgram]
-            es+fr+it       -> [Deepgram, Soniox]
-            es+fr+nl       -> [Deepgram, Soniox]
+            es+fr+it       -> [Soniox, Deepgram]
+            es+fr+nl       -> [Soniox, Deepgram]
             es+fr+ko       -> [Soniox]
             es+de+hi       -> [Soniox, Deepgram]
-            es+de+ru       -> [Deepgram, Soniox]
-            es+de+pt       -> [Deepgram, Soniox]
+            es+de+ru       -> [Soniox, Deepgram]
+            es+de+pt       -> [Soniox, Deepgram]
             es+de+ja       -> [Soniox, Deepgram]
-            es+de+it       -> [Deepgram, Soniox]
-            es+de+nl       -> [Deepgram, Soniox]
+            es+de+it       -> [Soniox, Deepgram]
+            es+de+nl       -> [Soniox, Deepgram]
             es+de+ko       -> [Soniox]
             es+hi+ru       -> [Soniox, Deepgram]
             es+hi+pt       -> [Soniox, Deepgram]
@@ -407,27 +396,27 @@ mod tests {
             es+hi+it       -> [Soniox, Deepgram]
             es+hi+nl       -> [Soniox, Deepgram]
             es+hi+ko       -> [Soniox]
-            es+ru+pt       -> [Deepgram, Soniox]
+            es+ru+pt       -> [Soniox, Deepgram]
             es+ru+ja       -> [Soniox, Deepgram]
-            es+ru+it       -> [Deepgram, Soniox]
-            es+ru+nl       -> [Deepgram, Soniox]
+            es+ru+it       -> [Soniox, Deepgram]
+            es+ru+nl       -> [Soniox, Deepgram]
             es+ru+ko       -> [Soniox]
             es+pt+ja       -> [Soniox, Deepgram]
             es+pt+it       -> [Soniox, Deepgram]
-            es+pt+nl       -> [Deepgram, Soniox]
+            es+pt+nl       -> [Soniox, Deepgram]
             es+pt+ko       -> [Soniox]
             es+ja+it       -> [Soniox, Deepgram]
             es+ja+nl       -> [Soniox, Deepgram]
             es+ja+ko       -> [Soniox]
-            es+it+nl       -> [Deepgram, Soniox]
+            es+it+nl       -> [Soniox, Deepgram]
             es+it+ko       -> [Soniox]
             es+nl+ko       -> [Soniox]
             fr+de+hi       -> [Soniox, Deepgram]
-            fr+de+ru       -> [Deepgram, Soniox]
-            fr+de+pt       -> [Deepgram, Soniox]
+            fr+de+ru       -> [Soniox, Deepgram]
+            fr+de+pt       -> [Soniox, Deepgram]
             fr+de+ja       -> [Soniox, Deepgram]
-            fr+de+it       -> [Deepgram, Soniox]
-            fr+de+nl       -> [Deepgram, Soniox]
+            fr+de+it       -> [Soniox, Deepgram]
+            fr+de+nl       -> [Soniox, Deepgram]
             fr+de+ko       -> [Soniox]
             fr+hi+ru       -> [Soniox, Deepgram]
             fr+hi+pt       -> [Soniox, Deepgram]
@@ -435,19 +424,19 @@ mod tests {
             fr+hi+it       -> [Soniox, Deepgram]
             fr+hi+nl       -> [Soniox, Deepgram]
             fr+hi+ko       -> [Soniox]
-            fr+ru+pt       -> [Deepgram, Soniox]
+            fr+ru+pt       -> [Soniox, Deepgram]
             fr+ru+ja       -> [Soniox, Deepgram]
-            fr+ru+it       -> [Deepgram, Soniox]
-            fr+ru+nl       -> [Deepgram, Soniox]
+            fr+ru+it       -> [Soniox, Deepgram]
+            fr+ru+nl       -> [Soniox, Deepgram]
             fr+ru+ko       -> [Soniox]
             fr+pt+ja       -> [Soniox, Deepgram]
-            fr+pt+it       -> [Deepgram, Soniox]
-            fr+pt+nl       -> [Deepgram, Soniox]
+            fr+pt+it       -> [Soniox, Deepgram]
+            fr+pt+nl       -> [Soniox, Deepgram]
             fr+pt+ko       -> [Soniox]
             fr+ja+it       -> [Soniox, Deepgram]
             fr+ja+nl       -> [Soniox, Deepgram]
             fr+ja+ko       -> [Soniox]
-            fr+it+nl       -> [Deepgram, Soniox]
+            fr+it+nl       -> [Soniox, Deepgram]
             fr+it+ko       -> [Soniox]
             fr+nl+ko       -> [Soniox]
             de+hi+ru       -> [Soniox, Deepgram]
@@ -456,19 +445,19 @@ mod tests {
             de+hi+it       -> [Soniox, Deepgram]
             de+hi+nl       -> [Soniox, Deepgram]
             de+hi+ko       -> [Soniox]
-            de+ru+pt       -> [Deepgram, Soniox]
+            de+ru+pt       -> [Soniox, Deepgram]
             de+ru+ja       -> [Soniox, Deepgram]
-            de+ru+it       -> [Deepgram, Soniox]
-            de+ru+nl       -> [Deepgram, Soniox]
+            de+ru+it       -> [Soniox, Deepgram]
+            de+ru+nl       -> [Soniox, Deepgram]
             de+ru+ko       -> [Soniox]
             de+pt+ja       -> [Soniox, Deepgram]
-            de+pt+it       -> [Deepgram, Soniox]
-            de+pt+nl       -> [Deepgram, Soniox]
+            de+pt+it       -> [Soniox, Deepgram]
+            de+pt+nl       -> [Soniox, Deepgram]
             de+pt+ko       -> [Soniox]
             de+ja+it       -> [Soniox, Deepgram]
             de+ja+nl       -> [Soniox, Deepgram]
             de+ja+ko       -> [Soniox]
-            de+it+nl       -> [Deepgram, Soniox]
+            de+it+nl       -> [Soniox, Deepgram]
             de+it+ko       -> [Soniox]
             de+nl+ko       -> [Soniox]
             hi+ru+pt       -> [Soniox, Deepgram]
@@ -487,19 +476,19 @@ mod tests {
             hi+it+ko       -> [Soniox]
             hi+nl+ko       -> [Soniox]
             ru+pt+ja       -> [Soniox, Deepgram]
-            ru+pt+it       -> [Deepgram, Soniox]
-            ru+pt+nl       -> [Deepgram, Soniox]
+            ru+pt+it       -> [Soniox, Deepgram]
+            ru+pt+nl       -> [Soniox, Deepgram]
             ru+pt+ko       -> [Soniox]
             ru+ja+it       -> [Soniox, Deepgram]
             ru+ja+nl       -> [Soniox, Deepgram]
             ru+ja+ko       -> [Soniox]
-            ru+it+nl       -> [Deepgram, Soniox]
+            ru+it+nl       -> [Soniox, Deepgram]
             ru+it+ko       -> [Soniox]
             ru+nl+ko       -> [Soniox]
             pt+ja+it       -> [Soniox, Deepgram]
             pt+ja+nl       -> [Soniox, Deepgram]
             pt+ja+ko       -> [Soniox]
-            pt+it+nl       -> [Deepgram, Soniox]
+            pt+it+nl       -> [Soniox, Deepgram]
             pt+it+ko       -> [Soniox]
             pt+nl+ko       -> [Soniox]
             ja+it+nl       -> [Soniox, Deepgram]
@@ -564,17 +553,6 @@ mod tests {
     }
 
     #[quickcheck_macros::quickcheck]
-    fn prop_supported_always_returns_some(combo: LangCombo) -> quickcheck::TestResult {
-        let router = AnarlogRouter::default();
-        let available = default_available();
-        let chain = router.select_provider_chain(&combo.0, &available);
-        if chain.is_empty() {
-            return quickcheck::TestResult::discard();
-        }
-        quickcheck::TestResult::from_bool(router.select_provider(&combo.0, &available).is_some())
-    }
-
-    #[quickcheck_macros::quickcheck]
     fn prop_soniox_always_in_chain_when_supported(combo: LangCombo) -> quickcheck::TestResult {
         let router = AnarlogRouter::default();
         let available = default_available();
@@ -602,22 +580,45 @@ mod tests {
     }
 
     #[test]
-    fn batch_routing_prefers_soniox_when_available() {
+    fn pro_routing_prefers_soniox_in_both_modes() {
         let router = AnarlogRouter::default();
         let languages = langs(&[ISO639::En]);
         let available = default_available();
 
+        for mode in [RoutingMode::Live, RoutingMode::Batch] {
+            assert_eq!(
+                router.select_provider_chain_with_mode(mode, &languages, &available),
+                vec![Provider::Soniox, Provider::Deepgram],
+                "{mode:?}"
+            );
+            assert_eq!(
+                router.select_provider_chain_with_mode(
+                    mode,
+                    &languages,
+                    &[Provider::Deepgram].into_iter().collect(),
+                ),
+                vec![Provider::Deepgram],
+                "{mode:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn custom_live_priority_can_prefer_deepgram() {
+        let router = AnarlogRouter::new(AnarlogRoutingConfig {
+            priorities: vec![Provider::Deepgram, Provider::Soniox],
+            ..Default::default()
+        });
+        let languages = langs(&[ISO639::En]);
+        let available = default_available();
+
+        assert_eq!(
+            router.select_provider_chain_with_mode(RoutingMode::Live, &languages, &available),
+            vec![Provider::Deepgram, Provider::Soniox]
+        );
         assert_eq!(
             router.select_provider_chain_with_mode(RoutingMode::Batch, &languages, &available),
             vec![Provider::Soniox, Provider::Deepgram]
         );
-    }
-
-    #[test]
-    fn default_priorities_include_newer_live_providers() {
-        let config = AnarlogRoutingConfig::default();
-
-        assert!(config.priorities.contains(&Provider::Mistral));
-        assert!(config.priorities.contains(&Provider::DashScope));
     }
 }

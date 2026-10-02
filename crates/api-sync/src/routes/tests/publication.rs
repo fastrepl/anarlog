@@ -82,49 +82,44 @@ async fn publishes_only_the_sanitized_snapshot_as_the_authenticated_actor() {
         .await;
 
     let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(
-            Request::put(format!("/shares/{share_id}/snapshot"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 1,
-                        "mutationId": mutation_id,
-                        "title": "  Quarterly plan  ",
-                        "body": {
-                            "type": "doc",
-                            "attrs": { "workspaceId": "private-workspace" },
+        .oneshot(put_json(
+            &format!("/shares/{share_id}/snapshot"),
+            json!({
+                "baseRevision": 1,
+                "mutationId": mutation_id,
+                "title": "  Quarterly plan  ",
+                "body": {
+                    "type": "doc",
+                    "attrs": { "workspaceId": "private-workspace" },
+                    "content": [
+                        {
+                            "type": "paragraph",
                             "content": [
+                                { "type": "text", "text": "Shared note" },
                                 {
-                                    "type": "paragraph",
-                                    "content": [
-                                        { "type": "text", "text": "Shared note" },
-                                        {
-                                            "type": "mention-@",
-                                            "attrs": {
-                                                "id": "private-mention-id",
-                                                "type": "session",
-                                                "label": "Planning"
-                                            }
-                                        }
-                                    ]
-                                },
-                                {
-                                    "type": "image",
+                                    "type": "mention-@",
                                     "attrs": {
-                                        "src": "asset://localhost/Users/alice/secret.png",
-                                        "attachmentId": "private-attachment-id"
+                                        "id": "private-mention-id",
+                                        "type": "session",
+                                        "label": "Planning"
                                     }
                                 }
                             ]
                         },
-                        "participants": [" John   Jeong ", "Sungbin Jo"],
-                        "meetingAt": "2026-08-06T01:30:00Z",
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+                        {
+                            "type": "image",
+                            "attrs": {
+                                "src": "asset://localhost/Users/alice/secret.png",
+                                "attachmentId": "private-attachment-id"
+                            }
+                        }
+                    ]
+                },
+                "participants": [" John   Jeong ", "Sungbin Jo"],
+                "meetingAt": "2026-08-06T01:30:00Z",
+                "attachmentIds": []
+            }),
+        ))
         .await
         .unwrap();
 
@@ -148,19 +143,14 @@ async fn publishes_only_the_sanitized_snapshot_as_the_authenticated_actor() {
     assert!(!published.contains("supabase-token"));
 
     let explicit_empty_response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(
-            Request::put(format!("/shares/{share_id}/snapshot"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "title": "Quarterly plan",
-                        "body": sanitized_body,
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            &format!("/shares/{share_id}/snapshot"),
+            json!({
+                "title": "Quarterly plan",
+                "body": sanitized_body,
+                "attachmentIds": []
+            }),
+        ))
         .await
         .unwrap();
 
@@ -232,21 +222,16 @@ async fn publishes_lossless_attachment_snapshots_as_web_editable() {
         .await;
 
     let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(
-            Request::put(format!("/shares/{share_id}/snapshot"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 1,
-                        "mutationId": mutation_id,
-                        "title": "Diagram",
-                        "body": body,
-                        "attachmentIds": [attachment_id]
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            &format!("/shares/{share_id}/snapshot"),
+            json!({
+                "baseRevision": 1,
+                "mutationId": mutation_id,
+                "title": "Diagram",
+                "body": body,
+                "attachmentIds": [attachment_id]
+            }),
+        ))
         .await
         .unwrap();
 
@@ -258,6 +243,7 @@ async fn publishes_lossless_attachment_snapshots_as_web_editable() {
 async fn rejects_invalid_snapshot_requests_before_calling_supabase() {
     let cases = [
         (
+            "invalid share id",
             "/shares/not-a-uuid/snapshot".to_string(),
             json!({
                 "baseRevision": 1,
@@ -267,6 +253,7 @@ async fn rejects_invalid_snapshot_requests_before_calling_supabase() {
             }),
         ),
         (
+            "invalid document",
             "/shares/11111111-1111-4111-8111-111111111111/snapshot".to_string(),
             json!({
                 "baseRevision": 1,
@@ -276,6 +263,7 @@ async fn rejects_invalid_snapshot_requests_before_calling_supabase() {
             }),
         ),
         (
+            "missing mutation id",
             "/shares/11111111-1111-4111-8111-111111111111/snapshot".to_string(),
             json!({
                 "baseRevision": 1,
@@ -284,6 +272,7 @@ async fn rejects_invalid_snapshot_requests_before_calling_supabase() {
             }),
         ),
         (
+            "missing base revision",
             "/shares/11111111-1111-4111-8111-111111111111/snapshot".to_string(),
             json!({
                 "mutationId": "22222222-2222-4222-8222-222222222222",
@@ -292,6 +281,7 @@ async fn rejects_invalid_snapshot_requests_before_calling_supabase() {
             }),
         ),
         (
+            "null CAS fields",
             "/shares/11111111-1111-4111-8111-111111111111/snapshot".to_string(),
             json!({
                 "baseRevision": null,
@@ -300,57 +290,41 @@ async fn rejects_invalid_snapshot_requests_before_calling_supabase() {
                 "body": { "type": "doc" }
             }),
         ),
+        (
+            "missing attachment manifest",
+            "/shares/11111111-1111-4111-8111-111111111111/snapshot".to_string(),
+            json!({
+                "baseRevision": 1,
+                "mutationId": "22222222-2222-4222-8222-222222222222",
+                "title": "Title",
+                "body": { "type": "doc", "content": [{ "type": "paragraph" }] }
+            }),
+        ),
+        (
+            "null attachment manifest",
+            "/shares/11111111-1111-4111-8111-111111111111/snapshot".to_string(),
+            json!({
+                "baseRevision": 1,
+                "mutationId": "22222222-2222-4222-8222-222222222222",
+                "title": "Title",
+                "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
+                "attachmentIds": null
+            }),
+        ),
     ];
 
-    for (path, payload) in cases {
+    for (case, path, payload) in cases {
         let server = MockServer::start().await;
         let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-            .oneshot(
-                Request::put(path)
-                    .header(http_header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(payload.to_string()))
-                    .unwrap(),
-            )
+            .oneshot(put_json(&path, payload))
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert!(server.received_requests().await.unwrap().is_empty());
-    }
-}
-
-#[tokio::test]
-async fn rejects_missing_or_null_cas_attachment_manifests_before_calling_supabase() {
-    let cases = [
-        json!({
-            "baseRevision": 1,
-            "mutationId": "22222222-2222-4222-8222-222222222222",
-            "title": "Title",
-            "body": { "type": "doc", "content": [{ "type": "paragraph" }] }
-        }),
-        json!({
-            "baseRevision": 1,
-            "mutationId": "22222222-2222-4222-8222-222222222222",
-            "title": "Title",
-            "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
-            "attachmentIds": null
-        }),
-    ];
-
-    for payload in cases {
-        let server = MockServer::start().await;
-        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-            .oneshot(
-                Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
-                    .header(http_header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(payload.to_string()))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert!(server.received_requests().await.unwrap().is_empty());
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{case}");
+        assert!(
+            server.received_requests().await.unwrap().is_empty(),
+            "{case}"
+        );
     }
 }
 
@@ -370,19 +344,14 @@ async fn maps_legacy_publication_after_cas_cutover_to_a_redacted_conflict() {
         .await;
 
     let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(
-            Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "title": "Legacy",
-                        "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            "/shares/11111111-1111-4111-8111-111111111111/snapshot",
+            json!({
+                "title": "Legacy",
+                "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
+                "attachmentIds": []
+            }),
+        ))
         .await
         .unwrap();
 
@@ -397,21 +366,16 @@ async fn maps_legacy_publication_after_cas_cutover_to_a_redacted_conflict() {
 async fn rejects_snapshot_publication_without_pro_entitlement() {
     let server = MockServer::start().await;
     let response = test_router(&server, "issuer-key", &[])
-        .oneshot(
-            Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 1,
-                        "mutationId": "22222222-2222-4222-8222-222222222222",
-                        "title": "Title",
-                        "body": { "type": "doc" },
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            "/shares/11111111-1111-4111-8111-111111111111/snapshot",
+            json!({
+                "baseRevision": 1,
+                "mutationId": "22222222-2222-4222-8222-222222222222",
+                "title": "Title",
+                "body": { "type": "doc" },
+                "attachmentIds": []
+            }),
+        ))
         .await
         .unwrap();
 
@@ -424,80 +388,57 @@ async fn rejects_snapshot_publication_without_pro_entitlement() {
 }
 
 #[tokio::test]
-async fn maps_manager_denial_without_leaking_supabase_details() {
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/rest/v1/rpc/publish_session_share_snapshot_cas"))
-        .respond_with(ResponseTemplate::new(403).set_body_json(json!({
-            "code": "42501",
-            "message": "secret database detail"
-        })))
-        .mount(&server)
-        .await;
+async fn maps_snapshot_cas_errors_without_leaking_database_details() {
+    for (case, upstream_status, pg_code, secret_message, expected_status, expected_code) in [
+        (
+            "manager denial",
+            403,
+            "42501",
+            "secret database detail",
+            StatusCode::FORBIDDEN,
+            "shared_note_publication_forbidden",
+        ),
+        (
+            "missing snapshot conflict",
+            409,
+            "40001",
+            "missing snapshot secret database detail",
+            StatusCode::CONFLICT,
+            "snapshot_conflict",
+        ),
+    ] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/publish_session_share_snapshot_cas"))
+            .respond_with(ResponseTemplate::new(upstream_status).set_body_json(json!({
+                "code": pg_code,
+                "message": secret_message
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
 
-    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(
-            Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 1,
-                        "mutationId": "22222222-2222-4222-8222-222222222222",
-                        "title": "Title",
-                        "body": { "type": "doc" },
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(put_json(
+                "/shares/11111111-1111-4111-8111-111111111111/snapshot",
+                json!({
+                    "baseRevision": 1,
+                    "mutationId": "22222222-2222-4222-8222-222222222222",
+                    "title": "Title",
+                    "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
+                    "attachmentIds": []
+                }),
+            ))
+            .await
+            .unwrap();
 
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    let body = response_json(response).await.to_string();
-    assert!(body.contains("shared_note_publication_forbidden"));
-    assert!(!body.contains("secret database detail"));
-    assert!(!body.contains("service-role-key"));
-}
-
-#[tokio::test]
-async fn maps_missing_snapshot_cas_conflicts_without_leaking_database_details() {
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/rest/v1/rpc/publish_session_share_snapshot_cas"))
-        .respond_with(ResponseTemplate::new(409).set_body_json(json!({
-            "code": "40001",
-            "message": "missing snapshot secret database detail"
-        })))
-        .expect(1)
-        .mount(&server)
-        .await;
-
-    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(
-            Request::put("/shares/11111111-1111-4111-8111-111111111111/snapshot")
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 1,
-                        "mutationId": "22222222-2222-4222-8222-222222222222",
-                        "title": "Title",
-                        "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::CONFLICT);
-    let body = response_json(response).await;
-    assert_eq!(body["error"]["code"], "snapshot_conflict");
-    let body = body.to_string();
-    assert!(!body.contains("missing snapshot"));
-    assert!(!body.contains("secret database detail"));
-    assert!(!body.contains("service-role-key"));
+        assert_eq!(response.status(), expected_status, "{case}");
+        let body = response_json(response).await;
+        assert_eq!(body["error"]["code"], expected_code, "{case}");
+        let body = body.to_string();
+        assert!(!body.contains(secret_message), "{case}");
+        assert!(!body.contains("missing snapshot"), "{case}");
+        assert!(!body.contains("secret database detail"), "{case}");
+        assert!(!body.contains("service-role-key"), "{case}");
+    }
 }

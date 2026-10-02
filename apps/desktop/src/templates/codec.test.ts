@@ -9,67 +9,59 @@ import {
 import { DEFAULT_TEMPLATE_ICON } from "./template-icon";
 
 describe("parseStoredTemplateSections", () => {
-  it("parses canonical JSON text from SQLite", () => {
-    expect(
-      parseStoredTemplateSections(
-        '[{"title":"Updates","description":"What changed"}]',
-        "template-1",
-      ),
-    ).toEqual([{ title: "Updates", description: "What changed" }]);
-  });
-
-  it("normalizes legacy string arrays from SQLite", () => {
-    expect(
-      parseStoredTemplateSections('["Updates","Feedback"]', "template-1"),
-    ).toEqual([
-      { title: "Updates", description: "" },
-      { title: "Feedback", description: "" },
-    ]);
-  });
-
-  it("fills missing descriptions on stored section objects", () => {
-    expect(
-      parseStoredTemplateSections('[{"title":"Updates"}]', "template-1"),
-    ).toEqual([{ title: "Updates", description: "" }]);
-  });
-
-  it("preserves blank draft sections from SQLite", () => {
-    expect(
-      parseStoredTemplateSections(
-        '[{"title":"","description":""}]',
-        "template-1",
-      ),
-    ).toEqual([{ title: "", description: "" }]);
-  });
-
-  it("preserves described draft sections with blank titles from SQLite", () => {
-    expect(
-      parseStoredTemplateSections(
-        '[{"title":"","description":"Capture decisions"}]',
-        "template-1",
-      ),
-    ).toEqual([{ title: "", description: "Capture decisions" }]);
-  });
-
-  it("returns empty sections for invalid stored JSON", () => {
-    expect(parseStoredTemplateSections("{", "template-1")).toEqual([]);
+  it.each([
+    [
+      "canonical JSON text",
+      '[{"title":"Updates","description":"What changed"}]',
+      [{ title: "Updates", description: "What changed" }],
+    ],
+    [
+      "legacy string arrays",
+      '["Updates","Feedback"]',
+      [
+        { title: "Updates", description: "" },
+        { title: "Feedback", description: "" },
+      ],
+    ],
+    [
+      "missing descriptions on stored objects",
+      '[{"title":"Updates"}]',
+      [{ title: "Updates", description: "" }],
+    ],
+    [
+      "blank draft sections",
+      '[{"title":"","description":""},{"title":"","description":"Capture decisions"}]',
+      [
+        { title: "", description: "" },
+        { title: "", description: "Capture decisions" },
+      ],
+    ],
+    ["invalid stored JSON", "{", []],
+  ])("normalizes stored sections: %s", (_name, raw, expected) => {
+    expect(parseStoredTemplateSections(raw, "template-1")).toEqual(expected);
   });
 });
 
 describe("parseStoredTemplateTargets", () => {
-  it("normalizes a legacy single-string target", () => {
+  it("normalizes stored targets and rejects invalid JSON", () => {
     expect(parseStoredTemplateTargets('"Manager"', "template-1")).toEqual([
       "Manager",
     ]);
-  });
-
-  it("returns undefined for invalid stored target JSON", () => {
     expect(parseStoredTemplateTargets("{", "template-1")).toBeUndefined();
   });
 });
 
 describe("parseWebTemplates", () => {
-  it("parses canonical web templates", () => {
+  it("parses canonical web templates and their icons", () => {
+    expect(
+      parseWebTemplates([
+        {
+          title: "Launch",
+          icon: { type: "emoji", value: "🚀" },
+          sections: [],
+        },
+      ])[0]?.icon,
+    ).toEqual({ type: "emoji", value: "🚀" });
     expect(
       parseWebTemplates([
         {
@@ -100,18 +92,6 @@ describe("parseWebTemplates", () => {
     ]);
   });
 
-  it("parses a web template emoji", () => {
-    expect(
-      parseWebTemplates([
-        {
-          title: "Launch",
-          icon: { type: "emoji", value: "🚀" },
-          sections: [],
-        },
-      ])[0]?.icon,
-    ).toEqual({ type: "emoji", value: "🚀" });
-  });
-
   it("drops malformed web templates instead of repairing them", () => {
     expect(
       parseWebTemplates([
@@ -135,21 +115,18 @@ describe("assertCanonicalTemplateSections", () => {
     ).toThrow(/enhance render/);
   });
 
-  it("keeps blank draft rows before saving", () => {
+  it("keeps draft rows before saving", () => {
     expect(
       assertCanonicalTemplateSections(
-        [{ title: "", description: "" }],
+        [
+          { title: "", description: "" },
+          { title: "", description: "Capture decisions" },
+        ],
         "template form",
       ),
-    ).toEqual([{ title: "", description: "" }]);
-  });
-
-  it("keeps described draft rows with blank section names", () => {
-    expect(
-      assertCanonicalTemplateSections(
-        [{ title: "", description: "Capture decisions" }],
-        "template form",
-      ),
-    ).toEqual([{ title: "", description: "Capture decisions" }]);
+    ).toEqual([
+      { title: "", description: "" },
+      { title: "", description: "Capture decisions" },
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Transcript } from "./index";
@@ -57,15 +57,26 @@ vi.mock("./renderer", () => ({
   TranscriptViewer: ({
     captureGeneration,
     editMode,
+    footer,
   }: {
     captureGeneration: number;
     editMode?: boolean;
+    footer?: ReactNode;
   }) => (
     <div
       data-testid="transcript-viewer"
       data-capture-generation={captureGeneration}
       data-edit-mode={String(editMode ?? false)}
-    />
+    >
+      <div data-testid="latest-transcript-line" />
+      {footer}
+    </div>
+  ),
+}));
+
+vi.mock("./screens/interrupted", () => ({
+  LiveTranscriptInterruptedNotice: () => (
+    <p data-testid="live-transcript-paused" />
   ),
 }));
 
@@ -87,7 +98,10 @@ describe("Transcript", () => {
     live: {
       captureGenerationCounter: number;
       captureGenerationBySession: Record<string, number>;
-      degraded: null;
+      status: "active" | "inactive";
+      sessionId: string | null;
+      degraded: { type: "connection_timeout" } | null;
+      transcriptionStalled: boolean;
       requestedLiveTranscription: boolean;
       liveTranscriptionActive: boolean;
     };
@@ -114,7 +128,10 @@ describe("Transcript", () => {
           [sessionId]: 1,
           "session-2": 2,
         },
+        status: "active",
+        sessionId,
         degraded: null,
+        transcriptionStalled: false,
         requestedLiveTranscription: true,
         liveTranscriptionActive: true,
       },
@@ -147,6 +164,44 @@ describe("Transcript", () => {
     ).toBe("1");
   });
 
+  it("marks the live transcript gap while live transcription is interrupted", () => {
+    transcripts = [{ id: transcriptId, hasWords: true }];
+    listenerState = {
+      ...listenerState,
+      live: { ...listenerState.live, degraded: { type: "connection_timeout" } },
+    };
+
+    const view = render(
+      <Transcript sessionId={sessionId} scrollRef={createRef()} />,
+    );
+
+    const notice = screen.getByTestId("live-transcript-paused");
+    expect(notice.parentElement).toBe(screen.getByTestId("transcript-viewer"));
+    expect(notice.previousElementSibling).toBe(
+      screen.getByTestId("latest-transcript-line"),
+    );
+
+    listenerState = {
+      ...listenerState,
+      live: { ...listenerState.live, degraded: null },
+    };
+    view.rerender(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
+
+    expect(screen.queryByTestId("live-transcript-paused")).toBeNull();
+  });
+
+  it("shows the interruption before any live transcript arrives", () => {
+    listenerState = {
+      ...listenerState,
+      live: { ...listenerState.live, transcriptionStalled: true },
+    };
+
+    render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
+
+    expect(screen.queryByTestId("listening-state")).toBeNull();
+    expect(screen.getByTestId("batch-state")).not.toBeNull();
+  });
+
   it("keeps existing transcript content unobstructed while finalizing", () => {
     listenerState = {
       ...listenerState,
@@ -173,6 +228,35 @@ describe("Transcript", () => {
     render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
 
     expect(screen.queryByTestId("listening-state")).toBeNull();
+    expect(screen.getByTestId("batch-state")).not.toBeNull();
+  });
+
+  it("keeps the transcript visible when the live provider disconnects", () => {
+    listenerState = {
+      ...listenerState,
+      live: { ...listenerState.live, liveTranscriptionActive: false },
+    };
+    transcripts = [{ id: transcriptId, hasWords: true }];
+
+    render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
+
+    expect(screen.getByTestId("transcript-viewer")).not.toBeNull();
+    expect(screen.queryByTestId("batch-state")).toBeNull();
+  });
+
+  it("keeps batch status for record-only capture with an earlier transcript", () => {
+    listenerState = {
+      ...listenerState,
+      live: {
+        ...listenerState.live,
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+      },
+    };
+    transcripts = [{ id: transcriptId, hasWords: true }];
+
+    render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
+
     expect(screen.getByTestId("batch-state")).not.toBeNull();
   });
 

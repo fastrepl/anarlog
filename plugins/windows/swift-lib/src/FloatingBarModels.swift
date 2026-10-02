@@ -47,4 +47,5 @@ struct FloatingBarStatePayload: Codable {
   let liveCaptionMinimized: Bool
   let liveCaptionToggleVisible: Bool
   let transcriptBubbles: [FloatingTranscriptBubblePayload]?
+  var transcriptNotice: String? = nil
 }

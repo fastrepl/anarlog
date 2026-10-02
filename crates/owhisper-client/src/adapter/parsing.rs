@@ -111,30 +111,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_speaker_id_numeric() {
-        assert_eq!(parse_speaker_id("0"), Some(0));
-        assert_eq!(parse_speaker_id("1"), Some(1));
-        assert_eq!(parse_speaker_id("42"), Some(42));
-    }
-
-    #[test]
-    fn test_parse_speaker_id_prefixed() {
-        assert_eq!(parse_speaker_id("SPEAKER_0"), Some(0));
-        assert_eq!(parse_speaker_id("SPEAKER_1"), Some(1));
-        assert_eq!(parse_speaker_id("speaker_2"), Some(2));
-    }
-
-    #[test]
-    fn test_parse_speaker_id_numeric_prefix_with_suffix() {
-        assert_eq!(parse_speaker_id("1A"), Some(1));
-        assert_eq!(parse_speaker_id("2B"), Some(2));
-        assert_eq!(parse_speaker_id("12_right"), Some(12));
-    }
-
-    #[test]
-    fn test_parse_speaker_id_invalid() {
-        assert_eq!(parse_speaker_id(""), None);
-        assert_eq!(parse_speaker_id("abc"), None);
+    fn test_parse_speaker_id() {
+        for (input, expected) in [
+            ("0", Some(0)),
+            ("1", Some(1)),
+            ("42", Some(42)),
+            ("SPEAKER_0", Some(0)),
+            ("SPEAKER_1", Some(1)),
+            ("speaker_2", Some(2)),
+            ("1A", Some(1)),
+            ("2B", Some(2)),
+            ("12_right", Some(12)),
+            ("", None),
+            ("abc", None),
+        ] {
+            assert_eq!(parse_speaker_id(input), expected, "input: {input}");
+        }
     }
 
     #[test]
@@ -142,29 +134,20 @@ mod tests {
         assert_eq!(ms_to_secs(0), 0.0);
         assert_eq!(ms_to_secs(1000), 1.0);
         assert_eq!(ms_to_secs(1500), 1.5);
-    }
 
-    #[test]
-    fn test_ms_to_secs_opt() {
         assert_eq!(ms_to_secs_opt(None), 0.0);
         assert_eq!(ms_to_secs_opt(Some(1000)), 1.0);
         assert_eq!(ms_to_secs_opt(Some(2500)), 2.5);
     }
 
     #[test]
-    fn test_calculate_time_span_empty() {
+    fn test_calculate_time_span() {
         let words: Vec<Word> = vec![];
         assert_eq!(calculate_time_span(&words), (0.0, 0.0));
-    }
 
-    #[test]
-    fn test_calculate_time_span_single() {
         let words = vec![WordBuilder::new("hello").start(1.0).end(2.0).build()];
         assert_eq!(calculate_time_span(&words), (1.0, 1.0));
-    }
 
-    #[test]
-    fn test_calculate_time_span_multiple() {
         let words = vec![
             WordBuilder::new("hello").start(1.0).end(2.0).build(),
             WordBuilder::new("world").start(2.5).end(3.5).build(),

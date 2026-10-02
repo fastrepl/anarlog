@@ -62,13 +62,75 @@ describe("capture audio recovery", () => {
     expect(acknowledge).toHaveBeenCalledOnce();
   });
 
+  it("restores and repairs only the persisted outage interval", async () => {
+    const { worker, repair, acknowledge } = setup();
+    worker.restore({
+      gaps: [{ start: 20_000, end: 50_000 }],
+      awaitingConnection: false,
+      storageFailed: false,
+      confirmedThrough: 70_000,
+    });
+
+    await worker.tick();
+
+    expect(repair.mock.calls[0]?.[1]).toEqual([{ start: 20_000, end: 50_000 }]);
+    expect(acknowledge).toHaveBeenCalledOnce();
+  });
+
+  it("restores an open gap after a newer connection event", async () => {
+    const { worker, repair, acknowledge } = setup();
+    worker.connected();
+    worker.restore({
+      gaps: [],
+      openGapStart: 30_000,
+      awaitingConnection: true,
+      storageFailed: false,
+      confirmedThrough: 70_000,
+    });
+
+    await worker.tick();
+
+    expect(repair.mock.calls[0]?.[1]).toEqual([{ start: 30_000, end: 60_000 }]);
+    expect(acknowledge).toHaveBeenCalledOnce();
+  });
+
+  it("repairs a whole earlier capture chunk before acknowledging it", async () => {
+    const earlier = {
+      id: "-100000-0-60000-0.mp3",
+      path: "/earlier.mp3",
+      capture_started_at: -100_000,
+      start_ms: 0,
+      audio_start_ms: 0,
+      end_ms: 60_000,
+    };
+    let chunks = [earlier];
+    const acknowledge = vi.fn(async (_chunk: { id: string }) => {
+      chunks = [];
+    });
+    const repair = vi.fn(async (_chunk, _gaps, _signal: AbortSignal) => {});
+    const worker = createCaptureAudioRecovery({
+      startedAt: 0,
+      list: async () => chunks,
+      acknowledge,
+      flush: async () => {},
+      repair,
+      inherited: (chunk) => chunk.capture_started_at < 0,
+      now: () => 1_000,
+    });
+    worker.connected();
+    await worker.tick();
+    expect(repair).toHaveBeenCalledWith(earlier, [], expect.anything());
+    expect(acknowledge).toHaveBeenCalledWith(earlier);
+    expect((await worker.stop()).incomplete).toBe(false);
+  });
+
   it("does not acknowledge a repair whose database write failed", async () => {
     const { worker, repair, acknowledge } = setup();
     worker.persistenceFailed();
     repair.mockRejectedValueOnce(new Error("database or disk is full"));
     await worker.tick();
     expect(acknowledge).not.toHaveBeenCalled();
-    expect((await worker.stop(false)).incomplete).toBe(true);
+    expect((await worker.stop()).incomplete).toBe(true);
   });
 
   it("runs only one batch job while new ticks arrive", async () => {
@@ -90,21 +152,22 @@ describe("capture audio recovery", () => {
     expect(repair).toHaveBeenCalledOnce();
   });
 
-  it("aborts repair at a zero-retention stop and never acknowledges its audio", async () => {
+  it("keeps unrepaired audio when repair fails at stop", async () => {
     const { worker, repair, acknowledge } = setup();
-    repair.mockImplementation(
-      (_chunk, _gaps, signal) =>
-        new Promise<void>((_resolve, reject) => {
-          signal.addEventListener("abort", () => reject(signal.reason), {
-            once: true,
-          });
-        }),
-    );
     worker.persistenceFailed();
-    void worker.tick();
-    await vi.waitFor(() => expect(repair).toHaveBeenCalledOnce());
-    expect((await worker.stop(false)).incomplete).toBe(true);
+    repair.mockRejectedValue(new Error("offline"));
+    expect((await worker.stop()).incomplete).toBe(true);
+    expect(repair).toHaveBeenCalledOnce();
     expect(acknowledge).not.toHaveBeenCalled();
+  });
+
+  it("repairs pending audio before stopping", async () => {
+    const { worker, repair, acknowledge, list } = setup();
+    list.mockResolvedValueOnce(await list()).mockResolvedValue([]);
+    worker.persistenceFailed();
+    expect(await worker.stop()).toEqual({ incomplete: false });
+    expect(repair).toHaveBeenCalledOnce();
+    expect(acknowledge).toHaveBeenCalledOnce();
   });
 
   it("releases retained batch-only chunks without transcribing during the meeting", async () => {
@@ -115,7 +178,7 @@ describe("capture audio recovery", () => {
     await worker.tick();
     expect(list).toHaveBeenCalledOnce();
     expect(repair).not.toHaveBeenCalled();
-    expect(await worker.stop(true)).toEqual({ incomplete: false });
+    expect(await worker.stop()).toEqual({ incomplete: false });
     expect(repair).not.toHaveBeenCalled();
     expect(acknowledge).toHaveBeenCalledOnce();
   });
@@ -163,7 +226,7 @@ describe("capture audio recovery", () => {
     repair.mockImplementation(async () => worker.interrupted());
     await worker.tick();
     expect(acknowledge).not.toHaveBeenCalled();
-    expect((await worker.stop(false)).incomplete).toBe(true);
+    expect((await worker.stop()).incomplete).toBe(true);
   });
 });
 
@@ -185,7 +248,7 @@ it.each([129, 256])(
     });
     setNow(count * 60_000);
     worker.recoverPending();
-    expect(await worker.stop(true)).toEqual({ incomplete: false });
+    expect(await worker.stop()).toEqual({ incomplete: false });
     expect(repair).toHaveBeenCalledTimes(count);
     expect(chunks).toEqual([]);
   },
@@ -197,7 +260,7 @@ it("stops draining when offline instead of spinning on the same page", async () 
   list.mockResolvedValue(Array.from({ length: 128 }, () => chunk));
   list.mockClear();
   worker.interrupted();
-  expect(await worker.stop(true)).toEqual({ incomplete: true });
+  expect(await worker.stop()).toEqual({ incomplete: true });
   expect(list).toHaveBeenCalledOnce();
   expect(acknowledge).not.toHaveBeenCalled();
 });

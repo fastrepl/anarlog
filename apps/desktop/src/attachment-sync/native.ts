@@ -5,19 +5,6 @@ import {
 
 export type { SharedAttachmentCacheResult };
 
-export type UploadDescriptor = {
-  attachmentRef: string;
-  versionRef: string;
-  ciphertextSizeBytes: number;
-  formatVersion: number;
-};
-
-export type PreparedUpload = {
-  cacheId: string;
-  ciphertextSha256: string;
-  ciphertextSizeBytes: number;
-};
-
 export type RestoredAttachment = {
   attachmentId: string;
   sessionId: string;

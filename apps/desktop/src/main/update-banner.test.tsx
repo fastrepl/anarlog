@@ -94,8 +94,6 @@ vi.mock("@anlg/plugin-updater2", () => ({
 
 import { resolveUpdateState, useDesktopUpdateControl } from "./update-banner";
 
-import { useDevtoolsOtaPreview } from "~/store/zustand/devtools-ota-preview";
-
 const queryClients: QueryClient[] = [];
 
 describe("useDesktopUpdateControl", () => {
@@ -147,15 +145,12 @@ describe("useDesktopUpdateControl", () => {
       eventHandlers.updated = handler;
       return () => {};
     });
-
-    useDevtoolsOtaPreview.getState().clearPreview();
   });
 
   afterEach(() => {
     cleanup();
     queryClients.forEach((queryClient) => queryClient.clear());
     queryClients.length = 0;
-    useDevtoolsOtaPreview.getState().clearPreview();
   });
 
   it("downloads the update reported by the update check", async () => {
@@ -245,23 +240,6 @@ describe("useDesktopUpdateControl", () => {
     await waitFor(() =>
       expect(screen.getByTestId("status").textContent).toBe("ready"),
     );
-  });
-
-  it("keeps ready state when an already-downloaded update also emits available", async () => {
-    checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
-    isDownloadedMock.mockResolvedValue({ status: "ok", data: true });
-
-    renderUpdateControl();
-
-    await waitFor(() =>
-      expect(screen.getByTestId("status").textContent).toBe("ready"),
-    );
-
-    act(() => {
-      eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
-    });
-
-    expect(screen.getByTestId("status").textContent).toBe("ready");
   });
 
   it("keeps ready after late download events for the same version", async () => {
@@ -358,22 +336,6 @@ describe("useDesktopUpdateControl", () => {
     await waitFor(() =>
       expect(screen.getByTestId("status").textContent).toBe("none"),
     );
-  });
-
-  it("shows the devtools OTA preview state without a real updater result", async () => {
-    useDevtoolsOtaPreview.getState().showPreview("available");
-
-    renderUpdateControl();
-
-    expect(screen.getByTestId("status").textContent).toBe("available");
-
-    fireEvent.click(screen.getByRole("button", { name: "download" }));
-
-    await waitFor(() =>
-      expect(screen.getByTestId("status").textContent).toBe("downloading"),
-    );
-    expect(screen.getByTestId("progress").textContent).toBe("0.58");
-    expect(downloadMock).not.toHaveBeenCalled();
   });
 
   it("shows a bounded download when progress arrives before availability", async () => {

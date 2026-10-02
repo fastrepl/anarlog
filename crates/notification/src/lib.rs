@@ -445,8 +445,9 @@ mod tests {
     }
 
     #[test]
-    fn timed_map_rejects_a_new_entry_at_capacity_without_evicting() {
+    fn insert_without_eviction_rejects_new_keys_but_refreshes_existing_at_capacity() {
         let now = Instant::now();
+        let refreshed_at = now + Duration::from_secs(1);
         let mut map = BoundedTimedMap::default();
 
         assert!(map.insert_without_eviction("first".to_string(), 1, now, 2));
@@ -456,16 +457,7 @@ mod tests {
         assert_eq!(map.get("first").map(|entry| entry.value), Some(1));
         assert_eq!(map.get("second").map(|entry| entry.value), Some(2));
         assert!(map.get("third").is_none());
-    }
 
-    #[test]
-    fn timed_map_replaces_an_existing_entry_at_capacity_without_evicting() {
-        let now = Instant::now();
-        let refreshed_at = now + Duration::from_secs(1);
-        let mut map = BoundedTimedMap::default();
-
-        assert!(map.insert_without_eviction("first".to_string(), 1, now, 2));
-        assert!(map.insert_without_eviction("second".to_string(), 2, now, 2));
         assert!(map.insert_without_eviction("first".to_string(), 3, refreshed_at, 2));
 
         let first = map.get("first").unwrap();

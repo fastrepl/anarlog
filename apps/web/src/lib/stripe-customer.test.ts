@@ -96,7 +96,7 @@ test("empty aliases do not hide a conflicting owner", () => {
   );
 });
 
-test("repairs missing Stripe identity metadata", () => {
+test("repairs missing Stripe identity metadata and leaves complete metadata", () => {
   assert.deepEqual(
     getStripeCustomerIdentityMetadata({ user_id: "owner-user" }, "owner-user"),
     {
@@ -104,9 +104,6 @@ test("repairs missing Stripe identity metadata", () => {
       posthog_person_distinct_id: "owner-user",
     },
   );
-});
-
-test("leaves complete Stripe identity metadata unchanged", () => {
   assert.equal(
     getStripeCustomerIdentityMetadata(
       {

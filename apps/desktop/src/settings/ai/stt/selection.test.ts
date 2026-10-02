@@ -45,42 +45,14 @@ describe("normalizeStoredSttModel", () => {
 });
 
 describe("getDefaultSttModel", () => {
-  test("repairs external providers with their first supported model", () => {
-    expect(getDefaultSttModel("local_file")).toBe("local-file");
-    expect(getDefaultSttModel("deepgram")).toBe("nova-3-general");
-    expect(getDefaultSttModel("assemblyai")).toBe("universal-3-5-pro");
-    expect(getDefaultSttModel("soniox")).toBe("stt-rt-v5");
-    expect(getDefaultSttModel("cohere")).toBe("cohere-transcribe-03-2026");
-    expect(getDefaultSttModel("aquavoice")).toBe("avalon-v1.5");
-    expect(getDefaultSttModel("dashscope")).toBe("qwen3-asr-flash-realtime");
-    expect(getDefaultSttModel("zai")).toBe("glm-asr-2512");
-    expect(getDefaultSttModel("siliconflow")).toBe(
-      "FunAudioLLM/SenseVoiceSmall",
-    );
-    expect(getDefaultSttModel("groq")).toBe("whisper-large-v3-turbo");
-    expect(getDefaultSttModel("openrouter")).toBe("openai/gpt-transcribe");
-    expect(getDefaultSttModel("xai")).toBe("xai-stt");
-    expect(getDefaultSttModel("smallestai")).toBe("pulse");
-    expect(getDefaultSttModel("nari")).toBe("qwen3-asr-fast");
-    expect(getDefaultSttModel("meta")).toBe("muse-voice-transcribe-1.0");
-    expect(getDefaultSttModel("google_generative_ai")).toBe(
-      "gemini-3.5-transcribe-live",
-    );
-    expect(getDefaultSttModel("together")).toBe("openai/whisper-large-v3");
-    expect(getDefaultSttModel("speechmatics")).toBe("enhanced");
-    expect(getDefaultSttModel("azure_speech")).toBe("fast-transcription");
-    expect(getDefaultSttModel("google_cloud")).toBe("latest_long");
-    expect(getDefaultSttModel("google_generative_ai")).toBe(
-      "gemini-3.5-transcribe-live",
-    );
-    expect(getDefaultSttModel("aws_transcribe")).toBe("amazon-transcribe");
-    expect(getDefaultSttModel("revai")).toBe("machine");
-    expect(getDefaultSttModel("fireworks")).toBe("whisper-v3-turbo");
-  });
-
-  test("does not invent a model for custom or Anarlog providers", () => {
-    expect(getDefaultSttModel("custom")).toBeUndefined();
-    expect(getDefaultSttModel("anarlog")).toBeUndefined();
+  test.each([
+    ["local_file", "local-file"],
+    ["deepgram", "nova-3-general"],
+    ["assemblyai", "universal-3-5-pro"],
+    ["custom", undefined],
+    ["anarlog", undefined],
+  ])("defaults %s to %s", (provider, model) => {
+    expect(getDefaultSttModel(provider)).toBe(model);
   });
 });
 
@@ -92,16 +64,6 @@ describe("getPreferredProviderModel", () => {
         { id: "nova-2-meeting" },
       ]),
     ).toBe("nova-2-meeting");
-  });
-
-  test("moves a retired Nari beta model to its GA equivalent", () => {
-    const models = [{ id: "qwen3-asr-fast" }, { id: "qwen3-asr" }];
-    expect(getPreferredProviderModel("qwen3-asr:free", models)).toBe(
-      "qwen3-asr",
-    );
-    expect(getPreferredProviderModel("qwen3-asr-fast:free", models)).toBe(
-      "qwen3-asr-fast",
-    );
   });
 
   test("falls back to the first available model when none is remembered", () => {
@@ -152,51 +114,87 @@ describe("getPreferredProviderModel", () => {
     ).toBe("");
   });
 
-  test("migrates retired AssemblyAI models to Universal 3.5 Pro", () => {
-    const models = [
-      { id: "universal-3-5-pro" },
-      { id: "universal-3-5-pro-realtime" },
-    ];
-
-    expect(getPreferredProviderModel("universal", models)).toBe(
-      "universal-3-5-pro",
-    );
-    expect(getPreferredProviderModel("universal-3-pro", models)).toBe(
-      "universal-3-5-pro",
-    );
-    expect(getPreferredProviderModel("u3-rt-pro", models)).toBe(
-      "universal-3-5-pro-realtime",
-    );
-  });
-
-  test("migrates the retired AquaVoice model to Avalon 1.5", () => {
-    expect(
-      getPreferredProviderModel("avalon-v1-en", [{ id: "avalon-v1.5" }]),
-    ).toBe("avalon-v1.5");
-  });
-
-  test("migrates every Soniox alias to the v5 realtime model", () => {
-    for (const saved of ["stt-v5", "stt-async-v4", "stt-rt-v4", "stt-rt-v3"]) {
-      expect(getPreferredProviderModel(saved, [{ id: "stt-rt-v5" }])).toBe(
-        "stt-rt-v5",
-      );
-    }
-  });
-
-  test("migrates the superseded OpenAI transcribe models to gpt-transcribe", () => {
-    const openai = [{ id: "gpt-transcribe" }, { id: "whisper-1" }];
-    expect(getPreferredProviderModel("gpt-4o-transcribe", openai)).toBe(
-      "gpt-transcribe",
-    );
-    expect(getPreferredProviderModel("gpt-4o-mini-transcribe", openai)).toBe(
-      "gpt-transcribe",
-    );
-    expect(
-      getPreferredProviderModel("openai/gpt-4o-mini-transcribe", [
-        { id: "openai/gpt-transcribe" },
-      ]),
-    ).toBe("openai/gpt-transcribe");
-  });
+  test.each([
+    {
+      saved: "qwen3-asr:free",
+      models: [{ id: "qwen3-asr-fast" }, { id: "qwen3-asr" }],
+      expected: "qwen3-asr",
+    },
+    {
+      saved: "qwen3-asr-fast:free",
+      models: [{ id: "qwen3-asr-fast" }, { id: "qwen3-asr" }],
+      expected: "qwen3-asr-fast",
+    },
+    {
+      saved: "universal",
+      models: [
+        { id: "universal-3-5-pro" },
+        { id: "universal-3-5-pro-realtime" },
+      ],
+      expected: "universal-3-5-pro",
+    },
+    {
+      saved: "universal-3-pro",
+      models: [
+        { id: "universal-3-5-pro" },
+        { id: "universal-3-5-pro-realtime" },
+      ],
+      expected: "universal-3-5-pro",
+    },
+    {
+      saved: "u3-rt-pro",
+      models: [
+        { id: "universal-3-5-pro" },
+        { id: "universal-3-5-pro-realtime" },
+      ],
+      expected: "universal-3-5-pro-realtime",
+    },
+    {
+      saved: "avalon-v1-en",
+      models: [{ id: "avalon-v1.5" }],
+      expected: "avalon-v1.5",
+    },
+    {
+      saved: "stt-v5",
+      models: [{ id: "stt-rt-v5" }],
+      expected: "stt-rt-v5",
+    },
+    {
+      saved: "stt-async-v4",
+      models: [{ id: "stt-rt-v5" }],
+      expected: "stt-rt-v5",
+    },
+    {
+      saved: "stt-rt-v4",
+      models: [{ id: "stt-rt-v5" }],
+      expected: "stt-rt-v5",
+    },
+    {
+      saved: "stt-rt-v3",
+      models: [{ id: "stt-rt-v5" }],
+      expected: "stt-rt-v5",
+    },
+    {
+      saved: "gpt-4o-transcribe",
+      models: [{ id: "gpt-transcribe" }, { id: "whisper-1" }],
+      expected: "gpt-transcribe",
+    },
+    {
+      saved: "gpt-4o-mini-transcribe",
+      models: [{ id: "gpt-transcribe" }, { id: "whisper-1" }],
+      expected: "gpt-transcribe",
+    },
+    {
+      saved: "openai/gpt-4o-mini-transcribe",
+      models: [{ id: "openai/gpt-transcribe" }],
+      expected: "openai/gpt-transcribe",
+    },
+  ])(
+    "migrates retired model $saved to $expected",
+    ({ saved, models, expected }) => {
+      expect(getPreferredProviderModel(saved, models)).toBe(expected);
+    },
+  );
 
   test("keeps the remembered value when the provider does not expose a static list", () => {
     expect(

@@ -4,12 +4,25 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useCaptureLifecycle } from "./capture-lifecycle";
+import {
+  clearCaptureAudioSaved,
+  hasAudioAwaitingUser,
+  hasPendingZeroRetentionAudio,
+  loadCaptureLifecycleMarker,
+} from "./capture-lifecycle-storage";
 import { useListener } from "./contexts";
 import { startMeetingChatCapture } from "./meeting-chat-capture";
 import {
   MEETING_DISCLOSURE_MESSAGE,
   startMeetingRecordingDisclosure,
 } from "./meeting-disclosure";
+import { startPrimaryDeviceCoordination } from "./primary-device";
+import {
+  classifyStartFailure,
+  getMicrophonePermission,
+  showStartFailureToast,
+  type StartFailureStage,
+} from "./start-failure";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useShell } from "~/contexts/shell";
@@ -32,7 +45,6 @@ export {
   CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
   getPostCaptureAction,
   getPostCaptureRepairReasons,
-  type PostCaptureRepairReason,
 } from "./capture-lifecycle";
 export { sendMeetingRecordingDisclosure } from "./meeting-disclosure";
 export { useResumeListeningLifecycle } from "./resume-listening";
@@ -56,6 +68,7 @@ export function useStartListeningState(
   const participantHumanIds = useSessionParticipantHumanIds(sessionId);
   const getSessionMode = useListener((state) => state.getSessionMode);
   const canStartLiveSession = useListener((state) => state.canStartLiveSession);
+  const getLiveStartError = useListener((state) => state.getLiveStartError);
 
   const aiLanguage = useConfigValue("ai_language");
   const spokenLanguages = useConfigValue("spoken_languages");
@@ -74,12 +87,40 @@ export function useStartListeningState(
   const setLeftSidebarExpanded = leftsidebar.setExpanded;
   const openNew = useTabs((state) => state.openNew);
 
+  const reportStartFailure = useCallback(
+    async (stage: StartFailureStage, error: string | null) => {
+      const microphonePermission =
+        stage === "recovery_marker" ? null : await getMicrophonePermission();
+      showStartFailureToast(
+        classifyStartFailure({ stage, error, microphonePermission }),
+        (tab) => openNew({ type: "settings", state: { tab } }),
+      );
+    },
+    [openNew],
+  );
+
   const startListening = useCallback(async () => {
     if (!canStartLiveSession(sessionId)) {
       return;
     }
     await stopMeetingChatTasks();
-    const lifecycle = createCaptureLifecycle(undefined, automatic);
+    const previousMarker = await loadCaptureLifecycleMarker(sessionId).catch(
+      (error) => {
+        console.error("[listener] failed to load pending capture", error);
+        return null;
+      },
+    );
+    const pendingMarker =
+      previousMarker &&
+      (hasAudioAwaitingUser(previousMarker) ||
+        hasPendingZeroRetentionAudio(previousMarker))
+        ? previousMarker
+        : undefined;
+    const lifecycle = createCaptureLifecycle(
+      undefined,
+      automatic,
+      pendingMarker,
+    );
     // A fresh note or a just-focused window starts listening right as a sync
     // round begins; waiting for that round to yield made the start feel slow
     // and sometimes refused to record at all.
@@ -137,10 +178,7 @@ export function useStartListeningState(
         );
       }
       await releaseCloudsyncDeferral();
-      toast.error(
-        "Anarlog could not safely start recording. Please try again.",
-        { id: "capture-state-persist-failed" },
-      );
+      await reportStartFailure("recovery_marker", null);
       return;
     }
 
@@ -160,6 +198,7 @@ export function useStartListeningState(
           transcription_mode: liveTranscriptionConfig.transcriptionMode,
           participant_human_ids: remoteParticipantHumanIds,
           self_human_id: session?.user_id || null,
+          live_transcript: lifecycle.liveTranscript,
         },
         {
           handlePersist: lifecycle.handlePersist,
@@ -181,9 +220,9 @@ export function useStartListeningState(
       } finally {
         await releaseCloudsyncDeferral();
       }
-      toast.error(
-        "Anarlog could not safely start recording. Please try again.",
-        { id: "capture-state-persist-failed" },
+      await reportStartFailure(
+        "capture_start",
+        error instanceof Error ? error.message : String(error),
       );
       return;
     }
@@ -197,14 +236,20 @@ export function useStartListeningState(
         await lifecycle.cleanupFailedStart();
       } catch (error) {
         console.error("[listener] failed to clean up capture state", error);
-        toast.error(
-          "Anarlog could not safely start recording. Please try again.",
-          { id: "capture-state-persist-failed" },
-        );
       } finally {
         await releaseCloudsyncDeferral();
       }
+      await reportStartFailure(
+        "capture_rejected",
+        getLiveStartError(sessionId),
+      );
       return;
+    }
+
+    if (pendingMarker) {
+      void clearCaptureAudioSaved(sessionId).catch((error) => {
+        console.error("[listener] failed to clear capture audio state", error);
+      });
     }
 
     const openTranscriptionSettings = () => {
@@ -246,6 +291,12 @@ export function useStartListeningState(
 
     setLeftSidebarExpanded(false);
 
+    startPrimaryDeviceCoordination({
+      sessionId,
+      event: getSessionEvent({ event_json: session?.event_json }),
+      automatic,
+    });
+
     setStopMeetingChatCapture(
       startMeetingChatCapture({
         sessionId,
@@ -286,8 +337,10 @@ export function useStartListeningState(
     conn,
     createCaptureLifecycle,
     dictionaryTerms,
+    getLiveStartError,
     getSessionMode,
     microphoneDevice,
+    reportStartFailure,
     retainAudio,
     openNew,
     participantHumanIds,

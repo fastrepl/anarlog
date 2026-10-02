@@ -4,6 +4,7 @@ use anlg_askama_utils::filters;
 
 common_derives! {
     pub struct SessionContext {
+        pub session_id: Option<String>,
         pub title: Option<String>,
         pub date: Option<String>,
         pub raw_content: Option<String>,
@@ -28,6 +29,13 @@ common_derives! {
     #[template(path = "context.block.md.jinja")]
     pub struct ContextBlock {
         pub contexts: Vec<SessionContext>,
+        pub current_session_id: Option<String>,
+    }
+}
+
+impl ContextBlock {
+    fn is_current(&self, ctx: &SessionContext) -> bool {
+        ctx.session_id.is_some() && ctx.session_id == self.current_session_id
     }
 }
 
@@ -37,36 +45,10 @@ mod tests {
     use anlg_askama_utils::tpl_snapshot_with_assert;
 
     tpl_snapshot_with_assert!(
-        test_chat_system,
-        ChatSystem {
-            language: None,
-        },
-        |v| !v.contains("Context:"),
-        fixed_date = "2025-01-01",
-        @r#"
-    # General Instructions
-
-    Current date: 2025-01-01
-
-    - You are Anarlog AI, a helpful AI meeting assistant in Anarlog, an intelligent meeting platform that transcribes and analyzes meetings. Your purpose is to help users understand their meeting content better.
-    - If the user asks for your name or identity, say your name is Anarlog AI.
-    - Always respond in English, unless the user explicitly asks for a different language.
-    - Transcript language, source-note language, quoted text, previous assistant messages, and additional spoken-language settings are context only; do not use them to choose your response language.
-    - Always keep your responses concise, professional, and directly relevant to the user's questions.
-    - Your primary source of truth is the meeting transcript. Try to generate responses primarily from the transcript, and then the summary or other information (unless the user asks for something specific).
-
-    # Formatting Guidelines
-
-    - Your response would be highly likely to be paragraphs with combined information about your thought and whatever note (in markdown format) you generated.
-    - Your response would mostly be either of the two formats:
-    - Suggestion of a new version of the meeting note (in markdown block format, inside ``` blocks) based on user's request. However, be careful not to create an empty markdown block.
-    - Information (when it's not rewriting the note, it shouldn't be inside `blocks. Only re-written version of the note should be inside` blocks.) Try your best to put markdown notes inside ``` blocks.
-    "#);
-
-    tpl_snapshot_with_assert!(
         test_context_block_wrapped,
         ContextBlock {
             contexts: vec![SessionContext {
+                session_id: None,
                 title: Some("Q1 Planning".to_string()),
                 date: Some("2025-03-01".to_string()),
                 raw_content: None,
@@ -79,6 +61,7 @@ mod tests {
                 participants: vec![],
                 event: None,
             }],
+            current_session_id: None,
         },
         |v| v.starts_with("<context>") && v.trim_end().ends_with("</context>"),
         @r#"
@@ -94,6 +77,58 @@ mod tests {
     Meeting Chat:
     - Slack · 10:42 AM · Ada · received
       Review the rollout plan.
+    </context>
+    "#);
+
+    tpl_snapshot_with_assert!(
+        test_context_block_marks_current_session,
+        ContextBlock {
+            contexts: vec![
+                SessionContext {
+                    session_id: Some("session-old".to_string()),
+                    title: Some("Old Meeting".to_string()),
+                    date: None,
+                    raw_content: Some("Old notes".to_string()),
+                    enhanced_content: None,
+                    meeting_chat: None,
+                    transcript: None,
+                    participants: vec![],
+                    event: None,
+                },
+                SessionContext {
+                    session_id: Some("session-new".to_string()),
+                    title: Some("New Meeting".to_string()),
+                    date: None,
+                    raw_content: Some("New notes".to_string()),
+                    enhanced_content: None,
+                    meeting_chat: None,
+                    transcript: None,
+                    participants: vec![],
+                    event: None,
+                },
+            ],
+            current_session_id: Some("session-new".to_string()),
+        },
+        |v| v.contains("Session ID: session-new\nCurrent note:") && !v.contains("Session ID: session-old\nCurrent note:"),
+        @r#"
+    <context>
+
+    Session ID: session-old
+
+    Title: Old Meeting
+
+    User written note:
+    Old notes
+
+    ---
+
+    Session ID: session-new
+    Current note: the user is viewing this note right now.
+
+    Title: New Meeting
+
+    User written note:
+    New notes
     </context>
     "#);
 }

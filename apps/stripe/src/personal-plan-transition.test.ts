@@ -6,6 +6,31 @@ import { scheduleReplacedPersonalPlanCancellation } from "./personal-plan-transi
 const workspaceId = "workspace-123";
 const personalUserId = "user-123";
 
+const personalPlanCases: Array<{
+  status: Stripe.Subscription.Status;
+  cancelAtPeriodEnd?: boolean;
+  expected: string[];
+}> = [
+  { status: "active", expected: ["sub_personal123"] },
+  { status: "past_due", expected: ["sub_personal123"] },
+  { status: "unpaid", expected: ["sub_personal123"] },
+  { status: "paused", expected: [] },
+  { status: "active", cancelAtPeriodEnd: true, expected: [] },
+];
+
+const ownershipCases: Array<[string, string, string]> = [
+  [
+    "another-workspace",
+    personalUserId,
+    "Team subscription customer ownership is invalid",
+  ],
+  [
+    workspaceId,
+    "another-user",
+    "Personal subscription customer ownership is invalid",
+  ],
+];
+
 const subscription = ({
   id = "sub_team123",
   customer = "cus_team123",
@@ -69,27 +94,15 @@ function dependencies(
 }
 
 describe("scheduleReplacedPersonalPlanCancellation", () => {
-  it("schedules the replaced personal plan to end after Team activates", async () => {
-    const deps = dependencies();
-
-    await scheduleReplacedPersonalPlanCancellation(
-      event(subscription()),
-      deps.value,
-    );
-
-    expect(deps.scheduled).toEqual(["sub_personal123"]);
-  });
-
-  for (const status of [
-    "past_due",
-    "unpaid",
-  ] satisfies Stripe.Subscription.Status[]) {
-    it(`schedules a ${status} personal plan that Stripe may still retry`, async () => {
+  it.each(personalPlanCases)(
+    "handles a replaced personal plan in the $status state",
+    async ({ status, cancelAtPeriodEnd, expected }) => {
       const deps = dependencies(
         subscription({
           id: "sub_personal123",
           customer: "cus_personal123",
           status,
+          cancelAtPeriodEnd,
         }),
       );
 
@@ -98,9 +111,9 @@ describe("scheduleReplacedPersonalPlanCancellation", () => {
         deps.value,
       );
 
-      expect(deps.scheduled).toEqual(["sub_personal123"]);
-    });
-  }
+      expect(deps.scheduled).toEqual(expected);
+    },
+  );
 
   it("waits for the Team subscription to become active", async () => {
     const deps = dependencies();
@@ -131,77 +144,26 @@ describe("scheduleReplacedPersonalPlanCancellation", () => {
     expect(deps.scheduled).toEqual([]);
   });
 
-  it("is idempotent when the personal plan already ends after its period", async () => {
-    const deps = dependencies(
-      subscription({
-        id: "sub_personal123",
-        customer: "cus_personal123",
-        cancelAtPeriodEnd: true,
-      }),
-    );
+  it.each(ownershipCases)(
+    "fails closed for conflicting customer ownership",
+    async (teamWorkspaceId, personalCustomerUserId, expectedError) => {
+      const deps = dependencies();
+      deps.value.getCustomer = async (customerId) =>
+        ({
+          id: customerId,
+          metadata:
+            customerId === "cus_team123"
+              ? { workspaceId: teamWorkspaceId }
+              : { userId: personalCustomerUserId },
+        }) as unknown as Stripe.Customer;
 
-    await scheduleReplacedPersonalPlanCancellation(
-      event(subscription()),
-      deps.value,
-    );
-
-    expect(deps.scheduled).toEqual([]);
-  });
-
-  it("does not cancel a paused personal plan", async () => {
-    const deps = dependencies(
-      subscription({
-        id: "sub_personal123",
-        customer: "cus_personal123",
-        status: "paused",
-      }),
-    );
-
-    await scheduleReplacedPersonalPlanCancellation(
-      event(subscription()),
-      deps.value,
-    );
-
-    expect(deps.scheduled).toEqual([]);
-  });
-
-  it("fails closed when the Team customer does not own the workspace", async () => {
-    const deps = dependencies();
-    deps.value.getCustomer = async (customerId) =>
-      ({
-        id: customerId,
-        metadata:
-          customerId === "cus_team123"
-            ? { workspaceId: "another-workspace" }
-            : { userId: personalUserId },
-      }) as unknown as Stripe.Customer;
-
-    await expect(
-      scheduleReplacedPersonalPlanCancellation(
-        event(subscription()),
-        deps.value,
-      ),
-    ).rejects.toThrow("Team subscription customer ownership is invalid");
-    expect(deps.scheduled).toEqual([]);
-  });
-
-  it("fails closed when the personal plan belongs to another user", async () => {
-    const deps = dependencies();
-    deps.value.getCustomer = async (customerId) =>
-      ({
-        id: customerId,
-        metadata:
-          customerId === "cus_team123"
-            ? { workspaceId }
-            : { userId: "another-user" },
-      }) as unknown as Stripe.Customer;
-
-    await expect(
-      scheduleReplacedPersonalPlanCancellation(
-        event(subscription()),
-        deps.value,
-      ),
-    ).rejects.toThrow("Personal subscription customer ownership is invalid");
-    expect(deps.scheduled).toEqual([]);
-  });
+      await expect(
+        scheduleReplacedPersonalPlanCancellation(
+          event(subscription()),
+          deps.value,
+        ),
+      ).rejects.toThrow(expectedError);
+      expect(deps.scheduled).toEqual([]);
+    },
+  );
 });

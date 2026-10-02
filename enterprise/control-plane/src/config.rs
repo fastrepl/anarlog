@@ -343,37 +343,26 @@ mod tests {
     }
 
     #[test]
-    fn fails_closed_without_workspace_credentials() {
-        let error = match Config::from_values(
-            "postgres://localhost/anarlog".into(),
-            None,
-            None,
-            "{}".into(),
-        ) {
-            Ok(_) => panic!("empty credentials must fail"),
-            Err(error) => error,
-        };
+    fn fails_closed_on_invalid_workspace_credentials_without_echoing_them() {
+        for (tokens, expected) in [
+            ("{}", ConfigError::EmptyWorkspaceTokens),
+            (
+                r#"{"workspace-a":"short-secret"}"#,
+                ConfigError::InvalidWorkspaceToken("workspace-a".into()),
+            ),
+        ] {
+            let error = Config::from_values(
+                "postgres://localhost/anarlog".into(),
+                None,
+                None,
+                tokens.into(),
+            )
+            .err()
+            .unwrap();
 
-        assert_eq!(error, ConfigError::EmptyWorkspaceTokens);
-    }
-
-    #[test]
-    fn rejects_short_tokens_without_echoing_them() {
-        let error = match Config::from_values(
-            "postgres://localhost/anarlog".into(),
-            None,
-            None,
-            r#"{"workspace-a":"short-secret"}"#.into(),
-        ) {
-            Ok(_) => panic!("short tokens must fail"),
-            Err(error) => error,
-        };
-
-        assert_eq!(
-            error,
-            ConfigError::InvalidWorkspaceToken("workspace-a".into())
-        );
-        assert!(!error.to_string().contains("short-secret"));
+            assert_eq!(error, expected);
+            assert!(!error.to_string().contains("short-secret"));
+        }
     }
 
     #[test]
@@ -400,43 +389,36 @@ mod tests {
     }
 
     #[test]
-    fn rejects_partial_zoom_configuration_without_weakening_core_startup() {
-        let error = Config::from_values_with_zoom(
-            "postgres://localhost/anarlog".into(),
-            None,
-            None,
-            format!(r#"{{"workspace-a":"{TOKEN}"}}"#),
-            ZoomConfigValues {
-                client_id: Some("zoom-client".into()),
-                ..ZoomConfigValues::default()
-            },
-        )
-        .err()
-        .unwrap();
+    fn rejects_partial_or_unscoped_zoom_configuration() {
+        for (zoom, expected) in [
+            (
+                ZoomConfigValues {
+                    client_id: Some("zoom-client".into()),
+                    ..ZoomConfigValues::default()
+                },
+                ConfigError::IncompleteZoomConfiguration,
+            ),
+            (
+                ZoomConfigValues {
+                    client_id: Some("zoom-client".into()),
+                    client_secret: Some("zoom-client-secret".into()),
+                    webhook_secret: Some("zoom-webhook-secret".into()),
+                    account_workspaces: Some(r#"{"account-a":"workspace-b"}"#.into()),
+                },
+                ConfigError::UnknownZoomWorkspace("workspace-b".into()),
+            ),
+        ] {
+            let error = Config::from_values_with_zoom(
+                "postgres://localhost/anarlog".into(),
+                None,
+                None,
+                format!(r#"{{"workspace-a":"{TOKEN}"}}"#),
+                zoom,
+            )
+            .err()
+            .unwrap();
 
-        assert_eq!(error, ConfigError::IncompleteZoomConfiguration);
-    }
-
-    #[test]
-    fn rejects_zoom_accounts_mapped_to_an_unconfigured_workspace() {
-        let error = Config::from_values_with_zoom(
-            "postgres://localhost/anarlog".into(),
-            None,
-            None,
-            format!(r#"{{"workspace-a":"{TOKEN}"}}"#),
-            ZoomConfigValues {
-                client_id: Some("zoom-client".into()),
-                client_secret: Some("zoom-client-secret".into()),
-                webhook_secret: Some("zoom-webhook-secret".into()),
-                account_workspaces: Some(r#"{"account-a":"workspace-b"}"#.into()),
-            },
-        )
-        .err()
-        .unwrap();
-
-        assert_eq!(
-            error,
-            ConfigError::UnknownZoomWorkspace("workspace-b".into())
-        );
+            assert_eq!(error, expected);
+        }
     }
 }

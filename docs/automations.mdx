@@ -59,24 +59,36 @@ Examples:
 
 ## Save summaries to Google Drive
 
-In a custom workflow, choose **After the meeting summary is ready**, then add
+Choose **Save meetings to Google Drive** under **Get started** to open the template.
+Configure it and choose **Save draft** or **Save & enable**. Reopening the template
+returns to the same configuration without creating another automation.
+Or, in a custom workflow, choose **After the meeting summary is ready**, then add
 **Save to Google Drive**. Connect your Google account and choose a folder in My
-Drive or a shared drive where you can add files.
+Drive or a shared drive where you can add files. Choose **Markdown (.md)** or
+**Google Docs** as the file format, then enable the workflow. Existing workflows
+continue to use Markdown.
 
 Every note summarized after you enable the workflow is exported to that folder
-as one Markdown file containing its summary, transcript, title, date, and meeting
+as one file in the selected format containing its summary, transcript, title, date, and meeting
 ID. Notes without a transcript include a message that no transcript is available.
 Choose a collection folder that should receive all of these notes; this action
 does not filter by Anarlog folder or automatically route projects.
 
 Generating a summary again updates the existing export for that meeting and
-folder. Renaming a note updates its exported filename. Anarlog owns the exported
+folder and format. Changing formats keeps previous exports and uses the new
+format on subsequent runs; it does not convert old exports in bulk. Renaming a note updates its exported filename. Anarlog owns the exported
 file content, so a later export replaces edits made directly to that file.
 
 The action shows the exported file link or its latest unresolved failure. Use
 **Retry Google Drive export** to retry that delivery without replaying successful
 Slack, Notion, or Linear actions. If the destination changes, generate the summary
-again to export to the new folder.
+again to export to the new folder. Changing the format also requires a new
+summary run rather than retrying a delivery in the old format.
+
+Google Docs retries search for an existing export before creating a document.
+If a creation response is lost and Drive search has not indexed the document yet,
+a retry can create a duplicate. There is no separate recovery queue or guarantee
+of exactly-once creation.
 
 Anarlog must be open to run the workflow. This action does not backfill older
 notes or queue deliveries while the app is closed. It uses the same plan access

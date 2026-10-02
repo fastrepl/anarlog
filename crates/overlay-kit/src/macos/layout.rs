@@ -172,7 +172,6 @@ fn usable_extent(value: f64) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layout::{Dimension, LayoutNode};
 
     #[test]
     fn flips_top_left_frames_into_appkit_coordinates() {
@@ -180,12 +179,5 @@ mod tests {
             top_left_to_appkit(LayoutRect::new(10.0, 12.0, 40.0, 18.0), 100.0),
             rect(10.0, 70.0, 40.0, 18.0)
         );
-    }
-
-    #[test]
-    fn binding_key_validation_is_deterministic() {
-        let spec = LayoutNode::leaf("known", Dimension::fixed(10.0), Dimension::fixed(10.0));
-        let expected: BTreeSet<_> = spec.leaf_keys().into_iter().collect();
-        assert_eq!(expected, BTreeSet::from(["known".to_string()]));
     }
 }

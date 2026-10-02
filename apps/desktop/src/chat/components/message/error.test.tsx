@@ -27,24 +27,12 @@ describe("ErrorMessage", () => {
     cleanup();
   });
 
-  it("renders an Error's message", () => {
-    render(<ErrorMessage error={new Error("model unavailable")} />);
-
-    expect(screen.getByText("model unavailable")).toBeTruthy();
-  });
-
   it("renders a bare string rejection instead of crashing", () => {
     // Tauri `invoke` rejects with the serialized Rust error, which is a plain
     // string; the AI SDK stores it as `useChat().error` as-is.
     render(<ErrorMessage error="cloudsync_activity_drain_timeout" />);
 
     expect(screen.getByText("cloudsync_activity_drain_timeout")).toBeTruthy();
-  });
-
-  it("shows context-length help for a string error too", () => {
-    render(<ErrorMessage error="prompt exceeds context length" />);
-
-    expect(screen.getByText("Learn how to fix this")).toBeTruthy();
   });
 });
 

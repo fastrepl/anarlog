@@ -19,6 +19,16 @@ pub(super) fn test_cloudsync_config() -> CloudsyncRuntimeConfig {
     }
 }
 
+pub(super) async fn db_with_cloudsync_items_table(create_table_sql: &'static str) -> Db {
+    let db = Db::connect_memory().await.unwrap();
+    sqlx::query(create_table_sql)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    db.cloudsync_init("items", None, None).await.unwrap();
+    db
+}
+
 pub(super) async fn db_with_local_unsent_changes() -> (tempfile::TempDir, Db) {
     let dir = tempfile::tempdir().unwrap();
     let db_path = dir.path().join("app.db");

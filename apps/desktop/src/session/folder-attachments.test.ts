@@ -1,12 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  execute: vi.fn(),
-  executeTransaction: vi.fn().mockResolvedValue([0, 1]),
+  catalogFolderMaterial: vi.fn(),
   enqueueDatabaseWrite: vi.fn(
-    async (_key: string, write: () => Promise<number[]>) => write(),
+    async (_key: string, write: () => Promise<unknown>) => write(),
   ),
+  execute: vi.fn(),
   folderAttachmentRemove: vi.fn(),
+  tombstoneFolderMaterial: vi.fn(),
+}));
+
+vi.mock("@anlg/plugin-session", () => ({
+  commands: {
+    catalogFolderMaterial: mocks.catalogFolderMaterial,
+    tombstoneFolderMaterial: mocks.tombstoneFolderMaterial,
+  },
 }));
 
 vi.mock("@anlg/plugin-fs-sync", () => ({
@@ -16,7 +24,6 @@ vi.mock("@anlg/plugin-fs-sync", () => ({
 }));
 
 vi.mock("~/db", () => ({
-  executeTransaction: mocks.executeTransaction,
   liveQueryClient: { execute: mocks.execute },
   useLiveQuery: () => ({ data: [] }),
 }));
@@ -36,7 +43,11 @@ import {
 describe("folder material catalog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.executeTransaction.mockResolvedValue([0, 1]);
+    mocks.catalogFolderMaterial.mockResolvedValue({ status: "ok", data: null });
+    mocks.tombstoneFolderMaterial.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
     mocks.execute.mockResolvedValue([]);
     mocks.folderAttachmentRemove.mockResolvedValue({
       status: "ok",
@@ -44,31 +55,7 @@ describe("folder material catalog", () => {
     });
   });
 
-  it("stores materials against the folder path, not a session", async () => {
-    await catalogLocalFolderMaterial({
-      folderPath: "CS 101",
-      attachmentId: "syllabus.txt",
-      filename: "syllabus.txt",
-      contentType: "text/plain",
-      sizeBytes: 12,
-      sha256: "a".repeat(64),
-    });
-
-    expect(mocks.enqueueDatabaseWrite).toHaveBeenCalledWith(
-      "folder:CS 101",
-      expect.any(Function),
-    );
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements).toHaveLength(2);
-    expect(statements[1].sql).toContain("INSERT INTO folder_attachments");
-    expect(statements[1].sql).toContain("folder_path");
-    expect(statements[1].sql).not.toContain("session_id");
-    expect(statements[1].sql).not.toContain("attachment_transfer_jobs");
-    expect(statements[1].params).toContain("materials/syllabus.txt");
-    expect(statements[1].params).toContain("CS 101");
-  });
-
-  it("rejects the unfiled folder", async () => {
+  it("rejects the unfiled folder before cataloging", async () => {
     await expect(
       catalogLocalFolderMaterial({
         folderPath: "",
@@ -79,10 +66,10 @@ describe("folder material catalog", () => {
         sha256: "a".repeat(64),
       }),
     ).rejects.toThrow("invalid folder path");
-    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+    expect(mocks.catalogFolderMaterial).not.toHaveBeenCalled();
   });
 
-  it("loads materials for a named folder", async () => {
+  it("loads and maps materials for a named folder", async () => {
     mocks.execute.mockResolvedValue([
       {
         id: "mat-1",
@@ -102,10 +89,6 @@ describe("folder material catalog", () => {
         relativePath: "materials/syllabus.txt",
       },
     ]);
-    expect(mocks.execute).toHaveBeenCalledWith(
-      expect.stringContaining("folder_path = ?"),
-      ["CS 101"],
-    );
   });
 
   it("loads one material by id", async () => {
@@ -128,21 +111,33 @@ describe("folder material catalog", () => {
     });
   });
 
-  it("tombstones then removes the on-disk file", async () => {
-    mocks.executeTransaction.mockResolvedValue([1]);
-
-    await deleteLocalFolderMaterial({
-      folderPath: "CS 101",
-      attachmentId: "syllabus.txt",
+  it("does not remove the on-disk file when tombstoning fails", async () => {
+    mocks.tombstoneFolderMaterial.mockResolvedValue({
+      status: "error",
+      error: "folder material is unavailable",
     });
 
-    expect(mocks.executeTransaction.mock.calls[0]![0][0].sql).toContain(
-      "deleted_at = strftime",
-    );
-    expect(mocks.folderAttachmentRemove).toHaveBeenCalledWith(
-      "CS 101",
-      "syllabus.txt",
-    );
+    await expect(
+      deleteLocalFolderMaterial({
+        folderPath: "CS 101",
+        attachmentId: "syllabus.txt",
+      }),
+    ).rejects.toThrow("folder material is unavailable");
+    expect(mocks.folderAttachmentRemove).not.toHaveBeenCalled();
+  });
+
+  it("preserves errors from removing the on-disk file", async () => {
+    mocks.folderAttachmentRemove.mockResolvedValue({
+      status: "error",
+      error: "disk unavailable",
+    });
+
+    await expect(
+      deleteLocalFolderMaterial({
+        folderPath: "CS 101",
+        attachmentId: "syllabus.txt",
+      }),
+    ).rejects.toThrow("disk unavailable");
   });
 
   it("reads the disk filename from a relative path", () => {

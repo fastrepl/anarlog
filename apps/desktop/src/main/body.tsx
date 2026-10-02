@@ -13,6 +13,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@anlg/ui/components/ui/resizable";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import {
@@ -34,7 +35,6 @@ import { useClassicMainShortcuts } from "./useShortcuts";
 
 import { useShell } from "~/contexts/shell";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   usesTitleBarSidebarActions,
   usesWindowsStyleTitleBar,

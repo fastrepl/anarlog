@@ -1,9 +1,10 @@
 import {
-  useEffect,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 const STORAGE_KEY = "anarlog:devtools-scan-layout";
 export type PanelRect = { x: number; y: number; width: number; height: number };
@@ -112,7 +113,7 @@ export function useScanPanelLayout() {
       height: `${next.height}px`,
     });
   };
-  useEffect(() => {
+  useMountEffect(() => {
     const onResize = () => {
       gesture.current = null;
       apply(constrainPanel(rect.current));
@@ -120,7 +121,7 @@ export function useScanPanelLayout() {
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  });
 
   const begin = (event: ReactPointerEvent<HTMLElement>, edge?: Edge) => {
     if (event.button !== 0 || gesture.current) return;

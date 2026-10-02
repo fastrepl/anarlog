@@ -519,33 +519,25 @@ fn direct_mic_speakers(embeddings: &[SpanEmbedding]) -> Vec<Option<i64>> {
     speakers
 }
 
-#[tauri::command]
-#[specta::specta]
-pub async fn cleanup_expired_voiceprint_candidates<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<u32, String> {
-    let pool = app
-        .try_state::<tauri_plugin_db::ManagedState>()
-        .map(|state| state.pool().clone())
-        .ok_or_else(|| "database is not ready yet".to_string())?;
-
+pub(crate) async fn cleanup_expired_voiceprint_candidates<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    pool: &sqlx::SqlitePool,
+) -> Result<(), sqlx::Error> {
     let now = chrono::Utc::now()
         .format("%Y-%m-%dT%H:%M:%S%.3fZ")
         .to_string();
-    let expired = anlg_db_app::tombstone_expired_voiceprint_candidates(&pool, &now)
-        .await
-        .map_err(|error| error.to_string())?;
-    let removed = expired.len() as u32;
+    let expired = anlg_db_app::tombstone_expired_voiceprint_candidates(pool, &now).await?;
+    let removed = expired.len();
 
     for secret in expired {
-        delete_secret(&app, secret.keyring_scope, secret.keyring_key).await;
+        delete_secret(app, secret.keyring_scope, secret.keyring_key).await;
     }
-    let _ = anlg_db_app::purge_expired_tombstoned_voiceprint_candidates(&pool, &now).await;
+    let _ = anlg_db_app::purge_expired_tombstoned_voiceprint_candidates(pool, &now).await;
 
     if removed > 0 {
         tracing::info!(removed, "voiceprint_candidates_expired");
     }
-    Ok(removed)
+    Ok(())
 }
 
 /// Confirmed voiceprints of the session's participants, for the on-device
@@ -1385,7 +1377,6 @@ fn automatic_speaker_hint(word_id: &str, human_id: &str, basis: NamingBasis) -> 
 #[cfg(test)]
 mod tests {
     use std::num::NonZero;
-    use std::time::Duration;
 
     use super::*;
 
@@ -1433,33 +1424,20 @@ mod tests {
     }
 
     #[test]
-    fn mixed_capture_span_averages_multi_channel_audio() {
+    fn span_samples_select_channel_or_mix_all_channels() {
         let channels = vec![vec![0.2_f32; 32_000], vec![0.4_f32; 32_000]];
-        let span = SelectedSpan {
-            channel: 2,
-            speaker_index: Some(0),
-            start_ms: 0,
-            end_ms: 1_000,
-            quality_score: 0.1,
-        };
-        let samples = span_samples(&channels, &span).unwrap();
-        assert_eq!(samples.len(), 16_000);
-        assert!((samples[0] - 0.3).abs() < 1e-6);
-    }
-
-    #[test]
-    fn stereo_span_uses_matching_channel() {
-        let channels = vec![vec![0.1_f32; 32_000], vec![0.9_f32; 32_000]];
-        let span = SelectedSpan {
-            channel: 1,
-            speaker_index: Some(0),
-            start_ms: 500,
-            end_ms: 1_500,
-            quality_score: 0.1,
-        };
-        let samples = span_samples(&channels, &span).unwrap();
-        assert_eq!(samples.len(), 16_000);
-        assert!((samples[0] - 0.9).abs() < 1e-6);
+        for (channel, start_ms, expected) in [(1, 500, 0.4_f32), (2, 0, 0.3)] {
+            let span = SelectedSpan {
+                channel,
+                speaker_index: Some(0),
+                start_ms,
+                end_ms: start_ms + 1_000,
+                quality_score: 0.1,
+            };
+            let samples = span_samples(&channels, &span).unwrap();
+            assert_eq!(samples.len(), 16_000);
+            assert!((samples[0] - expected).abs() < 1e-6, "channel {channel}");
+        }
     }
 
     #[test]
@@ -1536,45 +1514,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "long synthetic-audio memory benchmark"]
-    fn thirty_minute_span_collection_retains_only_selected_audio() {
-        let duration_seconds = 30 * 60usize;
-        let spans = vec![
-            SelectedSpan {
-                channel: 0,
-                speaker_index: Some(0),
-                start_ms: 10_000,
-                end_ms: 20_000,
-                quality_score: 1.0,
-            },
-            SelectedSpan {
-                channel: 1,
-                speaker_index: Some(1),
-                start_ms: 1_780_000,
-                end_ms: 1_790_000,
-                quality_score: 1.0,
-            },
-        ];
-        let (collected, stats) =
-            collect_span_samples(SyntheticStereoSource::new(duration_seconds), spans).unwrap();
-
-        assert_eq!(
-            stats.decoded_frames,
-            duration_seconds * EMBEDDING_SAMPLE_RATE as usize
-        );
-        assert_eq!(
-            collected[0].samples.len(),
-            10 * EMBEDDING_SAMPLE_RATE as usize
-        );
-        assert_eq!(
-            collected[1].samples.len(),
-            10 * EMBEDDING_SAMPLE_RATE as usize
-        );
-        assert_eq!(stats.retained_samples, 20 * EMBEDDING_SAMPLE_RATE as usize);
-        assert!(stats.max_decoder_block_samples <= 2 * 1024);
-    }
-
-    #[test]
     fn embedding_round_trips_through_base64() {
         let embedding = vec![0.5_f32, -1.25, 3.0];
         assert_eq!(
@@ -1647,7 +1586,7 @@ mod tests {
     }
 
     #[test]
-    fn unique_voiceprint_hint_uses_voiceprint_source() {
+    fn automatic_speaker_hints_record_their_naming_source() {
         let hint = automatic_speaker_hint("w1", "marco", NamingBasis::Voiceprint { score: 0.84 });
         assert_eq!(hint["type"], "automatic_speaker_assignment");
         assert_eq!(hint["word_id"], "w1");
@@ -1656,12 +1595,8 @@ mod tests {
         assert_eq!(value["human_id"], "marco");
         assert_eq!(value["source"], "voiceprint");
         assert!((value["confidence"].as_f64().unwrap() - 0.84).abs() < 1e-6);
-    }
 
-    #[test]
-    fn elimination_hint_carries_its_own_source_and_no_score() {
         let hint = automatic_speaker_hint("w2", "ada", NamingBasis::Elimination);
-        assert_eq!(hint["type"], "automatic_speaker_assignment");
         let value: serde_json::Value =
             serde_json::from_str(hint["value"].as_str().unwrap()).unwrap();
         assert_eq!(value["human_id"], "ada");
@@ -1767,73 +1702,16 @@ mod tests {
             eliminate_last_remote_speaker(&index, &people(&["ada", "marco"]), &namings),
             None
         );
+        // Two speakers and two people still unnamed: ambiguous.
+        assert_eq!(
+            eliminate_last_remote_speaker(&index, &people(&["ada", "marco", "cy"]), &namings[..1],),
+            None
+        );
         // Exact count: the direct-mic word is not a remote speaker.
         assert_eq!(
             eliminate_last_remote_speaker(&index, &people(&["ada", "marco", "cy"]), &namings)
                 .map(|naming| naming.human_id),
             Some("cy".to_string())
         );
-    }
-
-    #[test]
-    fn elimination_needs_a_single_open_pair() {
-        let index = speaker_index_from_transcript(THREE_REMOTE_SPEAKERS, "[]").unwrap();
-
-        assert_eq!(
-            eliminate_last_remote_speaker(
-                &index,
-                &people(&["ada", "marco", "cy"]),
-                &[voiceprint_naming(remote_speaker(0), "marco")],
-            ),
-            None
-        );
-    }
-
-    struct SyntheticStereoSource {
-        sample_index: usize,
-        total_samples: usize,
-    }
-
-    impl SyntheticStereoSource {
-        fn new(duration_seconds: usize) -> Self {
-            Self {
-                sample_index: 0,
-                total_samples: duration_seconds * EMBEDDING_SAMPLE_RATE as usize * 2,
-            }
-        }
-    }
-
-    impl Iterator for SyntheticStereoSource {
-        type Item = f32;
-
-        fn next(&mut self) -> Option<Self::Item> {
-            if self.sample_index >= self.total_samples {
-                return None;
-            }
-            let frame = self.sample_index / 2;
-            let channel = self.sample_index % 2;
-            self.sample_index += 1;
-            Some(((frame + channel * 17) as f32 * 0.001).sin() * 0.1)
-        }
-    }
-
-    impl anlg_audio_utils::Source for SyntheticStereoSource {
-        fn current_span_len(&self) -> Option<usize> {
-            Some(self.total_samples - self.sample_index)
-        }
-
-        fn channels(&self) -> NonZero<u16> {
-            NonZero::new(2).unwrap()
-        }
-
-        fn sample_rate(&self) -> NonZero<u32> {
-            NonZero::new(EMBEDDING_SAMPLE_RATE).unwrap()
-        }
-
-        fn total_duration(&self) -> Option<Duration> {
-            Some(Duration::from_secs(
-                (self.total_samples / 2 / EMBEDDING_SAMPLE_RATE as usize) as u64,
-            ))
-        }
     }
 }

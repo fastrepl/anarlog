@@ -3,7 +3,7 @@ import { play, type SoundName } from "cuelume";
 import { getStoredSettingValues } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
 
-export const COMPLETION_SOUND_NAMES = [
+const COMPLETION_SOUND_NAMES = [
   "ready",
   "success",
   "chime",

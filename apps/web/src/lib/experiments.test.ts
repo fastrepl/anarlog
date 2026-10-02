@@ -7,16 +7,13 @@ import {
   resolveExperimentVariant,
 } from "./experiments.ts";
 
-test("falls back to the first variant when the flag is missing or unknown", () => {
+test("resolves declared variants and falls back to control", () => {
   assert.equal(
     resolveExperimentVariant("downloadLayout", undefined),
     "control",
   );
   assert.equal(resolveExperimentVariant("downloadLayout", false), "control");
   assert.equal(resolveExperimentVariant("downloadLayout", "bogus"), "control");
-});
-
-test("returns declared variants verbatim", () => {
   assert.equal(
     resolveExperimentVariant("downloadLayout", "three-column"),
     "three-column",

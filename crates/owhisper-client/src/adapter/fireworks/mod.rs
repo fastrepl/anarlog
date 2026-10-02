@@ -69,40 +69,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_build_ws_url_from_base_empty() {
-        let (url, params) = FireworksAdapter::build_ws_url_from_base("");
-        assert_eq!(
-            url.as_str(),
-            "wss://audio-streaming-v2.api.fireworks.ai/v1/audio/transcriptions/streaming"
-        );
-        assert!(params.is_empty());
-    }
+    fn test_build_ws_url_from_base() {
+        let cases = [
+            (
+                "",
+                "wss://audio-streaming-v2.api.fireworks.ai/v1/audio/transcriptions/streaming",
+                vec![],
+            ),
+            (
+                "https://api.fireworks.ai",
+                "wss://audio-streaming-v2.api.fireworks.ai/v1/audio/transcriptions/streaming",
+                vec![],
+            ),
+            (
+                "https://api.anarlog.so/listen?provider=fireworks",
+                "wss://api.anarlog.so/listen",
+                vec![("provider", "fireworks")],
+            ),
+            (
+                "http://localhost:8787/listen?provider=fireworks",
+                "ws://localhost:8787/listen",
+                vec![("provider", "fireworks")],
+            ),
+        ];
 
-    #[test]
-    fn test_build_ws_url_from_base_fireworks() {
-        let (url, params) = FireworksAdapter::build_ws_url_from_base("https://api.fireworks.ai");
-        assert_eq!(
-            url.as_str(),
-            "wss://audio-streaming-v2.api.fireworks.ai/v1/audio/transcriptions/streaming"
-        );
-        assert!(params.is_empty());
-    }
-
-    #[test]
-    fn test_build_ws_url_from_base_proxy() {
-        let (url, params) = FireworksAdapter::build_ws_url_from_base(
-            "https://api.anarlog.so/listen?provider=fireworks",
-        );
-        assert_eq!(url.as_str(), "wss://api.anarlog.so/listen");
-        assert_eq!(params, vec![("provider".into(), "fireworks".into())]);
-    }
-
-    #[test]
-    fn test_build_ws_url_from_base_localhost() {
-        let (url, params) = FireworksAdapter::build_ws_url_from_base(
-            "http://localhost:8787/listen?provider=fireworks",
-        );
-        assert_eq!(url.as_str(), "ws://localhost:8787/listen");
-        assert_eq!(params, vec![("provider".into(), "fireworks".into())]);
+        for (input, expected_url, expected_params) in cases {
+            let (url, params) = FireworksAdapter::build_ws_url_from_base(input);
+            assert_eq!(url.as_str(), expected_url, "input: {input}");
+            assert_eq!(
+                params,
+                expected_params
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>(),
+                "input: {input}"
+            );
+        }
     }
 }

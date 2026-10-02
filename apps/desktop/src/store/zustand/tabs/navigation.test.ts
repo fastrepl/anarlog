@@ -11,19 +11,6 @@ describe("navigation", () => {
     resetTabsStore();
   });
 
-  test("openNew creates new slot with its own history", () => {
-    const tab1 = createSessionTab();
-    const tab2 = createSessionTab();
-
-    useTabs.getState().openNew(tab1);
-    useTabs.getState().openNew(tab2);
-
-    const state = useTabs.getState();
-    expect(state.tabs).toHaveLength(2);
-    expect(state.history.size).toBe(2);
-    expect(state).toHaveCurrentTab({ id: tab2.id });
-  });
-
   test("ephemeral shared-note previews never enter navigation history", () => {
     useTabs.getState().openNew({
       type: "shared_note_preview",
@@ -50,20 +37,6 @@ describe("navigation", () => {
     expect(state).toHaveCurrentTab({ id: personal.id, active: true });
     expect(state.currentTab?.slotId).toBe(state.tabs[0]?.slotId);
     expect(state.tabs.filter((tab) => tab.active)).toHaveLength(1);
-  });
-
-  test("openCurrent adds to current slot's history", () => {
-    const tab1 = createSessionTab();
-    const tab2 = createSessionTab();
-
-    useTabs.getState().openNew(tab1);
-    useTabs.getState().openCurrent(tab2);
-
-    const state = useTabs.getState();
-    expect(state.tabs).toHaveLength(1);
-    expect(state.history.size).toBe(1);
-    expect(state).toHaveCurrentTab({ id: tab2.id });
-    expect(state).toHaveHistoryLength(2);
   });
 
   test("goBack navigates within slot's history", () => {

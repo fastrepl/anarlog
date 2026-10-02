@@ -586,11 +586,12 @@ mod tests {
     }
 
     #[test]
-    fn empty_updates_do_not_hide_a_stalled_transcript() {
+    fn non_advancing_updates_do_not_reset_the_stall_watchdog() {
         let now = Instant::now();
-        let mut progress = StreamProgress::new(now);
-        assert!(!progress.observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(29)));
-        progress.observe_delta(
+
+        let mut empty = StreamProgress::new(now);
+        assert!(!empty.observe_audio(MIN_ACTIVE_AUDIO_SAMPLES, now + Duration::from_secs(29)));
+        empty.observe_delta(
             &crate::LiveTranscriptDelta {
                 new_words: vec![],
                 replaced_ids: vec![],
@@ -598,7 +599,19 @@ mod tests {
             },
             now + Duration::from_secs(29),
         );
-        assert!(progress.observe_audio(0, now + Duration::from_secs(30)));
+        assert!(empty.observe_audio(0, now + Duration::from_secs(30)));
+
+        let mut repeated = StreamProgress::new(now);
+        let delta = transcript_delta(false, 0);
+        repeated.observe_delta(&delta, now);
+        for second in 1..=30 {
+            let time = now + Duration::from_secs(second);
+            repeated.observe_delta(&delta, time);
+            assert_eq!(
+                repeated.observe_audio(crate::actors::SAMPLE_RATE as usize, time),
+                second == 30
+            );
+        }
     }
 
     #[test]
@@ -636,22 +649,6 @@ mod tests {
             assert_eq!(
                 progress.observe_audio(crate::actors::SAMPLE_RATE as usize, time),
                 second == 30,
-            );
-        }
-    }
-
-    #[test]
-    fn repeated_partials_do_not_hide_stalled_transcripts() {
-        let now = Instant::now();
-        let mut progress = StreamProgress::new(now);
-        let delta = transcript_delta(false, 0);
-        progress.observe_delta(&delta, now);
-        for second in 1..=30 {
-            let time = now + Duration::from_secs(second);
-            progress.observe_delta(&delta, time);
-            assert_eq!(
-                progress.observe_audio(crate::actors::SAMPLE_RATE as usize, time),
-                second == 30
             );
         }
     }

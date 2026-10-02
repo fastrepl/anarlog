@@ -1,5 +1,6 @@
 import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 
+import { resolveSummaryLanguage } from "~/services/enhancer/summary-language";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
 import type { SettingValues } from "~/settings/schema";
 import { parseDictionaryTermsJson } from "~/stt/keywords";
@@ -26,7 +27,7 @@ async function transformArgs(
       .filter(Boolean)
       .join("\n\n") ??
     "";
-  const language = getLanguage(settingsValues);
+  const language = await resolveSummaryLanguage(settingsValues, [enhancedNote]);
   return {
     language,
     enhancedNote,
@@ -34,9 +35,4 @@ async function transformArgs(
       settingsValues.personalization_dictionary_terms,
     ),
   };
-}
-
-function getLanguage(settingsValues: SettingValues): string | null {
-  const value = settingsValues.ai_language;
-  return typeof value === "string" && value.length > 0 ? value : null;
 }

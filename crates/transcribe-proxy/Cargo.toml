@@ -18,7 +18,6 @@ owhisper-interface = { workspace = true, features = ["openapi"] }
 axum = { workspace = true, features = ["ws"] }
 futures-util = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
-reqwest-middleware = { workspace = true }
 sentry = { workspace = true }
 serde_html_form = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync", "macros", "fs", "io-util"] }

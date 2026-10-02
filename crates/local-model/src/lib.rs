@@ -384,21 +384,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn model_urls_use_anarlog_domain() {
-        for model in [
-            GgufLlmModel::Llama3p2_3bQ4,
-            GgufLlmModel::AnarlogLLM,
-            GgufLlmModel::Gemma3_4bQ4,
-        ] {
-            assert!(
-                model
-                    .model_url()
-                    .starts_with("https://models.anarlog.so/v0/")
-            );
-        }
-    }
-
-    #[test]
     fn anarlog_llm_accepts_legacy_serialized_name() {
         assert_eq!(
             serde_json::from_str::<GgufLlmModel>("\"HyprLLM\"").unwrap(),

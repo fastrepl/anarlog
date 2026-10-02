@@ -73,56 +73,39 @@ export const CharPlugin: Plugin = async () => {
 mod tests {
     use super::*;
 
-    #[test]
-    fn detects_exact_char_plugin_contents() {
-        let dir = tempfile::tempdir().unwrap();
+    fn write_temp_plugin(dir: &tempfile::TempDir, contents: &str) -> std::path::PathBuf {
         let path = dir.path().join("char.ts");
-
-        std::fs::write(&path, PLUGIN_CONTENTS).unwrap();
-
-        assert!(has_char_plugin(&path).unwrap());
+        std::fs::write(&path, contents).unwrap();
+        path
     }
 
     #[test]
-    fn ignores_different_plugin_contents() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("char.ts");
+    fn has_char_plugin_requires_exact_contents() {
+        let current_dir = tempfile::tempdir().unwrap();
+        let current_path = write_temp_plugin(&current_dir, PLUGIN_CONTENTS);
+        let other_dir = tempfile::tempdir().unwrap();
+        let other_path = write_temp_plugin(&other_dir, "export const plugin = {};\n");
 
-        std::fs::write(&path, "export const plugin = {};\n").unwrap();
-
-        assert!(!has_char_plugin(&path).unwrap());
+        assert!(has_char_plugin(&current_path).unwrap());
+        assert!(!has_char_plugin(&other_path).unwrap());
     }
 
     #[test]
-    fn is_char_plugin_detects_current_contents() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("char.ts");
-
-        std::fs::write(&path, PLUGIN_CONTENTS).unwrap();
-
-        assert!(is_char_plugin(&path).unwrap());
-    }
-
-    #[test]
-    fn is_char_plugin_detects_outdated_contents() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("char.ts");
-
-        let old_plugin = r#"
+    fn is_char_plugin_detects_current_and_outdated_but_not_unrelated() {
+        let current_dir = tempfile::tempdir().unwrap();
+        let current_path = write_temp_plugin(&current_dir, PLUGIN_CONTENTS);
+        let outdated_dir = tempfile::tempdir().unwrap();
+        let outdated_path = write_temp_plugin(
+            &outdated_dir,
+            r#"
             const child = Bun.spawn(["char", "opencode", "notify"]);
-        "#;
-        std::fs::write(&path, old_plugin).unwrap();
+        "#,
+        );
+        let unrelated_dir = tempfile::tempdir().unwrap();
+        let unrelated_path = write_temp_plugin(&unrelated_dir, "export const plugin = {};\n");
 
-        assert!(is_char_plugin(&path).unwrap());
-    }
-
-    #[test]
-    fn is_char_plugin_rejects_unrelated_plugin() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("char.ts");
-
-        std::fs::write(&path, "export const plugin = {};\n").unwrap();
-
-        assert!(!is_char_plugin(&path).unwrap());
+        assert!(is_char_plugin(&current_path).unwrap());
+        assert!(is_char_plugin(&outdated_path).unwrap());
+        assert!(!is_char_plugin(&unrelated_path).unwrap());
     }
 }

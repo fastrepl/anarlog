@@ -303,7 +303,7 @@ impl Actor for SessionActor {
                 &state.ctx.params.session_id,
             );
             if let Err(error) = tokio::task::spawn_blocking(move || {
-                crate::actors::recorder::delete_capture_audio(&dir)
+                crate::actors::recorder::delete_transcribed_capture_audio(&dir).map(|_| ())
             })
             .await?
             {
@@ -849,7 +849,7 @@ mod tests {
     }
 
     #[test]
-    fn config_update_does_not_refresh_for_speaker_assignments() {
+    fn config_update_keeps_stream_for_participant_and_speaker_changes() {
         let mut ctx = test_ctx();
         ctx.params.participant_human_ids = vec!["self".to_string(), "remote-a".to_string()];
         ctx.params.self_human_id = Some("self".to_string());
@@ -862,11 +862,30 @@ mod tests {
                 speaker_index: 0,
             },
         }];
+        assert!(
+            !update_requires_listener_refresh(&state.ctx.params, &update),
+            "speaker assignments"
+        );
 
-        assert!(!update_requires_listener_refresh(
-            &state.ctx.params,
-            &update
-        ));
+        let mut ctx = test_ctx();
+        ctx.params.participant_human_ids = vec!["self".to_string()];
+        ctx.params.self_human_id = Some("self".to_string());
+        let state = test_state(ctx);
+        let update = test_update(vec![], vec!["self", "remote-a", "remote-b"], Some("self"));
+        assert!(
+            !update_requires_listener_refresh(&state.ctx.params, &update),
+            "calendar attendance"
+        );
+
+        let mut ctx = test_ctx();
+        ctx.params.participant_human_ids = vec!["self".to_string(), "remote-a".to_string()];
+        ctx.params.self_human_id = Some("self".to_string());
+        let state = test_state(ctx);
+        let update = test_update(vec![], vec!["self", "remote-b"], Some("self"));
+        assert!(
+            !update_requires_listener_refresh(&state.ctx.params, &update),
+            "same speaker count"
+        );
     }
 
     #[test]
@@ -887,68 +906,44 @@ mod tests {
     }
 
     #[test]
-    fn config_update_keeps_stream_when_calendar_attendance_changes() {
-        let mut ctx = test_ctx();
-        ctx.params.participant_human_ids = vec!["self".to_string()];
-        ctx.params.self_human_id = Some("self".to_string());
-        let state = test_state(ctx);
-        let update = test_update(vec![], vec!["self", "remote-a", "remote-b"], Some("self"));
+    fn only_local_soniqo_live_listener_failure_stops_session() {
+        for (base_url, model, expected_stop, label) in [
+            (
+                anlg_transcribe_soniqo::LOCAL_BASE_URL,
+                "soniqo-parakeet-streaming",
+                true,
+                "local soniqo live",
+            ),
+            (
+                "https://api.soniox.com",
+                "stt-v4",
+                false,
+                "direct soniox preserves recording",
+            ),
+            (
+                "https://api.anarlog.so/stt?provider=soniox",
+                "cloud",
+                false,
+                "anarlog proxy soniox enters batch fallback",
+            ),
+            (
+                "http://localhost:1234",
+                "test-model",
+                false,
+                "non-soniqo enters batch fallback",
+            ),
+        ] {
+            let mut ctx = test_ctx();
+            ctx.params.base_url = base_url.to_string();
+            ctx.params.model = model.to_string();
+            let state = test_state(ctx);
 
-        assert!(!update_requires_listener_refresh(
-            &state.ctx.params,
-            &update
-        ));
-    }
-
-    #[test]
-    fn config_update_does_not_refresh_for_same_speaker_count() {
-        let mut ctx = test_ctx();
-        ctx.params.participant_human_ids = vec!["self".to_string(), "remote-a".to_string()];
-        ctx.params.self_human_id = Some("self".to_string());
-        let state = test_state(ctx);
-        let update = test_update(vec![], vec!["self", "remote-b"], Some("self"));
-
-        assert!(!update_requires_listener_refresh(
-            &state.ctx.params,
-            &update
-        ));
-    }
-
-    #[test]
-    fn local_soniqo_live_listener_failure_stops_session() {
-        let mut ctx = test_ctx();
-        ctx.params.base_url = anlg_transcribe_soniqo::LOCAL_BASE_URL.to_string();
-        ctx.params.model = "soniqo-parakeet-streaming".to_string();
-        let state = test_state(ctx);
-
-        assert!(should_stop_on_listener_failure(&state));
-    }
-
-    #[test]
-    fn direct_soniox_listener_failure_preserves_recording() {
-        let mut ctx = test_ctx();
-        ctx.params.base_url = "https://api.soniox.com".to_string();
-        ctx.params.model = "stt-v4".to_string();
-        let state = test_state(ctx);
-
-        assert!(!should_stop_on_listener_failure(&state));
-    }
-
-    #[test]
-    fn anarlog_proxy_soniox_listener_failure_enters_batch_fallback() {
-        let mut ctx = test_ctx();
-        ctx.params.base_url = "https://api.anarlog.so/stt?provider=soniox".to_string();
-        ctx.params.model = "cloud".to_string();
-        let state = test_state(ctx);
-
-        assert!(!should_stop_on_listener_failure(&state));
-    }
-
-    #[test]
-    fn non_soniqo_listener_failure_enters_batch_fallback() {
-        let state = test_state(test_ctx());
-
-        assert!(!should_stop_on_listener_failure(&state));
+            assert_eq!(
+                should_stop_on_listener_failure(&state),
+                expected_stop,
+                "case: {label}"
+            );
+        }
     }
 
     #[test]
@@ -973,16 +968,12 @@ mod tests {
     }
 
     #[test]
-    fn authentication_failures_do_not_retry() {
+    fn permanent_listener_failures_do_not_retry() {
         assert!(!should_retry_listener_failure(
             &DegradedError::AuthenticationFailed {
                 provider: "test".to_string(),
             }
         ));
-    }
-
-    #[test]
-    fn provider_configuration_failures_do_not_retry() {
         let degraded = DegradedError::ProviderConfiguration {
             provider: "test".to_string(),
             message: "invalid endpoint".to_string(),

@@ -1,5 +1,7 @@
+use anlg_analytics::DeviceFingerprint;
 use axum::{Extension, Json, extract::State};
 use serde::Serialize;
+use serde_json::json;
 use utoipa::ToSchema;
 
 use crate::state::AppState;
@@ -36,10 +38,20 @@ pub struct CanStartTrialResponse {
 pub async fn can_start_trial(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
+    device_fingerprint: Option<Extension<DeviceFingerprint>>,
 ) -> Json<CanStartTrialResponse> {
+    let device_fingerprint =
+        device_fingerprint.map(|Extension(DeviceFingerprint(fingerprint))| fingerprint);
+
     let result: std::result::Result<bool, _> = state
         .supabase
-        .rpc("can_start_trial", &auth.token, None)
+        .rpc(
+            "can_start_trial",
+            &auth.token,
+            Some(json!({
+                "p_device_fingerprint": device_fingerprint,
+            })),
+        )
         .await;
 
     match result {

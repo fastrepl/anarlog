@@ -92,16 +92,6 @@ mod tests {
     }
 
     #[test]
-    fn resolve_app_folder_uses_anarlog_for_other_release_bundle_ids() {
-        let temp = tempdir().unwrap();
-
-        assert_eq!(
-            resolve_app_folder(temp.path(), "com.hyprnote.Hyprnote", false),
-            RELEASE_APP_FOLDER
-        );
-    }
-
-    #[test]
     fn nightly_keeps_its_own_settings_base() {
         let temp = tempfile::tempdir().unwrap();
         for folder in [RELEASE_APP_FOLDER, LEGACY_RELEASE_APP_FOLDER] {
@@ -111,14 +101,6 @@ mod tests {
         assert_eq!(
             resolve_app_folder(temp.path(), NIGHTLY_BUNDLE_ID, false),
             NIGHTLY_BUNDLE_ID
-        );
-    }
-
-    #[test]
-    fn resolve_app_folder_returns_bundle_id_for_staging() {
-        assert_eq!(
-            resolve_app_folder(Path::new("/tmp"), STAGING_BUNDLE_ID, false),
-            STAGING_BUNDLE_ID
         );
     }
 

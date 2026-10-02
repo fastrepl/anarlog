@@ -429,25 +429,4 @@ mod tests {
         assert_eq!(app.id, "pid:9");
         assert_eq!(app.name, "pid:9");
     }
-
-    #[test]
-    #[ignore]
-    fn test_list_installed_apps() {
-        let apps = list_installed_apps();
-        println!("Got {} apps", apps.len());
-        for app in &apps {
-            println!("- {} ({})", app.name, app.id);
-        }
-    }
-
-    // cargo test -p detect --features list test_list_mic_using_apps -- --ignored --nocapture
-    #[test]
-    #[ignore]
-    fn test_list_mic_using_apps() {
-        let apps = list_mic_using_apps().unwrap();
-        println!("Got {} apps", apps.len());
-        for app in &apps {
-            println!("- {} ({})", app.name, app.id);
-        }
-    }
 }

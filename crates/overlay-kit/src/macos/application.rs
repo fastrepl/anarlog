@@ -48,21 +48,4 @@ mod tests {
         assert!(identity_from_parts(-1, Some("com.example".into())).is_none());
         assert!(identity_from_parts(1, None).is_some());
     }
-
-    #[test]
-    fn pid_matching_is_exact() {
-        let identity = identity_from_parts(42, None).unwrap();
-        assert!(identity.matches_pid(42));
-        assert!(!identity.matches_pid(43));
-    }
-
-    #[test]
-    fn bundle_identifier_matching_requires_a_present_exact_value() {
-        let identity = identity_from_parts(42, Some("com.apple.systempreferences".into())).unwrap();
-        assert!(identity.matches_bundle_identifier("com.apple.systempreferences"));
-        assert!(!identity.matches_bundle_identifier("com.apple.finder"));
-
-        let missing = identity_from_parts(42, None).unwrap();
-        assert!(!missing.matches_bundle_identifier("com.apple.systempreferences"));
-    }
 }

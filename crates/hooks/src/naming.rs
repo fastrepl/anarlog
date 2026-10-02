@@ -14,19 +14,15 @@ mod tests {
     use super::cli_flag;
 
     #[test]
-    fn transforms_snake_case_into_cli_flag() {
-        assert_eq!(cli_flag("resource_dir"), "--resource-dir");
-        assert_eq!(cli_flag("app_hyprnote"), "--app-hyprnote");
-        assert_eq!(cli_flag("app_meeting"), "--app-meeting");
-    }
-
-    #[test]
-    fn leaves_hyphenated_names_intact() {
-        assert_eq!(cli_flag("already-hyphenated"), "--already-hyphenated");
-    }
-
-    #[test]
-    fn handles_empty_strings() {
-        assert_eq!(cli_flag(""), "--");
+    fn cli_flag_prefixes_and_hyphenates() {
+        for (input, expected) in [
+            ("resource_dir", "--resource-dir"),
+            ("app_hyprnote", "--app-hyprnote"),
+            ("app_meeting", "--app-meeting"),
+            ("already-hyphenated", "--already-hyphenated"),
+            ("", "--"),
+        ] {
+            assert_eq!(cli_flag(input), expected, "input: {input}");
+        }
     }
 }

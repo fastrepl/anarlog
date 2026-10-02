@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { resolveCurrentSessionId } from "./current-session";
 import type { ToolDependencies } from "./types";
 
 import { moveSessionContents } from "~/session/move-contents";
@@ -16,7 +17,7 @@ export const buildMoveMeetingContentsTool = (
         .string()
         .optional()
         .describe(
-          "Meeting that currently has the recording or notes. Defaults to the current meeting.",
+          "Meeting that currently has the recording or notes. Defaults to the current note (the one marked as current in context).",
         ),
       targetMeetingId: z
         .string()
@@ -24,11 +25,15 @@ export const buildMoveMeetingContentsTool = (
           "Existing meeting that should receive the recording and notes.",
         ),
     }),
-    execute: async (params: {
-      sourceMeetingId?: string;
-      targetMeetingId: string;
-    }) => {
-      const sourceMeetingId = params.sourceMeetingId ?? deps.getSessionId();
+    execute: async (
+      params: {
+        sourceMeetingId?: string;
+        targetMeetingId: string;
+      },
+      options,
+    ) => {
+      const sourceMeetingId =
+        params.sourceMeetingId ?? resolveCurrentSessionId(deps, options);
       const targetMeetingId = params.targetMeetingId;
 
       if (!sourceMeetingId) {

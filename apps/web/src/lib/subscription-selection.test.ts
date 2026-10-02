@@ -14,7 +14,7 @@ const subscription = (id: string, status: Stripe.Subscription.Status) => ({
   status,
 });
 
-test("selects an active subscription before trialing or paused subscriptions", () => {
+test("selects the reusable current subscription", () => {
   assert.equal(
     selectCurrentSubscription([
       subscription("sub_paused", "paused"),
@@ -23,9 +23,6 @@ test("selects an active subscription before trialing or paused subscriptions", (
     ])?.id,
     "sub_active",
   );
-});
-
-test("keeps a paused cardless trial reusable", () => {
   assert.equal(
     selectCurrentSubscription([
       subscription("sub_canceled", "canceled"),
@@ -33,9 +30,14 @@ test("keeps a paused cardless trial reusable", () => {
     ])?.id,
     "sub_paused",
   );
-});
+  assert.equal(
+    selectCurrentSubscription([
+      subscription("sub_canceled", "canceled"),
+      subscription("sub_expired", "incomplete_expired"),
+    ]),
+    null,
+  );
 
-test("preserves the selected paused subscription and its billing period", () => {
   const paused = {
     id: "sub_paused",
     status: "paused",
@@ -73,7 +75,7 @@ test("derives the billing period from the subscription price interval", () => {
   assert.equal(getSubscriptionBillingPeriod({ items: { data: [] } }), null);
 });
 
-test("routes paused plan switches to the resume portal", () => {
+test("routes plan switches to portal, update, or checkout", () => {
   const paused = {
     id: "sub_paused",
     status: "paused",
@@ -83,9 +85,7 @@ test("routes paused plan switches to the resume portal", () => {
   } as Stripe.Subscription;
 
   assert.equal(getPlanSwitchRoute(paused, "price_monthly"), "portal");
-});
 
-test("routes active plan switches by their available item and price", () => {
   const active = {
     id: "sub_active",
     status: "active",
@@ -101,16 +101,6 @@ test("routes active plan switches by their available item and price", () => {
     items: { ...active.items, data: [] },
   } as Stripe.Subscription;
   assert.equal(getPlanSwitchRoute(withoutItem, "price_yearly"), "checkout");
-});
-
-test("ignores subscriptions that cannot be reused", () => {
-  assert.equal(
-    selectCurrentSubscription([
-      subscription("sub_canceled", "canceled"),
-      subscription("sub_expired", "incomplete_expired"),
-    ]),
-    null,
-  );
 });
 
 test("selects personal plans that Stripe may still renew", () => {

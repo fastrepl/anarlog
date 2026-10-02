@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-persist-chat-session-proposal"
+description = "Enables the persist_chat_session_proposal command without any pre-configured scope."
+commands.allow = ["persist_chat_session_proposal"]
+
+[[permission]]
+identifier = "deny-persist-chat-session-proposal"
+description = "Denies the persist_chat_session_proposal command without any pre-configured scope."
+commands.deny = ["persist_chat_session_proposal"]

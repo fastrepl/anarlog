@@ -104,58 +104,58 @@ mod tests {
     use crate::Provider;
 
     #[test]
-    fn test_streaming_ws_url_appends_v3_ws() {
-        let (url, params) = AssemblyAIAdapter::streaming_ws_url("https://api.assemblyai.com");
-        assert_eq!(url.as_str(), "wss://streaming.assemblyai.com/v3/ws");
-        assert!(params.is_empty());
+    fn streaming_ws_url_resolves_per_base() {
+        let cases = [
+            (
+                "https://api.assemblyai.com",
+                "wss://streaming.assemblyai.com/v3/ws",
+                vec![],
+            ),
+            (
+                Provider::AssemblyAI.default_api_base(),
+                "wss://streaming.assemblyai.com/v3/ws",
+                vec![],
+            ),
+            ("", "wss://streaming.assemblyai.com/v3/ws", vec![]),
+            (
+                "https://api.anarlog.so?provider=assemblyai",
+                "wss://api.anarlog.so/listen",
+                vec![("provider", "assemblyai")],
+            ),
+            (
+                "http://localhost:8787?provider=assemblyai",
+                "ws://localhost:8787/listen",
+                vec![("provider", "assemblyai")],
+            ),
+        ];
+
+        for (input, expected_url, expected_params) in cases {
+            let (url, params) = AssemblyAIAdapter::streaming_ws_url(input);
+            assert_eq!(url.as_str(), expected_url, "input: {input}");
+            assert_eq!(
+                params,
+                expected_params
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>(),
+                "input: {input}"
+            );
+        }
     }
 
     #[test]
-    fn test_streaming_ws_url_replaces_batch_api_path() {
-        let (url, params) =
-            AssemblyAIAdapter::streaming_ws_url(Provider::AssemblyAI.default_api_base());
-        assert_eq!(url.as_str(), "wss://streaming.assemblyai.com/v3/ws");
-        assert!(params.is_empty());
-    }
-
-    #[test]
-    fn test_streaming_ws_url_empty_uses_default() {
-        let (url, params) = AssemblyAIAdapter::streaming_ws_url("");
-        assert_eq!(url.as_str(), "wss://streaming.assemblyai.com/v3/ws");
-        assert!(params.is_empty());
-    }
-
-    #[test]
-    fn test_streaming_ws_url_proxy() {
-        let (url, params) =
-            AssemblyAIAdapter::streaming_ws_url("https://api.anarlog.so?provider=assemblyai");
-        assert_eq!(url.as_str(), "wss://api.anarlog.so/listen");
-        assert_eq!(params, vec![("provider".into(), "assemblyai".into())]);
-    }
-
-    #[test]
-    fn test_streaming_ws_url_localhost() {
-        let (url, params) =
-            AssemblyAIAdapter::streaming_ws_url("http://localhost:8787?provider=assemblyai");
-        assert_eq!(url.as_str(), "ws://localhost:8787/listen");
-        assert_eq!(params, vec![("provider".into(), "assemblyai".into())]);
-    }
-
-    #[test]
-    fn test_batch_api_url_empty_uses_default() {
-        let url = AssemblyAIAdapter::batch_api_url("");
-        assert_eq!(url.as_str(), "https://api.assemblyai.com/v2");
-    }
-
-    #[test]
-    fn test_batch_api_url_appends_v2() {
-        let url = AssemblyAIAdapter::batch_api_url("https://api.assemblyai.com");
-        assert_eq!(url.as_str(), "https://api.assemblyai.com/v2");
-    }
-
-    #[test]
-    fn test_batch_api_url_preserves_existing_v2() {
-        let url = AssemblyAIAdapter::batch_api_url("https://api.assemblyai.com/v2");
-        assert_eq!(url.as_str(), "https://api.assemblyai.com/v2");
+    fn batch_api_url_resolves_per_base() {
+        for input in [
+            "",
+            "https://api.assemblyai.com",
+            "https://api.assemblyai.com/v2",
+        ] {
+            let url = AssemblyAIAdapter::batch_api_url(input);
+            assert_eq!(
+                url.as_str(),
+                "https://api.assemblyai.com/v2",
+                "input: {input}"
+            );
+        }
     }
 }

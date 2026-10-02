@@ -12,29 +12,29 @@ export const CONTEXT_ENTITY_SOURCES = [
   "manual",
   "auto-current",
 ] as const;
-export type ContextEntitySource = (typeof CONTEXT_ENTITY_SOURCES)[number];
+type ContextEntitySource = (typeof CONTEXT_ENTITY_SOURCES)[number];
 
 type BaseContextRef = {
   key: string;
   source?: ContextEntitySource;
 };
 
-export type SessionContextRef = BaseContextRef & {
+type SessionContextRef = BaseContextRef & {
   kind: "session";
   sessionId: string;
 };
 
-export type HumanContextRef = BaseContextRef & {
+type HumanContextRef = BaseContextRef & {
   kind: "human";
   humanId: string;
 };
 
-export type OrganizationContextRef = BaseContextRef & {
+type OrganizationContextRef = BaseContextRef & {
   kind: "organization";
   organizationId: string;
 };
 
-export type FolderContextRef = BaseContextRef & {
+type FolderContextRef = BaseContextRef & {
   kind: "folder";
   folderId: string;
 };
@@ -45,7 +45,7 @@ export type ContextRef =
   | OrganizationContextRef
   | FolderContextRef;
 
-export type CalendarEventContextRef = BaseContextRef & {
+type CalendarEventContextRef = BaseContextRef & {
   kind: "calendar_event";
   eventId: string;
   linkedSessionId?: string | null;
@@ -85,8 +85,6 @@ export type ContextEntity =
       key: string;
       source?: ContextEntitySource;
     } & Partial<DeviceInfo>);
-
-export type ContextEntityKind = ContextEntity["kind"];
 
 export function dedupeByKey<T extends { key: string }>(groups: T[][]): T[] {
   const seen = new Set<string>();

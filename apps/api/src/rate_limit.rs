@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn ignores_spoofable_forwarded_headers_and_uses_a_bounded_fallback_key() {
+    fn trusted_client_ip_ignores_forwarded_headers_and_prefers_fly_client_ip() {
         let headers = HeaderMap::from_iter([
             (
                 "x-forwarded-for".parse().unwrap(),
@@ -308,10 +308,7 @@ mod tests {
 
         assert_eq!(trusted_client_ip(&headers), None);
         assert_eq!(trusted_client_ip(&HeaderMap::new()), None);
-    }
 
-    #[test]
-    fn fly_client_ip_takes_precedence_over_forwarded_headers() {
         let headers = HeaderMap::from_iter([
             (
                 "fly-client-ip".parse().unwrap(),

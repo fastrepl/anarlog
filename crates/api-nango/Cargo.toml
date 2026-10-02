@@ -20,7 +20,6 @@ utoipa = { workspace = true }
 axum = { workspace = true }
 futures-util = { workspace = true }
 reqwest = { workspace = true, features = ["json", "form"] }
-sentry = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 

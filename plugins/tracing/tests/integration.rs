@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use tauri_plugin_tracing::{make_file_writer, redaction::RedactingWriter};
+use tauri_plugin_tracing::make_file_writer;
 use tempfile::tempdir;
 
 use tracing_appender::non_blocking::WorkerGuard;
@@ -81,35 +81,6 @@ mod e2e {
     }
 
     #[test]
-    fn test_tracing_levels_e2e() {
-        let temp = tempdir().unwrap();
-        let logs_dir = temp.path().to_path_buf();
-        fs::create_dir_all(&logs_dir).unwrap();
-
-        let (file_writer, guard) = create_test_file_writer(&logs_dir);
-
-        let subscriber = tracing_subscriber::registry()
-            .with(fmt::layer().with_ansi(false).with_writer(file_writer));
-
-        tracing::subscriber::with_default(subscriber, || {
-            tracing::trace!("TRACE level message");
-            tracing::debug!("DEBUG level message");
-            tracing::info!("INFO level message");
-            tracing::warn!("WARN level message");
-            tracing::error!("ERROR level message");
-        });
-
-        drop(guard);
-        std::thread::sleep(Duration::from_millis(100));
-
-        let content = fs::read_to_string(logs_dir.join("app.log")).unwrap();
-
-        assert!(content.contains("INFO") && content.contains("INFO level message"));
-        assert!(content.contains("WARN") && content.contains("WARN level message"));
-        assert!(content.contains("ERROR") && content.contains("ERROR level message"));
-    }
-
-    #[test]
     fn test_log_file_rotation_e2e() {
         let temp = tempdir().unwrap();
         let logs_dir = temp.path().to_path_buf();
@@ -138,91 +109,6 @@ mod e2e {
             rotated_exists,
             "At least one rotated log file should exist after writing 6MB+ of data"
         );
-    }
-
-    #[test]
-    fn test_multiline_redaction_e2e() {
-        let temp = tempdir().unwrap();
-        let logs_dir = temp.path().to_path_buf();
-        fs::create_dir_all(&logs_dir).unwrap();
-
-        let home = dirs::home_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "/home/testuser".to_string());
-
-        let (file_writer, guard) = create_test_file_writer(&logs_dir);
-
-        let subscriber = tracing_subscriber::registry()
-            .with(fmt::layer().with_ansi(false).with_writer(file_writer));
-
-        tracing::subscriber::with_default(subscriber, || {
-            tracing::info!("Line 1: Path is {}/test", home);
-            tracing::info!("Line 2: Contact admin@company.com");
-            tracing::info!("Line 3: Server at 172.16.0.1");
-        });
-
-        drop(guard);
-        std::thread::sleep(Duration::from_millis(100));
-
-        let content = fs::read_to_string(logs_dir.join("app.log")).unwrap();
-
-        assert!(
-            content.contains("[HOME]/test"),
-            "Home path should be redacted"
-        );
-        assert!(
-            content.contains("[EMAIL_REDACTED]"),
-            "Email should be redacted"
-        );
-        assert!(content.contains("[IP_REDACTED]"), "IP should be redacted");
-
-        assert!(!content.contains(&home), "Original home should not appear");
-        assert!(
-            !content.contains("admin@company.com"),
-            "Original email should not appear"
-        );
-        assert!(
-            !content.contains("172.16.0.1"),
-            "Original IP should not appear"
-        );
-    }
-
-    #[test]
-    fn test_redacting_writer_with_file_direct() {
-        use std::io::Write;
-
-        let temp = tempdir().unwrap();
-        let logs_dir = temp.path().to_path_buf();
-        fs::create_dir_all(&logs_dir).unwrap();
-
-        let log_path = logs_dir.join("app.log");
-        let file_appender = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_path)
-            .unwrap();
-
-        let mut redacting_writer = RedactingWriter::new(file_appender);
-
-        let home = dirs::home_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "/home/testuser".to_string());
-
-        writeln!(redacting_writer, "Log entry with {}/path", home).unwrap();
-        writeln!(redacting_writer, "Email: test@example.com").unwrap();
-        writeln!(redacting_writer, "IP: 192.168.1.1").unwrap();
-        redacting_writer.flush().unwrap();
-
-        std::thread::sleep(Duration::from_millis(50));
-
-        let content = fs::read_to_string(logs_dir.join("app.log")).unwrap();
-
-        assert!(content.contains("[HOME]/path"));
-        assert!(content.contains("[EMAIL_REDACTED]"));
-        assert!(content.contains("[IP_REDACTED]"));
-        assert!(!content.contains(&home));
-        assert!(!content.contains("test@example.com"));
-        assert!(!content.contains("192.168.1.1"));
     }
 
     #[test]

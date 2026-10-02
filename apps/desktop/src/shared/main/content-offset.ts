@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 const MAIN_SHELL_SELECTOR = "[data-testid='main-app-shell']";
 
 export function useMainContentCenterOffset() {
   const [contentOffset, setContentOffset] = useState(0);
 
-  useEffect(() => {
+  useMountEffect(() => {
     const computeOffset = () => {
       const shell = document.querySelector(MAIN_SHELL_SELECTOR);
       if (!shell) {
@@ -39,7 +41,7 @@ export function useMainContentCenterOffset() {
       window.removeEventListener("resize", computeOffset);
       resizeObserver.disconnect();
     };
-  }, []);
+  });
 
   return contentOffset;
 }

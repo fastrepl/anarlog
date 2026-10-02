@@ -9,11 +9,9 @@ import {
   getOrCreateE2eeDeviceIdentity,
   syncCloudsyncNow,
 } from "@anlg/plugin-db";
-import type { CloudsyncActivityEntry } from "@anlg/plugin-db";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
   ArrowsClockwise,
-  CaretDown,
   CheckCircle,
   CircleNotch,
   CloudSlash,
@@ -41,7 +39,9 @@ import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { E2eeSetupDialog } from "../general/e2ee-setup";
+import { resolveDeviceKind } from "./device-kind";
 import { SyncHealthSection } from "./health";
+import { SyncLog } from "./log";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
@@ -59,7 +59,6 @@ import {
   removeSyncDevice,
   renameSyncDevice,
   requestSyncDevices,
-  type SyncDeviceKind,
 } from "~/auth/sync-devices";
 import { captureOperationalError } from "~/error-reporting";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -218,20 +217,18 @@ const DEVICE_KIND_ICONS = {
   watch: Watch,
 } as const;
 
-function resolveDeviceKind(kind: unknown): SyncDeviceKind {
-  if (kind === "mobile" || kind === "watch") {
-    return kind;
-  }
-  return "desktop";
-}
-
-function DeviceKindIcon({ kind }: { kind?: string | null }) {
-  const resolved = resolveDeviceKind(kind);
+function DeviceKindIcon({
+  kind,
+  name,
+}: {
+  kind?: string | null;
+  name: string | null;
+}) {
+  const resolved = resolveDeviceKind(kind, name);
   const Icon = DEVICE_KIND_ICONS[resolved];
   return (
     <Icon
       aria-hidden="true"
-      data-device-kind={resolved}
       className="text-muted-foreground size-4 shrink-0"
     />
   );
@@ -252,7 +249,7 @@ function DisconnectDeviceButton({
     <Button
       variant="outline"
       size="sm"
-      className="text-destructive hover:!border-destructive hover:!bg-destructive/10 hover:!text-destructive"
+      className="text-foreground hover:!border-destructive hover:!bg-destructive/10 hover:!text-destructive"
       disabled={isPending}
       onClick={() => onDisconnect(fingerprint)}
     >
@@ -263,71 +260,6 @@ function DisconnectDeviceButton({
       )}
       <Trans>Disconnect</Trans>
     </Button>
-  );
-}
-
-function formatSyncBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function SyncLogEntry({ entry }: { entry: CloudsyncActivityEntry }) {
-  const { t } = useLingui();
-  const transferSummary = [
-    entry.sent_bytes > 0 ? t`Sent ${formatSyncBytes(entry.sent_bytes)}` : null,
-    entry.received_bytes > 0
-      ? t`Received ${formatSyncBytes(entry.received_bytes)}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const summary = (() => {
-    if (entry.status === "failed") return t`Sync failed`;
-    if (transferSummary) return transferSummary;
-    if (entry.status === "completed") return t`No changes to sync`;
-    return t`Checking for changes`;
-  })();
-  const icon = (() => {
-    switch (entry.status) {
-      case "completed":
-        return <CheckCircle className="size-3.5 text-emerald-500" />;
-      case "progress":
-        return <ArrowsClockwise className="size-3.5 text-blue-500" />;
-      case "failed":
-        return <Warning className="size-3.5 text-amber-500" />;
-    }
-  })();
-
-  return (
-    <li className="flex gap-3 py-3 first:pt-0 last:pb-0">
-      <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="text-xs font-medium">
-            {entry.trigger === "manual" ? t`Manual sync` : t`Background sync`}
-          </p>
-          <time className="text-muted-foreground shrink-0 text-[11px]">
-            {new Date(entry.timestamp_ms).toLocaleTimeString(undefined, {
-              hour: "numeric",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
-          </time>
-        </div>
-        <p className="text-muted-foreground mt-0.5 text-xs">{summary}</p>
-        {entry.error && (
-          <p className="mt-1 text-xs break-words text-red-500">
-            <Trans>
-              Anarlog couldn't complete this sync. Your notes are safe on this
-              device.
-            </Trans>
-          </p>
-        )}
-      </div>
-    </li>
   );
 }
 
@@ -383,7 +315,6 @@ export function SettingsSync() {
   const openNew = useTabs((state) => state.openNew);
   const queryClient = useQueryClient();
   const [e2eeSetupOpen, setE2eeSetupOpen] = useState(false);
-  const [syncLogOpen, setSyncLogOpen] = useState(false);
   const [addDeviceOpen, setAddDeviceOpen] = useState(false);
   const [renamingDevice, setRenamingDevice] = useState<{
     fingerprint: string;
@@ -960,49 +891,7 @@ export function SettingsSync() {
 
         <SyncHealthSection />
 
-        <div className="border-border/60 overflow-hidden rounded-xl border">
-          <button
-            type="button"
-            aria-label={syncLogOpen ? t`Hide sync log` : t`View sync log`}
-            aria-expanded={syncLogOpen}
-            className="hover:bg-muted/40 flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition-colors"
-            onClick={() => setSyncLogOpen((open) => !open)}
-          >
-            <div>
-              <h3 className="text-xs font-medium">
-                <Trans>Sync log</Trans>
-              </h3>
-              <p className="text-muted-foreground mt-0.5 text-[11px]">
-                <Trans>Recent activity from this app session.</Trans>
-              </p>
-            </div>
-            <CaretDown
-              className={cn([
-                "text-muted-foreground size-3.5 transition-transform",
-                syncLogOpen && "rotate-180",
-              ])}
-            />
-          </button>
-
-          {syncLogOpen && (
-            <div className="border-border/60 border-t px-4 py-3">
-              {status?.activity_log?.length ? (
-                <ol className="divide-border/60 max-h-64 divide-y overflow-y-auto">
-                  {status.activity_log.map((entry, index) => (
-                    <SyncLogEntry
-                      key={`${entry.timestamp_ms}-${index}`}
-                      entry={entry}
-                    />
-                  ))}
-                </ol>
-              ) : (
-                <p className="text-muted-foreground py-2 text-center text-xs">
-                  <Trans>No sync activity yet.</Trans>
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        <SyncLog />
       </section>
 
       <section>
@@ -1071,7 +960,10 @@ export function SettingsSync() {
                 key={device.deviceFingerprint}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <DeviceKindIcon kind={device.deviceKind} />
+                <DeviceKindIcon
+                  kind={device.deviceKind}
+                  name={device.deviceName}
+                />
                 <div className="min-w-0 flex-1">
                   <DeviceTitle
                     name={device.deviceName}
@@ -1131,7 +1023,10 @@ export function SettingsSync() {
                 key={device.requestId}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <DeviceKindIcon kind={device.deviceKind} />
+                <DeviceKindIcon
+                  kind={device.deviceKind}
+                  name={device.deviceName}
+                />
                 <div className="min-w-0 flex-1">
                   <DeviceTitle
                     name={device.deviceName}

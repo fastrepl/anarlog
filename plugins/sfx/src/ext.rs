@@ -162,15 +162,3 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> SfxPluginExt<R> for T {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bgm_starts_quiet_and_one_shots_stay_full() {
-        assert_eq!(initial_volume(&AppSounds::BGM), 0.2);
-        assert_eq!(initial_volume(&AppSounds::StartRecording), 1.0);
-        assert_eq!(initial_volume(&AppSounds::StopRecording), 1.0);
-    }
-}

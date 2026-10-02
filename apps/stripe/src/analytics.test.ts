@@ -15,6 +15,14 @@ const event = (
   }) as unknown as Stripe.Event;
 
 describe("getBillingAnalyticsPayload", () => {
+  const subscription = {
+    status: "active",
+    metadata: {},
+    cancel_at_period_end: false,
+    trial_end: null,
+    items: { data: [] },
+  };
+
   it("tracks a trial created from checkout", () => {
     const payload = getBillingAnalyticsPayload(
       event("customer.subscription.created", {
@@ -50,77 +58,25 @@ describe("getBillingAnalyticsPayload", () => {
     });
   });
 
-  it("tracks trial activation only when status changes", () => {
-    const payload = getBillingAnalyticsPayload(
-      event(
-        "customer.subscription.updated",
-        {
-          status: "active",
-          metadata: {},
-          cancel_at_period_end: false,
-          trial_end: 123,
-          items: { data: [] },
-        },
-        { status: "trialing" },
-      ),
-    );
+  it.each([
+    [{ status: "trialing" }, false, "subscription_activated"],
+    [{ cancel_at_period_end: false }, true, "subscription_cancel_scheduled"],
+    [{ cancel_at_period_end: true }, false, "subscription_resumed"],
+    [{ items: { data: [] } }, false, "subscription_plan_changed"],
+  ] as const)(
+    "classifies subscription updates as %s",
+    (previousAttributes, cancelAtPeriodEnd, expectedEvent) => {
+      const payload = getBillingAnalyticsPayload(
+        event(
+          "customer.subscription.updated",
+          { ...subscription, cancel_at_period_end: cancelAtPeriodEnd },
+          previousAttributes,
+        ),
+      );
 
-    expect(payload?.event).toBe("subscription_activated");
-  });
-
-  it("tracks cancellation scheduling", () => {
-    const payload = getBillingAnalyticsPayload(
-      event(
-        "customer.subscription.updated",
-        {
-          status: "active",
-          metadata: {},
-          cancel_at_period_end: true,
-          trial_end: null,
-          items: { data: [] },
-        },
-        { cancel_at_period_end: false },
-      ),
-    );
-
-    expect(payload?.event).toBe("subscription_cancel_scheduled");
-  });
-
-  it("tracks subscription resumes", () => {
-    const payload = getBillingAnalyticsPayload(
-      event(
-        "customer.subscription.updated",
-        {
-          status: "active",
-          metadata: {},
-          cancel_at_period_end: false,
-          trial_end: null,
-          items: { data: [] },
-        },
-        { cancel_at_period_end: true },
-      ),
-    );
-
-    expect(payload?.event).toBe("subscription_resumed");
-  });
-
-  it("tracks plan changes", () => {
-    const payload = getBillingAnalyticsPayload(
-      event(
-        "customer.subscription.updated",
-        {
-          status: "active",
-          metadata: {},
-          cancel_at_period_end: false,
-          trial_end: null,
-          items: { data: [] },
-        },
-        { items: { data: [] } },
-      ),
-    );
-
-    expect(payload?.event).toBe("subscription_plan_changed");
-  });
+      expect(payload?.event).toBe(expectedEvent);
+    },
+  );
 
   it("ignores zero-dollar trial invoices", () => {
     expect(

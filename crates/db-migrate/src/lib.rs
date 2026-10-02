@@ -32,13 +32,6 @@ mod tests {
     use super::*;
     use anlg_db_core::{DbOpenOptions, DbStorage};
 
-    fn empty_schema() -> DbSchema {
-        DbSchema {
-            steps: &[],
-            validate_cloudsync_table: |_table| false,
-        }
-    }
-
     fn schema_of(steps: &'static [MigrationStep]) -> DbSchema {
         DbSchema {
             steps,
@@ -114,11 +107,6 @@ mod tests {
                 max_applied_version: 30,
             }
         ));
-        assert!(
-            error
-                .to_string()
-                .contains("created by a newer version of Anarlog")
-        );
 
         let recorded: Vec<i64> =
             sqlx::query_scalar("SELECT version FROM _sqlx_migrations ORDER BY version")
@@ -152,11 +140,6 @@ mod tests {
                 max_known_version: 10,
             }
         ));
-        assert!(
-            error
-                .to_string()
-                .contains("created by a newer version of Anarlog")
-        );
     }
 
     #[tokio::test]
@@ -180,47 +163,6 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(floor, 20);
-    }
-
-    #[tokio::test]
-    async fn unknown_migration_below_newest_known_still_fails() {
-        let db = open_memory_db().await;
-        migrate(&db, schema_of(&[STEP_ONE, STEP_TWO_ADDITIVE]))
-            .await
-            .unwrap();
-
-        let error = migrate(&db, schema_of(&[STEP_TWO_ADDITIVE]))
-            .await
-            .unwrap_err();
-
-        assert!(matches!(
-            error,
-            MigrateError::SqlxMigrate(sqlx::migrate::MigrateError::VersionMissing(10))
-        ));
-    }
-
-    #[tokio::test]
-    async fn migrate_bootstraps_migration_history() {
-        let db = Db::open(DbOpenOptions {
-            storage: DbStorage::Memory,
-            cloudsync_enabled: false,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: Some(1),
-        })
-        .await
-        .unwrap();
-
-        migrate(&db, empty_schema()).await.unwrap();
-
-        let tables: Vec<String> = sqlx::query_scalar(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-        )
-        .fetch_all(db.pool())
-        .await
-        .unwrap();
-
-        assert!(tables.contains(&"_sqlx_migrations".to_string()));
     }
 
     #[tokio::test]

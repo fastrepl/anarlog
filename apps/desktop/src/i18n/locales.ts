@@ -1,6 +1,6 @@
 export const SOURCE_LOCALE = "en";
 
-export const SUPPORTED_DISPLAY_LOCALES = [
+const SUPPORTED_DISPLAY_LOCALES = [
   "af",
   "am",
   "ar",

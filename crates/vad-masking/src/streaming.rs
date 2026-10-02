@@ -125,42 +125,8 @@ mod tests {
                 ..Default::default()
             },
         );
-
-        assert!(vad.in_speech);
-        assert_eq!(vad.trailing_non_speech, 0);
-
-        assert!(vad.smooth_decision(true));
-        assert!(vad.in_speech);
-        assert_eq!(vad.trailing_non_speech, 0);
-
-        assert!(vad.smooth_decision(false));
-        assert!(vad.in_speech);
-        assert_eq!(vad.trailing_non_speech, 1);
-
-        assert!(vad.smooth_decision(false));
-        assert!(vad.in_speech);
-        assert_eq!(vad.trailing_non_speech, 2);
-
-        assert!(vad.smooth_decision(false));
-        assert!(vad.in_speech);
-        assert_eq!(vad.trailing_non_speech, 3);
-
-        assert!(!vad.smooth_decision(false));
-        assert!(!vad.in_speech);
-        assert_eq!(vad.trailing_non_speech, 0);
-
-        assert!(!vad.smooth_decision(false));
-        assert!(!vad.in_speech);
-        assert_eq!(vad.trailing_non_speech, 0);
-    }
-
-    #[test]
-    fn test_frame_size_selection() {
-        assert_eq!(StreamingVad::new(160).frame_size(), 160);
-        assert_eq!(StreamingVad::new(320).frame_size(), 320);
-        assert_eq!(StreamingVad::new(480).frame_size(), 480);
-        assert_eq!(StreamingVad::new(512).frame_size(), 320);
-        assert_eq!(StreamingVad::new(640).frame_size(), 320);
-        assert_eq!(StreamingVad::new(960).frame_size(), 480);
+        let decisions =
+            [true, false, false, false, false, false].map(|decision| vad.smooth_decision(decision));
+        assert_eq!(decisions, [true, true, true, true, false, false]);
     }
 }

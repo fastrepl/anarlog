@@ -20,7 +20,6 @@ describe("desktop tab lifecycle", () => {
   describe("initializeDesktopTabs", () => {
     it("restores pinned tabs and recent notes without opening a startup tab", async () => {
       const tabs = [createSessionTab({ id: "restored-session" })];
-      const openNew = vi.fn();
       const setRecentlyOpenedSessionIds = vi.fn();
       const restorePinnedTabs = vi.fn().mockResolvedValue(undefined);
       const restoreRecentlyOpenedSessionIds = vi
@@ -42,26 +41,9 @@ describe("desktop tab lifecycle", () => {
       expect(setRecentlyOpenedSessionIds).toHaveBeenCalledWith([
         "restored-session",
       ]);
-      expect(openNew).not.toHaveBeenCalled();
-    });
-
-    it("stays on home when startup has no restored tabs", async () => {
-      const openNew = vi.fn();
-
-      await initializeDesktopTabs({
-        getTabs: () => [],
-        setRecentlyOpenedSessionIds: vi.fn(),
-        restorePinnedTabs: vi.fn().mockResolvedValue(undefined),
-        restoreRecentlyOpenedSessionIds: vi.fn().mockResolvedValue(undefined),
-        onZeroTabs: null,
-        isTauriEnv: true,
-      });
-
-      expect(openNew).not.toHaveBeenCalled();
     });
 
     it("calls onZeroTabs when startup has no restored tabs", async () => {
-      const openNew = vi.fn();
       const onZeroTabs = vi.fn();
 
       await initializeDesktopTabs({
@@ -73,7 +55,6 @@ describe("desktop tab lifecycle", () => {
         isTauriEnv: true,
       });
 
-      expect(openNew).not.toHaveBeenCalled();
       expect(onZeroTabs).toHaveBeenCalledTimes(1);
     });
 

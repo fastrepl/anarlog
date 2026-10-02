@@ -303,18 +303,10 @@ mod tests {
     }
 
     #[test]
-    fn zoom_import_path_is_prefixed_and_protected() {
-        let doc = super::openapi();
-        assert_bearer(
-            doc.paths.paths.get("/zoom/import-meetings").unwrap(),
-            "post",
-        );
-    }
-
-    #[test]
-    fn nango_meeting_import_paths_are_protected() {
+    fn meeting_import_paths_are_protected() {
         let doc = super::openapi();
         for path in [
+            "/zoom/import-meetings",
             "/fathom/import-meetings",
             "/webex/import-meetings",
             "/google-meet/import-meetings",

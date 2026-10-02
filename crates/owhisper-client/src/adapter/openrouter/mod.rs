@@ -245,56 +245,92 @@ mod tests {
     use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
-    #[tokio::test]
-    async fn uses_openrouter_transcription_endpoint_without_model_specific_options() {
+    async fn transcribe_with(
+        params: &ListenParams,
+        response_json: serde_json::Value,
+    ) -> (wiremock::Request, Response) {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/audio/transcriptions"))
             .and(header("authorization", "Bearer test-key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": "Hello from OpenRouter."
-            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_json))
             .mount(&server)
             .await;
-        let params = ListenParams {
-            model: Some("openai/gpt-4o-mini-transcribe".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        };
 
         let response = OpenRouterAdapter
             .transcribe_file(
                 &crate::http_client::create_client(),
                 &server.uri(),
                 "test-key",
-                &params,
+                params,
                 anlg_data::english_1::AUDIO_PATH,
             )
             .await
             .unwrap();
 
         let requests = server.received_requests().await.unwrap();
-        let body = String::from_utf8_lossy(&requests[0].body);
-        assert!(body.contains("openai/gpt-4o-mini-transcribe"));
-        assert!(body.contains("name=\"language\""));
-        assert!(!body.contains("response_format"));
-        assert_eq!(
-            response.results.channels[0].alternatives[0].transcript,
-            "Hello from OpenRouter."
-        );
+        (requests.into_iter().next().unwrap(), response)
+    }
+
+    fn content_type(request: &wiremock::Request) -> String {
+        request
+            .headers
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn multipart_upload_is_used_when_no_json_path_option_is_needed() {
+        for model in [
+            "openai/gpt-4o-mini-transcribe",
+            "openai/gpt-transcribe",
+            // Keywords do not reroute models outside the known-capable list.
+            "google/chirp-3",
+            // xAI only switches to the JSON path on an explicit speaker hint.
+            "x-ai/grok-stt-1.0",
+            // Regression guard: this model rejects
+            // response_format=verbose_json outright (confirmed via a live
+            // 400 from OpenRouter), so it must never be routed through the
+            // JSON provider.options path, which would need verbose_json to
+            // carry any diarization data back anyway.
+            "mistralai/voxtral-mini-transcribe",
+        ] {
+            let params = ListenParams {
+                model: Some(model.to_string()),
+                languages: vec![anlg_language::ISO639::En.into()],
+                keywords: if model == "google/chirp-3" {
+                    vec!["Hyprnote".to_string()]
+                } else {
+                    vec![]
+                },
+                ..Default::default()
+            };
+
+            let (request, response) = transcribe_with(
+                &params,
+                serde_json::json!({"text": "Hello from OpenRouter."}),
+            )
+            .await;
+
+            assert!(
+                content_type(&request).starts_with("multipart/form-data"),
+                "model: {model}"
+            );
+            let body = String::from_utf8_lossy(&request.body);
+            assert!(body.contains(model), "model: {model}");
+            assert!(body.contains("name=\"language\""), "model: {model}");
+            assert!(!body.contains("response_format"), "model: {model}");
+            assert_eq!(
+                response.results.channels[0].alternatives[0].transcript,
+                "Hello from OpenRouter."
+            );
+        }
     }
 
     #[tokio::test]
     async fn forwards_dictionary_keywords_as_openai_provider_options_for_gpt_transcribe() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/audio/transcriptions"))
-            .and(header("authorization", "Bearer test-key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": "Hello from OpenRouter."
-            })))
-            .mount(&server)
-            .await;
         let params = ListenParams {
             model: Some("openai/gpt-transcribe".to_string()),
             languages: vec![anlg_language::ISO639::En.into()],
@@ -302,25 +338,13 @@ mod tests {
             ..Default::default()
         };
 
-        OpenRouterAdapter
-            .transcribe_file(
-                &crate::http_client::create_client(),
-                &server.uri(),
-                "test-key",
-                &params,
-                anlg_data::english_1::AUDIO_PATH,
-            )
-            .await
-            .unwrap();
+        let (request, _) = transcribe_with(
+            &params,
+            serde_json::json!({"text": "Hello from OpenRouter."}),
+        )
+        .await;
 
-        let requests = server.received_requests().await.unwrap();
-        let request = &requests[0];
-        let content_type = request
-            .headers
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or_default();
-        assert!(content_type.starts_with("application/json"));
+        assert!(content_type(&request).starts_with("application/json"));
 
         let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
         assert_eq!(body["model"], "openai/gpt-transcribe");
@@ -335,334 +359,96 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn keeps_multipart_upload_for_gpt_transcribe_when_no_dictionary_terms_are_set() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/audio/transcriptions"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": "Hello from OpenRouter."
-            })))
-            .mount(&server)
-            .await;
-        let params = ListenParams {
-            model: Some("openai/gpt-transcribe".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        };
+    async fn diarization_routes_through_json_provider_options() {
+        for (model, params_extra, option_path) in [
+            // Azure's real diarization is phrase/segment-scoped, not
+            // per-word (see adapter::azure_speech), so the flat top-level
+            // `words` array carries no speaker of its own here — this is
+            // the shape that actually comes back in production, as
+            // opposed to OpenRouter's docs' own admittedly "(abridged)"
+            // example, which duplicates speaker onto both.
+            (
+                "microsoft/mai-transcribe-2",
+                ListenParams::default(),
+                &["azure", "diarization", "enabled"][..],
+            ),
+            (
+                "x-ai/grok-stt-1.0",
+                ListenParams {
+                    num_speakers: Some(2),
+                    ..Default::default()
+                },
+                &["xai", "diarize"][..],
+            ),
+            (
+                "deepgram/nova-3",
+                ListenParams::default(),
+                &["deepgram", "diarize"][..],
+            ),
+        ] {
+            let params = ListenParams {
+                model: Some(model.to_string()),
+                languages: vec![anlg_language::ISO639::En.into()],
+                ..params_extra
+            };
 
-        OpenRouterAdapter
-            .transcribe_file(
-                &crate::http_client::create_client(),
-                &server.uri(),
-                "test-key",
-                &params,
-                anlg_data::english_1::AUDIO_PATH,
-            )
-            .await
-            .unwrap();
+            let response_json = if model == "microsoft/mai-transcribe-2" {
+                serde_json::json!({
+                    "text": "Hello there. Hi, how are you?",
+                    "segments": [
+                        { "id": 0, "start": 0.0, "end": 1.2, "text": "Hello there.", "speaker": 0 },
+                        { "id": 1, "start": 1.5, "end": 3.1, "text": "Hi, how are you?", "speaker": 1 }
+                    ],
+                    "words": [
+                        { "word": "Hello", "start": 0.0, "end": 0.4 },
+                        { "word": "there.", "start": 0.4, "end": 1.2 }
+                    ]
+                })
+            } else {
+                serde_json::json!({
+                    "text": "Hello there. Hi, how are you?",
+                    "words": [
+                        { "word": "Hello", "start": 0.0, "end": 0.4, "speaker": 0 },
+                        { "word": "there.", "start": 0.4, "end": 1.2, "speaker": 1 }
+                    ]
+                })
+            };
 
-        let requests = server.received_requests().await.unwrap();
-        let content_type = requests[0]
-            .headers
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or_default();
-        assert!(content_type.starts_with("multipart/form-data"));
-    }
+            let (request, response) = transcribe_with(&params, response_json).await;
 
-    #[tokio::test]
-    async fn does_not_forward_keywords_for_models_outside_the_known_capable_list() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/audio/transcriptions"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": "Hello from OpenRouter."
-            })))
-            .mount(&server)
-            .await;
-        let params = ListenParams {
-            model: Some("google/chirp-3".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            keywords: vec!["Hyprnote".to_string()],
-            ..Default::default()
-        };
+            assert!(
+                content_type(&request).starts_with("application/json"),
+                "model: {model}"
+            );
 
-        OpenRouterAdapter
-            .transcribe_file(
-                &crate::http_client::create_client(),
-                &server.uri(),
-                "test-key",
-                &params,
-                anlg_data::english_1::AUDIO_PATH,
-            )
-            .await
-            .unwrap();
+            let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+            assert_eq!(body["model"], model);
+            assert_eq!(body["response_format"], "verbose_json");
+            if model != "deepgram/nova-3" {
+                assert_eq!(
+                    body["timestamp_granularities"],
+                    serde_json::json!(["segment", "word"]),
+                    "model: {model}"
+                );
+            }
+            let mut option = &body["provider"]["options"];
+            for key in option_path {
+                option = &option[key];
+            }
+            assert_eq!(*option, true, "model: {model}");
 
-        let requests = server.received_requests().await.unwrap();
-        let content_type = requests[0]
-            .headers
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or_default();
-        assert!(content_type.starts_with("multipart/form-data"));
-    }
-
-    #[tokio::test]
-    async fn enables_azure_diarization_for_mai_transcribe_2() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/audio/transcriptions"))
-            .and(header("authorization", "Bearer test-key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                // Azure's real diarization is phrase/segment-scoped, not
-                // per-word (see adapter::azure_speech), so the flat top-level
-                // `words` array carries no speaker of its own here — this is
-                // the shape that actually comes back in production, as
-                // opposed to OpenRouter's docs' own admittedly "(abridged)"
-                // example, which duplicates speaker onto both.
-                "text": "Hello there. Hi, how are you?",
-                "segments": [
-                    { "id": 0, "start": 0.0, "end": 1.2, "text": "Hello there.", "speaker": 0 },
-                    { "id": 1, "start": 1.5, "end": 3.1, "text": "Hi, how are you?", "speaker": 1 }
-                ],
-                "words": [
-                    { "word": "Hello", "start": 0.0, "end": 0.4 },
-                    { "word": "there.", "start": 0.4, "end": 1.2 }
-                ]
-            })))
-            .mount(&server)
-            .await;
-        let params = ListenParams {
-            model: Some("microsoft/mai-transcribe-2".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        };
-
-        let response = OpenRouterAdapter
-            .transcribe_file(
-                &crate::http_client::create_client(),
-                &server.uri(),
-                "test-key",
-                &params,
-                anlg_data::english_1::AUDIO_PATH,
-            )
-            .await
-            .unwrap();
-
-        let requests = server.received_requests().await.unwrap();
-        let request = &requests[0];
-        let content_type = request
-            .headers
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or_default();
-        assert!(content_type.starts_with("application/json"));
-
-        let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
-        assert_eq!(body["model"], "microsoft/mai-transcribe-2");
-        assert_eq!(body["response_format"], "verbose_json");
-        assert_eq!(
-            body["timestamp_granularities"],
-            serde_json::json!(["segment", "word"])
-        );
-        assert_eq!(
-            body["provider"]["options"]["azure"]["diarization"]["enabled"],
-            true
-        );
-
-        let words = &response.results.channels[0].alternatives[0].words;
-        assert_eq!(words[0].speaker, Some(0));
-        assert_eq!(words[1].speaker, Some(0));
-        // Must land on the mixed-capture channel, not channel 0 (DirectMic) —
-        // the render pipeline treats DirectMic as always exactly one speaker
-        // and collapses every diarized label back into one there.
-        assert_eq!(words[0].channel, crate::adapter::MIXED_CAPTURE_CHANNEL);
-    }
-
-    #[tokio::test]
-    async fn enables_xai_diarization_for_grok_stt_when_speaker_count_is_hinted() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/audio/transcriptions"))
-            .and(header("authorization", "Bearer test-key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": "Hello there. Hi, how are you?",
-                "words": [
-                    { "word": "Hello", "start": 0.0, "end": 0.4, "speaker": 0 },
-                    { "word": "there.", "start": 0.4, "end": 1.2, "speaker": 1 }
-                ]
-            })))
-            .mount(&server)
-            .await;
-        let params = ListenParams {
-            model: Some("x-ai/grok-stt-1.0".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            num_speakers: Some(2),
-            ..Default::default()
-        };
-
-        let response = OpenRouterAdapter
-            .transcribe_file(
-                &crate::http_client::create_client(),
-                &server.uri(),
-                "test-key",
-                &params,
-                anlg_data::english_1::AUDIO_PATH,
-            )
-            .await
-            .unwrap();
-
-        let requests = server.received_requests().await.unwrap();
-        let request = &requests[0];
-        let content_type = request
-            .headers
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or_default();
-        assert!(content_type.starts_with("application/json"));
-
-        let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
-        assert_eq!(body["model"], "x-ai/grok-stt-1.0");
-        assert_eq!(body["response_format"], "verbose_json");
-        assert_eq!(
-            body["timestamp_granularities"],
-            serde_json::json!(["segment", "word"])
-        );
-        assert_eq!(body["provider"]["options"]["xai"]["diarize"], true);
-
-        let words = &response.results.channels[0].alternatives[0].words;
-        assert_eq!(words[0].speaker, Some(0));
-        assert_eq!(words[1].speaker, Some(1));
-        assert_eq!(words[0].channel, crate::adapter::MIXED_CAPTURE_CHANNEL);
-    }
-
-    #[tokio::test]
-    async fn keeps_multipart_upload_for_grok_stt_without_a_speaker_count_hint() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/audio/transcriptions"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": "Hello from OpenRouter."
-            })))
-            .mount(&server)
-            .await;
-        let params = ListenParams {
-            model: Some("x-ai/grok-stt-1.0".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        };
-
-        OpenRouterAdapter
-            .transcribe_file(
-                &crate::http_client::create_client(),
-                &server.uri(),
-                "test-key",
-                &params,
-                anlg_data::english_1::AUDIO_PATH,
-            )
-            .await
-            .unwrap();
-
-        let requests = server.received_requests().await.unwrap();
-        let content_type = requests[0]
-            .headers
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or_default();
-        assert!(content_type.starts_with("multipart/form-data"));
-    }
-
-    #[tokio::test]
-    async fn enables_deepgram_diarization_unconditionally_for_nova_3() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/audio/transcriptions"))
-            .and(header("authorization", "Bearer test-key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": "Hello there. Hi, how are you?",
-                "words": [
-                    { "word": "Hello", "start": 0.0, "end": 0.4, "speaker": 0 },
-                    { "word": "there.", "start": 0.4, "end": 1.2, "speaker": 1 }
-                ]
-            })))
-            .mount(&server)
-            .await;
-        let params = ListenParams {
-            model: Some("deepgram/nova-3".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        };
-
-        let response = OpenRouterAdapter
-            .transcribe_file(
-                &crate::http_client::create_client(),
-                &server.uri(),
-                "test-key",
-                &params,
-                anlg_data::english_1::AUDIO_PATH,
-            )
-            .await
-            .unwrap();
-
-        let requests = server.received_requests().await.unwrap();
-        let request = &requests[0];
-        let content_type = request
-            .headers
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or_default();
-        assert!(content_type.starts_with("application/json"));
-
-        let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
-        assert_eq!(body["model"], "deepgram/nova-3");
-        assert_eq!(body["response_format"], "verbose_json");
-        assert_eq!(body["provider"]["options"]["deepgram"]["diarize"], true);
-
-        let words = &response.results.channels[0].alternatives[0].words;
-        assert_eq!(words[0].speaker, Some(0));
-        assert_eq!(words[1].speaker, Some(1));
-        assert_eq!(words[0].channel, crate::adapter::MIXED_CAPTURE_CHANNEL);
-    }
-
-    #[tokio::test]
-    async fn keeps_plain_multipart_for_voxtral_mini_transcribe() {
-        // Regression guard: this model rejects response_format=verbose_json
-        // outright (confirmed via a live 400 from OpenRouter), so it must
-        // never be routed through the JSON provider.options path, which
-        // would need verbose_json to carry any diarization data back anyway.
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/audio/transcriptions"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "text": "Hello from OpenRouter."
-            })))
-            .mount(&server)
-            .await;
-        let params = ListenParams {
-            model: Some("mistralai/voxtral-mini-transcribe".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        };
-
-        OpenRouterAdapter
-            .transcribe_file(
-                &crate::http_client::create_client(),
-                &server.uri(),
-                "test-key",
-                &params,
-                anlg_data::english_1::AUDIO_PATH,
-            )
-            .await
-            .unwrap();
-
-        let requests = server.received_requests().await.unwrap();
-        let content_type = requests[0]
-            .headers
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or_default();
-        assert!(content_type.starts_with("multipart/form-data"));
-        let body = String::from_utf8_lossy(&requests[0].body);
-        assert!(!body.contains("response_format"));
+            let words = &response.results.channels[0].alternatives[0].words;
+            assert_eq!(words[0].speaker, Some(0));
+            // Must land on the mixed-capture channel, not channel 0
+            // (DirectMic) — the render pipeline treats DirectMic as always
+            // exactly one speaker and collapses every diarized label back
+            // into one there.
+            assert_eq!(words[0].channel, crate::adapter::MIXED_CAPTURE_CHANNEL);
+            if model != "microsoft/mai-transcribe-2" {
+                assert_eq!(words[1].speaker, Some(1));
+            } else {
+                assert_eq!(words[1].speaker, Some(0));
+            }
+        }
     }
 }

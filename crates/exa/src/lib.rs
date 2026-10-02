@@ -53,121 +53,13 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    #[tokio::test]
-    #[ignore]
-    async fn test_search() {
-        let client = ExaClientBuilder::default()
-            .api_key("test-key")
-            .build()
-            .unwrap();
-
-        let _ = client
-            .search(SearchRequest {
-                query: "Latest AI developments".to_string(),
-                additional_queries: None,
-                stream: None,
-                output_schema: None,
-                system_prompt: None,
-                r#type: Some(SearchType::Auto),
-                category: None,
-                user_location: None,
-                num_results: Some(10),
-                include_domains: None,
-                exclude_domains: None,
-                start_crawl_date: None,
-                end_crawl_date: None,
-                start_published_date: None,
-                end_published_date: None,
-                include_text: None,
-                exclude_text: None,
-                moderation: None,
-                contents: None,
-            })
-            .await;
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_get_contents() {
-        let client = ExaClientBuilder::default()
-            .api_key("test-key")
-            .build()
-            .unwrap();
-
-        let _ = client
-            .get_contents(GetContentsRequest {
-                urls: vec!["https://arxiv.org/pdf/2307.06435".to_string()],
-                ids: None,
-                text: None,
-                highlights: None,
-                summary: None,
-                livecrawl: None,
-                livecrawl_timeout: None,
-                max_age_hours: None,
-                subpages: None,
-                subpage_target: None,
-                extras: None,
-                context: None,
-            })
-            .await;
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_find_similar() {
-        let client = ExaClientBuilder::default()
-            .api_key("test-key")
-            .build()
-            .unwrap();
-
-        let _ = client
-            .find_similar(FindSimilarRequest {
-                url: "https://arxiv.org/abs/2307.06435".to_string(),
-                num_results: Some(5),
-                include_domains: None,
-                exclude_domains: None,
-                start_crawl_date: None,
-                end_crawl_date: None,
-                start_published_date: None,
-                end_published_date: None,
-                include_text: None,
-                exclude_text: None,
-                contents: None,
-            })
-            .await;
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_answer() {
-        let client = ExaClientBuilder::default()
-            .api_key("test-key")
-            .build()
-            .unwrap();
-
-        let _ = client
-            .answer(AnswerRequest {
-                query: "What is the latest valuation of SpaceX?".to_string(),
-                text: None,
-                output_schema: None,
-            })
-            .await;
-    }
-
     #[test]
-    fn test_build_missing_api_key() {
-        let result = ExaClientBuilder::default().build();
-        assert!(result.is_err());
-    }
+    fn test_builder_requires_api_key_and_normalizes_api_base() {
+        assert!(ExaClientBuilder::default().build().is_err());
 
-    #[test]
-    fn test_build_defaults_api_base() {
         let client = ExaClientBuilder::default().api_key("key").build().unwrap();
         assert_eq!(client.api_base.as_str(), "https://api.exa.ai/");
-    }
 
-    #[test]
-    fn test_build_custom_api_base() {
         let client = ExaClientBuilder::default()
             .api_key("key")
             .api_base("https://custom.exa.ai")

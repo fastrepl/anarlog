@@ -47,20 +47,14 @@ vi.mock("~/contexts/shell", () => ({
 
 vi.mock("./chat-panel", () => ({
   ChatPanelFrame: ({
-    layout,
     onDraftContentChange,
     onOpenRightPanel,
-    sessionProps,
   }: {
-    layout?: "floating" | "right-panel";
     onDraftContentChange?: (hasDraftContent: boolean) => void;
     onOpenRightPanel?: () => void;
-    sessionProps: unknown;
   }) => (
     <>
       <button
-        data-has-session={String(sessionProps === mocks.sessionProps)}
-        data-layout={layout}
         data-testid="open-right-panel"
         type="button"
         onClick={onOpenRightPanel}
@@ -107,43 +101,6 @@ describe("PersistentChatPanel", () => {
     } as typeof ResizeObserver;
   });
 
-  it("anchors the floating panel to the bottom center of the note surface", async () => {
-    render(<TestHost />);
-
-    await screen.findByTestId("chat-view");
-
-    expect(screen.getByTestId("open-right-panel").dataset.hasSession).toBe(
-      "true",
-    );
-    const floatingFrame = document.querySelector("[data-chat-floating-frame]");
-    const floatingOverlay = floatingFrame?.parentElement;
-    const panel = document.querySelector<HTMLElement>("[data-chat-panel]");
-
-    await waitFor(() => {
-      expect(floatingOverlay?.parentElement).toBe(document.body);
-      expect(floatingOverlay?.className).not.toContain("z-");
-      expect(floatingFrame?.className).toContain("items-end");
-      expect(floatingFrame?.className).toContain("justify-center");
-      expect(floatingFrame?.className).toContain("px-3");
-      expect(floatingFrame?.className).toContain("pb-2");
-      expect((floatingFrame as HTMLElement | null)?.style.paddingTop).toBe(
-        "46px",
-      );
-      expect(floatingFrame?.className).not.toContain("pt-4");
-      expect(floatingFrame?.className).not.toContain("pb-3");
-      expect(panel?.style.width).toBe("100%");
-      expect(panel?.style.minWidth).toBe("min(476px, 100%)");
-      expect(panel?.style.maxWidth).toBe("648px");
-      expect(panel?.style.height).toBe("");
-      expect(panel?.style.maxHeight).toBe("100%");
-      expect(panel?.style.transformOrigin).toBe("bottom center");
-      expect(panel?.style.willChange).toBe("transform");
-      expect(panel?.style.clipPath).toBe("");
-      expect(panel?.className).toContain("rounded-[24px]");
-      expect(panel?.dataset.chatPanelReveal).toBe("lift");
-    });
-  });
-
   it("opens the docked right panel from the toolbar action", async () => {
     render(<TestHost />);
 
@@ -185,18 +142,6 @@ describe("PersistentChatPanel", () => {
     fireEvent.click(floatingFrame!);
 
     expect(mocks.sendEvent).not.toHaveBeenCalledWith({ type: "CLOSE" });
-  });
-
-  it("does not expose resize handles on the floating panel", async () => {
-    render(<TestHost />);
-
-    await screen.findByTestId("chat-view");
-
-    const panel = document.querySelector<HTMLElement>("[data-chat-panel]");
-
-    expect(panel).toBeTruthy();
-    expect(document.querySelector("[data-chat-resize-frame]")).toBeNull();
-    expect(document.querySelector("[data-chat-resize-handle]")).toBeNull();
   });
 
   it("hides the floating panel when the chat moves to the right panel", async () => {

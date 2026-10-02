@@ -3,19 +3,24 @@ import {
   parseJsonContent,
   type JSONContent,
 } from "@anlg/editor/markdown";
-import type {
-  Participant,
-  Segment,
-  Session,
-  TemplateSection,
-  Transcript,
+import {
+  commands as templateCommands,
+  type Participant,
+  type Segment,
+  type Session,
+  type TemplateSection,
+  type Transcript,
 } from "@anlg/plugin-template";
+import {
+  commands as transcriptionCommands,
+  type RenderedTranscriptSegment,
+} from "@anlg/plugin-transcription";
 import { sessionEventSchema } from "@anlg/store";
 
 import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 import { collectEnhanceImageContext } from "./enhance-images";
 
-import { loadHumansByIds } from "~/contacts/queries";
+import { resolveSummaryLanguage } from "~/services/enhancer/summary-language";
 import { normalizeSummaryLengthMode } from "~/services/enhancer/summary-length";
 import {
   loadSessionContentSnapshot,
@@ -29,12 +34,6 @@ import {
   formatMeetingChatContext,
   loadMeetingChatRecords,
 } from "~/stt/meeting-chat-records";
-import {
-  buildRenderTranscriptRequestFromRows,
-  collectAssignedHumanIdsFromTranscriptRows,
-  renderTranscriptSegments,
-  type TranscriptRow,
-} from "~/stt/render-transcript";
 import { getTemplateById } from "~/templates/queries";
 
 type TranscriptMeta = {
@@ -61,7 +60,9 @@ async function transformArgs(
   settingsValues: SettingValues,
 ): Promise<TaskArgsMapTransformed["enhance"]> {
   const { sessionId, templateId } = args;
-  const snapshot = await loadSessionContentSnapshot(sessionId);
+  const snapshot = await loadSessionContentSnapshot(sessionId, {
+    includeTranscriptWords: false,
+  });
   if (!snapshot) {
     throw new Error(`Session ${sessionId} no longer exists`);
   }
@@ -89,9 +90,33 @@ async function transformArgs(
       sections: memoTemplateSections,
     };
   }
-  const language = getLanguage(settingsValues);
   const formatOverride = getFormatOverride(settingsValues, templateId);
   const segments = await getTranscriptSegments(snapshot);
+  const transcripts = formatTranscripts(
+    segments,
+    sessionContext.transcriptsMeta,
+  );
+  const transcriptTexts = transcripts.flatMap((transcript) =>
+    transcript.segments.map((segment) => segment.text),
+  );
+  const language = await resolveSummaryLanguage(
+    settingsValues,
+    transcriptTexts,
+  );
+  const summaryLength = normalizeSummaryLengthMode(
+    settingsValues.summary_length,
+  );
+  const templateSectionCount = template?.sections.length ?? 0;
+  const policyResult = await templateCommands.summaryLengthPolicy({
+    transcript_texts: transcriptTexts,
+    mode: summaryLength,
+    custom_format: Boolean(formatOverride.trim()) || templateSectionCount > 0,
+    template_section_count: templateSectionCount,
+  });
+  if (policyResult.status === "error") {
+    throw new Error(policyResult.error);
+  }
+
   const imageContext = modelSupportsImageInput(
     getOptionalSettingsValue(settingsValues, "current_llm_provider"),
     getOptionalSettingsValue(settingsValues, "current_llm_model"),
@@ -110,9 +135,10 @@ async function transformArgs(
     template,
     preMeetingMemo: sessionContext.preMeetingMemo,
     postMeetingMemo: sessionContext.postMeetingMemo,
-    transcripts: formatTranscripts(segments, sessionContext.transcriptsMeta),
+    transcripts,
     imageContext,
-    summaryLength: normalizeSummaryLengthMode(settingsValues.summary_length),
+    summaryLength,
+    lengthPolicy: policyResult.data,
     dictionaryTerms: parseDictionaryTermsJson(
       settingsValues.personalization_dictionary_terms,
     ),
@@ -200,11 +226,6 @@ function formatTranscripts(
   return [];
 }
 
-function getLanguage(settingsValues: SettingValues): string | null {
-  const value = settingsValues.ai_language;
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
 function getFormatOverride(
   settingsValues: SettingValues,
   templateId: string | undefined,
@@ -290,40 +311,18 @@ function getParticipants(snapshot: SessionContentSnapshot): Participant[] {
 async function getTranscriptSegments(
   snapshot: SessionContentSnapshot,
 ): Promise<SegmentPayload[]> {
-  if (snapshot.transcripts.length === 0) {
+  const result = await transcriptionCommands.renderSessionTranscript({
+    session_id: snapshot.sessionId,
+    self_human_id: snapshot.ownerUserId || null,
+  });
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+  if (!result.data) {
     return [];
   }
 
-  const transcriptRows: TranscriptRow[] = snapshot.transcripts.map(
-    (transcript) => ({
-      started_at: transcript.started_at,
-      words: transcript.words,
-      speaker_hints: transcript.speaker_hints,
-    }),
-  );
-  const humanIds = [
-    snapshot.ownerUserId,
-    ...snapshot.participants.map((participant) => participant.humanId),
-    ...collectAssignedHumanIdsFromTranscriptRows(transcriptRows),
-  ];
-  const humans = await loadHumansByIds(humanIds);
-  const request = buildRenderTranscriptRequestFromRows(
-    transcriptRows,
-    {
-      selfHumanId: snapshot.ownerUserId || undefined,
-      humans: humans
-        .filter((human) => human.name)
-        .map((human) => ({ human_id: human.id, name: human.name })),
-    },
-    snapshot.participants.map((participant) => participant.humanId),
-  );
-  if (!request) {
-    return [];
-  }
-
-  const segments = await renderTranscriptSegments(request);
-
-  return segments.reduce<SegmentPayload[]>((result, segment) => {
+  return result.data.segments.reduce<SegmentPayload[]>((result, segment) => {
     if (segment.words.length > 0) {
       result.push(toSegmentPayload(segment));
     }
@@ -331,9 +330,7 @@ async function getTranscriptSegments(
   }, []);
 }
 
-function toSegmentPayload(
-  segment: Awaited<ReturnType<typeof renderTranscriptSegments>>[number],
-): SegmentPayload {
+function toSegmentPayload(segment: RenderedTranscriptSegment): SegmentPayload {
   return {
     speaker_label: segment.speaker_label,
     start_ms: segment.start_ms,

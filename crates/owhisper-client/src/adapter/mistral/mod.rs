@@ -80,24 +80,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_build_ws_url_from_base_empty() {
-        let (url, params) = MistralAdapter::build_ws_url_from_base("");
-        assert_eq!(
-            url.as_str(),
-            "wss://api.mistral.ai/v1/audio/transcriptions/realtime"
-        );
-        assert!(params.is_empty());
-    }
-
-    #[test]
-    fn test_build_ws_url_from_base_proxy() {
-        let (url, params) =
-            MistralAdapter::build_ws_url_from_base("https://api.anarlog.so?provider=mistral");
-        assert_eq!(url.as_str(), "wss://api.anarlog.so/listen");
-        assert_eq!(
-            params,
-            vec![("provider".to_string(), "mistral".to_string())]
-        );
+    fn test_build_ws_url_from_base() {
+        for (input, expected_url, expected_params) in [
+            (
+                "",
+                "wss://api.mistral.ai/v1/audio/transcriptions/realtime",
+                vec![],
+            ),
+            (
+                "https://api.anarlog.so?provider=mistral",
+                "wss://api.anarlog.so/listen",
+                vec![("provider", "mistral")],
+            ),
+        ] {
+            let (url, params) = MistralAdapter::build_ws_url_from_base(input);
+            assert_eq!(url.as_str(), expected_url, "input: {input}");
+            assert_eq!(
+                params,
+                expected_params
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>(),
+                "input: {input}"
+            );
+        }
     }
 
     #[test]

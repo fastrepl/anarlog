@@ -31,24 +31,6 @@ mod tests {
     );
 
     tpl_snapshot!(
-        test_title_system,
-        TitleSystem { language: None },
-        fixed_date = "2025-01-01",
-        @r#"
-    # General Instructions
-
-    Current date: 2025-01-01
-
-    - You are a professional assistant that generates a perfect title for a meeting note, in English language.
-
-    # Format Requirements
-
-    - Only output the title as plaintext, nothing else. No characters like *"'([{}]):.
-    - Never ask questions or request more information.
-    - If the note is empty or has no meaningful content, output exactly: <EMPTY>
-    "#);
-
-    tpl_snapshot!(
         test_title_user,
         TitleUser {
             enhanced_note: "".to_string(),

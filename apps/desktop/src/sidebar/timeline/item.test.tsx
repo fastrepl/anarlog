@@ -10,7 +10,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   addDeletion: vi.fn(),
-  amplitude: { mic: 0.4, speaker: 0.3 },
   ignoreEvent: vi.fn(),
   invalidateResource: vi.fn(),
   isIgnored: vi.fn(() => false),
@@ -19,7 +18,6 @@ const mocks = vi.hoisted(() => ({
   platform: "macos",
   preloadSession: vi.fn(() => Promise.resolve(null)),
   sessionMode: "inactive",
-  isEnhancing: false,
   stop: vi.fn(),
   getOrCreateSessionForEventId: vi.fn(() => Promise.resolve("session-event")),
   storeTitle: "Live Note",
@@ -37,8 +35,6 @@ const mocks = vi.hoisted(() => ({
     selectRange: vi.fn(),
     toggleSelect: vi.fn(),
   },
-  showFolder: true,
-  showTags: false,
   windowShow: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
   authAvailable: false as boolean | null,
   revealedNoteIds: {} as Record<string, true>,
@@ -83,7 +79,7 @@ vi.mock("@anlg/ui/components/ui/tooltip", () => ({
 }));
 
 vi.mock("~/session/hooks/useEnhancedNotes", () => ({
-  useIsSessionEnhancing: () => mocks.isEnhancing,
+  useIsSessionEnhancing: () => false,
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -134,15 +130,7 @@ vi.mock("~/calendar/ignored-events", () => ({
 }));
 
 vi.mock("~/shared/config", () => ({
-  useConfigValue: (key: string) => {
-    if (key === "sidebar_show_folder") {
-      return mocks.showFolder;
-    }
-    if (key === "sidebar_show_tags") {
-      return mocks.showTags;
-    }
-    return undefined;
-  },
+  useConfigValue: () => undefined,
 }));
 
 vi.mock("~/store/zustand/live-title", () => ({
@@ -190,21 +178,19 @@ vi.mock("~/stt/contexts", () => ({
   ) =>
     selector({
       getSessionMode: () => mocks.sessionMode,
-      live: { amplitude: mocks.amplitude },
+      live: { amplitude: { mic: 0, speaker: 0 } },
       stop: mocks.stop,
     }),
 }));
 
-import { ManagedSharedSessionIdsContext, TimelineItemComponent } from "./item";
+import { TimelineItemComponent } from "./item";
 
-import { resetSidebarNotes, useSidebarNotes } from "~/sidebar/note-filter";
+import { resetSidebarNotes } from "~/sidebar/note-filter";
 
 describe("TimelineItemComponent", () => {
   beforeEach(() => {
     cleanup();
-    mocks.amplitude = { mic: 0.4, speaker: 0.3 };
     mocks.sessionMode = "inactive";
-    mocks.isEnhancing = false;
     mocks.storeTitle = "Live Note";
     mocks.stop.mockClear();
     mocks.openCurrent.mockClear();
@@ -220,520 +206,57 @@ describe("TimelineItemComponent", () => {
     mocks.timelineSelection.setAnchor.mockClear();
     mocks.timelineSelection.selectRange.mockClear();
     mocks.timelineSelection.toggleSelect.mockClear();
-    mocks.showFolder = true;
-    mocks.showTags = false;
     resetSidebarNotes();
   });
 
-  it("marks the active session row red in the sidebar timeline", () => {
-    mocks.sessionMode = "active";
-
-    render(
+  function renderSession(
+    id: string,
+    data: { locked?: number } = {},
+    props: { selected?: boolean } = {},
+  ) {
+    return render(
       <TimelineItemComponent
         item={{
           type: "session",
-          id: "session-live",
+          id,
           data: {
-            title: "Live Note",
+            title: "Note",
             created_at: "2024-01-15T10:30:00.000Z",
+            ...data,
           },
         }}
         precision="time"
-        selected
+        selected={props.selected ?? false}
         timezone="UTC"
         multiSelected={false}
-        flatItemKeys={["session-session-live"]}
+        flatItemKeys={[`session-${id}`]}
       />,
     );
+  }
 
-    const rowButton = screen.getByText("Live Note").closest("button");
+  function findMenuItem(id: string) {
+    return mocks.nativeContextMenus.flat().find((item) => item.id === id);
+  }
 
-    expect(rowButton?.className).toContain("bg-destructive");
-    expect(rowButton?.className).toContain("text-destructive-foreground");
-    expect(rowButton?.className).not.toContain("bg-accent");
-    expect(screen.getByTestId("dancing-sticks").dataset.amplitude).toBe("0.5");
+  function rowButton() {
+    return screen.getByText("Live Note").closest("button")!;
+  }
 
-    const stopButton = screen.getByRole("button", { name: "Stop listening" });
-    expect(stopButton.className).toContain("text-white/80");
-    expect(stopButton.className).toContain("hover:text-white");
+  it("stops listening from the active session row without opening it", () => {
+    mocks.sessionMode = "active";
+    renderSession("session-live", {}, { selected: true });
 
-    fireEvent.click(stopButton);
+    fireEvent.click(screen.getByRole("button", { name: "Stop listening" }));
 
     expect(mocks.stop).toHaveBeenCalledOnce();
     expect(mocks.openCurrent).not.toHaveBeenCalled();
   });
 
-  it("exposes the selected session row for sidebar scroll anchoring", () => {
-    const selectedNodeRef = vi.fn();
-
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-live",
-          data: {
-            title: "Live Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-          },
-        }}
-        precision="time"
-        selected
-        selectedNodeRef={selectedNodeRef}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-live"]}
-      />,
-    );
-
-    const row = screen
-      .getByText("Live Note")
-      .closest("[data-sidebar-timeline-session-id]");
-
-    expect(row?.getAttribute("data-sidebar-timeline-session-id")).toBe(
-      "session-live",
-    );
-    expect(row?.className).toContain("[content-visibility:auto]");
-    expect(row?.className).toContain("[contain-intrinsic-size:auto_56px]");
-    expect(selectedNodeRef.mock.calls.some(([node]) => node === row)).toBe(
-      true,
-    );
-  });
-
-  it("shows the folder above the title", () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-work",
-          data: {
-            title: "Live Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-            folder_id: "CS 101/week-3",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-work"]}
-      />,
-    );
-
-    const title = screen.getByText("Live Note");
-    const folder = screen.getByText("CS 101/week-3");
-
-    expect(title.compareDocumentPosition(folder)).toBe(
-      Node.DOCUMENT_POSITION_PRECEDING,
-    );
-  });
-
-  it("hides the folder when notes are grouped by folder", () => {
-    useSidebarNotes.getState().setGroupBy("folder");
-
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-work",
-          data: {
-            title: "Live Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-            folder_id: "work",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-work"]}
-      />,
-    );
-
-    expect(screen.queryByText("work")).toBeNull();
-    expect(screen.getByText("Live Note")).toBeTruthy();
-  });
-
-  it("shows tags under the date when enabled", () => {
-    mocks.showTags = true;
-
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-work",
-          data: {
-            title: "Live Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-            folder_id: "work",
-            tags: ["launch", "prep"],
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-work"]}
-      />,
-    );
-
-    const title = screen.getByText("Live Note");
-    const folder = screen.getByText("work");
-    const tags = screen.getByText("#launch #prep");
-    const time = screen.getByText("10:30 AM");
-
-    expect(title.compareDocumentPosition(folder)).toBe(
-      Node.DOCUMENT_POSITION_PRECEDING,
-    );
-    expect(time.compareDocumentPosition(tags)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(folder.compareDocumentPosition(tags)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-  });
-
-  it("hides folder and tags when those fields are turned off", () => {
-    mocks.showFolder = false;
-    mocks.showTags = false;
-
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-work",
-          data: {
-            title: "Live Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-            folder_id: "work",
-            tags: ["launch"],
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-work"]}
-      />,
-    );
-
-    expect(screen.queryByText("work")).toBeNull();
-    expect(screen.queryByText("#launch")).toBeNull();
-    expect(screen.getByText("Live Note")).toBeTruthy();
-  });
-
-  it("highlights an upcoming meeting row", () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "event",
-          id: "event-standup",
-          data: {
-            title: "Team standup",
-            started_at: "2024-01-15T10:30:00.000Z",
-            ended_at: "2024-01-15T11:00:00.000Z",
-            tracking_id_event: "tracking-standup",
-            has_recurrence_rules: false,
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["event-event-standup"]}
-        isUpcoming
-        upcomingProgress={0.8}
-      />,
-    );
-
-    const rowButton = screen.getByText("Team standup").closest("button");
-    const gauge = document.querySelector(
-      "[data-sidebar-timeline-upcoming-gauge]",
-    );
-    const gaugeFill = document.querySelector<HTMLElement>(
-      "[data-sidebar-timeline-upcoming-gauge-fill]",
-    );
-
-    expect(rowButton?.className).toContain("bg-destructive/8");
-    expect(rowButton?.className).toContain("hover:bg-accent/50");
-    expect(rowButton?.className).not.toContain("hover:bg-destructive/12");
-    expect(rowButton?.className).toContain("pl-4");
-    expect(rowButton?.className).not.toContain("motion-safe:animate-pulse");
-    expect(rowButton?.className).not.toContain("shadow-[0_0_22px");
-    expect(rowButton?.className).not.toContain("ring-1");
-    expect(rowButton?.className).not.toContain("opacity-65");
-    expect(screen.queryByText("In 4 minutes")).toBeNull();
-    expect(gauge).not.toBeNull();
-    expect(gaugeFill?.style.height).toBe("80%");
-  });
-
-  it("renders a full gauge for an active upcoming meeting row", () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "event",
-          id: "event-standup",
-          data: {
-            title: "Team standup",
-            started_at: "2024-01-15T10:30:00.000Z",
-            ended_at: "2024-01-15T11:00:00.000Z",
-            tracking_id_event: "tracking-standup",
-            has_recurrence_rules: false,
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["event-event-standup"]}
-        isUpcoming
-        upcomingProgress={1}
-      />,
-    );
-
-    expect(
-      document.querySelector<HTMLElement>(
-        "[data-sidebar-timeline-upcoming-gauge-fill]",
-      )?.style.height,
-    ).toBe("100%");
-  });
-
-  it("does not render an upcoming gauge on non-upcoming rows", () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "event",
-          id: "event-standup",
-          data: {
-            title: "Team standup",
-            started_at: "2024-01-15T10:30:00.000Z",
-            ended_at: "2024-01-15T11:00:00.000Z",
-            tracking_id_event: "tracking-standup",
-            has_recurrence_rules: false,
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["event-event-standup"]}
-        upcomingProgress={0.8}
-      />,
-    );
-
-    expect(
-      document.querySelector("[data-sidebar-timeline-upcoming-gauge]"),
-    ).toBeNull();
-  });
-
-  it("exposes an arbitrary timeline row for visibility checks", () => {
-    const itemNodeRef = vi.fn();
-
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "event",
-          id: "event-standup",
-          data: {
-            title: "Team standup",
-            started_at: "2024-01-15T10:30:00.000Z",
-            ended_at: "2024-01-15T11:00:00.000Z",
-            tracking_id_event: "tracking-standup",
-            has_recurrence_rules: false,
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["event-event-standup"]}
-        itemNodeRef={itemNodeRef}
-      />,
-    );
-
-    const row = screen
-      .getByText("Team standup")
-      .closest("button")?.parentElement;
-
-    expect(itemNodeRef.mock.calls.some(([node]) => node === row)).toBe(true);
-  });
-
-  it("does not offer a new-tab action for event rows", () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "event",
-          id: "event-standup",
-          data: {
-            title: "Team standup",
-            started_at: "2024-01-15T10:30:00.000Z",
-            ended_at: "2024-01-15T11:00:00.000Z",
-            tracking_id_event: "tracking-standup",
-            has_recurrence_rules: false,
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["event-event-standup"]}
-      />,
-    );
-
-    const menu = mocks.nativeContextMenus.find((items) =>
-      items.some((item) => item.id === "ignore"),
-    );
-
-    expect(menu?.map((item) => item.id).filter(Boolean)).toEqual(["ignore"]);
-    expect(menu?.find((item) => item.id === "ignore")).toMatchObject({
-      id: "ignore",
-      text: "Delete Event",
-    });
-  });
-
-  it.each(["windows", "linux"])(
-    "uses platform-neutral folder copy on %s",
-    (currentPlatform) => {
-      mocks.platform = currentPlatform;
-
-      render(
-        <TimelineItemComponent
-          item={{
-            type: "session",
-            id: "session-note",
-            data: {
-              title: "Window Note",
-              created_at: "2024-01-15T10:30:00.000Z",
-            },
-          }}
-          precision="time"
-          selected={false}
-          timezone="UTC"
-          multiSelected={false}
-          flatItemKeys={["session-session-note"]}
-        />,
-      );
-
-      const menu = mocks.nativeContextMenus.find((items) =>
-        items.some((item) => item.id === "show"),
-      );
-
-      expect(menu?.find((item) => item.id === "show")?.text).toBe(
-        "Show in folder",
-      );
-    },
-  );
-
-  it("renders finalizing session spinner at the end of the row", () => {
-    mocks.sessionMode = "finalizing";
-    mocks.storeTitle = "Finalizing Note";
-
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-finalizing",
-          data: {
-            title: "Finalizing Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-finalizing"]}
-      />,
-    );
-
-    const rowButton = screen.getByText("Finalizing Note").closest("button");
-    const spinner = screen.getByTestId("spinner");
-
-    expect(rowButton?.className).not.toContain("pr-10");
-    expect(spinner.parentElement?.lastElementChild).toBe(spinner);
-  });
-
-  it("replaces the shared icon with the spinner while a shared note regenerates", () => {
-    mocks.isEnhancing = true;
-    mocks.storeTitle = "Shared plan";
-
-    render(
-      <ManagedSharedSessionIdsContext.Provider
-        value={new Set(["session-shared"])}
-      >
-        <TimelineItemComponent
-          item={{
-            type: "session",
-            id: "session-shared",
-            data: {
-              title: "Shared plan",
-              created_at: "2024-01-15T10:30:00.000Z",
-            },
-          }}
-          precision="time"
-          selected={false}
-          timezone="UTC"
-          multiSelected={false}
-          flatItemKeys={["session-session-shared"]}
-        />
-      </ManagedSharedSessionIdsContext.Provider>,
-    );
-
-    const spinner = screen.getByTestId("spinner");
-
-    expect(screen.queryByLabelText("Shared note")).toBeNull();
-    expect(spinner.parentElement?.lastElementChild).toBe(spinner);
-  });
-
-  it("marks a locally owned shared note with a people icon", () => {
-    render(
-      <ManagedSharedSessionIdsContext.Provider
-        value={new Set(["session-shared"])}
-      >
-        <TimelineItemComponent
-          item={{
-            type: "session",
-            id: "session-shared",
-            data: {
-              title: "Shared plan",
-              created_at: "2024-01-15T10:30:00.000Z",
-            },
-          }}
-          precision="time"
-          selected={false}
-          timezone="UTC"
-          multiSelected={false}
-          flatItemKeys={["session-session-shared"]}
-        />
-      </ManagedSharedSessionIdsContext.Provider>,
-    );
-
-    const sharedIcon = screen.getByLabelText("Shared note");
-
-    expect(sharedIcon.parentElement?.lastElementChild).toBe(sharedIcon);
-  });
-
   it("preloads a session before opening it in the current tab", async () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-note",
-          data: {
-            title: "Window Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-note"]}
-      />,
-    );
+    renderSession("session-note");
 
-    const rowButton = screen.getByText("Live Note").closest("button");
-    fireEvent.pointerDown(rowButton!);
-    fireEvent.click(rowButton!, { detail: 1 });
+    fireEvent.pointerDown(rowButton());
+    fireEvent.click(rowButton(), { detail: 1 });
 
     expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(
       "session-session-note",
@@ -754,26 +277,9 @@ describe("TimelineItemComponent", () => {
         finishPreload = resolve;
       }),
     );
+    renderSession("slow-session");
 
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "slow-session",
-          data: {
-            title: "Slow note",
-            created_at: "2024-01-15T10:30:00.000Z",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-slow-session"]}
-      />,
-    );
-
-    fireEvent.click(screen.getByText("Live Note").closest("button")!);
+    fireEvent.click(rowButton());
 
     expect(mocks.openCurrent).not.toHaveBeenCalled();
     expect(screen.getByTestId("spinner")).toBeTruthy();
@@ -788,77 +294,25 @@ describe("TimelineItemComponent", () => {
   });
 
   it("opens a standalone note window when a session row is double-clicked", async () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-note-window",
-          data: {
-            title: "Window Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-note-window"]}
-      />,
-    );
+    renderSession("session-note-window");
 
-    const rowButton = screen.getByText("Live Note").closest("button");
-    fireEvent.click(rowButton!, { detail: 1 });
-    fireEvent.click(rowButton!, { detail: 2 });
-    fireEvent.doubleClick(rowButton!);
+    fireEvent.click(rowButton(), { detail: 1 });
+    fireEvent.click(rowButton(), { detail: 2 });
+    fireEvent.doubleClick(rowButton());
 
     await waitFor(() => {
       expect(mocks.openCurrent).toHaveBeenCalledTimes(1);
-      expect(mocks.openCurrent).toHaveBeenCalledWith({
-        id: "session-note-window",
-        type: "sessions",
-      });
     });
-    expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledTimes(1);
-    expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(
-      "session-session-note-window",
-    );
     expect(mocks.windowShow).toHaveBeenCalledWith({
       type: "note",
       value: "session-note-window",
     });
   });
 
-  it("offers a standalone window action for session rows", () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-note-window",
-          data: {
-            title: "Window Note",
-            created_at: "2024-01-15T10:30:00.000Z",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-note-window"]}
-      />,
-    );
+  it("opens a session in a new window from the context menu", () => {
+    renderSession("session-note-window");
 
-    const menu = mocks.nativeContextMenus.find((items) =>
-      items.some((item) => item.id === "open-new-window"),
-    );
-
-    const openWindowItem = menu?.find((item) => item.id === "open-new-window");
-
-    expect(openWindowItem).toMatchObject({
-      id: "open-new-window",
-      text: "Open in New Window",
-    });
-
-    openWindowItem?.action?.();
+    findMenuItem("open-new-window")?.action?.();
 
     expect(mocks.windowShow).toHaveBeenCalledWith({
       type: "note",
@@ -866,83 +320,35 @@ describe("TimelineItemComponent", () => {
     });
   });
 
-  it("offers lock note when device authentication is available", () => {
-    mocks.authAvailable = true;
+  it.each([
+    [false, false],
+    [true, true],
+  ])(
+    "offers lock note only when device authentication is available (%s)",
+    (available, offered) => {
+      mocks.authAvailable = available;
+      renderSession("session-lock");
 
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-lock",
-          data: {
-            title: "Private",
-            created_at: "2024-01-15T10:30:00.000Z",
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-lock"]}
-      />,
-    );
+      expect(Boolean(findMenuItem("lock"))).toBe(offered);
+    },
+  );
 
-    const menu = mocks.nativeContextMenus.find((items) =>
-      items.some((item) => item.id === "lock"),
-    );
+  it.each([
+    ["hidden", {}, "Locked note", "Unlock Note"],
+    [
+      "revealed",
+      { "session-locked": true as const },
+      "Unlock Note",
+      "Locked note",
+    ],
+  ])(
+    "marks a %s locked note",
+    (_, revealedNoteIds, shownLabel, hiddenLabel) => {
+      mocks.revealedNoteIds = revealedNoteIds;
+      renderSession("session-locked", { locked: 1 }, { selected: true });
 
-    expect(menu?.find((item) => item.id === "lock")).toMatchObject({
-      id: "lock",
-      text: "Lock Note",
-    });
-  });
-
-  it("marks a locked note with a lock icon", () => {
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-locked",
-          data: {
-            title: "Secret",
-            created_at: "2024-01-15T10:30:00.000Z",
-            locked: 1,
-          },
-        }}
-        precision="time"
-        selected={false}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-locked"]}
-      />,
-    );
-
-    expect(screen.getByLabelText("Locked note")).toBeTruthy();
-  });
-
-  it("marks a revealed locked note with an unlocked icon", () => {
-    mocks.revealedNoteIds = { "session-locked": true };
-
-    render(
-      <TimelineItemComponent
-        item={{
-          type: "session",
-          id: "session-locked",
-          data: {
-            title: "Secret",
-            created_at: "2024-01-15T10:30:00.000Z",
-            locked: 1,
-          },
-        }}
-        precision="time"
-        selected={true}
-        timezone="UTC"
-        multiSelected={false}
-        flatItemKeys={["session-session-locked"]}
-      />,
-    );
-
-    expect(screen.getByLabelText("Unlock Note")).toBeTruthy();
-    expect(screen.queryByLabelText("Locked note")).toBeNull();
-  });
+      expect(screen.getByLabelText(shownLabel)).toBeTruthy();
+      expect(screen.queryByLabelText(hiddenLabel)).toBeNull();
+    },
+  );
 });

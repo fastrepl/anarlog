@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-save-capture-lifecycle-marker"
+description = "Enables the save_capture_lifecycle_marker command without any pre-configured scope."
+commands.allow = ["save_capture_lifecycle_marker"]
+
+[[permission]]
+identifier = "deny-save-capture-lifecycle-marker"
+description = "Denies the save_capture_lifecycle_marker command without any pre-configured scope."
+commands.deny = ["save_capture_lifecycle_marker"]

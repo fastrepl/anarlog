@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-acknowledge-stopped-capture"
+description = "Enables the acknowledge_stopped_capture command without any pre-configured scope."
+commands.allow = ["acknowledge_stopped_capture"]
+
+[[permission]]
+identifier = "deny-acknowledge-stopped-capture"
+description = "Denies the acknowledge_stopped_capture command without any pre-configured scope."
+commands.deny = ["acknowledge_stopped_capture"]

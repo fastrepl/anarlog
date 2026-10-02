@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Connection, Executor, Sqlite, SqliteConnection};
 
 use crate::error::Error;
+use crate::locked::{OwnedSqliteConnection, RawArg, ReservedConnection, execute_on_locked_handle};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,6 +17,8 @@ pub struct PendingPayloadBatch {
     pub fits: bool,
     #[serde(default)]
     pub remaining: bool,
+    #[serde(default)]
+    pub local_db_versions: i64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -240,6 +243,59 @@ pub async fn pending_payload_batch(
     target_rows: u64,
     max_bytes: u64,
 ) -> Result<PendingPayloadBatch, Error> {
+    let mut batch =
+        select_pending_payload_batch(connection, max_chunks, target_rows, max_bytes).await?;
+    if batch.fits
+        && batch.chunks > 0
+        && let Some(until) = batch.watermark_db_version
+    {
+        let (count, max) = local_send_window(connection, batch.start_db_version, until).await?;
+        let Some(max) = max else {
+            return Err(std::io::Error::other(
+                "cloudsync pending payload batch has no local versions",
+            )
+            .into());
+        };
+        batch.watermark_db_version = Some(max);
+        batch.local_db_versions = count;
+    }
+    Ok(batch)
+}
+
+// The send bound is a count of distinct local db_versions, not an absolute
+// version: find how many local versions fall inside (since, until] and the
+// largest one, matching upstream's '%_cloudsync' table discovery.
+async fn local_send_window(
+    connection: &mut SqliteConnection,
+    since: i64,
+    until: i64,
+) -> Result<(i64, Option<i64>), Error> {
+    let unions: Option<String> = sqlx::query_scalar(
+        "SELECT group_concat('SELECT db_version FROM \"' || format('%w', tbl_name) || '\" WHERE site_id = 0 AND db_version > ?1 AND db_version <= ?2', ' UNION ')
+         FROM sqlite_master WHERE type = 'table' AND tbl_name LIKE '%_cloudsync'",
+    )
+    .fetch_one(&mut *connection)
+    .await?;
+    let Some(unions) = unions else {
+        return Ok((0, None));
+    };
+    let sql = format!(
+        "WITH v(db_version) AS ({unions}) SELECT count(DISTINCT db_version), max(db_version) FROM v"
+    );
+    let (count, max): (i64, Option<i64>) = sqlx::query_as(sqlx::AssertSqlSafe(sql.as_str()))
+        .bind(since)
+        .bind(until)
+        .fetch_one(connection)
+        .await?;
+    Ok((count, max))
+}
+
+async fn select_pending_payload_batch(
+    connection: &mut SqliteConnection,
+    max_chunks: u32,
+    target_rows: u64,
+    max_bytes: u64,
+) -> Result<PendingPayloadBatch, Error> {
     if max_chunks == 0 || target_rows == 0 || max_bytes == 0 {
         return Err(Error::InvalidPendingPayloadLimits);
     }
@@ -383,6 +439,17 @@ where
     Ok(serde_json::from_str(&response)?)
 }
 
+pub async fn network_status_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
+) -> Result<NetworkStatus, Error> {
+    let response =
+        execute_on_locked_handle(connection, "SELECT cloudsync_network_status()", Vec::new())
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)?;
+
+    Ok(serde_json::from_str(&response)?)
+}
+
 pub async fn reconcile_confirmed_pending_payload(
     connection: &mut SqliteConnection,
     batch: PendingPayloadBatch,
@@ -391,14 +458,17 @@ pub async fn reconcile_confirmed_pending_payload(
     let Some(watermark_db_version) = batch.watermark_db_version else {
         return Ok(false);
     };
+    // A lost acknowledgement can be followed by new local edits before retry.
+    // Reconcile only the confirmed prefix; leave the newer tail pending.
+    let confirmed_db_version = watermark_db_version
+        .min(status.last_optimistic_version)
+        .min(status.last_confirmed_version);
     if batch.chunks == 0
-        || watermark_db_version <= batch.start_db_version
+        || confirmed_db_version <= batch.start_db_version
         || !batch.complete
         || !batch.fits
         || !status.gaps.is_empty()
         || status.failures.apply.is_some()
-        || status.last_optimistic_version < watermark_db_version
-        || status.last_confirmed_version < watermark_db_version
     {
         return Ok(false);
     }
@@ -422,7 +492,7 @@ pub async fn reconcile_confirmed_pending_payload(
     }
 
     sqlx::query("SELECT cloudsync_set('send_dbversion', CAST(? AS TEXT))")
-        .bind(watermark_db_version)
+        .bind(confirmed_db_version)
         .fetch_optional(&mut *transaction)
         .await?;
     let updated_db_version: i64 = sqlx::query_scalar(
@@ -432,7 +502,7 @@ pub async fn reconcile_confirmed_pending_payload(
     )
     .fetch_one(&mut *transaction)
     .await?;
-    if updated_db_version != watermark_db_version {
+    if updated_db_version != confirmed_db_version {
         transaction.rollback().await?;
         return Err(
             std::io::Error::other("cloudsync send cursor reconciliation did not persist").into(),
@@ -455,18 +525,50 @@ where
     Ok(serde_json::from_str(&response)?)
 }
 
-pub async fn network_send_changes_until<'e, E>(
+/// The argument bounds the send to that many distinct local db_versions after
+/// the send checkpoint, not to an absolute db_version.
+pub async fn network_send_changes_bounded<'e, E>(
     executor: E,
-    until_db_version: i64,
+    max_db_versions: i64,
 ) -> Result<NetworkResult, Error>
 where
     E: Executor<'e, Database = Sqlite>,
 {
     let response: String = sqlx::query_scalar("SELECT cloudsync_network_send_changes(?)")
-        .bind(until_db_version)
+        .bind(max_db_versions)
         .fetch_one(executor)
         .await?;
     Ok(serde_json::from_str(&response)?)
+}
+
+pub async fn network_send_changes_bounded_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
+    max_db_versions: i64,
+) -> Result<NetworkResult, Error> {
+    let response = execute_on_locked_handle(
+        connection,
+        "SELECT cloudsync_network_send_changes(?)",
+        vec![RawArg::Int(max_db_versions)],
+    )
+    .await?
+    .ok_or(sqlx::Error::RowNotFound)?;
+
+    Ok(serde_json::from_str(&response)?)
+}
+
+pub const CLOUDSYNC_NETWORK_CONNECT_TIMEOUT_SECONDS: u32 = 5;
+pub const CLOUDSYNC_NETWORK_REQUEST_TIMEOUT_SECONDS: u32 = 30;
+
+pub async fn network_set_request_deadlines(connection: &mut SqliteConnection) -> Result<(), Error> {
+    sqlx::query("SELECT cloudsync_set('network_connect_timeout', ?)")
+        .bind(CLOUDSYNC_NETWORK_CONNECT_TIMEOUT_SECONDS.to_string())
+        .fetch_optional(&mut *connection)
+        .await?;
+    sqlx::query("SELECT cloudsync_set('network_request_timeout', ?)")
+        .bind(CLOUDSYNC_NETWORK_REQUEST_TIMEOUT_SECONDS.to_string())
+        .fetch_optional(&mut *connection)
+        .await?;
+    Ok(())
 }
 
 pub async fn network_receive_changes<'e, E>(
@@ -489,6 +591,24 @@ where
                 .await?
         }
     };
+
+    Ok(serde_json::from_str(&response)?)
+}
+
+pub async fn network_receive_changes_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
+    max_chunks: Option<i64>,
+) -> Result<NetworkResult, Error> {
+    let (sql, args) = match max_chunks {
+        Some(max_chunks) => (
+            "SELECT cloudsync_network_receive_changes(?)",
+            vec![RawArg::Int(max_chunks)],
+        ),
+        None => ("SELECT cloudsync_network_receive_changes()", Vec::new()),
+    };
+    let response = execute_on_locked_handle(connection, sql, args)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)?;
 
     Ok(serde_json::from_str(&response)?)
 }
@@ -520,7 +640,7 @@ pub async fn network_reset_receive_version(connection: &mut SqliteConnection) ->
     let mut transaction = connection.begin().await?;
     let before = read_network_cursors(&mut transaction).await?;
 
-    // sqlite-sync 1.1.2's public reset zeros all four cursors, so a receive-only
+    // sqlite-sync's public reset zeros all four cursors, so a receive-only
     // full resync must set the two durable check cursors directly.
     sqlx::query(
         "SELECT
@@ -582,6 +702,14 @@ where
     sqlx::query("SELECT cloudsync_network_logout()")
         .fetch_optional(executor)
         .await?;
+
+    Ok(())
+}
+
+pub async fn network_logout_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
+) -> Result<(), Error> {
+    execute_on_locked_handle(connection, "SELECT cloudsync_network_logout()", Vec::new()).await?;
 
     Ok(())
 }

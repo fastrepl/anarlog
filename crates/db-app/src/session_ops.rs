@@ -8,7 +8,8 @@ use crate::{
 pub const MAX_SESSION_LIST_LIMIT: u32 = 500;
 
 const SESSION_LIST_COLUMNS: &str = "
-    SELECT id, title, kind, status, created_at, updated_at, started_at, ended_at, series_id
+    SELECT id, title, kind, status, created_at, updated_at, started_at, ended_at, series_id,
+           folder_path
     FROM sessions
 ";
 
@@ -87,6 +88,16 @@ pub async fn list_sessions(
         query.push_bind(series_id);
     }
 
+    if let Some(folder_path) = input.folder_path {
+        query.push(" AND (folder_path = ");
+        query.push_bind(folder_path);
+        query.push(" OR (folder_path > ");
+        query.push_bind(format!("{folder_path}/"));
+        query.push(" AND folder_path < ");
+        query.push_bind(format!("{folder_path}0"));
+        query.push("))");
+    }
+
     query.push(
         " ORDER BY COALESCE(NULLIF(started_at, ''), created_at) DESC, created_at DESC, id DESC",
     );
@@ -99,6 +110,19 @@ pub async fn list_sessions(
         .build_query_as::<SessionListItem>()
         .fetch_all(pool)
         .await
+}
+
+pub async fn list_folder_paths(pool: &SqlitePool) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT folder_path FROM sessions WHERE deleted_at IS NULL AND folder_path != ''
+         UNION
+         SELECT folder_path FROM folder_attachments WHERE deleted_at IS NULL AND folder_path != ''
+         UNION
+         SELECT path FROM folders WHERE deleted_at IS NULL AND path != ''
+         ORDER BY 1",
+    )
+    .fetch_all(pool)
+    .await
 }
 
 pub async fn get_session(
@@ -227,6 +251,7 @@ pub async fn list_recurring_sessions(
         ListSessions {
             query: None,
             series_id: Some(&series_id),
+            folder_path: None,
             limit,
             offset: 0,
         },
@@ -407,6 +432,7 @@ mod tests {
             ListSessions {
                 query: Some(" alpha "),
                 series_id: Some("series-a"),
+                folder_path: None,
                 limit: 1,
                 offset: 0,
             },
@@ -418,6 +444,7 @@ mod tests {
             ListSessions {
                 query: Some("alpha"),
                 series_id: Some("series-a"),
+                folder_path: None,
                 limit: 1,
                 offset: 1,
             },
@@ -429,6 +456,7 @@ mod tests {
             ListSessions {
                 query: Some("old"),
                 series_id: None,
+                folder_path: None,
                 limit: 10,
                 offset: 0,
             },
@@ -439,6 +467,86 @@ mod tests {
         assert_eq!(first[0].id, "alpha-new");
         assert_eq!(second[0].id, "alpha-old");
         assert_eq!(by_id[0].id, "alpha-old");
+    }
+
+    #[tokio::test]
+    async fn list_sessions_filters_folder_and_subfolders() {
+        let db = test_db().await;
+        for (id, started_at) in [
+            ("launch", "2026-01-04"),
+            ("launch-design", "2026-01-03"),
+            ("launch-sibling", "2026-01-02"),
+            ("unfiled", "2026-01-01"),
+        ] {
+            insert_session(db.pool(), id, id, started_at, "").await;
+        }
+        sqlx::query(
+            "UPDATE sessions SET folder_path = CASE id
+               WHEN 'launch' THEN 'Projects/Launch'
+               WHEN 'launch-design' THEN 'Projects/Launch/Design'
+               WHEN 'launch-sibling' THEN 'Projects/Launch 2'
+               ELSE '' END",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let listed = list_sessions(
+            db.pool(),
+            ListSessions {
+                query: None,
+                series_id: None,
+                folder_path: Some("Projects/Launch"),
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            listed
+                .iter()
+                .map(|session| (session.id.as_str(), session.folder_path.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("launch", "Projects/Launch"),
+                ("launch-design", "Projects/Launch/Design"),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn list_folder_paths_combines_active_folder_sources() {
+        let db = test_db().await;
+        insert_session(db.pool(), "filed", "Filed", "2026-01-01", "").await;
+        insert_session(db.pool(), "deleted", "Deleted", "2026-01-01", "").await;
+        sqlx::query(
+            "UPDATE sessions SET folder_path = CASE id
+               WHEN 'filed' THEN 'Clients/ACME'
+               ELSE 'Deleted folder' END,
+               deleted_at = CASE id WHEN 'deleted' THEN '2026-02-01' END",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO folder_attachments (id, folder_path) VALUES ('attachment', 'Courses/Math')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO folders (id, path) VALUES ('empty', 'Projects/Empty'), ('dupe', 'Clients/ACME')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            list_folder_paths(db.pool()).await.unwrap(),
+            vec!["Clients/ACME", "Courses/Math", "Projects/Empty"]
+        );
     }
 
     #[tokio::test]

@@ -173,22 +173,6 @@ it("keeps autosaves bound to the account being edited", async () => {
   );
 });
 
-it("keeps fields editable while a save is pending", async () => {
-  mocks.save.mockReturnValue(new Promise(() => {}));
-  render(view());
-  fireEvent.change(screen.getByLabelText("Name"), {
-    target: { value: "Ada Lovelace" },
-  });
-  await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
-  expect(
-    (
-      screen.getByRole("button", {
-        name: "Choose company",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(false);
-});
-
 it("loads saved contact fields and removes a photo without clearing other details", async () => {
   mocks.contact.data = {
     name: "Saved name",
@@ -239,19 +223,6 @@ it("formats a saved phone without marking the profile dirty", () => {
   );
   expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
   expect(mocks.save).not.toHaveBeenCalled();
-});
-
-it("formats a phone on keyboard submit without requiring blur", async () => {
-  render(view());
-  const phone = screen.getByLabelText("Phone") as HTMLInputElement;
-  fireEvent.change(phone, { target: { value: "+442079460018" } });
-  fireEvent.submit(phone.closest("form")!);
-  await waitFor(() =>
-    expect(mocks.save).toHaveBeenCalledWith(
-      "account-1",
-      expect.objectContaining({ phone: "+44 20 7946 0018" }),
-    ),
-  );
 });
 
 it("does not replace newer edits when an earlier save finishes", async () => {

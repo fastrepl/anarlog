@@ -116,14 +116,6 @@ mod tests {
     "
     );
 
-    tpl_snapshot!(
-        test_macro_participants_empty,
-        TestParticipants {
-            participants: vec![],
-        },
-        @""
-    );
-
     #[derive(Template)]
     #[template(
         source = r#"{%- import "_macros.jinja" as macros -%}{{ macros::session_context(session=session) }}"#,

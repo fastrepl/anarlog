@@ -91,27 +91,6 @@ describe("buildTrayScheduleEvents", () => {
     expect(events).toEqual([]);
   });
 
-  test("labels tomorrow in the configured timezone", () => {
-    const events = buildTrayScheduleEvents(
-      {
-        tomorrow: event({
-          title: "Planning",
-          started_at: "2026-07-18T01:00:00.000Z",
-          ended_at: "2026-07-18T02:00:00.000Z",
-        }),
-      },
-      () => false,
-      NOW,
-      "UTC",
-      "en-US",
-    );
-
-    expect(events[0]).toMatchObject({
-      dayStartMs: Date.parse("2026-07-18T00:00:00.000Z"),
-      previousDayStartMs: NOW,
-      timeLabel: "1:00 AM – 2:00 AM",
-    });
-  });
   test.each([
     ["UTC", "00:00 – 12:30"],
     ["Asia/Seoul", "09:00 – 21:30"],

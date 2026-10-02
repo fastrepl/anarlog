@@ -19,40 +19,22 @@ test("hides after scrolling down and reveals after reversing direction", () => {
   assert.equal(state.hidden, true);
 });
 
-test("small scroll jitter does not flicker the button", () => {
-  let state = scrollVisibility(visible, 100, 500);
-  for (const offset of [98, 102, 99, 103, 101, 97]) {
-    state = scrollVisibility(state, offset, 500);
-    assert.equal(state.hidden, true);
-  }
-  state = scrollVisibility(state, 90, 500);
-  assert.equal(state.hidden, false);
-  for (const offset of [92, 87, 90, 89, 96]) {
-    state = scrollVisibility(state, offset, 500);
-    assert.equal(state.hidden, false);
-  }
-});
-
-test("top bounce keeps the button visible", () => {
+test("bounces and short lists never hide the button spuriously", () => {
   let state = scrollVisibility(visible, 100, 500);
   for (const offset of [0, -40, -10, 0]) {
     state = scrollVisibility(state, offset, 500);
     assert.equal(state.hidden, false);
   }
-});
 
-test("bottom bounce does not count as scrolling back up", () => {
-  let state = visible;
+  state = visible;
   for (const offset of [500, 540, 520, 500]) {
     state = scrollVisibility(state, offset, 500);
     assert.equal(state.hidden, true);
   }
   state = scrollVisibility(state, 488, 500);
   assert.equal(state.hidden, false);
-});
 
-test("short or emptied lists always keep the button available", () => {
-  let state = scrollVisibility(visible, 100, 500);
+  state = scrollVisibility(visible, 100, 500);
   for (const maxOffset of [0, -200]) {
     for (const offset of [100, -50, 0]) {
       state = scrollVisibility(state, offset, maxOffset);

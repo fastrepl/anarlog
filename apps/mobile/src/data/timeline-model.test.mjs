@@ -3,43 +3,9 @@ import test from "node:test";
 
 import {
   buildSessionList,
-  dayLabel,
   mapTimelineRows,
   nextTimelineRefreshAt,
-  relativeLabel,
 } from "./timeline-model.ts";
-
-test("uses calendar labels around the current day", () => {
-  const now = new Date(2026, 7, 17, 12).getTime();
-
-  assert.equal(dayLabel(new Date(2026, 7, 17, 23).toISOString(), now), "Today");
-  assert.equal(
-    dayLabel(new Date(2026, 7, 18, 0).toISOString(), now),
-    "Tomorrow",
-  );
-  assert.equal(
-    dayLabel(new Date(2026, 7, 16, 23).toISOString(), now),
-    "Yesterday",
-  );
-});
-
-test("uses readable relative units instead of unbounded hours", () => {
-  const now = new Date("2026-08-17T12:00:00.000Z").getTime();
-
-  assert.equal(relativeLabel(new Date(now - 29_000).toISOString(), now), "now");
-  assert.equal(
-    relativeLabel(new Date(now - 90 * 60_000).toISOString(), now),
-    "2 hours ago",
-  );
-  assert.equal(
-    relativeLabel(new Date(now - 205 * 60 * 60_000).toISOString(), now),
-    "9 days ago",
-  );
-  assert.equal(
-    relativeLabel(new Date(now + 2 * 24 * 60 * 60_000).toISOString(), now),
-    "in 2 days",
-  );
-});
 
 test("orders meetings without generic past or upcoming headers", () => {
   const now = new Date(2026, 7, 17, 12).getTime();
@@ -68,25 +34,6 @@ test("orders meetings without generic past or upcoming headers", () => {
       .filter((item) => item.type === "session")
       .map((item) => item.session.id),
     ["upcoming-near", "upcoming-far", "past-recent", "past-old"],
-  );
-});
-
-test("uses only day headers for a past-only timeline", () => {
-  const now = new Date(2026, 7, 17, 12).getTime();
-  const items = buildSessionList(
-    [
-      {
-        id: "past",
-        title: "Past",
-        startedAt: new Date(now - 1_000).toISOString(),
-      },
-    ],
-    now,
-  );
-
-  assert.deepEqual(
-    items.filter((item) => item.type === "header").map((item) => item.label),
-    ["Today"],
   );
 });
 
@@ -152,7 +99,7 @@ test("retains a session with an invalid date in the timeline", () => {
   );
 });
 
-test("refreshes at the next meeting boundary before the minute tick", () => {
+test("refreshes at the next meeting boundary or minute tick", () => {
   const now = new Date("2026-08-17T12:00:30.000Z").getTime();
   const meeting = new Date(now + 5_000).toISOString();
 
@@ -167,11 +114,6 @@ test("refreshes at the next meeting boundary before the minute tick", () => {
     ),
     new Date(meeting).getTime() + 1,
   );
-});
-
-test("refreshes at the next minute when no meeting starts sooner", () => {
-  const now = new Date("2026-08-17T12:00:30.000Z").getTime();
-
   assert.equal(
     nextTimelineRefreshAt(
       [

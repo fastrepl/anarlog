@@ -13,6 +13,13 @@ const event = (type: Stripe.Event.Type, object: Stripe.Event.Data.Object) =>
     data: { object },
   }) as Stripe.Event;
 
+const teamSubscription = {
+  customer: "cus_team123",
+  items: {
+    data: [{ price: { id: "price_pro" }, quantity: 4 }],
+  },
+} as Stripe.Subscription;
+
 const dependencies = (
   overrides: Partial<NonNullable<Parameters<typeof syncBillingBridge>[1]>> = {},
 ): NonNullable<Parameters<typeof syncBillingBridge>[1]> => ({
@@ -33,15 +40,9 @@ const dependencies = (
 describe("syncBillingBridge", () => {
   it("routes Team subscription quantities to the workspace billing RPC", async () => {
     const updates: Array<Record<string, unknown>> = [];
-    const subscription = {
-      customer: "cus_team123",
-      items: {
-        data: [{ price: { id: "price_pro" }, quantity: 4 }],
-      },
-    } as Stripe.Subscription;
 
     await syncBillingBridge(
-      event("customer.subscription.updated", subscription),
+      event("customer.subscription.updated", teamSubscription),
       dependencies({
         syncWorkspaceCustomer: async (update) => {
           updates.push(update);
@@ -61,16 +62,9 @@ describe("syncBillingBridge", () => {
   });
 
   it("fails closed when Stripe metadata conflicts with the bound customer", async () => {
-    const subscription = {
-      customer: "cus_team123",
-      items: {
-        data: [{ price: { id: "price_pro" }, quantity: 4 }],
-      },
-    } as Stripe.Subscription;
-
     await expect(
       syncBillingBridge(
-        event("customer.subscription.updated", subscription),
+        event("customer.subscription.updated", teamSubscription),
         dependencies({
           syncWorkspaceCustomer: async () => "cus_another_workspace",
         }),
@@ -79,16 +73,9 @@ describe("syncBillingBridge", () => {
   });
 
   it("ignores Stripe events for a workspace that no longer exists", async () => {
-    const subscription = {
-      customer: "cus_team123",
-      items: {
-        data: [{ price: { id: "price_pro" }, quantity: 4 }],
-      },
-    } as Stripe.Subscription;
-
     await expect(
       syncBillingBridge(
-        event("customer.subscription.updated", subscription),
+        event("customer.subscription.updated", teamSubscription),
         dependencies({
           syncWorkspaceCustomer: async () => null,
         }),

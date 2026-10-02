@@ -9,6 +9,7 @@ import {
 } from "@anlg/plugin-db";
 import { ArrowClockwise } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { BrandLoadingView } from "./brand-loading-view";
@@ -40,7 +41,7 @@ export function LongLoadGate({ children }: { children: ReactNode }) {
     }
   }, [ready, showSplash, error]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     let cancelled = false;
     const splashTimer = window.setTimeout(() => {
       if (!cancelled) {
@@ -67,7 +68,7 @@ export function LongLoadGate({ children }: { children: ReactNode }) {
       cancelled = true;
       window.clearTimeout(splashTimer);
     };
-  }, []);
+  });
 
   if (error) {
     return <StartupErrorView error={error} />;

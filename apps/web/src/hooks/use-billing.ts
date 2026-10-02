@@ -4,7 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { jwtDecode } from "jwt-decode";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import {
   type BillingInfo,
@@ -13,6 +13,7 @@ import {
 } from "@anlg/supabase";
 
 import { getSupabaseBrowserClient } from "@/functions/supabase";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 const DEFAULT_BILLING = deriveBillingInfo(null);
 
@@ -26,7 +27,7 @@ export function useBilling() {
     undefined,
   );
 
-  useEffect(() => {
+  useMountEffect(() => {
     const supabase = getSupabaseBrowserClient();
 
     void supabase.auth.getSession().then(({ data }) => {
@@ -42,7 +43,7 @@ export function useBilling() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  });
 
   const jwtQuery = useQuery({
     queryKey: ["billing", "jwt", accessToken ?? ""],

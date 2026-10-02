@@ -125,6 +125,18 @@ vi.mock("@anlg/plugin-db", () => ({
   suspendCloudsyncForSignOut: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@anlg/plugin-session", () => ({
+  commands: new Proxy({} as Record<string, () => Promise<unknown>>, {
+    get: (target, prop) => {
+      if (typeof prop !== "string") {
+        return undefined;
+      }
+      return (target[prop] ??= () =>
+        Promise.resolve({ status: "ok", data: null }));
+    },
+  }),
+}));
+
 function translate(
   input:
     | TemplateStringsArray

@@ -52,7 +52,7 @@ export type DevtoolsAction =
   | "data:recurring-notes"
   | "error:trigger";
 
-export type DevtoolsMenuItem = {
+type DevtoolsMenuItem = {
   label: string;
   description: string;
   action: DevtoolsAction;

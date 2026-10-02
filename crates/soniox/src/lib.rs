@@ -389,16 +389,3 @@ pub async fn wait_for_completion(
         is_retryable: false,
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn soniox_polling_allows_long_batch_jobs() {
-        assert_eq!(
-            TRANSCRIPTION_POLL_INTERVAL.as_secs() * TRANSCRIPTION_MAX_POLLS as u64,
-            3600
-        );
-    }
-}

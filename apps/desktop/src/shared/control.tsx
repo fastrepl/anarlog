@@ -14,9 +14,9 @@ import {
   Warning,
 } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { captureOperationalError } from "~/error-reporting";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const routeErrorKeys = new WeakMap<object, number>();
 let nextRouteErrorKey = 0;

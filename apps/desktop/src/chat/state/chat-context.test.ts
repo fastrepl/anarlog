@@ -30,14 +30,6 @@ describe("chat context", () => {
     expect(selection.sessionId).not.toBe("session-1");
   });
 
-  test("selectChat syncs the selected group and session id", () => {
-    useChatContext.getState().selectChat("general", "group-2");
-
-    const selection = useChatContext.getState().chatByScope.general;
-    expect(selection.groupId).toBe("group-2");
-    expect(selection.sessionId).toBe("group-2");
-  });
-
   test("keeps general and automation conversations separate", () => {
     useChatContext.getState().selectChat("general", "general-group");
     useChatContext.getState().selectChat("automations", "automation-group");

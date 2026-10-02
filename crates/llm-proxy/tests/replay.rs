@@ -3,10 +3,8 @@ mod common;
 use common::analytics::*;
 use common::harness::*;
 
-use std::sync::Arc;
-
 use axum::http::StatusCode;
-use llm_proxy::{LlmProxyConfig, MODEL_KEY_DEFAULT, StaticModelResolver, router};
+use llm_proxy::router;
 use tower::ServiceExt;
 
 mod basic {
@@ -146,71 +144,5 @@ mod error_handling {
                 .unwrap()
                 .contains("Rate limit")
         );
-    }
-}
-
-mod e2e {
-    use super::*;
-
-    fn real_config(analytics: MockAnalytics) -> LlmProxyConfig {
-        let api_key = std::env::var("OPENROUTER_API_KEY").expect("OPENROUTER_API_KEY must be set");
-        let resolver = StaticModelResolver::default()
-            .with_models(MODEL_KEY_DEFAULT, vec!["openai/gpt-4.1-nano".into()]);
-        LlmProxyConfig::new(api_key)
-            .with_model_resolver(Arc::new(resolver))
-            .with_analytics(Arc::new(analytics))
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn non_streaming() {
-        let analytics = MockAnalytics::default();
-        let response = router(real_config(analytics.clone()))
-            .oneshot(build_request(simple_message(
-                "Say 'hello' and nothing else.",
-            )))
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body = response_to_json(response).await;
-        assert!(body.get("id").is_some());
-        assert!(body.get("choices").is_some());
-
-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-
-        let event = &analytics.captured_events()[0];
-        assert!(!event.generation_id.is_empty());
-        assert!(!event.model.is_empty());
-        assert_eq!(event.http_status, 200);
-        assert!(event.input_tokens > 0);
-        assert!(event.output_tokens > 0);
-        assert!(event.latency > 0.0);
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn streaming() {
-        let analytics = MockAnalytics::default();
-        let response = router(real_config(analytics.clone()))
-            .oneshot(build_request(stream_request(
-                "Say 'hello' and nothing else.",
-            )))
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body_str = response_to_string(response).await;
-        assert!(body_str.contains("data: "));
-
-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-
-        let event = &analytics.captured_events()[0];
-        assert!(!event.generation_id.is_empty());
-        assert!(!event.model.is_empty());
-        assert_eq!(event.http_status, 200);
-        assert!(event.latency > 0.0);
     }
 }

@@ -1,6 +1,6 @@
 export const MEETING_DISCLOSURE_MESSAGE_VERSION = "anarlog-disclosure-v1";
 
-export type DisclosureDelivery = "sent" | "not_sent" | "cancelled";
+type DisclosureDelivery = "sent" | "not_sent" | "cancelled";
 
 export type DisclosurePlatform =
   | "slack_huddle"
@@ -25,7 +25,7 @@ export type DisclosureAttempt = {
 
 export type ParticipantConsentStatus = "unknown" | "consented" | "declined";
 
-export type ParticipantConsentSource =
+type ParticipantConsentSource =
   | "explicit_chat_reply"
   | "explicit_ui"
   | "unseen";

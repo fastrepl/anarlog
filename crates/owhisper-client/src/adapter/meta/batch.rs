@@ -230,7 +230,6 @@ fn convert_response(response: MetaBatchResponse) -> BatchResponse {
 mod tests {
     use super::*;
     use crate::adapter::BatchSttAdapter;
-    use crate::http_client::create_client;
 
     #[test]
     fn convert_response_indexes_speakers_and_spreads_words() {
@@ -293,26 +292,5 @@ mod tests {
         assert_eq!(reader.spec().sample_rate, 16_000);
         assert_eq!(reader.spec().bits_per_sample, 16);
         assert!((reader.len() as i64 - 16_000).abs() < 100);
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_batch_file() {
-        let client = create_client();
-        let response = MetaAdapter::default()
-            .transcribe_file(
-                &client,
-                "",
-                &std::env::var("META_API_KEY").expect("META_API_KEY not set"),
-                &ListenParams {
-                    languages: vec![anlg_language::ISO639::En.into()],
-                    ..Default::default()
-                },
-                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../crates/data/src/english_1/audio.wav"),
-            )
-            .await
-            .unwrap();
-        println!("{}", serde_json::to_string_pretty(&response).unwrap());
     }
 }

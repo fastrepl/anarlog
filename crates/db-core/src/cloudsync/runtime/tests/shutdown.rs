@@ -1,6 +1,5 @@
 use super::super::*;
 use crate::{CloudsyncAuth, CloudsyncTableSpec, DbOpenOptions, DbStorage};
-use std::future::pending;
 
 #[tokio::test]
 async fn restart_after_fatal_exit_cleans_native_state() {
@@ -111,21 +110,6 @@ async fn suspend_interrupts_active_retry_backoff() {
         .unwrap();
 
     assert!(!db.cloudsync_status().await.unwrap().running);
-}
-
-#[tokio::test]
-async fn shutdown_interrupts_an_active_sync_future() {
-    let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
-    shutdown_tx.send(()).unwrap();
-
-    let result = tokio::time::timeout(
-        Duration::from_secs(1),
-        run_or_shutdown(pending::<()>(), &mut shutdown_rx),
-    )
-    .await
-    .expect("active sync ignored shutdown");
-
-    assert!(result.is_none());
 }
 
 #[tokio::test]

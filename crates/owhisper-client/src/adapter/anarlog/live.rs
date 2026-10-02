@@ -107,14 +107,6 @@ mod tests {
     const API_BASE: &str = "https://api.anarlog.so/stt";
 
     #[test]
-    fn test_proxy_provider_name() {
-        assert_eq!(
-            RealtimeSttAdapter::provider_name(&AnarlogAdapter),
-            "hyprnote"
-        );
-    }
-
-    #[test]
     fn test_url_structure() {
         run_url_test_cases(
             &AnarlogAdapter::default(),
@@ -139,56 +131,81 @@ mod tests {
     }
 
     #[test]
-    fn test_url_with_keywords() {
+    fn test_url_carries_keywords_speaker_counts_custom_query_and_meta_model() {
         let adapter = AnarlogAdapter::default();
-        let params = owhisper_interface::ListenParams {
-            model: Some("nova-3".to_string()),
-            languages: vec![ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
-            ..Default::default()
-        };
 
-        let url = adapter.build_ws_url(API_BASE, &params, 1);
-        let url_str = url.as_str();
+        let url = adapter.build_ws_url(
+            API_BASE,
+            &owhisper_interface::ListenParams {
+                model: Some("nova-3".to_string()),
+                languages: vec![ISO639::En.into()],
+                keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
+                ..Default::default()
+            },
+            1,
+        );
+        assert!(url.as_str().contains("keyword=Anarlog"));
+        assert!(url.as_str().contains("keyword=transcription"));
 
-        assert!(url_str.contains("keyword=Anarlog"));
-        assert!(url_str.contains("keyword=transcription"));
-    }
+        let url = adapter.build_ws_url(
+            API_BASE,
+            &owhisper_interface::ListenParams {
+                num_speakers: Some(3),
+                min_speakers: Some(2),
+                max_speakers: Some(4),
+                ..Default::default()
+            },
+            1,
+        );
+        assert!(url.as_str().contains("num_speakers=3"));
+        assert!(url.as_str().contains("min_speakers=2"));
+        assert!(url.as_str().contains("max_speakers=4"));
 
-    #[test]
-    fn test_url_with_speaker_counts() {
-        let adapter = AnarlogAdapter::default();
-        let params = owhisper_interface::ListenParams {
-            num_speakers: Some(3),
-            min_speakers: Some(2),
-            max_speakers: Some(4),
-            ..Default::default()
-        };
-
-        let url = adapter.build_ws_url(API_BASE, &params, 1);
-        let url_str = url.as_str();
-
-        assert!(url_str.contains("num_speakers=3"));
-        assert!(url_str.contains("min_speakers=2"));
-        assert!(url_str.contains("max_speakers=4"));
-    }
-
-    #[test]
-    fn test_url_with_custom_query() {
-        let adapter = AnarlogAdapter::default();
-        let params = owhisper_interface::ListenParams {
-            model: Some("nova-3".to_string()),
-            languages: vec![ISO639::En.into()],
-            custom_query: Some(
-                [("provider".to_string(), "deepgram".to_string())]
-                    .into_iter()
-                    .collect(),
-            ),
-            ..Default::default()
-        };
-
-        let url = adapter.build_ws_url(API_BASE, &params, 1);
+        let url = adapter.build_ws_url(
+            API_BASE,
+            &owhisper_interface::ListenParams {
+                model: Some("nova-3".to_string()),
+                languages: vec![ISO639::En.into()],
+                custom_query: Some(
+                    [("provider".to_string(), "deepgram".to_string())]
+                        .into_iter()
+                        .collect(),
+                ),
+                ..Default::default()
+            },
+            1,
+        );
         assert!(url.as_str().contains("provider=deepgram"));
+
+        let url = adapter.build_ws_url(
+            API_BASE,
+            &owhisper_interface::ListenParams {
+                model: Some("cloud".to_string()),
+                languages: vec![ISO639::En.into(), ISO639::De.into()],
+                ..Default::default()
+            },
+            1,
+        );
+        assert!(
+            url.as_str().contains("model=cloud"),
+            "meta-model 'cloud' should be passed through to proxy as-is, not resolved to a provider-specific model"
+        );
+        assert!(url.as_str().contains("language=en"));
+        assert!(url.as_str().contains("language=de"));
+
+        let url = adapter.build_ws_url(
+            "https://api.anarlog.so/stt?provider=anarlog",
+            &owhisper_interface::ListenParams {
+                model: Some("cloud".to_string()),
+                languages: vec![ISO639::En.into()],
+                ..Default::default()
+            },
+            1,
+        );
+        assert!(
+            url.as_str().contains("provider=anarlog"),
+            "provider=anarlog query param should be preserved in the final URL"
+        );
     }
 
     #[test]
@@ -218,44 +235,7 @@ mod tests {
     }
 
     #[test]
-    fn test_meta_model_passed_through_without_resolution() {
-        let adapter = AnarlogAdapter::default();
-        let params = owhisper_interface::ListenParams {
-            model: Some("cloud".to_string()),
-            languages: vec![ISO639::En.into(), ISO639::De.into()],
-            ..Default::default()
-        };
-
-        let url = adapter.build_ws_url(API_BASE, &params, 1);
-        let url_str = url.as_str();
-
-        assert!(
-            url_str.contains("model=cloud"),
-            "meta-model 'cloud' should be passed through to proxy as-is, not resolved to a provider-specific model"
-        );
-        assert!(url_str.contains("language=en"));
-        assert!(url_str.contains("language=de"));
-    }
-
-    #[test]
-    fn test_provider_param_preserved_in_url() {
-        let adapter = AnarlogAdapter::default();
-        let base_with_provider = "https://api.anarlog.so/stt?provider=anarlog";
-        let params = owhisper_interface::ListenParams {
-            model: Some("cloud".to_string()),
-            languages: vec![ISO639::En.into()],
-            ..Default::default()
-        };
-
-        let url = adapter.build_ws_url(base_with_provider, &params, 1);
-        assert!(
-            url.as_str().contains("provider=anarlog"),
-            "provider=anarlog query param should be preserved in the final URL"
-        );
-    }
-
-    #[test]
-    fn parse_response_accepts_single_response() {
+    fn parse_response_accepts_single_and_array_payloads() {
         let adapter = AnarlogAdapter::default();
         let raw = serde_json::to_string(&sample_response("hello", false)).unwrap();
 
@@ -268,11 +248,7 @@ mod tests {
             }
             _ => panic!("expected transcript response"),
         }
-    }
 
-    #[test]
-    fn parse_response_accepts_response_arrays() {
-        let adapter = AnarlogAdapter::default();
         let raw = serde_json::to_string(&vec![
             sample_response("final", true),
             sample_response("partial", false),

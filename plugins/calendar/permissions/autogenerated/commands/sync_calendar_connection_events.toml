@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-sync-calendar-connection-events"
+description = "Enables the sync_calendar_connection_events command without any pre-configured scope."
+commands.allow = ["sync_calendar_connection_events"]
+
+[[permission]]
+identifier = "deny-sync-calendar-connection-events"
+description = "Denies the sync_calendar_connection_events command without any pre-configured scope."
+commands.deny = ["sync_calendar_connection_events"]

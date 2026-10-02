@@ -172,15 +172,17 @@ mod tests {
     }
 
     #[test]
-    fn test_batch_api_url_empty_uses_default() {
-        let url = GladiaAdapter::batch_api_url("");
-        assert_eq!(url.as_str(), "https://api.gladia.io/v2");
-    }
-
-    #[test]
-    fn test_batch_api_url_custom() {
-        let url = GladiaAdapter::batch_api_url("https://custom.gladia.io/v2");
-        assert_eq!(url.as_str(), "https://custom.gladia.io/v2");
+    fn test_batch_api_url() {
+        for (input, expected) in [
+            ("", "https://api.gladia.io/v2"),
+            ("https://custom.gladia.io/v2", "https://custom.gladia.io/v2"),
+        ] {
+            assert_eq!(
+                GladiaAdapter::batch_api_url(input).as_str(),
+                expected,
+                "input: {input}"
+            );
+        }
     }
 
     #[test]

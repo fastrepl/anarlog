@@ -13,12 +13,25 @@ Run the server with `anarlog mcp`. It supports the current MCP `2026-07-28` prot
 | --- | --- | --- | --- |
 | `query` | string | — | Case-insensitive title or meeting ID substring. An empty result list means no matches; do not invent meetings. |
 | `series_id` | string | — | Exact recurring series ID. |
+| `folder_path` | string | — | Folder path from `list_folders`, such as `Projects/Launch`. Includes meetings in its subfolders. |
 | `limit` | integer | `20` | Clamped to `1..200`. |
 | `offset` | integer | `0` | Number of results to skip. |
 
+Each meeting includes `folder_path`, which is `null` when the meeting is not in a folder.
+
+### `list_folders`
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `query` | string | — | Case-insensitive folder path substring. |
+| `limit` | integer | `100` | Clamped to `1..200`. |
+| `offset` | integer | `0` | Number of results to skip. |
+
+Returns `folders` sorted by path, plus `pagination`. Each folder contains `path`, `name`, and `parent_path` (`null` for top-level folders). The list includes empty folders and parent folders. Pass a returned `path` as `list_meetings` `folder_path`.
+
 ### `get_meeting`
 
-Accepts required string `meeting_id`. Returns meeting metadata, the canonical memo, summaries, participants, and action items. Transcript words are intentionally separate.
+Accepts required string `meeting_id`. Returns meeting metadata, including `folder_path`, the canonical memo, summaries, participants, and action items. Transcript words are intentionally separate.
 
 ### `get_meeting_transcript`
 
@@ -37,6 +50,8 @@ Accepts required string `meeting_id` plus optional integer `limit` and `offset`.
 ### `export_meeting`
 
 Accepts required string `meeting_id`. Returns the complete structured meeting record, including metadata, notes, summaries, participants, action items, and transcripts. Prefer the smaller detail or transcript tools unless the task explicitly needs a full export.
+
+When available, `speakers` provides the names referenced by transcript speaker assignments, and `speaker_context` records microphone and call context. These fields are optional; older or trimmed Cloud snapshots may omit them.
 
 ### `propose_summary_edit`
 

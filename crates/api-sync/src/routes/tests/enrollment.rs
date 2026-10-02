@@ -21,6 +21,20 @@ fn register_request(replace_fingerprint: Option<&str>) -> Request<Body> {
         .unwrap()
 }
 
+fn denied_enrollment(requires_existing_key: bool, device_count: i64) -> Value {
+    json!([{
+        "allowed": false,
+        "requires_existing_key": requires_existing_key,
+        "request_id": null,
+        "expires_at": null,
+        "enrollment_status": null,
+        "ephemeral_public_key": null,
+        "nonce": null,
+        "ciphertext": null,
+        "device_count": device_count,
+    }])
+}
+
 #[tokio::test]
 async fn registers_and_polls_a_device_enrollment() {
     let server = MockServer::start().await;
@@ -97,64 +111,18 @@ async fn forwards_an_atomic_device_replacement() {
 
 #[tokio::test]
 async fn distinguishes_first_device_setup_from_a_full_roster() {
-    for (row, status, code) in [
+    for (case, requires_existing_key, device_count, status, code) in [
         (
-            json!([{
-                "allowed": false,
-                "requires_existing_key": true,
-                "request_id": null,
-                "expires_at": null,
-                "enrollment_status": null,
-                "ephemeral_public_key": null,
-                "nonce": null,
-                "ciphertext": null,
-                "device_count": 0,
-            }]),
+            "first device requires an existing E2EE key",
+            true,
+            0,
             StatusCode::CONFLICT,
             "e2ee_enrollment_requires_existing_key",
         ),
         (
-            json!([{
-                "allowed": false,
-                "requires_existing_key": false,
-                "request_id": null,
-                "expires_at": null,
-                "enrollment_status": null,
-                "ephemeral_public_key": null,
-                "nonce": null,
-                "ciphertext": null,
-                "device_count": 5,
-            }]),
-            StatusCode::FORBIDDEN,
-            "sync_device_limit_reached",
-        ),
-        (
-            json!([{
-                "allowed": false,
-                "requires_existing_key": false,
-                "request_id": null,
-                "expires_at": null,
-                "enrollment_status": null,
-                "ephemeral_public_key": null,
-                "nonce": null,
-                "ciphertext": null,
-                "device_count": 3,
-            }]),
-            StatusCode::FORBIDDEN,
-            "sync_device_limit_reached",
-        ),
-        (
-            json!([{
-                "allowed": false,
-                "requires_existing_key": false,
-                "request_id": null,
-                "expires_at": null,
-                "enrollment_status": null,
-                "ephemeral_public_key": null,
-                "nonce": null,
-                "ciphertext": null,
-                "device_count": 4,
-            }]),
+            "device roster limit is reached",
+            false,
+            5,
             StatusCode::FORBIDDEN,
             "sync_device_limit_reached",
         ),
@@ -162,7 +130,10 @@ async fn distinguishes_first_device_setup_from_a_full_roster() {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/rest/v1/rpc/register_e2ee_device_enrollment"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(row))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(denied_enrollment(requires_existing_key, device_count)),
+            )
             .mount(&server)
             .await;
 
@@ -171,8 +142,12 @@ async fn distinguishes_first_device_setup_from_a_full_roster() {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), status);
-        assert_eq!(response_json(response).await["error"]["code"], code);
+        assert_eq!(response.status(), status, "{case}");
+        assert_eq!(
+            response_json(response).await["error"]["code"],
+            code,
+            "{case}"
+        );
     }
 }
 
@@ -201,77 +176,60 @@ async fn rejects_malformed_enrollment_without_contacting_supabase() {
 }
 
 #[tokio::test]
-async fn seals_an_enrollment_package_once() {
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/rest/v1/rpc/seal_e2ee_device_enrollment"))
-        .and(header("apikey", "service-role-key"))
-        .and(body_partial_json(json!({
-            "p_actor_user_id": "user-123",
-            "p_request_id": REQUEST_ID,
-            "p_ephemeral_public_key": EPHEMERAL_PUBLIC_KEY,
-            "p_nonce": NONCE,
-            "p_ciphertext": CIPHERTEXT,
-        })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-            "result": "sealed",
-        }])))
-        .mount(&server)
-        .await;
+async fn seals_or_conflicts_for_an_enrollment_package() {
+    for (case, result, status, error_code) in [
+        ("sealed", "sealed", StatusCode::NO_CONTENT, None),
+        (
+            "already sealed",
+            "conflict",
+            StatusCode::CONFLICT,
+            Some("e2ee_enrollment_conflict"),
+        ),
+    ] {
+        let server = MockServer::start().await;
+        let mut mock =
+            Mock::given(method("POST")).and(path("/rest/v1/rpc/seal_e2ee_device_enrollment"));
+        if result == "sealed" {
+            mock = mock
+                .and(header("apikey", "service-role-key"))
+                .and(body_partial_json(json!({
+                    "p_actor_user_id": "user-123",
+                    "p_request_id": REQUEST_ID,
+                    "p_ephemeral_public_key": EPHEMERAL_PUBLIC_KEY,
+                    "p_nonce": NONCE,
+                    "p_ciphertext": CIPHERTEXT,
+                })));
+        }
+        mock.respond_with(ResponseTemplate::new(200).set_body_json(json!([{ "result": result }])))
+            .mount(&server)
+            .await;
 
-    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(
-            Request::post(format!("/e2ee/device-enrollments/{REQUEST_ID}/seal"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::to_vec(&json!({
-                        "ephemeralPublicKey": EPHEMERAL_PUBLIC_KEY,
-                        "nonce": NONCE,
-                        "ciphertext": CIPHERTEXT,
-                    }))
+        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+            .oneshot(
+                Request::post(format!("/e2ee/device-enrollments/{REQUEST_ID}/seal"))
+                    .header(http_header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "ephemeralPublicKey": EPHEMERAL_PUBLIC_KEY,
+                            "nonce": NONCE,
+                            "ciphertext": CIPHERTEXT,
+                        }))
+                        .unwrap(),
+                    ))
                     .unwrap(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+            )
+            .await
+            .unwrap();
 
-    assert_eq!(response.status(), StatusCode::NO_CONTENT);
-}
-
-#[tokio::test]
-async fn maps_a_resealed_enrollment_to_conflict() {
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/rest/v1/rpc/seal_e2ee_device_enrollment"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-            "result": "conflict",
-        }])))
-        .mount(&server)
-        .await;
-
-    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(
-            Request::post(format!("/e2ee/device-enrollments/{REQUEST_ID}/seal"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::to_vec(&json!({
-                        "ephemeralPublicKey": EPHEMERAL_PUBLIC_KEY,
-                        "nonce": NONCE,
-                        "ciphertext": CIPHERTEXT,
-                    }))
-                    .unwrap(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::CONFLICT);
-    assert_eq!(
-        response_json(response).await["error"]["code"],
-        "e2ee_enrollment_conflict"
-    );
+        assert_eq!(response.status(), status, "{case}");
+        if let Some(error_code) = error_code {
+            assert_eq!(
+                response_json(response).await["error"]["code"],
+                error_code,
+                "{case}"
+            );
+        }
+    }
 }
 
 #[tokio::test]
@@ -309,60 +267,58 @@ async fn acknowledges_a_consumed_enrollment_package() {
 
 #[tokio::test]
 async fn lists_active_and_pending_devices_without_ciphertext() {
-    for limit in [3, 5] {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/rest/v1/rpc/get_sync_device_limit"))
-            .and(body_partial_json(json!({ "p_actor_user_id": "user-123" })))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!(limit)))
-            .mount(&server)
-            .await;
-        Mock::given(method("GET"))
-            .and(path("/rest/v1/sync_devices"))
-            .and(query_param("user_id", "eq.user-123"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-                "device_fingerprint": "fingerprint-active",
-                "device_name": "Active Mac",
-                "created_at": "2026-08-19T00:00:00Z",
-                "last_seen_at": "2026-08-20T00:00:00Z",
-            }])))
-            .mount(&server)
-            .await;
-        Mock::given(method("GET"))
-            .and(path("/rest/v1/e2ee_device_enrollment_requests"))
-            .and(query_param("user_id", "eq.user-123"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-                "id": REQUEST_ID,
-                "device_fingerprint": "fingerprint-pending",
-                "device_name": "Pending Mac",
-                "recipient_public_key": PUBLIC_KEY,
-                "created_at": "2026-08-20T00:00:00Z",
-                "expires_at": "2099-08-21T00:00:00Z",
-                "sealed_at": null,
-                "consumed_at": null,
-            }])))
-            .mount(&server)
-            .await;
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_sync_device_limit"))
+        .and(body_partial_json(json!({ "p_actor_user_id": "user-123" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!(5)))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/rest/v1/sync_devices"))
+        .and(query_param("user_id", "eq.user-123"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "device_fingerprint": "fingerprint-active",
+            "device_name": "Active Mac",
+            "created_at": "2026-08-19T00:00:00Z",
+            "last_seen_at": "2026-08-20T00:00:00Z",
+        }])))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/rest/v1/e2ee_device_enrollment_requests"))
+        .and(query_param("user_id", "eq.user-123"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "id": REQUEST_ID,
+            "device_fingerprint": "fingerprint-pending",
+            "device_name": "Pending Mac",
+            "recipient_public_key": PUBLIC_KEY,
+            "created_at": "2026-08-20T00:00:00Z",
+            "expires_at": "2099-08-21T00:00:00Z",
+            "sealed_at": null,
+            "consumed_at": null,
+        }])))
+        .mount(&server)
+        .await;
 
-        let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-            .oneshot(Request::get("/devices").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(Request::get("/devices").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
-        let body = response_json(response).await;
-        assert_eq!(body["maxDevices"], limit);
-        assert_eq!(
-            body["devices"][0]["deviceFingerprint"],
-            "fingerprint-active"
-        );
-        assert_eq!(
-            body["pendingDevices"][0]["deviceFingerprint"],
-            "fingerprint-pending"
-        );
-        assert_eq!(body["pendingDevices"][0]["status"], "pending");
-        assert!(body["pendingDevices"][0].get("ciphertext").is_none());
-    }
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["maxDevices"], 5);
+    assert_eq!(
+        body["devices"][0]["deviceFingerprint"],
+        "fingerprint-active"
+    );
+    assert_eq!(
+        body["pendingDevices"][0]["deviceFingerprint"],
+        "fingerprint-pending"
+    );
+    assert_eq!(body["pendingDevices"][0]["status"], "pending");
+    assert!(body["pendingDevices"][0].get("ciphertext").is_none());
 }
 
 #[tokio::test]

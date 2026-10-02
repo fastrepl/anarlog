@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Pause, Play } from "@anlg/ui/components/icons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
 import { cn } from "@anlg/utils";
 
 import { useAudioPlayer, useAudioTime } from "./provider";
@@ -31,20 +37,6 @@ export function Timeline({
   } = useAudioPlayer();
   const time = useAudioTime();
   const [showRateMenu, setShowRateMenu] = useState(false);
-  const rateMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        rateMenuRef.current &&
-        !rateMenuRef.current.contains(e.target as Node)
-      ) {
-        setShowRateMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const handleClick = () => {
     if (state === "playing") {
@@ -125,49 +117,47 @@ export function Timeline({
           </TimelineMeta>
 
           {isPro ? (
-            <div className="relative shrink-0" ref={rateMenuRef}>
-              <button
-                onClick={() => setShowRateMenu((prev) => !prev)}
-                className={cn([
-                  "flex items-center justify-center",
-                  "h-6 rounded-md px-1.5",
-                  "border-border bg-card border",
-                  "hover:bg-accent transition-colors",
-                  "text-muted-foreground font-mono text-xs select-none",
-                  "shadow-xs",
-                ])}
-              >
-                {playbackRate}x
-              </button>
-              {showRateMenu && (
-                <div
+            <DropdownMenu
+              modal={false}
+              open={showRateMenu}
+              onOpenChange={setShowRateMenu}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
                   className={cn([
-                    "absolute right-0 bottom-full mb-1",
-                    "border-border bg-card rounded-lg border shadow-md",
-                    "py-1",
+                    "flex shrink-0 items-center justify-center",
+                    "h-6 rounded-md px-1.5",
+                    "border-border bg-card border",
+                    "hover:bg-accent transition-colors",
+                    "text-muted-foreground font-mono text-xs select-none",
+                    "shadow-xs",
                   ])}
                 >
-                  {PLAYBACK_RATES.map((rate) => (
-                    <button
-                      key={rate}
-                      onClick={() => {
-                        setPlaybackRate(rate);
-                        setShowRateMenu(false);
-                      }}
-                      className={cn([
-                        "block w-full px-3 py-1 text-left font-mono text-xs select-none",
-                        "hover:bg-accent transition-colors",
-                        rate === playbackRate
-                          ? "text-foreground font-semibold"
-                          : "text-muted-foreground",
-                      ])}
-                    >
-                      {rate}x
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                  {playbackRate}x
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="end"
+                className="border-border bg-card min-w-0 rounded-lg p-0 py-1"
+              >
+                {PLAYBACK_RATES.map((rate) => (
+                  <DropdownMenuItem
+                    key={rate}
+                    onSelect={() => setPlaybackRate(rate)}
+                    className={cn([
+                      "block w-full rounded-none px-3 py-1 text-left font-mono text-xs select-none",
+                      "hover:bg-accent focus:bg-accent transition-colors",
+                      rate === playbackRate
+                        ? "text-foreground font-semibold"
+                        : "text-muted-foreground",
+                    ])}
+                  >
+                    {rate}x
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
         </>
       }

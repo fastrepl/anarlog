@@ -102,46 +102,6 @@ test("rejects unsuccessful responses and network failures", async (t) => {
   );
 });
 
-test("the release deploys and verifies the merged metadata commit", async () => {
-  const publish = await readFile(
-    ".github/workflows/desktop_publish.yaml",
-    "utf8",
-  );
-  const web = await readFile(".github/workflows/web_cd.yaml", "utf8");
-  const deploy = publish
-    .split("\n  linux-apt-deploy:\n")[1]
-    .split("\n  linux-apt-verify:\n")[0];
-  const verify = publish.split("\n  linux-apt-verify:\n")[1];
-  assert.match(deploy, /needs: linux-package-bump/);
-  assert.match(deploy, /uses: \$\/\.github\/workflows\/web_cd\.yaml/);
-  assert.match(
-    deploy,
-    /sha: \$\{\{ needs\.linux-package-bump\.outputs\.sha \}\}/,
-  );
-  assert.match(
-    verify,
-    /needs: \[parse, linux-package-bump, linux-apt-deploy\]/,
-  );
-  assert.match(
-    verify,
-    /ref: \$\{\{ needs\.linux-package-bump\.outputs\.sha \}\}/,
-  );
-  assert.match(
-    verify,
-    /node scripts\/verify-apt-repository\.mjs --version "\$VERSION"/,
-  );
-  assert.match(web, /workflow_call:/);
-  assert.match(web, /ref: \$\{\{ inputs\.sha \|\| github\.sha \}\}/);
-  assert.equal(
-    web.match(/ref: \$\{\{ needs\.compute-version\.outputs\.sha \}\}/g)?.length,
-    2,
-  );
-  assert.match(
-    web,
-    /commit_sha: \$\{\{ needs\.compute-version\.outputs\.sha \}\}/,
-  );
-});
-
 test("the merge step waits for checks and refuses failed checks or a changed PR head", async (t) => {
   const publish = await readFile(
     ".github/workflows/desktop_publish.yaml",

@@ -2,8 +2,8 @@ mod chunks;
 mod disk;
 pub(crate) use chunks::recover_interrupted_captures_except;
 pub use chunks::{
-    RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio, list_recovery_chunks,
-    recover_interrupted_captures,
+    RecoveryAudioChunk, acknowledge_recovery_chunk, delete_capture_audio,
+    delete_transcribed_capture_audio, list_recovery_chunks, recover_interrupted_captures,
 };
 
 use std::collections::HashSet;
@@ -98,6 +98,34 @@ impl Actor for RecorderActor {
         let writer_permit = try_acquire_writer_slot(WRITER_SLOTS.clone())?;
         let session_dir = find_session_dir(&args.app_dir, &args.session_id);
         let writer_path = try_reserve_writer_path(session_dir.clone())?;
+        let error_session_id = args.session_id.clone();
+        let error_runtime = Arc::clone(&args.runtime);
+        let error_notifier: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |error| {
+            error_runtime.emit_error(crate::SessionErrorEvent::AudioError {
+                session_id: error_session_id.clone(),
+                error,
+                device: None,
+                is_fatal: false,
+            });
+        });
+        let health_notifier = {
+            let error_notifier = Arc::clone(&error_notifier);
+            Arc::new(move |health| match health {
+                chunks::StorageHealth::Delayed(reason) => {
+                    error_notifier(format!("audio_saving_delayed: {reason}"));
+                }
+                chunks::StorageHealth::Resumed => {
+                    error_notifier("audio_saving_resumed".to_owned());
+                }
+                chunks::StorageHealth::DiskLow => {
+                    error_notifier("audio_disk_low".to_owned());
+                }
+                chunks::StorageHealth::DiskOk => {
+                    error_notifier("audio_disk_ok".to_owned());
+                }
+            })
+        };
+        let persist_config = chunks::PersistConfig::new(health_notifier);
         let (sink, writer_permit, writer_path) = tokio::task::spawn_blocking(move || {
             std::fs::create_dir_all(&session_dir)?;
             let sink = chunks::ChunkedSink::new(
@@ -105,6 +133,7 @@ impl Actor for RecorderActor {
                 args.capture_started_at,
                 args.offset_ms,
                 args.retain_audio,
+                persist_config,
             )?;
             Ok::<_, ActorProcessingErr>((sink, writer_permit, writer_path))
         })
@@ -125,7 +154,7 @@ impl Actor for RecorderActor {
         let writer_task = tokio::task::spawn_blocking(move || {
             let _writer_permit = writer_permit;
             let _writer_path = writer_path;
-            run_writer(sink, writer_rx, myself)
+            run_writer(sink, writer_rx, myself, error_notifier)
         });
 
         Ok(RecState {
@@ -226,6 +255,7 @@ fn run_writer(
     mut sink: chunks::ChunkedSink,
     mut writer_rx: tokio::sync::mpsc::Receiver<WriteRequest>,
     actor: ActorRef<RecMsg>,
+    error_notifier: Arc<dyn Fn(String) + Send + Sync>,
 ) -> Result<(), String> {
     while let Some(request) = writer_rx.blocking_recv() {
         let result = match &request {
@@ -244,7 +274,13 @@ fn run_writer(
         }
     }
 
-    sink.finish().map_err(|error| error.to_string())
+    match sink.finish() {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            error_notifier(format!("audio_storage_unavailable: {error}"));
+            Err(error.to_string())
+        }
+    }
 }
 
 fn actor_error(error: impl Into<String>) -> ActorProcessingErr {

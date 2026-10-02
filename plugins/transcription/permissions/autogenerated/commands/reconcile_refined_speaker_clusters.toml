@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reconcile-refined-speaker-clusters"
+description = "Enables the reconcile_refined_speaker_clusters command without any pre-configured scope."
+commands.allow = ["reconcile_refined_speaker_clusters"]
+
+[[permission]]
+identifier = "deny-reconcile-refined-speaker-clusters"
+description = "Denies the reconcile_refined_speaker_clusters command without any pre-configured scope."
+commands.deny = ["reconcile_refined_speaker_clusters"]

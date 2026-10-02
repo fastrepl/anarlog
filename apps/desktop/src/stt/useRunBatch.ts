@@ -2,17 +2,20 @@ import { t } from "@lingui/core/macro";
 import { arch, platform } from "@tauri-apps/plugin-os";
 import { useCallback } from "react";
 
-import type { TranscriptionParams } from "@anlg/plugin-transcription";
+import {
+  commands as transcriptionCommands,
+  type BatchRefinementSource,
+  type BatchProvider,
+  type BatchTranscriptPromotion,
+  type StoredSpeakerHint,
+  type StoredTranscriptWord,
+  type TranscriptionParams,
+} from "@anlg/plugin-transcription";
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
-import { clearIncompleteCapture } from "./capture-result";
 import { useListener } from "./contexts";
 import { persistTranscriptWrite } from "./persist-retry";
-import {
-  restoreRefinedSourceChannels,
-  restoreRefinedSourceHints,
-} from "./refined-source-channels";
 import { useSTTConnection } from "./useSTTConnection";
 
 import { useAuth } from "~/auth";
@@ -24,12 +27,15 @@ import {
   normalizeAudioRetention,
 } from "~/services/audio-retention";
 import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
-import { markSessionAudioTranscriptionComplete } from "~/session/attachments";
 import { useSession, useSessionParticipants } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
-import { notifyBatchCompleted } from "~/store/zustand/listener/general-batch";
+import {
+  acknowledgeCompletedBatch,
+  notifyBatchCompleted,
+} from "~/store/zustand/listener/general-batch";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
+import { serializeBatchResumeContext } from "~/stt/batch-resume-context";
 import {
   getTranscriptionLanguages,
   isDesktopLocalSttAvailable,
@@ -37,16 +43,7 @@ import {
   isOnDeviceSttModel,
   isSupportedLanguagesBatch,
 } from "~/stt/capabilities";
-import {
-  createTranscript,
-  getSessionTranscriptRecords,
-  getTranscriptRecord,
-  type TranscriptRecord,
-} from "~/stt/queries";
-import {
-  buildUnsplitRenderTranscriptRequestFromRows,
-  resolveScopedWordHumanIds,
-} from "~/stt/render-transcript";
+import type { TranscriptRecord } from "~/stt/queries";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 
 type RunOptions = {
@@ -57,6 +54,7 @@ type RunOptions = {
   deferAudioFinalization?: boolean;
   handlePersist?: BatchPersistCallback;
   notifyOnCompletion?: boolean;
+  resume?: { provider: BatchProvider; model: string };
   provider?: string;
   model?: string;
   baseUrl?: string;
@@ -84,6 +82,56 @@ type BatchTarget = {
   apiKey: string;
   label: string;
 };
+
+function toStoredTranscriptWord(word: WordWithId): StoredTranscriptWord {
+  return {
+    ...word,
+    metadata: word.metadata as StoredTranscriptWord["metadata"],
+  };
+}
+
+function toStoredSpeakerHint(hint: SpeakerHintWithId): StoredSpeakerHint {
+  return {
+    id: hint.id,
+    word_id: hint.word_id ?? undefined,
+    type: hint.type ?? "",
+    value: hint.value as StoredSpeakerHint["value"],
+  };
+}
+
+function toSpeakerHintWithId(hint: StoredSpeakerHint): SpeakerHintWithId {
+  return {
+    id: hint.id,
+    word_id: hint.word_id ?? "",
+    type: hint.type,
+    value: hint.value as SpeakerHintWithId["value"],
+  };
+}
+
+function toBatchRefinementSource(
+  transcript: TranscriptRecord,
+): BatchRefinementSource {
+  return {
+    id: transcript.id,
+    started_at: transcript.startedAt,
+    words: transcript.words.map(toStoredTranscriptWord),
+    speaker_hints: transcript.speakerHints.map(toStoredSpeakerHint),
+  };
+}
+
+export async function reconcileRefinedSpeakerClusters(
+  source: TranscriptRecord,
+  words: WordWithId[],
+  hints: SpeakerHintWithId[],
+): Promise<SpeakerHintWithId[]> {
+  const result = await transcriptionCommands.reconcileRefinedSpeakerClusters({
+    source: toBatchRefinementSource(source),
+    words: words.map(toStoredTranscriptWord),
+    hints: hints.map(toStoredSpeakerHint),
+  });
+  if (result.status === "error") throw new Error(result.error);
+  return result.data.map(toSpeakerHintWithId);
+}
 
 const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
   "deepgram",
@@ -119,10 +167,6 @@ export const EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE =
   "Batch transcription did not include the current recording.";
 const INCOMPLETE_BATCH_TRANSCRIPT_ERROR_MESSAGE =
   "The new transcription returned much less text. Your saved transcript and recording were kept. Try transcribing again.";
-const MIN_TRANSCRIPT_CHARACTER_LOSS = 200;
-const MIN_TRANSCRIPT_RETAINED_RATIO = 0.5;
-const MIN_REFINED_SPEAKER_OVERLAP_RATIO = 0.6;
-const MIN_REFINED_ASSIGNMENT_COVERAGE_RATIO = 0.8;
 const LOCAL_SONIQO_BATCH_TARGET = {
   provider: "soniqo",
   model: "soniqo-parakeet-batch",
@@ -135,6 +179,8 @@ export function getBatchProvider(
   provider: string,
   model: string,
 ): TranscriptionParams["provider"] | null {
+  if (provider === "amazon_bedrock") return "openai";
+
   if (provider === "custom" || provider === "cloudflare_workers_ai") {
     return "deepgram";
   }
@@ -218,432 +264,6 @@ function sameBatchTarget(
   b: Pick<BatchTarget, "provider" | "model">,
 ) {
   return a?.provider === b.provider && a.model === b.model;
-}
-
-function prepareTranscriptPromotion(
-  words: WordWithId[],
-  hints: SpeakerHintWithId[],
-  promotion: NonNullable<RunOptions["promotion"]>,
-) {
-  if (promotion.scope !== "current_capture") {
-    return {
-      words,
-      hints,
-      replaceSession: promotion.scope === "whole_session",
-      replaceTranscriptId: undefined,
-      startedAt: undefined,
-    };
-  }
-
-  const offsetMs = Number.isFinite(promotion.audioOffsetMs)
-    ? Math.max(0, promotion.audioOffsetMs)
-    : 0;
-  const currentWords = words.flatMap((word) => {
-    const startMs = word.start_ms ?? 0;
-    const endMs = word.end_ms ?? startMs;
-    if (endMs <= offsetMs) {
-      return [];
-    }
-    return [
-      {
-        ...word,
-        start_ms: Math.max(0, startMs - offsetMs),
-        end_ms: Math.max(0, endMs - offsetMs),
-      },
-    ];
-  });
-  const currentWordIds = new Set(currentWords.map((word) => word.id));
-
-  return {
-    words: currentWords,
-    hints: hints.filter(
-      (hint) =>
-        typeof hint.word_id === "string" && currentWordIds.has(hint.word_id),
-    ),
-    replaceSession: false,
-    replaceTranscriptId: promotion.replaceTranscriptId,
-    startedAt: promotion.startedAt,
-  };
-}
-
-function assertTranscriptNotTruncated(
-  previous: WordWithId[],
-  replacement: WordWithId[],
-) {
-  // Character counts tolerate provider tokenization differences and languages
-  // without spaces; the absolute margin allows small transcription corrections.
-  const characterCount = (words: WordWithId[]) =>
-    words.reduce(
-      (count, word) =>
-        count + (word.text ?? "").replace(/[^\p{L}\p{N}]/gu, "").length,
-      0,
-    );
-  const previousLength = characterCount(previous);
-  const replacementLength = characterCount(replacement);
-  if (
-    previousLength - replacementLength >= MIN_TRANSCRIPT_CHARACTER_LOSS &&
-    replacementLength < previousLength * MIN_TRANSCRIPT_RETAINED_RATIO
-  ) {
-    throw new Error(INCOMPLETE_BATCH_TRANSCRIPT_ERROR_MESSAGE);
-  }
-}
-
-function parseHintValue(value: string): Record<string, unknown> | null {
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function speakerKeysByWordId(hints: SpeakerHintWithId[]) {
-  const keys = new Map<string, string>();
-
-  for (const hint of hints) {
-    if (hint.type !== "provider_speaker_index" || !hint.word_id) {
-      continue;
-    }
-
-    const value = parseHintValue(hint.value);
-    const channel = value?.channel;
-    const speakerIndex = value?.speaker_index;
-    if (typeof channel !== "number" || typeof speakerIndex !== "number") {
-      continue;
-    }
-
-    keys.set(hint.word_id, `${channel}:${speakerIndex}`);
-  }
-
-  return keys;
-}
-
-function parseSpeakerKey(key: string) {
-  const separator = key.indexOf(":");
-  if (separator <= 0 || separator === key.length - 1) {
-    return null;
-  }
-
-  const channel = Number(key.slice(0, separator));
-  const speakerIndex = Number(key.slice(separator + 1));
-
-  return Number.isFinite(channel) && Number.isFinite(speakerIndex)
-    ? { channel, speakerIndex }
-    : null;
-}
-
-export function reconcileRefinedSpeakerClusters(
-  source: TranscriptRecord,
-  words: WordWithId[],
-  hints: SpeakerHintWithId[],
-): SpeakerHintWithId[] {
-  const sourceSpeakerKeys = speakerKeysByWordId(source.speakerHints);
-  const targetSpeakerKeys = speakerKeysByWordId(hints);
-  if (sourceSpeakerKeys.size === 0 || targetSpeakerKeys.size === 0) {
-    return reconcileRefinedSpeakerAssignments(source, words, hints);
-  }
-
-  const sourceIntervalsByChannel = new Map<
-    number,
-    Array<{
-      speakerKey: string;
-      startMs: number;
-      endMs: number;
-    }>
-  >();
-
-  for (const word of source.words) {
-    const speakerKey = sourceSpeakerKeys.get(word.id);
-    const speaker = speakerKey ? parseSpeakerKey(speakerKey) : null;
-    if (!speakerKey || !speaker) {
-      continue;
-    }
-
-    const startMs = word.start_ms ?? 0;
-    const endMs = Math.max(startMs + 1, word.end_ms ?? startMs);
-    const intervals = sourceIntervalsByChannel.get(speaker.channel) ?? [];
-    intervals.push({ speakerKey, startMs, endMs });
-    sourceIntervalsByChannel.set(speaker.channel, intervals);
-  }
-
-  for (const intervals of sourceIntervalsByChannel.values()) {
-    intervals.sort((left, right) => left.startMs - right.startMs);
-  }
-
-  const targetWords = words
-    .flatMap((word) => {
-      const speakerKey = targetSpeakerKeys.get(word.id);
-      const speaker = speakerKey ? parseSpeakerKey(speakerKey) : null;
-      if (!speakerKey || !speaker) {
-        return [];
-      }
-
-      const startMs = word.start_ms ?? 0;
-      return [
-        {
-          speakerKey,
-          channel: speaker.channel,
-          startMs,
-          endMs: Math.max(startMs + 1, word.end_ms ?? startMs),
-        },
-      ];
-    })
-    .sort(
-      (left, right) =>
-        left.channel - right.channel || left.startMs - right.startMs,
-    );
-  const cursors = new Map<number, number>();
-  const weights = new Map<string, Map<string, number>>();
-
-  for (const word of targetWords) {
-    const sourceIntervals = sourceIntervalsByChannel.get(word.channel);
-    if (!sourceIntervals) {
-      continue;
-    }
-
-    let cursor = cursors.get(word.channel) ?? 0;
-    while (
-      cursor < sourceIntervals.length &&
-      sourceIntervals[cursor].endMs <= word.startMs
-    ) {
-      cursor += 1;
-    }
-    cursors.set(word.channel, cursor);
-
-    for (
-      let index = cursor;
-      index < sourceIntervals.length &&
-      sourceIntervals[index].startMs < word.endMs;
-      index += 1
-    ) {
-      const source = sourceIntervals[index];
-      const overlapMs =
-        Math.min(word.endMs, source.endMs) -
-        Math.max(word.startMs, source.startMs);
-      if (overlapMs <= 0) {
-        continue;
-      }
-
-      const sourceWeights = weights.get(word.speakerKey) ?? new Map();
-      sourceWeights.set(
-        source.speakerKey,
-        (sourceWeights.get(source.speakerKey) ?? 0) + overlapMs,
-      );
-      weights.set(word.speakerKey, sourceWeights);
-    }
-  }
-
-  const sourceSpeakerByTarget = new Map<string, number>();
-  for (const [targetSpeakerKey, sourceWeights] of weights) {
-    const candidates = [...sourceWeights].sort(
-      ([leftKey, leftWeight], [rightKey, rightWeight]) =>
-        rightWeight - leftWeight || leftKey.localeCompare(rightKey),
-    );
-    const totalOverlapMs = candidates.reduce(
-      (total, [, overlapMs]) => total + overlapMs,
-      0,
-    );
-    const [sourceSpeakerKey, overlapMs] = candidates[0] ?? [];
-    const sourceSpeaker = sourceSpeakerKey
-      ? parseSpeakerKey(sourceSpeakerKey)
-      : null;
-    if (
-      sourceSpeaker &&
-      totalOverlapMs > 0 &&
-      overlapMs / totalOverlapMs >= MIN_REFINED_SPEAKER_OVERLAP_RATIO
-    ) {
-      sourceSpeakerByTarget.set(targetSpeakerKey, sourceSpeaker.speakerIndex);
-    }
-  }
-
-  const usedSpeakerIndicesByChannel = new Map<number, Set<number>>();
-  for (const [targetSpeakerKey, speakerIndex] of sourceSpeakerByTarget) {
-    const targetSpeaker = parseSpeakerKey(targetSpeakerKey);
-    if (!targetSpeaker) {
-      continue;
-    }
-
-    const usedSpeakerIndices =
-      usedSpeakerIndicesByChannel.get(targetSpeaker.channel) ?? new Set();
-    usedSpeakerIndices.add(speakerIndex);
-    usedSpeakerIndicesByChannel.set(targetSpeaker.channel, usedSpeakerIndices);
-  }
-
-  const collidingTargetSpeakers: Array<{
-    speakerKey: string;
-    channel: number;
-  }> = [];
-  for (const targetSpeakerKey of new Set(targetSpeakerKeys.values())) {
-    if (sourceSpeakerByTarget.has(targetSpeakerKey)) {
-      continue;
-    }
-
-    const targetSpeaker = parseSpeakerKey(targetSpeakerKey);
-    if (!targetSpeaker) {
-      continue;
-    }
-
-    const usedSpeakerIndices =
-      usedSpeakerIndicesByChannel.get(targetSpeaker.channel) ?? new Set();
-    if (usedSpeakerIndices.has(targetSpeaker.speakerIndex)) {
-      collidingTargetSpeakers.push({
-        speakerKey: targetSpeakerKey,
-        channel: targetSpeaker.channel,
-      });
-    } else {
-      usedSpeakerIndices.add(targetSpeaker.speakerIndex);
-    }
-    usedSpeakerIndicesByChannel.set(targetSpeaker.channel, usedSpeakerIndices);
-  }
-
-  for (const { speakerKey, channel } of collidingTargetSpeakers) {
-    const usedSpeakerIndices = usedSpeakerIndicesByChannel.get(channel);
-    if (!usedSpeakerIndices) {
-      continue;
-    }
-
-    let speakerIndex = Math.max(...usedSpeakerIndices) + 1;
-    while (usedSpeakerIndices.has(speakerIndex)) {
-      speakerIndex += 1;
-    }
-    usedSpeakerIndices.add(speakerIndex);
-    sourceSpeakerByTarget.set(speakerKey, speakerIndex);
-  }
-
-  const reconciledProviderHints = hints.map((hint) => {
-    if (hint.type !== "provider_speaker_index" || !hint.word_id) {
-      return hint;
-    }
-
-    const targetSpeakerKey = targetSpeakerKeys.get(hint.word_id);
-    const speakerIndex = targetSpeakerKey
-      ? sourceSpeakerByTarget.get(targetSpeakerKey)
-      : undefined;
-    const value = parseHintValue(hint.value);
-    if (speakerIndex === undefined || !value) {
-      return hint;
-    }
-
-    return {
-      ...hint,
-      value: JSON.stringify({ ...value, speaker_index: speakerIndex }),
-    };
-  });
-
-  return reconcileRefinedSpeakerAssignments(
-    source,
-    words,
-    reconciledProviderHints,
-  );
-}
-
-function reconcileRefinedSpeakerAssignments(
-  source: TranscriptRecord,
-  words: WordWithId[],
-  hints: SpeakerHintWithId[],
-): SpeakerHintWithId[] {
-  if (
-    !source.speakerHints.some((hint) => hint.type === "user_speaker_assignment")
-  )
-    return hints;
-  const previous = buildUnsplitRenderTranscriptRequestFromRows([
-    {
-      words: source.words,
-      speaker_hints: source.speakerHints.filter(
-        (hint) => hint.type !== "automatic_speaker_assignment",
-      ),
-    },
-  ])?.transcripts[0];
-  const next = buildUnsplitRenderTranscriptRequestFromRows([
-    { words, speaker_hints: hints },
-  ])?.transcripts[0];
-  if (!previous || !next) return hints;
-
-  const previousHumans = resolveScopedWordHumanIds(previous);
-  const nextHumans = resolveScopedWordHumanIds(next);
-  const channels = new Set(next.words.map((word) => word.channel));
-  const wordIdsByHuman = new Map<string, string[]>();
-  const hasTiming = (word: { start_ms: number; end_ms: number }) =>
-    Number.isFinite(word.start_ms) &&
-    Number.isFinite(word.end_ms) &&
-    word.end_ms > word.start_ms;
-
-  for (const channel of channels) {
-    const candidates = previous.words
-      .filter(
-        (word) =>
-          hasTiming(word) &&
-          (word.channel === channel ||
-            (channel === 2 &&
-              (word.channel === 0 || word.channel === 1) &&
-              !channels.has(word.channel))),
-      )
-      .sort((a, b) => a.start_ms - b.start_ms);
-    const targets = next.words
-      .filter((word) => word.channel === channel && hasTiming(word))
-      .sort((a, b) => a.start_ms - b.start_ms);
-    let cursor = 0;
-    let active: typeof candidates = [];
-
-    for (const word of targets) {
-      if (nextHumans.has(word.id)) continue;
-      while (
-        cursor < candidates.length &&
-        candidates[cursor].start_ms < word.end_ms
-      ) {
-        active.push(candidates[cursor++]);
-      }
-      active = active.filter((candidate) => candidate.end_ms > word.start_ms);
-      let humanId: string | undefined;
-      let coveredMs = 0;
-      let coveredUntil = word.start_ms;
-      let ambiguous = false;
-
-      for (const candidate of active) {
-        const start = Math.max(word.start_ms, candidate.start_ms);
-        const end = Math.min(word.end_ms, candidate.end_ms);
-        if (end <= start) continue;
-        const candidateHuman = previousHumans.get(candidate.id);
-        if (!candidateHuman || (humanId && candidateHuman !== humanId)) {
-          ambiguous = true;
-          break;
-        }
-        humanId = candidateHuman;
-        coveredMs += Math.max(0, end - Math.max(start, coveredUntil));
-        coveredUntil = Math.max(coveredUntil, end);
-      }
-
-      if (
-        ambiguous ||
-        !humanId ||
-        coveredMs / (word.end_ms - word.start_ms) <
-          MIN_REFINED_ASSIGNMENT_COVERAGE_RATIO
-      )
-        continue;
-      const wordIds = wordIdsByHuman.get(humanId) ?? [];
-      wordIds.push(word.id);
-      wordIdsByHuman.set(humanId, wordIds);
-    }
-  }
-
-  return [
-    ...hints,
-    ...[...wordIdsByHuman].map(
-      ([humanId, wordIds]): SpeakerHintWithId => ({
-        id: `${wordIds[0]}:user_speaker_assignment:segment`,
-        word_id: wordIds[0],
-        type: "user_speaker_assignment",
-        value: JSON.stringify({
-          human_id: humanId,
-          scope: "segment",
-          word_ids: wordIds,
-          extend_to_adjacent: false,
-        }),
-      }),
-    ),
-  ];
 }
 
 export function isStoppedTranscriptionError(error: unknown) {
@@ -771,9 +391,17 @@ export const useRunBatch = (sessionId: string) => {
       const shouldUseSelectedTarget =
         selectedTargetSupported ||
         (fallbackTarget && sameBatchTarget(selectedTarget, fallbackTarget));
-      let target = shouldUseSelectedTarget
-        ? (selectedTarget ?? fallbackTarget)
-        : fallbackTarget;
+      let target = options?.resume
+        ? {
+            provider: options.resume.provider,
+            model: options.resume.model,
+            baseUrl: conn?.baseUrl ?? "",
+            apiKey: conn?.apiKey ?? "",
+            label: options.resume.model,
+          }
+        : shouldUseSelectedTarget
+          ? (selectedTarget ?? fallbackTarget)
+          : fallbackTarget;
 
       if (!target) {
         throw new Error(
@@ -790,7 +418,7 @@ export const useRunBatch = (sessionId: string) => {
         target = { ...target, apiKey: cloudAccessToken };
       }
 
-      if (!shouldUseSelectedTarget && !options?.recovery) {
+      if (!shouldUseSelectedTarget && !options?.recovery && !options?.resume) {
         toast.warning("Using a batch transcription provider", {
           description: `${
             selectedTarget
@@ -915,6 +543,13 @@ export const useRunBatch = (sessionId: string) => {
             num_speakers: options?.numSpeakers ?? inferredNumSpeakers,
             min_speakers: options?.minSpeakers,
             max_speakers: options?.maxSpeakers,
+            resume_context:
+              !handlePersist &&
+              !options?.recovery &&
+              !options?.deferAudioFinalization &&
+              options?.promotion?.scope === "whole_session"
+                ? serializeBatchResumeContext({ promotion: "whole_session" })
+                : null,
           };
 
           const run = async (params: TranscriptionParams) => {
@@ -970,97 +605,57 @@ export const useRunBatch = (sessionId: string) => {
           if (options?.recovery) {
             options.signal?.throwIfAborted();
             await options.recovery.persist(stagedWords, stagedHints);
+            await acknowledgeCompletedBatch(jobId);
             return;
           }
 
           try {
             if (!handlePersist) {
-              const promoted = prepareTranscriptPromotion(
-                stagedWords,
-                stagedHints,
-                options?.promotion ?? { scope: "preserve_existing" },
-              );
-              if (
-                options?.promotion?.scope === "current_capture" &&
-                promoted.words.length === 0
-              ) {
+              const promotion = options?.promotion ?? {
+                scope: "preserve_existing",
+              };
+              const refinementPromotion: BatchTranscriptPromotion =
+                promotion.scope === "current_capture"
+                  ? {
+                      scope: "current_capture",
+                      audio_offset_ms: promotion.audioOffsetMs,
+                      replace_transcript_id: promotion.replaceTranscriptId,
+                      started_at: promotion.startedAt,
+                    }
+                  : { scope: promotion.scope };
+              const saved = await persistTranscriptWrite(async () => {
+                const result = await transcriptionCommands.saveBatchTranscript({
+                  session_id: sessionId,
+                  transcript_id: transcriptId,
+                  owner_user_id: session?.user_id ?? "",
+                  created_at: createdAt,
+                  started_at: startedAt,
+                  memo: memoMd,
+                  provider: target.provider,
+                  model: target.model,
+                  words: stagedWords.map(toStoredTranscriptWord),
+                  hints: stagedHints.map(toStoredSpeakerHint),
+                  promotion: refinementPromotion,
+                  mark_audio_complete: !options?.deferAudioFinalization,
+                });
+                if (result.status === "error") {
+                  throw new Error(result.error);
+                }
+                return result.data;
+              });
+              if (saved.status === "empty_current_capture") {
                 throw new Error(EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE);
               }
-              const refinedTranscriptSource = promoted.replaceTranscriptId
-                ? await getTranscriptRecord(promoted.replaceTranscriptId)
-                : null;
-              const previousTranscripts = promoted.replaceSession
-                ? await getSessionTranscriptRecords(sessionId)
-                : refinedTranscriptSource
-                  ? [refinedTranscriptSource]
-                  : [];
-              if (previousTranscripts.length === 1) {
-                promoted.words = restoreRefinedSourceChannels(
-                  previousTranscripts[0]!.words,
-                  promoted.words,
-                );
-                promoted.hints = restoreRefinedSourceHints(
-                  promoted.words,
-                  promoted.hints,
-                );
+              if (saved.status === "truncated") {
+                throw new Error(INCOMPLETE_BATCH_TRANSCRIPT_ERROR_MESSAGE);
               }
-              assertTranscriptNotTruncated(
-                previousTranscripts.flatMap((transcript) => transcript.words),
-                promoted.words,
-              );
-              if (transcriptId) {
-                const completedTranscriptId = transcriptId;
-                if (promoted.words.length > 0) {
-                  const speakerHints = refinedTranscriptSource
-                    ? reconcileRefinedSpeakerClusters(
-                        refinedTranscriptSource,
-                        promoted.words,
-                        promoted.hints,
-                      )
-                    : promoted.hints;
-                  await persistTranscriptWrite(() =>
-                    createTranscript({
-                      id: completedTranscriptId,
-                      sessionId,
-                      ownerUserId: session?.user_id ?? "",
-                      createdAt,
-                      startedAt:
-                        promoted.startedAt ??
-                        (previousTranscripts.length === 1
-                          ? previousTranscripts[0]?.startedAt
-                          : undefined) ??
-                        startedAt,
-                      memo: memoMd,
-                      source: "batch_transcription",
-                      provider: target.provider,
-                      model: target.model,
-                      words: promoted.words,
-                      speakerHints,
-                      replaceSession: promoted.replaceSession,
-                      replaceTranscriptId: promoted.replaceTranscriptId,
-                    }),
-                  );
-                  await maybeExtractVoiceprintCandidates({
-                    enabled: rememberSpeakers,
-                    sessionId,
-                    transcriptId: completedTranscriptId,
-                    audioPath: filePath,
-                  });
-                }
-              }
-              if (promoted.replaceSession)
-                await clearIncompleteCapture(sessionId);
-              if (!options?.deferAudioFinalization) {
-                try {
-                  await persistTranscriptWrite(() =>
-                    markSessionAudioTranscriptionComplete(sessionId),
-                  );
-                } catch (error) {
-                  console.error(
-                    "[runBatch] failed to mark session audio as processed",
-                    error,
-                  );
-                }
+              if (saved.status === "saved" && saved.transcript_id) {
+                await maybeExtractVoiceprintCandidates({
+                  enabled: rememberSpeakers,
+                  sessionId,
+                  transcriptId: saved.transcript_id,
+                  audioPath: filePath,
+                });
               }
             }
             if (!options?.deferAudioFinalization) {
@@ -1078,6 +673,7 @@ export const useRunBatch = (sessionId: string) => {
             }
             throw new BatchResponseProcessingError(error);
           }
+          await acknowledgeCompletedBatch(jobId);
           if (options?.notifyOnCompletion !== false) {
             await notifyBatchCompleted(sessionId);
           }

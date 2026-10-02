@@ -1,9 +1,9 @@
 import { useStore } from "zustand";
 
 import { commands as updaterCommands } from "@anlg/plugin-updater2";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { isAppStoreBuild } from "~/shared/app-store";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 // Serialized so rapid start/stop transitions publish in order.

@@ -105,19 +105,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn upgrade_does_not_create_file_when_missing() {
+    fn upgrade_is_a_noop_when_not_installed() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("char.ts");
 
         upgrade_at(&path);
-
         assert!(!path.exists());
-    }
-
-    #[test]
-    fn upgrade_does_not_add_hook_when_not_installed() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("char.ts");
         std::fs::write(&path, "export const plugin = {};\n").unwrap();
 
         upgrade_at(&path);

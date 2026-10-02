@@ -1,8 +1,8 @@
 import type { StoreApi } from "zustand";
 
-export type ChatMode = "FloatingOpen" | "FloatingClosed" | "RightPanelOpen";
+type ChatMode = "FloatingOpen" | "FloatingClosed" | "RightPanelOpen";
 
-export type ChatEvent =
+type ChatEvent =
   | { type: "OPEN" }
   | { type: "OPEN_RIGHT_PANEL" }
   | { type: "CLOSE" }

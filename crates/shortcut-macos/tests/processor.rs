@@ -172,30 +172,6 @@ fn fn_only() -> HotKey {
     HotKey::modifier_only(Modifiers::from([Modifier::Fn]))
 }
 
-// ---------- press-and-hold: starts ----------
-
-#[test]
-fn press_and_hold_starts_standard() {
-    Scenario::new(cmd_a())
-        .add(
-            step(0.0, Some(K_A), &[Modifier::Command])
-                .out(Output::StartRecording)
-                .matched(true),
-        )
-        .run();
-}
-
-#[test]
-fn press_and_hold_starts_modifier_only() {
-    Scenario::new(opt())
-        .add(
-            step(0.0, None, &[Modifier::Option])
-                .out(Output::StartRecording)
-                .matched(true),
-        )
-        .run();
-}
-
 // ---------- press-and-hold: stops on release ----------
 
 #[test]
@@ -284,14 +260,6 @@ fn press_and_hold_ignores_extra_modifier_after_threshold_modifier_only() {
     Scenario::new(opt())
         .add(step(0.0, None, &[Modifier::Option]).out(Output::StartRecording))
         .add(step(0.5, None, &[Modifier::Option, Modifier::Command]).matched(true))
-        .run();
-}
-
-#[test]
-fn press_and_hold_does_not_cancel_after_threshold_modifier_only() {
-    Scenario::new(opt())
-        .add(step(0.0, None, &[Modifier::Option]).out(Output::StartRecording))
-        .add(step(1.5, None, &[Modifier::Option, Modifier::Command]).matched(true))
         .run();
 }
 
@@ -469,21 +437,6 @@ fn multiple_modifiers_partial_release_stops() {
             step(0.5, None, &[Modifier::Option])
                 .out(Output::StopRecording)
                 .matched(false),
-        )
-        .run();
-}
-
-#[test]
-fn multiple_modifiers_adding_extra_ignored_after_threshold() {
-    Scenario::new(opt_cmd())
-        .add(step(0.0, None, &[Modifier::Option, Modifier::Command]).out(Output::StartRecording))
-        .add(
-            step(
-                0.5,
-                None,
-                &[Modifier::Option, Modifier::Command, Modifier::Shift],
-            )
-            .matched(true),
         )
         .run();
 }

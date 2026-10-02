@@ -31,6 +31,7 @@ import type { SessionMode } from "~/store/zustand/listener/general";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView as TabEditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
+import { SavedCaptureAudioPrompt } from "~/stt/saved-capture-audio";
 
 export interface NoteInputHandle {
   focus: () => void;
@@ -334,6 +335,7 @@ const NoteInputContent = forwardRef<
 
     return (
       <div className="-mx-2 flex h-full flex-col">
+        <SavedCaptureAudioPrompt sessionId={sessionId} />
         {!hideHeader && (
           <div className="relative px-2">
             <div className="flex items-center justify-between gap-1">

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-save-generated-title"
+description = "Enables the save_generated_title command without any pre-configured scope."
+commands.allow = ["save_generated_title"]
+
+[[permission]]
+identifier = "deny-save-generated-title"
+description = "Denies the save_generated_title command without any pre-configured scope."
+commands.deny = ["save_generated_title"]

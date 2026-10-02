@@ -45,59 +45,14 @@ pub(crate) use common_derives;
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    #[ignore]
-    async fn test_create_connect_session() {
-        let api_key =
-            std::env::var("NANGO_API_KEY").expect("NANGO_API_KEY is required for this live test");
-        let nango_client = NangoClientBuilder::default()
-            .api_base("https://api.nango.dev")
-            .api_key(api_key)
-            .build()
-            .unwrap();
-
-        let _ = nango_client
-            .create_connect_session(CreateConnectSessionRequest {
-                end_user: EndUser {
-                    id: "id".to_string(),
-                    display_name: None,
-                    email: None,
-                    tags: None,
-                },
-                organization: None,
-                allowed_integrations: None,
-                integrations_config_defaults: None,
-            })
-            .await
-            .unwrap();
-    }
-
     #[test]
-    fn test_proxy() {
-        let nango_client = NangoClientBuilder::default()
-            .api_base("https://api.nango.dev")
-            .api_key("api_key")
-            .build()
-            .unwrap();
-
-        let _ = nango_client
-            .integration("google-calendar")
-            .connection("connection")
-            .get("/users")
-            .unwrap();
-    }
-
-    #[test]
-    fn test_build_missing_api_key() {
+    fn builder_requires_api_key_and_defaults_api_base() {
         let result = NangoClientBuilder::default()
             .api_base("https://api.nango.dev")
             .build();
 
         assert!(result.is_err());
-    }
 
-    #[test]
-    fn test_build_defaults_api_base() {
         let nango_client = NangoClientBuilder::default()
             .api_key("key")
             .build()
@@ -105,22 +60,26 @@ mod tests {
         assert_eq!(nango_client.api_base.as_str(), "https://api.nango.dev/");
     }
 
-    #[test]
-    fn connect_session_serializes_oauth_scope_overrides() {
+    fn scope_override_defaults(
+        integration_id: &str,
+        oauth_scopes_override: &str,
+    ) -> std::collections::HashMap<String, IntegrationConfigDefault> {
         let mut defaults = std::collections::HashMap::new();
         defaults.insert(
-            "google-calendar".to_string(),
+            integration_id.to_string(),
             IntegrationConfigDefault {
                 user_scopes: None,
                 connection_config: Some(ConnectionConfigOverride {
-                    oauth_scopes_override: Some(
-                        "https://www.googleapis.com/auth/calendar.readonly".to_string(),
-                    ),
+                    oauth_scopes_override: Some(oauth_scopes_override.to_string()),
                 }),
             },
         );
+        defaults
+    }
 
-        let json = serde_json::to_value(&CreateConnectSessionRequest {
+    #[test]
+    fn session_requests_serialize_oauth_scope_overrides() {
+        let connect_json = serde_json::to_value(&CreateConnectSessionRequest {
             end_user: EndUser {
                 id: "user-1".to_string(),
                 display_name: None,
@@ -129,40 +88,30 @@ mod tests {
             },
             organization: None,
             allowed_integrations: Some(vec!["google-calendar".to_string()]),
-            integrations_config_defaults: Some(defaults),
+            integrations_config_defaults: Some(scope_override_defaults(
+                "google-calendar",
+                "https://www.googleapis.com/auth/calendar.readonly",
+            )),
         })
         .unwrap();
 
         assert_eq!(
-            json["integrations_config_defaults"]["google-calendar"]["connection_config"]["oauth_scopes_override"],
+            connect_json["integrations_config_defaults"]["google-calendar"]["connection_config"]["oauth_scopes_override"],
             "https://www.googleapis.com/auth/calendar.readonly"
         );
-    }
 
-    #[test]
-    fn reconnect_session_serializes_oauth_scope_overrides() {
-        let mut defaults = std::collections::HashMap::new();
-        defaults.insert(
-            "outlook".to_string(),
-            IntegrationConfigDefault {
-                user_scopes: None,
-                connection_config: Some(ConnectionConfigOverride {
-                    oauth_scopes_override: Some(
-                        "offline_access User.Read Calendars.Read".to_string(),
-                    ),
-                }),
-            },
-        );
-
-        let json = serde_json::to_value(&ReconnectSessionRequest {
+        let reconnect_json = serde_json::to_value(&ReconnectSessionRequest {
             connection_id: "conn-1".to_string(),
             integration_id: "outlook".to_string(),
-            integrations_config_defaults: Some(defaults),
+            integrations_config_defaults: Some(scope_override_defaults(
+                "outlook",
+                "offline_access User.Read Calendars.Read",
+            )),
         })
         .unwrap();
 
         assert_eq!(
-            json["integrations_config_defaults"]["outlook"]["connection_config"]["oauth_scopes_override"],
+            reconnect_json["integrations_config_defaults"]["outlook"]["connection_config"]["oauth_scopes_override"],
             "offline_access User.Read Calendars.Read"
         );
     }

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-update-ignored-calendar-item"
+description = "Enables the update_ignored_calendar_item command without any pre-configured scope."
+commands.allow = ["update_ignored_calendar_item"]
+
+[[permission]]
+identifier = "deny-update-ignored-calendar-item"
+description = "Denies the update_ignored_calendar_item command without any pre-configured scope."
+commands.deny = ["update_ignored_calendar_item"]

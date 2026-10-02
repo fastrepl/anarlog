@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Sqlite, SqliteConnection};
 
 use crate::error::Error;
+use crate::locked::{OwnedSqliteConnection, RawArg, ReservedConnection, execute_on_locked_handle};
 
 // PRAGMA busy_timeout = 50 keeps SQLite's C busy-handler short so after_connect
 // does not park a Tokio worker. Retry SQLITE_BUSY asynchronously for the same
@@ -363,6 +364,59 @@ where
     Ok(())
 }
 
+/// Runs sqlite-sync on the locked handle because interrupted internal queries can report
+/// `SQLITE_MISUSE`, which sqlx-sqlite treats as a worker panic.
+pub async fn init_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
+    table_name: &str,
+    crdt_algo: Option<&str>,
+    init_flags: Option<i64>,
+) -> Result<(), Error> {
+    match (crdt_algo, init_flags) {
+        (None, None) => {
+            execute_on_locked_handle(
+                connection,
+                "SELECT cloudsync_init(?)",
+                vec![RawArg::Text(table_name.to_owned())],
+            )
+            .await?;
+        }
+        (Some(crdt_algo), None) => {
+            execute_on_locked_handle(
+                connection,
+                "SELECT cloudsync_init(?, ?)",
+                vec![
+                    RawArg::Text(table_name.to_owned()),
+                    RawArg::Text(crdt_algo.to_owned()),
+                ],
+            )
+            .await?;
+        }
+        (None, Some(init_flags)) => {
+            execute_on_locked_handle(
+                connection,
+                "SELECT cloudsync_init(?, NULL, ?)",
+                vec![RawArg::Text(table_name.to_owned()), RawArg::Int(init_flags)],
+            )
+            .await?;
+        }
+        (Some(crdt_algo), Some(init_flags)) => {
+            execute_on_locked_handle(
+                connection,
+                "SELECT cloudsync_init(?, ?, ?)",
+                vec![
+                    RawArg::Text(table_name.to_owned()),
+                    RawArg::Text(crdt_algo.to_owned()),
+                    RawArg::Int(init_flags),
+                ],
+            )
+            .await?;
+        }
+    }
+
+    Ok(())
+}
+
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-begin-alter
 pub async fn begin_alter<'e, E>(executor: E, table_name: &str) -> Result<(), Error>
 where
@@ -456,6 +510,21 @@ where
     Ok(())
 }
 
+/// Runs sqlite-sync on the locked handle because interrupted internal queries can report
+/// `SQLITE_MISUSE`, which sqlx-sqlite treats as a worker panic.
+pub async fn cleanup_on_connection<C: OwnedSqliteConnection>(
+    connection: &mut ReservedConnection<C>,
+    table_name: &str,
+) -> Result<(), Error> {
+    execute_on_locked_handle(
+        connection,
+        "SELECT cloudsync_cleanup(?)",
+        vec![RawArg::Text(table_name.to_owned())],
+    )
+    .await?;
+    Ok(())
+}
+
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-siteid
 pub async fn siteid<'e, E>(executor: E) -> Result<Vec<u8>, Error>
 where
@@ -508,7 +577,7 @@ mod tests {
             "failed to load sqlite-sync (sqlite error 5): database is locked".to_string(),
         )));
         assert!(!is_busy_error(&Error::ExtensionInitialization(
-            "expected sqlite-sync 1.1.2, loaded 1.0.0".to_string(),
+            "expected sqlite-sync 1.2.0, loaded 1.0.0".to_string(),
         )));
     }
 }

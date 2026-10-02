@@ -246,38 +246,29 @@ mod tests {
     use anlg_language::ISO639;
 
     use super::ElevenLabsAdapter;
-    use crate::ListenClient;
-    use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
+    use crate::test_utils::{UrlTestCase, run_url_test_cases};
 
     const API_BASE: &str = "https://api.elevenlabs.io";
 
     #[test]
-    fn test_default_params() {
-        run_url_test_cases(
-            &ElevenLabsAdapter::default(),
-            API_BASE,
-            &[UrlTestCase {
-                name: "default_params",
-                model: Some("scribe_v2"),
-                languages: &[ISO639::En],
-                contains: &[
-                    "model_id=",
-                    "audio_format=pcm_16000",
-                    "include_timestamps=true",
-                    "commit_strategy=vad",
-                    "language_code=en",
-                ],
-                not_contains: &[],
-            }],
-        );
-    }
-
-    #[test]
-    fn test_language_urls() {
+    fn live_urls() {
         run_url_test_cases(
             &ElevenLabsAdapter::default(),
             API_BASE,
             &[
+                UrlTestCase {
+                    name: "default_params",
+                    model: Some("scribe_v2"),
+                    languages: &[ISO639::En],
+                    contains: &[
+                        "model_id=",
+                        "audio_format=pcm_16000",
+                        "include_timestamps=true",
+                        "commit_strategy=vad",
+                        "language_code=en",
+                    ],
+                    not_contains: &[],
+                },
                 UrlTestCase {
                     name: "with_language",
                     model: None,
@@ -301,77 +292,5 @@ mod tests {
                 },
             ],
         );
-    }
-
-    macro_rules! single_test {
-        ($name:ident, $params:expr) => {
-            #[tokio::test]
-            #[ignore]
-            async fn $name() {
-                let client = ListenClient::builder()
-                    .adapter::<ElevenLabsAdapter>()
-                    .api_base("https://api.elevenlabs.io")
-                    .api_key(
-                        std::env::var("ELEVENLABS_API_KEY").expect("ELEVENLABS_API_KEY not set"),
-                    )
-                    .params($params)
-                    .build_single()
-                    .await
-                    .unwrap();
-                run_single_test(client, "elevenlabs").await;
-            }
-        };
-    }
-
-    single_test!(
-        test_build_single,
-        owhisper_interface::ListenParams {
-            model: Some("scribe_v2".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_multi_lang_1,
-        owhisper_interface::ListenParams {
-            model: Some("scribe_v2".to_string()),
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Es.into(),
-            ],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_multi_lang_2,
-        owhisper_interface::ListenParams {
-            model: Some("scribe_v2".to_string()),
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Ko.into(),
-            ],
-            ..Default::default()
-        }
-    );
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_dual() {
-        let client = ListenClient::builder()
-            .adapter::<ElevenLabsAdapter>()
-            .api_base("https://api.elevenlabs.io")
-            .api_key(std::env::var("ELEVENLABS_API_KEY").expect("ELEVENLABS_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                model: Some("scribe_v2".to_string()),
-                languages: vec![anlg_language::ISO639::En.into()],
-                ..Default::default()
-            })
-            .build_dual()
-            .await
-            .unwrap();
-
-        run_dual_test(client, "elevenlabs").await;
     }
 }

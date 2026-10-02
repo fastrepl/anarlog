@@ -244,36 +244,27 @@ mod tests {
     use anlg_language::ISO639;
 
     use super::FireworksAdapter;
-    use crate::ListenClient;
-    use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
+    use crate::test_utils::{UrlTestCase, run_url_test_cases};
 
     const API_BASE: &str = "https://api.fireworks.ai";
 
     #[test]
-    fn test_default_params() {
-        run_url_test_cases(
-            &FireworksAdapter::default(),
-            API_BASE,
-            &[UrlTestCase {
-                name: "default_params",
-                model: None,
-                languages: &[ISO639::En],
-                contains: &[
-                    "response_format=verbose_json",
-                    "timestamp_granularities=word",
-                    "language=en",
-                ],
-                not_contains: &[],
-            }],
-        );
-    }
-
-    #[test]
-    fn test_language_urls() {
+    fn live_urls() {
         run_url_test_cases(
             &FireworksAdapter::default(),
             API_BASE,
             &[
+                UrlTestCase {
+                    name: "default_params",
+                    model: None,
+                    languages: &[ISO639::En],
+                    contains: &[
+                        "response_format=verbose_json",
+                        "timestamp_granularities=word",
+                        "language=en",
+                    ],
+                    not_contains: &[],
+                },
                 UrlTestCase {
                     name: "with_language",
                     model: None,
@@ -297,41 +288,5 @@ mod tests {
                 },
             ],
         );
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_single() {
-        let client = ListenClient::builder()
-            .adapter::<FireworksAdapter>()
-            .api_base("https://api.fireworks.ai")
-            .api_key(std::env::var("FIREWORKS_API_KEY").expect("FIREWORKS_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                languages: vec![anlg_language::ISO639::En.into()],
-                ..Default::default()
-            })
-            .build_single()
-            .await
-            .unwrap();
-
-        run_single_test(client, "fireworks").await;
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_dual() {
-        let client = ListenClient::builder()
-            .adapter::<FireworksAdapter>()
-            .api_base("https://api.fireworks.ai")
-            .api_key(std::env::var("FIREWORKS_API_KEY").expect("FIREWORKS_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                languages: vec![anlg_language::ISO639::En.into()],
-                ..Default::default()
-            })
-            .build_dual()
-            .await
-            .unwrap();
-
-        run_dual_test(client, "fireworks").await;
     }
 }

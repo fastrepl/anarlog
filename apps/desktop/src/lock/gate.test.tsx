@@ -8,6 +8,11 @@ const mocks = vi.hoisted(() => ({
   isDeviceAuthAvailable: vi.fn(),
   getCurrentWebviewWindowLabel: vi.fn(() => "main"),
   visibilityListen: vi.fn(),
+  isVisible: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({ isVisible: mocks.isVisible }),
 }));
 
 vi.mock("@lingui/react/macro", () => ({
@@ -92,6 +97,7 @@ describe("AppLockGate", () => {
     mocks.isDeviceAuthAvailable.mockResolvedValue(true);
     mocks.authenticateDevice.mockResolvedValue(true);
     mocks.visibilityListen.mockResolvedValue(vi.fn());
+    mocks.isVisible.mockResolvedValue(true);
     useAppLock.setState({
       available: true,
       authenticating: false,
@@ -107,6 +113,71 @@ describe("AppLockGate", () => {
 
     expect(mocks.authenticateDevice).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Anarlog is Locked")).toBeNull();
+  });
+
+  it("waits for a hidden main window to open before prompting", async () => {
+    mocks.isVisible.mockResolvedValue(false);
+    render(
+      <AppLockGate>
+        <div>app content</div>
+      </AppLockGate>,
+    );
+
+    await waitFor(() => {
+      expect(mocks.isVisible).toHaveBeenCalled();
+    });
+    expect(mocks.authenticateDevice).not.toHaveBeenCalled();
+
+    const emit = getVisibilityHandler();
+    await act(async () => {
+      emit({ payload: { window: { type: "main" }, visible: true } });
+    });
+
+    await waitFor(() => {
+      expect(mocks.authenticateDevice).toHaveBeenCalledWith("open");
+      expect(useAppLock.getState().appUnlocked).toBe(true);
+    });
+  });
+
+  it("does not prompt when the main window closes before visibility resolves", async () => {
+    let resolveVisible!: (value: boolean) => void;
+    mocks.isVisible.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        resolveVisible = resolve;
+      }),
+    );
+    render(
+      <AppLockGate>
+        <div>app content</div>
+      </AppLockGate>,
+    );
+    await waitFor(() => {
+      expect(mocks.visibilityListen).toHaveBeenCalled();
+    });
+    const emit = getVisibilityHandler();
+    await act(async () => {
+      emit({ payload: { window: { type: "main" }, visible: false } });
+    });
+    await act(async () => {
+      resolveVisible(true);
+    });
+
+    expect(mocks.authenticateDevice).not.toHaveBeenCalled();
+    expect(useAppLock.getState().appUnlocked).toBe(false);
+  });
+
+  it("prompts in a note window without checking main visibility", async () => {
+    mocks.getCurrentWebviewWindowLabel.mockReturnValue("note-1");
+    mocks.isVisible.mockResolvedValue(false);
+    render(
+      <AppLockGate>
+        <div>app content</div>
+      </AppLockGate>,
+    );
+
+    await waitFor(() => {
+      expect(mocks.authenticateDevice).toHaveBeenCalledWith("open");
+    });
   });
 
   it("locks on main window close without prompting", async () => {

@@ -8,6 +8,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use anlg_cloudsync::ReservedConnection;
+
 use super::*;
 
 /// Catches a deadlocked pool or worker, not slow I/O: a replacement pool connection
@@ -556,6 +558,7 @@ fn reconciled_send_reports_the_exact_preflighted_batch() {
         complete: true,
         fits: true,
         remaining: false,
+        local_db_versions: 2,
     };
     let status = anlg_cloudsync::NetworkStatus {
         last_optimistic_version: 12,
@@ -580,9 +583,25 @@ fn reconciled_send_reports_the_exact_preflighted_batch() {
         &status,
         false,
     );
-    assert_eq!(partial.send.unwrap().status, "out-of-sync");
+    assert_eq!(partial.send.unwrap().status, "syncing");
     let late_write = reconciled_send_result(batch, &status, true);
-    assert_eq!(late_write.send.unwrap().status, "out-of-sync");
+    assert_eq!(late_write.send.unwrap().status, "syncing");
+    let confirmed_prefix = reconciled_send_result(
+        batch,
+        &anlg_cloudsync::NetworkStatus {
+            last_optimistic_version: 7,
+            last_confirmed_version: 7,
+            ..status
+        },
+        false,
+    )
+    .send
+    .unwrap();
+    assert_eq!(confirmed_prefix.status, "syncing");
+    assert_eq!(confirmed_prefix.local_version, 9);
+    assert_eq!(confirmed_prefix.server_version, 7);
+    assert_eq!(confirmed_prefix.chunks, 0);
+    assert_eq!(confirmed_prefix.bytes, 0);
 }
 
 #[test]
@@ -596,6 +615,7 @@ fn cancelled_send_never_starts_status_reconciliation() {
         complete: true,
         fits: true,
         remaining: false,
+        local_db_versions: 2,
     };
     let error = anlg_cloudsync::Error::Io(std::io::Error::new(
         std::io::ErrorKind::TimedOut,
@@ -666,17 +686,17 @@ async fn confirmed_large_version_recovery_needs_no_additional_network_request() 
     .await
     .unwrap();
     db.cloudsync_init("items", None, None).await.unwrap();
-    let mut connection = db.pool().acquire().await.unwrap();
+    let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
     sqlx::query("SELECT cloudsync_network_init_custom(?, 'reconciliation-test')")
         .bind(endpoint)
-        .execute(&mut *connection)
+        .execute(connection.connection().await.unwrap())
         .await
         .unwrap();
     sqlx::query(
         "WITH RECURSIVE ids(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM ids WHERE id < 6564)
          INSERT INTO items SELECT CAST(id AS TEXT), 'pending' FROM ids",
     )
-    .execute(&mut *connection)
+    .execute(connection.connection().await.unwrap())
     .await
     .unwrap();
     let result = guarded_interruptible_network_send_changes(
@@ -690,7 +710,7 @@ async fn confirmed_large_version_recovery_needs_no_additional_network_request() 
     server_result.unwrap();
     assert_eq!(result.unwrap().send.unwrap().status, "synced");
     assert!(
-        !cloudsync_has_local_unsent_changes_on(&mut *connection)
+        !cloudsync_has_local_unsent_changes_on(connection.connection().await.unwrap())
             .await
             .unwrap()
     );
@@ -706,16 +726,16 @@ async fn confirmed_send_recovery_preserves_later_local_edits() {
     .await
     .unwrap();
     db.cloudsync_init("items", None, None).await.unwrap();
-    let mut connection = db.pool().acquire().await.unwrap();
+    let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
     sqlx::query("INSERT INTO items VALUES ('first', 'preflighted')")
-        .execute(&mut *connection)
+        .execute(connection.connection().await.unwrap())
         .await
         .unwrap();
     let batch = ensure_pending_payload_fits(&mut connection, &db.cloudsync_interrupt)
         .await
         .unwrap();
     sqlx::query("INSERT INTO items VALUES ('later', 'after preflight')")
-        .execute(&mut *connection)
+        .execute(connection.connection().await.unwrap())
         .await
         .unwrap();
     let status = anlg_cloudsync::NetworkStatus {
@@ -725,20 +745,25 @@ async fn confirmed_send_recovery_preserves_later_local_edits() {
         failures: anlg_cloudsync::NetworkStatusFailures::default(),
     };
     assert!(
-        anlg_cloudsync::reconcile_confirmed_pending_payload(&mut connection, batch, &status)
-            .await
-            .unwrap()
-    );
-    let has_unsent_changes = cloudsync_has_local_unsent_changes_on(&mut *connection)
+        anlg_cloudsync::reconcile_confirmed_pending_payload(
+            connection.connection().await.unwrap(),
+            batch,
+            &status,
+        )
         .await
-        .unwrap();
+        .unwrap()
+    );
+    let has_unsent_changes =
+        cloudsync_has_local_unsent_changes_on(connection.connection().await.unwrap())
+            .await
+            .unwrap();
     assert!(has_unsent_changes);
     assert_eq!(
         reconciled_send_result(batch, &status, has_unsent_changes)
             .send
             .unwrap()
             .status,
-        "out-of-sync"
+        "syncing"
     );
 }
 

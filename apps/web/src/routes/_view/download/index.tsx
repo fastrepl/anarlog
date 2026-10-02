@@ -1,6 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   ArrowSquareOut,
@@ -12,6 +12,7 @@ import { cn } from "@anlg/utils";
 import { SiteFooter } from "@/components/site-footer";
 import { useExperiment } from "@/hooks/use-experiment";
 import { useAnalytics } from "@/hooks/use-posthog";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { toAnalyticsToken } from "@/lib/analytics-sanitization";
 import {
   comingSoonPlatforms,
@@ -55,7 +56,7 @@ const nextDevices = ["Watch", "Dongle", "Pin"] as const;
 function NextDeviceButton() {
   const [index, setIndex] = useState(0);
 
-  useEffect(() => {
+  useMountEffect(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let id: number | undefined;
 
@@ -75,7 +76,7 @@ function NextDeviceButton() {
       window.clearInterval(id);
       reducedMotion.removeEventListener("change", sync);
     };
-  }, []);
+  });
 
   return (
     <span

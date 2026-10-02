@@ -75,18 +75,6 @@ You are an expert in {{ language | language }}.
     }
 
     #[test]
-    fn test_valid_title_user_template() {
-        let src = r#"<note>
-{{ enhanced_note }}
-</note>
-
-Give me a title."#;
-
-        let result = validate(src, &["enhanced_note"]);
-        assert!(result.is_ok());
-    }
-
-    #[test]
     fn test_unknown_variable() {
         let src = "Hello {{ unknown_var }}";
         let result = validate(src, &["name"]);

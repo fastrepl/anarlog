@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-stopped-capture"
+description = "Enables the get_stopped_capture command without any pre-configured scope."
+commands.allow = ["get_stopped_capture"]
+
+[[permission]]
+identifier = "deny-get-stopped-capture"
+description = "Denies the get_stopped_capture command without any pre-configured scope."
+commands.deny = ["get_stopped_capture"]

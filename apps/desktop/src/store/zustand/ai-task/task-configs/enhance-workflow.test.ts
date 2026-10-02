@@ -52,6 +52,17 @@ it.each(["crisp", "balanced", "detailed"] as const)(
         },
       ],
       imageContext: [],
+      lengthPolicy: {
+        mode: summaryLength,
+        max_characters: 636,
+        max_sections: null,
+        transcript_characters: 636,
+        guidance: {
+          max_characters: 636,
+          min_sections: 1,
+          max_sections: 2,
+        },
+      },
       dictionaryTerms: [],
     };
     const chunks = [];
@@ -102,6 +113,17 @@ it("adds length guidance to prompts rendered from a template with sections", asy
       },
     ],
     imageContext: [],
+    lengthPolicy: {
+      mode: "detailed",
+      max_characters: 10_000,
+      max_sections: null,
+      transcript_characters: 10_000,
+      guidance: {
+        max_characters: 10_000,
+        min_sections: 3,
+        max_sections: 6,
+      },
+    },
     dictionaryTerms: [],
   };
   for await (const _ of enhanceWorkflow.executeWorkflow!({

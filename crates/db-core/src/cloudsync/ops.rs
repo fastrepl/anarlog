@@ -1,9 +1,14 @@
+use anlg_cloudsync::ReservedConnection;
 use sqlx::Sqlite;
 use sqlx::pool::PoolConnection;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tokio::sync::MutexGuard;
 
+use super::pinned::{
+    PinnedCloudsyncConnection, release_pinned_connection, reserve_pinned_connection,
+};
 use super::{CloudsyncAuth, CloudsyncRuntimeError, CloudsyncTableSpec};
 use crate::Db;
 
@@ -33,6 +38,19 @@ use transport::{reconciled_send_result, should_reconcile_send_failure};
 const CLOUDSYNC_POOL_DRAIN_TIMEOUT: Duration = Duration::from_secs(1);
 
 impl Db {
+    pub(crate) async fn reserve_cloudsync_connection(
+        &self,
+    ) -> Result<ReservedConnection<PinnedCloudsyncConnection>, anlg_cloudsync::Error> {
+        reserve_pinned_connection(&self.pool, &self.cloudsync_connection).await
+    }
+
+    pub(crate) fn release_reserved_cloudsync_connection(
+        &self,
+        connection: ReservedConnection<PinnedCloudsyncConnection>,
+    ) {
+        release_pinned_connection(connection);
+    }
+
     async fn lock_cloudsync_connection(
         &self,
     ) -> Result<MutexGuard<'_, Option<PoolConnection<Sqlite>>>, anlg_cloudsync::Error> {
@@ -77,16 +95,16 @@ impl Db {
         crdt_algo: Option<&str>,
         init_flags: Option<i64>,
     ) -> Result<(), anlg_cloudsync::Error> {
-        let mut connection = self.lock_cloudsync_connection().await?;
+        let mut connection = self.reserve_cloudsync_connection().await?;
         let result = interruptible_init(
-            connection.as_mut().unwrap(),
+            &mut connection,
             table_name,
             crdt_algo,
             init_flags,
             &self.cloudsync_interrupt,
         )
         .await;
-        self.release_single_pool_connection(&mut connection);
+        self.release_reserved_cloudsync_connection(connection);
         result
     }
 
@@ -115,10 +133,12 @@ impl Db {
         }
 
         let acquisition_deadline = tokio::time::Instant::now() + CLOUDSYNC_POOL_DRAIN_TIMEOUT;
-        let mut pinned =
-            tokio::time::timeout_at(acquisition_deadline, self.cloudsync_connection.lock())
-                .await
-                .map_err(|_| CloudsyncRuntimeError::LocalStatusBusy)?;
+        let mut pinned = tokio::time::timeout_at(
+            acquisition_deadline,
+            Arc::clone(&self.cloudsync_connection).lock_owned(),
+        )
+        .await
+        .map_err(|_| CloudsyncRuntimeError::LocalStatusBusy)?;
         if pinned.is_none() {
             *pinned = Some(
                 tokio::time::timeout_at(acquisition_deadline, self.pool.acquire())
@@ -127,27 +147,40 @@ impl Db {
                     .map_err(anlg_cloudsync::Error::from)?,
             );
         }
+        let mut pinned =
+            ReservedConnection::new(PinnedCloudsyncConnection::new(pinned, &self.pool));
 
         let mut connections = Vec::new();
         for _ in 1..self.pool.options().get_max_connections() {
             match tokio::time::timeout_at(acquisition_deadline, self.pool.acquire()).await {
-                Ok(Ok(connection)) => connections.push(connection),
+                Ok(Ok(connection)) => connections.push(ReservedConnection::new(connection)),
                 Ok(Err(error)) => {
-                    return_pool_connections(connections).await;
-                    self.release_single_pool_connection(&mut pinned);
+                    return_pool_connections(
+                        connections
+                            .into_iter()
+                            .filter_map(|connection| connection.into_inner())
+                            .collect(),
+                    )
+                    .await;
+                    self.release_reserved_cloudsync_connection(pinned);
                     return Err(anlg_cloudsync::Error::from(error).into());
                 }
                 Err(_) => {
-                    return_pool_connections(connections).await;
-                    self.release_single_pool_connection(&mut pinned);
+                    return_pool_connections(
+                        connections
+                            .into_iter()
+                            .filter_map(|connection| connection.into_inner())
+                            .collect(),
+                    )
+                    .await;
+                    self.release_reserved_cloudsync_connection(pinned);
                     return Err(CloudsyncRuntimeError::LocalStatusBusy);
                 }
             }
         }
 
         let result: Result<(), anlg_cloudsync::Error> = async {
-            init_enabled_tables(pinned.as_mut().unwrap(), tables, &self.cloudsync_interrupt)
-                .await?;
+            init_enabled_tables(&mut pinned, tables, &self.cloudsync_interrupt).await?;
             for connection in &mut connections {
                 init_enabled_tables(connection, tables, &self.cloudsync_interrupt).await?;
             }
@@ -165,14 +198,23 @@ impl Db {
             );
         }
 
-        self.release_single_pool_connection(&mut pinned);
+        self.release_reserved_cloudsync_connection(pinned);
         match result {
             Ok(()) => {
-                return_pool_connections(connections).await;
+                return_pool_connections(
+                    connections
+                        .into_iter()
+                        .filter_map(|connection| connection.into_inner())
+                        .collect(),
+                )
+                .await;
                 Ok(())
             }
             Err(error) => {
-                for connection in connections {
+                for connection in connections
+                    .into_iter()
+                    .filter_map(|connection| connection.into_inner())
+                {
                     let _ = connection.close().await;
                 }
                 Err(error.into())
@@ -185,9 +227,12 @@ impl Db {
         connection_string: &str,
     ) -> Result<(), anlg_cloudsync::Error> {
         let mut connection = self.lock_cloudsync_connection().await?;
-        let result =
-            anlg_cloudsync::network_init(&mut **connection.as_mut().unwrap(), connection_string)
-                .await;
+        let result = async {
+            let connection = &mut **connection.as_mut().unwrap();
+            anlg_cloudsync::network_init(&mut *connection, connection_string).await?;
+            anlg_cloudsync::network_set_request_deadlines(connection).await
+        }
+        .await;
         self.release_single_pool_connection(&mut connection);
         result
     }
@@ -237,14 +282,10 @@ impl Db {
     }
 
     pub async fn cloudsync_cleanup(&self, table_name: &str) -> Result<(), anlg_cloudsync::Error> {
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result = interruptible_cleanup(
-            connection.as_mut().unwrap(),
-            table_name,
-            &self.cloudsync_interrupt,
-        )
-        .await;
-        self.release_single_pool_connection(&mut connection);
+        let mut connection = self.reserve_cloudsync_connection().await?;
+        let result =
+            interruptible_cleanup(&mut connection, table_name, &self.cloudsync_interrupt).await;
+        self.release_reserved_cloudsync_connection(connection);
         result
     }
 
@@ -348,13 +389,10 @@ impl Db {
         &self,
     ) -> Result<anlg_cloudsync::PendingPayloadBatch, anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result = interruptible_pending_payload_batch(
-            connection.as_mut().unwrap(),
-            &self.cloudsync_interrupt,
-        )
-        .await;
-        self.release_single_pool_connection(&mut connection);
+        let mut connection = self.reserve_cloudsync_connection().await?;
+        let result =
+            interruptible_pending_payload_batch(&mut connection, &self.cloudsync_interrupt).await;
+        self.release_reserved_cloudsync_connection(connection);
         result
     }
 
@@ -362,13 +400,10 @@ impl Db {
         &self,
     ) -> Result<anlg_cloudsync::NetworkStatus, anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result = interruptible_network_status(
-            connection.as_mut().unwrap(),
-            Some(&self.cloudsync_interrupt),
-        )
-        .await;
-        self.release_single_pool_connection(&mut connection);
+        let mut connection = self.reserve_cloudsync_connection().await?;
+        let result =
+            interruptible_network_status(&mut connection, Some(&self.cloudsync_interrupt)).await;
+        self.release_reserved_cloudsync_connection(connection);
         result
     }
 
@@ -393,14 +428,14 @@ impl Db {
         &self,
     ) -> Result<anlg_cloudsync::NetworkResult, anlg_cloudsync::Error> {
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
+        let mut connection = self.reserve_cloudsync_connection().await?;
         let result = guarded_interruptible_network_send_changes(
-            connection.as_mut().unwrap(),
+            &mut connection,
             &self.cloudsync_interrupt,
             || false,
         )
         .await;
-        self.release_single_pool_connection(&mut connection);
+        self.release_reserved_cloudsync_connection(connection);
         result
     }
 
@@ -412,13 +447,10 @@ impl Db {
         // from bypassing the one-chunk production receive bound.
         let _ = max_chunks;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result = interruptible_network_receive_changes(
-            connection.as_mut().unwrap(),
-            &self.cloudsync_interrupt,
-        )
-        .await;
-        self.release_single_pool_connection(&mut connection);
+        let mut connection = self.reserve_cloudsync_connection().await?;
+        let result =
+            interruptible_network_receive_changes(&mut connection, &self.cloudsync_interrupt).await;
+        self.release_reserved_cloudsync_connection(connection);
         result
     }
 
@@ -460,11 +492,9 @@ impl Db {
     }
 
     pub async fn cloudsync_network_logout(&self) -> Result<(), anlg_cloudsync::Error> {
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result =
-            interruptible_network_logout(connection.as_mut().unwrap(), &self.cloudsync_interrupt)
-                .await;
-        self.release_single_pool_connection(&mut connection);
+        let mut connection = self.reserve_cloudsync_connection().await?;
+        let result = interruptible_network_logout(&mut connection, &self.cloudsync_interrupt).await;
+        self.release_reserved_cloudsync_connection(connection);
         result
     }
 
@@ -477,22 +507,21 @@ impl Db {
         // the runtime so every call performs exactly one bounded transport step.
         let _ = (wait_ms, max_retries);
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
+        let mut connection = self.reserve_cloudsync_connection().await?;
         let result = async {
-            let connection = &mut **connection.as_mut().unwrap();
             let send = guarded_interruptible_network_send_changes(
-                &mut *connection,
+                &mut connection,
                 &self.cloudsync_interrupt,
                 || super::runtime::cloudsync_activity_paused(&self.cloudsync_sync_hook),
             )
             .await?;
             let receive =
-                interruptible_network_receive_changes(&mut *connection, &self.cloudsync_interrupt)
+                interruptible_network_receive_changes(&mut connection, &self.cloudsync_interrupt)
                     .await?;
             Ok(merge_bounded_sync_results(send, receive))
         }
         .await;
-        self.release_single_pool_connection(&mut connection);
+        self.release_reserved_cloudsync_connection(connection);
         result
     }
 
@@ -503,9 +532,9 @@ impl Db {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
+        let mut connection = self.reserve_cloudsync_connection().await?;
         let result = guarded_interruptible_network_send_changes(
-            connection.as_mut().unwrap(),
+            &mut connection,
             &self.cloudsync_interrupt,
             || {
                 cancelled.load(Ordering::Acquire)
@@ -513,7 +542,7 @@ impl Db {
             },
         )
         .await;
-        self.release_single_pool_connection(&mut connection);
+        self.release_reserved_cloudsync_connection(connection);
         Ok(result?)
     }
 
@@ -523,13 +552,10 @@ impl Db {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result = interruptible_pending_payload_batch(
-            connection.as_mut().unwrap(),
-            &self.cloudsync_interrupt,
-        )
-        .await;
-        self.release_single_pool_connection(&mut connection);
+        let mut connection = self.reserve_cloudsync_connection().await?;
+        let result =
+            interruptible_pending_payload_batch(&mut connection, &self.cloudsync_interrupt).await;
+        self.release_reserved_cloudsync_connection(connection);
         Ok(result?)
     }
 
@@ -539,13 +565,10 @@ impl Db {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result = interruptible_network_status(
-            connection.as_mut().unwrap(),
-            Some(&self.cloudsync_interrupt),
-        )
-        .await;
-        self.release_single_pool_connection(&mut connection);
+        let mut connection = self.reserve_cloudsync_connection().await?;
+        let result =
+            interruptible_network_status(&mut connection, Some(&self.cloudsync_interrupt)).await;
+        self.release_reserved_cloudsync_connection(connection);
         Ok(result?)
     }
 
@@ -574,13 +597,10 @@ impl Db {
         let _lifecycle = self.cloudsync_lifecycle.lock().await;
         self.ensure_manual_transport_ready()?;
         let _sync_operation = self.cloudsync_sync_operation.lock().await;
-        let mut connection = self.lock_cloudsync_connection().await?;
-        let result = interruptible_network_receive_changes(
-            connection.as_mut().unwrap(),
-            &self.cloudsync_interrupt,
-        )
-        .await;
-        self.release_single_pool_connection(&mut connection);
+        let mut connection = self.reserve_cloudsync_connection().await?;
+        let result =
+            interruptible_network_receive_changes(&mut connection, &self.cloudsync_interrupt).await;
+        self.release_reserved_cloudsync_connection(connection);
         Ok(result?)
     }
 

@@ -336,98 +336,63 @@ pub(crate) fn monitor(event_tx: mpsc::SyncSender<DeviceEvent>, stop_rx: mpsc::Re
 mod tests {
     use super::*;
 
+    fn devices_with_baseline() -> DefaultDevices {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
+        devices
+    }
+
+    fn changes(source_changed: bool, sink_changed: bool) -> DefaultDeviceChanges {
+        DefaultDeviceChanges {
+            source_changed,
+            sink_changed,
+        }
+    }
+
     #[test]
-    fn first_observe_establishes_baseline_without_emitting() {
+    fn baseline_null_and_unchanged_observations_do_not_emit() {
         let mut devices = DefaultDevices::default();
 
         assert_eq!(
             devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
             DefaultDeviceChanges::default()
         );
-    }
-
-    #[test]
-    fn source_property_change_does_not_count_as_default_input_change() {
-        let mut devices = DefaultDevices::default();
-        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
-
         assert_eq!(
             devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
             DefaultDeviceChanges::default()
         );
-    }
-
-    #[test]
-    fn default_source_change_emits_only_source() {
-        let mut devices = DefaultDevices::default();
-        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
-
-        assert_eq!(
-            devices.observe(Some("alsa_input.usb"), Some("qa_system")),
-            DefaultDeviceChanges {
-                source_changed: true,
-                sink_changed: false,
-            }
-        );
-    }
-
-    #[test]
-    fn default_sink_change_emits_only_sink() {
-        let mut devices = DefaultDevices::default();
-        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
-
-        assert_eq!(
-            devices.observe(Some("qa_mic_bus.monitor"), Some("alsa_output.usb")),
-            DefaultDeviceChanges {
-                source_changed: false,
-                sink_changed: true,
-            }
-        );
-    }
-
-    #[test]
-    fn missing_defaults_after_baseline_do_not_emit() {
-        let mut devices = DefaultDevices::default();
-        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
-
         assert_eq!(devices.observe(None, None), DefaultDeviceChanges::default());
-    }
-
-    #[test]
-    fn null_defaults_do_not_clear_baseline() {
-        let mut devices = DefaultDevices::default();
-        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
-        devices.observe(None, None);
-
         assert_eq!(
             devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
+            DefaultDeviceChanges::default()
+        );
+
+        let mut null_first = DefaultDevices::default();
+        null_first.observe(None, None);
+        assert_eq!(
+            null_first.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
             DefaultDeviceChanges::default()
         );
     }
 
     #[test]
-    fn first_real_names_after_null_observation_are_baseline() {
-        let mut devices = DefaultDevices::default();
-        devices.observe(None, None);
-
-        assert_eq!(
-            devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
-            DefaultDeviceChanges::default()
-        );
-    }
-
-    #[test]
-    fn default_change_after_null_refresh_still_emits() {
-        let mut devices = DefaultDevices::default();
-        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
-        devices.observe(None, None);
+    fn default_source_and_sink_changes_emit_independently() {
+        let mut devices = devices_with_baseline();
 
         assert_eq!(
             devices.observe(Some("alsa_input.usb"), Some("qa_system")),
-            DefaultDeviceChanges {
-                source_changed: true,
-                sink_changed: false,
-            }
+            changes(true, false)
+        );
+        assert_eq!(
+            devices.observe(Some("alsa_input.usb"), Some("alsa_output.usb")),
+            changes(false, true)
+        );
+
+        let mut after_null = devices_with_baseline();
+        after_null.observe(None, None);
+        assert_eq!(
+            after_null.observe(Some("alsa_input.usb"), Some("qa_system")),
+            changes(true, false)
         );
     }
 

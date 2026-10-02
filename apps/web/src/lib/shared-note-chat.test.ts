@@ -13,7 +13,6 @@ import {
   MAX_SHARED_NOTE_SSE_BUFFER_CHARS,
   parseSseLine,
   type SharedNoteChatMessage,
-  SharedNoteChatError,
 } from "./shared-note-chat.ts";
 import type { SharedNoteSnapshot } from "./shared-notes.ts";
 
@@ -42,7 +41,7 @@ function makeSnapshot(bodyText: string): SharedNoteSnapshot {
   };
 }
 
-test("system prompt embeds the note title and body text", () => {
+test("system prompt embeds the note title and truncates long bodies", () => {
   const prompt = buildSharedNoteChatSystemPrompt(
     makeSnapshot("Decisions and next steps."),
   );
@@ -50,30 +49,22 @@ test("system prompt embeds the note title and body text", () => {
   assert.ok(prompt.includes("Title: Weekly sync"));
   assert.ok(prompt.includes("Decisions and next steps."));
   assert.ok(!prompt.includes("[truncated]"));
-});
 
-test("system prompt truncates long note content with a suffix", () => {
-  const prompt = buildSharedNoteChatSystemPrompt(
+  const truncated = buildSharedNoteChatSystemPrompt(
     makeSnapshot("x".repeat(30_000)),
   );
 
-  assert.ok(prompt.includes(`${"x".repeat(24_000)}[truncated]`));
-  assert.ok(!prompt.includes("x".repeat(24_001)));
-  assert.ok(prompt.endsWith("[truncated]"));
+  assert.ok(truncated.includes(`${"x".repeat(24_000)}[truncated]`));
+  assert.ok(!truncated.includes("x".repeat(24_001)));
+  assert.ok(truncated.endsWith("[truncated]"));
 });
 
-test("parseSseLine extracts delta content from data lines", () => {
+test("parseSseLine extracts deltas, done, and ignores everything else", () => {
   assert.deepEqual(
     parseSseLine('data: {"choices":[{"delta":{"content":"Hello"}}]}'),
     { type: "delta", content: "Hello" },
   );
-});
-
-test("parseSseLine reports the [DONE] sentinel", () => {
   assert.deepEqual(parseSseLine("data: [DONE]"), { type: "done" });
-});
-
-test("parseSseLine ignores comments, empty, and malformed lines", () => {
   assert.deepEqual(parseSseLine(": keep-alive"), { type: "none" });
   assert.deepEqual(parseSseLine(""), { type: "none" });
   assert.deepEqual(parseSseLine("event: message"), { type: "none" });
@@ -100,14 +91,6 @@ test("feedSseChunk buffers deltas split across chunks", () => {
   assert.deepEqual(second.deltas, [" world"]);
   assert.equal(second.done, true);
   assert.equal(second.buffer, "");
-});
-
-test("SharedNoteChatError surfaces the response status", () => {
-  const error = new SharedNoteChatError(429);
-
-  assert.ok(error instanceof Error);
-  assert.equal(error.name, "SharedNoteChatError");
-  assert.equal(error.status, 429);
 });
 
 test("chat history retains only the newest bounded context", () => {

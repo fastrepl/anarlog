@@ -437,7 +437,7 @@ mod tests {
     }
 
     #[test]
-    fn defaults_to_enforced_e2ee_protocol_mode() {
+    fn default_config_is_enforced_e2ee_over_sqlite_sync() {
         let config = config(&env("https://project.region.gateway.sqlite.cloud/", None))
             .unwrap()
             .unwrap();
@@ -445,6 +445,11 @@ mod tests {
         assert_eq!(config.protocol_mode, CloudsyncProtocolMode::E2eeEnforced);
         assert_eq!(config.desktop_transport, CloudsyncTransport::SqliteSync);
         assert!(config.legacy_database_id.is_none());
+        assert_eq!(
+            config.project_url,
+            "https://project.region.gateway.sqlite.cloud"
+        );
+        assert_eq!(config.token_ttl_seconds, DEFAULT_TOKEN_TTL_SECONDS);
     }
 
     #[test]
@@ -466,14 +471,40 @@ mod tests {
     }
 
     #[test]
-    fn validates_dual_protocol_database_configuration() {
+    fn validates_protocol_mode_and_database_ids() {
+        for (case, mode, legacy_database_id, expect_ok) in [
+            ("dual requires a legacy database", "dual", None, false),
+            (
+                "dual rejects the e2ee database as legacy",
+                "dual",
+                Some("database-id"),
+                false,
+            ),
+            (
+                "e2ee_only rejects the e2ee database as legacy",
+                "e2ee_only",
+                Some("database-id"),
+                false,
+            ),
+            (
+                "e2ee_enforced rejects the e2ee database as legacy",
+                "e2ee_enforced",
+                Some("database-id"),
+                false,
+            ),
+            ("e2ee_only is supported", "e2ee_only", None, true),
+            ("e2ee_enforced is supported", "e2ee_enforced", None, true),
+            ("unknown protocol modes are rejected", "legacy", None, false),
+        ] {
+            let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
+            sync_env.anarlog_cloudsync_protocol_mode = Some(mode.to_string());
+            sync_env.anarlog_cloudsync_database_id = legacy_database_id.map(ToString::to_string);
+
+            assert_eq!(config(&sync_env).is_ok(), expect_ok, "{case}");
+        }
+
         let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
         sync_env.anarlog_cloudsync_protocol_mode = Some("dual".to_string());
-        assert!(config(&sync_env).is_err());
-
-        sync_env.anarlog_cloudsync_database_id = Some("database-id".to_string());
-        assert!(config(&sync_env).is_err());
-
         sync_env.anarlog_cloudsync_database_id = Some("legacy-database-id".to_string());
         let config = config(&sync_env).unwrap().unwrap();
         assert_eq!(config.protocol_mode, CloudsyncProtocolMode::Dual);
@@ -481,29 +512,6 @@ mod tests {
             config.legacy_database_id.as_deref(),
             Some("legacy-database-id")
         );
-    }
-
-    #[test]
-    fn rejects_reusing_the_e2ee_database_in_every_protocol_mode() {
-        for mode in ["dual", "e2ee_only", "e2ee_enforced"] {
-            let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
-            sync_env.anarlog_cloudsync_protocol_mode = Some(mode.to_string());
-            sync_env.anarlog_cloudsync_database_id = Some("database-id".to_string());
-            assert!(config(&sync_env).is_err());
-        }
-    }
-
-    #[test]
-    fn accepts_only_known_protocol_modes() {
-        for mode in ["e2ee_only", "e2ee_enforced"] {
-            let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
-            sync_env.anarlog_cloudsync_protocol_mode = Some(mode.to_string());
-            assert!(config(&sync_env).is_ok());
-        }
-
-        let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
-        sync_env.anarlog_cloudsync_protocol_mode = Some("legacy".to_string());
-        assert!(config(&sync_env).is_err());
     }
 
     fn config(env: &SyncEnv) -> Result<Option<SyncConfig>, String> {
@@ -520,109 +528,112 @@ mod tests {
         assert!(SharedNotesConfig::new("https://project.supabase.co", "service-role-key").is_ok());
         assert!(SharedNotesConfig::new("http://project.supabase.co", "service-role-key").is_err());
         assert!(SharedNotesConfig::new("https://project.supabase.co", "").is_err());
-    }
 
-    #[test]
-    fn accepts_https_sqlite_cloud_project_url() {
-        let config = config(&env("https://project.region.gateway.sqlite.cloud/", None))
+        let invitation_api_base = reqwest::Url::parse("https://api.loops.so").unwrap();
+        let config = SharedNotesConfig::new("https://project.supabase.co", "service-role-key")
             .unwrap()
-            .unwrap();
-
+            .with_invitation_email_api_base(invitation_api_base);
         assert_eq!(
-            config.project_url,
-            "https://project.region.gateway.sqlite.cloud"
+            config.loops_api_base.unwrap().as_str(),
+            "https://api.loops.so/"
         );
-        assert_eq!(config.token_ttl_seconds, DEFAULT_TOKEN_TTL_SECONDS);
     }
 
     #[test]
-    fn rejects_non_https_or_non_sqlite_cloud_project_url() {
-        assert!(config(&env("http://project.gateway.sqlite.cloud", None)).is_err());
-        assert!(config(&env("https://example.com", None)).is_err());
-    }
-
-    #[test]
-    fn bounds_token_ttl() {
-        assert!(
-            config(&env(
+    fn rejects_unsafe_project_urls_and_out_of_range_ttls() {
+        for (case, project_url, token_ttl_seconds) in [
+            (
+                "non-https project URLs are rejected",
+                "http://project.gateway.sqlite.cloud",
+                None,
+            ),
+            (
+                "non-SQLite Cloud project URLs are rejected",
+                "https://example.com",
+                None,
+            ),
+            (
+                "token TTL below the minimum is rejected",
                 "https://project.gateway.sqlite.cloud",
                 Some(MIN_TOKEN_TTL_SECONDS - 1),
-            ))
-            .is_err()
-        );
-        assert!(
-            config(&env(
+            ),
+            (
+                "token TTL above the maximum is rejected",
                 "https://project.gateway.sqlite.cloud",
                 Some(MAX_TOKEN_TTL_SECONDS + 1),
-            ))
-            .is_err()
-        );
+            ),
+        ] {
+            assert!(
+                config(&env(project_url, token_ttl_seconds)).is_err(),
+                "{case}"
+            );
+        }
     }
 
     #[test]
     fn validates_supabase_workspace_projection_config() {
         let sync_env = env("https://project.gateway.sqlite.cloud", None);
 
-        assert!(
-            SyncConfig::from_env(&sync_env, "not-a-url", "anon-key", "service-role-key").is_err()
-        );
-        assert!(
-            SyncConfig::from_env(
-                &sync_env,
+        for (case, supabase_url, anon_key, service_role_key, expect_ok) in [
+            (
+                "invalid Supabase URLs are rejected",
+                "not-a-url",
+                "anon-key",
+                "service-role-key",
+                false,
+            ),
+            (
+                "remote Supabase URLs require HTTPS",
                 "http://project.supabase.co",
                 "anon-key",
                 "service-role-key",
-            )
-            .is_err()
-        );
-        assert!(
-            SyncConfig::from_env(
-                &sync_env,
+                false,
+            ),
+            (
+                "localhost Supabase URLs allow HTTP",
                 "http://localhost:54321",
                 "anon-key",
                 "service-role-key",
-            )
-            .is_ok()
-        );
-        assert!(
-            SyncConfig::from_env(
-                &sync_env,
+                true,
+            ),
+            (
+                "IPv4 loopback Supabase URLs allow HTTP",
                 "http://127.0.0.1:54321",
                 "anon-key",
                 "service-role-key",
-            )
-            .is_ok()
-        );
-        assert!(
-            SyncConfig::from_env(
-                &sync_env,
+                true,
+            ),
+            (
+                "IPv6 loopback Supabase URLs allow HTTP",
                 "http://[::1]:54321",
                 "anon-key",
                 "service-role-key",
-            )
-            .is_ok()
-        );
-        assert!(
-            SyncConfig::from_env(
-                &sync_env,
+                true,
+            ),
+            (
+                "Supabase URL paths are rejected",
                 "https://project.supabase.co/path",
                 "anon-key",
                 "service-role-key",
-            )
-            .is_err()
-        );
-        assert!(
-            SyncConfig::from_env(
-                &sync_env,
+                false,
+            ),
+            (
+                "empty Supabase anon keys are rejected",
                 "https://project.supabase.co",
                 "   ",
                 "service-role-key",
-            )
-            .is_err()
-        );
-        assert!(
-            SyncConfig::from_env(&sync_env, "https://project.supabase.co", "anon-key", "   ",)
-                .is_err()
-        );
+                false,
+            ),
+            (
+                "empty Supabase service-role keys are rejected",
+                "https://project.supabase.co",
+                "anon-key",
+                "   ",
+                false,
+            ),
+        ] {
+            let result = SyncConfig::from_env(&sync_env, supabase_url, anon_key, service_role_key);
+            assert_eq!(result.is_ok(), expect_ok, "{case}");
+        }
     }
 }

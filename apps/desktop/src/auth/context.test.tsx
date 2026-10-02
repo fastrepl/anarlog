@@ -13,9 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAuth } from "./auth-context";
 import type { CloudsyncAccountAdmission } from "./cloudsync";
-import * as authProviderModule from "./context";
-
-const { AuthProvider } = authProviderModule;
+import { AuthProvider } from "./context";
 
 const mocks = vi.hoisted(() => ({
   analyticsClearGroups: vi.fn(),
@@ -258,10 +256,6 @@ function renderAuthProvider() {
 }
 
 describe("AuthProvider", () => {
-  it("keeps the provider module compatible with Fast Refresh", () => {
-    expect(Object.keys(authProviderModule)).toEqual(["AuthProvider"]);
-  });
-
   beforeEach(() => {
     mocks.analyticsClearGroups.mockReset();
     mocks.analyticsEvent.mockReset();
@@ -352,73 +346,43 @@ describe("AuthProvider", () => {
     });
   });
 
-  it("clears account groups after an in-flight identify settles", async () => {
-    const identify = deferred();
-    mocks.analyticsIdentify.mockReturnValueOnce(identify.promise);
-    const currentSession = makeSession("account-id");
+  it.each([
+    ["identify", "identify-account-id", () => mocks.analyticsIdentify],
+    ["sign-in event", "event-account-id", () => mocks.analyticsEvent],
+  ] as const)(
+    "clears account groups only after the in-flight %s settles",
+    async (_label, accountId, pendingCall) => {
+      const pending = deferred();
+      pendingCall().mockReturnValueOnce(pending.promise);
 
-    renderAuthProvider();
+      renderAuthProvider();
 
-    await waitFor(() => {
-      expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", currentSession);
-    });
-
-    await waitFor(() => {
-      expect(mocks.analyticsIdentify).toHaveBeenCalledTimes(1);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-
-    await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    });
-    expect(mocks.analyticsClearGroups).not.toHaveBeenCalled();
-
-    identify.resolve();
-
-    await waitFor(() => {
-      expect(mocks.analyticsClearGroups).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  it("clears account groups after the sign-in event settles", async () => {
-    const signInEvent = deferred();
-    mocks.analyticsEvent.mockReturnValueOnce(signInEvent.promise);
-    const currentSession = makeSession("event-account-id");
-
-    renderAuthProvider();
-
-    await waitFor(() => {
-      expect(mocks.authCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mocks.authCallback?.("SIGNED_IN", currentSession);
-    });
-
-    await waitFor(() => {
-      expect(mocks.analyticsEvent).toHaveBeenCalledWith({
-        event: "user_signed_in",
+      await waitFor(() => {
+        expect(mocks.authCallback).not.toBeNull();
       });
-    });
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+      act(() => {
+        mocks.authCallback?.("SIGNED_IN", makeSession(accountId));
+      });
 
-    await waitFor(() => {
-      expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
-    });
-    expect(mocks.analyticsClearGroups).not.toHaveBeenCalled();
+      await waitFor(() => {
+        expect(pendingCall()).toHaveBeenCalled();
+      });
 
-    signInEvent.resolve();
+      fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
-    await waitFor(() => {
-      expect(mocks.analyticsClearGroups).toHaveBeenCalledTimes(1);
-    });
-  });
+      await waitFor(() => {
+        expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
+      });
+      expect(mocks.analyticsClearGroups).not.toHaveBeenCalled();
+
+      pending.resolve();
+
+      await waitFor(() => {
+        expect(mocks.analyticsClearGroups).toHaveBeenCalledTimes(1);
+      });
+    },
+  );
 
   it("refreshes cloudsync when the main window regains focus", async () => {
     const currentSession = makeSession("bound-account");

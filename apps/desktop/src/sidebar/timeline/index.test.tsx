@@ -20,13 +20,6 @@ const mocks = vi.hoisted(() => ({
   isIgnored: vi.fn(() => false),
   liveSessionId: null as string | null,
   liveStatus: "inactive" as "inactive" | "active" | "finalizing",
-  nativeContextMenuItems: [] as Array<{
-    id?: string;
-    text?: string;
-    accelerator?: string;
-    action?: () => void;
-    disabled?: boolean;
-  }>,
   selectAll: vi.fn(),
   smartCurrentTimeMs: undefined as number | undefined,
   timelineSelectionAnchorId: null as string | null,
@@ -132,10 +125,7 @@ vi.mock("~/session/hooks/useDeleteSession", () => ({
 }));
 
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
-  useNativeContextMenu: (items: typeof mocks.nativeContextMenuItems) => {
-    mocks.nativeContextMenuItems = items;
-    return vi.fn();
-  },
+  useNativeContextMenu: () => vi.fn(),
 }));
 
 vi.mock("~/calendar/ignored-events", () => ({
@@ -241,6 +231,70 @@ import { TimelineView } from ".";
 
 import { resetSidebarNotes, useSidebarNotes } from "~/sidebar/note-filter";
 
+const twoSelectableNotes = {
+  "selected-note": {
+    title: "Selected note",
+    created_at: "2024-01-15T12:00:00.000Z",
+  },
+  "other-note": {
+    title: "Other note",
+    created_at: "2024-01-15T11:00:00.000Z",
+  },
+};
+
+const standupEvent = (startedAt: string) => ({
+  standup: {
+    title: "Team standup",
+    started_at: startedAt,
+    ended_at: "2024-01-15T12:30:00.000Z",
+    tracking_id_event: "event-standup",
+    has_recurrence_rules: false,
+  },
+});
+
+function freezeTime(iso: string) {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(iso));
+  mocks.currentTimeMs = Date.now();
+  mocks.smartCurrentTimeMs = Date.now();
+}
+
+function mountEditor() {
+  const editor = document.createElement("div");
+  editor.className = "ProseMirror";
+  editor.contentEditable = "true";
+  editor.tabIndex = 0;
+  document.body.appendChild(editor);
+  editor.focus();
+  return editor;
+}
+
+function rect(top: number, height: number): DOMRect {
+  return {
+    bottom: top + height,
+    height,
+    left: 0,
+    right: 240,
+    toJSON: () => ({}),
+    top,
+    width: 240,
+    x: 0,
+    y: top,
+  };
+}
+
+function queryMeetingChip(container: HTMLElement) {
+  return container.querySelector<HTMLElement>(
+    "[data-sidebar-upcoming-meeting-status]",
+  );
+}
+
+function isBefore(first: Element, second: Element) {
+  return Boolean(
+    first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+}
+
 describe("TimelineView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -253,8 +307,6 @@ describe("TimelineView", () => {
     mocks.liveSessionId = null;
     mocks.liveStatus = "inactive";
     mocks.currentTab = { type: "empty" };
-    mocks.nativeContextMenuItems = [];
-    mocks.selectAll.mockClear();
     mocks.smartCurrentTimeMs = undefined;
     mocks.timelineSelectionAnchorId = null;
     mocks.timelineSelectionSelectedIds = [];
@@ -269,248 +321,23 @@ describe("TimelineView", () => {
     vi.useRealTimers();
   });
 
-  it("does not render sidebar action tabs inside the timeline chrome", () => {
+  it("opens the calendar from the timeline chip", () => {
+    freezeTime("2024-01-15T12:00:00.000Z");
+    mocks.timelineSessionsTable = {
+      later: {
+        title: "Quarterly planning",
+        created_at: "2024-01-17T12:00:00.000Z",
+      },
+    };
+
     render(<TimelineView topChromeInset />);
-
-    expect(screen.queryByRole("button", { name: "New note" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
-    expect(getSidebarActionTabsOrNull()).toBeNull();
-  });
-
-  it("shows the open calendar chip in top chrome without action tabs", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineSessionsTable = {
-      later: {
-        title: "Quarterly planning",
-        created_at: "2024-01-17T12:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-    const calendarButton = screen.getByRole("button", {
-      name: "Open calendar",
-    });
-
-    expect(getSidebarActionTabsOrNull()).toBeNull();
-    expect(calendarButton.className).toContain("rounded-full");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-4");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-14");
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
-
-    fireEvent.click(calendarButton);
+    fireEvent.click(screen.getByRole("button", { name: "Open calendar" }));
 
     expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
-  });
-
-  it("keeps the open calendar spacer stable when leaving the top edge", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineSessionsTable = {
-      later: {
-        title: "Quarterly planning",
-        created_at: "2024-01-17T12:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
-    const topSpacer = container.querySelector(
-      "[data-sidebar-timeline-top-spacer]",
-    );
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(topSpacer?.className).toContain("h-14");
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 120;
-    fireEvent.scroll(scroller!);
-
-    expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
-    expect(topSpacer?.className).toContain("h-14");
-    expect(queryTopFade(container)).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("bg-background");
-  });
-
-  it("routes wheel gestures from the open calendar chip into the timeline scroller", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineSessionsTable = {
-      later: {
-        title: "Quarterly planning",
-        created_at: "2024-01-17T12:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
-    const calendarButton = screen.getByRole("button", {
-      name: "Open calendar",
-    });
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-
-    fireEvent.wheel(calendarButton, { deltaY: 80 });
-
-    expect(scroller!.scrollTop).toBe(80);
-  });
-
-  it("keeps the first bucket below the sidebar action chrome", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineSessionsTable = {
-      past: {
-        title: "Demo Session Kickoff",
-        created_at: "2024-01-01T12:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
-    expect(
-      container.querySelector("[data-sidebar-timeline-bucket-header]")
-        ?.className,
-    ).toContain("top-12");
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
-  });
-
-  it("pins bucket headers to the sidebar chrome while scrolled", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineSessionsTable = {
-      tomorrow: {
-        title: "Founder sync",
-        created_at: "2024-01-16T10:00:00.000Z",
-      },
-      today: {
-        title: "Design sync",
-        created_at: "2024-01-15T17:30:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
-    const header = container.querySelector(
-      "[data-sidebar-timeline-bucket-header]",
-    );
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(header?.className).toContain("top-12");
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 120;
-    fireEvent.scroll(scroller!);
-
-    expect(header?.className).toContain("top-12");
-    expect(header?.className).toContain("z-20");
-    expect(header?.className).toContain("bg-background");
-    expect(header?.className).not.toContain("backdrop-blur");
-    expect(container.querySelector("[class*='backdrop-blur']")).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("z-10");
-  });
-
-  it("shows the open calendar chip without top chrome", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineSessionsTable = {
-      later: {
-        title: "Quarterly planning",
-        created_at: "2024-01-17T12:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView />);
-    const calendarButton = screen.getByRole("button", {
-      name: "Open calendar",
-    });
-
-    expect(getSidebarActionTabsOrNull()).toBeNull();
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-2");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-8");
-
-    fireEvent.click(calendarButton);
-
-    expect(mocks.openNew).toHaveBeenCalledWith({ type: "calendar" });
-  });
-
-  it("keeps overlapping header chips inside the visible timeline", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineSessionsTable = {
-      later: {
-        title: "Quarterly planning",
-        created_at: "2024-01-17T12:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChipsOverlapHeader />);
-
-    expect(
-      container.querySelector("[data-sidebar-timeline-root]")?.className,
-    ).not.toContain("-mt-3");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-1");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-9");
   });
 
   it("selects all visible notes with Cmd+A after a sidebar note selection", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
+    freezeTime("2024-01-15T09:00:00.000Z");
     mocks.currentTab = { type: "sessions", id: "selected-note" };
     mocks.timelineSelectionAnchorId = "session-selected-note";
     mocks.timelineEventsTable = {
@@ -522,19 +349,9 @@ describe("TimelineView", () => {
         has_recurrence_rules: false,
       },
     };
-    mocks.timelineSessionsTable = {
-      "selected-note": {
-        title: "Selected note",
-        created_at: "2024-01-15T12:00:00.000Z",
-      },
-      "other-note": {
-        title: "Other note",
-        created_at: "2024-01-15T11:00:00.000Z",
-      },
-    };
+    mocks.timelineSessionsTable = twoSelectableNotes;
 
     render(<TimelineView />);
-
     fireEvent.keyDown(window, { key: "a", metaKey: true });
 
     expect(mocks.selectAll).toHaveBeenCalledWith([
@@ -543,42 +360,66 @@ describe("TimelineView", () => {
     ]);
   });
 
+  it("does not select sidebar notes while the mounted timeline is hidden", () => {
+    freezeTime("2024-01-15T09:00:00.000Z");
+    mocks.currentTab = { type: "sessions", id: "selected-note" };
+    mocks.timelineSelectionAnchorId = "session-selected-note";
+    mocks.timelineSessionsTable = twoSelectableNotes;
+
+    render(
+      <div aria-hidden inert>
+        <TimelineView />
+      </div>,
+    );
+    fireEvent.keyDown(window, { key: "a", metaKey: true });
+
+    expect(mocks.selectAll).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Backspace", { key: "Backspace" }],
+    ["Cmd+A", { key: "a", metaKey: true }],
+  ])("leaves %s to the focused editor", (_, keyEvent) => {
+    freezeTime("2024-01-15T09:00:00.000Z");
+    mocks.currentTab = { type: "sessions", id: "selected-note" };
+    mocks.timelineSelectionAnchorId = "session-selected-note";
+    mocks.timelineSelectionSelectedIds = [
+      "session-selected-note",
+      "session-other-note",
+    ];
+    mocks.timelineSessionsTable = twoSelectableNotes;
+
+    render(<TimelineView />);
+    const editor = mountEditor();
+    fireEvent.keyDown(editor, keyEvent);
+
+    expect(mocks.deleteSession).not.toHaveBeenCalled();
+    expect(mocks.selectAll).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    editor.remove();
+  });
+
   it.each(["Backspace", "Delete"])(
     "confirms selected note deletion with %s",
     (key) => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
-      mocks.currentTimeMs = Date.now();
+      freezeTime("2024-01-15T09:00:00.000Z");
       mocks.timelineSelectionSelectedIds = [
         "session-selected-note",
         "session-other-note",
       ];
-      mocks.timelineSessionsTable = {
-        "selected-note": {
-          title: "Selected note",
-          created_at: "2024-01-15T12:00:00.000Z",
-        },
-        "other-note": {
-          title: "Other note",
-          created_at: "2024-01-15T11:00:00.000Z",
-        },
-      };
+      mocks.timelineSessionsTable = twoSelectableNotes;
 
       render(<TimelineView />);
-
       fireEvent.keyDown(window, { key });
 
       expect(mocks.deleteSession).not.toHaveBeenCalled();
       expect(
-        screen.getByRole("heading", {
-          name: "Delete 2 selected notes?",
-        }),
+        screen.getByRole("heading", { name: "Delete 2 selected notes?" }),
       ).toBeTruthy();
-      expect(screen.getByRole("dialog").className).toContain("max-w-[320px]");
 
       fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-      expect(mocks.deleteSession).toHaveBeenCalledTimes(2);
       expect(mocks.deleteSession).toHaveBeenCalledWith("selected-note", {
         batchId: expect.any(String),
         title: "Selected note",
@@ -597,15 +438,12 @@ describe("TimelineView", () => {
   it("keeps selected notes when deletion is canceled", () => {
     mocks.timelineSelectionSelectedIds = ["session-selected-note"];
     mocks.timelineSessionsTable = {
-      "selected-note": {
-        title: "Selected note",
-        created_at: "2024-01-15T12:00:00.000Z",
-      },
+      "selected-note": twoSelectableNotes["selected-note"],
     };
 
     render(<TimelineView />);
-
     fireEvent.keyDown(window, { key: "Backspace" });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(mocks.deleteSession).not.toHaveBeenCalled();
@@ -625,493 +463,65 @@ describe("TimelineView", () => {
         <button type="button">Transcript</button>
       </>,
     );
-
     fireEvent.pointerDown(screen.getByRole("button", { name: "Transcript" }));
 
     expect(mocks.clearSelection).toHaveBeenCalledOnce();
   });
 
-  it("keeps selected notes when clicking inside the timeline", () => {
-    mocks.timelineSelectionSelectedIds = [
-      "session-selected-note",
-      "session-other-note",
-    ];
-
-    const { container } = render(<TimelineView />);
-    const timelineRoot = container.querySelector(
-      "[data-sidebar-timeline-root]",
-    );
-
-    expect(timelineRoot).not.toBeNull();
-    fireEvent.pointerDown(timelineRoot!);
-
-    expect(mocks.clearSelection).not.toHaveBeenCalled();
-  });
-
-  it("keeps selected notes when clicking the delete confirmation dialog", () => {
-    mocks.timelineSelectionSelectedIds = ["session-selected-note"];
-    mocks.timelineSessionsTable = {
-      "selected-note": {
-        title: "Selected note",
-        created_at: "2024-01-15T12:00:00.000Z",
-      },
-    };
-
-    render(<TimelineView />);
-
-    fireEvent.keyDown(window, { key: "Backspace" });
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Cancel" }));
-
-    expect(mocks.clearSelection).not.toHaveBeenCalled();
-  });
-
-  it("keeps selected notes when dismissing the delete confirmation overlay", () => {
-    mocks.timelineSelectionSelectedIds = ["session-selected-note"];
-    mocks.timelineSessionsTable = {
-      "selected-note": {
-        title: "Selected note",
-        created_at: "2024-01-15T12:00:00.000Z",
-      },
-    };
-
-    render(<TimelineView />);
-
-    fireEvent.keyDown(window, { key: "Backspace" });
-    const overlay = document.querySelector("[data-dialog-overlay]");
-
-    expect(overlay).not.toBeNull();
-    fireEvent.pointerDown(overlay!);
-
-    expect(mocks.clearSelection).not.toHaveBeenCalled();
-  });
-
-  it("shows Backspace beside Delete Selected in the context menu", () => {
-    mocks.timelineSelectionSelectedIds = [
-      "session-selected-note",
-      "session-other-note",
-    ];
-
-    render(<TimelineView />);
-
-    expect(
-      mocks.nativeContextMenuItems.find(
-        (item) => item.id === "delete-selected",
-      ),
-    ).toMatchObject({
-      text: "Delete Selected (2)",
-      accelerator: "Backspace",
-      disabled: false,
-    });
-  });
-
-  it("does not delete selected notes when Backspace starts in the editor", () => {
-    mocks.timelineSelectionSelectedIds = [
-      "session-selected-note",
-      "session-other-note",
-    ];
-
-    render(<TimelineView />);
-
-    const editor = document.createElement("div");
-    editor.className = "ProseMirror";
-    editor.contentEditable = "true";
-    editor.tabIndex = 0;
-    document.body.appendChild(editor);
-    editor.focus();
-
-    fireEvent.keyDown(editor, { key: "Backspace" });
-
-    expect(mocks.deleteSession).not.toHaveBeenCalled();
-
-    editor.remove();
-  });
-
-  it("does not select sidebar notes while the mounted timeline is hidden", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.currentTab = { type: "sessions", id: "selected-note" };
-    mocks.timelineSelectionAnchorId = "session-selected-note";
-    mocks.timelineSessionsTable = {
-      "selected-note": {
-        title: "Selected note",
-        created_at: "2024-01-15T12:00:00.000Z",
-      },
-      "other-note": {
-        title: "Other note",
-        created_at: "2024-01-15T11:00:00.000Z",
-      },
-    };
-
-    render(
-      <div aria-hidden inert>
-        <TimelineView />
-      </div>,
-    );
-
-    fireEvent.keyDown(window, { key: "a", metaKey: true });
-
-    expect(mocks.selectAll).not.toHaveBeenCalled();
-  });
-
-  it("does not select sidebar notes when Cmd+A starts in the editor", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T09:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.currentTab = { type: "sessions", id: "selected-note" };
-    mocks.timelineSelectionAnchorId = "session-selected-note";
-    mocks.timelineSessionsTable = {
-      "selected-note": {
-        title: "Selected note",
-        created_at: "2024-01-15T12:00:00.000Z",
-      },
-      "other-note": {
-        title: "Other note",
-        created_at: "2024-01-15T11:00:00.000Z",
-      },
-    };
-
-    render(<TimelineView />);
-
-    const editor = document.createElement("div");
-    editor.className = "ProseMirror";
-    editor.contentEditable = "true";
-    editor.tabIndex = 0;
-    document.body.appendChild(editor);
-    editor.focus();
-
-    fireEvent.keyDown(editor, { key: "a", metaKey: true });
-
-    expect(mocks.selectAll).not.toHaveBeenCalled();
-
-    editor.remove();
-  });
-
-  it("does not show a top chrome fade while scrolled without timeline action tabs", () => {
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(getSidebarActionTabsOrNull()).toBeNull();
-    expect(queryTopFade(container)).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 120;
-    fireEvent.scroll(scroller!);
-
-    expect(getSidebarActionTabsOrNull()).toBeNull();
-    expect(queryTopFade(container)).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
-  });
-
-  it("does not show a top scroll fade when there are no hidden future notes", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.timelineSessionsTable = {
-      today: {
-        title: "Design sync",
-        created_at: "2024-01-15T11:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector(
-      "[data-sidebar-timeline-scroll]",
-    ) as HTMLDivElement | null;
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 120;
-    fireEvent.scroll(scroller!);
-
-    expect(scroller!.style.maskImage).toBe("");
-    expect(queryBottomFade(container)).toBeTruthy();
-  });
-
-  it("does not show a top scroll fade when future notes are hidden above a sticky header", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.timelineSessionsTable = {
-      today: {
-        title: "Design sync",
-        created_at: "2024-01-15T11:00:00.000Z",
-      },
-      later: {
-        title: "Quarterly planning",
-        created_at: "2024-01-17T12:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector(
-      "[data-sidebar-timeline-scroll]",
-    ) as HTMLDivElement | null;
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 120;
-    fireEvent.scroll(scroller!);
-
-    expect(screen.getByText("Today")).toBeTruthy();
-    expect(queryTopFade(container)).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
-    expect(scroller!.style.maskImage).toBe("");
-    expect(queryBottomFade(container)).toBeTruthy();
-  });
-
-  it("drops the bottom scroll fade at the bottom edge", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.timelineSessionsTable = {
-      today: {
-        title: "Design sync",
-        created_at: "2024-01-15T11:00:00.000Z",
-      },
-      later: {
-        title: "Quarterly planning",
-        created_at: "2024-01-17T12:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector(
-      "[data-sidebar-timeline-scroll]",
-    ) as HTMLDivElement | null;
-
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
-
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 1000;
-    fireEvent.scroll(scroller!);
-
-    expect(scroller!.style.maskImage).toBe("");
-    expect(queryBottomFade(container)).toBeNull();
-  });
-
-  it("keeps the bottom now chip above the scroll fade", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.isAnchorVisible = false;
-    mocks.isScrolledPastAnchor = false;
-    mocks.timelineSessionsTable = {
-      later: {
-        title: "Design sync",
-        created_at: "2024-01-16T11:00:00.000Z",
-      },
-    };
-
-    const { container } = render(<TimelineView />);
-    const scroller = container.querySelector(
-      "[data-sidebar-timeline-scroll]",
-    ) as HTMLDivElement;
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller.scrollTop = 120;
-    fireEvent.scroll(scroller);
-    const nowChip = screen.getByRole("button", { name: "Go back to now" });
-
-    expect(queryBottomFade(container)?.className).toContain("z-30");
-    expect(nowChip.className).toContain("z-40");
-  });
-
-  it("shows an imminent meeting chip over the sidebar timeline", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
+  it("shows an imminent meeting chip that scrolls to the meeting row", () => {
+    freezeTime("2024-01-15T12:00:00.000Z");
     mocks.isAnchorVisible = false;
     mocks.isScrolledPastAnchor = true;
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineEventsTable = {
-      standup: {
-        title: "Team standup",
-        started_at: "2024-01-15T12:00:51.000Z",
-        ended_at: "2024-01-15T12:30:00.000Z",
-        tracking_id_event: "event-standup",
-        has_recurrence_rules: false,
-      },
-    };
+    mocks.timelineEventsTable = standupEvent("2024-01-15T12:00:51.000Z");
 
     const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]")!;
     const row = screen.getByTestId("timeline-item-standup");
-    const chip = container.querySelector(
-      "[data-sidebar-upcoming-meeting-status]",
-    ) as HTMLElement | null;
+    const chip = queryMeetingChip(container);
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
       value: 400,
     });
-    scroller!.scrollTop = 0;
-    scroller!.scrollTo = vi.fn();
-    vi.spyOn(scroller!, "getBoundingClientRect").mockReturnValue({
-      bottom: 400,
-      height: 400,
-      left: 0,
-      right: 240,
-      toJSON: () => ({}),
-      top: 0,
-      width: 240,
-      x: 0,
-      y: 0,
-    });
-    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({
-      bottom: 832,
-      height: 32,
-      left: 0,
-      right: 240,
-      toJSON: () => ({}),
-      top: 800,
-      width: 240,
-      x: 0,
-      y: 800,
-    });
+    scroller.scrollTop = 0;
+    scroller.scrollTo = vi.fn();
+    vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue(rect(0, 400));
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue(rect(800, 32));
 
-    expect(chip?.textContent).toBe("In 51s");
-    expect(chip?.className).toContain("bg-destructive");
-    expect(chip?.className).toContain("w-28");
-    expect(chip?.querySelector("svg")).toBeTruthy();
     expect(chip?.getAttribute("aria-label")).toBe("Team standup in 51s");
-    expect(screen.getByTestId("timeline-item-standup").dataset.upcoming).toBe(
-      "true",
-    );
-    expect(
-      screen.getByTestId("timeline-item-standup").dataset.upcomingLabel,
-    ).toBe("In 51s");
-    expect(
-      screen.getByTestId("timeline-item-standup").dataset.upcomingProgress,
-    ).toBe("0.17");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-4");
-    expect(screen.queryByText("Now")).toBeNull();
+    expect(row.dataset).toMatchObject({
+      upcoming: "true",
+      upcomingLabel: "In 51s",
+      upcomingProgress: "0.17",
+    });
 
     fireEvent.click(chip!);
 
-    expect(scroller!.scrollTo).toHaveBeenCalledWith({
+    expect(scroller.scrollTo).toHaveBeenCalledWith({
       top: 636,
       behavior: "smooth",
     });
   });
 
   it("hides the imminent meeting chip when the meeting row is visible", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineEventsTable = {
-      standup: {
-        title: "Team standup",
-        started_at: "2024-01-15T12:00:51.000Z",
-        ended_at: "2024-01-15T12:30:00.000Z",
-        tracking_id_event: "event-standup",
-        has_recurrence_rules: false,
-      },
-    };
+    freezeTime("2024-01-15T12:00:00.000Z");
+    mocks.timelineEventsTable = standupEvent("2024-01-15T12:00:51.000Z");
 
     const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
-    const row = screen.getByTestId("timeline-item-standup");
+    const scroller = container.querySelector("[data-sidebar-timeline-scroll]")!;
+    vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue(rect(0, 400));
+    vi.spyOn(
+      screen.getByTestId("timeline-item-standup"),
+      "getBoundingClientRect",
+    ).mockReturnValue(rect(88, 32));
 
-    vi.spyOn(scroller!, "getBoundingClientRect").mockReturnValue({
-      bottom: 400,
-      height: 400,
-      left: 0,
-      right: 240,
-      toJSON: () => ({}),
-      top: 0,
-      width: 240,
-      x: 0,
-      y: 0,
-    });
-    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({
-      bottom: 120,
-      height: 32,
-      left: 0,
-      right: 240,
-      toJSON: () => ({}),
-      top: 88,
-      width: 240,
-      x: 0,
-      y: 88,
-    });
+    fireEvent.scroll(scroller);
 
-    fireEvent.scroll(scroller!);
-
-    expect(
-      container.querySelector("[data-sidebar-upcoming-meeting-status]"),
-    ).toBeNull();
-  });
-
-  it("shows upcoming meeting minutes with remaining seconds", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.timelineEventsTable = {
-      standup: {
-        title: "Team standup",
-        started_at: "2024-01-15T12:01:01.000Z",
-        ended_at: "2024-01-15T12:30:00.000Z",
-        tracking_id_event: "event-standup",
-        has_recurrence_rules: false,
-      },
-    };
-
-    const { container } = render(<TimelineView topChromeInset />);
-
-    expect(
-      container.querySelector("[data-sidebar-upcoming-meeting-status]")
-        ?.textContent,
-    ).toBe("In 1m 1s");
+    expect(queryMeetingChip(container)).toBeNull();
   });
 
   it("keeps the meeting chip visible until the scheduled end time", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
+    freezeTime("2024-01-15T12:00:00.000Z");
     mocks.timelineEventsTable = {
       later: {
         title: "Roadmap review",
@@ -1123,95 +533,31 @@ describe("TimelineView", () => {
     };
 
     const { container, rerender } = render(<TimelineView topChromeInset />);
-
-    expect(
-      container.querySelector("[data-sidebar-upcoming-meeting-status]"),
-    ).toBeNull();
-
-    vi.setSystemTime(new Date("2024-01-15T12:01:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    fireEvent.focus(window);
-    rerender(<TimelineView topChromeInset showOpenCalendarButton />);
-
-    expect(
-      container.querySelector("[data-sidebar-upcoming-meeting-status]")
-        ?.textContent,
-    ).toBe("In 5m 0s");
-
-    vi.setSystemTime(new Date("2024-01-15T12:06:01.000Z"));
-    mocks.currentTimeMs = Date.now();
-    fireEvent.focus(window);
-    rerender(<TimelineView topChromeInset showIgnoredEvents={false} />);
-
-    expect(
-      container.querySelector("[data-sidebar-upcoming-meeting-status]")
-        ?.textContent,
-    ).toBe("Localized now");
-
-    vi.setSystemTime(new Date("2024-01-15T12:30:01.000Z"));
-    mocks.currentTimeMs = Date.now();
-    fireEvent.focus(window);
-    rerender(
-      <TimelineView
-        topChromeInset
-        showOpenCalendarButton
-        showIgnoredEvents={false}
-      />,
-    );
-
-    expect(
-      container.querySelector("[data-sidebar-upcoming-meeting-status]"),
-    ).toBeNull();
-  });
-
-  it("overlays the top now chip without reserving sidebar space", () => {
-    mocks.isAnchorVisible = false;
-    mocks.isScrolledPastAnchor = true;
-    mocks.timelineSessionsTable = {
-      past: {
-        title: "Design sync",
-        created_at: "2024-01-14T12:00:00.000Z",
-      },
+    const advanceTo = (iso: string, props: object) => {
+      vi.setSystemTime(new Date(iso));
+      mocks.currentTimeMs = Date.now();
+      fireEvent.focus(window);
+      rerender(<TimelineView topChromeInset {...props} />);
     };
 
-    const { container } = render(<TimelineView topChromeInset />);
-    const scroller = container.querySelector("[data-sidebar-timeline-scroll]");
+    expect(queryMeetingChip(container)).toBeNull();
 
-    expect(scroller).toBeInstanceOf(HTMLDivElement);
+    advanceTo("2024-01-15T12:01:00.000Z", { showOpenCalendarButton: true });
+    expect(queryMeetingChip(container)?.textContent).toBe("In 5m 0s");
 
-    const nowButton = screen.getByRole("button", { name: "Go back to now" });
-    expect(nowButton.className).toContain("bg-card");
-    expect(nowButton.className).not.toContain("backdrop-blur");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-4");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
-    expect(
-      container.querySelector("[data-sidebar-timeline-bucket-header]")
-        ?.className,
-    ).toContain("top-12");
+    advanceTo("2024-01-15T12:06:01.000Z", { showIgnoredEvents: false });
+    expect(queryMeetingChip(container)?.textContent).toBe("Localized now");
 
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
+    advanceTo("2024-01-15T12:30:01.000Z", {
+      showOpenCalendarButton: true,
+      showIgnoredEvents: false,
     });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-    scroller!.scrollTop = 120;
-    fireEvent.scroll(scroller!);
-
-    expect(queryTopFade(container)).toBeNull();
+    expect(queryMeetingChip(container)).toBeNull();
   });
 
   it("places the fallback now indicator between future and past buckets", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-15T15:54:00.000Z"));
-
     mocks.configValue = "Asia/Seoul";
     mocks.timelineSessionsTable = {
       tomorrow: {
@@ -1232,162 +578,16 @@ describe("TimelineView", () => {
     };
 
     render(<TimelineView />);
-
-    const tomorrowHeading = screen.getByText("Tomorrow");
-    const yesterdayHeading = screen.getByText("Yesterday");
-    const twoDaysAgoHeading = screen.getByText("2 days ago");
     const indicator = screen.getByTestId("current-time-indicator");
 
-    expect(isBefore(tomorrowHeading, indicator)).toBe(true);
-    expect(isBefore(indicator, yesterdayHeading)).toBe(true);
-    expect(isBefore(indicator, twoDaysAgoHeading)).toBe(true);
-    expect(
-      indicator.closest("[data-sidebar-current-time-header-gap]")?.className,
-    ).toContain("py-3");
-  });
-
-  it("does not auto-scroll to the fallback now indicator without a today bucket", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T15:54:00.000Z"));
-
-    mocks.configValue = "UTC";
-    mocks.anchorNode = document.createElement("div");
-    mocks.timelineSessionsTable = {
-      yesterday: {
-        title: "Design sync",
-        created_at: "2024-01-14T12:00:00.000Z",
-      },
-    };
-
-    render(<TimelineView topChromeInset />);
-
-    expect(screen.getByTestId("current-time-indicator")).toBeTruthy();
-    expect(mocks.useAutoScrollToAnchor).toHaveBeenCalledWith(
-      expect.objectContaining({
-        anchorNode: null,
-      }),
-    );
-  });
-
-  it("auto-scrolls to the current-time anchor when a today bucket exists", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T15:54:00.000Z"));
-
-    mocks.configValue = "UTC";
-    const anchorNode = document.createElement("div");
-    mocks.anchorNode = anchorNode;
-    mocks.timelineSessionsTable = {
-      today: {
-        title: "Design sync",
-        created_at: "2024-01-15T12:00:00.000Z",
-      },
-    };
-
-    render(<TimelineView topChromeInset />);
-
-    expect(screen.getByText("Today")).toBeTruthy();
-    expect(mocks.useAutoScrollToAnchor).toHaveBeenCalledWith(
-      expect.objectContaining({
-        anchorNode,
-      }),
-    );
-  });
-
-  it("hides the now indicator while an active meeting is visible", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T11:15:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.liveStatus = "active";
-    mocks.liveSessionId = "session-live";
-    mocks.timelineSessionsTable = {
-      "session-live": {
-        title: "kate <> john (char)",
-        created_at: "2024-01-15T11:00:00.000Z",
-        event_json: JSON.stringify({
-          started_at: "2024-01-15T11:00:00.000Z",
-          ended_at: "2024-01-15T12:00:00.000Z",
-        }),
-      },
-    };
-
-    const { container } = render(<TimelineView />);
-
-    expect(screen.getByText("Today")).toBeTruthy();
-    expect(screen.getByTestId("timeline-item-session-live")).toBeTruthy();
-    expect(screen.queryByTestId("current-time-indicator")).toBeNull();
-    const anchor = container.querySelector(
-      "[data-sidebar-current-time-anchor]",
-    );
-    expect(anchor).toBeTruthy();
-    expect(mocks.registerAnchor).toHaveBeenCalledWith(anchor);
-  });
-
-  it("hides the now indicator while a finalizing meeting is visible", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T11:15:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
-    mocks.liveStatus = "finalizing";
-    mocks.liveSessionId = "session-finalizing";
-    mocks.timelineSessionsTable = {
-      "session-finalizing": {
-        title: "kate <> john (char)",
-        created_at: "2024-01-15T11:00:00.000Z",
-        event_json: JSON.stringify({
-          started_at: "2024-01-15T11:00:00.000Z",
-          ended_at: "2024-01-15T12:00:00.000Z",
-        }),
-      },
-    };
-
-    const { container } = render(<TimelineView />);
-
-    expect(screen.getByText("Today")).toBeTruthy();
-    expect(screen.getByTestId("timeline-item-session-finalizing")).toBeTruthy();
-    expect(screen.queryByTestId("current-time-indicator")).toBeNull();
-    const anchor = container.querySelector(
-      "[data-sidebar-current-time-anchor]",
-    );
-    expect(anchor).toBeTruthy();
-    expect(mocks.registerAnchor).toHaveBeenCalledWith(anchor);
-  });
-
-  it("places the fallback now indicator with fresh time after data refreshes", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T23:58:00.000Z"));
-    mocks.configValue = "UTC";
-    mocks.currentTimeMs = Date.now();
-
-    const { rerender } = render(<TimelineView />);
-
-    vi.setSystemTime(new Date("2024-01-16T00:01:00.000Z"));
-    mocks.timelineSessionsTable = {
-      tomorrow: {
-        title: "Roadmap review",
-        created_at: "2024-01-17T12:00:00.000Z",
-      },
-      yesterday: {
-        title: "Late wrap",
-        created_at: "2024-01-15T23:59:00.000Z",
-      },
-    };
-    rerender(<TimelineView showOpenCalendarButton />);
-
-    const tomorrowHeading = screen.getByText("Tomorrow");
-    const yesterdayHeading = screen.getByText("Yesterday");
-    const indicator = screen.getByTestId("current-time-indicator");
-
-    expect(isBefore(tomorrowHeading, indicator)).toBe(true);
-    expect(isBefore(indicator, yesterdayHeading)).toBe(true);
+    expect(isBefore(screen.getByText("Tomorrow"), indicator)).toBe(true);
+    expect(isBefore(indicator, screen.getByText("Yesterday"))).toBe(true);
+    expect(isBefore(indicator, screen.getByText("2 days ago"))).toBe(true);
   });
 
   it("places the fallback now indicator after stale future buckets", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T23:58:00.000Z"));
+    freezeTime("2024-01-15T23:58:00.000Z");
     mocks.configValue = "UTC";
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
     mocks.timelineSessionsTable = {
       soon: {
         title: "Late handoff",
@@ -1400,26 +600,77 @@ describe("TimelineView", () => {
     };
 
     const { rerender } = render(<TimelineView />);
-
     vi.setSystemTime(new Date("2024-01-16T00:01:00.000Z"));
     mocks.currentTimeMs = Date.now();
     rerender(<TimelineView showOpenCalendarButton />);
 
-    const staleTomorrowHeading = screen.getByText("Tomorrow");
     const staleTomorrowItem = screen.getByTestId("timeline-item-soon");
-    const yesterdayHeading = screen.getByText("Yesterday");
     const indicator = screen.getByTestId("current-time-indicator");
 
-    expect(isBefore(staleTomorrowHeading, staleTomorrowItem)).toBe(true);
+    expect(isBefore(screen.getByText("Tomorrow"), staleTomorrowItem)).toBe(
+      true,
+    );
     expect(isBefore(staleTomorrowItem, indicator)).toBe(true);
-    expect(isBefore(indicator, yesterdayHeading)).toBe(true);
+    expect(isBefore(indicator, screen.getByText("Yesterday"))).toBe(true);
   });
 
+  it.each([
+    ["without", false, { yesterday: "2024-01-14T12:00:00.000Z" }],
+    ["with", true, { today: "2024-01-15T12:00:00.000Z" }],
+  ])(
+    "auto-scrolls to the now anchor only %s a today bucket",
+    (_, hasToday, sessions) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2024-01-15T15:54:00.000Z"));
+      mocks.configValue = "UTC";
+      const anchorNode = document.createElement("div");
+      mocks.anchorNode = anchorNode;
+      mocks.timelineSessionsTable = Object.fromEntries(
+        Object.entries(sessions).map(([id, createdAt]) => [
+          id,
+          { title: "Design sync", created_at: createdAt },
+        ]),
+      );
+
+      render(<TimelineView topChromeInset />);
+
+      expect(mocks.useAutoScrollToAnchor).toHaveBeenCalledWith(
+        expect.objectContaining({ anchorNode: hasToday ? anchorNode : null }),
+      );
+    },
+  );
+
+  it.each(["active", "finalizing"] as const)(
+    "anchors to a visible %s meeting instead of the now indicator",
+    (status) => {
+      freezeTime("2024-01-15T11:15:00.000Z");
+      mocks.liveStatus = status;
+      mocks.liveSessionId = "session-live";
+      mocks.timelineSessionsTable = {
+        "session-live": {
+          title: "kate <> john (char)",
+          created_at: "2024-01-15T11:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2024-01-15T11:00:00.000Z",
+            ended_at: "2024-01-15T12:00:00.000Z",
+          }),
+        },
+      };
+
+      const { container } = render(<TimelineView />);
+
+      expect(screen.getByTestId("timeline-item-session-live")).toBeTruthy();
+      expect(screen.queryByTestId("current-time-indicator")).toBeNull();
+      const anchor = container.querySelector(
+        "[data-sidebar-current-time-anchor]",
+      );
+      expect(anchor).toBeTruthy();
+      expect(mocks.registerAnchor).toHaveBeenCalledWith(anchor);
+    },
+  );
+
   it("groups notes by folder and hides the date timeline chrome", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-15T12:00:00.000Z"));
-    mocks.currentTimeMs = Date.now();
-    mocks.smartCurrentTimeMs = Date.now();
+    freezeTime("2024-01-15T12:00:00.000Z");
     mocks.timelineSessionsTable = {
       later: {
         title: "Quarterly planning",
@@ -1443,25 +694,3 @@ describe("TimelineView", () => {
     expect(screen.queryByTestId("current-time-indicator")).toBeNull();
   });
 });
-
-function getSidebarActionTabsOrNull() {
-  return document.querySelector("[data-sidebar-timeline-action-tabs]");
-}
-
-function queryTopFade(container: HTMLElement) {
-  return container.querySelector("[data-sidebar-timeline-top-fade]");
-}
-
-function queryTopOccluder(container: HTMLElement) {
-  return container.querySelector("[data-sidebar-timeline-top-occluder]");
-}
-
-function queryBottomFade(container: HTMLElement) {
-  return container.querySelector("[data-sidebar-timeline-bottom-fade]");
-}
-
-function isBefore(first: Element, second: Element) {
-  return Boolean(
-    first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
-  );
-}

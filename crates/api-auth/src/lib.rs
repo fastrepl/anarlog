@@ -155,68 +155,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_auth_error_missing_header() {
-        let err = AuthError(SupabaseAuthError::MissingAuthHeader);
-        let response = err.into_response();
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    }
+    fn auth_errors_map_to_http_status() {
+        let cases = [
+            (
+                SupabaseAuthError::MissingAuthHeader,
+                StatusCode::UNAUTHORIZED,
+            ),
+            (
+                SupabaseAuthError::InvalidAuthHeader,
+                StatusCode::UNAUTHORIZED,
+            ),
+            (
+                SupabaseAuthError::JwksFetchFailed,
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ),
+            (SupabaseAuthError::InvalidToken, StatusCode::UNAUTHORIZED),
+            (
+                SupabaseAuthError::MissingEntitlement("pro".to_string()),
+                StatusCode::FORBIDDEN,
+            ),
+        ];
 
-    #[test]
-    fn test_auth_error_invalid_header() {
-        let err = AuthError(SupabaseAuthError::InvalidAuthHeader);
-        let response = err.into_response();
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    }
-
-    #[test]
-    fn test_auth_error_jwks_fetch_failed() {
-        let err = AuthError(SupabaseAuthError::JwksFetchFailed);
-        let response = err.into_response();
-        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    #[test]
-    fn test_auth_error_invalid_token() {
-        let err = AuthError(SupabaseAuthError::InvalidToken);
-        let response = err.into_response();
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    }
-
-    #[test]
-    fn test_auth_error_missing_entitlement() {
-        let err = AuthError(SupabaseAuthError::MissingEntitlement("pro".to_string()));
-        let response = err.into_response();
-        assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    }
-
-    #[test]
-    fn test_auth_state_new() {
-        let state = AuthState::new("https://example.supabase.co");
-        assert_eq!(state.required_entitlements, None);
-    }
-
-    #[test]
-    fn test_auth_state_with_required_entitlement() {
-        let state =
-            AuthState::new("https://example.supabase.co").with_required_entitlement("hyprnote_pro");
-        assert_eq!(
-            state.required_entitlements,
-            Some(vec!["hyprnote_pro".to_string()])
-        );
-    }
-
-    #[test]
-    fn test_auth_state_with_required_entitlements() {
-        let state = AuthState::new("https://example.supabase.co").with_required_entitlements(vec![
-            "hyprnote_pro".to_string(),
-            "hyprnote_lite".to_string(),
-        ]);
-        assert_eq!(
-            state.required_entitlements,
-            Some(vec![
-                "hyprnote_pro".to_string(),
-                "hyprnote_lite".to_string()
-            ])
-        );
+        for (error, expected_status) in cases {
+            let response = AuthError(error).into_response();
+            assert_eq!(response.status(), expected_status);
+        }
     }
 }

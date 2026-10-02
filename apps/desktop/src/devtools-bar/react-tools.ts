@@ -48,7 +48,6 @@ const UNAVAILABLE: ReactToolsState = {
 
 let controls: ReactToolsControls | null = null;
 let snapshot: ReactToolsState = UNAVAILABLE;
-let commitCount = 0;
 const listeners = new Set<() => void>();
 
 export function registerReactTools(next: ReactToolsControls): () => void {
@@ -59,15 +58,6 @@ export function registerReactTools(next: ReactToolsControls): () => void {
     controls = null;
     updateReactTools(UNAVAILABLE);
   };
-}
-
-/** Bumped on every React commit; the metrics store diffs it per second. */
-export function recordReactCommit(): void {
-  commitCount += 1;
-}
-
-export function readReactCommitCount(): number {
-  return commitCount;
 }
 
 export function setReactToolbarVisible(visible: boolean): void {
@@ -110,7 +100,6 @@ export function useReactToolsState(): ReactToolsState {
 
 export function resetReactToolsForTests(): void {
   controls = null;
-  commitCount = 0;
   snapshot = UNAVAILABLE;
   listeners.clear();
 }

@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use anlg_db_core::{DbOpenOptions, DbStorage};
 use db_reactive::{LiveQueryRuntime, QueryEventSink, SubscriptionRegistration};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 const LIVE_QUERY_TEST_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] =
     &[anlg_db_migrate::MigrationStep {
@@ -273,10 +273,6 @@ pub fn all_daily_notes_sql() -> String {
     "SELECT id, date FROM daily_notes ORDER BY id".to_string()
 }
 
-pub fn daily_note_by_id_sql() -> String {
-    "SELECT id, date FROM daily_notes WHERE id = ?".to_string()
-}
-
 pub fn all_daily_summaries_sql() -> String {
     "SELECT id, date FROM daily_summaries ORDER BY id".to_string()
 }
@@ -295,14 +291,6 @@ pub async fn subscribe_all_daily_notes(
     sink: TestSink,
 ) -> db_reactive::Result<SubscriptionRegistration> {
     subscribe(runtime, all_daily_notes_sql(), Vec::new(), sink).await
-}
-
-pub async fn subscribe_daily_note_by_id(
-    runtime: &TestRuntime,
-    id: &str,
-    sink: TestSink,
-) -> db_reactive::Result<SubscriptionRegistration> {
-    subscribe(runtime, daily_note_by_id_sql(), vec![json!(id)], sink).await
 }
 
 pub async fn subscribe_all_daily_summaries(

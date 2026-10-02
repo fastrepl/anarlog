@@ -110,23 +110,6 @@ mod tests {
         ])
     }
 
-    macro_rules! write_wav {
-        ($path:expr, $sample_rate:expr, $samples:expr $(,)?) => {{
-            let spec = hound::WavSpec {
-                channels: 1,
-                sample_rate: $sample_rate,
-                bits_per_sample: 32,
-                sample_format: hound::SampleFormat::Float,
-            };
-
-            let mut writer = hound::WavWriter::create($path, spec).unwrap();
-            for sample in $samples {
-                writer.write_sample(sample).unwrap();
-            }
-            writer.finalize().unwrap();
-        }};
-    }
-
     #[tokio::test]
     async fn test_dynamic_old_resampler() {
         let source = create_test_source();
@@ -135,7 +118,6 @@ mod tests {
             .await;
 
         assert_eq!(samples.len(), 2791776);
-        write_wav!("dynamic_old_resampler.wav", 16000, samples.iter().copied());
     }
 
     #[tokio::test]
@@ -148,12 +130,6 @@ mod tests {
         let total_samples: usize = chunks.iter().map(|c| c.as_ref().unwrap().len()).sum();
 
         assert!((total_samples as i64 - 2784000).abs() < 100000);
-
-        write_wav!(
-            "dynamic_new_resampler.wav",
-            16000,
-            chunks.iter().flatten().flatten().copied()
-        );
     }
 
     #[tokio::test]
@@ -206,12 +182,6 @@ mod tests {
         let total_samples: usize = chunks.iter().map(|c| c.as_ref().unwrap().len()).sum();
 
         assert!(total_samples > 0);
-
-        write_wav!(
-            "static_new_resampler.wav",
-            16000,
-            chunks.iter().flatten().flatten().copied()
-        );
     }
 
     #[tokio::test]

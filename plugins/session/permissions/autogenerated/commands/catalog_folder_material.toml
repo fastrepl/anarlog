@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-catalog-folder-material"
+description = "Enables the catalog_folder_material command without any pre-configured scope."
+commands.allow = ["catalog_folder_material"]
+
+[[permission]]
+identifier = "deny-catalog-folder-material"
+description = "Denies the catalog_folder_material command without any pre-configured scope."
+commands.deny = ["catalog_folder_material"]

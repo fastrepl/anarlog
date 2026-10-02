@@ -48,7 +48,7 @@ Nightly refs remain supported for their existing candidates only.
 
 The desktop path covers macOS, Windows, and Linux. Requested mobile distribution
 follows the separate [mobile procedures](mobile.md).
-The patched CloudSync vendor bundle is rebuilt from source and
+The CloudSync vendor bundle is rebuilt from source and
 cancellation-tested on every desktop lane: `rebuild-macos.sh` for Apple
 Silicon and Intel, `rebuild-windows.sh` under UCRT64 in `windows_ci`, and
 `rebuild-linux.sh` in `linux_ci` for x86_64 and aarch64. Each lane then runs

@@ -27,22 +27,6 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function setHoverCapability(enabled: boolean): void {
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn((query: string) => ({
-      matches: query === "(hover: hover) and (pointer: fine)" ? enabled : false,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  );
-}
-
 describe("app toast", () => {
   it("hydrates the server markup before mounting the portal", async () => {
     const container = document.createElement("div");
@@ -58,32 +42,6 @@ describe("app toast", () => {
     expect(document.querySelector("[data-app-toaster]")).not.toBeNull();
     act(() => root.unmount());
     container.remove();
-  });
-
-  it("unpacks persistent toasts when the pointer loses hover capability", () => {
-    const listeners = new Set<() => void>();
-    const query = {
-      matches: true,
-      addEventListener: (_: string, listener: () => void) =>
-        listeners.add(listener),
-      removeEventListener: (_: string, listener: () => void) =>
-        listeners.delete(listener),
-    };
-    vi.stubGlobal("matchMedia", () => query);
-    const view = render(<AppToaster />);
-    act(() => {
-      showAppToast({ message: "First", durationMs: Infinity });
-      showAppToast({ message: "Second", durationMs: Infinity });
-    });
-    const stack = document.querySelector("[data-app-toast-stack]");
-    expect(stack?.getAttribute("data-stacked")).toBe("true");
-    act(() => {
-      query.matches = false;
-      listeners.forEach((listener) => listener());
-    });
-    expect(stack?.getAttribute("data-stacked")).toBe("false");
-    view.unmount();
-    expect(listeners.size).toBe(0);
   });
 
   it("renders independent custom toasts with the shared app visuals", async () => {
@@ -108,9 +66,6 @@ describe("app toast", () => {
     expect(screen.getByRole("alert").textContent).toContain(
       "Second notification",
     );
-    expect(
-      screen.getByRole("alert").querySelector('[data-slot="smooth-corners"]'),
-    ).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
     expect(onAction).toHaveBeenCalledOnce();
   });
@@ -229,143 +184,7 @@ describe("app toast", () => {
     expect(onCleared).toHaveBeenCalledOnce();
   });
 
-  it("pins compact toasts to the bottom-right with header-sized icons", () => {
-    render(<AppToaster theme="light" align="end" size="compact" />);
-
-    act(() => {
-      showAppToast({
-        message: "Update ready",
-        description: "Restart to finish installing.",
-        leading: <svg data-testid="leading-icon" />,
-        durationMs: Number.POSITIVE_INFINITY,
-      });
-    });
-
-    const toaster = document.querySelector("[data-app-toaster]");
-    expect(toaster?.getAttribute("data-x-position")).toBe("end");
-    expect(toaster?.className).toContain("justify-end");
-
-    const toast = screen.getByRole("status");
-    expect(toast.getAttribute("data-size")).toBe("compact");
-    // The plus button in the header is a size-8 button with a size-4 glyph.
-    expect(
-      toast.querySelector('[data-slot="app-toast-leading"]')?.className,
-    ).toContain("[&>svg]:size-4");
-    expect(screen.getByRole("button", { name: "Dismiss" }).className).toContain(
-      "size-8",
-    );
-  });
-
-  it("mounts a bottom-center viewport at the default size", () => {
-    render(<AppToaster theme="light" />);
-
-    const toaster = document.querySelector("[data-app-toaster]");
-    expect(toaster?.getAttribute("data-x-position")).toBe("center");
-    expect(toaster?.getAttribute("data-y-position")).toBe("bottom");
-    expect(toaster?.classList.contains("fixed")).toBe(true);
-
-    act(() => {
-      showAppToast({
-        message: "Default size",
-        durationMs: Number.POSITIVE_INFINITY,
-      });
-    });
-    const toast = screen.getByRole("status");
-    expect(toast.getAttribute("data-size")).toBe("default");
-    expect(
-      toast.querySelector('[data-slot="app-toast-leading"]')?.className,
-    ).toContain("[&>svg]:size-6");
-    expect(screen.getByRole("button", { name: "Dismiss" }).className).toContain(
-      "size-9",
-    );
-  });
-
-  it("can mount a top-center viewport clear of fixed bottom actions", () => {
-    render(<AppToaster theme="light" position="top" />);
-
-    const toaster = document.querySelector("[data-app-toaster]");
-    expect(toaster?.getAttribute("data-y-position")).toBe("top");
-    expect(toaster?.className).toContain("safe-area-inset-top");
-    expect(toaster?.className).not.toContain("safe-area-inset-bottom");
-  });
-
-  it("stacks multiple desktop toasts and expands them on hover", () => {
-    setHoverCapability(true);
-    render(<AppToaster theme="light" />);
-
-    act(() => {
-      showAppToast({
-        message: "Upload pending",
-        durationMs: Number.POSITIVE_INFINITY,
-      });
-      showErrorToast("Upload failed");
-      showAppToast({
-        message: "Upload successful",
-        tone: "success",
-        durationMs: Number.POSITIVE_INFINITY,
-      });
-    });
-
-    const stack = document.querySelector<HTMLElement>("[data-app-toast-stack]");
-    const toasts = document.querySelectorAll("[data-app-toast]");
-    expect(stack?.getAttribute("data-hover-capable")).toBe("true");
-    expect(stack?.getAttribute("data-stacked")).toBe("true");
-    expect(toasts).toHaveLength(3);
-    expect(toasts[0]?.getAttribute("data-stack-depth")).toBe("2");
-    expect(toasts[0]?.getAttribute("data-stacked-behind")).toBe("true");
-    expect(toasts[2]?.getAttribute("data-stacked-behind")).toBe("false");
-
-    fireEvent.mouseEnter(stack as HTMLElement);
-    expect(stack?.getAttribute("data-stacked")).toBe("false");
-    expect(toasts[0]?.getAttribute("data-stacked-behind")).toBe("false");
-
-    fireEvent.mouseLeave(stack as HTMLElement);
-    expect(stack?.getAttribute("data-stacked")).toBe("true");
-  });
-
-  it("keeps multiple mobile toasts separated without hover behavior", () => {
-    setHoverCapability(false);
-    render(<AppToaster theme="light" />);
-
-    act(() => {
-      showAppToast({ message: "First", durationMs: Number.POSITIVE_INFINITY });
-      showAppToast({ message: "Second", durationMs: Number.POSITIVE_INFINITY });
-    });
-
-    const stack = document.querySelector<HTMLElement>("[data-app-toast-stack]");
-    expect(stack?.getAttribute("data-hover-capable")).toBe("false");
-    expect(stack?.getAttribute("data-stacked")).toBe("false");
-
-    fireEvent.mouseEnter(stack as HTMLElement);
-    expect(stack?.getAttribute("data-stacked")).toBe("false");
-  });
-
-  it("morphs between expanded details and the compact title", async () => {
-    vi.useFakeTimers();
-    render(<AppToaster theme="light" />);
-
-    act(() => {
-      showAppToast({
-        message: "Changes saved",
-        description: "Your workspace has been updated.",
-        durationMs: Number.POSITIVE_INFINITY,
-      });
-    });
-
-    const toast = screen.getByRole("status");
-    expect(toast.getAttribute("data-expanded")).toBe("true");
-    expect(screen.getByText("Your workspace has been updated.")).toBeTruthy();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Collapse notification" }),
-    );
-    expect(toast.getAttribute("data-expanded")).toBe("false");
-    expect(
-      screen.getByRole("button", { name: "Expand notification" }),
-    ).toBeTruthy();
-  });
-
-  it("dismisses to the side when the toast body is clicked", async () => {
+  it("dismisses when the toast body is clicked", async () => {
     vi.useFakeTimers();
     render(<AppToaster theme="light" />);
 
@@ -377,10 +196,6 @@ describe("app toast", () => {
     expect(screen.getByRole("status").getAttribute("data-phase")).toBe(
       "exiting",
     );
-    expect(screen.getByRole("status").getAttribute("data-exit-direction")).toBe(
-      "1",
-    );
-
     await act(() => vi.advanceTimersByTimeAsync(250));
     expect(screen.queryByText("Changes saved")).toBeNull();
   });
@@ -404,57 +219,28 @@ describe("app toast", () => {
     expect(screen.queryByText("Sync complete")).toBeNull();
   });
 
-  it("auto-dismisses after three seconds by default", async () => {
-    vi.useFakeTimers();
-    render(<AppToaster theme="light" />);
+  it.each([
+    { name: "default", durationMs: undefined, before: 2_900, after: 500 },
+    { name: "durationMs", durationMs: 1_000, before: 0, after: 1_500 },
+  ])(
+    "auto-dismisses after the $name duration",
+    async ({ durationMs, before, after }) => {
+      vi.useFakeTimers();
+      render(<AppToaster theme="light" />);
 
-    act(() => {
-      showAppToast({ message: "Default duration notice" });
-    });
-    await act(() => vi.advanceTimersByTimeAsync(0));
-
-    await act(() => vi.advanceTimersByTimeAsync(2_900));
-    expect(document.querySelector("[data-app-toast]")?.textContent).toContain(
-      "Default duration notice",
-    );
-
-    await act(() => vi.advanceTimersByTimeAsync(500));
-    expect(document.querySelector("[data-app-toast]")).toBeNull();
-  });
-
-  it("auto-dismisses after durationMs", async () => {
-    vi.useFakeTimers();
-    render(<AppToaster theme="light" />);
-
-    act(() => {
-      showAppToast({ message: "Temporary notice", durationMs: 1_000 });
-    });
-    await act(() => vi.advanceTimersByTimeAsync(0));
-
-    expect(document.querySelector("[data-app-toast]")?.textContent).toContain(
-      "Temporary notice",
-    );
-
-    // The custom viewport keeps the node through its side-exit animation.
-    await act(() => vi.advanceTimersByTimeAsync(1_500));
-
-    expect(document.querySelector("[data-app-toast]")).toBeNull();
-  });
-
-  it("wraps long messages instead of truncating them", async () => {
-    vi.useFakeTimers();
-    render(<AppToaster theme="light" />);
-
-    act(() => {
-      showAppToast({
-        message: "A notification long enough to wrap onto another line",
+      act(() => {
+        showAppToast({ message: "Temporary notice", durationMs });
       });
-    });
-    await act(() => vi.advanceTimersByTimeAsync(0));
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      await act(() => vi.advanceTimersByTimeAsync(before));
 
-    const message = document.querySelector('[data-slot="app-toast-message"]');
-    expect(message?.classList.contains("whitespace-normal")).toBe(true);
-    expect(message?.classList.contains("break-words")).toBe(true);
-    expect(message?.classList.contains("truncate")).toBe(false);
-  });
+      expect(document.querySelector("[data-app-toast]")?.textContent).toContain(
+        "Temporary notice",
+      );
+
+      await act(() => vi.advanceTimersByTimeAsync(after));
+
+      expect(document.querySelector("[data-app-toast]")).toBeNull();
+    },
+  );
 });

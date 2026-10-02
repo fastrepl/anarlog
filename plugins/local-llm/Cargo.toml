@@ -21,7 +21,6 @@ tauri-plugin-store = { workspace = true }
 
 [dependencies]
 anlg-local-llm-core = { workspace = true, features = ["specta"] }
-anlg-local-model = { workspace = true }
 anlg-model-downloader = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }

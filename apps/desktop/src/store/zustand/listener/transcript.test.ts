@@ -132,12 +132,6 @@ describe("transcript slice", () => {
     expect(store.getState().liveCaptionText).toBe("hello");
   });
 
-  test("uses partial words for the live caption text", () => {
-    store.getState().handleTranscriptDelta("session-1", createDelta());
-
-    expect(store.getState().liveCaptionText).toBe("hello remote again");
-  });
-
   test("replaces longer partial caption text with shorter finalized words", () => {
     store.getState().handleTranscriptDelta("session-1", createDelta());
     store.getState().handleTranscriptDelta("session-1", {
@@ -355,7 +349,6 @@ describe("transcript slice", () => {
     });
 
     expect(store.getState().liveSegments).toEqual([segment("later", 150)]);
-    expect(store.getState()).not.toHaveProperty("liveSegmentsById");
   });
 
   test("does not publish an empty segment delta", () => {

@@ -245,28 +245,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn run_query_proxy_get_returns_empty_rows_when_query_is_empty() {
-        let db = test_db().await;
-        let executor = DbExecutor::new(std::sync::Arc::new(db));
-
-        sqlx::query("CREATE TABLE proxy_values (id TEXT PRIMARY KEY NOT NULL)")
-            .execute(executor.db.pool())
-            .await
-            .unwrap();
-
-        let result = executor
-            .execute_proxy(
-                "SELECT id FROM proxy_values WHERE id = ?".to_string(),
-                vec![json!("missing")],
-                ProxyQueryMethod::Get,
-            )
-            .await
-            .unwrap();
-
-        assert!(result.rows.is_empty());
-    }
-
-    #[tokio::test]
     async fn execute_proxy_supports_run_all_get_values_and_invalid_method() {
         let db = test_db().await;
         let executor = DbExecutor::new(std::sync::Arc::new(db));
@@ -310,6 +288,16 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(first_row.rows, vec![json!("row-1"), json!(42)]);
+
+        let empty_row = executor
+            .execute_proxy(
+                "SELECT id FROM proxy_values WHERE id = ?".to_string(),
+                vec![json!("missing")],
+                ProxyQueryMethod::Get,
+            )
+            .await
+            .unwrap();
+        assert!(empty_row.rows.is_empty());
 
         let values_rows = executor
             .execute_proxy(

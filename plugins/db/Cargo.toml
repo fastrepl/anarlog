@@ -19,9 +19,6 @@ anlg-e2ee = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
 anlg-session-ingest = { workspace = true }
 anlg-storage = { workspace = true }
-
-futures-util = { workspace = true }
-reqwest = { workspace = true, features = ["json", "query", "stream"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

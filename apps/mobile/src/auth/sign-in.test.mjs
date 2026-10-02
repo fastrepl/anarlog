@@ -8,8 +8,8 @@ import {
   parseLastSignInMethod,
 } from "./sign-in.ts";
 
-for (const provider of ["apple", "google", "azure", "github"]) {
-  test(`builds a direct ${provider} OAuth URL`, () => {
+test("builds direct sign-in URLs for each method and build scheme", () => {
+  for (const provider of ["apple", "google", "azure", "github"]) {
     const url = new URL(buildSignInUrl("https://anarlog.so/", provider));
 
     assert.equal(url.origin, "https://anarlog.so");
@@ -18,11 +18,9 @@ for (const provider of ["apple", "google", "azure", "github"]) {
     assert.equal(url.searchParams.get("scheme"), "anarlog");
     assert.equal(url.searchParams.get("provider"), provider);
     assert.equal(url.searchParams.has("view"), false);
-  });
-}
+  }
 
-for (const view of ["email", "sso"]) {
-  test(`builds a direct ${view} sign-in URL`, () => {
+  for (const view of ["email", "sso"]) {
     const url = new URL(buildSignInUrl("https://anarlog.so", view));
 
     assert.equal(url.pathname, "/auth");
@@ -30,8 +28,13 @@ for (const view of ["email", "sso"]) {
     assert.equal(url.searchParams.get("scheme"), "anarlog");
     assert.equal(url.searchParams.get("view"), view);
     assert.equal(url.searchParams.has("provider"), false);
-  });
-}
+  }
+
+  const staging = new URL(
+    buildSignInUrl("https://anarlog.so", "google", "anarlog-staging"),
+  );
+  assert.equal(staging.searchParams.get("scheme"), "anarlog-staging");
+});
 
 test("hides Sign in with Apple on Android", () => {
   assert.equal(isAppleSignInAvailable("android"), false);
@@ -62,12 +65,4 @@ test("reads the sign-in method carried by an auth callback", () => {
     null,
   );
   assert.equal(parseAuthCallbackSignInMethod("not a url"), null);
-});
-
-test("uses the current build scheme for sign-in callbacks", () => {
-  const url = new URL(
-    buildSignInUrl("https://anarlog.so", "google", "anarlog-staging"),
-  );
-
-  assert.equal(url.searchParams.get("scheme"), "anarlog-staging");
 });

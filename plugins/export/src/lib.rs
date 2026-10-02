@@ -98,35 +98,4 @@ mod test {
         let content = std::fs::read_to_string(OUTPUT_FILE).unwrap();
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
     }
-
-    fn create_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
-        let mut ctx = tauri::test::mock_context(tauri::test::noop_assets());
-        ctx.config_mut().identifier = "com.hyprnote.dev".to_string();
-        ctx.config_mut().version = Some("0.0.1".to_string());
-
-        builder.plugin(init()).build(ctx).unwrap()
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_export_pdf() {
-        let app = create_app(tauri::test::mock_builder());
-
-        app.export()
-            .export_pdf(
-                "test.pdf",
-                ExportInput {
-                    enhanced_md: "# Test Document\n\nThis is a test.".to_string(),
-                    memo_md: None,
-                    transcript: Some(Transcript {
-                        items: vec![TranscriptItem {
-                            speaker: Some("Speaker 1".to_string()),
-                            text: "Hello, world!".to_string(),
-                        }],
-                    }),
-                    metadata: None,
-                },
-            )
-            .unwrap();
-    }
 }

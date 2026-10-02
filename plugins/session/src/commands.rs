@@ -1,0 +1,201 @@
+use tauri::Manager;
+
+use crate::{
+    attachments, conflicts, creation, deletion, folder_catalog, folder_materials, move_contents,
+    participants, proposals,
+};
+
+macro_rules! session_write_command {
+    ($name:ident, $module:ident, $function:ident, $request:ty, $result:ty) => {
+        #[tauri::command]
+        #[specta::specta]
+        pub(crate) async fn $name<R: tauri::Runtime>(
+            app: tauri::AppHandle<R>,
+            request: $request,
+        ) -> Result<$result, String> {
+            let runtime = app
+                .try_state::<tauri_plugin_db::ManagedState>()
+                .map(|state| state.inner().clone())
+                .ok_or_else(|| "database is not ready yet".to_string())?;
+            let _guard = runtime.synced_write_guard().await;
+            $module::$function(runtime.pool(), request).await
+        }
+    };
+}
+
+session_write_command!(
+    create_session,
+    creation,
+    create_session,
+    creation::CreateSessionRequest,
+    String
+);
+session_write_command!(
+    create_session_for_event,
+    creation,
+    create_session_for_event,
+    creation::CreateEventSessionRequest,
+    Option<creation::EventSessionResult>
+);
+session_write_command!(
+    soft_delete_session,
+    deletion,
+    soft_delete_session,
+    deletion::TombstoneSessionRequest,
+    Option<deletion::DeletedSessionRow>
+);
+session_write_command!(
+    restore_deleted_session,
+    deletion,
+    restore_deleted_session,
+    deletion::TombstoneSessionRequest,
+    deletion::RestoreDeletedSessionOutcome
+);
+session_write_command!(
+    add_session_participant,
+    participants,
+    add_session_participant,
+    participants::AddSessionParticipantRequest,
+    ()
+);
+session_write_command!(
+    remove_session_participant,
+    participants,
+    remove_session_participant,
+    participants::RemoveSessionParticipantRequest,
+    ()
+);
+session_write_command!(
+    persist_chat_session_proposal,
+    proposals,
+    persist_chat_session_proposal,
+    proposals::PersistChatSessionProposalRequest,
+    ()
+);
+session_write_command!(
+    set_session_proposal_status,
+    proposals,
+    set_session_proposal_status,
+    proposals::SetSessionProposalStatusRequest,
+    ()
+);
+session_write_command!(
+    resolve_session_conflicts,
+    conflicts,
+    resolve_session_conflicts,
+    conflicts::ResolveSessionConflictsRequest,
+    ()
+);
+session_write_command!(
+    resolve_session_conflict,
+    conflicts,
+    resolve_session_conflict,
+    conflicts::ResolveSessionConflictRequest,
+    ()
+);
+session_write_command!(
+    move_session_contents,
+    move_contents,
+    move_session_contents,
+    move_contents::MoveSessionContentsRequest,
+    ()
+);
+
+session_write_command!(
+    catalog_note_attachment,
+    attachments,
+    catalog_note_attachment,
+    attachments::CatalogNoteAttachmentRequest,
+    ()
+);
+session_write_command!(
+    catalog_session_audio,
+    attachments,
+    catalog_session_audio,
+    attachments::CatalogSessionAudioRequest,
+    ()
+);
+session_write_command!(
+    mark_session_audio_transcription_complete,
+    attachments,
+    mark_session_audio_transcription_complete,
+    attachments::SessionAudioRequest,
+    ()
+);
+session_write_command!(
+    set_attachment_cloud_sync_enabled,
+    attachments,
+    set_attachment_cloud_sync_enabled,
+    attachments::SetAttachmentCloudSyncEnabledRequest,
+    ()
+);
+session_write_command!(
+    tombstone_session_audio,
+    attachments,
+    tombstone_session_audio,
+    attachments::SessionAudioRequest,
+    ()
+);
+session_write_command!(
+    mark_session_audio_absent,
+    attachments,
+    mark_session_audio_absent,
+    attachments::SessionAudioRequest,
+    ()
+);
+session_write_command!(
+    catalog_folder_material,
+    folder_materials,
+    catalog_folder_material,
+    folder_materials::CatalogFolderMaterialRequest,
+    ()
+);
+session_write_command!(
+    tombstone_folder_material,
+    folder_materials,
+    tombstone_folder_material,
+    folder_materials::TombstoneFolderMaterialRequest,
+    ()
+);
+session_write_command!(
+    ensure_folder_catalog,
+    folder_catalog,
+    ensure_folder_catalog,
+    folder_catalog::EnsureFolderCatalogRequest,
+    ()
+);
+session_write_command!(
+    rename_folder_catalog,
+    folder_catalog,
+    rename_folder_catalog,
+    folder_catalog::RenameFolderCatalogRequest,
+    ()
+);
+session_write_command!(
+    delete_folder_catalog,
+    folder_catalog,
+    delete_folder_catalog,
+    folder_catalog::DeleteFolderCatalogRequest,
+    ()
+);
+session_write_command!(
+    update_folder_instructions,
+    folder_catalog,
+    update_folder_instructions,
+    folder_catalog::UpdateFolderInstructionsRequest,
+    ()
+);
+session_write_command!(
+    update_folder_workspace,
+    folder_catalog,
+    update_folder_workspace,
+    folder_catalog::UpdateFolderWorkspaceRequest,
+    ()
+);
+session_write_command!(
+    update_folder_icon,
+    folder_catalog,
+    update_folder_icon,
+    folder_catalog::UpdateFolderIconRequest,
+    ()
+);

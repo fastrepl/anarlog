@@ -10,18 +10,29 @@ description = ""
 [dependencies]
 anlg-calendar = { workspace = true, features = ["specta"] }
 anlg-calendar-interface = { workspace = true }
+anlg-db-app = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-auth = { workspace = true }
+tauri-plugin-db = { workspace = true }
 tauri-plugin-permissions = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
+chrono = { workspace = true }
+indexmap = { workspace = true }
+regex = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 specta = { workspace = true, features = ["chrono"] }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros"] }
 thiserror = { workspace = true }
+unicode-normalization = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
 
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
+anlg-db-core = { workspace = true }
 specta-typescript = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }

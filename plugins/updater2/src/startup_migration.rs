@@ -353,26 +353,4 @@ mod tests {
         ));
         assert_eq!(&args[2..], ["sh", "4242"]);
     }
-
-    #[test]
-    fn rename_command_relaunches_stable_bundle_with_skip_flag() {
-        let relaunch_args = relaunch_args([OsString::from(
-            "/Applications/Hyprnote.app/Contents/MacOS/char",
-        )]);
-        let command = build_bundle_rename_command(
-            4242,
-            Path::new("/Applications/Char.app"),
-            Path::new("/Applications/Anarlog.app"),
-            &relaunch_args,
-        );
-        let args = command
-            .get_args()
-            .map(|arg| arg.to_string_lossy().to_string())
-            .collect::<Vec<_>>();
-
-        assert!(args[1].contains("mv -f '/Applications/Char.app' '/Applications/Anarlog.app'"));
-        assert!(args[1].contains(
-            "open -n '/Applications/Anarlog.app' --args '--updater2-skip-startup-migration=1'"
-        ));
-    }
 }

@@ -1,11 +1,4 @@
-import {
-  act,
-  cleanup,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetTabsStore } from "~/store/zustand/tabs/test-utils";
@@ -32,10 +25,6 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
-vi.mock("~/main/layout", () => ({
-  ClassicMainLayout: ({ children }: { children: React.ReactNode }) => children,
-}));
-
 vi.mock("~/contexts/shell", () => ({
   useShell: () => ({
     chat: {
@@ -45,51 +34,12 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("~/session", () => ({
-  TabContentNote: ({ standaloneWindow }: { standaloneWindow?: boolean }) => (
-    <div
-      data-testid="standalone-note"
-      data-standalone-window={standaloneWindow}
-    />
-  ),
-}));
-
-vi.mock("~/shared/main", () => ({
-  MainChatPanels: ({
-    autoSaveId,
-    children,
-    leftSidebarAvailable,
-    noteSurfaceMinWidth,
-  }: {
-    autoSaveId?: string;
-    children: React.ReactNode;
-    leftSidebarAvailable?: boolean;
-    noteSurfaceMinWidth?: number;
-  }) => (
-    <div
-      data-auto-save-id={autoSaveId}
-      data-left-sidebar-available={leftSidebarAvailable}
-      data-note-surface-min-width={noteSurfaceMinWidth}
-      data-testid="standalone-chat-panels"
-    >
-      {children}
-    </div>
-  ),
-}));
-
-vi.mock("~/shared/window-shell", () => ({
-  StandaloneWindowShell: ({ children }: { children: React.ReactNode }) =>
-    children,
-}));
-
 vi.mock("~/stt/contexts", () => ({
   useListener: (selector: (state: typeof mocks.listenerState) => unknown) =>
     selector(mocks.listenerState),
 }));
 
 import {
-  Route,
-  StandaloneNoteWindow,
   useAttachStandaloneNoteToLiveSession,
   useCloseStandaloneNoteWindowOnEscape,
   useStandaloneNoteTab,
@@ -124,15 +74,6 @@ describe("standalone note window route", () => {
     expect(mocks.close).toHaveBeenCalledTimes(1);
   });
 
-  it("ignores other keys", () => {
-    renderHook(() => useCloseStandaloneNoteWindowOnEscape());
-
-    const event = dispatchKeyDown("Enter");
-
-    expect(event.defaultPrevented).toBe(false);
-    expect(mocks.close).not.toHaveBeenCalled();
-  });
-
   it("closes chat before closing the standalone note window", () => {
     vi.useFakeTimers();
     mocks.chatMode = "FloatingOpen";
@@ -163,40 +104,6 @@ describe("standalone note window route", () => {
     expect(mocks.close).not.toHaveBeenCalled();
   });
 
-  it("mounts chat panels around the standalone note", () => {
-    vi.spyOn(Route, "useParams").mockReturnValue({
-      sessionId: "session-1",
-    });
-
-    render(<StandaloneNoteWindow />);
-
-    expect(
-      screen
-        .getByTestId("standalone-chat-panels")
-        .contains(screen.getByTestId("standalone-note")),
-    ).toBe(true);
-    expect(
-      screen
-        .getByTestId("standalone-note")
-        .getAttribute("data-standalone-window"),
-    ).toBe("true");
-    expect(
-      screen
-        .getByTestId("standalone-chat-panels")
-        .getAttribute("data-left-sidebar-available"),
-    ).toBe("false");
-    expect(
-      screen
-        .getByTestId("standalone-chat-panels")
-        .getAttribute("data-note-surface-min-width"),
-    ).toBe("420");
-    expect(
-      screen
-        .getByTestId("standalone-chat-panels")
-        .getAttribute("data-auto-save-id"),
-    ).toBe("standalone-note-chat");
-  });
-
   it("returns the subscribed standalone note tab after tab state updates", async () => {
     const { result } = renderHook(() => useStandaloneNoteTab("session-1"));
 
@@ -219,12 +126,6 @@ describe("standalone note window route", () => {
     });
 
     expect(result.current.state.view).toEqual({ type: "raw" });
-  });
-
-  it("attaches the standalone note to live session events", () => {
-    renderHook(() => useAttachStandaloneNoteToLiveSession("session-1"));
-
-    expect(mocks.attachLiveSession).toHaveBeenCalledWith("session-1");
   });
 
   it("reattaches after standalone live session events are removed", () => {

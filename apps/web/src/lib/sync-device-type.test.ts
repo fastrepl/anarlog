@@ -3,22 +3,22 @@ import test from "node:test";
 
 import { inferSyncDeviceType } from "./sync-device-type.ts";
 
-test("recognizes common mobile device names", () => {
-  assert.equal(inferSyncDeviceType("John's iPhone"), "mobile");
-  assert.equal(inferSyncDeviceType("Pixel 10 Pro"), "mobile");
-  assert.equal(inferSyncDeviceType("Galaxy Tab S11"), "mobile");
-  assert.equal(inferSyncDeviceType("SM-S938B"), "mobile");
-});
+test("infers the sync device type from common device names", () => {
+  const cases = [
+    ["John's iPhone", "mobile"],
+    ["Pixel 10 Pro", "mobile"],
+    ["Galaxy Tab S11", "mobile"],
+    ["SM-S938B", "mobile"],
+    ["MacBook-Pro.local", "desktop"],
+    ["Johns-M4-Max.local", "desktop"],
+    ["Mac Studio", "desktop"],
+    ["Windows desktop", "desktop"],
+    ["Johndow", "unknown"],
+    ["Work Mac", "unknown"],
+    [null, "unknown"],
+  ] as const;
 
-test("recognizes common desktop device names", () => {
-  assert.equal(inferSyncDeviceType("MacBook-Pro.local"), "desktop");
-  assert.equal(inferSyncDeviceType("Johns-M4-Max.local"), "desktop");
-  assert.equal(inferSyncDeviceType("Mac Studio"), "desktop");
-  assert.equal(inferSyncDeviceType("Windows desktop"), "desktop");
-});
-
-test("does not claim a device type for ambiguous names", () => {
-  assert.equal(inferSyncDeviceType("Johndow"), "unknown");
-  assert.equal(inferSyncDeviceType("Work Mac"), "unknown");
-  assert.equal(inferSyncDeviceType(null), "unknown");
+  for (const [name, expected] of cases) {
+    assert.equal(inferSyncDeviceType(name), expected, name ?? "null");
+  }
 });

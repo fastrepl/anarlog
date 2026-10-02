@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-apply-session-content-corrections"
+description = "Enables the apply_session_content_corrections command without any pre-configured scope."
+commands.allow = ["apply_session_content_corrections"]
+
+[[permission]]
+identifier = "deny-apply-session-content-corrections"
+description = "Denies the apply_session_content_corrections command without any pre-configured scope."
+commands.deny = ["apply_session_content_corrections"]

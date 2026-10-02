@@ -7,10 +7,8 @@ edition = "2024"
 reqwest = { workspace = true, features = ["json"] }
 schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
 thiserror = { workspace = true }
-url = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

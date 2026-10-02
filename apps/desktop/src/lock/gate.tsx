@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
@@ -26,6 +27,8 @@ export function AppLockGate({ children }: { children: ReactNode }) {
   const lockApp = useAppLock((state) => state.lockApp);
   const hint = useDeviceAuthHint();
   const promptedRef = useRef(false);
+  const visibilityEpochRef = useRef(0);
+  const hiddenAtMountRef = useRef(false);
   const [sessionStarted, setSessionStarted] = useState(false);
 
   useEffect(() => {
@@ -46,7 +49,13 @@ export function AppLockGate({ children }: { children: ReactNode }) {
       return;
     }
     promptedRef.current = true;
-    void unlockApp(DEVICE_AUTH_REASON.openApp);
+    if (getCurrentWebviewWindowLabel() !== "main") {
+      void unlockApp(DEVICE_AUTH_REASON.openApp);
+      return;
+    }
+    // A main window rebuilt in the background must not prompt until the
+    // user opens it; the visibility listener prompts then.
+    promptIfMainVisible(visibilityEpochRef, hiddenAtMountRef);
   }, [unlockApp, appUnlocked, authenticating, shouldLock]);
 
   useEffect(() => {
@@ -62,6 +71,8 @@ export function AppLockGate({ children }: { children: ReactNode }) {
         ) {
           return;
         }
+        visibilityEpochRef.current += 1;
+        hiddenAtMountRef.current = false;
 
         if (!payload.visible) {
           // Closing hides the main window. Lock now, but do not prompt until
@@ -84,8 +95,12 @@ export function AppLockGate({ children }: { children: ReactNode }) {
       .then((fn) => {
         if (cancelled) {
           fn();
-        } else {
-          unlisten = fn;
+          return;
+        }
+        unlisten = fn;
+        // A show event emitted before the listener was registered is lost.
+        if (hiddenAtMountRef.current) {
+          promptIfMainVisible(visibilityEpochRef, hiddenAtMountRef);
         }
       });
 
@@ -129,4 +144,25 @@ export function AppLockGate({ children }: { children: ReactNode }) {
       ) : null}
     </div>
   );
+}
+
+function promptIfMainVisible(
+  visibilityEpochRef: { current: number },
+  hiddenAtMountRef: { current: boolean },
+) {
+  const epoch = visibilityEpochRef.current;
+  void getCurrentWebviewWindow()
+    .isVisible()
+    .catch(() => true)
+    .then((visible) => {
+      if (epoch !== visibilityEpochRef.current) return;
+      if (!visible) {
+        hiddenAtMountRef.current = true;
+        return;
+      }
+      hiddenAtMountRef.current = false;
+      const state = useAppLock.getState();
+      if (state.appUnlocked || state.authenticating) return;
+      void state.unlockApp(DEVICE_AUTH_REASON.openApp);
+    });
 }

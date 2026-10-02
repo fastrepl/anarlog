@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-save-personal-contact"
+description = "Enables the save_personal_contact command without any pre-configured scope."
+commands.allow = ["save_personal_contact"]
+
+[[permission]]
+identifier = "deny-save-personal-contact"
+description = "Denies the save_personal_contact command without any pre-configured scope."
+commands.deny = ["save_personal_contact"]

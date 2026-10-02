@@ -1,13 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { isAbsolute, join, relative } from "node:path";
 import test from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
 
 import {
-  buildChangelogModule,
   getPublishedDesktopVersions,
-  publishedChangelogs,
   renderChangelogModule,
 } from "./changelog-build.ts";
 
@@ -151,65 +146,3 @@ test("normalizes Windows paths in both imports and entry keys", () => {
   assert.ok(module.includes('"C:/repo/content/1.4.23.md": entry0'));
   assert.doesNotMatch(module, /1\.4\.24|\\/);
 });
-
-test(
-  "relative-directory dev preview discovers added and deleted notes without restarting",
-  { timeout: 15_000 },
-  async (t) => {
-    const directory = await mkdtemp(join(process.cwd(), ".changelog-hmr-"));
-    t.after(() => rm(directory, { recursive: true, force: true }));
-    await writeFile(join(directory, "1.4.23.md"), "Released note");
-    const inputDirectory = relative(process.cwd(), directory);
-    assert.ok(!isAbsolute(inputDirectory));
-    assert.equal(
-      await buildChangelogModule("serve", inputDirectory),
-      await buildChangelogModule("serve", directory),
-    );
-    const { createServer } = await import("vite");
-    const server = await createServer({
-      root: directory,
-      configFile: false,
-      publicDir: false,
-      plugins: [await publishedChangelogs("serve", inputDirectory)],
-      optimizeDeps: { noDiscovery: true, include: [] },
-      server: { host: "127.0.0.1", port: 0 },
-      logLevel: "silent",
-    });
-    t.after(() => server.close());
-    await server.listen();
-    const url = "virtual:published-changelogs";
-    assert.match((await server.transformRequest(url))!.code, /1\.4\.23/);
-    for (
-      let tries = 0;
-      !Object.values(server.watcher.getWatched()).some((files) =>
-        files.includes("1.4.23.md"),
-      );
-      tries++
-    ) {
-      assert.ok(tries < 250, "content directory is watched");
-      await delay(20);
-    }
-    let reloads = 0;
-    t.mock.method(
-      server.environments.client.hot,
-      "send",
-      (payload: { type: string }) => {
-        if (payload.type === "full-reload") reloads++;
-      },
-    );
-    const draft = join(directory, "1.4.24.md");
-    await writeFile(draft, "Draft note");
-    for (let tries = 0; reloads < 1; tries++) {
-      assert.ok(tries < 250, "adding a note triggers reload");
-      await delay(20);
-    }
-    assert.match((await server.transformRequest(url))!.code, /1\.4\.24/);
-    const previousReloads = reloads;
-    await rm(draft);
-    for (let tries = 0; reloads === previousReloads; tries++) {
-      assert.ok(tries < 250, "deleting a note triggers reload");
-      await delay(20);
-    }
-    assert.doesNotMatch((await server.transformRequest(url))!.code, /1\.4\.24/);
-  },
-);

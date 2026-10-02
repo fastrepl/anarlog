@@ -199,7 +199,7 @@ pub fn uses_local_diarization(params: &BatchParams) -> bool {
 
 pub fn expects_progressive_batch(params: &BatchParams) -> bool {
     match params.provider {
-        BatchProvider::Am => {
+        BatchProvider::Am | BatchProvider::OpenAI => {
             let listen_params = owhisper_interface::ListenParams {
                 model: params.model.clone(),
                 languages: params.languages.clone(),
@@ -212,9 +212,6 @@ pub fn expects_progressive_batch(params: &BatchParams) -> bool {
             )
         }
         BatchProvider::WhisperLocal => true,
-        BatchProvider::OpenAI => {
-            OpenAIAdapter::supports_progressive_batch_model(params.model.as_deref())
-        }
         _ => false,
     }
 }
@@ -251,7 +248,7 @@ async fn run_batch_inner(
 
     let post_process = (runtime.clone(), params.clone(), listen_params.clone());
     let mut output = match params.provider {
-        BatchProvider::Am => {
+        BatchProvider::Am | BatchProvider::OpenAI => {
             let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params);
             if supports_progressive_batch(adapter_kind, listen_params.model.as_deref()) {
                 run_progressive_batch_session(runtime, params, listen_params).await
@@ -264,13 +261,6 @@ async fn run_batch_inner(
         }
         BatchProvider::Soniqo => run_soniqo_batch(runtime, params, listen_params).await,
         BatchProvider::AppleSpeech => run_apple_speech_batch(runtime, params, listen_params).await,
-        BatchProvider::OpenAI => {
-            if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) {
-                run_progressive_batch_session(runtime, params, listen_params).await
-            } else {
-                run_direct_batch_for_adapter_kind(AdapterKind::OpenAI, params, listen_params).await
-            }
-        }
         BatchProvider::DashScope => Err(crate::BatchFailure::BatchCapabilityUnsupported {
             provider: batch_provider_label(BatchProvider::DashScope),
         }
@@ -293,11 +283,16 @@ fn resolve_batch_adapter_kind(
     params: &BatchParams,
     listen_params: &owhisper_interface::ListenParams,
 ) -> AdapterKind {
-    AdapterKind::from_url_and_languages(
+    let resolved = AdapterKind::from_url_and_languages(
         &params.base_url,
         &listen_params.languages,
         listen_params.model.as_deref(),
-    )
+    );
+    if matches!(params.provider, BatchProvider::OpenAI) && resolved != AdapterKind::AmazonBedrock {
+        AdapterKind::OpenAI
+    } else {
+        resolved
+    }
 }
 
 fn supports_progressive_batch(adapter_kind: AdapterKind, model: Option<&str>) -> bool {
@@ -426,118 +421,95 @@ mod tests {
     }
 
     #[test]
-    fn build_listen_params_preserves_num_speakers() {
+    fn build_listen_params_preserves_speaker_options() {
         let mut params = batch_params(BatchProvider::Pyannote, "https://api.pyannote.ai");
         params.num_speakers = Some(3);
-
-        let listen_params = build_listen_params(&params, 2, 48_000);
-
-        assert_eq!(listen_params.num_speakers, Some(3));
-        assert_eq!(listen_params.channels, 2);
-        assert_eq!(listen_params.sample_rate, 48_000);
-    }
-
-    #[test]
-    fn build_listen_params_preserves_speaker_range_options() {
-        let mut params = batch_params(BatchProvider::Pyannote, "https://api.pyannote.ai");
         params.min_speakers = Some(2);
         params.max_speakers = Some(4);
 
-        let listen_params = build_listen_params(&params, 1, 16_000);
+        let listen_params = build_listen_params(&params, 2, 48_000);
+        assert_eq!(listen_params.num_speakers, Some(3));
         assert_eq!(listen_params.min_speakers, Some(2));
         assert_eq!(listen_params.max_speakers, Some(4));
+        assert_eq!(listen_params.channels, 2);
+        assert_eq!(listen_params.sample_rate, 48_000);
         assert!(listen_params.custom_query.is_none());
     }
 
     #[test]
-    fn am_routes_pyannote_to_direct_batch() {
-        let params = batch_params(BatchProvider::Am, "https://api.pyannote.ai");
-        let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params(None));
+    fn am_routes_each_backend_to_its_batch_mode() {
+        let cases = [
+            (
+                "https://api.pyannote.ai",
+                None,
+                AdapterKind::Pyannote,
+                false,
+            ),
+            (
+                "https://api.deepgram.com/v1",
+                None,
+                AdapterKind::Deepgram,
+                false,
+            ),
+            ("http://localhost:50060/v1", None, AdapterKind::Argmax, true),
+            (
+                "https://api.openai.com/v1",
+                Some("gpt-4o-transcribe"),
+                AdapterKind::OpenAI,
+                true,
+            ),
+            (
+                "https://api.openai.com/v1",
+                Some("gpt-4o-transcribe-diarize"),
+                AdapterKind::OpenAI,
+                false,
+            ),
+        ];
 
-        assert_eq!(adapter_kind, AdapterKind::Pyannote);
-        assert!(!supports_progressive_batch(adapter_kind, None));
+        for (base_url, model, expected_adapter_kind, expected_progressive) in cases {
+            let params = batch_params(BatchProvider::Am, base_url);
+            let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params(model));
+
+            assert_eq!(adapter_kind, expected_adapter_kind);
+            assert_eq!(
+                supports_progressive_batch(adapter_kind, model),
+                expected_progressive
+            );
+        }
     }
 
     #[test]
-    fn am_routes_deepgram_to_direct_batch() {
-        let params = batch_params(BatchProvider::Am, "https://api.deepgram.com/v1");
-        let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params(None));
+    fn only_local_batches_expect_progressive() {
+        let cases = [
+            (BatchProvider::Anarlog, "https://api.anarlog.so/stt", false),
+            (BatchProvider::Am, "https://api.anarlog.so/stt", false),
+            (BatchProvider::Am, "http://localhost:50060/v1", true),
+            (BatchProvider::OpenAI, "http://localhost:9000/v1", true),
+            (
+                BatchProvider::OpenAI,
+                "http://localhost:9000/v1?provider=amazon_bedrock",
+                false,
+            ),
+        ];
 
-        assert_eq!(adapter_kind, AdapterKind::Deepgram);
-        assert!(!supports_progressive_batch(adapter_kind, None));
+        for (provider, base_url, expected) in cases {
+            assert_eq!(
+                expects_progressive_batch(&batch_params(provider, base_url)),
+                expected
+            );
+        }
     }
 
     #[test]
-    fn am_routes_local_argmax_to_progressive_batch() {
-        let params = batch_params(BatchProvider::Am, "http://localhost:50060/v1");
-        let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params(None));
-
-        assert_eq!(adapter_kind, AdapterKind::Argmax);
-        assert!(supports_progressive_batch(adapter_kind, None));
-    }
-
-    #[test]
-    fn am_routes_openai_gpt_batch_to_progressive_batch() {
-        let params = batch_params(BatchProvider::Am, "https://api.openai.com/v1");
-        let adapter_kind =
-            resolve_batch_adapter_kind(&params, &listen_params(Some("gpt-4o-transcribe")));
-
-        assert_eq!(adapter_kind, AdapterKind::OpenAI);
-        assert!(supports_progressive_batch(
-            adapter_kind,
-            Some("gpt-4o-transcribe"),
-        ));
-    }
-
-    #[test]
-    fn am_routes_openai_diarized_batch_to_direct_batch() {
-        let params = batch_params(BatchProvider::Am, "https://api.openai.com/v1");
-        let adapter_kind =
-            resolve_batch_adapter_kind(&params, &listen_params(Some("gpt-4o-transcribe-diarize")));
-
-        assert_eq!(adapter_kind, AdapterKind::OpenAI);
-        assert!(!supports_progressive_batch(
-            adapter_kind,
-            Some("gpt-4o-transcribe-diarize"),
-        ));
-    }
-
-    #[test]
-    fn cloud_anarlog_batch_is_not_progressive() {
-        let params = batch_params(BatchProvider::Anarlog, "https://api.anarlog.so/stt");
-
-        assert!(!expects_progressive_batch(&params));
-    }
-
-    #[test]
-    fn cloud_am_batch_is_not_progressive() {
-        let params = batch_params(BatchProvider::Am, "https://api.anarlog.so/stt");
-
-        assert!(!expects_progressive_batch(&params));
-    }
-
-    #[test]
-    fn local_am_batch_is_progressive() {
-        let params = batch_params(BatchProvider::Am, "http://localhost:50060/v1");
-
-        assert!(expects_progressive_batch(&params));
-    }
-
-    #[test]
-    fn provider_upload_limit_errors_are_explained() {
-        let message = format_user_friendly_error(
+    fn provider_size_limit_errors_are_explained() {
+        let errors = [
             r#"UnexpectedStatus { status: 400, body: "Audio file exceeds the 25 MB multipart upload limit." }"#,
-        );
-
-        assert!(message.starts_with("This recording is too large"));
-    }
-
-    #[test]
-    fn provider_duration_limit_errors_are_explained() {
-        let message = format_user_friendly_error(
             r#"UnexpectedStatus { status: 400, body: "{\"error\":{\"message\":\"audio duration 1500.012 seconds is longer than 1400 seconds which is the maximum for this model\"}}" }"#,
-        );
+        ];
 
-        assert!(message.starts_with("This recording is too large"));
+        for error in errors {
+            let message = format_user_friendly_error(error);
+            assert!(message.starts_with("This recording is too large"));
+        }
     }
 }

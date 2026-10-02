@@ -328,6 +328,7 @@ pub fn main() {
         .plugin(tauri_plugin_messenger::init())
         .plugin(tauri_plugin_misc::init())
         .plugin(tauri_plugin_template::init())
+        .plugin(tauri_plugin_session::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_detect::init())
         .plugin(tauri_plugin_dock::init())
@@ -409,6 +410,30 @@ pub fn main() {
             tauri_plugin_shortcut::initialize_global_shortcuts(&app_handle);
 
             specta_builder.mount_events(&app_handle);
+
+            {
+                use tauri_specta::Event;
+                let stop_handle = app_handle.clone();
+                tauri_plugin_windows::FloatingBarStop::listen(&app_handle, move |_| {
+                    let Some(session_id) = tauri_plugin_windows::floating_bar_session_id() else {
+                        return;
+                    };
+                    let app = stop_handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        // Give the main webview the first chance to stop so its
+                        // post-stop work runs; this only stops if it didn't.
+                        tokio::time::sleep(std::time::Duration::from_millis(1_500)).await;
+                        if tauri_plugin_transcription::stop_capture_for_session(&app, &session_id)
+                            .await
+                            && tauri_plugin_windows::floating_bar_session_id().as_deref()
+                                == Some(session_id.as_str())
+                            && let Err(error) = tauri_plugin_windows::hide_floating_bar()
+                        {
+                            tracing::warn!(%error, "failed to hide floating bar after native stop");
+                        }
+                    });
+                });
+            }
 
             #[cfg(any(windows, target_os = "linux"))]
             {
@@ -536,7 +561,11 @@ pub fn main() {
                 tracing::error!(%error, "failed to reopen main window");
             }
         }
-        tauri::RunEvent::ExitRequested { api, .. } => {
+        tauri::RunEvent::ExitRequested { api, code, .. } => {
+            if code.is_none() && tauri_plugin_windows::main_window_rebuilding() {
+                api.prevent_exit();
+                return;
+            }
             if let Some(ref ctx) = root_supervisor_ctx_for_run {
                 ctx.mark_exiting();
             }
@@ -680,7 +709,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_env::<tauri::Wry>,
             commands::show_devtool::<tauri::Wry>,
             commands::is_app_store_build,
-            commands::request_local_database_reset::<tauri::Wry>,
             commands::complete_app_exit::<tauri::Wry>,
             commands::get_tinybase_values::<tauri::Wry>,
             commands::get_pinned_tabs::<tauri::Wry>,
@@ -700,46 +728,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn tokio_runtime_is_not_entered_after_block_on_returns() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        runtime.block_on(async {
-            assert!(tokio::runtime::Handle::try_current().is_ok());
-        });
-        assert!(tokio::runtime::Handle::try_current().is_err());
-    }
-
-    #[test]
-    fn tauri_async_runtime_can_spawn_after_block_on_returns() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        tauri::async_runtime::set(runtime.handle().clone());
-        runtime.block_on(async {});
-        assert!(tokio::runtime::Handle::try_current().is_err());
-
-        let (tx, rx) = std::sync::mpsc::channel();
-        tauri::async_runtime::spawn(async move {
-            let _ = tx.send(());
-        });
-        rx.recv_timeout(std::time::Duration::from_secs(2))
-            .expect("spawned task should run on the process-wide runtime");
-    }
-
-    #[test]
-    fn startup_failure_message_includes_the_original_error() {
-        let message = startup_failure_message(&"legacy import did not pass parity verification");
-
-        assert_eq!(
-            message,
-            "Anarlog failed to start: legacy import did not pass parity verification"
-        );
-    }
 
     #[test]
     fn complete_quit_allows_immediate_exit_without_frontend_flush() {

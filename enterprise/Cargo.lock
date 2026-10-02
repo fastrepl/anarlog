@@ -111,7 +111,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "meeting-capture",
- "serde",
  "serde_json",
  "thiserror",
  "tokio",

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-update-organization"
+description = "Enables the update_organization command without any pre-configured scope."
+commands.allow = ["update_organization"]
+
+[[permission]]
+identifier = "deny-update-organization"
+description = "Denies the update_organization command without any pre-configured scope."
+commands.deny = ["update_organization"]

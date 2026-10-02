@@ -12,7 +12,6 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dependencies]
 tauri = { workspace = true }
-tauri-plugin-windows = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }

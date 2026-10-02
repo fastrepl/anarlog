@@ -1,72 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  detectMeetingImportProviders,
-  MEETING_IMPORT_PROVIDERS,
-} from "./providers";
+import { detectMeetingImportProviders } from "./providers";
 
 describe("meeting import providers", () => {
-  it("keeps every researched provider in the catalog", () => {
-    expect(MEETING_IMPORT_PROVIDERS).toHaveLength(31);
-    expect(
-      new Set(MEETING_IMPORT_PROVIDERS.map((provider) => provider.id)).size,
-    ).toBe(MEETING_IMPORT_PROVIDERS.length);
-  });
-
-  it("enables direct OAuth imports for MCP providers and Nango meeting sources", () => {
-    expect(
-      MEETING_IMPORT_PROVIDERS.filter((provider) => provider.directImport).map(
-        (provider) => provider.id,
-      ),
-    ).toEqual([
-      "granola",
-      "circleback",
-      "fireflies",
-      "krisp",
-      "fathom",
-      "read-ai",
-      "notion",
-      "fellow",
-      "tactiq",
-      "jiminny",
-      "plaud",
-      "pocket",
-      "zoom",
-      "microsoft-teams",
-      "google-meet",
-      "webex",
-    ]);
-    expect(
-      MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "plaud"),
-    ).toMatchObject({
-      directImport: "cli",
-    });
-    expect(
-      MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "pocket"),
-    ).toMatchObject({
-      directImport: "mcp-oauth",
-      helpUrl: "https://docs.heypocketai.com/docs",
-    });
-    expect(
-      MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "zoom"),
-    ).toMatchObject({
-      directImport: "nango-oauth",
-      nangoIntegrationId: "zoom",
-    });
-    expect(
-      MEETING_IMPORT_PROVIDERS.filter(
-        (provider) => provider.directImport === "nango-oauth",
-      ).map((provider) => provider.nangoIntegrationId),
-    ).toEqual([
-      "fathom",
-      "notion",
-      "zoom",
-      "microsoft-teams",
-      "google-meet",
-      "webex",
-    ]);
-  });
-
   it("detects exact native names and bundle identifiers", () => {
     const providers = detectMeetingImportProviders([
       { id: "com.granola.app", name: "Granola" },

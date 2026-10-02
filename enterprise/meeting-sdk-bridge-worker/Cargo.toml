@@ -8,7 +8,6 @@ license-file.workspace = true
 anlg-meeting-capture.workspace = true
 
 chrono.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "process", "rt", "sync", "time"] }

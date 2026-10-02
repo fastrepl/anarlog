@@ -100,7 +100,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Auth supplies request headers; the user ID is the eligibility identity.
   const canTrialQuery = useQuery({
-    enabled: !!auth?.session && !billing.isPaid,
+    enabled: !!auth?.session && auth?.isFingerprintSettled && !billing.isPaid,
     queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
     queryFn: async () => {
       const headers = auth?.getHeaders();
@@ -137,6 +137,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   useQuery({
     enabled:
       !!auth?.session &&
+      auth?.isFingerprintSettled &&
       isReady &&
       claimsAreCurrent &&
       !billing.isPaid &&

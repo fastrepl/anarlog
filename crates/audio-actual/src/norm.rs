@@ -136,30 +136,30 @@ mod tests {
     use futures_util::StreamExt;
 
     #[tokio::test]
-    async fn test_normalize() {
-        let audio = rodio::Decoder::new(std::io::BufReader::new(
+    async fn normalize_preserves_sample_count_and_respects_true_peak_limit() {
+        let input_samples: Vec<f32> = rodio::Decoder::try_from(
             std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
-        ))
+        )
+        .unwrap()
+        .collect();
+        let audio = rodio::Decoder::try_from(
+            std::fs::File::open(anlg_data::english_1::AUDIO_PATH).unwrap(),
+        )
         .unwrap();
-
-        let sample_rate: u32 = audio.sample_rate().into();
         let mut normalized = audio.normalize();
+        let output_samples: Vec<f32> = normalized.as_stream().collect().await;
+        let peak_limit = 10_f32.powf(TRUE_PEAK_LIMIT as f32 / 20.0);
 
-        let mut writer = {
-            let spec = hound::WavSpec {
-                channels: 1,
-                sample_rate,
-                bits_per_sample: 32,
-                sample_format: hound::SampleFormat::Float,
-            };
-            let output_path = std::path::Path::new("./normalized_output.wav");
-            hound::WavWriter::create(output_path, spec).unwrap()
-        };
-
-        let mut stream = normalized.as_stream();
-        while let Some(sample) = stream.next().await {
-            writer.write_sample(sample).unwrap();
-        }
-        writer.finalize().unwrap();
+        assert_eq!(output_samples.len(), input_samples.len());
+        assert!(
+            output_samples
+                .iter()
+                .all(|sample| sample.abs() <= peak_limit + 1e-6),
+            "normalized samples exceeded the true peak limit"
+        );
+        assert!(
+            output_samples.iter().any(|sample| *sample != 0.0),
+            "normalized output was all zeros"
+        );
     }
 }

@@ -157,23 +157,27 @@ test("missing Team pricing fails before provisioning a customer", async () => {
   assert.equal(created, false);
 });
 
-for (const status of ["active", "trialing", "past_due", "unpaid"]) {
-  test(`${status} subscriptions reopen the portal instead of duplicating`, async () => {
+test("live subscriptions reopen the portal instead of duplicating", async () => {
+  for (const status of ["active", "trialing", "past_due", "unpaid"]) {
     const deps = dependencies();
     deps.value.listSubscriptions = async () => [{ status }];
 
     const result = await startWorkspaceCheckout(input, deps.value);
 
-    assert.equal(result.url, "https://billing.stripe.test/team");
-    assert.deepEqual(deps.checkoutInputs, []);
-    assert.deepEqual(deps.portalInputs, [
-      {
-        customerId: "cus_team123",
-        returnUrl: input.returnUrl,
-      },
-    ]);
-  });
-}
+    assert.equal(result.url, "https://billing.stripe.test/team", status);
+    assert.deepEqual(deps.checkoutInputs, [], status);
+    assert.deepEqual(
+      deps.portalInputs,
+      [
+        {
+          customerId: "cus_team123",
+          returnUrl: input.returnUrl,
+        },
+      ],
+      status,
+    );
+  }
+});
 
 test("an existing subscription can reach the portal without Team price config", async () => {
   const deps = dependencies();

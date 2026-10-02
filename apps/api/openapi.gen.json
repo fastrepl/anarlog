@@ -3799,6 +3799,76 @@
         ]
       }
     },
+    "/sync/meetings/{meeting_key}/devices": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "heartbeat_meeting_device",
+        "parameters": [
+          {
+            "name": "meeting_key",
+            "in": "path",
+            "description": "Opaque key derived from the calendar event",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-device-fingerprint",
+            "in": "header",
+            "description": "Fingerprint of the calling device",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingDeviceHeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Devices present for the meeting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingDevicesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid meeting key or device fingerprint"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "404": {
+            "description": "The calling device is not a registered sync device"
+          },
+          "502": {
+            "description": "Device service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/replica/credentials": {
       "post": {
         "tags": [
@@ -7336,6 +7406,13 @@
           }
         }
       },
+      "DriveExportFormat": {
+        "type": "string",
+        "enum": [
+          "markdown",
+          "google_docs"
+        ]
+      },
       "DriveExportRequest": {
         "type": "object",
         "required": [
@@ -7358,6 +7435,9 @@
           },
           "folder_id": {
             "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DriveExportFormat"
           },
           "markdown": {
             "type": "string"
@@ -7418,6 +7498,9 @@
           },
           "folder_id": {
             "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DriveExportFormat"
           },
           "meeting_id": {
             "type": "string"
@@ -9781,6 +9864,13 @@
           "ended_at": {
             "type": "string"
           },
+          "folder_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Folder path such as `Projects/Launch`; null when the meeting is not in a folder."
+          },
           "id": {
             "type": "string"
           },
@@ -9832,6 +9922,61 @@
           }
         }
       },
+      "MeetingDevice": {
+        "type": "object",
+        "required": [
+          "deviceFingerprint",
+          "primary"
+        ],
+        "properties": {
+          "deviceFingerprint": {
+            "type": "string"
+          },
+          "deviceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "primary": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MeetingDeviceHeartbeatRequest": {
+        "type": "object",
+        "required": [
+          "intent"
+        ],
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/MeetingDeviceIntent"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MeetingDeviceIntent": {
+        "type": "string",
+        "enum": [
+          "present",
+          "claim",
+          "release"
+        ]
+      },
+      "MeetingDevicesResponse": {
+        "type": "object",
+        "required": [
+          "devices"
+        ],
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingDevice"
+            }
+          }
+        }
+      },
       "MeetingExport": {
         "allOf": [
           {
@@ -9843,6 +9988,16 @@
               "transcripts"
             ],
             "properties": {
+              "speaker_context": {
+                "description": "Recorded microphone/call context intervals (`sessions.metadata_json`\n`speaker_context`) used to label speakers the same way the desktop\ntranscript view does."
+              },
+              "speakers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Speaker"
+                },
+                "description": "People referenced by transcript speaker assignments (including the\nrecording user) who may not appear among the meeting participants."
+              },
               "transcripts": {
                 "type": "array",
                 "items": {
@@ -9872,6 +10027,13 @@
           },
           "ended_at": {
             "type": "string"
+          },
+          "folder_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Folder path such as `Projects/Launch`; null when the meeting is not in a folder."
           },
           "id": {
             "type": "string"
@@ -11911,6 +12073,24 @@
             "format": "int64"
           },
           "session_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Speaker": {
+        "type": "object",
+        "required": [
+          "human_id",
+          "name"
+        ],
+        "properties": {
+          "human_id": {
+            "type": "string"
+          },
+          "is_self": {
+            "type": "boolean"
+          },
+          "name": {
             "type": "string"
           }
         }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { useDevtoolsMetrics } from "./metrics";
@@ -493,9 +494,8 @@ function Overview({ event }: Readonly<{ event: ScanEvent }>) {
 
 function Inspector() {
   const host = useRef<HTMLDivElement>(null);
-  useEffect(
-    () => (host.current ? mountScanInspector(host.current) : undefined),
-    [],
+  useMountEffect(() =>
+    host.current ? mountScanInspector(host.current) : undefined,
   );
   return (
     <div className="flex min-h-0 flex-1 flex-col">

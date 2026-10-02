@@ -14,6 +14,8 @@ pub enum Error {
     NoneSession,
     #[error("session already running")]
     SessionAlreadyRunning,
+    #[error("session storage unavailable")]
+    SessionStorageUnavailable,
     #[error("start session failed")]
     StartSessionFailed,
     #[error("capture snapshot unavailable")]

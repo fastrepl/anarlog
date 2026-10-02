@@ -16,6 +16,7 @@ export interface Ctx {
   to: Date;
   calendarIds: Set<string>;
   calendarTrackingIdToId: Map<string, string>;
+  calendars: Array<{ id: string; tracking_id_calendar: string }>;
 }
 
 export type CalendarSyncRange = {
@@ -46,6 +47,10 @@ export async function createCtx(
     to: range.to,
     calendarIds,
     calendarTrackingIdToId,
+    calendars: calendars.map((calendar) => ({
+      id: calendar.id,
+      tracking_id_calendar: calendar.tracking_id_calendar,
+    })),
   };
 }
 

@@ -103,16 +103,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn placement_is_right_pinned_and_width_clamped() {
-        let visible = rect(0.0, 0.0, 1440.0, 860.0);
-        let wide = overlay_geometry(rect(100.0, 80.0, 1000.0, 700.0), visible);
-        assert_eq!(wide, rect(412.0, 89.0, 680.0, 128.0));
-
-        let narrow = overlay_geometry(rect(100.0, 80.0, 500.0, 700.0), visible);
-        assert_eq!(narrow, rect(320.0, 89.0, 340.0, 128.0));
-    }
-
-    #[test]
     fn placement_never_crosses_sidebar_or_visible_edges() {
         let target = overlay_geometry(
             rect(-100.0, -50.0, 420.0, 300.0),

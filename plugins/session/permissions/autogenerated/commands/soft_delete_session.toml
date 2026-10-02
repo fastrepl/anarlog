@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-soft-delete-session"
+description = "Enables the soft_delete_session command without any pre-configured scope."
+commands.allow = ["soft_delete_session"]
+
+[[permission]]
+identifier = "deny-soft-delete-session"
+description = "Denies the soft_delete_session command without any pre-configured scope."
+commands.deny = ["soft_delete_session"]

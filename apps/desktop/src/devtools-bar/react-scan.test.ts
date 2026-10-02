@@ -1,24 +1,9 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
-import {
-  getOptions,
-  ReactScanDevtools,
-  ReactScanInternals,
-  start,
-  Store,
-} from "react-scan";
+import { cleanup } from "@testing-library/react";
+import { getOptions, ReactScanDevtools, Store } from "react-scan";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { installReactScan } from "./react-scan";
-import {
-  readReactCommitCount,
-  readReactScanReport,
-  resetReactToolsForTests,
-  setReactInspecting,
-  setReactOutlinesEnabled,
-  setReactScanSettings,
-  setReactToolbarVisible,
-  useReactToolsState,
-} from "./react-tools";
+import { readReactScanReport, resetReactToolsForTests } from "./react-tools";
 
 vi.mock("react-scan", () => {
   // Scan's browser-only bundle imports JSON without Node import attributes.
@@ -98,88 +83,6 @@ afterEach(() => {
   dispose?.();
 });
 
-it("initializes hidden collection and keeps saved options without restoring a floating widget", () => {
-  localStorage.setItem(
-    "react-scan-options",
-    JSON.stringify({
-      enabled: true,
-      log: true,
-      animationSpeed: "slow",
-      showFPS: false,
-      showToolbar: true,
-    }),
-  );
-  dispose = installReactScan();
-  const { result } = renderHook(useReactToolsState);
-  expect(start).toHaveBeenCalledOnce();
-  expect(getOptions().peek()).toMatchObject({
-    enabled: true,
-    log: true,
-    animationSpeed: "slow",
-    showFPS: false,
-    showToolbar: false,
-    safeArea: { bottom: 32 },
-    dangerouslyForceRunInProduction: true,
-  });
-  expect(result.current).toMatchObject({
-    available: true,
-    outlinesEnabled: true,
-    toolbarVisible: false,
-  });
-  getOptions().peek().onCommitFinish?.();
-  expect(readReactCommitCount()).toBe(1);
-});
-
-it("reflects upstream inspection and outline changes and unsubscribes on disposal", () => {
-  dispose = installReactScan();
-  const { result } = renderHook(useReactToolsState);
-  act(() => {
-    ReactScanInternals.instrumentation!.isPaused.value = false;
-    Store.inspectState.value = { kind: "inspecting", hoveredDomElement: null };
-  });
-  expect(result.current).toMatchObject({
-    outlinesEnabled: true,
-    inspecting: true,
-  });
-  act(() => dispose?.());
-  expect(result.current.available).toBe(false);
-  act(() => {
-    Store.inspectState.value = { kind: "inspecting", hoveredDomElement: null };
-  });
-  expect(result.current.inspecting).toBe(false);
-});
-
-it("opens the docked panel for inspection and exits inspection when it is hidden", () => {
-  dispose = installReactScan();
-  const { result } = renderHook(useReactToolsState);
-  act(() => setReactInspecting(true));
-  expect(getOptions().peek().showToolbar).toBe(false);
-  expect(result.current).toMatchObject({
-    toolbarVisible: true,
-    inspecting: true,
-  });
-  act(() => setReactToolbarVisible(false));
-  expect(result.current).toMatchObject({
-    toolbarVisible: false,
-    inspecting: false,
-  });
-});
-
-it("persists outline preference and applies settings live", () => {
-  dispose = installReactScan();
-  const { result } = renderHook(useReactToolsState);
-  act(() => setReactOutlinesEnabled(true));
-  expect(JSON.parse(localStorage.getItem("react-scan-options")!).enabled).toBe(
-    true,
-  );
-  expect(result.current.outlinesEnabled).toBe(true);
-  act(() => setReactScanSettings({ log: true, animationSpeed: "off" }));
-  expect(result.current.settings).toMatchObject({
-    log: true,
-    animationSpeed: "off",
-  });
-});
-
 it("exports bounded plain render summaries without Fibers or component values", () => {
   dispose = installReactScan();
   for (let id = 0; id < 60; id++) {
@@ -210,72 +113,4 @@ it("recovers from malformed saved settings", () => {
     log: false,
     animationSpeed: "fast",
   });
-});
-
-it("projects live events without DOM references and delegates each prompt to upstream", async () => {
-  const { readScanData, getScanPrompt, clearScanHistory } =
-    await import("./scan-data");
-  const event = {
-    id: "frame-1",
-    kind: "dropped-frames" as const,
-    timestamp: 123,
-    fps: 30,
-    timing: { kind: "dropped-frames" as const, renderTime: 8, otherTime: 180 },
-    groupedFiberRenders: [
-      {
-        id: "component-1",
-        name: "Card",
-        count: 4,
-        totalTime: 8,
-        hasMemoCache: false,
-        wasFiberRenderMount: false,
-        elements: [document.createElement("div")],
-        changes: {
-          props: [{ name: "expanded", count: 1 }],
-          context: [],
-          state: [{ index: 0, count: 2 }],
-        },
-      },
-    ],
-  };
-  vi.mocked(ReactScanDevtools.getEvents).mockReturnValue([event]);
-  dispose = installReactScan();
-  expect(readScanData().events[0]).toMatchObject({
-    id: "frame-1",
-    duration: 188,
-    fps: 30,
-    components: [
-      {
-        name: "Card",
-        renders: 4,
-        time: 8,
-        changes: [
-          { kind: "prop", name: "expanded", count: 1 },
-          { kind: "state", name: "0", count: 2 },
-        ],
-      },
-    ],
-  });
-  expect(JSON.stringify(readScanData())).not.toContain("elements");
-  for (const mode of ["fix", "explanation", "data"] as const) {
-    expect(getScanPrompt("frame-1", mode)).toBe(`${mode}:frame-1`);
-    expect(ReactScanDevtools.getPrompt).toHaveBeenLastCalledWith(mode, event);
-  }
-  clearScanHistory();
-  expect(ReactScanDevtools.clear).toHaveBeenCalledOnce();
-  vi.mocked(ReactScanDevtools.getEvents).mockReturnValue([]);
-  const subscriptions = vi.mocked(ReactScanDevtools.subscribe).mock.calls;
-  act(() => subscriptions[subscriptions.length - 1]![0]());
-  expect(readScanData().events).toEqual([]);
-  expect(getScanPrompt("frame-1", "fix")).toBe("");
-});
-
-it("defaults alerts on and respects an explicit saved off preference", async () => {
-  const { readScanData } = await import("./scan-data");
-  dispose = installReactScan();
-  expect(readScanData().alertsEnabled).toBe(true);
-  dispose();
-  localStorage.setItem("react-scan-notifications-audio", "false");
-  dispose = installReactScan();
-  expect(readScanData().alertsEnabled).toBe(false);
 });

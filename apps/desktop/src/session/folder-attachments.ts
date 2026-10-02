@@ -1,10 +1,10 @@
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands } from "@anlg/plugin-session";
 
 import { normalizeFolderPath } from "./folders";
 
-import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
+import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
-import { id } from "~/shared/utils";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
@@ -119,110 +119,19 @@ export async function catalogLocalFolderMaterial(input: {
     throw new Error("invalid attachment checksum");
   }
 
-  const relativePath = `materials/${attachmentId}`;
-  const metadataId = id();
-  const results = await enqueueDatabaseWrite(`folder:${folderPath}`, () =>
-    executeTransaction([
-      {
-        sql: `
-          UPDATE folder_attachments
-          SET
-            filename = ?,
-            content_type = ?,
-            size_bytes = ?,
-            sha256 = ?,
-            source_type = 'folder_material',
-            source_id = ?,
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-            deleted_at = NULL
-          WHERE id = (
-            SELECT id
-            FROM folder_attachments
-            WHERE folder_path = ?
-              AND relative_path = ?
-            ORDER BY deleted_at IS NULL DESC,
-              updated_at DESC,
-              id
-            LIMIT 1
-          )
-        `,
-        params: [
-          filename,
-          contentType,
-          input.sizeBytes,
-          input.sha256,
-          attachmentId,
-          folderPath,
-          relativePath,
-        ],
-      },
-      {
-        sql: `
-          INSERT INTO folder_attachments (
-            id,
-            workspace_id,
-            folder_path,
-            filename,
-            relative_path,
-            content_type,
-            size_bytes,
-            sha256,
-            storage_kind,
-            cloud_object_key,
-            source_type,
-            source_id,
-            metadata_json
-          )
-          SELECT
-            ?,
-            COALESCE((
-              SELECT session.workspace_id
-              FROM sessions AS session
-              WHERE session.deleted_at IS NULL
-                AND (session.folder_path = ? OR session.folder_path LIKE ?)
-              ORDER BY session.updated_at DESC, session.id
-              LIMIT 1
-            ), ''),
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            'local_file',
-            '',
-            'folder_material',
-            ?,
-            '{}'
-          WHERE NOT EXISTS (
-            SELECT 1
-            FROM folder_attachments
-            WHERE folder_path = ?
-              AND relative_path = ?
-              AND deleted_at IS NULL
-          )
-        `,
-        params: [
-          metadataId,
-          folderPath,
-          `${folderPath}/%`,
-          folderPath,
-          filename,
-          relativePath,
-          contentType,
-          input.sizeBytes,
-          input.sha256,
-          attachmentId,
-          folderPath,
-          relativePath,
-        ],
-      },
-    ]),
-  );
-
-  if ((results[0] ?? 0) + (results[1] ?? 0) !== 1) {
-    throw new Error("folder material is unavailable");
-  }
+  await enqueueDatabaseWrite(`folder:${folderPath}`, async () => {
+    const result = await commands.catalogFolderMaterial({
+      folder_path: folderPath,
+      attachment_id: attachmentId,
+      filename,
+      content_type: contentType,
+      size_bytes: input.sizeBytes,
+      sha256: input.sha256,
+    });
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  });
 }
 
 export async function deleteLocalFolderMaterial(input: {
@@ -231,25 +140,13 @@ export async function deleteLocalFolderMaterial(input: {
 }): Promise<void> {
   const folderPath = requireNamedFolderPath(input.folderPath);
   const attachmentId = requireBasename(input.attachmentId, "attachment ID");
-  const relativePath = `materials/${attachmentId}`;
-
   await enqueueDatabaseWrite(`folder:${folderPath}`, async () => {
-    const [updated = 0] = await executeTransaction([
-      {
-        sql: `
-          UPDATE folder_attachments
-          SET
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-            deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE folder_path = ?
-            AND relative_path = ?
-            AND deleted_at IS NULL
-        `,
-        params: [folderPath, relativePath],
-      },
-    ]);
-    if (updated !== 1) {
-      throw new Error("folder material is unavailable");
+    const tombstoned = await commands.tombstoneFolderMaterial({
+      folder_path: folderPath,
+      attachment_id: attachmentId,
+    });
+    if (tombstoned.status === "error") {
+      throw new Error(tombstoned.error);
     }
 
     const result = await fsSyncCommands.folderAttachmentRemove(

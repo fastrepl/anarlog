@@ -56,55 +56,105 @@ fn assert_pcm_wav_roundtrip(case: Case, bits_per_sample: u16) -> TestResult {
     Ok(())
 }
 
-macro_rules! float_roundtrip_cases {
-    ($($name:ident => { channels: $channels:expr, frames: $frames:expr, sample_rate: $sample_rate:expr }),+ $(,)?) => {
-        $(
-            #[test]
-            fn $name() -> TestResult {
-                assert_float_wav_roundtrip(Case {
-                    channels: $channels,
-                    frames: $frames,
-                    sample_rate: $sample_rate,
-                })
-            }
-        )+
-    };
+#[test]
+fn float_wav_roundtrips_across_chunk_boundaries() {
+    let cases = [
+        Case {
+            channels: 1,
+            frames: 0,
+            sample_rate: 16_000,
+        },
+        Case {
+            channels: 1,
+            frames: 1,
+            sample_rate: 16_000,
+        },
+        Case {
+            channels: 1,
+            frames: 4_096,
+            sample_rate: 16_000,
+        },
+        Case {
+            channels: 1,
+            frames: 4_097,
+            sample_rate: 16_000,
+        },
+        Case {
+            channels: 1,
+            frames: 12_345,
+            sample_rate: 16_000,
+        },
+        Case {
+            channels: 2,
+            frames: 0,
+            sample_rate: 48_000,
+        },
+        Case {
+            channels: 2,
+            frames: 1,
+            sample_rate: 48_000,
+        },
+        Case {
+            channels: 2,
+            frames: 4_096,
+            sample_rate: 48_000,
+        },
+        Case {
+            channels: 2,
+            frames: 4_097,
+            sample_rate: 48_000,
+        },
+        Case {
+            channels: 2,
+            frames: 11_111,
+            sample_rate: 48_000,
+        },
+    ];
+
+    for case in cases {
+        assert_float_wav_roundtrip(case).unwrap_or_else(|error| panic!("{case:?}: {error}"));
+    }
 }
 
-float_roundtrip_cases! {
-    mono_empty => { channels: 1, frames: 0, sample_rate: 16_000 },
-    mono_single_frame => { channels: 1, frames: 1, sample_rate: 16_000 },
-    mono_chunk_edge => { channels: 1, frames: 4_096, sample_rate: 16_000 },
-    mono_chunk_plus_one => { channels: 1, frames: 4_097, sample_rate: 16_000 },
-    mono_long => { channels: 1, frames: 12_345, sample_rate: 16_000 },
-    stereo_empty => { channels: 2, frames: 0, sample_rate: 48_000 },
-    stereo_single_frame => { channels: 2, frames: 1, sample_rate: 48_000 },
-    stereo_chunk_edge => { channels: 2, frames: 4_096, sample_rate: 48_000 },
-    stereo_chunk_plus_one => { channels: 2, frames: 4_097, sample_rate: 48_000 },
-    stereo_long => { channels: 2, frames: 11_111, sample_rate: 48_000 },
-}
+#[test]
+fn pcm_wav_roundtrips_each_bit_depth() {
+    let cases = [
+        (
+            8,
+            Case {
+                channels: 1,
+                frames: 4_096,
+                sample_rate: 16_000,
+            },
+        ),
+        (
+            16,
+            Case {
+                channels: 2,
+                frames: 8_192,
+                sample_rate: 44_100,
+            },
+        ),
+        (
+            24,
+            Case {
+                channels: 1,
+                frames: 8_192,
+                sample_rate: 22_050,
+            },
+        ),
+        (
+            32,
+            Case {
+                channels: 2,
+                frames: 6_321,
+                sample_rate: 48_000,
+            },
+        ),
+    ];
 
-macro_rules! pcm_roundtrip_cases {
-    ($($name:ident => { bits: $bits:expr, channels: $channels:expr, frames: $frames:expr, sample_rate: $sample_rate:expr }),+ $(,)?) => {
-        $(
-            #[test]
-            fn $name() -> TestResult {
-                assert_pcm_wav_roundtrip(
-                    Case {
-                        channels: $channels,
-                        frames: $frames,
-                        sample_rate: $sample_rate,
-                    },
-                    $bits,
-                )
-            }
-        )+
-    };
-}
-
-pcm_roundtrip_cases! {
-    roundtrip_pcm8_mono => { bits: 8, channels: 1, frames: 4_096, sample_rate: 16_000 },
-    roundtrip_pcm16_stereo => { bits: 16, channels: 2, frames: 8_192, sample_rate: 44_100 },
-    roundtrip_pcm24_mono => { bits: 24, channels: 1, frames: 8_192, sample_rate: 22_050 },
-    roundtrip_pcm32_stereo => { bits: 32, channels: 2, frames: 6_321, sample_rate: 48_000 },
+    for (bits_per_sample, case) in cases {
+        assert_pcm_wav_roundtrip(case, bits_per_sample)
+            .unwrap_or_else(|error| panic!("{bits_per_sample}-bit {case:?}: {error}"));
+    }
 }

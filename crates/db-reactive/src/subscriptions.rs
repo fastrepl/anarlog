@@ -448,7 +448,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delayed_old_broadcasts_are_ignored_after_activation() {
+    async fn activation_ignores_stale_broadcasts_and_enqueues_newer_ones() {
         let registry = Registry::<TestSink>::default();
         let registered = registry
             .register(
@@ -472,24 +472,6 @@ mod tests {
             .await;
 
         assert!(jobs.is_empty());
-    }
-
-    #[tokio::test]
-    async fn newer_broadcasts_enqueue_after_activation() {
-        let registry = Registry::<TestSink>::default();
-        let registered = registry
-            .register(
-                "SELECT id FROM daily_notes".to_string(),
-                vec![],
-                TestSink,
-                DependencyAnalysis::Reactive {
-                    targets: HashSet::from([DependencyTarget::Table("daily_notes".to_string())]),
-                },
-            )
-            .await;
-        let watch_id = registered.reactive_watch_id.unwrap();
-
-        assert!(registry.activate(watch_id, 11).await);
 
         let jobs = registry
             .collect_jobs(&HashMap::from([(
@@ -499,29 +481,6 @@ mod tests {
             .await;
 
         assert_eq!(jobs.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn reactive_registrations_report_stored_targets() {
-        let registry = Registry::<TestSink>::default();
-        let targets = HashSet::from([DependencyTarget::Table("daily_notes".to_string())]);
-        let registered = registry
-            .register(
-                "SELECT id FROM daily_notes".to_string(),
-                vec![],
-                TestSink,
-                DependencyAnalysis::Reactive {
-                    targets: targets.clone(),
-                },
-            )
-            .await;
-
-        assert_eq!(
-            registry
-                .dependency_analysis(&registered.registration.id)
-                .await,
-            Some(DependencyAnalysis::Reactive { targets })
-        );
     }
 
     #[tokio::test]

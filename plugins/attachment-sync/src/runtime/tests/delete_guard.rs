@@ -1,5 +1,37 @@
 use super::*;
 
+struct DeleteGuardTestInputs {
+    source_path: PathBuf,
+    key: WorkspaceKey,
+    context: AttachmentBlobContext,
+    expected: AttachmentBlobPlaintextMetadata,
+}
+
+fn delete_guard_test_inputs(directory: &Path, canonical: &[u8]) -> DeleteGuardTestInputs {
+    let source_path = directory.join("source.bin");
+    std::fs::write(&source_path, canonical).unwrap();
+
+    let key = anlg_e2ee::RecoveryKey::generate()
+        .unwrap()
+        .workspace_key("workspace-a")
+        .unwrap();
+    let context =
+        AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
+            .unwrap();
+    let expected = AttachmentBlobPlaintextMetadata::from_hex(
+        canonical.len() as u64,
+        &hex_digest(Sha256::digest(canonical).as_slice()),
+    )
+    .unwrap();
+
+    DeleteGuardTestInputs {
+        source_path,
+        key,
+        context,
+        expected,
+    }
+}
+
 fn delete_source_record(cloud_sync_enabled: i64) -> DeleteSourcePreflight {
     DeleteSourcePreflight {
         attachment_id: "attachment-1".to_string(),
@@ -88,47 +120,19 @@ fn delete_backup_refs_are_stable_for_persisted_job_metadata() {
 }
 
 #[test]
-fn delete_source_hash_detects_missing_and_changed_local_bytes() {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("attachment.bin");
-    let bytes = b"preserved attachment";
-    let sha256 = hex_digest(Sha256::digest(bytes).as_slice());
-
-    assert!(!file_matches(&path, bytes.len() as u64, &sha256).unwrap());
-    std::fs::write(&path, bytes).unwrap();
-    assert!(file_matches(&path, bytes.len() as u64, &sha256).unwrap());
-    std::fs::write(&path, b"different attachment").unwrap();
-    assert!(!file_matches(&path, bytes.len() as u64, &sha256).unwrap());
-}
-
-#[test]
 fn delete_guard_restores_canonical_bytes_and_preserves_a_conflict() {
     let directory = tempfile::tempdir().unwrap();
-    let source_path = directory.path().join("source.bin");
+    let inputs = delete_guard_test_inputs(directory.path(), b"canonical private attachment");
     let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
     let destination_path = directory.path().join("destination.bin");
     let canonical = b"canonical private attachment";
     let local_edit = b"different local attachment";
-    std::fs::write(&source_path, canonical).unwrap();
-
-    let key = anlg_e2ee::RecoveryKey::generate()
-        .unwrap()
-        .workspace_key("workspace-a")
-        .unwrap();
-    let context =
-        AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
-            .unwrap();
-    let expected = AttachmentBlobPlaintextMetadata::from_hex(
-        canonical.len() as u64,
-        &hex_digest(Sha256::digest(canonical).as_slice()),
-    )
-    .unwrap();
     let (metadata, guard) = seal_delete_guard(
-        &key,
-        &context,
-        &source_path,
+        &inputs.key,
+        &inputs.context,
+        &inputs.source_path,
         &guard_path,
-        &expected,
+        &inputs.expected,
         &tokio_util::sync::CancellationToken::new(),
     )
     .unwrap();
@@ -144,11 +148,11 @@ fn delete_guard_restores_canonical_bytes_and_preserves_a_conflict() {
         );
     }
 
-    std::fs::write(&source_path, b"source changed after delete began").unwrap();
+    std::fs::write(&inputs.source_path, b"source changed after delete began").unwrap();
     std::fs::write(&destination_path, local_edit).unwrap();
     let staged = stage_delete_guard_restore(
-        &key,
-        &context,
+        &inputs.key,
+        &inputs.context,
         &guard_path,
         directory.path(),
         &metadata,
@@ -159,7 +163,7 @@ fn delete_guard_restores_canonical_bytes_and_preserves_a_conflict() {
         staged,
         &destination_path,
         canonical.len() as u64,
-        &expected.sha256_hex(),
+        &inputs.expected.sha256_hex(),
     )
     .unwrap();
 
@@ -168,8 +172,8 @@ fn delete_guard_restores_canonical_bytes_and_preserves_a_conflict() {
     assert_eq!(std::fs::read(&conflicts[0]).unwrap(), local_edit);
 
     let staged = stage_delete_guard_restore(
-        &key,
-        &context,
+        &inputs.key,
+        &inputs.context,
         &guard_path,
         directory.path(),
         &metadata,
@@ -181,7 +185,7 @@ fn delete_guard_restores_canonical_bytes_and_preserves_a_conflict() {
             staged,
             &destination_path,
             canonical.len() as u64,
-            &expected.sha256_hex(),
+            &inputs.expected.sha256_hex(),
         )
         .unwrap()
         .is_empty()
@@ -191,36 +195,23 @@ fn delete_guard_restores_canonical_bytes_and_preserves_a_conflict() {
 #[test]
 fn delete_guard_restores_a_missing_destination() {
     let directory = tempfile::tempdir().unwrap();
-    let source_path = directory.path().join("source.bin");
-    let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
     let destination_path = directory.path().join("missing.bin");
     let canonical = b"attachment recovered after remote delete";
-    std::fs::write(&source_path, canonical).unwrap();
-    let key = anlg_e2ee::RecoveryKey::generate()
-        .unwrap()
-        .workspace_key("workspace-a")
-        .unwrap();
-    let context =
-        AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
-            .unwrap();
-    let expected = AttachmentBlobPlaintextMetadata::from_hex(
-        canonical.len() as u64,
-        &hex_digest(Sha256::digest(canonical).as_slice()),
-    )
-    .unwrap();
+    let inputs = delete_guard_test_inputs(directory.path(), canonical);
+    let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
     let (metadata, guard) = seal_delete_guard(
-        &key,
-        &context,
-        &source_path,
+        &inputs.key,
+        &inputs.context,
+        &inputs.source_path,
         &guard_path,
-        &expected,
+        &inputs.expected,
         &tokio_util::sync::CancellationToken::new(),
     )
     .unwrap();
     guard.disarm();
     let staged = stage_delete_guard_restore(
-        &key,
-        &context,
+        &inputs.key,
+        &inputs.context,
         &guard_path,
         directory.path(),
         &metadata,
@@ -233,7 +224,7 @@ fn delete_guard_restores_a_missing_destination() {
             staged,
             &destination_path,
             canonical.len() as u64,
-            &expected.sha256_hex(),
+            &inputs.expected.sha256_hex(),
         )
         .unwrap()
         .is_empty()
@@ -289,66 +280,37 @@ fn delete_guard_retry_keeps_the_plaintext_stage() {
 }
 
 #[test]
-fn cancelled_delete_guard_seal_removes_partial_ciphertext() {
+fn cancelled_delete_guard_seal_and_restore_leave_no_partial_files() {
     let directory = tempfile::tempdir().unwrap();
-    let source_path = directory.path().join("source.bin");
-    let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
     let canonical = b"attachment whose delete was cancelled";
-    std::fs::write(&source_path, canonical).unwrap();
-    let key = anlg_e2ee::RecoveryKey::generate()
-        .unwrap()
-        .workspace_key("workspace-a")
-        .unwrap();
-    let context =
-        AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
-            .unwrap();
-    let expected = AttachmentBlobPlaintextMetadata::from_hex(
-        canonical.len() as u64,
-        &hex_digest(Sha256::digest(canonical).as_slice()),
-    )
-    .unwrap();
+    let inputs = delete_guard_test_inputs(directory.path(), canonical);
+    let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
     let cancellation = tokio_util::sync::CancellationToken::new();
     cancellation.cancel();
 
     assert!(matches!(
         seal_delete_guard(
-            &key,
-            &context,
-            &source_path,
+            &inputs.key,
+            &inputs.context,
+            &inputs.source_path,
             &guard_path,
-            &expected,
+            &inputs.expected,
             &cancellation,
         ),
         Err(Error::Cancelled)
     ));
     assert!(!guard_path.exists());
-}
 
-#[test]
-fn cancelled_delete_guard_restore_removes_plaintext_stage() {
     let directory = tempfile::tempdir().unwrap();
-    let source_path = directory.path().join("source.bin");
-    let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
     let canonical = b"attachment whose restore was cancelled";
-    std::fs::write(&source_path, canonical).unwrap();
-    let key = anlg_e2ee::RecoveryKey::generate()
-        .unwrap()
-        .workspace_key("workspace-a")
-        .unwrap();
-    let context =
-        AttachmentBlobContext::new("workspace-a", "attachment-a", Uuid::new_v4().to_string())
-            .unwrap();
-    let expected = AttachmentBlobPlaintextMetadata::from_hex(
-        canonical.len() as u64,
-        &hex_digest(Sha256::digest(canonical).as_slice()),
-    )
-    .unwrap();
+    let inputs = delete_guard_test_inputs(directory.path(), canonical);
+    let guard_path = directory.path().join(format!("{}.anb1", Uuid::new_v4()));
     let (metadata, guard) = seal_delete_guard(
-        &key,
-        &context,
-        &source_path,
+        &inputs.key,
+        &inputs.context,
+        &inputs.source_path,
         &guard_path,
-        &expected,
+        &inputs.expected,
         &tokio_util::sync::CancellationToken::new(),
     )
     .unwrap();
@@ -358,8 +320,8 @@ fn cancelled_delete_guard_restore_removes_plaintext_stage() {
 
     assert!(matches!(
         stage_delete_guard_restore(
-            &key,
-            &context,
+            &inputs.key,
+            &inputs.context,
             &guard_path,
             directory.path(),
             &metadata,

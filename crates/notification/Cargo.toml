@@ -8,7 +8,6 @@ default = ["legacy"]
 legacy = ["dep:anlg-notification-macos", "dep:anlg-notification-linux", "dep:anlg-notification-windows"]
 
 [dependencies]
-serde = { workspace = true, features = ["derive"] }
 tracing = { workspace = true }
 
 anlg-notification-interface = { workspace = true }

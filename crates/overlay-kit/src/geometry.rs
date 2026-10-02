@@ -100,23 +100,23 @@ mod tests {
     use super::CheckedRect;
 
     #[test]
-    fn rejects_non_finite_components() {
-        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-            assert!(CheckedRect::new(value, 0.0, 1.0, 1.0).is_none());
-            assert!(CheckedRect::new(0.0, value, 1.0, 1.0).is_none());
-            assert!(CheckedRect::new(0.0, 0.0, value, 1.0).is_none());
-            assert!(CheckedRect::new(0.0, 0.0, 1.0, value).is_none());
+    fn rejects_invalid_rectangles() {
+        let cases = [
+            (f64::NAN, 0.0, 1.0, 1.0),
+            (0.0, f64::INFINITY, 1.0, 1.0),
+            (0.0, 0.0, f64::NEG_INFINITY, 1.0),
+            (0.0, 0.0, 1.0, f64::NAN),
+            (0.0, 0.0, 0.0, 1.0),
+            (0.0, 0.0, 1.0, -1.0),
+            (f64::MAX, 0.0, f64::MAX, 1.0),
+            (0.0, f64::MAX, 1.0, f64::MAX),
+        ];
+        for (x, y, width, height) in cases {
+            assert!(
+                CheckedRect::new(x, y, width, height).is_none(),
+                "{x}, {y}, {width}, {height}"
+            );
         }
-    }
-
-    #[test]
-    fn rejects_non_positive_extents_and_overflowing_edges() {
-        assert!(CheckedRect::new(0.0, 0.0, 0.0, 1.0).is_none());
-        assert!(CheckedRect::new(0.0, 0.0, 1.0, 0.0).is_none());
-        assert!(CheckedRect::new(0.0, 0.0, -1.0, 1.0).is_none());
-        assert!(CheckedRect::new(0.0, 0.0, 1.0, -1.0).is_none());
-        assert!(CheckedRect::new(f64::MAX, 0.0, f64::MAX, 1.0).is_none());
-        assert!(CheckedRect::new(0.0, f64::MAX, 1.0, f64::MAX).is_none());
     }
 
     #[test]

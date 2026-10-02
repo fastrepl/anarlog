@@ -15,11 +15,9 @@ specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
+specta = { workspace = true }
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-opener = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
-
-serde = { workspace = true }
-specta = { workspace = true }
 
 thiserror = { workspace = true }

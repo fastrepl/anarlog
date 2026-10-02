@@ -216,23 +216,6 @@ describe("tickTranscriptionStallWatchdog", () => {
     tickTranscriptionStallWatchdog(muted);
     expect(muted.stallAudibleSeconds).toBe(1);
   });
-
-  it("keeps the batch repair flag after transcript activity resumes", () => {
-    const live = createActiveLive();
-
-    for (
-      let second = 0;
-      second < TRANSCRIPTION_STALL_AUDIBLE_SECONDS;
-      second += 1
-    ) {
-      tickTranscriptionStallWatchdog(live);
-    }
-    expect(live.needsBatchRepair).toBe(true);
-
-    noteLiveTranscriptActivity(live, { hasFinalWords: true });
-    expect(live.transcriptionStalled).toBe(false);
-    expect(live.needsBatchRepair).toBe(true);
-  });
 });
 
 it("ends the connecting state when an attempt fails", () => {

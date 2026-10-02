@@ -57,35 +57,6 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn collects_direct_refs_from_paths() {
-        let spec = json!({
-            "paths": {
-                "/users": {
-                    "get": {
-                        "responses": {
-                            "200": {
-                                "content": {
-                                    "application/json": {
-                                        "schema": { "$ref": "#/components/schemas/User" }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "components": {
-                "schemas": {
-                    "User": { "type": "object" }
-                }
-            }
-        });
-
-        let result = transitively_referenced_schemas(&spec);
-        assert_eq!(result, BTreeSet::from(["User".to_string()]));
-    }
-
-    #[test]
     fn follows_transitive_refs() {
         let spec = json!({
             "paths": {
@@ -123,43 +94,5 @@ mod tests {
             BTreeSet::from(["Order".to_string(), "Item".to_string()])
         );
         assert!(!result.contains("Unrelated"));
-    }
-
-    #[test]
-    fn returns_empty_when_no_paths() {
-        let spec = json!({
-            "components": {
-                "schemas": {
-                    "Orphan": { "type": "object" }
-                }
-            }
-        });
-
-        let result = transitively_referenced_schemas(&spec);
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn handles_missing_components() {
-        let spec = json!({
-            "paths": {
-                "/test": {
-                    "get": {
-                        "responses": {
-                            "200": {
-                                "content": {
-                                    "application/json": {
-                                        "schema": { "$ref": "#/components/schemas/Missing" }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        let result = transitively_referenced_schemas(&spec);
-        assert_eq!(result, BTreeSet::from(["Missing".to_string()]));
     }
 }

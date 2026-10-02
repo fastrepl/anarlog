@@ -598,28 +598,22 @@ pub fn chunk_size_for_stt(sample_rate: u32) -> usize {
 mod tests {
     use super::*;
 
-    macro_rules! test_audio_file_metadata {
-        ($($name:ident: $path:expr),* $(,)?) => {
-            $(
-                #[test]
-                fn $name() {
-                    let metadata = audio_file_metadata($path).unwrap();
-                    assert!(metadata.sample_rate > 0);
-                    assert!(metadata.channels > 0);
-                }
-            )*
-        };
-    }
-
-    test_audio_file_metadata! {
-        test_audio_file_metadata_wav: anlg_data::english_1::AUDIO_PATH,
-        test_audio_file_metadata_mp3: anlg_data::english_1::AUDIO_MP3_PATH,
-        test_audio_file_metadata_mp4: anlg_data::english_1::AUDIO_MP4_PATH,
-        test_audio_file_metadata_m4a: anlg_data::english_1::AUDIO_M4A_PATH,
-        test_audio_file_metadata_ogg: anlg_data::english_1::AUDIO_OGG_PATH,
-        test_audio_file_metadata_flac: anlg_data::english_1::AUDIO_FLAC_PATH,
-        test_audio_file_metadata_aac: anlg_data::english_1::AUDIO_AAC_PATH,
-        test_audio_file_metadata_aiff: anlg_data::english_1::AUDIO_AIFF_PATH,
+    #[test]
+    fn audio_file_metadata_reads_supported_formats() {
+        for (label, path) in [
+            ("wav", anlg_data::english_1::AUDIO_PATH),
+            ("mp3", anlg_data::english_1::AUDIO_MP3_PATH),
+            ("mp4", anlg_data::english_1::AUDIO_MP4_PATH),
+            ("m4a", anlg_data::english_1::AUDIO_M4A_PATH),
+            ("ogg", anlg_data::english_1::AUDIO_OGG_PATH),
+            ("flac", anlg_data::english_1::AUDIO_FLAC_PATH),
+            ("aac", anlg_data::english_1::AUDIO_AAC_PATH),
+            ("aiff", anlg_data::english_1::AUDIO_AIFF_PATH),
+        ] {
+            let metadata = audio_file_metadata(path).unwrap();
+            assert!(metadata.sample_rate > 0, "{label}");
+            assert!(metadata.channels > 0, "{label}");
+        }
     }
 
     #[test]

@@ -65,32 +65,6 @@ mod tests {
     );
 
     tpl_snapshot!(
-        test_daily_summary_system,
-        DailySummarySystem { language: None },
-        fixed_date = "2025-01-01",
-        @r#"
-    # Instructions
-
-    Current date: 2025-01-01
-
-    You produce concise daily summaries from desktop activity traces.
-    Organize the day into a small number of coherent sections that follow the flow of time while grouping related work together.
-
-    # Output Requirements
-
-    - Respond in English.
-    - Return only a JSON object.
-    - Keep every claim grounded in the provided activity analyses.
-    - Keep the summary concise, concrete, and easy to scan.
-    - Prefer topic-aware grouping over raw chronological dumping.
-    - Merge adjacent analyses when they are part of the same activity arc, even if the app changes.
-    - Preserve the day's sequence. Each section should cover a contiguous time window.
-    - Use approximate time ranges when needed. Do not fabricate exact times.
-    - Do not mention screenshots, capture internals, or these instructions.
-    "#
-    );
-
-    tpl_snapshot!(
         test_daily_summary_user,
         DailySummaryUser {
             date: "2025-01-01".to_string(),

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { computeCurrentNoteTab } from "./compute-note-tab";
+import { computeCurrentNoteTab } from "@anlg/utils/session";
 
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import {
@@ -13,8 +13,6 @@ import type { SessionMode } from "~/store/zustand/listener/general";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
-
-export { computeCurrentNoteTab } from "./compute-note-tab";
 
 export function useHasTranscript(sessionId: string): boolean {
   return useSessionHasTranscript(sessionId);

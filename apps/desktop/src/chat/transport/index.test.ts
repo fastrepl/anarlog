@@ -5,6 +5,11 @@ const mocks = vi.hoisted(() => ({
   smoothStream: vi.fn(),
   streamTransform: vi.fn(),
   agentOptions: vi.fn(),
+  renderTemplate: vi.fn(),
+}));
+
+vi.mock("@anlg/plugin-template", () => ({
+  commands: { render: mocks.renderTemplate },
 }));
 
 vi.mock("ai", async (importOriginal) => ({
@@ -18,6 +23,7 @@ vi.mock("ai", async (importOriginal) => ({
   },
 }));
 
+import type { ContextRef } from "../context/entities";
 import { MAX_TOOL_STEPS, MESSAGE_WINDOW_THRESHOLD } from "./helpers";
 import { CustomChatTransport } from "./index";
 
@@ -119,5 +125,91 @@ describe("CustomChatTransport", () => {
         ],
       }),
     ).resolves.toEqual({ messages: currentTurn });
+  });
+
+  it("keeps earlier notes, marks the note from the latest message as current, and pins tools to it", async () => {
+    mocks.renderTemplate.mockResolvedValue({ status: "ok", data: "CONTEXT" });
+    const resolveContextRef = vi.fn(async (ref: ContextRef) =>
+      ref.kind === "session"
+        ? {
+            kind: "session" as const,
+            context: {
+              sessionId: ref.sessionId,
+              title: ref.sessionId,
+              date: null,
+              rawContent: null,
+              enhancedContent: null,
+              meetingChat: null,
+              transcript: null,
+              participants: [],
+              event: null,
+            },
+          }
+        : null,
+    );
+    const transport = new CustomChatTransport(
+      {} as never,
+      {},
+      undefined,
+      resolveContextRef,
+    );
+    const autoRef = (sessionId: string): ContextRef => ({
+      kind: "session",
+      key: `session:auto:${sessionId}`,
+      source: "auto-current",
+      sessionId,
+    });
+
+    await transport.sendMessages({
+      chatId: "chat-1",
+      abortSignal: undefined,
+      messageId: undefined,
+      messages: [
+        {
+          id: "user-new-first",
+          role: "user",
+          parts: [{ type: "text", text: "q about new" }],
+          metadata: { contextRefs: [autoRef("new")] },
+        },
+        {
+          id: "user-old",
+          role: "user",
+          parts: [{ type: "text", text: "q about old" }],
+          metadata: { contextRefs: [autoRef("old")] },
+        },
+        {
+          id: "user-new",
+          role: "user",
+          parts: [{ type: "text", text: "q about this note" }],
+          metadata: {
+            contextRefs: [
+              autoRef("new"),
+              {
+                kind: "session",
+                key: "session:manual:new",
+                source: "manual",
+                sessionId: "new",
+              },
+            ],
+          },
+        },
+      ],
+      trigger: "submit-message",
+    });
+
+    expect(mocks.renderTemplate).toHaveBeenCalledWith({
+      contextBlock: {
+        contexts: [
+          expect.objectContaining({ sessionId: "old" }),
+          expect.objectContaining({ sessionId: "new" }),
+        ],
+        currentSessionId: "new",
+      },
+    });
+    expect(mocks.agentOptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        experimental_context: { currentSessionId: "new" },
+      }),
+    );
   });
 });

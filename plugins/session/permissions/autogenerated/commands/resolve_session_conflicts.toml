@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-resolve-session-conflicts"
+description = "Enables the resolve_session_conflicts command without any pre-configured scope."
+commands.allow = ["resolve_session_conflicts"]
+
+[[permission]]
+identifier = "deny-resolve-session-conflicts"
+description = "Denies the resolve_session_conflicts command without any pre-configured scope."
+commands.deny = ["resolve_session_conflicts"]

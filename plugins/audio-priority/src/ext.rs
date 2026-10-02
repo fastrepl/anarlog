@@ -231,63 +231,6 @@ fn merge_priorities_preserving_disconnected(
     result
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn s(v: &str) -> String {
-        v.to_string()
-    }
-
-    #[test]
-    fn merge_preserves_disconnected_devices_at_their_positions() {
-        let old = vec![s("USB_A"), s("USB_B"), s("Built_In"), s("BT")];
-        let new = vec![s("BT"), s("Built_In")];
-        let result = merge_priorities_preserving_disconnected(&old, &new);
-        assert_eq!(result, vec![s("USB_A"), s("USB_B"), s("BT"), s("Built_In")]);
-    }
-
-    #[test]
-    fn merge_no_disconnected_devices() {
-        let old = vec![s("A"), s("B"), s("C")];
-        let new = vec![s("C"), s("A"), s("B")];
-        let result = merge_priorities_preserving_disconnected(&old, &new);
-        assert_eq!(result, vec![s("C"), s("A"), s("B")]);
-    }
-
-    #[test]
-    fn merge_empty_old() {
-        let old: Vec<String> = vec![];
-        let new = vec![s("A"), s("B")];
-        let result = merge_priorities_preserving_disconnected(&old, &new);
-        assert_eq!(result, vec![s("A"), s("B")]);
-    }
-
-    #[test]
-    fn merge_empty_new() {
-        let old = vec![s("A"), s("B")];
-        let new: Vec<String> = vec![];
-        let result = merge_priorities_preserving_disconnected(&old, &new);
-        assert_eq!(result, vec![s("A"), s("B")]);
-    }
-
-    #[test]
-    fn merge_new_device_not_in_old() {
-        let old = vec![s("A"), s("B")];
-        let new = vec![s("B"), s("A"), s("C")];
-        let result = merge_priorities_preserving_disconnected(&old, &new);
-        assert_eq!(result, vec![s("B"), s("A"), s("C")]);
-    }
-
-    #[test]
-    fn merge_swap_with_disconnected_in_middle() {
-        let old = vec![s("Built_In"), s("USB_A"), s("USB_B"), s("BT")];
-        let new = vec![s("USB_A"), s("BT")];
-        let result = merge_priorities_preserving_disconnected(&old, &new);
-        assert_eq!(result, vec![s("Built_In"), s("USB_A"), s("USB_B"), s("BT")]);
-    }
-}
-
 pub trait AudioPriorityPluginExt<R: tauri::Runtime> {
     fn audio_priority(&self) -> AudioPriority<'_, R, Self>
     where
@@ -302,6 +245,65 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AudioPriorityPluginExt<R> for T {
         AudioPriority {
             manager: self,
             _runtime: std::marker::PhantomData,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn s(v: &str) -> String {
+        v.to_string()
+    }
+
+    #[test]
+    fn merge_preserves_disconnected_devices_at_their_positions() {
+        let cases = [
+            (
+                "disconnected devices retain their positions",
+                vec![s("USB_A"), s("USB_B"), s("Built_In"), s("BT")],
+                vec![s("BT"), s("Built_In")],
+                vec![s("USB_A"), s("USB_B"), s("BT"), s("Built_In")],
+            ),
+            (
+                "no disconnected devices",
+                vec![s("A"), s("B"), s("C")],
+                vec![s("C"), s("A"), s("B")],
+                vec![s("C"), s("A"), s("B")],
+            ),
+            (
+                "empty old priorities",
+                Vec::new(),
+                vec![s("A"), s("B")],
+                vec![s("A"), s("B")],
+            ),
+            (
+                "empty new priorities",
+                vec![s("A"), s("B")],
+                Vec::new(),
+                vec![s("A"), s("B")],
+            ),
+            (
+                "new device not in old priorities",
+                vec![s("A"), s("B")],
+                vec![s("B"), s("A"), s("C")],
+                vec![s("B"), s("A"), s("C")],
+            ),
+            (
+                "swap with disconnected device in middle",
+                vec![s("Built_In"), s("USB_A"), s("USB_B"), s("BT")],
+                vec![s("USB_A"), s("BT")],
+                vec![s("Built_In"), s("USB_A"), s("USB_B"), s("BT")],
+            ),
+        ];
+
+        for (name, old, connected, expected) in cases {
+            assert_eq!(
+                merge_priorities_preserving_disconnected(&old, &connected),
+                expected,
+                "{name}"
+            );
         }
     }
 }

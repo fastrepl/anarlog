@@ -27,8 +27,5 @@ if [[ $(uname -m) == x86_64 ]]; then
 fi
 
 cd "$repo_dir"
-cargo test --locked --target "$target" -p cloudsync --lib -- --test-threads=1 --skip native_http_request_deadline_is_enforced
-SIMCTL_CHILD_CLOUDSYNC_CURL_CONNECT_TIMEOUT_MS=100 \
-  SIMCTL_CHILD_CLOUDSYNC_CURL_TIMEOUT_MS=250 \
-  cargo test --locked --target "$target" -p cloudsync --lib native_http_request_deadline_is_enforced -- --test-threads=1
+cargo test --locked --target "$target" -p cloudsync --lib -- --test-threads=1
 cargo test --locked --target "$target" -p db-core 'cloudsync::' -- --test-threads=1

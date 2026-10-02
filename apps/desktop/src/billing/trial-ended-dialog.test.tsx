@@ -29,25 +29,13 @@ describe("TrialEndedDialog", () => {
     ).toBeTruthy();
   });
 
-  it.each(["windows", "linux"])(
-    "does not promise local transcription on %s",
-    (platform) => {
-      mocks.platform = platform;
-
-      render(
-        <TrialEndedDialog open onOpenChange={() => {}} onUpgrade={() => {}} />,
-      );
-
-      expect(screen.queryByText(/Free local transcription/)).toBeNull();
-      expect(
-        screen.getByText(/configure your own transcription provider/),
-      ).toBeTruthy();
-    },
-  );
-
-  it("does not promise local transcription on Intel macOS", () => {
-    mocks.arch = "x86_64";
-    mocks.platform = "macos";
+  it.each([
+    ["windows", "x86_64"],
+    ["linux", "x86_64"],
+    ["macos", "x86_64"],
+  ])("does not promise local transcription on %s %s", (platform, arch) => {
+    mocks.platform = platform;
+    mocks.arch = arch;
 
     render(
       <TrialEndedDialog open onOpenChange={() => {}} onUpgrade={() => {}} />,

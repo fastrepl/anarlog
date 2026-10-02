@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { md2json } from "@anlg/editor/markdown";
+import { commands } from "@anlg/plugin-session";
 
-import { executeTransaction, liveQueryClient } from "~/db";
+import { liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { updateEnhancedNoteContent } from "~/session/queries/enhanced-notes";
 import { updateSession } from "~/session/queries/sessions";
@@ -50,40 +51,6 @@ const PROPOSAL_COLUMNS = `
     updated_at
   FROM session_proposals
 `;
-
-async function insertSessionProposal(input: {
-  id: string;
-  sessionId: string;
-  kind: "summary_replace" | "memo_replace";
-  targetId: string;
-  baseUpdatedAt: string;
-  currentMarkdown: string;
-  proposedMarkdown: string;
-  source: string;
-}): Promise<void> {
-  await enqueueDatabaseWrite(`session:${input.sessionId}`, async () => {
-    await executeTransaction([
-      {
-        sql: `
-          INSERT INTO session_proposals (
-            id, session_id, kind, target_id, base_updated_at,
-            current_markdown, proposed_markdown, status, source
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
-        `,
-        params: [
-          input.id,
-          input.sessionId,
-          input.kind,
-          input.targetId,
-          input.baseUpdatedAt,
-          input.currentMarkdown,
-          input.proposedMarkdown,
-          input.source,
-        ],
-      },
-    ]);
-  });
-}
 
 export async function loadSessionProposal(
   proposalId: string,
@@ -139,10 +106,18 @@ export async function persistChatSessionProposal(input: {
       targetId: input.targetId,
       sessionId: input.sessionId,
     })) ?? "";
-  await insertSessionProposal({
-    ...input,
-    baseUpdatedAt,
-    source: "chat",
+  await enqueueDatabaseWrite(`session:${input.sessionId}`, async () => {
+    const result = await commands.persistChatSessionProposal({
+      id: input.id,
+      session_id: input.sessionId,
+      kind: input.kind,
+      target_id: input.targetId,
+      base_updated_at: baseUpdatedAt,
+      current_markdown: input.currentMarkdown,
+      proposed_markdown: input.proposedMarkdown,
+      source: "chat",
+    });
+    if (result.status === "error") throw new Error(result.error);
   });
 }
 
@@ -194,17 +169,11 @@ async function setProposalStatus(
   status: "applied" | "declined",
 ): Promise<void> {
   await enqueueDatabaseWrite(`session:${sessionId}`, async () => {
-    const now = new Date().toISOString();
-    await executeTransaction([
-      {
-        sql: `
-          UPDATE session_proposals
-          SET status = ?, updated_at = ?
-          WHERE id = ? AND status = 'pending'
-        `,
-        params: [status, now, proposalId],
-      },
-    ]);
+    const result = await commands.setSessionProposalStatus({
+      proposal_id: proposalId,
+      status,
+    });
+    if (result.status === "error") throw new Error(result.error);
   });
 }
 

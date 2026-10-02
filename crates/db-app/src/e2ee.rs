@@ -9,8 +9,6 @@ use sqlx::SqlitePool;
 
 mod witness;
 
-#[cfg(test)]
-use witness::PENDING_E2EE_WITNESS_UPLOADS_SQL;
 pub use witness::{
     E2eeWitnessEvent, E2eeWitnessRepairOutcome, E2eeWitnessUpload,
     acknowledge_e2ee_witness_uploads, acknowledge_e2ee_witness_uploads_cancellable,
@@ -217,16 +215,13 @@ pub use conflicts::{
     restore_e2ee_field_conflict, unresolved_e2ee_field_conflict_count,
 };
 use cooperative::yield_once;
+#[cfg(test)]
+use replica_apply::apply_e2ee_replica_changes_inner;
 pub use replica_apply::{
     E2eeReceivedApplyOptions, apply_e2ee_replica_changes, apply_e2ee_replica_changes_with_witness,
     apply_received_e2ee_replica_changes_with_options_cancellable,
     apply_received_e2ee_replica_changes_with_witness,
     apply_received_e2ee_replica_changes_with_witness_cancellable,
-};
-#[cfg(test)]
-use replica_apply::{
-    apply_e2ee_replica_changes_inner, apply_received_e2ee_replica_changes_with_witness_bounded,
-    load_changed_e2ee_record_metadata,
 };
 use replica_encrypt::check_e2ee_cancellation;
 pub use replica_encrypt::{
@@ -240,8 +235,8 @@ pub use replica_encrypt::{
 };
 #[cfg(test)]
 use replica_encrypt::{
-    load_dirty_rows, load_dirty_rows_page, persist_prepared_dirty_row,
-    persist_prepared_dirty_row_cancellable, persist_prepared_dirty_row_inner, prepare_dirty_row,
+    load_dirty_rows, persist_prepared_dirty_row, persist_prepared_dirty_row_cancellable,
+    persist_prepared_dirty_row_inner, prepare_dirty_row,
 };
 #[cfg(test)]
 use replica_storage::load_or_create_writer_id;

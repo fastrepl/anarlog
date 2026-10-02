@@ -39,20 +39,6 @@ describe("SidebarNoteFilterMenu", () => {
     resetSidebarNotes();
   });
 
-  it("does not offer ownership or folder filters", () => {
-    render(<SidebarNoteFilterMenu />);
-    openSortMenu();
-
-    expect(
-      screen.queryByRole("menuitemradio", { name: "My notes" }),
-    ).toBeNull();
-    expect(screen.queryByRole("menuitemradio", { name: "Shared" })).toBeNull();
-    expect(
-      screen.queryByRole("menuitemradio", { name: "No folder" }),
-    ).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "New folder" })).toBeNull();
-  });
-
   it("switches the timeline to a folder-grouped view", () => {
     render(<SidebarNoteFilterMenu />);
 

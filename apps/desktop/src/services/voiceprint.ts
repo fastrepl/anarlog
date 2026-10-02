@@ -1,30 +1,5 @@
 import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 
-const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
-
-let lastCleanupMs = 0;
-
-// Piggybacks on the frequent audio-retention tick but only sweeps a few
-// times a day: expired candidates are a privacy cleanup, not a hot path.
-export async function cleanupExpiredVoiceprintCandidates(
-  nowMs = Date.now(),
-): Promise<void> {
-  if (nowMs - lastCleanupMs < CLEANUP_INTERVAL_MS) {
-    return;
-  }
-  lastCleanupMs = nowMs;
-
-  try {
-    const result =
-      await transcriptionCommands.cleanupExpiredVoiceprintCandidates();
-    if (result.status === "error") {
-      console.error("[voiceprint] candidate cleanup failed", result.error);
-    }
-  } catch (error) {
-    console.error("[voiceprint] candidate cleanup failed", error);
-  }
-}
-
 // Runs after a transcript is persisted and before audio retention may delete
 // the recording — the embeddings must outlive the audio. Failures are logged
 // and swallowed: losing candidates for one session is acceptable, blocking

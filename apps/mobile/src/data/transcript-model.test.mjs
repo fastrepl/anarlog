@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 
-import { transcriptSegments } from "./transcript-model.ts";
+import {
+  SESSION_SPEAKERS_SQL,
+  transcriptSegments,
+} from "./transcript-model.ts";
 
 const word = (id, text, speaker = 0, start = 0) => ({
   id,
@@ -17,6 +21,41 @@ const row = (words, deltas = [], hints = []) => ({
   words_json: JSON.stringify(words),
   pending_deltas_json: JSON.stringify(deltas),
   speaker_hints_json: JSON.stringify(hints),
+});
+
+test("historical speaker labels survive contact deletion within their workspace", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(`CREATE TABLE sessions (id TEXT, workspace_id TEXT);
+      CREATE TABLE humans (id TEXT, workspace_id TEXT, name TEXT, deleted_at TEXT);
+      INSERT INTO sessions VALUES ('session', 'workspace');
+      INSERT INTO humans VALUES ('artem', 'workspace', 'Artem', '2026-09-24'),
+        ('other', 'other-workspace', 'Other', NULL);`);
+    const names = new Map(
+      db
+        .prepare(SESSION_SPEAKERS_SQL)
+        .all("session")
+        .map(({ id, name }) => [id, name]),
+    );
+    assert.deepEqual([...names], [["artem", "Artem"]]);
+    const segments = transcriptSegments(
+      row(
+        [word("a", "Hello")],
+        [],
+        [
+          {
+            word_id: "a",
+            type: "user_speaker_assignment",
+            value: { human_id: "artem" },
+          },
+        ],
+      ),
+      names,
+    );
+    assert.equal(segments[0].speaker, "Artem");
+  } finally {
+    db.close();
+  }
 });
 
 test("live deltas append the full conversation and group consecutive speaker turns", () => {

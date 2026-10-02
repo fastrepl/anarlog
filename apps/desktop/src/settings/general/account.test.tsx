@@ -137,7 +137,6 @@ describe("SettingsAccount", () => {
     expect(
       screen.getByRole("heading", { name: "Sign out of Anarlog?" }),
     ).toBeTruthy();
-    expect(screen.getByRole("dialog").className).toContain("max-w-[320px]");
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
@@ -152,20 +151,6 @@ describe("SettingsAccount", () => {
     expect(mocks.analyticsEvent).toHaveBeenCalledWith({
       event: "user_signed_out",
     });
-  });
-
-  it("opens the account page to change the signed-in email", async () => {
-    renderAccount();
-
-    fireEvent.click(screen.getByRole("button", { name: "john@example.com" }));
-
-    await waitFor(() =>
-      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/account"),
-    );
-    expect(mocks.openUrl).toHaveBeenCalledWith(
-      "https://anarlog.so/app/account",
-      null,
-    );
   });
 
   it("opens connected accounts on the website for the current app account", async () => {

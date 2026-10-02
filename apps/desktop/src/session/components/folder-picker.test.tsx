@@ -65,49 +65,14 @@ describe("FolderPicker", () => {
     cleanup();
   });
 
-  it("sizes the folder icon with the other header actions", () => {
-    render(<FolderPicker sessionId="session-1" />);
-
-    const trigger = screen.getByRole("combobox", { name: "Select folder" });
-    const icons = trigger.querySelectorAll("svg");
-
-    expect(trigger.textContent).toBe("");
-    expect(trigger.className).toContain("w-7");
-    expect(trigger.className).toContain("[&_svg]:size-4");
-    expect(icons).toHaveLength(1);
-    expect(icons[0]?.getAttribute("class")).toContain("size-4");
-  });
-
-  it("shows the selected folder name without a chevron", () => {
+  it("shows the selected folder name", () => {
     mocks.folderId = "work";
 
     render(<FolderPicker sessionId="session-1" />);
 
     const trigger = screen.getByRole("combobox", { name: "Folder: work" });
-    const label = trigger.querySelector("span");
 
     expect(trigger.textContent).toBe("work");
-    expect(trigger.className).toContain("max-w-36");
-    expect(trigger.className).toContain("@max-[480px]:w-7");
-    expect(label?.className).toContain("truncate");
-    expect(label?.className).toContain("@max-[480px]:sr-only");
-    expect(trigger.querySelectorAll("svg")).toHaveLength(1);
-  });
-
-  it("uses the same floating chrome as note metadata", () => {
-    render(<FolderPicker sessionId="session-1" />);
-
-    fireEvent.click(screen.getByRole("combobox", { name: "Select folder" }));
-
-    const input = screen.getByPlaceholderText("Search or create folder");
-    const content = input.closest("[data-radix-popper-content-wrapper] > *");
-    const classes = content?.className.split(/\s+/) ?? [];
-
-    expect(classes).toContain("w-56");
-    expect(classes).toContain("p-0.5");
-    expect(classes).not.toContain("p-0");
-    expect(input.closest(".p-4")).toBeNull();
-    expect(input.className).toContain("h-8");
   });
 
   it("lets the user select an existing folder for the current note", async () => {

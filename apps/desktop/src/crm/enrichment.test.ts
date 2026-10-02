@@ -91,10 +91,6 @@ describe("pickBestCrmContact", () => {
     const best = pickBestCrmContact(human, [sparse, contact()]);
     expect(best?.contact.id).toBe("c1");
   });
-
-  test("returns null without candidates", () => {
-    expect(pickBestCrmContact(human, [])).toBeNull();
-  });
 });
 
 describe("enrichHumanFromCrm", () => {

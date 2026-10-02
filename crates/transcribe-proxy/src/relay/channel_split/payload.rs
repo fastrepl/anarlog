@@ -239,22 +239,31 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_split_response_results() {
+    fn rewrite_split_response_results_preserve_or_clear_finalize() {
         let input = r#"{"type":"Results","channel_index":[0,1],"duration":0.0,"start":0.0,"is_final":false,"speech_final":false,"from_finalize":false,"channel":{"alternatives":[{"transcript":"","confidence":0.0,"words":[]}]},"metadata":{"request_id":"","model_info":{"name":"","version":"","arch":""},"model_uuid":""}}"#;
         let result = rewrite_split_response(input, 1, 2, FinalizeMode::NonTerminal).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&result.into_text().unwrap()).unwrap();
         assert_eq!(parsed["channel_index"], serde_json::json!([1, 2]));
         assert_eq!(parsed["from_finalize"], serde_json::json!(false));
         assert!(!parsed["from_finalize"].as_bool().unwrap());
+
+        let input = r#"{"type":"Results","channel_index":[0,1],"duration":0.0,"start":0.0,"is_final":true,"speech_final":true,"from_finalize":true,"channel":{"alternatives":[{"transcript":"done","confidence":1.0,"words":[]}]},"metadata":{"request_id":"","model_info":{"name":"","version":"","arch":""},"model_uuid":""}}"#;
+        let result = rewrite_split_response(input, 1, 2, FinalizeMode::Preserve).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&result.into_text().unwrap()).unwrap();
+
+        assert_eq!(parsed["channel_index"], serde_json::json!([1, 2]));
+        assert_eq!(parsed["from_finalize"], serde_json::json!(true));
     }
 
     #[test]
-    fn rewrite_split_response_non_results() {
+    fn rewrite_split_response_non_results_and_invalid_json() {
         let input =
             r#"{"type":"Metadata","request_id":"abc","created":"","duration":0.0,"channels":1}"#;
         let result = rewrite_split_response(input, 1, 2, FinalizeMode::NonTerminal).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&result.into_text().unwrap()).unwrap();
         assert!(parsed.get("channel_index").is_none());
+
+        assert!(rewrite_split_response("not json", 0, 2, FinalizeMode::Preserve).is_none());
     }
 
     #[test]
@@ -271,12 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_split_response_invalid_json() {
-        assert!(rewrite_split_response("not json", 0, 2, FinalizeMode::Preserve).is_none());
-    }
-
-    #[test]
-    fn rewrite_stream_response_transcript_sets_channel_and_reports_finalize() {
+    fn rewrite_stream_response_transcript_and_non_transcript() {
         let mut response = transcript_response(true);
 
         let had_finalize = rewrite_stream_response(&mut response, 1, 2);
@@ -288,10 +292,7 @@ mod tests {
             }
             _ => panic!("expected transcript response"),
         }
-    }
 
-    #[test]
-    fn rewrite_stream_response_non_transcript_is_noop() {
         let mut response = StreamResponse::TerminalResponse {
             request_id: "abc".to_string(),
             created: "".to_string(),
@@ -334,16 +335,6 @@ mod tests {
             }
             _ => panic!("expected terminal response"),
         }
-    }
-
-    #[test]
-    fn rewrite_split_response_preserves_finalize_when_not_forced() {
-        let input = r#"{"type":"Results","channel_index":[0,1],"duration":0.0,"start":0.0,"is_final":true,"speech_final":true,"from_finalize":true,"channel":{"alternatives":[{"transcript":"done","confidence":1.0,"words":[]}]},"metadata":{"request_id":"","model_info":{"name":"","version":"","arch":""},"model_uuid":""}}"#;
-        let result = rewrite_split_response(input, 1, 2, FinalizeMode::Preserve).unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&result.into_text().unwrap()).unwrap();
-
-        assert_eq!(parsed["channel_index"], serde_json::json!([1, 2]));
-        assert_eq!(parsed["from_finalize"], serde_json::json!(true));
     }
 
     #[test]

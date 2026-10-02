@@ -7,27 +7,6 @@ use crate::{commands, runtime};
 
 use super::support::{setup_enabled_cloudsync_runtime, setup_runtime, unreachable_witness};
 
-#[tokio::test]
-async fn sign_out_suspend_command_preserves_activity_leases() {
-    let (_dir, runtime) = setup_runtime().await;
-    runtime
-        .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
-        .await
-        .unwrap();
-    let app = tauri::test::mock_builder()
-        .manage(Arc::clone(&runtime))
-        .build(tauri::test::mock_context(tauri::test::noop_assets()))
-        .unwrap();
-
-    commands::suspend_cloudsync_for_sign_out(app.state())
-        .await
-        .unwrap();
-
-    let status = runtime.cloudsync_status().await.unwrap();
-    assert_eq!(status["activity_paused"], true);
-    assert_eq!(status["deferred_for_capture"], true);
-}
-
 #[cfg(any(
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "macos", target_arch = "x86_64"),

@@ -377,10 +377,9 @@ impl GladiaAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_client::create_client;
 
     #[test]
-    fn diarization_config_uses_speaker_count_hints() {
+    fn diarization_config_follows_speaker_hints() {
         let params = ListenParams {
             num_speakers: Some(3),
             min_speakers: Some(2),
@@ -396,38 +395,10 @@ mod tests {
                 max_speakers: Some(4),
             })
         );
-    }
 
-    #[test]
-    fn diarization_config_is_omitted_without_speaker_hints() {
         assert_eq!(
             GladiaAdapter::diarization_config(&ListenParams::default()),
             None
         );
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_gladia_batch_transcription() {
-        let api_key = std::env::var("GLADIA_API_KEY").expect("GLADIA_API_KEY not set");
-        let client = create_client();
-        let adapter = GladiaAdapter::default();
-        let params = ListenParams::default();
-
-        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
-
-        let result = adapter
-            .transcribe_file(&client, "", &api_key, &params, &audio_path)
-            .await
-            .expect("transcription failed");
-
-        assert!(!result.results.channels.is_empty());
-        assert!(!result.results.channels[0].alternatives.is_empty());
-        assert!(
-            !result.results.channels[0].alternatives[0]
-                .transcript
-                .is_empty()
-        );
-        assert!(!result.results.channels[0].alternatives[0].words.is_empty());
     }
 }

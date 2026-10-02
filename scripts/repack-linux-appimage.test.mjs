@@ -273,95 +273,65 @@ test("repacks a hook-only fix and preserves explicit GTK backend preferences", a
   }
 });
 
-test("rejects an unfamiliar GTK hook before mutating the bundle", async (t) => {
-  const fixture = await createFixture(t);
-  await writeFile(fixture.gtkHook, "export GDK_BACKEND=unknown\n");
-  await assert.rejects(
-    repackLinuxAppImage({
-      arch: "x86_64",
-      bundleDirectory: fixture.directory,
-      pluginPath: fixture.plugin,
-    }),
+for (const [name, prepare, options, error] of [
+  [
+    "an unfamiliar GTK hook",
+    (fixture) => writeFile(fixture.gtkHook, "export GDK_BACKEND=unknown\n"),
+    {},
     /Unrecognized GDK_BACKEND/,
-  );
-  assert.equal(await readFile(fixture.appImage, "utf8"), "original-appimage");
-  assert.equal(
-    await readFile(
-      path.join(fixture.appDirectory, "usr", "lib", "libwayland-client.so.0"),
-      "utf8",
-    ),
-    "wayland-client",
-  );
-});
-
-test("fails before mutation when the AppImage output plugin is unavailable", async (t) => {
-  const fixture = await createFixture(t);
-  const waylandLibrary = path.join(
-    fixture.appDirectory,
-    "usr",
-    "lib",
-    "libwayland-client.so.0",
-  );
-
-  await assert.rejects(
-    repackLinuxAppImage({
-      arch: "x86_64",
-      bundleDirectory: fixture.directory,
-      pluginPath: path.join(fixture.directory, "missing-plugin"),
-    }),
+  ],
+  [
+    "an unavailable AppImage output plugin",
+    () => {},
+    { pluginPath: "missing-plugin" },
     /AppImage output plugin is not executable/,
-  );
-
-  assert.equal(await readFile(waylandLibrary, "utf8"), "wayland-client");
-  assert.match(await readFile(fixture.gtkHook, "utf8"), /GDK_BACKEND=x11 #/);
-  assert.equal(
-    await readFile(`${fixture.appImage}.sig`, "utf8"),
-    "stale-signature",
-  );
-});
-
-test("refuses an ambiguous AppImage bundle before mutation", async (t) => {
-  const fixture = await createFixture(t);
-  await writeFile(
-    path.join(fixture.directory, "Anarlog_1.4.5_arm64.AppImage"),
-    "other-appimage",
-  );
-
-  await assert.rejects(
-    repackLinuxAppImage({
-      arch: "x86_64",
-      bundleDirectory: fixture.directory,
-      pluginPath: fixture.plugin,
-    }),
+  ],
+  [
+    "an ambiguous AppImage bundle",
+    (fixture) =>
+      writeFile(
+        path.join(fixture.directory, "Anarlog_1.4.5_arm64.AppImage"),
+        "other-appimage",
+      ),
+    {},
     /Expected exactly one \.AppImage.*found 2/,
-  );
-
-  assert.equal(
-    await readFile(
-      path.join(fixture.appDirectory, "usr", "lib", "libwayland-client.so.0"),
-      "utf8",
-    ),
-    "wayland-client",
-  );
-});
-
-test("requires an architecture before mutating the AppDir", async (t) => {
-  const fixture = await createFixture(t);
-  const waylandLibrary = path.join(
-    fixture.appDirectory,
-    "usr",
-    "lib",
-    "libwayland-client.so.0",
-  );
-
-  await assert.rejects(
-    repackLinuxAppImage({
-      arch: "",
-      bundleDirectory: fixture.directory,
-      pluginPath: fixture.plugin,
-    }),
+  ],
+  [
+    "a missing architecture",
+    () => {},
+    { arch: "" },
     /AppImage architecture is required/,
-  );
+  ],
+]) {
+  test(`refuses ${name} before mutating the bundle`, async (t) => {
+    const fixture = await createFixture(t);
+    await prepare(fixture);
 
-  assert.equal(await readFile(waylandLibrary, "utf8"), "wayland-client");
-});
+    await assert.rejects(
+      repackLinuxAppImage({
+        arch: "x86_64",
+        bundleDirectory: fixture.directory,
+        ...options,
+        pluginPath: path.join(
+          fixture.directory,
+          options.pluginPath ??
+            path.relative(fixture.directory, fixture.plugin),
+        ),
+      }),
+      error,
+    );
+
+    assert.equal(await readFile(fixture.appImage, "utf8"), "original-appimage");
+    assert.equal(
+      await readFile(`${fixture.appImage}.sig`, "utf8"),
+      "stale-signature",
+    );
+    assert.equal(
+      await readFile(
+        path.join(fixture.appDirectory, "usr", "lib", "libwayland-client.so.0"),
+        "utf8",
+      ),
+      "wayland-client",
+    );
+  });
+}

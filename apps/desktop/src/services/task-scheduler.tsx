@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 

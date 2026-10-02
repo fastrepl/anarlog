@@ -8,10 +8,8 @@ import {
 } from "@anlg/api-client";
 import { commands as authCommands } from "@anlg/plugin-auth";
 
-import * as billingProviderModule from "./billing";
+import { BillingProvider } from "./billing";
 import { useBillingAccess } from "./billing-context";
-
-const { BillingProvider } = billingProviderModule;
 
 const refreshSession = vi.fn();
 const authState = vi.hoisted(() => ({
@@ -40,6 +38,7 @@ const settingsState = vi.hoisted(() => ({
 vi.mock("./auth-context", () => ({
   useAuth: () => ({
     session: authState.session,
+    isFingerprintSettled: true,
     getHeaders: () =>
       authState.session
         ? {
@@ -203,10 +202,6 @@ function deferred<T>() {
 }
 
 describe("BillingProvider", () => {
-  it("keeps the provider module compatible with Fast Refresh", () => {
-    expect(Object.keys(billingProviderModule)).toEqual(["BillingProvider"]);
-  });
-
   beforeEach(() => {
     vi.stubGlobal("localStorage", {
       getItem: vi.fn(() => null),
@@ -447,75 +442,35 @@ describe("BillingProvider", () => {
     switchedClaims.resolve(paidClaims("user-2"));
   });
 
-  it("opens a payment reminder during the final seven trial days", async () => {
-    vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
-      key.startsWith("anarlog:trial_started_seen:") ? "1" : null,
-    );
-    vi.mocked(authCommands.decodeClaims).mockResolvedValue({
-      status: "ok",
-      data: {
-        sub: "user-1",
-        email: "test@example.com",
-        entitlements: [],
-        subscription_status: "trialing",
-        trial_end: Math.floor(Date.now() / 1000) + 6 * 24 * 60 * 60,
-        has_payment_method: false,
-      },
-    });
-
-    renderBillingProvider();
-
-    await waitFor(() => {
-      const reminder = screen.getByTestId("trial-payment-reminder-dialog");
-      expect(reminder.getAttribute("data-open")).toBe("true");
-      expect(reminder.getAttribute("data-days-remaining")).toBe("6");
-    });
-  });
-
-  it("does not remind trial users who already added a payment method", async () => {
-    vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
-      key.startsWith("anarlog:trial_started_seen:") ? "1" : null,
-    );
-    vi.mocked(authCommands.decodeClaims).mockResolvedValue({
-      status: "ok",
-      data: {
-        sub: "user-1",
-        email: "test@example.com",
-        entitlements: [],
-        subscription_status: "trialing",
-        trial_end: Math.floor(Date.now() / 1000) + 6 * 24 * 60 * 60,
-        has_payment_method: true,
-      },
-    });
-
-    renderBillingProvider();
-
-    await waitFor(() => {
-      expect(
-        screen
-          .getByTestId("trial-payment-reminder-dialog")
-          .getAttribute("data-open"),
-      ).toBe("false");
-    });
-  });
-
-  it.each(["windows", "linux"])(
-    "repairs Apple-local transcription to hosted transcription for paid users on %s",
-    async (currentPlatform) => {
-      settingsState.currentPlatform = currentPlatform;
-      settingsState.values.current_stt_provider = "anarlog";
-      settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
-      vi.mocked(authCommands.decodeClaims).mockResolvedValue(
-        paidClaims("user-1"),
+  it.each([
+    [false, "true"],
+    [true, "false"],
+  ])(
+    "opens the final-week payment reminder only without a payment method (has card: %s)",
+    async (hasPaymentMethod, expectedOpen) => {
+      vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
+        key.startsWith("anarlog:trial_started_seen:") ? "1" : null,
       );
+      vi.mocked(authCommands.decodeClaims).mockResolvedValue({
+        status: "ok",
+        data: {
+          sub: "user-1",
+          email: "test@example.com",
+          entitlements: [],
+          subscription_status: "trialing",
+          trial_end: Math.floor(Date.now() / 1000) + 6 * 24 * 60 * 60,
+          has_payment_method: hasPaymentMethod,
+        },
+      });
 
       renderBillingProvider();
 
       await waitFor(() => {
-        expect(settingsState.setSettingValues).toHaveBeenCalledWith({
-          current_stt_provider: "anarlog",
-          current_stt_model: "cloud",
-        });
+        const reminder = screen.getByTestId("trial-payment-reminder-dialog");
+        expect(reminder.getAttribute("data-open")).toBe(expectedOpen);
+        if (expectedOpen === "true") {
+          expect(reminder.getAttribute("data-days-remaining")).toBe("6");
+        }
       });
     },
   );
@@ -524,10 +479,9 @@ describe("BillingProvider", () => {
     [true, "anarlog", "cloud"],
     [false, "", ""],
   ])(
-    "repairs Intel Mac local transcription when paid access is %s",
+    "repairs unsupported local transcription on Windows when paid access is %s",
     async (isPaid, expectedProvider, expectedModel) => {
-      settingsState.currentPlatform = "macos";
-      settingsState.currentArch = "x86_64";
+      settingsState.currentPlatform = "windows";
       settingsState.values.current_stt_provider = "anarlog";
       settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
       if (isPaid) {
@@ -542,38 +496,6 @@ describe("BillingProvider", () => {
         expect(settingsState.setSettingValues).toHaveBeenCalledWith({
           current_stt_provider: expectedProvider,
           current_stt_model: expectedModel,
-        });
-      });
-    },
-  );
-
-  it("preserves local transcription on Apple Silicon", async () => {
-    settingsState.currentPlatform = "macos";
-    settingsState.currentArch = "aarch64";
-    settingsState.values.current_stt_provider = "anarlog";
-    settingsState.values.current_stt_model = "soniqo-parakeet-streaming";
-
-    renderBillingProvider();
-
-    await waitFor(() => {
-      expect(authCommands.decodeClaims).toHaveBeenCalled();
-    });
-    expect(settingsState.setSettingValues).not.toHaveBeenCalled();
-  });
-
-  it.each(["windows", "linux"])(
-    "requires provider selection for free users with Apple-local transcription on %s",
-    async (currentPlatform) => {
-      settingsState.currentPlatform = currentPlatform;
-      settingsState.values.current_stt_provider = "anarlog";
-      settingsState.values.current_stt_model = "am-parakeet-v3";
-
-      renderBillingProvider();
-
-      await waitFor(() => {
-        expect(settingsState.setSettingValues).toHaveBeenCalledWith({
-          current_stt_provider: "",
-          current_stt_model: "",
         });
       });
     },

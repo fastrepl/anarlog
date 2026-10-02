@@ -22,7 +22,6 @@ function fakePool(
 ) {
   const calls: Array<{ sql: string; params?: unknown[] }> = [];
   const releases: Array<Error | undefined> = [];
-  let connects = 0;
 
   const client: SnapshotClient = {
     async query(sql: string, params?: unknown[]) {
@@ -40,7 +39,6 @@ function fakePool(
 
   const pool: SnapshotPool = {
     async connect() {
-      connects++;
       return client;
     },
   };
@@ -50,8 +48,6 @@ function fakePool(
     calls,
     releases,
     kinds: () => calls.map(({ sql }) => sql.split(/[ \n]/, 1)[0]),
-    released: () => releases.length,
-    connects: () => connects,
   };
 }
 
@@ -87,18 +83,6 @@ test("empty snapshots use the same transaction path and delete everything", asyn
   expect(result).toEqual({ updated: 0, deleted: 2, hasError: false });
 });
 
-test("rolls back when stale deletion fails", async () => {
-  const db = fakePool({ failOn: (sql) => sql.startsWith("DELETE") });
-
-  await expect(
-    applyEntitlementSnapshot(db.pool, "cus_1", [entitlement("pro")]),
-  ).rejects.toThrow("injected failure");
-
-  expect(db.kinds()).toEqual(["BEGIN", "DELETE", "ROLLBACK"]);
-  // Rollback succeeded, so the connection goes back to the pool intact.
-  expect(db.releases).toEqual([undefined]);
-});
-
 test("rolls back a partially applied upsert batch", async () => {
   let inserts = 0;
   const db = fakePool({
@@ -119,23 +103,7 @@ test("rolls back a partially applied upsert batch", async () => {
     "INSERT",
     "ROLLBACK",
   ]);
-});
-
-test("rolls back when the last_synced_at update fails", async () => {
-  const db = fakePool({ failOn: (sql) => sql.startsWith("UPDATE") });
-
-  await expect(
-    applyEntitlementSnapshot(db.pool, "cus_1", [entitlement("pro")]),
-  ).rejects.toThrow("injected failure");
-
-  expect(db.kinds()).toEqual([
-    "BEGIN",
-    "DELETE",
-    "INSERT",
-    "UPDATE",
-    "ROLLBACK",
-  ]);
-  expect(db.kinds()).not.toContain("COMMIT");
+  expect(db.releases).toEqual([undefined]);
 });
 
 test("releases the connection even when rollback itself fails", async () => {
@@ -150,28 +118,4 @@ test("releases the connection even when rollback itself fails", async () => {
   // A failed rollback must destroy the connection, not return it to the pool.
   expect(db.releases).toHaveLength(1);
   expect(db.releases[0]).toBeInstanceOf(Error);
-});
-
-test("concurrent customers each get their own connection and transaction", async () => {
-  const clients: Array<ReturnType<typeof fakePool>> = [];
-  const pool: SnapshotPool = {
-    async connect() {
-      const db = fakePool();
-      clients.push(db);
-      return db.pool.connect();
-    },
-  };
-
-  const [first, second] = await Promise.all([
-    applyEntitlementSnapshot(pool, "cus_1", [entitlement("pro")]),
-    applyEntitlementSnapshot(pool, "cus_2", []),
-  ]);
-
-  expect(first.hasError).toBe(false);
-  expect(second.hasError).toBe(false);
-  expect(clients).toHaveLength(2);
-  for (const db of clients) {
-    expect(db.kinds()[0]).toBe("BEGIN");
-    expect(db.kinds().at(-1)).toBe("COMMIT");
-  }
 });

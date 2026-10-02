@@ -1,7 +1,9 @@
 import { useCallback, useMemo } from "react";
 import { create } from "zustand";
 
-import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
+import { commands as calendarCommands } from "@anlg/plugin-calendar";
+
+import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import {
   LEGACY_MAIN_VALUES_ID,
@@ -131,10 +133,12 @@ export function useIgnoredEvents() {
       trackingId,
       true,
       () =>
-        mutateSettingList<IgnoredEvent>(IGNORED_EVENTS_ID, (events) => [
-          ...events.filter((event) => event.tracking_id !== trackingId),
-          { tracking_id: trackingId, last_seen: new Date().toISOString() },
-        ]),
+        updateIgnoredCalendarItem(
+          "events",
+          IGNORED_EVENTS_ID,
+          trackingId,
+          true,
+        ),
       "[calendar] failed to ignore event",
     );
   }, []);
@@ -144,8 +148,11 @@ export function useIgnoredEvents() {
       trackingId,
       false,
       () =>
-        mutateSettingList<IgnoredEvent>(IGNORED_EVENTS_ID, (events) =>
-          events.filter((event) => event.tracking_id !== trackingId),
+        updateIgnoredCalendarItem(
+          "events",
+          IGNORED_EVENTS_ID,
+          trackingId,
+          false,
         ),
       "[calendar] failed to unignore event",
     );
@@ -156,13 +163,7 @@ export function useIgnoredEvents() {
       seriesId,
       true,
       () =>
-        mutateSettingList<IgnoredRecurringSeries>(
-          IGNORED_SERIES_ID,
-          (series) => [
-            ...series.filter((entry) => entry.id !== seriesId),
-            { id: seriesId, last_seen: new Date().toISOString() },
-          ],
-        ),
+        updateIgnoredCalendarItem("series", IGNORED_SERIES_ID, seriesId, true),
       "[calendar] failed to ignore series",
     );
   }, []);
@@ -172,9 +173,7 @@ export function useIgnoredEvents() {
       seriesId,
       false,
       () =>
-        mutateSettingList<IgnoredRecurringSeries>(IGNORED_SERIES_ID, (series) =>
-          series.filter((entry) => entry.id !== seriesId),
-        ),
+        updateIgnoredCalendarItem("series", IGNORED_SERIES_ID, seriesId, false),
       "[calendar] failed to unignore series",
     );
   }, []);
@@ -249,48 +248,21 @@ function useSettingList<T>(id: string): T[] {
   return data;
 }
 
-async function mutateSettingList<T>(
+async function updateIgnoredCalendarItem(
+  kind: "events" | "series",
   id: string,
-  mutation: (items: T[]) => T[],
+  itemId: string,
+  ignored: boolean,
 ): Promise<void> {
   return enqueueDatabaseWrite(`app-setting:${id}`, async () => {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const rows = await liveQueryClient.execute<AppSettingSqlRow>(
-        `
-          SELECT id, value_json
-          FROM app_settings
-          WHERE id IN (?, ?, ?)
-        `,
-        [id, LEGACY_MAIN_VALUES_ID, LEGACY_SETTINGS_ID],
-      );
-      const direct = rows.find((row) => row.id === id);
-      const current = resolveSettingList<T>(rows, id);
-      const nextJson = JSON.stringify(mutation(current));
-      const now = new Date().toISOString();
-      const [updated = 0] = await executeTransaction([
-        direct
-          ? {
-              sql: `
-                UPDATE app_settings
-                SET value_json = ?, updated_at = ?
-                WHERE id = ? AND value_json = ?
-              `,
-              params: [nextJson, now, id, direct.value_json],
-            }
-          : {
-              sql: `
-                INSERT INTO app_settings (id, value_json, updated_at)
-                VALUES (?, ?, ?)
-                ON CONFLICT(id) DO NOTHING
-              `,
-              params: [id, nextJson, now],
-            },
-      ]);
-
-      if (updated === 1) return;
+    const result = await calendarCommands.updateIgnoredCalendarItem({
+      kind,
+      item_id: itemId,
+      ignored,
+    });
+    if (result.status === "error") {
+      throw new Error(result.error);
     }
-
-    throw new Error(`Setting ${id} changed too frequently`);
   });
 }
 

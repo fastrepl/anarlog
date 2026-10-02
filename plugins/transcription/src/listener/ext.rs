@@ -22,20 +22,26 @@ async fn active_source() -> Option<ActorRef<SourceMsg>> {
     registry::where_is(SourceActor::name(&session_id)).map(Into::into)
 }
 
+struct CachedSessionState {
+    requested_live_transcription: bool,
+    live_transcription_active: bool,
+    live_segments: Vec<anlg_transcription_core::listener::LiveTranscriptSegment>,
+    started_at_ms: Option<i64>,
+    degraded: Option<anlg_transcription_core::listener::DegradedError>,
+}
+
 fn hydrate_session_state(
     snapshot: &mut CaptureSnapshot,
     session_id: String,
-    cached: Option<(
-        bool,
-        bool,
-        Vec<anlg_transcription_core::listener::LiveTranscriptSegment>,
-    )>,
+    cached: Option<CachedSessionState>,
 ) {
     snapshot.live_segments_session_id = Some(session_id);
-    if let Some((requested, active, segments)) = cached {
-        snapshot.requested_live_transcription = Some(requested);
-        snapshot.live_transcription_active = Some(active);
-        snapshot.live_segments = Some(segments);
+    if let Some(cached) = cached {
+        snapshot.requested_live_transcription = Some(cached.requested_live_transcription);
+        snapshot.live_transcription_active = Some(cached.live_transcription_active);
+        snapshot.live_segments = Some(cached.live_segments);
+        snapshot.started_at_ms = cached.started_at_ms;
+        snapshot.degraded = cached.degraded;
     } else {
         snapshot.live_segments = Some(Vec::new());
     }
@@ -100,13 +106,19 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
                 .and_then(|cache| {
                     let cache = cache.lock().ok()?;
                     let state = cache.get(&session_id)?;
-                    Some((
-                        state.requested_live_transcription,
-                        state.live_transcription_active,
-                        state.live_segments.clone(),
-                    ))
+                    Some(CachedSessionState {
+                        requested_live_transcription: state.requested_live_transcription,
+                        live_transcription_active: state.live_transcription_active,
+                        live_segments: state.live_segments.clone(),
+                        started_at_ms: state.started_at_ms,
+                        degraded: state.degraded.clone(),
+                    })
                 });
             hydrate_session_state(&mut snapshot, session_id, cached);
+        }
+
+        if snapshot.active_session_id.is_some() {
+            snapshot.mic_muted = Some(self.get_mic_muted().await);
         }
 
         Ok(snapshot)
@@ -138,6 +150,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
                 Ok(Err(StartSessionError::SessionAlreadyRunning)) => {
                     Err(crate::Error::SessionAlreadyRunning)
                 }
+                Ok(Err(StartSessionError::FailedToResolveSessionsDir)) => {
+                    Err(crate::Error::SessionStorageUnavailable)
+                }
                 Ok(Err(_)) => Err(crate::Error::StartSessionFailed),
                 Err(_) => Err(crate::Error::StartSessionFailed),
             }
@@ -152,6 +167,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
             let actor: ActorRef<RootMsg> = cell.into();
             let _ = ractor::call!(actor, RootMsg::StopSession);
         }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub async fn stop_capture_for_session(&self, session_id: String) -> bool {
+        let Some(cell) = registry::where_is(RootActor::name()) else {
+            return false;
+        };
+        let actor: ActorRef<RootMsg> = cell.into();
+        ractor::call!(actor, RootMsg::StopSessionIfActive, session_id).unwrap_or(false)
     }
 
     #[tracing::instrument(skip_all)]
@@ -313,6 +337,9 @@ mod tests {
             live_transcription_active: None,
             live_segments_session_id: None,
             live_segments: None,
+            started_at_ms: None,
+            mic_muted: None,
+            degraded: None,
         };
 
         hydrate_session_state(&mut snapshot, "session-a".to_string(), None);

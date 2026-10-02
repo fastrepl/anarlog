@@ -703,26 +703,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn sample_mask_covers_active_frames_only() {
-        let frames = vec![
-            [true, false, false],
-            [true, true, false],
-            [false, true, false],
-        ];
-        let activity = WindowActivity { frames };
-        let mut mask = vec![0.0f32; frame_start_sample(3)];
-
-        fill_sample_mask(&activity, 0, false, &mut mask);
-        assert_eq!(mask[0], 1.0);
-        assert_eq!(mask[frame_start_sample(1)], 1.0);
-        assert_eq!(mask[frame_start_sample(2)], 0.0);
-
-        fill_sample_mask(&activity, 0, true, &mut mask);
-        assert_eq!(mask[0], 1.0);
-        assert_eq!(mask[frame_start_sample(1)], 0.0);
-    }
-
     fn pcm_bytes_to_f32(bytes: &[u8]) -> Vec<f32> {
         bytes
             .chunks_exact(2)

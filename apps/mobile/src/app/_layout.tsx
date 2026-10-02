@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react-native";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { useMutation, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -15,9 +15,9 @@ import {
 import { recoverInterruptedRecordings } from "@/audio/recover-recordings";
 import { AuthProvider, useAuth } from "@/auth/context";
 import { SignInScreen } from "@/auth/screens";
-import type { SignInMethod } from "@/auth/sign-in";
 import { useTrial } from "@/auth/use-trial";
 import { BrandLoadingView } from "@/components/brand-loading-view";
+import { ToastHost } from "@/components/toast-host";
 import { Button } from "@/components/ui/button";
 import { Spacing, Typography } from "@/constants/theme";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
@@ -58,9 +58,9 @@ function AnalyticsLifecycle() {
   const pathname = usePathname();
   const previousPathRef = useRef<string | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     void initializeAnalytics();
-  }, []);
+  });
 
   useEffect(() => {
     const normalizedPathname = pathname.replace(/^\/note\/[^/]+/, "/note/:id");
@@ -105,19 +105,8 @@ function Gate() {
     getMobileCaptureActive,
     getMobileCaptureActive,
   );
-  const [signingIn, setSigningIn] = useState(false);
+  const signIn = useMutation({ mutationFn: auth.signIn });
   const cloudSyncEnabled = useCloudSyncOptIn(auth.session?.user.id ?? null);
-
-  const handleSignIn = async (method: SignInMethod) => {
-    setSigningIn(true);
-    try {
-      await auth.signIn(method);
-    } catch {
-      // AuthProvider reports the actionable failure before rejecting.
-    } finally {
-      setSigningIn(false);
-    }
-  };
 
   if (auth.bypass) return <Screens accountUserId={null} />;
 
@@ -132,9 +121,9 @@ function Gate() {
   if (!captureActive && auth.status === "signed_out") {
     return (
       <SignInScreen
-        busy={signingIn}
+        busy={signIn.isPending}
         lastSignInMethod={auth.lastSignInMethod}
-        onSignIn={(method) => void handleSignIn(method)}
+        onSignIn={(method) => signIn.mutate(method)}
       />
     );
   }
@@ -225,6 +214,7 @@ function RootLayout() {
           <AuthProvider>
             <AnalyticsLifecycle />
             <Gate />
+            <ToastHost />
             <AppLock />
             <AppStatusBar />
           </AuthProvider>

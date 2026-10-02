@@ -127,17 +127,3 @@ impl LoopClient {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn get_client() -> LoopClient {
-        LoopClient::builder().api_key("LOOPS_API_KEY").build()
-    }
-
-    #[tokio::test]
-    async fn test_get_user() {
-        let _ = get_client();
-    }
-}

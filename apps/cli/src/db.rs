@@ -91,6 +91,11 @@ mod tests {
         let legacy = dir.path().join("hyprnote/app.db");
         let identifier = dir.path().join("com.hyprnote.stable/app.db");
 
+        assert_eq!(
+            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog"))),
+            dir.path().join("anarlog/app.db")
+        );
+
         std::fs::create_dir_all(identifier.parent().unwrap()).unwrap();
         std::fs::write(&identifier, "").unwrap();
         assert_eq!(
@@ -114,35 +119,11 @@ mod tests {
     }
 
     #[test]
-    fn default_path_targets_current_location_for_new_installs() {
-        let dir = tempfile::tempdir().unwrap();
-        assert_eq!(
-            resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog"))),
-            dir.path().join("anarlog/app.db")
-        );
-    }
-
-    #[test]
-    fn nightly_command_targets_the_stable_database() {
-        let dir = tempfile::tempdir().unwrap();
-        let stable = dir.path().join("anarlog/app.db");
-        std::fs::create_dir_all(stable.parent().unwrap()).unwrap();
-        std::fs::write(&stable, "").unwrap();
-
-        for command in ["anarlog-nightly", "anarlog-nightly.exe"] {
-            assert_eq!(
-                resolve_default_path_for_command(dir.path(), Some(OsStr::new(command))),
-                stable
-            );
-        }
-    }
-
-    #[test]
     fn channel_commands_target_their_channel_database() {
         let dir = tempfile::tempdir().unwrap();
         let stable = dir.path().join("anarlog/app.db");
         std::fs::create_dir_all(stable.parent().unwrap()).unwrap();
-        std::fs::write(stable, "").unwrap();
+        std::fs::write(&stable, "").unwrap();
 
         assert_eq!(
             resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-dev"))),
@@ -160,5 +141,11 @@ mod tests {
             resolve_default_path_for_command(dir.path(), Some(OsStr::new("anarlog-staging.exe"))),
             dir.path().join("com.hyprnote.staging/app.db")
         );
+        for command in ["anarlog-nightly", "anarlog-nightly.exe"] {
+            assert_eq!(
+                resolve_default_path_for_command(dir.path(), Some(OsStr::new(command))),
+                stable
+            );
+        }
     }
 }

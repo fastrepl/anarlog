@@ -71,75 +71,55 @@ mod tests {
     use super::ReadPath;
 
     #[test]
-    fn parses_apple_root() {
-        let parsed = ReadPath::parse("apple").unwrap();
-        assert!(matches!(parsed, ReadPath::Apple("")));
-    }
-
-    #[test]
-    fn parses_linear_team_tickets() {
-        let parsed = ReadPath::parse("linear/conn-1/teams/team-1").unwrap();
-        assert!(matches!(
-            parsed,
-            ReadPath::LinearTickets {
-                connection_id: "conn-1",
-                team_id: "team-1"
-            }
-        ));
-    }
-
-    #[test]
-    fn parses_explicit_linear_tickets_path() {
-        let parsed = ReadPath::parse("/linear/conn-1/teams/team-1/tickets/").unwrap();
-        assert!(matches!(
-            parsed,
-            ReadPath::LinearTickets {
-                connection_id: "conn-1",
-                team_id: "team-1"
-            }
-        ));
-    }
-
-    #[test]
-    fn parses_github_repo_tickets() {
-        let parsed = ReadPath::parse("github/conn-1/repos/openai/char").unwrap();
-        assert!(matches!(
-            parsed,
-            ReadPath::GithubTickets {
-                connection_id: "conn-1",
-                owner: "openai",
-                repo: "char"
-            }
-        ));
-    }
-
-    #[test]
-    fn parses_explicit_github_tickets_path() {
-        let parsed = ReadPath::parse("github/conn-1/repos/openai/char/tickets").unwrap();
-        assert!(matches!(
-            parsed,
-            ReadPath::GithubTickets {
-                connection_id: "conn-1",
-                owner: "openai",
-                repo: "char"
-            }
-        ));
-    }
-
-    #[test]
-    fn parses_collection_aliases() {
-        assert!(matches!(
-            ReadPath::parse("linear/conn-1/collections").unwrap(),
-            ReadPath::LinearTeams {
-                connection_id: "conn-1"
-            }
-        ));
-        assert!(matches!(
-            ReadPath::parse("github/conn-1/collections").unwrap(),
-            ReadPath::GithubRepos {
-                connection_id: "conn-1"
-            }
-        ));
+    fn parses_supported_paths() {
+        for path in [
+            "apple",
+            "linear/conn-1/teams/team-1",
+            "/linear/conn-1/teams/team-1/tickets/",
+            "github/conn-1/repos/openai/char",
+            "github/conn-1/repos/openai/char/tickets",
+            "linear/conn-1/collections",
+            "github/conn-1/collections",
+        ] {
+            let parsed = ReadPath::parse(path).unwrap();
+            assert!(
+                match path {
+                    "apple" => matches!(parsed, ReadPath::Apple("")),
+                    "linear/conn-1/teams/team-1" | "/linear/conn-1/teams/team-1/tickets/" => {
+                        matches!(
+                            parsed,
+                            ReadPath::LinearTickets {
+                                connection_id: "conn-1",
+                                team_id: "team-1"
+                            }
+                        )
+                    }
+                    "github/conn-1/repos/openai/char"
+                    | "github/conn-1/repos/openai/char/tickets" => matches!(
+                        parsed,
+                        ReadPath::GithubTickets {
+                            connection_id: "conn-1",
+                            owner: "openai",
+                            repo: "char"
+                        }
+                    ),
+                    "linear/conn-1/collections" => matches!(
+                        parsed,
+                        ReadPath::LinearTeams {
+                            connection_id: "conn-1"
+                        }
+                    ),
+                    "github/conn-1/collections" => matches!(
+                        parsed,
+                        ReadPath::GithubRepos {
+                            connection_id: "conn-1"
+                        }
+                    ),
+                    _ => false,
+                },
+                "unexpected path variant for {path}"
+            );
+        }
     }
 
     #[test]

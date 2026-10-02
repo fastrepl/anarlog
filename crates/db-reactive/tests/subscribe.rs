@@ -5,22 +5,12 @@ use std::time::Duration;
 use common::{
     TestEvent, TestSink, expect_empty_result, expect_no_event, expect_result, insert_daily_note,
     insert_daily_summary, next_result_rows, subscribe_all_daily_notes,
-    subscribe_all_daily_summaries, subscribe_daily_note_by_id, wait_for_stable_event_count,
+    subscribe_all_daily_summaries, wait_for_stable_event_count,
 };
 use serde_json::json;
 
 #[tokio::test]
-async fn sends_initial_result() {
-    let (_dir, _pool, runtime) = common::setup_runtime().await;
-    let (sink, events) = TestSink::capture();
-
-    subscribe_all_daily_notes(&runtime, sink).await.unwrap();
-
-    expect_empty_result(&events, 0).await;
-}
-
-#[tokio::test]
-async fn dependent_writes_trigger_refresh() {
+async fn inserts_updates_and_deletes_refresh_dependent_subscriptions() {
     let (_dir, pool, runtime) = common::setup_runtime().await;
     let (sink, events) = TestSink::capture();
 
@@ -28,73 +18,34 @@ async fn dependent_writes_trigger_refresh() {
     expect_empty_result(&events, 0).await;
 
     insert_daily_note(&pool, "note-1", "2026-04-13", "user-1").await;
-
     expect_result(
         &events,
         1,
         vec![json!({ "id": "note-1", "date": "2026-04-13" })],
     )
     .await;
-}
-
-#[tokio::test]
-async fn updates_to_dependent_rows_trigger_refresh() {
-    let (_dir, pool, runtime) = common::setup_runtime().await;
-    let (sink, events) = TestSink::capture();
-
-    insert_daily_note(&pool, "note-update", "2026-04-13", "user-1").await;
-
-    subscribe_daily_note_by_id(&runtime, "note-update", sink)
-        .await
-        .unwrap();
-
-    expect_result(
-        &events,
-        0,
-        vec![json!({ "id": "note-update", "date": "2026-04-13" })],
-    )
-    .await;
 
     sqlx::query("UPDATE daily_notes SET date = ? WHERE id = ?")
         .bind("2026-04-14")
-        .bind("note-update")
+        .bind("note-1")
         .execute(&pool)
         .await
         .unwrap();
 
     expect_result(
         &events,
-        1,
-        vec![json!({ "id": "note-update", "date": "2026-04-14" })],
-    )
-    .await;
-}
-
-#[tokio::test]
-async fn deletes_from_dependent_rows_trigger_refresh() {
-    let (_dir, pool, runtime) = common::setup_runtime().await;
-    let (sink, events) = TestSink::capture();
-
-    insert_daily_note(&pool, "note-delete", "2026-04-13", "user-1").await;
-
-    subscribe_daily_note_by_id(&runtime, "note-delete", sink)
-        .await
-        .unwrap();
-
-    expect_result(
-        &events,
-        0,
-        vec![json!({ "id": "note-delete", "date": "2026-04-13" })],
+        2,
+        vec![json!({ "id": "note-1", "date": "2026-04-14" })],
     )
     .await;
 
     sqlx::query("DELETE FROM daily_notes WHERE id = ?")
-        .bind("note-delete")
+        .bind("note-1")
         .execute(&pool)
         .await
         .unwrap();
 
-    expect_empty_result(&events, 1).await;
+    expect_empty_result(&events, 3).await;
 }
 
 #[tokio::test]
@@ -130,12 +81,25 @@ async fn batched_writes_converge_on_latest_result() {
 }
 
 #[tokio::test]
-async fn open_transactions_do_not_refresh_until_commit() {
+async fn uncommitted_writes_do_not_refresh_until_commit() {
     let (_dir, pool, runtime) = common::setup_runtime().await;
     let (sink, events) = TestSink::capture();
 
     subscribe_all_daily_notes(&runtime, sink).await.unwrap();
     expect_empty_result(&events, 0).await;
+
+    let mut rollback_tx = pool.begin().await.unwrap();
+    sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
+        .bind("note-rollback")
+        .bind("2026-04-17")
+        .bind("{}")
+        .bind("user-1")
+        .execute(&mut *rollback_tx)
+        .await
+        .unwrap();
+    rollback_tx.rollback().await.unwrap();
+
+    expect_no_event(&events, 1).await;
 
     let mut tx = pool.begin().await.unwrap();
     sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
@@ -153,28 +117,10 @@ async fn open_transactions_do_not_refresh_until_commit() {
 
     let rows = next_result_rows(&events, 1).await;
     assert_eq!(rows.len(), 1);
-}
-
-#[tokio::test]
-async fn rollback_after_write_does_not_refresh() {
-    let (_dir, pool, runtime) = common::setup_runtime().await;
-    let (sink, events) = TestSink::capture();
-
-    subscribe_all_daily_notes(&runtime, sink).await.unwrap();
-    expect_empty_result(&events, 0).await;
-
-    let mut tx = pool.begin().await.unwrap();
-    sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
-        .bind("note-rollback")
-        .bind("2026-04-17")
-        .bind("{}")
-        .bind("user-1")
-        .execute(&mut *tx)
-        .await
-        .unwrap();
-    tx.rollback().await.unwrap();
-
-    expect_no_event(&events, 1).await;
+    assert_eq!(
+        rows,
+        vec![json!({ "id": "note-in-tx", "date": "2026-04-16" })]
+    );
 }
 
 #[tokio::test]

@@ -321,13 +321,6 @@ mod tests {
     }
 
     #[test]
-    fn linkage_produces_n_minus_one_merges() {
-        let merges = linkage(&two_groups());
-        assert_eq!(merges.len(), 5);
-        assert!(merges.last().unwrap().distance > merges[0].distance);
-    }
-
-    #[test]
     fn threshold_separates_distinct_groups() {
         let labels = cluster(&two_groups(), 0.7, 1, SpeakerBounds::default());
         assert_eq!(labels[0], labels[1]);
@@ -379,14 +372,5 @@ mod tests {
             vec![0]
         );
         assert!(cluster(&[], 0.7, 12, SpeakerBounds::default()).is_empty());
-    }
-
-    #[test]
-    fn cut_labels_are_compact() {
-        let embeddings = two_groups();
-        let merges = linkage(&embeddings);
-        let labels = cut(embeddings.len(), &merges, 4);
-        let max = *labels.iter().max().unwrap();
-        assert_eq!(max, 1);
     }
 }

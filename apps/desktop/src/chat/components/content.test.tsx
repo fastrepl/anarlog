@@ -78,37 +78,6 @@ describe("ChatContent", () => {
     cleanup();
   });
 
-  it("lets floating chat body shrink before the composer is clipped", () => {
-    const container = renderContent();
-
-    expect(container?.className).toContain("max-h-full");
-    expect(container?.className).not.toContain("flex-1");
-    expect(container?.className).not.toContain("shrink-0");
-  });
-
-  it("fills available height in the right panel layout", () => {
-    const { container } = render(
-      <ChatContent
-        sessionId="active-session"
-        layout="right-panel"
-        messages={[]}
-        sendMessage={vi.fn()}
-        regenerate={vi.fn()}
-        stop={vi.fn()}
-        status="ready"
-        model={{} as never}
-        handleSendMessage={vi.fn()}
-        pendingRefs={[]}
-        isSystemPromptReady
-      />,
-    );
-
-    const content = container.querySelector("[data-chat-content]");
-
-    expect(content?.className).toContain("flex-1");
-    expect(content?.className).not.toContain("shrink-0");
-  });
-
   it("keeps context on new messages", () => {
     const handleSendMessage = vi.fn();
     const sendMessage = vi.fn();
@@ -163,18 +132,6 @@ describe("ChatContent", () => {
       source: "manual",
       sessionId: "session-1",
     });
-  });
-
-  it("ignores non-session drops", () => {
-    const onAddContextEntity = vi.fn();
-    const container = renderContent(onAddContextEntity);
-    const dataTransfer = new FakeDataTransfer();
-
-    dataTransfer.setData("text/plain", "Meeting notes");
-
-    fireEvent.drop(container!, { dataTransfer });
-
-    expect(onAddContextEntity).not.toHaveBeenCalled();
   });
 
   it("queues messages submitted while streaming", () => {

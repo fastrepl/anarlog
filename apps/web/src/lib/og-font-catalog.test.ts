@@ -114,8 +114,8 @@ const samples = [
   "བོད་ཡིག",
   "ଓଡ଼ିଆ",
 ];
-for (const title of samples) {
-  test(`rasterizes catalog text: ${title}`, async () => {
+test("rasterizes every catalog script sample", async () => {
+  for (const title of samples) {
     const response = await renderSharedNoteOgImage({
       title,
       summary: title,
@@ -123,8 +123,8 @@ for (const title of samples) {
     });
     const png = Buffer.from(await response.arrayBuffer());
     const metadata = await sharp(png).metadata();
-    assert.equal(metadata.width, 1200);
-    assert.equal(metadata.height, 630);
-    assert.ok(png.length > 5000);
-  });
-}
+    assert.equal(metadata.width, 1200, title);
+    assert.equal(metadata.height, 630, title);
+    assert.ok(png.length > 5000, title);
+  }
+});

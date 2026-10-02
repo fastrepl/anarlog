@@ -1,8 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ArrowLeft } from "@anlg/ui/components/icons";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { useShell } from "~/contexts/shell";
@@ -42,9 +43,9 @@ export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
 function TitleBarSidebarActions({ children }: { children?: ReactNode }) {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     setSlot(document.getElementById(TITLE_BAR_SIDEBAR_ACTIONS_SLOT_ID));
-  }, []);
+  });
 
   if (!children || !slot) {
     return null;

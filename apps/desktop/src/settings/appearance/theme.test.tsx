@@ -31,32 +31,19 @@ describe("ThemeSelector", () => {
     mocks.appIcon = "default";
   });
 
-  it("shows visual choices and applies the selected theme immediately", () => {
+  it("applies the selected theme with the current app icon", () => {
+    mocks.appIcon = "anagram";
     render(<ThemeSelector />);
 
-    expect(screen.getAllByRole("radio")).toHaveLength(3);
     expect(
       screen
         .getByRole("radio", { name: /System/ })
         .getAttribute("aria-checked"),
     ).toBe("true");
-    expect(screen.getByText("Bright canvas")).toBeTruthy();
-    expect(screen.getByText("Low-light canvas")).toBeTruthy();
-    expect(screen.getByText("Match your device")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("radio", { name: /Dark/ }));
 
-    expect(mocks.applyThemePreference).toHaveBeenCalledWith("dark", "default");
+    expect(mocks.applyThemePreference).toHaveBeenCalledWith("dark", "anagram");
     expect(mocks.setTheme).toHaveBeenCalledWith("dark");
-  });
-
-  it("carries the selected icon into the theme change", () => {
-    mocks.appIcon = "anagram";
-
-    render(<ThemeSelector />);
-
-    fireEvent.click(screen.getByRole("radio", { name: /Light/ }));
-
-    expect(mocks.applyThemePreference).toHaveBeenCalledWith("light", "anagram");
   });
 });

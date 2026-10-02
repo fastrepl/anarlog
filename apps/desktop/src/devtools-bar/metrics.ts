@@ -45,7 +45,7 @@ export function resetDevtoolsMetrics() {
   useDevtoolsMetrics.setState(EMPTY_METRICS);
 }
 
-export function pushSample(
+function pushSample(
   history: number[],
   value: number,
   limit = HISTORY_LENGTH,
@@ -64,12 +64,12 @@ export function formatBytes(bytes: number): string {
 
 const IPC_URL = /^(?:ipc:\/\/localhost|https?:\/\/ipc\.localhost)\/([^?#]*)/;
 
-export function isTauriIpcUrl(input: string): boolean {
+function isTauriIpcUrl(input: string): boolean {
   return IPC_URL.test(input);
 }
 
 /** `ipc://localhost/plugin%3Adb%7Cexecute` → `plugin:db|execute`. */
-export function ipcCommandFromUrl(input: string): string | null {
+function ipcCommandFromUrl(input: string): string | null {
   const match = IPC_URL.exec(input);
   if (!match) return null;
   try {
@@ -283,6 +283,9 @@ function startFrameProbe() {
 }
 
 export function startDevtoolsMetrics(): () => void {
+  resetDevtoolsMetrics();
+  commandBuckets = [new Map()];
+
   const traffic = installTrafficCounters();
   const frameProbe = startFrameProbe();
   const stopRenderTracker = startRenderTracker();

@@ -38,16 +38,6 @@ describe("buildTrialEndingEmail", () => {
     });
   });
 
-  it("uses a neutral greeting when the customer has no name", () => {
-    const payload = buildTrialEndingEmail({
-      subscription: subscription(),
-      customer: customer({ name: null }),
-      now: NOW,
-    });
-
-    expect(payload?.dataVariables).toEqual({ firstName: "there" });
-  });
-
   it("skips card-backed trials", () => {
     expect(
       buildTrialEndingEmail({

@@ -11,7 +11,7 @@ const searchDocumentSchema = z.object({
   created_at: z.number(),
 });
 
-export type SearchDocument = z.infer<typeof searchDocumentSchema>;
+type SearchDocument = z.infer<typeof searchDocumentSchema>;
 
 const numberFilterSchema = z
   .object({

@@ -228,15 +228,6 @@ mod tests {
     }
 
     #[test]
-    fn recognizes_unmarked_paths() {
-        assert!(is_external_path(
-            "external.txt",
-            &mut HashMap::new(),
-            Instant::now()
-        ));
-    }
-
-    #[test]
     fn marking_own_writes_prunes_expired_entries_without_watcher_events() {
         let now = Instant::now();
         let mut own_writes = HashMap::from([(

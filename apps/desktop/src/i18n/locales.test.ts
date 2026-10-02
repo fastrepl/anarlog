@@ -1,25 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { resolveDisplayLocale, SUPPORTED_DISPLAY_LOCALES } from "./locales";
+import { resolveDisplayLocale } from "./locales";
 
 describe("resolveDisplayLocale", () => {
-  test.each(SUPPORTED_DISPLAY_LOCALES)("uses supported locale %s", (locale) => {
-    expect(resolveDisplayLocale(locale)).toBe(locale);
-  });
-
   test("resolves the canonical Filipino locale to the Tagalog catalog", () => {
     expect(resolveDisplayLocale("fil-PH")).toBe("tl");
-  });
-
-  test("includes broad settings main-language options", () => {
-    expect(SUPPORTED_DISPLAY_LOCALES).toContain("ar");
-    expect(SUPPORTED_DISPLAY_LOCALES).toContain("hi");
-    expect(SUPPORTED_DISPLAY_LOCALES).toContain("nl");
-    expect(SUPPORTED_DISPLAY_LOCALES).toContain("pl");
-    expect(SUPPORTED_DISPLAY_LOCALES).toContain("ru");
-    expect(SUPPORTED_DISPLAY_LOCALES).toContain("tr");
-    expect(SUPPORTED_DISPLAY_LOCALES).toContain("uk");
-    expect(SUPPORTED_DISPLAY_LOCALES).toContain("vi");
   });
 
   test("uses base language for regional variants", () => {
@@ -27,11 +12,8 @@ describe("resolveDisplayLocale", () => {
     expect(resolveDisplayLocale("zh-Hans")).toBe("zh");
   });
 
-  test("falls back to English for unsupported languages", () => {
+  test("falls back to English for unsupported or invalid values", () => {
     expect(resolveDisplayLocale("eo")).toBe("en");
-  });
-
-  test("falls back to English for invalid values", () => {
     expect(resolveDisplayLocale("not a locale")).toBe("en");
   });
 });

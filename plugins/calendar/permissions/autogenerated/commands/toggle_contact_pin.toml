@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-toggle-contact-pin"
+description = "Enables the toggle_contact_pin command without any pre-configured scope."
+commands.allow = ["toggle_contact_pin"]
+
+[[permission]]
+identifier = "deny-toggle-contact-pin"
+description = "Denies the toggle_contact_pin command without any pre-configured scope."
+commands.deny = ["toggle_contact_pin"]

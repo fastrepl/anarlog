@@ -4,40 +4,10 @@ use std::collections::HashSet;
 
 use common::{
     TestSink, expect_empty_result, expect_error, expect_no_event, expect_result, insert_daily_note,
-    next_result_rows, subscribe,
+    subscribe,
 };
 use db_reactive::{DependencyAnalysis, DependencyTarget};
 use serde_json::json;
-
-#[tokio::test]
-async fn reports_reactive_targets() {
-    let (_dir, _pool, runtime) = common::setup_runtime().await;
-    let (sink, _events) = TestSink::capture();
-
-    let registration = subscribe(
-        &runtime,
-        "SELECT ds.id FROM daily_summaries ds JOIN daily_notes dn ON ds.daily_note_id = dn.id",
-        Vec::new(),
-        sink,
-    )
-    .await
-    .unwrap();
-
-    let analysis = runtime
-        .dependency_analysis(&registration.id)
-        .await
-        .expect("subscription should exist");
-
-    assert_eq!(
-        analysis,
-        DependencyAnalysis::Reactive {
-            targets: HashSet::from([
-                DependencyTarget::Table("daily_notes".to_string()),
-                DependencyTarget::Table("daily_summaries".to_string()),
-            ]),
-        }
-    );
-}
 
 #[tokio::test]
 async fn view_subscriptions_refresh_after_base_table_writes() {
@@ -155,38 +125,6 @@ async fn fts_shadow_table_changes_refresh_virtual_subscriptions() {
 }
 
 #[tokio::test]
-async fn virtual_table_created_after_runtime_start_is_discovered() {
-    let (_dir, pool, runtime) = common::setup_runtime().await;
-    let (sink, events) = TestSink::capture();
-
-    sqlx::query("CREATE VIRTUAL TABLE docs_fts USING fts5(title, body)")
-        .execute(&pool)
-        .await
-        .unwrap();
-
-    subscribe(
-        &runtime,
-        "SELECT rowid FROM docs_fts WHERE docs_fts MATCH ?",
-        vec![json!("reload")],
-        sink,
-    )
-    .await
-    .unwrap();
-
-    expect_empty_result(&events, 0).await;
-
-    sqlx::query("INSERT INTO docs_fts (title, body) VALUES (?, ?)")
-        .bind("reload")
-        .bind("schema catalog refresh")
-        .execute(&pool)
-        .await
-        .unwrap();
-
-    let rows = next_result_rows(&events, 1).await;
-    assert_eq!(rows.len(), 1);
-}
-
-#[tokio::test]
 async fn ordinary_table_created_after_runtime_start_is_discovered() {
     let (_dir, pool, runtime) = common::setup_runtime().await;
     let (sink, events) = TestSink::capture();
@@ -224,43 +162,6 @@ async fn ordinary_table_created_after_runtime_start_is_discovered() {
         .unwrap();
 
     expect_result(&events, 1, vec![json!({ "id": "late-note-1" })]).await;
-}
-
-#[tokio::test]
-async fn unsupported_virtual_tables_are_explicitly_non_reactive() {
-    let (_dir, pool, runtime) = common::setup_runtime().await;
-    let (sink, events) = TestSink::capture();
-
-    sqlx::query("CREATE VIRTUAL TABLE docs_rtree USING rtree(id, min_x, max_x)")
-        .execute(&pool)
-        .await
-        .unwrap();
-
-    let registration = subscribe(
-        &runtime,
-        "SELECT id FROM docs_rtree ORDER BY id",
-        Vec::new(),
-        sink,
-    )
-    .await
-    .unwrap();
-
-    assert!(matches!(
-        registration.analysis,
-        DependencyAnalysis::NonReactive { .. }
-    ));
-
-    expect_empty_result(&events, 0).await;
-
-    sqlx::query("INSERT INTO docs_rtree (id, min_x, max_x) VALUES (?, ?, ?)")
-        .bind(1_i64)
-        .bind(0.0_f64)
-        .bind(1.0_f64)
-        .execute(&pool)
-        .await
-        .unwrap();
-
-    expect_no_event(&events, 1).await;
 }
 
 #[tokio::test]

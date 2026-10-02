@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import {
   type CalendarSyncRange,
   CALENDAR_SYNC_TASK_ID,
@@ -17,11 +19,10 @@ import {
   useScheduledTaskRunIds,
   useTaskScheduler,
 } from "~/services/task-scheduler";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const TOGGLE_SYNC_DEBOUNCE_MS = 5000;
 
-export type SyncStatus = "idle" | "scheduled" | "syncing";
+type SyncStatus = "idle" | "scheduled" | "syncing";
 
 interface SyncContextValue {
   status: SyncStatus;

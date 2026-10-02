@@ -42,7 +42,6 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 tauri-plugin-analytics = { workspace = true }
 tauri-plugin-os = { workspace = true }
-tauri-plugin-sfx = { workspace = true }
 tauri-plugin-window-state = { workspace = true }
 
 thiserror = { workspace = true }

@@ -65,14 +65,6 @@ pub fn is_app_store_build() -> bool {
 
 #[tauri::command]
 #[specta::specta]
-pub fn request_local_database_reset<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<(), String> {
-    crate::db::request_database_reset(&app.config().identifier)
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn complete_app_exit<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
     crate::mark_exit_flush_complete();
     app.exit(0);
@@ -170,14 +162,4 @@ pub async fn install_agent_skill(agent: SkillAgent) -> Result<SkillAgentStatus, 
     }
 
     crate::agent_skills::install(agent)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shows_devtools_for_staging_bundle() {
-        assert!(should_show_devtool(STAGING_BUNDLE_ID));
-    }
 }

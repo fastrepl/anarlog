@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-acknowledge-completed-transcription"
+description = "Enables the acknowledge_completed_transcription command without any pre-configured scope."
+commands.allow = ["acknowledge_completed_transcription"]
+
+[[permission]]
+identifier = "deny-acknowledge-completed-transcription"
+description = "Denies the acknowledge_completed_transcription command without any pre-configured scope."
+commands.deny = ["acknowledge_completed_transcription"]

@@ -16,7 +16,6 @@ tokio-tungstenite = { workspace = true }
 anlg-audio = { workspace = true }
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
-tokio-stream = { workspace = true }
 url = { workspace = true }
 
 futures-util = { workspace = true }
@@ -28,12 +27,9 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 tokio-util = { workspace = true }
-tracing = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
-
-tauri-plugin-shortcut = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 anlg-dictation-ui-macos = { workspace = true }

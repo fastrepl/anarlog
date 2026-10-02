@@ -22,15 +22,16 @@ pub use providers::{Auth, Provider, is_meta_model};
 pub use adapter::StreamingBatchConfig;
 pub use adapter::deepgram::DeepgramModel;
 pub use adapter::{
-    AdapterKind, AnarlogAdapter, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter,
-    AwsTranscribeAdapter, AzureSpeechAdapter, BatchSttAdapter, BatchUploadLimit, CallbackResult,
-    CallbackSttAdapter, CartesiaAdapter, CohereAdapter, DashScopeAdapter,
-    DashScopeStreamingAdapter, DeepgramAdapter, DeepgramFluxAdapter, ElevenLabsAdapter,
-    FireworksAdapter, GladiaAdapter, GoogleCloudAdapter, GoogleGenerativeAiAdapter, GroqAdapter,
-    LanguageQuality, LanguageSupport, MetaAdapter, MistralAdapter, NariAdapter, OpenAIAdapter,
-    OpenRouterAdapter, PyannoteAdapter, RealtimeSttAdapter, RevAiAdapter, SiliconFlowAdapter,
-    SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter, WhisperCppAdapter,
-    WisprFlowAdapter, XaiAdapter, ZaiAdapter, append_provider_param,
+    AdapterKind, AlebexAdapter, AmazonBedrockAdapter, AnarlogAdapter, AquaVoiceAdapter,
+    ArgmaxAdapter, AssemblyAIAdapter, AwsTranscribeAdapter, AzureSpeechAdapter, BatchSttAdapter,
+    BatchUploadLimit, CallbackResult, CallbackSttAdapter, CartesiaAdapter, CohereAdapter,
+    DashScopeAdapter, DashScopeStreamingAdapter, DeepgramAdapter, DeepgramFluxAdapter,
+    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleCloudAdapter,
+    GoogleGenerativeAiAdapter, GradiumAdapter, GroqAdapter, InworldAdapter, LanguageQuality,
+    LanguageSupport, MetaAdapter, MistralAdapter, ModulateAdapter, NariAdapter, NvidiaAdapter,
+    OpenAIAdapter, OpenRouterAdapter, PyannoteAdapter, RealtimeSttAdapter, RevAiAdapter,
+    SiliconFlowAdapter, SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter,
+    WhisperCppAdapter, WisprFlowAdapter, XaiAdapter, ZaiAdapter, append_provider_param,
     documented_language_codes_batch, documented_language_codes_live, is_anarlog_proxy,
     is_local_host, normalize_languages,
 };

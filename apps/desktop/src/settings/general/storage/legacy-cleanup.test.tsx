@@ -107,18 +107,6 @@ describe("LegacyMigrationCleanupRow", () => {
     cleanup();
   });
 
-  it("shows successful migration status and an explicit cleanup action", async () => {
-    renderRow();
-
-    await waitFor(() =>
-      expect(screen.getByText("Migration complete")).toBeTruthy(),
-    );
-    expect(
-      screen.queryByText("12 verified legacy files can be removed"),
-    ).toBeNull();
-    expect(screen.getByRole("button", { name: "Clean Up" })).toBeTruthy();
-  });
-
   it("requires confirmation before removing files", async () => {
     renderRow();
     const openButton = await screen.findByRole("button", {
@@ -128,11 +116,6 @@ describe("LegacyMigrationCleanupRow", () => {
     fireEvent.click(openButton);
 
     expect(screen.getByText("Clean up legacy files?")).toBeTruthy();
-    expect(
-      screen.getByText(
-        /Your app data will not be affected because the migration to SQLite is complete/,
-      ),
-    ).toBeTruthy();
     expect(mocks.cleanupLegacyFiles).not.toHaveBeenCalled();
 
     fireEvent.click(
@@ -216,24 +199,6 @@ describe("LegacyMigrationCleanupRow", () => {
     expect(screen.queryByRole("button", { name: "Clean Up" })).toBeNull();
   });
 
-  it("shows a quiet retrying state instead of a warning when the status cannot be fetched", async () => {
-    mocks.getLegacyCleanupStatus.mockRejectedValue(new Error("database busy"));
-    mocks.getLegacyImportReport.mockRejectedValue(new Error("database busy"));
-
-    renderRow();
-
-    expect(
-      await screen.findByText("Migration status unavailable"),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Anarlog will retry automatically. This does not affect your notes.",
-      ),
-    ).toBeTruthy();
-    expect(screen.queryByText("Migration needs attention")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
-  });
-
   it("recovers automatically after a transient status failure", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mocks.getLegacyCleanupStatus.mockRejectedValueOnce(
@@ -245,6 +210,8 @@ describe("LegacyMigrationCleanupRow", () => {
     expect(
       await screen.findByText("Migration status unavailable"),
     ).toBeTruthy();
+    expect(screen.queryByText("Migration needs attention")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
 
     await vi.advanceTimersByTimeAsync(15_000);
     await waitFor(() =>

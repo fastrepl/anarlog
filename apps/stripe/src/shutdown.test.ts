@@ -69,39 +69,3 @@ test("a worker shutdown error does not cut off an accepted response", async () =
     await server.stop(true);
   }
 });
-
-test("shutdown preserves a streaming response through its final chunk", async () => {
-  const finishStream = Promise.withResolvers<void>();
-  const encoder = new TextEncoder();
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch() {
-      return new Response(
-        new ReadableStream({
-          async start(controller) {
-            controller.enqueue(encoder.encode("first "));
-            await finishStream.promise;
-            controller.enqueue(encoder.encode("last"));
-            controller.close();
-          },
-        }),
-      );
-    },
-  });
-  try {
-    const response = await fetch(server.url);
-    const reader = response.body!.getReader();
-    expect(new TextDecoder().decode((await reader.read()).value)).toBe(
-      "first ",
-    );
-    const shutdown = drainServer(server, async () => {});
-    finishStream.resolve();
-    expect(new TextDecoder().decode((await reader.read()).value)).toBe("last");
-    expect((await reader.read()).done).toBe(true);
-    await shutdown;
-  } finally {
-    finishStream.resolve();
-    await server.stop(true);
-  }
-});

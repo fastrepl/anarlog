@@ -152,32 +152,27 @@ mod tests {
     }
 
     #[test]
-    fn parses_chatgpt_loopback_authorization_code() {
-        let DeepLink::AuthCallback(search) =
-            DeepLink::from_str("local://auth/callback?code=codex-code&state=s1&scope=openid")
-                .unwrap()
-        else {
-            panic!("expected auth callback");
-        };
+    fn parses_authorization_code_callbacks() {
+        for (url, code, state) in [
+            (
+                "local://auth/callback?code=codex-code&state=s1&scope=openid",
+                "codex-code",
+                "s1",
+            ),
+            (
+                "anarlog://auth/callback?code=ac_nf5hq&state=xYc5ZmNlqtWTu3BIbfbVQg",
+                "ac_nf5hq",
+                "xYc5ZmNlqtWTu3BIbfbVQg",
+            ),
+        ] {
+            let DeepLink::AuthCallback(search) = DeepLink::from_str(url).unwrap() else {
+                panic!("expected auth callback for {url}");
+            };
 
-        assert!(search.access_token.is_empty());
-        assert!(search.refresh_token.is_empty());
-        assert_eq!(search.code.as_deref(), Some("codex-code"));
-        assert_eq!(search.state.as_deref(), Some("s1"));
-    }
-
-    #[test]
-    fn parses_subscription_auth_custom_scheme_deeplink() {
-        let DeepLink::AuthCallback(search) = DeepLink::from_str(
-            "anarlog://auth/callback?code=ac_nf5hq&state=xYc5ZmNlqtWTu3BIbfbVQg",
-        )
-        .unwrap() else {
-            panic!("expected auth callback");
-        };
-
-        assert!(search.access_token.is_empty());
-        assert!(search.refresh_token.is_empty());
-        assert_eq!(search.code.as_deref(), Some("ac_nf5hq"));
-        assert_eq!(search.state.as_deref(), Some("xYc5ZmNlqtWTu3BIbfbVQg"));
+            assert!(search.access_token.is_empty(), "{url}");
+            assert!(search.refresh_token.is_empty(), "{url}");
+            assert_eq!(search.code.as_deref(), Some(code), "{url}");
+            assert_eq!(search.state.as_deref(), Some(state), "{url}");
+        }
     }
 }

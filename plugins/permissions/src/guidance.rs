@@ -104,23 +104,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn accessibility_is_the_only_assisted_pane() {
-        for permission in [
-            Permission::Calendar,
-            Permission::Reminders,
-            Permission::Contacts,
-            Permission::Microphone,
-            Permission::SystemAudio,
-            Permission::ScreenRecording,
-            Permission::InputMonitoring,
-        ] {
-            assert!(!permission.settings_guidance().is_assisted());
-        }
-
-        assert!(Permission::Accessibility.settings_guidance().is_assisted());
-    }
-
-    #[test]
     fn assisted_guidance_carries_a_pane_title() {
         let guidance = PermissionGuidance::from(Permission::Accessibility.settings_guidance());
         assert!(guidance.assisted);

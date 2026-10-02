@@ -11,7 +11,7 @@ import {
 const MAX_EVENT_TEXT_CHARS = 6000;
 const MAX_CONTACTS_TO_EXTRACT = 8;
 
-export type EventContactCandidate = {
+type EventContactCandidate = {
   humanId?: string;
   name?: string;
   email?: string;
@@ -36,7 +36,7 @@ export type ExtractEventContactsResult = {
   source: "local";
 };
 
-export type ApplyExtractedContactsResult = {
+type ApplyExtractedContactsResult = {
   created: number;
   updated: number;
   linked: number;

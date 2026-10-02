@@ -64,60 +64,68 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_numeric_code() {
-        let data = br#"{"error_code": 400, "error_message": "Invalid model specified."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert_eq!(err.message, "Invalid model specified.");
-        assert_eq!(err.provider_code, Some("400".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4400);
+    fn classifies_error_messages() {
+        for (data, http_code, provider_code, ws_close_code, message_check) in [
+            (
+                br#"{"error_code": 400, "error_message": "Invalid model specified."}"#.as_slice(),
+                400,
+                Some("400"),
+                4400,
+                "Invalid model specified.",
+            ),
+            (
+                br#"{"error_code": 503, "error_message": "Cannot continue request (code 1). Please restart the request."}"#
+                    .as_slice(),
+                503,
+                Some("503"),
+                4500,
+                "Cannot continue request",
+            ),
+            (
+                br#"{"error_code": "INVALID_API_KEY", "error_message": "API key is invalid"}"#
+                    .as_slice(),
+                500,
+                Some("INVALID_API_KEY"),
+                4500,
+                "API key is invalid",
+            ),
+            (
+                br#"{"error_message": "Something went wrong"}"#.as_slice(),
+                500,
+                None,
+                4500,
+                "Something went wrong",
+            ),
+            (
+                br#"{"error_code": 401}"#.as_slice(),
+                401,
+                Some("401"),
+                4401,
+                "Unknown error",
+            ),
+        ] {
+            let err = detect_error(data).unwrap();
+            assert_eq!(err.http_code, http_code, "{data:?}");
+            assert!(
+                err.message == message_check || err.message.contains(message_check),
+                "{data:?}"
+            );
+            assert_eq!(
+                err.provider_code,
+                provider_code.map(str::to_string),
+                "{data:?}"
+            );
+            assert_eq!(err.to_ws_close_code(), ws_close_code, "{data:?}");
+        }
     }
 
     #[test]
-    fn test_503() {
-        let data = br#"{"error_code": 503, "error_message": "Cannot continue request (code 1). Please restart the request."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 503);
-        assert!(err.message.contains("Cannot continue request"));
-        assert_eq!(err.to_ws_close_code(), 4500);
-    }
-
-    #[test]
-    fn test_string_code() {
-        let data = br#"{"error_code": "INVALID_API_KEY", "error_message": "API key is invalid"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 500);
-        assert_eq!(err.message, "API key is invalid");
-        assert_eq!(err.provider_code, Some("INVALID_API_KEY".to_string()));
-    }
-
-    #[test]
-    fn test_only_message() {
-        let data = br#"{"error_message": "Something went wrong"}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 500);
-        assert_eq!(err.message, "Something went wrong");
-        assert_eq!(err.provider_code, None);
-    }
-
-    #[test]
-    fn test_only_code() {
-        let data = br#"{"error_code": 401}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 401);
-        assert_eq!(err.message, "Unknown error");
-        assert_eq!(err.provider_code, Some("401".to_string()));
-    }
-
-    #[test]
-    fn test_non_error_message() {
-        let data = br#"{"tokens": [], "finished": false}"#;
-        assert!(detect_error(data).is_none());
-    }
-
-    #[test]
-    fn test_empty_json() {
-        let data = br#"{}"#;
-        assert!(detect_error(data).is_none());
+    fn ignores_non_error_and_empty_messages() {
+        for data in [
+            br#"{"tokens": [], "finished": false}"#.as_slice(),
+            br#"{}"#.as_slice(),
+        ] {
+            assert!(detect_error(data).is_none(), "{data:?}");
+        }
     }
 }

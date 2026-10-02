@@ -71,6 +71,14 @@ import {
   applyThemePreference,
 } from "./provider";
 
+function renderProvider() {
+  return render(
+    <AppThemeProvider>
+      <div>child</div>
+    </AppThemeProvider>,
+  );
+}
+
 describe("AppThemeProvider", () => {
   beforeEach(() => {
     cleanup();
@@ -102,11 +110,7 @@ describe("AppThemeProvider", () => {
   });
 
   it("does not clobber the boot theme before settings hydrate", () => {
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
+    renderProvider();
 
     expect(applyDocumentTheme).not.toHaveBeenCalled();
     expect(writeStoredThemePreference).not.toHaveBeenCalled();
@@ -118,11 +122,7 @@ describe("AppThemeProvider", () => {
     themeState.settingsReady = true;
     themeState.theme = "light";
 
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
+    renderProvider();
 
     await waitFor(() =>
       expect(applyDocumentTheme).toHaveBeenCalledWith("light", false),
@@ -130,6 +130,8 @@ describe("AppThemeProvider", () => {
     expect(writeStoredThemePreference).toHaveBeenCalledWith("light");
     await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
     expect(setNativeTheme).toHaveBeenCalledWith("light");
+    expect(onThemeChanged).not.toHaveBeenCalled();
+    expect(systemTheme.addEventListener).not.toHaveBeenCalled();
   });
 
   it("uses the native appearance for the system theme", async () => {
@@ -137,11 +139,7 @@ describe("AppThemeProvider", () => {
     themeState.theme = "system";
     nativeTheme.mockResolvedValue("dark");
 
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
+    renderProvider();
 
     await waitFor(() =>
       expect(applyDocumentTheme).toHaveBeenCalledWith("system", true),
@@ -153,45 +151,47 @@ describe("AppThemeProvider", () => {
     );
   });
 
-  it("uses the channel-specific default Dock icon", async () => {
-    getIdentifier.mockResolvedValue("com.hyprnote.staging");
+  it.each([
+    {
+      name: "channel-specific default",
+      identifier: "com.hyprnote.staging",
+      theme: "system",
+      appIcon: "default",
+      expected: "staging",
+    },
+    {
+      name: "stable fallback",
+      identifier: new Error("unavailable"),
+      theme: "system",
+      appIcon: "default",
+      expected: "stable",
+    },
+    {
+      name: "explicit dark appearance",
+      identifier: "com.hyprnote.stable",
+      theme: "dark",
+      appIcon: "anagram",
+      expected: "anagram-dark",
+    },
+  ])("uses the $expected Dock icon for a $name", async (scenario) => {
     themeState.settingsReady = true;
+    themeState.theme = scenario.theme as "light" | "dark" | "system";
+    themeState.appIcon = scenario.appIcon as
+      | "default"
+      | "stable"
+      | "anagram"
+      | "dev"
+      | "staging";
+    if (scenario.identifier instanceof Error) {
+      getIdentifier.mockRejectedValue(scenario.identifier);
+    } else {
+      getIdentifier.mockResolvedValue(scenario.identifier);
+    }
 
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
-
-    await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("staging"));
-  });
-
-  it("uses the stable Dock icon when the app identifier is unavailable", async () => {
-    getIdentifier.mockRejectedValue(new Error("unavailable"));
-    themeState.settingsReady = true;
-
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
-
-    await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
-  });
-
-  it("pins the Dock icon to the dark theme against a light system", async () => {
-    themeState.settingsReady = true;
-    themeState.theme = "dark";
-    themeState.appIcon = "anagram";
-
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
+    renderProvider();
 
     await waitFor(() =>
-      expect(setDockIcon).toHaveBeenCalledWith("anagram-dark"),
+      expect(setDockIcon).toHaveBeenCalledWith(scenario.expected),
     );
   });
 
@@ -199,11 +199,7 @@ describe("AppThemeProvider", () => {
     themeState.settingsReady = true;
     themeState.theme = "system";
 
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
+    renderProvider();
 
     await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
 
@@ -220,11 +216,7 @@ describe("AppThemeProvider", () => {
     themeState.settingsReady = true;
     themeState.theme = "system";
 
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
+    renderProvider();
 
     await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
     const handleWebviewThemeChanged =
@@ -243,31 +235,11 @@ describe("AppThemeProvider", () => {
     expect(setDockIcon).toHaveBeenCalledWith("stable-dark");
   });
 
-  it("pins the native appearance for an explicit theme", async () => {
-    themeState.settingsReady = true;
-    themeState.theme = "light";
-
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
-
-    await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
-    expect(setNativeTheme).toHaveBeenCalledWith("light");
-    expect(onThemeChanged).not.toHaveBeenCalled();
-    expect(systemTheme.addEventListener).not.toHaveBeenCalled();
-  });
-
   it("ignores stale system events after leaving system appearance", async () => {
     themeState.settingsReady = true;
     themeState.theme = "system";
 
-    const { rerender } = render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
+    const { rerender } = renderProvider();
 
     await waitFor(() => expect(onThemeChanged).toHaveBeenCalledOnce());
     await waitFor(() => expect(applyDocumentTheme).toHaveBeenCalledOnce());
@@ -290,11 +262,7 @@ describe("AppThemeProvider", () => {
     themeState.settingsReady = true;
     themeState.theme = "system";
 
-    render(
-      <AppThemeProvider>
-        <div>child</div>
-      </AppThemeProvider>,
-    );
+    renderProvider();
 
     await waitFor(() => expect(onThemeChanged).toHaveBeenCalledOnce());
     const handleThemeChanged = onThemeChanged.mock.calls[0]?.[0];
@@ -324,37 +292,51 @@ describe("AppThemeProvider", () => {
     expect(setDockIcon).toHaveBeenCalledWith("stable-dark");
   });
 
-  it("applies an explicit selection and matching Dock icon immediately", async () => {
-    await applyThemePreference("light");
+  it.each([
+    ["light", false, "stable"],
+    ["dark", true, "stable-dark"],
+  ] as const)(
+    "applies the selected %s theme immediately",
+    async (theme, isDark, expectedIcon) => {
+      await applyThemePreference(theme);
 
-    expect(setNativeTheme).toHaveBeenCalledWith("light");
-    expect(nativeTheme).not.toHaveBeenCalled();
-    expect(applyDocumentTheme).toHaveBeenCalledWith("light", false);
-    expect(writeStoredThemePreference).toHaveBeenCalledWith("light");
-    expect(setDockIcon).toHaveBeenCalledWith("stable");
-  });
+      expect(setNativeTheme).toHaveBeenCalledWith(theme);
+      expect(nativeTheme).not.toHaveBeenCalled();
+      expect(applyDocumentTheme).toHaveBeenCalledWith(theme, isDark);
+      expect(writeStoredThemePreference).toHaveBeenCalledWith(theme);
+      expect(setDockIcon).toHaveBeenCalledWith(expectedIcon);
+    },
+  );
 
-  it("pins the Dock icon when selecting the dark theme on a light system", async () => {
-    await applyThemePreference("dark");
+  it.each([
+    {
+      name: "system appearance",
+      matches: false,
+      theme: undefined,
+      expectedIcon: "anagram-dark",
+      readsNativeTheme: true,
+    },
+    {
+      name: "explicit theme",
+      matches: true,
+      theme: "light",
+      expectedIcon: "anagram",
+      readsNativeTheme: false,
+    },
+  ] as const)(
+    "applies an icon selection using the $name",
+    async ({ matches, theme, expectedIcon, readsNativeTheme }) => {
+      systemTheme.matches = matches;
+      nativeTheme.mockResolvedValue("dark");
 
-    expect(applyDocumentTheme).toHaveBeenCalledWith("dark", true);
-    expect(setDockIcon).toHaveBeenCalledWith("stable-dark");
-  });
+      await applyAppIconPreference("anagram", theme);
 
-  it("applies an icon selection using the system appearance", async () => {
-    nativeTheme.mockResolvedValue("dark");
-
-    await applyAppIconPreference("anagram");
-
-    expect(nativeTheme).toHaveBeenCalledOnce();
-    expect(setDockIcon).toHaveBeenCalledWith("anagram-dark");
-  });
-
-  it("applies an icon selection using an explicit theme", async () => {
-    systemTheme.matches = true;
-
-    await applyAppIconPreference("anagram", "light");
-
-    expect(setDockIcon).toHaveBeenCalledWith("anagram");
-  });
+      if (readsNativeTheme) {
+        expect(nativeTheme).toHaveBeenCalledOnce();
+      } else {
+        expect(nativeTheme).not.toHaveBeenCalled();
+      }
+      expect(setDockIcon).toHaveBeenCalledWith(expectedIcon);
+    },
+  );
 });

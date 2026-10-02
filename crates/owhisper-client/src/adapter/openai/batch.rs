@@ -608,13 +608,10 @@ fn build_batch_response(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapter::BatchSttAdapter;
-    use crate::http_client::create_client;
 
     #[test]
-    fn build_transcription_options_defaults_to_gpt_transcribe_json() {
+    fn gpt_transcribe_options_request_json_with_all_language_hints() {
         let options = build_transcription_options(&ListenParams::default(), true, false);
-
         let fields = options
             .multipart_text_fields()
             .expect("serialize multipart");
@@ -624,10 +621,7 @@ mod tests {
                 .any(|field| { field.name == "response_format" && field.value == "json" })
         );
         assert!(!fields.iter().any(|field| field.name == "stream"));
-    }
 
-    #[test]
-    fn gpt_transcribe_preserves_all_language_hints() {
         let options = build_transcription_options(
             &ListenParams {
                 languages: vec![
@@ -639,7 +633,6 @@ mod tests {
             true,
             false,
         );
-
         let fields = options
             .multipart_text_fields()
             .expect("serialize multipart");
@@ -654,7 +647,24 @@ mod tests {
     }
 
     #[test]
-    fn build_transcription_options_omits_stream_for_whisper() {
+    fn whisper_options_request_word_timestamps_only_for_batch() {
+        let options = build_transcription_options(
+            &ListenParams {
+                model: Some("whisper-1".to_string()),
+                ..Default::default()
+            },
+            true,
+            false,
+        );
+        let fields = options
+            .multipart_text_fields()
+            .expect("serialize multipart");
+        assert!(
+            fields.iter().any(|field| {
+                field.name == "timestamp_granularities[]" && field.value == "word"
+            })
+        );
+
         let options = build_transcription_options(
             &ListenParams {
                 model: Some("whisper-1".to_string()),
@@ -663,7 +673,6 @@ mod tests {
             false,
             true,
         );
-
         let fields = options
             .multipart_text_fields()
             .expect("serialize multipart");
@@ -673,27 +682,6 @@ mod tests {
             !fields
                 .iter()
                 .any(|field| field.name == "timestamp_granularities[]")
-        );
-    }
-
-    #[test]
-    fn build_transcription_options_requests_word_timestamps_for_whisper_batch() {
-        let options = build_transcription_options(
-            &ListenParams {
-                model: Some("whisper-1".to_string()),
-                ..Default::default()
-            },
-            true,
-            false,
-        );
-
-        let fields = options
-            .multipart_text_fields()
-            .expect("serialize multipart");
-        assert!(
-            fields.iter().any(|field| {
-                field.name == "timestamp_granularities[]" && field.value == "word"
-            })
         );
     }
 
@@ -909,34 +897,5 @@ mod tests {
             batch.metadata["speaker_segments"].as_array().map(Vec::len),
             Some(2)
         );
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_openai_transcribe() {
-        let api_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY not set");
-
-        let adapter = OpenAIAdapter::default();
-        let client = create_client();
-        let api_base = "https://api.openai.com/v1";
-
-        let params = ListenParams::default();
-
-        let audio_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../crates/data/src/english_1/audio.wav");
-
-        let result = adapter
-            .transcribe_file(&client, api_base, &api_key, &params, &audio_path)
-            .await;
-
-        let response = result.expect("transcription should succeed");
-
-        assert!(!response.results.channels.is_empty());
-        let channel = &response.results.channels[0];
-        assert!(!channel.alternatives.is_empty());
-        let alt = &channel.alternatives[0];
-        assert!(!alt.transcript.is_empty());
-        println!("Transcript: {}", alt.transcript);
-        println!("Word count: {}", alt.words.len());
     }
 }

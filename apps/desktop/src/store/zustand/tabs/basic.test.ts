@@ -3,6 +3,7 @@ import "./test-matchers";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { type Tab, useTabs } from ".";
+import type { SettingsTab } from "./schema";
 import {
   createContactsTab,
   createSettingsTab,
@@ -121,6 +122,7 @@ describe("Basic Tab Actions", () => {
       state: {
         view: { type: "enhanced", id: "summary-1" },
         autoStart: true,
+        scheduledAutoStart: null,
       },
     });
     expect(useTabs.getState().tabs).toHaveLength(1);
@@ -371,123 +373,33 @@ describe("Basic Tab Actions", () => {
     expect(useTabs.getState().currentTab?.returnToSlotId).toBeUndefined();
   });
 
-  test("openNew defaults bare settings tabs to app", () => {
-    useTabs.getState().openNew({ type: "settings" });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "app" },
-    });
-    expect(useTabs.getState()).toMatchTabsInOrder([
-      { type: "settings", active: true, state: { tab: "app" } },
-    ]);
-  });
-
-  test("openNew falls back from removed settings tabs to app", () => {
-    useTabs.getState().openNew({ type: "settings", state: { tab: "lab" } });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "app" },
-    });
-    expect(useTabs.getState()).toMatchTabsInOrder([
-      { type: "settings", active: true, state: { tab: "app" } },
-    ]);
-  });
-
-  test("openNew redirects legacy data settings tab to imports", () => {
-    useTabs.getState().openNew({ type: "settings", state: { tab: "data" } });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "imports" },
-    });
-    expect(useTabs.getState()).toMatchTabsInOrder([
-      { type: "settings", active: true, state: { tab: "imports" } },
-    ]);
-  });
-
-  test("openNew redirects legacy personalization settings to dictionary", () => {
-    useTabs.getState().openNew({
-      type: "settings",
-      state: { tab: "personalization" },
-    });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "dictionary" },
-    });
-    expect(useTabs.getState()).toMatchTabsInOrder([
-      { type: "settings", active: true, state: { tab: "dictionary" } },
-    ]);
-  });
-
-  test.each(["account", "billing"] as const)(
-    "openNew preserves %s settings tab requests",
-    (tab) => {
-      useTabs.getState().openNew({ type: "settings", state: { tab } });
+  test.each([
+    [undefined, "app"],
+    ["lab", "app"],
+    ["data", "imports"],
+    ["personalization", "dictionary"],
+    ["audio", "meetings"],
+    ["billing", "billing"],
+  ] as const)(
+    "openNew normalizes settings tab %s to %s",
+    (requested, expected) => {
+      useTabs
+        .getState()
+        .openNew(
+          requested === undefined
+            ? { type: "settings" }
+            : { type: "settings", state: { tab: requested as SettingsTab } },
+        );
 
       expect(useTabs.getState()).toHaveCurrentTab({
         type: "settings",
-        state: { tab },
+        state: { tab: expected },
       });
       expect(useTabs.getState()).toMatchTabsInOrder([
-        { type: "settings", active: true, state: { tab } },
+        { type: "settings", active: true, state: { tab: expected } },
       ]);
     },
   );
-
-  test("openNew preserves sync settings tab requests", () => {
-    useTabs.getState().openNew({ type: "settings", state: { tab: "sync" } });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "sync" },
-    });
-  });
-
-  test("openNew preserves privacy settings tab requests", () => {
-    useTabs.getState().openNew({
-      type: "settings",
-      state: { tab: "privacy" },
-    });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "privacy" },
-    });
-  });
-
-  test("openNew preserves meeting settings tab requests", () => {
-    useTabs
-      .getState()
-      .openNew({ type: "settings", state: { tab: "meetings" } });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "meetings" },
-    });
-  });
-
-  test("openNew redirects legacy audio settings to meetings", () => {
-    useTabs.getState().openNew({ type: "settings", state: { tab: "audio" } });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "meetings" },
-    });
-  });
-
-  test("openNew preserves transcription settings tab requests", () => {
-    useTabs
-      .getState()
-      .openNew({ type: "settings", state: { tab: "transcription" } });
-
-    expect(useTabs.getState()).toHaveCurrentTab({
-      type: "settings",
-      state: { tab: "transcription" },
-    });
-  });
 
   test("select toggles active flag without changing history", () => {
     const tabA = createSessionTab({ active: true });

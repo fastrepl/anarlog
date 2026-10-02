@@ -11,6 +11,7 @@ import {
   authNoticeClassName,
   authPrimaryButtonClassName,
 } from "@/components/auth-shell";
+import { isTurnstileEnabled, Turnstile } from "@/components/turnstile";
 import { doPasswordResetRequest } from "@/functions/auth";
 import { flowSearchSchema } from "@/functions/desktop-flow";
 import { toAuthFlowSearch } from "@/lib/auth-flow-context";
@@ -32,9 +33,18 @@ function Component() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const [captchaWidgetKey, setCaptchaWidgetKey] = useState(0);
 
   const resetMutation = useMutation({
-    mutationFn: () => doPasswordResetRequest({ data: { email, ...context } }),
+    mutationFn: (captchaToken: string | undefined) =>
+      doPasswordResetRequest({
+        data: {
+          email,
+          ...context,
+          ...(captchaToken ? { captchaToken } : {}),
+        },
+      }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
         setErrorMessage(
@@ -49,7 +59,10 @@ function Component() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
-    resetMutation.mutate();
+    const submittedCaptchaToken = captchaToken;
+    setCaptchaToken(undefined);
+    setCaptchaWidgetKey((key) => key + 1);
+    resetMutation.mutate(submittedCaptchaToken);
   };
 
   return (
@@ -74,12 +87,17 @@ function Component() {
             required
             className={authInputClassName}
           />
+          <Turnstile key={captchaWidgetKey} onToken={setCaptchaToken} />
           {errorMessage && (
             <p className="text-center text-sm text-red-700">{errorMessage}</p>
           )}
           <button
             type="submit"
-            disabled={resetMutation.isPending || !email}
+            disabled={
+              resetMutation.isPending ||
+              !email ||
+              (isTurnstileEnabled && !captchaToken)
+            }
             className={authPrimaryButtonClassName}
           >
             {resetMutation.isPending ? "Sending..." : "Send reset link"}

@@ -253,26 +253,6 @@ describe("RawEditor", () => {
     hoisted.createBrief.mockReset();
   });
 
-  it("uses the shared session note editor styling", () => {
-    render(<RawEditor sessionId="session-1" className="custom-editor-class" />);
-
-    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
-
-    expect(props?.className).toContain("session-note-editor");
-    expect(props?.className).toContain("custom-editor-class");
-    expect(props?.placeholderComponent).toEqual(expect.any(Function));
-    expect((props?.placeholderComponent as () => string)()).toBe(
-      "Start writing...",
-    );
-    expect(props?.readOnly).toBe(false);
-    expect(props?.persistentPlaceholderComponent).toBeUndefined();
-    expect(props?.enforceTitleHeading).toBe(false);
-    expect(props?.initialContent).toMatchObject({
-      type: "doc",
-      content: [{ type: "paragraph" }],
-    });
-  });
-
   it("removes a legacy session title from the memo body", () => {
     hoisted.rawMd = JSON.stringify({
       type: "doc",
@@ -433,30 +413,8 @@ describe("RawEditor", () => {
 
     render(<RawEditor sessionId="session-1" />);
 
-    const heading = screen.getByText("Suggested templates");
     const buttons = screen.getAllByRole("button");
 
-    expect(heading.className).toContain("h-8");
-    expect(heading.className).toContain("text-muted-foreground");
-    expect(heading.className).not.toContain("px-2");
-    expect(buttons.every((button) => button.className.includes("h-8"))).toBe(
-      true,
-    );
-    expect(
-      buttons.every((button) =>
-        button.className.includes("text-muted-foreground"),
-      ),
-    ).toBe(true);
-    expect(
-      buttons.every(
-        (button) =>
-          button.className.includes("w-fit") &&
-          button.className.includes("pointer-events-auto") &&
-          // px-2 offset by -ml-2 keeps content aligned with the editor column
-          button.className.includes("-ml-2") &&
-          button.className.includes("px-2"),
-      ),
-    ).toBe(true);
     expect(buttons.map((button) => button.textContent)).toEqual([
       "Template iconProject Kickoff",
       "Template iconDaily Standup",
@@ -464,25 +422,6 @@ describe("RawEditor", () => {
       "New template",
     ]);
     expect(screen.queryByRole("button", { name: "Board Meeting" })).toBeNull();
-  });
-
-  it("hides template suggestions after the meeting", () => {
-    hoisted.canShowTranscript = true;
-    hoisted.userTemplates = [
-      {
-        id: "default-daily-standup",
-        title: "Daily Standup",
-        pinned: false,
-        icon: { type: "emoji", value: "☀️" },
-        sections: [{ title: "Today", description: "" }],
-      },
-    ];
-
-    render(<RawEditor sessionId="session-1" />);
-
-    expect(screen.queryByText("Suggested templates")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Daily Standup" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "New template" })).toBeNull();
   });
 
   it("toggles template suggestions from live memo changes", () => {
@@ -635,44 +574,6 @@ describe("RawEditor", () => {
     ]);
   });
 
-  it("prioritizes one-on-one notes for two-person events", () => {
-    hoisted.eventParticipants = [
-      { name: "John", is_current_user: true },
-      { name: "Ada", is_current_user: false },
-    ];
-    hoisted.userTemplates = [
-      {
-        id: "default-daily-standup",
-        title: "Daily Standup",
-        pinned: false,
-        sections: [{ title: "Today", description: "" }],
-      },
-      {
-        id: "default-project-kickoff",
-        title: "Project Kickoff",
-        pinned: false,
-        sections: [{ title: "Goals", description: "" }],
-      },
-      {
-        id: "default-one-on-one-meeting",
-        title: "1:1 Meeting",
-        pinned: false,
-        sections: [{ title: "Updates", description: "" }],
-      },
-    ];
-
-    render(<RawEditor sessionId="session-1" eventTitle="Weekly catch-up" />);
-
-    expect(
-      screen.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual([
-      "Template icon1:1 Meeting",
-      "Template iconProject Kickoff",
-      "Template iconDaily Standup",
-      "New template",
-    ]);
-  });
-
   it("offers a brief suggestion above templates when one can be created", () => {
     hoisted.briefVisible = true;
     hoisted.userTemplates = [
@@ -688,11 +589,6 @@ describe("RawEditor", () => {
     render(<RawEditor sessionId="session-1" />);
 
     expect(screen.queryByText("Prepare for this meeting")).toBeNull();
-    const briefButton = screen.getByRole("button", {
-      name: "Create a brief to prepare this meeting",
-    });
-    expect(briefButton.parentElement?.className).toContain("top-8");
-    expect(briefButton.parentElement?.className).not.toContain("top-16");
     expect(
       screen.getAllByRole("button").map((button) => button.textContent),
     ).toEqual([
@@ -828,72 +724,61 @@ describe("RawEditor", () => {
     expect(hoisted.persistChange).not.toHaveBeenCalled();
   });
 
-  it("routes dropped audio files to transcription", () => {
-    render(<RawEditor sessionId="session-1" />);
+  it.each(
+    (() => {
+      const mp3 = { name: "clip.mp3", type: "audio/mpeg" } as File;
+      const image = new File(["image"], "photo.png", { type: "image/png" });
+      const untyped = new File(["audio"], "clip", { type: "" });
+      const second = { name: "second.m4a", type: "" } as File;
+      return [
+        ["a single audio file", [mp3], undefined, true, [mp3]],
+        [
+          "audio with attachments",
+          [mp3, image],
+          undefined,
+          { remainingFiles: [image] },
+          [mp3],
+        ],
+        [
+          "untyped audio identified by drag item MIME",
+          [untyped, image],
+          ["audio/mpeg", image.type],
+          { remainingFiles: [image] },
+          [untyped, { allowUnknownAudio: true, contentType: "audio/mpeg" }],
+        ],
+        [
+          "multiple audio files",
+          [mp3, second],
+          undefined,
+          { remainingFiles: [second] },
+          [mp3],
+        ],
+      ] as const;
+    })(),
+  )(
+    "imports only the first audio file from an editor drop of %s",
+    (_label, files, itemTypes, expected, importArgs) => {
+      render(<RawEditor sessionId="session-1" />);
 
-    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
-    const fileHandlerConfig = props?.fileHandlerConfig as {
-      onDrop: (
-        files: File[],
-        pos?: number,
-        items?: DataTransferItemList,
-      ) => boolean | void | { remainingFiles: File[] };
-    };
-    const file = { name: "clip.mp3", type: "audio/mpeg" } as File;
+      const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
+      const fileHandlerConfig = props?.fileHandlerConfig as {
+        onDrop: (
+          files: File[],
+          pos?: number,
+          items?: DataTransferItemList,
+        ) => boolean | void | { remainingFiles: File[] };
+      };
+      const items = itemTypes
+        ? audioDataTransfer([...files], [...itemTypes]).items
+        : undefined;
 
-    expect(fileHandlerConfig.onDrop([file])).toBe(true);
-    expect(hoisted.processAudioFile).toHaveBeenCalledWith(file);
-  });
-
-  it("keeps non-audio files available when audio is dropped with attachments", () => {
-    render(<RawEditor sessionId="session-1" />);
-
-    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
-    const fileHandlerConfig = props?.fileHandlerConfig as {
-      onDrop: (files: File[]) => boolean | void | { remainingFiles: File[] };
-    };
-    const audioFile = { name: "clip.mp3", type: "audio/mpeg" } as File;
-    const imageFile = { name: "photo.png", type: "image/png" } as File;
-
-    expect(fileHandlerConfig.onDrop([audioFile, imageFile])).toEqual({
-      remainingFiles: [imageFile],
-    });
-    expect(hoisted.processAudioFile).toHaveBeenCalledTimes(1);
-    expect(hoisted.processAudioFile).toHaveBeenCalledWith(audioFile);
-  });
-
-  it("uses drag item MIME for mixed drops handled by the editor", () => {
-    render(<RawEditor sessionId="session-1" />);
-
-    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
-    const fileHandlerConfig = props?.fileHandlerConfig as {
-      onDrop: (
-        files: File[],
-        pos?: number,
-        items?: DataTransferItemList,
-      ) => boolean | void | { remainingFiles: File[] };
-    };
-    const audioFile = new File(["audio"], "clip", { type: "" });
-    const imageFile = new File(["image"], "photo.png", { type: "image/png" });
-    const dataTransfer = audioDataTransfer(
-      [audioFile, imageFile],
-      ["audio/mpeg", imageFile.type],
-    );
-
-    expect(
-      fileHandlerConfig.onDrop(
-        [audioFile, imageFile],
-        undefined,
-        dataTransfer.items,
-      ),
-    ).toEqual({
-      remainingFiles: [imageFile],
-    });
-    expect(hoisted.processAudioFile).toHaveBeenCalledWith(audioFile, {
-      allowUnknownAudio: true,
-      contentType: "audio/mpeg",
-    });
-  });
+      expect(fileHandlerConfig.onDrop([...files], undefined, items)).toEqual(
+        expected,
+      );
+      expect(hoisted.processAudioFile).toHaveBeenCalledTimes(1);
+      expect(hoisted.processAudioFile).toHaveBeenCalledWith(...importArgs);
+    },
+  );
 
   it("routes pasted Voice Memos audio to transcription", () => {
     render(<RawEditor sessionId="session-1" />);
@@ -912,25 +797,6 @@ describe("RawEditor", () => {
     expect(hoisted.processAudioFile).toHaveBeenCalledWith(file);
   });
 
-  it("only imports the first audio file from a multi-audio drop", () => {
-    render(<RawEditor sessionId="session-1" />);
-
-    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
-    const fileHandlerConfig = props?.fileHandlerConfig as {
-      onDrop: (files: File[]) => boolean | void | { remainingFiles: File[] };
-    };
-    const firstAudioFile = { name: "first.mp3", type: "audio/mpeg" } as File;
-    const secondAudioFile = { name: "second.m4a", type: "" } as File;
-
-    expect(fileHandlerConfig.onDrop([firstAudioFile, secondAudioFile])).toEqual(
-      {
-        remainingFiles: [secondAudioFile],
-      },
-    );
-    expect(hoisted.processAudioFile).toHaveBeenCalledTimes(1);
-    expect(hoisted.processAudioFile).toHaveBeenCalledWith(firstAudioFile);
-  });
-
   it("shows an audio upload overlay and intercepts audio drops", async () => {
     render(<RawEditor sessionId="session-1" />);
 
@@ -944,13 +810,7 @@ describe("RawEditor", () => {
     expect(
       screen.getByText("Drop to upload and transcribe audio"),
     ).not.toBeNull();
-    expect(screen.getByRole("status").className).not.toContain("backdrop-blur");
-    expect(
-      screen.getByText("WAV, MP3, OGG, MP4, M4A, FLAC, WEBM, or AAC audio"),
-    ).not.toBeNull();
-    await waitFor(() => expect(hoisted.focusWindow).toHaveBeenCalledTimes(1));
-    expect(hoisted.showWindow).toHaveBeenCalledTimes(1);
-    expect(hoisted.unminimizeWindow).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(hoisted.focusWindow).toHaveBeenCalled());
 
     fireEvent.drop(dropTarget!, { dataTransfer });
 

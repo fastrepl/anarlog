@@ -9,7 +9,7 @@ let pendingAutomaticRelaunch = false;
 let automaticRelaunchTimeout: ReturnType<typeof setTimeout> | null = null;
 const APPLICATION_STATE_FLUSH_TIMEOUT_MS = 5000;
 
-export async function flushApplicationState(): Promise<void> {
+async function flushApplicationState(): Promise<void> {
   const results = await Promise.allSettled([
     flushDatabaseWritesWithin(APPLICATION_STATE_FLUSH_TIMEOUT_MS),
     store2Commands.save(),

@@ -34,6 +34,14 @@ import {
 
 import { MAX_AI_TASK_STREAM_CHARACTERS } from "~/store/zustand/ai-task/tasks";
 
+const autoEnhanceRequest = {
+  requestId: "request-id",
+  sourceLabel: "note-window",
+  sessionId: "session-1",
+  mode: "regenerate" as const,
+};
+const RESULT_EVENT = "anlg:ai-task-auto-enhance-result";
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.callbacks.clear();
@@ -67,7 +75,7 @@ describe("handleMainEnhanceRequest", () => {
           enhance,
         },
         {
-          sessionId: "session-1",
+          sessionId: autoEnhanceRequest.sessionId,
           auto: mode,
         },
       );
@@ -88,7 +96,7 @@ describe("handleMainEnhanceRequest", () => {
         enhance,
       },
       {
-        sessionId: "session-1",
+        sessionId: autoEnhanceRequest.sessionId,
         opts,
       },
     );
@@ -137,56 +145,58 @@ describe("serializeEnhanceTasks", () => {
 
 describe("requestMainAutoEnhance", () => {
   it("waits for the main window to durably handle the request", async () => {
-    const request = requestMainAutoEnhance("session-1", "regenerate");
+    const request = requestMainAutoEnhance(
+      autoEnhanceRequest.sessionId,
+      autoEnhanceRequest.mode,
+    );
 
     await vi.waitFor(() =>
       expect(mocks.emitTo).toHaveBeenCalledWith(
         "main",
         "anlg:ai-task-auto-enhance-request",
-        {
-          requestId: "request-id",
-          sourceLabel: "note-window",
-          sessionId: "session-1",
-          mode: "regenerate",
-        },
+        autoEnhanceRequest,
       ),
     );
 
-    mocks.callbacks.get("anlg:ai-task-auto-enhance-result")?.({
+    mocks.callbacks.get(RESULT_EVENT)?.({
       payload: {
-        requestId: "request-id",
+        requestId: autoEnhanceRequest.requestId,
         completed: true,
         error: null,
       },
     });
 
     await expect(request).resolves.toBeUndefined();
-    expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(false);
+    expect(mocks.callbacks.has(RESULT_EVENT)).toBe(false);
   });
 
   it("rejects a main-window scheduling error", async () => {
-    const request = requestMainAutoEnhance("session-1", "if_empty");
+    const request = requestMainAutoEnhance(
+      autoEnhanceRequest.sessionId,
+      "if_empty",
+    );
     await vi.waitFor(() =>
-      expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(
-        true,
-      ),
+      expect(mocks.callbacks.has(RESULT_EVENT)).toBe(true),
     );
 
-    mocks.callbacks.get("anlg:ai-task-auto-enhance-result")?.({
+    mocks.callbacks.get(RESULT_EVENT)?.({
       payload: {
-        requestId: "request-id",
+        requestId: autoEnhanceRequest.requestId,
         completed: false,
         error: "database is locked",
       },
     });
 
     await expect(request).rejects.toThrow("database is locked");
-    expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(false);
+    expect(mocks.callbacks.has(RESULT_EVENT)).toBe(false);
   });
 
   it("rejects when the main window does not acknowledge in time", async () => {
     vi.useFakeTimers();
-    const request = requestMainAutoEnhance("session-1", "regenerate");
+    const request = requestMainAutoEnhance(
+      autoEnhanceRequest.sessionId,
+      autoEnhanceRequest.mode,
+    );
     const rejection = expect(request).rejects.toThrow(
       "Main window did not acknowledge the auto-summary request in time",
     );
@@ -194,16 +204,19 @@ describe("requestMainAutoEnhance", () => {
     await vi.advanceTimersByTimeAsync(MAIN_AUTO_ENHANCE_TIMEOUT_MS);
     await rejection;
 
-    expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(false);
+    expect(mocks.callbacks.has(RESULT_EVENT)).toBe(false);
   });
 
   it("rejects when request dispatch fails", async () => {
     mocks.emitTo.mockRejectedValueOnce(new Error("event bus unavailable"));
 
     await expect(
-      requestMainAutoEnhance("session-1", "regenerate"),
+      requestMainAutoEnhance(
+        autoEnhanceRequest.sessionId,
+        autoEnhanceRequest.mode,
+      ),
     ).rejects.toThrow("event bus unavailable");
-    expect(mocks.callbacks.has("anlg:ai-task-auto-enhance-result")).toBe(false);
+    expect(mocks.callbacks.has(RESULT_EVENT)).toBe(false);
   });
 });
 
@@ -213,21 +226,19 @@ describe("handleMainAutoEnhanceRequest", () => {
 
     await handleMainAutoEnhanceRequest(
       { requestAutoEnhance },
-      {
-        requestId: "request-id",
-        sourceLabel: "note-window",
-        sessionId: "session-1",
-        mode: "regenerate",
-      },
+      autoEnhanceRequest,
     );
 
-    expect(requestAutoEnhance).toHaveBeenCalledWith("session-1", "regenerate");
+    expect(requestAutoEnhance).toHaveBeenCalledWith(
+      autoEnhanceRequest.sessionId,
+      autoEnhanceRequest.mode,
+    );
     expect(requestAutoEnhance).toHaveBeenCalledBefore(mocks.emitTo);
     expect(mocks.emitTo).toHaveBeenCalledWith(
-      "note-window",
-      "anlg:ai-task-auto-enhance-result",
+      autoEnhanceRequest.sourceLabel,
+      RESULT_EVENT,
       {
-        requestId: "request-id",
+        requestId: autoEnhanceRequest.requestId,
         completed: true,
         error: null,
       },
@@ -243,29 +254,23 @@ describe("handleMainAutoEnhanceRequest", () => {
       handleMainAutoEnhanceRequest(
         { requestAutoEnhance },
         {
-          requestId: "request-id",
-          sourceLabel: "note-window",
-          sessionId: "session-1",
-          mode: "regenerate",
+          ...autoEnhanceRequest,
         },
       ),
     ).resolves.toBeUndefined();
 
     const result = {
-      requestId: "request-id",
+      requestId: autoEnhanceRequest.requestId,
       completed: true,
       error: null,
     };
     expect(requestAutoEnhance).toHaveBeenCalledOnce();
     expect(mocks.emitTo).toHaveBeenCalledWith(
-      "note-window",
-      "anlg:ai-task-auto-enhance-result",
+      autoEnhanceRequest.sourceLabel,
+      RESULT_EVENT,
       result,
     );
-    expect(mocks.emit).toHaveBeenCalledWith(
-      "anlg:ai-task-auto-enhance-result",
-      result,
-    );
+    expect(mocks.emit).toHaveBeenCalledWith(RESULT_EVENT, result);
     expect(requestAutoEnhance).toHaveBeenCalledBefore(mocks.emitTo);
     expect(mocks.emitTo).toHaveBeenCalledBefore(mocks.emit);
   });
@@ -276,62 +281,44 @@ describe("handleMainAutoEnhanceRequest", () => {
     const requestAutoEnhance = vi.fn().mockResolvedValue(undefined);
 
     await expect(
-      handleMainAutoEnhanceRequest(
-        { requestAutoEnhance },
-        {
-          requestId: "request-id",
-          sourceLabel: "note-window",
-          sessionId: "session-1",
-          mode: "regenerate",
-        },
-      ),
+      handleMainAutoEnhanceRequest({ requestAutoEnhance }, autoEnhanceRequest),
     ).rejects.toThrow("broadcast unavailable");
 
     expect(requestAutoEnhance).toHaveBeenCalledOnce();
   });
 
-  it("returns main-side errors to the requesting window", async () => {
-    const requestAutoEnhance = vi
-      .fn()
-      .mockRejectedValue(new Error("summary marker write failed"));
-
-    await handleMainAutoEnhanceRequest(
-      { requestAutoEnhance },
-      {
-        requestId: "request-id",
-        sourceLabel: "note-window",
-        sessionId: "session-1",
-        mode: "if_empty",
+  it.each([
+    {
+      name: "a main-side error",
+      deps: {
+        requestAutoEnhance: vi
+          .fn()
+          .mockRejectedValue(new Error("summary marker write failed")),
       },
-    );
+      expectedError: "summary marker write failed",
+    },
+    {
+      name: "a missing main enhancer",
+      deps: null,
+      expectedError: "Main auto-summary service is not ready",
+    },
+  ])(
+    "reports $name to the requesting window",
+    async ({ deps, expectedError }) => {
+      const request = deps
+        ? { ...autoEnhanceRequest, mode: "if_empty" as const }
+        : autoEnhanceRequest;
+      await handleMainAutoEnhanceRequest(deps, request);
 
-    expect(mocks.emitTo).toHaveBeenCalledWith(
-      "note-window",
-      "anlg:ai-task-auto-enhance-result",
-      {
-        requestId: "request-id",
-        completed: false,
-        error: "summary marker write failed",
-      },
-    );
-  });
-
-  it("reports when the main enhancer is not ready", async () => {
-    await handleMainAutoEnhanceRequest(null, {
-      requestId: "request-id",
-      sourceLabel: "note-window",
-      sessionId: "session-1",
-      mode: "regenerate",
-    });
-
-    expect(mocks.emitTo).toHaveBeenCalledWith(
-      "note-window",
-      "anlg:ai-task-auto-enhance-result",
-      {
-        requestId: "request-id",
-        completed: false,
-        error: "Main auto-summary service is not ready",
-      },
-    );
-  });
+      expect(mocks.emitTo).toHaveBeenCalledWith(
+        autoEnhanceRequest.sourceLabel,
+        RESULT_EVENT,
+        {
+          requestId: autoEnhanceRequest.requestId,
+          completed: false,
+          error: expectedError,
+        },
+      );
+    },
+  );
 });

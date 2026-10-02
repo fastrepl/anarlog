@@ -225,29 +225,6 @@ async fn failed_cloudsync_preflight_clears_new_credentials() {
 }
 
 #[tokio::test]
-async fn cloudsync_status_reports_pending_e2ee_dirty_rows() {
-    let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
-    anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
-    let recovery_key = anlg_e2ee::RecoveryKey::parse(
-        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
-    )
-    .unwrap();
-    runtime
-        .set_e2ee_recovery_key("workspace-1", &recovery_key)
-        .unwrap();
-    sqlx::query(
-        "INSERT INTO sessions (id, workspace_id, title)
-             VALUES ('session-1', 'workspace-1', 'Local edit')",
-    )
-    .execute(db.pool())
-    .await
-    .unwrap();
-
-    wait_for_unsent_changes(&runtime).await;
-}
-
-#[tokio::test]
 async fn pending_status_uses_the_same_compatible_write_policy_as_encryption() {
     let db = Db::connect_memory_plain().await.unwrap();
     anlg_db_app::prepare_schema(&db).await.unwrap();

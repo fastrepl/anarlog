@@ -9,11 +9,7 @@ import {
 } from "react-scan";
 
 import type { ReactScanSettings } from "./react-tools";
-import {
-  recordReactCommit,
-  registerReactTools,
-  updateReactTools,
-} from "./react-tools";
+import { registerReactTools, updateReactTools } from "./react-tools";
 import { publishScanData, registerScanData, type ScanEvent } from "./scan-data";
 
 const OPTIONS_KEY = "react-scan-options";
@@ -34,7 +30,6 @@ export function installReactScan(): () => void {
     // Loaded only after the native showDevtool gate permits diagnostics.
     dangerouslyForceRunInProduction: true,
     safeArea: { top: 24, right: 8, bottom: 32, left: 8 },
-    onCommitFinish: recordReactCommit,
   });
   // scan({ enabled: false, showToolbar: false }) returns without installing.
   // start() installs collection while the floating widget stays disabled.

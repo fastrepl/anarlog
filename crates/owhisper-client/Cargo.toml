@@ -21,22 +21,20 @@ soniox = { workspace = true }
 openai-transcription = { workspace = true }
 owhisper-interface = { workspace = true }
 
+base64 = { workspace = true }
+bytes = { workspace = true }
 futures-util = { workspace = true }
+hound = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["json", "multipart", "stream"] }
 reqwest-middleware = { workspace = true, features = ["json", "multipart"] }
 reqwest-tracing = { workspace = true }
-tokio = { workspace = true, features = ["fs", "io-util"] }
-tokio-stream = { workspace = true }
-
-backon = { workspace = true }
-base64 = { workspace = true }
-bytes = { workspace = true }
-hound = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util"] }
+tokio-stream = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
@@ -49,5 +47,6 @@ deepgram = { workspace = true, features = ["listen"] }
 rodio = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+tokio-tungstenite = { workspace = true }
 tracing-subscriber = { workspace = true }
 wiremock = { workspace = true }

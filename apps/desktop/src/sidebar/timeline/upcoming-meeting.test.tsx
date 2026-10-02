@@ -146,32 +146,13 @@ describe("useSidebarUpcomingMeetingStatus", () => {
     expect(active.result.current).toBeNull();
   });
 
-  it("does not rerender every second while the active status is unchanged", () => {
-    mocks.timelineEventsTable = {
-      standup: {
-        title: "Team standup",
-        started_at: "2024-01-15T11:55:00.000Z",
-        ended_at: "2024-01-15T12:30:00.000Z",
-        tracking_id_event: "event-standup",
-        has_recurrence_rules: false,
-      },
-    };
-    let renderCount = 0;
-
-    renderHook(() => {
-      renderCount += 1;
-      return useSidebarUpcomingMeetingStatus();
-    });
-    const initialRenderCount = renderCount;
-
-    act(() => {
-      vi.advanceTimersByTime(5_000);
-    });
-
-    expect(renderCount).toBe(initialRenderCount);
-  });
-
-  it("refreshes the status when the window regains focus", () => {
+  it.each([
+    ["window regains focus", () => window.dispatchEvent(new Event("focus"))],
+    [
+      "document becomes visible",
+      () => document.dispatchEvent(new Event("visibilitychange")),
+    ],
+  ])("refreshes the status when the %s", (_, dispatch) => {
     mocks.timelineEventsTable = {
       standup: {
         title: "Team standup",
@@ -185,26 +166,7 @@ describe("useSidebarUpcomingMeetingStatus", () => {
     const active = renderHook(() => useSidebarUpcomingMeetingStatus());
     vi.setSystemTime(new Date("2024-01-15T12:30:01.000Z"));
 
-    act(() => window.dispatchEvent(new Event("focus")));
-
-    expect(active.result.current).toBeNull();
-  });
-
-  it("refreshes the status when the document becomes visible", () => {
-    mocks.timelineEventsTable = {
-      standup: {
-        title: "Team standup",
-        started_at: "2024-01-15T11:55:00.000Z",
-        ended_at: "2024-01-15T12:30:00.000Z",
-        tracking_id_event: "event-standup",
-        has_recurrence_rules: false,
-      },
-    };
-
-    const active = renderHook(() => useSidebarUpcomingMeetingStatus());
-    vi.setSystemTime(new Date("2024-01-15T12:30:01.000Z"));
-
-    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    act(dispatch);
 
     expect(active.result.current).toBeNull();
   });

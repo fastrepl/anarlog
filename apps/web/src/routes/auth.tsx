@@ -12,6 +12,7 @@ import {
   authPrimaryButtonClassName,
   authSecondaryButtonClassName,
 } from "@/components/auth-shell";
+import { isTurnstileEnabled, Turnstile } from "@/components/turnstile";
 import {
   createDesktopSession,
   doAuth,
@@ -534,16 +535,25 @@ function PasswordForm({
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const [captchaWidgetKey, setCaptchaWidgetKey] = useState(0);
 
   const signInMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (captchaToken: string | undefined) => {
       capturePrivateRouteEvent("auth_started", {
         method: "password",
         action: "sign_in",
         flow,
       });
       return doPasswordSignIn({
-        data: { email, password, flow, scheme, redirect },
+        data: {
+          email,
+          password,
+          flow,
+          scheme,
+          redirect,
+          ...(captchaToken ? { captchaToken } : {}),
+        },
       });
     },
     onSuccess: (result) => {
@@ -593,14 +603,22 @@ function PasswordForm({
   });
 
   const signUpMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (captchaToken: string | undefined) => {
       capturePrivateRouteEvent("auth_started", {
         method: "password",
         action: "sign_up",
         flow,
       });
       return doPasswordSignUp({
-        data: { name, email, password, flow, scheme, redirect },
+        data: {
+          name,
+          email,
+          password,
+          flow,
+          scheme,
+          redirect,
+          ...(captchaToken ? { captchaToken } : {}),
+        },
       });
     },
     onSuccess: (result) => {
@@ -682,9 +700,16 @@ function PasswordForm({
         setErrorMessage("Password must be at least 6 characters");
         return;
       }
-      signUpMutation.mutate();
+    }
+
+    const submittedCaptchaToken = captchaToken;
+    setCaptchaToken(undefined);
+    setCaptchaWidgetKey((key) => key + 1);
+
+    if (isSignUp) {
+      signUpMutation.mutate(submittedCaptchaToken);
     } else {
-      signInMutation.mutate();
+      signInMutation.mutate(submittedCaptchaToken);
     }
   };
 
@@ -738,6 +763,7 @@ function PasswordForm({
           className={authInputClassName}
         />
       )}
+      <Turnstile key={captchaWidgetKey} onToken={setCaptchaToken} />
       {errorMessage && (
         <p className="text-center text-sm text-red-700">{errorMessage}</p>
       )}
@@ -747,7 +773,8 @@ function PasswordForm({
           isPending ||
           !email ||
           !password ||
-          (isSignUp && (!name.trim() || !confirmPassword))
+          (isSignUp && (!name.trim() || !confirmPassword)) ||
+          (isTurnstileEnabled && !captchaToken)
         }
         className={authPrimaryButtonClassName}
       >
@@ -816,9 +843,18 @@ function MagicLinkForm({
 }) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const [captchaWidgetKey, setCaptchaWidgetKey] = useState(0);
 
   const magicLinkMutation = useMutation({
-    mutationFn: (email: string) => {
+    mutationFn: ({
+      email,
+      captchaToken,
+    }: {
+      email: string;
+      captchaToken?: string;
+    }) => {
       capturePrivateRouteEvent("auth_started", {
         method: "magic_link",
         flow,
@@ -829,6 +865,7 @@ function MagicLinkForm({
           flow,
           scheme,
           redirect,
+          ...(captchaToken ? { captchaToken } : {}),
         },
       });
     },
@@ -841,6 +878,14 @@ function MagicLinkForm({
           flow,
           failure_stage: "provider",
         });
+        setErrorMessage(
+          result &&
+            "message" in result &&
+            typeof result.message === "string" &&
+            result.message.trim()
+            ? result.message
+            : "Failed to send magic link. Please try again.",
+        );
       }
     },
     onError: () => {
@@ -849,6 +894,7 @@ function MagicLinkForm({
         flow,
         failure_stage: "request",
       });
+      setErrorMessage("Failed to send magic link. Please try again.");
     },
   });
 
@@ -868,7 +914,16 @@ function MagicLinkForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (email) {
-          magicLinkMutation.mutate(email);
+          setErrorMessage("");
+          const submittedCaptchaToken = captchaToken;
+          setCaptchaToken(undefined);
+          setCaptchaWidgetKey((key) => key + 1);
+          magicLinkMutation.mutate({
+            email,
+            ...(submittedCaptchaToken
+              ? { captchaToken: submittedCaptchaToken }
+              : {}),
+          });
         }
       }}
       className="flex flex-col gap-3"
@@ -881,18 +936,21 @@ function MagicLinkForm({
         required
         className={authInputClassName}
       />
+      <Turnstile key={captchaWidgetKey} onToken={setCaptchaToken} />
+      {errorMessage && (
+        <p className="text-center text-sm text-red-700">{errorMessage}</p>
+      )}
       <button
         type="submit"
-        disabled={magicLinkMutation.isPending || !email}
+        disabled={
+          magicLinkMutation.isPending ||
+          !email ||
+          (isTurnstileEnabled && !captchaToken)
+        }
         className={authPrimaryButtonClassName}
       >
         {magicLinkMutation.isPending ? "Sending..." : "Send magic link"}
       </button>
-      {magicLinkMutation.isError && (
-        <p className="text-center text-sm text-red-700">
-          Failed to send magic link. Please try again.
-        </p>
-      )}
     </form>
   );
 }

@@ -13,19 +13,12 @@ anlg-audio-utils = { workspace = true }
 anlg-resampler = { workspace = true }
 
 anyhow = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-
-bytes = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-
-futures-channel = { workspace = true }
 futures-util = { workspace = true }
 pin-project = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
+tracing = { workspace = true }
 
 cpal = { workspace = true }
 dasp = { workspace = true }

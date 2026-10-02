@@ -60,6 +60,8 @@ export function IntegrationPageLayout({ children }: { children: ReactNode }) {
 
 export function integrationIcon(integrationId: string, size = 20): ReactNode {
   switch (integrationId) {
+    case "google-drive":
+      return <Icon icon="logos:google-drive" width={size} height={size} />;
     case "google-calendar":
       return <Icon icon="logos:google-calendar" width={size} height={size} />;
     case "outlook":

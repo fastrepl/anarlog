@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-tombstone-folder-material"
+description = "Enables the tombstone_folder_material command without any pre-configured scope."
+commands.allow = ["tombstone_folder_material"]
+
+[[permission]]
+identifier = "deny-tombstone-folder-material"
+description = "Denies the tombstone_folder_material command without any pre-configured scope."
+commands.deny = ["tombstone_folder_material"]

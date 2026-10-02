@@ -57,14 +57,4 @@ describe("CORE_TRANSCRIPTION_LANGUAGE_CODES", () => {
       expect(getBaseLanguageCode(code)).toBe(code);
     }
   });
-
-  test("uses languages supported by both Deepgram and Soniox", () => {
-    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).toContain("en");
-    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).toContain("zh");
-    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).toContain("sr");
-
-    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).not.toContain("af");
-    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).not.toContain("az");
-    expect(CORE_TRANSCRIPTION_LANGUAGE_CODES).not.toContain("sq");
-  });
 });

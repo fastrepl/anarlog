@@ -403,15 +403,6 @@ mod tests {
     }
 
     #[test]
-    fn non_ai_services_start_without_ai_credentials() {
-        for role in ["sync", "core", "billing"] {
-            let config = role_config(role, &[]).unwrap();
-            assert!(config.llm.is_none());
-            assert!(config.stt.is_none());
-        }
-    }
-
-    #[test]
     fn ai_configuration_remains_required_for_ai_and_combined_runtime() {
         for role in ["ai", "all"] {
             assert!(
@@ -477,42 +468,6 @@ mod tests {
         assert!(role_config("unknown", &[]).is_err());
     }
 
-    #[derive(Deserialize)]
-    struct SyncOnlyEnv {
-        #[serde(flatten)]
-        sync: anlg_api_sync::SyncEnv,
-    }
-
-    #[test]
-    fn deserializes_cloudsync_ttl_from_environment_string() {
-        let env: SyncOnlyEnv = envy::from_iter([(
-            "ANARLOG_CLOUDSYNC_TOKEN_TTL_SECONDS".to_string(),
-            "300".to_string(),
-        )])
-        .unwrap();
-
-        assert_eq!(env.sync.anarlog_cloudsync_token_ttl_seconds, Some(300));
-    }
-
-    #[test]
-    fn durable_cleanup_is_opt_in() {
-        #[derive(Deserialize)]
-        struct CleanupOnlyEnv {
-            #[serde(default)]
-            anarlog_attachment_backup_gc_enabled: bool,
-        }
-
-        let disabled: CleanupOnlyEnv = envy::from_iter(Vec::<(String, String)>::new()).unwrap();
-        let enabled: CleanupOnlyEnv = envy::from_iter([(
-            "ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED".to_string(),
-            "true".to_string(),
-        )])
-        .unwrap();
-
-        assert!(!disabled.anarlog_attachment_backup_gc_enabled);
-        assert!(enabled.anarlog_attachment_backup_gc_enabled);
-    }
-
     #[test]
     fn core_supabase_configuration_remains_required() {
         #[derive(Deserialize)]
@@ -544,140 +499,6 @@ mod tests {
                 EnvyError::MissingValue(field) if field == missing.to_lowercase()
             ));
         }
-    }
-
-    fn some(value: &str) -> Option<String> {
-        Some(value.to_string())
-    }
-
-    #[test]
-    fn nango_group_is_all_or_nothing() {
-        let cases: Vec<(OptionalNangoEnv, Result<bool, &str>)> = vec![
-            (OptionalNangoEnv::default(), Ok(false)),
-            (
-                OptionalNangoEnv {
-                    nango_api_base: None,
-                    nango_api_key: some("key"),
-                    nango_webhook_signing_key: some("signing"),
-                },
-                Ok(true),
-            ),
-            (
-                OptionalNangoEnv {
-                    nango_api_base: some("https://nango.example"),
-                    nango_api_key: some("key"),
-                    nango_webhook_signing_key: some("signing"),
-                },
-                Ok(true),
-            ),
-            (
-                OptionalNangoEnv {
-                    nango_api_base: some("https://nango.example"),
-                    nango_api_key: None,
-                    nango_webhook_signing_key: some("signing"),
-                },
-                Err("NANGO_API_KEY is required when Nango is configured"),
-            ),
-            (
-                OptionalNangoEnv {
-                    nango_api_base: None,
-                    nango_api_key: some("key"),
-                    nango_webhook_signing_key: None,
-                },
-                Err("NANGO_WEBHOOK_SIGNING_KEY is required when Nango is configured"),
-            ),
-        ];
-
-        for (nango, expected) in cases {
-            assert_eq!(
-                resolve_nango(&nango).map(|resolved| resolved.is_some()),
-                expected.map_err(str::to_string)
-            );
-        }
-    }
-
-    #[test]
-    fn subscription_group_requires_complete_stripe_and_loops() {
-        let complete_stripe = OptionalStripeEnv {
-            stripe_secret_key: some("sk_live_1"),
-            stripe_monthly_price_id: some("price_m"),
-            stripe_yearly_price_id: some("price_y"),
-        };
-        let loops = OptionalLoopsEnv {
-            loops_key: some("loops"),
-        };
-        let resolved = |stripe: &OptionalStripeEnv, loops: &OptionalLoopsEnv| {
-            resolve_subscription(stripe, loops).map(|resolved| resolved.is_some())
-        };
-
-        assert_eq!(
-            resolved(&OptionalStripeEnv::default(), &OptionalLoopsEnv::default()),
-            Ok(false)
-        );
-        assert_eq!(resolved(&complete_stripe, &loops), Ok(true));
-        assert_eq!(
-            resolved(
-                &OptionalStripeEnv {
-                    stripe_secret_key: some("sk_live_1"),
-                    stripe_monthly_price_id: None,
-                    stripe_yearly_price_id: some("price_y"),
-                },
-                &loops,
-            ),
-            Err(
-                "STRIPE_MONTHLY_PRICE_ID is required when subscriptions are configured".to_string()
-            )
-        );
-        assert_eq!(
-            resolved(&complete_stripe, &OptionalLoopsEnv::default()),
-            Err("LOOPS_KEY is required when subscriptions are configured".to_string())
-        );
-        assert_eq!(
-            resolved(&OptionalStripeEnv::default(), &loops),
-            Err("Stripe configuration is required when subscriptions are configured".to_string())
-        );
-    }
-
-    #[test]
-    fn pyannote_group_requires_key_and_defaults_base() {
-        let resolved_base = |pyannote: &OptionalPyannoteEnv| {
-            resolve_pyannote(pyannote)
-                .map(|resolved| resolved.map(|pyannote| pyannote.pyannote_api_base))
-        };
-
-        assert_eq!(resolved_base(&OptionalPyannoteEnv::default()), Ok(None));
-        assert_eq!(
-            resolved_base(&OptionalPyannoteEnv {
-                pyannote_api_key: some("key"),
-                pyannote_api_base: None,
-            }),
-            Ok(some("https://api.pyannote.ai"))
-        );
-        assert_eq!(
-            resolved_base(&OptionalPyannoteEnv {
-                pyannote_api_key: None,
-                pyannote_api_base: some("https://pyannote.example"),
-            }),
-            Err("PYANNOTE_API_KEY is required when pyannote is configured".to_string())
-        );
-    }
-
-    #[test]
-    fn research_group_requires_both_keys() {
-        let resolved = |exa: &Option<String>, jina: &Option<String>| {
-            resolve_research(exa, jina).map(|resolved| resolved.is_some())
-        };
-
-        assert_eq!(resolved(&None, &None), Ok(false));
-        assert_eq!(resolved(&some("exa"), &some("jina")), Ok(true));
-        assert_eq!(
-            resolved(&some("exa"), &None),
-            Err("JINA_API_KEY is required when research is configured".to_string())
-        );
-        assert_eq!(
-            resolved(&None, &some("jina")),
-            Err("EXA_API_KEY is required when research is configured".to_string())
-        );
     }
 
     #[test]

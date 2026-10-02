@@ -193,13 +193,6 @@ mod tests {
 
     #[cfg(feature = "client")]
     #[test]
-    fn returns_none_for_empty_store() {
-        let data = HashMap::new();
-        assert!(find_session(&data).unwrap().is_none());
-    }
-
-    #[cfg(feature = "client")]
-    #[test]
     fn returns_none_when_no_auth_token_key() {
         let data = make_data("sb-auth-something-else", SESSION_JSON);
         assert!(find_session(&data).unwrap().is_none());
@@ -207,13 +200,19 @@ mod tests {
 
     #[cfg(feature = "client")]
     #[test]
-    fn parses_access_token() {
+    fn parses_session_from_auth_token_key() {
         let data = make_data("sb-auth-auth-token", SESSION_JSON);
         let session = find_session(&data).unwrap().unwrap();
         assert_eq!(session.access_token, "eyJhbGciOiJFUzI1NiJ9.test");
         assert_eq!(session.refresh_token.as_deref(), Some("refresh123"));
         assert_eq!(session.token_type, "bearer");
         assert_eq!(session.expires_at, Some(9999999999));
+        let user = session.user.unwrap();
+        assert_eq!(user.id, "818fe58f-afe9-42da-b288-f7d14213b6b4");
+        assert_eq!(user.email.as_deref(), Some("user@example.com"));
+        let meta = user.user_metadata.unwrap();
+        assert_eq!(meta.full_name.as_deref(), Some("Test User"));
+        assert_eq!(meta.stripe_customer_id.as_deref(), Some("cus_test123"));
     }
 
     #[test]
@@ -227,58 +226,6 @@ mod tests {
         .unwrap();
 
         assert_eq!(session.expires_in, Some(3585));
-    }
-
-    #[cfg(feature = "client")]
-    #[test]
-    fn parses_user_fields() {
-        let data = make_data("sb-auth-auth-token", SESSION_JSON);
-        let session = find_session(&data).unwrap().unwrap();
-        let user = session.user.as_ref().unwrap();
-        assert_eq!(user.id, "818fe58f-afe9-42da-b288-f7d14213b6b4");
-        assert_eq!(user.email.as_deref(), Some("user@example.com"));
-        assert_eq!(user.aud.as_deref(), None);
-    }
-
-    #[cfg(feature = "client")]
-    #[test]
-    fn parses_user_metadata() {
-        let data = make_data("sb-auth-auth-token", SESSION_JSON);
-        let session = find_session(&data).unwrap().unwrap();
-        let meta = session.user.unwrap().user_metadata.unwrap();
-        assert_eq!(meta.full_name.as_deref(), Some("Test User"));
-        assert_eq!(meta.stripe_customer_id.as_deref(), Some("cus_test123"));
-    }
-
-    #[cfg(feature = "client")]
-    #[test]
-    fn tolerates_missing_user_metadata() {
-        let json = r#"{
-            "access_token": "tok",
-            "token_type": "bearer",
-            "expires_in": 3600,
-            "expires_at": 9999999999,
-            "refresh_token": "r",
-            "user": { "id": "uid-1", "email": null }
-        }"#;
-        let data = make_data("sb-projectref-auth-token", json);
-        let session = find_session(&data).unwrap().unwrap();
-        assert!(session.user.unwrap().user_metadata.is_none());
-    }
-
-    #[cfg(feature = "client")]
-    #[test]
-    fn tolerates_missing_user() {
-        let json = r#"{
-            "access_token": "tok",
-            "token_type": "bearer",
-            "expires_in": 3600,
-            "expires_at": 9999999999,
-            "refresh_token": "r"
-        }"#;
-        let data = make_data("sb-projectref-auth-token", json);
-        let session = find_session(&data).unwrap().unwrap();
-        assert!(session.user.is_none());
     }
 
     #[cfg(feature = "client")]

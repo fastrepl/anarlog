@@ -43,32 +43,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_audio_capture_permission_granted() {
-        let result = audio_capture_permission_status();
-        assert!(result == NEVER_ASKED);
-    }
-
-    #[test]
     fn test_screen_capture_permission_status() {
         let result = screen_capture_permission_status();
         assert!(result == NEVER_ASKED || result == DENIED || result == GRANTED);
-    }
-
-    #[test]
-    fn test_reset_audio_capture_permission() {
-        let result = reset_audio_capture_permission("com.hyprnote.nightly");
-        println!("reset_audio_capture_permission: {}", result);
-    }
-
-    #[test]
-    fn test_reset_screen_capture_permission() {
-        let result = reset_screen_capture_permission("com.hyprnote.nightly");
-        println!("reset_screen_capture_permission: {}", result);
-    }
-
-    #[test]
-    fn test_reset_microphone_permission() {
-        let result = reset_microphone_permission("com.hyprnote.nightly");
-        println!("reset_microphone_permission: {}", result);
     }
 }

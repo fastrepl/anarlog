@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-tombstone-session-audio"
+description = "Enables the tombstone_session_audio command without any pre-configured scope."
+commands.allow = ["tombstone_session_audio"]
+
+[[permission]]
+identifier = "deny-tombstone-session-audio"
+description = "Denies the tombstone_session_audio command without any pre-configured scope."
+commands.deny = ["tombstone_session_audio"]

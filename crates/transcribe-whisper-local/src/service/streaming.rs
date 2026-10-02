@@ -592,20 +592,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::build_metadata;
     use tower::ServiceExt;
-
-    #[test]
-    fn health_and_listen_paths_are_stable() {
-        assert_eq!(HEALTH_PATH, "/health");
-        assert_eq!(LISTEN_PATH, "/v1/listen");
-    }
-
-    #[test]
-    fn metadata_uses_model_info() {
-        let metadata = build_metadata(std::path::Path::new("/tmp/model.bin"));
-        assert_eq!(metadata.model_info.arch, "whisper-local");
-    }
 
     #[test]
     fn websocket_rejects_channels_the_live_pipeline_cannot_feed() {

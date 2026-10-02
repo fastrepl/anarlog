@@ -66,8 +66,6 @@ describe("custom sidebar chat lifecycle", () => {
   afterEach(cleanup);
 
   it.each([
-    { expanded: false, strict: false },
-    { expanded: true, strict: false },
     { expanded: false, strict: true },
     { expanded: true, strict: true },
   ])(

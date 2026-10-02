@@ -19,7 +19,6 @@ tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 serde = { workspace = true }
-serde_json = { workspace = true }
 specta = { workspace = true }
 
 thiserror = { workspace = true }

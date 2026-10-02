@@ -132,7 +132,7 @@ expression: canonicalize_json(contract)
       ],
       "subcommands": [
         {
-          "about": "List meetings, optionally filtered by text or recurring series",
+          "about": "List meetings, optionally filtered by text, recurring series, or folder",
           "name": "anarlog meetings list",
           "options": [
             {
@@ -146,6 +146,13 @@ expression: canonicalize_json(contract)
               "is_flag": false,
               "required": false,
               "value_name": "SERIES_ID"
+            },
+            {
+              "flags": "--folder",
+              "help": "Folder path, including its subfolders (local source only)",
+              "is_flag": false,
+              "required": false,
+              "value_name": "PATH"
             },
             {
               "default": "20",
@@ -170,7 +177,43 @@ expression: canonicalize_json(contract)
               "required": false
             }
           ],
-          "synopsis": "anarlog meetings list [-q] [--series-id] [--limit] [--offset] [-h]"
+          "synopsis": "anarlog meetings list [-q] [--series-id] [--folder] [--limit] [--offset] [-h]"
+        },
+        {
+          "about": "List meeting folders, including empty and parent folders (local source only)",
+          "name": "anarlog meetings folders",
+          "options": [
+            {
+              "flags": "-q, --query",
+              "help": "Case-insensitive folder path substring",
+              "is_flag": false,
+              "required": false,
+              "value_name": "QUERY"
+            },
+            {
+              "default": "100",
+              "flags": "--limit",
+              "help": "Maximum results (1-200)",
+              "is_flag": false,
+              "required": false,
+              "value_name": "LIMIT"
+            },
+            {
+              "default": "0",
+              "flags": "--offset",
+              "help": "Number of results to skip",
+              "is_flag": false,
+              "required": false,
+              "value_name": "OFFSET"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings folders [-q] [--limit] [--offset] [-h]"
         },
         {
           "about": "Show meeting metadata, notes, summaries, people, and action items",

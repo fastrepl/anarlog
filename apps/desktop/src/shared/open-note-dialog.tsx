@@ -10,7 +10,15 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { FileText, MagnifyingGlass, Users, X } from "@anlg/ui/components/icons";
+import {
+  FileText,
+  Gear,
+  Lock,
+  MagnifyingGlass,
+  Users,
+  X,
+  type Icon,
+} from "@anlg/ui/components/icons";
 import {
   Dialog,
   DialogContent,
@@ -20,10 +28,12 @@ import { cn } from "@anlg/utils";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
+import { useBillingAccess } from "~/auth/billing-context";
 import { useSessionSummaries } from "~/session/queries";
 import { useDurableSharedNotes } from "~/shared-notes/cache";
 import { useMainContentCenterOffset } from "~/shared/main/content-offset";
-import { useTabs } from "~/store/zustand/tabs";
+import { useSettingsNavGroups } from "~/sidebar/settings-nav-groups";
+import { type TabInput, useTabs } from "~/store/zustand/tabs";
 
 const MAX_RECENT_DISPLAY = 5;
 
@@ -42,6 +52,16 @@ type NoteResult = {
   id: string;
   title: string;
   createdAt: string;
+};
+
+type PageResult = {
+  id: string;
+  label: string;
+  hint: string | null;
+  groupLabel: string;
+  icon: Icon;
+  requiresPro: boolean;
+  destination: TabInput;
 };
 
 const OpenNoteDialogContext = createContext<OpenNoteDialogContextValue | null>(
@@ -98,13 +118,65 @@ export function OpenNoteDialog({
   const { t } = useLingui();
   const [query, setQuery] = useState("");
   const openCurrent = useTabs((state) => state.openCurrent);
+  const openNew = useTabs((state) => state.openNew);
   const recentlyOpenedSessionIds = useTabs(
     (state) => state.recentlyOpenedSessionIds,
   );
+  const { isPro } = useBillingAccess();
   const { session } = useAuth();
+  const settingsNavGroups = useSettingsNavGroups();
 
   const sessions = useSessionSummaries();
   const sharedNotes = useDurableSharedNotes(session?.user.id);
+
+  const pageResults = useMemo<PageResult[]>(
+    () => [
+      ...settingsNavGroups.flatMap((group) =>
+        group.items.map((item): PageResult => {
+          const hasDestination = "destination" in item;
+
+          return {
+            id: item.id,
+            label: item.label,
+            hint: hasDestination ? null : t`Settings`,
+            groupLabel: group.label,
+            icon: item.icon,
+            requiresPro: Boolean(item.requiresPro),
+            destination: hasDestination
+              ? item.destination
+              : { type: "settings", state: { tab: item.id } },
+          };
+        }),
+      ),
+      {
+        id: "settings",
+        label: t`Settings`,
+        hint: null,
+        groupLabel: t`Go to`,
+        icon: Gear,
+        requiresPro: false,
+        destination: { type: "settings", state: { tab: "app" } },
+      },
+    ],
+    [settingsNavGroups, t],
+  );
+
+  const topLevelPageIds = new Set([
+    "settings",
+    ...settingsNavGroups.flatMap((group) =>
+      group.items.flatMap((item) => ("destination" in item ? [item.id] : [])),
+    ),
+  ]);
+  const filteredPages = query.trim()
+    ? pageResults.filter((page) => {
+        const normalizedQuery = query.trim().toLowerCase();
+        return (
+          page.label.toLowerCase().includes(normalizedQuery) ||
+          page.groupLabel.toLowerCase().includes(normalizedQuery) ||
+          page.hint?.toLowerCase().includes(normalizedQuery)
+        );
+      })
+    : pageResults.filter((page) => topLevelPageIds.has(page.id));
 
   const sessionsMap = useMemo(() => {
     return new Map<string, NoteResult>(
@@ -177,25 +249,37 @@ export function OpenNoteDialog({
   }, [otherNotes, query]);
 
   const hasAnyResults =
-    filteredRecentSessions.length > 0 || filteredOtherNotes.length > 0;
+    filteredPages.length > 0 ||
+    filteredRecentSessions.length > 0 ||
+    filteredOtherNotes.length > 0;
 
   useEffect(() => {
     if (!open || !query.trim()) return;
     const timeout = setTimeout(() => {
       trackAnalyticsEvent("search_performed", {
         entry_point: "open_note_dialog",
-        result_count: filteredRecentSessions.length + filteredOtherNotes.length,
+        result_count:
+          filteredPages.length +
+          filteredRecentSessions.length +
+          filteredOtherNotes.length,
         entity_types: [
-          ...new Set(
-            [...filteredRecentSessions, ...filteredOtherNotes].map(
+          ...new Set([
+            ...[...filteredRecentSessions, ...filteredOtherNotes].map(
               (note) => note.resourceType,
             ),
-          ),
+            ...(filteredPages.length > 0 ? ["page"] : []),
+          ]),
         ].sort(),
       });
     }, 300);
     return () => clearTimeout(timeout);
-  }, [filteredOtherNotes.length, filteredRecentSessions.length, open, query]);
+  }, [
+    filteredOtherNotes.length,
+    filteredPages.length,
+    filteredRecentSessions.length,
+    open,
+    query,
+  ]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -226,6 +310,73 @@ export function OpenNoteDialog({
       );
     },
     [handleOpenChange, openCurrent, query],
+  );
+
+  const handleSelectPage = useCallback(
+    (page: PageResult) => {
+      trackAnalyticsEvent("search_result_opened", {
+        entry_point: "open_note_dialog",
+        result_type: "page",
+        page_id: page.id,
+        had_query: Boolean(query.trim()),
+      });
+      handleOpenChange(false);
+      openNew(page.destination);
+    },
+    [handleOpenChange, openNew, query],
+  );
+
+  const isQueryEmpty = !query.trim();
+  const pageGroup = filteredPages.length > 0 && (
+    <CommandPrimitive.Group
+      className={
+        isQueryEmpty
+          ? filteredOtherNotes.length > 0
+            ? "pb-1.5"
+            : ""
+          : filteredRecentSessions.length > 0 || filteredOtherNotes.length > 0
+            ? "pb-1.5"
+            : ""
+      }
+      heading={
+        <div className="flex flex-col gap-3">
+          {isQueryEmpty && filteredRecentSessions.length > 0 && (
+            <div className="bg-accent mx-2 h-px" />
+          )}
+          <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
+            <Trans>Go to</Trans>
+          </div>
+        </div>
+      }
+    >
+      {filteredPages.map((page) => (
+        <CommandPrimitive.Item
+          key={`page-${page.id}`}
+          value={`page-${page.id}`}
+          onSelect={() => handleSelectPage(page)}
+          className={cn([
+            "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5",
+            "text-muted-foreground text-sm",
+            "data-[selected=true]:bg-accent/60",
+            "transition-colors",
+          ])}
+        >
+          <page.icon className="text-muted-foreground h-4 w-4 shrink-0" />
+          <span className="truncate">{page.label}</span>
+          {page.hint ? (
+            <span className="text-muted-foreground ml-auto shrink-0 text-xs">
+              {page.hint}
+            </span>
+          ) : null}
+          {page.requiresPro && !isPro ? (
+            <Lock
+              aria-label={t`Requires Anarlog Pro`}
+              className="h-3.5 w-3.5 shrink-0"
+            />
+          ) : null}
+        </CommandPrimitive.Item>
+      ))}
+    </CommandPrimitive.Group>
   );
 
   if (!open) return null;
@@ -260,7 +411,7 @@ export function OpenNoteDialog({
         }}
       >
         <DialogTitle className="sr-only">
-          <Trans>Find a note...</Trans>
+          <Trans>Search notes and pages...</Trans>
         </DialogTitle>
         <div
           className={cn([
@@ -276,7 +427,7 @@ export function OpenNoteDialog({
                 ref={focusInput}
                 value={query}
                 onValueChange={setQuery}
-                placeholder={t`Find a note...`}
+                placeholder={t`Search notes and pages...`}
                 className={cn([
                   "flex-1 bg-transparent text-sm",
                   "placeholder:text-muted-foreground outline-hidden",
@@ -300,16 +451,28 @@ export function OpenNoteDialog({
             <CommandPrimitive.List className="max-h-80 overflow-y-auto p-2">
               {!hasAnyResults ? (
                 <CommandPrimitive.Empty className="text-muted-foreground py-6 text-center text-sm">
-                  <Trans>No notes found.</Trans>
+                  <Trans>No results found.</Trans>
                 </CommandPrimitive.Empty>
               ) : (
                 <>
+                  {isQueryEmpty ? null : pageGroup}
+
                   {filteredRecentSessions.length > 0 && (
                     <CommandPrimitive.Group
-                      className={filteredOtherNotes.length > 0 ? "pb-1.5" : ""}
+                      className={
+                        filteredOtherNotes.length > 0 ||
+                        (isQueryEmpty && filteredPages.length > 0)
+                          ? "pb-1.5"
+                          : ""
+                      }
                       heading={
-                        <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
-                          <Trans>Recent</Trans>
+                        <div className="flex flex-col gap-3">
+                          {!isQueryEmpty && filteredPages.length > 0 && (
+                            <div className="bg-accent mx-2 h-px" />
+                          )}
+                          <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">
+                            <Trans>Recent</Trans>
+                          </div>
                         </div>
                       }
                     >
@@ -332,11 +495,14 @@ export function OpenNoteDialog({
                     </CommandPrimitive.Group>
                   )}
 
+                  {isQueryEmpty ? pageGroup : null}
+
                   {filteredOtherNotes.length > 0 && (
                     <CommandPrimitive.Group
                       heading={
                         <div className="flex flex-col gap-3">
-                          {filteredRecentSessions.length > 0 && (
+                          {(filteredPages.length > 0 ||
+                            filteredRecentSessions.length > 0) && (
                             <div className="bg-accent mx-2 h-px" />
                           )}
                           <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium tracking-wider uppercase">

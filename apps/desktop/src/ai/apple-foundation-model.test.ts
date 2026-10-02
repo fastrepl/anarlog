@@ -15,6 +15,13 @@ import {
 
 type CallOptions = Parameters<typeof prepareFoundationModelRequest>[0];
 
+const abortPrompt: CallOptions["prompt"] = [
+  {
+    role: "user",
+    content: [{ type: "text", text: "Summarize this." }],
+  },
+];
+
 beforeEach(() => {
   localLlmCommands.foundationModelBegin.mockReset();
   localLlmCommands.foundationModelCancel.mockReset();
@@ -131,12 +138,7 @@ describe("prepareFoundationModelRequest", () => {
     );
 
     const generation = createAppleFoundationModel().doGenerate({
-      prompt: [
-        {
-          role: "user",
-          content: [{ type: "text", text: "Summarize this." }],
-        },
-      ],
+      prompt: abortPrompt,
       abortSignal: controller.signal,
     } as CallOptions);
     await vi.waitFor(() =>
@@ -172,12 +174,7 @@ describe("prepareFoundationModelRequest", () => {
     );
 
     const generation = createAppleFoundationModel().doGenerate({
-      prompt: [
-        {
-          role: "user",
-          content: [{ type: "text", text: "Summarize this." }],
-        },
-      ],
+      prompt: abortPrompt,
       abortSignal: controller.signal,
     } as CallOptions);
     controller.abort(reason);

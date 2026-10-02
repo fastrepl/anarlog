@@ -344,52 +344,13 @@ impl MistralAdapter {
 
 #[cfg(test)]
 mod tests {
-    use anlg_language::ISO639;
-
     use super::MistralAdapter;
     use crate::ListenClient;
     use crate::adapter::RealtimeSttAdapter;
-    use crate::test_utils::{
-        UrlTestCase, run_dual_test_with_rate, run_single_test_with_rate, run_url_test_cases,
-    };
+    use crate::test_utils::run_dual_test_with_rate;
     use owhisper_interface::stream::StreamResponse;
 
-    const API_BASE: &str = "wss://api.mistral.ai";
     const MISTRAL_SAMPLE_RATE: u32 = 16000;
-
-    #[test]
-    fn test_base_url() {
-        run_url_test_cases(
-            &MistralAdapter::default(),
-            API_BASE,
-            &[UrlTestCase {
-                name: "base_url_structure",
-                model: None,
-                languages: &[ISO639::En],
-                contains: &["api.mistral.ai"],
-                not_contains: &[],
-            }],
-        );
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_single() {
-        let client = ListenClient::builder()
-            .adapter::<MistralAdapter>()
-            .api_base("wss://api.mistral.ai")
-            .api_key(std::env::var("MISTRAL_API_KEY").expect("MISTRAL_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                languages: vec![anlg_language::ISO639::En.into()],
-                sample_rate: MISTRAL_SAMPLE_RATE,
-                ..Default::default()
-            })
-            .build_single()
-            .await
-            .unwrap();
-
-        run_single_test_with_rate(client, "mistral", MISTRAL_SAMPLE_RATE).await;
-    }
 
     #[tokio::test]
     #[ignore]

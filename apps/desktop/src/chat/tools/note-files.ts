@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { resolveCurrentSessionId } from "./current-session";
 import type { ToolDependencies } from "./types";
 
 import {
@@ -483,7 +484,7 @@ export const buildFindRelatedMeetingsTool = (deps: ToolDependencies) =>
         .string()
         .optional()
         .describe(
-          "Meeting id to find related meetings for. Defaults to the currently open meeting.",
+          "Meeting id to find related meetings for. Defaults to the current note (the one marked as current in context).",
         ),
       limit: z
         .number()
@@ -493,8 +494,12 @@ export const buildFindRelatedMeetingsTool = (deps: ToolDependencies) =>
         .optional()
         .describe("Maximum related meetings to return"),
     }),
-    execute: async (params: { meeting_id?: string; limit?: number }) => {
-      const sessionId = params.meeting_id ?? deps.getSessionId();
+    execute: async (
+      params: { meeting_id?: string; limit?: number },
+      options,
+    ) => {
+      const sessionId =
+        params.meeting_id ?? resolveCurrentSessionId(deps, options);
       if (!sessionId) {
         return {
           status: "error" as const,

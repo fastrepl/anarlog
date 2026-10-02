@@ -43,32 +43,24 @@ const doc = JSON.stringify({
   ],
 });
 
-test("previews a ProseMirror body from its text nodes", () => {
-  assert.equal(
-    previewFromBody(doc, "prosemirror_json"),
-    "Weekly planning Ship the timeline First Second",
-  );
-});
+test("previews bodies across formats and detects their format", () => {
+  for (const [body, format, expected] of [
+    [doc, "prosemirror_json", "Weekly planning Ship the timeline First Second"],
+    [
+      "# Weekly planning\n\nShip the   timeline\n",
+      "markdown",
+      "Weekly planning Ship the timeline",
+    ],
+    ["just text", "prosemirror_json", "just text"],
+    ["", "prosemirror_json", ""],
+  ]) {
+    assert.equal(previewFromBody(body, format), expected);
+  }
 
-test("previews markdown without heading markers or extra whitespace", () => {
-  assert.equal(
-    previewFromBody("# Weekly planning\n\nShip the   timeline\n", "markdown"),
-    "Weekly planning Ship the timeline",
-  );
-});
-
-test("falls back to plain text when a body is not a ProseMirror doc", () => {
-  assert.equal(previewFromBody("just text", "prosemirror_json"), "just text");
-  assert.equal(previewFromBody("", "prosemirror_json"), "");
-});
-
-test("truncates long previews", () => {
   const preview = previewFromBody("a".repeat(200), "markdown");
   assert.equal(preview.length, 121);
   assert.ok(preview.endsWith("…"));
-});
 
-test("reads the body format back from the body itself", () => {
   assert.equal(bodyFormatFromBody(doc), "prosemirror_json");
   assert.equal(bodyFormatFromBody("# Title\n\ntext"), "markdown");
 });

@@ -1,8 +1,10 @@
+mod audio_locks;
 mod commands;
 mod ext;
 pub mod runtime;
 
 pub use anlg_fs_sync_core::*;
+pub use audio_locks::SessionAudioLocks;
 pub use ext::*;
 
 const PLUGIN_NAME: &str = "fs-sync";
@@ -29,6 +31,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::audio_source_metadata,
             commands::audio_has_speech::<tauri::Wry>,
             commands::audio_path::<tauri::Wry>,
+            commands::audio_peaks::<tauri::Wry>,
             commands::audio_copy::<tauri::Wry>,
             commands::session_dir::<tauri::Wry>,
             commands::load_session_content::<tauri::Wry>,
@@ -55,7 +58,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
+            use tauri::Manager;
+
             specta_builder.mount_events(app);
+            app.manage(SessionAudioLocks::default());
             Ok(())
         })
         .build()

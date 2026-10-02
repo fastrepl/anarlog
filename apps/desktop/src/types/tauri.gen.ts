@@ -47,14 +47,6 @@ async showDevtool() : Promise<boolean> {
 async isAppStoreBuild() : Promise<boolean> {
     return await TAURI_INVOKE("is_app_store_build");
 },
-async requestLocalDatabaseReset() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("request_local_database_reset") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async completeAppExit() : Promise<void> {
     await TAURI_INVOKE("complete_app_exit");
 },

@@ -1807,63 +1807,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn applies_a_signed_stop_that_arrives_before_start_dispatch_finishes() {
-        let store = Arc::new(TestStore::new(zoom_checkpoint("123")));
-        let dispatcher = ZoomCaptureDispatcher::new(
-            store.clone(),
-            ZoomRtmsCredentials::new("client-id", "client-secret").unwrap(),
-        );
-        let started = ZoomRtmsStarted {
-            account_id: "account-a".into(),
-            meeting_uuid: "meeting-uuid".into(),
-            meeting_id: "123".into(),
-            stream_id: "stream-id".into(),
-            signaling_url: "wss://127.0.0.1:1/signaling".parse().unwrap(),
-            event_timestamp_ms: 1,
-        };
-        store
-            .save_capture_dispatch(&capture_dispatch("workspace-a", "job-a", &started).unwrap())
-            .await
-            .unwrap();
-        dispatcher
-            .stop(
-                &ZoomRtmsTerminal {
-                    meeting_uuid: "meeting-uuid".into(),
-                    stream_id: "stream-id".into(),
-                    event_timestamp_ms: 1,
-                },
-                ZoomStopReason::Stopped,
-            )
-            .await
-            .unwrap();
-        dispatcher.start("workspace-a", started).await.unwrap();
-
-        tokio::time::timeout(Duration::from_secs(2), store.terminal.notified())
-            .await
-            .expect("worker did not persist the early stop");
-        let events = store.events.lock().unwrap();
-        assert_eq!(events.len(), 1);
-        assert!(matches!(
-            &events[0].payload,
-            CaptureEventPayload::Lifecycle(transition) if transition.to == BotState::Canceled
-        ));
-    }
-
-    #[tokio::test]
-    async fn a_terminal_stop_wins_over_an_interruption_in_either_order() {
-        let stopped_then_interrupted = terminal_state_after_pending_stops(&[
-            ZoomStopReason::Stopped,
-            ZoomStopReason::Interrupted,
-        ])
-        .await;
-        let interrupted_then_stopped = terminal_state_after_pending_stops(&[
-            ZoomStopReason::Interrupted,
-            ZoomStopReason::Stopped,
-        ])
-        .await;
-
-        assert_eq!(stopped_then_interrupted, BotState::Canceled);
-        assert_eq!(interrupted_then_stopped, BotState::Canceled);
+    async fn a_stop_before_start_dispatch_cancels_and_wins_over_interruptions() {
+        for reasons in [
+            &[ZoomStopReason::Stopped][..],
+            &[ZoomStopReason::Stopped, ZoomStopReason::Interrupted],
+            &[ZoomStopReason::Interrupted, ZoomStopReason::Stopped],
+        ] {
+            assert_eq!(
+                terminal_state_after_pending_stops(reasons).await,
+                BotState::Canceled,
+                "{reasons:?}"
+            );
+        }
     }
 
     #[tokio::test]

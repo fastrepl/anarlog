@@ -21,9 +21,7 @@ impl From<anlg_agent_access::Error> for Error {
     fn from(error: anlg_agent_access::Error) -> Self {
         match error {
             anlg_agent_access::Error::NotFound(what) => Self::NotFound(what),
-            anlg_agent_access::Error::Invalid(reason) => {
-                Self::operation("validate proposal", reason)
-            }
+            anlg_agent_access::Error::Invalid(reason) => Self::operation("validate input", reason),
             anlg_agent_access::Error::Conflict(reason) => {
                 Self::operation("update proposal", reason)
             }

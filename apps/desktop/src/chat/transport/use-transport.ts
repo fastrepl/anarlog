@@ -1,5 +1,6 @@
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { LanguageModel, ToolSet } from "ai";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { commands as templateCommands } from "@anlg/plugin-template";
 
@@ -39,7 +40,7 @@ Web search guidance:
 - Do not use web_search for questions that only need local notes, contacts, or calendar events.
 `.trim();
 
-export function appendMeetingContextToolGuidance(
+function appendMeetingContextToolGuidance(
   prompt: string | undefined,
 ): string | undefined {
   if (prompt === undefined) {
@@ -97,50 +98,29 @@ export function useTransport(
   const configuredModel = useLanguageModel("chat");
   const model = modelOverride ?? configuredModel;
   const language = useConfigValue("ai_language") || "en";
-  const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
-
-  useEffect(() => {
-    if (systemPromptOverride) {
-      setSystemPrompt(systemPromptOverride);
-      return;
-    }
-
-    let stale = false;
-
-    void (async () => {
-      try {
-        const result = await templateCommands.render({
-          chatSystem: {
-            language,
-          },
-        });
-        if (stale) {
-          return;
-        }
-
-        if (result.status === "ok") {
-          setSystemPrompt(result.data);
-        } else {
-          setSystemPrompt("");
-        }
-      } catch (error) {
-        console.error(error);
-        if (!stale) {
-          setSystemPrompt("");
-        }
+  const systemPromptQuery = useQuery({
+    queryKey: ["chat-system-prompt", language],
+    enabled: systemPromptOverride === undefined,
+    staleTime: Infinity,
+    retry: false,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const result = await templateCommands.render({
+        chatSystem: { language },
+      });
+      if (result.status !== "ok") {
+        console.error(result.error);
+        throw new Error(String(result.error));
       }
-    })();
+      return result.data;
+    },
+  });
+  const systemPrompt =
+    systemPromptOverride ??
+    (systemPromptQuery.isError ? "" : systemPromptQuery.data);
 
-    return () => {
-      stale = true;
-    };
-  }, [language, systemPromptOverride]);
-
-  const effectiveSystemPrompt = appendMeetingContextToolGuidance(
-    systemPromptOverride ?? systemPrompt,
-  );
-  const isSystemPromptReady =
-    typeof systemPromptOverride === "string" || systemPrompt !== undefined;
+  const effectiveSystemPrompt = appendMeetingContextToolGuidance(systemPrompt);
+  const isSystemPromptReady = systemPrompt !== undefined;
 
   const tools = useMemo(() => {
     const localTools = registry.getTools("chat-general");

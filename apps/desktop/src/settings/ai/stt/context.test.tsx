@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  clearTarget: vi.fn(),
   downloadModel: vi.fn(),
   toastError: vi.fn(),
   upgradeToPro: vi.fn(),
@@ -18,11 +17,6 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
 
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({ upgradeToPro: mocks.upgradeToPro }),
-}));
-
-vi.mock("~/store/zustand/toast-action", () => ({
-  useToastAction: (selector: (state: unknown) => unknown) =>
-    selector({ target: null, clearTarget: mocks.clearTarget }),
 }));
 
 import { SttSettingsProvider, useSttSettings } from "./context";

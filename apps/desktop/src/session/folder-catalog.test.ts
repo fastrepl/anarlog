@@ -3,13 +3,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createFolder: vi.fn(),
   deleteFolder: vi.fn(),
-  execute: vi.fn(),
-  executeTransaction: vi.fn().mockResolvedValue([0, 1]),
+  deleteFolderCatalog: vi.fn(),
   enqueueDatabaseWrite: vi.fn(
     async (_key: string, write: () => Promise<unknown>) => write(),
   ),
+  ensureFolderCatalog: vi.fn(),
+  execute: vi.fn(),
   moveSession: vi.fn(),
   renameFolder: vi.fn(),
+  renameFolderCatalog: vi.fn(),
+  updateFolderIcon: vi.fn(),
+  updateFolderInstructions: vi.fn(),
+  updateFolderWorkspace: vi.fn(),
+}));
+
+vi.mock("@anlg/plugin-session", () => ({
+  commands: {
+    deleteFolderCatalog: mocks.deleteFolderCatalog,
+    ensureFolderCatalog: mocks.ensureFolderCatalog,
+    renameFolderCatalog: mocks.renameFolderCatalog,
+    updateFolderIcon: mocks.updateFolderIcon,
+    updateFolderInstructions: mocks.updateFolderInstructions,
+    updateFolderWorkspace: mocks.updateFolderWorkspace,
+  },
 }));
 
 vi.mock("@anlg/plugin-fs-sync", () => ({
@@ -22,8 +38,8 @@ vi.mock("@anlg/plugin-fs-sync", () => ({
 }));
 
 vi.mock("~/db", () => ({
-  executeTransaction: mocks.executeTransaction,
   liveQueryClient: { execute: mocks.execute },
+  useLiveQuery: () => ({ data: [] }),
 }));
 
 vi.mock("~/db/write-queue", () => ({
@@ -34,71 +50,39 @@ import {
   createNamedFolder,
   deleteNamedFolder,
   ensureFolderCatalog,
-  renameNamedFolder,
-  updateFolderIcon,
-  updateFolderInstructions,
-  updateFolderWorkspace,
   loadFolderWorkspaceId,
+  renameNamedFolder,
 } from "./folder-catalog";
 
 describe("folder catalog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.executeTransaction.mockResolvedValue([0, 1]);
+    for (const command of [
+      mocks.deleteFolderCatalog,
+      mocks.ensureFolderCatalog,
+      mocks.renameFolderCatalog,
+      mocks.updateFolderIcon,
+      mocks.updateFolderInstructions,
+      mocks.updateFolderWorkspace,
+    ]) {
+      command.mockResolvedValue({ status: "ok", data: null });
+    }
     mocks.execute.mockResolvedValue([]);
     mocks.createFolder.mockResolvedValue({ status: "ok", data: null });
     mocks.deleteFolder.mockResolvedValue({ status: "ok", data: null });
-    mocks.moveSession.mockResolvedValue({
-      status: "ok",
-      data: { session_id: "session-1", folder_id: "" },
-    });
-    mocks.renameFolder.mockResolvedValue({
-      status: "ok",
-      data: { updates: [] },
-    });
+    mocks.moveSession.mockResolvedValue({ status: "ok", data: null });
+    mocks.renameFolder.mockResolvedValue({ status: "ok", data: null });
   });
 
-  it("persists an empty folder in the catalog and on disk", async () => {
+  it("creates a named folder", async () => {
     await expect(createNamedFolder("CS 101")).resolves.toBe("CS 101");
-
-    expect(mocks.enqueueDatabaseWrite).toHaveBeenCalledWith(
-      "folders",
-      expect.any(Function),
-    );
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements[1].sql).toContain("INSERT INTO folders");
-    expect(statements[1].params).toContain("CS 101");
-    expect(mocks.createFolder).toHaveBeenCalledWith("CS 101");
   });
 
   it("rejects the unfiled folder", async () => {
     await expect(ensureFolderCatalog("")).rejects.toThrow(
       "invalid folder path",
     );
-    expect(mocks.executeTransaction).not.toHaveBeenCalled();
-  });
-
-  it("rewrites catalog, materials, and notes when renaming", async () => {
-    await expect(renameNamedFolder("CS 101", "Algorithms")).resolves.toBe(
-      "Algorithms",
-    );
-
-    expect(mocks.renameFolder).toHaveBeenCalledWith("CS 101", "Algorithms");
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements[0].sql).toContain("UPDATE folders");
-    expect(statements[0].params).toEqual(["Algorithms", "CS 101"]);
-    expect(statements[3].sql).toContain("UPDATE folder_attachments");
-    expect(statements[4].sql).toContain("UPDATE sessions");
-    expect(statements[4].sql).toContain("substr(folder_path");
-    expect(statements[4].params).toEqual([
-      "CS 101",
-      "Algorithms",
-      "Algorithms",
-      "CS 101",
-      "CS 101",
-      "CS 101/%",
-      "CS 101\\%",
-    ]);
+    expect(mocks.ensureFolderCatalog).not.toHaveBeenCalled();
   });
 
   it("refuses to rename onto an existing folder", async () => {
@@ -108,98 +92,60 @@ describe("folder catalog", () => {
       "folder_target_exists",
     );
     expect(mocks.renameFolder).not.toHaveBeenCalled();
-    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+    expect(mocks.renameFolderCatalog).not.toHaveBeenCalled();
   });
 
-  it("persists ancestor catalog rows for a nested folder", async () => {
-    await expect(createNamedFolder("CS 101/Week 1")).resolves.toBe(
-      "CS 101/Week 1",
+  it("renames a folder", async () => {
+    await expect(renameNamedFolder("CS 101", "Algorithms")).resolves.toBe(
+      "Algorithms",
     );
-
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    const insertParams = statements
-      .filter((statement: { sql: string }) =>
-        statement.sql.includes("INSERT INTO folders"),
-      )
-      .flatMap((statement: { params: string[] }) => statement.params);
-    expect(insertParams).toContain("CS 101");
-    expect(insertParams).toContain("CS 101/Week 1");
-    expect(mocks.createFolder).toHaveBeenCalledWith("CS 101/Week 1");
   });
 
-  it("moves notes out, tombstones the tree, and deletes the disk folder", async () => {
+  it("does not delete a folder if moving a note fails", async () => {
     mocks.execute.mockResolvedValue([
       { id: "session-1", folder_path: "CS 101" },
-      { id: "session-2", folder_path: "CS 101/Week 1" },
     ]);
-
-    await deleteNamedFolder("CS 101");
-
-    expect(mocks.moveSession).toHaveBeenCalledWith("session-1", "CS 101", "");
-    expect(mocks.moveSession).toHaveBeenCalledWith(
-      "session-2",
-      "CS 101/Week 1",
-      "",
-    );
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statements[0].sql).toContain("UPDATE folders");
-    expect(statements[0].sql).toContain("deleted_at");
-    expect(statements[1].sql).toContain("UPDATE folder_attachments");
-    expect(statements[2].sql).toContain("UPDATE sessions");
-    expect(statements[2].sql).toContain("folder_path = ''");
-    expect(mocks.deleteFolder).toHaveBeenCalledWith("CS 101");
-  });
-
-  it("saves a folder icon on the catalog row", async () => {
-    await updateFolderIcon("CS 101", {
-      type: "icon",
-      value: "target",
-      color: "#5b67d8",
+    mocks.moveSession.mockResolvedValue({
+      status: "error",
+      error: "permission denied",
     });
 
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
-    const statements = mocks.executeTransaction.mock.calls[0]![0];
-    const update = statements[statements.length - 1];
-    expect(update.sql).toContain("icon_json = ?");
-    expect(update.params).toEqual([
-      '{"type":"icon","value":"target","color":"#5b67d8"}',
-      "CS 101",
-    ]);
+    await expect(deleteNamedFolder("CS 101")).rejects.toThrow(
+      "permission denied",
+    );
+    expect(mocks.deleteFolderCatalog).not.toHaveBeenCalled();
+    expect(mocks.deleteFolder).not.toHaveBeenCalled();
   });
 
-  it("saves folder chat instructions on the catalog row", async () => {
-    await updateFolderInstructions("CS 101", "Prefer the syllabus.");
-
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
-    const update = mocks.executeTransaction.mock.calls[1]![0][0];
-    expect(update.sql).toContain("SET");
-    expect(update.sql).toContain("instructions = ?");
-    expect(update.params).toEqual(["Prefer the syllabus.", "CS 101"]);
-  });
-
-  it("saves a team workspace on the catalog row", async () => {
-    await updateFolderWorkspace("CS 101", "ws-team");
-
-    const updateStatements = mocks.executeTransaction.mock.calls[1]![0];
-    expect(updateStatements[0].sql).toContain("workspace_id = ?");
-    expect(updateStatements[0].params).toEqual(["ws-team", "CS 101"]);
-
-    mocks.execute.mockResolvedValueOnce([{ workspace_id: "ws-team" }]);
-    await expect(loadFolderWorkspaceId("CS 101")).resolves.toBe("ws-team");
-
-    await updateFolderWorkspace("CS 101", "");
-    const clearStatements = mocks.executeTransaction.mock.calls[3]![0];
-    expect(clearStatements[0].params).toEqual(["", "CS 101"]);
-  });
-
-  it("creates the target directory when the source is missing", async () => {
+  it("does not update the catalog if creating a missing rename target fails", async () => {
     mocks.renameFolder.mockResolvedValue({
       status: "error",
       error: "Path error: folder_source_missing",
     });
+    mocks.createFolder.mockResolvedValue({
+      status: "error",
+      error: "permission denied",
+    });
 
-    await expect(renameNamedFolder("Empty", "Named")).resolves.toBe("Named");
-    expect(mocks.createFolder).toHaveBeenCalledWith("Named");
-    expect(mocks.executeTransaction).toHaveBeenCalled();
+    await expect(renameNamedFolder("Empty", "Named")).rejects.toThrow(
+      "permission denied",
+    );
+    expect(mocks.renameFolderCatalog).not.toHaveBeenCalled();
+  });
+
+  it("propagates filesystem rename errors without updating the catalog", async () => {
+    mocks.renameFolder.mockResolvedValue({
+      status: "error",
+      error: "permission denied",
+    });
+
+    await expect(renameNamedFolder("Existing", "New")).rejects.toThrow(
+      "permission denied",
+    );
+    expect(mocks.renameFolderCatalog).not.toHaveBeenCalled();
+  });
+
+  it("maps a missing workspace to an empty id", async () => {
+    await expect(loadFolderWorkspaceId("CS 101")).resolves.toBe("");
   });
 });

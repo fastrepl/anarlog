@@ -105,19 +105,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn capture_frame_exposes_raw_and_aec_views() {
-        let frame = CaptureFrame {
+    fn aec_dual_prefers_aec_mic_and_falls_back_to_raw_mic() {
+        let mut frame = CaptureFrame {
             raw_mic: Arc::from([0.1_f32, 0.2]),
             raw_speaker: Arc::from([0.3_f32, 0.4]),
             aec_mic: Some(Arc::from([0.9_f32, 1.0])),
         };
 
-        let (raw_mic, raw_speaker) = frame.raw_dual();
-        assert_eq!(&*raw_mic, &[0.1, 0.2]);
-        assert_eq!(&*raw_speaker, &[0.3, 0.4]);
-
         let (aec_mic, aec_speaker) = frame.aec_dual();
         assert_eq!(&*aec_mic, &[0.9, 1.0]);
         assert_eq!(&*aec_speaker, &[0.3, 0.4]);
+
+        frame.aec_mic = None;
+        let (fallback_mic, fallback_speaker) = frame.aec_dual();
+        assert_eq!(&*fallback_mic, &[0.1, 0.2]);
+        assert_eq!(&*fallback_speaker, &[0.3, 0.4]);
     }
 }

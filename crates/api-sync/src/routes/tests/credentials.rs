@@ -122,40 +122,10 @@ async fn issues_replica_credentials_without_contacting_sqlitecloud() {
     let server = MockServer::start().await;
     mock_workspace_projection(
         &server,
-        json!([
-            {
-                "id": "membership-team",
-                "user_id": "user-123",
-                "role": "member",
-                "created_at": "2026-07-16T09:01:00Z",
-                "updated_at": "2026-07-16T10:01:00Z",
-                "workspace": {
-                    "id": "workspace-team",
-                    "owner_user_id": "user-456",
-                    "kind": "shared",
-                    "name": "Acme",
-                    "created_at": "2026-07-16T09:00:00Z",
-                    "updated_at": "2026-07-16T10:00:00Z"
-                }
-            },
-            personal_workspace("user-123")
-        ]),
+        json!([team_membership(), personal_workspace("user-123")]),
     )
     .await;
-    mock_workspace_key_grants(
-        &server,
-        json!([
-            {
-                "workspace_id": "workspace-team",
-                "key_id": "AAAAAAAAAAAAAAAAAAAAAA",
-                "ephemeral_public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                "nonce": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-                "ciphertext": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
-                "is_active": true
-            }
-        ]),
-    )
-    .await;
+    mock_workspace_key_grants(&server, json!([team_key_grant()])).await;
     mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
 
     let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
@@ -205,116 +175,94 @@ async fn mock_personal_only_e2ee_account(server: &MockServer) {
     mock_e2ee_key_claim(server, TEST_KEY_ID).await;
 }
 
-fn requested_paths(requests: &[wiremock::Request]) -> Vec<&str> {
-    requests.iter().map(|request| request.url.path()).collect()
-}
-
 #[tokio::test]
-async fn token_route_hands_replica_credentials_to_overridden_accounts() {
-    let server = MockServer::start().await;
-    mock_personal_only_e2ee_account(&server).await;
-    mock_sync_transport_override(&server, Some("replica")).await;
+async fn token_route_selects_transport_from_default_opt_in_and_override() {
+    for (case, default_transport, opted_in, override_transport, expect_replica) in [
+        (
+            "sqlite-sync default with replica override and opted-in client",
+            CloudsyncTransport::SqliteSync,
+            true,
+            Some("replica"),
+            true,
+        ),
+        (
+            "sqlite-sync default with replica override and non-opted-in client",
+            CloudsyncTransport::SqliteSync,
+            false,
+            Some("replica"),
+            false,
+        ),
+        (
+            "sqlite-sync default without an override",
+            CloudsyncTransport::SqliteSync,
+            true,
+            None,
+            false,
+        ),
+        (
+            "replica default without an override",
+            CloudsyncTransport::Replica,
+            true,
+            None,
+            true,
+        ),
+        (
+            "replica default with sqlite-sync override",
+            CloudsyncTransport::Replica,
+            true,
+            Some("sqlite_sync"),
+            false,
+        ),
+    ] {
+        let server = MockServer::start().await;
+        mock_personal_only_e2ee_account(&server).await;
+        mock_sync_transport_override(&server, override_transport).await;
+        mock_sqlitecloud_token(&server, "sqlite-token").await;
 
-    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(replica_capable_token_request())
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(response.headers()[http_header::CACHE_CONTROL], "no-store");
-    let body = response_json(response).await;
-    assert_eq!(body["transport"], "replica");
-    assert_eq!(body["encryptionKeyId"], TEST_KEY_ID);
-    assert_eq!(body["personalWorkspaceId"], "user-123");
-    assert_eq!(body["workspaces"][0]["id"], "user-123");
-    assert!(body.get("databaseId").is_none());
-    assert!(body.get("token").is_none());
-
-    let requests = server.received_requests().await.unwrap();
-    let paths = requested_paths(&requests);
-    assert_eq!(paths[0], "/rest/v1/sync_transport_overrides");
-    assert!(!paths.contains(&"/v2/tokens"));
-}
-
-#[tokio::test]
-async fn token_route_keeps_sqlite_sync_for_clients_that_did_not_opt_in() {
-    let server = MockServer::start().await;
-    mock_personal_only_e2ee_account(&server).await;
-    mock_sync_transport_override(&server, Some("replica")).await;
-    mock_sqlitecloud_token(&server, "sqlite-token").await;
-
-    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(token_request())
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = response_json(response).await;
-    assert_eq!(body["token"], "sqlite-token");
-    assert_eq!(body["databaseId"], "database-id");
-    assert!(body.get("transport").is_none());
-
-    let requests = server.received_requests().await.unwrap();
-    let paths = requested_paths(&requests);
-    assert!(!paths.contains(&"/rest/v1/sync_transport_overrides"));
-    assert!(paths.contains(&"/v2/tokens"));
-}
-
-#[tokio::test]
-async fn token_route_keeps_sqlite_sync_without_an_override() {
-    let server = MockServer::start().await;
-    mock_personal_only_e2ee_account(&server).await;
-    mock_sync_transport_override(&server, None).await;
-    mock_sqlitecloud_token(&server, "sqlite-token").await;
-
-    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
-        .oneshot(replica_capable_token_request())
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = response_json(response).await;
-    assert_eq!(body["token"], "sqlite-token");
-    assert!(body.get("transport").is_none());
-}
-
-#[tokio::test]
-async fn replica_default_transport_still_honours_sqlite_sync_overrides() {
-    let server = MockServer::start().await;
-    mock_personal_only_e2ee_account(&server).await;
-    mock_sqlitecloud_token(&server, "sqlite-token").await;
-
-    let replica_by_default = || {
-        test_router_with_transport(
+        let token_request = if opted_in {
+            replica_capable_token_request()
+        } else {
+            token_request()
+        };
+        let response = test_router_with_transport(
             &server,
             "issuer-key",
             &["hyprnote_pro"],
             CloudsyncProtocolMode::E2eeEnforced,
             None,
-            CloudsyncTransport::Replica,
+            default_transport,
         )
-    };
-
-    mock_sync_transport_override(&server, None).await;
-    let response = replica_by_default()
-        .oneshot(replica_capable_token_request())
+        .oneshot(token_request)
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(response_json(response).await["transport"], "replica");
 
-    server.reset().await;
-    mock_personal_only_e2ee_account(&server).await;
-    mock_sqlitecloud_token(&server, "sqlite-token").await;
-    mock_sync_transport_override(&server, Some("sqlite_sync")).await;
-    let response = replica_by_default()
-        .oneshot(replica_capable_token_request())
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = response_json(response).await;
-    assert_eq!(body["token"], "sqlite-token");
-    assert!(body.get("transport").is_none());
+        assert_eq!(response.status(), StatusCode::OK, "{case}");
+        if expect_replica {
+            assert_eq!(
+                response.headers()[http_header::CACHE_CONTROL],
+                "no-store",
+                "{case}"
+            );
+        }
+        let body = response_json(response).await;
+        if expect_replica {
+            assert_eq!(body["transport"], "replica", "{case}");
+            assert!(body.get("token").is_none(), "{case}");
+            assert!(body.get("databaseId").is_none(), "{case}");
+            assert!(
+                !server
+                    .received_requests()
+                    .await
+                    .unwrap()
+                    .iter()
+                    .any(|request| request.url.path() == "/v2/tokens"),
+                "{case}"
+            );
+        } else {
+            assert_eq!(body["token"], "sqlite-token", "{case}");
+            assert!(body.get("transport").is_none(), "{case}");
+        }
+    }
 }
 
 #[tokio::test]
@@ -401,40 +349,10 @@ async fn mints_token_for_verified_supabase_subject() {
     let server = MockServer::start().await;
     mock_workspace_projection(
         &server,
-        json!([
-            {
-                "id": "membership-team",
-                "user_id": "user-123",
-                "role": "member",
-                "created_at": "2026-07-16T09:01:00Z",
-                "updated_at": "2026-07-16T10:01:00Z",
-                "workspace": {
-                    "id": "workspace-team",
-                    "owner_user_id": "user-456",
-                    "kind": "shared",
-                    "name": "Acme",
-                    "created_at": "2026-07-16T09:00:00Z",
-                    "updated_at": "2026-07-16T10:00:00Z"
-                }
-            },
-            personal_workspace("user-123")
-        ]),
+        json!([team_membership(), personal_workspace("user-123")]),
     )
     .await;
-    mock_workspace_key_grants(
-        &server,
-        json!([
-            {
-                "workspace_id": "workspace-team",
-                "key_id": "AAAAAAAAAAAAAAAAAAAAAA",
-                "ephemeral_public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                "nonce": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-                "ciphertext": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
-                "is_active": true
-            }
-        ]),
-    )
-    .await;
+    mock_workspace_key_grants(&server, json!([team_key_grant()])).await;
     mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
     Mock::given(method("POST"))
         .and(path("/v2/tokens"))
@@ -492,17 +410,11 @@ async fn mints_token_for_verified_supabase_subject() {
     assert!(body["expiresAt"].as_str().unwrap().ends_with('Z'));
 
     let requests = server.received_requests().await.unwrap();
-    assert_eq!(requests[0].url.path(), "/rest/v1/workspace_memberships");
-    assert_eq!(
-        requests[1].url.path(),
-        "/rest/v1/rpc/list_all_my_workspace_e2ee_grants"
-    );
-    assert_eq!(
-        requests[2].url.path(),
-        "/rest/v1/rpc/claim_personal_workspace_e2ee_key"
-    );
-    assert_eq!(requests[3].url.path(), "/v2/tokens");
-    let token_request: Value = serde_json::from_slice(&requests[3].body).unwrap();
+    let token_request = requests
+        .iter()
+        .find(|request| request.url.path() == "/v2/tokens")
+        .expect("SQLiteCloud token request should be sent");
+    let token_request: Value = serde_json::from_slice(&token_request.body).unwrap();
     assert_eq!(token_request.as_object().unwrap().len(), 4);
     assert_eq!(token_request["userId"], "user-123");
     let attributes: Value =
@@ -830,135 +742,67 @@ async fn rejects_users_without_pro_entitlement() {
 
 #[tokio::test]
 async fn refuses_token_when_workspace_projection_is_invalid() {
+    let mut other_personal_workspace = personal_workspace("user-123");
+    other_personal_workspace["id"] = json!("other-owner-membership");
+    other_personal_workspace["workspace"]["id"] = json!("other-personal");
+    other_personal_workspace["workspace"]["owner_user_id"] = json!("other-personal");
+    other_personal_workspace["workspace"]["name"] = json!("Other");
+
+    let mut admin_personal_workspace = personal_workspace("user-123");
+    admin_personal_workspace["role"] = json!("admin");
+
+    let mut missing_membership_id = team_membership();
+    missing_membership_id["id"] = json!("");
+
+    let mut unsupported_member_role = team_membership();
+    unsupported_member_role["role"] = json!("editor");
+
+    let mut unsupported_workspace_kind = team_membership();
+    unsupported_workspace_kind["workspace"]["kind"] = json!("team");
+
+    let mut invalid_workspace_timestamp = team_membership();
+    invalid_workspace_timestamp["workspace"]["created_at"] = json!("not-a-timestamp");
+
+    let mut invalid_membership_timestamp = team_membership();
+    invalid_membership_timestamp["created_at"] = json!("not-a-timestamp");
+
     let invalid_projections = [
-        json!([]),
-        json!([personal_workspace("different-user")]),
-        json!([
-            personal_workspace("user-123"),
-            {
-                "id": "other-owner-membership",
-                "user_id": "user-123",
-                "role": "owner",
-                "created_at": "2026-07-16T09:00:00Z",
-                "updated_at": "2026-07-16T09:00:00Z",
-                "workspace": {
-                    "id": "other-personal",
-                    "owner_user_id": "other-personal",
-                    "kind": "personal",
-                    "name": "Other",
-                    "created_at": "2026-07-16T09:00:00Z",
-                    "updated_at": "2026-07-16T09:00:00Z"
-                }
-            }
-        ]),
-        json!([{
-            "id": "user-123",
-            "user_id": "user-123",
-            "role": "admin",
-            "created_at": "2026-07-16T08:00:00Z",
-            "updated_at": "2026-07-16T08:00:00Z",
-            "workspace": {
-                "id": "user-123",
-                "owner_user_id": "user-123",
-                "kind": "personal",
-                "name": "Personal",
-                "created_at": "2026-07-16T08:00:00Z",
-                "updated_at": "2026-07-16T08:00:00Z"
-            }
-        }]),
-        json!([
-            personal_workspace("user-123"),
-            {
-                "id": "",
-                "user_id": "user-123",
-                "role": "member",
-                "created_at": "2026-07-16T09:00:00Z",
-                "updated_at": "2026-07-16T09:00:00Z",
-                "workspace": {
-                    "id": "workspace-team",
-                    "owner_user_id": "user-456",
-                    "kind": "shared",
-                    "name": "Acme",
-                    "created_at": "2026-07-16T09:00:00Z",
-                    "updated_at": "2026-07-16T09:00:00Z"
-                }
-            }
-        ]),
-        json!([
-            personal_workspace("user-123"),
-            {
-                "id": "membership-team",
-                "user_id": "user-123",
-                "role": "editor",
-                "created_at": "2026-07-16T09:00:00Z",
-                "updated_at": "2026-07-16T09:00:00Z",
-                "workspace": {
-                    "id": "workspace-team",
-                    "owner_user_id": "user-456",
-                    "kind": "shared",
-                    "name": "Acme",
-                    "created_at": "2026-07-16T09:00:00Z",
-                    "updated_at": "2026-07-16T09:00:00Z"
-                }
-            }
-        ]),
-        json!([
-            personal_workspace("user-123"),
-            {
-                "id": "membership-team",
-                "user_id": "user-123",
-                "role": "member",
-                "created_at": "2026-07-16T09:00:00Z",
-                "updated_at": "2026-07-16T09:00:00Z",
-                "workspace": {
-                    "id": "workspace-team",
-                    "owner_user_id": "user-456",
-                    "kind": "team",
-                    "name": "Acme",
-                    "created_at": "2026-07-16T09:00:00Z",
-                    "updated_at": "2026-07-16T09:00:00Z"
-                }
-            }
-        ]),
-        json!([
-            personal_workspace("user-123"),
-            {
-                "id": "membership-team",
-                "user_id": "user-123",
-                "role": "member",
-                "created_at": "2026-07-16T09:00:00Z",
-                "updated_at": "2026-07-16T09:00:00Z",
-                "workspace": {
-                    "id": "workspace-team",
-                    "owner_user_id": "user-456",
-                    "kind": "shared",
-                    "name": "Acme",
-                    "created_at": "not-a-timestamp",
-                    "updated_at": "2026-07-16T09:00:00Z"
-                }
-            }
-        ]),
-        json!([
-            personal_workspace("user-123"),
-            {
-                "id": "membership-team",
-                "user_id": "user-123",
-                "role": "member",
-                "created_at": "not-a-timestamp",
-                "updated_at": "2026-07-16T09:00:00Z",
-                "workspace": {
-                    "id": "workspace-team",
-                    "owner_user_id": "user-456",
-                    "kind": "shared",
-                    "name": "Acme",
-                    "created_at": "2026-07-16T09:00:00Z",
-                    "updated_at": "2026-07-16T09:00:00Z"
-                }
-            }
-        ]),
+        ("no memberships", json!([])),
+        (
+            "personal workspace belongs to another user",
+            json!([personal_workspace("different-user")]),
+        ),
+        (
+            "another personal workspace is also owned",
+            json!([personal_workspace("user-123"), other_personal_workspace]),
+        ),
+        (
+            "personal workspace membership has an admin role",
+            json!([admin_personal_workspace]),
+        ),
+        (
+            "team membership id is empty",
+            json!([personal_workspace("user-123"), missing_membership_id]),
+        ),
+        (
+            "team membership role is unsupported",
+            json!([personal_workspace("user-123"), unsupported_member_role]),
+        ),
+        (
+            "team workspace kind is unsupported",
+            json!([personal_workspace("user-123"), unsupported_workspace_kind]),
+        ),
+        (
+            "team workspace timestamp is invalid",
+            json!([personal_workspace("user-123"), invalid_workspace_timestamp]),
+        ),
+        (
+            "team membership timestamp is invalid",
+            json!([personal_workspace("user-123"), invalid_membership_timestamp]),
+        ),
     ];
 
-    for projection in invalid_projections {
+    for (case, projection) in invalid_projections {
         let server = MockServer::start().await;
         mock_workspace_projection(&server, projection).await;
 
@@ -967,10 +811,14 @@ async fn refuses_token_when_workspace_projection_is_invalid() {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY, "{case}");
         let requests = server.received_requests().await.unwrap();
-        assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0].url.path(), "/rest/v1/workspace_memberships");
+        assert_eq!(requests.len(), 1, "{case}");
+        assert_eq!(
+            requests[0].url.path(),
+            "/rest/v1/workspace_memberships",
+            "{case}"
+        );
     }
 }
 

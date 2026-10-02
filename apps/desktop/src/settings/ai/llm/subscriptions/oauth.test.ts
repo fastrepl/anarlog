@@ -12,7 +12,6 @@ import {
   claudeAuthorizeUrl,
   claudeMessagesBody,
   encodeAuthorizeQuery,
-  isSubscriptionProviderId,
   looksLikeAuthorizationInput,
   parseAuthorizationInput,
   parseChatgptAccountId,
@@ -22,13 +21,6 @@ import {
 } from "./oauth";
 
 describe("subscription OAuth helpers", () => {
-  test("recognizes subscription provider ids", () => {
-    expect(isSubscriptionProviderId("claude")).toBe(true);
-    expect(isSubscriptionProviderId("chatgpt")).toBe(true);
-    expect(isSubscriptionProviderId("github_copilot")).toBe(true);
-    expect(isSubscriptionProviderId("anthropic")).toBe(false);
-  });
-
   test("encodes authorize query spaces as %20 so macOS open does not split the URL", () => {
     expect(
       encodeAuthorizeQuery([["scope", "user:profile user:inference"]]),

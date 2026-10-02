@@ -43,27 +43,29 @@ beforeEach(() => {
 });
 
 describe("getOnDeviceTranscriptionMode", () => {
-  test("uses live mode for realtime local models", () => {
-    expect(getOnDeviceTranscriptionMode("soniqo-parakeet-streaming")).toBe(
-      "live",
-    );
-  });
-
-  test("uses batch mode for non-realtime local models", () => {
-    expect(getOnDeviceTranscriptionMode("soniqo-qwen3-small")).toBe("batch");
-  });
-
-  test("keeps live mode when realtime local model has no Soniqo-supported language", () => {
-    expect(
-      getOnDeviceTranscriptionMode("soniqo-parakeet-streaming", ["ko"]),
-    ).toBe("live");
-  });
-
-  test("keeps European Soniqo streaming languages live", () => {
-    expect(
-      getOnDeviceTranscriptionMode("soniqo-parakeet-streaming", ["de"]),
-    ).toBe("live");
-  });
+  test.each([
+    {
+      model: "soniqo-parakeet-streaming",
+      languages: undefined,
+      expected: "live",
+    },
+    { model: "soniqo-qwen3-small", languages: undefined, expected: "batch" },
+    {
+      model: "soniqo-parakeet-streaming",
+      languages: ["ko"],
+      expected: "live",
+    },
+    {
+      model: "soniqo-parakeet-streaming",
+      languages: ["de"],
+      expected: "live",
+    },
+  ] as const)(
+    "returns $expected for $model with $languages",
+    ({ model, languages, expected }) => {
+      expect(getOnDeviceTranscriptionMode(model, languages)).toBe(expected);
+    },
+  );
 });
 
 describe("getSttModelTranscriptionMode", () => {
@@ -153,108 +155,74 @@ describe("getSttModelTranscriptionMode", () => {
 });
 
 describe("isSupportedLocalSttModel", () => {
-  test("accepts shipped local STT model families", () => {
-    expect(isSupportedLocalSttModel("soniqo-parakeet-streaming")).toBe(true);
-    expect(isSupportedLocalSttModel("apple-speech")).toBe(true);
-    expect(isSupportedLocalSttModel("am-parakeet-v3")).toBe(true);
-    expect(isSupportedLocalSttModel("QuantizedSmallEn")).toBe(true);
-  });
-
-  test("rejects cloud, local LLM, and removed local model ids", () => {
-    expect(isSupportedLocalSttModel("cloud")).toBe(false);
-    expect(isSupportedLocalSttModel("Llama3p2_3bQ4")).toBe(false);
-    expect(isSupportedLocalSttModel("removed-local-model")).toBe(false);
+  test.each([
+    { model: "soniqo-parakeet-streaming", expected: true },
+    { model: "apple-speech", expected: true },
+    { model: "am-parakeet-v3", expected: true },
+    { model: "QuantizedSmallEn", expected: true },
+    { model: "cloud", expected: false },
+    { model: "Llama3p2_3bQ4", expected: false },
+    { model: "removed-local-model", expected: false },
+  ])("$model -> $expected", ({ model, expected }) => {
+    expect(isSupportedLocalSttModel(model)).toBe(expected);
   });
 });
 
 describe("isOnDeviceSttModel", () => {
-  test("matches models to their dedicated on-device provider", () => {
-    expect(isOnDeviceSttModel("soniqo", "soniqo-parakeet-streaming")).toBe(
-      true,
-    );
-    expect(isOnDeviceSttModel("apple_speech", "apple-speech")).toBe(true);
-    expect(isOnDeviceSttModel("soniqo", "apple-speech")).toBe(false);
-    expect(isOnDeviceSttModel("apple_speech", "soniqo-parakeet-batch")).toBe(
-      false,
-    );
-  });
-
-  test("keeps legacy Anarlog local selections working during migration", () => {
-    expect(isOnDeviceSttModel("anarlog", "soniqo-parakeet-streaming")).toBe(
-      true,
-    );
+  test.each([
+    { provider: "soniqo", model: "soniqo-parakeet-streaming", expected: true },
+    { provider: "apple_speech", model: "apple-speech", expected: true },
+    { provider: "soniqo", model: "apple-speech", expected: false },
+    {
+      provider: "apple_speech",
+      model: "soniqo-parakeet-batch",
+      expected: false,
+    },
+    { provider: "anarlog", model: "soniqo-parakeet-streaming", expected: true },
+  ])("$provider/$model -> $expected", ({ provider, model, expected }) => {
+    expect(isOnDeviceSttModel(provider, model)).toBe(expected);
   });
 });
 
 describe("isLocalFileSttModel", () => {
-  test("matches only the stable local-file provider and model ids", () => {
-    expect(isLocalFileSttModel("local_file", "local-file")).toBe(true);
-    expect(isLocalFileSttModel("local_file", "ggml-small.bin")).toBe(false);
-    expect(isLocalFileSttModel("anarlog", "local-file")).toBe(false);
-  });
-});
-
-describe("getOnDeviceTranscriptionConfig", () => {
-  test("keeps languages Apple Speech supports but Parakeet does not", () => {
-    expect(getOnDeviceTranscriptionConfig("apple-speech", ["ko"])).toEqual({
-      languages: ["ko"],
-      transcriptionMode: "live",
-    });
-    expect(getOnDeviceTranscriptionConfig("apple-speech", ["ja"])).toEqual({
-      languages: ["ja"],
-      transcriptionMode: "live",
-    });
-  });
-
-  test("still drops languages Apple Speech cannot transcribe", () => {
-    expect(getOnDeviceTranscriptionConfig("apple-speech", ["hi"])).toEqual({
-      languages: [],
-      transcriptionMode: "live",
-    });
-  });
-
-  test("leaves the Parakeet language set untouched", () => {
-    expect(
-      getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["ko"]),
-    ).toEqual({ languages: [], transcriptionMode: "live" });
-    expect(
-      getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["de"]),
-    ).toEqual({ languages: ["de"], transcriptionMode: "live" });
+  test.each([
+    { provider: "local_file", model: "local-file", expected: true },
+    { provider: "local_file", model: "ggml-small.bin", expected: false },
+    { provider: "anarlog", model: "local-file", expected: false },
+  ])("$provider/$model -> $expected", ({ provider, model, expected }) => {
+    expect(isLocalFileSttModel(provider, model)).toBe(expected);
   });
 });
 
 describe("isRealtimeLocalModel", () => {
-  test("accepts the streaming-capable local models", () => {
-    expect(isRealtimeLocalModel("soniqo-parakeet-streaming")).toBe(true);
-    expect(isRealtimeLocalModel("apple-speech")).toBe(true);
-  });
-
-  test("rejects batch-only local models", () => {
-    expect(isRealtimeLocalModel("soniqo-parakeet-batch")).toBe(false);
-    expect(isRealtimeLocalModel("am-parakeet-v3")).toBe(false);
+  test.each([
+    { model: "soniqo-parakeet-streaming", expected: true },
+    { model: "apple-speech", expected: true },
+    { model: "soniqo-parakeet-batch", expected: false },
+    { model: "am-parakeet-v3", expected: false },
+  ])("$model -> $expected", ({ model, expected }) => {
+    expect(isRealtimeLocalModel(model)).toBe(expected);
   });
 });
 
 describe("isConfiguredSttModel", () => {
-  test("requires known model ids for Anarlog STT", () => {
-    expect(isConfiguredSttModel("anarlog", "cloud")).toBe(true);
-    expect(isConfiguredSttModel("anarlog", "soniqo-qwen3-small")).toBe(true);
-    expect(isConfiguredSttModel("anarlog", "removed-local-model")).toBe(false);
-  });
-
-  test("requires models from the selected built-in provider", () => {
-    expect(isConfiguredSttModel("soniqo", "soniqo-parakeet-batch")).toBe(true);
-    expect(isConfiguredSttModel("soniqo", "apple-speech")).toBe(false);
-    expect(isConfiguredSttModel("apple_speech", "apple-speech")).toBe(true);
-    expect(
-      isConfiguredSttModel("apple_speech", "soniqo-parakeet-streaming"),
-    ).toBe(false);
-    expect(isConfiguredSttModel("local_file", "local-file")).toBe(true);
-    expect(isConfiguredSttModel("local_file", "ggml-small.bin")).toBe(false);
-  });
-
-  test("allows custom model ids for external providers", () => {
-    expect(isConfiguredSttModel("custom", "whisper-large-v3")).toBe(true);
+  test.each([
+    { provider: "anarlog", model: "cloud", expected: true },
+    { provider: "anarlog", model: "soniqo-qwen3-small", expected: true },
+    { provider: "anarlog", model: "removed-local-model", expected: false },
+    { provider: "soniqo", model: "soniqo-parakeet-batch", expected: true },
+    { provider: "soniqo", model: "apple-speech", expected: false },
+    { provider: "apple_speech", model: "apple-speech", expected: true },
+    {
+      provider: "apple_speech",
+      model: "soniqo-parakeet-streaming",
+      expected: false,
+    },
+    { provider: "local_file", model: "local-file", expected: true },
+    { provider: "local_file", model: "ggml-small.bin", expected: false },
+    { provider: "custom", model: "whisper-large-v3", expected: true },
+  ])("$provider/$model -> $expected", ({ provider, model, expected }) => {
+    expect(isConfiguredSttModel(provider, model)).toBe(expected);
   });
 });
 
@@ -360,102 +328,100 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
 });
 
 describe("getOnDeviceTranscriptionConfig", () => {
-  test("uses the first supported language for realtime local models", () => {
-    expect(
-      getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["en", "ko"]),
-    ).toEqual({
-      languages: ["en"],
-      transcriptionMode: "live",
-    });
-  });
-
-  test("keeps German live even when English is an additional language", () => {
-    expect(
-      getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["de", "en"]),
-    ).toEqual({
+  test.each([
+    {
+      model: "apple-speech",
+      languages: ["ko"],
+      expected: { languages: ["ko"], transcriptionMode: "live" },
+    },
+    {
+      model: "apple-speech",
+      languages: ["ja"],
+      expected: { languages: ["ja"], transcriptionMode: "live" },
+    },
+    {
+      model: "apple-speech",
+      languages: ["hi"],
+      expected: { languages: [], transcriptionMode: "live" },
+    },
+    {
+      model: "soniqo-parakeet-streaming",
+      languages: ["en", "ko"],
+      expected: { languages: ["en"], transcriptionMode: "live" },
+    },
+    {
+      model: "soniqo-parakeet-streaming",
+      languages: ["de", "en"],
+      expected: { languages: ["de"], transcriptionMode: "live" },
+    },
+    {
+      model: "soniqo-parakeet-streaming",
+      languages: ["ko"],
+      expected: { languages: [], transcriptionMode: "live" },
+    },
+    {
+      model: "soniqo-parakeet-streaming",
       languages: ["de"],
-      transcriptionMode: "live",
-    });
-  });
-
-  test("drops unsupported Soniqo language hints instead of forcing batch", () => {
-    expect(
-      getOnDeviceTranscriptionConfig("soniqo-parakeet-streaming", ["ko"]),
-    ).toEqual({
-      languages: [],
-      transcriptionMode: "live",
-    });
-  });
+      expected: { languages: ["de"], transcriptionMode: "live" },
+    },
+  ])(
+    "$model with $languages -> $expected",
+    ({ model, languages, expected }) => {
+      expect(getOnDeviceTranscriptionConfig(model, languages)).toEqual(
+        expected,
+      );
+    },
+  );
 });
 
 describe("getLiveTranscriptionConfig", () => {
-  test("runs local model files after recording", async () => {
-    await expect(
-      getLiveTranscriptionConfig({
-        provider: "local_file",
-        model: "local-file",
-        languages: ["en", "ko"],
-      }),
-    ).resolves.toEqual({
+  test.each([
+    {
+      provider: "local_file",
+      model: "local-file",
       languages: ["en", "ko"],
-      transcriptionMode: "batch",
-    });
-    expect(isSupportedLanguagesLiveMock).not.toHaveBeenCalled();
-  });
-
-  test("uses the dedicated OpenAI live model during recording", async () => {
-    await expect(
-      getLiveTranscriptionConfig({
-        provider: "openai",
-        model: "gpt-live-transcribe",
-        languages: ["en", "ko"],
-      }),
-    ).resolves.toEqual({
+      expected: { languages: ["en", "ko"], transcriptionMode: "batch" },
+      checksLiveLanguages: false,
+    },
+    {
+      provider: "openai",
+      model: "gpt-live-transcribe",
       languages: ["en", "ko"],
-      transcriptionMode: "live",
-    });
-  });
-
-  test("uses the dedicated OpenAI file model after recording", async () => {
-    await expect(
-      getLiveTranscriptionConfig({
-        provider: "openai",
-        model: "gpt-transcribe",
-        languages: ["en", "ko"],
-      }),
-    ).resolves.toEqual({
+      expected: { languages: ["en", "ko"], transcriptionMode: "live" },
+      checksLiveLanguages: true,
+    },
+    {
+      provider: "openai",
+      model: "gpt-transcribe",
       languages: ["en", "ko"],
-      transcriptionMode: "batch",
-    });
-    expect(isSupportedLanguagesLiveMock).not.toHaveBeenCalled();
-  });
-
-  test("forces ElevenLabs Scribe V2 into after-recording batch mode", async () => {
-    await expect(
-      getLiveTranscriptionConfig({
-        provider: "elevenlabs",
-        model: "scribe_v2",
-        languages: ["en"],
-      }),
-    ).resolves.toEqual({
+      expected: { languages: ["en", "ko"], transcriptionMode: "batch" },
+      checksLiveLanguages: false,
+    },
+    {
+      provider: "elevenlabs",
+      model: "scribe_v2",
       languages: ["en"],
-      transcriptionMode: "batch",
-    });
-    expect(isSupportedLanguagesLiveMock).not.toHaveBeenCalled();
-  });
-
-  test("keeps ElevenLabs Scribe V2 Realtime in live mode", async () => {
-    await expect(
-      getLiveTranscriptionConfig({
-        provider: "elevenlabs",
-        model: "scribe_v2_realtime",
-        languages: ["en"],
-      }),
-    ).resolves.toEqual({
+      expected: { languages: ["en"], transcriptionMode: "batch" },
+      checksLiveLanguages: false,
+    },
+    {
+      provider: "elevenlabs",
+      model: "scribe_v2_realtime",
       languages: ["en"],
-      transcriptionMode: "live",
-    });
-  });
+      expected: { languages: ["en"], transcriptionMode: "live" },
+      checksLiveLanguages: true,
+    },
+  ])(
+    "resolves $provider/$model to $expected.transcriptionMode",
+    async ({ provider, model, languages, expected, checksLiveLanguages }) => {
+      await expect(
+        getLiveTranscriptionConfig({ provider, model, languages }),
+      ).resolves.toEqual(expected);
+      if (!checksLiveLanguages) {
+        expect(isSupportedLanguagesLiveMock).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   test("keeps all languages when the selected provider supports them live", async () => {
     const config = await getLiveTranscriptionConfig({
@@ -493,62 +459,75 @@ describe("getLiveTranscriptionConfig", () => {
     });
   });
 
-  test("checks custom providers as Deepgram-compatible for language fallback", async () => {
-    isSupportedLanguagesLiveMock.mockImplementation(
-      (_provider, _model, languages) =>
-        Promise.resolve({
-          status: "ok",
-          data: languages.length === 1 && languages[0] === "en",
+  test.each([
+    {
+      name: "custom providers check as Deepgram-compatible for language fallback",
+      mockLive: true,
+      invoke: () =>
+        getLiveTranscriptionConfig({
+          provider: "custom",
+          model: "nova-3-general",
+          languages: ["en", "ko"],
         }),
-    );
+      source: "live" as const,
+      expected: ["deepgram"],
+    },
+    {
+      name: "Cloudflare Workers AI checks as Deepgram-compatible for language fallback",
+      mockLive: false,
+      invoke: () =>
+        getLiveTranscriptionConfig({
+          provider: "cloudflare_workers_ai",
+          model: "nova-3",
+          languages: ["en", "ko"],
+        }),
+      source: "live" as const,
+      expected: ["deepgram"],
+    },
+    {
+      name: "Cloudflare Workers AI checks as Deepgram-compatible for live language support",
+      mockLive: false,
+      invoke: () =>
+        isSupportedLanguagesLive("cloudflare_workers_ai", "nova-3", ["en"]),
+      source: "live" as const,
+      expected: ["deepgram", "nova-3", ["en"]],
+    },
+    {
+      name: "the Apple Speech product provider maps to its runtime provider",
+      mockLive: false,
+      invoke: () =>
+        isSupportedLanguagesLive("apple_speech", "apple-speech", ["ko"]),
+      source: "live" as const,
+      expected: ["apple-speech", "apple-speech", ["ko"]],
+    },
+    {
+      name: "Cloudflare Workers AI checks as Deepgram-compatible for batch language support",
+      mockLive: false,
+      invoke: () =>
+        isSupportedLanguagesBatch("cloudflare_workers_ai", "nova-3", ["en"]),
+      source: "batch" as const,
+      expected: ["deepgram", "nova-3", ["en"]],
+    },
+  ])("$name", async ({ mockLive, invoke, source, expected }) => {
+    if (mockLive) {
+      isSupportedLanguagesLiveMock.mockImplementation(
+        (_provider, _model, languages) =>
+          Promise.resolve({
+            status: "ok" as const,
+            data: languages.length === 1 && languages[0] === "en",
+          }),
+      );
+    }
 
-    await getLiveTranscriptionConfig({
-      provider: "custom",
-      model: "nova-3-general",
-      languages: ["en", "ko"],
+    await invoke();
+
+    const mock =
+      source === "live"
+        ? isSupportedLanguagesLiveMock
+        : isSupportedLanguagesBatchMock;
+    expected.forEach((value, index) => {
+      expect(mock.mock.calls[0]?.[index]).toEqual(value);
     });
-
-    expect(isSupportedLanguagesLiveMock.mock.calls[0]?.[0]).toBe("deepgram");
-  });
-
-  test("checks Cloudflare Workers AI as Deepgram-compatible for language fallback", async () => {
-    await getLiveTranscriptionConfig({
-      provider: "cloudflare_workers_ai",
-      model: "nova-3",
-      languages: ["en", "ko"],
-    });
-
-    expect(isSupportedLanguagesLiveMock.mock.calls[0]?.[0]).toBe("deepgram");
-  });
-
-  test("checks Cloudflare Workers AI as Deepgram-compatible for live language support", async () => {
-    await isSupportedLanguagesLive("cloudflare_workers_ai", "nova-3", ["en"]);
-
-    expect(isSupportedLanguagesLiveMock.mock.calls[0]).toEqual([
-      "deepgram",
-      "nova-3",
-      ["en"],
-    ]);
-  });
-
-  test("maps the Apple Speech product provider to its runtime provider", async () => {
-    await isSupportedLanguagesLive("apple_speech", "apple-speech", ["ko"]);
-
-    expect(isSupportedLanguagesLiveMock.mock.calls[0]).toEqual([
-      "apple-speech",
-      "apple-speech",
-      ["ko"],
-    ]);
-  });
-
-  test("checks Cloudflare Workers AI as Deepgram-compatible for batch language support", async () => {
-    await isSupportedLanguagesBatch("cloudflare_workers_ai", "nova-3", ["en"]);
-
-    expect(isSupportedLanguagesBatchMock.mock.calls[0]).toEqual([
-      "deepgram",
-      "nova-3",
-      ["en"],
-    ]);
   });
 });
 

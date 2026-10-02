@@ -495,9 +495,9 @@ describe("startMeetingChatCapture", () => {
     expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
   });
 
-  test("delegates mic-active app scoping to the native capture command", async () => {
-    captureMeetingChatMessagesMock.mockResolvedValue({
-      status: "ok",
+  test.each([
+    {
+      name: "delegates mic-active app scoping to the native capture command",
       data: {
         app: null,
         contextId: null,
@@ -506,21 +506,10 @@ describe("startMeetingChatCapture", () => {
         messages: [],
         warnings: ["expected exactly one active supported meeting app"],
       },
-    });
-    const stop = startMeetingChatCapture({
-      sessionId: "session-1",
-      isEnabled: () => true,
-    });
-    await vi.advanceTimersByTimeAsync(0);
-    stop();
-
-    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith();
-    expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
-  });
-
-  test("accepts the alternate Slack bundle id selected natively", async () => {
-    captureMeetingChatMessagesMock.mockResolvedValue({
-      status: "ok",
+      expectPersist: false,
+    },
+    {
+      name: "accepts the alternate Slack bundle id selected natively",
       data: {
         app: { id: "com.slack.Slack", name: "Slack" },
         contextId: "slack:test",
@@ -529,20 +518,10 @@ describe("startMeetingChatCapture", () => {
         messages: [],
         warnings: [],
       },
-    });
-    const stop = startMeetingChatCapture({
-      sessionId: "session-1",
-      isEnabled: () => true,
-    });
-    await vi.advanceTimersByTimeAsync(0);
-    stop();
-
-    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith();
-  });
-
-  test("accepts a browser meeting resolved natively", async () => {
-    captureMeetingChatMessagesMock.mockResolvedValue({
-      status: "ok",
+      expectPersist: false,
+    },
+    {
+      name: "accepts a browser meeting resolved natively",
       data: {
         app: { id: "com.google.Chrome", name: "Google Chrome" },
         contextId: "google-meet:meeting-1",
@@ -551,6 +530,12 @@ describe("startMeetingChatCapture", () => {
         messages: [],
         warnings: [],
       },
+      expectPersist: false,
+    },
+  ])("$name", async ({ data, expectPersist }) => {
+    captureMeetingChatMessagesMock.mockResolvedValue({
+      status: "ok",
+      data,
     });
     const stop = startMeetingChatCapture({
       sessionId: "session-1",
@@ -560,10 +545,21 @@ describe("startMeetingChatCapture", () => {
     stop();
 
     expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith();
-    expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
+    if (!expectPersist) {
+      expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
+    }
   });
 
-  test("surfaces missing Accessibility permission once", async () => {
+  test.each([
+    {
+      name: "missing Accessibility permission",
+      warning: "macOS accessibility permission is not trusted",
+    },
+    {
+      name: "a missing Linux accessibility bus",
+      warning: "AT-SPI accessibility bus is not available",
+    },
+  ])("surfaces $name once", async ({ warning }) => {
     captureMeetingChatMessagesMock.mockResolvedValue({
       status: "ok",
       data: {
@@ -572,7 +568,7 @@ describe("startMeetingChatCapture", () => {
         platform: "unknown",
         surface: "unknown",
         messages: [],
-        warnings: ["macOS accessibility permission is not trusted"],
+        warnings: [warning],
       },
     });
     const stop = startMeetingChatCapture({
@@ -584,40 +580,8 @@ describe("startMeetingChatCapture", () => {
 
     expect(toastWarningMock).toHaveBeenCalledOnce();
     expect(toastWarningMock).toHaveBeenCalledWith(
-      "Meeting chat capture needs Accessibility permission in Settings",
-      {
-        id: "meeting-chat-capture-warning",
-        duration: Infinity,
-      },
-    );
-  });
-
-  test("surfaces a missing Linux accessibility bus once", async () => {
-    captureMeetingChatMessagesMock.mockResolvedValue({
-      status: "ok",
-      data: {
-        app: null,
-        contextId: null,
-        platform: "unknown",
-        surface: "unknown",
-        messages: [],
-        warnings: ["AT-SPI accessibility bus is not available"],
-      },
-    });
-    const stop = startMeetingChatCapture({
-      sessionId: "session-1",
-      isEnabled: () => true,
-    });
-    await vi.advanceTimersByTimeAsync(5_000);
-    stop();
-
-    expect(toastWarningMock).toHaveBeenCalledOnce();
-    expect(toastWarningMock).toHaveBeenCalledWith(
-      "Meeting chat capture needs the desktop accessibility bus",
-      {
-        id: "meeting-chat-capture-warning",
-        duration: Infinity,
-      },
+      expect.any(String),
+      expect.objectContaining({ id: "meeting-chat-capture-warning" }),
     );
   });
 

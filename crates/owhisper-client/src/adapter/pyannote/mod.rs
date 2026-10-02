@@ -81,21 +81,21 @@ mod tests {
     use anlg_language::{ISO639, Language};
 
     #[test]
-    fn test_batch_api_url_empty_uses_default() {
-        let url = PyannoteAdapter::batch_api_url("");
-        assert_eq!(url.as_str(), "https://api.pyannote.ai/");
-    }
-
-    #[test]
-    fn test_batch_api_url_appends_v1() {
-        let url = PyannoteAdapter::batch_api_url("https://api.pyannote.ai");
-        assert_eq!(url.as_str(), "https://api.pyannote.ai/v1");
-    }
-
-    #[test]
-    fn test_batch_api_url_preserves_nested_prefix() {
-        let url = PyannoteAdapter::batch_api_url("https://api.anarlog.so/pyannote");
-        assert_eq!(url.as_str(), "https://api.anarlog.so/pyannote/v1");
+    fn test_batch_api_url() {
+        for (input, expected) in [
+            ("", "https://api.pyannote.ai/"),
+            ("https://api.pyannote.ai", "https://api.pyannote.ai/v1"),
+            (
+                "https://api.anarlog.so/pyannote",
+                "https://api.anarlog.so/pyannote/v1",
+            ),
+        ] {
+            assert_eq!(
+                PyannoteAdapter::batch_api_url(input).as_str(),
+                expected,
+                "input: {input}"
+            );
+        }
     }
 
     #[test]

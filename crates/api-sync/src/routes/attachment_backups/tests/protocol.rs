@@ -83,6 +83,7 @@ async fn requires_pro_and_rejects_bad_inputs_before_upstream_calls() {
         .unwrap();
     assert_eq!(noncanonical_request_id.status(), StatusCode::BAD_REQUEST);
     assert!(server.received_requests().await.unwrap().is_empty());
+    assert_no_storage_requests(&server).await;
 }
 
 #[tokio::test]
@@ -133,4 +134,6 @@ async fn rejects_oversized_or_origin_injecting_ledger_responses() {
             .to_string()
             .contains("attacker.example")
     );
+    assert_no_storage_requests(&server).await;
+    assert_no_storage_requests(&second_server).await;
 }

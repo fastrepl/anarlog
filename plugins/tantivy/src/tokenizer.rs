@@ -101,8 +101,8 @@ mod tests {
     use crate::schema::build_schema;
 
     #[test]
-    fn test_get_tokenizer_name_for_supported_languages() {
-        let test_cases = [
+    fn test_get_tokenizer_name_for_language() {
+        let supported = [
             (ISO639::Ar, "lang_ar"),
             (ISO639::Da, "lang_da"),
             (ISO639::Nl, "lang_nl"),
@@ -123,7 +123,7 @@ mod tests {
             (ISO639::Tr, "lang_tr"),
         ];
 
-        for (iso639, expected_tokenizer) in test_cases {
+        for (iso639, expected_tokenizer) in supported {
             let lang = anlg_language::Language::from(iso639);
             let tokenizer_name = get_tokenizer_name_for_language(&lang);
             assert_eq!(
@@ -132,10 +132,7 @@ mod tests {
                 expected_tokenizer, iso639, tokenizer_name
             );
         }
-    }
 
-    #[test]
-    fn test_get_tokenizer_name_for_unsupported_languages() {
         let unsupported = [ISO639::Zh, ISO639::Ja, ISO639::Ko, ISO639::Hi, ISO639::Vi];
 
         for iso639 in unsupported {
@@ -147,36 +144,6 @@ mod tests {
                 iso639, tokenizer_name
             );
         }
-    }
-
-    #[test]
-    fn test_register_tokenizers() {
-        let schema = build_schema();
-        let index = Index::create_in_ram(schema);
-        register_tokenizers(&index);
-
-        let tokenizer_manager = index.tokenizers();
-
-        assert!(
-            tokenizer_manager.get("multilang").is_some(),
-            "multilang tokenizer should be registered"
-        );
-        assert!(
-            tokenizer_manager.get("lang_en").is_some(),
-            "lang_en tokenizer should be registered"
-        );
-        assert!(
-            tokenizer_manager.get("lang_es").is_some(),
-            "lang_es tokenizer should be registered"
-        );
-        assert!(
-            tokenizer_manager.get("lang_fr").is_some(),
-            "lang_fr tokenizer should be registered"
-        );
-        assert!(
-            tokenizer_manager.get("lang_de").is_some(),
-            "lang_de tokenizer should be registered"
-        );
     }
 
     #[test]

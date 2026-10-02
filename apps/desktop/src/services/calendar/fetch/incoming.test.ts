@@ -18,6 +18,7 @@ const ctx: Ctx = {
   to: new Date("2026-06-02T00:00:00.000Z"),
   calendarIds: new Set(["cal-1"]),
   calendarTrackingIdToId: new Map([["primary", "cal-1"]]),
+  calendars: [{ id: "cal-1", tracking_id_calendar: "primary" }],
 };
 
 describe("fetchIncomingEvents", () => {
@@ -103,5 +104,139 @@ describe("fetchIncomingEvents", () => {
     const result = await fetchIncomingEvents(ctx);
 
     expect(result.events[0]?.meeting_link).toBe(meetingLink);
+  });
+
+  test("stores normalized attendance evidence with one observation time", async () => {
+    calendarCommands.listEvents.mockResolvedValue({
+      status: "success",
+      data: [
+        {
+          id: "event-1",
+          calendar_id: "primary",
+          title: "Accepted",
+          started_at: "2026-06-01T10:00:00.000Z",
+          ended_at: "2026-06-01T11:00:00.000Z",
+          attendees: [],
+          organizer: null,
+          has_recurrence_rules: false,
+          is_all_day: false,
+          attendance: {
+            self_status: "accepted",
+            roster_status: "complete",
+            others: {
+              accepted: 1,
+              tentative: 0,
+              pending: 0,
+              declined: 2,
+              unknown: 0,
+            },
+          },
+        },
+        {
+          id: "event-2",
+          calendar_id: "primary",
+          title: "Pending",
+          started_at: "2026-06-01T12:00:00.000Z",
+          ended_at: "2026-06-01T13:00:00.000Z",
+          attendees: [],
+          organizer: null,
+          has_recurrence_rules: false,
+          is_all_day: false,
+          attendance: {
+            self_status: "pending",
+            roster_status: "incomplete",
+            others: {
+              accepted: 0,
+              tentative: 0,
+              pending: 0,
+              declined: 1,
+              unknown: 0,
+            },
+          },
+        },
+      ],
+    });
+
+    const result = await fetchIncomingEvents(ctx);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0]?.attendance).toMatchObject({
+      version: 1,
+      self_status: "accepted",
+      others: { accepted: 1, declined: 2 },
+    });
+    expect(result.events[0]?.attendance?.observed_at).toBe(
+      result.events[1]?.attendance?.observed_at,
+    );
+  });
+
+  test("omits self-declined events using normalized provider attendance", async () => {
+    calendarCommands.listEvents.mockResolvedValue({
+      status: "success",
+      data: [
+        {
+          id: "event-1",
+          calendar_id: "primary",
+          title: "Declined",
+          started_at: "2026-06-01T10:00:00.000Z",
+          ended_at: "2026-06-01T11:00:00.000Z",
+          attendees: [],
+          organizer: null,
+          has_recurrence_rules: false,
+          is_all_day: false,
+          attendance: {
+            self_status: "declined",
+            roster_status: "complete",
+            others: {
+              accepted: 1,
+              tentative: 0,
+              pending: 0,
+              declined: 0,
+              unknown: 0,
+            },
+          },
+        },
+      ],
+    });
+
+    const result = await fetchIncomingEvents(ctx);
+
+    expect(result.events).toEqual([]);
+    expect(result.participants.size).toBe(0);
+  });
+
+  test("keeps group-declined events visible for scheduler policy", async () => {
+    calendarCommands.listEvents.mockResolvedValue({
+      status: "success",
+      data: [
+        {
+          id: "event-1",
+          calendar_id: "primary",
+          title: "Everyone declined",
+          started_at: "2026-06-01T10:00:00.000Z",
+          ended_at: "2026-06-01T11:00:00.000Z",
+          attendees: [],
+          organizer: null,
+          has_recurrence_rules: false,
+          is_all_day: false,
+          attendance: {
+            self_status: "organizer",
+            roster_status: "complete",
+            others: {
+              accepted: 0,
+              tentative: 0,
+              pending: 0,
+              declined: 2,
+              unknown: 0,
+            },
+          },
+        },
+      ],
+    });
+
+    const result = await fetchIncomingEvents(ctx);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.attendance?.others.declined).toBe(2);
   });
 });

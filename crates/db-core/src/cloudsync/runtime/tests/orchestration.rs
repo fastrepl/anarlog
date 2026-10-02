@@ -1,5 +1,6 @@
 use super::super::*;
-use super::test_cloudsync_config;
+use super::{db_with_cloudsync_items_table, test_cloudsync_config};
+use anlg_cloudsync::ReservedConnection;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 #[test]
@@ -127,13 +128,9 @@ impl crate::CloudsyncSyncHook for RecordingSyncHook {
 
 #[tokio::test]
 async fn pending_payload_preflight_skips_clean_databases() {
-    let db = Db::connect_memory().await.unwrap();
-    sqlx::query("CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL)")
-        .execute(db.pool())
-        .await
-        .unwrap();
-    db.cloudsync_init("items", None, None).await.unwrap();
-    let mut connection = db.pool().acquire().await.unwrap();
+    let db =
+        db_with_cloudsync_items_table("CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL)").await;
+    let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
 
     assert!(
         !pending_cloudsync_payload_exists(&mut connection, &db.cloudsync_interrupt)
@@ -142,7 +139,7 @@ async fn pending_payload_preflight_skips_clean_databases() {
     );
 
     sqlx::query("INSERT INTO items (id) VALUES ('pending')")
-        .execute(&mut *connection)
+        .execute(connection.connection().await.unwrap())
         .await
         .unwrap();
     assert!(
@@ -153,29 +150,9 @@ async fn pending_payload_preflight_skips_clean_databases() {
 }
 
 #[tokio::test]
-async fn before_sync_hook_can_select_receive_only_transport() {
-    let db = Db::connect_memory_plain().await.unwrap();
-    let recording_hook = Arc::new(RecordingSyncHook {
-        directive: crate::CloudsyncSyncDirective::ReceiveOnly,
-        ..Default::default()
-    });
-    let hook: Arc<dyn crate::CloudsyncSyncHook> = recording_hook;
-    let hook = Mutex::new(Some(hook));
-
-    assert_eq!(
-        run_before_sync_hook(&hook, db.pool()).await.unwrap(),
-        crate::CloudsyncSyncDirective::ReceiveOnly
-    );
-}
-
-#[tokio::test]
 async fn deferred_before_sync_hook_never_starts_native_transport() {
-    let db = Db::connect_memory().await.unwrap();
-    sqlx::query("CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL)")
-        .execute(db.pool())
-        .await
-        .unwrap();
-    db.cloudsync_init("items", None, None).await.unwrap();
+    let db =
+        db_with_cloudsync_items_table("CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL)").await;
     let recording_hook = Arc::new(RecordingSyncHook {
         directive: crate::CloudsyncSyncDirective::Deferred,
         ..Default::default()
@@ -201,17 +178,13 @@ async fn deferred_before_sync_hook_never_starts_native_transport() {
 
 #[tokio::test]
 async fn existing_native_pending_batch_skips_before_sync_hook() {
-    let db = Db::connect_memory().await.unwrap();
-    sqlx::query(
+    let db = db_with_cloudsync_items_table(
         "CREATE TABLE items (
             id TEXT PRIMARY KEY NOT NULL,
             value TEXT NOT NULL DEFAULT ''
         )",
     )
-    .execute(db.pool())
-    .await
-    .unwrap();
-    db.cloudsync_init("items", None, None).await.unwrap();
+    .await;
     sqlx::query("INSERT INTO items (id, value) VALUES ('item', 'pending')")
         .execute(db.pool())
         .await
@@ -243,23 +216,19 @@ async fn existing_native_pending_batch_skips_before_sync_hook() {
 
 #[tokio::test]
 async fn activity_pause_precedes_an_existing_native_pending_batch() {
-    let db = Db::connect_memory().await.unwrap();
-    sqlx::query(
+    let db = db_with_cloudsync_items_table(
         "CREATE TABLE items (
             id TEXT PRIMARY KEY NOT NULL,
             value TEXT NOT NULL DEFAULT ''
         )",
     )
-    .execute(db.pool())
-    .await
-    .unwrap();
-    db.cloudsync_init("items", None, None).await.unwrap();
+    .await;
     sqlx::query("INSERT INTO items (id, value) VALUES ('item', 'pending')")
         .execute(db.pool())
         .await
         .unwrap();
     let pending_before = {
-        let mut connection = db.pool().acquire().await.unwrap();
+        let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
         crate::cloudsync::ops::ensure_pending_payload_fits(&mut connection, &db.cloudsync_interrupt)
             .await
             .unwrap()
@@ -304,7 +273,7 @@ async fn activity_pause_precedes_an_existing_native_pending_batch() {
     assert_eq!(recording_hook.before_calls.load(Ordering::SeqCst), 0);
     assert!(recording_hook.after_result.lock().unwrap().is_none());
     let pending_after = {
-        let mut connection = db.pool().acquire().await.unwrap();
+        let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
         crate::cloudsync::ops::ensure_pending_payload_fits(&mut connection, &db.cloudsync_interrupt)
             .await
             .unwrap()
@@ -324,17 +293,15 @@ async fn activity_pause_precedes_an_existing_native_pending_batch() {
 ))]
 #[tokio::test]
 async fn activity_pause_during_pending_preflight_defers_and_drains_before_local_write() {
-    let db = Arc::new(Db::connect_memory().await.unwrap());
-    sqlx::query(
-        "CREATE TABLE items (
+    let db = Arc::new(
+        db_with_cloudsync_items_table(
+            "CREATE TABLE items (
             id TEXT PRIMARY KEY NOT NULL,
             value TEXT NOT NULL DEFAULT ''
         )",
-    )
-    .execute(db.pool())
-    .await
-    .unwrap();
-    db.cloudsync_init("items", None, None).await.unwrap();
+        )
+        .await,
+    );
     sqlx::query("SELECT cloudsync_set('payload_max_chunk_size', '33554432')")
         .fetch_optional(db.pool())
         .await
@@ -553,42 +520,6 @@ fn requested_sync_retries_promptly_when_another_sync_is_busy() {
     assert_eq!(cloudsync_busy_delay(false, interval), interval);
 }
 
-#[tokio::test]
-async fn after_sync_hook_receives_the_bounded_network_result() {
-    let db = Db::connect_memory_plain().await.unwrap();
-    let expected = CloudsyncNetworkResult {
-        send: Some(anlg_cloudsync::NetworkSendResult {
-            status: "synced".to_string(),
-            local_version: 4,
-            server_version: 4,
-            chunks: 1,
-            bytes: 1024,
-            last_failure: None,
-        }),
-        receive: Some(anlg_cloudsync::NetworkReceiveResult {
-            rows: 3,
-            tables: vec!["sessions".to_string()],
-            chunks: 1,
-            bytes: 2048,
-            complete: false,
-            error: None,
-            last_failure: None,
-        }),
-    };
-    let recording_hook = Arc::new(RecordingSyncHook::default());
-    let hook: Arc<dyn crate::CloudsyncSyncHook> = recording_hook.clone();
-    let hook = Mutex::new(Some(hook));
-
-    run_after_sync_hook(&hook, db.pool(), &expected)
-        .await
-        .unwrap();
-
-    assert_eq!(
-        recording_hook.after_result.lock().unwrap().as_ref(),
-        Some(&expected)
-    );
-}
-
 fn table_change(table: &str, seq: u64) -> anlg_db_change::TableChange {
     anlg_db_change::TableChange {
         table: table.to_string(),
@@ -704,7 +635,7 @@ async fn post_sync_drain_empties_the_queue_and_reports_synced_changes() {
 }
 
 #[test]
-fn post_sync_drain_ignores_unrelated_changes() {
+fn post_sync_drain_ignores_unrelated_changes_and_reports_lag() {
     let (tx, mut rx) = tokio::sync::broadcast::channel(8);
     let synced = std::collections::HashSet::from(["sessions".to_string()]);
 
@@ -717,12 +648,8 @@ fn post_sync_drain_ignores_unrelated_changes() {
         !drain_pending_changes(&mut rx, &synced),
         "an empty queue requested a follow-up round"
     );
-}
 
-#[test]
-fn post_sync_drain_reports_lag_conservatively() {
     let (tx, mut rx) = tokio::sync::broadcast::channel(1);
-    let synced = std::collections::HashSet::from(["sessions".to_string()]);
 
     tx.send(table_change("local_settings", 1)).unwrap();
     tx.send(table_change("local_settings", 2)).unwrap();

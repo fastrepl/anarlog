@@ -23,7 +23,7 @@ export type CrmProviderInfo = {
   icon?: string;
 };
 
-export const CRM_PROVIDERS: CrmProviderInfo[] = [
+const CRM_PROVIDERS: CrmProviderInfo[] = [
   {
     id: "hubspot",
     name: "HubSpot",

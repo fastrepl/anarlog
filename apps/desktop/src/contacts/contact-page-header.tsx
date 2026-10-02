@@ -28,9 +28,11 @@ export function ContactPageHeader({
   onTogglePin,
   onDelete,
   onRemoveAvatar,
+  actions,
 }: {
   readOnly?: boolean;
   title: string;
+  actions?: ReactNode;
   compactIdentity: ReactNode;
   showCompactIdentity: boolean;
   pinned: boolean;
@@ -52,8 +54,9 @@ export function ContactPageHeader({
       {!readOnly && (
         <div
           data-tauri-drag-region="false"
-          className="flex shrink-0 items-center"
+          className="flex shrink-0 items-center gap-1"
         >
+          {actions}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

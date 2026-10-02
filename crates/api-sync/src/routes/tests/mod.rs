@@ -2,7 +2,7 @@ use anlg_api_auth::{AuthContext, Claims};
 use axum::{
     Extension,
     body::{Body, to_bytes},
-    http::{HeaderValue, Request, StatusCode, header as http_header},
+    http::{HeaderValue, Method, Request, StatusCode, header as http_header},
 };
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -105,6 +105,44 @@ fn personal_workspace(id: &str) -> Value {
     })
 }
 
+fn team_membership() -> Value {
+    json!({
+        "id": "membership-team",
+        "user_id": "user-123",
+        "role": "member",
+        "created_at": "2026-07-16T09:01:00Z",
+        "updated_at": "2026-07-16T10:01:00Z",
+        "workspace": {
+            "id": "workspace-team",
+            "owner_user_id": "user-456",
+            "kind": "shared",
+            "name": "Acme",
+            "created_at": "2026-07-16T09:00:00Z",
+            "updated_at": "2026-07-16T10:00:00Z"
+        }
+    })
+}
+
+fn team_key_grant() -> Value {
+    json!({
+        "workspace_id": "workspace-team",
+        "key_id": "AAAAAAAAAAAAAAAAAAAAAA",
+        "ephemeral_public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "nonce": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "ciphertext": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        "is_active": true
+    })
+}
+
+fn put_json(path: &str, payload: Value) -> Request<Body> {
+    Request::builder()
+        .method(Method::PUT)
+        .uri(path)
+        .header(http_header::CONTENT_TYPE, "application/json")
+        .body(Body::from(serde_json::to_vec(&payload).unwrap()))
+        .unwrap()
+}
+
 async fn mock_workspace_projection(server: &MockServer, body: Value) {
     Mock::given(method("GET"))
         .and(path("/rest/v1/workspace_memberships"))
@@ -196,5 +234,6 @@ async fn response_json(response: axum::response::Response) -> Value {
 mod credentials;
 mod enrollment;
 mod live_docs;
+mod meeting_presence;
 mod publication;
 mod web_edits;

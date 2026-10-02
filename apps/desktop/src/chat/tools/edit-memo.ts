@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { resolveCurrentSessionId } from "./current-session";
 import type { ToolDependencies } from "./types";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
@@ -21,16 +22,20 @@ export const buildEditMemoTool = (
       sessionId: z
         .string()
         .optional()
-        .describe("The session ID to edit. Defaults to the current session."),
+        .describe(
+          "Session ID of the note to edit. Omit to edit the current note (the one marked as current in context). Pass another note's Session ID only when the user asks to edit that note.",
+        ),
       content: z
         .string()
         .describe("The complete replacement memo in markdown format"),
     }),
     execute: async (
       params: { sessionId?: string; content: string },
-      { toolCallId },
+      options,
     ) => {
-      const sessionId = params.sessionId ?? deps.getSessionId();
+      const { toolCallId } = options;
+      const sessionId =
+        params.sessionId ?? resolveCurrentSessionId(deps, options);
 
       if (!sessionId) {
         return {

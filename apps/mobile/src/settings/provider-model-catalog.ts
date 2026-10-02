@@ -69,6 +69,14 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
   wisprflow: ["flow"],
   aquavoice: ["avalon-v1.5"],
   meta: ["muse-voice-transcribe-1.0"],
+  inworld: ["inworld/inworld-stt-1"],
+  gradium: ["default"],
+  modulate: [
+    "velma-2-stt-streaming-multilingual-vfast",
+    "velma-2-stt-streaming-english-v2",
+  ],
+  alebex: ["alebex-asr"],
+  amazon_bedrock: ["amazon.nova-2-sonic-v1:0"],
   custom: [],
 };
 

@@ -41,30 +41,14 @@ describe("requestAppAttention", () => {
     expect(mocks.requestUserAttention).toHaveBeenCalledWith(2);
   });
 
-  it("skips when app icon bouncing is disabled", async () => {
+  it.each([
+    ["notification_bounce", false],
+    ["notification_disabled", true],
+    ["show_app_in_dock", false],
+  ])("skips when %s is %s", async (setting, value) => {
     mocks.getStoredSettingValues.mockResolvedValue({
-      values: { notification_bounce: false },
-      hasValues: new Set(["notification_bounce"]),
-    });
-
-    await requestAppAttention();
-    expect(mocks.requestUserAttention).not.toHaveBeenCalled();
-  });
-
-  it("skips when all notifications are disabled", async () => {
-    mocks.getStoredSettingValues.mockResolvedValue({
-      values: { notification_disabled: true },
-      hasValues: new Set(["notification_disabled"]),
-    });
-
-    await requestAppAttention();
-    expect(mocks.requestUserAttention).not.toHaveBeenCalled();
-  });
-
-  it("skips when the app is hidden from the Dock", async () => {
-    mocks.getStoredSettingValues.mockResolvedValue({
-      values: { show_app_in_dock: false },
-      hasValues: new Set(["show_app_in_dock"]),
+      values: { [setting]: value },
+      hasValues: new Set([setting]),
     });
 
     await requestAppAttention();

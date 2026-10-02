@@ -1,12 +1,9 @@
 import { md2json } from "@anlg/editor/markdown";
 import { beginCloudsyncActivity } from "@anlg/plugin-db";
 import { commands as localApiCommands } from "@anlg/plugin-local-api";
+import { commands as templateCommands } from "@anlg/plugin-template";
 
 import { createTaskId, type TaskConfig } from ".";
-import {
-  appendTagLineToMarkdown,
-  extractEnhanceTagNames,
-} from "./summary-tags";
 import {
   getPersistableGeneratedTitle,
   persistGeneratedTitle,
@@ -16,15 +13,9 @@ import { runNoteEnhancedAutomations } from "~/automations/engine";
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
 import { retryDatabaseLock } from "~/db/retry";
-import {
-  constrainSummaryLength,
-  countNormalizedCharacters,
-  getSummaryLengthPolicy,
-} from "~/services/enhancer/summary-length";
 import { showSummaryReadyNotification } from "~/services/enhancer/summary-notification";
 import { persistGeneratedEnhancedNote } from "~/session/content-mutations";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
-import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
 import { requestAppAttention } from "~/shared/app-attention";
 import { playCompletionSound } from "~/shared/completion-sound";
 import { id } from "~/shared/utils";
@@ -49,19 +40,32 @@ export const runEnhanceSuccess = async ({
 }: EnhanceSuccessParams) => {
   const lengthPolicy = transformedArgs.template?.sections.length
     ? null
-    : getSummaryLengthPolicy(
-        transformedArgs.transcripts,
-        transformedArgs.summaryLength,
-        Boolean(transformedArgs.formatOverride.trim()),
-      );
-  const constrainedText = constrainSummaryLength(text, lengthPolicy);
-  if (!constrainedText) {
+    : transformedArgs.lengthPolicy;
+  const preparedResult = await templateCommands.prepareGeneratedSummary({
+    text,
+    length_policy: lengthPolicy,
+    tag_sources: [
+      transformedArgs.preMeetingMemo,
+      transformedArgs.postMeetingMemo,
+      transformedArgs.template?.title,
+      transformedArgs.template?.description,
+      ...(transformedArgs.template?.sections ?? []).flatMap((section) => [
+        section.title,
+        section.description,
+      ]),
+    ].filter((source): source is string => typeof source === "string"),
+  });
+  if (preparedResult.status === "error") {
+    throw new Error(preparedResult.error);
+  }
+  if (!preparedResult.data) {
     return;
   }
 
+  const { constrained_text: constrainedText, tag_names: tagNames } =
+    preparedResult.data;
+  const textWithTags = preparedResult.data.text_with_tags;
   const cloudsyncLeaseKey = `${taskId}:${id()}`;
-  const tagNames = extractEnhanceTagNames(constrainedText, transformedArgs);
-  const textWithTags = appendTagLineToMarkdown(constrainedText, tagNames);
   const initialSnapshot = await loadSessionContentSnapshot(args.sessionId);
   if (!initialSnapshot) {
     throw new Error(`Session ${args.sessionId} no longer exists`);
@@ -120,34 +124,22 @@ export const runEnhanceSuccess = async ({
       shouldPersistGeneratedTitle = true;
     }
 
-    const titledText = ensureMarkdownFirstLineTitle(
-      constrainedText,
-      trimmedTitle,
-    );
-    const tagLine = appendTagLineToMarkdown("", tagNames);
-    const reservedTagCharacters = tagLine
-      ? countNormalizedCharacters(tagLine) + 1
-      : 0;
-    const persistableBody = constrainSummaryLength(
-      titledText,
-      lengthPolicy
-        ? {
-            ...lengthPolicy,
-            maxCharacters: Math.max(
-              0,
-              lengthPolicy.maxCharacters - reservedTagCharacters,
-            ),
-            maxSections: null,
-          }
-        : null,
-    );
+    const composedResult = await templateCommands.composeGeneratedSummary({
+      constrained_text: constrainedText,
+      title: trimmedTitle || null,
+      tag_names: tagNames,
+      length_policy: lengthPolicy,
+    });
+    if (composedResult.status === "error") {
+      throw new Error(composedResult.error);
+    }
     // A reset/regenerate aborts this run; a stale run that persisted anyway
     // would overwrite the replacement's summary with old content.
     if (signal.aborted) {
       return;
     }
 
-    const persistableText = appendTagLineToMarkdown(persistableBody, tagNames);
+    const persistableText = composedResult.data;
     await retryDatabaseLock(() => {
       if (signal.aborted) {
         return Promise.resolve();

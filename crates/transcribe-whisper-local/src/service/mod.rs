@@ -238,35 +238,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_single_language() {
+    fn parse_listen_params_reads_languages_keywords_and_defaults() {
         let params = parse_listen_params("language=en").unwrap();
         assert_eq!(params.languages.len(), 1);
         assert_eq!(params.languages[0].iso639().code(), "en");
-    }
 
-    #[test]
-    fn parse_multiple_languages() {
         let params = parse_listen_params("language=en&language=ko").unwrap();
         assert_eq!(params.languages.len(), 2);
         assert_eq!(params.languages[0].iso639().code(), "en");
         assert_eq!(params.languages[1].iso639().code(), "ko");
-    }
 
-    #[test]
-    fn parse_no_languages() {
         let params = parse_listen_params("").unwrap();
         assert!(params.languages.is_empty());
-    }
 
-    #[test]
-    fn parse_with_keywords() {
         let params = parse_listen_params("language=en&keywords=hello&keywords=world").unwrap();
         assert_eq!(params.languages.len(), 1);
         assert_eq!(params.keywords, vec!["hello", "world"]);
-    }
 
-    #[test]
-    fn defaults_channels_and_sample_rate_when_omitted() {
         let params = parse_listen_params("language=en").unwrap();
         assert_eq!(params.channels, 1);
         assert_eq!(params.sample_rate, TARGET_SAMPLE_RATE);

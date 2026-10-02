@@ -11,11 +11,11 @@ use sqlx::{Connection, Sqlite, SqlitePool};
 
 pub use crate::cloudsync::{
     CLOUDSYNC_MAX_OUTBOUND_BYTES, CLOUDSYNC_MAX_OUTBOUND_CHUNKS, CLOUDSYNC_MAX_OUTBOUND_ROWS,
-    CloudsyncActivityEntry, CloudsyncActivityStatus, CloudsyncActivityTrigger, CloudsyncAuth,
-    CloudsyncBeforeHookFuture, CloudsyncHookFuture, CloudsyncHookOutcome, CloudsyncNetworkResult,
-    CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus, CloudsyncSyncDirective,
-    CloudsyncSyncHook, CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
-    cloudsync_is_enabled_on, cloudsync_receive_error,
+    CloudsyncActivityTrigger, CloudsyncAuth, CloudsyncBeforeHookFuture, CloudsyncHookFuture,
+    CloudsyncHookOutcome, CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
+    CloudsyncStatus, CloudsyncSyncDirective, CloudsyncSyncHook, CloudsyncTableSpec,
+    cloudsync_begin_alter_on, cloudsync_commit_alter_on, cloudsync_is_enabled_on,
+    cloudsync_receive_error,
 };
 use crate::cloudsync::{CloudsyncInterruptHandle, CloudsyncRuntimeState};
 

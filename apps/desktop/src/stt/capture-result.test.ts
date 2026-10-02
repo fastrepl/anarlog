@@ -41,7 +41,11 @@ it("preserves failed audio deletion across recovery until cleanup is explicitly 
   try {
     await saveIncompleteCapture("session", "transcript", false, true);
     await saveIncompleteCapture("session", "transcript", false);
-    expect(read()).toEqual({ audioDeleted: false, audioDeletionFailed: true });
+    expect(read()).toEqual({
+      audioDeleted: false,
+      audioDeletionFailed: true,
+      audioKeptForTranscription: false,
+    });
     await clearIncompleteCapture("session", "transcript");
     expect(read().audioDeletionFailed).toBe(true);
     await saveIncompleteCapture("session", "audio-cleanup", false, true);
@@ -49,7 +53,11 @@ it("preserves failed audio deletion across recovery until cleanup is explicitly 
     expect(db.prepare("SELECT count(*) AS n FROM app_settings").get()!.n).toBe(
       1,
     );
-    expect(read()).toEqual({ audioDeleted: true, audioDeletionFailed: false });
+    expect(read()).toEqual({
+      audioDeleted: true,
+      audioDeletionFailed: false,
+      audioKeptForTranscription: false,
+    });
     await saveIncompleteCapture("session", "audio-recovery", false);
     await clearIncompleteCapture("session");
     expect(db.prepare("SELECT count(*) AS n FROM app_settings").get()!.n).toBe(
@@ -78,6 +86,7 @@ it("shows warnings for visible transcript captures and preserves deletion failur
     expect(useIncompleteCapture("session")).toEqual({
       audioDeleted: false,
       audioDeletionFailed: false,
+      audioKeptForTranscription: false,
     });
     db.exec(
       `DELETE FROM app_settings WHERE id = 'capture_incomplete:session:audio-recovery';`,
@@ -89,6 +98,7 @@ it("shows warnings for visible transcript captures and preserves deletion failur
     expect(useIncompleteCapture("session")).toEqual({
       audioDeleted: false,
       audioDeletionFailed: false,
+      audioKeptForTranscription: false,
     });
     db.exec(
       `UPDATE app_settings SET value_json = '{"audioDeletionFailed":true}' WHERE id = 'capture_incomplete:session:old';`,

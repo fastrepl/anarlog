@@ -68,6 +68,21 @@ const serverSnapshot = {
 };
 type ClaimResult = Awaited<ReturnType<typeof claimSharedNoteHandoff>>;
 
+function buildNested() {
+  let body: Record<string, unknown> = { type: "paragraph" };
+  for (let index = 0; index < 65; index += 1) {
+    body = { type: "blockquote", content: [body] };
+  }
+  return body;
+}
+
+function buildTooManyNodes() {
+  return {
+    type: "doc",
+    content: Array.from({ length: 50_000 }, () => ({ type: "paragraph" })),
+  };
+}
+
 describe("ephemeral shared-note previews", () => {
   beforeEach(() => {
     purgeAllSharedNotePreviews();
@@ -257,23 +272,10 @@ describe("ephemeral shared-note previews", () => {
     expect(String(fetcher.mock.calls[1]?.[0])).not.toContain(leaseId);
   });
 
-  it("rejects deeply nested preview documents", () => {
-    let body: Record<string, unknown> = { type: "paragraph" };
-    for (let index = 0; index < 65; index += 1) {
-      body = { type: "blockquote", content: [body] };
-    }
-
-    expect(() =>
-      parseSharedNotePreviewSnapshot({ ...serverSnapshot, body }),
-    ).toThrow("invalid shared-note preview snapshot");
-  });
-
-  it("rejects preview documents with too many nodes", () => {
-    const body = {
-      type: "doc",
-      content: Array.from({ length: 50_000 }, () => ({ type: "paragraph" })),
-    };
-
+  it.each([
+    ["deeply nested", buildNested()],
+    ["too many nodes", buildTooManyNodes()],
+  ])("rejects %s preview documents", (_name, body) => {
     expect(() =>
       parseSharedNotePreviewSnapshot({ ...serverSnapshot, body }),
     ).toThrow("invalid shared-note preview snapshot");

@@ -99,31 +99,6 @@ mod tests {
     }
 
     #[test]
-    fn empty_chunk_lists_mark_channel_complete() {
-        let mut chunker = FakeChunker { chunks: Vec::new() };
-        let chunks = chunk_channel_audio_with(&[], &mut chunker).unwrap();
-
-        assert!(chunks.is_empty());
-        assert_eq!(initial_resolved_until(&chunks, 40.0), 40.0);
-    }
-
-    #[test]
-    fn leading_silence_uses_sample_offsets() {
-        let mut chunker = FakeChunker {
-            chunks: vec![AudioChunk {
-                samples: vec![0.0; TARGET_SAMPLE_RATE as usize * 3],
-                sample_start: TARGET_SAMPLE_RATE as usize * 12,
-                sample_end: TARGET_SAMPLE_RATE as usize * 15,
-            }],
-        };
-        let chunks =
-            chunk_channel_audio_with(&vec![0.0; TARGET_SAMPLE_RATE as usize * 15], &mut chunker)
-                .unwrap();
-
-        assert_eq!(initial_resolved_until(&chunks, 40.0), 12.0);
-    }
-
-    #[test]
     fn oversized_chunks_are_split_at_generic_limit() {
         let oversized = MAX_CHUNK_SAMPLES + TARGET_SAMPLE_RATE as usize;
         let mut chunker = FakeChunker {

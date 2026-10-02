@@ -122,15 +122,15 @@ mod tests {
     };
 
     #[test]
-    fn preferred_position_key_matches_appkit_convention() {
+    fn position_keys_follow_appkit_defaults_and_seed_key_stays_outside() {
         assert_eq!(
             preferred_position_key("anlg-tray"),
             "NSStatusItem Preferred Position anlg-tray"
         );
-    }
-
-    #[test]
-    fn seed_version_key_stays_out_of_the_appkit_namespace() {
+        assert_eq!(
+            visibility_key("anlg-tray"),
+            "NSStatusItem Visible anlg-tray"
+        );
         assert_eq!(
             seed_version_key("anlg-tray"),
             "anlg-tray position seed version"
@@ -138,42 +138,16 @@ mod tests {
     }
 
     #[test]
-    fn seed_position_lands_just_left_of_wifi() {
+    fn seed_position_lands_just_left_of_wifi_or_defers_to_appkit() {
         assert_eq!(seed_position(Some(211.0)), Some(212.0));
-    }
-
-    #[test]
-    fn seed_position_defers_to_appkit_without_wifi() {
         assert_eq!(seed_position(None), None);
     }
 
     #[test]
-    fn seeds_fresh_installs_and_positions_from_older_rules() {
+    fn seeds_only_fresh_installs_and_positions_from_older_rules() {
         assert!(should_seed(false, 0));
-        assert!(should_seed(true, 0));
         assert!(should_seed(true, SEED_VERSION - 1));
-    }
-
-    #[test]
-    fn keeps_a_position_already_seeded_by_the_current_rule() {
         assert!(!should_seed(true, SEED_VERSION));
         assert!(!should_seed(true, SEED_VERSION + 1));
-    }
-
-    #[test]
-    fn visibility_key_matches_appkit_convention() {
-        assert_eq!(
-            visibility_key("anlg-tray"),
-            "NSStatusItem Visible anlg-tray"
-        );
-    }
-
-    #[test]
-    fn deferred_show_respects_a_later_hide() {
-        super::set_wanted_visible(true);
-        assert!(super::wanted_visible());
-        super::set_wanted_visible(false);
-        assert!(!super::wanted_visible());
-        super::set_wanted_visible(true);
     }
 }

@@ -47,11 +47,6 @@ mod tests {
         assert!(!patched.contains("HF_TOKEN"));
         assert!(!patched.contains("Bearer"));
         assert!(patched.contains("applyHubAuth(to: &request)"));
-    }
-
-    #[test]
-    fn anonymous_hub_patch_is_idempotent() {
-        let patched = patch_huggingface_transfer_source(SOURCE).unwrap();
 
         assert_eq!(
             patch_huggingface_transfer_source(&patched).unwrap(),

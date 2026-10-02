@@ -325,14 +325,22 @@ describe("useUploadFile", () => {
     });
   });
 
-  test.each(["webm", "aac"])(
-    "imports pathless .%s drops without MIME",
-    async (extension) => {
+  test.each([
+    { filename: "drop.webm", mime: "", expectedMime: null },
+    { filename: "drop.aac", mime: "", expectedMime: null },
+    {
+      filename: "Brian Shin.qta",
+      mime: "audio/quicktime",
+      expectedMime: "audio/quicktime",
+    },
+  ])(
+    "imports pathless or pasted audio $filename",
+    async ({ filename, mime, expectedMime }) => {
       const { result } = renderHook(() => useUploadFile("session-1"), {
         wrapper: createWrapper(),
       });
-      const file = new File([new Uint8Array([1, 2, 3])], `drop.${extension}`, {
-        type: "",
+      const file = new File([new Uint8Array([1, 2, 3])], filename, {
+        type: mime,
         lastModified: 1_700_000_000_000,
       });
       Object.defineProperty(file, "arrayBuffer", {
@@ -351,36 +359,11 @@ describe("useUploadFile", () => {
       expect(audioImportDataMock).toHaveBeenCalledWith(
         "session-1",
         [1, 2, 3],
-        `drop.${extension}`,
-        null,
+        filename,
+        expectedMime,
       );
     },
   );
-
-  test("imports copied Voice Memos audio using its QuickTime MIME", async () => {
-    const { result } = renderHook(() => useUploadFile("session-1"), {
-      wrapper: createWrapper(),
-    });
-    const file = new File([new Uint8Array([1, 2, 3])], "Brian Shin.qta", {
-      type: "audio/quicktime",
-      lastModified: 1_700_000_000_000,
-    });
-    Object.defineProperty(file, "arrayBuffer", {
-      value: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer),
-    });
-
-    act(() => {
-      result.current.processAudioFile(file);
-    });
-
-    await waitFor(() => expect(runBatchMock).toHaveBeenCalled());
-    expect(audioImportDataMock).toHaveBeenCalledWith(
-      "session-1",
-      [1, 2, 3],
-      "Brian Shin.qta",
-      "audio/quicktime",
-    );
-  });
 
   test("continues transcription when imported audio cataloging fails", async () => {
     catalogLocalSessionAudioMock.mockRejectedValueOnce(

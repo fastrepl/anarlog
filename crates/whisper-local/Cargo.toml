@@ -17,13 +17,8 @@ vulkan = ["actual", "whisper-rs/vulkan"]
 openmp = ["actual", "whisper-rs/openmp"]
 
 [dependencies]
-anlg-audio-utils = { workspace = true }
 anlg-whisper = { workspace = true }
-
-dasp = { workspace = true }
 hound = { workspace = true }
-
-anlg-audio-interface = { workspace = true }
 rodio = { workspace = true }
 whisper-rs = { git = "https://codeberg.org/tazz4843/whisper-rs", rev = "129b982", features = ["raw-api", "tracing_backend"], optional = true }
 

@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  fireEvent,
+  render as renderTesting,
+  screen,
+} from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -65,6 +71,11 @@ vi.mock("~/automations/workflows", async (importOriginal) => {
     ...actual,
     useAutomationWorkflows: () => mocks.workflows,
     saveAutomationWorkflows: mocks.saveAutomationWorkflows,
+    mutateAutomationWorkflows: async (
+      update: (workflows: typeof mocks.workflows) => typeof mocks.workflows,
+    ) => {
+      await mocks.saveAutomationWorkflows(update(mocks.workflows));
+    },
   };
 });
 
@@ -101,6 +112,18 @@ vi.mock("~/sidebar/custom-sidebar-header", () => ({
 }));
 
 import { AutomationsNav } from "./automations";
+
+function render(ui: React.ReactElement) {
+  return renderTesting(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+      }
+    >
+      {ui}
+    </QueryClientProvider>,
+  );
+}
 
 function findContextMenuItem(id: string) {
   for (const items of mocks.contextMenus) {
@@ -166,18 +189,6 @@ describe("AutomationsNav", () => {
     expect(mocks.selectStarter).toHaveBeenCalledWith("slack-recap");
   });
 
-  it("marks the selected starter", () => {
-    mocks.selection = { kind: "starter", starterId: "markdown-export" };
-
-    render(<AutomationsNav />);
-
-    expect(
-      screen
-        .getByRole("button", { name: /Export every meeting as Markdown/ })
-        .getAttribute("aria-current"),
-    ).toBe("page");
-  });
-
   it("lists chat automations and opens the selected conversation", () => {
     render(<AutomationsNav />);
 
@@ -241,10 +252,6 @@ describe("AutomationsNav", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 
     expect(screen.getByText("Share weekly recap")).toBeTruthy();
-  });
-
-  it("shows an empty state when the search matches nothing", () => {
-    render(<AutomationsNav />);
 
     fireEvent.change(screen.getByPlaceholderText("Search automations..."), {
       target: { value: "zzz" },
@@ -299,4 +306,44 @@ describe("AutomationsNav", () => {
     findContextMenuItem("delete-automation-draft-1")?.action();
     expect(mocks.removeDraft).toHaveBeenCalledWith("draft-1");
   });
+});
+
+it("opens the Google Drive starter without creating a workflow", () => {
+  mocks.saveAutomationWorkflows.mockClear();
+  mocks.selectWorkflow.mockClear();
+  mocks.selectStarter.mockClear();
+  render(<AutomationsNav />);
+  const button = screen.getByRole("button", {
+    name: "Save meetings to Google Drive",
+  });
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(mocks.selectStarter).toHaveBeenCalledWith("google-drive");
+  expect(mocks.saveAutomationWorkflows).not.toHaveBeenCalled();
+  expect(mocks.selectWorkflow).not.toHaveBeenCalled();
+  cleanup();
+});
+
+it("keeps the configured Drive starter under Get started instead of My automations", () => {
+  mocks.workflows = [
+    {
+      id: "starter-google-drive",
+      title: "Saved Drive starter",
+      enabled: true,
+      trigger: "note_enhanced",
+      steps: [],
+      lastRun: null,
+      processedSessionIds: [],
+      chatGroupId: null,
+    },
+  ];
+  mocks.selection = { kind: "starter", starterId: "google-drive" };
+  render(<AutomationsNav />);
+  expect(screen.queryByText("Saved Drive starter")).toBeNull();
+  expect(
+    screen
+      .getByRole("button", { name: "Save meetings to Google Drive" })
+      .getAttribute("aria-current"),
+  ).toBe("page");
+  cleanup();
 });

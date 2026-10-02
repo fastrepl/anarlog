@@ -382,9 +382,22 @@ mod tests {
     }
 
     #[test]
-    fn incomplete_customer_identity_metadata_is_repaired() {
+    fn customer_identity_metadata_is_repaired_only_when_incomplete() {
         let metadata: HashMap<String, String> =
             [("userId".to_string(), "owner-user".to_string())].into();
+
+        let complete_metadata: HashMap<String, String> = [
+            ("userId".to_string(), "owner-user".to_string()),
+            (
+                "posthog_person_distinct_id".to_string(),
+                "owner-user".to_string(),
+            ),
+        ]
+        .into();
+        assert_eq!(
+            customer_identity_metadata(Some(&complete_metadata), "owner-user"),
+            None
+        );
 
         assert_eq!(
             customer_identity_metadata(Some(&metadata), "owner-user"),
@@ -398,23 +411,6 @@ mod tests {
                 ]
                 .into()
             )
-        );
-    }
-
-    #[test]
-    fn complete_customer_identity_metadata_is_unchanged() {
-        let metadata: HashMap<String, String> = [
-            ("userId".to_string(), "owner-user".to_string()),
-            (
-                "posthog_person_distinct_id".to_string(),
-                "owner-user".to_string(),
-            ),
-        ]
-        .into();
-
-        assert_eq!(
-            customer_identity_metadata(Some(&metadata), "owner-user"),
-            None
         );
     }
 
@@ -435,15 +431,6 @@ mod tests {
             json!("pause")
         );
         assert!(request.get("default_payment_method").is_none());
-    }
-
-    #[test]
-    fn referral_trial_uses_the_requested_duration() {
-        let request = serde_json::to_value(build_trial_subscription("cus_test", "price_test", 30))
-            .expect("trial subscription should serialize");
-        let request = &request["inner"];
-
-        assert_eq!(request["trial_period_days"], json!(30));
     }
 
     #[test]

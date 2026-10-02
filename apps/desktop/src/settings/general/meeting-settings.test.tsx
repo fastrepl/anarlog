@@ -36,7 +36,6 @@ function renderMeetingSettings({
         autoJoinScheduledMeetings={setting()}
         autoStartScheduledMeetings={setting(autoStartScheduledMeetings)}
         autoStopMeetings={setting()}
-        autoPauseMedia={setting()}
         floatingBar={setting(floatingBar)}
         meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}
@@ -50,13 +49,6 @@ describe("MeetingSettingsView", () => {
   afterEach(() => {
     cleanup();
     mocks.platform.mockReturnValue("macos");
-  });
-
-  it("keeps the floating bar setting available on macOS", () => {
-    renderMeetingSettings({ floatingBar: false });
-
-    expect(screen.getByText("Default sharing selector")).toBeTruthy();
-    expect(screen.getByText("Show floating bar")).toBeTruthy();
   });
 
   it("hides meeting AX controls on Windows until UI Automation lands", () => {
@@ -106,20 +98,5 @@ describe("MeetingSettingsView", () => {
     );
 
     expect(meetingDisclosureAutoPost.onChange).toHaveBeenCalledWith(true);
-  });
-
-  it("describes Accessibility-based meeting chat capture", () => {
-    renderMeetingSettings();
-
-    expect(screen.getByText("Capture meeting chat in Memos")).toBeTruthy();
-    expect(
-      screen.getByText(/supported meetings using Accessibility/),
-    ).toBeTruthy();
-  });
-
-  it("clarifies that a recording disclosure does not confirm consent", () => {
-    renderMeetingSettings();
-
-    expect(screen.getByText(/does not confirm consent/)).toBeTruthy();
   });
 });

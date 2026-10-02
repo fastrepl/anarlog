@@ -17,7 +17,6 @@ tauri-plugin = { workspace = true, features = ["build"] }
 specta-typescript = { workspace = true }
 
 [dependencies]
-anlg-host = { workspace = true }
 anlg-intercept = { workspace = true }
 
 tauri = { workspace = true, features = ["tray-icon", "image-png"] }

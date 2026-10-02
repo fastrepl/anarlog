@@ -6,7 +6,7 @@ import "./styles/cursor.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
-import { StrictMode, useEffect, useMemo } from "react";
+import { StrictMode, useMemo } from "react";
 import ReactDOM from "react-dom/client";
 
 import "@anlg/ui/globals.css";
@@ -16,6 +16,7 @@ import {
   init as initWindowsPlugin,
 } from "@anlg/plugin-windows";
 import { Toaster } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { trackAnalyticsEvent } from "./analytics";
@@ -111,9 +112,9 @@ function ReadyApp() {
   const theme = useConfigValue("theme") as ThemePreference;
   useRemoteSessionDeletionUndoListener(isMainWindow);
 
-  useEffect(() => {
+  useMountEffect(() => {
     runMainWindowStartupTasks();
-  }, []);
+  });
 
   return (
     <AppThemeProvider>

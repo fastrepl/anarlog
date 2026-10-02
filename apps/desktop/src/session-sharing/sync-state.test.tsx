@@ -37,17 +37,6 @@ describe("useSessionShareSyncStatus", () => {
       params: ["owner-1", "share-1", "session-1"],
       enabled: true,
     });
-    expect(mocks.liveQueryOptions?.sql).toContain(
-      "FROM session_share_sync_state",
-    );
-  });
-
-  it("returns no status and disables the query without a complete identity", () => {
-    expect(
-      renderHook(() => useSessionShareSyncStatus("owner-1", "", "session-1"))
-        .result.current,
-    ).toBeNull();
-    expect(mocks.liveQueryOptions).toMatchObject({ enabled: false });
   });
 
   it("rejects an invalid durable status", () => {

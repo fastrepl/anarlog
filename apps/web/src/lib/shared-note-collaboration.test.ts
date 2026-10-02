@@ -3,14 +3,11 @@ import test from "node:test";
 
 import {
   canComposeSharedNoteComments,
-  formatAuthenticatedSharedNoteAccessLabel,
-  formatSharedNoteAccessRequestDescription,
   hasSharedNoteCollaborationAccess,
   selectSharedNoteCommentAccessRequest,
   MAX_SHARED_NOTE_COMMENT_ANCHOR_CONTEXT_BYTES,
   MAX_SHARED_NOTE_COMMENT_ANCHOR_EXACT_BYTES,
   MAX_SHARED_NOTE_COMMENT_BYTES,
-  shouldUseAuthenticatedSharedNoteAccessLabel,
   validateSharedNoteCommentAnchor,
   validateSharedNoteCommentBody,
 } from "./shared-note-collaboration.ts";
@@ -98,7 +95,7 @@ test("comment anchor hints must be paired and ordered", () => {
   );
 });
 
-test("general viewer access never implies comment access", () => {
+test("only named commenters, editors, and managers can compose comments", () => {
   assert.equal(
     canComposeSharedNoteComments({
       capability: "commenter",
@@ -115,9 +112,6 @@ test("general viewer access never implies comment access", () => {
     }),
     false,
   );
-});
-
-test("named commenters, editors, and managers can compose", () => {
   for (const capability of ["commenter", "editor"] as const) {
     assert.equal(
       canComposeSharedNoteComments({
@@ -175,76 +169,6 @@ test("comment validation uses the normalized UTF-8 byte length", () => {
     valid: true,
   });
   assert.equal(validateSharedNoteCommentBody("字".repeat(5_462)).valid, false);
-});
-
-test("access labels match the authenticated capability", () => {
-  assert.equal(
-    formatAuthenticatedSharedNoteAccessLabel({
-      capability: "viewer",
-      manageAccess: false,
-    }),
-    "Shared with you · View only",
-  );
-  assert.equal(
-    formatAuthenticatedSharedNoteAccessLabel({
-      capability: "commenter",
-      manageAccess: false,
-    }),
-    "Shared with you · Can comment",
-  );
-  assert.equal(
-    formatAuthenticatedSharedNoteAccessLabel({
-      capability: "editor",
-      manageAccess: true,
-    }),
-    "You manage this note · Can edit",
-  );
-});
-
-test("general viewers keep the route-level access label", () => {
-  assert.equal(
-    shouldUseAuthenticatedSharedNoteAccessLabel({
-      capability: "viewer",
-      manageAccess: false,
-    }),
-    false,
-  );
-  assert.equal(
-    shouldUseAuthenticatedSharedNoteAccessLabel({
-      capability: "commenter",
-      manageAccess: false,
-    }),
-    true,
-  );
-  assert.equal(
-    shouldUseAuthenticatedSharedNoteAccessLabel({
-      capability: "editor",
-      manageAccess: false,
-    }),
-    true,
-  );
-  assert.equal(
-    shouldUseAuthenticatedSharedNoteAccessLabel({
-      capability: "viewer",
-      manageAccess: true,
-    }),
-    true,
-  );
-});
-
-test("access request descriptions preserve the requested capability", () => {
-  assert.equal(
-    formatSharedNoteAccessRequestDescription("viewer"),
-    "Requested permission to view",
-  );
-  assert.equal(
-    formatSharedNoteAccessRequestDescription("commenter"),
-    "Requested permission to comment",
-  );
-  assert.equal(
-    formatSharedNoteAccessRequestDescription("editor"),
-    "Requested permission to edit",
-  );
 });
 
 test("comment panel ignores viewer requests made from the access gate", () => {

@@ -26,7 +26,10 @@ const WORKFLOW_STEP_TYPES = [
 ] as const;
 export type WorkflowStepType = (typeof WORKFLOW_STEP_TYPES)[number];
 
+type DriveExportFormat = "markdown" | "google_docs";
+
 export type DriveExportRun = {
+  format?: DriveExportFormat;
   sessionId: string;
   stepId: string;
   connectionId: string;
@@ -41,6 +44,7 @@ export type WorkflowStep =
   | {
       id: string;
       type: "google_drive_export";
+      format?: DriveExportFormat;
       connectionId: string;
       target: AutomationTargetRef | null;
     }
@@ -67,6 +71,24 @@ export type AutomationWorkflow = {
   chatGroupId: string | null;
   driveExports?: DriveExportRun[];
 };
+
+export const GOOGLE_DRIVE_STARTER_WORKFLOW_ID = "starter-google-drive";
+
+export function createGoogleDriveWorkflow(title: string): AutomationWorkflow {
+  return createEmptyWorkflow({
+    title,
+    trigger: "note_enhanced",
+    steps: [
+      {
+        id: id(),
+        type: "google_drive_export",
+        connectionId: "",
+        target: null,
+        format: "markdown",
+      },
+    ],
+  });
+}
 
 export function createEmptyWorkflow(
   overrides: Partial<AutomationWorkflow> = {},
@@ -207,6 +229,9 @@ function parseStep(value: unknown): WorkflowStep | null {
     return {
       id: value.id,
       type: "google_drive_export",
+      ...(value.format === "google_docs"
+        ? { format: "google_docs" as const }
+        : {}),
       connectionId:
         typeof value.connectionId === "string" ? value.connectionId : "",
       target: parseTarget(value.target),
@@ -273,6 +298,9 @@ function isDriveExportRun(value: unknown): value is DriveExportRun {
     ["sessionId", "stepId", "connectionId", "folderId", "detail", "at"].every(
       (key) => typeof value[key] === "string",
     ) &&
+    (value.format === undefined ||
+      value.format === "markdown" ||
+      value.format === "google_docs") &&
     (value.fileId === undefined || typeof value.fileId === "string") &&
     ["pending", "success", "error"].includes(String(value.status))
   );

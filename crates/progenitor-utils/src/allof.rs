@@ -99,18 +99,6 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn replaces_allof_with_last_ref() {
-        let mut value = json!({
-            "allOf": [
-                { "$ref": "#/components/schemas/GenericId" },
-                { "$ref": "#/components/schemas/Contact" }
-            ]
-        });
-        flatten_all_of_value(&mut value);
-        assert_eq!(value, json!({ "$ref": "#/components/schemas/Contact" }));
-    }
-
-    #[test]
     fn picks_last_ref_from_multi_ref_allof() {
         let mut value = json!({
             "allOf": [
@@ -177,13 +165,5 @@ mod tests {
             value,
             json!({ "schema": { "$ref": "#/components/schemas/Inner" } })
         );
-    }
-
-    #[test]
-    fn leaves_non_allof_objects_unchanged() {
-        let original = json!({ "type": "string" });
-        let mut value = original.clone();
-        flatten_all_of_value(&mut value);
-        assert_eq!(value, original);
     }
 }

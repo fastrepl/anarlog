@@ -192,23 +192,40 @@ pub enum CaptureProtocolError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use serde_json::{Value, json};
 
-    fn payload(sequence: u64, track_index: u32, start_ms: u64, samples: &[i16]) -> String {
+    fn pcm(samples: &[i16]) -> String {
         let bytes: Vec<_> = samples
             .iter()
             .flat_map(|sample| sample.to_le_bytes())
             .collect();
-        json!({
+        STANDARD.encode(bytes)
+    }
+
+    fn frame(
+        sequence: u64,
+        track_index: u32,
+        start_ms: u64,
+        pcm_s16le: &str,
+        extra: Value,
+    ) -> String {
+        let mut frame = json!({
             "v": 1,
             "kind": "audio",
             "sequence": sequence,
             "track_index": track_index,
             "sample_rate": 16000,
             "start_ms": start_ms,
-            "pcm_s16le": STANDARD.encode(bytes),
-        })
-        .to_string()
+            "pcm_s16le": pcm_s16le,
+        });
+        if let (Some(frame), Some(extra)) = (frame.as_object_mut(), extra.as_object()) {
+            frame.extend(extra.clone());
+        }
+        frame.to_string()
+    }
+
+    fn payload(sequence: u64, track_index: u32, start_ms: u64, samples: &[i16]) -> String {
+        frame(sequence, track_index, start_ms, &pcm(samples), json!({}))
     }
 
     #[test]
@@ -225,51 +242,41 @@ mod tests {
     }
 
     #[test]
-    fn rejects_sequence_gaps_without_advancing_state() {
-        let mut protocol = CaptureProtocol::default();
+    fn rejects_malformed_frames_without_advancing_sequence() {
+        type Case = (&'static str, String, fn(&CaptureProtocolError) -> bool);
+        let cases: [Case; 4] = [
+            ("sequence gap", payload(2, 0, 0, &[1]), |error| {
+                matches!(
+                    error,
+                    CaptureProtocolError::UnexpectedSequence {
+                        expected: 1,
+                        actual: 2
+                    }
+                )
+            }),
+            (
+                "invalid base64",
+                frame(1, 0, 0, "not base64", json!({})),
+                |error| matches!(error, CaptureProtocolError::InvalidPcmEncoding(_)),
+            ),
+            (
+                "odd pcm length",
+                frame(1, 0, 0, &STANDARD.encode([1]), json!({})),
+                |error| matches!(error, CaptureProtocolError::InvalidPcmLength(1)),
+            ),
+            (
+                "timestamp overflow",
+                payload(1, 0, u64::MAX, &[1]),
+                |error| matches!(error, CaptureProtocolError::TimestampOverflow),
+            ),
+        ];
 
-        assert!(matches!(
-            protocol.decode(&payload(2, 0, 0, &[1])),
-            Err(CaptureProtocolError::UnexpectedSequence {
-                expected: 1,
-                actual: 2
-            })
-        ));
-        assert!(protocol.decode(&payload(1, 0, 0, &[1])).is_ok());
-    }
-
-    #[test]
-    fn rejects_invalid_and_odd_length_pcm() {
-        let mut protocol = CaptureProtocol::default();
-        let invalid = json!({
-            "v": 1,
-            "kind": "audio",
-            "sequence": 1,
-            "track_index": 0,
-            "sample_rate": 16000,
-            "start_ms": 0,
-            "pcm_s16le": "not base64",
-        })
-        .to_string();
-        let odd = json!({
-            "v": 1,
-            "kind": "audio",
-            "sequence": 1,
-            "track_index": 0,
-            "sample_rate": 16000,
-            "start_ms": 0,
-            "pcm_s16le": STANDARD.encode([1]),
-        })
-        .to_string();
-
-        assert!(matches!(
-            protocol.decode(&invalid),
-            Err(CaptureProtocolError::InvalidPcmEncoding(_))
-        ));
-        assert!(matches!(
-            protocol.decode(&odd),
-            Err(CaptureProtocolError::InvalidPcmLength(1))
-        ));
+        for (name, invalid, expected) in cases {
+            let mut protocol = CaptureProtocol::default();
+            let error = protocol.decode(&invalid).unwrap_err();
+            assert!(expected(&error), "{name}: {error:?}");
+            assert!(protocol.decode(&payload(1, 0, 0, &[1])).is_ok(), "{name}");
+        }
     }
 
     #[test]
@@ -288,72 +295,31 @@ mod tests {
     }
 
     #[test]
-    fn carries_bounded_speaker_attribution() {
-        let mut protocol = CaptureProtocol::default();
-        let bytes: Vec<_> = [1_i16]
-            .iter()
-            .flat_map(|sample| sample.to_le_bytes())
-            .collect();
-        let attributed = json!({
-            "v": 1,
-            "kind": "audio",
-            "sequence": 1,
-            "track_index": 0,
-            "sample_rate": 16000,
-            "start_ms": 0,
-            "pcm_s16le": STANDARD.encode(bytes),
-            "speaker_name": "  Ada Lovelace  ",
-            "participant_id": "spaces/abc/devices/123",
-        })
-        .to_string();
+    fn carries_bounded_speaker_attribution_and_drops_invalid_fields() {
+        for (speaker_name, expected_display_name) in [
+            ("  Ada Lovelace  ", Some("Ada Lovelace")),
+            ("Ada\nLovelace", None),
+        ] {
+            let mut protocol = CaptureProtocol::default();
+            let attributed = frame(
+                1,
+                0,
+                0,
+                &pcm(&[1]),
+                json!({
+                    "speaker_name": speaker_name,
+                    "participant_id": "spaces/abc/devices/123",
+                }),
+            );
 
-        assert_eq!(
-            protocol.decode(&attributed).unwrap().speaker,
-            Some(SpeakerHint {
-                display_name: Some("Ada Lovelace".into()),
-                participant_id: Some("spaces/abc/devices/123".into()),
-            })
-        );
-    }
-
-    #[test]
-    fn drops_invalid_speaker_fields_without_desynchronizing_audio() {
-        let mut protocol = CaptureProtocol::default();
-        let bytes: Vec<_> = [1_i16]
-            .iter()
-            .flat_map(|sample| sample.to_le_bytes())
-            .collect();
-        let invalid = json!({
-            "v": 1,
-            "kind": "audio",
-            "sequence": 1,
-            "track_index": 0,
-            "sample_rate": 16000,
-            "start_ms": 0,
-            "pcm_s16le": STANDARD.encode(bytes),
-            "speaker_name": "Ada\nLovelace",
-            "participant_id": "spaces/abc/devices/123",
-        })
-        .to_string();
-
-        assert_eq!(
-            protocol.decode(&invalid).unwrap().speaker,
-            Some(SpeakerHint {
-                display_name: None,
-                participant_id: Some("spaces/abc/devices/123".into()),
-            })
-        );
-        assert!(protocol.decode(&payload(2, 1, 0, &[2])).is_ok());
-    }
-
-    #[test]
-    fn rejects_timestamp_overflow_without_advancing_sequence() {
-        let mut protocol = CaptureProtocol::default();
-
-        assert!(matches!(
-            protocol.decode(&payload(1, 0, u64::MAX, &[1])),
-            Err(CaptureProtocolError::TimestampOverflow)
-        ));
-        assert!(protocol.decode(&payload(1, 0, 0, &[1])).is_ok());
+            assert_eq!(
+                protocol.decode(&attributed).unwrap().speaker,
+                Some(SpeakerHint {
+                    display_name: expected_display_name.map(Into::into),
+                    participant_id: Some("spaces/abc/devices/123".into()),
+                })
+            );
+            assert!(protocol.decode(&payload(2, 1, 0, &[2])).is_ok());
+        }
     }
 }

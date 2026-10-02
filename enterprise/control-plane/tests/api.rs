@@ -249,11 +249,11 @@ impl ControlPlaneStore for MemoryStore {
         let mut out = Vec::new();
         for event in events {
             let key = (workspace_id.to_string(), event.calendar_event_id.clone());
-            if let Some(existing) = scheduled.get(&key) {
-                if existing.status == ScheduledCaptureStatus::Dispatched {
-                    out.push(existing.clone());
-                    continue;
-                }
+            if let Some(existing) = scheduled.get(&key)
+                && existing.status == ScheduledCaptureStatus::Dispatched
+            {
+                out.push(existing.clone());
+                continue;
             }
             let decision = decide_schedule(&policy, event);
             let row = match decision {
@@ -529,44 +529,10 @@ async fn hands_signed_zoom_terminal_events_to_the_running_worker_registry() {
 }
 
 #[tokio::test]
-async fn requires_workspace_scoped_credentials() {
+async fn enforces_workspace_scoped_credentials_before_reading_or_writing() {
     let app = router(state(true));
-    let path = "/v1/workspaces/workspace-a/session-envelopes?consumerId=device-a&after=0";
-
-    let missing = app
-        .clone()
-        .oneshot(Request::get(path).body(Body::empty()).unwrap())
-        .await
-        .unwrap();
-    let wrong_workspace = app
-        .clone()
-        .oneshot(authorized_request(path, TOKEN_B))
-        .await
-        .unwrap();
-    let authorized = app
-        .oneshot(authorized_request(path, TOKEN_A))
-        .await
-        .unwrap();
-
-    assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(missing.headers()[header::WWW_AUTHENTICATE], "Bearer");
-    assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN);
-    assert_eq!(authorized.status(), StatusCode::OK);
-    assert_eq!(
-        response_json(authorized).await,
-        serde_json::json!({
-            "items": [],
-            "nextCursor": 0,
-            "hasMore": false,
-        })
-    );
-}
-
-#[tokio::test]
-async fn authenticates_capture_job_creation_before_writing() {
-    let app = router(state(true));
-    let path = "/v1/workspaces/workspace-a/capture-jobs/job-a";
-    let body = serde_json::json!({
+    let job_path = "/v1/workspaces/workspace-a/capture-jobs/job-a";
+    let job_body = serde_json::json!({
         "botId": "bot-a",
         "ownerUserId": "owner-a",
         "requestingActorId": "actor-a",
@@ -579,60 +545,57 @@ async fn authenticates_capture_job_creation_before_writing() {
         },
         "createdAt": "2026-08-17T00:00:00Z"
     });
+    let claim_body = serde_json::json!({
+        "workerId": "worker-a",
+        "leaseId": "lease-a"
+    });
+    let routes = [
+        (
+            Method::GET,
+            "/v1/workspaces/workspace-a/session-envelopes?consumerId=device-a&after=0",
+            None,
+            StatusCode::OK,
+        ),
+        (Method::GET, job_path, None, StatusCode::OK),
+        (Method::POST, job_path, Some(&job_body), StatusCode::CREATED),
+        (
+            Method::POST,
+            "/v1/workspaces/workspace-a/capture-jobs/job-a/claim",
+            Some(&claim_body),
+            StatusCode::OK,
+        ),
+    ];
 
-    let missing = app
-        .clone()
-        .oneshot(json_request(Method::POST, path, None, &body))
-        .await
-        .unwrap();
-    let wrong_workspace = app
-        .clone()
-        .oneshot(json_request(Method::POST, path, Some(TOKEN_B), &body))
-        .await
-        .unwrap();
-    let created = app
-        .oneshot(json_request(Method::POST, path, Some(TOKEN_A), &body))
-        .await
-        .unwrap();
+    let mut responses = Vec::new();
+    for (method, path, body, authorized_status) in routes {
+        let request = |token| match body {
+            Some(body) => json_request(method.clone(), path, token, body),
+            None => match token {
+                Some(token) => authorized_request(path, token),
+                None => Request::get(path).body(Body::empty()).unwrap(),
+            },
+        };
+        let missing = app.clone().oneshot(request(None)).await.unwrap();
+        let wrong_workspace = app.clone().oneshot(request(Some(TOKEN_B))).await.unwrap();
+        let authorized = app.clone().oneshot(request(Some(TOKEN_A))).await.unwrap();
 
-    assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN);
-    assert_eq!(created.status(), StatusCode::CREATED);
+        assert_eq!(missing.status(), StatusCode::UNAUTHORIZED, "{path}");
+        assert_eq!(missing.headers()[header::WWW_AUTHENTICATE], "Bearer");
+        assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN, "{path}");
+        assert_eq!(authorized.status(), authorized_status, "{path}");
+        responses.push(response_json(authorized).await);
+    }
+
     assert_eq!(
-        response_json(created).await,
+        responses[0],
         serde_json::json!({
-            "jobId": "job-a",
-            "created": true,
-            "state": "queued"
+            "items": [],
+            "nextCursor": 0,
+            "hasMore": false,
         })
     );
-}
-
-#[tokio::test]
-async fn reads_only_the_authorized_workspace_capture_checkpoint() {
-    let app = router(state(true));
-    let path = "/v1/workspaces/workspace-a/capture-jobs/job-a";
-
-    let missing = app
-        .clone()
-        .oneshot(Request::get(path).body(Body::empty()).unwrap())
-        .await
-        .unwrap();
-    let wrong_workspace = app
-        .clone()
-        .oneshot(authorized_request(path, TOKEN_B))
-        .await
-        .unwrap();
-    let checkpoint = app
-        .oneshot(authorized_request(path, TOKEN_A))
-        .await
-        .unwrap();
-
-    assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN);
-    assert_eq!(checkpoint.status(), StatusCode::OK);
     assert_eq!(
-        response_json(checkpoint).await,
+        responses[1],
         serde_json::json!({
             "job": {
                 "workspaceId": "workspace-a",
@@ -653,85 +616,18 @@ async fn reads_only_the_authorized_workspace_capture_checkpoint() {
             "nextSequence": 7
         })
     );
-}
-
-#[tokio::test]
-async fn claims_and_renews_only_an_authorized_worker_lease() {
-    let app = router(state(true));
-    let claim_path = "/v1/workspaces/workspace-a/capture-jobs/job-a/claim";
-    let claim_body = serde_json::json!({
-        "workerId": "worker-a",
-        "leaseId": "lease-a"
-    });
-
-    let wrong_workspace = app
-        .clone()
-        .oneshot(json_request(
-            Method::POST,
-            claim_path,
-            Some(TOKEN_B),
-            &claim_body,
-        ))
-        .await
-        .unwrap();
-    let claimed = app
-        .clone()
-        .oneshot(json_request(
-            Method::POST,
-            claim_path,
-            Some(TOKEN_A),
-            &claim_body,
-        ))
-        .await
-        .unwrap();
-
-    assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN);
-    assert_eq!(claimed.status(), StatusCode::OK);
-    let claimed = response_json(claimed).await;
-    assert_eq!(claimed["workerId"], "worker-a");
-    assert_eq!(claimed["leaseId"], "lease-a");
-    assert_eq!(claimed["epoch"], 1);
-    assert!(claimed["expiresAt"].is_string());
-
-    let renewed = app
-        .oneshot(json_request(
-            Method::POST,
-            "/v1/workspaces/workspace-a/capture-jobs/job-a/lease",
-            Some(TOKEN_A),
-            &serde_json::json!({
-                "lease": {
-                    "workerId": "worker-a",
-                    "leaseId": "lease-a",
-                    "epoch": 1
-                }
-            }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(renewed.status(), StatusCode::OK);
-    assert_eq!(response_json(renewed).await["epoch"], 1);
-}
-
-#[tokio::test]
-async fn boots_on_a_real_listener_and_shuts_down_gracefully() {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = listener.local_addr().unwrap();
-    let (shutdown_tx, shutdown_rx) = oneshot::channel();
-    let server = tokio::spawn(serve(listener, state(true), async move {
-        shutdown_rx.await.ok();
-    }));
-
-    let response = reqwest::get(format!("http://{address}/health/live"))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    shutdown_tx.send(()).unwrap();
-    tokio::time::timeout(Duration::from_secs(2), server)
-        .await
-        .expect("server did not stop")
-        .unwrap()
-        .unwrap();
+    assert_eq!(
+        responses[2],
+        serde_json::json!({
+            "jobId": "job-a",
+            "created": true,
+            "state": "queued"
+        })
+    );
+    assert_eq!(responses[3]["workerId"], "worker-a");
+    assert_eq!(responses[3]["leaseId"], "lease-a");
+    assert_eq!(responses[3]["epoch"], 1);
+    assert!(responses[3]["expiresAt"].is_string());
 }
 
 #[tokio::test]

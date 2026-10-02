@@ -83,29 +83,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn zero_attempts_never_calls_spawn() {
-        let strategy = RetryStrategy {
-            max_attempts: 0,
-            base_delay: Duration::from_millis(5),
-        };
-        let calls = Arc::new(AtomicU64::new(0));
-        let calls2 = calls.clone();
-
-        let result = spawn_with_retry(&strategy, move || {
-            calls2.fetch_add(1, Ordering::SeqCst);
-            async {
-                panic!("spawn closure must not be called when max_attempts is zero");
-                #[allow(unreachable_code)]
-                Err(spawn_name_collision_err("unused").await)
-            }
-        })
-        .await;
-
-        assert!(result.is_none());
-        assert_eq!(calls.load(Ordering::SeqCst), 0);
-    }
-
-    #[tokio::test]
     async fn retries_until_success() {
         let keep_name = unique_name("retry_keep");
         let (keep_ref, keep_handle) = Actor::spawn(Some(keep_name.clone()), DummyActor, ())

@@ -1,49 +1,61 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { shouldClearTimelineSelectionOnPointerDown } from "./interaction";
 
+function mount(build: () => { root: HTMLElement; target: HTMLElement }) {
+  const { root, target } = build();
+  document.body.append(root);
+  return target;
+}
+
 describe("shouldClearTimelineSelectionOnPointerDown", () => {
-  it("clears when the click is outside the timeline", () => {
-    const button = document.createElement("button");
-    button.textContent = "Transcript";
-    document.body.append(button);
-
-    expect(shouldClearTimelineSelectionOnPointerDown(button)).toBe(true);
-
-    button.remove();
+  afterEach(() => {
+    document.body.replaceChildren();
   });
 
-  it("keeps selection for clicks inside the timeline", () => {
-    const root = document.createElement("div");
-    root.dataset.sidebarTimelineRoot = "";
-    const item = document.createElement("button");
-    root.append(item);
-    document.body.append(root);
-
-    expect(shouldClearTimelineSelectionOnPointerDown(item)).toBe(false);
-
-    root.remove();
-  });
-
-  it("keeps selection for clicks inside a dialog", () => {
-    const dialog = document.createElement("div");
-    dialog.setAttribute("role", "dialog");
-    const cancel = document.createElement("button");
-    dialog.append(cancel);
-    document.body.append(dialog);
-
-    expect(shouldClearTimelineSelectionOnPointerDown(cancel)).toBe(false);
-
-    dialog.remove();
-  });
-
-  it("keeps selection for clicks on a dialog overlay", () => {
-    const overlay = document.createElement("div");
-    overlay.dataset.dialogOverlay = "";
-    document.body.append(overlay);
-
-    expect(shouldClearTimelineSelectionOnPointerDown(overlay)).toBe(false);
-
-    overlay.remove();
+  it.each([
+    [
+      "outside the timeline",
+      true,
+      () => {
+        const button = document.createElement("button");
+        return { root: button, target: button };
+      },
+    ],
+    [
+      "inside the timeline",
+      false,
+      () => {
+        const root = document.createElement("div");
+        root.dataset.sidebarTimelineRoot = "";
+        const item = document.createElement("button");
+        root.append(item);
+        return { root, target: item };
+      },
+    ],
+    [
+      "inside a dialog",
+      false,
+      () => {
+        const root = document.createElement("div");
+        root.setAttribute("role", "dialog");
+        const cancel = document.createElement("button");
+        root.append(cancel);
+        return { root, target: cancel };
+      },
+    ],
+    [
+      "on a dialog overlay",
+      false,
+      () => {
+        const overlay = document.createElement("div");
+        overlay.dataset.dialogOverlay = "";
+        return { root: overlay, target: overlay };
+      },
+    ],
+  ])("pointer down %s clears selection: %s", (_, shouldClear, build) => {
+    expect(shouldClearTimelineSelectionOnPointerDown(mount(build))).toBe(
+      shouldClear,
+    );
   });
 });

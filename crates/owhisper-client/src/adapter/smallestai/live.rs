@@ -325,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_ws_url_english_code_switching() {
+    fn test_build_ws_url_code_switching_and_pro_model() {
         let url = SmallestAIAdapter.build_ws_url(
             API_BASE,
             &ListenParams {
@@ -339,10 +339,7 @@ mod tests {
         let query: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
         assert_eq!(query.get("language"), Some(&"hi".to_string()));
         assert!(!query.contains_key("keywords"));
-    }
 
-    #[test]
-    fn test_build_ws_url_ignores_pro_model_for_streaming() {
         let url = SmallestAIAdapter.build_ws_url(
             API_BASE,
             &ListenParams {
@@ -357,42 +354,65 @@ mod tests {
     }
 
     #[test]
-    fn test_finalize_message() {
-        assert_eq!(
-            SmallestAIAdapter.finalize_message(),
-            Message::Text(r#"{"type":"finalize"}"#.into())
-        );
-    }
+    fn test_parse_transcription_responses() {
+        for (json, is_final, speech_final, from_finalize, transcript) in [
+            (
+                r#"{
+                    "type": "transcription",
+                    "status": "success",
+                    "session_id": "sess_123",
+                    "transcript": "Hello",
+                    "transcription": "Hello",
+                    "is_final": false,
+                    "is_last": false
+                }"#,
+                false,
+                false,
+                false,
+                "Hello",
+            ),
+            (
+                r#"{
+                    "type": "transcription",
+                    "status": "success",
+                    "session_id": "sess_123",
+                    "transcript": "Goodbye!",
+                    "is_final": true,
+                    "is_last": true
+                }"#,
+                true,
+                true,
+                true,
+                "Goodbye!",
+            ),
+            (
+                r#"{"type": "transcription", "transcription": "Only here", "is_final": true}"#,
+                true,
+                true,
+                false,
+                "Only here",
+            ),
+        ] {
+            let responses = SmallestAIAdapter.parse_response(json);
 
-    #[test]
-    fn test_parse_partial_response() {
-        let responses = SmallestAIAdapter.parse_response(
-            r#"{
-                "type": "transcription",
-                "status": "success",
-                "session_id": "sess_123",
-                "transcript": "Hello",
-                "transcription": "Hello",
-                "is_final": false,
-                "is_last": false
-            }"#,
-        );
-
-        assert_eq!(responses.len(), 1);
-        match &responses[0] {
-            StreamResponse::TranscriptResponse {
-                is_final,
-                speech_final,
-                from_finalize,
-                channel,
-                ..
-            } => {
-                assert!(!is_final);
-                assert!(!speech_final);
-                assert!(!from_finalize);
-                assert_eq!(channel.alternatives[0].transcript, "Hello");
+            match &responses[0] {
+                StreamResponse::TranscriptResponse {
+                    is_final: got_final,
+                    speech_final: got_speech_final,
+                    from_finalize: got_from_finalize,
+                    channel,
+                    ..
+                } => {
+                    assert_eq!(*got_final, is_final, "json: {json}");
+                    assert_eq!(*got_speech_final, speech_final, "json: {json}");
+                    assert_eq!(*got_from_finalize, from_finalize, "json: {json}");
+                    assert_eq!(
+                        channel.alternatives[0].transcript, transcript,
+                        "json: {json}"
+                    );
+                }
+                other => panic!("unexpected response: {other:?}"),
             }
-            other => panic!("unexpected response: {other:?}"),
         }
     }
 
@@ -440,48 +460,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_transcription_only_field() {
-        let responses = SmallestAIAdapter.parse_response(
-            r#"{"type": "transcription", "transcription": "Only here", "is_final": true}"#,
-        );
-
-        match &responses[0] {
-            StreamResponse::TranscriptResponse { channel, .. } => {
-                assert_eq!(channel.alternatives[0].transcript, "Only here");
-            }
-            other => panic!("unexpected response: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn test_parse_last_response_marks_finalize() {
-        let responses = SmallestAIAdapter.parse_response(
-            r#"{
-                "type": "transcription",
-                "status": "success",
-                "session_id": "sess_123",
-                "transcript": "Goodbye!",
-                "is_final": true,
-                "is_last": true
-            }"#,
-        );
-
-        match &responses[0] {
-            StreamResponse::TranscriptResponse {
-                is_final,
-                speech_final,
-                from_finalize,
-                ..
-            } => {
-                assert!(*is_final);
-                assert!(*speech_final);
-                assert!(*from_finalize);
-            }
-            other => panic!("unexpected response: {other:?}"),
-        }
-    }
-
-    #[test]
     fn test_parse_vad_events_are_ignored() {
         assert!(
             SmallestAIAdapter
@@ -491,38 +469,34 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_error_response() {
-        let responses = SmallestAIAdapter.parse_response(
-            r#"{
-                "type": "error",
-                "status": "error",
-                "message": "invalid request"
-            }"#,
-        );
+    fn test_parse_error_responses() {
+        for (json, expected_message) in [
+            (
+                r#"{
+                    "type": "error",
+                    "status": "error",
+                    "message": "invalid request"
+                }"#,
+                "invalid request",
+            ),
+            (
+                r#"{"type": "error", "message": "LANGUAGE_NOT_ENABLED_IN_REGION"}"#,
+                "LANGUAGE_NOT_ENABLED_IN_REGION",
+            ),
+        ] {
+            let responses = SmallestAIAdapter.parse_response(json);
 
-        match &responses[0] {
-            StreamResponse::ErrorResponse {
-                error_message,
-                provider,
-                ..
-            } => {
-                assert_eq!(error_message, "invalid request");
-                assert_eq!(provider, "smallestai");
+            match &responses[0] {
+                StreamResponse::ErrorResponse {
+                    error_message,
+                    provider,
+                    ..
+                } => {
+                    assert_eq!(error_message, expected_message, "json: {json}");
+                    assert_eq!(provider, "smallestai");
+                }
+                other => panic!("unexpected response: {other:?}"),
             }
-            other => panic!("unexpected response: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn test_parse_error_type_without_status() {
-        let responses = SmallestAIAdapter
-            .parse_response(r#"{"type": "error", "message": "LANGUAGE_NOT_ENABLED_IN_REGION"}"#);
-
-        match &responses[0] {
-            StreamResponse::ErrorResponse { error_message, .. } => {
-                assert_eq!(error_message, "LANGUAGE_NOT_ENABLED_IN_REGION");
-            }
-            other => panic!("unexpected response: {other:?}"),
         }
     }
 }

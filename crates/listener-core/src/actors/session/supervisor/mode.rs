@@ -88,20 +88,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_degraded_reason_uses_json_payload() {
+    fn parse_degraded_reason_falls_back_to_stream_error() {
         let reason = serde_json::to_string(&DegradedError::ConnectionTimeout).unwrap();
         let parsed = parse_degraded_reason(Some(&reason));
         assert!(matches!(parsed, DegradedError::ConnectionTimeout));
-    }
 
-    #[test]
-    fn parse_degraded_reason_falls_back_for_missing_reason() {
         let parsed = parse_degraded_reason(None);
         assert!(matches!(parsed, DegradedError::StreamError { .. }));
-    }
 
-    #[test]
-    fn parse_degraded_reason_falls_back_for_invalid_json() {
         let reason = "not-json".to_string();
         let parsed = parse_degraded_reason(Some(&reason));
         assert!(matches!(parsed, DegradedError::StreamError { .. }));

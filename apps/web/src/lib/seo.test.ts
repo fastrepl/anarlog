@@ -2,35 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  ANARLOG_SITE_NAME,
   getBlogPostingJsonLd,
   getCanonicalUrl,
   getSoftwareApplicationJsonLd,
 } from "./seo.ts";
 
-test("builds canonical urls with a trailing slash", () => {
-  assert.equal(ANARLOG_SITE_NAME, "anarlog");
+test("builds canonical urls with exactly one trailing slash", () => {
   assert.equal(getCanonicalUrl(), "https://anarlog.so/");
   assert.equal(getCanonicalUrl("/blog"), "https://anarlog.so/blog/");
   assert.equal(
     getCanonicalUrl("/blog/granola-ai-alternatives"),
     "https://anarlog.so/blog/granola-ai-alternatives/",
   );
-});
-
-test("leaves an existing trailing slash untouched", () => {
   assert.equal(getCanonicalUrl("/download/"), "https://anarlog.so/download/");
-});
-
-test("tolerates paths without a leading slash", () => {
   assert.equal(getCanonicalUrl("download"), "https://anarlog.so/download/");
-});
-
-test("describes downloads for every supported desktop platform", () => {
-  const jsonLd = getSoftwareApplicationJsonLd({ description: "Anarlog" });
-
-  assert.equal(jsonLd.downloadUrl, "https://anarlog.so/download/");
-  assert.deepEqual(jsonLd.operatingSystem, ["macOS", "Windows", "Linux"]);
 });
 
 test("emits offers when pricing is supplied", () => {

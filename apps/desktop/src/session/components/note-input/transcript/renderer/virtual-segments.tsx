@@ -3,13 +3,14 @@ import {
   type FocusEvent,
   type ReactNode,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
+
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   createTranscriptSearchIndex,
@@ -76,7 +77,7 @@ export function useVirtualSegments({
   const pendingHeightsRef = useRef(new Map<string, number>());
   const measurementFrameRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       if (measurementFrameRef.current !== null) {
         cancelAnimationFrame(measurementFrameRef.current);
@@ -84,7 +85,7 @@ export function useVirtualSegments({
       }
       pendingHeightsRef.current.clear();
     };
-  }, []);
+  });
 
   const estimatedHeights = useMemo(
     () =>

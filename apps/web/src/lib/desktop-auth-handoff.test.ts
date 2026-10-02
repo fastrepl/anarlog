@@ -8,7 +8,6 @@ import {
   attemptDesktopAppOpen,
   buildDesktopAuthCallbackPath,
   buildDesktopAuthDeeplink,
-  getDesktopAppOpenLinkProps,
   resolveDesktopAuthCallbackMethod,
   useDesktopAppAutoOpen,
 } from "./desktop-auth-handoff.ts";
@@ -37,6 +36,14 @@ test("builds an encoded desktop auth callback", () => {
     buildDesktopAuthDeeplink("anarlog-staging", undefined, "fake-refresh"),
     null,
   );
+
+  const nightly = buildDesktopAuthDeeplink(
+    "anarlog-nightly",
+    "access",
+    "refresh",
+  );
+  assert.ok(nightly);
+  assert.ok(nightly.startsWith("anarlog-nightly://auth/callback?"));
 });
 
 test("builds a web callback that preserves the sign-in method", () => {
@@ -173,27 +180,6 @@ test("attempts automatic opening once under StrictMode and remounts", async () =
   }
 });
 
-test("keeps the manual open link independently clickable", () => {
-  const dom = new JSDOM();
-  const deeplink = "anarlog-staging://auth/callback?access_token=a";
-  const anchor = dom.window.document.createElement("a");
-  const props = getDesktopAppOpenLinkProps(deeplink);
-  let clicks = 0;
-
-  anchor.href = props.href;
-  anchor.rel = props.rel;
-  anchor.addEventListener("click", (event) => {
-    clicks += 1;
-    event.preventDefault();
-  });
-  anchor.click();
-
-  assert.equal(anchor.getAttribute("href"), deeplink);
-  assert.equal(anchor.rel, "noreferrer");
-  assert.equal(clicks, 1);
-  dom.window.close();
-});
-
 function restoreGlobal(key: string, value: unknown) {
   if (value === undefined) {
     Reflect.deleteProperty(globalThis, key);
@@ -205,9 +191,3 @@ function restoreGlobal(key: string, value: unknown) {
     value,
   });
 }
-
-test("Nightly authentication returns to Nightly", () => {
-  const url = buildDesktopAuthDeeplink("anarlog-nightly", "access", "refresh");
-  assert.ok(url);
-  assert.ok(url.startsWith("anarlog-nightly://auth/callback?"));
-});

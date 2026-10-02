@@ -58,6 +58,13 @@ const job: AttachmentTransferJob = {
   attachmentVersionMatches: true,
 };
 
+const deleteJob = (overrides: Partial<AttachmentTransferJob> = {}) => ({
+  ...job,
+  direction: "delete" as const,
+  objectKey: "owner/object.anb1",
+  ...overrides,
+});
+
 describe("attachment transfer reconciliation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -179,16 +186,17 @@ describe("attachment transfer reconciliation", () => {
     ]);
   });
 
-  it("preflights current delete intent and requires a local preservation copy", async () => {
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
-    mocks.executeTransaction.mockResolvedValueOnce([1, 0]);
+  it("preflights current and replaced-object delete intent", async () => {
+    const currentDeleteJob = deleteJob({ cloudSyncEnabled: false });
+    const oldDeleteJob = deleteJob({ objectKey: "owner/old-version.anb1" });
+    mocks.executeTransaction
+      .mockResolvedValueOnce([1, 0])
+      .mockResolvedValueOnce([1, 0]);
 
-    await expect(prepareAttachmentTransferDelete(deleteJob)).resolves.toBe(
+    await expect(
+      prepareAttachmentTransferDelete(currentDeleteJob),
+    ).resolves.toBe(true);
+    await expect(prepareAttachmentTransferDelete(oldDeleteJob)).resolves.toBe(
       true,
     );
 
@@ -197,18 +205,31 @@ describe("attachment transfer reconciliation", () => {
     expect(prepared.sql).toContain("local.availability, 'absent') = 'present'");
     expect(prepared.sql).toContain("attempt_count = ?");
     expect(superseded.sql).toContain("AND NOT");
+
+    const [oldPrepared] = mocks.executeTransaction.mock.calls[1]![0];
+    expect(oldPrepared.sql).toContain("attachment.sha256 <> ?");
+    expect(oldPrepared.sql).toContain("attachment.size_bytes <> ?");
+    expect(oldPrepared.sql).toContain("attachment.cloud_object_key <> ?");
+    expect(oldPrepared.params.slice(-10)).toEqual([
+      job.attachmentId,
+      job.sessionId,
+      job.workspaceId,
+      job.attachmentId,
+      job.sessionId,
+      job.workspaceId,
+      oldDeleteJob.objectKey,
+      oldDeleteJob.objectKey,
+      job.expectedSha256,
+      job.expectedSizeBytes,
+    ]);
   });
 
   it("does not preflight a delete whose intent changed", async () => {
     mocks.executeTransaction.mockResolvedValueOnce([0, 1]);
 
-    await expect(
-      prepareAttachmentTransferDelete({
-        ...job,
-        direction: "delete",
-        objectKey: "owner/object.anb1",
-      }),
-    ).resolves.toBe(false);
+    await expect(prepareAttachmentTransferDelete(deleteJob())).resolves.toBe(
+      false,
+    );
 
     const [, superseded] = mocks.executeTransaction.mock.calls[0]![0];
     expect(superseded.sql).toContain("phase = 'finalizing'");
@@ -216,15 +237,11 @@ describe("attachment transfer reconciliation", () => {
   });
 
   it("completes a cancelled delete only while the exact intent stays superseded", async () => {
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-    };
+    const currentDeleteJob = deleteJob();
     mocks.executeTransaction.mockResolvedValueOnce([1]);
 
     await expect(
-      completeCancelledAttachmentTransferDelete(deleteJob),
+      completeCancelledAttachmentTransferDelete(currentDeleteJob),
     ).resolves.toBeUndefined();
 
     const [complete] = mocks.executeTransaction.mock.calls[0]![0];
@@ -233,29 +250,25 @@ describe("attachment transfer reconciliation", () => {
     expect(complete.sql).toContain("AND NOT");
     expect(complete.sql).toContain("attachment_id = ?");
     expect(complete.params.slice(2, 12)).toEqual([
-      deleteJob.id,
-      deleteJob.attemptCount,
-      deleteJob.attachmentId,
-      deleteJob.sessionId,
-      deleteJob.workspaceId,
-      deleteJob.expectedSha256,
-      deleteJob.expectedSizeBytes,
-      deleteJob.objectKey,
-      deleteJob.attachmentId,
-      deleteJob.sessionId,
+      currentDeleteJob.id,
+      currentDeleteJob.attemptCount,
+      currentDeleteJob.attachmentId,
+      currentDeleteJob.sessionId,
+      currentDeleteJob.workspaceId,
+      currentDeleteJob.expectedSha256,
+      currentDeleteJob.expectedSizeBytes,
+      currentDeleteJob.objectKey,
+      currentDeleteJob.attachmentId,
+      currentDeleteJob.sessionId,
     ]);
   });
 
   it("uses a fresh request id when delete intent returns after cancellation", async () => {
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-    };
+    const currentDeleteJob = deleteJob();
     mocks.executeTransaction.mockResolvedValueOnce([0, 1, 1]);
 
     await expect(
-      completeCancelledAttachmentTransferDelete(deleteJob),
+      completeCancelledAttachmentTransferDelete(currentDeleteJob),
     ).resolves.toBeUndefined();
 
     const [, restart, replacement] = mocks.executeTransaction.mock.calls[0]![0];
@@ -265,56 +278,21 @@ describe("attachment transfer reconciliation", () => {
     expect(replacement.sql).toContain("job.completed_at = ?");
     expect(replacement.params[0]).toBe("new-job-id");
     expect(replacement.params.slice(4, 10)).toEqual([
-      deleteJob.attachmentId,
-      deleteJob.sessionId,
-      deleteJob.workspaceId,
-      deleteJob.expectedSha256,
-      deleteJob.expectedSizeBytes,
-      deleteJob.objectKey,
-    ]);
-  });
-
-  it("keeps an old-object delete valid after the attachment is replaced", async () => {
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/old-version.anb1",
-    };
-    mocks.executeTransaction.mockResolvedValueOnce([1, 0]);
-
-    await expect(prepareAttachmentTransferDelete(deleteJob)).resolves.toBe(
-      true,
-    );
-
-    const [prepared] = mocks.executeTransaction.mock.calls[0]![0];
-    expect(prepared.sql).toContain("attachment.sha256 <> ?");
-    expect(prepared.sql).toContain("attachment.size_bytes <> ?");
-    expect(prepared.sql).toContain("attachment.cloud_object_key <> ?");
-    expect(prepared.params.slice(-10)).toEqual([
-      job.attachmentId,
-      job.sessionId,
-      job.workspaceId,
-      job.attachmentId,
-      job.sessionId,
-      job.workspaceId,
-      deleteJob.objectKey,
-      deleteJob.objectKey,
-      job.expectedSha256,
-      job.expectedSizeBytes,
+      currentDeleteJob.attachmentId,
+      currentDeleteJob.sessionId,
+      currentDeleteJob.workspaceId,
+      currentDeleteJob.expectedSha256,
+      currentDeleteJob.expectedSizeBytes,
+      currentDeleteJob.objectKey,
     ]);
   });
 
   it("atomically queues an exact preservation download before retiring a delete", async () => {
-    const deleteJob = {
-      ...job,
-      direction: "delete" as const,
-      objectKey: "owner/object.anb1",
-      cloudSyncEnabled: false,
-    };
+    const currentDeleteJob = deleteJob({ cloudSyncEnabled: false });
     mocks.executeTransaction.mockResolvedValueOnce([1, 1, 1]);
 
     await expect(
-      deferAttachmentTransferDeleteForPreservation(deleteJob),
+      deferAttachmentTransferDeleteForPreservation(currentDeleteJob),
     ).resolves.toBeUndefined();
 
     const [queue, markAbsent, complete] =
@@ -324,14 +302,14 @@ describe("attachment transfer reconciliation", () => {
     expect(queue.sql).toContain("attachment.cloud_object_key = job.object_key");
     expect(queue.params).toEqual([
       "new-job-id",
-      deleteJob.id,
-      deleteJob.attemptCount,
-      deleteJob.attachmentId,
-      deleteJob.sessionId,
-      deleteJob.workspaceId,
-      deleteJob.expectedSha256,
-      deleteJob.expectedSizeBytes,
-      deleteJob.objectKey,
+      currentDeleteJob.id,
+      currentDeleteJob.attemptCount,
+      currentDeleteJob.attachmentId,
+      currentDeleteJob.sessionId,
+      currentDeleteJob.workspaceId,
+      currentDeleteJob.expectedSha256,
+      currentDeleteJob.expectedSizeBytes,
+      currentDeleteJob.objectKey,
     ]);
     expect(markAbsent.sql).toContain("availability = excluded.availability");
     expect(markAbsent.sql).toContain("preservation.direction = 'download'");
@@ -347,24 +325,8 @@ describe("attachment transfer reconciliation", () => {
     );
 
     await expect(
-      deferAttachmentTransferDeleteForPreservation({
-        ...job,
-        direction: "delete",
-        objectKey: "owner/object.anb1",
-      }),
+      deferAttachmentTransferDeleteForPreservation(deleteJob()),
     ).rejects.toThrow("Unexpected rows affected");
-  });
-
-  it("rejects a stale phase mutation instead of touching a newer attempt", async () => {
-    mocks.executeTransaction.mockResolvedValueOnce([0]);
-
-    await expect(markPhase(job, "finalizing")).rejects.toThrow(
-      "Attachment transfer is no longer active",
-    );
-
-    const [statement] = mocks.executeTransaction.mock.calls[0]![0];
-    expect(statement.sql).toContain("attempt_count = ?");
-    expect(statement.params.slice(-2)).toEqual([job.id, job.attemptCount]);
   });
 
   it("fences both attachment and job completion from a stale attempt", async () => {
@@ -410,9 +372,12 @@ describe("attachment transfer reconciliation", () => {
     ]);
   });
 
-  it("fences retry and terminal failure writes from a stale attempt", async () => {
+  it("fences phase, retry, and terminal failure writes from a stale attempt", async () => {
     mocks.executeTransaction.mockResolvedValue([0]);
 
+    await expect(markPhase(job, "finalizing")).rejects.toThrow(
+      "Attachment transfer is no longer active",
+    );
     await retryAttachmentTransferJob(job, "retry", new Date(0));
     await failAttachmentTransferJob(job, "failed");
 

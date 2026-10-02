@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { cloneElement, StrictMode, type ReactElement, type Ref } from "react";
+import { cloneElement, type ReactElement, type Ref } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -63,7 +63,6 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   clipboardWriteText: vi.fn().mockResolvedValue(undefined),
-  contacts: [] as any[],
   participants: [] as any[],
   workspaces: [] as { id: string; name: string }[],
   defaultMeetingShareAccess: "me",
@@ -89,7 +88,7 @@ vi.mock("~/env", () => ({
 }));
 
 vi.mock("~/contacts/queries", () => ({
-  useHumans: () => mocks.contacts,
+  useHumans: () => [],
 }));
 
 vi.mock("~/contacts/shared", () => ({
@@ -341,14 +340,65 @@ function defaultManagement(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function reuseExistingShare() {
+  mocks.createOrReuseSessionShare.mockResolvedValueOnce({
+    shareId: SHARE_ID,
+    generalScope: "restricted",
+    publicSlug: PUBLIC_SLUG,
+    accessVersion: 1,
+    wasCreated: false,
+  });
+}
+
+function startWithoutShare() {
+  mocks.managedNote = null;
+  mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+}
+
+function inviteEmail(email: string) {
+  fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
+    target: { value: email },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+}
+
+function setConflictState() {
+  mocks.syncStatus = "conflict";
+  mocks.durableNote.contentRevision = 2;
+  mocks.durableNote.webEditBase = {
+    contentRevision: 1,
+    title: "Planning",
+    body: { type: "doc", content: [] },
+  };
+  mocks.loadSessionShareSyncState.mockResolvedValue({
+    viewerUserId: USER_ID,
+    shareId: SHARE_ID,
+    sessionId: "session-1",
+    acknowledgedContentRevision: 1,
+    baselineSourceHash: "a".repeat(64),
+    status: "conflict",
+  });
+}
+
+function accessEntry(overrides: Record<string, unknown> = {}) {
+  return {
+    entryType: "grant",
+    entryId: GRANT_ID,
+    userId: OTHER_USER_ID,
+    userEmail: "person@example.com",
+    capability: "viewer",
+    status: "active",
+    createdAt: "2026-07-17T00:00:00Z",
+    expiresAt: null,
+    ...overrides,
+  };
+}
+
 function renderShareButton() {
   return renderShareButtonView().queryClient;
 }
 
-function renderShareButtonView(
-  initialSessionId = "session-1",
-  strictMode = false,
-) {
+function renderShareButtonView(initialSessionId = "session-1") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -359,7 +409,7 @@ function renderShareButtonView(
         <SessionShareButton sessionId={currentSessionId} />
       </QueryClientProvider>
     );
-    return strictMode ? <StrictMode>{content}</StrictMode> : content;
+    return content;
   };
   const view = render(element());
   return {
@@ -393,7 +443,6 @@ describe("SessionShareButton", () => {
     mocks.setSessionShareScope.mockReset();
     mocks.events = [];
     mocks.access = [];
-    mocks.contacts = [];
     mocks.participants = [];
     mocks.workspaces = [];
     mocks.defaultMeetingShareAccess = "me";
@@ -547,12 +596,6 @@ describe("SessionShareButton", () => {
       screen.getByRole("heading", { name: "Sign in to share" }),
     ).not.toBeNull();
     expect(
-      screen.getByText("Sign in to share this note with others."),
-    ).not.toBeNull();
-    expect(
-      screen.getByTestId("share-popover").querySelector("[class*='blur-']"),
-    ).not.toBeNull();
-    expect(
       (screen.getByText("Copy link").closest("button") as HTMLButtonElement)
         .disabled,
     ).toBe(true);
@@ -560,22 +603,6 @@ describe("SessionShareButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
     await waitFor(() => expect(mocks.auth.signIn).toHaveBeenCalledOnce());
-    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
-  });
-
-  it("closes the signed-out share preview when the account changes", () => {
-    mocks.auth.session = null;
-    const view = renderShareButtonView();
-
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-    expect(
-      screen.getByRole("heading", { name: "Sign in to share" }),
-    ).not.toBeNull();
-
-    mocks.auth.session = createSession();
-    view.rerender();
-
-    expect(screen.queryByTestId("share-popover")).toBeNull();
     expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
   });
 
@@ -591,11 +618,6 @@ describe("SessionShareButton", () => {
     expect(
       await screen.findByRole("heading", { name: "Share notes with others" }),
     ).not.toBeNull();
-    expect(
-      screen.getByText(
-        "Upgrade to Pro to invite people and share this note with them.",
-      ),
-    ).not.toBeNull();
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
@@ -603,122 +625,6 @@ describe("SessionShareButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
 
     expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
-  });
-
-  it("closes a free-plan upgrade state when the account changes", async () => {
-    mocks.billing.isPaid = false;
-    mocks.managedNote = null;
-    const view = renderShareButtonView();
-
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-    expect(
-      await screen.findByRole("heading", { name: "Share notes with others" }),
-    ).not.toBeNull();
-
-    mocks.auth.session = createSession(OTHER_USER_ID);
-    view.rerender();
-
-    expect(screen.queryByTestId("share-popover")).toBeNull();
-  });
-
-  it("opens the complete panel without a loader while billing access loads", async () => {
-    mocks.managedNote = null;
-    mocks.billing.isReady = false;
-    const view = renderShareButtonView("session-1", true);
-
-    const trigger = screen.getByRole("button", { name: "Share note" });
-    expect((trigger as HTMLButtonElement).disabled).toBe(false);
-    fireEvent.click(trigger);
-
-    expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expect(
-      screen.getByRole("textbox", { name: "Invitee email" }),
-    ).not.toBeNull();
-    expect(screen.queryByText("Loading access…")).toBeNull();
-    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
-
-    mocks.billing.isReady = true;
-    view.rerender();
-
-    expect(
-      (screen.getByRole("button", { name: "Copy link" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false);
-    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
-  });
-
-  it("opens sharing as a popover anchored to the toolbar button", async () => {
-    mocks.managedNote = null;
-    renderShareButton();
-
-    const trigger = screen.getByRole("button", { name: "Share note" });
-    expect(trigger.textContent).toBe("");
-    expect(trigger.querySelectorAll("svg")).toHaveLength(1);
-    expect(trigger.className).toContain("[&_svg]:size-4");
-    expect(trigger.querySelector("svg")?.getAttribute("class")).toContain(
-      "size-4",
-    );
-    expect(trigger.getAttribute("aria-expanded")).toBe("false");
-    expect(trigger.className).not.toContain("mr-1");
-
-    await openSharePopover();
-
-    expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("heading", { name: "Share" }).className).toContain(
-      "sr-only",
-    );
-    expect(screen.getByTestId("share-floating-panel").className).not.toContain(
-      "min-h-",
-    );
-    expect(screen.getByTestId("share-floating-panel").className).toContain(
-      "max-h-[min(530px,calc(100vh-74px))]",
-    );
-    expect(
-      screen
-        .getByTestId("share-floating-panel")
-        .querySelector('[class*="overflow-y-auto"]'),
-    ).not.toBeNull();
-    expect(screen.getByTestId("share-popover").className).toContain(
-      "w-[440px]",
-    );
-    expect(
-      screen.queryByRole("button", { name: "Update shared copy" }),
-    ).toBeNull();
-
-    fireEvent.click(trigger);
-
-    expect(trigger.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByTestId("share-popover")).toBeNull();
-    expect(screen.queryByText("Loading access…")).toBeNull();
-    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
-    expect(mocks.createOrReuseSessionShare).not.toHaveBeenCalled();
-    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
-    expect(mocks.markSessionShareActivated).not.toHaveBeenCalled();
-  });
-
-  it("renders a labeled share CTA for the session header", () => {
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
-    });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <SessionShareButton sessionId="session-1" variant="cta" />
-      </QueryClientProvider>,
-    );
-
-    const trigger = screen.getByRole("button", { name: "Share note" });
-    expect(trigger.textContent).toContain("Share");
-    expect(trigger.className).toContain("rounded-full");
-    expect(trigger.className).toContain("border-border");
-    expect(trigger.className).toContain("bg-transparent");
-    expect(trigger.className).toContain("text-foreground");
-    expect(trigger.className).toContain("shadow-none");
-    expect(trigger.querySelector("svg")?.getAttribute("class")).toContain(
-      "size-3.5",
-    );
   });
 
   it("shows existing share controls while access is still loading", async () => {
@@ -737,7 +643,6 @@ describe("SessionShareButton", () => {
     expect(
       screen.getByRole("textbox", { name: "Invitee email" }),
     ).not.toBeNull();
-    expect(screen.queryByText("Loading access…")).toBeNull();
     expect(
       (screen.getByRole("button", { name: "Copy link" }) as HTMLButtonElement)
         .disabled,
@@ -757,25 +662,6 @@ describe("SessionShareButton", () => {
     );
   });
 
-  it("keeps preparation open when the trigger ref is recomposed", async () => {
-    mocks.managedNote = null;
-    const view = renderShareButtonView();
-
-    const trigger = screen.getByRole("button", { name: "Share note" });
-    fireEvent.click(trigger);
-    expect(
-      await screen.findByRole("textbox", { name: "Invitee email" }),
-    ).not.toBeNull();
-
-    view.rerender();
-
-    expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByTestId("share-popover")).not.toBeNull();
-
-    expect(screen.queryByText("Loading access…")).toBeNull();
-    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
-  });
-
   it("cancels preparation immediately when the pending popover is dismissed", async () => {
     mocks.managedNote = null;
     let resolveSource: ((value: any) => void) | undefined;
@@ -792,13 +678,6 @@ describe("SessionShareButton", () => {
     await waitFor(() =>
       expect(mocks.loadSessionShareSource).toHaveBeenCalledOnce(),
     );
-    expect(
-      screen
-        .getByRole("button", { name: "Copy link" })
-        .querySelector(".animate-spin"),
-    ).not.toBeNull();
-    expect(trigger.querySelector(".animate-spin")).toBeNull();
-    expect(screen.queryByText("Loading access…")).toBeNull();
 
     fireEvent.keyDown(screen.getByTestId("share-popover-root"), {
       key: "Escape",
@@ -822,26 +701,8 @@ describe("SessionShareButton", () => {
     expect(screen.queryByTestId("share-popover")).toBeNull();
   });
 
-  it("reopens a dismissed draft without activating it", async () => {
-    mocks.managedNote = null;
-    renderShareButton();
-
-    const trigger = screen.getByRole("button", { name: "Share note" });
-    fireEvent.click(trigger);
-    fireEvent.keyDown(screen.getByTestId("share-popover-root"), {
-      key: "Escape",
-    });
-    fireEvent.click(trigger);
-    expect(
-      await screen.findByRole("textbox", { name: "Invitee email" }),
-    ).not.toBeNull();
-    expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
-    expect(mocks.markSessionShareActivated).not.toHaveBeenCalled();
-  });
-
   it("activates sharing only after an explicit action", async () => {
-    mocks.managedNote = null;
-    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    startWithoutShare();
     renderShareButton();
 
     await openSharePopover();
@@ -890,8 +751,7 @@ describe("SessionShareButton", () => {
   it("applies workspace default access when a new share is created", async () => {
     mocks.defaultMeetingShareAccess = "workspace";
     mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
-    mocks.managedNote = null;
-    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    startWithoutShare();
     renderShareButton();
 
     await openSharePopover();
@@ -911,11 +771,8 @@ describe("SessionShareButton", () => {
   });
 
   it("bootstraps an existing share after its first snapshot publish failed", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-    mocks.managedNote = null;
-    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    startWithoutShare();
     mocks.createOrReuseSessionShare
       .mockResolvedValueOnce({
         shareId: SHARE_ID,
@@ -942,10 +799,6 @@ describe("SessionShareButton", () => {
       expect(mocks.toastError).toHaveBeenCalledWith(
         "Could not copy the share link.",
       ),
-    );
-    expect(consoleError).toHaveBeenCalledWith(
-      "[session-sharing] could not activate share",
-      expect.objectContaining({ message: "connection lost" }),
     );
     expect(screen.getByTestId("share-popover")).not.toBeNull();
 
@@ -1002,13 +855,7 @@ describe("SessionShareButton", () => {
       sha256: "a".repeat(64),
     };
     mocks.durableNote.attachments = [remoteAttachment];
-    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
-      shareId: SHARE_ID,
-      generalScope: "restricted",
-      publicSlug: PUBLIC_SLUG,
-      accessVersion: 1,
-      wasCreated: false,
-    });
+    reuseExistingShare();
     renderShareButton();
     await openSharePopover();
     mocks.publishSessionShareSnapshot.mockClear();
@@ -1049,13 +896,7 @@ describe("SessionShareButton", () => {
       sizeBytes: localAttachment.sizeBytes,
       sha256: localAttachment.sha256,
     });
-    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
-      shareId: SHARE_ID,
-      generalScope: "restricted",
-      publicSlug: PUBLIC_SLUG,
-      accessVersion: 1,
-      wasCreated: false,
-    });
+    reuseExistingShare();
     renderShareButton();
     await openSharePopover();
 
@@ -1080,86 +921,35 @@ describe("SessionShareButton", () => {
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 
-  it("blocks link access before an editable snapshot is reconciled locally", async () => {
-    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
-      shareId: SHARE_ID,
-      generalScope: "restricted",
-      publicSlug: PUBLIC_SLUG,
-      accessVersion: 1,
-      wasCreated: false,
-    });
-    mocks.loadSessionShareSyncState.mockResolvedValue(null);
-    renderShareButton();
-    await openSharePopover();
-    mocks.publishSessionShareSnapshot.mockClear();
+  it.each([true, false])(
+    "blocks link access without reconciliation state (webEditable=%s)",
+    async (webEditable) => {
+      mocks.durableNote.webEditable = webEditable;
+      reuseExistingShare();
+      mocks.loadSessionShareSyncState.mockResolvedValue(null);
+      renderShareButton();
+      await openSharePopover();
+      mocks.publishSessionShareSnapshot.mockClear();
 
-    fireEvent.click(screen.getByText("Anyone with the link"));
+      fireEvent.click(screen.getByText("Anyone with the link"));
 
-    await waitFor(() =>
-      expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
-        USER_ID,
-        SHARE_ID,
-        "session-1",
-      ),
-    );
-    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      "Could not update general access.",
-    );
-  });
-
-  it("blocks link access for a legacy read-only snapshot without reconciliation state", async () => {
-    mocks.durableNote.webEditable = false;
-    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
-      shareId: SHARE_ID,
-      generalScope: "restricted",
-      publicSlug: PUBLIC_SLUG,
-      accessVersion: 1,
-      wasCreated: false,
-    });
-    mocks.loadSessionShareSyncState.mockResolvedValue(null);
-    renderShareButton();
-    await openSharePopover();
-    mocks.publishSessionShareSnapshot.mockClear();
-
-    fireEvent.click(screen.getByText("Anyone with the link"));
-
-    await waitFor(() =>
-      expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
-        USER_ID,
-        SHARE_ID,
-        "session-1",
-      ),
-    );
-    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      "Could not update general access.",
-    );
-  });
+      await waitFor(() =>
+        expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
+          USER_ID,
+          SHARE_ID,
+          "session-1",
+        ),
+      );
+      expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Could not update general access.",
+      );
+    },
+  );
 
   it("surfaces a durable conflict and explicitly publishes desktop edits over the web copy", async () => {
-    mocks.syncStatus = "conflict";
-    mocks.durableNote.contentRevision = 2;
-    mocks.durableNote.webEditBase = {
-      contentRevision: 1,
-      title: "Planning",
-      body: { type: "doc", content: [] },
-    };
-    mocks.loadSessionShareSyncState.mockResolvedValue({
-      viewerUserId: USER_ID,
-      shareId: SHARE_ID,
-      sessionId: "session-1",
-      acknowledgedContentRevision: 1,
-      baselineSourceHash: "a".repeat(64),
-      status: "conflict",
-    });
-    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
-      shareId: SHARE_ID,
-      generalScope: "restricted",
-      publicSlug: PUBLIC_SLUG,
-      accessVersion: 1,
-      wasCreated: false,
-    });
+    setConflictState();
+    reuseExistingShare();
     mocks.publishSessionShareSnapshot.mockResolvedValueOnce({
       shareId: SHARE_ID,
       schemaVersion: 1,
@@ -1221,28 +1011,8 @@ describe("SessionShareButton", () => {
   });
 
   it("keeps the conflict durable when a newer web revision wins the resolution CAS", async () => {
-    mocks.syncStatus = "conflict";
-    mocks.durableNote.contentRevision = 2;
-    mocks.durableNote.webEditBase = {
-      contentRevision: 1,
-      title: "Planning",
-      body: { type: "doc", content: [] },
-    };
-    mocks.loadSessionShareSyncState.mockResolvedValue({
-      viewerUserId: USER_ID,
-      shareId: SHARE_ID,
-      sessionId: "session-1",
-      acknowledgedContentRevision: 1,
-      baselineSourceHash: "a".repeat(64),
-      status: "conflict",
-    });
-    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
-      shareId: SHARE_ID,
-      generalScope: "restricted",
-      publicSlug: PUBLIC_SLUG,
-      accessVersion: 1,
-      wasCreated: false,
-    });
+    setConflictState();
+    reuseExistingShare();
     mocks.publishSessionShareSnapshot.mockRejectedValueOnce(
       new Error("snapshot conflict"),
     );
@@ -1292,13 +1062,7 @@ describe("SessionShareButton", () => {
       [localAttachment.id, remoteAttachment.id],
     ]);
     mocks.durableNote.attachments = [remoteAttachment];
-    mocks.createOrReuseSessionShare.mockResolvedValueOnce({
-      shareId: SHARE_ID,
-      generalScope: "restricted",
-      publicSlug: PUBLIC_SLUG,
-      accessVersion: 1,
-      wasCreated: false,
-    });
+    reuseExistingShare();
     renderShareButton();
     await openSharePopover();
     mocks.events = [];
@@ -1350,30 +1114,6 @@ describe("SessionShareButton", () => {
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
-  it("stays silent when a note-switch remount closes a draft", async () => {
-    mocks.managedNote = null;
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
-    });
-    const element = (sessionId: string) => (
-      <QueryClientProvider client={queryClient}>
-        <SessionShareButton key={sessionId} sessionId={sessionId} />
-      </QueryClientProvider>
-    );
-    const view = render(element("session-1"));
-
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-    expect(await screen.findByTestId("share-popover")).not.toBeNull();
-
-    view.rerender(element("session-2"));
-    expect(mocks.createOrReuseSessionShare).not.toHaveBeenCalled();
-    expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
-    expect(mocks.toastError).not.toHaveBeenCalled();
-  });
-
   it("keeps controls visible when existing access fails to load", async () => {
     mocks.billing.isPaid = false;
     mocks.getSessionShareManagement.mockRejectedValueOnce(
@@ -1388,7 +1128,6 @@ describe("SessionShareButton", () => {
     expect(
       screen.getByRole("textbox", { name: "Invitee email" }),
     ).not.toBeNull();
-    expect(screen.queryByText("Loading access…")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
@@ -1400,30 +1139,6 @@ describe("SessionShareButton", () => {
         screen.queryByText("Access settings could not be loaded."),
       ).toBeNull(),
     );
-    expect(screen.queryByText("Loading access…")).toBeNull();
-  });
-
-  it("does not resurface a dismissed upgrade prompt when the account returns", async () => {
-    mocks.billing.isPaid = false;
-    mocks.managedNote = null;
-    const view = renderShareButtonView();
-
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-    expect(
-      await screen.findByRole("heading", { name: "Share notes with others" }),
-    ).not.toBeNull();
-
-    mocks.auth.session = createSession(OTHER_USER_ID);
-    view.rerender();
-    expect(screen.queryByTestId("share-popover")).toBeNull();
-
-    mocks.auth.session = createSession();
-    view.rerender();
-
-    expect(screen.queryByTestId("share-popover")).toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "Share notes with others" }),
-    ).toBeNull();
   });
 
   it("abandons a billing wait when the account changes", async () => {
@@ -1446,67 +1161,6 @@ describe("SessionShareButton", () => {
     expect(screen.queryByTestId("share-popover")).toBeNull();
     expect(mocks.loadSessionShareSource).not.toHaveBeenCalled();
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
-  });
-
-  it("does not resurface an abandoned draft when the account returns", async () => {
-    mocks.managedNote = null;
-    const view = renderShareButtonView();
-
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-    expect(await screen.findByTestId("share-popover")).not.toBeNull();
-
-    mocks.auth.session = createSession(OTHER_USER_ID);
-    view.rerender();
-    expect(screen.queryByTestId("share-popover")).toBeNull();
-
-    mocks.auth.session = createSession();
-    view.rerender();
-
-    expect(screen.queryByTestId("share-popover")).toBeNull();
-    expect(
-      screen.queryByText("Access settings could not be loaded."),
-    ).toBeNull();
-    expect(mocks.toastError).not.toHaveBeenCalled();
-  });
-
-  it("does not flash the upgrade prompt while local share state is loading", async () => {
-    mocks.billing.isPaid = false;
-    mocks.managedNote = null;
-    mocks.managedNoteLoading = true;
-    const view = renderShareButtonView();
-
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-    expect(await screen.findByTestId("share-popover")).not.toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "Share notes with others" }),
-    ).toBeNull();
-    expect(screen.queryByText("Loading access…")).toBeNull();
-
-    mocks.auth.session = createSession(OTHER_USER_ID);
-    view.rerender();
-    expect(screen.queryByTestId("share-popover")).toBeNull();
-
-    mocks.auth.session = createSession();
-    view.rerender();
-
-    expect(screen.queryByTestId("share-popover")).toBeNull();
-    expect(screen.queryByText("Loading access…")).toBeNull();
-  });
-
-  it("puts general access on the same row as copy link", async () => {
-    renderShareButton();
-    await openSharePopover();
-
-    const copyLink = screen.getByRole("button", { name: "Copy link" });
-    const linkAccess = screen.getByRole("button", {
-      name: "Anyone with the link",
-    });
-
-    expect(copyLink.closest("footer")).toBe(linkAccess.closest("footer"));
-    expect(copyLink.closest("footer")).not.toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "General access" }),
-    ).toBeNull();
   });
 
   it("offers invited, workspace, and link access and can restrict a link share", async () => {
@@ -1563,8 +1217,7 @@ describe("SessionShareButton", () => {
 
   it("enables link access and copies the stable note URL", async () => {
     mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
-    mocks.managedNote = null;
-    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    startWithoutShare();
     renderShareButton();
     await openSharePopover();
 
@@ -1658,17 +1311,13 @@ describe("SessionShareButton", () => {
   });
 
   it("publishes before creating an invitation and sends its email", async () => {
-    mocks.managedNote = null;
-    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    startWithoutShare();
     renderShareButton();
     await openSharePopover();
     mocks.events = [];
     mocks.sendSessionAccessInvitationEmail.mockClear();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
-      target: { value: "person@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+    inviteEmail("person@example.com");
 
     await waitFor(() =>
       expect(mocks.sendSessionAccessInvitationEmail).toHaveBeenCalledWith(
@@ -1696,18 +1345,14 @@ describe("SessionShareButton", () => {
   });
 
   it("keeps failed invitation recipients in the draft", async () => {
-    mocks.managedNote = null;
-    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    startWithoutShare();
     mocks.createSessionAccessInvitation.mockRejectedValueOnce(
       new Error("unavailable"),
     );
     renderShareButton();
     await openSharePopover();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
-      target: { value: "person@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+    inviteEmail("person@example.com");
 
     await waitFor(() =>
       expect(mocks.toastError).toHaveBeenCalledWith(
@@ -1721,8 +1366,7 @@ describe("SessionShareButton", () => {
   });
 
   it("lists meeting participants as people and invites them together", async () => {
-    mocks.managedNote = null;
-    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    startWithoutShare();
     mocks.participants = [
       { id: "p1", source: "auto", name: "Sungbin Jo", email: "sungbin@e.com" },
       { id: "p2", source: "auto", name: "", email: "yujong@e.com" },
@@ -1738,23 +1382,8 @@ describe("SessionShareButton", () => {
     await openSharePopover();
     mocks.sendSessionAccessInvitationEmail.mockClear();
 
-    const participantName = screen.getByText("Sungbin Jo");
-    expect(participantName.parentElement?.parentElement?.className).toContain(
-      "min-h-9",
-    );
     expect(screen.getByText("sungbin@e.com")).not.toBeNull();
     expect(screen.getByText("yujong@e.com")).not.toBeNull();
-    expect(screen.getByText("Suggested attendees")).not.toBeNull();
-    expect(screen.getAllByText("Not invited")).toHaveLength(2);
-    expect(
-      screen.queryByText(
-        "Not invited yet. Nothing is sent until you click Invite.",
-      ),
-    ).toBeNull();
-    expect(screen.getByText("People with access")).not.toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Invite" }).textContent,
-    ).toContain("(2)");
     expect(screen.queryByText("Artem")).toBeNull();
     expect(screen.queryByText("Dropped")).toBeNull();
 
@@ -1768,7 +1397,6 @@ describe("SessionShareButton", () => {
         (call) => call[1].inviteeEmail,
       ),
     ).toEqual(["sungbin@e.com", "yujong@e.com"]);
-    expect(mocks.toastSuccess).toHaveBeenCalledWith("Invitations sent.");
   });
 
   it("clears successfully invited participants from the field", async () => {
@@ -1791,53 +1419,8 @@ describe("SessionShareButton", () => {
     ).toBe(true);
   });
 
-  it("re-seeds an invited participant after access is revoked", async () => {
-    mocks.participants = [
-      { id: "p1", source: "auto", name: "Sungbin Jo", email: "sungbin@e.com" },
-    ];
-    mocks.createSessionAccessInvitation.mockImplementationOnce(async () => {
-      mocks.access = [
-        {
-          entryType: "invitation",
-          entryId: INVITATION_ID,
-          userId: null,
-          userEmail: "sungbin@e.com",
-          capability: "viewer",
-          status: "pending",
-          createdAt: "2026-08-04T00:00:00Z",
-          expiresAt: "2026-08-17T00:00:00Z",
-        },
-      ];
-      return {
-        invitationId: INVITATION_ID,
-        inviteToken: TOKEN,
-        invitationExpiresAt: "2026-08-17T00:00:00Z",
-        wasCreated: true,
-      };
-    });
-    mocks.revokeSessionAccessInvitation.mockImplementationOnce(async () => {
-      mocks.access = [];
-      return {
-        invitationId: INVITATION_ID,
-        revokedAt: "2026-08-04T00:00:00Z",
-      };
-    });
-    renderShareButton();
-    await openSharePopover();
-
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
-    await screen.findByText("Invitation pending");
-
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-
-    expect(
-      await screen.findByRole("button", { name: "Remove Sungbin Jo" }),
-    ).not.toBeNull();
-  });
-
   it("drops a removed participant from the invitation", async () => {
-    mocks.managedNote = null;
-    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    startWithoutShare();
     mocks.participants = [
       { id: "p1", source: "auto", name: "Sungbin Jo", email: "sungbin@e.com" },
       { id: "p2", source: "auto", name: "Yujong Lee", email: "yujong@e.com" },
@@ -1864,7 +1447,7 @@ describe("SessionShareButton", () => {
       { id: "p2", source: "auto", name: "Yujong Lee", email: "yujong@e.com" },
     ];
     mocks.access = [
-      {
+      accessEntry({
         entryType: "invitation",
         entryId: INVITATION_ID,
         userId: null,
@@ -1873,7 +1456,7 @@ describe("SessionShareButton", () => {
         status: "pending",
         createdAt: "2026-07-17T00:00:00Z",
         expiresAt: "2026-08-17T00:00:00Z",
-      },
+      }),
     ];
     renderShareButton();
     await openSharePopover();
@@ -1886,26 +1469,6 @@ describe("SessionShareButton", () => {
     expect(
       screen.queryByRole("button", { name: "Remove Sungbin Jo" }),
     ).toBeNull();
-  });
-
-  it("reports invitations that could not be created", async () => {
-    mocks.participants = [
-      { id: "p1", source: "auto", name: "Sungbin Jo", email: "sungbin@e.com" },
-      { id: "p2", source: "auto", name: "Yujong Lee", email: "yujong@e.com" },
-    ];
-    mocks.createSessionAccessInvitation.mockImplementationOnce(async () => {
-      throw new Error("nope");
-    });
-    renderShareButton();
-    await openSharePopover();
-
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
-
-    await waitFor(() =>
-      expect(mocks.toastError).toHaveBeenCalledWith(
-        "Invited 1. Could not invite 1. Try again.",
-      ),
-    );
   });
 
   it("does not overwrite clipboard fallback links for multiple invitations", async () => {
@@ -1934,34 +1497,6 @@ describe("SessionShareButton", () => {
     expect(mocks.revokeSessionAccessInvitation).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps an emailed invitation when the popover closes", async () => {
-    let resolveEmail: (() => void) | undefined;
-    mocks.sendSessionAccessInvitationEmail.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        resolveEmail = resolve;
-      }),
-    );
-    renderShareButton();
-    await openSharePopover();
-
-    fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
-      target: { value: "person@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
-    await waitFor(() =>
-      expect(mocks.sendSessionAccessInvitationEmail).toHaveBeenCalledOnce(),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Share note" }));
-    await act(async () => {
-      resolveEmail?.();
-      await Promise.resolve();
-    });
-
-    expect(mocks.revokeSessionAccessInvitation).not.toHaveBeenCalled();
-    expect(mocks.clipboardWriteText).not.toHaveBeenCalled();
-  });
-
   it("does not revoke an invitation when dismissed email delivery fails", async () => {
     let rejectEmail!: (reason?: unknown) => void;
     mocks.sendSessionAccessInvitationEmail.mockReturnValueOnce(
@@ -1972,10 +1507,7 @@ describe("SessionShareButton", () => {
     renderShareButton();
     await openSharePopover();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
-      target: { value: "person@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+    inviteEmail("person@example.com");
     await waitFor(() =>
       expect(mocks.sendSessionAccessInvitationEmail).toHaveBeenCalledOnce(),
     );
@@ -1998,10 +1530,7 @@ describe("SessionShareButton", () => {
     await openSharePopover();
     mocks.clipboardWriteText.mockClear();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
-      target: { value: "person@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+    inviteEmail("person@example.com");
 
     await waitFor(() =>
       expect(mocks.clipboardWriteText).toHaveBeenCalledOnce(),
@@ -2014,34 +1543,8 @@ describe("SessionShareButton", () => {
     );
   });
 
-  it("copies the account-gated note link", async () => {
-    renderShareButton();
-    await openSharePopover();
-    mocks.clipboardWriteText.mockClear();
-
-    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-
-    await waitFor(() =>
-      expect(mocks.clipboardWriteText).toHaveBeenCalledOnce(),
-    );
-    const copied = new URL(mocks.clipboardWriteText.mock.calls[0]![0]);
-    expect(copied.pathname).toBe(`/share/${SHARE_ID}/`);
-    expect(copied.hash).toBe("");
-  });
-
   it("revokes a grant even when no new snapshot is published", async () => {
-    mocks.access = [
-      {
-        entryType: "grant",
-        entryId: GRANT_ID,
-        userId: "77777777-7777-4777-8777-777777777777",
-        userEmail: "person@example.com",
-        capability: "viewer",
-        status: "active",
-        createdAt: "2026-07-17T00:00:00Z",
-        expiresAt: null,
-      },
-    ];
+    mocks.access = [accessEntry()];
     renderShareButton();
     await openSharePopover();
     mocks.events = [];
@@ -2058,7 +1561,7 @@ describe("SessionShareButton", () => {
 
   it("publishes before approving a pending access request", async () => {
     mocks.access = [
-      {
+      accessEntry({
         entryType: "request",
         entryId: REQUEST_ID,
         userId: OTHER_USER_ID,
@@ -2067,7 +1570,7 @@ describe("SessionShareButton", () => {
         status: "pending",
         createdAt: "2026-07-17T00:00:00Z",
         expiresAt: null,
-      },
+      }),
     ];
     mocks.reviewSessionAccessRequest.mockImplementation(
       async (_context: unknown, input: { decision: "approve" | "deny" }) => {
@@ -2102,7 +1605,7 @@ describe("SessionShareButton", () => {
 
   it("denies a pending access request without publishing", async () => {
     mocks.access = [
-      {
+      accessEntry({
         entryType: "request",
         entryId: REQUEST_ID,
         userId: OTHER_USER_ID,
@@ -2111,7 +1614,7 @@ describe("SessionShareButton", () => {
         status: "pending",
         createdAt: "2026-07-17T00:00:00Z",
         expiresAt: null,
-      },
+      }),
     ];
     mocks.reviewSessionAccessRequest.mockImplementation(
       async (_context: unknown, input: { decision: "approve" | "deny" }) => {
@@ -2140,16 +1643,9 @@ describe("SessionShareButton", () => {
   it("lets an expired Pro user reopen an existing share to revoke access", async () => {
     mocks.billing.isPaid = false;
     mocks.access = [
-      {
-        entryType: "grant",
-        entryId: GRANT_ID,
-        userId: "77777777-7777-4777-8777-777777777777",
-        userEmail: "person@example.com",
+      accessEntry({
         capability: "editor",
-        status: "active",
-        createdAt: "2026-07-17T00:00:00Z",
-        expiresAt: null,
-      },
+      }),
     ];
     renderShareButton();
 

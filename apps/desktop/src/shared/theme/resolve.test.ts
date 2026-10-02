@@ -3,16 +3,15 @@ import { describe, expect, it } from "vitest";
 import { resolveIsDarkMode } from "./resolve";
 
 describe("resolveIsDarkMode", () => {
-  it("returns true for dark theme", () => {
-    expect(resolveIsDarkMode("dark", false)).toBe(true);
-  });
-
-  it("returns false for light theme", () => {
-    expect(resolveIsDarkMode("light", true)).toBe(false);
-  });
-
-  it("follows system preference for system theme", () => {
-    expect(resolveIsDarkMode("system", true)).toBe(true);
-    expect(resolveIsDarkMode("system", false)).toBe(false);
-  });
+  it.each([
+    ["dark", false, true],
+    ["light", true, false],
+    ["system", true, true],
+    ["system", false, false],
+  ] as const)(
+    "resolves %s theme with system appearance %s to %s",
+    (theme, prefersDark, expected) => {
+      expect(resolveIsDarkMode(theme, prefersDark)).toBe(expected);
+    },
+  );
 });

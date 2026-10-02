@@ -63,6 +63,7 @@ struct FloatingBarView: View {
   @State private var suppressNextClick = false
   @State private var dragStart: FloatingBarDragStart?
   private let transcriptBottomAnchorId = "floating-transcript-bottom-anchor"
+  private let transcriptNoticeId = "floating-transcript-notice"
 
   private var bodyHeight: CGFloat {
     containerSize.height - FloatingBarLayout.inset * 2 - FloatingBarLayout.hoverHandleReservedHeight
@@ -147,6 +148,15 @@ struct FloatingBarView: View {
                   )
                   .id(bubble.id)
                 }
+                if let notice = model.transcriptNotice {
+                  Text(notice)
+                    .font(.system(size: 12))
+                    .foregroundStyle(primaryContentColor.opacity(0.55))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .id(transcriptNoticeId)
+                }
               }
               Color.clear
                 .frame(height: FloatingBarLayout.expandedPadding)
@@ -160,6 +170,11 @@ struct FloatingBarView: View {
           .frame(maxWidth: .infinity, maxHeight: .infinity)
           .onChange(of: model.transcriptBubbles.last?.id) { _, bubbleId in
             if bubbleId != nil, shouldAutoScrollTranscript {
+              scrollTranscriptToBottom(proxy)
+            }
+          }
+          .onChange(of: model.transcriptNotice) { _, notice in
+            if notice != nil, shouldAutoScrollTranscript {
               scrollTranscriptToBottom(proxy)
             }
           }

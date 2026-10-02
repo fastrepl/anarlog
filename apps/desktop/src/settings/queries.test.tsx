@@ -64,38 +64,6 @@ import {
 } from "./queries";
 
 describe("SQLite settings", () => {
-  it.each([true, false])(
-    "persists and reloads the 24-hour preference as %s",
-    async (enabled) => {
-      await setSettingValues({ use_24_hour_time: enabled });
-      const [statement] = mocks.executeTransaction.mock.calls[0][0];
-      expect(statement.sql).toContain("INSERT INTO synced_preferences");
-      const stored = parseSettingRows([
-        {
-          id: String(statement.params[0]),
-          value_json: String(statement.params[1]),
-        },
-      ]);
-      expect(stored.values.use_24_hour_time).toBe(enabled);
-      expect(stored.hasValues.has("use_24_hour_time")).toBe(true);
-    },
-  );
-
-  it("persists and reloads export folders as device-local settings", async () => {
-    mocks.executeTransaction.mockClear();
-    await setSettingValues({ export_directory: "/Volumes/Work/Exports" });
-    const [statement] = mocks.executeTransaction.mock.calls[0][0];
-    expect(statement.sql).toContain("INSERT INTO app_settings");
-    const stored = parseSettingRows([
-      {
-        id: String(statement.params[0]),
-        value_json: String(statement.params[1]),
-      },
-    ]);
-    expect(stored.values.export_directory).toBe("/Volumes/Work/Exports");
-    expect(stored.hasValues.has("export_directory")).toBe(true);
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.setDisabled.mockResolvedValue({ status: "ok", data: null });
@@ -110,6 +78,59 @@ describe("SQLite settings", () => {
     });
   });
 
+  it.each([
+    {
+      key: "use_24_hour_time",
+      value: true,
+      table: "synced_preferences",
+    },
+    {
+      key: "use_24_hour_time",
+      value: false,
+      table: "synced_preferences",
+    },
+    {
+      key: "export_directory",
+      value: "/Volumes/Work/Exports",
+      table: "app_settings",
+    },
+    {
+      key: "microphone_device",
+      value: "External Microphone",
+      table: "app_settings",
+    },
+    {
+      key: "summary_length",
+      value: "crisp",
+      table: "app_settings",
+    },
+    {
+      key: "consent_auto_send_chat",
+      value: false,
+      table: "app_settings",
+    },
+  ] as const)(
+    "persists and reloads $key=$value in $table",
+    async ({ key, value, table }) => {
+      await setSettingValues({
+        [key]: value,
+      } as Parameters<typeof setSettingValues>[0]);
+
+      const [statement] = mocks.executeTransaction.mock.calls[0][0];
+      expect(statement.sql).toContain(`INSERT INTO ${table}`);
+      expect(statement.params[0]).toBe(key);
+
+      const stored = parseSettingRows([
+        {
+          id: String(statement.params[0]),
+          value_json: String(statement.params[1]),
+        },
+      ]);
+      expect(stored.values[key]).toBe(value);
+      expect(stored.hasValues.has(key)).toBe(true);
+    },
+  );
+
   it("maps the imported settings document into typed values", () => {
     const result = parseSettingRows([
       {
@@ -118,6 +139,7 @@ describe("SQLite settings", () => {
           general: {
             theme: "dark",
             save_recordings: false,
+            consent_auto_send_chat: true,
           },
           language: {
             spoken_languages: ["en", "ko"],
@@ -134,6 +156,7 @@ describe("SQLite settings", () => {
     expect(result.values.spoken_languages).toBe('["en","ko"]');
     expect(result.values.ignored_platforms).toBe('["com.example.video"]');
     expect(result.hasValues.has("theme")).toBe(true);
+    expect(result.values.consent_auto_send_chat).toBe(true);
   });
 
   it("prefers valid direct rows and falls back from corrupt ones", () => {
@@ -233,53 +256,6 @@ describe("SQLite settings", () => {
 
     expect(mocks.setErrorReportingEnabled).toHaveBeenCalledWith(false);
     expect(mocks.setDisabled).not.toHaveBeenCalled();
-  });
-
-  it("migrates and persists the consent chat auto-send setting", async () => {
-    const imported = parseSettingRows([
-      {
-        id: "legacy_settings_document",
-        value_json: JSON.stringify({
-          general: { consent_auto_send_chat: true },
-        }),
-      },
-    ]);
-
-    expect(imported.values.consent_auto_send_chat).toBe(true);
-
-    await setSettingValues({ consent_auto_send_chat: false });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.params.slice(0, 2)).toEqual([
-      "consent_auto_send_chat",
-      JSON.stringify(false),
-    ]);
-  });
-
-  it("persists the selected microphone in SQLite settings", async () => {
-    await setSettingValues({ microphone_device: "External Microphone" });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.params.slice(0, 2)).toEqual([
-      "microphone_device",
-      JSON.stringify("External Microphone"),
-    ]);
-  });
-
-  it("persists and restores the summary length mode", async () => {
-    await setSettingValues({ summary_length: "crisp" });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.params.slice(0, 2)).toEqual([
-      "summary_length",
-      JSON.stringify("crisp"),
-    ]);
-
-    const restored = parseSettingRows([
-      { id: "summary_length", value_json: JSON.stringify("balanced") },
-    ]);
-    expect(restored.values.summary_length).toBe("balanced");
-    expect(restored.hasValues.has("summary_length")).toBe(true);
   });
 
   it("preserves the legacy telemetry choice when splitting crash reporting", async () => {

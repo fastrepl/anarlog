@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  formatSidebarItemTags,
-  parseSessionTagNames,
-  resolveSidebarItemMeta,
-} from "./item-fields";
+import { parseSessionTagNames, resolveSidebarItemMeta } from "./item-fields";
 
 describe("parseSessionTagNames", () => {
   it("trims, dedupes, and sorts JSON tag names", () => {
@@ -30,45 +26,26 @@ describe("parseSessionTagNames", () => {
 });
 
 describe("resolveSidebarItemMeta", () => {
-  it("shows the folder above the title by default", () => {
+  it.each([
+    ["shows the folder by default", true, false, "date", "CS 101/week-3", []],
+    [
+      "hides the folder when grouped by folder",
+      true,
+      true,
+      "folder",
+      "",
+      ["launch"],
+    ],
+    ["omits fields the user turned off", false, false, "date", "", []],
+  ] as const)("%s", (_, showFolder, showTags, groupBy, folder, tags) => {
     expect(
       resolveSidebarItemMeta({
         folderId: "CS 101/week-3",
         tags: ["launch"],
-        showFolder: true,
-        showTags: false,
-        groupBy: "date",
+        showFolder,
+        showTags,
+        groupBy,
       }),
-    ).toEqual({ folder: "CS 101/week-3", tags: [] });
-  });
-
-  it("hides the folder when notes are already grouped by folder", () => {
-    expect(
-      resolveSidebarItemMeta({
-        folderId: "work",
-        tags: ["launch"],
-        showFolder: true,
-        showTags: true,
-        groupBy: "folder",
-      }),
-    ).toEqual({ folder: "", tags: ["launch"] });
-  });
-
-  it("omits fields the user turned off", () => {
-    expect(
-      resolveSidebarItemMeta({
-        folderId: "work",
-        tags: ["launch"],
-        showFolder: false,
-        showTags: false,
-        groupBy: "date",
-      }),
-    ).toEqual({ folder: "", tags: [] });
-  });
-});
-
-describe("formatSidebarItemTags", () => {
-  it("prefixes each tag", () => {
-    expect(formatSidebarItemTags(["launch", "prep"])).toBe("#launch #prep");
+    ).toEqual({ folder, tags });
   });
 });

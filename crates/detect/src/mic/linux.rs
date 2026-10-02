@@ -268,10 +268,9 @@ fn is_source_output_event(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Observer, new_callback};
 
     #[test]
-    fn source_output_lifecycle_events_request_state_refresh() {
+    fn only_source_output_lifecycle_events_request_state_refresh() {
         use pulse::context::subscribe::{Facility, Operation};
 
         for operation in [Operation::New, Operation::Changed, Operation::Removed] {
@@ -280,11 +279,6 @@ mod tests {
                 Some(operation)
             ));
         }
-    }
-
-    #[test]
-    fn source_device_events_do_not_request_state_refresh() {
-        use pulse::context::subscribe::{Facility, Operation};
 
         assert!(!is_source_output_event(
             Some(Facility::Source),
@@ -368,17 +362,5 @@ mod tests {
         .shutdown();
 
         assert!(exited.load(Ordering::SeqCst));
-    }
-
-    #[tokio::test]
-    #[ignore = "requires a live PulseAudio server and microphone client"]
-    async fn test_detector() {
-        let mut detector = Detector::default();
-        detector.start(new_callback(|v| {
-            println!("{:?}", v);
-        }));
-
-        tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-        detector.stop();
     }
 }

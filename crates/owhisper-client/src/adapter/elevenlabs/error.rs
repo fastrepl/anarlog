@@ -64,146 +64,115 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_auth_error() {
-        let data = br#"{"message_type": "auth_error", "error": "Invalid API key."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 401);
+    fn classifies_error_messages() {
+        for (data, http_code, ws_close_code) in [
+            (
+                br#"{"message_type": "auth_error", "error": "Invalid API key."}"#.as_slice(),
+                401,
+                4401,
+            ),
+            (
+                br#"{"message_type": "quota_exceeded", "error": "Your usage quota has been reached."}"#
+                    .as_slice(),
+                402,
+                4402,
+            ),
+            (
+                br#"{"message_type": "unaccepted_terms", "error": "Terms of service not accepted."}"#
+                    .as_slice(),
+                403,
+                4403,
+            ),
+            (
+                br#"{"message_type": "session_time_limit_exceeded", "error": "Session exceeded max duration."}"#
+                    .as_slice(),
+                408,
+                4000,
+            ),
+            (
+                br#"{"message_type": "chunk_size_exceeded", "error": "Audio chunks too large."}"#
+                    .as_slice(),
+                413,
+                4000,
+            ),
+            (
+                br#"{"message_type": "rate_limited", "error": "Too many requests."}"#.as_slice(),
+                429,
+                4429,
+            ),
+            (
+                br#"{"message_type": "commit_throttled", "error": "Too many commit calls."}"#
+                    .as_slice(),
+                429,
+                4429,
+            ),
+            (
+                br#"{"message_type": "input_error", "error": "Audio format invalid or not supported."}"#
+                    .as_slice(),
+                400,
+                4400,
+            ),
+            (
+                br#"{"message_type": "insufficient_audio_activity", "error": "No speech detected."}"#
+                    .as_slice(),
+                400,
+                4400,
+            ),
+            (
+                br#"{"message_type": "queue_overflow", "error": "Internal queue overloaded."}"#
+                    .as_slice(),
+                503,
+                4500,
+            ),
+            (
+                br#"{"message_type": "resource_exhausted", "error": "Resource exhausted."}"#
+                    .as_slice(),
+                503,
+                4500,
+            ),
+            (
+                br#"{"message_type": "transcriber_error", "error": "Internal transcription failure."}"#
+                    .as_slice(),
+                500,
+                4500,
+            ),
+            (
+                br#"{"message_type": "error", "error": "Server error."}"#.as_slice(),
+                500,
+                4500,
+            ),
+        ] {
+            let err = detect_error(data).unwrap();
+            assert_eq!(err.http_code, http_code, "{data:?}");
+            assert_eq!(err.to_ws_close_code(), ws_close_code, "{data:?}");
+            let parsed: serde_json::Value = serde_json::from_slice(data).unwrap();
+            assert_eq!(
+                err.provider_code,
+                Some(parsed["message_type"].as_str().unwrap().to_string()),
+                "{data:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn error_payload_carries_message_and_provider_code() {
+        let err = detect_error(br#"{"message_type": "auth_error", "error": "Invalid API key."}"#)
+            .unwrap();
         assert_eq!(err.message, "Invalid API key.");
-        assert_eq!(err.provider_code, Some("auth_error".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4401);
-    }
 
-    #[test]
-    fn test_quota_exceeded() {
-        let data =
-            br#"{"message_type": "quota_exceeded", "error": "Your usage quota has been reached."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 402);
-        assert_eq!(err.message, "Your usage quota has been reached.");
-        assert_eq!(err.provider_code, Some("quota_exceeded".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4402);
-    }
-
-    #[test]
-    fn test_input_error() {
-        let data = br#"{"message_type": "input_error", "error": "Audio format invalid or not supported."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert_eq!(err.message, "Audio format invalid or not supported.");
-        assert_eq!(err.provider_code, Some("input_error".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4400);
-    }
-
-    #[test]
-    fn test_rate_limited() {
-        let data = br#"{"message_type": "rate_limited", "error": "Too many requests."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 429);
-        assert_eq!(err.message, "Too many requests.");
-        assert_eq!(err.to_ws_close_code(), 4429);
-    }
-
-    #[test]
-    fn test_transcriber_error() {
-        let data =
-            br#"{"message_type": "transcriber_error", "error": "Internal transcription failure."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 500);
-        assert_eq!(err.message, "Internal transcription failure.");
-        assert_eq!(err.to_ws_close_code(), 4500);
-    }
-
-    #[test]
-    fn test_queue_overflow() {
-        let data = br#"{"message_type": "queue_overflow", "error": "Internal queue overloaded."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 503);
-        assert_eq!(err.to_ws_close_code(), 4500);
-    }
-
-    #[test]
-    fn test_resource_exhausted() {
-        let data = br#"{"message_type": "resource_exhausted", "error": "Resource exhausted."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 503);
-        assert_eq!(err.provider_code, Some("resource_exhausted".to_string()));
-        assert_eq!(err.to_ws_close_code(), 4500);
-    }
-
-    #[test]
-    fn test_commit_throttled() {
-        let data = br#"{"message_type": "commit_throttled", "error": "Too many commit calls."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 429);
-        assert_eq!(err.to_ws_close_code(), 4429);
-    }
-
-    #[test]
-    fn test_unaccepted_terms() {
-        let data =
-            br#"{"message_type": "unaccepted_terms", "error": "Terms of service not accepted."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 403);
-        assert_eq!(err.to_ws_close_code(), 4403);
-    }
-
-    #[test]
-    fn test_session_time_limit() {
-        let data = br#"{"message_type": "session_time_limit_exceeded", "error": "Session exceeded max duration."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 408);
-        assert_eq!(err.to_ws_close_code(), 4000);
-    }
-
-    #[test]
-    fn test_chunk_size_exceeded() {
-        let data =
-            br#"{"message_type": "chunk_size_exceeded", "error": "Audio chunks too large."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 413);
-        assert_eq!(err.to_ws_close_code(), 4000);
-    }
-
-    #[test]
-    fn test_insufficient_audio() {
-        let data =
-            br#"{"message_type": "insufficient_audio_activity", "error": "No speech detected."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 400);
-        assert_eq!(err.to_ws_close_code(), 4400);
-    }
-
-    #[test]
-    fn test_generic_error() {
-        let data = br#"{"message_type": "error", "error": "Server error."}"#;
-        let err = detect_error(data).unwrap();
-        assert_eq!(err.http_code, 500);
-        assert_eq!(err.to_ws_close_code(), 4500);
-    }
-
-    #[test]
-    fn test_error_without_message() {
-        let data = br#"{"message_type": "auth_error"}"#;
-        let err = detect_error(data).unwrap();
+        let err = detect_error(br#"{"message_type": "auth_error"}"#).unwrap();
         assert_eq!(err.http_code, 401);
         assert_eq!(err.message, "Unknown error");
     }
 
     #[test]
-    fn test_non_error_message() {
-        let data = br#"{"message_type": "partial_transcript", "text": "hello"}"#;
-        assert!(detect_error(data).is_none());
-    }
-
-    #[test]
-    fn test_session_started() {
-        let data = br#"{"message_type": "session_started", "session_id": "abc123"}"#;
-        assert!(detect_error(data).is_none());
-    }
-
-    #[test]
-    fn test_empty_json() {
-        let data = br#"{}"#;
-        assert!(detect_error(data).is_none());
+    fn ignores_non_error_and_empty_messages() {
+        for data in [
+            br#"{"message_type": "partial_transcript", "text": "hello"}"#.as_slice(),
+            br#"{"message_type": "session_started", "session_id": "abc123"}"#.as_slice(),
+            br#"{}"#.as_slice(),
+        ] {
+            assert!(detect_error(data).is_none(), "{data:?}");
+        }
     }
 }

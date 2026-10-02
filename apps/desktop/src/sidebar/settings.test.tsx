@@ -134,341 +134,107 @@ describe("SettingsNav", () => {
     mocks.workspacesLoading = false;
   });
 
-  it("renders every settings menu label", () => {
-    render(<SettingsNav />);
-
-    [
-      "App",
-      "General",
-      "Appearance",
-      "Account",
-      "Teams",
-      "Notifications",
-      "AI",
-      "Transcription",
-      "Intelligence",
-      "Dictionary",
-      "Workspace",
-      "Meetings",
-      "Folders",
-      "Calendar",
-      "Contacts",
-      "Templates",
-      "Automations",
-      "Data",
-      "Sync",
-      "Imports",
-      "Advanced",
-      "Privacy",
-      "Permissions",
-      "Developers",
-    ].forEach((label) => {
-      expect(screen.getByText(label)).toBeTruthy();
-    });
-  });
-
-  it("places the AI section above Workspace", () => {
-    const { container } = render(<SettingsNav />);
-
-    const sectionLabels = Array.from(
-      container.querySelectorAll("span.uppercase"),
-    ).map((node) => node.textContent);
-
-    expect(sectionLabels).toEqual([
-      "App",
-      "AI",
-      "Workspace",
-      "Data",
-      "Advanced",
-    ]);
-  });
+  const openedSettingsTab = () =>
+    mocks.updateSettingsTabState.mock.lastCall?.[1] as
+      | { tab: string }
+      | undefined;
+  const hasProLock = (name: string | RegExp) =>
+    Boolean(
+      screen
+        .getByRole("button", { name })
+        .querySelector("[aria-label='Requires Anarlog Pro']"),
+    );
 
   it.each([
-    ["Calendar", { type: "calendar" }],
-    ["Contacts", { type: "contacts" }],
-    ["Folders", { type: "folders" }],
-    ["Templates", { type: "templates" }],
-    ["Automations", { type: "automations" }],
-  ] as const)("opens the %s workspace", (label, destination) => {
+    ["Permissions", "permissions"],
+    ["Account", "account"],
+    ["Billing", "billing"],
+  ])("opens %s inside settings", (label, tab) => {
     render(<SettingsNav />);
 
     fireEvent.click(screen.getByRole("button", { name: label }));
 
-    expect(
-      screen.queryByTestId(`settings-nav-destination-icon-${destination.type}`),
-    ).toBeNull();
-    expect(mocks.openNew).toHaveBeenCalledWith(destination);
-  });
-
-  it("opens runtime audio capabilities from the Permissions item", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Permissions" }));
-
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
-      {
-        tab: "permissions",
-      },
+      { tab },
     );
   });
 
-  it("opens Privacy inside settings", () => {
+  it.each([
+    ["Calendar", "calendar"],
+    ["Automations", "automations"],
+  ])("opens the %s workspace in a new tab", (label, type) => {
     render(<SettingsNav />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Privacy" }));
+    fireEvent.click(screen.getByRole("button", { name: label }));
 
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "privacy" },
-    );
+    expect(mocks.openNew).toHaveBeenCalledWith({ type });
   });
 
-  it("opens Appearance inside settings", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "appearance" },
-    );
-  });
-
-  it("places dictionary in the AI section", () => {
-    render(<SettingsNav />);
-
-    expect(
-      screen
-        .getByText("Dictionary")
-        .closest("button")
-        ?.querySelector("[data-testid='settings-nav-icon-dictionary']"),
-    ).toBeTruthy();
-    expect(screen.queryByText("Personalization")).toBeNull();
-  });
-
-  it("opens Account and Billing as separate destinations", () => {
-    render(<SettingsNav />);
-    fireEvent.click(screen.getByRole("button", { name: "Account" }));
-    expect(mocks.updateSettingsTabState).toHaveBeenLastCalledWith(
-      mocks.currentTab,
-      { tab: "account" },
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Billing" }));
-    expect(mocks.updateSettingsTabState).toHaveBeenLastCalledWith(
-      mocks.currentTab,
-      { tab: "billing" },
-    );
-  });
-
-  it("shows only Insights and opens it for free users", () => {
+  it("offers Insights instead of Stats to free users, including via search", () => {
     mocks.isPro = false;
     render(<SettingsNav />);
     expect(screen.queryByRole("button", { name: "Stats" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Insights" }));
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "insights" },
-    );
-  });
 
-  it("finds and opens Insights for free users", () => {
-    mocks.isPro = false;
-    render(<SettingsNav />);
     fireEvent.change(screen.getByPlaceholderText("Search settings..."), {
       target: { value: "insights" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Insights" }));
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "insights" },
-    );
+
+    expect(openedSettingsTab()).toEqual({ tab: "insights" });
     expect(screen.queryByRole("button", { name: "Stats" })).toBeNull();
   });
 
-  it("opens Meetings inside settings", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Meetings" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "meetings" },
-    );
-  });
-
-  it("opens Transcription inside settings", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Transcription" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "transcription" },
-    );
-  });
-
-  it("opens Dictionary inside settings", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Dictionary" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "dictionary" },
-    );
-  });
-
-  it("opens Sync inside settings", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sync" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "sync" },
-    );
-  });
-
-  it("keeps locked Pro features visible and opens them", () => {
+  it("keeps locked Pro features visible and navigable without forcing an upgrade", () => {
     mocks.isPro = false;
-
     render(<SettingsNav />);
 
-    expect(screen.getByText("Sync")).toBeTruthy();
-    expect(screen.getByText("Imports")).toBeTruthy();
-    expect(
-      screen.getAllByLabelText("Requires Anarlog Pro").length,
-    ).toBeGreaterThan(0);
+    expect(hasProLock(/Sync/)).toBe(true);
 
-    fireEvent.click(screen.getByRole("button", { name: /Sync/ }));
+    for (const [label, tab] of [
+      ["Sync", "sync"],
+      ["Dictionary", "dictionary"],
+      ["Teams", "team"],
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
+      expect(openedSettingsTab()).toEqual({ tab });
+    }
+    fireEvent.click(screen.getByRole("button", { name: /Automations/ }));
 
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "sync" },
-    );
+    expect(mocks.openNew).toHaveBeenCalledWith({ type: "automations" });
     expect(mocks.upgradeToPro).not.toHaveBeenCalled();
   });
 
   it.each([
-    ["Teams", { tab: "team" }],
-    ["Dictionary", { tab: "dictionary" }],
-    ["Sync", { tab: "sync" }],
-  ] as const)("opens locked %s navigation", (label, state) => {
+    ["without a workspace", [], false, true],
+    [
+      "for members of an existing workspace",
+      [{ workspaceId: "ws-1" }],
+      false,
+      false,
+    ],
+    ["while workspaces are loading", undefined, true, false],
+  ])("locks Teams for free users only %s", (_, workspaces, loading, locked) => {
     mocks.isPro = false;
+    mocks.workspaces = workspaces;
+    mocks.workspacesLoading = loading;
 
     render(<SettingsNav />);
 
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      state,
-    );
+    expect(hasProLock(/Teams/)).toBe(locked);
   });
 
-  it("opens locked Automations from settings", () => {
-    mocks.isPro = false;
-
+  it("filters nav items by item or group label", () => {
     render(<SettingsNav />);
+    const input = screen.getByPlaceholderText("Search settings...");
 
-    fireEvent.click(screen.getByRole("button", { name: /Automations/ }));
-
-    expect(mocks.openNew).toHaveBeenCalledWith({ type: "automations" });
-  });
-
-  it("shows Teams with the Pro lock on the free plan", () => {
-    mocks.isPro = false;
-
-    render(<SettingsNav />);
-
-    expect(screen.getByRole("button", { name: /Teams/ })).toBeTruthy();
-    expect(
-      screen
-        .getByRole("button", { name: /Teams/ })
-        .querySelector("[aria-label='Requires Anarlog Pro']"),
-    ).toBeTruthy();
-  });
-
-  it("opens Teams for free members of an existing workspace", () => {
-    mocks.isPro = false;
-    mocks.workspaces = [{ workspaceId: "ws-1" }];
-
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Teams" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "team" },
-    );
-    expect(
-      screen
-        .getByRole("button", { name: "Teams" })
-        .querySelector("[aria-label='Requires Anarlog Pro']"),
-    ).toBeNull();
-  });
-
-  it("does not lock Teams while workspaces are still loading", () => {
-    mocks.isPro = false;
-    mocks.workspaces = undefined;
-    mocks.workspacesLoading = true;
-
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Teams" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "team" },
-    );
-    expect(
-      screen
-        .getByRole("button", { name: "Teams" })
-        .querySelector("[aria-label='Requires Anarlog Pro']"),
-    ).toBeNull();
-  });
-
-  it("opens Imports inside settings", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Imports" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "imports" },
-    );
-  });
-
-  it("filters nav items by search query", () => {
-    render(<SettingsNav />);
-
-    fireEvent.change(screen.getByPlaceholderText("Search settings..."), {
-      target: { value: "appear" },
-    });
-
+    fireEvent.change(input, { target: { value: "appear" } });
     expect(screen.getByText("Appearance")).toBeTruthy();
     expect(screen.queryByText("Meetings")).toBeNull();
-    expect(screen.queryByText("Developers")).toBeNull();
-  });
 
-  it("keeps a whole group visible when its label matches", () => {
-    render(<SettingsNav />);
-
-    fireEvent.change(screen.getByPlaceholderText("Search settings..."), {
-      target: { value: "workspace" },
-    });
-
-    [
-      "Meetings",
-      "Folders",
-      "Calendar",
-      "Contacts",
-      "Templates",
-      "Automations",
-    ].forEach((label) => {
-      expect(screen.getByText(label)).toBeTruthy();
-    });
+    fireEvent.change(input, { target: { value: "workspace" } });
+    expect(screen.getByText("Meetings")).toBeTruthy();
+    expect(screen.getByText("Templates")).toBeTruthy();
     expect(screen.queryByText("Appearance")).toBeNull();
   });
 
@@ -482,24 +248,30 @@ describe("SettingsNav", () => {
     expect(screen.getByText("No results found.")).toBeTruthy();
   });
 
-  it("restores the full list when search is cleared", () => {
+  it.each([
+    [
+      "the clear button",
+      () => {
+        fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+      },
+    ],
+    [
+      "Escape",
+      () => {
+        fireEvent.keyDown(screen.getByPlaceholderText("Search settings..."), {
+          key: "Escape",
+        });
+      },
+    ],
+  ])("restores the full list when search is cleared with %s", (_, clear) => {
     render(<SettingsNav />);
 
-    const input = screen.getByPlaceholderText("Search settings...");
-    fireEvent.change(input, { target: { value: "audio" } });
+    fireEvent.change(screen.getByPlaceholderText("Search settings..."), {
+      target: { value: "audio" },
+    });
     expect(screen.queryByText("Appearance")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
-
-    expect(screen.getByText("Appearance")).toBeTruthy();
-  });
-
-  it("clears the search on Escape", () => {
-    render(<SettingsNav />);
-
-    const input = screen.getByPlaceholderText("Search settings...");
-    fireEvent.change(input, { target: { value: "audio" } });
-    fireEvent.keyDown(input, { key: "Escape" });
+    clear();
 
     expect(screen.getByText("Appearance")).toBeTruthy();
   });

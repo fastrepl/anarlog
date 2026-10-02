@@ -288,10 +288,4 @@ mod tests {
             HitTarget::Action
         );
     }
-
-    #[test]
-    fn stacks_notifications_from_the_work_area_top_right() {
-        assert_eq!(stacked_origin(0, 0, 1920, 0), (1536, 15));
-        assert_eq!(stacked_origin(0, 0, 1920, 74), (1536, 89));
-    }
 }

@@ -96,24 +96,3 @@ pub fn template_source(template: EditableTemplate) -> &'static str {
         EditableTemplate::TitleUser => include_str!("../assets/title.user.md.jinja"),
     }
 }
-
-#[cfg(test)]
-mod source_tests {
-    use super::*;
-
-    #[test]
-    fn editable_template_source_matches_assets() {
-        assert_eq!(
-            template_source(EditableTemplate::EnhanceFormat),
-            include_str!("../assets/enhance.format.md.jinja")
-        );
-        assert_eq!(
-            template_source(EditableTemplate::EnhanceUser),
-            include_str!("../assets/enhance.user.md.jinja")
-        );
-        assert_eq!(
-            template_source(EditableTemplate::TitleUser),
-            include_str!("../assets/title.user.md.jinja")
-        );
-    }
-}

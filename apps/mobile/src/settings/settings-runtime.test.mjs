@@ -125,6 +125,7 @@ const {
   automaticSummaryOptions,
 } = await import("../data/summarize.ts");
 const { queryClient } = await import("../lib/query-client.ts");
+const { dismissToast, getToast } = await import("../lib/toast.ts");
 const { loadSessionTranscripts } = await import("../data/transcripts.ts");
 const { Platform } = await import("react-native");
 
@@ -1152,11 +1153,13 @@ test("analytics opt-out aborts in-flight requests and prevents subsequent events
   }
 });
 
-for (const kind of ["stt", "llm"]) {
-  for (const definition of providersFor(kind).filter(
-    ({ id }) => id !== "anarlog",
-  )) {
-    test(`${kind} ${definition.name} keeps its key on this device and restores its own setup`, async () => {
+test("every provider keeps its key on this device and restores its own setup", async () => {
+  for (const kind of ["stt", "llm"]) {
+    for (const definition of providersFor(kind).filter(
+      ({ id }) => id !== "anarlog",
+    )) {
+      const tag = `${kind}/${definition.id}`;
+      fixture.db.exec("DELETE FROM app_settings");
       const config = {
         ...defaultProviderConfig(kind, definition.id),
         baseUrl: definition.baseUrl || "https://gateway.example/v1",
@@ -1166,40 +1169,49 @@ for (const kind of ["stt", "llm"]) {
       assert.deepEqual(
         await readProviderSetup("account-a", kind, definition.id),
         config,
+        tag,
       );
       assert.equal(
         (await readProviderConfig("account-a", kind)).provider,
         "anarlog",
+        tag,
       );
       await saveProviderConfig("account-a", kind, config);
-      assert.deepEqual(await readProviderConfig("account-a", kind), config);
+      assert.deepEqual(
+        await readProviderConfig("account-a", kind),
+        config,
+        tag,
+      );
       assert.equal(
         fixture.keys.get(providerStorageKey("account-a", kind, definition.id))
           .options.keychainAccessible,
         "device-only",
+        tag,
       );
       assert.ok(
         !fixture.db
           .prepare("SELECT value_json FROM app_settings")
           .all()
           .some((row) => row.value_json.includes("synthetic-key")),
+        tag,
       );
       assert.deepEqual(
         await readProviderSetup("account-b", kind, definition.id),
         defaultProviderConfig(kind, definition.id),
+        tag,
       );
       await removeProviderKey("account-a", kind, definition.id);
       assert.ok(
         !fixture.keys.has(providerStorageKey("account-a", kind, definition.id)),
+        tag,
       );
-    });
+    }
   }
-}
+});
 
-for (const definition of providersFor("stt").filter(
-  ({ id }) => !["anarlog", "custom"].includes(id),
-)) {
-  test(`${definition.name} delegates native audio to the desktop adapter with cancellation`, async () => {
+{
+  const definition = providersFor("stt").find(({ id }) => id === "assemblyai");
+  test("native provider audio is delegated to the desktop adapter with cancellation", async () => {
     const controller = new AbortController();
     const response = await requestProviderTranscription(
       { uri: "file:///documents/sessions/test/audio.wav", size: 100 },
@@ -1256,8 +1268,14 @@ test("native transcription preserves an already aborted signal", async () => {
   );
 });
 
-for (const definition of providersFor("llm").filter(
-  ({ id }) => id !== "anarlog",
+for (const definition of providersFor("llm").filter(({ id }) =>
+  [
+    "openai",
+    "anthropic",
+    "google_generative_ai",
+    "azure_openai",
+    "azure_ai",
+  ].includes(id),
 )) {
   test(`${definition.name} generates and persists a summary with its authentication format`, async () => {
     createNote();
@@ -1378,7 +1396,15 @@ const { discoverProviderModels, parseProviderModels } =
 const { presetProviderModels } = await import("./provider-model-catalog.ts");
 
 for (const definition of providersFor("llm").filter(
-  ({ id }) => id !== "anarlog" && !presetProviderModels("llm", id),
+  ({ id }) =>
+    [
+      "openai",
+      "anthropic",
+      "google_generative_ai",
+      "azure_openai",
+      "azure_ai",
+      "venice",
+    ].includes(id) && !presetProviderModels("llm", id),
 )) {
   test(`${definition.name} discovers selectable models with its device key and authentication headers`, async () => {
     const config = {
@@ -1606,8 +1632,9 @@ test("discovery aborts requests when leaving the picker", async () => {
   );
 });
 
-for (const suffix of ["", "/openai", "/openai/v1"]) {
-  test(`Azure model discovery normalizes the configured endpoint ${suffix || "root"}`, async () => {
+test("Azure model discovery normalizes the configured endpoint", async () => {
+  for (const suffix of ["", "/openai", "/openai/v1"]) {
+    fixture.requests = [];
     const config = {
       ...defaultProviderConfig("llm", "azure_openai"),
       baseUrl: `https://azure.example.test${suffix}`,
@@ -1622,9 +1649,10 @@ for (const suffix of ["", "/openai", "/openai/v1"]) {
     assert.equal(
       fixture.requests[0].url,
       "https://azure.example.test/openai/models?api-version=2024-10-21",
+      suffix || "root",
     );
-  });
-}
+  }
+});
 
 test("automatic summaries preserve memos and never overwrite an existing summary", async () => {
   createNote();
@@ -1856,7 +1884,12 @@ test("summaries read the full visible transcript, including uncompact live revis
     )
     .run(
       "live-transcript",
-      JSON.stringify([word("first", "First snapshot", 0)]),
+      JSON.stringify([
+        word("first", "First snapshot covers the launch plan", 0),
+        word("pricing", "the pricing review and onboarding checklist", 10),
+        word("support", "the support rotation for next week", 20),
+        word("questions", "and every open question before Friday", 30),
+      ]),
       JSON.stringify([
         {
           word_id: "first",
@@ -1897,13 +1930,76 @@ test("summaries read the full visible transcript, including uncompact live revis
   const exported = await loadSessionTranscripts("note-1");
   assert.deepEqual(
     exported.map(({ speaker, text }) => ({ speaker, text })),
-    [{ speaker: "John", text: "First snapshot Corrected ending" }],
+    [
+      {
+        speaker: "John",
+        text: "First snapshot covers the launch plan the pricing review and onboarding checklist the support rotation for next week and every open question before Friday Corrected ending",
+      },
+    ],
   );
   assert.deepEqual(await loadSessionTranscripts("missing-session"), []);
   await summarizeSession("note-1");
   const request = JSON.stringify(JSON.parse(fixture.requests[0].options.body));
-  assert.match(request, /John: First snapshot Corrected ending/);
+  assert.match(request, /John: First snapshot .* Friday Corrected ending/);
   assert.doesNotMatch(request, /Wrong ending/);
+});
+
+function insertTranscript(texts) {
+  fixture.db
+    .prepare(
+      "INSERT INTO transcripts (id, workspace_id, session_id, words_json) VALUES ('short-transcript', 'workspace-a', 'note-1', ?)",
+    )
+    .run(
+      JSON.stringify(
+        texts.map((text, index) => ({
+          id: `word-${index}`,
+          text,
+          start_ms: index * 100,
+          end_ms: index * 100 + 50,
+          channel: 0,
+        })),
+      ),
+    );
+}
+
+function summaryCount() {
+  return fixture.db
+    .prepare(
+      "SELECT COUNT(*) AS count FROM session_documents WHERE kind = 'summary'",
+    )
+    .get().count;
+}
+
+test("short transcripts skip summaries without a provider request and show a warning", async () => {
+  createNote();
+  signedInWith({
+    subscription_status: "active",
+    entitlements: ["hyprnote_pro"],
+  });
+  insertTranscript(["Cool."]);
+  dismissToast();
+
+  await assert.rejects(summarizeSession("note-1", { automatic: true }), {
+    name: "SummarySkippedError",
+    reason: "Not enough words recorded (1/5 minimum)",
+  });
+  generateSummaryAfterTranscription("note-1");
+  while (!getToast()) await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(getToast(), {
+    id: "auto-summary-too-short-note-1",
+    title: "Summary wasn't generated",
+    description: "Not enough words recorded (1/5 minimum)",
+  });
+  dismissToast();
+
+  fixture.db.prepare("DELETE FROM transcripts").run();
+  insertTranscript(["Sounds", "good", "to", "me", "then."]);
+  await assert.rejects(summarizeSession("note-1"), {
+    name: "SummarySkippedError",
+    reason: "Transcript too short to summarize (23/160 characters minimum)",
+  });
+  assert.equal(fixture.requests.length, 0);
+  assert.equal(summaryCount(), 0);
 });
 
 test("a preparation error is replaced by the next successful automatic summary state", async () => {

@@ -68,38 +68,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn control_message_finalize_parsed() {
-        let msg = Message::Text(r#"{"type":"Finalize"}"#.into());
-        match process_incoming_message(&msg, 1).unwrap() {
-            IncomingMessage::Control(ControlMessage::Finalize) => {}
-            other => panic!(
-                "expected Finalize, got {:?}",
-                std::mem::discriminant(&other)
-            ),
-        }
-    }
+    fn control_messages_are_parsed() {
+        let cases = [
+            (r#"{"type":"Finalize"}"#, "Finalize"),
+            (r#"{"type":"KeepAlive"}"#, "KeepAlive"),
+            (r#"{"type":"CloseStream"}"#, "CloseStream"),
+        ];
 
-    #[test]
-    fn control_message_keep_alive_parsed() {
-        let msg = Message::Text(r#"{"type":"KeepAlive"}"#.into());
-        match process_incoming_message(&msg, 1).unwrap() {
-            IncomingMessage::Control(ControlMessage::KeepAlive) => {}
-            other => panic!(
-                "expected KeepAlive, got {:?}",
-                std::mem::discriminant(&other)
-            ),
-        }
-    }
-
-    #[test]
-    fn control_message_close_stream_parsed() {
-        let msg = Message::Text(r#"{"type":"CloseStream"}"#.into());
-        match process_incoming_message(&msg, 1).unwrap() {
-            IncomingMessage::Control(ControlMessage::CloseStream) => {}
-            other => panic!(
-                "expected CloseStream, got {:?}",
-                std::mem::discriminant(&other)
-            ),
+        for (payload, expected) in cases {
+            let msg = Message::Text(payload.into());
+            let result = process_incoming_message(&msg, 1).unwrap();
+            match (result, expected) {
+                (IncomingMessage::Control(ControlMessage::Finalize), "Finalize")
+                | (IncomingMessage::Control(ControlMessage::KeepAlive), "KeepAlive")
+                | (IncomingMessage::Control(ControlMessage::CloseStream), "CloseStream") => {}
+                (other, _) => panic!(
+                    "expected {expected}, got {:?}",
+                    std::mem::discriminant(&other)
+                ),
+            }
         }
     }
 

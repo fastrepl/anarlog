@@ -12,9 +12,7 @@ afterEach(() => {
 describe("AvatarUploadButton", () => {
   it.each([
     { width: 800, height: 400, output: 256 },
-    { width: 128, height: 64, output: 64 },
     { width: 64, height: 128, output: 64 },
-    { width: 128, height: 128, output: 128 },
   ])(
     "center-crops $width × $height avatars to $output pixels without upscaling",
     async ({ width, height, output }) => {

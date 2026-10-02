@@ -1,9 +1,10 @@
 begin;
-select plan(25);
+select plan(29);
 
 select tests.create_supabase_user('trial_new', 'trial-new@example.com');
 select tests.create_supabase_user('trial_customer_only', 'trial-customer-only@example.com');
 select tests.create_supabase_user('trial_active', 'trial-active@example.com');
+select tests.create_supabase_user('trial_email_alias', 'j.doe+x@googlemail.com');
 select tests.create_supabase_user('trial_repeat', 'trial-repeat@example.com');
 select tests.create_supabase_user('trial_former_paid', 'trial-former-paid@example.com');
 select tests.create_supabase_user('trial_missing_profile', 'trial-missing-profile@example.com');
@@ -88,6 +89,20 @@ values
     EXTRACT(epoch FROM now() - interval '1 year')::integer
   );
 
+insert into private.pro_trial_identity_claims (
+  kind,
+  identity_hash,
+  user_id
+)
+values (
+  'email',
+  extensions.digest(
+    private.normalize_trial_email('jdoe@gmail.com'),
+    'sha256'
+  ),
+  tests.get_supabase_uid('trial_active')
+);
+
 delete from public.profiles
 where id = tests.get_supabase_uid('trial_missing_profile');
 
@@ -102,22 +117,22 @@ reset role;
 select ok(
   has_function_privilege(
     'authenticated',
-    'public.can_start_trial()',
+    'public.can_start_trial(text)',
     'EXECUTE'
   )
     and not has_function_privilege(
       'anon',
-      'public.can_start_trial()',
+      'public.can_start_trial(text)',
       'EXECUTE'
     )
     and has_function_privilege(
       'authenticated',
-      'public.reserve_pro_trial(text)',
+      'public.reserve_pro_trial(text,text)',
       'EXECUTE'
     )
     and not has_function_privilege(
       'anon',
-      'public.reserve_pro_trial(text)',
+      'public.reserve_pro_trial(text,text)',
       'EXECUTE'
     )
     and has_function_privilege(
@@ -134,13 +149,13 @@ select ok(
       select proc.prosecdef
         and 'search_path=""' = any(coalesce(proc.proconfig, array[]::text[]))
       from pg_proc as proc
-      where proc.oid = 'public.can_start_trial()'::regprocedure
+      where proc.oid = 'public.can_start_trial(text)'::regprocedure
     )
     and (
       select proc.prosecdef
         and 'search_path=""' = any(coalesce(proc.proconfig, array[]::text[]))
       from pg_proc as proc
-      where proc.oid = 'public.reserve_pro_trial(text)'::regprocedure
+      where proc.oid = 'public.reserve_pro_trial(text,text)'::regprocedure
     )
     and (
       select not proc.prosecdef
@@ -153,7 +168,7 @@ select ok(
 
 with definition as (
   select lower(pg_get_functiondef(
-    'public.reserve_pro_trial(text)'::regprocedure
+    'public.reserve_pro_trial(text,text)'::regprocedure
   )) as body
 )
 select ok(
@@ -169,6 +184,14 @@ from definition;
 
 select tests.authenticate_as('trial_new');
 select ok(public.can_start_trial(), 'A new account can start its first trial');
+
+select tests.clear_authentication();
+select tests.authenticate_as('trial_email_alias');
+select ok(
+  not public.can_start_trial()
+    and (select count(*) from public.reserve_pro_trial('web')) = 0,
+  'A normalized email claim blocks eligibility and reservation'
+);
 
 select tests.clear_authentication();
 select tests.authenticate_as('trial_missing_profile');
@@ -279,6 +302,41 @@ select ok(
   'A released reservation restores first-trial eligibility'
 );
 
+select is(
+  (select count(*) from public.reserve_pro_trial('native', 'abc123')),
+  1::bigint,
+  'An eligible account can reserve a trial with its device fingerprint'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as('trial_new');
+select ok(
+  not public.can_start_trial('abc123')
+    and (select count(*) from public.reserve_pro_trial('native', 'abc123')) = 0
+    and public.can_start_trial(),
+  'A claimed device blocks another account but no fingerprint remains eligible'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as_service_role();
+select public.release_pro_trial_reservation(
+  tests.get_supabase_uid('trial_customer_only'),
+  (
+    select profile.trial_reservation_id
+    from public.profiles as profile
+    where profile.id = tests.get_supabase_uid('trial_customer_only')
+  )
+);
+
+select tests.clear_authentication();
+reset role;
+select tests.authenticate_as('trial_customer_only');
+select ok(
+  public.can_start_trial()
+    and (select count(*) from public.reserve_pro_trial('native', 'abc123')) = 1,
+  'A released reservation can be retried without losing its claims'
+);
+
 select tests.clear_authentication();
 select tests.authenticate_as('trial_active');
 select isnt(
@@ -312,8 +370,8 @@ select isnt(
 select tests.clear_authentication();
 select tests.authenticate_as_service_role();
 select is(
-  obj_description('public.can_start_trial()'::regprocedure, 'pg_proc'),
-  'Allows one new-user Pro trial per account; prior subscription history makes the account ineligible.',
+  obj_description('public.can_start_trial(text)'::regprocedure, 'pg_proc'),
+  'Allows one new-user Pro trial per account, normalized email, and desktop device; prior subscription history makes the account ineligible.',
   'The once-per-account eligibility policy is documented in the schema'
 );
 

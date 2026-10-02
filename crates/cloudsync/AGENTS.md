@@ -1,6 +1,6 @@
 Release:
 
-- https://github.com/sqliteai/sqlite-sync/releases/tag/1.0.12
+- https://github.com/sqliteai/sqlite-sync/releases/tag/1.2.0
 
 Docs:
 

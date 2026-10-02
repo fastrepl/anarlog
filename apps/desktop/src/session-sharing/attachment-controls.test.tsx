@@ -23,38 +23,24 @@ const audio: SessionShareAttachment = {
 afterEach(cleanup);
 
 describe("SessionAttachmentControls", () => {
-  it("stays hidden when the session has no audio recording", () => {
-    const attachment = {
-      ...audio,
-      id: "attachment-1",
-      sourceType: "note_upload",
-    };
+  it("stays hidden without a present audio recording", () => {
+    for (const attachments of [
+      [{ ...audio, id: "attachment-1", sourceType: "note_upload" }],
+      [{ ...audio, localAvailability: "absent" as const }],
+    ]) {
+      const view = render(
+        <SessionAttachmentControls
+          attachments={attachments}
+          sharedAttachmentIds={new Map()}
+          canShare
+          pendingAttachmentId={null}
+          onShareChange={vi.fn()}
+        />,
+      );
 
-    render(
-      <SessionAttachmentControls
-        attachments={[attachment]}
-        sharedAttachmentIds={new Map()}
-        canShare
-        pendingAttachmentId={null}
-        onShareChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.queryByRole("switch", { name: "Share audio" })).toBeNull();
-  });
-
-  it("stays hidden when only deleted audio metadata remains", () => {
-    render(
-      <SessionAttachmentControls
-        attachments={[{ ...audio, localAvailability: "absent" }]}
-        sharedAttachmentIds={new Map()}
-        canShare
-        pendingAttachmentId={null}
-        onShareChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.queryByRole("switch", { name: "Share audio" })).toBeNull();
+      expect(screen.queryByRole("switch", { name: "Share audio" })).toBeNull();
+      view.unmount();
+    }
   });
 
   it("shares and unshares the session audio with one switch", () => {

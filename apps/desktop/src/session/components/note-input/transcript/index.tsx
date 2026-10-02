@@ -5,6 +5,7 @@ import { useRegenerateTranscript } from "./actions";
 import { TranscriptViewer } from "./renderer";
 import { BatchState } from "./screens/batch";
 import { TranscriptEmptyState } from "./screens/empty";
+import { LiveTranscriptInterruptedNotice } from "./screens/interrupted";
 import { TranscriptListeningState } from "./screens/listening";
 import { useTranscriptScreen } from "./state";
 
@@ -68,9 +69,11 @@ function TranscriptContent({
           </span>{" "}
           {incompleteCapture.audioDeletionFailed
             ? "Anarlog could not remove the temporary audio. Cleanup will be retried automatically."
-            : incompleteCapture.audioDeleted
-              ? "Recovery did not finish before the meeting ended. Audio was deleted according to your retention setting."
-              : "Some audio could not be transcribed. Available recordings were kept according to your retention setting."}
+            : incompleteCapture.audioKeptForTranscription
+              ? "Some audio has not been transcribed yet, so Anarlog kept it temporarily. It will be deleted automatically once transcription succeeds."
+              : incompleteCapture.audioDeleted
+                ? "Recovery did not finish before the meeting ended. Audio was deleted according to your retention setting."
+                : "Some audio could not be transcribed. Available recordings were kept according to your retention setting."}
         </div>
       )}
       {screen.kind === "running_batch" && (
@@ -86,7 +89,6 @@ function TranscriptContent({
       {screen.kind === "batch_fallback" && (
         <BatchState
           requestedLiveTranscription={screen.requestedLiveTranscription}
-          error={screen.error}
         />
       )}
       {screen.kind === "listening" && (
@@ -111,6 +113,11 @@ function TranscriptContent({
           scrollRef={scrollRef}
           editMode={editMode && !screen.currentActive}
           onEditModeChange={screen.currentActive ? undefined : onEditModeChange}
+          footer={
+            screen.liveTranscriptInterrupted ? (
+              <LiveTranscriptInterruptedNotice />
+            ) : null
+          }
         />
       )}
     </div>

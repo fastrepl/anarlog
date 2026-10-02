@@ -26,17 +26,6 @@ function renderAudioSettings({
 describe("AudioSettingsView", () => {
   afterEach(cleanup);
 
-  it("puts the microphone selector first and selects the system default", () => {
-    renderAudioSettings();
-
-    const controls = screen.getAllByRole("combobox");
-    expect(controls[0]).toBe(
-      screen.getByRole("combobox", { name: "Microphone" }),
-    );
-    expect(screen.queryByRole("combobox", { name: "Speakers" })).toBeNull();
-    expect(screen.getAllByText("Current default")).toHaveLength(1);
-  });
-
   it("shows when the selected microphone is unavailable and will fall back", () => {
     renderAudioSettings({
       microphoneDevice: {
@@ -53,29 +42,19 @@ describe("AudioSettingsView", () => {
     );
   });
 
-  it("toggles remember speakers through its switch", () => {
+  it.each([
+    [false, true],
+    [true, false],
+  ])("toggles remember speakers from %s to %s", (value, nextValue) => {
     const onChange = vi.fn();
     renderAudioSettings({
-      rememberSpeakers: { value: false, onChange },
+      rememberSpeakers: { value, onChange },
     });
 
     const toggle = screen.getByRole("switch", { name: "Remember speakers" });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(toggle.getAttribute("aria-checked")).toBe(String(value));
 
     toggle.click();
-    expect(onChange).toHaveBeenCalledWith(true);
-  });
-
-  it("can turn remember speakers off after it is on", () => {
-    const onChange = vi.fn();
-    renderAudioSettings({
-      rememberSpeakers: { value: true, onChange },
-    });
-
-    const toggle = screen.getByRole("switch", { name: "Remember speakers" });
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-
-    toggle.click();
-    expect(onChange).toHaveBeenCalledWith(false);
+    expect(onChange).toHaveBeenCalledWith(nextValue);
   });
 });

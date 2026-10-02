@@ -131,87 +131,89 @@ async fn accepts_finalize_retry_after_the_candidate_is_current() {
 }
 
 #[tokio::test]
-async fn rejects_storage_integrity_mismatch_without_finalizing() {
-    let server = MockServer::start().await;
-    mount_rpc(
-        &server,
-        "read_attachment_backup_by_key",
-        ResponseTemplate::new(200)
-            .set_body_json(json!([object_row("reserved", Some(CIPHERTEXT_SHA256))])),
-    )
-    .await;
-    Mock::given(method("GET"))
-        .and(path(format!(
-            "/storage/v1/object/info/{ATTACHMENT_BACKUP_BUCKET}/{}",
-            object_key()
-        )))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "size": 1234,
-            "content_type": "application/octet-stream",
-            "metadata": {
-                "ciphertextSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "formatVersion": 1
-            }
-        })))
-        .mount(&server)
+async fn rejects_storage_metadata_or_content_mismatch_without_finalizing() {
+    for (case, info_body, content_bytes) in [
+        (
+            "integrity hash mismatch",
+            json!({
+                "size": 1234,
+                "content_type": "application/octet-stream",
+                "metadata": {
+                    "ciphertextSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "formatVersion": 1
+                }
+            }),
+            None,
+        ),
+        (
+            "content digest mismatch",
+            json!({
+                "size": 1234,
+                "content_type": "application/octet-stream",
+                "metadata": {
+                    "ciphertextSha256": CIPHERTEXT_SHA256,
+                    "formatVersion": 1
+                }
+            }),
+            Some(vec![1_u8; 1_234]),
+        ),
+        (
+            "spoofed storage metadata",
+            json!({
+                "metadata": { "size": 1234, "mimetype": "application/octet-stream" },
+                "user_metadata": {
+                    "ciphertextSha256": CIPHERTEXT_SHA256,
+                    "formatVersion": 1
+                }
+            }),
+            Some(vec![1_u8; 1_234]),
+        ),
+    ] {
+        let server = MockServer::start().await;
+        mount_rpc(
+            &server,
+            "read_attachment_backup_by_key",
+            ResponseTemplate::new(200)
+                .set_body_json(json!([object_row("reserved", Some(CIPHERTEXT_SHA256))])),
+        )
         .await;
-    let response = test_router(&server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/finalize",
-            json!({ "objectKey": object_key() }),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::CONFLICT);
-    assert_eq!(server.received_requests().await.unwrap().len(), 2);
-}
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/storage/v1/object/info/{ATTACHMENT_BACKUP_BUCKET}/{}",
+                object_key()
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(info_body))
+            .mount(&server)
+            .await;
+        if let Some(content_bytes) = content_bytes {
+            Mock::given(method("GET"))
+                .and(path(format!(
+                    "/storage/v1/object/authenticated/{ATTACHMENT_BACKUP_BUCKET}/{}",
+                    object_key()
+                )))
+                .respond_with(ResponseTemplate::new(200).set_body_bytes(content_bytes))
+                .mount(&server)
+                .await;
+        }
 
-#[tokio::test]
-async fn rejects_storage_content_mismatch_without_finalizing() {
-    let server = MockServer::start().await;
-    mount_rpc(
-        &server,
-        "read_attachment_backup_by_key",
-        ResponseTemplate::new(200)
-            .set_body_json(json!([object_row("reserved", Some(CIPHERTEXT_SHA256))])),
-    )
-    .await;
-    Mock::given(method("GET"))
-        .and(path(format!(
-            "/storage/v1/object/info/{ATTACHMENT_BACKUP_BUCKET}/{}",
-            object_key()
-        )))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "size": 1234,
-            "content_type": "application/octet-stream",
-            "metadata": {
-                "ciphertextSha256": CIPHERTEXT_SHA256,
-                "formatVersion": 1
-            }
-        })))
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path(format!(
-            "/storage/v1/object/authenticated/{ATTACHMENT_BACKUP_BUCKET}/{}",
-            object_key()
-        )))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![1_u8; 1_234]))
-        .mount(&server)
-        .await;
+        let response = test_router(&server, true)
+            .oneshot(json_request(
+                Method::POST,
+                "/attachment-backups/finalize",
+                json!({ "objectKey": object_key() }),
+            ))
+            .await
+            .unwrap();
 
-    let response = test_router(&server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/finalize",
-            json!({ "objectKey": object_key() }),
-        ))
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::CONFLICT);
-    assert_eq!(server.received_requests().await.unwrap().len(), 3);
+        assert_eq!(response.status(), StatusCode::CONFLICT, "{case}");
+        let requests = server.received_requests().await.unwrap();
+        assert!(
+            requests
+                .iter()
+                .all(|request| { request.url.path() != "/rest/v1/rpc/finalize_attachment_backup" }),
+            "{case}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -257,52 +259,6 @@ async fn throttles_parallel_storage_content_verification() {
 
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(server.received_requests().await.unwrap().len(), 2);
-}
-
-#[tokio::test]
-async fn rejects_spoofed_storage_metadata_when_object_bytes_do_not_match() {
-    let server = MockServer::start().await;
-    mount_rpc(
-        &server,
-        "read_attachment_backup_by_key",
-        ResponseTemplate::new(200)
-            .set_body_json(json!([object_row("reserved", Some(CIPHERTEXT_SHA256))])),
-    )
-    .await;
-    Mock::given(method("GET"))
-        .and(path(format!(
-            "/storage/v1/object/info/{ATTACHMENT_BACKUP_BUCKET}/{}",
-            object_key()
-        )))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "metadata": { "size": 1234, "mimetype": "application/octet-stream" },
-            "user_metadata": {
-                "ciphertextSha256": CIPHERTEXT_SHA256,
-                "formatVersion": 1
-            }
-        })))
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path(format!(
-            "/storage/v1/object/authenticated/{ATTACHMENT_BACKUP_BUCKET}/{}",
-            object_key()
-        )))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![1; 1234]))
-        .mount(&server)
-        .await;
-
-    let response = test_router(&server, true)
-        .oneshot(json_request(
-            Method::POST,
-            "/attachment-backups/finalize",
-            json!({ "objectKey": object_key() }),
-        ))
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::CONFLICT);
-    assert_eq!(server.received_requests().await.unwrap().len(), 3);
 }
 
 #[tokio::test]

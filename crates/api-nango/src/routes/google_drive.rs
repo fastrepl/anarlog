@@ -81,9 +81,27 @@ pub struct DriveFolder {
     pub name: String,
     pub drive_id: Option<String>,
 }
+#[derive(Clone, Copy, Default, Deserialize, Serialize, utoipa::ToSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DriveExportFormat {
+    #[default]
+    Markdown,
+    GoogleDocs,
+}
+impl DriveExportFormat {
+    fn mime_type(self) -> &'static str {
+        match self {
+            Self::Markdown => "text/markdown",
+            Self::GoogleDocs => "application/vnd.google-apps.document",
+        }
+    }
+}
+
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DrivePrepareExportRequest {
+    #[serde(default)]
+    pub format: DriveExportFormat,
     pub connection_id: String,
     pub folder_id: String,
     pub meeting_id: String,
@@ -96,6 +114,8 @@ pub struct DriveExportFile {
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DriveExportRequest {
+    #[serde(default)]
+    pub format: DriveExportFormat,
     pub connection_id: String,
     pub folder_id: String,
     pub meeting_id: String,
@@ -196,34 +216,62 @@ pub async fn prepare_export(
     validate_id(&req.meeting_id)?;
     let proxy = proxy(&state, &auth, &req.connection_id).await?;
     let folder = folder(&proxy, &req.folder_id).await?;
+    let file_id = find_export(&proxy, &folder, &req.meeting_id, req.format).await?;
+    if let Some(file_id) = file_id {
+        return Ok(Json(export_file(file_id)));
+    }
+    if req.format == DriveExportFormat::GoogleDocs {
+        return Ok(Json(DriveExportFile {
+            file_id: String::new(),
+            url: String::new(),
+        }));
+    }
+    let ids = response(
+        proxy
+            .get("/drive/v3/files/generateIds?count=1&space=drive&type=files")?
+            .timeout(std::time::Duration::from_secs(30))
+            .send()
+            .await?,
+    )
+    .await?;
+    Ok(Json(export_file(
+        ids["ids"][0]
+            .as_str()
+            .ok_or_else(provider_error)?
+            .to_owned(),
+    )))
+}
+
+async fn find_export(
+    proxy: &OwnedNangoProxy,
+    folder: &DriveFolder,
+    meeting_id: &str,
+    format: DriveExportFormat,
+) -> Result<Option<String>, DriveError> {
     let corpus = folder
         .drive_id
-        .map(|id| format!("corpora=drive&driveId={}", urlencoding::encode(&id)))
+        .as_ref()
+        .map(|id| format!("corpora=drive&driveId={}", urlencoding::encode(id)))
         .unwrap_or_else(|| "corpora=user".to_string());
     let query = format!(
-        "'{}' in parents and trashed = false and appProperties has {{ key='anarlog_meeting_id' and value='{}' }}",
-        req.folder_id, req.meeting_id
+        "'{}' in parents and trashed = false and appProperties has {{ key='anarlog_meeting_id' and value='{}' }} and mimeType = '{}'",
+        folder.id,
+        meeting_id,
+        format.mime_type()
     );
-    let found = response(proxy.get(format!("/drive/v3/files?{corpus}&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=1&fields=files(id)&q={}", urlencoding::encode(&query)))?.timeout(std::time::Duration::from_secs(30)).send().await?).await?;
-    let file_id = match found["files"][0]["id"].as_str() {
-        Some(id) => id.to_owned(),
-        None => {
-            let ids = response(
-                proxy
-                    .get("/drive/v3/files/generateIds?count=1&space=drive&type=files")?
-                    .timeout(std::time::Duration::from_secs(30))
-                    .send()
-                    .await?,
-            )
-            .await?;
-            ids["ids"][0]
-                .as_str()
-                .ok_or_else(provider_error)?
-                .to_owned()
-        }
-    };
-    Ok(Json(export_file(file_id)))
+    let found = response(proxy.get(format!("/drive/v3/files?{corpus}&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=2&fields=files(id)&q={}", urlencoding::encode(&query)))?.timeout(std::time::Duration::from_secs(30)).send().await?).await?;
+    let files = found["files"].as_array().ok_or_else(provider_error)?;
+    if files.len() > 1 {
+        return Err(invalid(
+            "Multiple exports match this meeting. Keep one export in the selected folder before retrying.",
+        ));
+    }
+    Ok(files
+        .first()
+        .and_then(|file| file["id"].as_str())
+        .map(str::to_owned))
 }
+
 fn export_file(file_id: String) -> DriveExportFile {
     DriveExportFile {
         url: format!("https://drive.google.com/file/d/{file_id}/view"),
@@ -237,7 +285,7 @@ fn verify_export_file(value: &Value, req: &DriveExportRequest) -> Result<(), Dri
         || !value["parents"]
             .as_array()
             .is_some_and(|parents| parents.iter().any(|p| p == &req.folder_id))
-        || value["mimeType"] != "text/markdown"
+        || value["mimeType"] != req.format.mime_type()
     {
         return Err(invalid(
             "The export file no longer matches this meeting and folder.",
@@ -250,10 +298,12 @@ fn verify_export_file(value: &Value, req: &DriveExportRequest) -> Result<(), Dri
 pub async fn export_markdown(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
-    Json(req): Json<DriveExportRequest>,
+    Json(mut req): Json<DriveExportRequest>,
 ) -> Result<Json<DriveExportFile>, DriveError> {
     validate_id(&req.meeting_id)?;
-    validate_id(&req.file_id)?;
+    if !req.file_id.is_empty() || req.format == DriveExportFormat::Markdown {
+        validate_id(&req.file_id)?;
+    }
     if req.markdown.trim().is_empty()
         || req.markdown.len() > 1_500_000
         || req.filename.len() > 512
@@ -263,9 +313,25 @@ pub async fn export_markdown(
         return Err(invalid("Invalid Markdown export or export exceeds 1.5 MB."));
     }
     let proxy = proxy(&state, &auth, &req.connection_id).await?;
-    folder(&proxy, &req.folder_id).await?;
+    let folder = folder(&proxy, &req.folder_id).await?;
+    if req.format == DriveExportFormat::GoogleDocs && req.file_id.is_empty() {
+        req.file_id = match find_export(&proxy, &folder, &req.meeting_id, req.format).await? {
+            Some(id) => id,
+            None => {
+                let created = response(proxy.post("/drive/v3/files?supportsAllDrives=true&fields=id", serde_json::to_vec(&json!({
+                    "name": req.filename.trim_end_matches(".md"), "mimeType": req.format.mime_type(), "parents": [req.folder_id],
+                    "appProperties": { "anarlog_meeting_id": req.meeting_id }
+                })).map_err(|_| provider_error())?, "application/json")?.timeout(std::time::Duration::from_secs(30)).send().await?).await?;
+                created["id"]
+                    .as_str()
+                    .ok_or_else(provider_error)?
+                    .to_owned()
+            }
+        };
+        validate_id(&req.file_id)?;
+    }
     let existing = proxy.get(format!("/drive/v3/files/{}?supportsAllDrives=true&fields=id,parents,appProperties,mimeType,trashed", req.file_id))?.timeout(std::time::Duration::from_secs(30)).send().await?;
-    if existing.status() == StatusCode::NOT_FOUND {
+    if existing.status() == StatusCode::NOT_FOUND && req.format == DriveExportFormat::Markdown {
         // The client persists this generated ID before creating the file. A lost
         // response can therefore be retried without creating a second file.
         let created = proxy.post("/drive/v3/files?supportsAllDrives=true", serde_json::to_vec(&json!({
@@ -284,7 +350,7 @@ pub async fn export_markdown(
         proxy
             .patch(
                 format!("/drive/v3/files/{}?supportsAllDrives=true", req.file_id),
-                &json!({"name": req.filename}),
+                &json!({"name": if req.format == DriveExportFormat::GoogleDocs { req.filename.trim_end_matches(".md") } else { &req.filename }}),
             )?
             .timeout(std::time::Duration::from_secs(30))
             .send()
@@ -475,9 +541,87 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn docs_prepare_does_not_generate_an_id_and_filters_by_format() {
+        let (server, app) = setup(true).await;
+        mock_folder(&server, true, true).await;
+        Mock::given(method("GET")).and(path("/proxy/drive/v3/files"))
+            .and(query_param("corpora", "drive"))
+            .and(query_param("q", "'folder' in parents and trashed = false and appProperties has { key='anarlog_meeting_id' and value='meeting-1' } and mimeType = 'application/vnd.google-apps.document'"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"files":[]})))
+            .expect(1).mount(&server).await;
+        let (status, value) = post(app, "/google-drive/prepare-export", json!({"connection_id":"connection", "folder_id":"folder", "meeting_id":"meeting-1", "format":"google_docs"})).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(value["file_id"], "");
+        assert!(
+            !server
+                .received_requests()
+                .await
+                .unwrap()
+                .iter()
+                .any(|r| r.url.path().ends_with("generateIds"))
+        );
+    }
+
+    #[tokio::test]
+    async fn docs_creation_and_retry_update_one_native_document() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let (server, app) = setup(true).await;
+        mock_folder(&server, true, true).await;
+        let created = Arc::new(AtomicBool::new(false));
+        let exists = created.clone();
+        Mock::given(method("GET"))
+            .and(path("/proxy/drive/v3/files"))
+            .respond_with(move |_: &wiremock::Request| {
+                ResponseTemplate::new(200).set_body_json(if exists.load(Ordering::SeqCst) {
+                    json!({"files":[{"id":"doc"}]})
+                } else {
+                    json!({"files":[]})
+                })
+            })
+            .mount(&server)
+            .await;
+        Mock::given(method("POST")).and(path("/proxy/drive/v3/files"))
+            .and(body_json(json!({"name":"회의", "mimeType":"application/vnd.google-apps.document", "parents":["folder"], "appProperties":{"anarlog_meeting_id":"meeting-1"}})))
+            .respond_with(move |_: &wiremock::Request| {
+                created.store(true, Ordering::SeqCst);
+                // Simulate creation succeeding but the response being lost.
+                ResponseTemplate::new(502)
+            }).expect(1).mount(&server).await;
+        Mock::given(method("GET")).and(path("/proxy/drive/v3/files/doc"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"doc", "mimeType":"application/vnd.google-apps.document", "parents":["folder"], "appProperties":{"anarlog_meeting_id":"meeting-1"}}))).mount(&server).await;
+        Mock::given(method("PATCH"))
+            .and(path("/proxy/drive/v3/files/doc"))
+            .and(body_json(json!({"name":"회의"})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"doc"})))
+            .mount(&server)
+            .await;
+        Mock::given(method("PATCH"))
+            .and(path("/proxy/upload/drive/v3/files/doc"))
+            .and(header("Content-Type", "text/markdown; charset=utf-8"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"doc"})))
+            .expect(2)
+            .mount(&server)
+            .await;
+        let request = json!({"connection_id":"connection", "folder_id":"folder", "meeting_id":"meeting-1", "file_id":"", "filename":"회의.md", "markdown":"# 요약\n\n- 결정", "format":"google_docs"});
+        let (status, _) = post(app.clone(), "/google-drive/export", request.clone()).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY);
+        let (status, value) = post(app.clone(), "/google-drive/export", request.clone()).await;
+        assert_eq!(status, StatusCode::OK, "{value}");
+        assert_eq!(value["file_id"], "doc");
+        let mut update = request;
+        update["file_id"] = json!("doc");
+        let (status, _) = post(app, "/google-drive/export", update).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
     #[test]
     fn export_never_overwrites_an_unrelated_or_moved_file() {
         let req = DriveExportRequest {
+            format: DriveExportFormat::Markdown,
             connection_id: "connection".into(),
             folder_id: "folder".into(),
             meeting_id: "meeting-1".into(),

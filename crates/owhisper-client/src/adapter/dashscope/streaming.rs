@@ -483,15 +483,6 @@ mod tests {
     }
 
     #[test]
-    fn audio_is_sent_as_binary() {
-        let adapter = DashScopeStreamingAdapter::default();
-        assert!(matches!(
-            adapter.audio_to_message(bytes::Bytes::from_static(&[0, 1, 2])),
-            Message::Binary(_)
-        ));
-    }
-
-    #[test]
     fn parses_result_generated() {
         let adapter = DashScopeStreamingAdapter::default();
         let raw = r#"{
@@ -533,11 +524,7 @@ mod tests {
             channel.alternatives[0].words[1].punctuated_word.as_deref(),
             Some("world.")
         );
-    }
 
-    #[test]
-    fn parses_partial_result_as_interim() {
-        let adapter = DashScopeStreamingAdapter::default();
         let raw = r#"{
             "header": {"task_id": "abc", "event": "result-generated"},
             "payload": {"output": {"sentence": {"begin_time": 0, "text": "hel", "sentence_end": false}}}

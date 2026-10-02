@@ -1,5 +1,6 @@
 import { BottomSheet, RNHostView } from "@expo/ui";
 import { ignoreSafeArea } from "@expo/ui/swift-ui/modifiers";
+import { useMutation } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
@@ -26,6 +27,39 @@ import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import { createStyleHook } from "@/settings/theme-provider";
+
+const signInMethods = [
+  {
+    method: "apple",
+    label: "Sign in with Apple",
+    iconSource: require("../../assets/images/auth/apple.svg"),
+  },
+  {
+    method: "google",
+    label: "Sign in with Google",
+    iconSource: require("../../assets/images/auth/google.svg"),
+  },
+  {
+    method: "azure",
+    label: "Sign in with Microsoft",
+    iconSource: require("../../assets/images/auth/microsoft.svg"),
+  },
+  {
+    method: "github",
+    label: "Sign in with GitHub",
+    iconSource: require("../../assets/images/auth/github.svg"),
+  },
+  {
+    method: "email",
+    label: "Sign in with Email",
+    iconSource: require("../../assets/images/auth/email.svg"),
+  },
+  {
+    method: "sso",
+    label: "Sign in with SSO",
+    iconSource: require("../../assets/images/auth/sso.svg"),
+  },
+] as const;
 
 export function SignInScreen({
   onSignIn,
@@ -74,56 +108,22 @@ export function SignInScreen({
       >
         <RNHostView matchContents>
           <View style={[styles.signInMethodList, { width }]}>
-            {isAppleSignInAvailable(Platform.OS) && (
-              <SignInMethodButton
-                method="apple"
-                label="Sign in with Apple"
-                onSignIn={onSignIn}
-                disabled={busy}
-                iconSource={require("../../assets/images/auth/apple.svg")}
-                lastSignInMethod={lastSignInMethod}
-              />
-            )}
-            <SignInMethodButton
-              method="google"
-              label="Sign in with Google"
-              onSignIn={onSignIn}
-              disabled={busy}
-              iconSource={require("../../assets/images/auth/google.svg")}
-              lastSignInMethod={lastSignInMethod}
-            />
-            <SignInMethodButton
-              method="azure"
-              label="Sign in with Microsoft"
-              onSignIn={onSignIn}
-              disabled={busy}
-              iconSource={require("../../assets/images/auth/microsoft.svg")}
-              lastSignInMethod={lastSignInMethod}
-            />
-            <SignInMethodButton
-              method="github"
-              label="Sign in with GitHub"
-              onSignIn={onSignIn}
-              disabled={busy}
-              iconSource={require("../../assets/images/auth/github.svg")}
-              lastSignInMethod={lastSignInMethod}
-            />
-            <SignInMethodButton
-              method="email"
-              label="Sign in with Email"
-              onSignIn={onSignIn}
-              disabled={busy}
-              iconSource={require("../../assets/images/auth/email.svg")}
-              lastSignInMethod={lastSignInMethod}
-            />
-            <SignInMethodButton
-              method="sso"
-              label="Sign in with SSO"
-              onSignIn={onSignIn}
-              disabled={busy}
-              iconSource={require("../../assets/images/auth/sso.svg")}
-              lastSignInMethod={lastSignInMethod}
-            />
+            {signInMethods
+              .filter(
+                ({ method }) =>
+                  method !== "apple" || isAppleSignInAvailable(Platform.OS),
+              )
+              .map(({ method, label, iconSource }) => (
+                <SignInMethodButton
+                  key={method}
+                  method={method}
+                  label={label}
+                  iconSource={iconSource}
+                  onSignIn={onSignIn}
+                  disabled={busy}
+                  lastSignInMethod={lastSignInMethod}
+                />
+              ))}
             <Text style={styles.legalNotice}>
               By signing up, you agree to our{" "}
               <Text
@@ -219,7 +219,6 @@ export function ProScreen({
   onClose: () => void;
 }) {
   const styles = useStyles();
-  const [busy, setBusy] = useState(false);
   const [accessPending, setAccessPending] = useState(false);
 
   useMountEffect(() => {
@@ -246,10 +245,8 @@ export function ProScreen({
     }
   };
 
-  const handlePrimaryAction = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
+  const checkout = useMutation({
+    mutationFn: async () => {
       if (accessPending) {
         await refreshAccess("unknown");
         return;
@@ -284,15 +281,14 @@ export function ProScreen({
         entry_source: callback.source,
       });
       await refreshAccess(checkoutType);
-    } catch (error) {
+    },
+    onError: (error) => {
       captureOperationalError(error, {
         operation: "billing_checkout_open",
         tags: { entry_point: "mobile_settings" },
       });
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -324,9 +320,11 @@ export function ProScreen({
 
       <Button
         label={accessPending ? "Refresh access" : "View plans"}
-        onPress={() => void handlePrimaryAction()}
-        disabled={busy}
-        loading={busy}
+        onPress={() => {
+          if (!checkout.isPending) checkout.mutate();
+        }}
+        disabled={checkout.isPending}
+        loading={checkout.isPending}
         size="large"
         style={styles.cta}
       />

@@ -59,7 +59,10 @@ pub async fn start_trial(
         .rpc(
             "reserve_pro_trial",
             &auth.token,
-            Some(json!({ "p_channel": "native" })),
+            Some(json!({
+                "p_channel": "native",
+                "p_device_fingerprint": device_fingerprint.as_deref(),
+            })),
         )
         .await
     {

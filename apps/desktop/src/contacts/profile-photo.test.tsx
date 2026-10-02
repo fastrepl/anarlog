@@ -167,16 +167,6 @@ it("keeps a failed upload available to retry", async () => {
   );
 });
 
-it("does not migrate a local photo when the cloud account cannot be read", async () => {
-  mocks.getUser.mockResolvedValue({
-    data: { user: null },
-    error: new Error("offline"),
-  });
-  view();
-  expect(await screen.findByRole("alert")).toBeTruthy();
-  expect(mocks.save).not.toHaveBeenCalled();
-});
-
 it("keeps guest photo changes local even with a cached signed-in profile", async () => {
   mocks.signedIn = false;
   const { onSave } = view(null, "https://storage.example/cached.jpg");

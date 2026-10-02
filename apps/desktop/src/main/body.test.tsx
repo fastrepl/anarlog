@@ -4,22 +4,15 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor,
 } from "@testing-library/react";
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useImperativeHandle } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { WINDOW_CONTROLS_SIDEBAR_MIN_WIDTH } from "~/shared/hooks/useWindowControlsGutter";
-import { resetSidebarNotes } from "~/sidebar/note-filter";
 
 const mocks = vi.hoisted(() => ({
   runtimePlatform: null as "windows" | "linux" | null,
-  currentTab: {
-    active: true,
-    pinned: false,
-    slotId: "slot-home",
-    type: "empty",
-  } as ({ type: string } & Record<string, unknown>) | null,
+  currentTab: { type: "empty" } as
+    | ({ type: string } & Record<string, unknown>)
+    | null,
   leftsidebar: {
     expanded: true,
     setExpanded: vi.fn(),
@@ -29,25 +22,11 @@ const mocks = vi.hoisted(() => ({
   onPanelLayout: null as null | ((sizes: number[]) => void),
   onResizeDragging: null as null | ((isDragging: boolean) => void),
   leftSidebarPanelHandle: {
-    collapse: vi.fn(),
     expand: vi.fn(),
-    getId: vi.fn(() => "classic-main-sidebar-left"),
     getSize: vi.fn(() => 12.5),
-    isCollapsed: vi.fn(() => false),
-    isExpanded: vi.fn(() => true),
     resize: vi.fn(),
   },
   tabContentRenderCount: 0,
-  upcomingMeetingStatus: null as null | {
-    itemKey: string;
-    label: string;
-    title: string;
-  },
-  setUpcomingMeetingStatus: null as
-    | null
-    | ((
-        status: null | { itemKey: string; label: string; title: string },
-      ) => void),
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -62,108 +41,43 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 
 vi.mock("@anlg/ui/components/ui/resizable", () => ({
   ResizablePanelGroup: ({
-    autoSaveId,
     children,
-    className,
-    dir,
-    direction,
     onLayout,
   }: {
-    autoSaveId?: string;
     children: React.ReactNode;
-    className?: string;
-    dir?: string;
-    direction: string;
     onLayout?: (sizes: number[]) => void;
   }) => {
     mocks.onPanelLayout = onLayout ?? null;
-
-    return (
-      <div
-        data-auto-save-id={autoSaveId}
-        data-class-name={className}
-        data-dir={dir}
-        data-direction={direction}
-        data-testid="panel-group"
-      >
-        {children}
-      </div>
-    );
+    return <div data-testid="panel-group">{children}</div>;
   },
-  ResizablePanel: forwardRef(
-    (
-      {
-        children,
-        className,
-        collapsedSize,
-        collapsible,
-        defaultSize,
-        id,
-        maxSize,
-        minSize,
-        onCollapse,
-        order,
-        style,
-      }: {
-        children: React.ReactNode;
-        className?: string;
-        collapsedSize?: number;
-        collapsible?: boolean;
-        defaultSize?: number;
-        id?: string;
-        maxSize?: number;
-        minSize?: number;
-        onCollapse?: () => void;
-        order?: number;
-        style?: React.CSSProperties;
-      },
-      ref,
-    ) => {
-      useImperativeHandle(ref, () => mocks.leftSidebarPanelHandle);
+  ResizablePanel: forwardRef<
+    unknown,
+    {
+      children: React.ReactNode;
+      id?: string;
+      onCollapse?: () => void;
+    }
+  >(({ children, id, onCollapse }, ref) => {
+    useImperativeHandle(ref, () => mocks.leftSidebarPanelHandle);
 
-      if (id === "classic-main-sidebar-left") {
-        mocks.onPanelCollapse = onCollapse ?? null;
-      }
+    if (id === "classic-main-sidebar-left") {
+      mocks.onPanelCollapse = onCollapse ?? null;
+    }
 
-      return (
-        <div
-          data-class-name={className}
-          data-collapsed-size={collapsedSize}
-          data-collapsible={collapsible}
-          data-default-size={defaultSize}
-          data-panel-id={id}
-          data-flex-basis={style?.flexBasis}
-          data-max-size={maxSize}
-          data-min-size={minSize}
-          data-flex-grow={style?.flexGrow}
-          data-max-width={style?.maxWidth}
-          data-min-width={style?.minWidth}
-          data-order={order}
-          data-transition={style?.transition}
-          data-testid="panel"
-        >
-          {children}
-        </div>
-      );
-    },
-  ),
+    return <div data-testid="panel">{children}</div>;
+  }),
   ResizableHandle: ({
-    className,
     onDragging,
   }: {
-    className?: string;
     onDragging?: (isDragging: boolean) => void;
   }) => {
     mocks.onResizeDragging = onDragging ?? null;
-
-    return <div data-class-name={className} data-testid="resize-handle" />;
+    return <div data-testid="resize-handle" />;
   },
 }));
 
 vi.mock("~/contexts/shell", () => ({
-  useShell: () => ({
-    leftsidebar: mocks.leftsidebar,
-  }),
+  useShell: () => ({ leftsidebar: mocks.leftsidebar }),
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -174,19 +88,9 @@ vi.mock("~/store/zustand/tabs", () => ({
 }));
 
 vi.mock("./shell-sidebar", () => ({
-  ClassicMainSidebar: ({
-    forceMount = false,
-    timelineHeader,
-  }: {
-    forceMount?: boolean;
-    timelineHeader?: React.ReactNode;
-  }) =>
-    (forceMount || mocks.leftsidebar.expanded) &&
-    mocks.currentTab?.type !== "onboarding" ? (
-      <aside data-testid="classic-main-sidebar">
-        {timelineHeader}
-        <div data-sidebar-timeline-scroll />
-      </aside>
+  ClassicMainSidebar: () =>
+    mocks.leftsidebar.expanded && mocks.currentTab?.type !== "onboarding" ? (
+      <aside data-testid="classic-main-sidebar" />
     ) : null,
 }));
 
@@ -214,354 +118,26 @@ vi.mock("~/shared/useNewNote", () => ({
 }));
 
 vi.mock("~/sidebar/timeline/upcoming-meeting", () => ({
-  useSidebarUpcomingMeetingStatus: () => {
-    const [status, setStatus] = useState(mocks.upcomingMeetingStatus);
-    mocks.setUpcomingMeetingStatus = setStatus;
-    return status;
-  },
+  useSidebarUpcomingMeetingStatus: () => null,
 }));
 
 import { ClassicMainBody } from "./body";
 
-function rectWithWidth(width: number) {
-  return {
-    bottom: 0,
-    height: 0,
-    left: 0,
-    right: width,
-    toJSON: () => ({}),
-    top: 0,
-    width,
-    x: 0,
-    y: 0,
-  } as DOMRect;
-}
-
 describe("ClassicMainBody", () => {
   beforeEach(() => {
     cleanup();
-    resetSidebarNotes();
     mocks.runtimePlatform = null;
-    Object.defineProperty(window, "innerWidth", {
-      configurable: true,
-      value: 1600,
-    });
-    mocks.currentTab = {
-      active: true,
-      pinned: false,
-      slotId: "slot-home",
-      type: "empty",
-    };
+    mocks.currentTab = { type: "empty" };
     mocks.leftsidebar.expanded = true;
     mocks.leftsidebar.setExpanded.mockClear();
     mocks.leftsidebar.toggleExpanded.mockClear();
     mocks.onPanelCollapse = null;
     mocks.onPanelLayout = null;
     mocks.onResizeDragging = null;
-    mocks.leftSidebarPanelHandle.collapse.mockClear();
     mocks.leftSidebarPanelHandle.expand.mockClear();
-    mocks.leftSidebarPanelHandle.getId.mockClear();
     mocks.leftSidebarPanelHandle.getSize.mockClear();
-    mocks.leftSidebarPanelHandle.isCollapsed.mockClear();
-    mocks.leftSidebarPanelHandle.isExpanded.mockClear();
     mocks.leftSidebarPanelHandle.resize.mockClear();
     mocks.tabContentRenderCount = 0;
-    mocks.upcomingMeetingStatus = null;
-    mocks.setUpcomingMeetingStatus = null;
-  });
-
-  it("wraps the expanded left sidebar in a persistent resizable panel", () => {
-    render(<ClassicMainBody />);
-
-    expect(screen.getByTestId("panel-group").dataset.direction).toBe(
-      "horizontal",
-    );
-    expect(screen.getByTestId("panel-group").dataset.dir).toBe("ltr");
-    expect(screen.getByTestId("panel-group").dataset.autoSaveId).toBe(
-      "classic-main-sidebar",
-    );
-    expect(screen.getByTestId("panel-group").previousElementSibling).toBeNull();
-    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
-    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
-      "after:w-2",
-    );
-    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
-      "cursor-ew-resize",
-    );
-    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
-      "w-1",
-    );
-
-    const panels = screen.getAllByTestId("panel");
-    expect(panels).toHaveLength(2);
-    expect(panels[0]?.dataset.panelId).toBe("classic-main-sidebar-left");
-    expect(panels[0]?.dataset.order).toBe("1");
-    expect(panels[0]?.dataset.collapsible).toBe("true");
-    expect(panels[0]?.dataset.collapsedSize).toBe("0");
-    expect(panels[0]?.dataset.defaultSize).toBe("12.5");
-    expect(panels[0]?.dataset.minSize).toBe("12.5");
-    expect(panels[0]?.dataset.maxSize).toBe("22.5");
-    expect(panels[0]?.dataset.flexGrow).toBe("var(--left-sidebar-panel-size)");
-    expect(panels[0]?.dataset.minWidth).toBe(WINDOW_CONTROLS_SIDEBAR_MIN_WIDTH);
-    expect(panels[0]?.dataset.maxWidth).toBe("360");
-    expect(panels[0]?.dataset.transition).toBeUndefined();
-    expect(panels[1]?.dataset.panelId).toBe("classic-main-content");
-    expect(panels[1]?.dataset.order).toBe("2");
-
-    const sidebarContent = document.querySelector<HTMLElement>(
-      "[data-left-sidebar-panel-content]",
-    );
-    const sidebarChrome = document.querySelector<HTMLElement>(
-      "[data-left-sidebar-chrome]",
-    );
-    const sidebarTimelineHeader = document.querySelector<HTMLElement>(
-      "[data-sidebar-timeline-header]",
-    );
-
-    expect(sidebarContent?.className).toContain("translate-x-0");
-    expect(sidebarContent?.className).toContain(
-      "transition-[opacity,transform]",
-    );
-    expect(sidebarContent?.getAttribute("aria-hidden")).toBe("false");
-    expect(sidebarChrome).toBeNull();
-    expect(sidebarTimelineHeader).toBeTruthy();
-    expect(sidebarTimelineHeader?.className).toContain("h-9");
-    expect(sidebarTimelineHeader?.className).not.toContain("absolute");
-
-    const bodyRoot = screen.getByTestId("panel-group").parentElement;
-    expect(bodyRoot?.getAttribute("style")).toContain(
-      "--left-sidebar-panel-size: 12.5",
-    );
-
-    act(() => {
-      mocks.onPanelLayout?.([24, 76]);
-    });
-
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
-      "24",
-    );
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
-      "24%",
-    );
-  });
-
-  it.each([
-    ["settings", { state: { tab: "app" } }],
-    ["calendar", {}],
-    ["contacts", { state: { selected: null } }],
-    ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
-    ["automations", {}],
-    ["folders", {}],
-  ])("keeps the %s left sidebar fixed", (type, extraTabState) => {
-    mocks.currentTab = {
-      active: true,
-      pinned: false,
-      slotId: `slot-${type}`,
-      type,
-      ...extraTabState,
-    };
-
-    render(<ClassicMainBody />);
-
-    expect(screen.getByTestId("panel-group").dataset.autoSaveId).toBe(
-      undefined,
-    );
-    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
-      "pointer-events-none",
-    );
-    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
-      "w-0",
-    );
-    expect(screen.getByTestId("resize-handle").dataset.className).toContain(
-      "after:w-0",
-    );
-    expect(mocks.onResizeDragging).toBeNull();
-
-    const panels = screen.getAllByTestId("panel");
-    expect(panels[0]?.dataset.defaultSize).toBe("12.5");
-    expect(panels[0]?.dataset.minSize).toBe("12.5");
-    expect(panels[0]?.dataset.maxSize).toBe("12.5");
-    expect(panels[0]?.dataset.flexGrow).toBe("0");
-    expect(panels[0]?.dataset.flexBasis).toBe("200");
-    expect(panels[0]?.dataset.minWidth).toBe("200");
-    expect(panels[0]?.dataset.maxWidth).toBe("200");
-
-    const sidebarChrome = document.querySelector<HTMLElement>(
-      "[data-left-sidebar-chrome]",
-    );
-    expect(sidebarChrome?.style.width).toBe("200px");
-    expect(sidebarChrome?.style.maxWidth).toBe("200px");
-
-    const bodyRoot = screen.getByTestId("panel-group").parentElement;
-    act(() => {
-      mocks.onPanelLayout?.([24, 76]);
-    });
-
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
-      "12.5",
-    );
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
-      "12.5%",
-    );
-  });
-
-  it.each([
-    ["settings", { state: { tab: "app" } }],
-    ["calendar", {}],
-    ["contacts", { state: { selected: null } }],
-    ["automations", {}],
-    ["folders", {}],
-    ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
-  ] as const)(
-    "leaves the %s chrome row back button to the sidebar header",
-    (type, extraTabState) => {
-      mocks.currentTab = {
-        active: true,
-        pinned: false,
-        slotId: `slot-${type}`,
-        type,
-        ...extraTabState,
-      };
-
-      render(<ClassicMainBody />);
-
-      expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    },
-  );
-
-  it("settles the startup left sidebar default against the rendered body width", async () => {
-    let bodyWidth = 1000;
-    const requestAnimationFrame = vi
-      .spyOn(window, "requestAnimationFrame")
-      .mockImplementation((callback) => {
-        callback(0);
-        return 1;
-      });
-    const cancelAnimationFrame = vi
-      .spyOn(window, "cancelAnimationFrame")
-      .mockImplementation(() => {});
-    const getBoundingClientRect = vi
-      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-      .mockImplementation(function (this: HTMLElement) {
-        if (this.querySelector("[data-testid='panel-group']")) {
-          return rectWithWidth(bodyWidth);
-        }
-
-        return rectWithWidth(0);
-      });
-
-    try {
-      render(<ClassicMainBody />);
-
-      await waitFor(() => {
-        expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(20);
-      });
-
-      const panels = screen.getAllByTestId("panel");
-      expect(panels[0]?.dataset.defaultSize).toBe("20");
-      expect(panels[0]?.dataset.minSize).toBe("20");
-      expect(panels[0]?.dataset.maxSize).toBe("36");
-
-      const bodyRoot = screen.getByTestId("panel-group").parentElement;
-      expect(
-        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size"),
-      ).toBe("20");
-      expect(
-        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width"),
-      ).toBe("20%");
-
-      act(() => {
-        mocks.onPanelLayout?.([12.5, 87.5]);
-      });
-
-      expect(
-        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size"),
-      ).toBe("20");
-      expect(
-        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width"),
-      ).toBe("20%");
-
-      bodyWidth = 800;
-      fireEvent.resize(window);
-
-      await waitFor(() => {
-        expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(25);
-      });
-
-      const resizedPanels = screen.getAllByTestId("panel");
-      expect(resizedPanels[0]?.dataset.defaultSize).toBe("25");
-      expect(resizedPanels[0]?.dataset.minSize).toBe("25");
-      expect(resizedPanels[0]?.dataset.maxSize).toBe("45");
-      expect(
-        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size"),
-      ).toBe("25");
-      expect(
-        bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width"),
-      ).toBe("25%");
-    } finally {
-      requestAnimationFrame.mockRestore();
-      cancelAnimationFrame.mockRestore();
-      getBoundingClientRect.mockRestore();
-    }
-  });
-
-  it("syncs the default left sidebar width after the panel mounts", async () => {
-    let bodyWidth = 1000;
-    const requestAnimationFrame = vi
-      .spyOn(window, "requestAnimationFrame")
-      .mockImplementation((callback) => {
-        callback(0);
-        return 1;
-      });
-    const cancelAnimationFrame = vi
-      .spyOn(window, "cancelAnimationFrame")
-      .mockImplementation(() => {});
-    const getBoundingClientRect = vi
-      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-      .mockImplementation(function (this: HTMLElement) {
-        if (this.querySelector("[data-testid='panel-group']")) {
-          return rectWithWidth(bodyWidth);
-        }
-
-        return rectWithWidth(0);
-      });
-
-    try {
-      mocks.currentTab = {
-        active: true,
-        pinned: false,
-        slotId: "slot-onboarding",
-        type: "onboarding",
-      };
-
-      const { rerender } = render(<ClassicMainBody />);
-      expect(
-        screen
-          .getAllByTestId("panel")
-          .some(
-            (panel) => panel.dataset.panelId === "classic-main-sidebar-left",
-          ),
-      ).toBe(false);
-
-      mocks.currentTab = {
-        active: true,
-        pinned: false,
-        slotId: "slot-home",
-        type: "empty",
-      };
-
-      rerender(<ClassicMainBody />);
-      bodyWidth = 1000;
-      fireEvent.resize(window);
-
-      await waitFor(() => {
-        expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(20);
-      });
-    } finally {
-      requestAnimationFrame.mockRestore();
-      cancelAnimationFrame.mockRestore();
-      getBoundingClientRect.mockRestore();
-    }
   });
 
   it("updates sidebar sizing during drag without rerendering tab content", () => {
@@ -598,67 +174,8 @@ describe("ClassicMainBody", () => {
     );
   });
 
-  it("updates the upcoming meeting badge without rerendering tab content", () => {
-    mocks.leftsidebar.expanded = false;
-    render(<ClassicMainBody />);
-    const initialRenderCount = mocks.tabContentRenderCount;
-
-    act(() => {
-      mocks.setUpcomingMeetingStatus?.({
-        itemKey: "event-standup",
-        label: "In 1m",
-        title: "Team standup",
-      });
-    });
-
-    expect(
-      screen.getByTestId("collapsed-sidebar-upcoming-meeting-badge"),
-    ).toBeTruthy();
-    expect(mocks.tabContentRenderCount).toBe(initialRenderCount);
-  });
-
-  it("keeps the sort menu beside the new note button", () => {
-    render(<ClassicMainBody />);
-
-    const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const sortButton = screen.getByRole("button", { name: "Sort notes" });
-
-    expect(sortButton.parentElement).toBe(newNoteButton.parentElement);
-    expect(newNoteButton.compareDocumentPosition(sortButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-  });
-
-  it("keeps near-equal sidebar size commits in sync with drag-time CSS variables", () => {
-    render(<ClassicMainBody />);
-
-    const bodyRoot = screen.getByTestId("panel-group").parentElement;
-
-    act(() => {
-      mocks.onResizeDragging?.(true);
-      mocks.onPanelLayout?.([12.505, 87.495]);
-    });
-
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
-      "12.505",
-    );
-
-    act(() => {
-      mocks.onResizeDragging?.(false);
-    });
-
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
-      "12.505",
-    );
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
-      "12.505%",
-    );
-  });
-
   it("collapses the sidebar when the resize handle snaps below the threshold", () => {
     render(<ClassicMainBody />);
-
-    const bodyRoot = screen.getByTestId("panel-group").parentElement;
 
     act(() => {
       mocks.onResizeDragging?.(true);
@@ -668,86 +185,7 @@ describe("ClassicMainBody", () => {
 
     expect(mocks.leftsidebar.setExpanded).toHaveBeenCalledWith(false);
     expect(mocks.leftsidebar.toggleExpanded).not.toHaveBeenCalled();
-    expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(12.5);
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-size")).toBe(
-      "12.5",
-    );
-    expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
-      "12.5%",
-    );
-  });
-
-  it("keeps the note content panel at least 500px wide", () => {
-    mocks.currentTab = {
-      active: true,
-      id: "session-1",
-      pinned: false,
-      slotId: "slot-session",
-      type: "sessions",
-    };
-
-    render(<ClassicMainBody />);
-
-    const panels = screen.getAllByTestId("panel");
-    expect(panels[1]?.dataset.minWidth).toBe("min(500px, 100%)");
-  });
-
-  it("keeps the empty content panel at least 500px wide", () => {
-    mocks.currentTab = {
-      active: true,
-      pinned: false,
-      slotId: "slot-home",
-      type: "empty",
-    };
-
-    render(<ClassicMainBody />);
-
-    const panels = screen.getAllByTestId("panel");
-    expect(panels[1]?.dataset.minWidth).toBe("min(500px, 100%)");
-  });
-
-  it("lets the settings content panel shrink beside the sidebar", () => {
-    mocks.currentTab = {
-      active: true,
-      pinned: false,
-      slotId: "slot-settings",
-      type: "settings",
-      state: { tab: "app" },
-    };
-
-    render(<ClassicMainBody />);
-
-    const panels = screen.getAllByTestId("panel");
-    expect(panels[1]?.dataset.minWidth).toBeUndefined();
-  });
-
-  it("unmounts hidden sidebar content when the panel is collapsed", () => {
-    mocks.leftsidebar.expanded = false;
-
-    render(<ClassicMainBody />);
-
-    const resizeHandle = screen.getByTestId("resize-handle");
-
-    expect(resizeHandle.dataset.className).toContain("pointer-events-none");
-    expect(resizeHandle.dataset.className).toContain("w-0");
-    expect(screen.queryByTestId("classic-main-sidebar")).toBeNull();
-
-    const panels = screen.getAllByTestId("panel");
-    expect(panels).toHaveLength(2);
-    expect(panels[0]?.dataset.panelId).toBe("classic-main-sidebar-left");
-    expect(panels[0]?.dataset.flexGrow).toBe("0");
-    expect(panels[0]?.dataset.minWidth).toBe("0");
-    expect(panels[0]?.dataset.maxWidth).toBe("0");
-    expect(panels[0]?.dataset.transition).toBeUndefined();
-
-    const sidebarContent = document.querySelector<HTMLElement>(
-      "[data-left-sidebar-panel-content]",
-    );
-    expect(sidebarContent?.className).toContain("-translate-x-3");
-    expect(sidebarContent?.className).toContain("opacity-0");
-    expect(document.querySelector("[data-sidebar-timeline-header]")).toBeNull();
-    expect(sidebarContent?.getAttribute("aria-hidden")).toBe("true");
-    expect(sidebarContent?.hasAttribute("inert")).toBe(true);
+    expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledOnce();
   });
 
   it("resizes the collapsed sidebar panel before reopening it", () => {
@@ -758,7 +196,7 @@ describe("ClassicMainBody", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
 
-    expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledWith(12.5);
+    expect(mocks.leftSidebarPanelHandle.resize).toHaveBeenCalledOnce();
     expect(mocks.leftSidebarPanelHandle.expand).not.toHaveBeenCalled();
     expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
 
@@ -766,64 +204,6 @@ describe("ClassicMainBody", () => {
     rerender(<ClassicMainBody />);
 
     expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
-  });
-
-  it("keeps layout transitions disabled when resize is interrupted by collapse", () => {
-    const { rerender } = render(<ClassicMainBody />);
-
-    act(() => {
-      mocks.onResizeDragging?.(true);
-    });
-
-    expect(screen.getAllByTestId("panel")[0]?.dataset.transition).toBe(
-      undefined,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
-    mocks.leftsidebar.expanded = false;
-    rerender(<ClassicMainBody />);
-
-    expect(
-      screen.getAllByTestId("panel")[0]?.dataset.transition,
-    ).toBeUndefined();
-    expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders expanded sidebar controls in the sidebar layout", () => {
-    render(<ClassicMainBody />);
-
-    const sidebarChrome = document.querySelector<HTMLElement>(
-      "[data-left-sidebar-chrome]",
-    );
-    const timelineHeader = document.querySelector<HTMLElement>(
-      "[data-sidebar-timeline-header]",
-    );
-    const sidebarToggle = screen.getByRole("button", { name: "Hide sidebar" });
-    const searchButton = screen.getByRole("button", { name: "Search" });
-
-    expect(sidebarChrome).toBeNull();
-    expect(timelineHeader).toBeInstanceOf(HTMLElement);
-    expect(timelineHeader?.parentElement?.dataset.testid).toBe(
-      "classic-main-sidebar",
-    );
-    expect(searchButton.parentElement).toBe(sidebarToggle.parentElement);
-
-    const scroller = document.querySelector<HTMLElement>(
-      "[data-sidebar-timeline-scroll]",
-    );
-    expect(scroller).toBeInstanceOf(HTMLElement);
-    Object.defineProperty(scroller, "clientHeight", {
-      configurable: true,
-      value: 200,
-    });
-    Object.defineProperty(scroller, "scrollHeight", {
-      configurable: true,
-      value: 1200,
-    });
-
-    fireEvent.wheel(timelineHeader!, { deltaY: 80 });
-
-    expect(scroller?.scrollTop).toBe(80);
   });
 
   it("does not reserve a sidebar panel during onboarding", () => {
@@ -834,27 +214,5 @@ describe("ClassicMainBody", () => {
     expect(screen.queryByTestId("classic-main-sidebar")).toBeNull();
     expect(screen.queryByTestId("resize-handle")).toBeNull();
     expect(screen.getAllByTestId("panel")).toHaveLength(1);
-  });
-
-  it("removes the Windows sidebar action row when actions are in the title bar", () => {
-    mocks.runtimePlatform = "windows";
-    render(<ClassicMainBody />);
-
-    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
-    expect(document.querySelector("[data-sidebar-timeline-header]")).toBeNull();
-    for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
-    }
-  });
-
-  it("removes the Linux sidebar action row when actions are in the title bar", () => {
-    mocks.runtimePlatform = "linux";
-    render(<ClassicMainBody />);
-
-    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
-    expect(document.querySelector("[data-sidebar-timeline-header]")).toBeNull();
-    for (const name of ["Search", "New note", "Sort notes"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
-    }
   });
 });

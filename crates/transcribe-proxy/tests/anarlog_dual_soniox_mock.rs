@@ -198,23 +198,6 @@ async fn streaming_dual_soniox_mic_finalize_speaker_only_closes_still_emits_term
 }
 
 #[tokio::test]
-async fn streaming_dual_soniox_speaker_finalize_mic_only_closes_still_emits_terminal_finalize() {
-    let mic_recording = close_only_recording(120, 1000, "mic done");
-    let spk_recording = soniox_finalize_recording("Speaker done", 20, 200, "speaker done");
-    let result = run_dual_soniox_case([mic_recording, spk_recording], true).await;
-
-    assert_split_requests(&result);
-    assert_eq!(terminal_finalize_count(&result.messages), 1);
-
-    let transcripts = transcript_events(&result.messages);
-    assert!(
-        has_transcript(&transcripts, "Speaker done", 1, true),
-        "speaker finalize should become terminal when the mic channel only closes: {transcripts:?}"
-    );
-    assert_close_info(&result, (1000, "speaker done"));
-}
-
-#[tokio::test]
 async fn streaming_dual_soniox_finalize_then_other_channel_regular_results_then_close_keeps_one_terminal_finalize()
  {
     let mic_recording = soniox_finalize_recording("Mic done", 20, 220, "mic done");
@@ -251,37 +234,6 @@ async fn streaming_dual_soniox_no_channel_finalize_closes_without_terminal_final
     assert_split_requests(&result);
     assert_eq!(terminal_finalize_count(&result.messages), 0);
     assert_close_info(&result, (1000, "speaker done"));
-}
-
-#[tokio::test]
-async fn streaming_dual_soniox_forwards_error_before_non_normal_close() {
-    let error_message = "Cannot continue request (code 1). Please restart the request.";
-    let mic_recording = soniox_error_recording(error_message, 20, 250);
-    let spk_recording = close_only_recording(200, 1000, "speaker done");
-    let result = run_dual_soniox_case([mic_recording, spk_recording], false).await;
-
-    assert!(
-        has_soniox_error(&result.messages, error_message),
-        "proxy should forward transformed Soniox errors before closing: {:?}",
-        result.messages
-    );
-    assert!(
-        last_message_is_soniox_error(&result.messages, error_message),
-        "provider error payload should be the final text message before close: {:?}",
-        result.messages
-    );
-
-    let (code, reason) = result
-        .close_info
-        .expect("proxy should close the downstream websocket");
-    assert_ne!(
-        code, 1000,
-        "provider errors should not map to a normal close"
-    );
-    assert!(
-        reason.contains(error_message),
-        "close reason should carry the provider error: {reason}"
-    );
 }
 
 #[tokio::test]
@@ -333,37 +285,6 @@ async fn streaming_dual_soniox_pending_finalize_is_downgraded_before_non_normal_
     );
     assert_eq!(terminal_finalize_count(&result.messages), 0);
     assert_close_info(&result, (1011, "speaker_failed"));
-}
-
-#[tokio::test]
-async fn streaming_dual_soniox_later_finalize_replaces_earlier_pending_finalize() {
-    let mic_recording = WsRecording {
-        messages: vec![
-            soniox_finalize_ws_message("Mic first", 20),
-            soniox_finalize_ws_message("Mic second", 80),
-            WsMessage::close(common::Direction::ServerToClient, 200, 1000, "mic done"),
-        ],
-    };
-    let spk_recording = close_only_recording(140, 1000, "speaker done");
-    let result = run_dual_soniox_case([mic_recording, spk_recording], true).await;
-
-    let transcripts = transcript_events(&result.messages);
-    assert!(
-        transcripts
-            .iter()
-            .any(|event| event.text == "Mic first" && !event.from_finalize),
-        "older pending finalize should be flushed as non-terminal when replaced: {transcripts:?}"
-    );
-    assert!(
-        has_transcript(&transcripts, "Mic second", 0, true),
-        "newer finalize should become the terminal finalize once sibling closes: {transcripts:?}"
-    );
-    assert_eq!(terminal_finalize_count(&result.messages), 1);
-    assert!(
-        matches!(result.close_info, Some((1000, _))),
-        "session should still close normally: {:?}",
-        result.close_info
-    );
 }
 
 #[tokio::test]

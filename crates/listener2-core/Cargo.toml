@@ -12,7 +12,6 @@ tauri-event = ["specta", "dep:tauri-specta"]
 anlg-audio-chunking = { workspace = true }
 anlg-audio-utils = { workspace = true }
 anlg-embedding = { workspace = true }
-anlg-host = { workspace = true }
 anlg-language = { workspace = true }
 anlg-mp3 = { workspace = true }
 anlg-pyannote-local = { workspace = true }
@@ -22,7 +21,6 @@ anlg-transcribe-speechanalyzer = { workspace = true }
 anlg-user-error = { workspace = true }
 anlg-voiceprint = { workspace = true }
 
-bytes = { workspace = true }
 hound = { workspace = true }
 
 owhisper-client = { workspace = true, features = ["local"] }
@@ -41,7 +39,6 @@ ractor = { workspace = true, features = ["async-trait"] }
 async-stream = { workspace = true }
 futures-util = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
-tokio-stream = { workspace = true }
 tracing = { workspace = true }
 
 aspasia = "0.2.1"

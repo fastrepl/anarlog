@@ -4,18 +4,15 @@ const mocks = vi.hoisted(() => ({
   formatMeetingChatRecordsAsMarkdown: vi.fn(),
   loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
-  loadHumansByIds: vi.fn(),
-  buildRenderTranscriptRequestFromRows: vi.fn(),
-  collectAssignedHumanIdsFromTranscriptRows: vi.fn(),
-  renderTranscriptSegments: vi.fn(),
-}));
-
-vi.mock("~/contacts/queries", () => ({
-  loadHumansByIds: mocks.loadHumansByIds,
+  renderSessionTranscript: vi.fn(),
 }));
 
 vi.mock("~/session/content-queries", () => ({
   loadSessionContentSnapshot: mocks.loadSessionContentSnapshot,
+}));
+
+vi.mock("@anlg/plugin-transcription", () => ({
+  commands: { renderSessionTranscript: mocks.renderSessionTranscript },
 }));
 
 vi.mock("~/stt/meeting-chat-records", () => ({
@@ -23,36 +20,19 @@ vi.mock("~/stt/meeting-chat-records", () => ({
   loadMeetingChatRecords: mocks.loadMeetingChatRecords,
 }));
 
-vi.mock("~/stt/render-transcript", () => ({
-  buildRenderTranscriptRequestFromRows:
-    mocks.buildRenderTranscriptRequestFromRows,
-  collectAssignedHumanIdsFromTranscriptRows:
-    mocks.collectAssignedHumanIdsFromTranscriptRows,
-  renderTranscriptSegments: mocks.renderTranscriptSegments,
-}));
-
 import { hydrateSessionContext } from "./session-context-hydrator";
 
 describe("session chat context hydration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.collectAssignedHumanIdsFromTranscriptRows.mockReturnValue([
-      "human-assigned",
-    ]);
-    mocks.loadHumansByIds.mockResolvedValue([
-      { id: "human-1", name: "SQLite Person", jobTitle: "Engineer" },
-      { id: "human-assigned", name: "Assigned Person", jobTitle: "" },
-      { id: "user-1", name: "Self", jobTitle: "" },
-    ]);
-    mocks.buildRenderTranscriptRequestFromRows.mockReturnValue({
-      transcripts: [],
-      participant_human_ids: [],
-      self_human_id: "user-1",
-      humans: [],
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [{ speaker_label: "SQLite Person", text: "Transcript text" }],
+        started_at: 100,
+        ended_at: 200,
+      },
     });
-    mocks.renderTranscriptSegments.mockResolvedValue([
-      { speaker_label: "SQLite Person", text: "Transcript text" },
-    ]);
     mocks.loadMeetingChatRecords.mockResolvedValue([
       { text: "Review the rollout plan" },
     ]);
@@ -110,6 +90,7 @@ describe("session chat context hydration", () => {
   it("hydrates note and speaker context from the canonical snapshot", async () => {
     await expect(hydrateSessionContext("session-1", "user-1")).resolves.toEqual(
       {
+        sessionId: "session-1",
         title: "Planning",
         date: "2026-07-10T09:00:00.000Z",
         rawContent: "Raw note",
@@ -125,22 +106,17 @@ describe("session chat context hydration", () => {
         event: { name: "Weekly planning" },
       },
     );
+  });
 
-    expect(mocks.loadHumansByIds).toHaveBeenCalledWith([
-      "human-1",
-      "human-assigned",
-      "user-1",
-    ]);
-    expect(mocks.buildRenderTranscriptRequestFromRows).toHaveBeenCalledWith(
-      expect.any(Array),
-      expect.objectContaining({
-        selfHumanId: "user-1",
-        humans: expect.arrayContaining([
-          { human_id: "human-assigned", name: "Assigned Person" },
-        ]),
-      }),
-      ["human-1"],
-    );
+  it("returns a null transcript when Rust has no renderable transcript", async () => {
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+
+    const result = await hydrateSessionContext("session-1", "user-1");
+
+    expect(result?.transcript).toBeNull();
   });
 
   it("returns null when the canonical session is unavailable", async () => {
@@ -149,6 +125,5 @@ describe("session chat context hydration", () => {
     await expect(
       hydrateSessionContext("session-missing", "user-1"),
     ).resolves.toBeNull();
-    expect(mocks.loadHumansByIds).not.toHaveBeenCalled();
   });
 });

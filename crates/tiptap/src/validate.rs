@@ -322,184 +322,156 @@ mod tests {
     }
 
     #[test]
-    fn valid_simple_doc() {
-        assert_valid(&json!({
-            "type": "doc",
-            "content": [{ "type": "paragraph" }]
-        }));
-    }
-
-    #[test]
-    fn valid_list_item_with_paragraph() {
-        assert_valid(&json!({
-            "type": "doc",
-            "content": [{
-                "type": "bulletList",
-                "content": [{
-                    "type": "listItem",
-                    "content": [{
-                        "type": "paragraph",
-                        "content": [{ "type": "text", "text": "hello" }]
-                    }]
-                }]
-            }]
-        }));
-    }
-
-    #[test]
-    fn valid_list_item_with_paragraph_then_nested_list() {
-        assert_valid(&json!({
-            "type": "doc",
-            "content": [{
-                "type": "bulletList",
-                "content": [{
-                    "type": "listItem",
-                    "content": [
-                        { "type": "paragraph", "content": [{ "type": "text", "text": "item" }] },
-                        {
-                            "type": "bulletList",
-                            "content": [{
-                                "type": "listItem",
-                                "content": [{ "type": "paragraph" }]
-                            }]
-                        }
-                    ]
-                }]
-            }]
-        }));
-    }
-
-    #[test]
-    fn invalid_list_item_starting_with_list() {
-        assert_invalid(
-            &json!({
+    fn accepts_valid_documents() {
+        for doc in [
+            json!({
+                "type": "doc",
+                "content": [{ "type": "paragraph" }]
+            }),
+            json!({
                 "type": "doc",
                 "content": [{
                     "type": "bulletList",
                     "content": [{
                         "type": "listItem",
                         "content": [{
-                            "type": "bulletList",
-                            "content": [{
-                                "type": "listItem",
-                                "content": [{ "type": "paragraph" }]
-                            }]
+                            "type": "paragraph",
+                            "content": [{ "type": "text", "text": "hello" }]
                         }]
                     }]
                 }]
             }),
-            "must start with a paragraph",
-        );
-    }
-
-    #[test]
-    fn invalid_empty_list_item() {
-        assert_invalid(
-            &json!({
+            json!({
                 "type": "doc",
                 "content": [{
                     "type": "bulletList",
                     "content": [{
                         "type": "listItem",
-                        "content": []
+                        "content": [
+                            { "type": "paragraph", "content": [{ "type": "text", "text": "item" }] },
+                            {
+                                "type": "bulletList",
+                                "content": [{
+                                    "type": "listItem",
+                                    "content": [{ "type": "paragraph" }]
+                                }]
+                            }
+                        ]
                     }]
                 }]
             }),
-            "must contain at least a paragraph",
-        );
-    }
-
-    #[test]
-    fn invalid_task_item_without_paragraph() {
-        assert_invalid(
-            &json!({
-                "type": "doc",
-                "content": [{
-                    "type": "taskList",
-                    "content": [{
-                        "type": "taskItem",
-                        "attrs": { "checked": false },
-                        "content": [{
-                            "type": "bulletList",
-                            "content": [{
-                                "type": "listItem",
-                                "content": [{ "type": "paragraph" }]
-                            }]
-                        }]
-                    }]
-                }]
-            }),
-            "must start with a paragraph",
-        );
-    }
-
-    #[test]
-    fn invalid_empty_doc() {
-        assert_invalid(
-            &json!({
-                "type": "doc",
-                "content": []
-            }),
-            "must contain at least one block",
-        );
-    }
-
-    #[test]
-    fn invalid_inline_in_doc() {
-        assert_invalid(
-            &json!({
-                "type": "doc",
-                "content": [{ "type": "text", "text": "hello" }]
-            }),
-            "doc child must be a block node",
-        );
-    }
-
-    #[test]
-    fn invalid_code_with_bold_marks() {
-        assert_invalid(
-            &json!({
+            json!({
                 "type": "doc",
                 "content": [{
                     "type": "paragraph",
                     "content": [{
                         "type": "text",
                         "text": "code",
-                        "marks": [{ "type": "bold" }, { "type": "code" }]
+                        "marks": [{ "type": "code" }]
                     }]
                 }]
             }),
-            "code mark excludes all other marks",
-        );
+            json!({
+                "type": "doc",
+                "content": [{
+                    "type": "paragraph",
+                    "content": [{
+                        "type": "text",
+                        "text": "bold italic",
+                        "marks": [{ "type": "bold" }, { "type": "italic" }]
+                    }]
+                }]
+            }),
+        ] {
+            assert_valid(&doc);
+        }
     }
 
     #[test]
-    fn valid_code_mark_alone() {
-        assert_valid(&json!({
-            "type": "doc",
-            "content": [{
-                "type": "paragraph",
-                "content": [{
-                    "type": "text",
-                    "text": "code",
-                    "marks": [{ "type": "code" }]
-                }]
-            }]
-        }));
-    }
-
-    #[test]
-    fn valid_bold_italic_marks() {
-        assert_valid(&json!({
-            "type": "doc",
-            "content": [{
-                "type": "paragraph",
-                "content": [{
-                    "type": "text",
-                    "text": "bold italic",
-                    "marks": [{ "type": "bold" }, { "type": "italic" }]
-                }]
-            }]
-        }));
+    fn rejects_invalid_documents() {
+        for (doc, expected) in [
+            (
+                json!({
+                    "type": "doc",
+                    "content": [{
+                        "type": "bulletList",
+                        "content": [{
+                            "type": "listItem",
+                            "content": [{
+                                "type": "bulletList",
+                                "content": [{
+                                    "type": "listItem",
+                                    "content": [{ "type": "paragraph" }]
+                                }]
+                            }]
+                        }]
+                    }]
+                }),
+                "must start with a paragraph",
+            ),
+            (
+                json!({
+                    "type": "doc",
+                    "content": [{
+                        "type": "bulletList",
+                        "content": [{
+                            "type": "listItem",
+                            "content": []
+                        }]
+                    }]
+                }),
+                "must contain at least a paragraph",
+            ),
+            (
+                json!({
+                    "type": "doc",
+                    "content": [{
+                        "type": "taskList",
+                        "content": [{
+                            "type": "taskItem",
+                            "attrs": { "checked": false },
+                            "content": [{
+                                "type": "bulletList",
+                                "content": [{
+                                    "type": "listItem",
+                                    "content": [{ "type": "paragraph" }]
+                                }]
+                            }]
+                        }]
+                    }]
+                }),
+                "must start with a paragraph",
+            ),
+            (
+                json!({
+                    "type": "doc",
+                    "content": []
+                }),
+                "must contain at least one block",
+            ),
+            (
+                json!({
+                    "type": "doc",
+                    "content": [{ "type": "text", "text": "hello" }]
+                }),
+                "doc child must be a block node",
+            ),
+            (
+                json!({
+                    "type": "doc",
+                    "content": [{
+                        "type": "paragraph",
+                        "content": [{
+                            "type": "text",
+                            "text": "code",
+                            "marks": [{ "type": "bold" }, { "type": "code" }]
+                        }]
+                    }]
+                }),
+                "code mark excludes all other marks",
+            ),
+        ] {
+            assert_invalid(&doc, expected);
+        }
     }
 }

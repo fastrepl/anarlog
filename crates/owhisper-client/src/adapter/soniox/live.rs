@@ -267,9 +267,8 @@ mod tests {
     use owhisper_interface::stream::StreamResponse;
 
     use super::SonioxAdapter;
-    use crate::ListenClient;
     use crate::adapter::RealtimeSttAdapter;
-    use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
+    use crate::test_utils::{UrlTestCase, run_url_test_cases};
 
     #[test]
     fn standalone_finalization_marker_is_not_discarded() {
@@ -336,42 +335,63 @@ mod tests {
     }
 
     #[test]
-    fn test_initial_message_single_language() {
+    fn initial_message_language_hints() {
         let adapter = SonioxAdapter::default();
+
+        for (languages, expected_hints, expect_strict) in [
+            (vec![anlg_language::ISO639::En], vec!["en"], Some(true)),
+            (
+                vec![anlg_language::ISO639::En, anlg_language::ISO639::Ko],
+                vec!["en", "ko"],
+                None,
+            ),
+            (
+                vec![
+                    anlg_language::ISO639::En,
+                    anlg_language::ISO639::Es,
+                    anlg_language::ISO639::Fr,
+                ],
+                vec!["en", "es", "fr"],
+                None,
+            ),
+        ] {
+            let params = owhisper_interface::ListenParams {
+                languages: languages.into_iter().map(Into::into).collect(),
+                ..Default::default()
+            };
+
+            let json = extract_initial_message_json(&adapter, &params);
+
+            let hints = json["language_hints"].as_array().unwrap();
+            let hint_strs = hints
+                .iter()
+                .map(|h| h.as_str().unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(hint_strs, expected_hints);
+            match expect_strict {
+                Some(strict) => assert_eq!(json["language_hints_strict"].as_bool(), Some(strict)),
+                None => assert!(
+                    json.get("language_hints_strict").is_none()
+                        || !json["language_hints_strict"].as_bool().unwrap_or(false),
+                    "Multiple language hints should not enable strict restriction"
+                ),
+            }
+        }
+
         let params = owhisper_interface::ListenParams {
-            languages: vec![anlg_language::ISO639::En.into()],
+            languages: vec![],
             ..Default::default()
         };
-
         let json = extract_initial_message_json(&adapter, &params);
-
-        let hints = json["language_hints"].as_array().unwrap();
-        assert_eq!(hints.len(), 1);
-        assert_eq!(hints[0].as_str().unwrap(), "en");
-        assert_eq!(json["language_hints_strict"].as_bool().unwrap(), true);
-    }
-
-    #[test]
-    fn test_initial_message_multi_language() {
-        let adapter = SonioxAdapter::default();
-        let params = owhisper_interface::ListenParams {
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Ko.into(),
-            ],
-            ..Default::default()
-        };
-
-        let json = extract_initial_message_json(&adapter, &params);
-
-        let hints = json["language_hints"].as_array().unwrap();
-        assert_eq!(hints.len(), 2);
-        assert_eq!(hints[0].as_str().unwrap(), "en");
-        assert_eq!(hints[1].as_str().unwrap(), "ko");
+        assert!(
+            json.get("language_hints").is_none()
+                || json["language_hints"].as_array().unwrap().is_empty(),
+            "Empty languages should result in no language_hints"
+        );
         assert!(
             json.get("language_hints_strict").is_none()
                 || !json["language_hints_strict"].as_bool().unwrap_or(false),
-            "Multiple language hints should not enable strict restriction"
+            "Empty languages should not have language_hints_strict=true"
         );
     }
 
@@ -401,134 +421,6 @@ mod tests {
             let json = extract_initial_message_json(&adapter, &params);
             assert_eq!(json["enable_speaker_diarization"].as_bool(), Some(false));
         }
-    }
-
-    #[test]
-    fn test_initial_message_empty_languages() {
-        let adapter = SonioxAdapter::default();
-        let params = owhisper_interface::ListenParams {
-            languages: vec![],
-            ..Default::default()
-        };
-
-        let json = extract_initial_message_json(&adapter, &params);
-
-        assert!(
-            json.get("language_hints").is_none()
-                || json["language_hints"].as_array().unwrap().is_empty(),
-            "Empty languages should result in no language_hints"
-        );
-        assert!(
-            json.get("language_hints_strict").is_none()
-                || !json["language_hints_strict"].as_bool().unwrap_or(false),
-            "Empty languages should not have language_hints_strict=true"
-        );
-    }
-
-    #[test]
-    fn test_initial_message_three_languages() {
-        let adapter = SonioxAdapter::default();
-        let params = owhisper_interface::ListenParams {
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Es.into(),
-                anlg_language::ISO639::Fr.into(),
-            ],
-            ..Default::default()
-        };
-
-        let json = extract_initial_message_json(&adapter, &params);
-
-        let hints = json["language_hints"].as_array().unwrap();
-        assert_eq!(hints.len(), 3);
-        assert_eq!(hints[0].as_str().unwrap(), "en");
-        assert_eq!(hints[1].as_str().unwrap(), "es");
-        assert_eq!(hints[2].as_str().unwrap(), "fr");
-        assert!(
-            json.get("language_hints_strict").is_none()
-                || !json["language_hints_strict"].as_bool().unwrap_or(false),
-            "Multiple language hints should not enable strict restriction"
-        );
-    }
-
-    macro_rules! single_test {
-        ($name:ident, $params:expr) => {
-            #[tokio::test]
-            #[ignore]
-            async fn $name() {
-                let client = ListenClient::builder()
-                    .adapter::<SonioxAdapter>()
-                    .api_base("https://api.soniox.com")
-                    .api_key(std::env::var("SONIOX_API_KEY").expect("SONIOX_API_KEY not set"))
-                    .params($params)
-                    .build_single()
-                    .await
-                    .unwrap();
-                run_single_test(client, "soniox").await;
-            }
-        };
-    }
-
-    single_test!(
-        test_build_single,
-        owhisper_interface::ListenParams {
-            model: Some("stt-v3".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_with_keywords,
-        owhisper_interface::ListenParams {
-            model: Some("stt-v3".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_multi_lang_1,
-        owhisper_interface::ListenParams {
-            model: Some("stt-v3".to_string()),
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Es.into(),
-            ],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_multi_lang_2,
-        owhisper_interface::ListenParams {
-            model: Some("stt-v3".to_string()),
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Ko.into(),
-            ],
-            ..Default::default()
-        }
-    );
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_dual() {
-        let client = ListenClient::builder()
-            .adapter::<SonioxAdapter>()
-            .api_base("https://api.soniox.com")
-            .api_key(std::env::var("SONIOX_API_KEY").expect("SONIOX_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                model: Some("stt-v3".to_string()),
-                languages: vec![anlg_language::ISO639::En.into()],
-                ..Default::default()
-            })
-            .build_dual()
-            .await
-            .unwrap();
-
-        run_dual_test(client, "soniox").await;
     }
 
     #[test]

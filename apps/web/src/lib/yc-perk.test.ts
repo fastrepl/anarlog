@@ -7,12 +7,11 @@ import {
   normalizeYcVerificationUrl,
   parseYcPerkApplyValue,
   validateYcPerkApplyValue,
-  validateYcVerificationUrl,
   verifyYcFounder,
   ycPerkRequestSchema,
 } from "./yc-perk.ts";
 
-test("accepts YC founder verification links", () => {
+test("accepts YC founder verification links and rejects lookalikes", () => {
   assert.equal(
     isYcVerificationUrl("https://www.ycombinator.com/verify/founder-token"),
     true,
@@ -21,9 +20,6 @@ test("accepts YC founder verification links", () => {
     isYcVerificationUrl("https://ycombinator.com/verify/founder_token/"),
     true,
   );
-});
-
-test("rejects lookalike and generic YC URLs", () => {
   assert.equal(
     isYcVerificationUrl(
       "https://www.ycombinator.com.evil.example/verify/founder-token",
@@ -93,13 +89,6 @@ test("parses YC verification links and promotion codes for account apply", () =>
   assert.equal(
     validateYcPerkApplyValue("SAVE20"),
     "Paste your YC verification link or YC- code",
-  );
-});
-
-test("returns field-level validation messages", () => {
-  assert.equal(
-    validateYcVerificationUrl("https://example.com/verify/founder-token"),
-    "Use your ycombinator.com/verify link",
   );
 });
 

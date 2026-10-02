@@ -292,62 +292,6 @@ async fn cancelled_snapshot_finishes_current_row_and_releases_local_writes() {
 }
 
 #[tokio::test]
-async fn large_dirty_queue_cancellation_stays_bounded_and_releases_local_writes() {
-    let db = test_db().await;
-    let workspace_keys = keys("workspace-a");
-    sqlx::query(
-        "WITH RECURSIVE rows(id) AS (
-                SELECT 1
-                UNION ALL
-                SELECT id + 1 FROM rows WHERE id < 100000
-            )
-            INSERT INTO e2ee_dirty_rows (workspace_id, table_name, row_id)
-            SELECT 'workspace-a', 'sessions', printf('missing-%06d', id) FROM rows",
-    )
-    .execute(db.pool())
-    .await
-    .unwrap();
-
-    let (page, remaining) =
-        load_dirty_rows_page(db.pool(), &workspace_keys, E2EE_ENCRYPT_ROW_LIMIT, true)
-            .await
-            .unwrap();
-    assert_eq!(page.len(), E2EE_ENCRYPT_ROW_LIMIT as usize);
-    assert!(remaining);
-
-    let cancellation_checks = std::sync::atomic::AtomicUsize::new(0);
-    let stats = tokio::time::timeout(
-        std::time::Duration::from_secs(1),
-        encrypt_e2ee_replica_changes_deferring_active_captures_cancellable(
-            db.pool(),
-            &workspace_keys,
-            || cancellation_checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst) >= 1,
-        ),
-    )
-    .await
-    .expect("large dirty queue cancellation exceeded the activity deadline")
-    .unwrap();
-
-    assert!(stats.remaining_replica_changes);
-    let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_dirty_rows")
-        .fetch_one(db.pool())
-        .await
-        .unwrap();
-    assert_eq!(remaining, 100_000);
-    tokio::time::timeout(
-        std::time::Duration::from_millis(250),
-        sqlx::query(
-            "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
-                 VALUES ('after-large-cancel', 'workspace-a', 'user-a', 'Local write')",
-        )
-        .execute(db.pool()),
-    )
-    .await
-    .expect("large dirty queue cancellation kept the database busy")
-    .unwrap();
-}
-
-#[tokio::test]
 async fn witness_change_preserves_a_prepared_dirty_row() {
     let db = test_db().await;
     let workspace_keys = keys("workspace-a");

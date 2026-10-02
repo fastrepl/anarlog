@@ -93,8 +93,27 @@ mod tests {
     }
 
     #[test]
-    fn parse_tags_array() {
-        let input = &md_with_frontmatter("tags:\n  - meeting\n  - project-x\n  - important", "");
+    fn parse_converts_yaml_values_to_json() {
+        let frontmatter = r#"tags:
+  - meeting
+  - project-x
+  - important
+inline_tags: [daily, work]
+aliases:
+  - "Weekly Sync"
+  - "Team Meeting"
+date: 2024-01-15
+created: 2024-01-15T10:30:00
+publish: true
+draft: false
+priority: 1
+rating: 4.5
+description: null
+title: Test
+metadata:
+  author: John
+  version: 2"#;
+        let input = &md_with_frontmatter(frontmatter, "Content here.");
         let result = ParsedDocument::from_str(input).unwrap();
 
         let tags = result.frontmatter["tags"].as_array().unwrap();
@@ -102,101 +121,30 @@ mod tests {
         assert_eq!(tags[0], "meeting");
         assert_eq!(tags[1], "project-x");
         assert_eq!(tags[2], "important");
-    }
 
-    #[test]
-    fn parse_inline_tags_array() {
-        let input = &md_with_frontmatter("tags: [daily, work]", "");
-        let result = ParsedDocument::from_str(input).unwrap();
-
-        let tags = result.frontmatter["tags"].as_array().unwrap();
-        assert_eq!(tags, &vec!["daily", "work"]);
-    }
-
-    #[test]
-    fn parse_aliases() {
-        let input = &md_with_frontmatter("aliases:\n  - \"Weekly Sync\"\n  - \"Team Meeting\"", "");
-        let result = ParsedDocument::from_str(input).unwrap();
+        let inline_tags = result.frontmatter["inline_tags"].as_array().unwrap();
+        assert_eq!(inline_tags, &vec!["daily", "work"]);
 
         let aliases = result.frontmatter["aliases"].as_array().unwrap();
         assert_eq!(aliases[0], "Weekly Sync");
         assert_eq!(aliases[1], "Team Meeting");
-    }
-
-    #[test]
-    fn parse_dates() {
-        let input = &md_with_frontmatter("date: 2024-01-15\ncreated: 2024-01-15T10:30:00", "");
-        let result = ParsedDocument::from_str(input).unwrap();
 
         assert_eq!(result.frontmatter["date"], "2024-01-15");
         assert_eq!(result.frontmatter["created"], "2024-01-15T10:30:00");
-    }
-
-    #[test]
-    fn parse_boolean_values() {
-        let input = &md_with_frontmatter("publish: true\ndraft: false", "");
-        let result = ParsedDocument::from_str(input).unwrap();
 
         assert_eq!(result.frontmatter["publish"], true);
         assert_eq!(result.frontmatter["draft"], false);
-    }
-
-    #[test]
-    fn parse_numeric_values() {
-        let input = &md_with_frontmatter("priority: 1\nrating: 4.5", "");
-        let result = ParsedDocument::from_str(input).unwrap();
 
         assert_eq!(result.frontmatter["priority"], 1);
         assert_eq!(result.frontmatter["rating"], 4.5);
-    }
-
-    #[test]
-    fn parse_null_value() {
-        let input = &md_with_frontmatter("description: null\ntitle: Test", "");
-        let result = ParsedDocument::from_str(input).unwrap();
 
         assert!(result.frontmatter["description"].is_null());
         assert_eq!(result.frontmatter["title"], "Test");
-    }
-
-    #[test]
-    fn parse_nested_object() {
-        let input = &md_with_frontmatter("metadata:\n  author: John\n  version: 2", "");
-        let result = ParsedDocument::from_str(input).unwrap();
 
         let metadata = result.frontmatter["metadata"].as_object().unwrap();
         assert_eq!(metadata["author"], "John");
         assert_eq!(metadata["version"], 2);
-    }
 
-    #[test]
-    fn parse_complex_obsidian_note() {
-        let frontmatter = r#"id: meeting-2024-01-15
-title: "Q1 Planning Session"
-date: 2024-01-15
-tags:
-  - meeting
-  - quarterly
-  - planning
-aliases:
-  - "Q1 Planning"
-participants:
-  - Alice
-  - Bob
-status: completed
-publish: false"#;
-        let input = &md_with_frontmatter(frontmatter, "# Meeting Notes\n\nDiscussed roadmap.");
-        let result = ParsedDocument::from_str(input).unwrap();
-
-        assert_eq!(result.frontmatter["id"], "meeting-2024-01-15");
-        assert_eq!(result.frontmatter["title"], "Q1 Planning Session");
-        assert_eq!(result.frontmatter["status"], "completed");
-        assert_eq!(result.frontmatter["publish"], false);
-        assert_eq!(result.frontmatter["tags"].as_array().unwrap().len(), 3);
-        assert_eq!(
-            result.frontmatter["participants"].as_array().unwrap().len(),
-            2
-        );
-        assert_eq!(result.content, "# Meeting Notes\n\nDiscussed roadmap.");
+        assert_eq!(result.content, "Content here.");
     }
 }

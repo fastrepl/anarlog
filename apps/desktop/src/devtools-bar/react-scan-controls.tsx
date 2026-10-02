@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
+
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   setReactInspecting,
@@ -12,25 +14,47 @@ import { ScanPanel } from "./scan-panel";
 export function ReactScanControls() {
   const state = useReactToolsState();
   const [error, setError] = useState(false);
-  useEffect(() => {
-    let canceled = false;
-    let dispose: (() => void) | undefined;
-    // The bar is mounted only after the native showDevtool gate succeeds.
-    // The existing render-hook is already installed before react-dom loads.
-    void import("./react-scan")
+  const canceled = useRef(false);
+  const dispose = useRef<(() => void) | undefined>(undefined);
+  const pendingInstall = useRef<Promise<boolean> | null>(null);
+
+  useMountEffect(() => {
+    canceled.current = false;
+    return () => {
+      canceled.current = true;
+      dispose.current?.();
+    };
+  });
+
+  const install = () => {
+    if (pendingInstall.current) return pendingInstall.current;
+
+    pendingInstall.current = import("./react-scan")
       .then(({ installReactScan }) => {
-        if (canceled) return;
-        dispose = installReactScan();
+        if (canceled.current) return false;
+        dispose.current = installReactScan();
         setRenderOutlinesEnabled(false);
+        return true;
       })
       .catch(() => {
-        if (!canceled) setError(true);
+        if (!canceled.current) setError(true);
+        return false;
       });
-    return () => {
-      canceled = true;
-      dispose?.();
-    };
-  }, []);
+
+    return pendingInstall.current;
+  };
+
+  const activate = (action: (enabled: boolean) => void, enabled: boolean) => {
+    if (state.available) {
+      action(!enabled);
+      return;
+    }
+    if (pendingInstall.current) return;
+
+    void install().then((installed) => {
+      if (installed && !canceled.current) action(true);
+    });
+  };
 
   const buttonClass =
     "shrink-0 px-2 hover:bg-white/8 aria-pressed:bg-white/15 disabled:opacity-40";
@@ -39,7 +63,7 @@ export function ReactScanControls() {
       <button
         type="button"
         className={buttonClass}
-        disabled={!state.available}
+        disabled={error}
         title={
           error
             ? "React Scan could not load. Reload to retry."
@@ -47,27 +71,27 @@ export function ReactScanControls() {
         }
         aria-label="Toggle React Scan panel"
         aria-pressed={state.toolbarVisible}
-        onClick={() => setReactToolbarVisible(!state.toolbarVisible)}
+        onClick={() => activate(setReactToolbarVisible, state.toolbarVisible)}
       >
         SCAN
       </button>
       <button
         type="button"
         className={buttonClass}
-        disabled={!state.available}
+        disabled={error}
         aria-label="Toggle React render outlines"
         aria-pressed={state.outlinesEnabled}
-        onClick={() => setReactOutlinesEnabled(!state.outlinesEnabled)}
+        onClick={() => activate(setReactOutlinesEnabled, state.outlinesEnabled)}
       >
         RENDERS
       </button>
       <button
         type="button"
         className={buttonClass}
-        disabled={!state.available}
+        disabled={error}
         aria-label="Inspect React component"
         aria-pressed={state.inspecting}
-        onClick={() => setReactInspecting(!state.inspecting)}
+        onClick={() => activate(setReactInspecting, state.inspecting)}
       >
         INSPECT
       </button>

@@ -148,36 +148,35 @@ mod tests {
     }
 
     #[test]
-    fn default_policy_does_not_schedule_bots() {
-        let policy = CapturePolicy::default_off("workspace-a");
-        assert_eq!(
-            decide_schedule(&policy, &event()),
-            ScheduleDecision::Skipped("capture_policy_disabled")
-        );
-    }
-
-    #[test]
-    fn enabled_policy_schedules_one_pending_job_unless_opted_out() {
-        let mut policy = CapturePolicy::default_off("workspace-a");
-        policy.capture_enabled = true;
-        assert_eq!(
-            decide_schedule(&policy, &event()),
-            ScheduleDecision::Pending
-        );
-
+    fn schedules_only_enabled_non_duplicate_events() {
+        let disabled = CapturePolicy::default_off("workspace-a");
+        let mut enabled = disabled.clone();
+        enabled.capture_enabled = true;
         let mut opted_out = event();
         opted_out.opt_out = true;
-        assert_eq!(
-            decide_schedule(&policy, &opted_out),
-            ScheduleDecision::Canceled("event_opt_out")
-        );
-
         let mut desktop = event();
         desktop.desktop_capture_active = true;
-        assert_eq!(
-            decide_schedule(&policy, &desktop),
-            ScheduleDecision::Skipped("desktop_capture_duplicate")
-        );
+
+        for (policy, event, expected) in [
+            (
+                &disabled,
+                event(),
+                ScheduleDecision::Skipped("capture_policy_disabled"),
+            ),
+            (&enabled, event(), ScheduleDecision::Pending),
+            (
+                &enabled,
+                opted_out,
+                ScheduleDecision::Canceled("event_opt_out"),
+            ),
+            (
+                &enabled,
+                desktop,
+                ScheduleDecision::Skipped("desktop_capture_duplicate"),
+            ),
+        ] {
+            assert_eq!(decide_schedule(policy, &event), expected);
+        }
     }
 
     #[test]

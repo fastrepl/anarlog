@@ -31,6 +31,7 @@ const hoisted = vi.hoisted(() => ({
   audioExists: true,
   audioExistsResolved: true,
   hasTranscript: true,
+  canShowTranscript: true,
   liveSegments: [] as unknown[],
   liveSessionId: null as string | null,
   liveAmplitude: { mic: 0.5, speaker: 0.25 },
@@ -38,12 +39,19 @@ const hoisted = vi.hoisted(() => ({
   liveMuted: false,
   sessionMode: "inactive",
   sessionEvent: null as { ended_at?: string } | null,
+  transcriptMetadata: [] as Array<{
+    id: string;
+    sessionId: string;
+    startedAt: number;
+    endedAt?: number;
+    hasWords: boolean;
+  }>,
   nowMs: new Date("2026-06-05T10:31:00.000Z").getTime(),
   isMainWebviewWindow: true,
   isDeletingRecording: false,
   updateSession: vi.fn(() => Promise.resolve()),
   transcriptExportRequest: {},
-  transcriptRenderDataCalls: 0,
+  getSessionTranscriptRenderRequest: vi.fn(),
   transcriptSegments: [{ speaker: "Speaker 1", text: "Hello transcript" }],
   isGenerating: false,
   sessionTitle: "Weekly planning",
@@ -168,18 +176,12 @@ vi.mock("~/session/enhance-config", () => ({
 
 vi.mock("~/session/components/shared", () => ({
   useHasTranscript: () => hoisted.hasTranscript,
-  useCanShowTranscript: (
-    sessionId: string,
-    { audioExists = false }: { audioExists?: boolean } = {},
-  ) =>
-    hoisted.hasTranscript ||
-    (audioExists &&
-      hoisted.sessionMode !== "active" &&
-      hoisted.sessionMode !== "finalizing") ||
-    hoisted.sessionMode === "active" ||
-    hoisted.sessionMode === "finalizing" ||
-    (hoisted.liveSessionId === sessionId && hoisted.liveSegments.length > 0) ||
-    hoisted.sessionMode === "running_batch",
+  useCanShowTranscript: () => hoisted.canShowTranscript,
+}));
+
+vi.mock("~/stt/queries", async (importOriginal) => ({
+  ...(await importOriginal()),
+  useSessionTranscriptMetadata: () => hoisted.transcriptMetadata,
 }));
 
 vi.mock("~/session/hooks/useEnhancedNotes", () => ({
@@ -230,14 +232,8 @@ vi.mock("~/session/components/note-input/transcript/export-data", () => ({
 vi.mock(
   "~/session/components/note-input/transcript/render-request-hooks",
   () => ({
-    useSessionTranscriptRenderData: () => {
-      hoisted.transcriptRenderDataCalls += 1;
-
-      return {
-        request: hoisted.transcriptExportRequest,
-        transcriptRows: [],
-      };
-    },
+    getSessionTranscriptRenderRequest:
+      hoisted.getSessionTranscriptRenderRequest,
   }),
 );
 
@@ -325,10 +321,54 @@ vi.mock("~/templates", () => ({
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
-import { Header, SessionViewSwitcher, useEditorTabs } from "./header";
+import { SessionViewSwitcher, useEditorTabs } from "./header";
 
-describe("Header", () => {
+let clipboardDescriptor: PropertyDescriptor | undefined;
+
+const ALL_TABS: EditorView[] = [
+  { type: "enhanced", id: "note-1" },
+  { type: "raw" },
+  { type: "transcript" },
+];
+
+function renderSwitcher(
+  props: Partial<React.ComponentProps<typeof SessionViewSwitcher>> = {},
+) {
+  const handleTabChange = vi.fn();
+  const view = render(
+    <SessionViewSwitcher
+      sessionId="session-1"
+      editorTabs={ALL_TABS}
+      currentTab={{ type: "raw" }}
+      handleTabChange={handleTabChange}
+      {...props}
+    />,
+  );
+  return { ...view, handleTabChange };
+}
+
+function transcriptMenu() {
+  const menu = [...hoisted.nativeContextMenus]
+    .reverse()
+    .find((items) =>
+      items.some(
+        (item) => "id" in item && item.id === "copy-transcript-session-1",
+      ),
+    );
+  if (!menu) {
+    throw new Error("Transcript context menu not found");
+  }
+  return menu.filter(
+    (item): item is Extract<CapturedMenuItem, { id: string }> => "id" in item,
+  );
+}
+
+describe("SessionViewSwitcher", () => {
   beforeEach(() => {
+    clipboardDescriptor = Object.getOwnPropertyDescriptor(
+      navigator,
+      "clipboard",
+    );
     hoisted.enhance.mockReset();
     hoisted.regenerateTranscript.mockReset();
     hoisted.startListening.mockReset();
@@ -340,6 +380,7 @@ describe("Header", () => {
     hoisted.audioExists = true;
     hoisted.audioExistsResolved = true;
     hoisted.hasTranscript = true;
+    hoisted.canShowTranscript = true;
     hoisted.liveSegments = [];
     hoisted.liveSessionId = null;
     hoisted.liveAmplitude = { mic: 0.5, speaker: 0.25 };
@@ -347,11 +388,22 @@ describe("Header", () => {
     hoisted.liveMuted = false;
     hoisted.sessionMode = "inactive";
     hoisted.sessionEvent = null;
+    hoisted.transcriptMetadata = [
+      {
+        id: "transcript-1",
+        sessionId: "session-1",
+        startedAt: 0,
+        hasWords: true,
+      },
+    ];
     hoisted.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
     hoisted.isMainWebviewWindow = true;
     hoisted.isDeletingRecording = false;
     hoisted.transcriptExportRequest = {};
-    hoisted.transcriptRenderDataCalls = 0;
+    hoisted.getSessionTranscriptRenderRequest.mockReset();
+    hoisted.getSessionTranscriptRenderRequest.mockImplementation(() =>
+      Promise.resolve(hoisted.transcriptExportRequest),
+    );
     hoisted.transcriptSegments = [
       { speaker: "Speaker 1", text: "Hello transcript" },
     ];
@@ -363,996 +415,284 @@ describe("Header", () => {
 
   afterEach(() => {
     cleanup();
+    if (clipboardDescriptor) {
+      Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 
-  it("renders icon views and focuses summary before opening the template picker", () => {
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-    const handleTabChange = vi.fn();
+  it("navigates between views and opens the template picker from the active summary", () => {
+    const { handleTabChange, rerender } = renderSwitcher();
 
-    const view = render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "raw" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
-    const summaryTab = screen.getByRole("button", { name: "Customer Call" });
-    const memoTab = screen.getByRole("button", { name: "Memos" });
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-    const viewSwitcher = screen.getByRole("group", {
-      name: "Session note views",
-    });
-
-    expect(summaryTab.getAttribute("data-state")).toBeNull();
-    expect(viewSwitcher.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(viewSwitcher.className).toContain("h-7");
-    expect(viewSwitcher.className).toContain("p-[2px]");
-    expect(viewSwitcher.className).toContain("gap-[2px]");
-    expect(viewSwitcher.className).toContain("rounded-pill");
-    expect(viewSwitcher.className).toContain("[corner-shape:round]");
-    expect(memoTab.className).toContain("rounded-pill");
-    expect(memoTab.className).toContain("[corner-shape:round]");
-    expect(viewSwitcher.className).toContain("bg-foreground/10");
-    expect(viewSwitcher.className).toContain("dark:bg-accent/55");
-    expect(summaryTab.getAttribute("aria-current")).toBeNull();
-    expect(memoTab.getAttribute("aria-current")).toBe("page");
-    expect(memoTab.textContent).toBe("Memos");
-    expect(memoTab.className).toContain("h-6");
-    expect(memoTab.className).not.toContain("-my-px");
-    expect(memoTab.className).toContain("bg-white");
-    expect(memoTab.className).toContain("text-foreground");
-    expect(memoTab.className).toContain("shadow-xs");
-    expect(memoTab.className).toContain("dark:text-foreground");
-    expect(memoTab.className).toContain("dark:bg-accent");
-    expect(memoTab.className).toContain("dark:shadow-none");
-    expect(memoTab.className).toContain("@max-[480px]:max-w-10");
-    expect(memoTab.querySelector("span")?.className).toContain(
-      "@max-[480px]:sr-only",
-    );
-    expect(summaryTab.className).toContain("h-6");
-    expect(summaryTab.className).toContain("px-2");
-    expect(summaryTab.className).not.toContain("min-w-10");
-    expect(summaryTab.className).toContain("dark:hover:bg-accent/80");
-    expect(summaryTab.querySelector("svg")).not.toBeNull();
-    expect(summaryTab.querySelectorAll("svg")).toHaveLength(1);
-    expect(transcriptTab.querySelector("svg")).not.toBeNull();
-    expect(transcriptTab.className).toContain("px-2");
-    expect(transcriptTab.className).not.toContain("min-w-10");
-    expect(summaryTab.textContent).toBe("");
-    expect(transcriptTab.textContent).toBe("");
-    expect(summaryTab.getAttribute("title")).toBe(
-      "Customer Call was used to generate this summary.",
-    );
-
-    fireEvent.click(summaryTab);
+    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
 
     expect(handleTabChange).toHaveBeenNthCalledWith(1, {
       type: "enhanced",
       id: "note-1",
     });
+    expect(handleTabChange).toHaveBeenNthCalledWith(2, { type: "transcript" });
 
-    view.rerender(
+    rerender(
       <SessionViewSwitcher
         sessionId="session-1"
-        editorTabs={editorTabs}
+        editorTabs={ALL_TABS}
         currentTab={{ type: "enhanced", id: "note-1" }}
         handleTabChange={handleTabChange}
       />,
     );
-
-    const activeSummaryTab = screen.getByRole("button", {
-      name: "Customer Call",
-    });
-    expect(activeSummaryTab.textContent).toBe("Customer Call");
-    expect(activeSummaryTab.className).toContain("text-foreground");
-    expect(activeSummaryTab.className).toContain("dark:text-foreground");
-    expect(activeSummaryTab.className).toContain("dark:bg-accent");
-    expect(activeSummaryTab.className).toContain("@max-[480px]:max-w-12");
-    expect(activeSummaryTab.querySelector("span")?.className).toContain(
-      "@max-[480px]:sr-only",
-    );
-    const activeSummaryIcons = activeSummaryTab.querySelectorAll("svg");
-    expect(activeSummaryIcons).toHaveLength(2);
-    expect(activeSummaryIcons[1]?.getAttribute("class")).not.toContain(
-      "@max-[480px]:hidden",
-    );
-
-    fireEvent.click(activeSummaryTab);
-
-    expect(screen.getByPlaceholderText("Search templates...")).not.toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Memos" }));
-
-    view.rerender(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "raw" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
     fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
 
-    expect(handleTabChange).toHaveBeenNthCalledWith(2, { type: "raw" });
-    expect(handleTabChange).toHaveBeenNthCalledWith(3, {
-      type: "enhanced",
-      id: "note-1",
-    });
+    expect(screen.getByPlaceholderText("Search templates...")).not.toBeNull();
   });
 
   it("hides the view switcher when the memo is the only view", () => {
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={[{ type: "raw" }]}
-        currentTab={{ type: "raw" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
+    renderSwitcher({ editorTabs: [{ type: "raw" }] });
 
     expect(
       screen.queryByRole("group", { name: "Session note views" }),
     ).toBeNull();
   });
 
-  it("shows the folder picker in the toolbar without a title field", () => {
-    render(<Header sessionId="session-1" />);
+  it.each([
+    [
+      "Decision Log",
+      /Decision Log/,
+      { templateId: "template-2", templateTitle: "Decision Log" },
+    ],
+    ["Auto", "Auto", { templateId: null, templateTitle: undefined }],
+  ])(
+    "regenerates the current summary in place with the %s template",
+    async (_label, option, expected) => {
+      hoisted.userTemplates = [
+        {
+          id: "template-2",
+          title: "Decision Log",
+          description: "",
+          pinned: false,
+          sections: [],
+        },
+      ];
+      hoisted.enhance.mockResolvedValue({ type: "started", noteId: "note-1" });
+      const { handleTabChange } = renderSwitcher({
+        editorTabs: [{ type: "enhanced", id: "note-1" }, { type: "raw" }],
+        currentTab: { type: "enhanced", id: "note-1" },
+      });
 
-    expect(
-      screen.queryByRole("group", { name: "Session note views" }),
-    ).toBeNull();
-    expect(
-      screen.getByRole("combobox", { name: "Select folder" }),
-    ).not.toBeNull();
-    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
-    expect(screen.queryByPlaceholderText("Untitled")).toBeNull();
-  });
+      fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
+      fireEvent.click(screen.getByRole("button", { name: option }));
 
-  it("can switch from transcript back to memo or summary tabs", () => {
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-    const handleTabChange = vi.fn();
+      expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
+        ...expected,
+        targetNoteId: "note-1",
+      });
+      await waitFor(() =>
+        expect(handleTabChange).toHaveBeenCalledWith({
+          type: "enhanced",
+          id: "note-1",
+        }),
+      );
+    },
+  );
 
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Memos" }));
-    expect(screen.getByRole("button", { name: "Transcript" }).textContent).toBe(
-      "Transcript",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
-
-    expect(handleTabChange).toHaveBeenNthCalledWith(1, { type: "raw" });
-    expect(handleTabChange).toHaveBeenNthCalledWith(2, {
-      type: "enhanced",
-      id: "note-1",
+  it("builds transcript copy data only when the Copy action runs", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
     });
-  });
 
-  it("adds recording actions to the transcript tab context menu", () => {
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
+    renderSwitcher({ currentTab: { type: "transcript" } });
 
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
+    expect(hoisted.getSessionTranscriptRenderRequest).not.toHaveBeenCalled();
 
-    const menu = findContextMenu("copy-transcript-session-1");
-
-    expect(
-      menu.map((item) => ("text" in item ? item.text : "separator")),
-    ).toEqual([
-      "Copy",
-      "Resume listening",
-      "Re-transcribe",
-      "Delete recording",
-    ]);
-    expect(menu.find(isMenuItem)?.disabled).toBe(false);
-    expect(
-      menu.find(
-        (item): item is Extract<CapturedMenuItem, { id: string }> =>
-          "id" in item && item.id === "delete-recording-session-1",
-      )?.disabled,
-    ).toBe(false);
-    menu
-      .find(
-        (item): item is Extract<CapturedMenuItem, { id: string }> =>
-          "id" in item && item.id === "resume-listening-session-1",
-      )
-      ?.action();
-    expect(hoisted.startListening).toHaveBeenCalledTimes(1);
-  });
-
-  it("delegates transcript resume listening from standalone windows", () => {
-    hoisted.isMainWebviewWindow = false;
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={[
-          { type: "enhanced", id: "note-1" },
-          { type: "raw" },
-          { type: "transcript" },
-        ]}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    findContextMenu("resume-listening-session-1")
-      .find(
-        (item): item is Extract<CapturedMenuItem, { id: string }> =>
-          "id" in item && item.id === "resume-listening-session-1",
-      )
+    transcriptMenu()
+      .find((item) => item.text === "Copy")
       ?.action();
 
-    expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
-      "start",
+    await waitFor(() =>
+      expect(hoisted.getSessionTranscriptRenderRequest).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+    expect(hoisted.getSessionTranscriptRenderRequest).toHaveBeenCalledWith(
       "session-1",
     );
-    expect(hoisted.startListening).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("Speaker 1: Hello transcript"),
+    );
   });
 
-  it("does not prepare transcript export data while the transcript tab is inactive", () => {
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
+  it.each([
+    [
+      "inactive with audio",
+      { mode: "inactive", audio: true, resolved: true },
+      ["Copy", "Resume listening", "Re-transcribe", "Delete recording"],
+    ],
+    [
+      "inactive without audio",
+      { mode: "inactive", audio: false, resolved: true },
+      ["Copy", "Resume listening"],
+    ],
+    [
+      "audio lookup pending",
+      { mode: "inactive", audio: true, resolved: false },
+      ["Copy", "Resume listening", "Delete recording"],
+    ],
+    [
+      "batch processing",
+      { mode: "running_batch", audio: false, resolved: true },
+      ["Copy", "Resume listening"],
+    ],
+    [
+      "finalizing",
+      { mode: "finalizing", audio: false, resolved: true },
+      ["Copy"],
+    ],
+  ])(
+    "offers transcript menu actions when %s",
+    (_label, { mode, audio, resolved }, expected) => {
+      hoisted.sessionMode = mode;
+      hoisted.audioExists = audio;
+      hoisted.audioExistsResolved = resolved;
+      renderSwitcher({ currentTab: { type: "transcript" } });
+
+      expect(transcriptMenu().map((item) => item.text)).toEqual(expected);
+    },
+  );
+
+  it("disables Copy when the session has no transcript", () => {
+    hoisted.hasTranscript = false;
+    hoisted.transcriptMetadata = [
+      {
+        id: "transcript-1",
+        sessionId: "session-1",
+        startedAt: 0,
+        hasWords: false,
+      },
     ];
+    renderSwitcher({ currentTab: { type: "transcript" } });
 
-    const view = render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "raw" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    expect(hoisted.transcriptRenderDataCalls).toBe(0);
-
-    view.rerender(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    expect(hoisted.transcriptRenderDataCalls).toBe(1);
+    expect(
+      transcriptMenu().find((item) => item.text === "Copy")?.disabled,
+    ).toBe(true);
   });
 
-  it("does not offer re-transcription when recording is missing", () => {
-    hoisted.audioExists = false;
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
+  it("enables Copy when transcript words are still pending compaction", () => {
+    hoisted.hasTranscript = false;
+    hoisted.transcriptMetadata = [
+      {
+        id: "transcript-1",
+        sessionId: "session-1",
+        startedAt: 0,
+        hasWords: true,
+      },
     ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    const menu = findContextMenu("copy-transcript-session-1");
+    renderSwitcher({ currentTab: { type: "transcript" } });
 
     expect(
-      menu.map((item) => ("text" in item ? item.text : "separator")),
-    ).toEqual(["Copy", "Resume listening"]);
+      transcriptMenu().find((item) => item.text === "Copy")?.disabled,
+    ).toBe(false);
   });
 
-  it("hides re-transcription actions while the session is finalizing", () => {
-    hoisted.audioExists = false;
-    hoisted.sessionMode = "finalizing";
+  it.each([
+    ["main window", true],
+    ["standalone window", false],
+  ])("resumes listening from the transcript menu in the %s", (_label, main) => {
+    hoisted.isMainWebviewWindow = main;
+    renderSwitcher({ currentTab: { type: "transcript" } });
 
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={[
-          { type: "enhanced", id: "note-1" },
-          { type: "raw" },
-          { type: "transcript" },
-        ]}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    expect(
-      findContextMenu("copy-transcript-session-1").map((item) =>
-        "text" in item ? item.text : "separator",
-      ),
-    ).toEqual(["Copy"]);
-  });
-
-  it("lets transcript menus interrupt batch processing to resume listening", () => {
-    hoisted.audioExists = false;
-    hoisted.sessionMode = "running_batch";
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={[
-          { type: "enhanced", id: "note-1" },
-          { type: "raw" },
-          { type: "transcript" },
-        ]}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    const menu = findContextMenu("copy-transcript-session-1");
-    expect(
-      menu.map((item) => ("text" in item ? item.text : "separator")),
-    ).toEqual(["Copy", "Resume listening"]);
-
-    menu
-      .find(
-        (item): item is Extract<CapturedMenuItem, { id: string }> =>
-          "id" in item && item.id === "resume-listening-session-1",
-      )
+    transcriptMenu()
+      .find((item) => item.id === "resume-listening-session-1")
       ?.action();
 
-    expect(hoisted.startListening).toHaveBeenCalledTimes(1);
-  });
-
-  it("hides re-transcription while the audio lookup is pending", () => {
-    hoisted.audioExists = true;
-    hoisted.audioExistsResolved = false;
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={[
-          { type: "enhanced", id: "note-1" },
-          { type: "raw" },
-          { type: "transcript" },
-        ]}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    expect(
-      findContextMenu("copy-transcript-session-1").map((item) =>
-        "text" in item ? item.text : "separator",
-      ),
-    ).toEqual(["Copy", "Resume listening", "Delete recording"]);
-  });
-
-  it("replaces the current enhanced note when changing templates", async () => {
-    hoisted.userTemplates = [
-      {
-        id: "template-2",
-        title: "Decision Log",
-        description: "",
-        pinned: false,
-        sections: [],
-      },
-    ];
-    hoisted.enhance.mockResolvedValue({
-      type: "started",
-      noteId: "note-1",
-    });
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-    ];
-    const handleTabChange = vi.fn();
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "enhanced", id: "note-1" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
-    fireEvent.click(screen.getByRole("button", { name: /Decision Log/ }));
-
-    expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
-      templateId: "template-2",
-      targetNoteId: "note-1",
-      templateTitle: "Decision Log",
-    });
-    await waitFor(() =>
-      expect(handleTabChange).toHaveBeenCalledWith({
-        type: "enhanced",
-        id: "note-1",
-      }),
-    );
-  });
-
-  it("replaces the current enhanced note with auto generation", () => {
-    hoisted.userTemplates = [
-      {
-        id: "template-2",
-        title: "Decision Log",
-        description: "",
-        pinned: false,
-        sections: [],
-      },
-    ];
-    hoisted.enhance.mockResolvedValue({
-      type: "started",
-      noteId: "note-1",
-    });
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "enhanced", id: "note-1" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
-    fireEvent.click(screen.getByRole("button", { name: "Auto" }));
-
-    expect(hoisted.enhance).toHaveBeenCalledWith("session-1", {
-      templateId: null,
-      targetNoteId: "note-1",
-      templateTitle: undefined,
-    });
-  });
-
-  it("shows a spinner in the active enhanced tab while generating", () => {
-    hoisted.isGenerating = true;
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "enhanced", id: "note-1" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByTestId("view-spinner")).not.toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Customer Call" }).textContent,
-    ).toBe("Customer Call");
-  });
-
-  it("shows a spinner in the transcript tab while transcribing", () => {
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "raw" }}
-        handleTabChange={vi.fn()}
-        isTranscribing
-      />,
-    );
-
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-
-    expect(
-      transcriptTab.querySelector("[data-testid='view-spinner']"),
-    ).not.toBeNull();
-    expect(transcriptTab.querySelector("svg")).toBeNull();
-  });
-
-  it("keeps the active transcript tab spinner as navigation", () => {
-    const handleTabChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={handleTabChange}
-        isTranscribing
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
-
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-    expect(hoisted.stopTranscription).not.toHaveBeenCalled();
-  });
-
-  it("keeps active transcript tabs as navigation instead of resume actions", () => {
-    const handleTabChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-
-    expect(transcriptTab.getAttribute("title")).toBeNull();
-    expect(transcriptTab.getAttribute("data-hover-label")).toBeNull();
-    expect(transcriptTab.textContent).toBe("Transcript");
-    expect(transcriptTab.querySelector(".animate-ping")).toBeNull();
-
-    fireEvent.click(transcriptTab);
-
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-    expect(hoisted.startListening).not.toHaveBeenCalled();
-    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+    if (main) {
+      expect(hoisted.startListening).toHaveBeenCalledTimes(1);
+      expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
+    } else {
+      expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
+        "start",
+        "session-1",
+      );
+      expect(hoisted.startListening).not.toHaveBeenCalled();
+    }
   });
 
   it("toggles transcript editing from the selected transcript tab", () => {
-    const handleTabChange = vi.fn();
     const onTranscriptEditModeChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-    const view = render(
+    const { handleTabChange, rerender } = renderSwitcher({
+      currentTab: { type: "transcript" },
+      onTranscriptEditModeChange,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
+    expect(onTranscriptEditModeChange).toHaveBeenLastCalledWith(true);
+
+    rerender(
       <SessionViewSwitcher
         sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={handleTabChange}
-        onTranscriptEditModeChange={onTranscriptEditModeChange}
-      />,
-    );
-
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-
-    expect(transcriptTab.getAttribute("aria-pressed")).toBe("false");
-    expect(transcriptTab.querySelectorAll("svg")).toHaveLength(2);
-    expect(transcriptTab.className).toContain("@max-[480px]:max-w-12");
-
-    fireEvent.click(transcriptTab);
-
-    expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
-    expect(handleTabChange).not.toHaveBeenCalled();
-
-    view.rerender(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
+        editorTabs={ALL_TABS}
         currentTab={{ type: "transcript" }}
         handleTabChange={handleTabChange}
         transcriptEditMode
         onTranscriptEditModeChange={onTranscriptEditModeChange}
       />,
     );
-
     fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
 
-    expect(
-      screen
-        .getByRole("button", { name: "Transcript" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
     expect(onTranscriptEditModeChange).toHaveBeenLastCalledWith(false);
+    expect(handleTabChange).not.toHaveBeenCalled();
   });
 
-  it("enables transcript editing after recording stops before the calendar event ends", () => {
-    hoisted.sessionMode = "active";
-    hoisted.sessionEvent = {
-      ended_at: new Date(hoisted.nowMs + 60 * 60 * 1000).toISOString(),
-    };
-    const onTranscriptEditModeChange = vi.fn();
-    const props = {
-      sessionId: "session-1",
-      editorTabs: [{ type: "raw" }, { type: "transcript" }] as EditorView[],
-      currentTab: { type: "transcript" } as EditorView,
-      handleTabChange: vi.fn(),
-      onTranscriptEditModeChange,
-    };
-    const view = render(<SessionViewSwitcher {...props} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
-    expect(onTranscriptEditModeChange).not.toHaveBeenCalled();
-
-    hoisted.sessionMode = "inactive";
-    view.rerender(<SessionViewSwitcher {...props} />);
-
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-    expect(transcriptTab.getAttribute("aria-pressed")).toBe("false");
-    expect(transcriptTab.querySelectorAll("svg")).toHaveLength(2);
-    fireEvent.click(transcriptTab);
-    expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
-  });
-
-  it("keeps transcript editing off while a meeting is active", () => {
-    hoisted.sessionMode = "active";
-    const handleTabChange = vi.fn();
-    const onTranscriptEditModeChange = vi.fn();
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={[
-          { type: "enhanced", id: "note-1" },
-          { type: "raw" },
-          { type: "transcript" },
-        ]}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={handleTabChange}
-        onTranscriptEditModeChange={onTranscriptEditModeChange}
-      />,
-    );
-
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-    expect(transcriptTab.getAttribute("aria-pressed")).toBeNull();
-
-    fireEvent.click(transcriptTab);
-
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-    expect(onTranscriptEditModeChange).not.toHaveBeenCalled();
-  });
-
-  it("does not delegate resume listening from the transcript tab in standalone windows", () => {
-    hoisted.isMainWebviewWindow = false;
-    const handleTabChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
+  it.each([
+    ["listening on the memo tab", "active", { type: "raw" }, false],
+    [
+      "listening on the transcript tab",
+      "active",
       { type: "transcript" },
-    ];
+      false,
+    ],
+    ["finalizing", "finalizing", { type: "transcript" }, true],
+    ["batch transcribing", "running_batch", { type: "transcript" }, true],
+    ["inactive on the memo tab", "inactive", { type: "raw" }, false],
+  ] as const)(
+    "only navigates from the transcript tab while %s",
+    (_label, mode, currentTab, isTranscribing) => {
+      hoisted.sessionMode = mode;
+      const onTranscriptEditModeChange = vi.fn();
+      const { handleTabChange } = renderSwitcher({
+        currentTab,
+        isTranscribing,
+        onTranscriptEditModeChange,
+      });
 
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
+      fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
-
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
-    expect(hoisted.startListening).not.toHaveBeenCalled();
-  });
-
-  it("keeps inactive transcript tabs as navigation instead of resume actions", () => {
-    const handleTabChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "raw" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-
-    expect(transcriptTab.getAttribute("title")).toBeNull();
-
-    fireEvent.click(transcriptTab);
-
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-    expect(hoisted.startListening).not.toHaveBeenCalled();
-    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
-  });
-
-  it.each(["idle", "muted"])(
-    "shows static audio lines in the %s transcript tab",
-    (state) => {
-      hoisted.sessionMode = state === "muted" ? "active" : "inactive";
-      hoisted.liveMuted = state === "muted";
-
-      render(
-        <SessionViewSwitcher
-          sessionId="session-1"
-          editorTabs={[{ type: "raw" }, { type: "transcript" }]}
-          currentTab={{ type: "raw" }}
-          handleTabChange={vi.fn()}
-        />,
-      );
-
-      const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-      const svg = transcriptTab.querySelector("svg");
-      const bars = svg?.querySelectorAll("path");
-
-      expect(svg?.getAttribute("fill")).toBe("none");
-      expect(svg?.getAttribute("stroke-linecap")).toBe("round");
-      expect(bars).toHaveLength(6);
-      for (const bar of bars ?? []) {
-        expect(bar.getAttribute("d")).toMatch(/^M\d+ \d+v\d+$/);
-      }
-      expect(screen.queryByTestId("dancing-sticks")).toBeNull();
+      expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+      expect(onTranscriptEditModeChange).not.toHaveBeenCalled();
+      expect(hoisted.stopListening).not.toHaveBeenCalled();
+      expect(hoisted.stopTranscription).not.toHaveBeenCalled();
+      expect(hoisted.startListening).not.toHaveBeenCalled();
+      expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
     },
   );
-
-  it("keeps stop out of the view switcher while listening", () => {
-    hoisted.sessionMode = "active";
-    const handleTabChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "raw" }}
-        handleTabChange={handleTabChange}
-      />,
-    );
-
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-
-    expect(transcriptTab).not.toBeNull();
-    expect(
-      transcriptTab.querySelector("[data-testid='dancing-sticks']"),
-    ).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Memos" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Open event metadata" }),
-    ).toBeNull();
-
-    fireEvent.click(transcriptTab);
-
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-    expect(hoisted.stopListening).not.toHaveBeenCalled();
-    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
-  });
-
-  it("keeps memos and transcript grouped when transcript is the only extra view", () => {
-    hoisted.sessionMode = "active";
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={[{ type: "raw" }, { type: "transcript" }]}
-        currentTab={{ type: "raw" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
-
-    const viewSwitcher = screen.getByRole("group", {
-      name: "Session note views",
-    });
-    const memos = screen.getByRole("button", { name: "Memos" });
-    const transcript = screen.getByRole("button", { name: "Transcript" });
-
-    expect(viewSwitcher.contains(memos)).toBe(true);
-    expect(viewSwitcher.contains(transcript)).toBe(true);
-    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
-    expect(memos.nextElementSibling).toBe(transcript);
-  });
-
-  it("does not stop a finalizing live meeting from the transcript tab", () => {
-    hoisted.sessionMode = "finalizing";
-    const handleTabChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={handleTabChange}
-        isTranscribing
-      />,
-    );
-
-    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
-
-    expect(
-      transcriptTab.querySelector("[data-testid='view-spinner']"),
-    ).not.toBeNull();
-    expect(screen.queryByTestId("dancing-sticks")).toBeNull();
-    expect(transcriptTab.getAttribute("title")).toBeNull();
-
-    fireEvent.click(transcriptTab);
-
-    expect(hoisted.stopListening).not.toHaveBeenCalled();
-    expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-  });
-
-  it("does not stop transcription from the active transcript tab while finalizing", () => {
-    const handleTabChange = vi.fn();
-    const editorTabs: EditorView[] = [
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={editorTabs}
-        currentTab={{ type: "transcript" }}
-        handleTabChange={handleTabChange}
-        isTranscribing
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Transcript" }));
-
-    expect(hoisted.stopTranscription).not.toHaveBeenCalled();
-    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
-  });
-
-  it("includes the transcript tab when saved audio exists without transcript rows", () => {
-    hoisted.hasTranscript = false;
-
-    const { result } = renderHook(() =>
-      useEditorTabs({ sessionId: "session-1", audioExists: true }),
-    );
-
-    expect(result.current).toEqual([
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ]);
-  });
-
-  it("does not include the insights tab", () => {
-    const { result } = renderHook(() =>
-      useEditorTabs({ sessionId: "session-1", audioExists: true }),
-    );
-
-    expect(result.current).toEqual([
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ]);
-  });
-
-  it("includes the transcript tab for active meetings before transcript evidence arrives", () => {
-    hoisted.hasTranscript = false;
-    hoisted.sessionMode = "active";
-    hoisted.liveSessionId = "session-1";
-
-    const { result } = renderHook(() =>
-      useEditorTabs({ sessionId: "session-1", audioExists: true }),
-    );
-
-    expect(result.current).toEqual([
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ]);
-  });
-
-  it("includes the transcript tab for active meetings with live segments", () => {
-    hoisted.hasTranscript = false;
-    hoisted.liveSegments = [{ id: "segment-1" }];
-    hoisted.liveSessionId = "session-1";
-    hoisted.sessionMode = "active";
-
-    const { result } = renderHook(() =>
-      useEditorTabs({ sessionId: "session-1", audioExists: false }),
-    );
-
-    expect(result.current).toEqual([
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-      { type: "transcript" },
-    ]);
-  });
-
-  it("keeps the transcript tab in the view switcher while transcription is running", () => {
-    hoisted.sessionMode = "running_batch";
-    const handleTabChange = vi.fn();
-
-    render(
-      <SessionViewSwitcher
-        sessionId="session-1"
-        editorTabs={[
-          { type: "enhanced", id: "note-1" },
-          { type: "raw" },
-          { type: "transcript" },
-        ]}
-        currentTab={{ type: "raw" }}
-        handleTabChange={handleTabChange}
-        isTranscribing
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "Transcript" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
-    expect(handleTabChange).not.toHaveBeenCalled();
-    expect(hoisted.stopTranscription).not.toHaveBeenCalled();
-  });
-
-  it("omits the transcript tab for inactive sessions without transcript or audio", () => {
-    hoisted.hasTranscript = false;
-
-    const { result } = renderHook(() =>
-      useEditorTabs({ sessionId: "session-1", audioExists: false }),
-    );
-
-    expect(result.current).toEqual([
-      { type: "enhanced", id: "note-1" },
-      { type: "raw" },
-    ]);
-  });
 });
 
-function findContextMenu(id: string) {
-  const menu = hoisted.nativeContextMenus.find((items) =>
-    items.some((item) => "id" in item && item.id === id),
-  );
-  if (!menu) {
-    throw new Error(`Context menu not found: ${id}`);
-  }
-  return menu;
-}
+describe("useEditorTabs", () => {
+  it.each([
+    [true, ALL_TABS],
+    [false, [{ type: "enhanced", id: "note-1" }, { type: "raw" }]],
+  ])(
+    "includes the transcript tab only when it can be shown (%s)",
+    (canShowTranscript, expected) => {
+      hoisted.canShowTranscript = canShowTranscript;
 
-function isMenuItem(
-  item: CapturedMenuItem,
-): item is Extract<CapturedMenuItem, { id: string }> {
-  return "id" in item;
-}
+      const { result } = renderHook(() =>
+        useEditorTabs({ sessionId: "session-1" }),
+      );
+
+      expect(result.current).toEqual(expected);
+    },
+  );
+});

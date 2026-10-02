@@ -6,85 +6,53 @@ import {
 } from "./workspace-billing";
 
 const subscriptionWithItems = (
-  items: Array<{ price: { id: string }; quantity: number | null }>,
+  items: readonly { price: { id: string }; quantity: number | null }[],
 ) =>
   ({
-    items: { data: items },
+    items: { data: [...items] },
   }) as Parameters<typeof getWorkspaceSubscriptionSeatLimit>[0];
 
-test("reads the shared Pro subscription quantity as workspace seats", () => {
-  expect(
-    getWorkspaceSubscriptionSeatLimit(
-      subscriptionWithItems([{ price: { id: "price_pro" }, quantity: 7 }]),
-    ),
-  ).toBe(7);
+test.each([
+  [
+    "shared Pro subscription quantity",
+    [{ price: { id: "price_pro" }, quantity: 7 }],
+    7,
+  ],
+  [
+    "Stripe default quantity",
+    [{ price: { id: "price_pro" }, quantity: null }],
+    1,
+  ],
+  ["subscription without a price item", [], null],
+  [
+    "ambiguous subscription items",
+    [
+      { price: { id: "price_pro" }, quantity: 3 },
+      { price: { id: "price_addon" }, quantity: 1 },
+    ],
+    null,
+  ],
+] as const)("gets the seat limit for a %s", (_label, items, expected) => {
+  expect(getWorkspaceSubscriptionSeatLimit(subscriptionWithItems(items))).toBe(
+    expected,
+  );
 });
 
-test("uses Stripe's default quantity for a workspace subscription item", () => {
-  expect(
-    getWorkspaceSubscriptionSeatLimit(
-      subscriptionWithItems([{ price: { id: "price_pro" }, quantity: null }]),
-    ),
-  ).toBe(1);
-});
+test.each([
+  [
+    "customer.subscription.deleted",
+    subscriptionWithItems([{ price: { id: "price_pro" }, quantity: 4 }]),
+    { seatLimit: null, updateSeatLimit: true },
+  ],
+  ["customer.updated", {}, { seatLimit: null, updateSeatLimit: false }],
+] as const)(
+  "maps %s to its workspace billing update",
+  (type, object, expected) => {
+    const event = {
+      type,
+      data: { object },
+    } as Parameters<typeof getWorkspaceBillingUpdate>[0];
 
-test("rejects workspace subscriptions without a price item", () => {
-  expect(
-    getWorkspaceSubscriptionSeatLimit(subscriptionWithItems([])),
-  ).toBeNull();
-});
-
-test("rejects ambiguous workspace subscription items", () => {
-  expect(
-    getWorkspaceSubscriptionSeatLimit(
-      subscriptionWithItems([
-        { price: { id: "price_pro" }, quantity: 3 },
-        { price: { id: "price_addon" }, quantity: 1 },
-      ]),
-    ),
-  ).toBeNull();
-});
-
-test("reconciles quantities from subscription lifecycle events", () => {
-  const event = {
-    type: "customer.subscription.updated",
-    data: {
-      object: subscriptionWithItems([
-        { price: { id: "price_pro" }, quantity: 4 },
-      ]),
-    },
-  } as Parameters<typeof getWorkspaceBillingUpdate>[0];
-
-  expect(getWorkspaceBillingUpdate(event)).toEqual({
-    seatLimit: 4,
-    updateSeatLimit: true,
-  });
-});
-
-test("clears the seat limit when a Team subscription is deleted", () => {
-  const event = {
-    type: "customer.subscription.deleted",
-    data: {
-      object: subscriptionWithItems([
-        { price: { id: "price_pro" }, quantity: 4 },
-      ]),
-    },
-  } as Parameters<typeof getWorkspaceBillingUpdate>[0];
-
-  expect(getWorkspaceBillingUpdate(event)).toEqual({
-    seatLimit: null,
-    updateSeatLimit: true,
-  });
-});
-
-test("binds customer events without changing the seat limit", () => {
-  const event = {
-    type: "customer.updated",
-    data: { object: {} },
-  } as Parameters<typeof getWorkspaceBillingUpdate>[0];
-
-  expect(getWorkspaceBillingUpdate(event)).toEqual({
-    seatLimit: null,
-    updateSeatLimit: false,
-  });
-});
+    expect(getWorkspaceBillingUpdate(event)).toEqual(expected);
+  },
+);

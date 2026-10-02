@@ -3,8 +3,8 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCaptureSnapshot: vi.fn(),
+  listCaptureRecoveries: vi.fn(),
   listenCaptureRecoveryRequests: vi.fn(),
-  loadCaptureLifecycleMarkers: vi.fn(),
   recoveryRequestHandler: undefined as
     | ((sessionId: string) => void)
     | undefined,
@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: {
     getCaptureSnapshot: mocks.getCaptureSnapshot,
+    listCaptureRecoveries: mocks.listCaptureRecoveries,
   },
 }));
 
@@ -35,7 +36,8 @@ vi.mock("./capture-recovery-requests", () => ({
 }));
 
 vi.mock("./capture-lifecycle-storage", () => ({
-  loadCaptureLifecycleMarkers: mocks.loadCaptureLifecycleMarkers,
+  loadCaptureLifecycleMarker: vi.fn(),
+  hasPendingZeroRetentionAudio: vi.fn(),
 }));
 
 import { LiveCaptureRecovery } from "./live-capture-recovery";
@@ -44,25 +46,32 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.resumeBySession.clear();
   mocks.recoveryRequestHandler = undefined;
+  mocks.getCaptureSnapshot.mockResolvedValue({
+    status: "ok",
+    data: {
+      activeSessionId: null,
+      finalizingSessionIds: [],
+      liveTranscriptionActive: null,
+      requestedLiveTranscription: null,
+      state: "inactive",
+    },
+  });
+  mocks.listCaptureRecoveries.mockResolvedValue({ status: "ok", data: [] });
   mocks.listenCaptureRecoveryRequests.mockImplementation(
     async (handler: (sessionId: string) => void) => {
       mocks.recoveryRequestHandler = handler;
       return vi.fn();
     },
   );
-  mocks.loadCaptureLifecycleMarkers.mockResolvedValue([]);
 });
 
 test("restores lifecycle callbacks for native captures after renderer reload", async () => {
-  mocks.getCaptureSnapshot.mockResolvedValue({
+  mocks.listCaptureRecoveries.mockResolvedValue({
     status: "ok",
-    data: {
-      activeSessionId: "session-active",
-      finalizingSessionIds: ["session-finalizing"],
-      liveTranscriptionActive: true,
-      requestedLiveTranscription: true,
-      state: "active",
-    },
+    data: [
+      { session_id: "session-active", process_stopped: false },
+      { session_id: "session-finalizing", process_stopped: false },
+    ],
   });
 
   render(<LiveCaptureRecovery />);
@@ -76,61 +85,37 @@ test("restores lifecycle callbacks for native captures after renderer reload", a
 });
 
 test("does not install lifecycle callbacks without a native capture", async () => {
-  mocks.getCaptureSnapshot.mockResolvedValue({
-    status: "ok",
-    data: {
-      activeSessionId: null,
-      finalizingSessionIds: [],
-      liveTranscriptionActive: null,
-      requestedLiveTranscription: null,
-      state: "inactive",
-    },
-  });
-
   render(<LiveCaptureRecovery />);
 
   await waitFor(() => {
-    expect(mocks.getCaptureSnapshot).toHaveBeenCalledOnce();
+    expect(mocks.listCaptureRecoveries).toHaveBeenCalledOnce();
   });
   expect(mocks.resumeBySession.size).toBe(0);
 });
 
 test("finalizes a durable capture marker after a stop event was missed", async () => {
-  mocks.getCaptureSnapshot.mockResolvedValue({
+  mocks.listCaptureRecoveries.mockResolvedValue({
     status: "ok",
-    data: {
-      activeSessionId: null,
-      finalizingSessionIds: [],
-      liveTranscriptionActive: null,
-      requestedLiveTranscription: null,
-      state: "inactive",
-    },
+    data: [
+      {
+        session_id: "session-missed-stop",
+        process_stopped: true,
+      },
+    ],
   });
-  mocks.loadCaptureLifecycleMarkers.mockResolvedValue([
-    { sessionId: "session-missed-stop" },
-  ]);
 
   render(<LiveCaptureRecovery />);
 
   await waitFor(() => {
-    expect(
-      mocks.resumeBySession.get("session-missed-stop"),
-    ).toHaveBeenCalledOnce();
+    const resume = mocks.resumeBySession.get("session-missed-stop");
+    expect(resume).toHaveBeenCalledOnce();
+    expect(resume).toHaveBeenCalledWith(
+      expect.objectContaining({ processStopped: true }),
+    );
   });
 });
 
 test("retries normal post-stop recovery requests in the main window", async () => {
-  mocks.getCaptureSnapshot.mockResolvedValue({
-    status: "ok",
-    data: {
-      activeSessionId: null,
-      finalizingSessionIds: [],
-      liveTranscriptionActive: null,
-      requestedLiveTranscription: null,
-      state: "inactive",
-    },
-  });
-
   render(<LiveCaptureRecovery />);
   await waitFor(() => {
     expect(mocks.recoveryRequestHandler).toBeTypeOf("function");
@@ -148,17 +133,6 @@ test("retries normal post-stop recovery requests in the main window", async () =
 });
 
 test("remounts recovery for a later capture on the same session", async () => {
-  mocks.getCaptureSnapshot.mockResolvedValue({
-    status: "ok",
-    data: {
-      activeSessionId: null,
-      finalizingSessionIds: [],
-      liveTranscriptionActive: null,
-      requestedLiveTranscription: null,
-      state: "inactive",
-    },
-  });
-
   render(<LiveCaptureRecovery />);
   await waitFor(() => {
     expect(mocks.recoveryRequestHandler).toBeTypeOf("function");
@@ -182,16 +156,13 @@ test("remounts recovery for a later capture on the same session", async () => {
   expect(mocks.resumeHook).toHaveBeenCalledTimes(2);
 });
 
-test("retries durable capture recovery when the native snapshot is unavailable", async () => {
+test("retries recovery for captures returned by the native aggregate command", async () => {
   vi.useFakeTimers();
   const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-  mocks.getCaptureSnapshot.mockResolvedValue({
-    status: "error",
-    error: "capture snapshot unavailable",
+  mocks.listCaptureRecoveries.mockResolvedValue({
+    status: "ok",
+    data: [{ session_id: "session-retry", process_stopped: false }],
   });
-  mocks.loadCaptureLifecycleMarkers.mockResolvedValue([
-    { sessionId: "session-retry" },
-  ]);
   const resume = vi
     .fn()
     .mockRejectedValueOnce(new Error("database is locked"))
@@ -217,19 +188,10 @@ test("retries durable capture recovery when the native snapshot is unavailable",
 test("stops automatic recovery after the bounded retry budget", async () => {
   vi.useFakeTimers();
   const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
-  mocks.getCaptureSnapshot.mockResolvedValue({
+  mocks.listCaptureRecoveries.mockResolvedValue({
     status: "ok",
-    data: {
-      activeSessionId: null,
-      finalizingSessionIds: [],
-      liveTranscriptionActive: null,
-      requestedLiveTranscription: null,
-      state: "inactive",
-    },
+    data: [{ session_id: "session-terminal", process_stopped: false }],
   });
-  mocks.loadCaptureLifecycleMarkers.mockResolvedValue([
-    { sessionId: "session-terminal" },
-  ]);
   const resume = vi.fn().mockResolvedValue("error");
   mocks.resumeBySession.set("session-terminal", resume);
 
@@ -245,6 +207,7 @@ test("stops automatic recovery after the bounded retry budget", async () => {
   expect(resume).toHaveBeenCalledTimes(5);
   expect(resume).toHaveBeenNthCalledWith(5, {
     abandonOnFailure: true,
+    processStopped: false,
   });
 
   await act(async () => {
@@ -259,19 +222,96 @@ test("stops automatic recovery after the bounded retry budget", async () => {
   vi.useRealTimers();
 });
 
-test("recovers durable markers when the native snapshot command rejects", async () => {
-  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-  mocks.getCaptureSnapshot.mockRejectedValue(
-    new Error("capture actor unavailable"),
-  );
-  mocks.loadCaptureLifecycleMarkers.mockResolvedValue([
-    { sessionId: "session-marker" },
-  ]);
+test("recovers durable markers returned by the native aggregate command", async () => {
+  mocks.listCaptureRecoveries.mockResolvedValue({
+    status: "ok",
+    data: [{ session_id: "session-marker", process_stopped: false }],
+  });
 
   render(<LiveCaptureRecovery />);
 
   await waitFor(() => {
     expect(mocks.resumeBySession.get("session-marker")).toHaveBeenCalledOnce();
   });
-  consoleError.mockRestore();
+});
+
+test("leaves captures found after a reload for the user to process", async () => {
+  mocks.listCaptureRecoveries.mockResolvedValue({
+    status: "ok",
+    data: [{ session_id: "session-saved", process_stopped: false }],
+  });
+  const resume = vi.fn().mockResolvedValue("awaiting_user");
+  mocks.resumeBySession.set("session-saved", resume);
+
+  render(<LiveCaptureRecovery />);
+
+  await waitFor(() => {
+    expect(resume).toHaveBeenCalledWith({
+      abandonOnFailure: false,
+      processStopped: false,
+    });
+  });
+  await waitFor(() => expect(mocks.recoveryRequestHandler).toBeDefined());
+
+  act(() => {
+    mocks.recoveryRequestHandler?.("session-saved");
+  });
+
+  await waitFor(() => {
+    expect(resume).toHaveBeenLastCalledWith({
+      abandonOnFailure: false,
+      processStopped: true,
+    });
+  });
+});
+
+test("recovers a capture that could not be reattached once it stops", async () => {
+  vi.useFakeTimers();
+  const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const snapshot = (activeSessionId: string | null) => ({
+    status: "ok",
+    data: {
+      activeSessionId,
+      finalizingSessionIds: [],
+      liveTranscriptionActive: null,
+      requestedLiveTranscription: null,
+      state: activeSessionId ? "active" : "inactive",
+    },
+  });
+  mocks.listCaptureRecoveries.mockResolvedValue({
+    status: "ok",
+    data: [{ session_id: "session-live", process_stopped: false }],
+  });
+  mocks.getCaptureSnapshot.mockResolvedValue(snapshot("session-live"));
+  const resume = vi.fn().mockResolvedValue("error");
+  mocks.resumeBySession.set("session-live", resume);
+
+  render(<LiveCaptureRecovery />);
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(60_000);
+  });
+  expect(resume).toHaveBeenCalledTimes(5);
+
+  resume.mockResolvedValue("awaiting_user");
+  mocks.getCaptureSnapshot.mockResolvedValue(snapshot(null));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5_000);
+  });
+  expect(resume).toHaveBeenCalledTimes(6);
+  expect(resume).toHaveBeenLastCalledWith({
+    abandonOnFailure: true,
+    processStopped: false,
+  });
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(60_000);
+  });
+  expect(resume).toHaveBeenCalledTimes(6);
+  consoleWarn.mockRestore();
+  vi.useRealTimers();
 });

@@ -29,19 +29,6 @@ function comment(
   };
 }
 
-test("groups comments on the same anchored text into one visual thread", () => {
-  const threads = groupSharedNoteCommentThreads([
-    comment("root", 10),
-    comment("reply", 10),
-    comment("other", 40),
-  ]);
-
-  assert.deepEqual(
-    threads.map((thread) => thread.comments.map(({ commentId }) => commentId)),
-    [["root", "reply"], ["other"]],
-  );
-});
-
 test("orders thread roots and replies chronologically", () => {
   const threads = groupSharedNoteCommentThreads([
     comment("reply", 10, "2026-07-23T00:02:00Z"),

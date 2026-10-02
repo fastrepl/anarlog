@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-apply-calendar-inventory"
+description = "Enables the apply_calendar_inventory command without any pre-configured scope."
+commands.allow = ["apply_calendar_inventory"]
+
+[[permission]]
+identifier = "deny-apply-calendar-inventory"
+description = "Denies the apply_calendar_inventory command without any pre-configured scope."
+commands.deny = ["apply_calendar_inventory"]

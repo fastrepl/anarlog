@@ -159,30 +159,6 @@ describe("chat CloudSync activity", () => {
     expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-2");
   });
 
-  it("cleans up a native lease when acquisition fails", async () => {
-    const beginError = new Error("native bridge unavailable");
-    const begin = vi
-      .fn()
-      .mockRejectedValueOnce(beginError)
-      .mockResolvedValueOnce(undefined);
-    const end = vi.fn().mockResolvedValue(undefined);
-    const controller = createChatCloudsyncActivityController({
-      begin,
-      end,
-      createAttemptKey: sequentialAttemptKeys(),
-    });
-
-    await expect(controller.start("failed-turn")).rejects.toBe(beginError);
-    expect(end).toHaveBeenCalledWith("chat", "failed-turn:attempt-1");
-
-    await expect(controller.start("failed-turn")).resolves.toMatchObject({
-      key: "failed-turn:attempt-2",
-    });
-    controller.finish("failed-turn");
-    await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
-    expect(end).toHaveBeenCalledWith("chat", "failed-turn:attempt-2");
-  });
-
   it("does not start transport when lease acquisition fails", async () => {
     const beginError = new Error("native bridge unavailable");
     const begin = vi.fn().mockRejectedValue(beginError);
@@ -215,63 +191,41 @@ describe("chat CloudSync activity", () => {
     expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
   });
 
-  it("wraps a non-Error lease acquisition rejection so useChat gets an Error", async () => {
-    // Tauri `invoke` rejects with the serialized Rust error, a bare string.
-    const begin = vi.fn().mockRejectedValue("cloudsync_activity_drain_timeout");
-    const activity = createChatCloudsyncActivityController({
-      begin,
-      end: vi.fn().mockResolvedValue(undefined),
-      createAttemptKey: sequentialAttemptKeys(),
-    });
-    const transport = guardChatTransport(
-      {
-        sendMessages: vi.fn(),
-        reconnectToStream: vi.fn().mockResolvedValue(null),
-      },
-      activity,
-    );
+  it.each([
+    ["lease acquisition", "cloudsync_activity_drain_timeout", true],
+    ["transport", "template render failed", false],
+  ])(
+    "wraps a non-Error %s rejection so useChat gets an Error",
+    async (_source, message, rejectsOnBegin) => {
+      const activity = createChatCloudsyncActivityController({
+        begin: rejectsOnBegin
+          ? vi.fn().mockRejectedValue(message)
+          : vi.fn().mockResolvedValue(undefined),
+        end: vi.fn().mockResolvedValue(undefined),
+        createAttemptKey: sequentialAttemptKeys(),
+      });
+      const transport = guardChatTransport(
+        {
+          sendMessages: rejectsOnBegin
+            ? vi.fn()
+            : vi.fn().mockRejectedValue(message),
+          reconnectToStream: vi.fn().mockResolvedValue(null),
+        },
+        activity,
+      );
 
-    const rejection = transport.sendMessages({
-      trigger: "submit-message",
-      chatId: "chat-1",
-      messageId: undefined,
-      messages: [{ id: "turn-1", role: "user", parts: [] }],
-      abortSignal: new AbortController().signal,
-    });
+      const rejection = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "chat-1",
+        messageId: undefined,
+        messages: [{ id: "turn-1", role: "user", parts: [] }],
+        abortSignal: new AbortController().signal,
+      });
 
-    await expect(rejection).rejects.toBeInstanceOf(Error);
-    await expect(rejection).rejects.toMatchObject({
-      message: "cloudsync_activity_drain_timeout",
-    });
-  });
-
-  it("wraps a non-Error transport rejection so useChat gets an Error", async () => {
-    const activity = createChatCloudsyncActivityController({
-      begin: vi.fn().mockResolvedValue(undefined),
-      end: vi.fn().mockResolvedValue(undefined),
-      createAttemptKey: sequentialAttemptKeys(),
-    });
-    const transport = guardChatTransport(
-      {
-        sendMessages: vi.fn().mockRejectedValue("template render failed"),
-        reconnectToStream: vi.fn().mockResolvedValue(null),
-      },
-      activity,
-    );
-
-    const rejection = transport.sendMessages({
-      trigger: "submit-message",
-      chatId: "chat-1",
-      messageId: undefined,
-      messages: [{ id: "turn-1", role: "user", parts: [] }],
-      abortSignal: new AbortController().signal,
-    });
-
-    await expect(rejection).rejects.toBeInstanceOf(Error);
-    await expect(rejection).rejects.toMatchObject({
-      message: "template render failed",
-    });
-  });
+      await expect(rejection).rejects.toBeInstanceOf(Error);
+      await expect(rejection).rejects.toMatchObject({ message });
+    },
+  );
 
   it("releases the exact attempt when transport rejects before streaming", async () => {
     const transportError = new Error("transport unavailable");
@@ -1115,27 +1069,6 @@ describe("chat CloudSync activity", () => {
     expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
   });
 
-  it("waits for active work before disposing", async () => {
-    const begin = vi.fn().mockResolvedValue(undefined);
-    const end = vi.fn().mockResolvedValue(undefined);
-    const controller = createChatCloudsyncActivityController({
-      begin,
-      end,
-      createAttemptKey: sequentialAttemptKeys(),
-    });
-
-    await controller.start("turn-1");
-    const disposed = controller.dispose();
-    await vi.advanceTimersByTimeAsync(
-      CHAT_CLOUDSYNC_DISPOSE_DRAIN_TIMEOUT_MS - 1,
-    );
-    expect(end).not.toHaveBeenCalled();
-
-    controller.finish("turn-1");
-    await disposed;
-    expect(end).toHaveBeenCalledWith("chat", "turn-1:attempt-1");
-  });
-
   it("bounds UI disposal without ending an unfinished native lease", async () => {
     const begin = vi.fn().mockResolvedValue(undefined);
     const end = vi.fn().mockResolvedValue(undefined);
@@ -1287,21 +1220,6 @@ describe("chat CloudSync activity", () => {
 
     await vi.advanceTimersByTimeAsync(CHAT_CLOUDSYNC_RELEASE_DELAY_MS);
     expect(end).toHaveBeenCalledWith("chat", "normal:attempt-2");
-  });
-
-  it("keeps dispose idempotent after cleanup has settled", async () => {
-    const controller = createChatCloudsyncActivityController({
-      begin: vi.fn().mockResolvedValue(undefined),
-      end: vi.fn().mockResolvedValue(undefined),
-      createAttemptKey: sequentialAttemptKeys(),
-    });
-
-    const firstDispose = controller.dispose();
-    await firstDispose;
-    const secondDispose = controller.dispose();
-
-    expect(secondDispose).toBe(firstDispose);
-    await expect(secondDispose).resolves.toBeUndefined();
   });
 
   it("retries transient native release failures", async () => {

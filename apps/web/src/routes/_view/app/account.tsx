@@ -10,6 +10,7 @@ import {
   type IdentityLinkStatus,
 } from "@/functions/identity-link";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { accountWorkspacePlanQueryKey } from "@/lib/account-plan";
 import {
   ACCOUNT_SECTIONS,
@@ -190,12 +191,12 @@ function Component() {
     search.trial,
   ]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     const syncHash = () => setHash(window.location.hash);
     syncHash();
     window.addEventListener("hashchange", syncHash);
     return () => window.removeEventListener("hashchange", syncHash);
-  }, []);
+  });
 
   useEffect(() => {
     const sectionId = hash.replace(/^#/, "");

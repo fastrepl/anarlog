@@ -58,64 +58,40 @@ fn finds_windows_path_entries_case_insensitively() {
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 #[test]
-fn classifies_missing_install() {
+fn classifies_missing_non_executable_and_stale_installs_as_missing() {
     let dir = tempfile::tempdir().unwrap();
     let resource_path = dir.path().join("anarlog-cli");
     std::fs::write(&resource_path, "cli").unwrap();
 
     let state = classify_installation(&dir.path().join("anarlog"), &resource_path).unwrap();
     assert_eq!(state, EmbeddedCliState::Missing);
-}
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-#[test]
-fn classifies_installed_symlink() {
-    let dir = tempfile::tempdir().unwrap();
-    let managed_path = dir.path().join("managed-anarlog-cli");
-    std::fs::write(&managed_path, "cli").unwrap();
-    std::fs::set_permissions(&managed_path, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let install_path = dir.path().join("anarlog");
-    std::os::unix::fs::symlink(&managed_path, &install_path).unwrap();
-
-    let state = classify_installation(&install_path, &managed_path).unwrap();
-    assert_eq!(state, EmbeddedCliState::Installed);
-}
-
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-#[test]
-fn classifies_non_executable_managed_cli_as_missing() {
-    let dir = tempfile::tempdir().unwrap();
     let managed_path = dir.path().join("managed-anarlog-cli");
     std::fs::write(&managed_path, "cli").unwrap();
     std::fs::set_permissions(&managed_path, std::fs::Permissions::from_mode(0o644)).unwrap();
-    let install_path = dir.path().join("anarlog");
+    let install_path = dir.path().join("anarlog-non-executable");
     std::os::unix::fs::symlink(&managed_path, &install_path).unwrap();
 
     assert_eq!(
         classify_installation(&install_path, &managed_path).unwrap(),
         EmbeddedCliState::Missing
     );
-}
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-#[test]
-fn classifies_stale_symlinks_as_missing() {
-    let dir = tempfile::tempdir().unwrap();
-    let managed_path = dir.path().join("anarlog-cli");
+    let new_managed_path = dir.path().join("new-anarlog-cli");
     let old_managed_path = dir.path().join("old-anarlog-cli");
-    let install_path = dir.path().join("anarlog");
-    std::fs::write(&managed_path, "new cli").unwrap();
+    let install_path = dir.path().join("anarlog-stale");
+    std::fs::write(&new_managed_path, "new cli").unwrap();
     std::fs::write(&old_managed_path, "old cli").unwrap();
     std::os::unix::fs::symlink(&old_managed_path, &install_path).unwrap();
 
     assert_eq!(
-        classify_installation(&install_path, &managed_path).unwrap(),
+        classify_installation(&install_path, &new_managed_path).unwrap(),
         EmbeddedCliState::Missing
     );
 
     std::fs::remove_file(old_managed_path).unwrap();
     assert_eq!(
-        classify_installation(&install_path, &managed_path).unwrap(),
+        classify_installation(&install_path, &new_managed_path).unwrap(),
         EmbeddedCliState::Missing
     );
 }
@@ -177,21 +153,7 @@ fn installer_replaces_legacy_app_executable_symlink() {
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 #[test]
-fn classifies_foreign_symlink_as_conflict() {
-    let dir = tempfile::tempdir().unwrap();
-    let managed_path = dir.path().join(".anarlog-cli/anarlog/1.2.0");
-    let install_path = dir.path().join("anarlog");
-    std::os::unix::fs::symlink("/opt/homebrew/bin/anarlog", &install_path).unwrap();
-
-    assert_eq!(
-        classify_installation(&install_path, &managed_path).unwrap(),
-        EmbeddedCliState::Conflict
-    );
-}
-
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-#[test]
-fn installer_refuses_to_replace_foreign_symlink() {
+fn foreign_files_are_conflicts_and_are_never_replaced() {
     let dir = tempfile::tempdir().unwrap();
     let resource_path = dir.path().join("bundled-anarlog-cli");
     let managed_path = dir.path().join(".anarlog-cli/anarlog/1.2.0");
@@ -200,8 +162,21 @@ fn installer_refuses_to_replace_foreign_symlink() {
     std::fs::write(&resource_path, "cli").unwrap();
     std::os::unix::fs::symlink(foreign_target, &install_path).unwrap();
 
+    assert_eq!(
+        classify_installation(&install_path, &managed_path).unwrap(),
+        EmbeddedCliState::Conflict
+    );
+
     assert!(install_managed_cli(&resource_path, &managed_path, &install_path).is_err());
     assert_eq!(std::fs::read_link(&install_path).unwrap(), foreign_target);
+
+    let managed_path = dir.path().join("anarlog-cli");
+    let install_path = dir.path().join("anarlog-regular");
+    std::fs::write(&managed_path, "cli").unwrap();
+    std::fs::write(&install_path, "other").unwrap();
+
+    let state = classify_installation(&install_path, &managed_path).unwrap();
+    assert_eq!(state, EmbeddedCliState::Conflict);
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -257,17 +232,4 @@ fn app_update_requires_installing_the_new_cli_version() {
         classify_installation(&install_path, &new_managed_path).unwrap(),
         EmbeddedCliState::Installed
     );
-}
-
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-#[test]
-fn classifies_regular_file_as_conflict() {
-    let dir = tempfile::tempdir().unwrap();
-    let managed_path = dir.path().join("anarlog-cli");
-    let install_path = dir.path().join("anarlog");
-    std::fs::write(&managed_path, "cli").unwrap();
-    std::fs::write(&install_path, "other").unwrap();
-
-    let state = classify_installation(&install_path, &managed_path).unwrap();
-    assert_eq!(state, EmbeddedCliState::Conflict);
 }

@@ -1,8 +1,9 @@
+import { commands } from "@anlg/plugin-session";
+
 import type { SessionParticipantRecord } from "./types";
 
-import { executeTransaction, useLiveQuery } from "~/db";
+import { useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
-import { id } from "~/shared/utils";
 
 type SessionParticipantSqlRow = {
   id: string;
@@ -96,70 +97,21 @@ export function addSessionParticipant(
   source = "manual",
 ): Promise<void> {
   return enqueueDatabaseWrite("session-participants", async () => {
-    const participantId = id();
-    const now = new Date().toISOString();
-    await executeTransaction([
-      {
-        sql: `
-          UPDATE session_participants
-          SET source = ?, updated_at = ?
-          WHERE id = (
-            SELECT id
-            FROM session_participants
-            WHERE session_id = ?
-              AND human_id = ?
-              AND source = 'excluded'
-              AND deleted_at IS NULL
-              AND ? <> 'auto'
-            ORDER BY created_at, id
-            LIMIT 1
-          )
-        `,
-        params: [source, now, sessionId, humanId, source],
-      },
-      {
-        sql: `
-          INSERT INTO session_participants (
-            id, workspace_id, owner_user_id, session_id, human_id,
-            display_name, email, role, source, metadata_json, created_at,
-            updated_at, deleted_at
-          )
-          SELECT ?, session.workspace_id, session.owner_user_id, session.id, human.id,
-            human.name, human.email, '', ?, '{}', ?, ?, NULL
-          FROM sessions AS session
-          JOIN humans AS human ON human.id = ? AND human.deleted_at IS NULL
-          WHERE session.id = ?
-            AND session.deleted_at IS NULL
-            AND NOT EXISTS (
-              SELECT 1
-              FROM session_participants AS existing
-              WHERE existing.session_id = session.id
-                AND existing.human_id = human.id
-                AND existing.deleted_at IS NULL
-            )
-        `,
-        params: [participantId, source, now, now, humanId, sessionId],
-      },
-    ]);
+    const result = await commands.addSessionParticipant({
+      session_id: sessionId,
+      human_id: humanId,
+      source,
+    });
+    if (result.status === "error") throw new Error(result.error);
   });
 }
 
 export function removeSessionParticipant(mappingId: string): Promise<void> {
   return enqueueDatabaseWrite("session-participants", async () => {
-    const now = new Date().toISOString();
-    await executeTransaction([
-      {
-        sql: `
-          UPDATE session_participants
-          SET
-            source = CASE WHEN source = 'auto' THEN 'excluded' ELSE source END,
-            deleted_at = CASE WHEN source = 'auto' THEN NULL ELSE ? END,
-            updated_at = ?
-          WHERE id = ? AND deleted_at IS NULL
-        `,
-        params: [now, now, mappingId],
-      },
-    ]);
+    const result = await commands.removeSessionParticipant({
+      mapping_id: mappingId,
+    });
+    if (result.status === "error") throw new Error(result.error);
   });
 }
 

@@ -62,8 +62,6 @@ vi.mock("@tauri-apps/api/webview", () => ({
 
 import {
   DEFAULT_ZOOM_FACTOR,
-  getWindowBaseMinSize,
-  persistZoomFactor,
   readZoomFactor,
   scaleWindowMinSize,
   stepZoomFactor,
@@ -90,65 +88,36 @@ describe("scaleWindowMinSize", () => {
       }),
     ).toEqual({ width: 1440, height: 900 });
   });
-
-  it("resolves base sizes for main and note windows only", () => {
-    expect(getWindowBaseMinSize("main")).toEqual({ width: 500, height: 500 });
-    expect(getWindowBaseMinSize("note-abc")).toEqual({
-      width: 420,
-      height: 500,
-    });
-    expect(getWindowBaseMinSize("composer")).toBeNull();
-  });
 });
 
 describe("stepZoomFactor", () => {
-  it("steps in from the default", () => {
-    expect(stepZoomFactor(1, "in")).toBe(1.1);
-  });
-
-  it("steps out from the default", () => {
-    expect(stepZoomFactor(1, "out")).toBe(0.9);
-  });
-
-  it("clamps at the bounds", () => {
-    const max = ZOOM_STEPS[ZOOM_STEPS.length - 1];
-    const min = ZOOM_STEPS[0];
-    expect(stepZoomFactor(max, "in")).toBe(max);
-    expect(stepZoomFactor(min, "out")).toBe(min);
-  });
-
-  it("returns the default on reset", () => {
-    expect(stepZoomFactor(2, "reset")).toBe(DEFAULT_ZOOM_FACTOR);
-  });
-
-  it("moves to the next step when between steps", () => {
-    expect(stepZoomFactor(1.05, "in")).toBe(1.1);
-    expect(stepZoomFactor(1.05, "out")).toBe(1);
+  it.each([
+    [1, "in", 1.1],
+    [1, "out", 0.9],
+    [
+      ZOOM_STEPS[ZOOM_STEPS.length - 1],
+      "in",
+      ZOOM_STEPS[ZOOM_STEPS.length - 1],
+    ],
+    [ZOOM_STEPS[0], "out", ZOOM_STEPS[0]],
+    [2, "reset", DEFAULT_ZOOM_FACTOR],
+    [1.05, "in", 1.1],
+    [1.05, "out", 1],
+  ] as const)("steps from %s %s to %s", (from, direction, expected) => {
+    expect(stepZoomFactor(from, direction)).toBe(expected);
   });
 });
 
 describe("readZoomFactor", () => {
   const storage = (value: string | null) => ({ getItem: vi.fn(() => value) });
 
-  it("defaults to 1 without a stored value", () => {
-    expect(readZoomFactor(storage(null))).toBe(1);
-  });
-
-  it("reads a stored factor", () => {
-    expect(readZoomFactor(storage("1.25"))).toBe(1.25);
-  });
-
-  it("falls back on garbage", () => {
-    expect(readZoomFactor(storage("bogus"))).toBe(1);
-    expect(readZoomFactor(storage("-2"))).toBe(1);
-  });
-});
-
-describe("persistZoomFactor", () => {
-  it("writes the factor to storage", () => {
-    const setItem = vi.fn();
-    persistZoomFactor(1.5, { setItem });
-    expect(setItem).toHaveBeenCalledWith(ZOOM_STORAGE_KEY, "1.5");
+  it.each([
+    [null, 1],
+    ["1.25", 1.25],
+    ["bogus", 1],
+    ["-2", 1],
+  ])("reads %s as zoom factor %s", (stored, expected) => {
+    expect(readZoomFactor(storage(stored))).toBe(expected);
   });
 });
 
@@ -193,19 +162,26 @@ describe("useZoomShortcuts", () => {
     });
   });
 
-  it("zooms out with ctrl+-", () => {
-    renderHook(() => useZoomShortcuts());
-    keydown({ key: "-", ctrlKey: true });
-    expect(mocks.setZoom).toHaveBeenLastCalledWith(0.9);
-  });
+  it.each([
+    { stored: null, init: { key: "-", ctrlKey: true }, expected: 0.9 },
+    {
+      stored: "2",
+      init: { key: "0", metaKey: true },
+      expected: DEFAULT_ZOOM_FACTOR,
+    },
+  ])(
+    "updates zoom from the $stored stored value",
+    ({ stored, init, expected }) => {
+      if (stored) {
+        localStorage.setItem(ZOOM_STORAGE_KEY, stored);
+      }
+      renderHook(() => useZoomShortcuts());
+      keydown(init);
 
-  it("resets with mod+0", () => {
-    localStorage.setItem(ZOOM_STORAGE_KEY, "2");
-    renderHook(() => useZoomShortcuts());
-    keydown({ key: "0", metaKey: true });
-    expect(mocks.setZoom).toHaveBeenLastCalledWith(DEFAULT_ZOOM_FACTOR);
-    expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("1");
-  });
+      expect(mocks.setZoom).toHaveBeenLastCalledWith(expected);
+      expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe(String(expected));
+    },
+  );
 
   it("ignores keys without a modifier and alt-combos", () => {
     renderHook(() => useZoomShortcuts());

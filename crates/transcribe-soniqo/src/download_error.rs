@@ -21,17 +21,14 @@ mod tests {
     use super::{ANONYMOUS_DOWNLOAD_FAILED, user_facing_download_error};
 
     #[test]
-    fn rewrites_hub_auth_errors_without_asking_for_a_token() {
+    fn rewrites_only_hub_auth_errors() {
         assert_eq!(
             user_facing_download_error(
                 "Failed to download: aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s after 5 attempts (target: /Users/adam/Library/Caches/qwen3-speech-models/aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s): Authentication required. Please provide a valid Hugging Face token."
             ),
             ANONYMOUS_DOWNLOAD_FAILED
         );
-    }
 
-    #[test]
-    fn leaves_unrelated_download_errors_unchanged() {
         assert_eq!(
             user_facing_download_error("Downloaded Soniqo Parakeet Batch files are incomplete."),
             "Downloaded Soniqo Parakeet Batch files are incomplete."

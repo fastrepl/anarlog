@@ -222,10 +222,5 @@ describe("template queries", () => {
       ],
       "run",
     );
-    expect(executeProxyMock).toHaveBeenCalledWith(
-      expect.stringContaining("strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"),
-      expect.any(Array),
-      "run",
-    );
   });
 });

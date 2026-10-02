@@ -40,15 +40,14 @@ afterEach(() => {
 });
 
 describe("normalizeThemePreference", () => {
-  it("returns stored theme values", () => {
-    expect(normalizeThemePreference("light")).toBe("light");
-    expect(normalizeThemePreference("dark")).toBe("dark");
-    expect(normalizeThemePreference("system")).toBe("system");
-  });
-
-  it("falls back to system for missing or invalid values", () => {
-    expect(normalizeThemePreference(null)).toBe("system");
-    expect(normalizeThemePreference("invalid")).toBe("system");
+  it.each([
+    ["light", "light"],
+    ["dark", "dark"],
+    ["system", "system"],
+    [null, "system"],
+    ["invalid", "system"],
+  ])("normalizes %s to %s", (preference, expected) => {
+    expect(normalizeThemePreference(preference)).toBe(expected);
   });
 });
 
@@ -61,22 +60,21 @@ describe("readStoredThemePreference", () => {
 });
 
 describe("resolveBootIsDark", () => {
-  it("honors explicit light and dark preferences", () => {
-    expect(resolveBootIsDark("light", true)).toBe(false);
-    expect(resolveBootIsDark("dark", false)).toBe(true);
-  });
-
-  it("follows system preference when stored theme is system or missing", () => {
-    expect(resolveBootIsDark("system", true)).toBe(true);
-    expect(resolveBootIsDark("system", false)).toBe(false);
-    expect(resolveBootIsDark(null, true)).toBe(true);
-    expect(resolveBootIsDark(null, false)).toBe(false);
-  });
-
-  it("treats invalid boot values like system to avoid theme flashes", () => {
-    expect(resolveBootIsDark("legacy-value", true)).toBe(true);
-    expect(resolveBootIsDark("legacy-value", false)).toBe(false);
-  });
+  it.each([
+    ["light", true, false],
+    ["dark", false, true],
+    ["system", true, true],
+    ["system", false, false],
+    [null, true, true],
+    [null, false, false],
+    ["legacy-value", true, true],
+    ["legacy-value", false, false],
+  ])(
+    "resolves stored theme %s with system appearance %s to %s",
+    (stored, prefersDark, expected) => {
+      expect(resolveBootIsDark(stored, prefersDark)).toBe(expected);
+    },
+  );
 });
 
 describe("bootstrapThemeFromSettings", () => {

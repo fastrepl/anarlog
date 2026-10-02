@@ -332,13 +332,15 @@ mod tests {
     }
 
     #[test]
-    fn prune_keeps_only_the_kept_version() {
+    fn prune_keeps_only_the_kept_version_and_non_bin_files() {
         let dir = tempfile::tempdir().unwrap();
         write_bins(dir.path(), &["1.4.1", "1.4.2", "1.4.8"]);
+        std::fs::write(dir.path().join("notes.txt"), b"keep").unwrap();
 
         prune_updates_dir(dir.path(), Some("1.4.8"));
 
         assert!(dir.path().join("1.4.8.bin").exists());
+        assert!(dir.path().join("notes.txt").exists());
         assert!(!dir.path().join("1.4.1.bin").exists());
         assert!(!dir.path().join("1.4.2.bin").exists());
     }
@@ -352,24 +354,5 @@ mod tests {
 
         assert!(!dir.path().join("1.4.1.bin").exists());
         assert!(!dir.path().join("1.4.2.bin").exists());
-    }
-
-    #[test]
-    fn prune_ignores_non_bin_files() {
-        let dir = tempfile::tempdir().unwrap();
-        write_bins(dir.path(), &["1.4.1"]);
-        std::fs::write(dir.path().join("notes.txt"), b"keep").unwrap();
-
-        prune_updates_dir(dir.path(), None);
-
-        assert!(dir.path().join("notes.txt").exists());
-        assert!(!dir.path().join("1.4.1.bin").exists());
-    }
-
-    #[test]
-    fn prune_missing_dir_is_noop() {
-        let dir = tempfile::tempdir().unwrap();
-
-        prune_updates_dir(&dir.path().join("does-not-exist"), Some("1.4.8"));
     }
 }

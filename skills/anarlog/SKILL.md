@@ -19,7 +19,7 @@ Never query or modify Anarlog's SQLite database directly. The CLI and MCP server
 
 ## Find the right meeting
 
-1. List recent meetings or search by a short title fragment.
+1. List recent meetings or search by a short title fragment. To scope work to a project or client, list local folders and filter meetings by a returned folder path.
 2. Use a meeting ID returned by the search. Never guess one.
 3. Get the meeting before requesting its transcript. Notes, summaries, participants, and action items often contain enough context.
 4. Ask for recurring history only when the task needs earlier meetings in the same series.

@@ -8,7 +8,7 @@ use tempfile::tempdir;
 
 pub type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Case {
     pub channels: u16,
     pub frames: usize,

@@ -73,13 +73,7 @@ fn log_audio_stream_error(err: cpal::StreamError) {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_silent_output_pcm, log_audio_stream_error};
-    use rodio::cpal::StreamError;
-
-    #[test]
-    fn audio_stream_error_log_does_not_panic() {
-        log_audio_stream_error(StreamError::DeviceNotAvailable);
-    }
+    use super::is_silent_output_pcm;
 
     #[test]
     fn skips_alsa_discard_pcms() {

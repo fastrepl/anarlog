@@ -295,6 +295,30 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the apply_calendar_inventory command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-apply-calendar-inventory",
+          "markdownDescription": "Enables the apply_calendar_inventory command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the apply_calendar_inventory command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-apply-calendar-inventory",
+          "markdownDescription": "Denies the apply_calendar_inventory command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the apply_contact_enhancement command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-apply-contact-enhancement",
+          "markdownDescription": "Enables the apply_contact_enhancement command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the apply_contact_enhancement command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-apply-contact-enhancement",
+          "markdownDescription": "Denies the apply_contact_enhancement command without any pre-configured scope."
+        },
+        {
           "description": "Enables the available_providers command without any pre-configured scope.",
           "type": "string",
           "const": "allow-available-providers",
@@ -317,6 +341,30 @@
           "type": "string",
           "const": "deny-create-event",
           "markdownDescription": "Denies the create_event command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_human command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-human",
+          "markdownDescription": "Enables the create_human command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_human command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-human",
+          "markdownDescription": "Denies the create_human command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_organization command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-organization",
+          "markdownDescription": "Enables the create_organization command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_organization command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-organization",
+          "markdownDescription": "Denies the create_organization command without any pre-configured scope."
         },
         {
           "description": "Enables the is_provider_enabled command without any pre-configured scope.",
@@ -367,6 +415,18 @@
           "markdownDescription": "Denies the list_events command without any pre-configured scope."
         },
         {
+          "description": "Enables the merge_humans command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-merge-humans",
+          "markdownDescription": "Enables the merge_humans command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the merge_humans command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-merge-humans",
+          "markdownDescription": "Denies the merge_humans command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_calendar command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-calendar",
@@ -379,10 +439,154 @@
           "markdownDescription": "Denies the open_calendar command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`",
+          "description": "Enables the reorder_pinned_contacts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reorder-pinned-contacts",
+          "markdownDescription": "Enables the reorder_pinned_contacts command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reorder_pinned_contacts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reorder-pinned-contacts",
+          "markdownDescription": "Denies the reorder_pinned_contacts command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_personal_contact command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-personal-contact",
+          "markdownDescription": "Enables the save_personal_contact command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_personal_contact command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-personal-contact",
+          "markdownDescription": "Denies the save_personal_contact command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_calendar_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-calendar-enabled",
+          "markdownDescription": "Enables the set_calendar_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_calendar_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-calendar-enabled",
+          "markdownDescription": "Denies the set_calendar_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the soft_delete_contact command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-soft-delete-contact",
+          "markdownDescription": "Enables the soft_delete_contact command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the soft_delete_contact command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-soft-delete-contact",
+          "markdownDescription": "Denies the soft_delete_contact command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sync_calendar_connection_events command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-calendar-connection-events",
+          "markdownDescription": "Enables the sync_calendar_connection_events command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_calendar_connection_events command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-calendar-connection-events",
+          "markdownDescription": "Denies the sync_calendar_connection_events command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_contact_pin command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-contact-pin",
+          "markdownDescription": "Enables the toggle_contact_pin command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_contact_pin command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-contact-pin",
+          "markdownDescription": "Denies the toggle_contact_pin command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the tombstone_calendar_connection command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tombstone-calendar-connection",
+          "markdownDescription": "Enables the tombstone_calendar_connection command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tombstone_calendar_connection command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tombstone-calendar-connection",
+          "markdownDescription": "Denies the tombstone_calendar_connection command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_contact_avatar command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-contact-avatar",
+          "markdownDescription": "Enables the update_contact_avatar command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_contact_avatar command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-contact-avatar",
+          "markdownDescription": "Denies the update_contact_avatar command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_human command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-human",
+          "markdownDescription": "Enables the update_human command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_human command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-human",
+          "markdownDescription": "Denies the update_human command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_human_contact_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-human-contact-summary",
+          "markdownDescription": "Enables the update_human_contact_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_human_contact_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-human-contact-summary",
+          "markdownDescription": "Denies the update_human_contact_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_ignored_calendar_item command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-ignored-calendar-item",
+          "markdownDescription": "Enables the update_ignored_calendar_item command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_ignored_calendar_item command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-ignored-calendar-item",
+          "markdownDescription": "Denies the update_ignored_calendar_item command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_organization command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-organization",
+          "markdownDescription": "Enables the update_organization command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_organization command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-organization",
+          "markdownDescription": "Denies the update_organization command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`\n- `allow-apply-calendar-inventory`\n- `allow-tombstone-calendar-connection`\n- `allow-set-calendar-enabled`\n- `allow-sync-calendar-connection-events`\n- `allow-update-ignored-calendar-item`\n- `allow-create-human`\n- `allow-create-organization`\n- `allow-save-personal-contact`\n- `allow-update-human`\n- `allow-update-organization`\n- `allow-soft-delete-contact`\n- `allow-update-contact-avatar`\n- `allow-update-human-contact-summary`\n- `allow-toggle-contact-pin`\n- `allow-reorder-pinned-contacts`\n- `allow-merge-humans`\n- `allow-apply-contact-enhancement`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`\n- `allow-apply-calendar-inventory`\n- `allow-tombstone-calendar-connection`\n- `allow-set-calendar-enabled`\n- `allow-sync-calendar-connection-events`\n- `allow-update-ignored-calendar-item`\n- `allow-create-human`\n- `allow-create-organization`\n- `allow-save-personal-contact`\n- `allow-update-human`\n- `allow-update-organization`\n- `allow-soft-delete-contact`\n- `allow-update-contact-avatar`\n- `allow-update-human-contact-summary`\n- `allow-toggle-contact-pin`\n- `allow-reorder-pinned-contacts`\n- `allow-merge-humans`\n- `allow-apply-contact-enhancement`"
         }
       ]
     }

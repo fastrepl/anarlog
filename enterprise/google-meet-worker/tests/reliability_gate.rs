@@ -5,7 +5,7 @@ use anarlog_enterprise_google_meet_worker::{
     ChunkedRecordingSink, RecordingChunkStore, RuntimeSnapshot, StoredRecordingObject,
     WorkerLifecycle,
 };
-use anlg_meeting_capture::{BotState, CaptureEventPayload, TerminalReasonKind};
+use anlg_meeting_capture::{BotState, CaptureEventPayload, TerminalReason, TerminalReasonKind};
 use chrono::{DateTime, Utc};
 
 fn now() -> DateTime<Utc> {
@@ -43,7 +43,7 @@ fn reliability_gate_covers_required_terminal_reasons() {
     let started = Instant::now();
     type Case<'a> = (
         &'a str,
-        Box<dyn Fn(&mut WorkerLifecycle) -> TerminalReasonKind + 'a>,
+        Box<dyn Fn(&mut WorkerLifecycle) -> TerminalReason + 'a>,
     );
     let cases: [Case<'_>; 9] = [
         (
@@ -61,7 +61,7 @@ fn reliability_gate_covers_required_terminal_reasons() {
                     )
                     .unwrap()
                     .unwrap();
-                reason_kind(event)
+                reason(event)
             }),
         ),
         (
@@ -79,7 +79,7 @@ fn reliability_gate_covers_required_terminal_reasons() {
                     )
                     .unwrap()
                     .unwrap();
-                reason_kind(event)
+                reason(event)
             }),
         ),
         (
@@ -97,28 +97,28 @@ fn reliability_gate_covers_required_terminal_reasons() {
                     )
                     .unwrap()
                     .unwrap();
-                reason_kind(event)
+                reason(event)
             }),
         ),
         (
             "lobby-timeout",
             Box::new(|lifecycle| {
                 lifecycle.launch_started(now()).unwrap();
-                reason_kind(lifecycle.admission_timed_out(now()).unwrap())
+                reason(lifecycle.admission_timed_out(now()).unwrap())
             }),
         ),
         (
             "worker-crash",
             Box::new(|lifecycle| {
                 join_and_capture(lifecycle);
-                reason_kind(lifecycle.worker_exited("worker crashed", now()).unwrap())
+                reason(lifecycle.worker_exited("worker crashed", now()).unwrap())
             }),
         ),
         (
             "stt-outage",
             Box::new(|lifecycle| {
                 join_and_capture(lifecycle);
-                reason_kind(
+                reason(
                     lifecycle
                         .stt_unavailable("speech-to-text endpoint returned 503", now())
                         .unwrap(),
@@ -139,7 +139,7 @@ fn reliability_gate_covers_required_terminal_reasons() {
                         .unwrap()
                         .is_none()
                 );
-                reason_kind(
+                reason(
                     lifecycle
                         .observe_runtime(&snapshot, started + Duration::from_secs(30), now())
                         .unwrap()
@@ -179,14 +179,14 @@ fn reliability_gate_covers_required_terminal_reasons() {
                         .unwrap()
                         .is_none()
                 );
-                let kind = reason_kind(
+                let reason = reason(
                     local
                         .observe_runtime(&snapshot, started + Duration::from_secs(1), now())
                         .unwrap()
                         .unwrap(),
                 );
                 *lifecycle = local;
-                kind
+                reason
             }),
         ),
         (
@@ -222,43 +222,52 @@ fn reliability_gate_covers_required_terminal_reasons() {
                         .unwrap()
                         .is_none()
                 );
-                let kind = reason_kind(
+                let reason = reason(
                     local
                         .observe_runtime(&empty, started + Duration::from_secs(1), now())
                         .unwrap()
                         .unwrap(),
                 );
                 *lifecycle = local;
-                kind
+                reason
             }),
         ),
     ];
 
     let expected = [
-        TerminalReasonKind::RemovedFromMeeting,
-        TerminalReasonKind::MeetingEnded,
-        TerminalReasonKind::AdmissionDenied,
-        TerminalReasonKind::AdmissionTimeout,
-        TerminalReasonKind::WorkerExited,
-        TerminalReasonKind::ProviderError,
-        TerminalReasonKind::NetworkLost,
-        TerminalReasonKind::NoOneJoined,
-        TerminalReasonKind::EveryoneLeft,
+        (
+            TerminalReasonKind::RemovedFromMeeting,
+            BotState::Failed,
+            false,
+        ),
+        (TerminalReasonKind::MeetingEnded, BotState::Completed, false),
+        (TerminalReasonKind::AdmissionDenied, BotState::Failed, false),
+        (TerminalReasonKind::AdmissionTimeout, BotState::Failed, true),
+        (TerminalReasonKind::WorkerExited, BotState::Failed, true),
+        (TerminalReasonKind::ProviderError, BotState::Failed, true),
+        (TerminalReasonKind::NetworkLost, BotState::Failed, true),
+        (TerminalReasonKind::NoOneJoined, BotState::Failed, true),
+        (TerminalReasonKind::EveryoneLeft, BotState::Completed, false),
     ];
 
-    for ((name, run), expected) in cases.into_iter().zip(expected) {
+    for ((name, run), (kind, state, retryable)) in cases.into_iter().zip(expected) {
         let mut lifecycle = WorkerLifecycle::new(name);
-        let kind = run(&mut lifecycle);
-        assert_eq!(kind, expected, "{name}");
-        assert!(lifecycle.state().is_terminal(), "{name}");
+        let reason = run(&mut lifecycle);
+        assert_eq!(reason.kind, kind, "{name}");
+        assert_eq!(reason.retryable, retryable, "{name}");
+        assert_eq!(lifecycle.state(), state, "{name}");
     }
 }
 
-fn reason_kind(event: anlg_meeting_capture::CaptureEvent) -> TerminalReasonKind {
+fn reason(event: anlg_meeting_capture::CaptureEvent) -> TerminalReason {
     let CaptureEventPayload::Lifecycle(transition) = event.payload else {
         panic!("expected lifecycle event");
     };
-    transition.reason.unwrap().kind
+    transition.reason.unwrap()
+}
+
+fn reason_kind(event: anlg_meeting_capture::CaptureEvent) -> TerminalReasonKind {
+    reason(event).kind
 }
 
 #[test]

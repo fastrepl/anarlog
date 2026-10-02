@@ -62,10 +62,8 @@ test("keeps a meeting without a generated summary as an empty note surface", () 
       summary: null,
     },
   );
-});
 
-test("does not render an empty synced summary document", () => {
-  const detail = mapSessionDetailRows([
+  const emptySyncedSummary = mapSessionDetailRows([
     {
       ...baseRow,
       summary_title: "",
@@ -73,8 +71,7 @@ test("does not render an empty synced summary document", () => {
       summary_body_format: "prosemirror_json",
     },
   ]);
-
-  assert.equal(detail?.summary, null);
+  assert.equal(emptySyncedSummary?.summary, null);
 });
 
 test("uses the body heading when a synced summary has no stored title", () => {

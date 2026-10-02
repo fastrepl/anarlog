@@ -105,19 +105,12 @@ mod tests {
     }
 
     #[test]
-    fn detects_matching_notify_command() {
+    fn has_notify_matches_only_the_configured_command() {
         let mut table = toml::Table::new();
         let command = notify_command();
 
         set_notify(&mut table, command.clone());
-
         assert!(has_notify(&table, &command));
-    }
-
-    #[test]
-    fn ignores_different_notify_command() {
-        let mut table = toml::Table::new();
-        let command = notify_command();
 
         set_notify(
             &mut table,

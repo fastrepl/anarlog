@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   loadSessionContentSnapshot: vi.fn(),
-  executeTransaction: vi.fn(),
+  moveSessionContents: vi.fn(),
   liveQueryExecute: vi.fn(),
   audioExist: vi.fn(),
   audioCopy: vi.fn(),
@@ -26,8 +26,11 @@ vi.mock("./attachments", () => ({
   deleteSessionAudio: mocks.deleteSessionAudio,
 }));
 
+vi.mock("@anlg/plugin-session", () => ({
+  commands: { moveSessionContents: mocks.moveSessionContents },
+}));
+
 vi.mock("~/db", () => ({
-  executeTransaction: mocks.executeTransaction,
   liveQueryClient: {
     execute: mocks.liveQueryExecute,
   },
@@ -106,7 +109,7 @@ describe("moveSessionContents", () => {
     mocks.live.finalizingBySession = {};
     mocks.live.batchTranscriptionPendingBySession = {};
     mocks.live.postStopProcessingBySession = {};
-    mocks.executeTransaction.mockResolvedValue([1, 1, 1, 0, 0]);
+    mocks.moveSessionContents.mockResolvedValue({ status: "ok", data: null });
     mocks.liveQueryExecute.mockResolvedValue([{ action_item_count: 2 }]);
     mocks.audioExist.mockImplementation(async (sessionId: string) => ({
       status: "ok",
@@ -169,24 +172,6 @@ describe("moveSessionContents", () => {
       "source",
       expect.any(Function),
     );
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements[0].sql).toContain("UPDATE transcripts");
-    expect(statements[0].params).toEqual([
-      "target",
-      1,
-      "session-audio:source",
-      "session-audio:target",
-      expect.any(String),
-      "source",
-    ]);
-    expect(statements[1].sql).toContain(
-      "kind IN ('summary', 'template_output')",
-    );
-    expect(statements[2].sql).toContain("UPDATE action_items");
-    expect(statements[5].params[0]).toBe('{"type":"doc"}');
-    expect(statements[5].params[2]).toBe("target");
-    expect(statements[6].params[2]).toBe("source");
   });
 
   it("refuses to overwrite a target that already has a transcript", async () => {
@@ -218,7 +203,7 @@ describe("moveSessionContents", () => {
       message: expect.stringContaining("already has a recording or transcript"),
     });
     expect(mocks.audioCopy).not.toHaveBeenCalled();
-    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+    expect(mocks.moveSessionContents).not.toHaveBeenCalled();
   });
 
   it("refuses while either meeting is still recording", async () => {
@@ -239,7 +224,10 @@ describe("moveSessionContents", () => {
 
   it("rolls back a copied recording if the database write fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.executeTransaction.mockRejectedValue(new Error("busy"));
+    mocks.moveSessionContents.mockResolvedValue({
+      status: "error",
+      error: "busy",
+    });
 
     await expect(
       moveSessionContents({

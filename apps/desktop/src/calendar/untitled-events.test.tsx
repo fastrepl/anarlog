@@ -1,14 +1,12 @@
-import { cleanup, render, renderHook, screen } from "@testing-library/react";
+import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { EventChip } from "./components/event-chip";
 import { useCalendarData } from "./hooks";
 
 import type { TimelineEventRow } from "~/sidebar/timeline/utils";
 
 const mocks = vi.hoisted(() => ({
   events: {} as Record<string, TimelineEventRow>,
-  use24HourTime: false,
   isIgnored: (trackingId: string | null | undefined) =>
     trackingId === "ignored",
 }));
@@ -24,16 +22,8 @@ vi.mock("./ignored-events", () => ({
 }));
 vi.mock("~/shared/config", () => ({
   useConfigValue: (key: string) =>
-    key === "timezone" ? "America/New_York" : mocks.use24HourTime,
+    key === "timezone" ? "America/New_York" : false,
 }));
-vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
-  useNativeContextMenu: () => undefined,
-}));
-vi.mock("~/session/components/outer-header/metadata", () => ({
-  EventDisplay: () => null,
-}));
-vi.mock("~/session/queries", () => ({}));
-vi.mock("~/store/zustand/tabs", () => ({}));
 
 const busyEvent: TimelineEventRow = {
   title: "",
@@ -48,10 +38,7 @@ const busyEvent: TimelineEventRow = {
   is_all_day: false,
 };
 
-afterEach(() => {
-  cleanup();
-  mocks.use24HourTime = false;
-});
+afterEach(cleanup);
 
 describe("untitled calendar events", () => {
   test("groups untitled events by date without bypassing ignored or invalid-date filters", () => {
@@ -68,23 +55,5 @@ describe("untitled calendar events", () => {
       "2026-09-14": ["busy", "titled"],
     });
     expect(result.current.eventsById.busy.title).toBe("");
-  });
-
-  test("renders untitled timed and all-day chips as Busy without changing the event", () => {
-    const { rerender } = render(<EventChip eventId="busy" event={busyEvent} />);
-    expect(screen.getByRole("button", { name: /Busy/ })).toBeTruthy();
-    expect(screen.getByText("4:00 PM")).toBeTruthy();
-    mocks.use24HourTime = true;
-    rerender(<EventChip eventId="busy" event={busyEvent} />);
-    expect(screen.getByText("16:00")).toBeTruthy();
-
-    rerender(
-      <EventChip eventId="busy" event={{ ...busyEvent, is_all_day: true }} />,
-    );
-    expect(screen.getByRole("button", { name: "Busy" })).toBeTruthy();
-    expect(busyEvent.title).toBe("");
-
-    rerender(<EventChip eventId="missing" event={undefined} />);
-    expect(screen.queryByRole("button")).toBeNull();
   });
 });

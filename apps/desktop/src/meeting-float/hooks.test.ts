@@ -90,7 +90,6 @@ describe("meeting float SQLite data", () => {
     expect(labels.getParticipantHumanIds?.()).toEqual(["human-remote"]);
     expect(labels.getHumanName("human-remote")).toBe("Remote speaker");
     expect(labels.getHumanName("human-other")).toBe("Other person");
-    expect(mocks.execute.mock.calls[0][0]).toContain("session_participants");
   });
 
   it("builds the transcript tab's resolver request from the live capture", async () => {

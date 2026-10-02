@@ -295,6 +295,42 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the apply_session_content_corrections command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-apply-session-content-corrections",
+          "markdownDescription": "Enables the apply_session_content_corrections command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the apply_session_content_corrections command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-apply-session-content-corrections",
+          "markdownDescription": "Denies the apply_session_content_corrections command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the compose_generated_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-compose-generated-summary",
+          "markdownDescription": "Enables the compose_generated_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the compose_generated_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-compose-generated-summary",
+          "markdownDescription": "Denies the compose_generated_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the dominant_language command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-dominant-language",
+          "markdownDescription": "Enables the dominant_language command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the dominant_language command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-dominant-language",
+          "markdownDescription": "Denies the dominant_language command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_template_source command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-template-source",
@@ -305,6 +341,18 @@
           "type": "string",
           "const": "deny-get-template-source",
           "markdownDescription": "Denies the get_template_source command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the prepare_generated_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-prepare-generated-summary",
+          "markdownDescription": "Enables the prepare_generated_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the prepare_generated_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-prepare-generated-summary",
+          "markdownDescription": "Denies the prepare_generated_summary command without any pre-configured scope."
         },
         {
           "description": "Enables the render command without any pre-configured scope.",
@@ -343,10 +391,46 @@
           "markdownDescription": "Denies the render_support command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`",
+          "description": "Enables the save_generated_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-generated-summary",
+          "markdownDescription": "Enables the save_generated_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_generated_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-generated-summary",
+          "markdownDescription": "Denies the save_generated_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_generated_title command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-generated-title",
+          "markdownDescription": "Enables the save_generated_title command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_generated_title command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-generated-title",
+          "markdownDescription": "Denies the save_generated_title command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the summary_length_policy command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-summary-length-policy",
+          "markdownDescription": "Enables the summary_length_policy command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the summary_length_policy command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-summary-length-policy",
+          "markdownDescription": "Denies the summary_length_policy command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-summary-length-policy`\n- `allow-dominant-language`\n- `allow-prepare-generated-summary`\n- `allow-compose-generated-summary`\n- `allow-save-generated-summary`\n- `allow-save-generated-title`\n- `allow-apply-session-content-corrections`\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-summary-length-policy`\n- `allow-dominant-language`\n- `allow-prepare-generated-summary`\n- `allow-compose-generated-summary`\n- `allow-save-generated-summary`\n- `allow-save-generated-title`\n- `allow-apply-session-content-corrections`\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`"
         }
       ]
     }

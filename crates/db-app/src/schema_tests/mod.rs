@@ -169,11 +169,13 @@ async fn test_db_without_default_templates() -> Db {
 }
 
 mod attachments;
+mod capture_lifecycle;
 mod consent;
 mod encrypted_replica;
 mod entities;
 mod migrations;
 mod search_index;
+mod session_audio;
 mod shared_session_cache;
 mod transcript_live_deltas;
 mod voiceprints;

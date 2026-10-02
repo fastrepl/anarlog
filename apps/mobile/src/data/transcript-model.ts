@@ -6,7 +6,7 @@ export const SESSION_TRANSCRIPTS_SQL = `SELECT transcript.id, transcript.started
       FROM transcripts AS transcript WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
       ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id`;
 
-export const SESSION_SPEAKERS_SQL = `SELECT id, name FROM humans WHERE workspace_id = (SELECT workspace_id FROM sessions WHERE id = ?) AND deleted_at IS NULL`;
+export const SESSION_SPEAKERS_SQL = `SELECT id, name FROM humans WHERE workspace_id = (SELECT workspace_id FROM sessions WHERE id = ?) AND name <> ''`;
 
 export const SESSION_HAS_TRANSCRIPT_SQL = `SELECT EXISTS (
   SELECT 1 FROM transcripts WHERE session_id = ? AND deleted_at IS NULL
@@ -25,6 +25,7 @@ export type TranscriptSegment = {
   text: string;
   speaker: string;
   startMs: number;
+  wordCount: number;
 };
 
 type Word = {
@@ -139,7 +140,9 @@ export function transcriptSegments(
       }
     }
   }
-  const result: (Omit<TranscriptSegment, "text"> & { parts: string[] })[] = [];
+  const result: (Omit<TranscriptSegment, "text" | "wordCount"> & {
+    parts: string[];
+  })[] = [];
   let previousIdentity: string | undefined;
   for (const word of words) {
     if (!word.text.trim()) continue;
@@ -167,5 +170,6 @@ export function transcriptSegments(
   return result.map(({ parts, ...segment }) => ({
     ...segment,
     text: parts.join(" ").replace(/\s+/g, " ").trim(),
+    wordCount: parts.length,
   }));
 }

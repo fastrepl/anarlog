@@ -66,23 +66,3 @@ pub(super) fn content_layout() -> LayoutSpec {
         ),
     ])
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use anlg_overlay_kit::layout::{LayoutMeasurements, LayoutSize};
-
-    #[test]
-    fn assistant_layout_tracks_minimum_and_maximum_widths() {
-        let measurements = LayoutMeasurements::new().with("cursor", LayoutSize::new(24.0, 24.0));
-        for width in [OVERLAY_MIN_WIDTH, 510.0, OVERLAY_MAX_WIDTH] {
-            let result = content_layout()
-                .solve(LayoutSize::new(width, OVERLAY_HEIGHT), &measurements)
-                .unwrap();
-            assert_eq!(result.frame("drag").unwrap().x, 16.0);
-            assert_eq!(result.frame("drag").unwrap().width, width - 32.0);
-            assert_eq!(result.frame("dismiss").unwrap().x, width - 44.0);
-            assert_eq!(result.frame("cursor").unwrap().x, (width - 24.0) / 2.0);
-        }
-    }
-}

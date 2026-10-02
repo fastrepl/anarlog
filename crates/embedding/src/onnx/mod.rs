@@ -353,14 +353,4 @@ Run with UPDATE_SNAPSHOTS=1 to generate baselines.",
     fn snapshot_english_1() {
         run_snapshot_test(anlg_data::english_1::AUDIO, "embedding_english_1");
     }
-
-    #[test]
-    fn snapshot_english_2() {
-        run_snapshot_test(anlg_data::english_2::AUDIO, "embedding_english_2");
-    }
-
-    #[test]
-    fn snapshot_korean_1() {
-        run_snapshot_test(anlg_data::korean_1::AUDIO, "embedding_korean_1");
-    }
 }

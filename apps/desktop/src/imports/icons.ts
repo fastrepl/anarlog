@@ -1,4 +1,4 @@
-export const PROVIDER_BRAND_ICONS: Record<string, string> = {
+const PROVIDER_BRAND_ICONS: Record<string, string> = {
   "chatgpt-record": "/assets/model-icons/openai-logo.svg",
   "google-meet": "/assets/google-meet.svg",
   "microsoft-teams": "/assets/microsoft-teams.svg",

@@ -291,8 +291,6 @@ fn convert_segments(segments: &[MistralSegment], diarized: bool) -> (Vec<Word>, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapter::BatchSttAdapter;
-    use crate::http_client::create_client;
 
     #[test]
     fn batch_realtime_model_alias_uses_batch_model() {
@@ -391,34 +389,5 @@ mod tests {
             response.metadata["speaker_labels"],
             serde_json::json!(["speaker_1", "speaker_2"])
         );
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_mistral_transcribe() {
-        let api_key = std::env::var("MISTRAL_API_KEY").expect("MISTRAL_API_KEY not set");
-
-        let adapter = MistralAdapter::default();
-        let client = create_client();
-        let api_base = "https://api.mistral.ai/v1";
-
-        let params = ListenParams::default();
-
-        let audio_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../crates/data/src/english_1/audio.wav");
-
-        let result = adapter
-            .transcribe_file(&client, api_base, &api_key, &params, &audio_path)
-            .await;
-
-        let response = result.expect("transcription should succeed");
-
-        assert!(!response.results.channels.is_empty());
-        let channel = &response.results.channels[0];
-        assert!(!channel.alternatives.is_empty());
-        let alt = &channel.alternatives[0];
-        assert!(!alt.transcript.is_empty());
-        println!("Transcript: {}", alt.transcript);
-        println!("Word count: {}", alt.words.len());
     }
 }

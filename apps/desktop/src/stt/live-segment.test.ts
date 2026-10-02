@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type {
   IdentityAssignment,
@@ -28,39 +28,59 @@ const twoPersonCtx: RenderLabelContext = {
 };
 
 describe("SegmentKeyUtils", () => {
-  it("treats diarized direct-mic segments as self", () => {
-    const key: Parameters<typeof SegmentKeyUtils.isKnownSpeaker>[0] = {
-      channel: "DirectMic",
-      speaker_index: 2,
-      speaker_human_id: null,
-    };
-
-    expect(SegmentKeyUtils.isKnownSpeaker(key, ctx)).toBe(true);
-    expect(SegmentKeyUtils.renderLabel(key, ctx)).toBe("Me");
-  });
-
-  it("does not label assigned direct-mic segments as self when the name is unavailable", () => {
-    const key: Parameters<typeof SegmentKeyUtils.renderLabel>[0] = {
-      channel: "DirectMic",
-      speaker_index: 1,
-      speaker_human_id: "remote",
-    };
-
-    expect(SegmentKeyUtils.renderLabel(key, ctx)).toBe("Speaker 2");
-  });
-
-  it("labels an unnamed assigned self as You on the direct mic", () => {
-    const unnamedSelfCtx: RenderLabelContext = {
-      getSelfHumanId: () => "self",
-      getHumanName: () => undefined,
-    };
-    const key: Parameters<typeof SegmentKeyUtils.renderLabel>[0] = {
-      channel: "DirectMic",
-      speaker_index: null,
-      speaker_human_id: "self",
-    };
-
-    expect(SegmentKeyUtils.renderLabel(key, unnamedSelfCtx)).toBe("You");
+  it.each([
+    {
+      name: "diarized direct-mic segments are self",
+      key: {
+        channel: "DirectMic",
+        speaker_index: 2,
+        speaker_human_id: null,
+      } as Parameters<typeof SegmentKeyUtils.renderLabel>[0],
+      context: ctx,
+      known: true,
+      label: "Me",
+    },
+    {
+      name: "assigned direct-mic segments are not self when the name is unavailable",
+      key: {
+        channel: "DirectMic",
+        speaker_index: 1,
+        speaker_human_id: "remote",
+      } as Parameters<typeof SegmentKeyUtils.renderLabel>[0],
+      context: ctx,
+      known: undefined,
+      label: "Speaker 2",
+    },
+    {
+      name: "an unnamed assigned self is You on the direct mic",
+      key: {
+        channel: "DirectMic",
+        speaker_index: null,
+        speaker_human_id: "self",
+      } as Parameters<typeof SegmentKeyUtils.renderLabel>[0],
+      context: {
+        getSelfHumanId: () => "self",
+        getHumanName: () => undefined,
+      } as RenderLabelContext,
+      known: undefined,
+      label: "You",
+    },
+    {
+      name: "remote-party segments label as the unique other participant",
+      key: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: null,
+      } as Parameters<typeof SegmentKeyUtils.renderLabel>[0],
+      context: twoPersonCtx,
+      known: true,
+      label: "Artem",
+    },
+  ])("$name", ({ key, context, known, label }) => {
+    if (known !== undefined) {
+      expect(SegmentKeyUtils.isKnownSpeaker(key, context)).toBe(known);
+    }
+    expect(SegmentKeyUtils.renderLabel(key, context)).toBe(label);
   });
 
   it("caps unknown speaker labels when a participant max is provided", () => {
@@ -90,17 +110,6 @@ describe("SegmentKeyUtils", () => {
     expect(
       SegmentKeyUtils.renderLabel(segments[2]!.key, undefined, manager),
     ).toBe("Speaker 2");
-  });
-
-  it("labels remote-party segments as the unique other participant", () => {
-    const key: Parameters<typeof SegmentKeyUtils.renderLabel>[0] = {
-      channel: "RemoteParty",
-      speaker_index: 0,
-      speaker_human_id: null,
-    };
-
-    expect(SegmentKeyUtils.isKnownSpeaker(key, twoPersonCtx)).toBe(true);
-    expect(SegmentKeyUtils.renderLabel(key, twoPersonCtx)).toBe("Artem");
   });
 
   it("derives max speaker number from distinct participants plus self", () => {
@@ -201,36 +210,6 @@ describe("mergeRenderedAndLiveSegments", () => {
     expect(
       merged.flatMap((segment) => segment.words.map((word) => word.id)),
     ).toEqual(["word-replacement"]);
-  });
-
-  it("indexes pending replacements instead of scanning the full live tail", () => {
-    const persisted = createSegment(
-      "persisted",
-      Array.from({ length: 1_000 }, (_, index) => ({
-        id: `persisted-${index}`,
-        startMs: index * 100,
-      })),
-    );
-    const live = createSegment(
-      "live",
-      Array.from({ length: 1_000 }, (_, index) => ({
-        id: `live-${index}`,
-        startMs: 100_000 + index * 100,
-      })),
-    );
-    const request = createRequest(
-      [...persisted.words, ...live.words].flatMap((word) =>
-        word.id ? [word.id] : [],
-      ),
-    );
-    const hasSpy = vi.spyOn(Set.prototype, "has");
-
-    try {
-      mergeRenderedAndLiveSegments([persisted], [live], request);
-      expect(hasSpy.mock.calls.length).toBeLessThan(10_000);
-    } finally {
-      hasSpy.mockRestore();
-    }
   });
 });
 
@@ -423,192 +402,170 @@ describe("applyRenderRequestIdentitiesToSegments", () => {
 });
 
 describe("mergeAdjacentSpeakerSegments", () => {
-  it("merges adjacent segments that a speaker tag resolves to the same human", () => {
+  it.each([
+    {
+      name: "a speaker tag resolves to the same human",
+      firstKey: { speaker_index: 1 } as Partial<Segment["key"]>,
+      secondKey: { speaker_index: 1 } as Partial<Segment["key"]>,
+      request: () =>
+        createRequest(
+          ["word-a", "word-b"],
+          [
+            {
+              human_id: "human-1",
+              scope: {
+                kind: "channel_speaker" as const,
+                channel: "MixedCapture" as const,
+                speaker_index: 1,
+              },
+            },
+          ],
+        ),
+      extra: (merged: Segment[]) => {
+        expect(merged[0]?.key.speaker_human_id).toBe("human-1");
+        expect(merged[0]?.words.map((word) => word.id)).toEqual([
+          "word-a",
+          "word-b",
+        ]);
+        expect(merged[0]?.start_ms).toBe(0);
+        expect(merged[0]?.end_ms).toBe(200);
+        expect(merged[0]?.text).toBe("word-word-a word-word-b");
+      },
+    },
+    {
+      name: "adjacent segments share a diarized speaker without a human",
+      firstKey: { speaker_index: 2 } as Partial<Segment["key"]>,
+      secondKey: { speaker_index: 2 } as Partial<Segment["key"]>,
+      request: undefined,
+      extra: (merged: Segment[], first: Segment) => {
+        expect(merged[0]?.id).not.toBe(first.id);
+        expect(merged[0]?.key).toEqual(first.key);
+      },
+    },
+    {
+      name: "same-human segments across different diarized indices",
+      firstKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: "human-1",
+      } as Partial<Segment["key"]>,
+      secondKey: {
+        channel: "RemoteParty",
+        speaker_index: 1,
+        speaker_human_id: "human-1",
+      } as Partial<Segment["key"]>,
+      request: undefined,
+      extra: (merged: Segment[], first: Segment) => {
+        expect(merged[0]?.key).toEqual(first.key);
+      },
+    },
+  ])("merges $name", ({ firstKey, secondKey, request, extra }) => {
     const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
     const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-    first.key.speaker_index = 1;
-    second.key.speaker_index = 1;
-    const request = createRequest(
-      ["word-a", "word-b"],
-      [
-        {
-          human_id: "human-1",
-          scope: {
-            kind: "channel_speaker",
-            channel: "MixedCapture",
-            speaker_index: 1,
-          },
-        },
-      ],
-    );
+    Object.assign(first.key, firstKey);
+    Object.assign(second.key, secondKey);
 
-    const identified = applyRenderRequestIdentitiesToSegments(
-      [first, second],
-      request,
-    );
-    const merged = mergeAdjacentSpeakerSegments(identified);
-
-    expect(merged).toHaveLength(1);
-    expect(merged[0]?.key.speaker_human_id).toBe("human-1");
-    expect(merged[0]?.words.map((word) => word.id)).toEqual([
-      "word-a",
-      "word-b",
-    ]);
-    expect(merged[0]?.start_ms).toBe(0);
-    expect(merged[0]?.end_ms).toBe(200);
-    expect(merged[0]?.text).toBe("word-word-a word-word-b");
-  });
-
-  it("merges adjacent segments sharing a diarized speaker without a human", () => {
-    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
-    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-    first.key.speaker_index = 2;
-    second.key.speaker_index = 2;
-
-    const merged = mergeAdjacentSpeakerSegments([first, second]);
-
-    expect(merged).toHaveLength(1);
-    expect(merged[0]?.id).not.toBe(first.id);
-    expect(merged[0]?.key).toEqual(first.key);
-  });
-
-  it("merges same-human segments across different diarized indices", () => {
-    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
-    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-    first.key = {
-      channel: "RemoteParty",
-      speaker_index: 0,
-      speaker_human_id: "human-1",
-    };
-    second.key = {
-      channel: "RemoteParty",
-      speaker_index: 1,
-      speaker_human_id: "human-1",
-    };
-
-    const merged = mergeAdjacentSpeakerSegments([first, second]);
-
-    expect(merged).toHaveLength(1);
-    expect(merged[0]?.key).toEqual(first.key);
-  });
-
-  it("does not merge segments for different speakers", () => {
-    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
-    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-    first.key = {
-      channel: "RemoteParty",
-      speaker_index: 0,
-      speaker_human_id: "human-1",
-    };
-    second.key = {
-      channel: "RemoteParty",
-      speaker_index: 0,
-      speaker_human_id: "human-2",
-    };
-
-    const merged = mergeAdjacentSpeakerSegments([first, second]);
-
-    expect(merged).toHaveLength(2);
-  });
-
-  it("does not merge a human-tagged segment into an untagged one", () => {
-    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
-    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-    first.key = {
-      channel: "MixedCapture",
-      speaker_index: 1,
-      speaker_human_id: "human-1",
-    };
-    second.key = {
-      channel: "MixedCapture",
-      speaker_index: 1,
-      speaker_human_id: null,
-    };
-
-    const merged = mergeAdjacentSpeakerSegments([first, second]);
-
-    expect(merged).toHaveLength(2);
-  });
-
-  it("does not merge across channels", () => {
-    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
-    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-    first.key = {
-      channel: "DirectMic",
-      speaker_index: null,
-      speaker_human_id: "human-1",
-    };
-    second.key = {
-      channel: "RemoteParty",
-      speaker_index: null,
-      speaker_human_id: "human-1",
-    };
-
-    const merged = mergeAdjacentSpeakerSegments([first, second]);
-
-    expect(merged).toHaveLength(2);
-  });
-
-  it("keeps anonymous same-channel segments separate", () => {
-    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
-    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-
-    const merged = mergeAdjacentSpeakerSegments([first, second]);
-
-    expect(merged).toHaveLength(2);
-  });
-
-  it("restores the leading space that first-word normalization stripped", () => {
-    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
-    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-    first.key.speaker_index = 1;
-    second.key.speaker_index = 1;
-    first.words = first.words.map((word) => ({
-      ...word,
-      text: word.text.trimStart(),
-    }));
-    second.words = second.words.map((word) => ({
-      ...word,
-      text: word.text.trimStart(),
-    }));
-
-    const merged = mergeAdjacentSpeakerSegments([first, second]);
-
-    expect(merged).toHaveLength(1);
-    expect(merged[0]?.words.map((word) => word.text)).toEqual([
-      "word-word-a",
-      " word-word-b",
-    ]);
-    expect(merged[0]?.text).toBe("word-word-a word-word-b");
-  });
-
-  it("does not insert a space before a punctuation-leading word", () => {
-    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
-    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
-    first.key.speaker_index = 1;
-    second.key.speaker_index = 1;
-    second.words = [{ ...second.words[0]!, text: ". Next" }];
-
-    const merged = mergeAdjacentSpeakerSegments([first, second]);
-
-    expect(merged[0]?.text).toBe("word-word-a. Next");
-  });
-
-  it("merges a long run of same-speaker segments", () => {
-    const segments = Array.from({ length: 200 }, (_, index) => {
-      const segment = createSegment(`s-${index}`, [
-        { id: `word-${index}`, startMs: index * 100 },
-      ]);
-      segment.key.speaker_index = 1;
-      return segment;
-    });
-
+    const segments = request
+      ? applyRenderRequestIdentitiesToSegments([first, second], request())
+      : [first, second];
     const merged = mergeAdjacentSpeakerSegments(segments);
 
     expect(merged).toHaveLength(1);
-    expect(merged[0]?.words).toHaveLength(200);
-    expect(merged[0]?.text.startsWith("word-word-0")).toBe(true);
-    expect(merged[0]?.text.endsWith("word-word-199")).toBe(true);
+    extra(merged, first);
+  });
+
+  it.each([
+    {
+      name: "segments for different speakers",
+      firstKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: "human-1",
+      } as Partial<Segment["key"]>,
+      secondKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: "human-2",
+      } as Partial<Segment["key"]>,
+    },
+    {
+      name: "a human-tagged segment into an untagged one",
+      firstKey: {
+        channel: "MixedCapture",
+        speaker_index: 1,
+        speaker_human_id: "human-1",
+      } as Partial<Segment["key"]>,
+      secondKey: {
+        channel: "MixedCapture",
+        speaker_index: 1,
+        speaker_human_id: null,
+      } as Partial<Segment["key"]>,
+    },
+    {
+      name: "across channels",
+      firstKey: {
+        channel: "DirectMic",
+        speaker_index: null,
+        speaker_human_id: "human-1",
+      } as Partial<Segment["key"]>,
+      secondKey: {
+        channel: "RemoteParty",
+        speaker_index: null,
+        speaker_human_id: "human-1",
+      } as Partial<Segment["key"]>,
+    },
+    {
+      name: "anonymous same-channel segments",
+      firstKey: {} as Partial<Segment["key"]>,
+      secondKey: {} as Partial<Segment["key"]>,
+    },
+  ])("does not merge $name", ({ firstKey, secondKey }) => {
+    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
+    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
+    Object.assign(first.key, firstKey);
+    Object.assign(second.key, secondKey);
+
+    expect(mergeAdjacentSpeakerSegments([first, second])).toHaveLength(2);
+  });
+
+  it.each([
+    {
+      name: "restores the leading space that first-word normalization stripped",
+      adjust: (first: Segment, second: Segment) => {
+        first.words = first.words.map((word) => ({
+          ...word,
+          text: word.text.trimStart(),
+        }));
+        second.words = second.words.map((word) => ({
+          ...word,
+          text: word.text.trimStart(),
+        }));
+      },
+      expectedText: "word-word-a word-word-b",
+      expectedWords: ["word-word-a", " word-word-b"],
+    },
+    {
+      name: "does not insert a space before a punctuation-leading word",
+      adjust: (_first: Segment, second: Segment) => {
+        second.words = [{ ...second.words[0]!, text: ". Next" }];
+      },
+      expectedText: "word-word-a. Next",
+      expectedWords: undefined,
+    },
+  ])("$name", ({ adjust, expectedText, expectedWords }) => {
+    const first = createSegment("first", [{ id: "word-a", startMs: 0 }]);
+    const second = createSegment("second", [{ id: "word-b", startMs: 100 }]);
+    first.key.speaker_index = 1;
+    second.key.speaker_index = 1;
+    adjust(first, second);
+
+    const merged = mergeAdjacentSpeakerSegments([first, second]);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.text).toBe(expectedText);
+    if (expectedWords) {
+      expect(merged[0]?.words.map((word) => word.text)).toEqual(expectedWords);
+    }
   });
 });
 

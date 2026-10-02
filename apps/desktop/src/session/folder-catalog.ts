@@ -1,22 +1,23 @@
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands } from "@anlg/plugin-session";
 
 import { ancestorFolderPaths, normalizeFolderPath } from "./folders";
 
-import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
+import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { normalizeFolderIcon } from "~/session/folder-icon";
-import { id } from "~/shared/utils";
 import { type TemplateIcon } from "~/templates/template-icon";
 
 export async function ensureFolderCatalog(folderPath: string): Promise<string> {
   const path = requireNamedFolderPath(folderPath);
-  await enqueueDatabaseWrite("folders", () =>
-    executeTransaction(
-      ancestorFolderPaths(path).flatMap((ancestor) =>
-        ensureFolderStatements(ancestor),
-      ),
-    ),
-  );
+  await enqueueDatabaseWrite("folders", async () => {
+    const result = await commands.ensureFolderCatalog({
+      paths: ancestorFolderPaths(path),
+    });
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  });
   return path;
 }
 
@@ -45,51 +46,15 @@ export async function renameNamedFolder(
 
   await renameFolderOnDisk(oldPath, newPath);
 
-  await enqueueDatabaseWrite("folders", () =>
-    executeTransaction([
-      {
-        sql: `
-          UPDATE folders
-          SET
-            path = ?,
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-            deleted_at = NULL
-          WHERE path = ?
-            AND deleted_at IS NULL
-        `,
-        params: [newPath, oldPath],
-      },
-      ...ensureFolderStatements(newPath),
-      {
-        sql: `
-          UPDATE folder_attachments
-          SET
-            folder_path = CASE
-              WHEN folder_path = ? THEN ?
-              ELSE ? || substr(folder_path, length(?) + 1)
-            END,
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE deleted_at IS NULL
-            AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)
-        `,
-        params: nestedFolderRewriteParams(oldPath, newPath),
-      },
-      {
-        sql: `
-          UPDATE sessions
-          SET
-            folder_path = CASE
-              WHEN folder_path = ? THEN ?
-              ELSE ? || substr(folder_path, length(?) + 1)
-            END,
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE deleted_at IS NULL
-            AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)
-        `,
-        params: nestedFolderRewriteParams(oldPath, newPath),
-      },
-    ]),
-  );
+  await enqueueDatabaseWrite("folders", async () => {
+    const result = await commands.renameFolderCatalog({
+      old_path: oldPath,
+      new_path: newPath,
+    });
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  });
 
   return newPath;
 }
@@ -123,43 +88,12 @@ export async function deleteNamedFolder(folderPath: string): Promise<void> {
     }
   }
 
-  await enqueueDatabaseWrite("folders", () =>
-    executeTransaction([
-      {
-        sql: `
-          UPDATE folders
-          SET
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-            deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE deleted_at IS NULL
-            AND (path = ? OR path LIKE ? OR path LIKE ?)
-        `,
-        params: [path, `${path}/%`, `${path}\\%`],
-      },
-      {
-        sql: `
-          UPDATE folder_attachments
-          SET
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-            deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE deleted_at IS NULL
-            AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)
-        `,
-        params: [path, `${path}/%`, `${path}\\%`],
-      },
-      {
-        sql: `
-          UPDATE sessions
-          SET
-            folder_path = '',
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE deleted_at IS NULL
-            AND (folder_path = ? OR folder_path LIKE ? OR folder_path LIKE ?)
-        `,
-        params: [path, `${path}/%`, `${path}\\%`],
-      },
-    ]),
-  );
+  await enqueueDatabaseWrite("folders", async () => {
+    const result = await commands.deleteFolderCatalog({ path });
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  });
 
   const deleted = await fsSyncCommands.deleteFolder(path);
   if (
@@ -175,21 +109,15 @@ export async function updateFolderInstructions(
   instructions: string,
 ): Promise<void> {
   const path = await ensureFolderCatalog(folderPath);
-  await enqueueDatabaseWrite("folders", () =>
-    executeTransaction([
-      {
-        sql: `
-          UPDATE folders
-          SET
-            instructions = ?,
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE path = ?
-            AND deleted_at IS NULL
-        `,
-        params: [instructions, path],
-      },
-    ]),
-  );
+  await enqueueDatabaseWrite("folders", async () => {
+    const result = await commands.updateFolderInstructions({
+      path,
+      instructions,
+    });
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  });
 }
 
 export async function updateFolderWorkspace(
@@ -197,21 +125,15 @@ export async function updateFolderWorkspace(
   workspaceId: string,
 ): Promise<void> {
   const path = await ensureFolderCatalog(folderPath);
-  await enqueueDatabaseWrite("folders", () =>
-    executeTransaction([
-      {
-        sql: `
-          UPDATE folders
-          SET
-            workspace_id = ?,
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE path = ?
-            AND deleted_at IS NULL
-        `,
-        params: [workspaceId, path],
-      },
-    ]),
-  );
+  await enqueueDatabaseWrite("folders", async () => {
+    const result = await commands.updateFolderWorkspace({
+      path,
+      workspace_id: workspaceId,
+    });
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  });
 }
 
 export async function updateFolderIcon(
@@ -220,22 +142,15 @@ export async function updateFolderIcon(
 ): Promise<void> {
   const path = requireNamedFolderPath(folderPath);
   const iconJson = JSON.stringify(normalizeFolderIcon(icon));
-  await enqueueDatabaseWrite("folders", () =>
-    executeTransaction([
-      ...ensureFolderStatements(path),
-      {
-        sql: `
-          UPDATE folders
-          SET
-            icon_json = ?,
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE path = ?
-            AND deleted_at IS NULL
-        `,
-        params: [iconJson, path],
-      },
-    ]),
-  );
+  await enqueueDatabaseWrite("folders", async () => {
+    const result = await commands.updateFolderIcon({
+      path,
+      icon_json: iconJson,
+    });
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  });
 }
 
 export async function loadFolderInstructions(
@@ -310,69 +225,6 @@ export function useFolderWorkspaceId(folderPath: string): string {
     mapRows: (rows) => rows[0]?.workspace_id ?? "",
   });
   return data;
-}
-
-function ensureFolderStatements(path: string) {
-  const metadataId = id();
-  return [
-    {
-      sql: `
-        UPDATE folders
-        SET
-          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-          deleted_at = NULL
-        WHERE id = (
-          SELECT id
-          FROM folders
-          WHERE path = ?
-          ORDER BY deleted_at IS NULL DESC,
-            updated_at DESC,
-            id
-          LIMIT 1
-        )
-      `,
-      params: [path],
-    },
-    {
-      sql: `
-        INSERT INTO folders (
-          id,
-          workspace_id,
-          path
-        )
-        SELECT
-          ?,
-          COALESCE((
-            SELECT session.workspace_id
-            FROM sessions AS session
-            WHERE session.deleted_at IS NULL
-              AND (session.folder_path = ? OR session.folder_path LIKE ?)
-            ORDER BY session.updated_at DESC, session.id
-            LIMIT 1
-          ), ''),
-          ?
-        WHERE NOT EXISTS (
-          SELECT 1
-          FROM folders
-          WHERE path = ?
-            AND deleted_at IS NULL
-        )
-      `,
-      params: [metadataId, path, `${path}/%`, path, path],
-    },
-  ];
-}
-
-function nestedFolderRewriteParams(oldPath: string, newPath: string) {
-  return [
-    oldPath,
-    newPath,
-    newPath,
-    oldPath,
-    oldPath,
-    `${oldPath}/%`,
-    `${oldPath}\\%`,
-  ];
 }
 
 async function folderNameTaken(path: string): Promise<boolean> {

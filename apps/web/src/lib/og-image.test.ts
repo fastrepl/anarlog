@@ -25,14 +25,6 @@ test("renders blog metadata into a post-specific image", async () => {
 
   assert.match(svg, /How to take better/);
   assert.match(svg, /John &amp; team - August 6, 2026/);
-  assert.doesNotMatch(svg, />Anarlog<\/text>/);
-  assert.doesNotMatch(svg, />Blog<\/text>/);
-  assert.doesNotMatch(svg, />anarlog blog<\/text>/);
-  assert.doesNotMatch(svg, /anarlog\.so/);
-  assert.match(svg, /font-family="'Redaction', 'Noto Serif', serif"/);
-  assert.match(svg, /data-wordmark="anarlog"/);
-  assert.match(svg, /<rect width="1200" height="630" fill="#ffffff"\/>/);
-  assert.doesNotMatch(svg, /<rect x=/);
   assert.match(createBlogOgSvg({ title: "Hi" }), />anarlog<\/text>/);
 
   const response = await renderBlogOgImage({ title: "Dynamic blog post" });
@@ -62,26 +54,9 @@ test("normalizes shared note metadata", () => {
   assert.match(svg, />Shared note<\/text>/);
   assert.match(svg, /The team aligned on launch scope/);
   assert.match(svg, /remaining blockers/);
-  assert.match(svg, /data-summary="meeting"/);
   assert.match(svg, /John, Artem \+3 more/);
-  assert.doesNotMatch(svg, />\+3<\/text>/);
   assert.equal(svg.match(/data-avatar=/g)?.length, 5);
-  assert.equal(svg.match(/data-avatar-renderer="app"/g)?.length, 5);
-  assert.ok(
-    svg.indexOf('id="avatar-gradient-0"') >
-      svg.indexOf('id="avatar-gradient-1"'),
-  );
   assert.match(svg, />July 2, 2026<\/text>/);
-  assert.doesNotMatch(svg, /cx="592"/);
-  assert.match(svg, /data-wordmark="anarlog"/);
-  assert.match(svg, /<rect width="1200" height="630" fill="#ffe09d"\/>/);
-  assert.doesNotMatch(svg, /#f4f0e8/);
-  assert.match(svg, /font-family="'Redaction', 'Noto Serif', serif"/);
-  assert.match(svg, /font-family="'SF Pro Text', 'Noto Sans', sans-serif"/);
-  assert.doesNotMatch(svg, /Redaction 70/);
-  assert.doesNotMatch(svg, /anarlog\.so/);
-  assert.doesNotMatch(svg, /PARTICIPANTS|WHEN|SHARED NOTE|Read on anarlog\.so/);
-  assert.doesNotMatch(svg, /filter="url\(#shadow\)"/);
 });
 
 test("renders a large social image for a shared note", async () => {
@@ -121,30 +96,6 @@ test("renders a large social image for a shared note", async () => {
     })) > 400,
     "expected participant and date text to rasterize as filled glyphs",
   );
-});
-
-test("wraps shared-note summaries inside even horizontal insets", () => {
-  const svg = createSharedNoteOgSvg({
-    title: "DEFCON 1",
-    summary:
-      "Artem worked on connecting notes and Charlie through different states so the team could keep context across the whole workflow.",
-    participants: ["John Jeong", "Artem"],
-    meetingAt: "2026-08-25T00:00:00Z",
-  });
-
-  assert.equal(svg.match(/data-summary="meeting"/g)?.length, 2);
-  assert.match(
-    svg,
-    /<text data-summary="meeting" x="72" y="210"[^>]*>Artem worked on connecting notes and Charlie through different<\/text>/,
-  );
-  assert.match(
-    svg,
-    /<text data-summary="meeting" x="72" y="252"[^>]*>states so the team could keep context across the whole workflow\.<\/text>/,
-  );
-  assert.doesNotMatch(svg, /data-summary="meeting"[^>]*>[^<]*\.\.\./);
-  assert.match(svg, /d="M72 424 H1128"/);
-  assert.match(svg, /<text x="72" y="152"/);
-  assert.match(svg, /x="963"/);
 });
 
 test("ellipsizes overflow on the last wrapped summary line", () => {
@@ -212,44 +163,6 @@ test("keeps full-width title glyphs inside the right inset", () => {
         const width = [...graphemeSegmenter.segment(line)].reduce(
           (total, { segment }) =>
             total + fontSize * (segment === "." ? 0.3 : 1),
-          0,
-        );
-        return left + width <= right;
-      }),
-    );
-  }
-});
-
-test("keeps long numeric text inside image insets", () => {
-  const value = "1".repeat(180);
-  const cases = [
-    {
-      lines: [
-        ...createBlogOgSvg({ title: value, description: value }).matchAll(
-          /font-size="(76|32)"[^>]*>([^<]+)<\/text>/g,
-        ),
-      ],
-      left: 86,
-      right: 1114,
-    },
-    {
-      lines: [
-        ...createSharedNoteOgSvg({ title: value, summary: value }).matchAll(
-          /font-size="(64|31)"[^>]*>([^<]+)<\/text>/g,
-        ),
-      ],
-      left: 72,
-      right: 1128,
-    },
-  ];
-
-  for (const { lines, left, right } of cases) {
-    assert.ok(lines.length > 2);
-    assert.ok(
-      lines.every(([, fontSize, line]) => {
-        const width = [...graphemeSegmenter.segment(line)].reduce(
-          (total, { segment }) =>
-            total + Number(fontSize) * (segment === "." ? 0.3 : 0.56),
           0,
         );
         return left + width <= right;

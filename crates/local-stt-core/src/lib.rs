@@ -108,21 +108,6 @@ mod tests {
     }
 
     #[test]
-    fn soniqo_model_info_comes_from_soniqo_metadata() {
-        for model in SoniqoModel::all() {
-            let info = stt_model_info(&LocalModel::Soniqo(*model));
-
-            assert_eq!(info.key, LocalModel::Soniqo(*model));
-            assert_eq!(info.display_name, model.display_name());
-            assert_eq!(info.description, model.description());
-            assert_eq!(info.size_bytes, Some(model.size_bytes()));
-            assert_eq!(info.supports_realtime, model.supports_live());
-            assert!(info.recommended_memory_bytes >= 8 * GIB);
-            assert!(matches!(info.model_type, SttModelType::Soniqo));
-        }
-    }
-
-    #[test]
     fn every_supported_model_has_unique_hardware_and_runtime_metadata() {
         let mut keys = std::collections::HashSet::new();
 

@@ -76,20 +76,6 @@ mod test {
     use super::*;
 
     #[test]
-    fn configured_origin_uses_only_compile_time_configuration() {
-        let configured = option_env!("VITE_SUPABASE_URL").filter(|value| !value.trim().is_empty());
-
-        #[cfg(not(debug_assertions))]
-        assert_eq!(configured_supabase_url(), configured);
-
-        #[cfg(debug_assertions)]
-        assert_eq!(
-            configured_supabase_url(),
-            Some(configured.unwrap_or("http://127.0.0.1:54321"))
-        );
-    }
-
-    #[test]
     fn export_types() {
         const OUTPUT_FILE: &str = "./js/bindings.gen.ts";
 

@@ -137,49 +137,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_fixture_calendars() {
-        let calendars = list_calendars().unwrap();
-        assert!(!calendars.is_empty());
-        assert_eq!(calendars[0].id, "fixture-calendar-1");
-    }
+    fn fixture_steps_add_remove_and_reschedule_events() {
+        let ids = |step| {
+            load_events(FixtureBase::Default, step)
+                .into_iter()
+                .map(|event| event.event_identifier)
+                .collect::<Vec<_>>()
+        };
 
-    #[test]
-    fn test_step_0_base_has_two_events() {
-        let events = load_events(FixtureBase::Default, 0);
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0].event_identifier, "fixture-event-1");
-        assert_eq!(events[1].event_identifier, "fixture-event-2");
-    }
-
-    #[test]
-    fn test_step_1_event_added_has_three_events() {
-        let events = load_events(FixtureBase::Default, 1);
-        assert_eq!(events.len(), 3);
-        assert_eq!(events[0].event_identifier, "fixture-event-1");
-        assert_eq!(events[1].event_identifier, "fixture-event-2");
-        assert_eq!(events[2].event_identifier, "fixture-event-3");
-        assert_eq!(events[2].title, "New Client Call");
-    }
-
-    #[test]
-    fn test_step_2_event_removed_has_two_events() {
-        let events = load_events(FixtureBase::Default, 2);
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0].event_identifier, "fixture-event-1");
-        assert_eq!(events[1].event_identifier, "fixture-event-3");
-    }
-
-    #[test]
-    fn test_step_3_event_rescheduled() {
-        let events = load_events(FixtureBase::Default, 3);
-        assert_eq!(events.len(), 2);
+        assert_eq!(ids(0), ["fixture-event-1", "fixture-event-2"]);
         assert_eq!(
-            events[0].start_date.to_rfc3339(),
+            ids(1),
+            ["fixture-event-1", "fixture-event-2", "fixture-event-3"]
+        );
+        assert_eq!(
+            load_events(FixtureBase::Default, 1)[2].title,
+            "New Client Call"
+        );
+        assert_eq!(ids(2), ["fixture-event-1", "fixture-event-3"]);
+
+        let rescheduled = load_events(FixtureBase::Default, 3);
+        assert_eq!(rescheduled.len(), 2);
+        assert_eq!(
+            rescheduled[0].start_date.to_rfc3339(),
             "2025-01-02T10:00:00+00:00"
         );
-        assert_eq!(events[0].notes.as_deref(), Some("Rescheduled standup"));
+        assert_eq!(rescheduled[0].notes.as_deref(), Some("Rescheduled standup"));
         assert_eq!(
-            events[1].start_date.to_rfc3339(),
+            rescheduled[1].start_date.to_rfc3339(),
             "2025-01-03T16:00:00+00:00"
         );
     }
@@ -200,47 +185,12 @@ mod tests {
         assert_eq!(get_step(), 0);
     }
 
-    #[test]
-    fn test_get_max_steps() {
-        assert_eq!(get_max_steps(), 4);
-    }
-
-    #[test]
-    fn test_get_step_name() {
-        assert_eq!(get_step_name(0), "Base");
-        assert_eq!(get_step_name(1), "Event Added");
-        assert_eq!(get_step_name(2), "Event Removed");
-        assert_eq!(get_step_name(3), "Event Rescheduled");
-    }
-
-    #[test]
-    fn test_switch_base() {
-        set_base(FixtureBase::Default);
-        assert_eq!(get_base(), FixtureBase::Default);
-    }
-
-    #[test]
-    fn test_list_bases() {
-        let bases = list_bases();
-        assert!(bases.contains(&"default"));
-    }
-
     mod schema_validation {
         use jsonschema::Validator;
         use schemars::schema_for;
 
         use super::*;
         use crate::types::{AppleCalendar, AppleEvent};
-
-        fn calendars_schema() -> serde_json::Value {
-            let schema = schema_for!(Vec<AppleCalendar>);
-            serde_json::to_value(schema).expect("Failed to serialize calendars schema")
-        }
-
-        fn events_schema() -> serde_json::Value {
-            let schema = schema_for!(Vec<AppleEvent>);
-            serde_json::to_value(schema).expect("Failed to serialize events schema")
-        }
 
         fn assert_valid(validator: &Validator, data: &serde_json::Value, context: &str) {
             let errors: Vec<String> = validator.iter_errors(data).map(|e| e.to_string()).collect();
@@ -252,36 +202,20 @@ mod tests {
             );
         }
 
-        macro_rules! schema_file_test {
-            ($name:ident, $schema:expr, $json_path:literal, $label:literal) => {
-                #[test]
-                fn $name() {
-                    let validator = Validator::new(&$schema).expect("Failed to compile schema");
-                    let data: serde_json::Value = serde_json::from_str(include_str!($json_path))
-                        .expect(concat!("Failed to parse ", $label));
-                    assert_valid(&validator, &data, $label);
-                }
-            };
+        #[test]
+        fn test_base_calendars() {
+            let schema = serde_json::to_value(schema_for!(Vec<AppleCalendar>)).unwrap();
+            let validator = Validator::new(&schema).expect("Failed to compile schema");
+            let data: serde_json::Value =
+                serde_json::from_str(include_str!("data/default/base/calendars.json"))
+                    .expect("Failed to parse base calendars");
+            assert_valid(&validator, &data, "base calendars");
         }
-
-        schema_file_test!(
-            test_base_calendars,
-            calendars_schema(),
-            "data/default/base/calendars.json",
-            "base calendars"
-        );
-
-        schema_file_test!(
-            test_base_events,
-            events_schema(),
-            "data/default/base/events.json",
-            "base events"
-        );
 
         #[test]
         fn test_all_cumulative_steps_valid() {
-            let validator =
-                Validator::new(&events_schema()).expect("Failed to compile events schema");
+            let schema = serde_json::to_value(schema_for!(Vec<AppleEvent>)).unwrap();
+            let validator = Validator::new(&schema).expect("Failed to compile events schema");
 
             for step in 0..=3 {
                 let events = load_events(FixtureBase::Default, step);

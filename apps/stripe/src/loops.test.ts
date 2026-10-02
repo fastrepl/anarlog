@@ -2,16 +2,20 @@ import { describe, expect, it } from "bun:test";
 
 import { sendLoopsTransactional } from "./loops";
 
+const transactionalRequest = {
+  apiKey: "loops-key",
+  transactionalId: "transactional-123",
+  email: "alex@example.com",
+  dataVariables: { firstName: "Alex" },
+  idempotencyKey: "stripe-event-123",
+};
+
 describe("sendLoopsTransactional", () => {
   it("sends idempotency in the header", async () => {
     let request: { url: string; init?: RequestInit } | undefined;
 
     await sendLoopsTransactional({
-      apiKey: "loops-key",
-      transactionalId: "transactional-123",
-      email: "alex@example.com",
-      dataVariables: { firstName: "Alex" },
-      idempotencyKey: "stripe-event-123",
+      ...transactionalRequest,
       fetcher: async (url, init) => {
         request = { url: String(url), init };
         return Response.json({ success: true });
@@ -32,11 +36,7 @@ describe("sendLoopsTransactional", () => {
   it("accepts an already processed idempotency key", async () => {
     await expect(
       sendLoopsTransactional({
-        apiKey: "loops-key",
-        transactionalId: "transactional-123",
-        email: "alex@example.com",
-        dataVariables: { firstName: "Alex" },
-        idempotencyKey: "stripe-event-123",
+        ...transactionalRequest,
         fetcher: async () =>
           Response.json(
             {
@@ -53,11 +53,7 @@ describe("sendLoopsTransactional", () => {
     let requests = 0;
 
     await sendLoopsTransactional({
-      apiKey: "loops-key",
-      transactionalId: "transactional-123",
-      email: "alex@example.com",
-      dataVariables: { firstName: "Alex" },
-      idempotencyKey: "stripe-event-123",
+      ...transactionalRequest,
       fetcher: async () => {
         requests += 1;
         if (requests === 1) {

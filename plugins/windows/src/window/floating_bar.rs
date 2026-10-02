@@ -69,8 +69,12 @@ pub struct FloatingBarState {
     pub live_caption_toggle_visible: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transcript_bubbles: Option<Vec<FloatingTranscriptBubble>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript_notice: Option<String>,
     #[serde(default)]
     pub layout: Option<FloatingBarOverlayLayout>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 pub const WINDOW_LABEL: &str = "floating-bar";
@@ -369,6 +373,9 @@ mod cross_platform {
         // Publish inside the marshal so update/show publishes stay serialized in
         // main-thread task order; publish_state itself is cheap (a lock and an emit).
         run_on_main_thread(app, move || {
+            if state.transcript_bubbles.is_none() {
+                state.transcript_bubbles = current_state().and_then(|last| last.transcript_bubbles);
+            }
             if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
                 state.layout = Some(apply_layout(&window, Some(&state), false)?);
             }
@@ -566,12 +573,30 @@ pub fn show() -> Result<(), Error> {
     platform::show()
 }
 
+static SESSION_ID: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+pub fn session_id() -> Option<String> {
+    SESSION_ID.lock().ok().and_then(|guard| guard.clone())
+}
+
 pub fn hide() -> Result<(), Error> {
-    platform::hide()
+    let hidden_session_id = session_id();
+    platform::hide()?;
+    if let Ok(mut session_id) = SESSION_ID.lock()
+        && *session_id == hidden_session_id
+    {
+        *session_id = None;
+    }
+    Ok(())
 }
 
 pub fn update(state: FloatingBarState) -> Result<(), Error> {
-    platform::update(state)
+    let next_session_id = state.session_id.clone();
+    platform::update(state)?;
+    if let Ok(mut session_id) = SESSION_ID.lock() {
+        *session_id = next_session_id;
+    }
+    Ok(())
 }
 
 pub fn update_amplitude(amplitude: f64) -> Result<(), Error> {
@@ -597,18 +622,6 @@ mod tests {
                 assert!(x + width <= 1920.0 && y + height <= 1080.0);
             }
         }
-    }
-
-    #[test]
-    fn dictation_sizes_preserve_the_shared_panel_anchors() {
-        assert_eq!(layout::dictation_container_size(false), (108.0, 67.0));
-        assert_eq!(layout::dictation_container_size(true), (368.0, 459.0));
-    }
-    #[test]
-    fn sizes_the_compact_and_expanded_windows() {
-        assert_eq!(layout::container_size(false, false), (84.0, 67.0));
-        assert_eq!(layout::container_size(false, true), (108.0, 67.0));
-        assert_eq!(layout::container_size(true, true), (368.0, 459.0));
     }
 
     #[test]

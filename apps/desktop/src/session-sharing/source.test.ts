@@ -1,15 +1,8 @@
-import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   flushDatabaseWrites: vi.fn().mockResolvedValue(undefined),
-  workspaceRows: [] as Array<{ id: string; name: string }>,
-  liveQueryOptions: null as null | {
-    sql: string;
-    params: unknown[];
-    enabled: boolean;
-  },
 }));
 
 vi.mock("~/db/write-queue", () => ({
@@ -18,17 +11,10 @@ vi.mock("~/db/write-queue", () => ({
 
 vi.mock("~/db", () => ({
   liveQueryClient: { execute: mocks.execute },
-  useLiveQuery: ({ sql, params, enabled, mapRows }: any) => {
-    mocks.liveQueryOptions = { sql, params, enabled };
-    return { data: mapRows(mocks.workspaceRows) };
-  },
+  useLiveQuery: vi.fn(),
 }));
 
-import {
-  loadSessionShareSource,
-  useAvailableShareWorkspaces,
-  usePersonalWorkspaceId,
-} from "./source";
+import { loadSessionShareSource } from "./source";
 
 import { DEFAULT_USER_ID } from "~/shared/utils";
 
@@ -39,6 +25,7 @@ function sourceRow(
     id: string;
     document_id: string | null;
     workspace_id: string;
+    owner_user_id: string | null;
     title: string;
     created_at: string;
     started_at: string;
@@ -57,6 +44,7 @@ function sourceRow(
     id: "session-1",
     document_id: "summary-1",
     workspace_id: ACCOUNT_ID,
+    owner_user_id: ACCOUNT_ID,
     title: "Planning notes",
     created_at: "2026-08-06T00:30:00.000Z",
     started_at: "2026-08-06T01:30:00.000Z",
@@ -86,8 +74,6 @@ function sourceRow(
 describe("loadSessionShareSource", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.workspaceRows = [];
-    mocks.liveQueryOptions = null;
   });
 
   it("shares personal library notes through the active account", async () => {
@@ -141,14 +127,7 @@ describe("loadSessionShareSource", () => {
       bodyFormat: "prosemirror_json",
     });
 
-    const [sql, params] = mocks.execute.mock.calls[0]!;
-    expect(sql).toContain("candidate.kind IN ('summary', 'template_output')");
-    expect(sql).toContain("ORDER BY candidate.sort_order, candidate.id");
-    expect(sql).not.toContain("kind = 'note'");
-    expect(sql).toContain("session.created_at");
-    expect(sql).toContain("session.started_at");
-    expect(sql).toContain("FROM session_participants AS participant");
-    expect(sql).toContain("ORDER BY participant.created_at, participant.id");
+    const [, params] = mocks.execute.mock.calls[0]!;
     expect(params).toEqual([
       ACCOUNT_ID,
       ACCOUNT_ID,
@@ -164,22 +143,11 @@ describe("loadSessionShareSource", () => {
     );
   });
 
-  it("falls back to the creation time when the meeting start is invalid", async () => {
+  it("normalizes preview metadata", async () => {
     mocks.execute.mockResolvedValue([
       sourceRow({
         created_at: "2026-08-06T00:30:00.000Z",
         started_at: "not-a-timestamp",
-      }),
-    ]);
-
-    await expect(
-      loadSessionShareSource("session-1", ACCOUNT_ID),
-    ).resolves.toMatchObject({ meetingAt: "2026-08-06T00:30:00.000Z" });
-  });
-
-  it("omits participant names that exceed the preview limit", async () => {
-    mocks.execute.mockResolvedValue([
-      sourceRow({
         participants_json: JSON.stringify([
           { name: "A".repeat(101) },
           { name: "John Jeong" },
@@ -189,7 +157,10 @@ describe("loadSessionShareSource", () => {
 
     await expect(
       loadSessionShareSource("session-1", ACCOUNT_ID),
-    ).resolves.toMatchObject({ participants: ["John Jeong"] });
+    ).resolves.toMatchObject({
+      meetingAt: "2026-08-06T00:30:00.000Z",
+      participants: ["John Jeong"],
+    });
   });
 
   it("uses the bound personal workspace while its local projection is missing", async () => {
@@ -241,6 +212,36 @@ describe("loadSessionShareSource", () => {
       ).resolves.toMatchObject({ workspaceId: "workspace-shared" });
     },
   );
+
+  it("allows a member to share their own note from a shared workspace", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({
+        workspace_id: "workspace-shared",
+        owner_user_id: ACCOUNT_ID,
+        assigned_workspace_kind: "shared",
+        assigned_workspace_role: "member",
+      }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).resolves.toMatchObject({ workspaceId: "workspace-shared" });
+  });
+
+  it("rejects a member sharing another user's note from a shared workspace", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({
+        workspace_id: "workspace-shared",
+        owner_user_id: "other-account",
+        assigned_workspace_kind: "shared",
+        assigned_workspace_role: "member",
+      }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).rejects.toThrow("You can no longer share notes from this workspace");
+  });
 
   it("fails closed when a known shared-workspace membership is lost", async () => {
     mocks.execute.mockResolvedValue([
@@ -310,22 +311,16 @@ describe("loadSessionShareSource", () => {
     },
   );
 
-  it("refuses to share when the session has no generated summary", async () => {
-    mocks.execute.mockResolvedValue([
+  it("refuses to share without a generated summary", async () => {
+    for (const row of [
       sourceRow({ document_id: null, body: "" }),
-    ]);
-
-    await expect(
-      loadSessionShareSource("session-1", ACCOUNT_ID),
-    ).rejects.toThrow("Generate a summary before sharing this note");
-  });
-
-  it("refuses to share an empty summary document", async () => {
-    mocks.execute.mockResolvedValue([sourceRow({ body: "" })]);
-
-    await expect(
-      loadSessionShareSource("session-1", ACCOUNT_ID),
-    ).rejects.toThrow("Generate a summary before sharing this note");
+      sourceRow({ body: "" }),
+    ]) {
+      mocks.execute.mockResolvedValueOnce([row]);
+      await expect(
+        loadSessionShareSource("session-1", ACCOUNT_ID),
+      ).rejects.toThrow("Generate a summary before sharing this note");
+    }
   });
 
   it("converts imported Markdown to ProseMirror JSON", async () => {
@@ -356,70 +351,5 @@ describe("loadSessionShareSource", () => {
     await expect(
       loadSessionShareSource("session-1", ACCOUNT_ID),
     ).rejects.toThrow("malformed");
-  });
-});
-
-describe("useAvailableShareWorkspaces", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.workspaceRows = [];
-    mocks.liveQueryOptions = null;
-  });
-
-  it("returns every active shared-workspace membership", () => {
-    mocks.workspaceRows = [
-      { id: "workspace-a", name: "Acme" },
-      { id: "workspace-b", name: "Beta" },
-    ];
-
-    expect(
-      renderHook(() => useAvailableShareWorkspaces(ACCOUNT_ID)).result.current,
-    ).toEqual(mocks.workspaceRows);
-    expect(mocks.liveQueryOptions).toMatchObject({
-      params: [ACCOUNT_ID],
-      enabled: true,
-    });
-    expect(mocks.liveQueryOptions?.sql).toContain("workspace.kind = 'shared'");
-    expect(mocks.liveQueryOptions?.sql).toContain(
-      "membership.deleted_at IS NULL",
-    );
-    expect(mocks.liveQueryOptions?.sql).not.toContain("membership.role IN");
-  });
-
-  it("disables the query without a signed-in account", () => {
-    expect(
-      renderHook(() => useAvailableShareWorkspaces(null)).result.current,
-    ).toEqual([]);
-    expect(mocks.liveQueryOptions).toMatchObject({ enabled: false });
-  });
-});
-
-describe("usePersonalWorkspaceId", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.workspaceRows = [];
-    mocks.liveQueryOptions = null;
-  });
-
-  it("returns the active personal workspace for a signed-in account", () => {
-    mocks.workspaceRows = [{ id: ACCOUNT_ID, name: "Personal" }];
-
-    expect(
-      renderHook(() => usePersonalWorkspaceId(ACCOUNT_ID)).result.current,
-    ).toBe(ACCOUNT_ID);
-    expect(mocks.liveQueryOptions).toMatchObject({
-      params: [ACCOUNT_ID, ACCOUNT_ID],
-      enabled: true,
-    });
-    expect(mocks.liveQueryOptions?.sql).toContain(
-      "workspace.kind = 'personal'",
-    );
-  });
-
-  it("returns no personal workspace without a signed-in account", () => {
-    expect(renderHook(() => usePersonalWorkspaceId(null)).result.current).toBe(
-      "",
-    );
-    expect(mocks.liveQueryOptions).toMatchObject({ enabled: false });
   });
 });

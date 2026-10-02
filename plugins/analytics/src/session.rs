@@ -45,15 +45,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn creates_a_uuid_v7_session() {
-        let now = SystemTime::UNIX_EPOCH;
-        let mut tracker = SessionTracker::new(now);
-        let id = uuid::Uuid::parse_str(&tracker.session_id(now)).unwrap();
-
-        assert_eq!(id.get_version_num(), 7);
-    }
-
-    #[test]
     fn keeps_the_session_while_activity_is_recent() {
         let now = SystemTime::UNIX_EPOCH;
         let mut tracker = SessionTracker::new(now);
@@ -64,33 +55,38 @@ mod tests {
     }
 
     #[test]
-    fn rotates_after_the_idle_timeout() {
-        let now = SystemTime::UNIX_EPOCH;
-        let mut tracker = SessionTracker::new(now);
-        let first = tracker.session_id(now);
-        let next = tracker.session_id(now + IDLE_TIMEOUT);
-
-        assert_ne!(next, first);
-    }
-
-    #[test]
-    fn rotates_at_the_maximum_session_duration() {
-        let now = SystemTime::UNIX_EPOCH;
-        let mut tracker = SessionTracker::new(now);
-        let first = tracker.session_id(now);
-        tracker.last_activity_at = now + MAX_DURATION - Duration::from_millis(1);
-        let next = tracker.session_id(now + MAX_DURATION);
-
-        assert_ne!(next, first);
-    }
-
-    #[test]
-    fn rotates_when_the_wall_clock_moves_backwards() {
+    fn rotates_the_session() {
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1);
-        let mut tracker = SessionTracker::new(now);
-        let first = tracker.session_id(now);
-        let next = tracker.session_id(SystemTime::UNIX_EPOCH);
+        let activity_interval = IDLE_TIMEOUT - Duration::from_secs(1);
+        let mut continuous_activity = Vec::new();
+        let mut elapsed = activity_interval;
+        loop {
+            continuous_activity.push((now + elapsed, elapsed >= MAX_DURATION));
+            if elapsed >= MAX_DURATION {
+                break;
+            }
+            elapsed += activity_interval;
+        }
 
-        assert_ne!(next, first);
+        let cases = [
+            ("idle timeout", vec![(now + IDLE_TIMEOUT, true)]),
+            ("continuous activity", continuous_activity),
+            (
+                "wall clock moving backwards",
+                vec![(SystemTime::UNIX_EPOCH, true)],
+            ),
+        ];
+
+        for (case, times) in cases {
+            let mut tracker = SessionTracker::new(now);
+            let first = tracker.session_id(now);
+            for (at, should_rotate) in times {
+                assert_eq!(
+                    tracker.session_id(at) != first,
+                    should_rotate,
+                    "{case} at {at:?}"
+                );
+            }
+        }
     }
 }

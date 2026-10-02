@@ -3,6 +3,13 @@ import { useMutation } from "@tanstack/react-query";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@anlg/ui/components/ui/select";
 
 import { IntegrationGate, useAuthedApiClient } from "./starter-config";
 
@@ -29,6 +36,41 @@ export function GoogleDriveConfig({
   });
   return (
     <div className="flex flex-col items-start gap-2">
+      <label className="flex w-full flex-col gap-2 text-sm">
+        <span>
+          <Trans>File format</Trans>
+        </span>
+        <Select
+          value={step.format ?? "markdown"}
+          onValueChange={(value) =>
+            onChange({
+              ...step,
+              format: value === "google_docs" ? "google_docs" : "markdown",
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="markdown">
+              <Trans>Markdown (.md)</Trans>
+            </SelectItem>
+            <SelectItem value="google_docs">
+              <Trans>Google Docs</Trans>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </label>
+      {step.format === "google_docs" ? (
+        <p className="text-muted-foreground text-xs">
+          <Trans>
+            Updating a note replaces the Google document's content, including
+            edits made in Google Docs. Changing formats keeps previously
+            exported files.
+          </Trans>
+        </p>
+      ) : null}
       <IntegrationGate
         integrationId="google-drive"
         connectLabel={<Trans>Connect Google Drive</Trans>}
@@ -81,8 +123,8 @@ export function GoogleDriveConfig({
       <p className="text-muted-foreground text-xs">
         <Trans>
           Every note summarized after enabling this automation is saved here as
-          one Markdown file with its summary and transcript. Anarlog must be
-          open.
+          one file with its summary and transcript in the selected format.
+          Anarlog must be open.
         </Trans>
       </p>
       {picker.error ? (
@@ -106,7 +148,8 @@ export function DriveExportResult({
       (run) =>
         run.stepId === step.id &&
         run.connectionId === step.connectionId &&
-        run.folderId === step.target?.id,
+        run.folderId === step.target?.id &&
+        (run.format ?? "markdown") === (step.format ?? "markdown"),
     )
     .sort((a, b) => b.at.localeCompare(a.at));
   const latest = runs.find((run) => run.status !== "success") ?? runs[0];

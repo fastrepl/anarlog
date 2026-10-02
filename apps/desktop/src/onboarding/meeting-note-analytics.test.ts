@@ -25,14 +25,6 @@ describe("meeting note analytics", () => {
     vi.clearAllMocks();
   });
 
-  it("classifies the onboarding demo as the welcome note", () => {
-    expect(
-      getMeetingNoteCompletionEvent({
-        tracking_id: "anarlog-onboarding-demo-v1",
-      }),
-    ).toBe("welcome_meeting_note_completed");
-  });
-
   it("classifies other sessions as real meeting notes", () => {
     expect(getMeetingNoteCompletionEvent(null)).toBe("meeting_note_completed");
     expect(

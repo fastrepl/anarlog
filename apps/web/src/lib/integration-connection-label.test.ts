@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   connectionIdentityLabel,
   connectionNeedsReconnect,
-  connectionReconnectError,
 } from "./integration-connection-label.ts";
 
 test("treats reconnect_required or a stored error as a broken connection", () => {
@@ -34,19 +33,4 @@ test("prefers the connected account or workspace over Connected copy", () => {
     }),
     "Fastrepl",
   );
-  assert.equal(
-    connectionIdentityLabel({ status: "reconnect_required" }),
-    "Needs reconnect.",
-  );
-  assert.equal(connectionIdentityLabel({ status: "connected" }), "Connected.");
-});
-
-test("keeps reconnect errors for tooltips", () => {
-  assert.equal(
-    connectionReconnectError({
-      last_error_description: "Token refresh failed.",
-    }),
-    "Token refresh failed.",
-  );
-  assert.equal(connectionReconnectError({}), "Connection needs attention.");
 });

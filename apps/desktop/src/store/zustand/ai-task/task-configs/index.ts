@@ -5,6 +5,7 @@ import type {
   EnhanceUser,
   TitleSystem,
   TitleUser,
+  SummaryLengthPolicy,
 } from "@anlg/plugin-template";
 
 import type { EnhanceImageContext } from "./enhance-images";
@@ -46,6 +47,7 @@ export interface TaskArgsMapTransformed {
     EnhanceUser & {
       imageContext: EnhanceImageContext[];
       summaryLength: SummaryLengthMode;
+      lengthPolicy: SummaryLengthPolicy | null;
       dictionaryTerms: string[];
     };
   title: TitleSystem & TitleUser & { dictionaryTerms: string[] };

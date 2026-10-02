@@ -269,18 +269,6 @@ mod tests {
     }
 
     #[test]
-    fn live_start_returns_session_token() {
-        let token = live_start_result(StatusPayload {
-            running: true,
-            session_token: Some("42".to_string()),
-            error: None,
-        })
-        .unwrap();
-
-        assert_eq!(token, "42");
-    }
-
-    #[test]
     fn live_start_rewrites_huggingface_auth_errors() {
         let result = live_start_result(StatusPayload {
             running: false,

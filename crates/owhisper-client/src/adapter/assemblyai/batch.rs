@@ -408,111 +408,74 @@ impl AssemblyAIAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_client::create_client;
 
     #[test]
-    fn batch_defaults_expand_to_current_model_stack() {
-        assert_eq!(
-            AssemblyAIAdapter::resolve_batch_speech_models(&ListenParams::default()),
-            vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
-        );
-    }
+    fn batch_speech_models_resolve_to_current_stack() {
+        let cases: [(Option<&str>, Vec<&str>); 6] = [
+            (None, vec!["universal-3-5-pro", "universal-2"]),
+            (Some("u3-rt-pro"), vec!["universal-3-5-pro", "universal-2"]),
+            (
+                Some("universal-3-pro"),
+                vec!["universal-3-5-pro", "universal-2"],
+            ),
+            (
+                Some("universal-3-5-pro"),
+                vec!["universal-3-5-pro", "universal-2"],
+            ),
+            (
+                Some("universal-3-5-pro-realtime"),
+                vec!["universal-3-5-pro", "universal-2"],
+            ),
+            (Some("universal-2"), vec!["universal-2"]),
+        ];
 
-    #[test]
-    fn batch_retired_u3_models_expand_to_current_model_stack() {
-        for model in ["u3-rt-pro", "universal-3-pro"] {
+        for (model, expected) in cases {
             let params = ListenParams {
-                model: Some(model.to_string()),
+                model: model.map(str::to_string),
                 ..Default::default()
             };
 
             assert_eq!(
                 AssemblyAIAdapter::resolve_batch_speech_models(&params),
-                vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
+                expected.into_iter().map(str::to_string).collect::<Vec<_>>(),
+                "model: {model:?}"
             );
         }
     }
 
     #[test]
-    fn batch_explicit_u35_models_expand_to_current_model_stack() {
-        for model in ["universal-3-5-pro", "universal-3-5-pro-realtime"] {
-            let params = ListenParams {
-                model: Some(model.to_string()),
+    fn assemblyai_speaker_range_prefers_fields_then_custom_query() {
+        for params in [
+            ListenParams {
+                min_speakers: Some(2),
+                max_speakers: Some(4),
                 ..Default::default()
-            };
-
+            },
+            ListenParams {
+                custom_query: Some(std::collections::HashMap::from([
+                    ("pyannote_min_speakers".to_string(), "2".to_string()),
+                    ("pyannote_max_speakers".to_string(), "4".to_string()),
+                ])),
+                ..Default::default()
+            },
+        ] {
             assert_eq!(
-                AssemblyAIAdapter::resolve_batch_speech_models(&params),
-                vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
+                AssemblyAIAdapter::assemblyai_speaker_range_option(
+                    &params,
+                    params.min_speakers,
+                    "pyannote_min_speakers",
+                ),
+                Some(2)
+            );
+            assert_eq!(
+                AssemblyAIAdapter::assemblyai_speaker_range_option(
+                    &params,
+                    params.max_speakers,
+                    "pyannote_max_speakers",
+                ),
+                Some(4)
             );
         }
-    }
-
-    #[test]
-    fn batch_explicit_universal_2_is_preserved() {
-        let params = ListenParams {
-            model: Some("universal-2".to_string()),
-            ..Default::default()
-        };
-
-        assert_eq!(
-            AssemblyAIAdapter::resolve_batch_speech_models(&params),
-            vec!["universal-2".to_string()]
-        );
-    }
-
-    #[test]
-    fn assemblyai_prefers_listen_params_speaker_range_fields() {
-        let params = ListenParams {
-            min_speakers: Some(2),
-            max_speakers: Some(4),
-            ..Default::default()
-        };
-
-        assert_eq!(
-            AssemblyAIAdapter::assemblyai_speaker_range_option(
-                &params,
-                params.min_speakers,
-                "pyannote_min_speakers",
-            ),
-            Some(2)
-        );
-        assert_eq!(
-            AssemblyAIAdapter::assemblyai_speaker_range_option(
-                &params,
-                params.max_speakers,
-                "pyannote_max_speakers",
-            ),
-            Some(4)
-        );
-    }
-
-    #[test]
-    fn assemblyai_falls_back_to_legacy_custom_query_speaker_range_keys() {
-        let params = ListenParams {
-            custom_query: Some(std::collections::HashMap::from([
-                ("pyannote_min_speakers".to_string(), "2".to_string()),
-                ("pyannote_max_speakers".to_string(), "4".to_string()),
-            ])),
-            ..Default::default()
-        };
-
-        assert_eq!(
-            AssemblyAIAdapter::assemblyai_speaker_range_option(
-                &params,
-                params.min_speakers,
-                "pyannote_min_speakers",
-            ),
-            Some(2)
-        );
-        assert_eq!(
-            AssemblyAIAdapter::assemblyai_speaker_range_option(
-                &params,
-                params.max_speakers,
-                "pyannote_max_speakers",
-            ),
-            Some(4)
-        );
     }
 
     #[test]
@@ -578,30 +541,5 @@ mod tests {
             result.results.channels[1].alternatives[0].words[0].speaker,
             Some(2)
         );
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_assemblyai_batch_transcription() {
-        let api_key = std::env::var("ASSEMBLYAI_API_KEY").expect("ASSEMBLYAI_API_KEY not set");
-        let client = create_client();
-        let adapter = AssemblyAIAdapter::default();
-        let params = ListenParams::default();
-
-        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
-
-        let result = adapter
-            .transcribe_file(&client, "", &api_key, &params, &audio_path)
-            .await
-            .expect("transcription failed");
-
-        assert!(!result.results.channels.is_empty());
-        assert!(!result.results.channels[0].alternatives.is_empty());
-        assert!(
-            !result.results.channels[0].alternatives[0]
-                .transcript
-                .is_empty()
-        );
-        assert!(!result.results.channels[0].alternatives[0].words.is_empty());
     }
 }

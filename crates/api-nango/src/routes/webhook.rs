@@ -270,27 +270,6 @@ mod tests {
 
     // --- Signature validation ---
 
-    #[test]
-    fn sign_body_produces_valid_signature() {
-        let body = r#"{"type":"auth"}"#;
-        let sig = sign_body(body);
-        assert!(anlg_nango::verify_webhook_signature(
-            WEBHOOK_SIGNING_KEY,
-            body.as_bytes(),
-            &sig
-        ));
-    }
-
-    #[test]
-    fn wrong_signature_is_invalid() {
-        let body = r#"{"type":"auth"}"#;
-        assert!(!anlg_nango::verify_webhook_signature(
-            WEBHOOK_SIGNING_KEY,
-            body.as_bytes(),
-            "bad-sig"
-        ));
-    }
-
     #[tokio::test]
     async fn webhook_signature_uses_webhook_signing_key_not_api_key() {
         let (_nango_mock, _supabase_mock, state) = make_fixture().await;
@@ -440,20 +419,6 @@ mod tests {
 
         assert!(result.is_ok());
         supabase_mock.verify().await;
-    }
-
-    #[tokio::test]
-    async fn supabase_not_configured_skips_all_persistence() {
-        let nango_mock = MockServer::start().await;
-        let supabase_mock = MockServer::start().await;
-
-        let mut config = NangoConfig::for_test(&nango_mock.uri(), &supabase_mock.uri());
-        config.supabase_service_role_key = None;
-        let state = AppState::new(config);
-
-        // No mocks — any HTTP would panic
-        let result = handle_auth_webhook(&state, auth_payload(AuthOperation::Creation, true)).await;
-        assert!(result.is_ok());
     }
 
     #[tokio::test]

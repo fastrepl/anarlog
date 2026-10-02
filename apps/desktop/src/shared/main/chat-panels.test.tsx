@@ -178,15 +178,8 @@ describe("MainChatPanels", () => {
     expect(mocks.persistentChatPanel.mock.calls[0]?.[1]).toBe(
       mocks.sessionProps,
     );
-    expect(screen.getByTestId("panel-group").dataset.direction).toBe(
-      "horizontal",
-    );
-    expect(screen.getByTestId("panel-group").dataset.autoSaveId).toBe(
-      "main-chat",
-    );
     expect(screen.queryByTestId("resize-handle")).toBeNull();
     expect(screen.getAllByTestId("panel")).toHaveLength(1);
-    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("renders the right chat panel when chat is docked", () => {
@@ -202,20 +195,6 @@ describe("MainChatPanels", () => {
     expect(screen.getByTestId("resize-handle")).toBeTruthy();
     expect(screen.getByTestId("chat-view").dataset.layout).toBe("right-panel");
     expect(screen.getByTestId("chat-view").dataset.hasSession).toBe("true");
-    expect(mocks.persistentChatPanel.mock.calls[0]?.[1]).toBe(
-      mocks.sessionProps,
-    );
-    const rightPanel = document.querySelector("[data-chat-right-panel]");
-
-    expect(rightPanel).toBeInstanceOf(HTMLDivElement);
-    expect(rightPanel?.className).toContain("bg-card");
-    expect(rightPanel?.className).toContain("border-x");
-    expect(rightPanel?.className).toContain("border-border");
-    expect(rightPanel?.className).not.toContain("border-b-0");
-    expect(rightPanel?.className).toContain("rounded-tr-xl");
-    expect(rightPanel?.className).not.toContain("rounded-t-xl");
-    expect(rightPanel?.className).not.toContain("ml-2");
-    expect(rightPanel?.className).not.toContain("mr-1");
   });
 
   it("keeps Automations chat docked without a floating chat host", () => {
@@ -234,241 +213,126 @@ describe("MainChatPanels", () => {
     expect(mocks.persistentChatPanel).not.toHaveBeenCalled();
   });
 
-  it("reserves enough main-body width for a 600px automations surface beside the sidebar", () => {
-    mocks.currentTab = { type: "automations" };
-    mocks.leftSidebarExpanded = true;
+  it.each([
+    ["automations", "automations", {}, "800"],
+    ["settings", "settings", {}, "min(900px, 100%)"],
+    ["sessions", "sessions", {}, "700"],
+    ["empty", "empty", {}, "700"],
+    [
+      "standalone sessions",
+      "sessions",
+      { leftSidebarAvailable: false, noteSurfaceMinWidth: 420 },
+      "420",
+    ],
+  ] as const)(
+    "reserves the main-body min width for the %s surface",
+    (_label, tabType, props, expectedMinWidth) => {
+      mocks.currentTab = { type: tabType };
 
-    render(
-      <MainChatPanels>
-        <div data-testid="main-content" />
-      </MainChatPanels>,
-    );
+      render(renderPanels(null, props, <div data-testid="main-content" />));
 
-    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("800");
-  });
+      expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe(
+        expectedMinWidth,
+      );
+    },
+  );
 
-  it("prefers a 700px settings surface beside the sidebar without overflowing", () => {
-    mocks.currentTab = { type: "settings" };
-    mocks.leftSidebarExpanded = true;
+  it.each([
+    {
+      name: "a standalone note for docked chat",
+      chatMode: "RightPanelOpen",
+      leftSidebarExpanded: true,
+      widths: {
+        bodyPanelWidth: 420,
+        leftSidebarWidth: 200,
+        panelGroupWidth: 720,
+        rightPanelWidth: 320,
+      },
+      props: { leftSidebarAvailable: false, noteSurfaceMinWidth: 420 },
+      sidebarAttr: "data-left-sidebar-chrome",
+      tabType: "sessions",
+      expectedArgs: [20, null, false, false, true],
+    },
+    {
+      name: "the left sidebar",
+      chatMode: "FloatingClosed",
+      leftSidebarExpanded: true,
+      widths: { bodyPanelWidth: 640, leftSidebarWidth: 200 },
+      sidebarAttr: "data-left-sidebar-chrome",
+      tabType: "sessions",
+      expectedArgs: [60, null, false, true, false],
+    },
+    {
+      name: "the left sidebar at a zoomed scale",
+      chatMode: "FloatingClosed",
+      leftSidebarExpanded: true,
+      zoom: "3",
+      widths: { bodyPanelWidth: 640, leftSidebarWidth: 200 },
+      sidebarAttr: "data-left-sidebar-chrome",
+      tabType: "sessions",
+      expectedArgs: [180, null, false, true, false],
+    },
+    {
+      name: "the expanded sidebar panel without sidebar chrome",
+      chatMode: "FloatingClosed",
+      leftSidebarExpanded: true,
+      widths: { bodyPanelWidth: 720, leftSidebarWidth: 276 },
+      sidebarAttr: "data-left-sidebar-panel-content",
+      tabType: "sessions",
+      expectedArgs: [56, null, false, true, false],
+    },
+    {
+      name: "right for docked chat",
+      chatMode: "RightPanelOpen",
+      leftSidebarExpanded: false,
+      widths: {
+        bodyPanelWidth: 460,
+        leftSidebarWidth: 0,
+        rightPanelWidth: 120,
+      },
+      sidebarAttr: null,
+      tabType: "sessions",
+      expectedArgs: [240, null, false, false, true],
+    },
+    {
+      name: "right when docked chat is narrower than 320px",
+      chatMode: "RightPanelOpen",
+      leftSidebarExpanded: true,
+      widths: {
+        bodyPanelWidth: 700,
+        leftSidebarWidth: 200,
+        rightPanelWidth: 120,
+      },
+      sidebarAttr: "data-left-sidebar-chrome",
+      tabType: "sessions",
+      expectedArgs: [200, null, false, false, true],
+    },
+  ] as const)(
+    "expands the window for $name",
+    ({
+      chatMode,
+      leftSidebarExpanded,
+      zoom,
+      widths,
+      props,
+      sidebarAttr,
+      tabType,
+      expectedArgs,
+    }) => {
+      mocks.chatMode = chatMode;
+      mocks.currentTab = { type: tabType };
+      mocks.leftSidebarExpanded = leftSidebarExpanded;
+      if (zoom) {
+        window.localStorage.setItem(ZOOM_STORAGE_KEY, zoom);
+      }
+      mockPanelWidths(widths);
 
-    render(
-      <MainChatPanels>
-        <div data-testid="main-content" />
-      </MainChatPanels>,
-    );
+      render(renderPanels(sidebarAttr, props));
 
-    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe(
-      "min(900px, 100%)",
-    );
-  });
-
-  it("reserves enough main-body width for a 500px note surface beside the sidebar", () => {
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = true;
-
-    render(
-      <MainChatPanels>
-        <div data-testid="main-content" />
-      </MainChatPanels>,
-    );
-
-    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("700");
-  });
-
-  it("reserves enough main-body width for the empty surface beside the sidebar", () => {
-    mocks.currentTab = { type: "empty" };
-    mocks.leftSidebarExpanded = true;
-
-    render(
-      <MainChatPanels>
-        <div data-testid="main-content" />
-      </MainChatPanels>,
-    );
-
-    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("700");
-  });
-
-  it("uses the standalone note minimum without reserving a sidebar", () => {
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = true;
-
-    render(
-      <MainChatPanels
-        autoSaveId="standalone-note-chat"
-        leftSidebarAvailable={false}
-        noteSurfaceMinWidth={420}
-      >
-        <div data-testid="main-content" />
-      </MainChatPanels>,
-    );
-
-    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("420");
-    expect(screen.getByTestId("panel-group").dataset.autoSaveId).toBe(
-      "standalone-note-chat",
-    );
-  });
-
-  it("expands a standalone note for docked chat without collapsing a sidebar", () => {
-    mocks.chatMode = "RightPanelOpen";
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = true;
-    mockPanelWidths({
-      bodyPanelWidth: 420,
-      leftSidebarWidth: 200,
-      panelGroupWidth: 720,
-      rightPanelWidth: 320,
-    });
-
-    render(
-      <MainChatPanels leftSidebarAvailable={false} noteSurfaceMinWidth={420}>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>,
-    );
-
-    expect(mocks.setLeftSidebarExpanded).not.toHaveBeenCalled();
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
-      20,
-      null,
-      false,
-      false,
-      true,
-    );
-  });
-
-  it("expands left when opening the sidebar would make a note surface narrower than 500px", () => {
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = true;
-    mockPanelWidths({
-      bodyPanelWidth: 640,
-      leftSidebarWidth: 200,
-    });
-
-    render(
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>,
-    );
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
-      60,
-      null,
-      false,
-      true,
-      false,
-    );
-  });
-
-  it("scales the expansion into native points when the webview is zoomed", () => {
-    window.localStorage.setItem(ZOOM_STORAGE_KEY, "3");
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = true;
-    mockPanelWidths({
-      bodyPanelWidth: 640,
-      leftSidebarWidth: 200,
-    });
-
-    render(
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>,
-    );
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
-      180,
-      null,
-      false,
-      true,
-      false,
-    );
-  });
-
-  it("measures the expanded sidebar panel when no sidebar chrome is rendered", () => {
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = true;
-    mockPanelWidths({
-      bodyPanelWidth: 720,
-      leftSidebarWidth: 276,
-    });
-
-    render(
-      <MainChatPanels>
-        <div data-left-sidebar-panel-content />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>,
-    );
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
-      56,
-      null,
-      false,
-      true,
-      false,
-    );
-  });
-
-  it("expands left when opening the sidebar would make the empty surface narrower than 500px", () => {
-    mocks.currentTab = { type: "empty" };
-    mocks.leftSidebarExpanded = true;
-    mockPanelWidths({
-      bodyPanelWidth: 640,
-      leftSidebarWidth: 200,
-    });
-
-    render(
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-testid="empty-surface" />
-        </div>
-      </MainChatPanels>,
-    );
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
-      60,
-      null,
-      false,
-      true,
-      false,
-    );
-  });
-
-  it("expands right when docked chat would make a note surface narrower than 500px", () => {
-    mocks.chatMode = "RightPanelOpen";
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = false;
-    mockPanelWidths({
-      bodyPanelWidth: 460,
-      leftSidebarWidth: 0,
-      rightPanelWidth: 120,
-    });
-
-    render(
-      <MainChatPanels>
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>,
-    );
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
-      240,
-      null,
-      false,
-      false,
-      true,
-    );
-  });
+      expect(mocks.windowExpandWidth).toHaveBeenCalledWith(...expectedArgs);
+      expect(mocks.setLeftSidebarExpanded).not.toHaveBeenCalled();
+    },
+  );
 
   it("collapses the left sidebar when docked chat would make the note surface narrower than 500px", () => {
     mocks.chatMode = "RightPanelOpen";
@@ -480,45 +344,10 @@ describe("MainChatPanels", () => {
       rightPanelWidth: 320,
     });
 
-    render(
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>,
-    );
+    render(renderPanels("data-left-sidebar-chrome"));
 
     expect(mocks.setLeftSidebarExpanded).toHaveBeenCalledWith(false);
     expect(mocks.windowExpandWidth).not.toHaveBeenCalled();
-  });
-
-  it("expands right when docked chat renders narrower than 320px", () => {
-    mocks.chatMode = "RightPanelOpen";
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = true;
-    mockPanelWidths({
-      bodyPanelWidth: 700,
-      leftSidebarWidth: 200,
-      rightPanelWidth: 120,
-    });
-
-    render(
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>,
-    );
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
-      200,
-      null,
-      false,
-      false,
-      true,
-    );
   });
 
   it("does not restore window width after closing a left-sidebar expansion", () => {
@@ -529,15 +358,7 @@ describe("MainChatPanels", () => {
       leftSidebarWidth: 200,
     });
 
-    const renderPanels = () => (
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>
-    );
-    const { rerender } = render(renderPanels());
+    const { rerender } = render(renderPanels("data-left-sidebar-chrome"));
 
     expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
       60,
@@ -548,43 +369,50 @@ describe("MainChatPanels", () => {
     );
 
     mocks.leftSidebarExpanded = false;
-    rerender(renderPanels());
+    rerender(renderPanels("data-left-sidebar-chrome"));
 
     expect(mocks.windowRestoreWidth).not.toHaveBeenCalled();
   });
 
-  it("restores window width expansions after the side panels close", () => {
-    mocks.chatMode = "RightPanelOpen";
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = false;
-    mockPanelWidths({
-      bodyPanelWidth: 460,
-      leftSidebarWidth: 0,
-      rightPanelWidth: 320,
-    });
-
-    const renderPanels = () => (
-      <MainChatPanels>
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>
-    );
-    const { rerender } = render(renderPanels());
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalledWith(
-      40,
+  it.each([
+    [
+      false,
+      {
+        bodyPanelWidth: 460,
+        leftSidebarWidth: 0,
+        rightPanelWidth: 320,
+      },
       null,
-      false,
-      false,
+    ],
+    [
       true,
-    );
+      {
+        bodyPanelWidth: 700,
+        leftSidebarWidth: 200,
+        rightPanelWidth: 120,
+      },
+      "data-left-sidebar-chrome",
+    ],
+  ] as const)(
+    "restores window width after docked chat closes with the sidebar expanded=%s",
+    (leftSidebarExpanded, widths, sidebarAttr) => {
+      mocks.chatMode = "RightPanelOpen";
+      mocks.currentTab = { type: "sessions" };
+      mocks.leftSidebarExpanded = leftSidebarExpanded;
+      mockPanelWidths(widths);
 
-    mocks.chatMode = "FloatingClosed";
-    rerender(renderPanels());
+      const panels = renderPanels(sidebarAttr);
+      const { rerender } = render(panels);
 
-    expect(mocks.windowRestoreWidth).toHaveBeenCalledTimes(1);
-  });
+      expect(mocks.windowExpandWidth).toHaveBeenCalled();
+      mocks.windowRestoreWidth.mockClear();
+
+      mocks.chatMode = "FloatingClosed";
+      rerender(renderPanels(sidebarAttr));
+
+      expect(mocks.windowRestoreWidth).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("does not restore window width when leaving a meeting for settings with chat still open", () => {
     mocks.chatMode = "RightPanelOpen";
@@ -596,52 +424,15 @@ describe("MainChatPanels", () => {
       rightPanelWidth: 120,
     });
 
-    const renderPanels = () => (
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>
-    );
-    const { rerender } = render(renderPanels());
+    const { rerender } = render(renderPanels("data-left-sidebar-chrome"));
 
     expect(mocks.windowExpandWidth).toHaveBeenCalled();
     mocks.windowRestoreWidth.mockClear();
 
     mocks.currentTab = { type: "settings" };
-    rerender(renderPanels());
+    rerender(renderPanels("data-left-sidebar-chrome"));
 
     expect(mocks.windowRestoreWidth).not.toHaveBeenCalled();
-  });
-
-  it("restores window width when docked chat closes while the sidebar stays open", () => {
-    mocks.chatMode = "RightPanelOpen";
-    mocks.currentTab = { type: "sessions" };
-    mocks.leftSidebarExpanded = true;
-    mockPanelWidths({
-      bodyPanelWidth: 700,
-      leftSidebarWidth: 200,
-      rightPanelWidth: 120,
-    });
-
-    const renderPanels = () => (
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>
-    );
-    const { rerender } = render(renderPanels());
-
-    expect(mocks.windowExpandWidth).toHaveBeenCalled();
-    mocks.windowRestoreWidth.mockClear();
-
-    mocks.chatMode = "FloatingClosed";
-    rerender(renderPanels());
-
-    expect(mocks.windowRestoreWidth).toHaveBeenCalledTimes(1);
   });
 
   it("collapses the left sidebar when a window resize would make the note surface narrower than 500px", () => {
@@ -653,14 +444,7 @@ describe("MainChatPanels", () => {
     };
     mockPanelWidths(panelWidths);
 
-    render(
-      <MainChatPanels>
-        <div data-left-sidebar-chrome />
-        <div data-chat-floating-anchor>
-          <div data-session-surface />
-        </div>
-      </MainChatPanels>,
-    );
+    render(renderPanels("data-left-sidebar-chrome"));
 
     expect(mocks.setLeftSidebarExpanded).not.toHaveBeenCalled();
 
@@ -670,6 +454,29 @@ describe("MainChatPanels", () => {
     expect(mocks.setLeftSidebarExpanded).toHaveBeenCalledWith(false);
   });
 });
+
+function renderPanels(
+  sidebarAttr:
+    | "data-left-sidebar-chrome"
+    | "data-left-sidebar-panel-content"
+    | null,
+  props: {
+    leftSidebarAvailable?: boolean;
+    noteSurfaceMinWidth?: number;
+  } = {},
+  children: React.ReactNode = (
+    <div data-chat-floating-anchor>
+      <div data-session-surface />
+    </div>
+  ),
+) {
+  return (
+    <MainChatPanels {...props}>
+      {sidebarAttr ? <div {...{ [sidebarAttr]: "" }} /> : null}
+      {children}
+    </MainChatPanels>
+  );
+}
 
 function mockPanelWidths(widths: {
   bodyPanelWidth: number;

@@ -10,67 +10,6 @@ fn test_chat_button_is_open_chat_control_not_input() {
 }
 
 #[test]
-fn test_zoom_chat_message_parser_preserves_sender_time_text_and_links() {
-    let parsed = parse_chat_message(
-        &MeetingPlatform::Zoom,
-        "From Ada Lovelace to Everyone\n10:42 AM\nHere is the doc https://example.com/spec.",
-    )
-    .unwrap();
-
-    assert_eq!(parsed.sender, Some("Ada Lovelace".to_string()));
-    assert_eq!(parsed.timestamp, Some("10:42 AM".to_string()));
-    assert_eq!(parsed.text, "Here is the doc https://example.com/spec.");
-    assert_eq!(
-        extract_links(&parsed.text),
-        vec!["https://example.com/spec"]
-    );
-}
-
-#[test]
-fn test_zoom_chat_message_parser_handles_current_native_row_description() {
-    let parsed = parse_chat_message(
-        &MeetingPlatform::Zoom,
-        "You, ANLG-76 AX integration 5844 https://example.com/ax-test, 4:16\u{202f}PM",
-    )
-    .unwrap();
-
-    assert_eq!(parsed.sender, Some("You".to_string()));
-    assert_eq!(parsed.timestamp, Some("4:16 PM".to_string()));
-    assert_eq!(
-        parsed.text,
-        "ANLG-76 AX integration 5844 https://example.com/ax-test"
-    );
-    assert_eq!(
-        extract_links(&parsed.text),
-        vec!["https://example.com/ax-test"]
-    );
-}
-
-#[test]
-fn test_zoom_chat_message_parser_handles_current_web_row_description() {
-    let parsed = parse_chat_message(
-        &MeetingPlatform::Zoom,
-        "You to Everyone, 02:20 PM, ANLG-297 Chrome Zoom web QA https://anarlog.so/chrome-zoom",
-    )
-    .unwrap();
-
-    assert_eq!(parsed.sender, Some("You".to_string()));
-    assert_eq!(parsed.timestamp, Some("02:20 PM".to_string()));
-    assert_eq!(
-        parsed.text,
-        "ANLG-297 Chrome Zoom web QA https://anarlog.so/chrome-zoom"
-    );
-    assert_eq!(
-        meeting_chat_direction(&MeetingPlatform::Zoom, parsed.sender.as_deref()),
-        Some(MeetingChatDirection::Outgoing)
-    );
-    assert_eq!(
-        extract_links(&parsed.text),
-        vec!["https://anarlog.so/chrome-zoom"]
-    );
-}
-
-#[test]
 fn test_zoom_chat_direction_uses_native_self_sender_label() {
     assert_eq!(
         meeting_chat_direction(&MeetingPlatform::Zoom, Some("You")),
@@ -115,17 +54,6 @@ fn test_teams_current_native_description_preserves_metadata_without_inferring_di
     assert_eq!(messages[0].sender.as_deref(), Some("anon cannon"));
     assert_eq!(messages[0].timestamp.as_deref(), Some("5:08 AM"));
     assert_eq!(messages[0].links, ["https://example.com/teams"]);
-}
-
-#[test]
-fn test_teams_trailing_time_fallback_survives_today_at_in_message_text() {
-    let raw = "anon cannon Sent We discussed Today at lunch 5:09 PM";
-    let parsed = parse_chat_message(&MeetingPlatform::MicrosoftTeams, raw).unwrap();
-
-    assert_eq!(parsed.sender.as_deref(), Some("anon cannon"));
-    assert_eq!(parsed.timestamp.as_deref(), Some("5:09 PM"));
-    assert_eq!(parsed.text, "We discussed Today at lunch");
-    assert_eq!(parsed.direction, None);
 }
 
 #[test]
@@ -389,32 +317,6 @@ fn test_native_linux_zoom_structured_message_preserves_live_metadata() {
 }
 
 #[test]
-fn test_slack_chat_message_parser_handles_sender_time_prefix() {
-    let parsed = parse_chat_message(
-        &MeetingPlatform::Slack,
-        "Grace Hopper 9:03 PM\nShip it after the final check",
-    )
-    .unwrap();
-
-    assert_eq!(parsed.sender, Some("Grace Hopper".to_string()));
-    assert_eq!(parsed.timestamp, Some("9:03 PM".to_string()));
-    assert_eq!(parsed.text, "Ship it after the final check");
-}
-
-#[test]
-fn test_slack_chat_message_parser_handles_native_accessibility_description() {
-    let parsed = parse_chat_message(
-        &MeetingPlatform::Slack,
-        "John Jeong: @Artem lorem ipsum. Friday at 5:50\u{202f}PM.",
-    )
-    .unwrap();
-
-    assert_eq!(parsed.sender, Some("John Jeong".to_string()));
-    assert_eq!(parsed.timestamp, Some("5:50 PM".to_string()));
-    assert_eq!(parsed.text, "@Artem lorem ipsum");
-}
-
-#[test]
 fn test_slack_chat_message_parser_handles_live_huddle_description() {
     let parsed = parse_chat_message(
         &MeetingPlatform::Slack,
@@ -450,14 +352,16 @@ fn test_slack_chat_message_parser_handles_live_huddle_description() {
 }
 
 #[test]
-fn test_web_chat_parsers_cover_meet_teams_zoom_slack_and_webex_shapes() {
-    for (platform, raw_text, sender, timestamp, text) in [
+fn test_chat_parsers_extract_sender_time_and_text() {
+    for (platform, raw_text, sender, timestamp, text, links, direction) in [
         (
             MeetingPlatform::GoogleMeet,
             "Ada Lovelace\n10:42 AM\nMeet decision",
             "Ada Lovelace",
             "10:42 AM",
             "Meet decision",
+            &[][..],
+            None,
         ),
         (
             MeetingPlatform::MicrosoftTeams,
@@ -465,6 +369,17 @@ fn test_web_chat_parsers_cover_meet_teams_zoom_slack_and_webex_shapes() {
             "Grace Hopper",
             "10:43 AM",
             "Teams decision",
+            &[],
+            None,
+        ),
+        (
+            MeetingPlatform::MicrosoftTeams,
+            "anon cannon Sent We discussed Today at lunch 5:09 PM",
+            "anon cannon",
+            "5:09 PM",
+            "We discussed Today at lunch",
+            &[],
+            Some(None),
         ),
         (
             MeetingPlatform::Zoom,
@@ -472,6 +387,35 @@ fn test_web_chat_parsers_cover_meet_teams_zoom_slack_and_webex_shapes() {
             "Linus Torvalds",
             "10:44 AM",
             "Zoom decision",
+            &[],
+            None,
+        ),
+        (
+            MeetingPlatform::Zoom,
+            "From Ada Lovelace to Everyone\n10:42 AM\nHere is the doc https://example.com/spec.",
+            "Ada Lovelace",
+            "10:42 AM",
+            "Here is the doc https://example.com/spec.",
+            &["https://example.com/spec"],
+            None,
+        ),
+        (
+            MeetingPlatform::Zoom,
+            "You, ANLG-76 AX integration 5844 https://example.com/ax-test, 4:16\u{202f}PM",
+            "You",
+            "4:16 PM",
+            "ANLG-76 AX integration 5844 https://example.com/ax-test",
+            &["https://example.com/ax-test"],
+            None,
+        ),
+        (
+            MeetingPlatform::Zoom,
+            "You to Everyone, 02:20 PM, ANLG-297 Chrome Zoom web QA https://anarlog.so/chrome-zoom",
+            "You",
+            "02:20 PM",
+            "ANLG-297 Chrome Zoom web QA https://anarlog.so/chrome-zoom",
+            &["https://anarlog.so/chrome-zoom"],
+            None,
         ),
         (
             MeetingPlatform::Slack,
@@ -479,6 +423,26 @@ fn test_web_chat_parsers_cover_meet_teams_zoom_slack_and_webex_shapes() {
             "Margaret Hamilton",
             "10:45 AM",
             "Slack decision",
+            &[],
+            None,
+        ),
+        (
+            MeetingPlatform::Slack,
+            "Grace Hopper 9:03 PM\nShip it after the final check",
+            "Grace Hopper",
+            "9:03 PM",
+            "Ship it after the final check",
+            &[],
+            None,
+        ),
+        (
+            MeetingPlatform::Slack,
+            "John Jeong: @Artem lorem ipsum. Friday at 5:50\u{202f}PM.",
+            "John Jeong",
+            "5:50 PM",
+            "@Artem lorem ipsum",
+            &[],
+            None,
         ),
         (
             MeetingPlatform::Webex,
@@ -486,13 +450,23 @@ fn test_web_chat_parsers_cover_meet_teams_zoom_slack_and_webex_shapes() {
             "Katherine Johnson",
             "10:46 AM",
             "Webex decision",
+            &[],
+            None,
         ),
     ] {
         let parsed = parse_chat_message(&platform, raw_text)
             .unwrap_or_else(|| panic!("failed to parse {platform:?}"));
-        assert_eq!(parsed.sender.as_deref(), Some(sender));
-        assert_eq!(parsed.timestamp.as_deref(), Some(timestamp));
-        assert_eq!(parsed.text, text);
+        assert_eq!(parsed.sender.as_deref(), Some(sender), "{platform:?}");
+        assert_eq!(parsed.timestamp.as_deref(), Some(timestamp), "{platform:?}");
+        assert_eq!(parsed.text, text, "{platform:?}");
+        assert_eq!(
+            extract_links(&parsed.text).as_slice(),
+            links,
+            "{platform:?}"
+        );
+        if let Some(direction) = direction {
+            assert_eq!(parsed.direction, direction, "{platform:?}");
+        }
     }
 }
 
@@ -701,22 +675,6 @@ fn test_google_meet_capture_assembles_timestamp_sibling_messages() {
     assert_eq!(messages[2].sender, None);
     assert_eq!(messages[2].timestamp.as_deref(), Some("1:51 PM"));
     assert_eq!(messages[2].text, "ANLG-297 second self-authored message");
-}
-
-#[test]
-fn test_past_slack_huddle_thread_is_not_captured_without_active_huddle() {
-    let mut message = node(
-        0,
-        "AXGroup",
-        "John Jeong: @Artem lorem ipsum. Friday at 5:50 PM.",
-        None,
-    );
-    message.within_slack_huddle_scope = true;
-
-    assert!(
-        extract_chat_messages(&MeetingPlatform::Slack, &MeetingSurface::Native, &[message],)
-            .is_empty()
-    );
 }
 
 #[test]

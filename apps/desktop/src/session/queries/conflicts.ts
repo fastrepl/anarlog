@@ -1,8 +1,9 @@
 import { md2json } from "@anlg/editor/markdown";
+import { commands } from "@anlg/plugin-session";
 
 import { updateSession } from "./sessions";
 
-import { executeTransaction, useLiveQuery } from "~/db";
+import { useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
 export type SessionConflictRecord = {
@@ -112,18 +113,10 @@ export function useSessionDocumentVersions(
 
 export function resolveSessionConflicts(sessionId: string): Promise<void> {
   return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
-    await executeTransaction([
-      {
-        sql: `
-          UPDATE e2ee_field_conflicts
-          SET resolved_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE row_id = ?
-            AND resolved_at IS NULL
-            AND (${NOTE_CONFLICT_FIELDS_SQL})
-        `,
-        params: [sessionId],
-      },
-    ]);
+    const result = await commands.resolveSessionConflicts({
+      session_id: sessionId,
+    });
+    if (result.status === "error") throw new Error(result.error);
   });
 }
 
@@ -140,16 +133,10 @@ export async function applySessionConflict(
   }
 
   await enqueueDatabaseWrite(`session:${sessionId}`, async () => {
-    await executeTransaction([
-      {
-        sql: `
-          UPDATE e2ee_field_conflicts
-          SET resolved_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE id = ? AND resolved_at IS NULL
-        `,
-        params: [conflict.id],
-      },
-    ]);
+    const result = await commands.resolveSessionConflict({
+      conflict_id: conflict.id,
+    });
+    if (result.status === "error") throw new Error(result.error);
   });
 }
 

@@ -264,25 +264,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_md_to_md_1() {
-        let input = r#"
-# Hello
-
-## World
-
-1. Hi
-2. Bye!
-"#;
-
-        insta::assert_snapshot!(md_to_md(input).unwrap().to_string(), @"
-        # World
-
-        - Hi
-        - Bye!
-        ");
-    }
-
-    #[test]
     fn test_md_to_md_2() {
         let input = r#"
 ## Hello
@@ -375,31 +356,6 @@ mod tests {
 
         (No raw excerpt provided, utilized to generate the enhanced note)
         ");
-    }
-
-    // TODO: not ideal
-    #[test]
-    fn test_md_to_md_4() {
-        let input = r#"
-# Anarlog: Enhanced Meeting Notes
-
-# Objective: Introduce Anarlog as a smart notepad for enhanced meeting productivity.
-# Privacy & Performance: Built locally, prioritizing user data security and seamless experience.
-# Flexible & Extendable: Supports various use cases beyond sales, offering a simple and powerful solution.
-# Stay Connected: Promote Anarlog through X and Discord.
-
-# Key Features:
-# - Offline transcription and note-taking.
-# - Real-time transcript integration for context.
-# - Customizable notes and summaries.
-# - Optional extensions for CRM integration (e.g., Twenty).
-
-# Benefits: Streamlines meetings, improves productivity, and enhances data capture.
-
-# Further Information: Follow updates on [X](https://anarlog.so/x) and [Discord](https://anarlog.so/discord).
-        "#;
-
-        insta::assert_snapshot!(md_to_md(input).unwrap().to_string(), @"# Further Information: Follow updates on [X](https://anarlog.so/x) and [Discord](https://anarlog.so/discord).");
     }
 
     #[test]

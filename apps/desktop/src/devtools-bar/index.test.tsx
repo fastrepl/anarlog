@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  stopDevtoolsMetrics: vi.fn(),
   identifier: "com.hyprnote.staging",
   outlinesEnabled: true,
   topComponents: [] as Array<{ name: string; count: number }>,
@@ -20,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   setRenderOutlinesEnabled: vi.fn(),
   runAction: vi.fn(),
   copyDiagnostics: vi.fn(),
-  startDevtoolsMetrics: vi.fn(() => vi.fn()),
+  startDevtoolsMetrics: vi.fn(() => mocks.stopDevtoolsMetrics),
 }));
 
 vi.mock("@tauri-apps/api/app", () => ({
@@ -205,129 +206,27 @@ describe("DevtoolsStatusBar", () => {
     expect(mocks.startDevtoolsMetrics).not.toHaveBeenCalled();
   });
 
-  it("waits for build info before rendering the channel", async () => {
-    let resolveIdentifier: (identifier: string) => void = () => {};
-    vi.mocked(getIdentifier).mockReturnValue(
-      new Promise((resolve) => {
-        resolveIdentifier = resolve;
-      }),
-    );
-
+  it("collects metrics only while the expanded bar is mounted", async () => {
     renderBar();
 
-    await vi.waitFor(() => expect(getIdentifier).toHaveBeenCalled());
-    expect(screen.queryByTestId("devtools-status-bar")).toBeNull();
+    const expandButton = await screen.findByRole("button", {
+      name: "Expand developer bar",
+    });
+    expect(screen.getByTestId("devtools-status-bar-collapsed")).not.toBeNull();
+    expect(mocks.startDevtoolsMetrics).not.toHaveBeenCalled();
 
-    resolveIdentifier("com.hyprnote.staging");
-
-    const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("staging");
-  });
-
-  it("shows build, plan and live metrics with threshold tones", async () => {
-    renderBar();
-
-    const bar = await screen.findByTestId("devtools-status-bar");
-    await screen.findByText("1.2.3 abcdef1");
-
-    expect(bar.textContent).toContain("staging");
-    expect(bar.textContent).toContain("trial 12d");
-    expect(bar.textContent).toContain("FPS60");
-    expect(bar.textContent).toContain("Jank4%");
-    expect(bar.textContent).toContain("Delay250ms");
-    expect(bar.textContent).toContain("Renders41");
-    expect(bar.textContent).toContain("IPC↑12 ↓15");
-    expect(bar.textContent).toContain("Net2");
-    expect(bar.textContent).toContain("Mem312MB");
-    expect(screen.getByText("250ms").className).toContain("text-red-400");
-    expect(screen.getByText("4%").className).toContain("text-amber-400");
-    expect(screen.getByText("60").className).toContain("text-neutral-100");
-    expect(screen.getByTestId("devtools-dialogs")).toBeTruthy();
+    fireEvent.click(expandButton);
+    await screen.findByTestId("devtools-status-bar");
     expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
-  });
-
-  it("labels the plan badge from billing state", async () => {
-    mocks.billing.plan = "pro";
-    mocks.billing.trialDaysRemaining = null;
-
-    renderBar();
-
-    const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("pro");
-    expect(bar.textContent).not.toContain("trial");
-  });
-
-  it("shows signed out instead of a plan without a session", async () => {
-    mocks.session = null;
-
-    renderBar();
-
-    const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("signed out");
-    expect(bar.textContent).not.toContain("trial");
-  });
-
-  it("runs devtools actions and exposes quick settings from the channel menu", async () => {
-    renderBar();
-
-    await screen.findByTestId("devtools-status-bar");
-    expect(screen.getByTestId("quick-settings")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Clear all toasts" }));
-
-    expect(mocks.runAction).toHaveBeenCalledWith("toasts:clear");
-  });
-
-  it("describes menu groups and items", async () => {
-    renderBar();
-
-    await screen.findByTestId("devtools-status-bar");
-    const group = screen.getByRole("region", { name: "Toasts" });
-    expect(group.textContent).toContain("Preview each sidebar toast.");
-    expect(
-      screen
-        .getByRole("button", { name: "Clear all toasts" })
-        .closest("[data-hint]")
-        ?.getAttribute("data-hint"),
-    ).toBe("Dismiss every previewed toast.");
-  });
-
-  it("toggles render outlines from the renders metric", async () => {
-    renderBar();
-
-    const bar = await screen.findByTestId("devtools-status-bar");
-    expect(bar.textContent).toContain("◉");
-
-    fireEvent.click(screen.getByRole("button", { name: /Renders/ }));
-    expect(mocks.setRenderOutlinesEnabled).toHaveBeenCalledWith(false);
-  });
-
-  it("copies diagnostics and collapses to a strip that expands again", async () => {
-    renderBar();
-
-    await screen.findByTestId("devtools-status-bar");
-    fireEvent.click(screen.getByRole("button", { name: "Copy diagnostics" }));
-    expect(mocks.copyDiagnostics).toHaveBeenCalledTimes(1);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Collapse developer bar" }),
     );
-    expect(screen.queryByTestId("devtools-status-bar")).toBeNull();
-    expect(localStorage.getItem("anarlog:devtools-bar:collapsed")).toBe("1");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Expand developer bar" }),
+    await vi.waitFor(() =>
+      expect(mocks.stopDevtoolsMetrics).toHaveBeenCalledTimes(1),
     );
-    expect(screen.getByTestId("devtools-status-bar")).toBeTruthy();
-    expect(localStorage.getItem("anarlog:devtools-bar:collapsed")).toBe("0");
-  });
-
-  it("starts collapsed when that was persisted", async () => {
-    localStorage.setItem("anarlog:devtools-bar:collapsed", "1");
-
-    renderBar();
-
-    await screen.findByTestId("devtools-status-bar-collapsed");
-    expect(screen.queryByTestId("devtools-status-bar")).toBeNull();
-    expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("button", { name: "Expand developer bar" }),
+    ).not.toBeNull();
   });
 });

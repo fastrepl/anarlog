@@ -16,8 +16,8 @@ import {
   type TranscriptTimingSource,
 } from "~/stt/timing";
 
-export type BatchPhase = "importing" | "transcribing";
-export type BatchTerminalReason = "failed" | "timed_out" | "stopped";
+type BatchPhase = "importing" | "transcribing";
+type BatchTerminalReason = "failed" | "timed_out" | "stopped";
 
 export type BatchState = {
   batch: Record<
@@ -29,6 +29,7 @@ export type BatchState = {
       phase?: BatchPhase;
       terminalReason?: BatchTerminalReason;
       errorCode?: BatchErrorCode;
+      recovered?: boolean;
     }
   >;
   batchPreview: Record<
@@ -43,6 +44,7 @@ export type BatchState = {
 
 export type BatchActions = {
   handleBatchStarted: (sessionId: string, phase?: BatchPhase) => void;
+  handleBatchRecovered: (sessionId: string) => void;
   handleBatchCompleted: (sessionId: string) => void;
   handleBatchResponse: (sessionId: string, response: BatchResponse) => boolean;
   handleBatchResponseStreamed: (
@@ -94,6 +96,21 @@ export const createBatchSlice = <T extends BatchState>(
         [sessionId]: {
           wordsByChannel: {},
           hintsByChannel: {},
+        },
+      },
+    }));
+  },
+
+  handleBatchRecovered: (sessionId) => {
+    set((state) => ({
+      ...state,
+      batch: {
+        ...state.batch,
+        [sessionId]: {
+          percentage: 0,
+          isComplete: false,
+          phase: "transcribing",
+          recovered: true,
         },
       },
     }));
@@ -174,6 +191,7 @@ export const createBatchSlice = <T extends BatchState>(
           terminalReason: undefined,
           error: undefined,
           errorCode: undefined,
+          recovered: state.batch[sessionId]?.recovered,
         },
       },
       batchPreview: {
@@ -340,8 +358,9 @@ function transformBatch(
       return;
     }
 
+    const channelTimingSource = getChannelTimingSource(response, channelIndex);
     const timingSource =
-      getChannelTimingSource(response, channelIndex) ??
+      channelTimingSource ??
       getWordTimingSourceForBatchResponse(
         response,
         Boolean(alternative.words?.length),
@@ -354,7 +373,7 @@ function transformBatch(
           durationSeconds: getBatchDurationSeconds(response),
           timingSource,
         }),
-        timingSource,
+        channelTimingSource,
       ),
       response,
       channelIndex,
@@ -401,8 +420,10 @@ function getChannelTimingSource(
 
 function markUnalignedDiarizedWordsSynthetic(
   entries: WordEntry[],
-  timingSource: TranscriptTimingSource,
+  timingSource: TranscriptTimingSource | undefined,
 ): WordEntry[] {
+  // Soniqo supplies per-channel provenance for its unaligned fallback words.
+  // Other providers' segment timestamps remain useful without speaker labels.
   if (timingSource !== "provider_segment_interpolated") return entries;
   return entries.map((entry) =>
     typeof entry.speaker === "number"
@@ -448,15 +469,37 @@ function attachSyntheticChunkStarts(
   );
   if (!chunks.length) return entries;
 
+  const orderedChunks = [...chunks].sort(
+    (left, right) => left.start_seconds - right.start_seconds,
+  );
+  const hasOverlaps = orderedChunks.some(
+    (chunk, index) =>
+      index > 0 && chunk.start_seconds < orderedChunks[index - 1].end_seconds,
+  );
+  const findChunk = (start: number) => {
+    // Preserve the original first-match behavior for malformed overlapping chunks.
+    if (hasOverlaps) {
+      return chunks.find(
+        (chunk) => start >= chunk.start_seconds && start < chunk.end_seconds,
+      );
+    }
+    let left = 0;
+    let right = orderedChunks.length;
+    while (left < right) {
+      const middle = Math.floor((left + right) / 2);
+      if (orderedChunks[middle].start_seconds <= start) left = middle + 1;
+      else right = middle;
+    }
+    const chunk = orderedChunks[left - 1];
+    return chunk && start < chunk.end_seconds ? chunk : undefined;
+  };
+
   return entries.map((entry) => {
     const entryTiming = (
       entry.metadata?.timing as Record<string, unknown> | undefined
     )?.source;
     if (entryTiming !== "synthetic_text") return entry;
-    const chunk = chunks.find(
-      (chunk) =>
-        entry.start >= chunk.start_seconds && entry.start < chunk.end_seconds,
-    );
+    const chunk = findChunk(entry.start);
     if (!chunk) return entry;
     const metadata = createTranscriptTimingMetadata(
       "synthetic_text",

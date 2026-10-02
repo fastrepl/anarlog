@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-compose-generated-summary"
+description = "Enables the compose_generated_summary command without any pre-configured scope."
+commands.allow = ["compose_generated_summary"]
+
+[[permission]]
+identifier = "deny-compose-generated-summary"
+description = "Denies the compose_generated_summary command without any pre-configured scope."
+commands.deny = ["compose_generated_summary"]

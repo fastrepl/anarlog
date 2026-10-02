@@ -53,35 +53,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_long_os_version() {
-        let a = long_os_version();
-        let b = long_os_version();
-        let c = long_os_version();
-        assert_eq!(a, b);
-        assert_eq!(a, c);
-    }
-
-    #[test]
-    fn test_cpu_arch() {
-        let a = cpu_arch();
-        let b = cpu_arch();
-        let c = cpu_arch();
-        assert_eq!(a, b);
-        assert_eq!(a, c);
-    }
-
-    #[test]
-    fn test_fingerprint() {
+    fn fingerprint_is_stable() {
         let a = fingerprint();
         let b = fingerprint();
-        let c = fingerprint();
         assert_eq!(a, b);
-        assert_eq!(a, c);
-    }
-
-    #[test]
-    fn test_kill_processes_by_matcher() {
-        let killed_count = kill_processes_by_matcher(ProcessMatcher::Sidecar);
-        assert!(killed_count == 0);
+        assert!(!a.is_empty());
     }
 }

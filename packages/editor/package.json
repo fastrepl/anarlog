@@ -29,7 +29,7 @@
     "@floating-ui/dom": "^1.7.6",
     "@handlewithcare/react-prosemirror": "^3.2.6",
     "facehash": "^0.0.7",
-    "markdown-it": "^14.2.0",
+    "markdown-it": "^14.3.1",
     "node-emoji": "2.2.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-dropcursor": "^1.8.2",

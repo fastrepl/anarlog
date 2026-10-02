@@ -663,112 +663,127 @@ impl AsyncSource for MicStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures_util::StreamExt;
+
+    type RankInputDevicesCase<'a> = (
+        &'a str,
+        Option<&'a str>,
+        Option<&'a str>,
+        &'a [&'a str],
+        &'a [&'a str],
+    );
+    type ResolveRankedCandidateCase<'a> = (
+        &'a str,
+        &'a str,
+        bool,
+        Option<&'a str>,
+        &'a [&'a str],
+        &'a [Option<&'a str>],
+        Option<usize>,
+    );
 
     #[test]
-    fn default_stream_config_errors_have_stable_types() {
-        assert_eq!(
-            default_stream_config_error_type(&cpal::DefaultStreamConfigError::DeviceNotAvailable),
-            "device_not_available"
-        );
-        assert_eq!(
-            default_stream_config_error_type(
-                &cpal::DefaultStreamConfigError::StreamTypeNotSupported
+    fn unusable_input_devices_are_detected_by_id_or_description() {
+        for (id, description, expected) in [
+            (None, "alsa_output.pci.analog-stereo.monitor", true),
+            (None, "Monitor of Built-in Audio", true),
+            (None, "Built-in Audio Analog Stereo", false),
+            (None, "USB Microphone", false),
+            (Some("null"), "Some Innocuous Description", true),
+            (Some("NULL"), "Some Innocuous Description", true),
+            (
+                None,
+                "Discard all samples (playback) or generate zero samples (capture)",
+                true,
             ),
-            "stream_type_not_supported"
-        );
-        assert_eq!(
-            default_stream_config_error_type(&cpal::DefaultStreamConfigError::BackendSpecific {
-                err: cpal::BackendSpecificError {
-                    description: "private driver detail".to_string(),
-                },
-            }),
-            "backend_specific"
-        );
-    }
+            (Some("hw:CARD=0,DEV=0"), "USB Microphone", false),
+            (
+                Some("default"),
+                "Default ALSA Output (currently PipeWire Media Server)",
+                false,
+            ),
+        ] {
+            assert_eq!(
+                is_unusable_input_device_with_id(id, description),
+                expected,
+                "id={id:?}, description={description:?}"
+            );
+        }
 
-    #[test]
-    fn monitor_sources_are_unusable_input_devices() {
-        assert!(is_unusable_input_device(
-            "alsa_output.pci.analog-stereo.monitor"
-        ));
         assert!(is_unusable_input_device("Monitor of Built-in Audio"));
-        assert!(!is_unusable_input_device("Built-in Audio Analog Stereo"));
-        assert!(!is_unusable_input_device("USB Microphone"));
-    }
-
-    #[test]
-    fn alsa_null_device_is_unusable_by_id_even_with_an_innocuous_description() {
-        // The id is the primary signal: it is authoritative and does not depend on locale or
-        // wording of the ALSA hint description.
-        assert!(is_unusable_input_device_with_id(
-            Some("null"),
-            "Some Innocuous Description"
-        ));
-        assert!(is_unusable_input_device_with_id(
-            Some("NULL"),
-            "Some Innocuous Description"
-        ));
-    }
-
-    #[test]
-    fn alsa_null_device_is_unusable_by_description_when_no_id_is_available() {
-        // Defensive fallback for callers that only have a name, such as a device_name string
-        // loaded from settings, or a host that does not report device ids.
         assert!(is_unusable_input_device(
             "Discard all samples (playback) or generate zero samples (capture)"
         ));
-        assert!(is_unusable_input_device_with_id(
-            None,
-            "Discard all samples (playback) or generate zero samples (capture)"
-        ));
     }
 
     #[test]
-    fn ordinary_devices_are_not_rejected_by_id_or_description() {
-        assert!(!is_unusable_input_device_with_id(
-            Some("hw:CARD=0,DEV=0"),
-            "USB Microphone"
-        ));
-        // A non-null id must not be enough on its own to reject a device.
-        assert!(!is_unusable_input_device_with_id(
-            Some("default"),
-            "Default ALSA Output (currently PipeWire Media Server)"
-        ));
-    }
+    fn rank_input_devices_cases() {
+        // ALSA's synthetic default description is absent from the listed hint descriptions.
+        let cases: [RankInputDevicesCase<'_>; 5] = [
+            (
+                "prefers named then default and skips monitors",
+                Some("USB Microphone"),
+                Some("Built-in Audio"),
+                &[
+                    "alsa_output.pci.analog-stereo.monitor",
+                    "Built-in Audio",
+                    "USB Microphone",
+                    "Headset",
+                ],
+                &["USB Microphone", "Built-in Audio", "Headset"],
+            ),
+            (
+                "skips empty names",
+                Some(""),
+                Some(""),
+                &["", "USB Microphone", ""],
+                &["USB Microphone"],
+            ),
+            (
+                "falls back when preferred is a monitor",
+                Some("Monitor of Built-in Audio"),
+                Some("Built-in Audio"),
+                &["Monitor of Built-in Audio", "Built-in Audio"],
+                &["Built-in Audio"],
+            ),
+            (
+                "excludes the null device like a monitor",
+                None,
+                Some("Built-in Audio"),
+                &[
+                    "Discard all samples (playback) or generate zero samples (capture)",
+                    "Built-in Audio",
+                    "USB Microphone",
+                ],
+                &["Built-in Audio", "USB Microphone"],
+            ),
+            (
+                "ranks default even when its description is not listed",
+                None,
+                Some("Default Audio Device"),
+                &[
+                    "Default ALSA Output (currently PipeWire Media Server)",
+                    "USB Microphone",
+                ],
+                &[
+                    "Default Audio Device",
+                    "Default ALSA Output (currently PipeWire Media Server)",
+                    "USB Microphone",
+                ],
+            ),
+        ];
 
-    #[test]
-    fn rank_input_devices_prefers_named_then_default_and_skips_monitors() {
-        let ranked = rank_input_devices(
-            Some("USB Microphone"),
-            Some("Built-in Audio"),
-            &[
-                "alsa_output.pci.analog-stereo.monitor".to_string(),
-                "Built-in Audio".to_string(),
-                "USB Microphone".to_string(),
-                "Headset".to_string(),
-            ],
-        );
-
-        assert_eq!(
-            ranked,
-            vec![
-                "USB Microphone".to_string(),
-                "Built-in Audio".to_string(),
-                "Headset".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn rank_input_devices_skips_empty_names() {
-        let ranked = rank_input_devices(
-            Some(""),
-            Some(""),
-            &[String::new(), "USB Microphone".to_string(), String::new()],
-        );
-
-        assert_eq!(ranked, vec!["USB Microphone".to_string()]);
+        for (label, preferred, default, listed, expected) in cases {
+            let listed = listed
+                .iter()
+                .map(|name| (*name).to_string())
+                .collect::<Vec<_>>();
+            let ranked = rank_input_devices(preferred, default, &listed);
+            let expected = expected
+                .iter()
+                .map(|name| (*name).to_string())
+                .collect::<Vec<_>>();
+            assert_eq!(ranked, expected, "{label}");
+        }
     }
 
     #[test]
@@ -798,149 +813,65 @@ mod tests {
     }
 
     #[test]
-    fn rank_input_devices_falls_back_when_preferred_is_a_monitor() {
-        let ranked = rank_input_devices(
-            Some("Monitor of Built-in Audio"),
-            Some("Built-in Audio"),
-            &[
-                "Monitor of Built-in Audio".to_string(),
-                "Built-in Audio".to_string(),
-            ],
-        );
-
-        assert_eq!(ranked, vec!["Built-in Audio".to_string()]);
-    }
-
-    #[test]
-    fn rank_input_devices_excludes_the_null_device_like_a_monitor() {
-        let ranked = rank_input_devices(
-            None,
-            Some("Built-in Audio"),
-            &[
-                "Discard all samples (playback) or generate zero samples (capture)".to_string(),
-                "Built-in Audio".to_string(),
-                "USB Microphone".to_string(),
-            ],
-        );
-
-        assert_eq!(
-            ranked,
-            vec!["Built-in Audio".to_string(), "USB Microphone".to_string()]
-        );
-    }
-
-    #[test]
-    fn rank_input_devices_ranks_default_even_when_its_description_is_not_listed() {
-        // On ALSA, `host.default_input_device()` returns a synthetic device described as
-        // "Default Audio Device" — a string that never appears among the listed hints, whose
-        // own "default" entry carries the real ALSA hint description instead. Ranking must still
-        // surface the default's own description so `resolve_ranked_candidate` has a candidate to
-        // resolve by id.
-        let ranked = rank_input_devices(
-            None,
-            Some("Default Audio Device"),
-            &[
-                "Default ALSA Output (currently PipeWire Media Server)".to_string(),
-                "USB Microphone".to_string(),
-            ],
-        );
-
-        assert_eq!(
-            ranked,
-            vec![
-                "Default Audio Device".to_string(),
-                "Default ALSA Output (currently PipeWire Media Server)".to_string(),
-                "USB Microphone".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn resolve_ranked_candidate_matches_default_by_id_when_description_differs() {
-        let listed_names = vec![
-            "Discard all samples (playback) or generate zero samples (capture)".to_string(),
-            "Default ALSA Output (currently PipeWire Media Server)".to_string(),
-            "USB Microphone".to_string(),
-        ];
-        let listed_ids = vec![
-            Some("null".to_string()),
-            Some("default".to_string()),
-            Some("hw:CARD=1,DEV=0".to_string()),
+    fn resolve_ranked_candidate_cases() {
+        let cases: [ResolveRankedCandidateCase<'_>; 4] = [
+            (
+                "matches default by id when description differs",
+                "Default Audio Device",
+                true,
+                Some("default"),
+                &[
+                    "Discard all samples (playback) or generate zero samples (capture)",
+                    "Default ALSA Output (currently PipeWire Media Server)",
+                    "USB Microphone",
+                ],
+                &[Some("null"), Some("default"), Some("hw:CARD=1,DEV=0")],
+                Some(1),
+            ),
+            (
+                "prefers name match over id match",
+                "USB Microphone",
+                false,
+                Some("default"),
+                &["USB Microphone", "Built-in Audio"],
+                &[Some("hw:CARD=1,DEV=0"), Some("default")],
+                Some(0),
+            ),
+            (
+                "does not id-match non-default candidates",
+                "Some Other Name",
+                false,
+                Some("default"),
+                &["Default ALSA Output"],
+                &[Some("default")],
+                None,
+            ),
+            (
+                "returns none when default id is unavailable",
+                "Default Audio Device",
+                true,
+                None,
+                &["USB Microphone"],
+                &[Some("hw:CARD=1,DEV=0")],
+                None,
+            ),
         ];
 
-        // The synthetic default's description matches nothing in `listed_names`, but its id
-        // ("default") matches the second listed device's id.
-        let resolved = resolve_ranked_candidate(
-            "Default Audio Device",
-            true,
-            Some("default"),
-            &listed_names,
-            &listed_ids,
-        );
-        assert_eq!(resolved, Some(1));
-    }
-
-    #[test]
-    fn resolve_ranked_candidate_prefers_name_match_over_id_match() {
-        let listed_names = vec!["USB Microphone".to_string(), "Built-in Audio".to_string()];
-        let listed_ids = vec![
-            Some("hw:CARD=1,DEV=0".to_string()),
-            Some("default".to_string()),
-        ];
-
-        let resolved = resolve_ranked_candidate(
-            "USB Microphone",
-            false,
-            Some("default"),
-            &listed_names,
-            &listed_ids,
-        );
-        assert_eq!(resolved, Some(0));
-    }
-
-    #[test]
-    fn resolve_ranked_candidate_does_not_id_match_non_default_candidates() {
-        let listed_names = vec!["Default ALSA Output".to_string()];
-        let listed_ids = vec![Some("default".to_string())];
-
-        // Even though the id would match, this candidate is not the default, so it must not be
-        // resolved by id — only the caller's explicit preferred/listed name matching applies.
-        let resolved = resolve_ranked_candidate(
-            "Some Other Name",
-            false,
-            Some("default"),
-            &listed_names,
-            &listed_ids,
-        );
-        assert_eq!(resolved, None);
-    }
-
-    #[test]
-    fn resolve_ranked_candidate_returns_none_when_default_id_is_unavailable() {
-        let listed_names = vec!["USB Microphone".to_string()];
-        let listed_ids = vec![Some("hw:CARD=1,DEV=0".to_string())];
-
-        // Falls through to the caller's own "open the live default directly" fallback.
-        let resolved = resolve_ranked_candidate(
-            "Default Audio Device",
-            true,
-            None,
-            &listed_names,
-            &listed_ids,
-        );
-        assert_eq!(resolved, None);
-    }
-
-    #[test]
-    fn drop_quietly_swallows_destructor_panics() {
-        struct Boom;
-        impl Drop for Boom {
-            fn drop(&mut self) {
-                panic!("drop boom");
-            }
+        for (label, name, is_default, default_id, names, ids, expected) in cases {
+            let names = names
+                .iter()
+                .map(|name| (*name).to_string())
+                .collect::<Vec<_>>();
+            let ids = ids
+                .iter()
+                .map(|id| id.map(str::to_string))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                resolve_ranked_candidate(name, is_default, default_id, &names, &ids),
+                expected,
+                "{label}"
+            );
         }
-
-        drop_quietly(Boom);
     }
 
     #[test]
@@ -986,132 +917,5 @@ mod tests {
         });
 
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn build_stream_errors_have_stable_types() {
-        assert_eq!(
-            build_stream_error_type(&cpal::BuildStreamError::DeviceNotAvailable),
-            "device_not_available"
-        );
-        assert_eq!(
-            build_stream_error_type(&cpal::BuildStreamError::StreamConfigNotSupported),
-            "stream_config_not_supported"
-        );
-        assert_eq!(
-            build_stream_error_type(&cpal::BuildStreamError::InvalidArgument),
-            "invalid_argument"
-        );
-        assert_eq!(
-            build_stream_error_type(&cpal::BuildStreamError::StreamIdOverflow),
-            "stream_id_overflow"
-        );
-        assert_eq!(
-            build_stream_error_type(&cpal::BuildStreamError::BackendSpecific {
-                err: cpal::BackendSpecificError {
-                    description: "private driver detail".to_string(),
-                },
-            }),
-            "backend_specific"
-        );
-    }
-
-    fn rms(samples: &[f32]) -> f32 {
-        (samples.iter().map(|sample| sample * sample).sum::<f32>() / samples.len() as f32).sqrt()
-    }
-
-    #[tokio::test]
-    #[ignore = "requires audio hardware and speech near the microphone"]
-    async fn test_mic() {
-        let mic = MicInput::new(None).unwrap();
-        let mut stream = mic.stream().unwrap();
-
-        let mut buffer = Vec::new();
-        let timeout = tokio::time::sleep(tokio::time::Duration::from_secs(5));
-        tokio::pin!(timeout);
-
-        loop {
-            tokio::select! {
-                _ = &mut timeout => break,
-                sample = stream.next() => {
-                    match sample {
-                        Some(sample) => buffer.push(sample),
-                        None => panic!("microphone stream ended unexpectedly"),
-                    }
-                    if buffer.len() >= mic.sample_rate() as usize {
-                        break;
-                    }
-                }
-            }
-        }
-
-        assert!(!buffer.is_empty(), "microphone produced no samples");
-        assert!(
-            rms(&buffer) > 1e-4,
-            "microphone capture was silent; speak while running this test"
-        );
-    }
-
-    #[tokio::test]
-    #[ignore = "requires audio hardware"]
-    async fn test_mic_stream_with_resampling() {
-        use anlg_audio_utils::chunk_size_for_stt;
-        use anlg_resampler::ResampleExtDynamicNew;
-
-        let mic = MicInput::new(None).unwrap();
-        println!("mic device: {}", mic.device_name());
-        println!("mic sample_rate: {}", mic.sample_rate());
-
-        let target_rate = 16000;
-        let chunk_size = chunk_size_for_stt(target_rate);
-        println!("target_rate: {}, chunk_size: {}", target_rate, chunk_size);
-
-        let stream = mic.stream().unwrap();
-        let mut resampled = stream.resampled_chunks(target_rate, chunk_size).unwrap();
-
-        let mut chunks_received = 0;
-        let mut total_samples = 0;
-
-        let timeout = tokio::time::Duration::from_secs(3);
-        let start = tokio::time::Instant::now();
-
-        while start.elapsed() < timeout {
-            tokio::select! {
-                chunk = resampled.next() => {
-                    match chunk {
-                        Some(Ok(data)) => {
-                            chunks_received += 1;
-                            total_samples += data.len();
-                            let has_nonzero = data.iter().any(|&x| x != 0.0);
-                            println!(
-                                "chunk {}: {} samples, has_nonzero={}",
-                                chunks_received, data.len(), has_nonzero
-                            );
-                            if chunks_received >= 10 {
-                                break;
-                            }
-                        }
-                        Some(Err(e)) => {
-                            panic!("resampling error: {:?}", e);
-                        }
-                        None => {
-                            panic!("stream ended unexpectedly");
-                        }
-                    }
-                }
-                _ = tokio::time::sleep(tokio::time::Duration::from_millis(500)) => {
-                    println!("timeout waiting for chunk, chunks_received={}", chunks_received);
-                }
-            }
-        }
-
-        println!(
-            "total: {} chunks, {} samples in {:?}",
-            chunks_received,
-            total_samples,
-            start.elapsed()
-        );
-        assert!(chunks_received > 0, "should receive at least one chunk");
-        assert!(total_samples > 0, "should receive samples");
     }
 }

@@ -43,21 +43,16 @@ async fn saves_an_explicit_editor_web_edit_without_a_pro_entitlement() {
         .await;
 
     let response = test_router(&server, "issuer-key", &[])
-        .oneshot(
-            Request::put(format!("/shares/{share_id}/web-edit"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 3,
-                        "mutationId": mutation_id,
-                        "title": "Edited note",
-                        "body": body,
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            &format!("/shares/{share_id}/web-edit"),
+            json!({
+                "baseRevision": 3,
+                "mutationId": mutation_id,
+                "title": "Edited note",
+                "body": body,
+                "attachmentIds": []
+            }),
+        ))
         .await
         .unwrap();
 
@@ -117,21 +112,16 @@ async fn saves_web_edits_that_preserve_the_attachment_manifest() {
         .await;
 
     let response = test_router(&server, "issuer-key", &[])
-        .oneshot(
-            Request::put(format!("/shares/{share_id}/web-edit"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 3,
-                        "mutationId": mutation_id,
-                        "title": "Edited note",
-                        "body": body,
-                        "attachmentIds": [attachment_id]
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            &format!("/shares/{share_id}/web-edit"),
+            json!({
+                "baseRevision": 3,
+                "mutationId": mutation_id,
+                "title": "Edited note",
+                "body": body,
+                "attachmentIds": [attachment_id]
+            }),
+        ))
         .await
         .unwrap();
 
@@ -174,21 +164,16 @@ async fn rejects_an_oversized_chunked_snapshot_mutation_response() {
         .await;
 
     let response = test_router(&server, "issuer-key", &[])
-        .oneshot(
-            Request::put(format!("/shares/{share_id}/web-edit"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 1,
-                        "mutationId": mutation_id,
-                        "title": "Title",
-                        "body": body,
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            &format!("/shares/{share_id}/web-edit"),
+            json!({
+                "baseRevision": 1,
+                "mutationId": mutation_id,
+                "title": "Title",
+                "body": body,
+                "attachmentIds": []
+            }),
+        ))
         .await
         .unwrap();
 
@@ -231,21 +216,16 @@ async fn maps_a_stale_web_edit_to_a_redacted_conflict_snapshot() {
         .await;
 
     let response = test_router(&server, "issuer-key", &[])
-        .oneshot(
-            Request::put(format!("/shares/{share_id}/web-edit"))
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 4,
-                        "mutationId": mutation_id,
-                        "title": "Draft",
-                        "body": draft,
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            &format!("/shares/{share_id}/web-edit"),
+            json!({
+                "baseRevision": 4,
+                "mutationId": mutation_id,
+                "title": "Draft",
+                "body": draft,
+                "attachmentIds": []
+            }),
+        ))
         .await
         .unwrap();
 
@@ -258,56 +238,45 @@ async fn maps_a_stale_web_edit_to_a_redacted_conflict_snapshot() {
 }
 
 #[tokio::test]
-async fn rejects_legacy_payloads_on_the_web_edit_route() {
-    let server = MockServer::start().await;
-    let response = test_router(&server, "issuer-key", &[])
-        .oneshot(
-            Request::put("/shares/11111111-1111-4111-8111-111111111111/web-edit")
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "title": "Legacy",
-                        "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+async fn rejects_legacy_or_lossy_web_edits_before_calling_supabase() {
+    for (case, payload) in [
+        (
+            "legacy payload",
+            json!({
+                "title": "Legacy",
+                "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
+                "attachmentIds": []
+            }),
+        ),
+        (
+            "lossy document",
+            json!({
+                "baseRevision": 1,
+                "mutationId": "22222222-2222-4222-8222-222222222222",
+                "title": "Unsupported",
+                "body": {
+                    "type": "doc",
+                    "content": [{ "type": "privateNode", "attrs": { "secret": "value" } }]
+                },
+                "attachmentIds": []
+            }),
+        ),
+    ] {
+        let server = MockServer::start().await;
+        let response = test_router(&server, "issuer-key", &[])
+            .oneshot(put_json(
+                "/shares/11111111-1111-4111-8111-111111111111/web-edit",
+                payload,
+            ))
+            .await
+            .unwrap();
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert!(server.received_requests().await.unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn rejects_a_lossy_web_edit_before_calling_supabase() {
-    let server = MockServer::start().await;
-    let response = test_router(&server, "issuer-key", &[])
-        .oneshot(
-            Request::put("/shares/11111111-1111-4111-8111-111111111111/web-edit")
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 1,
-                        "mutationId": "22222222-2222-4222-8222-222222222222",
-                        "title": "Unsupported",
-                        "body": {
-                            "type": "doc",
-                            "content": [{ "type": "privateNode", "attrs": { "secret": "value" } }]
-                        },
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert!(server.received_requests().await.unwrap().is_empty());
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{case}");
+        assert!(
+            server.received_requests().await.unwrap().is_empty(),
+            "{case}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -323,21 +292,16 @@ async fn maps_revoked_editor_denial_without_leaking_database_details() {
         .await;
 
     let response = test_router(&server, "issuer-key", &[])
-        .oneshot(
-            Request::put("/shares/11111111-1111-4111-8111-111111111111/web-edit")
-                .header(http_header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    json!({
-                        "baseRevision": 1,
-                        "mutationId": "22222222-2222-4222-8222-222222222222",
-                        "title": "Title",
-                        "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
-                        "attachmentIds": []
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
+        .oneshot(put_json(
+            "/shares/11111111-1111-4111-8111-111111111111/web-edit",
+            json!({
+                "baseRevision": 1,
+                "mutationId": "22222222-2222-4222-8222-222222222222",
+                "title": "Title",
+                "body": { "type": "doc", "content": [{ "type": "paragraph" }] },
+                "attachmentIds": []
+            }),
+        ))
         .await
         .unwrap();
 

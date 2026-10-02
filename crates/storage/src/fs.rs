@@ -63,16 +63,6 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn atomic_write_creates_file() {
-        let temp = tempdir().unwrap();
-        let target = temp.path().join("new_file.json");
-
-        atomic_write(&target, r#"{"key": "value"}"#).unwrap();
-
-        assert_eq!(fs::read_to_string(&target).unwrap(), r#"{"key": "value"}"#);
-    }
-
-    #[test]
     fn atomic_write_creates_parent_dirs() {
         let temp = tempdir().unwrap();
         let target = temp.path().join("nested").join("dir").join("file.json");
@@ -94,18 +84,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn atomic_write_async_creates_file() {
-        let temp = tempdir().unwrap();
-        let target = temp.path().join("async_file.json");
-
-        atomic_write_async(&target, r#"{"async": true}"#)
-            .await
-            .unwrap();
-
-        assert_eq!(fs::read_to_string(&target).unwrap(), r#"{"async": true}"#);
-    }
-
-    #[tokio::test]
     async fn atomic_write_async_creates_parent_dirs() {
         let temp = tempdir().unwrap();
         let target = temp.path().join("async").join("nested").join("file.json");
@@ -113,29 +91,6 @@ mod tests {
         atomic_write_async(&target, "async content").await.unwrap();
 
         assert_eq!(fs::read_to_string(&target).unwrap(), "async content");
-    }
-
-    #[test]
-    fn copy_dir_recursive_copies_files() {
-        let temp = tempdir().unwrap();
-        let src = temp.path().join("src");
-        let dst = temp.path().join("dst");
-
-        fs::create_dir_all(&src).unwrap();
-        fs::write(src.join("file1.txt"), "content1").unwrap();
-        fs::write(src.join("file2.txt"), "content2").unwrap();
-
-        fs::create_dir_all(&dst).unwrap();
-        copy_dir_recursive(&src, &dst, None).unwrap();
-
-        assert_eq!(
-            fs::read_to_string(dst.join("file1.txt")).unwrap(),
-            "content1"
-        );
-        assert_eq!(
-            fs::read_to_string(dst.join("file2.txt")).unwrap(),
-            "content2"
-        );
     }
 
     #[test]

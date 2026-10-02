@@ -3,7 +3,6 @@ import {
   createContext,
   type ReactNode,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -15,6 +14,7 @@ import {
   type LocalModel,
 } from "@anlg/plugin-local-stt";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useConfigValues } from "~/shared/config";
 import type { DownloadProgress } from "~/sidebar/toast/types";
@@ -88,7 +88,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     Map<LocalModel, number>
   >(new Map());
 
-  useEffect(() => {
+  useMountEffect(() => {
     const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
       const { model: eventModel, status } = event.payload;
       const isFailed = typeof status === "object" && "failed" in status;
@@ -114,7 +114,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, []);
+  });
 
   const hasActiveEnhancement = false;
 

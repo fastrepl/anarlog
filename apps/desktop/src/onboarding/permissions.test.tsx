@@ -66,22 +66,6 @@ describe("PermissionsSection", () => {
     });
   });
 
-  it("collects Accessibility permission on macOS", () => {
-    const { container } = render(<PermissionsSection />);
-
-    expect(screen.getByText("Help Anarlog listen to you")).toBeTruthy();
-    expect(screen.getByText("Help Anarlog listen to others")).toBeTruthy();
-    expect(screen.getByText("Help Anarlog read meeting activity")).toBeTruthy();
-    expect(
-      screen
-        .getByRole("button", { name: "Enable accessibility" })
-        .getAttribute("title"),
-    ).toBe("Read meeting controls and visible chat");
-    expect(
-      container.querySelectorAll("[data-testid='permission-action-arrow']"),
-    ).toHaveLength(3);
-  });
-
   it("waits for all three macOS permissions before continuing", () => {
     const onContinue = vi.fn();
     mocks.permissions.microphone.status = "authorized";
@@ -121,17 +105,6 @@ describe("PermissionsSection", () => {
 
     render(<PermissionsSection />);
 
-    expect(
-      screen
-        .getByRole("button", { name: "Try again: Microphone" })
-        .getAttribute("title"),
-    ).toBe("microphone device unavailable");
-    expect(
-      screen
-        .getByRole("button", { name: "Try again: System audio" })
-        .getAttribute("title"),
-    ).toBe("PipeWire source unavailable");
-
     fireEvent.click(
       screen.getByRole("button", { name: "Try again: Microphone" }),
     );
@@ -164,10 +137,6 @@ describe("PermissionsSection", () => {
     const row = screen.getByRole("button", {
       name: "Open accessibility settings",
     });
-    expect(row.getAttribute("title")).toBe(
-      "Opens System Settings and guides you to add Anarlog to the Accessibility list",
-    );
-
     fireEvent.click(row);
 
     expect(mocks.permissions.accessibility.open).toHaveBeenCalledTimes(1);

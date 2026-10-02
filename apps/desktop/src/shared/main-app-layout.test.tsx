@@ -57,7 +57,7 @@ vi.mock("~/settings/team/invitation-toast", () => ({
   ),
 }));
 
-vi.mock("~/shared/hooks/useMountEffect", () => ({
+vi.mock("@anlg/ui/hooks/use-mount-effect", () => ({
   useMountEffect: vi.fn(),
 }));
 

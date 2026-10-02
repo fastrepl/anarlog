@@ -193,68 +193,43 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn cleanup_old_daily_logs_removes_matching_files() {
+    fn cleanup_old_daily_logs_removes_only_dated_daily_logs() {
         let temp = tempdir().unwrap();
         let logs_dir = temp.path().to_path_buf();
 
         fs::write(logs_dir.join("log.2024-01-15"), "old log").unwrap();
         fs::write(logs_dir.join("log.2024-01-16"), "old log").unwrap();
         fs::write(logs_dir.join("log.2024-12-31"), "old log").unwrap();
+        fs::write(logs_dir.join("app.log"), "current log").unwrap();
+        fs::write(logs_dir.join("app.log.1"), "rotated log").unwrap();
+        fs::write(logs_dir.join("other.txt"), "other file").unwrap();
+        fs::write(logs_dir.join("log.txt"), "log file").unwrap();
+        fs::write(logs_dir.join("log.backup"), "backup").unwrap();
 
         cleanup_old_daily_logs(&logs_dir).unwrap();
 
         assert!(!logs_dir.join("log.2024-01-15").exists());
         assert!(!logs_dir.join("log.2024-01-16").exists());
         assert!(!logs_dir.join("log.2024-12-31").exists());
-    }
-
-    #[test]
-    fn cleanup_old_daily_logs_preserves_non_matching() {
-        let temp = tempdir().unwrap();
-        let logs_dir = temp.path().to_path_buf();
-
-        fs::write(logs_dir.join("app.log"), "current log").unwrap();
-        fs::write(logs_dir.join("app.log.1"), "rotated log").unwrap();
-        fs::write(logs_dir.join("other.txt"), "other file").unwrap();
-        fs::write(logs_dir.join("log.2024-01-15"), "old log").unwrap();
-
-        cleanup_old_daily_logs(&logs_dir).unwrap();
-
         assert!(logs_dir.join("app.log").exists());
         assert!(logs_dir.join("app.log.1").exists());
         assert!(logs_dir.join("other.txt").exists());
-        assert!(!logs_dir.join("log.2024-01-15").exists());
-    }
-
-    #[test]
-    fn cleanup_old_daily_logs_handles_empty_dir() {
-        let temp = tempdir().unwrap();
-        let logs_dir = temp.path().to_path_buf();
-
-        let result = cleanup_old_daily_logs(&logs_dir);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn cleanup_old_daily_logs_handles_nonexistent_dir() {
-        let logs_dir = PathBuf::from("/nonexistent/path/that/does/not/exist");
-
-        let result = cleanup_old_daily_logs(&logs_dir);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn cleanup_old_daily_logs_preserves_log_without_date_suffix() {
-        let temp = tempdir().unwrap();
-        let logs_dir = temp.path().to_path_buf();
-
-        fs::write(logs_dir.join("log.txt"), "log file").unwrap();
-        fs::write(logs_dir.join("log.backup"), "backup").unwrap();
-
-        cleanup_old_daily_logs(&logs_dir).unwrap();
-
         assert!(logs_dir.join("log.txt").exists());
         assert!(logs_dir.join("log.backup").exists());
+    }
+
+    #[test]
+    fn cleanup_old_daily_logs_tolerates_empty_or_missing_dir() {
+        let empty_dir = tempdir().unwrap();
+        let missing_dir = PathBuf::from("/nonexistent/path/that/does/not/exist");
+
+        for logs_dir in [empty_dir.path().to_path_buf(), missing_dir] {
+            assert!(
+                cleanup_old_daily_logs(&logs_dir).is_ok(),
+                "cleanup should tolerate {}",
+                logs_dir.display()
+            );
+        }
     }
 
     #[test]

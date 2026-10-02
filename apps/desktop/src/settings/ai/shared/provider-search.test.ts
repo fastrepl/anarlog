@@ -14,20 +14,15 @@ const providers = [
 ];
 
 describe("filterProviders", () => {
-  test("matches provider names without case sensitivity", () => {
-    expect(filterProviders(providers, "MOON")).toEqual([providers[0]]);
-  });
-
-  test("matches provider identifiers", () => {
-    expect(filterProviders(providers, "alibaba_cloud")).toEqual([providers[1]]);
-  });
-
-  test("returns all providers for a blank query", () => {
-    expect(filterProviders(providers, "  ")).toEqual(providers);
-  });
-
-  test("matches provider descriptions", () => {
-    expect(filterProviders(providers, "whisper")).toEqual([providers[3]]);
-    expect(filterProviders(providers, ".bin")).toEqual([providers[3]]);
+  test.each([
+    ["MOON", [0]],
+    ["alibaba_cloud", [1]],
+    ["  ", [0, 1, 2, 3]],
+    ["whisper", [3]],
+    [".bin", [3]],
+  ])("filters providers for %s", (query, expectedIndexes) => {
+    expect(filterProviders(providers, query)).toEqual(
+      expectedIndexes.map((index) => providers[index]),
+    );
   });
 });

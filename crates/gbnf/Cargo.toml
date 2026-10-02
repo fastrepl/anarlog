@@ -7,8 +7,6 @@ edition = "2024"
 serde = { workspace = true, features = ["derive"] }
 specta = { workspace = true, features = ["derive"] }
 
-tracing = { workspace = true }
-
 [dev-dependencies]
 colored = "3"
 gbnf-validator = { workspace = true }

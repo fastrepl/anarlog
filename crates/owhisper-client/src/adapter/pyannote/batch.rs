@@ -405,14 +405,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_speaker_label_accepts_prefixed_ids() {
-        assert_eq!(parse_speaker_id("SPEAKER_00"), Some(0));
-        assert_eq!(parse_speaker_id("speaker_12"), Some(12));
-        assert_eq!(parse_speaker_id("alice"), None);
-    }
-
-    #[test]
-    fn pyannote_prefers_listen_params_speaker_range_fields() {
+    fn pyannote_speaker_range_prefers_fields_then_custom_query() {
         let params = ListenParams {
             min_speakers: Some(2),
             max_speakers: Some(4),
@@ -435,10 +428,7 @@ mod tests {
             ),
             Some(4)
         );
-    }
 
-    #[test]
-    fn pyannote_falls_back_to_legacy_custom_query_speaker_range_keys() {
         let params = ListenParams {
             custom_query: Some(std::collections::HashMap::from([
                 ("pyannote_min_speakers".to_string(), "2".to_string()),
@@ -527,7 +517,7 @@ mod tests {
     }
 
     #[test]
-    fn diarize_request_serializes_speaker_range_options() {
+    fn diarize_request_serialization() {
         let value = serde_json::to_value(DiarizeRequest {
             url: "media://audio".to_string(),
             model: PyannoteDiarizationModel::Precision2,
@@ -545,10 +535,7 @@ mod tests {
         assert_eq!(value["maxSpeakers"], 4);
         assert_eq!(value["minSpeakers"], 2);
         assert_eq!(value["numSpeakers"], 2);
-    }
 
-    #[test]
-    fn diarize_request_omits_optional_speaker_controls_when_absent() {
         let value = serde_json::to_value(DiarizeRequest {
             url: "media://audio".to_string(),
             model: PyannoteDiarizationModel::Precision2,

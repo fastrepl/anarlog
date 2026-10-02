@@ -167,57 +167,59 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_build_ws_url_from_base_empty() {
-        let (url, params) = SmallestAIAdapter::build_ws_url_from_base("");
-        assert_eq!(url.as_str(), "wss://api.smallest.ai/waves/v1/stt/live");
-        assert!(params.is_empty());
+    fn test_build_ws_url_from_base() {
+        for (input, expected_url, expected_params) in [
+            ("", "wss://api.smallest.ai/waves/v1/stt/live", vec![]),
+            (
+                "https://api.us.smallest.ai/base?foo=bar",
+                "wss://api.us.smallest.ai/waves/v1/stt/live",
+                vec![("foo", "bar")],
+            ),
+            (
+                "https://api.anarlog.so/stt?provider=smallestai",
+                "wss://api.anarlog.so/stt/listen",
+                vec![("provider", "smallestai")],
+            ),
+            (
+                "http://localhost:8787/stt?provider=smallestai",
+                "ws://localhost:8787/stt/listen",
+                vec![("provider", "smallestai")],
+            ),
+        ] {
+            let (url, params) = SmallestAIAdapter::build_ws_url_from_base(input);
+            assert_eq!(url.as_str(), expected_url, "input: {input}");
+            assert_eq!(
+                params,
+                expected_params
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>(),
+                "input: {input}"
+            );
+        }
     }
 
     #[test]
-    fn test_build_ws_url_from_base_custom() {
-        let (url, params) =
-            SmallestAIAdapter::build_ws_url_from_base("https://api.us.smallest.ai/base?foo=bar");
-        assert_eq!(url.as_str(), "wss://api.us.smallest.ai/waves/v1/stt/live");
-        assert_eq!(params, vec![("foo".to_string(), "bar".to_string())]);
-    }
-
-    #[test]
-    fn test_build_ws_url_from_base_proxy() {
-        let (url, params) = SmallestAIAdapter::build_ws_url_from_base(
-            "https://api.anarlog.so/stt?provider=smallestai",
-        );
-        assert_eq!(url.as_str(), "wss://api.anarlog.so/stt/listen");
-        assert_eq!(
-            params,
-            vec![("provider".to_string(), "smallestai".to_string())]
-        );
-    }
-
-    #[test]
-    fn test_build_ws_url_from_base_local_proxy() {
-        let (url, params) = SmallestAIAdapter::build_ws_url_from_base(
-            "http://localhost:8787/stt?provider=smallestai",
-        );
-        assert_eq!(url.as_str(), "ws://localhost:8787/stt/listen");
-        assert_eq!(
-            params,
-            vec![("provider".to_string(), "smallestai".to_string())]
-        );
-    }
-
-    #[test]
-    fn test_batch_api_url_empty() {
-        let (url, params) = SmallestAIAdapter::batch_api_url("");
-        assert_eq!(url.as_str(), "https://api.smallest.ai/waves/v1/stt/");
-        assert!(params.is_empty());
-    }
-
-    #[test]
-    fn test_batch_api_url_custom() {
-        let (url, params) =
-            SmallestAIAdapter::batch_api_url("https://api.us.smallest.ai/base?foo=bar");
-        assert_eq!(url.as_str(), "https://api.us.smallest.ai/waves/v1/stt/");
-        assert_eq!(params, vec![("foo".to_string(), "bar".to_string())]);
+    fn test_batch_api_url() {
+        for (input, expected_url, expected_params) in [
+            ("", "https://api.smallest.ai/waves/v1/stt/", vec![]),
+            (
+                "https://api.us.smallest.ai/base?foo=bar",
+                "https://api.us.smallest.ai/waves/v1/stt/",
+                vec![("foo", "bar")],
+            ),
+        ] {
+            let (url, params) = SmallestAIAdapter::batch_api_url(input);
+            assert_eq!(url.as_str(), expected_url, "input: {input}");
+            assert_eq!(
+                params,
+                expected_params
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>(),
+                "input: {input}"
+            );
+        }
     }
 
     #[test]
@@ -249,15 +251,12 @@ mod tests {
     }
 
     #[test]
-    fn test_language_support_rejects_unsupported_model() {
+    fn test_language_support() {
         assert_eq!(
             SmallestAIAdapter::language_support_live(&[ISO639::En.into()], Some("other-model")),
             LanguageSupport::NotSupported
         );
-    }
 
-    #[test]
-    fn test_language_support_follows_per_mode_lists() {
         assert!(SmallestAIAdapter::is_supported_languages_live(
             &[ISO639::En.into(), ISO639::Hi.into()],
             Some("pulse"),
@@ -274,10 +273,7 @@ mod tests {
             &[ISO639::Gu.into()],
             Some("pulse"),
         ));
-    }
 
-    #[test]
-    fn test_pulse_pro_is_english_batch_only() {
         assert!(!SmallestAIAdapter::is_supported_languages_live(
             &[ISO639::En.into()],
             Some("pulse-pro"),

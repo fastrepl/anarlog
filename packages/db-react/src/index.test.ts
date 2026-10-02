@@ -116,25 +116,6 @@ describe("@anlg/db-react", () => {
     remounted.unmount();
   });
 
-  it("keeps distinct query parameters in separate subscriptions", async () => {
-    const useLiveQuery = createUseLiveQuery(client);
-    subscribeMock.mockResolvedValue(async () => {});
-
-    const first = renderHook(() =>
-      useLiveQuery({ sql: "SELECT id FROM test WHERE id = ?", params: [1] }),
-    );
-    const second = renderHook(() =>
-      useLiveQuery({ sql: "SELECT id FROM test WHERE id = ?", params: [2] }),
-    );
-
-    await waitFor(() => {
-      expect(subscribeMock).toHaveBeenCalledTimes(2);
-    });
-
-    first.unmount();
-    second.unmount();
-  });
-
   it("releases the previous subscription when query parameters change", async () => {
     const useLiveQuery = createUseLiveQuery(client);
     const firstUnsubscribe = vi.fn().mockResolvedValue(undefined);

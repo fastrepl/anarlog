@@ -723,7 +723,8 @@ async function persistDriveRun(
           item.stepId === run.stepId &&
           item.sessionId === run.sessionId &&
           item.folderId === run.folderId &&
-          item.connectionId === run.connectionId
+          item.connectionId === run.connectionId &&
+          (item.format ?? "markdown") === (run.format ?? "markdown")
         ),
     );
     runs.push(run);
@@ -751,7 +752,8 @@ async function executeDriveStep(
       run.sessionId === sessionId &&
       run.stepId === step.id &&
       run.connectionId === step.connectionId &&
-      run.folderId === step.target?.id,
+      run.folderId === step.target?.id &&
+      (run.format ?? "markdown") === (step.format ?? "markdown"),
   );
   const run: DriveExportRun = {
     sessionId,
@@ -759,6 +761,7 @@ async function executeDriveStep(
     connectionId: step.connectionId,
     folderId: step.target.id,
     fileId: previous?.fileId,
+    format: step.format ?? "markdown",
     status: "pending",
     detail: "",
     at: new Date().toISOString(),
@@ -774,6 +777,7 @@ async function executeDriveStep(
           connection_id: run.connectionId,
           folder_id: run.folderId,
           meeting_id: sessionId,
+          format: run.format,
         },
       });
       if (error || !data) throw new Error(apiErrorMessage(error));
@@ -786,12 +790,14 @@ async function executeDriveStep(
         connection_id: run.connectionId,
         folder_id: run.folderId,
         meeting_id: sessionId,
-        file_id: run.fileId,
+        file_id: run.fileId ?? "",
+        format: run.format,
         filename: prepared.data.filename,
         markdown: prepared.data.markdown,
       },
     });
     if (error || !data) throw new Error(apiErrorMessage(error));
+    run.fileId = data.file_id;
     run.status = "success";
     run.detail = data.url;
   } catch (error) {
@@ -854,10 +860,11 @@ export function retryDriveExport(
     if (
       step?.type !== "google_drive_export" ||
       step.connectionId !== failed.connectionId ||
-      step.target?.id !== failed.folderId
+      step.target?.id !== failed.folderId ||
+      (step.format ?? "markdown") !== (failed.format ?? "markdown")
     ) {
       throw new Error(
-        "The Drive destination has changed. Generate the summary again to export to the new folder.",
+        "The Drive destination or format has changed. Generate the summary again to export to the new folder.",
       );
     }
     const run = await executeDriveStep(failed.sessionId, workflow, step);

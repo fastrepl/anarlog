@@ -748,7 +748,6 @@ impl MobileDbBridge {
                 "recovery_pending": false,
                 "recovery_delayed": false,
                 "recovery_phase": null,
-                "activity_log": [],
             }))
             .map_err(serialization_error);
         }

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-update-human-contact-summary"
+description = "Enables the update_human_contact_summary command without any pre-configured scope."
+commands.allow = ["update_human_contact_summary"]
+
+[[permission]]
+identifier = "deny-update-human-contact-summary"
+description = "Denies the update_human_contact_summary command without any pre-configured scope."
+commands.deny = ["update_human_contact_summary"]

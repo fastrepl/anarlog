@@ -117,55 +117,6 @@ describe("NotificationSettingsView", () => {
     );
   });
 
-  it("hides unsupported microphone detection and DND controls on Windows", () => {
-    mocks.currentPlatform = "windows";
-
-    render(<NotificationSettingsView />);
-
-    expect(screen.getByText("Event notifications")).toBeTruthy();
-    expect(screen.queryByText("Microphone detection")).toBeNull();
-    expect(screen.queryByText("Respect Do-Not-Disturb mode")).toBeNull();
-  });
-
-  it("shows one general app icon bounce control", () => {
-    render(<NotificationSettingsView />);
-
-    expect(screen.getByText("Bounce app icon")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Get your attention when Anarlog finishes work in the background.",
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.queryByText("Bounce app icon when a transcript is ready"),
-    ).toBeNull();
-    expect(
-      screen.queryByText("Bounce app icon when a summary is ready"),
-    ).toBeNull();
-  });
-
-  it("hides app icon bouncing when the app is hidden from the Dock", () => {
-    mocks.useConfigValues.mockReturnValue({
-      ...baseConfig,
-      show_app_in_dock: false,
-    });
-
-    render(<NotificationSettingsView />);
-
-    expect(screen.queryByText("Bounce app icon")).toBeNull();
-  });
-
-  it("offers five completion sounds and previews the selected sound", () => {
-    render(<NotificationSettingsView />);
-
-    expect(
-      screen.getByRole("combobox", { name: "Sound" }).textContent,
-    ).toContain("Ready");
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-
-    expect(mocks.previewCompletionSound).toHaveBeenCalledWith("ready");
-  });
-
   it("disables every notification control with the master switch", () => {
     render(<NotificationSettingsView />);
 

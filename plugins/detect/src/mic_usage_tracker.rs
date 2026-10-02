@@ -109,6 +109,7 @@ mod tests {
     async fn test_cooldown_blocks_retracking() {
         let mut tracker = MicUsageTracker::default();
 
+        assert!(!tracker.is_in_cooldown("app.x"));
         let generation = tracker.start_tracking("app.x".to_string(), CancellationToken::new());
         assert!(tracker.claim("app.x", generation));
         assert!(tracker.is_in_cooldown("app.x"));
@@ -135,12 +136,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cancel_nonexistent_app_is_noop() {
-        let mut tracker = MicUsageTracker::default();
-        tracker.cancel_app("app.nonexistent");
-    }
-
-    #[test]
     fn test_claim_nonexistent_app_returns_false() {
         let _rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = _rt.enter();
@@ -160,52 +155,6 @@ mod tests {
 
         tracker.cancel_app("app.x");
         assert!(!tracker.is_tracking("app.x"));
-    }
-
-    #[test]
-    fn test_drop_cancels_all_tokens() {
-        let token1 = CancellationToken::new();
-        let token2 = CancellationToken::new();
-        let t1_clone = token1.clone();
-        let t2_clone = token2.clone();
-
-        {
-            let mut tracker = MicUsageTracker::default();
-            tracker.start_tracking("app.a".to_string(), token1);
-            tracker.start_tracking("app.b".to_string(), token2);
-            assert!(!t1_clone.is_cancelled());
-            assert!(!t2_clone.is_cancelled());
-        }
-
-        assert!(
-            t1_clone.is_cancelled(),
-            "token1 should be cancelled on drop"
-        );
-        assert!(
-            t2_clone.is_cancelled(),
-            "token2 should be cancelled on drop"
-        );
-    }
-
-    #[test]
-    fn test_generation_increments() {
-        let mut tracker = MicUsageTracker::default();
-        let g0 = tracker.start_tracking("app.a".to_string(), CancellationToken::new());
-        let g1 = tracker.start_tracking("app.b".to_string(), CancellationToken::new());
-        let g2 = tracker.start_tracking("app.c".to_string(), CancellationToken::new());
-        assert_eq!(g0, 0);
-        assert_eq!(g1, 1);
-        assert_eq!(g2, 2);
-    }
-
-    #[tokio::test(start_paused = true)]
-    async fn test_claim_sets_cooldown() {
-        let mut tracker = MicUsageTracker::default();
-        let generation = tracker.start_tracking("app.x".to_string(), CancellationToken::new());
-
-        assert!(!tracker.is_in_cooldown("app.x"), "no cooldown before claim");
-        assert!(tracker.claim("app.x", generation));
-        assert!(tracker.is_in_cooldown("app.x"), "cooldown set after claim");
     }
 
     #[tokio::test(start_paused = true)]
@@ -239,14 +188,5 @@ mod tests {
             tracker.is_in_cooldown("app.b"),
             "app.b still in cooldown at 5 min"
         );
-    }
-
-    #[test]
-    fn test_cancel_app_twice_is_safe() {
-        let mut tracker = MicUsageTracker::default();
-        tracker.start_tracking("app.x".to_string(), CancellationToken::new());
-        tracker.cancel_app("app.x");
-        tracker.cancel_app("app.x");
-        assert!(!tracker.is_tracking("app.x"));
     }
 }

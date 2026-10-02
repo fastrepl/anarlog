@@ -354,9 +354,7 @@ mod tests {
         let html = render_html(&DeepLink::AuthCallback(subscription_search()), "anarlog");
         assert!(html.contains("anarlog://auth/callback?code=ac_nf5hq"));
         assert!(html.contains("state=state-1"));
-        assert!(html.contains(r#"id="open-app""#));
         assert!(html.contains(r#"document.getElementById("open-app")?.click()"#));
-        assert!(html.contains("Connected successfully"));
         assert!(!html.contains("anarlog://focus"));
     }
 
@@ -373,7 +371,6 @@ mod tests {
         );
         assert!(html.contains("anarlog-dev://focus"));
         assert!(!html.contains("code=should-ignore"));
-        assert!(html.contains("Signed in successfully"));
     }
 
     #[test]

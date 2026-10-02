@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-apply-contact-enhancement"
+description = "Enables the apply_contact_enhancement command without any pre-configured scope."
+commands.allow = ["apply_contact_enhancement"]
+
+[[permission]]
+identifier = "deny-apply-contact-enhancement"
+description = "Denies the apply_contact_enhancement command without any pre-configured scope."
+commands.deny = ["apply_contact_enhancement"]

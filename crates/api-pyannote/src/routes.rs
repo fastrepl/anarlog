@@ -390,6 +390,7 @@ fn default_message(status: StatusCode) -> String {
 #[cfg(test)]
 mod tests {
     use anlg_api_auth::{AuthContext, Claims};
+    use axum::http::Method;
     use axum::{Extension, Router, body::Body, body::to_bytes, http::Request, http::StatusCode};
     use serde_json::{Value, json};
     use tower::ServiceExt;
@@ -420,6 +421,17 @@ mod tests {
 
     fn router(server: &MockServer) -> Router {
         router_for_user(server, "user-123")
+    }
+
+    async fn post_json(app: Router, path: &str, body: &str) -> axum::response::Response {
+        app.oneshot(
+            Request::post(path)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_owned()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
     }
 
     async fn response_json(response: axum::response::Response) -> Value {
@@ -481,94 +493,60 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn identify_forwards_owned_media_url_without_webhook_fields() {
-        let server = MockServer::start().await;
+    async fn identify_and_voiceprint_forward_owned_media_without_webhook_fields() {
+        for (route_path, request_body) in [
+            (
+                "/v1/identify",
+                r#"{"url":"media://users/user-123/audio.wav","voiceprints":[{"label":"speaker-a","voiceprint":"abc"}]}"#,
+            ),
+            (
+                "/v1/voiceprint",
+                r#"{"url":"media://users/user-123/audio.wav"}"#,
+            ),
+        ] {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path(route_path))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(json!({"jobId": "job-123", "status": "created"})),
+                )
+                .mount(&server)
+                .await;
 
-        Mock::given(method("POST"))
-            .and(path("/v1/identify"))
-            .and(header("authorization", "Bearer pyannote-key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "jobId": "job-123",
-                "status": "created"
-            })))
-            .mount(&server)
-            .await;
+            let response = post_json(router(&server), route_path, request_body).await;
 
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/identify")
-                    .header("content-type", "application/json")
-                    .body(Body::from(
-                        r#"{"url":"media://users/user-123/audio.wav","voiceprints":[{"label":"speaker-a","voiceprint":"abc"}]}"#,
-                    ))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let requests = server.received_requests().await.unwrap();
-        let body = requests[0].body_json::<Value>().unwrap();
-        assert_eq!(body["url"], json!("media://users/user-123/audio.wav"));
-        assert!(body.get("webhook").is_none());
-        assert!(body.get("webhookStatusOnly").is_none());
+            assert_eq!(response.status(), StatusCode::OK);
+            let requests = server.received_requests().await.unwrap();
+            let body = requests[0].body_json::<Value>().unwrap();
+            assert_eq!(body["url"], json!("media://users/user-123/audio.wav"));
+            assert!(body.get("webhook").is_none());
+            assert!(body.get("webhookStatusOnly").is_none());
+        }
     }
 
     #[tokio::test]
-    async fn voiceprint_forwards_owned_media_url_without_webhook_fields() {
+    async fn unexposed_upstream_routes_return_not_found() {
         let server = MockServer::start().await;
+        for (method, route_path, body) in [
+            (Method::GET, "/v1/test", None),
+            (Method::GET, "/v1/jobs", None),
+            (
+                Method::POST,
+                "/v1/media/output",
+                Some(r#"{"url":"media://users/user-123/audio.wav"}"#),
+            ),
+        ] {
+            let body = body.map_or_else(Body::empty, |body| Body::from(body.to_owned()));
+            let request = Request::builder()
+                .method(method)
+                .uri(route_path)
+                .body(body)
+                .unwrap();
+            let response = router(&server).oneshot(request).await.unwrap();
 
-        Mock::given(method("POST"))
-            .and(path("/v1/voiceprint"))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(json!({"jobId": "job-123", "status": "created"})),
-            )
-            .mount(&server)
-            .await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/voiceprint")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-123/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let requests = server.received_requests().await.unwrap();
-        let body = requests[0].body_json::<Value>().unwrap();
-        assert_eq!(body["url"], json!("media://users/user-123/audio.wav"));
-        assert!(body.get("webhook").is_none());
-        assert!(body.get("webhookStatusOnly").is_none());
-    }
-
-    #[tokio::test]
-    async fn test_route_is_not_exposed() {
-        let server = MockServer::start().await;
-
-        let response = router(&server)
-            .oneshot(Request::get("/v1/test").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn jobs_route_is_not_exposed() {
-        let server = MockServer::start().await;
-
-        let response = router(&server)
-            .oneshot(Request::get("/v1/jobs").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        }
     }
 
     #[tokio::test]
@@ -666,184 +644,71 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn media_input_scopes_an_owhisper_key_to_the_caller() {
-        let server = MockServer::start().await;
+    async fn owhisper_keys_are_scoped_to_the_caller() {
+        for (route_path, expected_status, response_body) in [
+            (
+                "/v1/media/input",
+                StatusCode::CREATED,
+                json!({"url": "https://uploads.pyannote.test/presigned"}),
+            ),
+            (
+                "/v1/diarize",
+                StatusCode::OK,
+                json!({"jobId": "job-123", "status": "created"}),
+            ),
+        ] {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path(route_path))
+                .respond_with(
+                    ResponseTemplate::new(expected_status.as_u16()).set_body_json(response_body),
+                )
+                .mount(&server)
+                .await;
 
-        Mock::given(method("POST"))
-            .and(path("/v1/media/input"))
-            .respond_with(ResponseTemplate::new(201).set_body_json(json!({
-                "url": "https://uploads.pyannote.test/presigned"
-            })))
-            .mount(&server)
+            let response = post_json(
+                router(&server),
+                route_path,
+                r#"{"url":"media://owhisper/process-123-audio.mp3"}"#,
+            )
             .await;
 
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/media/input")
-                    .header("content-type", "application/json")
-                    .body(Body::from(
-                        r#"{"url":"media://owhisper/process-123-audio.mp3"}"#,
-                    ))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::CREATED);
-        let requests = server.received_requests().await.unwrap();
-        assert_eq!(
-            requests[0].body_json::<Value>().unwrap(),
-            json!({"url": "media://users/user-123/owhisper/process-123-audio.mp3"})
-        );
+            assert_eq!(response.status(), expected_status);
+            let requests = server.received_requests().await.unwrap();
+            assert_eq!(
+                requests[0].body_json::<Value>().unwrap()["url"],
+                json!("media://users/user-123/owhisper/process-123-audio.mp3")
+            );
+        }
     }
 
     #[tokio::test]
-    async fn diarize_scopes_an_owhisper_key_to_the_caller() {
-        let server = MockServer::start().await;
+    async fn rejects_media_not_owned_by_the_caller() {
+        for (route_path, request_body) in [
+            (
+                "/v1/media/input",
+                r#"{"url":"media://users/user-999/audio.wav"}"#,
+            ),
+            (
+                "/v1/media/input",
+                r#"{"url":"media://users/user-123/../user-999/audio.wav"}"#,
+            ),
+            ("/v1/diarize", r#"{"url":"https://example.com/audio.wav"}"#),
+            (
+                "/v1/identify",
+                r#"{"url":"media://users/user-999/audio.wav","voiceprints":[{"label":"speaker-a","voiceprint":"abc"}]}"#,
+            ),
+        ] {
+            let server = MockServer::start().await;
+            let response = post_json(router(&server), route_path, request_body).await;
 
-        Mock::given(method("POST"))
-            .and(path("/v1/diarize"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "jobId": "job-123",
-                "status": "created"
-            })))
-            .mount(&server)
-            .await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/diarize")
-                    .header("content-type", "application/json")
-                    .body(Body::from(
-                        r#"{"url":"media://owhisper/process-123-audio.mp3"}"#,
-                    ))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-        let requests = server.received_requests().await.unwrap();
-        assert_eq!(
-            requests[0].body_json::<Value>().unwrap()["url"],
-            json!("media://users/user-123/owhisper/process-123-audio.mp3")
-        );
-    }
-
-    #[tokio::test]
-    async fn media_input_rejects_another_users_media() {
-        let server = MockServer::start().await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/media/input")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-999/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert!(server.received_requests().await.unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn media_input_rejects_parent_path_segments() {
-        let server = MockServer::start().await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/media/input")
-                    .header("content-type", "application/json")
-                    .body(Body::from(
-                        r#"{"url":"media://users/user-123/../user-999/audio.wav"}"#,
-                    ))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert!(server.received_requests().await.unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn media_output_route_is_not_exposed() {
-        let server = MockServer::start().await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/media/output")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-123/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn diarize_rejects_external_url() {
-        let server = MockServer::start().await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/diarize")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"https://example.com/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert_eq!(
-            response_json(response).await,
-            json!({"error": {"code": "bad_request", "message": "Invalid media URL: expected caller-owned managed media"}})
-        );
-    }
-
-    #[tokio::test]
-    async fn identify_rejects_media_owned_by_another_user() {
-        let server = MockServer::start().await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/identify")
-                    .header("content-type", "application/json")
-                    .body(Body::from(
-                        r#"{"url":"media://users/user-999/audio.wav","voiceprints":[{"label":"speaker-a","voiceprint":"abc"}]}"#,
-                    ))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert_eq!(
-            response_json(response).await,
-            json!({"error": {"code": "bad_request", "message": "Invalid media URL: expected caller-owned managed media"}})
-        );
-    }
-
-    #[tokio::test]
-    async fn voiceprint_requires_url() {
-        let server = MockServer::start().await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/voiceprint")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            assert_eq!(
+                response_json(response).await,
+                json!({"error": {"code": "bad_request", "message": "Invalid media URL: expected caller-owned managed media"}})
+            );
+            assert!(server.received_requests().await.unwrap().is_empty());
+        }
     }
 
     #[tokio::test]
@@ -866,171 +731,60 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upstream_bad_request_maps_to_char_error_shape() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/voiceprint"))
-            .respond_with(
+    async fn upstream_errors_map_to_the_api_error_shape() {
+        let cases = [
+            (
                 ResponseTemplate::new(400).set_body_json(json!({"message": "Invalid key"})),
-            )
-            .mount(&server)
-            .await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/voiceprint")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-123/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert_eq!(
-            response_json(response).await,
-            json!({"error": {"code": "bad_request", "message": "Invalid key"}})
-        );
-    }
-
-    #[tokio::test]
-    async fn upstream_rate_limit_maps_to_char_error_shape() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/voiceprint"))
-            .respond_with(ResponseTemplate::new(429).set_body_json(json!({"message": "Slow down"})))
-            .mount(&server)
-            .await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/voiceprint")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-123/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(
-            response_json(response).await,
-            json!({"error": {"code": "rate_limited", "message": "Slow down"}})
-        );
-    }
-
-    #[tokio::test]
-    async fn upstream_validation_error_preserves_message() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/voiceprint"))
-            .respond_with(ResponseTemplate::new(400).set_body_json(json!({
-                "message": "Invalid request",
-                "errors": [{"field": "url", "message": "Invalid URL"}]
-            })))
-            .mount(&server)
-            .await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/voiceprint")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-123/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        assert_eq!(
-            response_json(response).await,
-            json!({"error": {"code": "bad_request", "message": "Invalid request"}})
-        );
-    }
-
-    #[tokio::test]
-    async fn malformed_upstream_body_falls_back_to_default_message() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/voiceprint"))
-            .respond_with(ResponseTemplate::new(429).set_body_string("<<<not-json>>>"))
-            .mount(&server)
-            .await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/voiceprint")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-123/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(
-            response_json(response).await,
-            json!({"error": {"code": "rate_limited", "message": "Too many requests"}})
-        );
-    }
-
-    #[tokio::test]
-    async fn empty_upstream_body_falls_back_to_default_message() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/voiceprint"))
-            .respond_with(ResponseTemplate::new(429))
-            .mount(&server)
-            .await;
-
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/voiceprint")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-123/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(
-            response_json(response).await,
-            json!({"error": {"code": "rate_limited", "message": "Too many requests"}})
-        );
-    }
-
-    #[tokio::test]
-    async fn upstream_server_error_still_redacts_message() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/voiceprint"))
-            .respond_with(
+                StatusCode::BAD_REQUEST,
+                json!({"error": {"code": "bad_request", "message": "Invalid key"}}),
+            ),
+            (
+                ResponseTemplate::new(429).set_body_json(json!({"message": "Slow down"})),
+                StatusCode::TOO_MANY_REQUESTS,
+                json!({"error": {"code": "rate_limited", "message": "Slow down"}}),
+            ),
+            (
+                ResponseTemplate::new(400).set_body_json(json!({
+                    "message": "Invalid request",
+                    "errors": [{"field": "url", "message": "Invalid URL"}]
+                })),
+                StatusCode::BAD_REQUEST,
+                json!({"error": {"code": "bad_request", "message": "Invalid request"}}),
+            ),
+            (
+                ResponseTemplate::new(429).set_body_string("<<<not-json>>>"),
+                StatusCode::TOO_MANY_REQUESTS,
+                json!({"error": {"code": "rate_limited", "message": "Too many requests"}}),
+            ),
+            (
+                ResponseTemplate::new(429),
+                StatusCode::TOO_MANY_REQUESTS,
+                json!({"error": {"code": "rate_limited", "message": "Too many requests"}}),
+            ),
+            (
                 ResponseTemplate::new(500).set_body_json(json!({"message": "Upstream exploded"})),
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"error": {"code": "upstream_error", "message": "Internal server error"}}),
+            ),
+        ];
+
+        for (template, expected_status, expected_body) in cases {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/v1/voiceprint"))
+                .respond_with(template)
+                .mount(&server)
+                .await;
+
+            let response = post_json(
+                router(&server),
+                "/v1/voiceprint",
+                r#"{"url":"media://users/user-123/audio.wav"}"#,
             )
-            .mount(&server)
             .await;
 
-        let response = router(&server)
-            .oneshot(
-                Request::post("/v1/voiceprint")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"url":"media://users/user-123/audio.wav"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(
-            response_json(response).await,
-            json!({"error": {"code": "upstream_error", "message": "Internal server error"}})
-        );
+            assert_eq!(response.status(), expected_status);
+            assert_eq!(response_json(response).await, expected_body);
+        }
     }
 }

@@ -25,12 +25,15 @@ export const STARTER_AUTOMATIONS = {
   },
 } as const;
 
-export type StarterId = keyof typeof STARTER_AUTOMATIONS;
+export type StarterId = keyof typeof STARTER_AUTOMATIONS | "google-drive";
 
 export function isStarterId(
   value: string | null | undefined,
 ): value is StarterId {
-  return typeof value === "string" && value in STARTER_AUTOMATIONS;
+  return (
+    typeof value === "string" &&
+    (value === "google-drive" || value in STARTER_AUTOMATIONS)
+  );
 }
 
 export type StarterAutomation = {
@@ -50,6 +53,37 @@ export function useStarterAutomations(): StarterAutomation[] {
   const { t } = useLingui();
 
   return [
+    {
+      id: "google-drive",
+      title: t`Save meetings to Google Drive`,
+      description: t`Save meeting summaries and transcripts to a Google Drive folder.`,
+      renderIcon: (size) => (
+        <Icon
+          icon="logos:google-drive"
+          width={size}
+          height={size}
+          aria-hidden="true"
+        />
+      ),
+      steps: [
+        {
+          kind: "trigger",
+          title: t`Meeting ends`,
+          detail: t`Wait until the meeting recording ends.`,
+        },
+        {
+          kind: "ai",
+          title: t`Summary ready`,
+          detail: t`Runs once the AI summary for the meeting is ready.`,
+        },
+        {
+          kind: "action",
+          title: t`Upload to Google Drive folder`,
+          detail: t`Save the summary and transcript to the selected folder.`,
+        },
+      ],
+      preview: t`A Markdown file or Google document with the meeting summary and transcript.`,
+    },
     {
       id: "slack-recap",
       title: t`Share a meeting recap in Slack`,

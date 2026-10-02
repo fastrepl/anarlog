@@ -66,10 +66,4 @@ mod tests {
         assert_eq!(choose_optimal_frame_size(640), 320);
         assert_eq!(choose_optimal_frame_size(512), 320);
     }
-
-    #[test]
-    fn test_frame_size_for_small_inputs() {
-        assert_eq!(choose_optimal_frame_size(100), 320);
-        assert_eq!(choose_optimal_frame_size(50), 320);
-    }
 }

@@ -614,30 +614,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn terminalizes_an_interrupted_nonqueued_checkpoint_without_relaunching() {
-        let harness = harness(BotState::Capturing, 7, RuntimeMode::Wait, false);
-        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
-
-        let outcome = harness.supervisor.run(shutdown_rx).await.unwrap();
-
-        assert_eq!(
-            outcome,
-            CaptureJobSupervisorOutcome::Terminal(BotState::Failed)
-        );
-        assert!(!*harness.cleaned.lock().unwrap());
-        let events = harness.events.lock().unwrap();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].sequence, 7);
-        let CaptureEventPayload::Lifecycle(transition) = &events[0].payload else {
-            panic!("expected lifecycle event")
-        };
-        assert_eq!(
-            transition.reason.as_ref().unwrap().kind,
-            TerminalReasonKind::WorkerExited
-        );
-    }
-
-    #[tokio::test]
     async fn lease_loss_cancels_and_cleans_up_without_emitting_a_stale_terminal_event() {
         let harness = harness(BotState::Queued, 0, RuntimeMode::Wait, true);
         let (_shutdown_tx, shutdown_rx) = watch::channel(false);
@@ -787,7 +763,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn successor_supervisor_does_not_relaunch_after_interrupted_checkpoint() {
+    async fn interrupted_checkpoint_terminalizes_once_without_relaunching() {
         let first = harness(BotState::Capturing, 7, RuntimeMode::Wait, false);
         let (_shutdown_tx, shutdown_rx) = watch::channel(false);
         let first_outcome = first.supervisor.run(shutdown_rx).await.unwrap();
@@ -795,8 +771,11 @@ mod tests {
             first_outcome,
             CaptureJobSupervisorOutcome::Terminal(BotState::Failed)
         );
+        assert!(!*first.cleaned.lock().unwrap());
         let reason_kind = {
             let events = first.events.lock().unwrap();
+            assert_eq!(events.len(), 1);
+            assert_eq!(events[0].sequence, 7);
             let CaptureEventPayload::Lifecycle(transition) = &events[0].payload else {
                 panic!("expected lifecycle event");
             };

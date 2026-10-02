@@ -17,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "audio_source_metadata",
     "audio_has_speech",
     "audio_path",
+    "audio_peaks",
     "audio_copy",
     "session_dir",
     "load_session_content",

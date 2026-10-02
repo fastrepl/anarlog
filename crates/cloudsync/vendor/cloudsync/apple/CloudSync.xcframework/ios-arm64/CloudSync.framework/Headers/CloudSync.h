@@ -18,7 +18,10 @@
 extern "C" {
 #endif
 
-#define CLOUDSYNC_VERSION                       "1.1.2"
+#define CLOUDSYNC_VERSION                       "1.2.0"
+// LZ4's block format cannot expand input by more than 255:1, so a compressed payload
+// declaring a larger expansion is forged or corrupt (see cloudsync_payload_apply).
+#define CLOUDSYNC_PAYLOAD_LZ4_MAX_RATIO         255
 #define CLOUDSYNC_MAX_TABLENAME_LEN             512
 
 #define CLOUDSYNC_VALUE_NOTSET                  -1
@@ -107,8 +110,21 @@ int cloudsync_set_dberror (cloudsync_context *data);
 const char *cloudsync_errmsg (cloudsync_context *data);
 int cloudsync_errcode (cloudsync_context *data);
 void cloudsync_reset_error (cloudsync_context *data);
+// SQLSTATE of the database error behind the current error, encoded as PostgreSQL's
+// MAKE_SQLSTATE integer; 0 when there is none (always 0 on SQLite). Reported by the
+// PostgreSQL functions so a caller can still tell a serialization failure (40001) or a
+// unique violation (23505) from an internal error.
+void cloudsync_set_sqlstate (cloudsync_context *data, int sqlstate);
+int cloudsync_sqlstate (cloudsync_context *data);
+
+// Entries applied, accumulated across a receive drain (reset once before it) so an early
+// chunk is still reported by the call that finishes the drain. A payload that fails
+// still counts the changes it applied before its error, when they were kept.
+void cloudsync_apply_stats_reset (cloudsync_context *data);
+int cloudsync_apply_rows_count (cloudsync_context *data);
 int cloudsync_commit_hook (void *ctx);
 void cloudsync_rollback_hook (void *ctx);
+void cloudsync_transaction_end (cloudsync_context *data, bool committed);
 void cloudsync_set_schema (cloudsync_context *data, const char *schema);
 const char *cloudsync_schema (cloudsync_context *data);
 const char *cloudsync_table_schema (cloudsync_context *data, const char *table_name);
@@ -119,17 +135,33 @@ const char *cloudsync_table_schema (cloudsync_context *data, const char *table_n
 // on a complete db_version boundary, otherwise a stop between chunks of a single
 // source db_version silently skips the unapplied rows on the next /check (the
 // server's cloudsync_payload_chunks uses db_version > since with no seq cursor).
+// The cursor also identifies the server's prepared pages, so it stays fixed for a
+// whole receive stream and moves once, when the stream's final chunk has applied.
 //   >= 0                              advance the cursor to exactly this
 //                                     (watermark_db_version), with checkpoint_seq.
-//                                     Used once a chunk stream is fully applied.
+//                                     Used for the final chunk of a stream: fails
+//                                     if a fragmented value the stream delivered
+//                                     is still incomplete.
 //   CLOUDSYNC_CHECKPOINT_NONE         do not advance the cursor. Used for a
-//                                     non-final chunk of a multi-chunk stream.
+//                                     non-final chunk of a stream.
 //   CLOUDSYNC_CHECKPOINT_LAST_APPLIED advance to this artifact's last applied
 //                                     (db_version, seq). Legacy/monolithic
 //                                     behavior: safe only for a complete payload
-//                                     that ends on a db_version boundary.
-#define CLOUDSYNC_CHECKPOINT_NONE          (-1)
-#define CLOUDSYNC_CHECKPOINT_LAST_APPLIED  (-2)
+//                                     that ends on a db_version boundary. Used by
+//                                     direct SQL calls; a v3 fragment never moves
+//                                     the cursor this way.
+//   CLOUDSYNC_CHECKPOINT_STREAM_LEGACY the final chunk of a stream from a server
+//                                     that sends no watermark: LAST_APPLIED plus the
+//                                     stream's completeness check. A v3 fragment
+//                                     fails: its final chunk may apply nothing new,
+//                                     leaving no position to checkpoint.
+// Every mode but LAST_APPLIED marks the call as part of a receive stream: the
+// fragmented values it stages are tracked until applied. Reset that tracking with
+// cloudsync_receive_stream_reset whenever a stream starts from its first page.
+#define CLOUDSYNC_CHECKPOINT_NONE           (-1)
+#define CLOUDSYNC_CHECKPOINT_LAST_APPLIED   (-2)
+#define CLOUDSYNC_CHECKPOINT_STREAM_LEGACY  (-3)
+void   cloudsync_receive_stream_reset (cloudsync_context *data);
 int    cloudsync_payload_apply (cloudsync_context *data, const char *payload, int blen, int *nrows, int64_t checkpoint_db_version, int64_t checkpoint_seq);
 int    cloudsync_payload_encode_step (cloudsync_payload_context *payload, cloudsync_context *data, int argc, dbvalue_t **argv);
 int    cloudsync_payload_encode_final (cloudsync_payload_context *payload, cloudsync_context *data);
@@ -196,7 +228,6 @@ int cloudsync_setup_block_column (cloudsync_context *data, const char *table_nam
 // Block column accessors (avoids accessing opaque struct from outside cloudsync.c)
 dbvm_t *table_block_value_read_stmt (cloudsync_table_context *table);
 dbvm_t *table_block_value_write_stmt (cloudsync_table_context *table);
-dbvm_t *table_block_list_stmt (cloudsync_table_context *table);
 const char *table_blocks_ref (cloudsync_table_context *table);
 void table_set_col_delimiter (cloudsync_table_context *table, int col_idx, const char *delimiter);
 
@@ -207,6 +238,8 @@ int local_mark_insert_or_update_meta (cloudsync_table_context *table, const void
 int local_mark_delete_meta (cloudsync_table_context *table, const void *pk, size_t pklen, int64_t db_version, int seq);
 int local_mark_delete_block_meta (cloudsync_table_context *table, const void *pk, size_t pklen, const char *block_colname, int64_t db_version, int seq);
 int block_delete_value_external (cloudsync_context *data, cloudsync_table_context *table, const void *pk, size_t pklen, const char *block_colname);
+int local_block_update(cloudsync_context *data, cloudsync_table_context *table, const void *pk, size_t pklen, int column, const char *text, int64_t version, bool initial);
+int local_block_insert(cloudsync_context *data, cloudsync_table_context *table, const void *pk, size_t pklen, int column, int64_t version);
 int local_drop_meta (cloudsync_table_context *table, const void *pk, size_t pklen);
 int local_update_move_meta (cloudsync_table_context *table, const void *pk, size_t pklen, const void *pk2, size_t pklen2, int64_t db_version);
 

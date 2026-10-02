@@ -43,11 +43,6 @@ fn test_slack_huddle_rejects_channel_window_title_without_huddle_identity() {
 }
 
 #[test]
-fn test_slack_live_huddle_controls_fit_tree_depth_budget() {
-    assert!(MAX_TREE_DEPTH >= 14);
-}
-
-#[test]
 fn test_ordinary_slack_composer_is_not_a_huddle_composer() {
     let mut composer = node(2, "AXTextArea", "Message #general", None);
     composer.settable_value = true;

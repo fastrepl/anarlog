@@ -37,7 +37,6 @@ describe("dictation floating panel", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Expand live transcript" }),
     );
-    expect(screen.getAllByRole("button")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Finish dictation" }));
     expect(onAction.mock.calls.map(([action]) => action)).toEqual([
       "togglePreview",
@@ -52,7 +51,6 @@ describe("dictation floating panel", () => {
       phase: "recording",
       expanded: true,
       previewEnabled: true,
-      microphone: "USB mic",
       text: "Hello",
       partial: "world",
     });
@@ -65,8 +63,6 @@ describe("dictation floating panel", () => {
       />,
     );
     expect(screen.getByText("world")).toBeTruthy();
-    expect(screen.queryByText("USB mic")).toBeNull();
-    expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.getByText("world").closest("[aria-live]")?.textContent).toBe(
       "Hello world",
     );
@@ -86,7 +82,6 @@ describe("dictation floating panel", () => {
     expect(screen.getAllByText("Finishing…").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Finish dictation" }));
     expect(onAction).not.toHaveBeenCalled();
-    expect(screen.getAllByRole("button")).toHaveLength(2);
   });
   it("replaces meeting speakers and bubbles with dictation text in the shared transcript area", () => {
     useDictationStatus.setState({

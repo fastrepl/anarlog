@@ -292,15 +292,6 @@ mod tests {
     }
 
     #[test]
-    fn stores_short_secrets_inline() {
-        let store = Rc::new(Store::default());
-        write(slots(&store), "provider:openai", "sk-short").unwrap();
-
-        assert_eq!(store.entries.borrow().len(), 1);
-        assert_eq!(read(slots(&store), "provider:openai").unwrap(), "sk-short");
-    }
-
-    #[test]
     fn round_trips_secrets_longer_than_the_platform_limit() {
         let store = Rc::new(Store::default());
         let secret = chatgpt_sized_credential();

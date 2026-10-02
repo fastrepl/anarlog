@@ -48,57 +48,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_build_ws_url_from_base_empty() {
-        let (url, params) = DashScopeAdapter::build_ws_url_from_base("");
-        assert_eq!(
-            url.as_str(),
-            "wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime"
-        );
-        assert!(params.is_empty());
-    }
+    fn test_build_ws_url_from_base() {
+        let cases = [
+            (
+                "",
+                "wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime",
+                vec![],
+            ),
+            (
+                "wss://dashscope-intl.aliyuncs.com",
+                "wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime",
+                vec![],
+            ),
+            (
+                "wss://dashscope.aliyuncs.com",
+                "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+                vec![],
+            ),
+            (
+                "https://api.anarlog.so?provider=dashscope",
+                "wss://api.anarlog.so/listen",
+                vec![("provider", "dashscope")],
+            ),
+            (
+                "http://localhost:8787?provider=dashscope",
+                "ws://localhost:8787/listen",
+                vec![("provider", "dashscope")],
+            ),
+        ];
 
-    #[test]
-    fn test_build_ws_url_from_base_intl() {
-        let (url, params) =
-            DashScopeAdapter::build_ws_url_from_base("wss://dashscope-intl.aliyuncs.com");
-        assert_eq!(
-            url.as_str(),
-            "wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime"
-        );
-        assert!(params.is_empty());
-    }
-
-    #[test]
-    fn test_build_ws_url_from_base_china() {
-        let (url, params) =
-            DashScopeAdapter::build_ws_url_from_base("wss://dashscope.aliyuncs.com");
-        assert_eq!(
-            url.as_str(),
-            "wss://dashscope.aliyuncs.com/api-ws/v1/realtime"
-        );
-        assert!(params.is_empty());
-    }
-
-    #[test]
-    fn test_build_ws_url_from_base_proxy() {
-        let (url, params) =
-            DashScopeAdapter::build_ws_url_from_base("https://api.anarlog.so?provider=dashscope");
-        assert_eq!(url.as_str(), "wss://api.anarlog.so/listen");
-        assert_eq!(
-            params,
-            vec![("provider".to_string(), "dashscope".to_string())]
-        );
-    }
-
-    #[test]
-    fn test_build_ws_url_from_base_localhost() {
-        let (url, params) =
-            DashScopeAdapter::build_ws_url_from_base("http://localhost:8787?provider=dashscope");
-        assert_eq!(url.as_str(), "ws://localhost:8787/listen");
-        assert_eq!(
-            params,
-            vec![("provider".to_string(), "dashscope".to_string())]
-        );
+        for (input, expected_url, expected_params) in cases {
+            let (url, params) = DashScopeAdapter::build_ws_url_from_base(input);
+            assert_eq!(url.as_str(), expected_url, "input: {input}");
+            assert_eq!(
+                params,
+                expected_params
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>(),
+                "input: {input}"
+            );
+        }
     }
 
     #[test]

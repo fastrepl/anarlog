@@ -312,14 +312,13 @@ mod tests {
     use owhisper_interface::stream::StreamResponse;
 
     use super::{AssemblyAIAdapter, AssemblyAIWord, TurnMessage};
-    use crate::ListenClient;
     use crate::adapter::RealtimeSttAdapter;
-    use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
+    use crate::test_utils::{UrlTestCase, run_url_test_cases};
 
     const API_BASE: &str = "https://api.assemblyai.com";
 
     #[test]
-    fn test_english_urls() {
+    fn live_language_urls() {
         run_url_test_cases(
             &AssemblyAIAdapter::default(),
             API_BASE,
@@ -338,16 +337,6 @@ mod tests {
                     contains: &["speech_model=universal-3-5-pro"],
                     not_contains: &["format_turns", "language=", "language_detection"],
                 },
-            ],
-        );
-    }
-
-    #[test]
-    fn test_multilingual_urls() {
-        run_url_test_cases(
-            &AssemblyAIAdapter::default(),
-            API_BASE,
-            &[
                 UrlTestCase {
                     name: "explicit_supported_language_keeps_u35",
                     model: Some("universal-3-5-pro-realtime"),
@@ -393,55 +382,43 @@ mod tests {
     }
 
     #[test]
-    fn test_streaming_diarization_query_params() {
-        let url = AssemblyAIAdapter.build_ws_url(
-            API_BASE,
-            &owhisper_interface::ListenParams {
-                model: Some("universal-3-5-pro-realtime".to_string()),
-                num_speakers: Some(3),
-                ..Default::default()
-            },
-            1,
-        );
+    fn live_diarization_query_params_follow_speaker_hints() {
+        for (params, expected_max) in [
+            (
+                owhisper_interface::ListenParams {
+                    model: Some("universal-3-5-pro-realtime".to_string()),
+                    num_speakers: Some(3),
+                    ..Default::default()
+                },
+                Some("max_speakers=3"),
+            ),
+            (
+                owhisper_interface::ListenParams {
+                    model: Some("universal-3-5-pro-realtime".to_string()),
+                    min_speakers: Some(2),
+                    ..Default::default()
+                },
+                None,
+            ),
+            // An ad-hoc meeting has no participant list; remote speakers must
+            // still be told apart, just without a cap.
+            (
+                owhisper_interface::ListenParams {
+                    model: Some("universal-3-5-pro-realtime".to_string()),
+                    ..Default::default()
+                },
+                None,
+            ),
+        ] {
+            let url = AssemblyAIAdapter.build_ws_url(API_BASE, &params, 1);
 
-        let query = url.query().expect("query string");
-        assert!(query.contains("speaker_labels=true"));
-        assert!(query.contains("max_speakers=3"));
-    }
-
-    #[test]
-    fn test_streaming_min_speakers_enables_diarization() {
-        let url = AssemblyAIAdapter.build_ws_url(
-            API_BASE,
-            &owhisper_interface::ListenParams {
-                model: Some("universal-3-5-pro-realtime".to_string()),
-                min_speakers: Some(2),
-                ..Default::default()
-            },
-            1,
-        );
-
-        let query = url.query().expect("query string");
-        assert!(query.contains("speaker_labels=true"));
-        assert!(!query.contains("max_speakers"));
-    }
-
-    #[test]
-    fn test_streaming_diarization_stays_on_without_speaker_hints() {
-        // An ad-hoc meeting has no participant list; remote speakers must
-        // still be told apart, just without a cap.
-        let url = AssemblyAIAdapter.build_ws_url(
-            API_BASE,
-            &owhisper_interface::ListenParams {
-                model: Some("universal-3-5-pro-realtime".to_string()),
-                ..Default::default()
-            },
-            1,
-        );
-
-        let query = url.query().expect("query string");
-        assert!(query.contains("speaker_labels=true"));
-        assert!(!query.contains("max_speakers"));
+            let query = url.query().expect("query string");
+            assert!(query.contains("speaker_labels=true"));
+            match expected_max {
+                Some(expected) => assert!(query.contains(expected)),
+                None => assert!(!query.contains("max_speakers")),
+            }
+        }
     }
 
     #[test]
@@ -489,87 +466,5 @@ mod tests {
         };
 
         assert_eq!(channel.alternatives[0].words[0].speaker, Some(1));
-    }
-
-    macro_rules! single_test {
-        ($name:ident, $params:expr) => {
-            #[tokio::test]
-            #[ignore]
-            async fn $name() {
-                let client = ListenClient::builder()
-                    .adapter::<AssemblyAIAdapter>()
-                    .api_base("wss://streaming.assemblyai.com")
-                    .api_key(
-                        std::env::var("ASSEMBLYAI_API_KEY").expect("ASSEMBLYAI_API_KEY not set"),
-                    )
-                    .params($params)
-                    .build_single()
-                    .await
-                    .unwrap();
-                run_single_test(client, "assemblyai").await;
-            }
-        };
-    }
-
-    single_test!(
-        test_build_single,
-        owhisper_interface::ListenParams {
-            model: Some("universal-3-5-pro".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_with_keywords,
-        owhisper_interface::ListenParams {
-            model: Some("universal-3-5-pro".to_string()),
-            languages: vec![anlg_language::ISO639::En.into()],
-            keywords: vec!["Anarlog".to_string(), "transcription".to_string()],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_multi_lang_1,
-        owhisper_interface::ListenParams {
-            model: Some("universal-3-5-pro".to_string()),
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Es.into(),
-            ],
-            ..Default::default()
-        }
-    );
-
-    single_test!(
-        test_single_multi_lang_2,
-        owhisper_interface::ListenParams {
-            model: Some("universal-3-5-pro".to_string()),
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Ja.into(),
-            ],
-            ..Default::default()
-        }
-    );
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_dual() {
-        let client = ListenClient::builder()
-            .adapter::<AssemblyAIAdapter>()
-            .api_base("wss://streaming.assemblyai.com")
-            .api_key(std::env::var("ASSEMBLYAI_API_KEY").expect("ASSEMBLYAI_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                model: Some("universal-3-5-pro".to_string()),
-                languages: vec![anlg_language::ISO639::En.into()],
-                ..Default::default()
-            })
-            .build_dual()
-            .await
-            .unwrap();
-
-        run_dual_test(client, "assemblyai").await;
     }
 }

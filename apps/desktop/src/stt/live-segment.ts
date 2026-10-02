@@ -23,8 +23,6 @@ export type WordLike = {
   metadata?: TranscriptWordMetadata | null;
 };
 
-export type PartialWord = WordLike;
-
 type SpeakerHintData =
   | {
       type: "provider_speaker_index";
@@ -60,7 +58,7 @@ type SegmentWithWordMetadata<T extends { words: BoundSegmentWord[] }> = Omit<
 export type Segment =
   | SegmentWithWordMetadata<LiveTranscriptSegment>
   | SegmentWithWordMetadata<RenderedTranscriptSegment>;
-export type SegmentChannelProfile = BoundChannelProfile;
+type SegmentChannelProfile = BoundChannelProfile;
 
 const REPLACEMENT_TIME_BUCKET_MS = 1_000;
 

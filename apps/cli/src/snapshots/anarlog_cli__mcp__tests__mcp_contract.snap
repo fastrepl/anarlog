@@ -3,7 +3,7 @@ source: apps/cli/src/mcp.rs
 expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": info.protocol_version, \"instructions\":\n    info.instructions, \"tools\": tools, \"resource_templates\": templates,\n}))"
 ---
 {
-  "instructions": "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Use export_meeting only when the task needs the complete record including transcripts. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
+  "instructions": "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id; to scope work to a project or client, call list_folders and pass a returned path as folder_path. Then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Use export_meeting only when the task needs the complete record including transcripts. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting titles, dates, or ids. If list_meetings returns no meetings, say so. Never access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
   "protocol_version": "2026-07-28",
   "resource_templates": [
     {
@@ -239,6 +239,24 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
             ],
             "type": "object"
           },
+          "Speaker": {
+            "properties": {
+              "human_id": {
+                "type": "string"
+              },
+              "is_self": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "human_id",
+              "name"
+            ],
+            "type": "object"
+          },
           "Transcript": {
             "properties": {
               "ended_at_ms": {
@@ -311,6 +329,14 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
           "ended_at": {
             "type": "string"
           },
+          "folder_path": {
+            "default": null,
+            "description": "Folder path such as `Projects/Launch`; null when the meeting is not in a folder.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -338,6 +364,16 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
           },
           "series_id": {
             "type": "string"
+          },
+          "speaker_context": {
+            "description": "Recorded microphone/call context intervals (`sessions.metadata_json`\n`speaker_context`) used to label speakers the same way the desktop\ntranscript view does."
+          },
+          "speakers": {
+            "description": "People referenced by transcript speaker assignments (including the\nrecording user) who may not appear among the meeting participants.",
+            "items": {
+              "$ref": "#/$defs/Speaker"
+            },
+            "type": "array"
           },
           "started_at": {
             "type": "string"
@@ -535,6 +571,14 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
           },
           "ended_at": {
             "type": "string"
+          },
+          "folder_path": {
+            "default": null,
+            "description": "Folder path such as `Projects/Launch`; null when the meeting is not in a folder.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "type": "string"
@@ -851,6 +895,14 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
               "ended_at": {
                 "type": "string"
               },
+              "folder_path": {
+                "default": null,
+                "description": "Folder path such as `Projects/Launch`; null when the meeting is not in a folder.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "id": {
                 "type": "string"
               },
@@ -956,10 +1008,148 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id, then pass next_offset as offset to continue.",
+      "description": "List Anarlog meeting folders, including empty and parent folders, with pagination metadata. Pass a returned path as list_meetings folder_path. Query matches a case-insensitive path substring.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
+          "limit": {
+            "description": "Maximum results; defaults to 100 and is capped at 200",
+            "format": "uint32",
+            "maximum": 200,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offset": {
+            "description": "Number of results to skip; defaults to 0",
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "query": {
+            "description": "Case-insensitive folder path substring",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "name": "list_folders",
+      "outputSchema": {
+        "$defs": {
+          "Folder": {
+            "properties": {
+              "name": {
+                "description": "Last path segment.",
+                "type": "string"
+              },
+              "parent_path": {
+                "description": "Parent folder path; null for top-level folders.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "path": {
+                "description": "Slash-separated folder path used for filtering, such as `Projects/Launch`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "name"
+            ],
+            "type": "object"
+          },
+          "Pagination": {
+            "properties": {
+              "limit": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "next_offset": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "offset": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "returned": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "total": {
+                "format": "uint",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "offset",
+              "limit",
+              "returned"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "folders": {
+            "items": {
+              "$ref": "#/$defs/Folder"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/$defs/Pagination"
+          }
+        },
+        "required": [
+          "folders",
+          "pagination"
+        ],
+        "title": "FolderPage",
+        "type": "object"
+      },
+      "title": "List folders"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id and folder_path to scope to a folder and its subfolders, then pass next_offset as offset to continue.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "folder_path": {
+            "default": null,
+            "description": "Folder path from list_folders, such as Projects/Launch; includes meetings in its subfolders",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "limit": {
             "description": "Maximum results; defaults to 20 and is capped at 200",
             "format": "uint32",
@@ -1006,6 +1196,14 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
               },
               "ended_at": {
                 "type": "string"
+              },
+              "folder_path": {
+                "default": null,
+                "description": "Folder path such as `Projects/Launch`; null when the meeting is not in a folder.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "id": {
                 "type": "string"

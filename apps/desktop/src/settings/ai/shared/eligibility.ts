@@ -64,11 +64,6 @@ export function getProviderSelectionBlockers(
   return blockers;
 }
 
-export type ModelRequirement =
-  | { kind: "requires_download" }
-  | { kind: "requires_entitlement"; entitlement: "pro" }
-  | { kind: "requires_platform"; platform: "apple_silicon" };
-
 export type EligibilityBlocker =
   | { code: "missing_provider" }
   | { code: "missing_model" }

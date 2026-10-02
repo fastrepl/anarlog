@@ -1,15 +1,15 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { commands as shortcuts } from "@anlg/plugin-shortcut";
 import { Button } from "@anlg/ui/components/ui/button";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { waitForDictationCleanup } from "~/dictation/lifecycle";
 import { useDictationStatus } from "~/dictation/state";
 import { setSettingValue } from "~/settings/queries";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function DictationShortcut({ shortcut }: { shortcut: string }) {
   const { t } = useLingui();
@@ -18,9 +18,6 @@ export function DictationShortcut({ shortcut }: { shortcut: string }) {
   const attempt = useRef(0);
   const persisting = useRef(false);
   const prepare = useMutation({ mutationFn: waitForDictationCleanup });
-  useEffect(() => {
-    if (recording) prepare.mutate();
-  }, [recording, prepare.mutate]);
   const save = useMutation({
     mutationFn: async ({ value, token }: { value: string; token: number }) => {
       const result = await shortcuts.validate(value);
@@ -90,7 +87,7 @@ export function DictationShortcut({ shortcut }: { shortcut: string }) {
             attempt.current += 1;
             save.reset();
             useDictationStatus.setState({ capturingShortcut: true });
-            prepare.reset();
+            prepare.mutate();
             setRecording(true);
           }}
           onBlur={finish}

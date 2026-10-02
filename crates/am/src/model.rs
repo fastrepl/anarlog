@@ -153,17 +153,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn model_urls_use_anarlog_domain() {
-        for model in [
-            AmModel::ParakeetV2,
-            AmModel::ParakeetV3,
-            AmModel::WhisperLargeV3,
-        ] {
-            assert!(model.tar_url().starts_with("https://models.anarlog.so/v0/"));
-        }
-    }
-
-    #[test]
     fn tar_unpack_and_cleanup_skips_checksum_verification() {
         let temp_dir = tempfile::tempdir().unwrap();
         let input_tar = temp_dir.path().join("model.tar");

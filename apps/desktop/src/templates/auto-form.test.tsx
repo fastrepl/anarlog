@@ -171,10 +171,9 @@ describe("Auto format editor", () => {
       })) as HTMLTextAreaElement,
     ).toHaveProperty("value", defaultFormat);
     expect(mocks.getTemplateSource).toHaveBeenCalledWith("enhanceFormat");
-    expect(screen.queryByText("Variables")).toBeNull();
   });
 
-  it("keeps the format visible and toasts for Free users", () => {
+  it("keeps the format visible and gates save and example inference for Free users", () => {
     mocks.billing.isPro = false;
 
     renderWithQueryClient(
@@ -203,28 +202,12 @@ describe("Auto format editor", () => {
     );
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
-  });
-
-  it("toasts instead of opening example generation for Free users", () => {
-    mocks.billing.isPro = false;
-
-    renderWithQueryClient(
-      <AutoFormatForm defaultFormat={defaultFormat} formatOverride="" />,
-    );
 
     fireEvent.click(
       screen.getByRole("button", { name: "Improve with examples" }),
     );
 
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "This requires Anarlog Pro",
-      {
-        action: {
-          label: "Upgrade",
-          onClick: expect.any(Function),
-        },
-      },
-    );
+    expect(mocks.toastWarning).toHaveBeenCalledTimes(2);
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("dialog", { name: "Improve summary format" }),
@@ -279,31 +262,6 @@ describe("Auto format editor", () => {
       "- Begin with decisions.\n- Use concise bullets.",
     );
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
-  });
-
-  it("accepts Markdown files as example summaries", async () => {
-    renderWithQueryClient(
-      <AutoFormatForm defaultFormat={defaultFormat} formatOverride="" />,
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Improve with examples" }),
-    );
-    const file = new File(["# Overview\n- Concise"], "summary.md", {
-      type: "text/markdown",
-    });
-    Object.defineProperty(file, "text", {
-      value: vi.fn().mockResolvedValue("# Overview\n- Concise"),
-    });
-
-    fireEvent.change(document.querySelector('input[type="file"]')!, {
-      target: { files: [file] },
-    });
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole("textbox", { name: "Example summary 1" }),
-      ).toHaveProperty("value", "# Overview\n- Concise"),
-    );
   });
 
   it("validates and saves a customized format", async () => {

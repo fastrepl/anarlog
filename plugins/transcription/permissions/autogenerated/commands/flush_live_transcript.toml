@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-flush-live-transcript"
+description = "Enables the flush_live_transcript command without any pre-configured scope."
+commands.allow = ["flush_live_transcript"]
+
+[[permission]]
+identifier = "deny-flush-live-transcript"
+description = "Denies the flush_live_transcript command without any pre-configured scope."
+commands.deny = ["flush_live_transcript"]

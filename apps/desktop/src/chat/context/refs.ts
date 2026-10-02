@@ -67,3 +67,54 @@ export function extractContextRefsFromMessages(
 
   return refs;
 }
+
+function findLastUserMessage<T extends Pick<AnlgUIMessage, "role">>(
+  messages: T[],
+): T | undefined {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "user") {
+      return messages[i];
+    }
+  }
+  return undefined;
+}
+
+export function getCurrentSessionIdFromMessages(
+  messages: Array<Pick<AnlgUIMessage, "role" | "metadata">>,
+): string | undefined {
+  const lastUserMessage = findLastUserMessage(messages);
+  if (!lastUserMessage) return undefined;
+
+  const ref = getContextRefs(lastUserMessage.metadata).find(
+    (candidate) =>
+      candidate.kind === "session" && candidate.source === "auto-current",
+  );
+  return ref?.kind === "session" ? ref.sessionId : undefined;
+}
+
+// One entry per session, with the current session last.
+export function orderPromptContextRefs(
+  refs: ContextRef[],
+  currentSessionId: string | undefined,
+): ContextRef[] {
+  const seenSessionIds = new Set<string>();
+  const ordered: ContextRef[] = [];
+  let currentRef: ContextRef | undefined;
+
+  for (const ref of refs) {
+    if (ref.kind !== "session") {
+      ordered.push(ref);
+      continue;
+    }
+    if (ref.sessionId === currentSessionId) {
+      currentRef ??= ref;
+      continue;
+    }
+    if (seenSessionIds.has(ref.sessionId)) continue;
+    seenSessionIds.add(ref.sessionId);
+    ordered.push(ref);
+  }
+
+  if (currentRef) ordered.push(currentRef);
+  return ordered;
+}

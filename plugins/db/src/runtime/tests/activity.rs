@@ -533,54 +533,34 @@ async fn sign_out_suspend_preserves_activity_leases() {
 }
 
 #[tokio::test]
-async fn sign_out_suspend_preserves_activity_leases_after_non_busy_error() {
-    let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
-    runtime
-        .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
-        .await
-        .unwrap();
-    db.pool().close().await;
+async fn sign_out_and_auth_loss_suspend_preserve_activity_leases_after_non_busy_error() {
+    for auth_loss in [false, true] {
+        let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
+        let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+        runtime
+            .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        db.pool().close().await;
 
-    let error = runtime.suspend_cloudsync_for_sign_out().await.unwrap_err();
-
-    assert!(!matches!(
-        error,
-        crate::Error::Cloudsync(anlg_db_core::CloudsyncRuntimeError::LocalStatusBusy)
-    ));
-    assert!(runtime.e2ee_sync_hook.activity_paused());
-    runtime
-        .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
-        .await
-        .unwrap();
-    assert!(!runtime.e2ee_sync_hook.activity_paused());
-}
-
-#[tokio::test]
-async fn auth_loss_suspend_preserves_activity_leases_after_non_busy_error() {
-    let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
-    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
-    runtime
-        .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
-        .await
-        .unwrap();
-    db.pool().close().await;
-
-    let error = runtime
-        .suspend_cloudsync_after_auth_loss()
-        .await
+        let error = if auth_loss {
+            runtime.suspend_cloudsync_after_auth_loss().await
+        } else {
+            runtime.suspend_cloudsync_for_sign_out().await
+        }
         .unwrap_err();
 
-    assert!(!matches!(
-        error,
-        crate::Error::Cloudsync(anlg_db_core::CloudsyncRuntimeError::LocalStatusBusy)
-    ));
-    assert!(runtime.e2ee_sync_hook.activity_paused());
-    runtime
-        .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
-        .await
-        .unwrap();
-    assert!(!runtime.e2ee_sync_hook.activity_paused());
+        assert!(!matches!(
+            error,
+            crate::Error::Cloudsync(anlg_db_core::CloudsyncRuntimeError::LocalStatusBusy)
+        ));
+        assert!(runtime.e2ee_sync_hook.activity_paused());
+        runtime
+            .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+            .await
+            .unwrap();
+        assert!(!runtime.e2ee_sync_hook.activity_paused());
+    }
 }
 
 #[tokio::test]

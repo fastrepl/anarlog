@@ -78,7 +78,7 @@ mod tests {
 "#;
 
     #[test]
-    fn adds_offline_mode_to_streaming_from_pretrained() {
+    fn patches_offline_mode_idempotently() {
         let patched = patch_parakeet_streaming_source(SOURCE).unwrap();
 
         assert!(patched.contains("offlineMode: Bool = false"));
@@ -89,23 +89,15 @@ mod tests {
             "        modelId: String? = nil,\n        progressHandler: ((Double, String) -> Void)? = nil"
         ));
         assert!(!patched.contains("offlineMode: offlineMode,\n                additionalFiles:"));
-    }
 
-    #[test]
-    fn rewrites_misordered_download_weights_arguments() {
+        assert_eq!(patch_parakeet_streaming_source(&patched).unwrap(), patched);
+
         let patched = patch_parakeet_streaming_source(MISORDERED).unwrap();
 
         assert!(patched.contains(
             "                ],\n                offlineMode: offlineMode\n            ) { fraction in"
         ));
         assert!(!patched.contains("offlineMode: offlineMode,\n                additionalFiles:"));
-    }
-
-    #[test]
-    fn streaming_offline_patch_is_idempotent() {
-        let patched = patch_parakeet_streaming_source(SOURCE).unwrap();
-
-        assert_eq!(patch_parakeet_streaming_source(&patched).unwrap(), patched);
     }
 
     #[test]

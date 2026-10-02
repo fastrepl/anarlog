@@ -44,7 +44,6 @@ axum = { workspace = true, features = ["ws"] }
 futures-util = { workspace = true }
 hound = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-util"] }
-tokio-util = { workspace = true }
 tower = { workspace = true }
 tracing = { workspace = true }
 

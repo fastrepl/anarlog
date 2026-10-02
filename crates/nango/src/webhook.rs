@@ -154,22 +154,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_verify_webhook_signature_valid() {
+    fn verify_webhook_signature_accepts_only_matching_hmac() {
+        fn signature(secret: &str, body: &[u8]) -> String {
+            let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+            mac.update(body);
+            hex::encode(mac.finalize().into_bytes())
+        }
+
         let secret = "test-secret-key";
         let body = b"test-body";
-
-        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
-        mac.update(body);
-        let signature = hex::encode(mac.finalize().into_bytes());
-
-        assert!(verify_webhook_signature(secret, body, &signature));
-    }
-
-    #[test]
-    fn test_verify_webhook_signature_invalid() {
-        let secret = "test-secret-key";
-        let body = b"test-body";
+        assert!(verify_webhook_signature(
+            secret,
+            body,
+            &signature(secret, body)
+        ));
         assert!(!verify_webhook_signature(secret, body, "invalid-signature"));
+        assert!(!verify_webhook_signature(
+            secret,
+            body,
+            &signature("different-secret", body)
+        ));
     }
 
     #[test]

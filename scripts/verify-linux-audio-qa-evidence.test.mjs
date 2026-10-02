@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rename, writeFile, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
 
 import {
   linuxAudioQaPolicy,
@@ -66,6 +68,15 @@ const metricNames = [
   "both_system_to_mic_isolation_db",
   "both_mic_to_speaker_isolation_db",
 ];
+
+const passingAnalysis = {
+  status: "pass",
+  scope:
+    "Virtual microphone/system routing, capture, separation, and persistence with NO_AEC=1. This result makes no AEC claim.",
+  failures: [],
+  thresholds,
+  metrics: Object.fromEntries(metricNames.map((name) => [name, 1])),
+};
 
 function wavFixture() {
   const buffer = Buffer.alloc(45);
@@ -146,14 +157,7 @@ async function createFixture() {
     );
     await writeFile(
       path.join(root, "analysis.json"),
-      JSON.stringify({
-        status: "pass",
-        scope:
-          "Virtual microphone/system routing, capture, separation, and persistence with NO_AEC=1. This result makes no AEC claim.",
-        failures: [],
-        thresholds,
-        metrics: Object.fromEntries(metricNames.map((name) => [name, 1])),
-      }),
+      JSON.stringify(passingAnalysis),
     );
     await writeFile(
       path.join(root, "phases.json"),
@@ -185,15 +189,28 @@ async function createFixture() {
   return { evidenceDir, manifest };
 }
 
-test("accepts exact passing x64 and arm64 evidence", async () => {
-  const fixture = await createFixture();
-  const results = await verifyLinuxAudioQaEvidence({
+function evidenceRoot(fixture, artifactArch) {
+  return path.join(
+    fixture.evidenceDir,
+    artifactArch,
+    "qa-artifacts",
+    `linux-${artifactArch}`,
+  );
+}
+
+function verify(fixture, overrides = {}) {
+  return verifyLinuxAudioQaEvidence({
     ...fixture,
     version,
     candidateSha,
     dryRunId,
     audioQaRunId,
+    ...overrides,
   });
+}
+
+test("accepts exact passing x64 and arm64 evidence", async () => {
+  const results = await verify(await createFixture());
 
   assert.deepEqual(
     results.map((result) => result.artifactArch),
@@ -201,93 +218,115 @@ test("accepts exact passing x64 and arm64 evidence", async () => {
   );
 });
 
-test("rejects failed or incomplete architecture evidence", async () => {
-  const fixture = await createFixture();
-  const analysisPath = path.join(
-    fixture.evidenceDir,
-    "arm64",
-    "qa-artifacts",
-    "linux-arm64",
-    "analysis.json",
-  );
-  await writeFile(
-    analysisPath,
-    JSON.stringify({ status: "fail", failures: ["leakage"], metrics: {} }),
-  );
-
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...fixture,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
+for (const [name, mutate, error] of [
+  [
+    "a failed analysis",
+    (fixture) =>
+      writeFile(
+        path.join(evidenceRoot(fixture, "arm64"), "analysis.json"),
+        JSON.stringify({ status: "fail", failures: ["leakage"], metrics: {} }),
+      ),
     /arm64 audio analysis did not pass/,
-  );
-});
-
-test("rejects evidence from a different run or package hash", async () => {
-  const fixture = await createFixture();
-
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...fixture,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId: "99999",
-    }),
+  ],
+  [
+    "incomplete analysis metrics",
+    (fixture) =>
+      writeFile(
+        path.join(evidenceRoot(fixture, "x64"), "analysis.json"),
+        JSON.stringify({ ...passingAnalysis, metrics: { duration: 30 } }),
+      ),
+    /x64 audio analysis did not pass/,
+  ],
+  [
+    "analysis thresholds that deviate from the shared policy",
+    (fixture) =>
+      writeFile(
+        path.join(evidenceRoot(fixture, "x64"), "analysis.json"),
+        JSON.stringify({
+          ...passingAnalysis,
+          thresholds: {
+            ...thresholds,
+            mic_isolation_db_min: thresholds.mic_isolation_db_min - 1,
+          },
+        }),
+      ),
+    /x64 audio analysis did not pass/,
+  ],
+  [
+    "phase evidence captured with AEC enabled",
+    async (fixture) => {
+      const file = path.join(evidenceRoot(fixture, "arm64"), "phases.json");
+      const phases = JSON.parse(await readFile(file, "utf8"));
+      await writeFile(file, JSON.stringify({ ...phases, no_aec: false }));
+    },
+    /arm64 phase evidence is invalid/,
+  ],
+  [
+    "evidence from a different audio QA run",
+    () => ({ audioQaRunId: "99999" }),
     /x64 audio QA run mismatch/,
-  );
-
-  fixture.manifest.assets[0].sha256 = "c".repeat(64);
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...fixture,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
+  ],
+  [
+    "a package hash that differs from release provenance",
+    (fixture) => {
+      fixture.manifest.assets[0].sha256 = "c".repeat(64);
+    },
     /x64 asset does not match release provenance/,
-  );
-});
-
-test("rejects a basename decoy outside the exact evidence path", async () => {
-  const fixture = await createFixture();
-  const exact = path.join(
-    fixture.evidenceDir,
-    "x64",
-    "qa-artifacts",
-    "linux-x64",
-    "provenance.json",
-  );
-  const decoyDirectory = path.join(
-    fixture.evidenceDir,
-    "x64",
-    "e2e",
-    "blackbox",
-    "videos",
-  );
-  await mkdir(decoyDirectory, { recursive: true });
-  await rename(exact, path.join(decoyDirectory, "provenance.json"));
-
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...fixture,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
+  ],
+  [
+    "a basename decoy outside the exact evidence path",
+    async (fixture) => {
+      const decoyDirectory = path.join(
+        fixture.evidenceDir,
+        "x64",
+        "e2e",
+        "blackbox",
+        "videos",
+      );
+      await mkdir(decoyDirectory, { recursive: true });
+      await rename(
+        path.join(evidenceRoot(fixture, "x64"), "provenance.json"),
+        path.join(decoyDirectory, "provenance.json"),
+      );
+    },
     /x64 evidence is missing .*provenance\.json/,
-  );
-});
+  ],
+  [
+    "the wrong Debian package",
+    (fixture) =>
+      writeFile(
+        path.join(evidenceRoot(fixture, "x64"), "debian-package.txt"),
+        `package=other\nversion=${version}\narchitecture=amd64\nsource=/candidate.deb\n`,
+      ),
+    /x64 Debian package identity mismatch/,
+  ],
+  [
+    "a tested package checksum mismatch",
+    (fixture) =>
+      writeFile(
+        path.join(evidenceRoot(fixture, "arm64"), "candidate.deb.sha256"),
+        `${"f".repeat(64)}  candidate.deb\n`,
+      ),
+    /arm64 tested package hash mismatch/,
+  ],
+  [
+    "a PulseAudio capture fallback",
+    (fixture) =>
+      writeFile(
+        path.join(evidenceRoot(fixture, "x64"), "capture-backend-events.txt"),
+        "pipewire_capture_initialized\npulseaudio_capture_initialized\n",
+      ),
+    /x64 did not prove direct PipeWire capture/,
+  ],
+]) {
+  test(`rejects ${name}`, async () => {
+    const fixture = await createFixture();
+    const overrides = await mutate(fixture);
+    await assert.rejects(verify(fixture, overrides ?? {}), error);
+  });
+}
 
 test("python producer and node verifier read the same policy artifact", async () => {
-  const { execFile } = await import("node:child_process");
-  const { promisify } = await import("node:util");
   const pythonPolicy = JSON.parse(
     (
       await promisify(execFile)("python3", [
@@ -303,178 +342,10 @@ test("python producer and node verifier read the same policy artifact", async ()
     ).stdout,
   );
 
-  assert.deepEqual(pythonPolicy.thresholds, linuxAudioQaPolicy.thresholds);
-  assert.deepEqual(
-    pythonPolicy.requiredPhases,
-    [...linuxAudioQaPolicy.requiredPhases].sort(),
-  );
-  assert.equal(
-    pythonPolicy.minPhaseDurationSeconds,
-    linuxAudioQaPolicy.minPhaseDurationSeconds,
-  );
-  assert.equal(
-    pythonPolicy.phaseSchemaVersion,
-    linuxAudioQaPolicy.phaseSchemaVersion,
-  );
-});
-
-test("rejects analysis thresholds that deviate from the shared policy", async () => {
-  const fixture = await createFixture();
-  const root = path.join(
-    fixture.evidenceDir,
-    "x64",
-    "qa-artifacts",
-    "linux-x64",
-  );
-  const analysis = JSON.parse(
-    await readFile(path.join(root, "analysis.json"), "utf8"),
-  );
-  analysis.thresholds = {
-    ...analysis.thresholds,
-    mic_isolation_db_min: analysis.thresholds.mic_isolation_db_min - 1,
-  };
-  await writeFile(path.join(root, "analysis.json"), JSON.stringify(analysis));
-
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...fixture,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
-    /audio analysis did not pass/,
-  );
-});
-
-test("rejects incomplete analysis and invalid phase scope", async () => {
-  const fixture = await createFixture();
-  const root = path.join(
-    fixture.evidenceDir,
-    "x64",
-    "qa-artifacts",
-    "linux-x64",
-  );
-  await writeFile(
-    path.join(root, "analysis.json"),
-    JSON.stringify({
-      status: "pass",
-      scope:
-        "Virtual microphone/system routing, capture, separation, and persistence with NO_AEC=1. This result makes no AEC claim.",
-      failures: [],
-      thresholds,
-      metrics: { duration: 30 },
-    }),
-  );
-
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...fixture,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
-    /x64 audio analysis did not pass/,
-  );
-
-  const refreshed = await createFixture();
-  const phasesPath = path.join(
-    refreshed.evidenceDir,
-    "arm64",
-    "qa-artifacts",
-    "linux-arm64",
-    "phases.json",
-  );
-  await writeFile(
-    phasesPath,
-    JSON.stringify({
-      schema_version: 1,
-      no_aec: false,
-      recording_stop_seconds: 35,
-      phases: [
-        { name: "mic_only", start_seconds: 1, end_seconds: 7 },
-        { name: "system_only", start_seconds: 8, end_seconds: 14 },
-        { name: "both", start_seconds: 15, end_seconds: 21 },
-      ],
-    }),
-  );
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...refreshed,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
-    /arm64 phase evidence is invalid/,
-  );
-});
-
-test("rejects the wrong package, checksum, or capture backend", async () => {
-  const wrongPackage = await createFixture();
-  const x64Root = path.join(
-    wrongPackage.evidenceDir,
-    "x64",
-    "qa-artifacts",
-    "linux-x64",
-  );
-  await writeFile(
-    path.join(x64Root, "debian-package.txt"),
-    `package=other\nversion=${version}\narchitecture=amd64\nsource=/candidate.deb\n`,
-  );
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...wrongPackage,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
-    /x64 Debian package identity mismatch/,
-  );
-
-  const wrongChecksum = await createFixture();
-  await writeFile(
-    path.join(
-      wrongChecksum.evidenceDir,
-      "arm64",
-      "qa-artifacts",
-      "linux-arm64",
-      "candidate.deb.sha256",
-    ),
-    `${"f".repeat(64)}  candidate.deb\n`,
-  );
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...wrongChecksum,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
-    /arm64 tested package hash mismatch/,
-  );
-
-  const fallback = await createFixture();
-  await writeFile(
-    path.join(
-      fallback.evidenceDir,
-      "x64",
-      "qa-artifacts",
-      "linux-x64",
-      "capture-backend-events.txt",
-    ),
-    "pipewire_capture_initialized\npulseaudio_capture_initialized\n",
-  );
-  await assert.rejects(
-    verifyLinuxAudioQaEvidence({
-      ...fallback,
-      version,
-      candidateSha,
-      dryRunId,
-      audioQaRunId,
-    }),
-    /x64 did not prove direct PipeWire capture/,
-  );
+  assert.deepEqual(pythonPolicy, {
+    thresholds: linuxAudioQaPolicy.thresholds,
+    requiredPhases: [...linuxAudioQaPolicy.requiredPhases].sort(),
+    minPhaseDurationSeconds: linuxAudioQaPolicy.minPhaseDurationSeconds,
+    phaseSchemaVersion: linuxAudioQaPolicy.phaseSchemaVersion,
+  });
 });

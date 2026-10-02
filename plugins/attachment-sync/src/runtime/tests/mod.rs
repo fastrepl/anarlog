@@ -20,35 +20,23 @@ fn shared_upload_attachment(source_type: &str) -> SharedUploadAttachment {
 }
 
 #[test]
-fn allows_local_session_audio_for_shared_uploads() {
-    let attachment = shared_upload_attachment("session_audio");
-
-    assert!(
-        validate_shared_upload_version(
-            &attachment,
-            &attachment.sha256,
-            42,
-            &attachment.filename,
-            &attachment.content_type,
-            "",
-        )
-        .is_ok()
-    );
-}
-
-#[test]
-fn still_requires_private_backup_for_other_shared_uploads() {
-    let attachment = shared_upload_attachment("note_upload");
-
-    assert!(
-        validate_shared_upload_version(
-            &attachment,
-            &attachment.sha256,
-            42,
-            &attachment.filename,
-            &attachment.content_type,
-            "",
-        )
-        .is_err()
-    );
+fn shared_upload_requires_private_backup_except_session_audio() {
+    for (source_type, should_allow_without_private_backup) in
+        [("session_audio", true), ("note_upload", false)]
+    {
+        let attachment = shared_upload_attachment(source_type);
+        assert_eq!(
+            validate_shared_upload_version(
+                &attachment,
+                &attachment.sha256,
+                42,
+                &attachment.filename,
+                &attachment.content_type,
+                "",
+            )
+            .is_ok(),
+            should_allow_without_private_backup,
+            "{source_type}"
+        );
+    }
 }

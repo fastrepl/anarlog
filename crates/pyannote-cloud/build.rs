@@ -31,6 +31,9 @@ fn main() {
         .flatten_all_of()
         .remove_unreferenced_schemas();
     fix_pyannote_schema(spec.inner_mut());
-    spec.write_filtered(manifest_dir.join("openapi-filtered.gen.json"))
-        .generate("codegen.rs");
+    spec.write_filtered(
+        PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR is set by Cargo"))
+            .join("openapi-filtered.gen.json"),
+    )
+    .generate("codegen.rs");
 }

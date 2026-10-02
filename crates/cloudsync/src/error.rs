@@ -18,6 +18,8 @@ pub enum ErrorKind {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("sqlite error {code}: {message}")]
+    Sqlite { code: i32, message: String },
     #[error("sqlx error: {0}")]
     Sqlx(#[from] sqlx::Error),
     #[error("io error: {0}")]
@@ -56,6 +58,9 @@ pub enum Error {
 impl Error {
     pub fn kind(&self) -> ErrorKind {
         match self {
+            Self::Sqlite { code, message } => {
+                return classify_database_error(Some(&code.to_string()), message);
+            }
             Self::Sqlx(sqlx_err) => {
                 if let Some(db_err) = sqlx_err.as_database_error() {
                     return classify_database_error(db_err.code().as_deref(), db_err.message());

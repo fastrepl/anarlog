@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-update-contact-avatar"
+description = "Enables the update_contact_avatar command without any pre-configured scope."
+commands.allow = ["update_contact_avatar"]
+
+[[permission]]
+identifier = "deny-update-contact-avatar"
+description = "Denies the update_contact_avatar command without any pre-configured scope."
+commands.deny = ["update_contact_avatar"]

@@ -132,21 +132,12 @@ describe("useEnsureDefaultSummary", () => {
     });
   });
 
-  it("does not create the summary row before transcript exists", async () => {
-    hoisted.hasTranscript = false;
-
-    renderHook(() => useEnsureDefaultSummary("session-1"));
-
-    await waitFor(() => {
-      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
-    });
-    expect(
-      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("does not create the summary row during active recording", async () => {
-    hoisted.sessionMode = "active";
+  it.each<[string, Partial<typeof hoisted>]>([
+    ["before a transcript exists", { hasTranscript: false }],
+    ["during active recording", { sessionMode: "active" }],
+    ["while finalizing recording", { sessionMode: "finalizing" }],
+  ])("does not create the summary row %s", async (_label, state) => {
+    Object.assign(hoisted, state);
 
     renderHook(() => useEnsureDefaultSummary("session-1"));
 
@@ -172,108 +163,62 @@ describe("useEnsureDefaultSummary", () => {
     });
   });
 
-  it("does not create the summary row while finalizing recording", async () => {
-    hoisted.sessionMode = "finalizing";
+  it.each<[string, Partial<typeof hoisted>]>([
+    [
+      "while batch transcription is running",
+      { hasTranscript: false, sessionMode: "running_batch" },
+    ],
+    [
+      "after batch transcription fails",
+      { hasTranscript: false, batchError: "Transcription failed" },
+    ],
+    [
+      "when a hosted subscription blocks generation",
+      {
+        llmStatus: {
+          status: "error",
+          reason: "not_pro",
+          providerId: "anarlog",
+        },
+      },
+    ],
+    [
+      "when provider API keys are missing",
+      {
+        llmStatus: {
+          status: "error",
+          reason: "missing_config",
+          providerId: "openai",
+          missing: ["api_key"],
+        },
+      },
+    ],
+    [
+      "when model selection is pending",
+      {
+        llmStatus: {
+          status: "pending",
+          reason: "missing_model",
+          providerId: "anarlog",
+        },
+      },
+    ],
+  ])(
+    "creates the summary row without queueing generation %s",
+    async (_label, state) => {
+      Object.assign(hoisted, state);
 
-    renderHook(() => useEnsureDefaultSummary("session-1"));
+      renderHook(() => useEnsureDefaultSummary("session-1"));
 
-    await waitFor(() => {
-      expect(hoisted.service.ensureNote).not.toHaveBeenCalled();
-    });
-  });
-
-  it("creates the summary row while batch transcription is running", async () => {
-    hoisted.hasTranscript = false;
-    hoisted.sessionMode = "running_batch";
-
-    renderHook(() => useEnsureDefaultSummary("session-1"));
-
-    await waitFor(() => {
-      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
-        "session-1",
-        "template-1",
-      );
-    });
-    expect(
-      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("creates the summary row after batch transcription fails", async () => {
-    hoisted.hasTranscript = false;
-    hoisted.batchError = "Transcription failed";
-
-    renderHook(() => useEnsureDefaultSummary("session-1"));
-
-    await waitFor(() => {
-      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
-        "session-1",
-        "template-1",
-      );
-    });
-    expect(
-      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("creates the summary row when a hosted subscription blocks generation", async () => {
-    hoisted.llmStatus = {
-      status: "error",
-      reason: "not_pro",
-      providerId: "anarlog",
-    };
-
-    renderHook(() => useEnsureDefaultSummary("session-1"));
-
-    await waitFor(() => {
-      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
-        "session-1",
-        "template-1",
-      );
-    });
-    expect(
-      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("creates the summary row when provider API keys are missing", async () => {
-    hoisted.llmStatus = {
-      status: "error",
-      reason: "missing_config",
-      providerId: "openai",
-      missing: ["api_key"],
-    };
-
-    renderHook(() => useEnsureDefaultSummary("session-1"));
-
-    await waitFor(() => {
-      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
-        "session-1",
-        "template-1",
-      );
-    });
-    expect(
-      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("creates the summary row when model selection is pending", async () => {
-    hoisted.llmStatus = {
-      status: "pending",
-      reason: "missing_model",
-      providerId: "anarlog",
-    };
-
-    renderHook(() => useEnsureDefaultSummary("session-1"));
-
-    await waitFor(() => {
-      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
-        "session-1",
-        "template-1",
-      );
-    });
-    expect(
-      hoisted.service.queueAutoEnhanceIfSummaryEmpty,
-    ).not.toHaveBeenCalled();
-  });
+      await waitFor(() => {
+        expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+          "session-1",
+          "template-1",
+        );
+      });
+      expect(
+        hoisted.service.queueAutoEnhanceIfSummaryEmpty,
+      ).not.toHaveBeenCalled();
+    },
+  );
 });

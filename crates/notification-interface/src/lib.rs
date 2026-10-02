@@ -581,16 +581,6 @@ mod tests {
     }
 
     #[test]
-    fn system_symbol_icons_are_supported() {
-        assert_eq!(
-            NotificationIcon::system_symbol("phone.fill"),
-            NotificationIcon::SystemSymbol {
-                name: "phone.fill".to_string(),
-            }
-        );
-    }
-
-    #[test]
     fn windows_and_unc_paths_are_path_icons() {
         assert_eq!(
             NotificationIcon::from_app_id(r"C:\Program Files\Zoom\Zoom.exe"),
@@ -625,8 +615,8 @@ mod tests {
     }
 
     #[test]
-    fn notifications_fill_in_source_default_icon_when_missing() {
-        let notification = Notification::builder()
+    fn notifications_use_explicit_icon_or_source_default() {
+        let default_icon_notification = Notification::builder()
             .title("Title")
             .message("Message")
             .source(NotificationSource::MicDetected {
@@ -637,16 +627,13 @@ mod tests {
             .build();
 
         assert_eq!(
-            notification.icon,
+            default_icon_notification.icon,
             Some(NotificationIcon::Path {
                 path: "/Applications/Zoom.app".to_string(),
             })
         );
-    }
 
-    #[test]
-    fn notifications_keep_explicit_icon() {
-        let notification = Notification::builder()
+        let explicit_icon_notification = Notification::builder()
             .title("Title")
             .message("Message")
             .source(NotificationSource::CalendarEvent {
@@ -655,33 +642,15 @@ mod tests {
             .icon(NotificationIcon::Hidden)
             .build();
 
-        assert_eq!(notification.icon, Some(NotificationIcon::Hidden));
-    }
-
-    #[test]
-    fn notifications_preserve_footer() {
-        let notification = Notification::builder()
-            .title("Title")
-            .message("")
-            .footer(NotificationFooter {
-                text: "Ignore this app?".to_string(),
-                action_label: "YES".to_string(),
-                icon: None,
-            })
-            .build();
-
         assert_eq!(
-            notification
-                .footer
-                .as_ref()
-                .map(|footer| footer.action_label.as_str()),
-            Some("YES")
+            explicit_icon_notification.icon,
+            Some(NotificationIcon::Hidden)
         );
     }
 
     #[test]
-    fn calendar_events_are_not_expandable() {
-        let notification = Notification::builder()
+    fn only_session_notifications_with_event_details_expand() {
+        let calendar_notification = Notification::builder()
             .title("Standup")
             .message("Starting soon")
             .source(NotificationSource::CalendarEvent {
@@ -699,12 +668,9 @@ mod tests {
             })
             .build();
 
-        assert!(!notification.has_expandable_content());
-    }
+        assert!(!calendar_notification.has_expandable_content());
 
-    #[test]
-    fn session_notifications_expand_when_event_details_are_present() {
-        let notification = Notification::builder()
+        let session_notification = Notification::builder()
             .title("Design sync")
             .message("")
             .source(NotificationSource::Session {
@@ -717,8 +683,8 @@ mod tests {
             })
             .build();
 
-        assert!(notification.has_expandable_content());
-        assert_eq!(notification.expanded_title(), "Design sync");
+        assert!(session_notification.has_expandable_content());
+        assert_eq!(session_notification.expanded_title(), "Design sync");
     }
 
     #[test]

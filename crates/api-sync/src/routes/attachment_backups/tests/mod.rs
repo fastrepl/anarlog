@@ -81,9 +81,31 @@ fn json_request(method: Method, path: &str, body: Value) -> Request<Body> {
         .unwrap()
 }
 
+fn reserve_request() -> Request<Body> {
+    json_request(
+        Method::POST,
+        "/attachment-backups/reserve",
+        json!({
+            "attachmentRef": ATTACHMENT_REF,
+            "versionRef": VERSION_REF,
+            "ciphertextSizeBytes": 1234,
+            "formatVersion": 1
+        }),
+    )
+}
+
 async fn response_json(response: axum::response::Response) -> Value {
     let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+async fn assert_no_storage_requests(server: &MockServer) {
+    let requests = server.received_requests().await.unwrap();
+    assert!(
+        requests
+            .iter()
+            .all(|request| !request.url.path().contains("/storage/v1/"))
+    );
 }
 
 fn reserved_row(state: &str, hash: Option<&str>) -> Value {

@@ -36,38 +36,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_listen_endpoint_url_appends_listen() {
-        let (url, params) = listen_endpoint_url("https://api.deepgram.com/v1");
-        assert_eq!(url.as_str(), "https://api.deepgram.com/v1/listen");
-        assert!(params.is_empty());
-    }
+    fn test_listen_endpoint_url() {
+        let cases = [
+            (
+                "https://api.deepgram.com/v1",
+                "https://api.deepgram.com/v1/listen",
+                vec![],
+            ),
+            (
+                "https://api.anarlog.so/v1?provider=deepgram",
+                "https://api.anarlog.so/v1/listen",
+                vec![("provider", "deepgram")],
+            ),
+            (
+                "https://api.anarlog.so/listen?provider=deepgram",
+                "https://api.anarlog.so/listen",
+                vec![("provider", "deepgram")],
+            ),
+            (
+                "https://api.anarlog.so/listen/",
+                "https://api.anarlog.so/listen/",
+                vec![],
+            ),
+            ("12", "https://api.deepgram.com/v1/listen", vec![]),
+        ];
 
-    #[test]
-    fn test_listen_endpoint_url_preserves_query_params() {
-        let (url, params) = listen_endpoint_url("https://api.anarlog.so/v1?provider=deepgram");
-        assert_eq!(url.as_str(), "https://api.anarlog.so/v1/listen");
-        assert_eq!(params, vec![("provider".into(), "deepgram".into())]);
-    }
-
-    #[test]
-    fn test_listen_endpoint_url_no_double_listen() {
-        let (url, params) = listen_endpoint_url("https://api.anarlog.so/listen?provider=deepgram");
-        assert_eq!(url.as_str(), "https://api.anarlog.so/listen");
-        assert_eq!(params, vec![("provider".into(), "deepgram".into())]);
-    }
-
-    #[test]
-    fn test_listen_endpoint_url_no_double_listen_with_trailing_slash() {
-        let (url, params) = listen_endpoint_url("https://api.anarlog.so/listen/");
-        assert_eq!(url.as_str(), "https://api.anarlog.so/listen/");
-        assert!(params.is_empty());
-    }
-
-    #[test]
-    fn test_listen_endpoint_url_falls_back_on_invalid_base() {
-        let (url, params) = listen_endpoint_url("12");
-        assert_eq!(url.as_str(), "https://api.deepgram.com/v1/listen");
-        assert!(params.is_empty());
+        for (input, expected_url, expected_params) in cases {
+            let (url, params) = listen_endpoint_url(input);
+            assert_eq!(url.as_str(), expected_url, "input: {input}");
+            assert_eq!(
+                params,
+                expected_params
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>(),
+                "input: {input}"
+            );
+        }
     }
 }
 

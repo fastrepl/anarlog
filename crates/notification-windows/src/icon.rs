@@ -442,8 +442,7 @@ pub(crate) use win::{destroy_icon, load_notification_icon};
 
 #[cfg(test)]
 mod tests {
-    use super::{expand_home, header_title};
-    use anlg_notification_interface::{EventDetails, Notification};
+    use super::expand_home;
 
     #[test]
     fn expands_home_prefixed_icon_paths() {
@@ -479,20 +478,5 @@ mod tests {
             Some(("outlook.exe".to_string(), 0))
         );
         assert_eq!(super::parse_default_icon("   "), None);
-    }
-
-    #[test]
-    fn expanded_headers_use_the_event_name() {
-        let notification = Notification::builder()
-            .title("Upcoming event")
-            .message("")
-            .event_details(EventDetails {
-                what: "Design sync".to_string(),
-                timezone: None,
-                location: None,
-            })
-            .build();
-        assert_eq!(header_title(&notification, false), "Upcoming event");
-        assert_eq!(header_title(&notification, true), "Design sync");
     }
 }

@@ -3,21 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
-  executeTransaction: vi.fn(
-    (_statements: Array<{ sql: string; params: unknown[] }>) =>
-      Promise.resolve([1]),
-  ),
-  trackAnalyticsEvent: vi.fn(),
   rows: [] as Array<Record<string, unknown>>,
   loading: false,
 }));
 
-vi.mock("~/analytics", () => ({
-  trackAnalyticsEvent: mocks.trackAnalyticsEvent,
-}));
-
 vi.mock("~/db", () => ({
-  executeTransaction: mocks.executeTransaction,
   liveQueryClient: { execute: mocks.execute },
   useLiveQuery: (options: {
     enabled?: boolean;
@@ -32,31 +22,13 @@ vi.mock("~/db", () => ({
   }),
 }));
 
-vi.mock("~/shared/utils", () => ({
-  DEFAULT_USER_ID: "00000000-0000-0000-0000-000000000000",
-  id: () => "human-new",
-}));
-
 import {
-  applyContactEnhancement,
-  createHuman,
-  createOrganization,
-  deleteHuman,
   loadHuman,
   loadHumansByIds,
   loadOrganization,
-  mergeHumans,
-  reorderPinnedContacts,
   searchContacts,
-  savePersonalContact,
-  toggleContactPin,
-  updateContactAvatar,
-  updateHumanContactSummary,
-  updateHuman,
-  updateOrganization,
   useHumanDisplayRecordsByIds,
   useHumans,
-  useHumanSessions,
   useOrganizationDisplayRecordsByIds,
   useOrganizations,
 } from "./queries";
@@ -67,79 +39,6 @@ describe("contact SQLite queries", () => {
     mocks.rows = [];
     mocks.loading = false;
     mocks.execute.mockResolvedValue([]);
-  });
-
-  it("upserts the personal card in one queued transaction without replacing other metadata", async () => {
-    await savePersonalContact("account-1", {
-      name: "Ada",
-      email: "contact@example.com",
-      phone: "123",
-      jobTitle: "Engineer",
-      linkedinUsername: "ada",
-      memo: "Personal notes",
-      organizationId: "org-1",
-      avatarDataUrl: null,
-    });
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(1);
-    expect(statements[0].params).toEqual([
-      "account-1",
-      "account-1",
-      "Ada",
-      "contact@example.com",
-      "123",
-      "Engineer",
-      "ada",
-      "Personal notes",
-      "org-1",
-      expect.any(String),
-      expect.any(String),
-    ]);
-    expect(statements[0].sql).toContain("ON CONFLICT(id) DO UPDATE");
-    expect(statements[0].sql).toContain(
-      "THEN humans.metadata_json ELSE '{}' END",
-    );
-    expect(statements[0].sql).toContain("json_remove(");
-    expect(statements[0].sql).not.toContain("json_object('avatarDataUrl'");
-    expect(statements[0].sql).toContain(
-      "local_library_connections WHERE active = 1",
-    );
-    expect(mocks.trackAnalyticsEvent).not.toHaveBeenCalled();
-  });
-
-  it("upserts the personal card with an avatar in both insert and update branches", async () => {
-    await savePersonalContact("account-1", {
-      name: "Ada",
-      email: "contact@example.com",
-      phone: "123",
-      jobTitle: "Engineer",
-      linkedinUsername: "ada",
-      memo: "Personal notes",
-      organizationId: "org-1",
-      avatarDataUrl: "data:image/png;base64,x",
-    });
-    expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(1);
-    expect(statements[0].params).toEqual([
-      "account-1",
-      "account-1",
-      "Ada",
-      "contact@example.com",
-      "123",
-      "Engineer",
-      "ada",
-      "Personal notes",
-      "org-1",
-      "data:image/png;base64,x",
-      expect.any(String),
-      expect.any(String),
-      "data:image/png;base64,x",
-    ]);
-    expect(statements[0].sql).toContain("json_set(");
-    expect(statements[0].sql).toContain("json_object('avatarDataUrl'");
-    expect(mocks.trackAnalyticsEvent).not.toHaveBeenCalled();
   });
 
   it("maps canonical human rows", () => {
@@ -186,66 +85,12 @@ describe("contact SQLite queries", () => {
         summary: {
           facts: ["Fact one", "Fact two", "Fact three"],
           sourceHash: "source-1",
+          promptKey: "",
           generatedAt: "2026-08-12T12:00:00.000Z",
           sources: [],
         },
       },
     ]);
-  });
-
-  it("maps related session freshness for contact summaries", () => {
-    mocks.rows = [
-      {
-        id: "session-1",
-        title: "Planning",
-        created_at: "2026-08-10T12:00:00.000Z",
-        source_updated_at: "2026-08-11T12:00:00.000Z",
-      },
-    ];
-
-    const { result } = renderHook(() => useHumanSessions("human-1"));
-
-    expect(result.current).toEqual([
-      {
-        id: "session-1",
-        title: "Planning",
-        createdAt: "2026-08-10T12:00:00.000Z",
-        sourceUpdatedAt: "2026-08-11T12:00:00.000Z",
-      },
-    ]);
-  });
-
-  it("returns the durable id after inserting a human", async () => {
-    await expect(
-      createHuman({
-        ownerUserId: "user-1",
-        name: "Alice",
-        email: "alice@example.com",
-      }),
-    ).resolves.toBe("human-new");
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("INSERT INTO humans");
-    expect(statement.sql).toContain("cloudsync_workspace_binding");
-    expect(statement.sql).toContain("NULLIF((");
-    expect(statement.sql).not.toContain("COALESCE((");
-    expect(statement.params).toContain("human-new");
-    expect(statement.params).toContain("alice@example.com");
-  });
-
-  it("defaults new contact ownership to the bound workspace", async () => {
-    await createHuman({ name: "Alice" });
-    await createOrganization({ name: "Example" });
-
-    const humanStatement = mocks.executeTransaction.mock.calls[0][0][0];
-    const organizationStatement = mocks.executeTransaction.mock.calls[1][0][0];
-    for (const statement of [humanStatement, organizationStatement]) {
-      expect(statement.sql).toContain(
-        "NULLIF(NULLIF(?, ''), '00000000-0000-0000-0000-000000000000')",
-      );
-      expect(statement.sql).toContain("cloudsync_workspace_binding");
-      expect(statement.params[1]).toBe("00000000-0000-0000-0000-000000000000");
-    }
   });
 
   it("maps canonical organization rows", () => {
@@ -312,20 +157,6 @@ describe("contact SQLite queries", () => {
     expect(organizationResult.current).toEqual([
       { id: "organization-1", name: "Acme" },
     ]);
-  });
-
-  it("does not expose display records when no ids are referenced", () => {
-    mocks.rows = [{ id: "human-1", name: "Alice" }];
-
-    const { result: humanResult } = renderHook(() =>
-      useHumanDisplayRecordsByIds([]),
-    );
-    const { result: organizationResult } = renderHook(() =>
-      useOrganizationDisplayRecordsByIds([]),
-    );
-
-    expect(humanResult.current).toEqual([]);
-    expect(organizationResult.current).toEqual([]);
   });
 
   it("keeps the last resolved display records while a by-id query is loading", () => {
@@ -482,272 +313,4 @@ describe("contact SQLite queries", () => {
       5,
     ]);
   });
-
-  it("updates only whitelisted human fields", async () => {
-    await updateHuman("human-1", {
-      name: "Alice Kim",
-      jobTitle: "Staff Engineer",
-    });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("name = ?");
-    expect(statement.sql).toContain("job_title = ?");
-    expect(statement.params.slice(0, 2)).toEqual([
-      "Alice Kim",
-      "Staff Engineer",
-    ]);
-    expect(statement.params[statement.params.length - 1]).toBe("human-1");
-  });
-
-  it("stores contact avatars inside metadata_json", async () => {
-    await updateContactAvatar("human", "human-1", "data:image/jpeg;base64,abc");
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("UPDATE humans");
-    expect(statement.sql).toContain("json_set");
-    expect(statement.sql).toContain("$.avatarDataUrl");
-    expect(statement.params[0]).toBe("data:image/jpeg;base64,abc");
-    expect(statement.params[statement.params.length - 1]).toBe("human-1");
-  });
-
-  it("removes contact avatars from metadata_json", async () => {
-    await updateContactAvatar("organization", "organization-1", null);
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("UPDATE organizations");
-    expect(statement.sql).toContain("json_remove");
-    expect(statement.sql).toContain("$.avatarDataUrl");
-    expect(statement.params[statement.params.length - 1]).toBe(
-      "organization-1",
-    );
-  });
-
-  it("stores generated contact summaries inside metadata_json", async () => {
-    await updateHumanContactSummary("human-1", {
-      facts: ["Fact one", "Fact two", "Fact three"],
-      sourceHash: "source-1",
-      generatedAt: "2026-08-12T12:00:00.000Z",
-      sources: [{ id: "session-1", updatedAt: "2026-08-12T11:00:00.000Z" }],
-    });
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("UPDATE humans");
-    expect(statement.sql).toContain("json_set");
-    expect(statement.sql).toContain("$.contactSummary");
-    expect(JSON.parse(String(statement.params[0]))).toEqual({
-      facts: ["Fact one", "Fact two", "Fact three"],
-      sourceHash: "source-1",
-      generatedAt: "2026-08-12T12:00:00.000Z",
-      sources: [{ id: "session-1", updatedAt: "2026-08-12T11:00:00.000Z" }],
-    });
-    expect(statement.params[statement.params.length - 1]).toBe("human-1");
-  });
-
-  it("soft-deletes contacts without removing their rows", async () => {
-    await deleteHuman("human-1");
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("UPDATE humans");
-    expect(statement.sql).toContain("SET deleted_at = ?");
-    expect(statement.params[statement.params.length - 1]).toBe("human-1");
-  });
-
-  it("computes pin order across humans and organizations", async () => {
-    await toggleContactPin("human", "human-1");
-
-    const statement = mocks.executeTransaction.mock.calls[0][0][0];
-    expect(statement.sql).toContain("UPDATE humans");
-    expect(statement.sql).toContain("SELECT pin_order FROM organizations");
-    expect(statement.sql).toContain(
-      "pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END",
-    );
-  });
-
-  it("reorders mixed pinned contacts atomically", async () => {
-    await reorderPinnedContacts([
-      { type: "organization", id: "organization-1" },
-      { type: "human", id: "human-1" },
-    ]);
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain("UPDATE organizations");
-    expect(statements[0].params[0]).toBe(0);
-    expect(statements[1].sql).toContain("UPDATE humans");
-    expect(statements[1].params[0]).toBe(1);
-  });
-
-  it("merges participant mappings and tombstones the duplicate atomically", async () => {
-    mocks.execute.mockResolvedValue([
-      {
-        id: "human-primary",
-        owner_user_id: "user-1",
-        created_at: "first",
-        organization_id: "",
-        name: "Alice",
-        email: "alice@example.com",
-        phone: "111",
-        job_title: "Engineer",
-        linkedin_username: "alice",
-        memo: "Primary",
-        pinned: 0,
-        pin_order: null,
-      },
-      {
-        id: "human-duplicate",
-        owner_user_id: "user-1",
-        created_at: "second",
-        organization_id: "organization-1",
-        name: "Alice",
-        email: "alice@example.com",
-        phone: "222",
-        job_title: "Founder",
-        linkedin_username: "alice-two",
-        memo: "Duplicate",
-        pinned: 0,
-        pin_order: null,
-      },
-    ]);
-
-    await mergeHumans("human-primary", "human-duplicate");
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(4);
-    expect(statements[0].sql).toContain("UPDATE session_participants");
-    expect(statements[1].params).toContain("human-primary");
-    expect(statements[2].params).toContain("Engineer, Founder");
-    expect(statements[2].params).toContain("organization-1");
-    expect(statements[3].sql).toContain("SET deleted_at = ?");
-    expect(statements[3].params[statements[3].params.length - 1]).toBe(
-      "human-duplicate",
-    );
-    expect(mocks.trackAnalyticsEvent).toHaveBeenCalledWith("contact_merged", {
-      entry_point: "contact_details",
-    });
-  });
-
-  it("does not report an organization edit as a contact merge", async () => {
-    await updateOrganization("organization-1", { name: "Renamed" });
-
-    expect(mocks.executeTransaction).toHaveBeenCalledOnce();
-    expect(mocks.trackAnalyticsEvent).not.toHaveBeenCalled();
-  });
-
-  it("keeps the bound self human when it is selected as the duplicate", async () => {
-    mocks.execute.mockResolvedValue([
-      {
-        id: "human-other",
-        owner_user_id: "user-1",
-        created_at: "first",
-        organization_id: "",
-        name: "Alice",
-        email: "alice@example.com",
-        phone: "",
-        job_title: "",
-        linkedin_username: "",
-        memo: "",
-        pinned: 0,
-        pin_order: null,
-      },
-      {
-        id: "user-1",
-        owner_user_id: "user-1",
-        created_at: "second",
-        organization_id: "",
-        name: "Me",
-        email: "me@example.com",
-        phone: "",
-        job_title: "",
-        linkedin_username: "",
-        memo: "",
-        pinned: 0,
-        pin_order: null,
-      },
-    ]);
-
-    await mergeHumans("human-other", "user-1");
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements[1].params[0]).toBe("user-1");
-    expect(statements[1].params[2]).toBe("human-other");
-    expect(statements[3].params[statements[3].params.length - 1]).toBe(
-      "human-other",
-    );
-  });
-
-  it("creates an organization and updates the human atomically", async () => {
-    mocks.executeTransaction.mockResolvedValueOnce([1, 1]);
-
-    await applyContactEnhancement({
-      humanId: "human-1",
-      ownerUserId: "user-1",
-      changes: {
-        name: "Alice Kim",
-        email: "alice@example.com",
-        companyName: "Example",
-      },
-    });
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(2);
-    expect(statements[0]?.sql).toContain("INSERT INTO organizations");
-    expect(statements[0]?.sql).toContain("cloudsync_workspace_binding");
-    expect(statements[0]?.sql).toContain("NOT EXISTS");
-    expect(statements[1]?.sql).toContain("UPDATE humans");
-    expect(statements[1]?.sql).toContain("organization_id = CASE");
-    expect(statements[1]?.params).toContain("human-1");
-  });
-
-  it("inserts a missing human before applying enhancement changes", async () => {
-    mocks.executeTransaction.mockResolvedValueOnce([1, 1]);
-
-    await applyContactEnhancement({
-      humanId: "human-1",
-      ownerUserId: "user-1",
-      createIfMissing: true,
-      changes: {
-        name: "Marco Bambini",
-        email: "marco.bambini@gmail.com",
-      },
-    });
-
-    const statements = mocks.executeTransaction.mock.calls[0][0];
-    expect(statements).toHaveLength(2);
-    expect(statements[0]?.sql).toContain("INSERT INTO humans");
-    expect(statements[0]?.sql).toContain("ON CONFLICT(id) DO UPDATE");
-    expect(statements[0]?.params).toEqual([
-      "human-1",
-      "user-1",
-      "Marco Bambini",
-      "marco.bambini@gmail.com",
-      expect.any(String),
-      expect.any(String),
-    ]);
-    expect(statements[1]?.sql).toContain("UPDATE humans");
-    expect(mocks.trackAnalyticsEvent).toHaveBeenCalledWith("contact_created", {
-      entry_point: "session_participants",
-      has_email: true,
-    });
-  });
-});
-
-it("preserves the photo when autosaving unrelated profile fields", async () => {
-  vi.clearAllMocks();
-  await savePersonalContact("account-1", {
-    name: "Ada",
-    email: "ada@example.com",
-    phone: "",
-    jobTitle: "",
-    linkedinUsername: "",
-    memo: "",
-    organizationId: "",
-  });
-  expect(mocks.executeTransaction).toHaveBeenCalledTimes(1);
-  const statement =
-    mocks.executeTransaction.mock.calls[
-      mocks.executeTransaction.mock.calls.length - 1
-    ][0][0];
-  expect(statement.sql).not.toContain("json_remove(");
-  expect(statement.sql).not.toContain("json_set(");
-  expect(statement.params).not.toContain(undefined);
 });

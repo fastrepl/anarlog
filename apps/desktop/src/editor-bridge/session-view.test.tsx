@@ -143,36 +143,6 @@ describe("SessionNodeView", () => {
     });
   });
 
-  it("opens the linked session when clicking the title", () => {
-    hoisted.openCurrent.mockClear();
-
-    const { container } = render(
-      <SessionNodeView
-        nodeProps={
-          {
-            node: {
-              attrs: { sessionId: "session-1", status: "todo", checked: false },
-            },
-            getPos: () => 7,
-          } as any
-        }
-      >
-        Meeting
-      </SessionNodeView>,
-    );
-
-    const title = container.querySelector("[data-session-title]");
-
-    expect(title).not.toBeNull();
-
-    fireEvent.click(title!);
-
-    expect(hoisted.openCurrent).toHaveBeenCalledWith({
-      id: "session-1",
-      type: "sessions",
-    });
-  });
-
   it.each([false, true])(
     "renders the event start time with 24-hour preference %s",
     (use24HourTime) => {

@@ -51,6 +51,9 @@ fn main() {
         .flatten_all_of()
         .convert_31_to_30()
         .remove_unreferenced_schemas()
-        .write_filtered(manifest_dir.join("openapi.gen.json"))
+        .write_filtered(
+            PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR is set by Cargo"))
+                .join("openapi.gen.json"),
+        )
         .generate_with_replacements("codegen.rs", TYPE_REPLACEMENTS);
 }

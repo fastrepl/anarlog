@@ -546,12 +546,14 @@ mod tests {
         }
     }
 
-    async fn server(statuses: Vec<StatusCode>) -> (Url, tokio::task::JoinHandle<Vec<String>>) {
+    async fn server(
+        responses: Vec<(StatusCode, String)>,
+    ) -> (Url, tokio::task::JoinHandle<Vec<String>>) {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let task = tokio::spawn(async move {
             let mut requests = Vec::new();
-            for status in statuses {
+            for (status, body) in responses {
                 let (mut stream, _) = listener.accept().await.unwrap();
                 let mut bytes = Vec::new();
                 loop {
@@ -570,81 +572,8 @@ mod tests {
                 stream
                     .write_all(
                         format!(
-                            "HTTP/1.1 {} {reason}\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}",
-                            status.as_u16()
-                        )
-                        .as_bytes(),
-                    )
-                    .await
-                    .unwrap();
-            }
-            requests
-        });
-        (
-            Url::parse(&format!("http://{address}/root/")).unwrap(),
-            task,
-        )
-    }
-
-    async fn checkpoint_server(body: String) -> (Url, tokio::task::JoinHandle<String>) {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let task = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
-            let mut bytes = Vec::new();
-            loop {
-                let mut chunk = [0; 4096];
-                let count = stream.read(&mut chunk).await.unwrap();
-                if count == 0 {
-                    break;
-                }
-                bytes.extend_from_slice(&chunk[..count]);
-                if bytes.windows(4).any(|window| window == b"\r\n\r\n") {
-                    break;
-                }
-            }
-            stream
-                .write_all(
-                    format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                        body.len()
-                    )
-                    .as_bytes(),
-                )
-                .await
-                .unwrap();
-            String::from_utf8(bytes).unwrap()
-        });
-        (
-            Url::parse(&format!("http://{address}/root/")).unwrap(),
-            task,
-        )
-    }
-
-    async fn json_server(bodies: Vec<String>) -> (Url, tokio::task::JoinHandle<Vec<String>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let task = tokio::spawn(async move {
-            let mut requests = Vec::new();
-            for body in bodies {
-                let (mut stream, _) = listener.accept().await.unwrap();
-                let mut bytes = Vec::new();
-                loop {
-                    let mut chunk = [0; 4096];
-                    let count = stream.read(&mut chunk).await.unwrap();
-                    if count == 0 {
-                        break;
-                    }
-                    bytes.extend_from_slice(&chunk[..count]);
-                    if complete_request_length(&bytes).is_some_and(|length| bytes.len() >= length) {
-                        break;
-                    }
-                }
-                requests.push(String::from_utf8(bytes).unwrap());
-                stream
-                    .write_all(
-                        format!(
-                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            "HTTP/1.1 {} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            status.as_u16(),
                             body.len()
                         )
                         .as_bytes(),
@@ -660,15 +589,26 @@ mod tests {
         )
     }
 
+    fn empty(status: StatusCode) -> (StatusCode, String) {
+        (status, "{}".into())
+    }
+
+    fn ok(body: String) -> (StatusCode, String) {
+        (StatusCode::OK, body)
+    }
+
     fn complete_request_length(bytes: &[u8]) -> Option<usize> {
         let headers_end = bytes.windows(4).position(|window| window == b"\r\n\r\n")? + 4;
         let headers = std::str::from_utf8(&bytes[..headers_end]).ok()?;
-        let content_length = headers.lines().find_map(|line| {
-            let (name, value) = line.split_once(':')?;
-            name.eq_ignore_ascii_case("content-length")
-                .then(|| value.trim().parse::<usize>().ok())
-                .flatten()
-        })?;
+        let content_length = headers
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case("content-length")
+                    .then(|| value.trim().parse::<usize>().ok())
+                    .flatten()
+            })
+            .unwrap_or(0);
         Some(headers_end + content_length)
     }
 
@@ -699,7 +639,7 @@ mod tests {
 
     #[tokio::test]
     async fn posts_the_normalized_event_with_workspace_credentials() {
-        let (base_url, server) = server(vec![StatusCode::OK]).await;
+        let (base_url, server) = server(vec![empty(StatusCode::OK)]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
         install_test_lease(&sink).await;
 
@@ -752,7 +692,7 @@ mod tests {
             "expiresAt": "2026-08-17T00:02:00Z"
         })
         .to_string();
-        let (base_url, server) = json_server(vec![lease, renewed]).await;
+        let (base_url, server) = server(vec![ok(lease), ok(renewed)]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
 
         let claimed = sink.claim("worker-a", "lease-a").await.unwrap();
@@ -781,7 +721,7 @@ mod tests {
 
     #[tokio::test]
     async fn stops_event_delivery_after_lease_renewal_is_rejected() {
-        let (base_url, server) = server(vec![StatusCode::CONFLICT]).await;
+        let (base_url, server) = server(vec![empty(StatusCode::CONFLICT)]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
         install_test_lease(&sink).await;
 
@@ -820,7 +760,7 @@ mod tests {
             "nextSequence": 7
         })
         .to_string();
-        let (base_url, server) = checkpoint_server(body).await;
+        let (base_url, server) = server(vec![ok(body)]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
 
         let checkpoint = sink.read_checkpoint().await.unwrap();
@@ -833,7 +773,7 @@ mod tests {
         );
         assert_eq!(checkpoint.state, BotState::Capturing);
         assert_eq!(checkpoint.next_sequence, 7);
-        let request = server.await.unwrap();
+        let request = server.await.unwrap().remove(0);
         assert!(
             request.starts_with("GET /root/v1/workspaces/workspace-a/capture-jobs/job-1 HTTP/1.1")
         );
@@ -847,7 +787,7 @@ mod tests {
     #[tokio::test]
     async fn rejects_an_oversized_checkpoint_before_deserializing_it() {
         let (base_url, server) =
-            checkpoint_server("x".repeat(MAX_CONTROL_PLANE_RESPONSE_BYTES + 1)).await;
+            server(vec![ok("x".repeat(MAX_CONTROL_PLANE_RESPONSE_BYTES + 1))]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
 
         assert!(matches!(
@@ -860,8 +800,11 @@ mod tests {
 
     #[tokio::test]
     async fn retries_a_transient_response_with_the_identical_event() {
-        let (base_url, server) =
-            server(vec![StatusCode::SERVICE_UNAVAILABLE, StatusCode::OK]).await;
+        let (base_url, server) = server(vec![
+            empty(StatusCode::SERVICE_UNAVAILABLE),
+            empty(StatusCode::OK),
+        ])
+        .await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
         install_test_lease(&sink).await;
 
@@ -877,7 +820,7 @@ mod tests {
 
     #[tokio::test]
     async fn does_not_retry_a_sequence_conflict() {
-        let (base_url, server) = server(vec![StatusCode::CONFLICT]).await;
+        let (base_url, server) = server(vec![empty(StatusCode::CONFLICT)]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
         install_test_lease(&sink).await;
 

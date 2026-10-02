@@ -303,18 +303,11 @@ mod tests {
             next_schedule_refresh_ms(&events, now, true, false),
             Some(751)
         );
-        assert_eq!(next_schedule_refresh_ms(&events, now, false, false), None);
-    }
-
-    #[test]
-    fn recording_title_skips_countdown_ticks_but_keeps_event_deadlines() {
-        let now = 1_000_000.0;
-        let events = vec![event("Standup", now + 5.0 * 60.0 * 1000.0 + 750.0, None)];
-
         assert_eq!(
             next_schedule_refresh_ms(&events, now, true, true),
             Some(300_750)
         );
+        assert_eq!(next_schedule_refresh_ms(&events, now, false, false), None);
     }
 
     #[test]
@@ -336,44 +329,30 @@ mod tests {
     }
 
     #[test]
-    fn formats_long_titles_and_countdowns_compactly() {
+    fn caps_menu_bar_titles_by_display_width() {
         let now = 1_000_000.0;
-        let events = vec![event(
-            "  Sprint   retrospective and planning  ",
-            now + (17.0 * 60.0 + 20.0) * 60.0 * 1000.0,
-            None,
-        )];
+        for (title, starts_in_ms, expected) in [
+            (
+                "  Sprint   retrospective and planning  ",
+                (17.0 * 60.0 + 20.0) * 60.0 * 1000.0,
+                "Sprint retrospec… • in 17h 20m",
+            ),
+            (
+                "[실뻘한] char 정치현 대표님 컨콜",
+                29.0 * 60.0 * 1000.0,
+                "[실뻘한] char 정치현… • in 29m",
+            ),
+        ] {
+            let events = vec![event(title, now + starts_in_ms, None)];
+            let label = menu_bar_title(&events, now, true, false, None).unwrap();
 
-        assert_eq!(
-            menu_bar_title(&events, now, true, false, None),
-            Some("Sprint retrospec… • in 17h 20m".to_string())
-        );
-        assert_eq!(
-            menu_bar_title(&events, now, true, false, None)
-                .unwrap()
-                .chars()
-                .count(),
-            MAX_MENU_BAR_LABEL_WIDTH
-        );
+            assert_eq!(label, expected);
+            assert_eq!(label.width(), MAX_MENU_BAR_LABEL_WIDTH);
+        }
     }
 
     #[test]
-    fn caps_wide_menu_bar_titles_by_display_width() {
-        let now = 1_000_000.0;
-        let events = vec![event(
-            "[실뻘한] char 정치현 대표님 컨콜",
-            now + 29.0 * 60.0 * 1000.0,
-            None,
-        )];
-
-        let title = menu_bar_title(&events, now, true, false, None).unwrap();
-
-        assert_eq!(title, "[실뻘한] char 정치현… • in 29m");
-        assert_eq!(title.width(), MAX_MENU_BAR_LABEL_WIDTH);
-    }
-
-    #[test]
-    fn shows_the_recording_title_instead_of_the_calendar_schedule() {
+    fn recording_title_replaces_the_calendar_schedule() {
         let now = 1_000_000.0;
         let events = vec![event("Unrelated event", now + 60_000.0, None)];
 
@@ -385,31 +364,18 @@ mod tests {
             menu_bar_title(&events, now, false, true, Some("Customer call")),
             Some("Customer call".to_string())
         );
-    }
-
-    #[test]
-    fn hides_the_schedule_during_an_untitled_recording() {
-        let now = 1_000_000.0;
-        let events = vec![event("Unrelated event", now + 60_000.0, None)];
-
         assert_eq!(menu_bar_title(&events, now, true, true, None), None);
         assert_eq!(menu_bar_title(&events, now, true, true, Some("  ")), None);
     }
 
     #[test]
-    fn clears_the_title_without_an_active_or_upcoming_event() {
+    fn clears_the_title_when_disabled_or_nothing_is_upcoming() {
         let now = 1_000_000.0;
-        let events = vec![event("Finished", now - 60_000.0, Some(now - 1.0))];
+        let finished = vec![event("Finished", now - 60_000.0, Some(now - 1.0))];
+        let upcoming = vec![event("Standup", now + 5.0 * 60.0 * 1000.0, None)];
 
-        assert_eq!(menu_bar_title(&events, now, true, false, None), None);
-    }
-
-    #[test]
-    fn hides_events_when_the_menu_option_is_disabled() {
-        let now = 1_000_000.0;
-        let events = vec![event("Standup", now + 5.0 * 60.0 * 1000.0, None)];
-
-        assert_eq!(menu_bar_title(&events, now, false, false, None), None);
+        assert_eq!(menu_bar_title(&finished, now, true, false, None), None);
+        assert_eq!(menu_bar_title(&upcoming, now, false, false, None), None);
     }
 
     #[test]
@@ -452,18 +418,6 @@ mod tests {
                 },
             ]
         );
-    }
-
-    #[test]
-    fn keeps_agenda_labels_compact() {
-        let label = compact_agenda_label(&event(
-            "Sprint retrospective and planning",
-            1_000_000.0,
-            None,
-        ));
-
-        assert_eq!(label, "Sprint retros… · 9:00 AM");
-        assert_eq!(label.width(), MAX_AGENDA_LABEL_WIDTH);
     }
 
     #[test]

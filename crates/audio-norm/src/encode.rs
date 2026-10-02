@@ -533,71 +533,31 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_mono_no_resample() {
-        let source = make_source(1, TARGET_SAMPLE_RATE_HZ, 2);
-        let mut bytes = Vec::new();
-        let written = encode_source_to_mp3(source, None, &mut bytes, None).unwrap();
-        assert_eq!(written, bytes.len());
-        assert!(bytes.len() > MIN_MP3_BYTES);
+    fn encode_outputs_target_rate_preserving_channels_and_duration() {
+        for (channels, source_rate, secs) in [
+            (1, TARGET_SAMPLE_RATE_HZ, 2),
+            (1, 44_100, 3),
+            (2, TARGET_SAMPLE_RATE_HZ, 2),
+            (2, 44_100, 5),
+        ] {
+            let source = make_source(channels, source_rate, secs);
+            let mut bytes = Vec::new();
+            let written = encode_source_to_mp3(source, None, &mut bytes, None).unwrap();
+            assert_eq!(written, bytes.len());
+            assert!(bytes.len() > MIN_MP3_BYTES);
 
-        let (rate, ch, _) = decode_mp3_bytes(&bytes);
-        assert_eq!(rate, TARGET_SAMPLE_RATE_HZ);
-        assert_eq!(ch, 1);
-    }
+            let (rate, decoded_channels, samples) = decode_mp3_bytes(&bytes);
+            assert_eq!(rate, TARGET_SAMPLE_RATE_HZ);
+            assert_eq!(decoded_channels, channels);
 
-    #[test]
-    fn test_encode_mono_with_resample() {
-        let source = make_source(1, 44_100, 3);
-        let mut bytes = Vec::new();
-        let written = encode_source_to_mp3(source, None, &mut bytes, None).unwrap();
-        assert_eq!(written, bytes.len());
-        assert!(bytes.len() > MIN_MP3_BYTES);
-
-        let (rate, ch, samples) = decode_mp3_bytes(&bytes);
-        assert_eq!(rate, TARGET_SAMPLE_RATE_HZ);
-        assert_eq!(ch, 1);
-
-        let actual_frames = samples.len();
-        let expected_frames = TARGET_SAMPLE_RATE_HZ as usize * 3;
-        let ratio = actual_frames as f64 / expected_frames as f64;
-        assert!(
-            (ratio - 1.0).abs() < 0.03,
-            "expected ~{expected_frames} frames, got {actual_frames} (ratio {ratio:.4})",
-        );
-    }
-
-    #[test]
-    fn test_encode_stereo_no_resample() {
-        let source = make_source(2, TARGET_SAMPLE_RATE_HZ, 2);
-        let mut bytes = Vec::new();
-        let written = encode_source_to_mp3(source, None, &mut bytes, None).unwrap();
-        assert_eq!(written, bytes.len());
-        assert!(bytes.len() > MIN_MP3_BYTES);
-
-        let (rate, ch, _) = decode_mp3_bytes(&bytes);
-        assert_eq!(rate, TARGET_SAMPLE_RATE_HZ);
-        assert_eq!(ch, 2);
-    }
-
-    #[test]
-    fn test_encode_stereo_with_resample() {
-        let source = make_source(2, 44_100, 5);
-        let mut bytes = Vec::new();
-        let written = encode_source_to_mp3(source, None, &mut bytes, None).unwrap();
-        assert_eq!(written, bytes.len());
-        assert!(bytes.len() > MIN_MP3_BYTES);
-
-        let (rate, ch, samples) = decode_mp3_bytes(&bytes);
-        assert_eq!(rate, TARGET_SAMPLE_RATE_HZ);
-        assert_eq!(ch, 2);
-
-        let actual_frames = samples.len() / 2;
-        let expected_frames = TARGET_SAMPLE_RATE_HZ as usize * 5;
-        let ratio = actual_frames as f64 / expected_frames as f64;
-        assert!(
-            (ratio - 1.0).abs() < 0.03,
-            "expected ~{expected_frames} frames, got {actual_frames} (ratio {ratio:.4})",
-        );
+            let actual_frames = samples.len() / channels as usize;
+            let expected_frames = TARGET_SAMPLE_RATE_HZ as usize * secs;
+            let ratio = actual_frames as f64 / expected_frames as f64;
+            assert!(
+                (ratio - 1.0).abs() < 0.03,
+                "channels={channels}, source_rate={source_rate}, secs={secs}: expected ~{expected_frames} frames, got {actual_frames} (ratio {ratio:.4})",
+            );
+        }
     }
 
     #[test]

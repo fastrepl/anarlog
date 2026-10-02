@@ -64,154 +64,34 @@ mod tests {
         pub use super::super::*;
     }
 
-    use super::*;
-    use crate::tpl_assert;
     use askama::Template;
 
+    #[derive(Template)]
+    #[template(
+        source = "{{ lang|language }}|{% if lang|is_english %}en{% endif %}|{% if lang|is_korean %}ko{% endif %}",
+        ext = "txt"
+    )]
+    struct LanguageFiltersTest {
+        lang: Option<String>,
+    }
+
     #[test]
-    fn test_isolang() {
-        assert!(matches!(Language::from_639_1("en"), Some(Language::Eng)));
-        assert!(matches!(Language::from_639_1("ko"), Some(Language::Kor)));
-
-        assert!(matches!(Language::from_639_1("EN"), None));
-        assert!(matches!(Language::from_639_1("KO"), None));
+    fn language_filters_normalize_locales_and_default_to_english() {
+        for (lang, expected) in [
+            (None, "English|en|"),
+            (Some("en"), "English|en|"),
+            (Some("EN"), "English|en|"),
+            (Some("en-US"), "English|en|"),
+            (Some("ko"), "Korean||ko"),
+            (Some("ko-KR"), "Korean||ko"),
+            (Some("fr-FR"), "French||"),
+        ] {
+            let rendered = LanguageFiltersTest {
+                lang: lang.map(str::to_string),
+            }
+            .render()
+            .unwrap();
+            assert_eq!(rendered, expected, "lang: {lang:?}");
+        }
     }
-
-    #[derive(Template)]
-    #[template(source = "{{ lang|language }}", ext = "txt")]
-    struct LanguageFilterTest {
-        lang: Option<String>,
-    }
-
-    tpl_assert!(
-        test_language_filter_english,
-        LanguageFilterTest {
-            lang: Some("en".to_string())
-        },
-        |v| v == "English"
-    );
-
-    tpl_assert!(
-        test_language_filter_korean,
-        LanguageFilterTest {
-            lang: Some("ko".to_string())
-        },
-        |v| v == "Korean"
-    );
-
-    tpl_assert!(
-        test_language_filter_uppercase_defaults_to_english,
-        LanguageFilterTest {
-            lang: Some("EN".to_string())
-        },
-        |v| v == "English"
-    );
-
-    tpl_assert!(
-        test_language_filter_none_defaults_to_english,
-        LanguageFilterTest { lang: None },
-        |v| v == "English"
-    );
-
-    #[derive(Template)]
-    #[template(
-        source = "{% if lang|is_english %}yes{% else %}no{% endif %}",
-        ext = "txt"
-    )]
-    struct IsEnglishFilterTest {
-        lang: Option<String>,
-    }
-
-    tpl_assert!(
-        test_is_english_filter_with_en,
-        IsEnglishFilterTest {
-            lang: Some("en".to_string())
-        },
-        |v| v == "yes"
-    );
-
-    tpl_assert!(
-        test_is_english_filter_with_ko,
-        IsEnglishFilterTest {
-            lang: Some("ko".to_string())
-        },
-        |v| v == "no"
-    );
-
-    tpl_assert!(
-        test_is_english_filter_none_defaults_to_english,
-        IsEnglishFilterTest { lang: None },
-        |v| v == "yes"
-    );
-
-    #[derive(Template)]
-    #[template(
-        source = "{% if lang|is_korean %}yes{% else %}no{% endif %}",
-        ext = "txt"
-    )]
-    struct IsKoreanFilterTest {
-        lang: Option<String>,
-    }
-
-    tpl_assert!(
-        test_is_korean_filter_with_ko,
-        IsKoreanFilterTest {
-            lang: Some("ko".to_string())
-        },
-        |v| v == "yes"
-    );
-
-    tpl_assert!(
-        test_is_korean_filter_with_en,
-        IsKoreanFilterTest {
-            lang: Some("en".to_string())
-        },
-        |v| v == "no"
-    );
-
-    tpl_assert!(
-        test_is_korean_filter_none_defaults_to_english,
-        IsKoreanFilterTest { lang: None },
-        |v| v == "no"
-    );
-
-    tpl_assert!(
-        test_language_filter_bcp47_french,
-        LanguageFilterTest {
-            lang: Some("fr-FR".to_string())
-        },
-        |v| v == "French"
-    );
-
-    tpl_assert!(
-        test_language_filter_bcp47_german,
-        LanguageFilterTest {
-            lang: Some("de-DE".to_string())
-        },
-        |v| v == "German"
-    );
-
-    tpl_assert!(
-        test_is_english_filter_bcp47_french,
-        IsEnglishFilterTest {
-            lang: Some("fr-FR".to_string())
-        },
-        |v| v == "no"
-    );
-
-    tpl_assert!(
-        test_is_english_filter_bcp47_english,
-        IsEnglishFilterTest {
-            lang: Some("en-US".to_string())
-        },
-        |v| v == "yes"
-    );
-
-    tpl_assert!(
-        test_is_korean_filter_bcp47_korean,
-        IsKoreanFilterTest {
-            lang: Some("ko-KR".to_string())
-        },
-        |v| v == "yes"
-    );
 }

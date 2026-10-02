@@ -295,26 +295,3 @@ impl<'a> UserClient<'a> {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use testcontainers_modules::{minio, testcontainers::runners::AsyncRunner};
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_client() {
-        let container = minio::MinIO::default().start().await.unwrap();
-        let port = container.get_host_port_ipv4(9000).await.unwrap();
-
-        let s3 = Client::builder()
-            .endpoint_url(format!("http://127.0.0.1:{}", port))
-            .bucket("test")
-            .credentials("minioadmin", "minioadmin")
-            .build()
-            .await;
-
-        let _ = s3.create_bucket().await.unwrap();
-        assert!(s3.get_bucket().await);
-    }
-}

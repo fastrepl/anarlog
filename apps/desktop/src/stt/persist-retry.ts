@@ -1,10 +1,10 @@
 import { retryDatabaseLock } from "~/db/retry";
 
-export async function persistTranscriptWrite(
-  write: () => Promise<void>,
+export async function persistTranscriptWrite<T>(
+  write: () => Promise<T>,
   retryDelaysMs?: readonly number[],
-) {
-  await retryDatabaseLock(write, retryDelaysMs);
+): Promise<T> {
+  return retryDatabaseLock(write, retryDelaysMs);
 }
 
 export { isDatabaseLockError } from "~/db/retry";

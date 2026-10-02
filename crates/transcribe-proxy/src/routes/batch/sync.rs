@@ -104,10 +104,10 @@ fn resolve_listen_params_for_provider(
     resolved_params
 }
 
-/// A stereo capture keeps the direct mic on channel 0 and the remote party on
-/// channel 1. Providers that downmix return one mixed channel instead, which the
-/// desktop can still diarize, so for a single-language request they run only
-/// after every provider that keeps the split has been tried. A request that
+/// Soniox remains primary even when it downmixes stereo; the desktop can still
+/// diarize its transcript. A stereo capture keeps the direct mic on channel 0
+/// and the remote party on channel 1, so single-language fallbacks prefer
+/// providers that preserve that split. A request that
 /// spans several languages keeps the router's order instead: the
 /// channel-preserving providers transcribe batch audio in one detected language,
 /// so promoting them would drop the other language's speech, which is worse than
@@ -117,8 +117,12 @@ fn prefer_channel_preserving_providers(
     listen_params: &ListenParams,
 ) {
     if listen_params.channels > 1 && listen_params.languages.len() <= 1 {
-        provider_chain
-            .sort_by_key(|selected| !selected.provider().preserves_batch_channel_identity());
+        provider_chain.sort_by_key(|selected| {
+            (
+                selected.provider() != Provider::Soniox,
+                !selected.provider().preserves_batch_channel_identity(),
+            )
+        });
     }
 }
 
@@ -507,7 +511,7 @@ mod tests {
     }
 
     #[test]
-    fn stereo_batch_orders_channel_preserving_providers_first() {
+    fn stereo_batch_keeps_soniox_primary() {
         let state = test_state(&[Provider::Deepgram, Provider::Soniox]);
 
         assert_eq!(
@@ -516,7 +520,7 @@ mod tests {
         );
         assert_eq!(
             ordered_chain(&state, &["en"], 2),
-            vec![Provider::Deepgram, Provider::Soniox]
+            vec![Provider::Soniox, Provider::Deepgram]
         );
     }
 
@@ -614,35 +618,40 @@ mod tests {
     }
 
     #[test]
-    fn test_classify_audio_processing_timeout_is_retryable() {
-        let classified = classify_audio_processing_message("request timed out".to_string());
-        assert!(matches!(classified, BatchAttemptError::Retryable(_)));
+    fn classifies_audio_processing_messages_by_retryability() {
+        let cases = [("request timed out", true), ("invalid language", false)];
+
+        for (message, retryable) in cases {
+            let classified = classify_audio_processing_message(message.to_string());
+            assert_eq!(
+                matches!(classified, BatchAttemptError::Retryable(_)),
+                retryable,
+                "{message}"
+            );
+        }
     }
 
     #[test]
-    fn test_classify_audio_processing_invalid_is_client() {
-        let classified = classify_audio_processing_message("invalid language".to_string());
-        assert!(matches!(classified, BatchAttemptError::Client(_)));
-    }
-
-    #[test]
-    fn test_provider_failure_retryable_maps_to_retryable() {
+    fn provider_failures_map_to_retry_auth_and_client_classes() {
         let err = map_provider_error(owhisper_client::Error::ProviderFailure {
             message: "transient upstream failure".to_string(),
             retryable: true,
             status: None,
         });
         assert!(matches!(err, BatchAttemptError::Retryable(_)));
-    }
 
-    #[test]
-    fn test_provider_failure_with_status_401_maps_to_auth() {
         let err = map_provider_error(owhisper_client::Error::ProviderFailure {
             message: "unauthorized".to_string(),
             retryable: true,
             status: Some(reqwest::StatusCode::UNAUTHORIZED),
         });
         assert!(matches!(err, BatchAttemptError::Auth(_)));
+
+        let err = map_provider_error(owhisper_client::Error::ProviderConfiguration {
+            provider: "test".to_string(),
+            message: "invalid endpoint".to_string(),
+        });
+        assert!(matches!(err, BatchAttemptError::Client(_)));
     }
 
     #[test]
@@ -667,14 +676,5 @@ mod tests {
         assert!(matches!(err, BatchAttemptError::Client(_)));
         assert_eq!(err.message(), "quota exceeded");
         assert!(anlg_user_error::is_user_error_text(err.message()));
-    }
-
-    #[test]
-    fn test_provider_configuration_maps_to_non_retryable_client_error() {
-        let err = map_provider_error(owhisper_client::Error::ProviderConfiguration {
-            provider: "test".to_string(),
-            message: "invalid endpoint".to_string(),
-        });
-        assert!(matches!(err, BatchAttemptError::Client(_)));
     }
 }

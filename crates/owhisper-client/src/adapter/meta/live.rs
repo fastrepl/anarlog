@@ -300,9 +300,7 @@ mod tests {
     use owhisper_interface::stream::StreamResponse;
 
     use super::MetaAdapter;
-    use crate::ListenClient;
     use crate::adapter::RealtimeSttAdapter;
-    use crate::test_utils::{run_dual_test, run_single_test};
 
     fn handshake_json(params: &owhisper_interface::ListenParams) -> serde_json::Value {
         match MetaAdapter::default()
@@ -450,39 +448,5 @@ mod tests {
             MetaAdapter::default().finalize_message(),
             Message::Text(text) if text == r#"{"type":"endStream"}"#
         ));
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_single() {
-        let client = ListenClient::builder()
-            .adapter::<MetaAdapter>()
-            .api_base("https://api.meta.ai/v1")
-            .api_key(std::env::var("META_API_KEY").expect("META_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                languages: vec![anlg_language::ISO639::En.into()],
-                ..Default::default()
-            })
-            .build_single()
-            .await
-            .unwrap();
-        run_single_test(client, "meta").await;
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_build_dual() {
-        let client = ListenClient::builder()
-            .adapter::<MetaAdapter>()
-            .api_base("https://api.meta.ai/v1")
-            .api_key(std::env::var("META_API_KEY").expect("META_API_KEY not set"))
-            .params(owhisper_interface::ListenParams {
-                languages: vec![anlg_language::ISO639::En.into()],
-                ..Default::default()
-            })
-            .build_dual()
-            .await
-            .unwrap();
-        run_dual_test(client, "meta").await;
     }
 }

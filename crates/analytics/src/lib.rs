@@ -434,18 +434,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn analytics_payload_builder_attaches_groups() {
-        let payload = AnalyticsPayload::builder("test_event")
-            .group("account", "account_123")
-            .build();
-
-        assert_eq!(
-            payload.groups.unwrap().get("account"),
-            Some(&"account_123".to_string())
-        );
-    }
-
-    #[test]
     fn legacy_device_id_is_stable() {
         let id = legacy_pseudonymous_device_id("3f2a9c1d8b7e6f50");
         assert_eq!(id, legacy_pseudonymous_device_id("3f2a9c1d8b7e6f50"));
@@ -483,17 +471,5 @@ mod tests {
                 serde_json::json!({ "platform": "desktop" })
             )])
         );
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_analytics() {
-        let client = AnalyticsClientBuilder::default().build();
-        let payload = AnalyticsPayload::builder("test_event")
-            .with("key1", "value1")
-            .with("key2", 2)
-            .build();
-
-        client.event("machine_id_123", payload).await.unwrap();
     }
 }

@@ -6,6 +6,7 @@ type AuthState = {
   // undefined = initial load in progress, null = known unauthenticated
   session: Session | null | undefined;
   isRefreshingSession: boolean;
+  isFingerprintSettled: boolean;
 };
 
 type AuthActions = {

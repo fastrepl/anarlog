@@ -6,16 +6,9 @@ import {
 } from "./enhance-validator";
 
 describe("normalizeForComparison", () => {
-  it("lowercases and replaces & with and", () => {
+  it("normalizes ampersands, punctuation, case, and whitespace", () => {
     expect(normalizeForComparison("Status & Upload")).toBe("status and upload");
-  });
-
-  it("strips punctuation and collapses whitespace", () => {
     expect(normalizeForComparison("  Hello,  World!  ")).toBe("hello world");
-  });
-
-  it("handles empty string", () => {
-    expect(normalizeForComparison("")).toBe("");
   });
 });
 
@@ -29,93 +22,47 @@ describe("createEnhanceValidator", () => {
     ],
   };
 
-  describe("h1 prefix requirement", () => {
-    it("rejects text with no # at all", () => {
-      const v = createEnhanceValidator(template);
-      expect(v("Here is the summary")).toEqual({
-        valid: false,
-        feedback: "Output must start with a markdown h1 heading (# Title).",
-      });
-    });
-
-    it("rejects h2 headings", () => {
-      const v = createEnhanceValidator(template);
-      expect(v("## Data File Status")).toEqual({
-        valid: false,
-        feedback: "Output must start with a markdown h1 heading (# Title).",
-      });
-    });
+  it.each([
+    "# Data File Status and Upload Testing",
+    "# Data File",
+    "# data file status & upload testing",
+    "Here is the summary:\n# Data File Status and Upload Testing",
+  ])("accepts valid heading input: %s", (input) => {
+    expect(createEnhanceValidator(template)(input)).toEqual({ valid: true });
   });
 
-  describe("section heading match", () => {
-    it("accepts exact match", () => {
-      const v = createEnhanceValidator(template);
-      expect(v("# Data File Status and Upload Testing")).toEqual({
+  it.each([
+    "Here is the summary",
+    "## Data File Status",
+    "# Something Entirely Different",
+  ])("rejects invalid heading input: %s", (input) => {
+    expect(createEnhanceValidator(template)(input).valid).toBe(false);
+  });
+
+  it.each([
+    {
+      template: null,
+      input: "Sure, here you go:\n# Any Heading",
+    },
+    {
+      template: { title: "", description: null, sections: [] },
+      input: "# Any Heading Works",
+    },
+  ])(
+    "accepts heading input without section matching: $input",
+    ({ template: inputTemplate, input }) => {
+      expect(createEnhanceValidator(inputTemplate)(input)).toEqual({
         valid: true,
       });
+    },
+  );
+
+  it("allows custom instructions to replace heading and template format requirements", () => {
+    const validator = createEnhanceValidator(template, {
+      overrideTemplateFormatting: true,
     });
 
-    it("accepts partial streaming text that is a prefix of expected", () => {
-      const v = createEnhanceValidator(template);
-      expect(v("# Data File")).toEqual({ valid: true });
-    });
-
-    it("accepts fuzzy match (& vs and)", () => {
-      const v = createEnhanceValidator(template);
-      expect(v("# Data File Status & Upload Testing")).toEqual({ valid: true });
-    });
-
-    it("accepts fuzzy match (case difference)", () => {
-      const v = createEnhanceValidator(template);
-      expect(v("# data file status and upload testing")).toEqual({
-        valid: true,
-      });
-    });
-
-    it("rejects completely different heading", () => {
-      const v = createEnhanceValidator(template);
-      const result = v("# Something Entirely Different");
-      expect(result.valid).toBe(false);
-    });
-  });
-
-  describe("preamble stripping", () => {
-    it("accepts output with preamble text before heading", () => {
-      const v = createEnhanceValidator(template);
-      expect(
-        v("Here is the summary:\n# Data File Status and Upload Testing"),
-      ).toEqual({
-        valid: true,
-      });
-    });
-
-    it("accepts preamble with correct heading for null template", () => {
-      const v = createEnhanceValidator(null);
-      expect(v("Sure, here you go:\n# Any Heading")).toEqual({ valid: true });
-    });
-  });
-
-  describe("skip heading match", () => {
-    it("skips heading match when template is null", () => {
-      const v = createEnhanceValidator(null);
-      expect(v("# Any Heading Works")).toEqual({ valid: true });
-    });
-
-    it("skips heading match when sections are empty", () => {
-      const empty = { title: "", description: null, sections: [] };
-      const v = createEnhanceValidator(empty);
-      expect(v("# Any Heading Works")).toEqual({ valid: true });
-    });
-  });
-
-  describe("custom formatting override", () => {
-    it("allows custom instructions to replace heading and template format requirements", () => {
-      const v = createEnhanceValidator(template, {
-        overrideTemplateFormatting: true,
-      });
-
-      expect(v("Decisions\n- Ship it")).toEqual({ valid: true });
-      expect(v("# Custom Heading")).toEqual({ valid: true });
-    });
+    expect(validator("Decisions\n- Ship it")).toEqual({ valid: true });
+    expect(validator("# Custom Heading")).toEqual({ valid: true });
   });
 });

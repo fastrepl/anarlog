@@ -310,14 +310,3 @@ fn login_error(status: i32, output: &str) -> String {
         format!("could not sign in to Plaud: {detail}")
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn accepts_only_plaud() {
-        assert!(is_cli_provider("plaud"));
-        assert!(!is_cli_provider("granola"));
-    }
-}

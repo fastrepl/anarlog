@@ -25,7 +25,6 @@ tauri = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 sentry = { workspace = true, features = ["tracing"] }
-tauri-plugin-sentry = { workspace = true }
 
 dirs = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

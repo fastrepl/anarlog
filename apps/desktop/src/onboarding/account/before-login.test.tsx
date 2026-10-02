@@ -19,7 +19,6 @@ afterEach(() => {
 it("offers one account action", () => {
   render(<BeforeLogin />);
 
-  expect(screen.getAllByRole("button")).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "Get started" }));
 
   expect(mocks.signIn).toHaveBeenCalledTimes(1);

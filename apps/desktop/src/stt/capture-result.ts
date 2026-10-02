@@ -6,6 +6,7 @@ export function saveIncompleteCapture(
   transcriptId: string,
   audioDeleted: boolean,
   audioDeletionFailed?: boolean,
+  audioKeptForTranscription?: boolean,
 ) {
   return enqueueDatabaseWrite(`session:${sessionId}`, () =>
     executeTransaction([
@@ -17,7 +18,11 @@ export function saveIncompleteCapture(
       ), updated_at = excluded.updated_at`,
         params: [
           `capture_incomplete:${sessionId}:${transcriptId}`,
-          JSON.stringify({ audioDeleted, audioDeletionFailed }),
+          JSON.stringify({
+            audioDeleted,
+            audioDeletionFailed,
+            audioKeptForTranscription: audioKeptForTranscription ?? false,
+          }),
           new Date().toISOString(),
         ],
       },
@@ -27,11 +32,20 @@ export function saveIncompleteCapture(
 
 export function useIncompleteCapture(sessionId: string) {
   const { data } = useLiveQuery<
-    { audio_deleted: number; audio_deletion_failed: number },
-    { audioDeleted: boolean; audioDeletionFailed: boolean } | null
+    {
+      audio_deleted: number;
+      audio_deletion_failed: number;
+      audio_kept_for_transcription: number;
+    },
+    {
+      audioDeleted: boolean;
+      audioDeletionFailed: boolean;
+      audioKeptForTranscription: boolean;
+    } | null
   >({
     sql: `SELECT json_extract(value_json, '$.audioDeleted') AS audio_deleted,
-      json_extract(value_json, '$.audioDeletionFailed') AS audio_deletion_failed
+      json_extract(value_json, '$.audioDeletionFailed') AS audio_deletion_failed,
+      json_extract(value_json, '$.audioKeptForTranscription') AS audio_kept_for_transcription
       FROM app_settings WHERE substr(id, 1, length(?)) = ? AND json_valid(value_json)
       AND (json_extract(value_json, '$.audioDeletionFailed') = 1 OR id = ? || 'audio-recovery' OR EXISTS (
         SELECT 1 FROM transcripts WHERE session_id = ? AND deleted_at IS NULL
@@ -49,6 +63,9 @@ export function useIncompleteCapture(sessionId: string) {
         ? {
             audioDeleted: Boolean(rows[0]?.audio_deleted),
             audioDeletionFailed: Boolean(rows[0]?.audio_deletion_failed),
+            audioKeptForTranscription: Boolean(
+              rows[0]?.audio_kept_for_transcription,
+            ),
           }
         : null,
   });

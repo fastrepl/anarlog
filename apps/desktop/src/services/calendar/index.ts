@@ -6,23 +6,8 @@ import {
   getProviderConnections,
   syncCalendars,
 } from "./ctx";
-import {
-  CalendarFetchError,
-  fetchExistingEvents,
-  fetchIncomingEvents,
-} from "./fetch";
-import {
-  syncEvents,
-  syncSessionEmbeddedEvents,
-  syncSessionParticipants,
-} from "./process";
-import { eventTrackingIds } from "./process/events/identity";
-import {
-  applyConnectionSync,
-  loadParticipantSyncSnapshot,
-  loadSessionsForTrackingIds,
-  tombstoneCalendarConnection,
-} from "./storage";
+import { CalendarFetchError, fetchIncomingEvents } from "./fetch";
+import { syncConnectionEvents, tombstoneCalendarConnection } from "./storage";
 
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type { TaskScheduler } from "~/services/task-scheduler";
@@ -177,46 +162,9 @@ async function runForConnection(
 
   if (shouldStop()) return;
 
-  const existing = await fetchExistingEvents(ctx, incoming);
-  if (shouldStop()) return;
-
-  const events = syncEvents(ctx, {
-    incoming,
-    existing,
-    incomingParticipants,
-  });
-  const sessions = await loadSessionsForTrackingIds(
-    incoming.flatMap(eventTrackingIds),
-  );
-  if (shouldStop()) return;
-
-  const sessionUpdates = syncSessionEmbeddedEvents(ctx, incoming, sessions);
-  const sessionTrackingIds = new Map(
-    sessionUpdates.map((update) => [update.sessionId, update.trackingId]),
-  );
-  const participantSnapshot = await loadParticipantSyncSnapshot(
-    sessions
-      .filter((session) => sessionTrackingIds.has(session.id))
-      .map((session) => ({
-        ...session,
-        trackingId: sessionTrackingIds.get(session.id)!,
-      })),
-    incomingParticipants,
-  );
-  if (shouldStop()) return;
-
-  const participants = syncSessionParticipants({
-    incomingParticipants,
-    snapshot: participantSnapshot,
-  });
   await enqueueDatabaseWrite("calendar-sync", async () => {
     if (shouldStop()) return;
-    await applyConnectionSync({
-      ctx,
-      events,
-      sessionUpdates,
-      participants,
-    });
+    await syncConnectionEvents({ ctx, incoming, incomingParticipants });
   });
 }
 

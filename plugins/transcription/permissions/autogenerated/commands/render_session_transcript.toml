@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-render-session-transcript"
+description = "Enables the render_session_transcript command without any pre-configured scope."
+commands.allow = ["render_session_transcript"]
+
+[[permission]]
+identifier = "deny-render-session-transcript"
+description = "Denies the render_session_transcript command without any pre-configured scope."
+commands.deny = ["render_session_transcript"]

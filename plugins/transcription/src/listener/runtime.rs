@@ -1,11 +1,13 @@
 use anlg_transcription_core::listener::ListenerRuntime;
 use ractor::{ActorRef, call_t, registry};
+use tauri::Manager;
 use tauri_plugin_settings::SettingsPluginExt;
 use tauri_specta::Event;
 
 use crate::{
-    CaptureDataEvent, CaptureLifecycleEvent, CaptureStatusEvent, MicIsolationCache,
-    SessionStateCache, SessionStateSnapshot,
+    CaptureDataEvent, CaptureGapRegistry, CaptureLifecycleEvent, CaptureStatusEvent,
+    MicIsolationCache, SessionStateCache, SessionStateSnapshot, StoppedCapture,
+    StoppedCaptureRegistry,
 };
 use anlg_transcription_core::listener::State as RootState;
 use anlg_transcription_core::listener::actors::{RootActor, RootMsg};
@@ -17,7 +19,8 @@ pub struct TauriRuntime {
     pub app: tauri::AppHandle,
     pub session_state_cache: SessionStateCache,
     pub mic_isolation_cache: MicIsolationCache,
-    pub media_pause_enabled: crate::MediaPauseEnabled,
+    pub stopped_capture_registry: StoppedCaptureRegistry,
+    pub capture_gap_registry: CaptureGapRegistry,
 }
 
 impl anlg_storage::StorageRuntime for TauriRuntime {
@@ -46,13 +49,6 @@ impl ListenerRuntime for TauriRuntime {
                 let _ = self.app.tray().set_start_disabled(true);
                 let _ = self.app.tray().set_degraded(error.is_some());
                 let _ = self.app.tray().set_recording(true);
-                if self.media_pause_enabled.enabled() {
-                    tauri::async_runtime::spawn(async {
-                        if let Err(error) = anlg_media_control::pause_playback().await {
-                            tracing::warn!(%error, "media_pause_failed");
-                        }
-                    });
-                }
             }
             anlg_transcription_core::listener::SessionLifecycleEvent::Inactive { .. } => {
                 let app = self.app.clone();
@@ -81,15 +77,30 @@ impl ListenerRuntime for TauriRuntime {
                 current_transcription_mode,
                 error,
             } => {
+                self.stopped_capture_registry.clear_session(&session_id);
                 let requested_live_transcription = requested_transcription_mode
                     == anlg_transcription_core::listener::TranscriptionMode::Live;
                 let live_transcription_active = current_transcription_mode
                     == anlg_transcription_core::listener::TranscriptionMode::Live;
-                if let Ok(mut cache) = self.session_state_cache.lock() {
+                let now_ms = crate::capture_gaps::unix_now_ms();
+                let new_capture = if let Ok(mut cache) = self.session_state_cache.lock() {
                     let state = cache.entry(session_id.clone()).or_default();
+                    let new_capture = state.started_at_ms.is_none();
                     state.requested_live_transcription = requested_live_transcription;
                     state.live_transcription_active = live_transcription_active;
-                }
+                    state.started_at_ms.get_or_insert(now_ms);
+                    state.degraded = error.clone();
+                    new_capture
+                } else {
+                    false
+                };
+                self.capture_gap_registry.start(
+                    &session_id,
+                    now_ms,
+                    requested_live_transcription,
+                    live_transcription_active,
+                    new_capture,
+                );
                 CaptureLifecycleEvent::Started {
                     session_id,
                     requested_live_transcription,
@@ -105,11 +116,23 @@ impl ListenerRuntime for TauriRuntime {
                 audio_path,
                 error,
             } => {
-                let snapshot = self
+                let (snapshot, started_at_ms) = self
                     .session_state_cache
                     .lock()
-                    .ok()
-                    .and_then(|mut cache| cache.remove(&session_id));
+                    .map(|mut cache| {
+                        let started_at_ms =
+                            cache.get(&session_id).and_then(|state| state.started_at_ms);
+                        (cache.remove(&session_id), started_at_ms)
+                    })
+                    .unwrap_or((None, None));
+                let stopped_at_ms = crate::capture_gaps::unix_now_ms();
+                self.capture_gap_registry
+                    .stopped(&session_id, stopped_at_ms);
+                let duration_seconds = started_at_ms
+                    .map(|started_at_ms| {
+                        stopped_at_ms.saturating_sub(started_at_ms).max(0) as f64 / 1_000.0
+                    })
+                    .unwrap_or_default();
                 let (requested_live_transcription, live_transcription_active) = snapshot
                     .as_ref()
                     .map(|state| {
@@ -131,9 +154,20 @@ impl ListenerRuntime for TauriRuntime {
                     }
                 }
                 crate::voiceprint::persist_mic_isolation(&self.app, &session_id, mic_isolated);
+                self.stopped_capture_registry.record(StoppedCapture {
+                    session_id: session_id.clone(),
+                    stopped_at_ms,
+                    duration_seconds,
+                    chunked_audio: true,
+                    audio_path: audio_path.clone(),
+                    requested_live_transcription,
+                    live_transcription_active,
+                    error: error.clone(),
+                });
 
                 CaptureLifecycleEvent::Stopped {
                     session_id,
+                    stopped_at_ms,
                     chunked_audio: true,
                     audio_path,
                     requested_live_transcription,
@@ -149,12 +183,36 @@ impl ListenerRuntime for TauriRuntime {
     }
 
     fn emit_progress(&self, event: anlg_transcription_core::listener::SessionProgressEvent) {
+        if let anlg_transcription_core::listener::SessionProgressEvent::Connected {
+            session_id,
+            ..
+        } = &event
+        {
+            self.capture_gap_registry
+                .connected(session_id, crate::capture_gaps::unix_now_ms());
+        }
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_progress_event");
         }
     }
 
     fn emit_error(&self, event: anlg_transcription_core::listener::SessionErrorEvent) {
+        match &event {
+            anlg_transcription_core::listener::SessionErrorEvent::ConnectionError {
+                session_id,
+                ..
+            } => self
+                .capture_gap_registry
+                .interrupted(session_id, crate::capture_gaps::unix_now_ms()),
+            anlg_transcription_core::listener::SessionErrorEvent::AudioError {
+                session_id,
+                error,
+                ..
+            } if error.starts_with("audio_storage_") => self
+                .capture_gap_registry
+                .storage_failed(session_id, crate::capture_gaps::unix_now_ms()),
+            _ => {}
+        }
         update_audio_cleanup_status(&self.audio_cleanup_status, &event);
         if let Err(error) = CaptureStatusEvent::from(event).emit(&self.app) {
             tracing::error!(?error, "failed_to_emit_error_event");
@@ -163,6 +221,18 @@ impl ListenerRuntime for TauriRuntime {
 
     fn emit_data(&self, event: anlg_transcription_core::listener::SessionDataEvent) {
         match &event {
+            anlg_transcription_core::listener::SessionDataEvent::TranscriptDelta {
+                session_id,
+                delta,
+            } => {
+                if (!delta.new_words.is_empty() || !delta.replaced_ids.is_empty())
+                    && let Some(registry) = self
+                        .app
+                        .try_state::<crate::live_journal::LiveJournalRegistry>()
+                {
+                    registry.append(session_id, delta.as_ref().clone());
+                }
+            }
             anlg_transcription_core::listener::SessionDataEvent::TranscriptSegmentDelta {
                 session_id,
                 delta,

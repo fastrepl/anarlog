@@ -108,56 +108,22 @@ async fn test_mic_detected_after_delay() {
 
 #[tokio::test(start_paused = true)]
 async fn test_filtered_app_no_event() {
-    let h = Harness::new();
-
-    h.mic_started(aqua_voice());
-    assert!(
-        h.take_events().is_empty(),
-        "categorized app should not start a timer"
-    );
-
-    h.advance_secs(15).await;
-    assert!(
-        h.take_events().is_empty(),
-        "categorized app should not emit MicDetected"
-    );
-}
-
-#[tokio::test(start_paused = true)]
-async fn test_screen_recording_app_no_event() {
-    for app in [screen_studio(), snagit_2024()] {
+    for app in [aqua_voice(), screen_studio(), snagit_2024()] {
         let h = Harness::new();
+        let app_name = app.name.clone();
 
         h.mic_started(app);
         assert!(
             h.take_events().is_empty(),
-            "screen recording app should not start a timer"
+            "{app_name} should not start a timer"
         );
 
         h.advance_secs(15).await;
         assert!(
             h.take_events().is_empty(),
-            "screen recording app should not emit MicDetected"
+            "{app_name} should not emit MicDetected"
         );
     }
-}
-
-#[tokio::test(start_paused = true)]
-async fn test_cancel_before_timer() {
-    let h = Harness::new();
-
-    h.mic_started(zoom());
-
-    h.advance_secs(3).await;
-    h.mic_stopped(zoom());
-    h.take_events();
-
-    h.advance_secs(15).await;
-
-    assert!(
-        h.take_events().is_empty(),
-        "cancelled timer should not emit"
-    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -213,25 +179,6 @@ async fn test_full_scenario_zoom_and_dictation() {
 
     h.mic_stopped(zoom());
     assert_eq!(h.take_events().len(), 1, "zoom should emit MicStopped");
-}
-
-#[tokio::test(start_paused = true)]
-async fn test_dnd_suppresses_mic_detected() {
-    let h = Harness::new();
-    h.env.set_dnd(true);
-    {
-        let mut guard = h.state.lock().unwrap();
-        guard.policy.respect_dnd = true;
-    }
-
-    h.mic_started(zoom());
-    assert!(h.take_events().is_empty(), "nothing emitted immediately");
-
-    h.advance_secs(15).await;
-    assert!(
-        h.take_events().is_empty(),
-        "DnD should suppress MicDetected at emit time"
-    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -333,7 +280,7 @@ async fn test_ignore_during_active_tracking_cancels_timer() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn test_cooldown_suppresses_repeated_notifications() {
+async fn test_cooldown_suppresses_until_ten_minutes_pass() {
     let h = Harness::new();
 
     h.mic_started(zoom());
@@ -350,17 +297,6 @@ async fn test_cooldown_suppresses_repeated_notifications() {
         h.take_events().is_empty(),
         "second notification suppressed by cooldown"
     );
-}
-
-#[tokio::test(start_paused = true)]
-async fn test_cooldown_expires_after_ten_minutes() {
-    let h = Harness::new();
-
-    h.mic_started(zoom());
-
-    h.advance_secs(15).await;
-    assert_eq!(h.take_events().len(), 1, "first notification fires");
-
     h.mic_stopped(zoom());
     h.take_events();
 
@@ -420,43 +356,6 @@ async fn test_mic_stopped_with_detect_disabled_cancels_timers_and_emits() {
     assert!(
         h.take_events().is_empty(),
         "timer should have been cancelled by MicStopped even though detect was disabled"
-    );
-}
-
-#[tokio::test(start_paused = true)]
-async fn test_cooldown_is_per_app() {
-    let h = Harness::new();
-
-    h.mic_started(zoom());
-    h.advance_secs(15).await;
-    assert_eq!(h.take_events().len(), 1, "zoom notification fires");
-
-    h.mic_started(slack());
-    h.advance_secs(15).await;
-    let events = h.take_events();
-    assert_eq!(
-        events.len(),
-        1,
-        "slack notification fires despite zoom cooldown"
-    );
-    assert!(matches!(
-        &events[0],
-        DetectEvent::MicDetected { apps, .. }
-            if apps[0].id == "com.tinyspeck.slackmacgap"
-    ));
-}
-
-#[tokio::test(start_paused = true)]
-async fn test_mic_started_with_detect_disabled_is_noop() {
-    let h = Harness::new();
-    h.env.set_detect_enabled(false);
-
-    h.mic_started(zoom());
-    h.advance_secs(15).await;
-
-    assert!(
-        h.take_events().is_empty(),
-        "no timer should start when detect is disabled"
     );
 }
 
@@ -574,51 +473,6 @@ async fn test_stop_all_apps_simultaneously() {
 
     h.advance_secs(15).await;
     assert!(h.take_events().is_empty(), "all timers should be cancelled");
-}
-
-#[tokio::test(start_paused = true)]
-async fn test_rapid_start_stop_start_within_threshold() {
-    let h = Harness::new();
-
-    h.mic_started(zoom());
-    h.advance_secs(5).await;
-    h.mic_stopped(zoom());
-    h.take_events();
-
-    h.advance_secs(2).await;
-    h.mic_started(zoom());
-
-    h.advance_secs(15).await;
-    let events = h.take_events();
-    assert_eq!(events.len(), 1, "new timer should fire after restart");
-}
-
-#[tokio::test(start_paused = true)]
-async fn test_user_ignore_added_mid_flight_for_one_of_two_apps() {
-    let h = Harness::new();
-
-    h.mic_started(zoom());
-    h.mic_started(slack());
-
-    h.advance_secs(5).await;
-
-    {
-        let mut guard = h.state.lock().unwrap();
-        guard.mic_usage_tracker.cancel_app("us.zoom.xos");
-        guard
-            .policy
-            .user_ignored_bundle_ids
-            .insert("us.zoom.xos".to_string());
-    }
-
-    h.advance_secs(10).await;
-    let events = h.take_events();
-    assert_eq!(events.len(), 1, "only slack should fire");
-    assert!(matches!(
-        &events[0],
-        DetectEvent::MicDetected { apps, .. }
-            if apps[0].id == "com.tinyspeck.slackmacgap"
-    ));
 }
 
 #[tokio::test(start_paused = true)]

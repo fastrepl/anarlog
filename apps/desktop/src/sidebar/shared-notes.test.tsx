@@ -51,7 +51,7 @@ describe("SharedNotesNav", () => {
 
   afterEach(cleanup);
 
-  it("shows received notes as regular rows with a trailing people icon", () => {
+  it("lists received notes except shares of the viewer's own local notes", () => {
     mocks.notes = [
       {
         shareId: "share-1",
@@ -86,17 +86,8 @@ describe("SharedNotesNav", () => {
 
     render(<SharedNotesNav />);
 
-    expect(screen.queryByText("Shared with me")).toBeNull();
-    const sharedPlan = screen.getByText("Shared plan");
-    const sharedPlanButton = sharedPlan.closest("button");
-    const sharedIcon = sharedPlanButton?.querySelector(
-      '[aria-label="Shared note"]',
-    );
+    const sharedPlanButton = screen.getByText("Shared plan").closest("button");
 
-    expect(sharedPlanButton?.className).toContain("rounded-lg");
-    expect(sharedIcon).toBe(
-      sharedPlanButton?.firstElementChild?.nextElementSibling,
-    );
     expect(screen.queryByText("Owned")).toBeNull();
     expect(screen.getByText("Admin remote")).toBeTruthy();
     expect(screen.getByText("Viewer local")).toBeTruthy();

@@ -97,6 +97,10 @@ mod test {
         summary.markdown = "결정 사항".to_string();
         summary.title = "Summary".to_string();
         export.meeting.summaries.push(summary);
+        assert_eq!(
+            commands::drive_markdown(export.clone()).unwrap().filename,
+            "2026-07-13 Planning.md"
+        );
         export.meeting.title = "회의 / 프로젝트".repeat(100);
         let prepared = commands::drive_markdown(export.clone()).unwrap();
         assert!(prepared.markdown.contains("결정 사항"));

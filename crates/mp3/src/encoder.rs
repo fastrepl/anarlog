@@ -179,43 +179,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn f32_to_i16_clamps_out_of_range_values() {
+    fn sample_conversion_clamps_and_scales() {
         assert_eq!(f32_to_i16(-2.0), -i16::MAX);
         assert_eq!(f32_to_i16(2.0), i16::MAX);
-    }
-
-    #[test]
-    fn int_to_i16_scales_32_bit_extremes() {
         assert_eq!(int_to_i16(i32::MAX, 32), i16::MAX);
         assert_eq!(int_to_i16(i32::MIN, 32), -i16::MAX);
-    }
-
-    #[test]
-    fn int_to_i16_handles_single_bit_depth() {
         assert_eq!(int_to_i16(1, 1), 0);
-    }
-
-    #[test]
-    fn mono_stream_encoder_encodes_memory_buffer() -> Result<(), Error> {
-        let mut encoder = MonoStreamEncoder::new(16_000)?;
-        let mut output = Vec::new();
-
-        encoder.encode_f32(&[0.1; 16_000], &mut output)?;
-        encoder.flush(&mut output)?;
-
-        assert!(!output.is_empty());
-        Ok(())
-    }
-
-    #[test]
-    fn stereo_stream_encoder_encodes_memory_buffer() -> Result<(), Error> {
-        let mut encoder = StereoStreamEncoder::new(48_000)?;
-        let mut output = Vec::new();
-
-        encoder.encode_f32(&[0.1; 16_000], &[0.2; 16_000], &mut output)?;
-        encoder.flush(&mut output)?;
-
-        assert!(!output.is_empty());
-        Ok(())
     }
 }

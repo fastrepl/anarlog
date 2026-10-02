@@ -1,9 +1,9 @@
 import { useStore } from "zustand";
 
 import { commands as trayCommands } from "@anlg/plugin-tray";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useSession } from "~/session/queries";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { type LiveSessionStatus } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import {

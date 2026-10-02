@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-attachment-cloud-sync-enabled"
+description = "Enables the set_attachment_cloud_sync_enabled command without any pre-configured scope."
+commands.allow = ["set_attachment_cloud_sync_enabled"]
+
+[[permission]]
+identifier = "deny-set-attachment-cloud-sync-enabled"
+description = "Denies the set_attachment_cloud_sync_enabled command without any pre-configured scope."
+commands.deny = ["set_attachment_cloud_sync_enabled"]

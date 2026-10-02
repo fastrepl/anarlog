@@ -280,50 +280,50 @@ mod tests {
     use super::{CaptureSettings, resolve_capture_settings};
 
     #[test]
-    fn headphones_disable_aec_and_isolate_the_mic() {
-        assert_eq!(
-            resolve_capture_settings(false, true, false),
-            CaptureSettings {
-                enable_aec: false,
-                headphone_output: true,
-                mic_isolated: true,
-            }
-        );
-    }
-
-    #[test]
-    fn speakers_keep_aec_and_leave_the_mic_shared() {
-        assert_eq!(
-            resolve_capture_settings(false, false, false),
-            CaptureSettings {
-                enable_aec: true,
-                headphone_output: false,
-                mic_isolated: false,
-            }
-        );
-    }
-
-    #[test]
-    fn no_aec_override_does_not_imply_isolation() {
-        assert_eq!(
-            resolve_capture_settings(true, false, false),
-            CaptureSettings {
-                enable_aec: false,
-                headphone_output: false,
-                mic_isolated: false,
-            }
-        );
-    }
-
-    #[test]
-    fn swapped_mic_is_not_isolated_but_headphones_still_skip_aec() {
-        assert_eq!(
-            resolve_capture_settings(false, true, true),
-            CaptureSettings {
-                enable_aec: false,
-                headphone_output: true,
-                mic_isolated: false,
-            }
-        );
+    fn resolve_capture_settings_by_output_route() {
+        for (args, expected, label) in [
+            (
+                (false, true, false),
+                CaptureSettings {
+                    enable_aec: false,
+                    headphone_output: true,
+                    mic_isolated: true,
+                },
+                "headphones disable aec and isolate the mic",
+            ),
+            (
+                (false, false, false),
+                CaptureSettings {
+                    enable_aec: true,
+                    headphone_output: false,
+                    mic_isolated: false,
+                },
+                "speakers keep aec and leave the mic shared",
+            ),
+            (
+                (true, false, false),
+                CaptureSettings {
+                    enable_aec: false,
+                    headphone_output: false,
+                    mic_isolated: false,
+                },
+                "no aec override does not imply isolation",
+            ),
+            (
+                (false, true, true),
+                CaptureSettings {
+                    enable_aec: false,
+                    headphone_output: true,
+                    mic_isolated: false,
+                },
+                "swapped mic is not isolated but headphones still skip aec",
+            ),
+        ] {
+            assert_eq!(
+                resolve_capture_settings(args.0, args.1, args.2),
+                expected,
+                "case: {label}"
+            );
+        }
     }
 }

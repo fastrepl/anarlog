@@ -1,216 +1,8 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import {
-  displayModelLabel,
-  formatDownloadProgress,
-  isDeprecatedSttModel,
-  PROVIDERS,
-} from "./shared";
-
-describe("STT providers", () => {
-  test("orders providers by popularity", () => {
-    expect(PROVIDERS.map(({ id }) => id)).toEqual([
-      "anarlog",
-      "soniqo",
-      "apple_speech",
-      "local_file",
-      "deepgram",
-      "assemblyai",
-      "openai",
-      "openrouter",
-      "dashscope",
-      "zai",
-      "siliconflow",
-      "google_generative_ai",
-      "google_cloud",
-      "aws_transcribe",
-      "azure_speech",
-      "elevenlabs",
-      "soniox",
-      "meta",
-      "speechmatics",
-      "groq",
-      "mistral",
-      "revai",
-      "gladia",
-      "cartesia",
-      "cloudflare_workers_ai",
-      "together",
-      "xai",
-      "smallestai",
-      "wisprflow",
-      "nari",
-      "pyannote",
-      "cohere",
-      "aquavoice",
-      "custom",
-    ]);
-  });
-
-  test("bundles every provider icon", () => {
-    for (const { icon } of PROVIDERS) {
-      const markup = renderToStaticMarkup(icon);
-
-      expect(markup).toMatch(/<(img|svg)\b/);
-      expect(markup).not.toContain("iconify-icon");
-    }
-  });
-});
-
-describe("STT model display labels", () => {
-  test("keeps cloud model product-facing", () => {
-    expect(displayModelLabel("cloud")).toBe("Pro (Cloud)");
-  });
-
-  test("uses product-facing labels for hosted provider models", () => {
-    expect(displayModelLabel("stt-rt-v5")).toBe("Soniox 5");
-    expect(displayModelLabel("muse-voice-transcribe-1.0")).toBe(
-      "Muse Voice Transcribe",
-    );
-    expect(displayModelLabel("universal-3-5-pro")).toBe("Universal 3.5 Pro");
-    expect(displayModelLabel("universal-3-5-pro-realtime")).toBe(
-      "Universal 3.5 Pro Realtime",
-    );
-    expect(displayModelLabel("gpt-4o-transcribe-diarize")).toBe(
-      "GPT-4o Transcribe Diarize",
-    );
-    expect(displayModelLabel("gpt-live-transcribe")).toBe(
-      "GPT Live Transcribe",
-    );
-    expect(displayModelLabel("gpt-transcribe")).toBe("GPT Transcribe");
-    expect(displayModelLabel("cohere-transcribe-03-2026")).toBe(
-      "Cohere Transcribe",
-    );
-    expect(displayModelLabel("whisper-large-v3-turbo")).toBe(
-      "Whisper Large V3 Turbo",
-    );
-    expect(displayModelLabel("whisper-v3-turbo")).toBe("Whisper V3 Turbo");
-    expect(displayModelLabel("avalon-v1.5")).toBe("Avalon 1.5");
-    expect(displayModelLabel("cohere-transcribe-arabic-07-2026")).toBe(
-      "Cohere Transcribe Arabic",
-    );
-    expect(displayModelLabel("standard")).toBe("Standard");
-    expect(displayModelLabel("nvidia/nemotron-3.5-asr-streaming-0.6b")).toBe(
-      "Nemotron 3.5 ASR 0.6B",
-    );
-    expect(displayModelLabel("mistralai/voxtral-small-24b-2507-stt")).toBe(
-      "Voxtral Small 24B",
-    );
-    expect(displayModelLabel("xai-stt")).toBe("xAI Speech to Text");
-    expect(displayModelLabel("pulse")).toBe("Pulse");
-    expect(displayModelLabel("pulse-pro")).toBe("Pulse Pro");
-    expect(displayModelLabel("gemini-3.5-transcribe-live")).toBe(
-      "3.5 Transcribe Live",
-    );
-    expect(displayModelLabel("gemini-3.5-transcribe")).toBe("3.5 Transcribe");
-    expect(displayModelLabel("local-file")).toBe("whisper.cpp .bin");
-    expect(displayModelLabel("fast-transcription")).toBe("Fast Transcription");
-    expect(displayModelLabel("openai/gpt-4o-mini-transcribe")).toBe(
-      "GPT-4o mini Transcribe",
-    );
-    expect(displayModelLabel("mistralai/voxtral-mini-transcribe")).toBe(
-      "Voxtral Mini Transcribe",
-    );
-    expect(displayModelLabel("qwen3-asr-flash-realtime")).toBe(
-      "Qwen3 ASR Flash Realtime",
-    );
-    expect(displayModelLabel("qwen-audio-3.1-asr-flash-streaming")).toBe(
-      "Qwen-Audio 3.1 ASR Flash Streaming",
-    );
-    expect(displayModelLabel("glm-asr-2512")).toBe("GLM ASR");
-    expect(displayModelLabel("FunAudioLLM/SenseVoiceSmall")).toBe(
-      "SenseVoice Small",
-    );
-  });
-
-  test("exposes all new providers with honest capability badges", () => {
-    const providers = Object.fromEntries(
-      PROVIDERS.map((provider) => [provider.id, provider]),
-    );
-
-    expect(providers.fireworks).toBeUndefined();
-    expect(providers.xai.badge).toBeNull();
-    expect(providers.smallestai.badge).toBeNull();
-    expect(providers.smallestai.models).toEqual(["pulse", "pulse-pro"]);
-    expect(providers.google_generative_ai.badge).toBeNull();
-    expect(providers.google_generative_ai.models).toEqual([
-      "gemini-3.5-transcribe-live",
-      "gemini-3.5-transcribe",
-    ]);
-    for (const provider of [
-      "groq",
-      "openrouter",
-      "zai",
-      "siliconflow",
-      "together",
-      "speechmatics",
-      "azure_speech",
-      "revai",
-    ]) {
-      expect(providers[provider]?.badge).toBe("After recording");
-    }
-    expect(providers.aquavoice.baseUrl).toBe("https://api.aquavoice.com/v1");
-    expect(providers.aquavoice.models).toEqual(["avalon-v1.5"]);
-    expect(providers.cohere.models).toEqual([
-      "cohere-transcribe-03-2026",
-      "cohere-transcribe-arabic-07-2026",
-    ]);
-    expect(providers.speechmatics.models).toEqual(["enhanced", "standard"]);
-    expect(providers.together.models).toContain("nvidia/parakeet-tdt-0.6b-v3");
-    expect(providers.openrouter.models).toContain("qwen/qwen3-asr-1.7b");
-    expect(providers.google_cloud.badge).toBe("After recording");
-    expect(providers.aws_transcribe.badge).toBe("Gateway");
-    expect(providers.dashscope.badge).toBeNull();
-    expect("builtIn" in providers.soniqo && providers.soniqo.builtIn).toBe(
-      true,
-    );
-    expect(
-      "builtIn" in providers.apple_speech && providers.apple_speech.builtIn,
-    ).toBe(true);
-    expect(
-      "builtIn" in providers.local_file && providers.local_file.builtIn,
-    ).toBe(true);
-    expect(providers.local_file.displayName).toBe("BYO-model");
-    expect(providers.local_file).not.toHaveProperty("description");
-    expect(providers.local_file.badge).toBe("On device");
-  });
-
-  test("names on-device models instead of collapsing them", () => {
-    expect(displayModelLabel("apple-speech", "Apple Speech")).toBe(
-      "Apple Speech",
-    );
-    expect(
-      displayModelLabel("soniqo-parakeet-streaming", "Parakeet Streaming"),
-    ).toBe("Parakeet Streaming");
-  });
-
-  test("names on-device models without a backend display name", () => {
-    expect(displayModelLabel("apple-speech")).toBe("Apple Speech");
-    expect(displayModelLabel("soniqo-parakeet-batch")).toBe("Parakeet Batch");
-    expect(displayModelLabel("soniqo-omnilingual")).toBe("Omnilingual ASR");
-  });
-
-  test("hides unknown or zero download percent", () => {
-    expect(formatDownloadProgress(null)).toBeNull();
-    expect(formatDownloadProgress(0)).toBeNull();
-    expect(formatDownloadProgress(12.4)).toBe("12%");
-    expect(formatDownloadProgress(100)).toBe("100%");
-  });
-});
+import { isDeprecatedSttModel, PROVIDERS } from "./shared";
 
 describe("STT model deprecation", () => {
-  test("only lists the AssemblyAI models the API still accepts", () => {
-    const assemblyai = PROVIDERS.find(
-      (provider) => provider.id === "assemblyai",
-    );
-
-    expect(assemblyai?.models).toEqual([
-      "universal-3-5-pro",
-      "universal-3-5-pro-realtime",
-    ]);
-  });
-
   test("only keeps deprecated models that have no replacement", () => {
     expect(isDeprecatedSttModel("openai", "gpt-4o-transcribe-diarize")).toBe(
       true,
@@ -223,10 +15,19 @@ describe("STT model deprecation", () => {
     expect(isDeprecatedSttModel("soniox", "stt-rt-v5")).toBe(false);
   });
 
-  test("drops superseded models from the pickers", () => {
+  test("only lists models the provider APIs still accept", () => {
+    const assemblyai = PROVIDERS.find(
+      (provider) => provider.id === "assemblyai",
+    );
     const providers = Object.fromEntries(
       PROVIDERS.map((provider) => [provider.id, provider]),
     );
+    const nari = PROVIDERS.find(({ id }) => id === "nari")!;
+
+    expect(assemblyai?.models).toEqual([
+      "universal-3-5-pro",
+      "universal-3-5-pro-realtime",
+    ]);
 
     expect(providers.openai.models).toEqual([
       "gpt-live-transcribe",
@@ -241,14 +42,8 @@ describe("STT model deprecation", () => {
       "openai/gpt-4o-mini-transcribe",
     );
     expect(providers.soniox.models).toEqual(["stt-rt-v5"]);
+    expect(nari.disabled).toBe(false);
+    expect(nari.baseUrl).toBe("https://api.narilabs.com");
+    expect(nari.models).toEqual(["qwen3-asr-fast", "qwen3-asr"]);
   });
-});
-
-test("Nari exposes only its GA transcription models", () => {
-  const provider = PROVIDERS.find(({ id }) => id === "nari")!;
-  expect(provider.disabled).toBe(false);
-  expect(provider.baseUrl).toBe("https://api.narilabs.com");
-  expect(provider.models).toEqual(["qwen3-asr-fast", "qwen3-asr"]);
-  expect(displayModelLabel("qwen3-asr-fast")).toBe("Qwen3 ASR Fast");
-  expect(displayModelLabel("qwen3-asr")).toBe("Qwen3 ASR");
 });

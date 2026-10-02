@@ -167,19 +167,14 @@ mod tests {
     }
 
     #[test]
-    fn list_uuid_files_empty_dir_returns_empty() {
-        let env = TestEnv::new().build();
-
-        let result = list_uuid_files(env.path(), "md");
-
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn list_uuid_files_finds_uuid_files() {
+    fn list_uuid_files_returns_only_uuid_files_with_extension() {
         let env = TestEnv::new()
             .file(&format!("{UUID_1}.md"), "content1")
             .file(&format!("{UUID_2}.md"), "content2")
+            .file("not-a-uuid.md", "skip")
+            .file(&format!("{UUID_1}.txt"), "skip")
+            .folder(UUID_1)
+            .done()
             .build();
 
         let result = list_uuid_files(env.path(), "md");
@@ -188,47 +183,5 @@ mod tests {
         let ids: Vec<_> = result.iter().map(|(id, _)| id.as_str()).collect();
         assert!(ids.contains(&UUID_1));
         assert!(ids.contains(&UUID_2));
-    }
-
-    #[test]
-    fn list_uuid_files_skips_non_uuid_filenames() {
-        let env = TestEnv::new()
-            .file(&format!("{UUID_1}.md"), "valid")
-            .file("not-a-uuid.md", "skip")
-            .file("readme.md", "skip")
-            .build();
-
-        let result = list_uuid_files(env.path(), "md");
-
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0, UUID_1);
-    }
-
-    #[test]
-    fn list_uuid_files_skips_wrong_extension() {
-        let env = TestEnv::new()
-            .file(&format!("{UUID_1}.md"), "valid")
-            .file(&format!("{UUID_1}.txt"), "skip")
-            .file(&format!("{UUID_1}.json"), "skip")
-            .build();
-
-        let result = list_uuid_files(env.path(), "md");
-
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0, UUID_1);
-    }
-
-    #[test]
-    fn list_uuid_files_skips_directories() {
-        let env = TestEnv::new()
-            .file(&format!("{UUID_1}.md"), "valid")
-            .folder(UUID_2)
-            .done()
-            .build();
-
-        let result = list_uuid_files(env.path(), "md");
-
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0, UUID_1);
     }
 }

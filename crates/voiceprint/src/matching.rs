@@ -224,14 +224,10 @@ mod tests {
     }
 
     #[test]
-    fn cosine_rejects_mismatched_or_empty_vectors() {
+    fn cosine_similarity_contract() {
         assert_eq!(cosine_similarity(&[1.0], &[1.0, 0.0]), None);
         assert_eq!(cosine_similarity(&[], &[]), None);
         assert_eq!(cosine_similarity(&[0.0, 0.0], &[1.0, 0.0]), None);
-    }
-
-    #[test]
-    fn cosine_is_one_for_identical_vectors() {
         assert_eq!(cosine_similarity(&[1.0, 0.0], &[1.0, 0.0]), Some(1.0));
     }
 

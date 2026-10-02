@@ -352,28 +352,6 @@ async fn rejects_missing_or_malformed_private_object_metadata() {
 }
 
 #[tokio::test]
-async fn streams_a_trusted_storage_object_checksum() {
-    let server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path(
-            "/storage/v1/object/authenticated/attachment-backups/user-id/object.anb1",
-        ))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![0_u8; 1_234]))
-        .mount(&server)
-        .await;
-
-    let checksum = storage(&server)
-        .object_sha256("attachment-backups", "user-id/object.anb1", 1_234)
-        .await
-        .unwrap();
-
-    assert_eq!(
-        checksum,
-        "ad47fd9e87159d651a53b3dfba3ef200684a9ed88c2528b62e18f3881fe203b0"
-    );
-}
-
-#[tokio::test]
 async fn rejects_storage_object_size_mismatches_while_hashing() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

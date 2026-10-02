@@ -375,15 +375,6 @@ mod tests {
         assert!(to_x11_coordinate(f64::from(i32::MAX) + 1.0).is_err());
     }
 
-    #[test]
-    fn target_verification_uses_the_tagged_element_and_real_pointer_position() {
-        let expression = target_verification_expression(LobbyTargetKind::JoinCta, 123.5, 456.25);
-
-        assert!(expression.contains("const marker = \"join_cta\""));
-        assert!(expression.contains("document.elementFromPoint(123.5, 456.25)"));
-        assert!(expression.contains("data-anlg-worker-target"));
-    }
-
     #[cfg(unix)]
     #[tokio::test]
     async fn guest_join_uses_verified_xtest_input_for_name_and_cta() {

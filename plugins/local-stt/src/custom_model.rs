@@ -92,53 +92,41 @@ mod tests {
     }
 
     #[test]
-    fn rejects_relative_paths() {
-        let error = inspect_custom_model_path("ggml-small.bin").unwrap_err();
-
-        assert!(error.to_string().contains("absolute"));
-    }
-
-    #[test]
-    fn rejects_missing_files() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("missing.bin");
-
-        let error = inspect_custom_model_path(path.to_str().unwrap()).unwrap_err();
-
-        assert!(error.to_string().contains("unavailable"));
-    }
-
-    #[test]
-    fn rejects_unsupported_extensions() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("model.pt");
-        std::fs::write(&path, b"model").unwrap();
-
-        let error = inspect_custom_model_path(path.to_str().unwrap()).unwrap_err();
-
-        assert!(error.to_string().contains(".bin"));
-    }
-
-    #[test]
-    fn gives_transcribe_cpp_guidance_for_gguf_models() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("whisper.gguf");
-        std::fs::write(&path, b"GGUF").unwrap();
-
-        let error = inspect_custom_model_path(path.to_str().unwrap()).unwrap_err();
-
-        assert!(error.to_string().contains("transcribe.cpp"));
-        assert!(error.to_string().contains(".bin"));
-    }
-
-    #[test]
-    fn rejects_fake_gguf_models() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("whisper.gguf");
-        std::fs::write(&path, b"nope").unwrap();
-
-        let error = inspect_custom_model_path(path.to_str().unwrap()).unwrap_err();
-
-        assert!(error.to_string().contains("not a valid GGUF"));
+    fn rejects_unusable_model_paths() {
+        for (filename, contents, is_relative, expected_substrings) in [
+            ("ggml-small.bin", None, true, &["absolute"][..]),
+            ("missing.bin", None, false, &["unavailable"][..]),
+            ("model.pt", Some(&b"model"[..]), false, &[".bin"][..]),
+            (
+                "whisper.gguf",
+                Some(&b"GGUF"[..]),
+                false,
+                &["transcribe.cpp", ".bin"][..],
+            ),
+            (
+                "whisper.gguf",
+                Some(&b"nope"[..]),
+                false,
+                &["not a valid GGUF"][..],
+            ),
+        ] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join(filename);
+            if let Some(contents) = contents {
+                std::fs::write(&path, contents).unwrap();
+            }
+            let input = if is_relative {
+                filename
+            } else {
+                path.to_str().unwrap()
+            };
+            let error = inspect_custom_model_path(input).unwrap_err().to_string();
+            for substring in expected_substrings {
+                assert!(
+                    error.contains(substring),
+                    "{filename:?}: expected error to contain {substring:?}, got {error:?}"
+                );
+            }
+        }
     }
 }

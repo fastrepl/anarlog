@@ -226,8 +226,6 @@ impl ZoomMuteWatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Observer, new_callback};
-    use std::time::Duration;
 
     #[test]
     fn test_reconcile_zoom_mute_state_keeps_state_on_mic_usage_error() {
@@ -284,18 +282,5 @@ mod tests {
             name: "Recorder".to_string(),
         }]));
         assert!(usage.is_active());
-    }
-
-    // cargo test --package detect --lib --features mic,list,zoom -- zoom::tests::test_watcher --exact --nocapture --ignored
-    #[tokio::test]
-    #[ignore]
-    async fn test_watcher() {
-        let mut watcher = ZoomMuteWatcher::default();
-        watcher.start(new_callback(|v| {
-            println!("{:?}", v);
-        }));
-
-        tokio::time::sleep(Duration::from_secs(60)).await;
-        watcher.stop();
     }
 }

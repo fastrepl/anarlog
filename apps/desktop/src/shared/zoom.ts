@@ -7,7 +7,7 @@ import {
   LogicalSize,
 } from "@tauri-apps/api/window";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 export const ZOOM_STORAGE_KEY = "anarlog-zoom-factor";
 export const ZOOM_CHANGED_EVENT = "anlg:zoom-factor-changed";
@@ -23,7 +23,7 @@ export const ZOOM_CSS_VARIABLE = "--anlg-zoom";
 const MAIN_WINDOW_BASE_MIN_SIZE = { width: 500, height: 500 };
 const NOTE_WINDOW_BASE_MIN_SIZE = { width: 420, height: 500 };
 
-export function getWindowBaseMinSize(label: string) {
+function getWindowBaseMinSize(label: string) {
   if (label === "main") {
     return MAIN_WINDOW_BASE_MIN_SIZE;
   }
@@ -119,14 +119,14 @@ export function readZoomFactor(
   return Number.isFinite(factor) && factor > 0 ? factor : DEFAULT_ZOOM_FACTOR;
 }
 
-export function persistZoomFactor(
+function persistZoomFactor(
   factor: number,
   storage: Pick<Storage, "setItem"> = window.localStorage,
 ) {
   storage.setItem(ZOOM_STORAGE_KEY, String(factor));
 }
 
-export function applyZoomFactor(factor: number): Promise<void> {
+function applyZoomFactor(factor: number): Promise<void> {
   document.documentElement.style.setProperty(ZOOM_CSS_VARIABLE, String(factor));
 
   if (!isTauri()) {

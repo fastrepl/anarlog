@@ -224,68 +224,65 @@ mod tests {
     use super::*;
 
     #[test]
-    fn soniqo_batch_accepts_documented_european_languages_for_parakeet() {
-        let languages = vec!["fr".parse().unwrap()];
+    fn batch_language_support_by_provider_and_model() {
+        let cases: &[(&str, &str, &[&str], bool)] = &[
+            ("soniqo", "soniqo-parakeet-batch", &["fr"], true),
+            ("anarlog", "soniqo-parakeet-batch", &["ko"], false),
+            ("soniqo", "soniqo-omnilingual", &["fr"], true),
+            ("anarlog", "cloud", &["fr"], true),
+            ("mistral", "voxtral-mini-2602", &["de-DE", "en-US"], true),
+            ("hyprnote", "cloud", &["ko"], true),
+        ];
 
-        assert_eq!(
-            is_supported_languages_batch("soniqo", Some("soniqo-parakeet-batch"), &languages)
-                .unwrap(),
-            true
-        );
+        for (provider, model, language_codes, expected) in cases {
+            let languages = language_codes
+                .iter()
+                .map(|language| language.parse().unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                is_supported_languages_batch(provider, Some(model), &languages).unwrap(),
+                *expected,
+                "{provider}/{model}"
+            );
+        }
     }
 
     #[test]
-    fn anarlog_soniqo_batch_rejects_unsupported_parakeet_languages() {
-        let languages = vec!["ko".parse().unwrap()];
+    fn live_language_support_by_provider_and_model() {
+        let cases: &[(&str, &str, &[&str], bool)] = &[
+            ("anarlog", "soniqo-parakeet-streaming", &["ko"], false),
+            (
+                "anarlog",
+                "soniqo-parakeet-streaming",
+                &["fr"],
+                cfg!(all(target_os = "macos", target_arch = "aarch64")),
+            ),
+            ("anarlog", "cloud", &["ko"], true),
+            ("hyprnote", "cloud", &["ko"], true),
+        ];
 
-        assert_eq!(
-            is_supported_languages_batch("anarlog", Some("soniqo-parakeet-batch"), &languages)
-                .unwrap(),
-            false
-        );
+        for (provider, model, language_codes, expected) in cases {
+            let languages = language_codes
+                .iter()
+                .map(|language| language.parse().unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                is_supported_languages_live(provider, Some(model), &languages).unwrap(),
+                *expected,
+                "{provider}/{model}"
+            );
+        }
     }
 
     #[test]
-    fn soniqo_batch_accepts_non_english_for_multilingual_models() {
-        let languages = vec!["fr".parse().unwrap()];
-
-        assert!(
-            is_supported_languages_batch("soniqo", Some("soniqo-omnilingual"), &languages).unwrap()
-        );
-    }
-
-    #[test]
-    fn anarlog_non_soniqo_batch_keeps_existing_language_support() {
-        let languages = vec!["fr".parse().unwrap()];
-
-        assert!(is_supported_languages_batch("anarlog", Some("cloud"), &languages).unwrap());
-    }
-
-    #[test]
-    fn meta_is_suggested_for_documented_languages_live() {
+    fn meta_is_suggested_for_documented_languages() {
         let english = vec!["en-US".parse().unwrap()];
         let swahili = vec!["sw".parse().unwrap()];
 
         assert!(suggest_providers_for_languages_live(&english).contains(&"meta".to_string()));
         assert!(!suggest_providers_for_languages_live(&swahili).contains(&"meta".to_string()));
-    }
-
-    #[test]
-    fn meta_is_suggested_for_documented_languages_batch() {
-        let english = vec!["en-US".parse().unwrap()];
-        let swahili = vec!["sw".parse().unwrap()];
-
         assert!(suggest_providers_for_languages_batch(&english).contains(&"meta".to_string()));
         assert!(!suggest_providers_for_languages_batch(&swahili).contains(&"meta".to_string()));
-    }
-
-    #[test]
-    fn mistral_batch_accepts_regional_locales_for_documented_languages() {
-        let languages = vec!["de-DE".parse().unwrap(), "en-US".parse().unwrap()];
-
-        assert!(
-            is_supported_languages_batch("mistral", Some("voxtral-mini-2602"), &languages).unwrap()
-        );
     }
 
     #[test]
@@ -312,43 +309,5 @@ mod tests {
         assert!(!is_supported_languages_live("anarlog", Some("apple-speech"), &hindi).unwrap());
         assert!(is_supported_languages_batch("anarlog", Some("apple-speech"), &korean).unwrap());
         assert!(!is_supported_languages_batch("anarlog", Some("apple-speech"), &hindi).unwrap());
-    }
-
-    #[test]
-    fn anarlog_soniqo_live_rejects_unsupported_parakeet_languages() {
-        let languages = vec!["ko".parse().unwrap()];
-
-        assert_eq!(
-            is_supported_languages_live("anarlog", Some("soniqo-parakeet-streaming"), &languages)
-                .unwrap(),
-            false
-        );
-    }
-
-    #[test]
-    fn anarlog_soniqo_live_respects_platform_support() {
-        let languages = vec!["fr".parse().unwrap()];
-        let expected = cfg!(all(target_os = "macos", target_arch = "aarch64"));
-
-        assert_eq!(
-            is_supported_languages_live("anarlog", Some("soniqo-parakeet-streaming"), &languages)
-                .unwrap(),
-            expected
-        );
-    }
-
-    #[test]
-    fn anarlog_cloud_live_keeps_existing_language_support() {
-        let languages = vec!["ko".parse().unwrap()];
-
-        assert!(is_supported_languages_live("anarlog", Some("cloud"), &languages).unwrap());
-    }
-
-    #[test]
-    fn legacy_anarlog_provider_name_remains_supported() {
-        let languages = vec!["ko".parse().unwrap()];
-
-        assert!(is_supported_languages_live("hyprnote", Some("cloud"), &languages).unwrap());
-        assert!(is_supported_languages_batch("hyprnote", Some("cloud"), &languages).unwrap());
     }
 }

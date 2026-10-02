@@ -241,9 +241,6 @@ describe("desktop shared-note comments", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mount editor" }));
     fireEvent.click(screen.getByRole("button", { name: "Select text" }));
     fireEvent.click(screen.getByRole("button", { name: "Comment" }));
-    expect(
-      document.querySelector('img[src="https://google.example/viewer.png"]'),
-    ).toBeTruthy();
     fireEvent.change(
       await screen.findByRole("textbox", { name: "Comment on selected text" }),
       { target: { value: "  Follow up  " } },
@@ -319,27 +316,6 @@ describe("desktop shared-note comments", () => {
     );
 
     expect(screen.getByDisplayValue("Unsaved thought")).toBeTruthy();
-  });
-
-  it("keeps the draft highlight mapped through editor changes", async () => {
-    renderHarness(true);
-
-    fireEvent.click(screen.getByRole("button", { name: "Mount editor" }));
-    fireEvent.click(screen.getByRole("button", { name: "Select text" }));
-    fireEvent.click(screen.getByRole("button", { name: "Comment" }));
-    mocks.getCommentAnchorRanges.mockReturnValue([
-      { commentId: "draft", from: 4, to: 18 },
-    ]);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Reposition comments" }),
-    );
-
-    await waitFor(() =>
-      expect(mocks.setCommentAnchors).toHaveBeenLastCalledWith(
-        expect.anything(),
-        [expect.objectContaining({ commentId: "draft", from: 4, to: 18 })],
-      ),
-    );
   });
 
   it("keeps viewer-only summaries read-only for comments", () => {

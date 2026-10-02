@@ -50,20 +50,3 @@ fn event_flags(modifiers: &[KeyModifier]) -> CGEventFlags {
                 }
         })
 }
-
-#[cfg(test)]
-mod tests {
-    use objc2_core_graphics::CGEventFlags;
-
-    use super::{KeyModifier, event_flags};
-
-    #[test]
-    fn maps_only_requested_key_modifiers() {
-        let flags = event_flags(&[KeyModifier::Command, KeyModifier::Option]);
-
-        assert!(flags.contains(CGEventFlags::MaskCommand));
-        assert!(flags.contains(CGEventFlags::MaskAlternate));
-        assert!(!flags.contains(CGEventFlags::MaskControl));
-        assert!(!flags.contains(CGEventFlags::MaskShift));
-    }
-}

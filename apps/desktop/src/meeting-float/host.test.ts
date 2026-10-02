@@ -3,12 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { LiveTranscriptSegment } from "@anlg/plugin-transcription";
 
 import {
-  getCurrentFloatingBarColorScheme,
   getFloatingRouteState,
   getFloatingTranscriptBubbles,
   haveFloatingRouteInputsChanged,
-  shouldShowFloatingLiveCaptionToggle,
 } from "./host";
+import { getFloatingLiveCaptionToggleVisible } from "./route-state";
 
 import { createListenerStore } from "~/store/zustand/listener";
 import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/transcript";
@@ -89,19 +88,8 @@ describe("getFloatingRouteState", () => {
       liveCaptionMinimized: true,
       liveCaptionToggleVisible: false,
       transcriptBubbles: [],
+      transcriptNotice: null,
     });
-  });
-
-  it("uses the session title when provided", () => {
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-        }),
-        { sessionTitle: "  Weekly team sync  " },
-      )?.title,
-    ).toBe("Weekly team sync");
   });
 
   it("builds transcript bubbles from speaker segments", () => {
@@ -183,72 +171,65 @@ describe("getFloatingRouteState", () => {
     ).toBe(true);
   });
 
-  it("shows reconnecting only during a connection attempt", () => {
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-          loadingPhase: "connecting",
-        }),
-      )?.status,
-    ).toBe("reconnecting");
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-          loadingPhase: "connecting",
-          lastError: "microphone unavailable",
-          lastErrorIsAudioRelated: true,
-        }),
-      )?.status,
-    ).toBe("error");
-  });
-
-  it("keeps recording status while a retryable degradation reconnects on its own", () => {
-    expect(
-      getFloatingRouteState(
-        createListenerState({
-          status: "active",
-          sessionId: "session-1",
-          degraded: { type: "connection_timeout" },
-        }),
-      )?.status,
-    ).toBe("recording");
-  });
-
-  it("returns error status when live transcription needs the user", () => {
-    for (const degraded of [
-      { type: "authentication_failed" as const, provider: "deepgram" },
-      {
-        type: "provider_configuration" as const,
-        provider: "deepgram",
-        message: "invalid model",
-      },
+  it("keeps recording status while connecting or after a capture error", () => {
+    for (const live of [
+      { loadingPhase: "connecting" as const },
+      { lastError: "microphone unavailable", lastErrorIsAudioRelated: true },
     ]) {
       expect(
         getFloatingRouteState(
           createListenerState({
             status: "active",
             sessionId: "session-1",
-            degraded,
+            requestedLiveTranscription: true,
+            liveTranscriptionActive: true,
+            ...live,
           }),
         )?.status,
-      ).toBe("error");
+      ).toBe("recording");
     }
   });
 
-  it("returns error status when the active listener reports an error", () => {
+  it("keeps recording status and adds a quiet notice when live transcription is interrupted", () => {
+    for (const live of [
+      { degraded: { type: "connection_timeout" as const } },
+      {
+        degraded: {
+          type: "authentication_failed" as const,
+          provider: "deepgram",
+        },
+      },
+      { liveTranscriptionActive: false },
+      { transcriptionStalled: true },
+    ]) {
+      expect(
+        getFloatingRouteState(
+          createListenerState({
+            status: "active",
+            sessionId: "session-1",
+            requestedLiveTranscription: true,
+            liveTranscriptionActive: true,
+            ...live,
+          }),
+        ),
+      ).toMatchObject({
+        status: "recording",
+        transcriptNotice: expect.stringMatching(/^Live transcript paused/),
+      });
+    }
+  });
+
+  it("does not report an interruption for batch-only sessions", () => {
     expect(
       getFloatingRouteState(
         createListenerState({
           status: "active",
           sessionId: "session-1",
-          lastError: "microphone unavailable",
+          requestedLiveTranscription: false,
+          liveTranscriptionActive: false,
         }),
       )?.status,
-    ).toBe("error");
+    ).toBe("recording");
   });
 
   it("hides the floating route while the session is finalizing", () => {
@@ -570,49 +551,36 @@ describe("getFloatingTranscriptBubbles", () => {
   });
 });
 
-describe("getCurrentFloatingBarColorScheme", () => {
-  it("uses the applied document theme", () => {
-    document.documentElement.classList.remove("dark");
-    expect(getCurrentFloatingBarColorScheme()).toBe("light");
-
-    document.documentElement.classList.add("dark");
-    expect(getCurrentFloatingBarColorScheme()).toBe("dark");
-  });
-});
-
-describe("shouldShowFloatingLiveCaptionToggle", () => {
-  it("shows for active live transcription", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "anarlog",
-        model: "cloud",
-        liveTranscriptionActive: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("shows for local realtime transcription", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "anarlog",
-        model: "soniqo-parakeet-streaming",
-        liveTranscriptionActive: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("hides before live transcription is active", () => {
-    expect(
-      shouldShowFloatingLiveCaptionToggle({
-        provider: "anarlog",
-        model: "cloud",
-        liveTranscriptionActive: false,
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("floating route refresh", () => {
+  it("keeps the caption toggle while live transcription is interrupted", () => {
+    const state = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+    });
+    expect(
+      getFloatingLiveCaptionToggleVisible({
+        ...state,
+        live: {
+          ...state.live,
+          requestedLiveTranscription: true,
+          liveTranscriptionActive: false,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("refreshes when the transcription stall watchdog trips", () => {
+    const previous = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+    });
+    const stalled = {
+      ...previous,
+      live: { ...previous.live, transcriptionStalled: true },
+    };
+    expect(haveFloatingRouteInputsChanged(stalled, previous)).toBe(true);
+  });
+
   it("refreshes when retry state changes without new audio", () => {
     const previous = createListenerState({
       status: "active",

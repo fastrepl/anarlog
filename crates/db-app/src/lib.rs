@@ -1,34 +1,64 @@
 #![forbid(unsafe_code)]
 
+mod attachment_ops;
 mod calendar_ops;
+mod calendar_sync_ops;
 mod calendar_types;
+mod capture_lifecycle_ops;
 mod cloudsync;
+mod contact_ops;
 mod e2ee;
 mod event_ops;
 mod event_types;
+mod folder_catalog_ops;
 mod legacy_import;
+mod session_audio_ops;
+mod session_content_ops;
 mod session_deletion;
+mod session_lifecycle_ops;
+mod session_move_ops;
 mod session_ops;
+mod session_participant_ops;
+mod session_review_ops;
+mod session_transcript_ops;
 mod session_types;
+mod summary_ops;
 mod template_ops;
 mod template_types;
+mod transcript_batch_ops;
+mod transcript_live_ops;
 mod voiceprint_ops;
 mod voiceprint_types;
 mod webhook_ops;
 mod webhook_types;
 
+pub use attachment_ops::*;
 pub use calendar_ops::*;
+pub use calendar_sync_ops::*;
 pub use calendar_types::*;
+pub use capture_lifecycle_ops::*;
 pub use cloudsync::*;
+pub use contact_ops::*;
 pub use e2ee::*;
 pub use event_ops::*;
 pub use event_types::*;
+pub use folder_catalog_ops::*;
 pub use legacy_import::*;
+pub use session_audio_ops::*;
+pub use session_content_ops::*;
+pub use session_lifecycle_ops::*;
+pub use session_move_ops::*;
 pub use session_ops::*;
+pub use session_participant_ops::*;
+pub use session_review_ops::*;
+pub use session_transcript_ops::*;
 pub use session_types::*;
 use sha2::{Digest, Sha384};
+pub use summary_ops::*;
 pub use template_ops::*;
 pub use template_types::*;
+pub use transcript_batch_ops::*;
+pub use transcript_live_ops::*;
 pub use voiceprint_ops::*;
 pub use voiceprint_types::*;
 pub use webhook_ops::*;
@@ -543,6 +573,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         id: "20260928030000_e2ee_witness_pending_priority",
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260928030000_e2ee_witness_pending_priority.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260930120000_event_attendance",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260930120000_event_attendance.sql"),
     },
 ];
 

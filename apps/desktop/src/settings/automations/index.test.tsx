@@ -35,7 +35,9 @@ const mocks = vi.hoisted(() => ({
   removeDraft: vi.fn(),
   removeStarterDraft: vi.fn(),
   selection: null as unknown,
-  setSettingValue: vi.fn(() => Promise.resolve()),
+  setSettingValue: vi.fn<(...args: unknown[]) => Promise<void>>(() =>
+    Promise.resolve(),
+  ),
   workflows: [] as Array<{
     id: string;
     title: string;
@@ -109,6 +111,11 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   },
 }));
 
+vi.mock("./google-drive-config", () => ({
+  GoogleDriveConfig: () => <div data-testid="config-drive" />,
+  DriveExportResult: () => null,
+}));
+
 import { AutomationsContent } from ".";
 
 function renderAutomations() {
@@ -147,6 +154,42 @@ describe("AutomationsContent", () => {
     mocks.toastError.mockClear();
     mocks.toastSuccess.mockClear();
     mocks.toastWarning.mockClear();
+  });
+
+  it("opens the Drive starter without saving and uses the shared template controls", async () => {
+    mocks.selection = { kind: "starter", starterId: "google-drive" };
+    renderAutomations();
+    expect(screen.getByTestId("config-drive")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Save & enable" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(mocks.setSettingValue).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(
+      screen.getByText(
+        "A Markdown file or Google document with the meeting summary and transcript.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() =>
+      expect(mocks.setSettingValue).toHaveBeenCalledWith(
+        "automation_draft_template",
+        "google-drive",
+      ),
+    );
+    const call = mocks.setSettingValue.mock.calls.find(
+      ([key]) => key === "automation_workflows",
+    );
+    expect(JSON.parse(call![1] as string)).toMatchObject([
+      {
+        id: "starter-google-drive",
+        enabled: false,
+        steps: [{ type: "google_drive_export" }],
+      },
+    ]);
   });
 
   it("shows the overview when nothing is selected", () => {
@@ -194,9 +237,6 @@ describe("AutomationsContent", () => {
 
     renderAutomations();
 
-    expect(screen.getByText("Use the AI meeting summary")).toBeTruthy();
-    expect(screen.getByText("Post to a channel")).toBeTruthy();
-    expect(screen.getByTestId("config-slack")).toBeTruthy();
     expect(
       screen.getByRole<HTMLButtonElement>("button", { name: "Test" }).disabled,
     ).toBe(true);
@@ -209,57 +249,58 @@ describe("AutomationsContent", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
 
     expect(screen.getByText("Expected output")).toBeTruthy();
-    expect(
-      screen.getByText(/A Slack message with the meeting title and recap/),
-    ).toBeTruthy();
   });
 
-  it("uses product marks without icon tiles", () => {
-    mocks.selection = { kind: "starter", starterId: "slack-recap" };
+  it.each([
+    {
+      name: "draft",
+      selection: { kind: "draft", draftId: "draft-1" },
+      chatGroup: null,
+      menuItem: "Delete automation",
+      mock: mocks.removeDraft,
+      id: "draft-1",
+    },
+    {
+      name: "starter automation",
+      selection: { kind: "starter", starterId: "slack-recap" },
+      chatGroup: null,
+      menuItem: "Remove automation",
+      mock: mocks.removeStarterDraft,
+      id: "slack-recap",
+    },
+    {
+      name: "chat automation",
+      selection: { kind: "chat", groupId: "automation-1" },
+      chatGroup: {
+        id: "automation-1",
+        ownerUserId: "user-1",
+        title: "Share weekly recap",
+        createdAt: "2026-08-03T10:00:00.000Z",
+        updatedAt: "2026-08-03T10:00:00.000Z",
+      },
+      menuItem: "Delete automation",
+      mock: mocks.deleteChatAutomation,
+      id: "automation-1",
+    },
+  ])(
+    "deletes a $name from its actions menu",
+    async ({ selection, chatGroup, menuItem, mock, id }) => {
+      mocks.selection = selection;
+      mocks.chatGroup = chatGroup;
 
-    const { container } = renderAutomations();
+      renderAutomations();
 
-    const header = screen
-      .getByRole("heading", {
-        level: 2,
-        name: "Share a meeting recap in Slack",
-      })
-      .closest("header");
-    const slackIcon = container.querySelector(
-      'iconify-icon[icon="logos:slack-icon"]',
-    );
+      const trigger = screen.getByRole("button", {
+        name: "Automation actions",
+      });
+      fireEvent.pointerDown(trigger);
+      fireEvent.click(trigger);
 
-    expect(header).toBeTruthy();
-    expect(slackIcon).toBeTruthy();
-    expect(slackIcon?.closest("header")).toBe(header);
-    expect(
-      screen
-        .getByRole("button", { name: "Automation actions" })
-        .closest("header"),
-    ).toBe(header);
-    expect(slackIcon?.parentElement?.className).not.toContain("bg-muted");
-    expect(slackIcon?.parentElement?.className).not.toContain("rounded");
-  });
+      fireEvent.click(await screen.findByText(menuItem));
 
-  it("matches the templates header and body gutters", () => {
-    mocks.selection = { kind: "starter", starterId: "slack-recap" };
-
-    renderAutomations();
-
-    const header = screen
-      .getByRole("heading", {
-        level: 2,
-        name: "Share a meeting recap in Slack",
-      })
-      .closest("header");
-    const body = header?.nextElementSibling;
-
-    expect(header?.className).toContain("h-12");
-    expect(header?.className).toContain("pl-3");
-    expect(header?.className).toContain("pr-1");
-    expect(body?.className).toContain("px-6");
-    expect(body?.className).toContain("pt-3");
-  });
+      expect(mock).toHaveBeenCalledWith(id);
+    },
+  );
 
   it("saves the selected draft for Pro users", async () => {
     mocks.selection = { kind: "starter", starterId: "markdown-export" };
@@ -296,62 +337,5 @@ describe("AutomationsContent", () => {
     );
     expect(mocks.billing.upgradeToPro).not.toHaveBeenCalled();
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
-  });
-
-  it("shows a dedicated view for a chat-created automation", () => {
-    mocks.selection = { kind: "chat", groupId: "automation-1" };
-    mocks.chatGroup = {
-      id: "automation-1",
-      ownerUserId: "user-1",
-      title: "Share weekly recap",
-      createdAt: "2026-08-03T10:00:00.000Z",
-      updatedAt: "2026-08-03T10:00:00.000Z",
-    };
-
-    renderAutomations();
-
-    expect(
-      screen.getByRole("heading", { name: "Share weekly recap" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Add a trigger, then stack actions like Zapier."),
-    ).toBeTruthy();
-    expect(screen.getByText("Add an action")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Save & enable" })).toBeTruthy();
-  });
-
-  it("removes the starter automation from the actions menu", async () => {
-    mocks.selection = { kind: "starter", starterId: "slack-recap" };
-
-    renderAutomations();
-
-    const trigger = screen.getByRole("button", { name: "Automation actions" });
-    fireEvent.pointerDown(trigger);
-    fireEvent.click(trigger);
-
-    fireEvent.click(await screen.findByText("Remove automation"));
-
-    expect(mocks.removeStarterDraft).toHaveBeenCalledWith("slack-recap");
-  });
-
-  it("deletes a chat automation from the actions menu", async () => {
-    mocks.selection = { kind: "chat", groupId: "automation-1" };
-    mocks.chatGroup = {
-      id: "automation-1",
-      ownerUserId: "user-1",
-      title: "Share weekly recap",
-      createdAt: "2026-08-03T10:00:00.000Z",
-      updatedAt: "2026-08-03T10:00:00.000Z",
-    };
-
-    renderAutomations();
-
-    const trigger = screen.getByRole("button", { name: "Automation actions" });
-    fireEvent.pointerDown(trigger);
-    fireEvent.click(trigger);
-
-    fireEvent.click(await screen.findByText("Delete automation"));
-
-    expect(mocks.deleteChatAutomation).toHaveBeenCalledWith("automation-1");
   });
 });

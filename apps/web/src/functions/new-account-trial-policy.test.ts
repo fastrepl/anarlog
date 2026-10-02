@@ -28,33 +28,32 @@ function user(
   };
 }
 
-for (const method of ["password-signup", "signup", "invite"] as const) {
-  test(`${method} is an explicit new-account confirmation`, () => {
+test("explicit new-account confirmations qualify after a later sign-in", () => {
+  for (const method of ["password-signup", "signup", "invite"] as const) {
     assert.equal(
       isConfirmedNewAccount(
         user({ last_sign_in_at: "2026-08-17T06:00:00.000Z" }),
         method,
       ),
       true,
+      method,
     );
-  });
-}
+  }
+});
 
-for (const method of ["oauth", "email", "magiclink"] as const) {
-  test(`${method} qualifies on the initial confirmed session`, () => {
-    assert.equal(isConfirmedNewAccount(user(), method), true);
-  });
-
-  test(`${method} does not qualify a returning user`, () => {
+test("implicit methods qualify only on the initial confirmed session", () => {
+  for (const method of ["oauth", "email", "magiclink"] as const) {
+    assert.equal(isConfirmedNewAccount(user(), method), true, method);
     assert.equal(
       isConfirmedNewAccount(
         user({ last_sign_in_at: "2026-08-17T06:00:00.000Z" }),
         method,
       ),
       false,
+      method,
     );
-  });
-}
+  }
+});
 
 test("a delayed first magic-link confirmation still qualifies", () => {
   assert.equal(
@@ -66,11 +65,11 @@ test("a delayed first magic-link confirmation still qualifies", () => {
   );
 });
 
-for (const method of ["recovery", "email_change"] as NewAccountAuthMethod[]) {
-  test(`${method} never qualifies for a new-account trial`, () => {
-    assert.equal(isConfirmedNewAccount(user(), method), false);
-  });
-}
+test("recovery and email_change never qualify for a new-account trial", () => {
+  for (const method of ["recovery", "email_change"] as NewAccountAuthMethod[]) {
+    assert.equal(isConfirmedNewAccount(user(), method), false, method);
+  }
+});
 
 test("missing or invalid sign-in timestamps do not qualify", () => {
   assert.equal(

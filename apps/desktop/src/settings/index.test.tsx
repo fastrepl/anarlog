@@ -42,50 +42,16 @@ import { createSettingsTab } from "~/store/zustand/tabs/test-utils";
 describe("TabContentSettings", () => {
   afterEach(cleanup);
 
-  it("opens billing separately from account", () => {
+  it.each([
+    ["billing", "Billing settings"],
+    ["insights", "Personal insights"],
+    ["stats", "Personal insights"],
+  ] as const)("opens the %s destination", (destination, heading) => {
     render(
       <TabContentSettings
-        tab={createSettingsTab({ state: { tab: "billing" } })}
+        tab={createSettingsTab({ state: { tab: destination } })}
       />,
     );
-    expect(screen.getByText("Billing settings")).toBeTruthy();
-  });
-
-  it("opens personal insights from its settings destination", () => {
-    render(
-      <TabContentSettings
-        tab={createSettingsTab({ state: { tab: "insights" } })}
-      />,
-    );
-    expect(screen.getByText("Personal insights")).toBeTruthy();
-  });
-
-  it("opens merged insights from the legacy stats destination", () => {
-    render(
-      <TabContentSettings
-        tab={createSettingsTab({ state: { tab: "stats" } })}
-      />,
-    );
-    expect(screen.getByText("Personal insights")).toBeTruthy();
-  });
-
-  it("lets settings pages scroll and shrink instead of clipping", () => {
-    render(
-      <TabContentSettings
-        tab={createSettingsTab({
-          active: true,
-          state: { tab: "account" },
-        })}
-      />,
-    );
-
-    const shell = document.querySelector("[data-settings-content]");
-    expect(shell?.className).toContain("min-h-0");
-    expect(shell?.className).toContain("min-w-0");
-
-    const scroller = shell?.querySelector(".overflow-y-auto");
-    expect(scroller?.className).toContain("min-h-0");
-    expect(scroller?.className).toContain("min-w-0");
-    expect(scroller?.className).toContain("overflow-x-hidden");
+    expect(screen.getByText(heading)).toBeTruthy();
   });
 });

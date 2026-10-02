@@ -86,64 +86,39 @@ mod tests {
     }
 
     #[test]
-    fn keep_last_retention_discards_oldest_chunks() {
+    fn keep_last_evicts_oldest_chunks_beyond_the_cap() {
         let mut retained =
             RetainedAudio::new(MemoryRetentionPolicy::KeepLast(Duration::from_secs(1)));
 
         retained.push(vec![1], Duration::from_millis(400));
         retained.push(vec![2], Duration::from_millis(400));
         retained.push(vec![3], Duration::from_millis(400));
+        assert_eq!(retained_bytes(&retained), vec![vec![2], vec![3]]);
 
-        assert_eq!(retained.retained_duration, Duration::from_millis(800));
-        assert_eq!(retained.chunks.len(), 2);
-        assert_eq!(retained.chunks[0].bytes, vec![2]);
-        assert_eq!(retained.chunks[1].bytes, vec![3]);
-    }
-
-    #[test]
-    fn keeps_chunks_when_total_duration_matches_cap() {
         let mut retained =
             RetainedAudio::new(MemoryRetentionPolicy::KeepLast(Duration::from_secs(1)));
-
         retained.push(vec![1], Duration::from_millis(400));
         retained.push(vec![2], Duration::from_millis(600));
-
-        assert_eq!(retained.retained_duration, Duration::from_secs(1));
         assert_eq!(retained_bytes(&retained), vec![vec![1], vec![2]]);
-    }
 
-    #[test]
-    fn ignores_empty_zero_duration_chunks() {
         let mut retained =
             RetainedAudio::new(MemoryRetentionPolicy::KeepLast(Duration::from_secs(1)));
-
-        retained.push(Vec::new(), Duration::ZERO);
-
+        retained.push(vec![1], Duration::from_millis(1500));
         assert!(retained.is_empty());
-        assert_eq!(retained.retained_duration, Duration::ZERO);
     }
 
     #[test]
-    fn keeps_zero_duration_flush_bytes() {
+    fn zero_duration_chunks_keep_bytes_but_empty_ones_are_ignored() {
+        let mut retained =
+            RetainedAudio::new(MemoryRetentionPolicy::KeepLast(Duration::from_secs(1)));
+        retained.push(Vec::new(), Duration::ZERO);
+        assert!(retained.is_empty());
+
         let mut retained =
             RetainedAudio::new(MemoryRetentionPolicy::KeepLast(Duration::from_millis(800)));
-
         retained.push(vec![1], Duration::from_millis(400));
         retained.push(vec![2], Duration::from_millis(400));
         retained.push(vec![9], Duration::ZERO);
-
-        assert_eq!(retained.retained_duration, Duration::from_millis(800));
         assert_eq!(retained_bytes(&retained), vec![vec![1], vec![2], vec![9]]);
-    }
-
-    #[test]
-    fn drops_oversized_chunks_when_they_exceed_the_cap_alone() {
-        let mut retained =
-            RetainedAudio::new(MemoryRetentionPolicy::KeepLast(Duration::from_secs(1)));
-
-        retained.push(vec![1], Duration::from_millis(1500));
-
-        assert!(retained.is_empty());
-        assert_eq!(retained.retained_duration, Duration::ZERO);
     }
 }

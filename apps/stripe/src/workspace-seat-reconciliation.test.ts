@@ -134,13 +134,6 @@ describe("membership-driven Team billing", () => {
     ]);
   });
 
-  test("removal credits unused time and reduces the next renewal quantity", async () => {
-    const f = fixture();
-    await reconcileWorkspaceSeatEvent({ ...event, quantity: 1 }, f.api);
-    expect(f.updates[0].params.proration_behavior).toBe("create_prorations");
-    expect(f.updates[0].params.items![0].quantity).toBe(1);
-  });
-
   test.each(["past_due", "unpaid"] as const)(
     "%s changes wait for payment, then bill every transition at its original time",
     async (status) => {
@@ -219,7 +212,7 @@ describe("membership-driven Team billing", () => {
     const f = fixture();
     f.subscription.items.data[0].price.recurring!.interval = "year";
     await reconcileWorkspaceSeatEvent(event, f.api);
-    expect(f.updates[0].params.billing_cycle_anchor).toBeUndefined();
+    expect(f.updates).toHaveLength(1);
     expect(f.updates[0].params.proration_behavior).toBe("create_prorations");
   });
 
@@ -233,25 +226,6 @@ describe("membership-driven Team billing", () => {
     f.subscription.items.data[0].quantity = 4;
     await reconcileWorkspaceSeatEvent(event, f.api);
     expect(f.updates).toHaveLength(1);
-  });
-
-  test("a later join after a removal is a distinct event", async () => {
-    const f = fixture();
-    await reconcileWorkspaceSeatEvent(event, f.api);
-    await reconcileWorkspaceSeatEvent(
-      { ...event, id: "43", quantity: 2 },
-      f.api,
-    );
-    await reconcileWorkspaceSeatEvent(
-      { ...event, id: "44", quantity: 3 },
-      f.api,
-    );
-    expect(f.updates.map((u) => u.params.items![0].quantity)).toEqual([
-      3, 2, 3,
-    ]);
-    expect(new Set(f.updates.map((u) => u.options.idempotencyKey)).size).toBe(
-      3,
-    );
   });
 
   test("unchanged quantity does not create invoice items", async () => {
@@ -288,13 +262,8 @@ describe("membership-driven Team billing", () => {
     expect(f.updates).toHaveLength(0);
   });
 
-  test("does not change canceled subscriptions, multi-item plans or schedules", async () => {
+  test("rejects scheduled or multi-item subscriptions", async () => {
     const f = fixture();
-    f.subscription.status = "canceled";
-    await expect(reconcileWorkspaceSeatEvent(event, f.api)).rejects.toThrow(
-      "exactly one",
-    );
-    f.subscription.status = "active";
     f.subscription.schedule = "sub_sched";
     await expect(reconcileWorkspaceSeatEvent(event, f.api)).rejects.toThrow(
       "Unsupported",

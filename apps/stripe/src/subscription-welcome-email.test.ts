@@ -6,6 +6,11 @@ import {
   type SubscriptionWelcomeEmailDependencies,
 } from "./subscription-welcome-email";
 
+const ignoredInvoiceCases: Array<[string, Partial<Stripe.Invoice>]> = [
+  ["zero-value trial", { amount_paid: 0 }],
+  ["non-subscription-backed", { billing_reason: "manual", parent: null }],
+];
+
 function invoiceEvent(overrides: Partial<Stripe.Invoice> = {}): Stripe.Event {
   return {
     id: "evt_first_subscription_payment",
@@ -76,27 +81,6 @@ describe("sendSubscriptionWelcomeEmail", () => {
     ]);
   });
 
-  it("falls back to a friendly greeting when the customer has no name", async () => {
-    const sends: Array<Record<string, unknown>> = [];
-
-    await sendSubscriptionWelcomeEmail(
-      invoiceEvent(),
-      dependencies({
-        getCustomer: async () =>
-          ({
-            id: "cus_subscriber",
-            email: "subscriber@example.com",
-            name: null,
-          }) as Stripe.Customer,
-        sendTransactional: async (payload) => {
-          sends.push(payload);
-        },
-      }),
-    );
-
-    expect(sends[0]?.dataVariables).toEqual({ firstName: "there" });
-  });
-
   it("sends when a trial converts on its first positive invoice", async () => {
     let sent = false;
 
@@ -126,96 +110,45 @@ describe("sendSubscriptionWelcomeEmail", () => {
     expect(result).toBeNull();
   });
 
-  it("does not send the Pro welcome email for a Team subscription", async () => {
-    const result = await sendSubscriptionWelcomeEmail(
-      invoiceEvent(),
-      dependencies({
-        getCustomer: async () =>
-          ({
-            id: "cus_team_subscriber",
-            email: "owner@example.com",
-            name: "Workspace Team",
-            metadata: {
-              workspaceId: "workspace-team",
-            } as Stripe.Metadata,
-          }) as Stripe.Customer,
-        sendTransactional: async () => {
-          throw new Error("should not send");
-        },
-      }),
-    );
+  it.each([
+    ["Team workspace", { workspace_id: "workspace-team" }],
+    ["Char/Autumn customer", { autumn_id: "member-live-123" }],
+  ])(
+    "does not send the Pro welcome email for a %s customer",
+    async (_label, metadata) => {
+      const result = await sendSubscriptionWelcomeEmail(
+        invoiceEvent(),
+        dependencies({
+          getCustomer: async () =>
+            ({
+              id: "cus_non_pro_subscriber",
+              email: "owner@example.com",
+              name: "Subscriber",
+              metadata: metadata as Stripe.Metadata,
+            }) as Stripe.Customer,
+          sendTransactional: async () => {
+            throw new Error("should not send");
+          },
+        }),
+      );
 
-    expect(result).toBeNull();
-  });
+      expect(result).toBeNull();
+    },
+  );
 
-  it("does not send the Pro welcome email for an Enterprise subscription", async () => {
-    const result = await sendSubscriptionWelcomeEmail(
-      invoiceEvent(),
-      dependencies({
-        getCustomer: async () =>
-          ({
-            id: "cus_enterprise_subscriber",
-            email: "owner@example.com",
-            name: "Enterprise Workspace",
-            metadata: {
-              workspace_id: "workspace-enterprise",
-            } as Stripe.Metadata,
-          }) as Stripe.Customer,
-        sendTransactional: async () => {
-          throw new Error("should not send");
-        },
-      }),
-    );
+  it.each(ignoredInvoiceCases)(
+    "ignores %s invoices",
+    async (_label, overrides) => {
+      const result = await sendSubscriptionWelcomeEmail(
+        invoiceEvent(overrides),
+        dependencies({
+          hasEarlierPaidSubscriptionInvoice: async () => {
+            throw new Error("should not inspect invoice history");
+          },
+        }),
+      );
 
-    expect(result).toBeNull();
-  });
-
-  it("does not send for a customer Char bills through Autumn", async () => {
-    const result = await sendSubscriptionWelcomeEmail(
-      invoiceEvent(),
-      dependencies({
-        getCustomer: async () =>
-          ({
-            id: "cus_char_subscriber",
-            email: "char-user@example.com",
-            name: "Char User",
-            metadata: {
-              autumn_id: "member-live-123",
-              autumn_internal_id: "cus_autumn_123",
-            } as Stripe.Metadata,
-          }) as Stripe.Customer,
-        sendTransactional: async () => {
-          throw new Error("should not send");
-        },
-      }),
-    );
-
-    expect(result).toBeNull();
-  });
-
-  it("ignores zero-value trial invoices", async () => {
-    const result = await sendSubscriptionWelcomeEmail(
-      invoiceEvent({ amount_paid: 0 }),
-      dependencies({
-        hasEarlierPaidSubscriptionInvoice: async () => {
-          throw new Error("should not inspect invoice history");
-        },
-      }),
-    );
-
-    expect(result).toBeNull();
-  });
-
-  it("ignores paid invoices that are not subscription-backed", async () => {
-    const result = await sendSubscriptionWelcomeEmail(
-      invoiceEvent({ billing_reason: "manual", parent: null }),
-      dependencies({
-        hasEarlierPaidSubscriptionInvoice: async () => {
-          throw new Error("should not inspect invoice history");
-        },
-      }),
-    );
-
-    expect(result).toBeNull();
-  });
+      expect(result).toBeNull();
+    },
+  );
 });

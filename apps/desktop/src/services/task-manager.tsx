@@ -2,14 +2,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { events as appleCalendarEvents } from "@anlg/plugin-calendar";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { listenForCaptureCleanup } from "./audio-cleanup";
-import {
-  AUDIO_RETENTION_INTERVAL,
-  AUDIO_RETENTION_TASK_ID,
-  cleanupExpiredAudio,
-  normalizeAudioRetention,
-} from "./audio-retention";
+import { subscribeToSessionAudioRetention } from "./audio-retention";
 import {
   CALENDAR_SYNC_TASK_ID,
   scheduleCalendarSync,
@@ -21,7 +17,6 @@ import {
   EVENT_NOTIFICATION_TASK_ID,
   type NotifiedEventsMap,
 } from "./event-notification";
-import { cleanupExpiredVoiceprintCandidates } from "./voiceprint";
 
 import {
   useRegisterTask,
@@ -29,14 +24,12 @@ import {
   useTaskScheduler,
 } from "~/services/task-scheduler";
 import { useConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 const CALENDAR_SYNC_MAX_DURATION = 120 * 1000; // 2 min
 
 // Long-running tasks need explicit deadlines so a hung provider cannot block
 // later deadline-driven work indefinitely.
-const AUDIO_RETENTION_MAX_DURATION = 10 * 60 * 1000; // 10 min
 const EVENT_NOTIFICATION_MAX_DURATION = 60 * 1000; // 60 sec
 const REPEATING_TASK_MAX_RETRIES = 3;
 
@@ -48,13 +41,21 @@ export function TaskManager() {
     };
   });
   const queryClient = useQueryClient();
+  useMountEffect(() =>
+    subscribeToSessionAudioRetention(({ phase, session_id }) => {
+      if (phase !== "deleted") return;
+      void queryClient.invalidateQueries({
+        queryKey: ["audio", session_id, "exist"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["audio", session_id, "url"],
+      });
+    }),
+  );
   const manager = useTaskScheduler();
 
   const notificationEvent = useConfigValue("notification_event");
   const notificationsDisabled = useConfigValue("notification_disabled");
-  const audioRetention = normalizeAudioRetention(
-    useConfigValue("audio_retention"),
-  );
   const notifiedEventsRef = useRef<NotifiedEventsMap>(new Map());
 
   useRegisterTask(
@@ -122,31 +123,6 @@ export function TaskManager() {
 
   useScheduleTaskRun(EVENT_NOTIFICATION_TASK_ID, undefined, 0, {
     repeatDelay: EVENT_NOTIFICATION_INTERVAL,
-  });
-
-  useRegisterTask(
-    AUDIO_RETENTION_TASK_ID,
-    async () => {
-      const deletedSessionIds = await cleanupExpiredAudio(audioRetention);
-      for (const sessionId of deletedSessionIds) {
-        void queryClient.invalidateQueries({
-          queryKey: ["audio", sessionId, "exist"],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ["audio", sessionId, "url"],
-        });
-      }
-      void cleanupExpiredVoiceprintCandidates();
-    },
-    {
-      maxDuration: AUDIO_RETENTION_MAX_DURATION,
-      maxRetries: REPEATING_TASK_MAX_RETRIES,
-      retryDelay: AUDIO_RETENTION_INTERVAL,
-    },
-  );
-
-  useScheduleTaskRun(AUDIO_RETENTION_TASK_ID, undefined, 0, {
-    repeatDelay: AUDIO_RETENTION_INTERVAL,
   });
 
   return null;

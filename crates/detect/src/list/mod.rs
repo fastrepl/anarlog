@@ -109,40 +109,36 @@ mod tests {
     }
 
     #[test]
-    fn test_is_self_app_matches_known_bundle_ids() {
-        assert!(is_self_app(&app("com.anarlog.stable", "Anarlog")));
-        assert!(is_self_app(&app("com.hyprnote.stable", "Anarlog")));
-        assert!(is_self_app(&app("com.hyprnote.Hyprnote", "Hyprnote")));
-    }
-
-    #[test]
-    fn test_is_self_app_matches_renamed_app_names() {
-        assert!(is_self_app(&app("pid:42", "Anarlog")));
-        assert!(is_self_app(&app("pid:43", "Char Nightly")));
-        assert!(is_self_app(&app("pid:44", "Hyprnote Staging")));
-    }
-
-    #[test]
-    fn test_is_self_app_matches_path_fallbacks() {
-        assert!(is_self_app(&app(
-            "/Applications/Anarlog.app/Contents/MacOS/anarlog",
-            "Unknown",
-        )));
-        assert!(is_self_app(&app(
-            "/Applications/Hyprnote Nightly.app/Contents/MacOS/Hyprnote Nightly",
-            "Unknown",
-        )));
-    }
-
-    #[test]
-    fn test_is_self_app_does_not_match_unrelated_char_apps() {
-        assert!(!is_self_app(&app(
-            "com.adobe.character-animator",
-            "Character Animator"
-        )));
-        assert!(!is_self_app(&app(
-            "/Applications/Chart.app/Contents/MacOS/Chart",
-            "Chart"
-        )));
+    fn is_self_app_matches_only_anarlog_identities() {
+        for (id, name, expected) in [
+            ("com.anarlog.stable", "Anarlog", true),
+            ("com.hyprnote.stable", "Anarlog", true),
+            ("com.hyprnote.Hyprnote", "Hyprnote", true),
+            ("pid:42", "Anarlog", true),
+            ("pid:43", "Char Nightly", true),
+            ("pid:44", "Hyprnote Staging", true),
+            (
+                "/Applications/Anarlog.app/Contents/MacOS/anarlog",
+                "Unknown",
+                true,
+            ),
+            (
+                "/Applications/Hyprnote Nightly.app/Contents/MacOS/Hyprnote Nightly",
+                "Unknown",
+                true,
+            ),
+            ("com.adobe.character-animator", "Character Animator", false),
+            (
+                "/Applications/Chart.app/Contents/MacOS/Chart",
+                "Chart",
+                false,
+            ),
+        ] {
+            assert_eq!(
+                is_self_app(&app(id, name)),
+                expected,
+                "is_self_app({id:?}, {name:?})"
+            );
+        }
     }
 }

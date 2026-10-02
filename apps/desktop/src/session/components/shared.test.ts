@@ -1,7 +1,8 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { computeCurrentNoteTab } from "./compute-note-tab";
+import { computeCurrentNoteTab } from "@anlg/utils/session";
+
 import {
   hasStoredNoteContent,
   useCanShowTranscript,
@@ -230,122 +231,66 @@ describe("hasStoredNoteContent", () => {
 });
 
 describe("computeCurrentNoteTab", () => {
-  describe("when listening is active", () => {
-    it("preserves enhanced view", () => {
-      const result = computeCurrentNoteTab(
-        { type: "enhanced", id: "note-1" },
-        true,
-        ["note-1"],
-        false,
-      );
-      expect(result).toEqual({ type: "enhanced", id: "note-1" });
-    });
+  const enhanced = { type: "enhanced", id: "note-1" } as const;
+  const raw = { type: "raw" } as const;
+  const transcript = { type: "transcript" } as const;
 
-    it("preserves raw view", () => {
-      const result = computeCurrentNoteTab({ type: "raw" }, true, ["note-1"]);
-      expect(result).toEqual({ type: "raw" });
-    });
-
-    it("preserves transcript view while listening", () => {
-      const result = computeCurrentNoteTab(
-        { type: "transcript" },
-        true,
-        ["note-1"],
-        true,
-      );
-      expect(result).toEqual({ type: "transcript" });
-    });
-
-    it("normalizes transcript view when transcript cannot show", () => {
-      const result = computeCurrentNoteTab(
-        { type: "transcript" },
-        true,
-        ["note-1"],
-        false,
-      );
-      expect(result).toEqual({ type: "raw" });
-    });
-
-    it("returns raw view when no persisted view", () => {
-      const result = computeCurrentNoteTab(null, true, ["note-1"]);
-      expect(result).toEqual({ type: "raw" });
-    });
-  });
-
-  describe("when not listening", () => {
-    it("respects persisted enhanced view", () => {
-      const result = computeCurrentNoteTab(
-        { type: "enhanced", id: "note-1" },
-        false,
-        ["note-1"],
-        false,
-      );
-      expect(result).toEqual({ type: "enhanced", id: "note-1" });
-    });
-
-    it("respects persisted raw view", () => {
-      const result = computeCurrentNoteTab({ type: "raw" }, false, ["note-1"]);
-      expect(result).toEqual({ type: "raw" });
-    });
-
-    it("respects persisted transcript view", () => {
-      const result = computeCurrentNoteTab(
-        { type: "transcript" },
-        false,
-        ["note-1"],
-        true,
-      );
-      expect(result).toEqual({ type: "transcript" });
-    });
-
-    it("normalizes persisted transcript view before transcript content exists", () => {
-      const result = computeCurrentNoteTab(
-        { type: "transcript" },
-        false,
-        ["note-1"],
-        false,
-      );
-      expect(result).toEqual({ type: "raw" });
-    });
-
-    it("normalizes persisted attachments view to raw", () => {
-      const result = computeCurrentNoteTab(
-        { type: "attachments" },
-        false,
-        ["note-1"],
-        false,
-      );
-      expect(result).toEqual({ type: "raw" });
-    });
-
-    it("normalizes persisted enhanced view when no enhanced notes exist", () => {
-      const result = computeCurrentNoteTab(
-        { type: "enhanced", id: "note-1" },
-        false,
-        [],
-        false,
-      );
-      expect(result).toEqual({ type: "raw" });
-    });
-
-    it("defaults to enhanced view when available and no persisted view", () => {
-      const result = computeCurrentNoteTab(null, false, ["note-1"]);
-      expect(result).toEqual({ type: "enhanced", id: "note-1" });
-    });
-
-    it("defaults to raw when no enhanced notes and no persisted view", () => {
-      const result = computeCurrentNoteTab(null, false, []);
-      expect(result).toEqual({ type: "raw" });
-    });
-
-    it("falls back to the migrated summary when the persisted summary id is stale", () => {
-      const result = computeCurrentNoteTab(
-        { type: "enhanced", id: "legacy-summary" },
-        false,
-        ["sqlite-summary"],
-      );
-
-      expect(result).toEqual({ type: "enhanced", id: "sqlite-summary" });
-    });
+  it.each<
+    [
+      string,
+      Parameters<typeof computeCurrentNoteTab>,
+      ReturnType<typeof computeCurrentNoteTab>,
+    ]
+  >([
+    [
+      "keeps enhanced while listening",
+      [enhanced, true, ["note-1"], false],
+      enhanced,
+    ],
+    [
+      "keeps transcript while listening",
+      [transcript, true, ["note-1"], true],
+      transcript,
+    ],
+    ["defaults to raw while listening", [null, true, ["note-1"]], raw],
+    ["keeps a persisted raw view", [raw, false, ["note-1"]], raw],
+    [
+      "keeps a persisted transcript view",
+      [transcript, false, ["note-1"], true],
+      transcript,
+    ],
+    [
+      "normalizes transcript before content exists",
+      [transcript, false, ["note-1"], false],
+      raw,
+    ],
+    [
+      "normalizes transcript while listening without evidence",
+      [transcript, true, ["note-1"], false],
+      raw,
+    ],
+    [
+      "normalizes the attachments view",
+      [{ type: "attachments" }, false, ["note-1"], false],
+      raw,
+    ],
+    [
+      "normalizes enhanced without summaries",
+      [enhanced, false, [], false],
+      raw,
+    ],
+    [
+      "defaults to the summary when available",
+      [null, false, ["note-1"]],
+      enhanced,
+    ],
+    ["defaults to raw without summaries", [null, false, []], raw],
+    [
+      "falls back to the migrated summary for a stale id",
+      [{ type: "enhanced", id: "legacy-summary" }, false, ["sqlite-summary"]],
+      { type: "enhanced", id: "sqlite-summary" },
+    ],
+  ])("%s", (_label, args, expected) => {
+    expect(computeCurrentNoteTab(...args)).toEqual(expected);
   });
 });

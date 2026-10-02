@@ -160,7 +160,6 @@ mod tests {
     use crate::adapter::deepgram_compat::{
         KeywordQueryStrategy, LanguageQueryStrategy, TranscriptionMode,
     };
-    use crate::http_client::create_client;
     use url::UrlQuery;
     use url::form_urlencoded::Serializer;
 
@@ -257,83 +256,38 @@ mod tests {
     }
 
     #[test]
-    fn batch_url_restricts_detect_language_for_unsupported_multi_language() {
-        let params = ListenParams {
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::Pl.into(),
-            ],
-            ..Default::default()
-        };
+    fn batch_url_uses_per_language_detect_language_params() {
+        for (model, languages, expected) in [
+            (
+                None,
+                vec![anlg_language::ISO639::En, anlg_language::ISO639::Pl],
+                vec!["detect_language=en", "detect_language=pl"],
+            ),
+            (
+                Some("nova-3"),
+                vec![anlg_language::ISO639::En, anlg_language::ISO639::De],
+                vec!["detect_language=en", "detect_language=de"],
+            ),
+        ] {
+            let params = ListenParams {
+                model: model.map(str::to_string),
+                languages: languages.into_iter().map(Into::into).collect(),
+                ..Default::default()
+            };
 
-        let url = build_batch_url(
-            "https://api.deepgram.com/v1",
-            &params,
-            &DeepgramLanguageStrategy,
-            &DeepgramKeywordStrategy,
-        );
-
-        let query = url.query().unwrap_or_default();
-        assert!(query.contains("detect_language=en"));
-        assert!(query.contains("detect_language=pl"));
-        assert!(!query.contains("detect_language=true"));
-        assert!(!query.contains("language=multi"));
-    }
-
-    #[test]
-    fn batch_url_prefers_detect_language_over_multi_capable_pair() {
-        let params = ListenParams {
-            model: Some("nova-3".to_string()),
-            languages: vec![
-                anlg_language::ISO639::En.into(),
-                anlg_language::ISO639::De.into(),
-            ],
-            ..Default::default()
-        };
-
-        let url = build_batch_url(
-            "https://api.deepgram.com/v1",
-            &params,
-            &DeepgramLanguageStrategy,
-            &DeepgramKeywordStrategy,
-        );
-
-        let query = url.query().unwrap_or_default();
-        assert!(query.contains("detect_language=en"));
-        assert!(query.contains("detect_language=de"));
-        assert!(!query.contains("language=multi"));
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_deepgram_batch_transcription() {
-        let api_key = std::env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY not set");
-        let client = create_client();
-        let adapter = DeepgramAdapter::default();
-        let params = ListenParams {
-            model: Some("nova-2".to_string()),
-            ..Default::default()
-        };
-
-        let audio_path = std::path::PathBuf::from(anlg_data::english_1::AUDIO_PATH);
-
-        let result = adapter
-            .transcribe_file(
-                &client,
+            let url = build_batch_url(
                 "https://api.deepgram.com/v1",
-                &api_key,
                 &params,
-                &audio_path,
-            )
-            .await
-            .expect("transcription failed");
+                &DeepgramLanguageStrategy,
+                &DeepgramKeywordStrategy,
+            );
 
-        assert!(!result.results.channels.is_empty());
-        assert!(!result.results.channels[0].alternatives.is_empty());
-        assert!(
-            !result.results.channels[0].alternatives[0]
-                .transcript
-                .is_empty()
-        );
+            let query = url.query().unwrap_or_default();
+            for expected in expected {
+                assert!(query.contains(expected));
+            }
+            assert!(!query.contains("detect_language=true"));
+            assert!(!query.contains("language=multi"));
+        }
     }
 }

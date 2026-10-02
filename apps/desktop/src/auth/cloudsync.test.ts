@@ -1517,13 +1517,17 @@ describe("CloudSync auth lifecycle", () => {
     expect(rejectAccountMismatch).toHaveBeenCalledTimes(1);
   });
 
-  test("restarts sync after the authenticated user is updated", async () => {
+  test.each<AuthChangeEvent>([
+    "USER_UPDATED",
+    "PASSWORD_RECOVERY",
+    "MFA_CHALLENGE_VERIFIED",
+  ])("restarts sync after %s", async (event) => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => Promise.resolve(credentialsResponse())),
     );
 
-    await handleCloudsyncAuthChange("USER_UPDATED", session());
+    await handleCloudsyncAuthChange(event, session());
 
     expect(configureCloudsyncToken).toHaveBeenCalledWith(
       "database-id",
@@ -1533,26 +1537,6 @@ describe("CloudSync auth lifecycle", () => {
     );
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
-
-  test.each<AuthChangeEvent>(["PASSWORD_RECOVERY", "MFA_CHALLENGE_VERIFIED"])(
-    "restarts sync after %s",
-    async (event) => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(() => Promise.resolve(credentialsResponse())),
-      );
-
-      await handleCloudsyncAuthChange(event, session());
-
-      expect(configureCloudsyncToken).toHaveBeenCalledWith(
-        "database-id",
-        "sqlite-token",
-        "user-id",
-        witness(),
-      );
-      expect(suspendCloudsync).toHaveBeenCalledTimes(1);
-    },
-  );
 
   test("suspends sync without deleting local rows before signing out", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(credentialsResponse()));

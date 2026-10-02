@@ -1,16 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ENTERPRISE_EVENTS } from "./enterprise.ts";
 import {
-  architectureLayers,
   certificationStatus,
   contractualDocs,
-  pilotSteps,
-  proofStatus,
   securityReviewAnswers,
-  shipsToday,
-  shipsWithPartners,
   subprocessors,
 } from "./trust-center.ts";
 
@@ -61,23 +55,4 @@ test("keeps the DPA as a request, not a published legal invention", () => {
   const dpa = contractualDocs.find((doc) => doc.label.includes("Processing"));
   assert.ok(dpa?.href.startsWith("mailto:"));
   assert.match(dpa?.note ?? "", /on request/i);
-});
-
-test("describes a founder-led rollout without inventing customer proof", () => {
-  assert.equal(pilotSteps.length, 3);
-  assert.equal(pilotSteps[0]?.title, "Security review");
-  assert.equal(pilotSteps[1]?.title, "Scoped pilot");
-  assert.equal(pilotSteps[2]?.title, "Rollout");
-  assert.match(proofStatus.body, /does not invent/);
-  assert.ok(shipsToday.length >= 4);
-  assert.ok(shipsWithPartners.length >= 2);
-  assert.equal(architectureLayers.length, 4);
-});
-
-test("uses stable funnel event names", () => {
-  assert.deepEqual(ENTERPRISE_EVENTS, {
-    pageViewed: "enterprise_page_viewed",
-    securityPageViewed: "security_page_viewed",
-    ctaClicked: "enterprise_cta_clicked",
-  });
 });

@@ -216,31 +216,15 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
     }
 
     #[test]
-    fn extract_token_accepts_bearer_prefix() {
-        assert_eq!(
-            SupabaseAuth::extract_token("Bearer test-token"),
-            Some("test-token")
-        );
-        assert_eq!(
-            SupabaseAuth::extract_token("bearer test-token"),
-            Some("test-token")
-        );
-    }
-
-    #[test]
-    fn extract_token_accepts_token_prefix_for_backward_compat() {
-        assert_eq!(
-            SupabaseAuth::extract_token("Token test-token"),
-            Some("test-token")
-        );
-        assert_eq!(
-            SupabaseAuth::extract_token("token test-token"),
-            Some("test-token")
-        );
-    }
-
-    #[test]
-    fn extract_token_rejects_unknown_prefix() {
+    fn extract_token_accepts_bearer_and_legacy_token_prefixes() {
+        for header in [
+            "Bearer test-token",
+            "bearer test-token",
+            "Token test-token",
+            "token test-token",
+        ] {
+            assert_eq!(SupabaseAuth::extract_token(header), Some("test-token"));
+        }
         assert_eq!(SupabaseAuth::extract_token("Basic test-token"), None);
     }
 

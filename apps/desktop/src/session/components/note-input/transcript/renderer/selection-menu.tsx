@@ -34,6 +34,7 @@ import {
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import {
@@ -49,7 +50,6 @@ import {
   subscribeSessionFabSelectionHost,
 } from "~/session/components/floating/selection-slot";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const MENU_CONTAINER_CLASSES = [
   "pointer-events-auto",

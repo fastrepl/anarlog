@@ -851,13 +851,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn session_projection_includes_ordered_live_meeting_chat() {
+    async fn session_projection_indexes_live_chat_and_meeting_apps() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();
-        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'Planning')")
-            .execute(db.pool())
-            .await
-            .unwrap();
+        sqlx::query(
+            r#"INSERT INTO sessions (id, title, source_apps_json)
+               VALUES (
+                 'session-1',
+                 'Planning',
+                 '[{"app":"com.google.Chrome","name":"Google Chrome","platform":"Google Meet"},{"app":"legacy"}]'
+               )"#,
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         sqlx::query(
             r#"
             INSERT INTO session_documents (
@@ -872,6 +879,11 @@ mod tests {
                     'chat-first', 'session-1', 'meeting_chat', 'json',
                     '{"platform":"zoom","sender":"Ada","timestamp":"10:01","text":"first message","links":[]}',
                     10, NULL
+                ),
+                (
+                    'chat-plain', 'session-1', 'meeting_chat', 'text',
+                    'plain fallback message',
+                    15, NULL
                 ),
                 (
                     'chat-deleted', 'session-1', 'meeting_chat', 'json',
@@ -899,35 +911,12 @@ mod tests {
         assert!(document.content.contains("Grace"));
         assert!(document.content.contains("https://example.com/second"));
         assert!(!document.content.contains("deleted message"));
-    }
-
-    #[tokio::test]
-    async fn session_projection_includes_raw_and_normalized_meeting_apps() {
-        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
-        anlg_db_app::prepare_schema(&db).await.unwrap();
-        sqlx::query(
-            r#"INSERT INTO sessions (id, title, source_apps_json)
-               VALUES (
-                 'session-1',
-                 'Planning',
-                 '[{"app":"com.google.Chrome","name":"Google Chrome","platform":"Google Meet"}]'
-               )"#,
-        )
-        .execute(db.pool())
-        .await
-        .unwrap();
-
-        let mut connection = db.pool().acquire().await.unwrap();
-        let IndexAction::Upsert(document) = build_session_document(&mut connection, "session-1")
-            .await
-            .unwrap()
-        else {
-            panic!("expected the session to be indexed");
-        };
 
         assert!(document.content.contains("com.google.Chrome"));
         assert!(document.content.contains("Google Chrome"));
         assert!(document.content.contains("Google Meet"));
+        assert!(document.content.contains("legacy"));
+        assert!(document.content.contains("plain fallback message"));
     }
 
     #[test]
@@ -953,28 +942,6 @@ mod tests {
             ),
             "hello world again nested array"
         );
-    }
-
-    #[test]
-    fn flattens_meeting_chat_metadata_text_and_links() {
-        assert_eq!(
-            flatten_meeting_chat(
-                r#"{"platform":"zoom","sender":"Ada","timestamp":"10:42 AM","text":"Here is the doc","links":["https://example.com/spec"]}"#,
-            ),
-            "zoom Ada 10:42 AM Here is the doc https://example.com/spec"
-        );
-        assert_eq!(flatten_meeting_chat("plain chat"), "plain chat");
-    }
-
-    #[test]
-    fn flattens_source_app_metadata() {
-        assert_eq!(
-            flatten_source_apps(
-                r#"[{"app":"slack","name":"Slack.exe","platform":"Slack"},{"app":"legacy"}]"#,
-            ),
-            "slack Slack.exe Slack legacy"
-        );
-        assert_eq!(flatten_source_apps("not json"), "");
     }
 
     #[test]

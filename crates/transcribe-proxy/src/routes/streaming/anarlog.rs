@@ -509,7 +509,7 @@ mod tests {
     use anlg_language::ISO639;
 
     #[test]
-    fn test_build_listen_params_basic() {
+    fn build_listen_params_parses_and_normalizes_query() {
         let mut params = QueryParams::default();
         params.insert(
             "model".to_string(),
@@ -529,10 +529,7 @@ mod tests {
         assert_eq!(listen_params.languages[0].iso639(), ISO639::En);
         assert_eq!(listen_params.sample_rate, 16000);
         assert_eq!(listen_params.channels, 1);
-    }
 
-    #[test]
-    fn test_build_listen_params_with_speaker_counts() {
         let mut params = QueryParams::default();
         params.insert(
             "num_speakers".to_string(),
@@ -552,10 +549,7 @@ mod tests {
         assert_eq!(listen_params.num_speakers, Some(3));
         assert_eq!(listen_params.min_speakers, Some(2));
         assert_eq!(listen_params.max_speakers, Some(4));
-    }
 
-    #[test]
-    fn test_build_listen_params_with_keywords() {
         let mut params = QueryParams::default();
         params.insert(
             "keyword".to_string(),
@@ -571,10 +565,7 @@ mod tests {
                 .keywords
                 .contains(&"transcription".to_string())
         );
-    }
 
-    #[test]
-    fn test_build_listen_params_default_values() {
         let params = QueryParams::default();
         let listen_params = build_listen_params(&params);
 
@@ -583,10 +574,7 @@ mod tests {
         assert_eq!(listen_params.sample_rate, 16000);
         assert_eq!(listen_params.channels, 1);
         assert!(listen_params.keywords.is_empty());
-    }
 
-    #[test]
-    fn test_build_listen_params_normalizes_duplicate_base_languages() {
         let mut params = QueryParams::default();
         params.insert(
             "language".to_string(),
@@ -608,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_upstream_url_deepgram() {
+    fn upstream_url_uses_provider_endpoint_and_model() {
         let params = ListenParams {
             model: Some("nova-3".to_string()),
             languages: vec![ISO639::En.into()],
@@ -627,10 +615,7 @@ mod tests {
 
         assert!(url.as_str().contains("deepgram.com"));
         assert!(url.as_str().contains("model=nova-3"));
-    }
 
-    #[test]
-    fn test_build_upstream_url_deepgram_flux() {
         let params = ListenParams {
             model: Some("flux-general-multi".to_string()),
             languages: vec![ISO639::En.into(), ISO639::Ja.into()],
@@ -651,10 +636,7 @@ mod tests {
         assert!(url.as_str().contains("model=flux-general-multi"));
         assert!(url.as_str().contains("language_hint=en"));
         assert!(url.as_str().contains("language_hint=ja"));
-    }
 
-    #[test]
-    fn test_build_upstream_url_soniox() {
         let params = ListenParams {
             model: Some("stt-rt-v3".to_string()),
             languages: vec![ISO639::En.into()],
@@ -675,7 +657,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_initial_message_soniox() {
+    fn initial_message_only_for_providers_that_need_it() {
         let params = ListenParams {
             model: Some("stt-v5".to_string()),
             languages: vec![ISO639::En.into()],
@@ -697,10 +679,7 @@ mod tests {
         assert!(msg.contains("api_key"));
         assert!(msg.contains("test-key"));
         assert!(msg.contains("stt-rt-v5"));
-    }
 
-    #[test]
-    fn test_build_initial_message_deepgram_none() {
         let params = ListenParams {
             model: Some("nova-3".to_string()),
             languages: vec![ISO639::En.into()],
@@ -719,7 +698,7 @@ mod tests {
     }
 
     #[test]
-    fn test_response_transformer_deepgram() {
+    fn response_transformer_normalizes_provider_payloads() {
         let transformer = build_response_transformer(Provider::Deepgram, Some("nova-3"));
 
         let deepgram_response = r#"{
@@ -753,10 +732,7 @@ mod tests {
 
         let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(parsed["type"], "Results");
-    }
 
-    #[test]
-    fn test_response_transformer_deepgram_flux() {
         let transformer =
             build_response_transformer(Provider::Deepgram, Some("flux-general-multi"));
         let result = transformer(
@@ -777,10 +753,7 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(parsed["type"], "Results");
         assert_eq!(parsed["channel"]["alternatives"][0]["transcript"], "hello");
-    }
 
-    #[test]
-    fn test_response_transformer_empty_response() {
         let transformer = build_response_transformer(Provider::Soniox, None);
 
         let result = transformer("{}");
@@ -788,17 +761,71 @@ mod tests {
     }
 
     #[test]
-    fn test_client_message_filter_deepgram_identity() {
-        let filter = build_client_message_filter(Provider::Deepgram, Some("nova-3"), None);
-        assert_eq!(
-            filter(r#"{"type":"KeepAlive"}"#.to_string()),
-            Some(r#"{"type":"KeepAlive"}"#.to_string())
-        );
-        assert_eq!(filter(r#"{"type":"CloseStream"}"#.to_string()), None);
-        assert_eq!(
-            filter(r#"{"type":"Finalize"}"#.to_string()),
-            Some(r#"{"type":"Finalize"}"#.to_string())
-        );
+    fn client_message_filter_translates_control_messages_per_provider() {
+        let cases = [
+            (
+                Provider::Deepgram,
+                Some("nova-3"),
+                r#"{"type":"KeepAlive"}"#,
+                Some(r#"{"type":"KeepAlive"}"#),
+            ),
+            (
+                Provider::Deepgram,
+                Some("nova-3"),
+                r#"{"type":"CloseStream"}"#,
+                None,
+            ),
+            (
+                Provider::Deepgram,
+                Some("nova-3"),
+                r#"{"type":"Finalize"}"#,
+                Some(r#"{"type":"Finalize"}"#),
+            ),
+            (
+                Provider::Deepgram,
+                Some("flux-general-multi"),
+                r#"{"type":"KeepAlive"}"#,
+                None,
+            ),
+            (
+                Provider::Deepgram,
+                Some("flux-general-multi"),
+                r#"{"type":"Finalize"}"#,
+                Some(r#"{"type":"CloseStream"}"#),
+            ),
+            (
+                Provider::Deepgram,
+                Some("flux-general-multi"),
+                r#"{"type":"CloseStream"}"#,
+                Some(r#"{"type":"CloseStream"}"#),
+            ),
+            (Provider::Soniox, None, r#"{"type":"CloseStream"}"#, None),
+            (
+                Provider::Soniox,
+                None,
+                r#"{"type":"KeepAlive"}"#,
+                Some(r#"{"type":"keepalive"}"#),
+            ),
+            (
+                Provider::Soniox,
+                None,
+                r#"{"type":"Finalize"}"#,
+                Some(r#"{"type":"finalize"}"#),
+            ),
+            (Provider::AssemblyAI, None, r#"{"type":"KeepAlive"}"#, None),
+            (
+                Provider::AssemblyAI,
+                None,
+                r#"{"type":"Finalize"}"#,
+                Some(r#"{"type":"Terminate"}"#),
+            ),
+            (Provider::Soniox, None, "not json", Some("not json")),
+        ];
+
+        for (provider, model, input, expected) in cases {
+            let filter = build_client_message_filter(provider, model, None);
+            assert_eq!(filter(input.to_string()).as_deref(), expected, "{input}");
+        }
     }
 
     #[test]
@@ -915,52 +942,6 @@ mod tests {
     }
 
     #[test]
-    fn test_client_message_filter_deepgram_flux_translates_finalize() {
-        let filter =
-            build_client_message_filter(Provider::Deepgram, Some("flux-general-multi"), None);
-        assert_eq!(filter(r#"{"type":"KeepAlive"}"#.to_string()), None);
-        assert_eq!(
-            filter(r#"{"type":"Finalize"}"#.to_string()),
-            Some(r#"{"type":"CloseStream"}"#.to_string())
-        );
-        assert_eq!(
-            filter(r#"{"type":"CloseStream"}"#.to_string()),
-            Some(r#"{"type":"CloseStream"}"#.to_string())
-        );
-    }
-
-    #[test]
-    fn test_client_message_filter_soniox_translates_control_messages() {
-        let filter = build_client_message_filter(Provider::Soniox, None, None);
-
-        assert_eq!(filter(r#"{"type":"CloseStream"}"#.to_string()), None);
-        assert_eq!(
-            filter(r#"{"type":"KeepAlive"}"#.to_string()),
-            Some(r#"{"type":"keepalive"}"#.to_string())
-        );
-        assert_eq!(
-            filter(r#"{"type":"Finalize"}"#.to_string()),
-            Some(r#"{"type":"finalize"}"#.to_string())
-        );
-    }
-
-    #[test]
-    fn test_client_message_filter_assemblyai_translates_finalize() {
-        let filter = build_client_message_filter(Provider::AssemblyAI, None, None);
-        assert_eq!(filter(r#"{"type":"KeepAlive"}"#.to_string()), None);
-        assert_eq!(
-            filter(r#"{"type":"Finalize"}"#.to_string()),
-            Some(r#"{"type":"Terminate"}"#.to_string())
-        );
-    }
-
-    #[test]
-    fn test_client_message_filter_non_json_passthrough() {
-        let filter = build_client_message_filter(Provider::Soniox, None, None);
-        assert_eq!(filter("not json".to_string()), Some("not json".to_string()));
-    }
-
-    #[test]
     fn test_client_binary_message_mapper_elevenlabs_wraps_audio_chunks() {
         assert!(build_client_binary_message_mapper(Provider::Deepgram, 16_000).is_none());
 
@@ -991,7 +972,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_model_clears_meta_model_for_soniox() {
+    fn resolve_model_live_handles_meta_explicit_and_missing_models() {
         let mut params = ListenParams {
             model: Some("cloud".to_string()),
             languages: vec![ISO639::Ko.into(), ISO639::En.into()],
@@ -1001,10 +982,7 @@ mod tests {
 
         resolve_model_live(Provider::Soniox, &mut params);
         assert_eq!(params.model, None);
-    }
 
-    #[test]
-    fn test_resolve_model_resolves_meta_model_for_deepgram() {
         let mut params = ListenParams {
             model: Some("cloud".to_string()),
             languages: vec![ISO639::En.into()],
@@ -1015,10 +993,7 @@ mod tests {
         resolve_model_live(Provider::Deepgram, &mut params);
         assert!(params.model.is_some());
         assert_ne!(params.model.as_deref(), Some("cloud"));
-    }
 
-    #[test]
-    fn test_resolve_model_preserves_explicit_model() {
         let mut params = ListenParams {
             model: Some("nova-3".to_string()),
             languages: vec![ISO639::En.into()],
@@ -1028,10 +1003,7 @@ mod tests {
 
         resolve_model_live(Provider::Deepgram, &mut params);
         assert_eq!(params.model, Some("nova-3".to_string()));
-    }
 
-    #[test]
-    fn test_resolve_model_none_triggers_resolution() {
         let mut params = ListenParams {
             model: None,
             languages: vec![ISO639::En.into()],

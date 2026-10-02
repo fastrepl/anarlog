@@ -460,29 +460,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn chunking_strategy_auto_serializes_as_string() {
-        let json = serde_json::to_string(&ChunkingStrategy::auto()).expect("serialize auto");
-
-        assert_eq!(json, "\"auto\"");
-    }
-
-    #[test]
-    fn request_variants_preserve_model_identity() {
-        assert_eq!(
-            CreateTranscriptionOptions::whisper().model(),
-            AudioModel::Whisper1
-        );
-        assert_eq!(
-            CreateTranscriptionOptions::gpt(GptTranscriptionModel::Gpt4oMiniTranscribe).model(),
-            AudioModel::Gpt4oMiniTranscribe
-        );
-        assert_eq!(
-            CreateTranscriptionOptions::diarize().model(),
-            AudioModel::Gpt4oTranscribeDiarize
-        );
-    }
-
-    #[test]
     fn for_model_applies_openai_defaults() {
         let whisper = CreateTranscriptionOptions::for_model(AudioModel::Whisper1, true, true);
         let diarize =

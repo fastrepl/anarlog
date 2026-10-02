@@ -8,53 +8,26 @@ describe("Chat Mode", () => {
     resetTabsStore();
   });
 
-  test("initial mode is FloatingClosed", () => {
-    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
-  });
+  test.each([
+    [[], { type: "TOGGLE" }, "FloatingOpen"],
+    [[{ type: "TOGGLE" }], { type: "TOGGLE" }, "FloatingClosed"],
+    [[], { type: "OPEN" }, "FloatingOpen"],
+    [[], { type: "OPEN_RIGHT_PANEL" }, "RightPanelOpen"],
+    [[{ type: "OPEN" }], { type: "OPEN_RIGHT_PANEL" }, "RightPanelOpen"],
+    [[{ type: "OPEN_RIGHT_PANEL" }], { type: "OPEN" }, "FloatingOpen"],
+    [[{ type: "OPEN_RIGHT_PANEL" }], { type: "TOGGLE" }, "FloatingClosed"],
+    [[], { type: "CLOSE" }, "FloatingClosed"],
+  ] as const)(
+    "transitions chat mode from setup events %j with event %j",
+    (setupEvents, event, expected) => {
+      for (const setupEvent of setupEvents) {
+        useTabs.getState().transitionChatMode(setupEvent);
+      }
+      useTabs.getState().transitionChatMode(event);
 
-  test("TOGGLE from FloatingClosed to FloatingOpen", () => {
-    useTabs.getState().transitionChatMode({ type: "TOGGLE" });
-    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
-  });
-
-  test("TOGGLE from FloatingOpen to FloatingClosed", () => {
-    useTabs.getState().transitionChatMode({ type: "TOGGLE" });
-    useTabs.getState().transitionChatMode({ type: "TOGGLE" });
-    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
-  });
-
-  test("OPEN from FloatingClosed to FloatingOpen", () => {
-    useTabs.getState().transitionChatMode({ type: "OPEN" });
-    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
-  });
-
-  test("OPEN_RIGHT_PANEL from FloatingClosed to RightPanelOpen", () => {
-    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
-  });
-
-  test("OPEN_RIGHT_PANEL from FloatingOpen to RightPanelOpen", () => {
-    useTabs.getState().transitionChatMode({ type: "OPEN" });
-    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
-  });
-
-  test("OPEN from RightPanelOpen to FloatingOpen", () => {
-    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
-    useTabs.getState().transitionChatMode({ type: "OPEN" });
-    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
-  });
-
-  test("TOGGLE from RightPanelOpen to FloatingClosed", () => {
-    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
-    useTabs.getState().transitionChatMode({ type: "TOGGLE" });
-    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
-  });
-
-  test("no-op when event is irrelevant for current state", () => {
-    useTabs.getState().transitionChatMode({ type: "CLOSE" });
-    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
-  });
+      expect(useTabs.getState().chatMode).toBe(expected);
+    },
+  );
 
   test("closing non-chat tab does not affect mode", () => {
     const session = createSessionTab();

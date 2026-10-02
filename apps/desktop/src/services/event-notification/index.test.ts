@@ -36,43 +36,16 @@ describe("checkEventNotifications", () => {
     vi.restoreAllMocks();
   });
 
-  test("scheduled meeting notifications use canonical SQLite events", async () => {
+  test.each([
+    ["an ISO timestamp", "2026-05-15T12:02:00.000Z"],
+    ["a timezone-naive Graph timestamp as UTC", "2026-05-15T12:02:00.0000000"],
+  ])("notifies an upcoming event from %s", async (_name, startedAt) => {
     mocks.execute.mockResolvedValueOnce([
       {
         id: "event-1",
-        started_at: "2026-05-15T12:02:00.000Z",
+        started_at: startedAt,
         tracking_id_event: "tracking-1",
         recurrence_series_id: "series-1",
-        title: "Design Review",
-        is_all_day: 0,
-      },
-    ]);
-
-    await checkEventNotifications(true, new Map());
-
-    expect(mocks.showNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: { type: "calendar_event", event_id: "event-1" },
-        action_label: "Open Anarlog",
-        participants: null,
-        event_details: null,
-        options: null,
-        footer: null,
-        message: "Starting in 2 minutes",
-        start_time: new Date("2026-05-15T12:02:00.000Z").getTime() / 1000,
-        timeout: null,
-      }),
-    );
-    expect(mocks.execute.mock.calls[0]?.[0]).toContain("is_all_day = 0");
-  });
-
-  test("treats timezone-naive Graph timestamps as UTC", async () => {
-    mocks.execute.mockResolvedValueOnce([
-      {
-        id: "event-1",
-        started_at: "2026-05-15T12:02:00.0000000",
-        tracking_id_event: "tracking-1",
-        recurrence_series_id: "",
         title: "Design Review",
         is_all_day: 0,
       },

@@ -91,6 +91,8 @@ export function useTrialFlow(onContinue: () => void) {
       return;
     }
 
+    if (!auth.isFingerprintSettled) return;
+
     hasTriggeredRef.current = true;
     triggerTrial();
   }, [auth, billing, onContinue, triggerTrial]);

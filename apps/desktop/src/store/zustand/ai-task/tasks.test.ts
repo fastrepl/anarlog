@@ -492,19 +492,11 @@ describe("createTasksSlice", () => {
 });
 
 describe("getTaskStreamStartTimeoutMs", () => {
-  it.each(["ollama.chat", "lmstudio.chat", "unsloth.chat", "apple_foundation"])(
-    "allows local provider %s more time to start",
-    (provider) => {
-      expect(getTaskStreamStartTimeoutMs({ provider } as any)).toBe(
-        TASK_STREAM_LOCAL_START_TIMEOUT_MS,
-      );
-    },
-  );
-
-  it("keeps the standard start timeout for remote providers", () => {
-    expect(
-      getTaskStreamStartTimeoutMs({ provider: "openai.chat" } as any),
-    ).toBe(TASK_STREAM_START_TIMEOUT_MS);
+  it.each([
+    ["ollama.chat", TASK_STREAM_LOCAL_START_TIMEOUT_MS],
+    ["openai.chat", TASK_STREAM_START_TIMEOUT_MS],
+  ])("uses the expected start timeout for %s", (provider, timeout) => {
+    expect(getTaskStreamStartTimeoutMs({ provider } as any)).toBe(timeout);
   });
 });
 

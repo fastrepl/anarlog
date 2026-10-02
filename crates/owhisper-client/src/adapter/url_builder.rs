@@ -83,67 +83,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new_creates_empty_builder() {
-        let builder = QueryParamBuilder::new();
-        assert!(builder.build().is_empty());
-    }
-
-    #[test]
-    fn test_add_string_value() {
-        let mut builder = QueryParamBuilder::new();
-        builder.add("model", "nova-3");
-        assert_eq!(builder.build(), vec![("model".into(), "nova-3".into())]);
-    }
-
-    #[test]
-    fn test_add_numeric_value() {
-        let mut builder = QueryParamBuilder::new();
-        builder.add("channels", 2);
-        assert_eq!(builder.build(), vec![("channels".into(), "2".into())]);
-    }
-
-    #[test]
-    fn test_add_bool_true() {
-        let mut builder = QueryParamBuilder::new();
-        builder.add_bool("diarize", true);
-        assert_eq!(builder.build(), vec![("diarize".into(), "true".into())]);
-    }
-
-    #[test]
-    fn test_add_bool_false() {
-        let mut builder = QueryParamBuilder::new();
-        builder.add_bool("diarize", false);
-        assert_eq!(builder.build(), vec![("diarize".into(), "false".into())]);
-    }
-
-    #[test]
-    fn test_chaining() {
+    fn test_apply_to_url() {
         let mut builder = QueryParamBuilder::new();
         builder
             .add("model", "nova-3")
             .add("channels", 2)
             .add_bool("diarize", true);
-        assert_eq!(
-            builder.build(),
-            vec![
-                ("model".into(), "nova-3".into()),
-                ("channels".into(), "2".into()),
-                ("diarize".into(), "true".into()),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_apply_to_url() {
-        let mut builder = QueryParamBuilder::new();
-        builder.add("model", "nova-3").add_bool("diarize", true);
 
         let mut url: url::Url = "https://api.example.com/listen".parse().unwrap();
         builder.apply_to(&mut url);
 
         assert_eq!(
             url.as_str(),
-            "https://api.example.com/listen?model=nova-3&diarize=true"
+            "https://api.example.com/listen?model=nova-3&channels=2&diarize=true"
         );
     }
 
@@ -191,47 +143,35 @@ mod tests {
     }
 
     #[test]
-    fn test_add_common_listen_params_default_model() {
-        let mut builder = QueryParamBuilder::new();
-        let params = ListenParams::default();
-        builder.add_common_listen_params(&params, 1);
+    fn test_add_common_listen_params_model_resolution() {
+        for (params, expected) in [
+            (ListenParams::default(), "nova-3"),
+            (
+                ListenParams {
+                    model: Some("cloud".to_string()),
+                    sample_rate: 16000,
+                    ..Default::default()
+                },
+                "nova-3",
+            ),
+            (
+                ListenParams {
+                    model: Some("cloud".to_string()),
+                    languages: vec![anlg_language::ISO639::Zh.into()],
+                    sample_rate: 16000,
+                    ..Default::default()
+                },
+                "nova-2",
+            ),
+        ] {
+            let mut builder = QueryParamBuilder::new();
+            builder.add_common_listen_params(&params, 1);
 
-        let result = builder.build();
-        assert!(result.iter().any(|(k, v)| k == "model" && v == "nova-3"));
-    }
-
-    #[test]
-    fn test_add_common_listen_params_with_cloud_model() {
-        let mut builder = QueryParamBuilder::new();
-        let params = ListenParams {
-            model: Some("cloud".to_string()),
-            sample_rate: 16000,
-            ..Default::default()
-        };
-        builder.add_common_listen_params(&params, 1);
-
-        let result = builder.build();
-        assert!(
-            result.iter().any(|(k, v)| k == "model" && v == "nova-3"),
-            "cloud with default (en) should resolve to nova-3"
-        );
-    }
-
-    #[test]
-    fn test_add_common_listen_params_with_cloud_model_chinese() {
-        let mut builder = QueryParamBuilder::new();
-        let params = ListenParams {
-            model: Some("cloud".to_string()),
-            languages: vec![anlg_language::ISO639::Zh.into()],
-            sample_rate: 16000,
-            ..Default::default()
-        };
-        builder.add_common_listen_params(&params, 1);
-
-        let result = builder.build();
-        assert!(
-            result.iter().any(|(k, v)| k == "model" && v == "nova-2"),
-            "cloud with zh should resolve to nova-2 (nova-3 doesn't support zh)"
-        );
+            let result = builder.build();
+            assert!(
+                result.iter().any(|(k, v)| k == "model" && v == expected),
+                "expected model={expected}"
+            );
+        }
     }
 }

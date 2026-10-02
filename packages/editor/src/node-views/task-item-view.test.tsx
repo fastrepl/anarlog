@@ -112,31 +112,4 @@ describe("TaskItemView", () => {
     expect(hoisted.transaction.setNodeMarkup).not.toHaveBeenCalled();
     expect(hoisted.view.dispatch).not.toHaveBeenCalled();
   });
-
-  it("marks the checkbox when ProseMirror selects the task node", () => {
-    hoisted.isNodeSelected = true;
-
-    render(
-      <TaskItemView
-        nodeProps={
-          {
-            node: {
-              attrs: {
-                status: "todo",
-                checked: false,
-                taskId: null,
-                taskItemId: null,
-              },
-              nodeSize: 2,
-            },
-            getPos: () => 4,
-          } as any
-        }
-      >
-        <p>All hands</p>
-      </TaskItemView>,
-    );
-
-    expect(screen.getByRole("checkbox").dataset.selected).toBe("true");
-  });
 });

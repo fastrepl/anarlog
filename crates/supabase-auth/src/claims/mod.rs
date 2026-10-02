@@ -122,71 +122,32 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_claims_minimal() {
-        let payload = r#"{"sub": "user-456"}"#;
-        let token = make_test_token(payload);
+    fn entitlements_determine_paid_tier() {
+        let cases = [
+            (
+                r#"{"sub":"u","entitlements":["hyprnote_pro"]}"#,
+                true,
+                false,
+            ),
+            (
+                r#"{"sub":"u","entitlements":["hyprnote_lite"],"subscription_status":"active"}"#,
+                false,
+                true,
+            ),
+            (
+                r#"{"sub":"u","subscription_status":"active"}"#,
+                false,
+                false,
+            ),
+            (r#"{"sub":"u"}"#, false, false),
+        ];
 
-        let claims = Claims::decode_insecure(&token).unwrap();
-        assert_eq!(claims.sub, "user-456");
-        assert_eq!(claims.email, None);
-        assert!(claims.entitlements.is_empty());
-        assert!(claims.subscription_status.is_none());
-        assert!(claims.trial_end.is_none());
-        assert!(claims.has_payment_method.is_none());
-    }
-
-    #[test]
-    fn test_decode_claims_lite() {
-        let payload = r#"{
-            "sub": "user-789",
-            "entitlements": ["hyprnote_lite"],
-            "subscription_status": "active"
-        }"#;
-        let token = make_test_token(payload);
-
-        let claims = Claims::decode_insecure(&token).unwrap();
-        assert!(!claims.is_pro());
-        assert!(claims.is_lite());
-        assert!(claims.is_paid());
-    }
-
-    #[test]
-    fn test_is_paid_with_pro() {
-        let payload = r#"{
-            "sub": "user-100",
-            "entitlements": ["hyprnote_pro"]
-        }"#;
-        let token = make_test_token(payload);
-
-        let claims = Claims::decode_insecure(&token).unwrap();
-        assert!(claims.is_pro());
-        assert!(!claims.is_lite());
-        assert!(claims.is_paid());
-    }
-
-    #[test]
-    fn test_is_paid_with_no_entitlements() {
-        let payload = r#"{"sub": "user-200"}"#;
-        let token = make_test_token(payload);
-
-        let claims = Claims::decode_insecure(&token).unwrap();
-        assert!(!claims.is_pro());
-        assert!(!claims.is_lite());
-        assert!(!claims.is_paid());
-    }
-
-    #[test]
-    fn test_active_status_without_entitlement_is_not_paid() {
-        let payload = r#"{
-            "sub": "user-201",
-            "subscription_status": "active"
-        }"#;
-        let token = make_test_token(payload);
-
-        let claims = Claims::decode_insecure(&token).unwrap();
-        assert!(!claims.is_pro());
-        assert!(!claims.is_lite());
-        assert!(!claims.is_paid());
+        for (payload, pro, lite) in cases {
+            let claims = Claims::decode_insecure(&make_test_token(payload)).unwrap();
+            assert_eq!(claims.is_pro(), pro, "{payload}");
+            assert_eq!(claims.is_lite(), lite, "{payload}");
+            assert_eq!(claims.is_paid(), pro || lite, "{payload}");
+        }
     }
 
     #[test]

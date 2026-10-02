@@ -41,6 +41,16 @@ const attachment: SessionShareAttachment = {
   transferError: "",
 };
 
+const prepareBaseOptions = {
+  apiBaseUrl: "https://api.example.com",
+  supabaseUrl: "https://project.supabase.co",
+  session: {
+    access_token: "token",
+    user: { id: "11111111-1111-4111-8111-111111111111" },
+  } as any,
+  shareId: "22222222-2222-4222-8222-222222222222",
+};
+
 describe("shared attachment selection", () => {
   it("waits for session and transfer writes before reading attachments", async () => {
     dbMocks.execute.mockResolvedValueOnce([]);
@@ -70,13 +80,7 @@ describe("shared attachment selection", () => {
     const fetcher = vi.fn();
     await expect(
       prepareSessionShareAttachment({
-        apiBaseUrl: "https://api.example.com",
-        supabaseUrl: "https://project.supabase.co",
-        session: {
-          access_token: "token",
-          user: { id: "11111111-1111-4111-8111-111111111111" },
-        } as any,
-        shareId: "22222222-2222-4222-8222-222222222222",
+        ...prepareBaseOptions,
         attachment: { ...attachment, cloudObjectKey: "" },
         fetcher,
       }),
@@ -110,13 +114,7 @@ describe("shared attachment selection", () => {
     expect(isAttachmentShareable(localAudio)).toBe(true);
     await expect(
       prepareSessionShareAttachment({
-        apiBaseUrl: "https://api.example.com",
-        supabaseUrl: "https://project.supabase.co",
-        session: {
-          access_token: "token",
-          user: { id: "11111111-1111-4111-8111-111111111111" },
-        } as any,
-        shareId: "22222222-2222-4222-8222-222222222222",
+        ...prepareBaseOptions,
         attachment: localAudio,
         fetcher,
       }),
@@ -185,13 +183,7 @@ describe("shared attachment selection", () => {
 
     await expect(
       prepareSessionShareAttachment({
-        apiBaseUrl: "https://api.example.com",
-        supabaseUrl: "https://project.supabase.co",
-        session: {
-          access_token: "token",
-          user: { id: "11111111-1111-4111-8111-111111111111" },
-        } as any,
-        shareId: "22222222-2222-4222-8222-222222222222",
+        ...prepareBaseOptions,
         attachment,
         fetcher: fetcher as typeof fetch,
         uploader,
@@ -199,15 +191,6 @@ describe("shared attachment selection", () => {
       }),
     ).resolves.toMatchObject({ id: sharedAttachmentId });
 
-    expect(native.prepareSharedUpload).toHaveBeenCalledWith(
-      attachment.id,
-      attachment.sha256,
-      attachment.sizeBytes,
-      attachment.filename,
-      attachment.contentType,
-      attachment.cloudObjectKey,
-      undefined,
-    );
     expect(native.readSharedUploadRange).toHaveBeenCalledWith(
       attachment.id,
       "44444444-4444-4444-8444-444444444444",
@@ -219,7 +202,17 @@ describe("shared attachment selection", () => {
       0,
       attachment.sizeBytes,
     );
+    expect(native.prepareSharedUpload).toHaveBeenCalledOnce();
     expect(native.validateSharedUpload).toHaveBeenCalledTimes(2);
+    expect(
+      native.validateSharedUpload.mock.calls.map(([, cacheId]) => cacheId),
+    ).toEqual([
+      "44444444-4444-4444-8444-444444444444",
+      "44444444-4444-4444-8444-444444444444",
+    ]);
+    expect(
+      native.validateSharedUpload.mock.invocationCallOrder[0],
+    ).toBeLessThan(fetcher.mock.invocationCallOrder[2]!);
     expect(native.cleanupSharedUpload).toHaveBeenCalledWith(
       "44444444-4444-4444-8444-444444444444",
     );
@@ -272,13 +265,7 @@ describe("shared attachment selection", () => {
 
     await expect(
       prepareSessionShareAttachment({
-        apiBaseUrl: "https://api.example.com",
-        supabaseUrl: "https://project.supabase.co",
-        session: {
-          access_token: "token",
-          user: { id: "11111111-1111-4111-8111-111111111111" },
-        } as any,
-        shareId: "22222222-2222-4222-8222-222222222222",
+        ...prepareBaseOptions,
         attachment,
         fetcher: fetcher as typeof fetch,
         native,
@@ -319,13 +306,7 @@ describe("shared attachment selection", () => {
 
     await expect(
       prepareSessionShareAttachment({
-        apiBaseUrl: "https://api.example.com",
-        supabaseUrl: "https://project.supabase.co",
-        session: {
-          access_token: "token",
-          user: { id: "11111111-1111-4111-8111-111111111111" },
-        } as any,
-        shareId: "22222222-2222-4222-8222-222222222222",
+        ...prepareBaseOptions,
         attachment,
         fetcher: fetcher as typeof fetch,
         native,
@@ -393,13 +374,7 @@ describe("shared attachment selection", () => {
     });
 
     const operation = prepareSessionShareAttachment({
-      apiBaseUrl: "https://api.example.com",
-      supabaseUrl: "https://project.supabase.co",
-      session: {
-        access_token: "token",
-        user: { id: "11111111-1111-4111-8111-111111111111" },
-      } as any,
-      shareId: "22222222-2222-4222-8222-222222222222",
+      ...prepareBaseOptions,
       attachment,
       fetcher: fetcher as typeof fetch,
       uploader,

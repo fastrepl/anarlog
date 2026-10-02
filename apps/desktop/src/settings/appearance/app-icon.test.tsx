@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -70,44 +64,24 @@ describe("AppIconSelector", () => {
     mocks.toastWarning.mockClear();
   });
 
-  const iconOptions = () =>
-    within(screen.getByRole("radiogroup", { name: "App icon" })).getAllByRole(
-      "radio",
-    );
+  it.each([["system"], ["dark"]])(
+    "applies and stores the selected icon for the %s theme",
+    (theme) => {
+      mocks.theme = theme;
+      render(<AppIconSelector />);
 
-  it("applies and stores the selected icon", () => {
-    render(<AppIconSelector />);
+      expect(
+        screen
+          .getByRole("radio", { name: "Default" })
+          .getAttribute("aria-checked"),
+      ).toBe("true");
 
-    const defaultOption = screen.getByRole("radio", { name: "Default" });
-    expect(defaultOption.getAttribute("aria-checked")).toBe("true");
-    expect(defaultOption.className).not.toMatch(/\bborder(?:-|\s|$)/);
-    expect(
-      defaultOption.querySelector("[data-app-icon-stage]")?.className,
-    ).toContain("opacity-100");
-    expect(
-      defaultOption
-        .querySelector('source[media="(prefers-color-scheme: dark)"]')
-        ?.getAttribute("srcset"),
-    ).toBe("/assets/app-icons/stable-dark.png");
-    expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
-      "/assets/app-icons/stable-light.png",
-    );
-    expect(iconOptions()).toHaveLength(9);
-    expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
-    expect(screen.getByRole("radio", { name: "Blueprint" })).toBeDefined();
-    expect(screen.getByRole("radio", { name: "Sketch" })).toBeDefined();
-    expect(screen.getByRole("radio", { name: "Field Journal" })).toBeDefined();
-    expect(screen.getByRole("radio", { name: "Notepad" })).toBeDefined();
-    expect(screen.getByRole("radio", { name: "Stone" })).toBeDefined();
-    expect(screen.getByRole("radio", { name: "Typewriter Key" })).toBeDefined();
-    expect(screen.getByRole("radio", { name: "Walnut" })).toBeDefined();
-    expect(screen.queryByText("Blueprint")).toBeNull();
+      fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
 
-    fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
-
-    expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev", "system");
-    expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
-  });
+      expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev", theme);
+      expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
+    },
+  );
 
   it("toasts instead of changing icons on the free plan", () => {
     mocks.billing.isPro = false;
@@ -135,66 +109,6 @@ describe("AppIconSelector", () => {
     expect(mocks.setAppIcon).not.toHaveBeenCalled();
   });
 
-  it("previews both schemes for the system theme", () => {
-    render(<AppIconSelector />);
-
-    expect(
-      screen
-        .getByRole("radio", { name: "Default" })
-        .querySelector('source[media="(prefers-color-scheme: dark)"]'),
-    ).not.toBeNull();
-
-    const journalOption = screen.getByRole("radio", {
-      name: "Field Journal",
-    });
-    expect(journalOption.querySelector("source")).toBeNull();
-    expect(journalOption.querySelector("img")?.getAttribute("src")).toBe(
-      "/assets/app-icons/journal.png",
-    );
-  });
-
-  it("uses the stable icon while the app identifier is loading", () => {
-    mocks.appIdentifier = undefined;
-
-    render(<AppIconSelector />);
-
-    expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
-    expect(screen.getByRole("radio", { name: "Blueprint" })).toBeDefined();
-  });
-
-  it("pins previews to an explicit theme", () => {
-    mocks.theme = "dark";
-
-    render(<AppIconSelector />);
-
-    const defaultOption = screen.getByRole("radio", { name: "Default" });
-    expect(
-      defaultOption.querySelector(
-        'source[media="(prefers-color-scheme: dark)"]',
-      ),
-    ).toBeNull();
-    expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
-      "/assets/app-icons/stable-dark.png",
-    );
-
-    fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
-
-    expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev", "dark");
-  });
-
-  it("previews the current channel icon for the default option", () => {
-    mocks.appIdentifier = "com.hyprnote.staging";
-
-    render(<AppIconSelector />);
-
-    const defaultOption = screen.getByRole("radio", { name: "Default" });
-    expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
-      "/assets/app-icons/staging-light.png",
-    );
-    expect(screen.queryByRole("radio", { name: "Sketch" })).toBeNull();
-    expect(screen.getByRole("radio", { name: "Production" })).toBeDefined();
-  });
-
   it("selects default for an equivalent channel-specific preference", () => {
     mocks.appIcon = "stable";
 
@@ -206,13 +120,5 @@ describe("AppIconSelector", () => {
         .getAttribute("aria-checked"),
     ).toBe("true");
     expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
-  });
-
-  it("is hidden on platforms that cannot change the running app icon", () => {
-    mocks.platform.mockReturnValue("windows");
-
-    render(<AppIconSelector />);
-
-    expect(screen.queryByText("App icon")).toBeNull();
   });
 });

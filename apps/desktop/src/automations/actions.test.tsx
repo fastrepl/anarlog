@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   clearSelection: vi.fn(),
   deleteChatGroup: vi.fn(() => Promise.resolve()),
   setSettingValues: vi.fn(() => Promise.resolve()),
+  setSettingValue: vi.fn(() => Promise.resolve()),
   storedValues: {} as Record<string, string>,
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
@@ -28,7 +29,7 @@ vi.mock("~/settings/queries", () => ({
       hasValues: new Set(Object.keys(mocks.storedValues)),
     }),
   setSettingValues: mocks.setSettingValues,
-  setSettingValue: () => Promise.resolve(),
+  setSettingValue: mocks.setSettingValue,
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
@@ -76,6 +77,40 @@ describe("useRemoveStarterDraft", () => {
       starterId: "slack-recap",
     });
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Automation removed");
+  });
+
+  it("disables the Drive starter without deleting its configuration or custom workflows", async () => {
+    mocks.setSettingValue.mockClear();
+    mocks.storedValues = {
+      automation_draft_template: "google-drive",
+      automation_workflows: JSON.stringify([
+        {
+          id: "starter-google-drive",
+          enabled: true,
+          steps: [
+            {
+              id: "drive",
+              type: "google_drive_export",
+              connectionId: "connection",
+              target: { id: "folder", name: "Notes" },
+            },
+          ],
+        },
+        { id: "custom-drive", enabled: true, steps: [] },
+      ]),
+    };
+    const { result } = renderHook(() => useRemoveStarterDraft(), { wrapper });
+    result.current.mutate("google-drive");
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const saved = JSON.parse(
+      (mocks.setSettingValue.mock.calls[0] as unknown as [string, string])[1],
+    );
+    expect(saved[0]).toMatchObject({
+      id: "starter-google-drive",
+      enabled: false,
+      steps: [{ connectionId: "connection", target: { id: "folder" } }],
+    });
+    expect(saved[1]).toMatchObject({ id: "custom-drive", enabled: true });
   });
 
   it("keeps another starter's stored draft", async () => {

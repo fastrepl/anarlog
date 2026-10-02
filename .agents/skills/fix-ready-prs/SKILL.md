@@ -1,11 +1,17 @@
 ---
 name: fix-ready-prs
-description: Inspect every open non-draft PR for CI failures and unresolved Cursor Bugbot findings, then fix them on the existing PR branches. Use when asked to check active PRs, triage ready PRs, fix CI, or address Bugbot comments.
+description: Inspect every open non-draft PR for CI failures and unresolved Cursor Bugbot findings, then fix them on the existing PR branches. Use when asked to check active PRs, triage ready PRs, fix CI, or address Bugbot comments. Use only outside gitbutler/workspace; on that branch use the repository-local fix-prs skill.
 metadata:
   internal: true
 ---
 
 # Fix Ready PRs
+
+Check the active checkout's branch with `git symbolic-ref --quiet --short HEAD`
+before running this workflow. On `gitbutler/workspace`, skip this skill and use
+[fix-prs](../fix-prs/SKILL.md), preserving any narrower user scope. Its GitButler
+branch handling and review-resolution workflow take precedence; do not check
+out PR branches or use the Git-write commands below in that workspace.
 
 Work through every **open, non-draft** pull request. Fix CI failures and
 unresolved Bugbot findings on the existing PR branch. Do not open a new PR for

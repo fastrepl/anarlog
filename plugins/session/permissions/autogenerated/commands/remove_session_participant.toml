@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-remove-session-participant"
+description = "Enables the remove_session_participant command without any pre-configured scope."
+commands.allow = ["remove_session_participant"]
+
+[[permission]]
+identifier = "deny-remove-session-participant"
+description = "Denies the remove_session_participant command without any pre-configured scope."
+commands.deny = ["remove_session_participant"]

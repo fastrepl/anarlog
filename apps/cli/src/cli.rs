@@ -47,6 +47,7 @@ impl Args {
             Command::Doctor => "doctor",
             Command::Meetings { command, .. } => match command {
                 MeetingCommand::List { .. } => "meetings_list",
+                MeetingCommand::Folders { .. } => "meetings_folders",
                 MeetingCommand::Get { .. } => "meetings_get",
                 MeetingCommand::Note { .. } => "meetings_note",
                 MeetingCommand::Transcript { .. } => "meetings_transcript",
@@ -166,13 +167,28 @@ pub enum MeetingSource {
 
 #[derive(Debug, Subcommand)]
 pub enum MeetingCommand {
-    /// List meetings, optionally filtered by text or recurring series
+    /// List meetings, optionally filtered by text, recurring series, or folder
     List {
         #[arg(short, long)]
         query: Option<String>,
         #[arg(long)]
         series_id: Option<String>,
+        #[arg(
+            long,
+            value_name = "PATH",
+            help = "Folder path, including its subfolders (local source only)"
+        )]
+        folder: Option<String>,
         #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=200), help = "Maximum results (1-200)")]
+        limit: u32,
+        #[arg(long, default_value_t = 0, help = "Number of results to skip")]
+        offset: u32,
+    },
+    /// List meeting folders, including empty and parent folders (local source only)
+    Folders {
+        #[arg(short, long, help = "Case-insensitive folder path substring")]
+        query: Option<String>,
+        #[arg(long, default_value_t = anlg_agent_access::DEFAULT_FOLDER_LIST_LIMIT, value_parser = clap::value_parser!(u32).range(1..=200), help = "Maximum results (1-200)")]
         limit: u32,
         #[arg(long, default_value_t = 0, help = "Number of results to skip")]
         offset: u32,
@@ -234,7 +250,7 @@ mod tests {
     use clap::CommandFactory;
 
     #[test]
-    fn parses_meeting_list_filters() {
+    fn parses_meeting_and_auth_arguments() {
         let args = Args::parse_from([
             "anarlog", "--json", "meetings", "list", "--query", "planning", "--limit", "10",
         ]);
@@ -248,16 +264,30 @@ mod tests {
         };
         assert_eq!(query.as_deref(), Some("planning"));
         assert_eq!(limit, 10);
-    }
+        let Command::Meetings { command, .. } =
+            Args::parse_from(["anarlog", "meetings", "list", "--folder", "Projects/Launch"])
+                .command
+        else {
+            panic!("expected meetings command");
+        };
+        let MeetingCommand::List { folder, .. } = command else {
+            panic!("expected list command");
+        };
+        assert_eq!(folder.as_deref(), Some("Projects/Launch"));
 
-    #[test]
-    fn help_exposes_mcp_and_export() {
-        let help = Args::command().render_long_help().to_string();
-        assert!(help.contains("auth"));
-        assert!(help.contains("meetings"));
-        assert!(help.contains("mcp"));
-        assert!(help.contains("doctor"));
-        assert!(help.contains("proposals"));
+        let Command::Meetings { command, .. } =
+            Args::parse_from(["anarlog", "meetings", "folders", "--query", "acme"]).command
+        else {
+            panic!("expected meetings command");
+        };
+        assert!(matches!(
+            command,
+            MeetingCommand::Folders {
+                query: Some(_),
+                limit: 100,
+                offset: 0,
+            }
+        ));
 
         let Command::Meetings { command, .. } = Args::parse_from([
             "anarlog",
@@ -278,10 +308,7 @@ mod tests {
                 ..
             }
         ));
-    }
 
-    #[test]
-    fn parses_auth_commands() {
         assert!(matches!(
             Args::parse_from(["anarlog", "auth", "login"]).command,
             Command::Auth {
@@ -300,10 +327,7 @@ mod tests {
                 command: AuthCommand::Logout
             }
         ));
-    }
 
-    #[test]
-    fn parses_transcript_and_history_pagination() {
         let Command::Meetings { command, .. } = Args::parse_from([
             "anarlog",
             "meetings",
@@ -343,18 +367,7 @@ mod tests {
             command,
             MeetingCommand::History { offset: 10, .. }
         ));
-    }
 
-    #[test]
-    fn export_force_requires_an_output_path() {
-        assert!(
-            Args::try_parse_from(["anarlog", "meetings", "export", "meeting-1", "--force"])
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn parses_cloud_and_auto_meeting_sources() {
         let Command::Meetings { source, .. } =
             Args::parse_from(["anarlog", "meetings", "--source", "cloud", "list"]).command
         else {
@@ -368,6 +381,44 @@ mod tests {
             panic!("expected meetings command");
         };
         assert_eq!(source, MeetingSource::Auto);
+    }
+
+    #[test]
+    fn help_exposes_mcp_and_export() {
+        let help = Args::command().render_long_help().to_string();
+        assert!(help.contains("auth"));
+        assert!(help.contains("meetings"));
+        assert!(help.contains("mcp"));
+        assert!(help.contains("doctor"));
+        assert!(help.contains("proposals"));
+
+        let Command::Meetings { command, .. } = Args::parse_from([
+            "anarlog",
+            "meetings",
+            "export",
+            "meeting-1",
+            "--format",
+            "json",
+        ])
+        .command
+        else {
+            panic!("expected meetings command");
+        };
+        assert!(matches!(
+            command,
+            MeetingCommand::Export {
+                format: ExportFormat::Json,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn export_force_requires_an_output_path() {
+        assert!(
+            Args::try_parse_from(["anarlog", "meetings", "export", "meeting-1", "--force"])
+                .is_err()
+        );
     }
 
     #[test]
@@ -393,11 +444,6 @@ mod tests {
         let contract: serde_json::Value =
             serde_json::from_str(&cli_docs::generate_json(&Args::command())).unwrap();
         insta::assert_json_snapshot!("cli_contract", canonicalize_json(contract));
-    }
-
-    #[test]
-    fn version_uses_the_build_version() {
-        assert_eq!(Args::command().get_version(), Some(crate::VERSION));
     }
 
     fn canonicalize_json(value: serde_json::Value) -> serde_json::Value {

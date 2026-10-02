@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   toast as notificationToast,
   TOAST_DURATIONS,
 } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   createDevtoolsToastPreview,
@@ -18,10 +19,8 @@ import { useNotifications } from "~/contexts/notifications";
 import { useDesktopUpdateControl } from "~/main/update-banner";
 import { useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useDevtoolsToastPreview } from "~/store/zustand/devtools-toast-preview";
 import { useTabs } from "~/store/zustand/tabs";
-import { useToastAction } from "~/store/zustand/toast-action";
 import {
   isConfiguredSttModel,
   isAnarlogCloudSttModel,
@@ -56,21 +55,22 @@ export function ToastNotifications() {
     }
   }
 
-  useEffect(() => {
-    if (hasActiveDownload) {
-      return;
+  const [observedHasActiveDownload, setObservedHasActiveDownload] =
+    useState(hasActiveDownload);
+  if (observedHasActiveDownload !== hasActiveDownload) {
+    setObservedHasActiveDownload(hasActiveDownload);
+    if (!hasActiveDownload) {
+      setSessionDismissedToastIds((current) => {
+        if (!current.has("downloading-model")) {
+          return current;
+        }
+
+        const next = new Set(current);
+        next.delete("downloading-model");
+        return next;
+      });
     }
-
-    setSessionDismissedToastIds((current) => {
-      if (!current.has("downloading-model")) {
-        return current;
-      }
-
-      const next = new Set(current);
-      next.delete("downloading-model");
-      return next;
-    });
-  }, [hasActiveDownload]);
+  }
 
   const isAuthenticated = !!auth?.session;
   const isAuthLoading = auth.session === undefined;
@@ -127,7 +127,6 @@ export function ToastNotifications() {
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
-  const setToastActionTarget = useToastAction((state) => state.setTarget);
 
   const handleSignIn = useCallback(async () => {
     await auth?.signIn();
@@ -149,9 +148,8 @@ export function ToastNotifications() {
   }, [openAiTab]);
 
   const handleOpenSTTSettings = useCallback(() => {
-    setToastActionTarget("stt");
     openAiTab("transcription");
-  }, [openAiTab, setToastActionTarget]);
+  }, [openAiTab]);
 
   const registry = useMemo(
     () =>

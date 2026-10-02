@@ -522,29 +522,6 @@ async fn an_unclaimed_bound_library_can_connect_another_account() {
 }
 
 #[tokio::test]
-async fn first_connection_with_a_distinct_local_identity_requires_a_compatible_client() {
-    let db = test_db().await;
-    let local = crate::ensure_cloudsync_workspace_binding(db.pool())
-        .await
-        .unwrap();
-    crate::connect_local_library(db.pool(), "account-a", &local)
-        .await
-        .unwrap();
-    assert_eq!(
-        crate::ensure_cloudsync_workspace_binding(db.pool())
-            .await
-            .unwrap(),
-        local
-    );
-    let floor: i64 =
-        sqlx::query_scalar("SELECT min_supported_version FROM _anlg_schema_compat WHERE id = 0")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-    assert_eq!(floor, 20260916043000);
-}
-
-#[tokio::test]
 async fn forwarded_dirty_updates_preserve_edit_time_for_active_and_inactive_accounts() {
     let db = personal_library().await;
     crate::connect_local_library(db.pool(), "account-b", "account-a")

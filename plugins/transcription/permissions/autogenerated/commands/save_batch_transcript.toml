@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-save-batch-transcript"
+description = "Enables the save_batch_transcript command without any pre-configured scope."
+commands.allow = ["save_batch_transcript"]
+
+[[permission]]
+identifier = "deny-save-batch-transcript"
+description = "Denies the save_batch_transcript command without any pre-configured scope."
+commands.deny = ["save_batch_transcript"]
