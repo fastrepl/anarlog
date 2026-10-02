@@ -115,6 +115,26 @@ export type CalendarRow = Omit<CalendarSqlRow, "enabled"> & {
 
 const EMPTY_EVENTS: Record<string, TimelineEventRow> = {};
 const EMPTY_SESSIONS: Record<string, TimelineSessionRow> = {};
+const SESSION_EVENT_MATCH = `event.deleted_at IS NULL
+        AND (
+          event.id = session.event_id
+          OR (
+            event.tracking_id_event <> ''
+            AND event.tracking_id_event = CASE
+              WHEN json_valid(session.event_json)
+              THEN json_extract(session.event_json, '$.tracking_id')
+              ELSE ''
+            END
+            AND event.calendar_id = CASE
+              WHEN json_valid(session.event_json)
+              THEN json_extract(session.event_json, '$.calendar_id')
+              ELSE ''
+            END
+          )
+        )`;
+const SESSION_EVENT_ORDER = `CASE WHEN event.id = session.event_id THEN 0 ELSE 1 END,
+  event.started_at, event.id`;
+
 const EMPTY_CALENDARS: CalendarRow[] = [];
 const EMPTY_EVENT_PARTICIPANTS: EventParticipant[] = [];
 
@@ -174,7 +194,23 @@ export function useTimelineSessionsTable(): TimelineSessionsTable {
         id,
         title,
         created_at,
-        event_json,
+        COALESCE((
+          SELECT json_patch(
+            CASE WHEN json_valid(session.event_json)
+              THEN session.event_json ELSE '{}' END,
+            json_object(
+              'tracking_id', event.tracking_id_event,
+              'calendar_id', event.calendar_id,
+              'started_at', event.started_at,
+              'ended_at', event.ended_at
+            )
+          )
+          FROM sessions AS session
+          JOIN events AS event ON ${SESSION_EVENT_MATCH}
+          WHERE session.id = sessions.id AND session.deleted_at IS NULL
+          ORDER BY ${SESSION_EVENT_ORDER}
+          LIMIT 1
+        ), event_json) AS event_json,
         folder_path AS folder_id,
         locked,
         COALESCE((
@@ -445,24 +481,9 @@ export function useSessionCalendarEvent(
         event.participants_json
       FROM sessions AS session
       JOIN events AS event
-        ON event.deleted_at IS NULL
-        AND (
-          event.id = session.event_id
-          OR (
-            event.tracking_id_event = CASE
-              WHEN json_valid(session.event_json)
-              THEN json_extract(session.event_json, '$.tracking_id')
-              ELSE ''
-            END
-            AND event.calendar_id = CASE
-              WHEN json_valid(session.event_json)
-              THEN json_extract(session.event_json, '$.calendar_id')
-              ELSE ''
-            END
-          )
-        )
+        ON ${SESSION_EVENT_MATCH}
       WHERE session.id = ? AND session.deleted_at IS NULL
-      ORDER BY event.started_at, event.id
+      ORDER BY ${SESSION_EVENT_ORDER}
       LIMIT 1
     `,
     params: [sessionId],

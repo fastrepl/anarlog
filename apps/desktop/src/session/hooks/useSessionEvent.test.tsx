@@ -4,7 +4,11 @@ import { expect, it, vi } from "vitest";
 
 import { useSessionEvent } from "./useSessionEvent";
 
-import { useTimelineEventsTable } from "~/calendar/queries";
+import {
+  useTimelineEventsTable,
+  useTimelineSessionsTable,
+} from "~/calendar/queries";
+import { getItemTimeRange } from "~/sidebar/timeline/utils";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
@@ -48,11 +52,27 @@ it("refreshes the open note and sidebar together when a calendar event is resche
       id TEXT, kind TEXT, body TEXT, body_format TEXT, template_id TEXT, deleted_at TEXT
     );
     CREATE TABLE calendars (id TEXT, color TEXT, deleted_at TEXT);
+    CREATE TABLE session_tags (session_id TEXT, tag_id TEXT, deleted_at TEXT);
+    CREATE TABLE tags (id TEXT, name TEXT, deleted_at TEXT);
     CREATE TABLE events (
       id TEXT, tracking_id_event TEXT, calendar_id TEXT, title TEXT,
       started_at TEXT, ended_at TEXT, is_all_day INTEGER, has_recurrence_rules INTEGER,
       recurrence_series_id TEXT, location TEXT, meeting_link TEXT, description TEXT,
       participants_json TEXT, attendance_json TEXT, deleted_at TEXT
+    );
+    INSERT INTO sessions VALUES (
+      'plain-note', 'user-1', '2026-10-01T09:00:00.000Z', '',
+      NULL, '', 'Independent note', 0, NULL
+    );
+    INSERT INTO events VALUES (
+      'untracked-event', '', '', 'Untracked event',
+      '2026-10-02T07:00:00.000Z', '2026-10-02T07:30:00.000Z', 0, 0,
+      '', '', '', '', '[]', '{}', NULL
+    );
+    INSERT INTO events VALUES (
+      'older-event', 'external-event-1', 'calendar-1', 'Older planning',
+      '2026-10-02T08:00:00.000Z', '2026-10-02T08:30:00.000Z', 0, 0,
+      '', '', 'https://example.com/older', '', '[]', '{}', NULL
     );
     INSERT INTO events VALUES (
       'event-1', 'external-event-1', 'calendar-1', 'Planning',
@@ -93,12 +113,20 @@ it("refreshes the open note and sidebar together when a calendar event is resche
   const { result, unmount } = renderHook(() => ({
     event: useSessionEvent("session-1"),
     sidebar: useTimelineEventsTable(),
+    notes: useTimelineSessionsTable(),
   }));
 
   try {
     await waitFor(() =>
       expect(result.current.event?.started_at).toBe(savedEvent.started_at),
     );
+    expect(
+      getItemTimeRange({
+        type: "session",
+        id: "plain-note",
+        data: result.current.notes?.["plain-note"] ?? {},
+      }).start,
+    ).toEqual(new Date("2026-10-01T09:00:00.000Z"));
     database.exec(`
       UPDATE events SET started_at = '2026-10-02T11:00:00.000Z',
         ended_at = '2026-10-02T12:00:00.000Z' WHERE id = 'event-1';
@@ -113,9 +141,28 @@ it("refreshes the open note and sidebar together when a calendar event is resche
       started_at: "2026-10-02T11:00:00.000Z",
       ended_at: "2026-10-02T12:00:00.000Z",
     });
+    expect(
+      getItemTimeRange({
+        type: "session",
+        id: "session-1",
+        data: result.current.notes?.["session-1"] ?? {},
+      }),
+    ).toEqual({
+      start: new Date("2026-10-02T11:00:00.000Z"),
+      end: new Date("2026-10-02T12:00:00.000Z"),
+    });
 
     database.exec(
       "UPDATE events SET deleted_at = '2026-10-02' WHERE id = 'event-1'",
+    );
+    act(() => listeners.forEach((emit) => emit()));
+    expect(result.current.event).toMatchObject({
+      title: "Older planning",
+      started_at: "2026-10-02T08:00:00.000Z",
+      meeting_link: "https://example.com/older",
+    });
+    database.exec(
+      "UPDATE events SET deleted_at = '2026-10-02' WHERE id = 'older-event'",
     );
     act(() => listeners.forEach((emit) => emit()));
     expect(result.current.event).toEqual(savedEvent);
