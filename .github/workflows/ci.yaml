@@ -12,6 +12,7 @@ jobs:
       - run: |
           python3 .github/scripts/test_check_license_boundary.py
           python3 .github/scripts/check_license_boundary.py
+      - run: node scripts/sync-desktop-changelogs.mjs --check
       - run: node scripts/release-version.mjs --check
       - run: node scripts/release-version.mjs --mobile --check
       - run: >-

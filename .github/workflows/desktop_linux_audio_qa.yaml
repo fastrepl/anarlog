@@ -96,7 +96,7 @@ jobs:
             exit 1
           fi
 
-          changelog="packages/changelog/content/$VERSION.md"
+          changelog="packages/changelog/content/desktop/$VERSION.md"
           if [[ ! -s "$changelog" ]]; then
             echo "::error::Missing or empty changelog $changelog at candidate $EXPECTED_SHA"
             exit 1

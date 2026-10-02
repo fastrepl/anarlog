@@ -41,6 +41,7 @@ import { Route as TeamInviteInvitationIdRouteImport } from './routes/team/invite
 import { Route as SharePublicPublicSlugRouteImport } from './routes/share/public/$publicSlug'
 import { Route as ShareLinkShareIdRouteImport } from './routes/share/link/$shareId'
 import { Route as ShareInviteInvitationIdRouteImport } from './routes/share/invite/$invitationId'
+import { Route as ChangelogStreamVersionRouteImport } from './routes/changelog/$stream.$version'
 import { Route as ApiTweetIdRouteImport } from './routes/api/tweet.$id'
 import { Route as ApiCronJobRouteImport } from './routes/api/cron/$job'
 import { Route as ApiAssetsSplatRouteImport } from './routes/api/assets.$'
@@ -222,6 +223,11 @@ const ShareInviteInvitationIdRoute = ShareInviteInvitationIdRouteImport.update({
   path: '/share/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChangelogStreamVersionRoute = ChangelogStreamVersionRouteImport.update({
+  id: '/changelog/$stream/$version',
+  path: '/changelog/$stream/$version',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTweetIdRoute = ApiTweetIdRouteImport.update({
   id: '/api/tweet/$id',
   path: '/api/tweet/$id',
@@ -374,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/cron/$job': typeof ApiCronJobRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
+  '/changelog/$stream/$version': typeof ChangelogStreamVersionRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
@@ -427,6 +434,7 @@ export interface FileRoutesByTo {
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/cron/$job': typeof ApiCronJobRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
+  '/changelog/$stream/$version': typeof ChangelogStreamVersionRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
@@ -483,6 +491,7 @@ export interface FileRoutesById {
   '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/cron/$job': typeof ApiCronJobRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
+  '/changelog/$stream/$version': typeof ChangelogStreamVersionRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
@@ -539,6 +548,7 @@ export interface FileRouteTypes {
     | '/api/assets/$'
     | '/api/cron/$job'
     | '/api/tweet/$id'
+    | '/changelog/$stream/$version'
     | '/share/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
@@ -592,6 +602,7 @@ export interface FileRouteTypes {
     | '/api/assets/$'
     | '/api/cron/$job'
     | '/api/tweet/$id'
+    | '/changelog/$stream/$version'
     | '/share/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
@@ -647,6 +658,7 @@ export interface FileRouteTypes {
     | '/api/assets/$'
     | '/api/cron/$job'
     | '/api/tweet/$id'
+    | '/changelog/$stream/$version'
     | '/share/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
@@ -689,6 +701,7 @@ export interface RootRouteChildren {
   ApiAssetsSplatRoute: typeof ApiAssetsSplatRoute
   ApiCronJobRoute: typeof ApiCronJobRoute
   ApiTweetIdRoute: typeof ApiTweetIdRoute
+  ChangelogStreamVersionRoute: typeof ChangelogStreamVersionRoute
   ShareInviteInvitationIdRoute: typeof ShareInviteInvitationIdRoute
   ShareLinkShareIdRoute: typeof ShareLinkShareIdRoute
   SharePublicPublicSlugRoute: typeof SharePublicPublicSlugRoute
@@ -925,6 +938,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareInviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/changelog/$stream/$version': {
+      id: '/changelog/$stream/$version'
+      path: '/changelog/$stream/$version'
+      fullPath: '/changelog/$stream/$version'
+      preLoaderRoute: typeof ChangelogStreamVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tweet/$id': {
       id: '/api/tweet/$id'
       path: '/api/tweet/$id'
@@ -1158,6 +1178,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAssetsSplatRoute: ApiAssetsSplatRoute,
   ApiCronJobRoute: ApiCronJobRoute,
   ApiTweetIdRoute: ApiTweetIdRoute,
+  ChangelogStreamVersionRoute: ChangelogStreamVersionRoute,
   ShareInviteInvitationIdRoute: ShareInviteInvitationIdRoute,
   ShareLinkShareIdRoute: ShareLinkShareIdRoute,
   SharePublicPublicSlugRoute: SharePublicPublicSlugRoute,

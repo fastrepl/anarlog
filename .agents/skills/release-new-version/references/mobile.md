@@ -39,7 +39,11 @@ release, and do not edit the generated watch configuration from a mobile bump.
 Keep `appVersionSource: remote` and `autoIncrement: true` for iOS build numbers
 and Android version codes, and never reset those counters to match the marketing
 version. Check remote build history and store versions before selecting a
-build. Merge intentional version/profile changes before freezing the candidate.
+build. Prepare `packages/changelog/content/mobile/<version>.md` with the requested
+audience and merge intentional version/profile/notes changes before freezing the
+candidate. Follow [Release Docs](../../release-docs/SKILL.md) after verified
+availability to record each available platform and publish the Mobile page.
+Do not create publication evidence during preparation.
 
 Confirm signing and submission credential availability without printing secrets.
 Use credentials already managed by EAS where possible. Google Play submission

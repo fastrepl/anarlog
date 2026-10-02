@@ -10,14 +10,15 @@ metadata:
 Review every release. Inherit scope and session authorization from
 [Release a New Version](../release-new-version/SKILL.md). Own documentation and
 changelog publication through completion, not just the source file or PR.
-For mobile-only distribution, review affected mobile and shared documentation;
-desktop changelog preparation and publication below are not applicable.
+For mobile-only distribution, prepare Mobile notes and review affected mobile
+and shared documentation. Use the Mobile publication steps below; desktop
+release/tag checks are not applicable.
 
 ## Before candidate freeze
 
 1. Read `docs/AGENTS.md` and [New Changelog](../new-changelog/SKILL.md).
-   Compare all user-facing changes since the previous stable release with
-   `packages/changelog/content/<version>.md`, `docs/`, `docs/docs.json`, and
+   Compare all user-facing changes since the previous published release in that stream (previous stable for stable notes) with
+   `packages/changelog/content/<stream>/<version>.md`, `docs/`, `docs/docs.json`, and
    `apps/web/public/llms.txt`. Cover guides, installation/upgrade instructions,
    CLI/MCP/API examples, screenshots, troubleshooting, and platform availability.
    Preserve external-contributor credits and describe shipped behavior only.
@@ -28,9 +29,10 @@ desktop changelog preparation and publication below are not applicable.
    `broken-links --check-anchors --check-redirects` from `docs/`; preview affected
    pages and navigation. Coordinate public skill changes with
    [Agent packages](../release-cli/references/agent-packages.md).
-3. Merge required content before freezing the desktop candidate. Keep unreleased
-   notes hidden: deployable web builds include only published, non-draft,
-   non-prerelease GitHub `desktop_v<version>` releases. Verify the production index
+3. Merge required content before freezing the candidate. Keep unreleased
+   notes hidden: desktop entries require published, non-draft, non-prerelease
+   GitHub `desktop_v<version>` releases; mobile entries require verified adjacent
+   publication records as specified in `packages/changelog/content/mobile/AGENTS.md`. Verify the production index
    omits the candidate and its direct URL returns 404 before publication. A local
    production build can test this; `vite dev` intentionally previews drafts.
 
@@ -54,10 +56,11 @@ before selecting the deployment; do not assume merging the notes publishes them.
    metadata; never deploy the old desktop candidate over newer website/package
    content. If `main` contains unrelated unapproved web changes, resolve that source
    scope before deploying and report the concrete publication blocker.
-4. Fetch `https://anarlog.so/changelog/<version>/` and
+4. Fetch `https://anarlog.so/changelog/desktop/<version>/` and
    `https://anarlog.so/changelog/` from the live site. Verify the expected version,
    summary and release-note sections/body, plus the index link. For the latest
-   release, verify it is marked Latest. HTTP 200, a generic page, a source file, a
+   desktop release, verify it is marked Latest within the Desktop stream. Verify
+   the legacy `/changelog/<version>/` URL redirects to its Desktop page. HTTP 200, a generic page, a source file, a
    search-engine snapshot, or a green build alone is insufficient. If content is
    stale, inspect the actual deployment revision and cache response and resolve it
    within this release operation. Do not report completion with missing notes.
@@ -65,6 +68,26 @@ before selecting the deployment; do not assume merging the notes publishes them.
    and update routes for the published version. In-app bundled notes, updater
    payload notes, GitHub release text, and the website are separate surfaces; do
    not use one as proof of another or promise inline notes where only a link exists.
+
+## Mobile publication
+
+1. Prepare `packages/changelog/content/mobile/<version>.md` before candidate
+   freeze, with the requested audience and platform-specific sections.
+2. Follow the coordinator's mobile distribution reference. Verify the exact
+   candidate build is available to the intended testers or public store users;
+   upload/submission success alone is insufficient.
+3. Create the adjacent `<version>.json` using the contract in
+   `packages/changelog/content/mobile/AGENTS.md`. Include candidate SHA,
+   channel, exact build numbers, per-platform availability timestamps, and
+   evidence links. Record only available platforms; do not infer simultaneous
+   iOS and Android approval. Run the affected web checks.
+4. Merge the verified record, then reuse or dispatch the website deployment
+   from approved `main` within the existing mobile release authorization.
+   A build made before the record was merged deliberately excludes the notes.
+5. Verify `/changelog/mobile/<version>/`, `/changelog/?stream=mobile`, and the
+   combined index, including full notes, channel, and actual destinations.
+   Add later platform availability to the same record and publish that update.
+   Do not report stable public availability for a beta-only release.
 
 ## Other documentation and completion
 

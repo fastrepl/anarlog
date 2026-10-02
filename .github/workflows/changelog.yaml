@@ -7,10 +7,30 @@ on:
         type: choice
         options:
           - stable
+          - beta
+      stream:
+        description: "Release stream"
+        required: true
+        default: desktop
+        type: choice
+        options:
+          - desktop
+          - mobile
+      version:
+        description: "Explicit version (defaults to next desktop patch or current mobile version)"
+        required: false
+        type: string
   workflow_call:
     inputs:
       channel:
         required: true
+        type: string
+      stream:
+        required: false
+        default: desktop
+        type: string
+      version:
+        required: false
         type: string
       issue_number:
         required: false
@@ -47,20 +67,45 @@ jobs:
       - id: version
         env:
           RELEASE_CHANNEL: ${{ inputs.channel }}
+          RELEASE_STREAM: ${{ inputs.stream || 'desktop' }}
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
-            VERSION=$(doxxer --config doxxer.desktop.toml next patch)
-            FILE="packages/changelog/content/$VERSION.md"
+          if [[ "$RELEASE_STREAM" == "desktop" && "$RELEASE_CHANNEL" == "stable" ]]; then
+            VERSION="${RELEASE_VERSION:-$(doxxer --config doxxer.desktop.toml next patch)}"
+            PREV=$(git tag -l 'desktop_v*' --sort=-v:refname | grep -E '^desktop_v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          elif [[ "$RELEASE_STREAM" == "mobile" && "$RELEASE_CHANNEL" =~ ^(stable|beta)$ ]]; then
+            VERSION="${RELEASE_VERSION:-$(python3 -c 'import json; print(json.load(open("apps/mobile/release-version.json"))["version"])')}"
+            PREV=$(CHANGELOG_VERSION="$VERSION" python3 - <<'PYTHON'
+          import datetime, json, os, pathlib, re, subprocess
+          records = []
+          for path in pathlib.Path("packages/changelog/content/mobile").glob("*.json"):
+              record = json.loads(path.read_text())
+              if record["version"] == os.environ["CHANGELOG_VERSION"]:
+                  continue
+              if os.environ["RELEASE_CHANNEL"] == "stable" and record["channel"] != "stable":
+                  continue
+              dates = [datetime.datetime.fromisoformat(item["publishedAt"].replace("Z", "+00:00")) for item in record["availability"]]
+              if dates:
+                  records.append((min(dates), record["sourceSha"]))
+          previous = max(records)[1] if records else subprocess.check_output(["git", "rev-list", "--max-parents=0", "HEAD"], text=True).splitlines()[0]
+          if not re.fullmatch(r"[a-f0-9]{40}", previous):
+              raise ValueError("Invalid previous mobile source SHA")
+          print(previous)
+          PYTHON
+            )
           else
+            echo "::error::Unsupported stream/channel"
             exit 1
           fi
-          echo "file=$FILE" >> $GITHUB_OUTPUT
-          PREV=$(git tag -l 'desktop_v*' --sort=-v:refname | grep -E '^desktop_v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-          CURRENT="HEAD"
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "prev=$PREV" >> $GITHUB_OUTPUT
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid changelog version"
+            exit 1
+          fi
+          echo "file=packages/changelog/content/$RELEASE_STREAM/$VERSION.md" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "stream=$RELEASE_STREAM" >> "$GITHUB_OUTPUT"
+          echo "current=HEAD" >> "$GITHUB_OUTPUT"
+          echo "prev=$PREV" >> "$GITHUB_OUTPUT"
 
       - uses: anomalyco/opencode/github@latest
         env:
@@ -81,6 +126,12 @@ jobs:
             bot), acknowledge them inline on that changelog item.
 
             2.
-            Create a PR with title "Prepare Changelog for ${{ steps.version.outputs.version }}"
+            For desktop notes, run node scripts/sync-desktop-changelogs.mjs
+            and include the generated compatibility copies in the same PR.
+            For mobile notes, cover only mobile user-facing changes for the
+            requested ${{ inputs.channel }} audience. Do not create publication
+            records while preparing notes; availability must be verified later.
+
+            Create a PR with title "Prepare ${{ steps.version.outputs.stream }} Changelog for ${{ steps.version.outputs.version }}"
 
             3. Do not run `typecheck`, `dprint` or `pnpm` things.

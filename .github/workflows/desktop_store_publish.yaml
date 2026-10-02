@@ -105,7 +105,7 @@ jobs:
             echo "::error::Tag $tag points to $tag_sha instead of candidate $candidate_sha"
             exit 1
           fi
-          if [[ ! -f "packages/changelog/content/$VERSION.md" ]]; then
+          if [[ ! -f "packages/changelog/content/desktop/$VERSION.md" ]]; then
             echo "::error::Missing changelog for $VERSION"
             exit 1
           fi

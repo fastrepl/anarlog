@@ -13,7 +13,7 @@ test("stable and Nightly bundle their own release notes", async (t) => {
     });
   }
   for (const [channel, version, file] of [
-    ["stable", "1.4.23", "content/1.4.23.md"],
+    ["stable", "1.4.23", "content/desktop/1.4.23.md"],
     ["nightly", "1.4.24-nightly.123", "nightly.md"],
   ]) {
     await t.test(channel, async () => {
