@@ -242,6 +242,7 @@ export function startPrimaryDeviceCoordination({
     toast("Is this your primary device?", {
       id: toastId,
       duration: Infinity,
+      dismissible: false,
       description: (
         <div data-primary-device-prompt className="flex gap-3">
           <button

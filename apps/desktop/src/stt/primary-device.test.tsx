@@ -197,6 +197,7 @@ test("clicking the recording question keeps it unanswered until Yes is selected"
   await flush();
 
   try {
+    expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
     fireEvent.pointerDown(
       screen.getByText(String(mocks.toast.mock.calls[0][0])),
     );
