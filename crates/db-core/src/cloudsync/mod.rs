@@ -19,7 +19,6 @@ pub use ops::{
 pub(crate) use state::CloudsyncBackgroundTask;
 pub(crate) use state::CloudsyncRuntimeState;
 pub use types::{
-    CloudsyncActivityEntry, CloudsyncActivityStatus, CloudsyncActivityTrigger, CloudsyncAuth,
-    CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus,
-    CloudsyncTableSpec, cloudsync_receive_error,
+    CloudsyncActivityTrigger, CloudsyncAuth, CloudsyncNetworkResult, CloudsyncRuntimeConfig,
+    CloudsyncRuntimeError, CloudsyncStatus, CloudsyncTableSpec, cloudsync_receive_error,
 };

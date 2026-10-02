@@ -15,6 +15,7 @@ pub struct EventRow {
     pub is_all_day: bool,
     pub provider: String,
     pub participants_json: Option<String>,
+    pub attendance_json: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -35,4 +36,5 @@ pub struct UpsertEvent<'a> {
     pub is_all_day: bool,
     pub provider: &'a str,
     pub participants_json: Option<&'a str>,
+    pub attendance_json: Option<&'a str>,
 }

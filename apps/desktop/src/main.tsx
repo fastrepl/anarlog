@@ -16,6 +16,7 @@ import {
   init as initWindowsPlugin,
 } from "@anlg/plugin-windows";
 import { Toaster } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { trackAnalyticsEvent } from "./analytics";
@@ -52,8 +53,6 @@ import { AppThemeProvider } from "./shared/theme/provider";
 import type { ThemePreference } from "./shared/theme/resolve";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const toolRegistry = createToolRegistry();
 const queryClient = new QueryClient({

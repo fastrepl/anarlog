@@ -64,6 +64,7 @@ export const useSTTConnection = () => {
       "stt-connection",
       current_stt_provider,
       localModel,
+      isLocalFile,
       local_stt_model_path,
     ],
     refetchInterval: (query) =>
@@ -164,15 +165,30 @@ export const useSTTConnection = () => {
       };
     }
 
-    if (!baseUrl || !apiKey) {
+    if (!baseUrl || (!apiKey && current_stt_provider !== "nvidia")) {
       return null;
     }
 
+    let routedBaseUrl = baseUrl;
+    if (
+      [
+        "inworld",
+        "gradium",
+        "modulate",
+        "alebex",
+        "nvidia",
+        "amazon_bedrock",
+      ].includes(current_stt_provider)
+    ) {
+      const url = new URL(baseUrl);
+      url.searchParams.set("provider", current_stt_provider);
+      routedBaseUrl = url.toString();
+    }
     return {
       provider: current_stt_provider,
       model: current_stt_model,
-      baseUrl,
-      apiKey,
+      baseUrl: routedBaseUrl,
+      apiKey: apiKey ?? "",
     };
   }, [
     current_stt_provider,

@@ -32,13 +32,14 @@ Anarlog Cloud uses managed routes. Settings displays the managed selection as **
 
 The managed Transcription route chooses a provider from the meeting's languages and whether Anarlog needs live or after-recording transcription.
 
-- Deepgram currently resolves the route to **Nova 3** or **Nova 2**, depending on language support.
-- Soniox currently resolves it to **Soniox 5**: `stt-rt-v5` for live transcription and `stt-async-v5` after recording.
+- Soniox is the primary provider for live and after-recording transcription when it supports the selected languages. It uses **Soniox 5**: `stt-rt-v5` live and `stt-async-v5` after recording.
+- Deepgram is an eligible fallback and resolves the route to **Nova 3** or **Nova 2**, depending on language support.
 - AssemblyAI currently resolves it to **Universal 3.5 Pro**: `universal-3-5-pro-realtime` for live transcription and `universal-3-5-pro` after recording.
-- After-recording transcription prefers Soniox when it supports the selected languages.
 - The eligible fallback pool also includes configured routes for Gladia (currently **Solaria 1**), ElevenLabs, OpenAI, Mistral, and Alibaba Cloud Model Studio.
 
 Only configured providers that support the requested mode and languages enter the route. If one returns a retryable error, Anarlog can try the next eligible provider.
+
+For stereo recordings, Soniox combines the microphone and computer-audio channels and uses speaker diarization to distinguish speakers.
 
 ### Cloud Intelligence
 
@@ -114,6 +115,11 @@ Recent bring-your-own Transcription models in Settings include:
 - **Meta Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) for live and after-recording transcription with speaker labels
 - **Nari Labs** for live transcription with a Nari API key. Saved beta model IDs that ended in `:free` move to the current models.
 - **Wispr Flow** for transcription and dictation with your own API key. Its after-recording adapter accepts at most six minutes per request; choose another provider for longer files.
+- **Inworld**, **Gradium**, **Modulate**, and **Alebex** for live transcription with your own provider credentials.
+- **NVIDIA Speech NIM** for live transcription through your own deployed NIM server. NVIDIA's hosted gRPC endpoint is not supported.
+- **Amazon Bedrock** for after-recording transcription through an OpenAI-compatible gateway exposing `/audio/transcriptions`. Native Bedrock endpoints are not supported.
+
+The new live-only providers keep credentials unverified until transcription starts. If live transcription fails, keep the recording and retry with a provider that supports after-recording transcription.
 
 Settings may still show older model IDs for compatibility. Prefer the current Gemini 3.5, Universal 3.5, Soniox 5, Smallest AI Pulse, and GPT Transcribe models when you configure a provider yourself.
 

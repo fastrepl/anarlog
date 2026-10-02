@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { useDevtoolsMetrics } from "./metrics";
@@ -19,8 +20,6 @@ import {
   useScanData,
 } from "./scan-data";
 import { RESIZE_HANDLES, useScanPanelLayout } from "./scan-panel-layout";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const buttonClass =
   "rounded-lg px-2 py-1 text-muted-foreground hover:bg-background/50 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring";

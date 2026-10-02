@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { installReactScan } from "./react-scan";
@@ -42,7 +42,22 @@ afterEach(cleanup);
 
 it("does not start instrumentation after unmounting during the import", async () => {
   const view = render(<ReactScanControls />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Toggle React Scan panel" }),
+  );
   view.unmount();
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(installReactScan).not.toHaveBeenCalled();
+});
+
+it("installs React Scan on the first click and opens the scan panel", async () => {
+  render(<ReactScanControls />);
+
+  expect(installReactScan).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Toggle React Scan panel" }),
+  );
+
+  expect(await screen.findByLabelText("Scan details")).not.toBeNull();
+  expect(installReactScan).toHaveBeenCalledTimes(1);
 });

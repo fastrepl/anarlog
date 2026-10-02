@@ -7,7 +7,7 @@ import {
   LogicalSize,
 } from "@tauri-apps/api/window";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 export const ZOOM_STORAGE_KEY = "anarlog-zoom-factor";
 export const ZOOM_CHANGED_EVENT = "anlg:zoom-factor-changed";

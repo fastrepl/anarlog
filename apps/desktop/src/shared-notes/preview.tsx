@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 
 import type { JSONContent } from "@anlg/editor/note";
 import { commands as attachmentSyncCommands } from "@anlg/plugin-attachment-sync";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import type { SharedAttachmentDownload } from "./attachment-client";
 import type { SharedNoteAttachment } from "./cache";
@@ -10,7 +11,6 @@ import type { SharedNoteAttachment } from "./cache";
 import { attachmentTransferNative } from "~/attachment-sync/native";
 import { useAuth } from "~/auth";
 import { env } from "~/env";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const MAX_PREVIEW_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_PREVIEW_RESPONSE_BYTES = MAX_PREVIEW_BODY_BYTES + 256 * 1024;

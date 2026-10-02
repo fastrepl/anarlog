@@ -3,6 +3,7 @@ use sqlx::SqliteConnection;
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct MergeHumanRow {
     pub id: String,
+    pub name: String,
     pub owner_user_id: String,
     pub organization_id: String,
     pub job_title: String,

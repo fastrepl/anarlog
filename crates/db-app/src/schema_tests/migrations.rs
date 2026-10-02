@@ -154,6 +154,117 @@ async fn migrations_apply_cleanly() {
 }
 
 #[tokio::test]
+async fn event_attendance_migration_is_plain_and_downgrade_safe() {
+    let migration = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260930120000_event_attendance")
+        .unwrap();
+    assert!(matches!(
+        migration.scope,
+        anlg_db_migrate::MigrationScope::Plain
+    ));
+    assert!(
+        !cloudsync_table_registry()
+            .iter()
+            .any(|table| table.table_name == "events" && table.enabled)
+    );
+
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260930120000_event_attendance"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+
+    sqlx::query(
+        "INSERT INTO events (
+            id, tracking_id_event, calendar_id, title, participants_json,
+            created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind("before-migration")
+    .bind("tracking-before")
+    .bind("calendar-1")
+    .bind("Existing event")
+    .bind(r#"[{"email":"person@example.com"}]"#)
+    .bind("2026-09-30T10:00:00Z")
+    .bind("2026-09-30T10:00:00Z")
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    anlg_db_migrate::migrate(&db, schema()).await.unwrap();
+
+    let column_type: String = sqlx::query_scalar(
+        "SELECT type FROM pragma_table_info('events') WHERE name = 'attendance_json'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(column_type, "TEXT");
+
+    let existing: (String, String, Option<String>) = sqlx::query_as(
+        "SELECT title, participants_json, attendance_json
+         FROM events WHERE id = 'before-migration'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(existing.0, "Existing event");
+    assert_eq!(
+        existing.1,
+        r#"[{"email":"person@example.com"}]"#.to_string()
+    );
+    assert_eq!(existing.2, None);
+
+    sqlx::query(
+        "INSERT INTO events (
+            id, tracking_id_event, calendar_id, title, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind("old-client-insert")
+    .bind("tracking-old")
+    .bind("calendar-1")
+    .bind("Old client event")
+    .bind("2026-09-30T10:01:00Z")
+    .bind("2026-09-30T10:01:00Z")
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    let old_client_attendance: Option<String> =
+        sqlx::query_scalar("SELECT attendance_json FROM events WHERE id = 'old-client-insert'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(old_client_attendance, None);
+
+    let attendance = r#"{"version":1,"self_status":"accepted"}"#;
+    sqlx::query("UPDATE events SET attendance_json = ? WHERE id = 'before-migration'")
+        .bind(attendance)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    sqlx::query("UPDATE events SET title = ? WHERE id = 'before-migration'")
+        .bind("Updated by old client")
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    let after_old_update: (String, String) =
+        sqlx::query_as("SELECT title, attendance_json FROM events WHERE id = 'before-migration'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(after_old_update.0, "Updated by old client");
+    assert_eq!(after_old_update.1, attendance);
+}
+
+#[tokio::test]
 async fn personal_workspace_migration_preserves_existing_session_workspace_ids() {
     let db = Db::connect_memory_plain().await.unwrap();
     anlg_db_migrate::migrate(

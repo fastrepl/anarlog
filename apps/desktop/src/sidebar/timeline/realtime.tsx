@@ -1,11 +1,11 @@
 import { forwardRef, useEffect, useMemo, useState } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { TZDate, format, safeParseDate } from "@anlg/utils";
 
 import type { TimelineEventsTable, TimelineSessionsTable } from "./utils";
 
 import { getSessionEvent } from "~/session/utils";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
 
 const MINUTE_MS = 60_000;

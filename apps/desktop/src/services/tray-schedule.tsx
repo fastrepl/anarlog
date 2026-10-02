@@ -5,13 +5,13 @@ import {
   type TrayScheduleEvent,
 } from "@anlg/plugin-tray";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { addDays, parseEventInstant, startOfDay, TZDate } from "@anlg/utils";
 
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineEventsTable } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
 import { useCurrentDay } from "~/shared/hooks/useCurrentDay";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { TimelineEventRow } from "~/sidebar/timeline/utils";
 
 const PUBLISHED_SCHEDULE_HORIZON_MS = 7 * 24 * 60 * 60 * 1000;

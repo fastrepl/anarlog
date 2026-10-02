@@ -76,7 +76,7 @@ test("public asset redirects and legacy host redirects preserve suffixes", () =>
   assert.equal(
     routeFor("https://anarlog.so/api/assets/blog/library/image.webp")
       ?.destination,
-    "/images/blog/library/image.webp",
+    "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/image.webp",
   );
   assert.equal(
     routeFor("https://char.com/blog/old-article/")?.destination,

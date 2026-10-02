@@ -14,9 +14,9 @@ import {
   type LocalModel,
 } from "@anlg/plugin-local-stt";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useConfigValues } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { DownloadProgress } from "~/sidebar/toast/types";
 import { useTabs } from "~/store/zustand/tabs";
 import { isConfiguredSttModel, isOnDeviceSttModel } from "~/stt/capabilities";

@@ -174,4 +174,17 @@ describe("render tracker counters", () => {
     expect(tickRenderTracker()).toBe(0);
     expect(flashRenderOutlines).not.toHaveBeenCalled();
   });
+
+  it("clears prior render history when tracking restarts", () => {
+    setRenderOutlinesEnabled(false);
+    commit(root(component("Stale")));
+
+    stop();
+    stop = startRenderTracker();
+
+    expect({
+      renders: tickRenderTracker(),
+      components: getTopRenderedComponents(),
+    }).toEqual({ renders: 0, components: [] });
+  });
 });

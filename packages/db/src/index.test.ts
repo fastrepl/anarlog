@@ -1,6 +1,7 @@
+import { getTableColumns } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createDb, max, templates } from "./index";
+import { createDb, events, max, templates } from "./index";
 
 describe("@anlg/db createDb", () => {
   const executeProxy = vi.fn();
@@ -33,6 +34,36 @@ describe("@anlg/db createDb", () => {
     );
   });
 
+  it("exposes nullable event attendance JSON through the Drizzle schema", () => {
+    const attendanceJson = getTableColumns(events).attendanceJson;
+
+    expect(attendanceJson.name).toBe("attendance_json");
+    expect(attendanceJson.notNull).toBe(false);
+    expect(attendanceJson.dataType).toBe("json");
+  });
+
+  it("serializes event attendance JSON through the proxy", async () => {
+    executeProxy.mockResolvedValue({ rows: [] });
+
+    await db.insert(events).values({
+      id: "event-1",
+      attendanceJson: {
+        version: 1,
+        self_status: "accepted",
+      },
+      createdAt: "2026-09-30T10:00:00Z",
+      updatedAt: "2026-09-30T10:00:00Z",
+    });
+
+    expect(executeProxy).toHaveBeenCalledWith(
+      expect.stringContaining('"attendance_json"'),
+      expect.arrayContaining([
+        JSON.stringify({ version: 1, self_status: "accepted" }),
+      ]),
+      "run",
+    );
+  });
+
   it("maps proxy rows for findMany", async () => {
     executeProxy.mockResolvedValue({
       rows: [
@@ -43,6 +74,7 @@ describe("@anlg/db createDb", () => {
           0,
           null,
           null,
+          "{}",
           null,
           "[]",
           "2026-04-14T00:00:00Z",
@@ -59,6 +91,7 @@ describe("@anlg/db createDb", () => {
         pinned: false,
         pinOrder: null,
         category: null,
+        iconJson: {},
         targetsJson: null,
         sectionsJson: [],
         createdAt: "2026-04-14T00:00:00Z",
@@ -76,6 +109,7 @@ describe("@anlg/db createDb", () => {
         0,
         null,
         null,
+        "{}",
         null,
         "[]",
         "2026-04-14T00:00:00Z",
@@ -90,6 +124,7 @@ describe("@anlg/db createDb", () => {
       pinned: false,
       pinOrder: null,
       category: null,
+      iconJson: {},
       targetsJson: null,
       sectionsJson: [],
       createdAt: "2026-04-14T00:00:00Z",

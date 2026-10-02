@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as sfxCommands } from "@anlg/plugin-sfx";
 import { SpeakerHigh, SpeakerX } from "@anlg/ui/components/icons";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { LoginSection } from "./account";
@@ -23,7 +24,6 @@ import { OnboardingSection } from "./shared";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { StandaloneWindowShell } from "~/shared/window-shell";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 

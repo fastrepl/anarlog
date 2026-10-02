@@ -586,10 +586,6 @@ msgstr "Anarlog could not start cloud sync on this device."
 msgid "Anarlog could not start cloud sync on this device. It will keep retrying."
 msgstr "Anarlog could not start cloud sync on this device. It will keep retrying."
 
-#: src/settings/sync/index.tsx
-msgid "Anarlog couldn't complete this sync. Your notes are safe on this device."
-msgstr "Anarlog couldn't complete this sync. Your notes are safe on this device."
-
 #: src/settings/general/account.tsx
 msgid "Anarlog couldn't sign you out. Try again."
 msgstr "Anarlog couldn't sign you out. Try again."
@@ -829,10 +825,6 @@ msgstr "Average across the capture days counted above."
 msgid "Back"
 msgstr "Back"
 
-#: src/settings/sync/index.tsx
-msgid "Background sync"
-msgstr "Background sync"
-
 #: src/settings/general/summary-length.tsx
 msgid "Balanced"
 msgstr "Balanced"
@@ -1053,10 +1045,6 @@ msgstr "Checking connection"
 #: src/settings/crm/index.tsx
 msgid "Checking connection…"
 msgstr "Checking connection…"
-
-#: src/settings/sync/index.tsx
-msgid "Checking for changes"
-msgstr "Checking for changes"
 
 #: src/imports/screen.tsx
 msgid "Checking installed meeting assistants…"
@@ -1753,6 +1741,10 @@ msgstr "Could not identify this device. Try again."
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr "Could not load Slack channels. Reconnect Slack and try again."
+
+#: src/settings/sync/log.tsx
+msgid "Could not load sync logs."
+msgstr "Could not load sync logs."
 
 #: src/settings/team/index.tsx
 msgid "Could not load workspace members."
@@ -2808,7 +2800,7 @@ msgstr "Hide sidebar"
 msgid "Hide Sidebar"
 msgstr "Hide Sidebar"
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "Hide sync log"
 msgstr "Hide sync log"
 
@@ -3259,6 +3251,10 @@ msgstr "Loading scheduled captures…"
 msgid "Loading settings"
 msgstr "Loading settings"
 
+#: src/settings/sync/log.tsx
+msgid "Loading sync logs"
+msgstr "Loading sync logs"
+
 #: src/settings/sync/index.tsx
 msgid "Loading sync settings"
 msgstr "Loading sync settings"
@@ -3334,10 +3330,6 @@ msgstr "Manage Team billing"
 #: src/settings/general/account.tsx
 msgid "Manage your sign-in methods on the Anarlog website."
 msgstr "Manage your sign-in methods on the Anarlog website."
-
-#: src/settings/sync/index.tsx
-msgid "Manual sync"
-msgstr "Manual sync"
 
 #: src/settings/automations/google-drive-config.tsx
 msgid "Markdown (.md)"
@@ -3659,10 +3651,6 @@ msgstr "No calendars found"
 msgid "No changelog available for this version."
 msgstr "No changelog available for this version."
 
-#: src/settings/sync/index.tsx
-msgid "No changes to sync"
-msgstr "No changes to sync"
-
 #: src/settings/automations/starter-config.tsx
 msgid "No channel selected yet."
 msgstr "No channel selected yet."
@@ -3815,7 +3803,7 @@ msgstr "No single busiest day"
 msgid "No speech detected"
 msgstr "No speech detected"
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "No sync activity yet."
 msgstr "No sync activity yet."
 
@@ -3839,6 +3827,7 @@ msgstr "No upcoming bots."
 msgid "Not available"
 msgstr "Not available"
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/crm/index.tsx
 msgid "Not connected"
 msgstr "Not connected"
@@ -4372,18 +4361,13 @@ msgstr "Reasoning models think through the transcript before writing."
 msgid "received"
 msgstr "received"
 
-#. placeholder {0}: formatSyncBytes(entry.received_bytes)
-#: src/settings/sync/index.tsx
-msgid "Received {0}"
-msgstr "Received {0}"
-
 #: src/shared/open-note-dialog.tsx
 msgid "Recent"
 msgstr "Recent"
 
-#: src/settings/sync/index.tsx
-msgid "Recent activity from this app session."
-msgstr "Recent activity from this app session."
+#: src/settings/sync/log.tsx
+msgid "Recent CloudSync entries from the app log."
+msgstr "Recent CloudSync entries from the app log."
 
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/team/index.tsx
@@ -4709,6 +4693,7 @@ msgstr "Retention (days)"
 #: src/settings/general/account-profile.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Retry"
 msgstr "Retry"
@@ -4812,6 +4797,7 @@ msgstr "Save to Google Drive"
 msgid "Save visible chat from supported meetings using Accessibility."
 msgstr "Save visible chat from supported meetings using Accessibility."
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Saved"
 msgstr "Saved"
@@ -5025,11 +5011,6 @@ msgstr "Sending and receiving your latest changes."
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "sent"
 msgstr "sent"
-
-#. placeholder {0}: formatSyncBytes(entry.sent_bytes)
-#: src/settings/sync/index.tsx
-msgid "Sent {0}"
-msgstr "Sent {0}"
 
 #: src/session/components/note-input/header.tsx
 msgid "Session note views"
@@ -5680,15 +5661,11 @@ msgstr "Symbols"
 msgid "Sync"
 msgstr "Sync"
 
-#: src/settings/sync/index.tsx
-msgid "Sync failed"
-msgstr "Sync failed"
-
 #: src/settings/sync/health.tsx
 msgid "Sync health"
 msgstr "Sync health"
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "Sync log"
 msgstr "Sync log"
 
@@ -6316,7 +6293,7 @@ msgstr "View LinkedIn profile"
 msgid "View Note"
 msgstr "View Note"
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "View sync log"
 msgstr "View sync log"
 

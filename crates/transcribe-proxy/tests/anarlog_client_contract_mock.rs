@@ -252,15 +252,10 @@ async fn batch_client_anarlog_adapter_uses_proxy_sync_path_under_stt() {
 }
 
 #[tokio::test]
-async fn stereo_batch_skips_downmixing_provider_and_keeps_remote_party_identity() {
+async fn stereo_batch_preserves_remote_party_identity_when_soniox_is_unavailable() {
     let batch = start_mock_stereo_batch_upstream().await;
     let upstream_url = batch_upstream_url(batch.addr);
-    let proxy = start_proxy_under_stt(
-        Provider::Deepgram,
-        Some(&upstream_url),
-        Some("http://127.0.0.1:9"),
-    )
-    .await;
+    let proxy = start_proxy_under_stt(Provider::Deepgram, Some(&upstream_url), None).await;
     let temp_dir = tempfile::tempdir().unwrap();
     let audio_path = temp_dir.path().join("remote-party.wav");
     let mut writer = hound::WavWriter::create(

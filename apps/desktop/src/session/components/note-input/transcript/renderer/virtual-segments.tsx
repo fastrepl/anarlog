@@ -10,6 +10,8 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import {
   createTranscriptSearchIndex,
   getTranscriptSearchIndexMatches,
@@ -17,7 +19,6 @@ import {
   type TranscriptSearchSource,
 } from "../../search/matching";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { Segment } from "~/stt/live-segment";
 
 const ESTIMATED_LINE_HEIGHT = 22;

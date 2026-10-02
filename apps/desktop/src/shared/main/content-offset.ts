@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 const MAIN_SHELL_SELECTOR = "[data-testid='main-app-shell']";
 

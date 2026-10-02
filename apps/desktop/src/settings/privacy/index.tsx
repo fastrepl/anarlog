@@ -1,6 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import { DEVICE_AUTH_REASON } from "~/lock/auth";
 import { useAppLock } from "~/lock/store";
 import { privacyMessages } from "~/settings/general/app-settings";
@@ -11,7 +13,6 @@ import {
 } from "~/settings/queries";
 import { SettingSwitchRow } from "~/settings/setting-row";
 import { resolveConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function SettingsPrivacy() {
   const { i18n, t } = useLingui();

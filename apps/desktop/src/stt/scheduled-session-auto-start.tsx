@@ -1,12 +1,14 @@
 import { useRef } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import { isLockedFlag } from "~/lock/flag";
 import { useAppLock } from "~/lock/store";
 import { useSession } from "~/session/queries";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
+import { readDueScheduledSessionMeeting } from "~/stt/scheduled-auto-start";
 import {
   beginScheduledAutoStart,
   finishScheduledAutoStart,
@@ -15,8 +17,10 @@ import {
 import { useStartListeningState } from "~/stt/useStartListening";
 
 export function ScheduledSessionAutoStart({
+  requiresCalendarEligibility = true,
   sessionId,
 }: {
+  requiresCalendarEligibility?: boolean;
   sessionId: string;
 }) {
   const canStartLiveSession = useListener((state) =>
@@ -36,7 +40,11 @@ export function ScheduledSessionAutoStart({
   }
 
   return canStartLiveSession && session ? (
-    <ReadyScheduledSessionAutoStart sessionId={sessionId} />
+    <ReadyScheduledSessionAutoStart
+      key={`${sessionId}:${requiresCalendarEligibility ? "scheduled" : "manual"}`}
+      requiresCalendarEligibility={requiresCalendarEligibility}
+      sessionId={sessionId}
+    />
   ) : (
     <PendingScheduledSessionAutoStart sessionId={sessionId} />
   );
@@ -67,7 +75,13 @@ function PendingScheduledSessionAutoStart({
   return null;
 }
 
-function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
+function ReadyScheduledSessionAutoStart({
+  requiresCalendarEligibility,
+  sessionId,
+}: {
+  requiresCalendarEligibility: boolean;
+  sessionId: string;
+}) {
   const { connectionReady, startListening } = useStartListeningState(
     sessionId,
     { automatic: true },
@@ -82,6 +96,7 @@ function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
   return connectionReady ? (
     <StartScheduledSessionAutoStart
       attemptedRef={attemptedRef}
+      requiresCalendarEligibility={requiresCalendarEligibility}
       sessionId={sessionId}
       startListening={startListening}
     />
@@ -90,10 +105,12 @@ function ReadyScheduledSessionAutoStart({ sessionId }: { sessionId: string }) {
 
 function StartScheduledSessionAutoStart({
   attemptedRef,
+  requiresCalendarEligibility,
   sessionId,
   startListening,
 }: {
   attemptedRef: { current: boolean };
+  requiresCalendarEligibility: boolean;
   sessionId: string;
   startListening: () => Promise<void>;
 }) {
@@ -104,24 +121,47 @@ function StartScheduledSessionAutoStart({
       return;
     }
     attemptedRef.current = true;
-    clearPendingAutoStart(sessionId);
+    let cancelled = false;
+    let captureStarted = false;
 
-    // Re-arming a session whose start is still in flight (a second trigger
-    // before capture becomes active) must not start a second lifecycle: the
-    // two would race for the same capture marker and one fails with a toast.
-    if (isScheduledAutoStartInFlight(sessionId)) {
-      return;
-    }
-    beginScheduledAutoStart(sessionId);
+    const eligibility = requiresCalendarEligibility
+      ? readDueScheduledSessionMeeting(sessionId).then(Boolean)
+      : Promise.resolve(true);
 
-    void startListeningRef
-      .current()
-      .catch((error) => {
-        console.error("[listener] failed to auto-start session", error);
+    void eligibility
+      .then((eligible) => {
+        if (cancelled) return;
+        clearPendingAutoStart(sessionId);
+        if (
+          !eligible ||
+          (requiresCalendarEligibility &&
+            isScheduledAutoStartInFlight(sessionId))
+        ) {
+          return;
+        }
+
+        captureStarted = true;
+        if (!requiresCalendarEligibility) {
+          return startListeningRef.current();
+        }
+
+        beginScheduledAutoStart(sessionId);
+        return startListeningRef.current().finally(() => {
+          finishScheduledAutoStart(sessionId);
+        });
       })
-      .finally(() => {
-        finishScheduledAutoStart(sessionId);
+      .catch((error) => {
+        if (cancelled) return;
+        clearPendingAutoStart(sessionId);
+        console.error("[listener] failed to auto-start session", error);
       });
+
+    return () => {
+      cancelled = true;
+      if (!captureStarted) {
+        attemptedRef.current = false;
+      }
+    };
   });
 
   return null;
@@ -140,5 +180,6 @@ function clearPendingAutoStart(sessionId: string) {
   tabsState.updateSessionTabState(currentTab, {
     ...currentTab.state,
     autoStart: null,
+    scheduledAutoStart: null,
   });
 }

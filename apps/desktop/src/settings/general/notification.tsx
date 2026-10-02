@@ -34,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import {
@@ -49,7 +50,6 @@ import {
   previewCompletionSound,
 } from "~/shared/completion-sound";
 import { useConfigValues } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function NotificationSettingsView() {
   const { t } = useLingui();

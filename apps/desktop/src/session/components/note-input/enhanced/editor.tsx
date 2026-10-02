@@ -29,6 +29,7 @@ import {
   extractFirstLineTitle,
   documentTitlePlaceholder,
 } from "~/session/title-content";
+import { repairMissingSessionTitle } from "~/session/title-repair";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
@@ -173,6 +174,16 @@ const EnhancedEditorInner = forwardRef<
             onViewReady={(view) => {
               comments.onViewReady(view);
               onViewReady?.(view);
+              if (persistChanges && !sessionTitle.trim()) {
+                void repairMissingSessionTitle(sessionId, enhancedNoteId).catch(
+                  (error) => {
+                    console.error(
+                      "[enhanced-editor] failed to repair title",
+                      error,
+                    );
+                  },
+                );
+              }
             }}
             onViewDisposed={(view) => {
               comments.onViewDisposed(view);

@@ -60,6 +60,8 @@ All meeting read commands except `meetings folders` and `meetings list --folder`
 | `meetings history ID` | `--limit 1..200`, `--offset NUMBER` | A page of meetings from the same recurring series. Defaults to 20 from offset 0. |
 | `meetings export ID` | `--format markdown\|json`, `-o, --output FILE`, `--force` | A complete meeting export, including transcripts. Defaults to Markdown on stdout. Existing files require `--force`. |
 
+Markdown exports include speaker-labeled transcript paragraphs when word-level speaker information is available. Exports without that information retain the flat transcript text. JSON exports can include a `speakers` field with the names used for rendering.
+
 ## Proposal commands
 
 These commands insert or inspect staged edits. They do not apply the edit to the meeting. Apply happens in the desktop app.

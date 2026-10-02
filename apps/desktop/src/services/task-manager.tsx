@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { events as appleCalendarEvents } from "@anlg/plugin-calendar";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { listenForCaptureCleanup } from "./audio-cleanup";
 import { subscribeToSessionAudioRetention } from "./audio-retention";
@@ -23,7 +24,6 @@ import {
   useTaskScheduler,
 } from "~/services/task-scheduler";
 import { useConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 const CALENDAR_SYNC_MAX_DURATION = 120 * 1000; // 2 min

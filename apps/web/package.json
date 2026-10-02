@@ -11,7 +11,11 @@
     "deploy:workspace-share-router": "wrangler deploy --config wrangler.workspace-share.jsonc",
     "serve": "vite preview",
     "test": "node --test",
-    "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.node.json --noEmit"
+    "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.node.json --noEmit",
+    "assets:manifest": "node scripts/publish-static-assets.mjs --manifest",
+    "assets:check": "node scripts/publish-static-assets.mjs --check",
+    "assets:publish": "node scripts/publish-static-assets.mjs --upload --check",
+    "deploy:static-assets": "wrangler deploy --config wrangler.static-assets.jsonc"
   },
   "dependencies": {
     "@anlg/api-client": "workspace:*",

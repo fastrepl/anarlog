@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "anarlog-static-assets",
+  "main": "src/cloudflare/static-assets.ts",
+  "compatibility_date": "2026-08-04",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "static.anarlog.so/*",
+      "zone_name": "anarlog.so",
+    },
+  ],
+  "observability": {
+    "enabled": true,
+  },
+}

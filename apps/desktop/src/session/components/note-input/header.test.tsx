@@ -39,11 +39,19 @@ const hoisted = vi.hoisted(() => ({
   liveMuted: false,
   sessionMode: "inactive",
   sessionEvent: null as { ended_at?: string } | null,
+  transcriptMetadata: [] as Array<{
+    id: string;
+    sessionId: string;
+    startedAt: number;
+    endedAt?: number;
+    hasWords: boolean;
+  }>,
   nowMs: new Date("2026-06-05T10:31:00.000Z").getTime(),
   isMainWebviewWindow: true,
   isDeletingRecording: false,
   updateSession: vi.fn(() => Promise.resolve()),
   transcriptExportRequest: {},
+  getSessionTranscriptRenderRequest: vi.fn(),
   transcriptSegments: [{ speaker: "Speaker 1", text: "Hello transcript" }],
   isGenerating: false,
   sessionTitle: "Weekly planning",
@@ -171,6 +179,11 @@ vi.mock("~/session/components/shared", () => ({
   useCanShowTranscript: () => hoisted.canShowTranscript,
 }));
 
+vi.mock("~/stt/queries", async (importOriginal) => ({
+  ...(await importOriginal()),
+  useSessionTranscriptMetadata: () => hoisted.transcriptMetadata,
+}));
+
 vi.mock("~/session/hooks/useEnhancedNotes", () => ({
   useEnsureDefaultSummary: vi.fn(),
 }));
@@ -219,10 +232,8 @@ vi.mock("~/session/components/note-input/transcript/export-data", () => ({
 vi.mock(
   "~/session/components/note-input/transcript/render-request-hooks",
   () => ({
-    useSessionTranscriptRenderData: () => ({
-      request: hoisted.transcriptExportRequest,
-      transcriptRows: [],
-    }),
+    getSessionTranscriptRenderRequest:
+      hoisted.getSessionTranscriptRenderRequest,
   }),
 );
 
@@ -312,6 +323,8 @@ vi.mock("~/templates", () => ({
 
 import { SessionViewSwitcher, useEditorTabs } from "./header";
 
+let clipboardDescriptor: PropertyDescriptor | undefined;
+
 const ALL_TABS: EditorView[] = [
   { type: "enhanced", id: "note-1" },
   { type: "raw" },
@@ -352,6 +365,10 @@ function transcriptMenu() {
 
 describe("SessionViewSwitcher", () => {
   beforeEach(() => {
+    clipboardDescriptor = Object.getOwnPropertyDescriptor(
+      navigator,
+      "clipboard",
+    );
     hoisted.enhance.mockReset();
     hoisted.regenerateTranscript.mockReset();
     hoisted.startListening.mockReset();
@@ -371,10 +388,22 @@ describe("SessionViewSwitcher", () => {
     hoisted.liveMuted = false;
     hoisted.sessionMode = "inactive";
     hoisted.sessionEvent = null;
+    hoisted.transcriptMetadata = [
+      {
+        id: "transcript-1",
+        sessionId: "session-1",
+        startedAt: 0,
+        hasWords: true,
+      },
+    ];
     hoisted.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
     hoisted.isMainWebviewWindow = true;
     hoisted.isDeletingRecording = false;
     hoisted.transcriptExportRequest = {};
+    hoisted.getSessionTranscriptRenderRequest.mockReset();
+    hoisted.getSessionTranscriptRenderRequest.mockImplementation(() =>
+      Promise.resolve(hoisted.transcriptExportRequest),
+    );
     hoisted.transcriptSegments = [
       { speaker: "Speaker 1", text: "Hello transcript" },
     ];
@@ -386,6 +415,11 @@ describe("SessionViewSwitcher", () => {
 
   afterEach(() => {
     cleanup();
+    if (clipboardDescriptor) {
+      Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 
   it("navigates between views and opens the template picker from the active summary", () => {
@@ -462,6 +496,34 @@ describe("SessionViewSwitcher", () => {
     },
   );
 
+  it("builds transcript copy data only when the Copy action runs", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderSwitcher({ currentTab: { type: "transcript" } });
+
+    expect(hoisted.getSessionTranscriptRenderRequest).not.toHaveBeenCalled();
+
+    transcriptMenu()
+      .find((item) => item.text === "Copy")
+      ?.action();
+
+    await waitFor(() =>
+      expect(hoisted.getSessionTranscriptRenderRequest).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+    expect(hoisted.getSessionTranscriptRenderRequest).toHaveBeenCalledWith(
+      "session-1",
+    );
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("Speaker 1: Hello transcript"),
+    );
+  });
+
   it.each([
     [
       "inactive with audio",
@@ -499,6 +561,40 @@ describe("SessionViewSwitcher", () => {
       expect(transcriptMenu().map((item) => item.text)).toEqual(expected);
     },
   );
+
+  it("disables Copy when the session has no transcript", () => {
+    hoisted.hasTranscript = false;
+    hoisted.transcriptMetadata = [
+      {
+        id: "transcript-1",
+        sessionId: "session-1",
+        startedAt: 0,
+        hasWords: false,
+      },
+    ];
+    renderSwitcher({ currentTab: { type: "transcript" } });
+
+    expect(
+      transcriptMenu().find((item) => item.text === "Copy")?.disabled,
+    ).toBe(true);
+  });
+
+  it("enables Copy when transcript words are still pending compaction", () => {
+    hoisted.hasTranscript = false;
+    hoisted.transcriptMetadata = [
+      {
+        id: "transcript-1",
+        sessionId: "session-1",
+        startedAt: 0,
+        hasWords: true,
+      },
+    ];
+    renderSwitcher({ currentTab: { type: "transcript" } });
+
+    expect(
+      transcriptMenu().find((item) => item.text === "Copy")?.disabled,
+    ).toBe(false);
+  });
 
   it.each([
     ["main window", true],

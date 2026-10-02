@@ -51,6 +51,8 @@ Accepts required string `meeting_id` plus optional integer `limit` and `offset`.
 
 Accepts required string `meeting_id`. Returns the complete structured meeting record, including metadata, notes, summaries, participants, action items, and transcripts. Prefer the smaller detail or transcript tools unless the task explicitly needs a full export.
 
+When available, `speakers` provides the names referenced by transcript speaker assignments, and `speaker_context` records microphone and call context. These fields are optional; older or trimmed Cloud snapshots may omit them.
+
 ### `propose_summary_edit`
 
 | Parameter | Type | Default | Notes |

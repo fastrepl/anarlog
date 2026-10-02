@@ -9,6 +9,10 @@ export function supportsLiveTranscription(provider: string, model: string) {
     case "cartesia":
     case "dashscope":
     case "nari":
+    case "inworld":
+    case "gradium":
+    case "modulate":
+    case "alebex":
     case "xai":
     case "meta":
     case "wisprflow":
@@ -41,7 +45,12 @@ export function supportsLiveTranscription(provider: string, model: string) {
 }
 
 export function batchTranscriptionModel(provider: string, model: string) {
-  if (provider === "dashscope" || provider === "nari") return null;
+  if (
+    ["dashscope", "nari", "inworld", "gradium", "modulate", "alebex"].includes(
+      provider,
+    )
+  )
+    return null;
   if (provider === "openai" && model === "gpt-live-transcribe")
     return "gpt-transcribe";
   if (provider === "deepgram" && model.startsWith("flux-"))

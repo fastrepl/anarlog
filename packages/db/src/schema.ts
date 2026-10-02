@@ -102,6 +102,7 @@ export const events = sqliteTable(
       .default(false),
     provider: text("provider").notNull().default(""),
     participantsJson: text("participants_json", { mode: "json" }),
+    attendanceJson: text("attendance_json", { mode: "json" }),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),

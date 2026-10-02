@@ -182,6 +182,36 @@ export const TRANSCRIPTION_PROVIDERS = [
     model: "muse-voice-transcribe-1.0",
   },
   {
+    id: "inworld",
+    name: "Inworld",
+    baseUrl: "https://api.inworld.ai",
+    model: "inworld/inworld-stt-1",
+  },
+  {
+    id: "gradium",
+    name: "Gradium",
+    baseUrl: "https://api.gradium.ai",
+    model: "default",
+  },
+  {
+    id: "modulate",
+    name: "Modulate",
+    baseUrl: "https://platform.modulate.ai",
+    model: "velma-2-stt-streaming-multilingual-vfast",
+  },
+  {
+    id: "alebex",
+    name: "Alebex",
+    baseUrl: "https://asr.alebex.ai",
+    model: "alebex-asr",
+  },
+  {
+    id: "amazon_bedrock",
+    name: "Amazon Bedrock",
+    baseUrl: "",
+    model: "amazon.nova-2-sonic-v1:0",
+  },
+  {
     id: "custom",
     name: "Custom",
     baseUrl: "",

@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import { useSync } from "../context";
 
 import {
@@ -8,7 +10,6 @@ import {
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
 import { setCalendarEnabled, useCalendarRows } from "~/calendar/queries";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const SUBSCRIBED_SOURCE_NAME = "Subscribed Calendars";
 

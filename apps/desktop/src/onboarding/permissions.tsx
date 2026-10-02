@@ -11,9 +11,9 @@ import {
   Microphone,
   SpeakerHigh,
 } from "@anlg/ui/components/icons";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   trackPermissionRequested,
   usePermissionAnalytics,

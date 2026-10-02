@@ -7,11 +7,16 @@ vi.mock("./render-tracker", () => ({
 
 vi.mock("@anlg/plugin-misc", () => ({
   commands: {
-    getProcessMemoryBytes: vi.fn(),
+    getProcessMemoryBytes: vi.fn(() => Promise.resolve({ status: "error" })),
   },
 }));
 
-import { getTopIpcCommands, installTrafficCounters } from "./metrics";
+import {
+  getTopIpcCommands,
+  installTrafficCounters,
+  startDevtoolsMetrics,
+  useDevtoolsMetrics,
+} from "./metrics";
 
 const internals = () =>
   (window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> })
@@ -64,5 +69,35 @@ describe("installTrafficCounters", () => {
 
     expect(window.fetch).toBe(patchedFetch);
     expect(Object.getOwnPropertyNames(callbacks)).not.toContain("get");
+  });
+
+  it("clears prior metric and IPC history when collection restarts", () => {
+    useDevtoolsMetrics.setState({ fps: [24] });
+    const seedTraffic = installTrafficCounters();
+    void fetch("ipc://localhost/plugin%3Amisc%7Cstale_command", {
+      method: "POST",
+    });
+    seedTraffic.restore();
+
+    const stop = startDevtoolsMetrics();
+    stop();
+
+    expect({
+      metrics: useDevtoolsMetrics.getState(),
+      commands: getTopIpcCommands(),
+    }).toEqual({
+      metrics: {
+        fps: [],
+        jank: [],
+        delay: [],
+        invokes: [],
+        callbacks: [],
+        requests: [],
+        requestsInFlight: 0,
+        renders: [],
+        memoryBytes: [],
+      },
+      commands: [],
+    });
   });
 });

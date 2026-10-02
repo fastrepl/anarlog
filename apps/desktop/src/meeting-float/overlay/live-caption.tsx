@@ -5,8 +5,7 @@ import {
   events as windowsEvents,
   type LiveCaptionState,
 } from "@anlg/plugin-windows";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 const LIVE_CAPTION_MIN_WIDTH = 260;
 const LIVE_CAPTION_MAX_WIDTH = 640;

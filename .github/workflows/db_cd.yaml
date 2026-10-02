@@ -2,6 +2,11 @@
 
 on:
   workflow_dispatch:
+    inputs:
+      include_all:
+        description: Apply reviewed migrations older than the last deployed migration
+        type: boolean
+        default: false
 
 jobs:
   run:
@@ -15,4 +20,11 @@ jobs:
         with:
           version: latest
       - run: supabase link --project-ref $PROJECT_ID
-      - run: supabase db push
+      - env:
+          INCLUDE_ALL: ${{ inputs.include_all }}
+        run: |
+          arguments=(db push)
+          if [[ "$INCLUDE_ALL" == "true" ]]; then
+            arguments+=(--include-all)
+          fi
+          supabase "${arguments[@]}"

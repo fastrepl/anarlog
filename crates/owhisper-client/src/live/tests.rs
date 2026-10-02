@@ -143,19 +143,6 @@ async fn split_dual_builds_mic_request_from_mic_speaker_params() {
 }
 
 #[tokio::test]
-async fn split_dual_reuses_one_request_without_mic_speaker_params() {
-    let client = ListenClient::builder()
-        .adapter::<AssemblyAIAdapter>()
-        .api_base("wss://api.assemblyai.com/v2/realtime/ws")
-        .api_key("test-key")
-        .build_dual()
-        .await
-        .unwrap();
-
-    assert!(client.mic_request.is_none());
-}
-
-#[tokio::test]
 async fn native_multichannel_dual_does_not_build_mic_request() {
     let client = ListenClient::builder()
         .adapter::<DeepgramAdapter>()
@@ -414,4 +401,75 @@ async fn nari_rejects_audio_at_an_unsupported_sample_rate() {
     assert!(
         matches!(error, crate::Error::ProviderConfiguration {provider,..} if provider == "nari")
     );
+}
+
+#[tokio::test]
+async fn nvidia_dual_capture_authenticates_each_stream_with_its_own_token() {
+    use std::collections::BTreeSet;
+    use std::sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    };
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let minted = Arc::new(AtomicUsize::new(0));
+    let tokens = Arc::new(Mutex::new(BTreeSet::new()));
+    let seen = tokens.clone();
+    let server = tokio::spawn(async move {
+        let mut tasks = Vec::new();
+        for _ in 0..4 {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let minted = minted.clone();
+            let seen = seen.clone();
+            tasks.push(tokio::spawn(async move {
+                let mut peek = [0; 4096];
+                let n = socket.peek(&mut peek).await.unwrap();
+                if peek[..n].starts_with(b"POST ") {
+                    let mut request = Vec::new();
+                    loop {
+                        let byte = socket.read_u8().await.unwrap();
+                        request.push(byte);
+                        if request.ends_with(b"\r\n\r\n") { break; }
+                    }
+                    assert!(String::from_utf8_lossy(&request).starts_with("POST /v1/realtime/transcription_sessions "));
+                    let number = minted.fetch_add(1, Ordering::SeqCst) + 1;
+                    let body = format!(r#"{{"client_secret":{{"value":"token-{number}"}}}}"#);
+                    socket.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).as_bytes()).await.unwrap();
+                } else {
+                    let mut ws = tokio_tungstenite::accept_hdr_async(socket, |request: &Request, mut response: Response| {
+                        let protocols = request.headers().get("sec-websocket-protocol").unwrap().to_str().unwrap();
+                        let token = protocols.split(", ").find_map(|p| p.strip_prefix("realtime-token.")).unwrap();
+                        assert!(matches!(token, "token-1" | "token-2"));
+                        assert!(seen.lock().unwrap().insert(token.to_owned()), "each handshake needs a distinct token");
+                        response.headers_mut().insert("sec-websocket-protocol", "realtime".parse().unwrap());
+                        Ok(response)
+                    }).await.unwrap();
+                    use futures_util::StreamExt;
+                    assert!(ws.next().await.unwrap().is_ok());
+                }
+            }));
+        }
+        for task in tasks {
+            task.await.unwrap();
+        }
+    });
+    let client = ListenClient::builder()
+        .adapter::<crate::NvidiaAdapter>()
+        .api_base(base)
+        .api_key("mint-key")
+        .build_dual()
+        .await
+        .unwrap();
+    let (_output, _handle) = client
+        .from_realtime_audio(futures_util::stream::pending())
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(tokens.lock().unwrap().len(), 2);
 }

@@ -1,11 +1,12 @@
 use std::{io::Write, path::Path, time::Duration};
 
 use owhisper_client::{
-    AdapterKind, AquaVoiceAdapter, AssemblyAIAdapter, AwsTranscribeAdapter, AzureSpeechAdapter,
-    BatchSttAdapter, CartesiaAdapter, CohereAdapter, DeepgramAdapter, ElevenLabsAdapter,
-    GladiaAdapter, GoogleCloudAdapter, GoogleGenerativeAiAdapter, GroqAdapter, MistralAdapter,
-    OpenAIAdapter, OpenRouterAdapter, PyannoteAdapter, RevAiAdapter, SiliconFlowAdapter,
-    SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter, XaiAdapter, ZaiAdapter,
+    AdapterKind, AmazonBedrockAdapter, AquaVoiceAdapter, AssemblyAIAdapter, AwsTranscribeAdapter,
+    AzureSpeechAdapter, BatchSttAdapter, CartesiaAdapter, CohereAdapter, DeepgramAdapter,
+    ElevenLabsAdapter, GladiaAdapter, GoogleCloudAdapter, GoogleGenerativeAiAdapter, GroqAdapter,
+    MistralAdapter, OpenAIAdapter, OpenRouterAdapter, PyannoteAdapter, RevAiAdapter,
+    SiliconFlowAdapter, SmallestAIAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter,
+    XaiAdapter, ZaiAdapter,
 };
 use owhisper_interface::{ListenParams, batch::Response};
 use reqwest_middleware::ClientWithMiddleware;
@@ -169,6 +170,7 @@ async fn dispatch(
         };
     }
     adapters! {
+        AmazonBedrock => AmazonBedrockAdapter,
         AquaVoice => AquaVoiceAdapter,
         AssemblyAI => AssemblyAIAdapter,
         AwsTranscribe => AwsTranscribeAdapter,

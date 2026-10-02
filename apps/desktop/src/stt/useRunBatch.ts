@@ -179,6 +179,8 @@ export function getBatchProvider(
   provider: string,
   model: string,
 ): TranscriptionParams["provider"] | null {
+  if (provider === "amazon_bedrock") return "openai";
+
   if (provider === "custom" || provider === "cloudflare_workers_ai") {
     return "deepgram";
   }

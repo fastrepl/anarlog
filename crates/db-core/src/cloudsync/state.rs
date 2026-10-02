@@ -1,9 +1,8 @@
-use std::collections::VecDeque;
-
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
-use super::{CloudsyncActivityEntry, CloudsyncNetworkResult, CloudsyncRuntimeConfig};
+use super::types::CloudsyncActivityStatus;
+use super::{CloudsyncNetworkResult, CloudsyncRuntimeConfig};
 
 #[derive(Default, Debug)]
 pub(crate) struct CloudsyncRuntimeState {
@@ -17,7 +16,7 @@ pub(crate) struct CloudsyncRuntimeState {
     pub(crate) last_error: Option<String>,
     pub(crate) last_error_kind: Option<anlg_cloudsync::ErrorKind>,
     pub(crate) consecutive_failures: u32,
-    pub(crate) activity_log: VecDeque<CloudsyncActivityEntry>,
+    pub(crate) last_logged_activity: Option<CloudsyncActivityStatus>,
 }
 
 #[derive(Debug)]

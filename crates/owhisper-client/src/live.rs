@@ -159,24 +159,22 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
         };
         let params = self.normalized_params();
         let request = self.build_request(&adapter, &params, channels).await?;
-        // URL-configured providers encode the speaker count in the connection itself
-        // (e.g. AssemblyAI's `max_speakers` query), so the mic side of a split session
-        // needs its own request built from the mic-specific params.
-        let mic_request =
-            if adapter.supports_native_multichannel() || params.mic_num_speakers.is_none() {
-                None
-            } else {
-                Some(
-                    self.build_request(&adapter, &mic_stream_params(&params), channels)
-                        .await?,
-                )
-            };
+        let mic_adapter = (!adapter.supports_native_multichannel()).then(|| adapter.fork_session());
+        let mic_request = if let Some(mic_adapter) = mic_adapter.as_ref() {
+            Some(
+                self.build_request(mic_adapter, &mic_stream_params(&params), channels)
+                    .await?,
+            )
+        } else {
+            None
+        };
         let initial_message = adapter.initial_message(self.api_key.as_deref(), &params, channels);
 
         Ok(ListenClientDual {
             adapter,
             request,
             mic_request,
+            mic_adapter,
             initial_message,
             connect_policy: self.connect_policy,
             api_key: self.api_key,
@@ -201,6 +199,7 @@ pub struct ListenClientDual<A: RealtimeSttAdapter> {
     pub(crate) adapter: A,
     pub(crate) request: ClientRequestBuilder,
     pub(crate) mic_request: Option<ClientRequestBuilder>,
+    pub(crate) mic_adapter: Option<A>,
     pub(crate) initial_message: Option<Message>,
     pub(crate) connect_policy: Option<anlg_ws_client::client::WebSocketConnectPolicy>,
     pub(crate) api_key: Option<String>,
@@ -480,8 +479,10 @@ impl<A: RealtimeSttAdapter> ListenClientDual<A> {
         self,
         stream: impl Stream<Item = ListenClientDualInput> + Send + Unpin + 'static,
     ) -> Result<(DualOutputStream, DualHandle), anlg_ws_client::Error> {
-        let mic_adapter = self.adapter.fork_session();
-        let spk_adapter = self.adapter.fork_session();
+        let mic_adapter = self
+            .mic_adapter
+            .unwrap_or_else(|| self.adapter.fork_session());
+        let spk_adapter = self.adapter;
         let mic_finalize = finalize_message_factory(&mic_adapter);
         let spk_finalize = finalize_message_factory(&spk_adapter);
         let (mic_tx, mic_rx) = tokio::sync::mpsc::channel::<TransformedInput>(32);

@@ -14,6 +14,7 @@ import WaveSurfer from "wavesurfer.js";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import type { SessionAudioRetentionEvent } from "@anlg/plugin-transcription";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { configureCenteredPlayback } from "./playback";
 import { loadWaveform } from "./waveform";
@@ -24,7 +25,6 @@ import {
   subscribeToSessionAudioRetention,
 } from "~/services/audio-retention";
 import { deleteSessionAudio } from "~/session/attachments";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const TIME_UPDATE_STEP_SECONDS = 0.1;
 

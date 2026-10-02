@@ -23,13 +23,36 @@ export function providerCredentialIdentity(credential: ProviderCredential) {
   return sha256(JSON.stringify(credential));
 }
 
+export function usesDeferredProviderAuthentication(
+  type: "stt" | "llm" | undefined,
+  provider: string,
+) {
+  return (
+    type === "stt" &&
+    [
+      "custom",
+      "inworld",
+      "gradium",
+      "modulate",
+      "alebex",
+      "nvidia",
+      "amazon_bedrock",
+    ].includes(provider)
+  );
+}
+
 export async function verifyProviderCredentials(
   credential: ProviderCredential,
   fetcher: CredentialFetch,
   signal?: AbortSignal,
 ): Promise<void> {
   const apiKey = credential.apiKey.trim();
-  if (!apiKey || apiKey.length > 8192 || /[\r\n]/.test(apiKey))
+  if (
+    (!apiKey &&
+      !(credential.type === "stt" && credential.provider === "nvidia")) ||
+    apiKey.length > 8192 ||
+    /[\r\n]/.test(apiKey)
+  )
     throw new ProviderCredentialError("Enter a valid API key.");
   let base: URL;
   try {
@@ -51,9 +74,10 @@ export async function verifyProviderCredentials(
     throw new ProviderCredentialError("Use HTTPS for provider credentials.");
 
   signal?.throwIfAborted();
-  // Deepgram-compatible listen servers need not expose a model catalog or a
-  // credential-probe endpoint. Their credentials are checked when transcribing.
-  if (credential.type === "stt" && credential.provider === "custom") return;
+  // These providers have no shared read-only credential probe.
+  // Authenticate on the native session or transcription request instead.
+  if (usesDeferredProviderAuthentication(credential.type, credential.provider))
+    return;
 
   const identity = providerCredentialIdentity({ ...credential, apiKey });
   const recent = verified.get(fetcher) ?? new Map<string, number>();

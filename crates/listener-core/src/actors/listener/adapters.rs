@@ -5,11 +5,12 @@ use bytes::Bytes;
 use ractor::{ActorProcessingErr, ActorRef};
 
 use owhisper_client::{
-    AdapterKind, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
+    AdapterKind, AlebexAdapter, AnarlogAdapter, ArgmaxAdapter, AssemblyAIAdapter, CartesiaAdapter,
     DashScopeAdapter, DashScopeStreamingAdapter, DeepgramAdapter, DeepgramFluxAdapter,
-    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleGenerativeAiAdapter, MetaAdapter,
-    MistralAdapter, NariAdapter, OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter,
-    SonioxAdapter, WisprFlowAdapter, XaiAdapter, anlg_ws_client,
+    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleGenerativeAiAdapter, GradiumAdapter,
+    InworldAdapter, MetaAdapter, MistralAdapter, ModulateAdapter, NariAdapter, NvidiaAdapter,
+    OpenAIAdapter, RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter,
+    XaiAdapter, anlg_ws_client,
 };
 use owhisper_interface::stream::{Extra, StreamResponse};
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -205,11 +206,17 @@ pub(super) async fn spawn_rx_task(
         Meta => MetaAdapter,
         Xai => XaiAdapter,
         Nari => NariAdapter,
+        Inworld => InworldAdapter,
+        Gradium => GradiumAdapter,
+        Modulate => ModulateAdapter,
+        Alebex => AlebexAdapter,
+        Nvidia => NvidiaAdapter,
         SmallestAI => SmallestAIAdapter,
         WisprFlow => WisprFlowAdapter,
         GoogleGenerativeAi => GoogleGenerativeAiAdapter,
         Anarlog => AnarlogAdapter,
     }, batch_only: [
+        AmazonBedrock,
         AquaVoice,
         Pyannote,
         Cohere,

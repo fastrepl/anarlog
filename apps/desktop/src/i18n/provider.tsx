@@ -2,11 +2,12 @@ import { I18nProvider } from "@lingui/react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { type ReactNode } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import { createI18n } from "./catalogs";
 import { resolveDisplayLocale } from "./locales";
 
 import { useConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function AppI18nProvider({ children }: { children: ReactNode }) {
   const mainLanguage = useConfigValue("ai_language");

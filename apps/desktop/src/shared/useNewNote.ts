@@ -96,6 +96,6 @@ export function openSessionAndListen(
   open({
     type: "sessions",
     id: sessionId,
-    state: { view: null, autoStart: true },
+    state: { view: null, autoStart: true, scheduledAutoStart: null },
   });
 }

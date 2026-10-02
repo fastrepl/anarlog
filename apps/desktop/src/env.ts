@@ -6,6 +6,10 @@ export const env = createEnv({
   client: {
     VITE_APP_URL: z.string().min(1).default("http://localhost:3000"),
     VITE_API_URL: z.string().min(1).default("http://localhost:3001"),
+    VITE_STATIC_ASSETS_URL: z
+      .string()
+      .url()
+      .default("https://static.anarlog.so"),
     VITE_AI_API_URL: z.string().url().optional(),
     VITE_ENTERPRISE_API_URL: z.string().url().optional(),
     VITE_SUPABASE_URL: z.string().min(1).optional(),

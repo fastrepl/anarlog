@@ -4,12 +4,12 @@ import { ChangelogContent } from "@anlg/changelog";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { useChangelogContent } from "./data";
 
 import { useShell } from "~/contexts/shell";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   useWindowControlsGutter,
   WINDOW_CONTROLS_GUTTER_PLUS_28_CLASS,

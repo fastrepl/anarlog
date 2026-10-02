@@ -10,6 +10,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { collectBadges, useCollectedBadges } from "./badge-queries";
@@ -22,7 +23,6 @@ import type { ActivityRecord } from "./queries";
 import { ProgressBar } from "./tremor/progress-bar";
 
 import { useAuth } from "~/auth";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import { commands } from "~/types/tauri.gen";
 

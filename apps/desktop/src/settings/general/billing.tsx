@@ -18,6 +18,7 @@ import {
   type TierAction,
 } from "@anlg/pricing";
 import { ArrowsClockwise } from "@anlg/ui/components/icons";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { useAuth } from "~/auth";
@@ -26,7 +27,6 @@ import { requestSyncDevices } from "~/auth/sync-devices";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { getWorkspaceAccess, requireTeamContext } from "~/settings/team/client";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { buildWebAppUrl } from "~/shared/utils";
 import { useTabs } from "~/store/zustand/tabs";
 

@@ -78,6 +78,9 @@ pub struct CalendarEvent {
     // Apple: Busy | Free | Tentative | Unavailable, Google: opaque | transparent.
     pub organizer: Option<EventPerson>,
     pub attendees: Vec<EventAttendee>,
+    /// Provider-normalized attendance evidence for automatic meeting actions.
+    #[serde(default)]
+    pub attendance: Option<EventAttendance>,
 
     // Hopefully we don't have to handle recurrence info directly in the forseeable future.
     // Apple: recurrenceRules (parsed and structured)
@@ -152,4 +155,41 @@ pub enum AttendeeRole {
     Required,
     Optional,
     NonParticipant,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum SelfAttendanceStatus {
+    Organizer,
+    Accepted,
+    Tentative,
+    Pending,
+    Declined,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum AttendanceRosterStatus {
+    Complete,
+    Incomplete,
+    Unknown,
+}
+
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type,
+)]
+pub struct AttendanceResponseCounts {
+    pub accepted: u32,
+    pub tentative: u32,
+    pub pending: u32,
+    pub declined: u32,
+    pub unknown: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct EventAttendance {
+    pub self_status: SelfAttendanceStatus,
+    pub roster_status: AttendanceRosterStatus,
+    pub others: AttendanceResponseCounts,
 }

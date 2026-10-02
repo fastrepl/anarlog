@@ -8,6 +8,7 @@ import {
   events as deeplink2Events,
 } from "@anlg/plugin-deeplink2";
 import { dismissInstruction } from "@anlg/plugin-windows";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useAuth } from "~/auth";
 import { createAuthCallbackHandler } from "~/auth/deeplink";
@@ -26,7 +27,6 @@ import {
 } from "~/shared-notes/deeplink";
 import { subscribeThenDrainDeepLinks } from "~/shared/deeplink";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function useDeeplinkHandler() {

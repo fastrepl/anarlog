@@ -18,11 +18,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import { useSearch } from "./context";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 function ToggleButton({
   active,

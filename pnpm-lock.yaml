@@ -207,6 +207,9 @@ importers:
       '@anlg/plugin-todo':
         specifier: workspace:*
         version: link:../../plugins/todo
+      '@anlg/plugin-tracing':
+        specifier: workspace:*
+        version: link:../../plugins/tracing
       '@anlg/plugin-transcription':
         specifier: workspace:*
         version: link:../../plugins/transcription
@@ -1415,12 +1418,6 @@ importers:
         specifier: ^2.10.1
         version: 2.10.1
 
-  plugins/git:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
-
   plugins/hooks:
     dependencies:
       '@tauri-apps/api':
@@ -1524,12 +1521,6 @@ importers:
         version: 2.10.1
 
   plugins/relay: {}
-
-  plugins/screen:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
 
   plugins/session:
     dependencies:

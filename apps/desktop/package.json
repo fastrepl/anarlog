@@ -63,6 +63,7 @@
     "@anlg/plugin-template": "workspace:*",
     "@anlg/plugin-todo": "workspace:*",
     "@anlg/plugin-transcription": "workspace:*",
+    "@anlg/plugin-tracing": "workspace:*",
     "@anlg/plugin-tray": "workspace:*",
     "@anlg/plugin-updater2": "workspace:*",
     "@anlg/plugin-windows": "workspace:*",

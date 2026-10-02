@@ -51,7 +51,7 @@ it("can open a listening note without a listener provider", async () => {
     expect(useTabs.getState().currentTab).toMatchObject({
       type: "sessions",
       id: "new-session",
-      state: { autoStart: true },
+      state: { autoStart: true, scheduledAutoStart: null },
     });
   });
 });

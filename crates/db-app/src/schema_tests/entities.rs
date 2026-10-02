@@ -32,6 +32,8 @@ async fn calendar_roundtrip() {
 #[tokio::test]
 async fn event_roundtrip() {
     let db = test_db().await;
+    let accepted_attendance = r#"{"version":1,"self_status":"accepted"}"#;
+    let declined_attendance = r#"{"version":1,"self_status":"declined"}"#;
 
     upsert_event(
         db.pool(),
@@ -51,6 +53,7 @@ async fn event_roundtrip() {
             is_all_day: false,
             provider: "google",
             participants_json: Some("[{\"email\":\"a@example.com\"}]"),
+            attendance_json: Some(accepted_attendance),
         },
     )
     .await
@@ -59,10 +62,142 @@ async fn event_roundtrip() {
     let row = get_event(db.pool(), "evt1").await.unwrap().unwrap();
     assert_eq!(row.title, "Standup");
     assert_eq!(row.calendar_id, "cal1");
+    assert_eq!(row.attendance_json.as_deref(), Some(accepted_attendance));
+    let created_at = row.created_at;
+
+    upsert_event(
+        db.pool(),
+        UpsertEvent {
+            id: "evt1",
+            tracking_id_event: "tracking-evt-1",
+            calendar_id: "cal1",
+            title: "Standup moved",
+            started_at: "2026-04-15T10:00:00Z",
+            ended_at: "2026-04-15T10:30:00Z",
+            location: "",
+            meeting_link: "https://meet.example/1",
+            description: "Daily sync",
+            note: "",
+            recurrence_series_id: "series-1",
+            has_recurrence_rules: true,
+            is_all_day: false,
+            provider: "google",
+            participants_json: Some("[{\"email\":\"a@example.com\"}]"),
+            attendance_json: Some(declined_attendance),
+        },
+    )
+    .await
+    .unwrap();
+
+    let updated = get_event(db.pool(), "evt1").await.unwrap().unwrap();
+    assert_eq!(updated.title, "Standup moved");
+    assert_eq!(updated.created_at, created_at);
+    assert_eq!(
+        updated.attendance_json.as_deref(),
+        Some(declined_attendance)
+    );
 
     let rows = list_events(db.pool()).await.unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].id, "evt1");
+
+    delete_event(db.pool(), "evt1").await.unwrap();
+    assert!(get_event(db.pool(), "evt1").await.unwrap().is_none());
+
+    upsert_event(
+        db.pool(),
+        UpsertEvent {
+            id: "evt1",
+            tracking_id_event: "tracking-evt-1",
+            calendar_id: "cal1",
+            title: "Standup restored",
+            started_at: "2026-04-15T10:00:00Z",
+            ended_at: "2026-04-15T10:30:00Z",
+            location: "",
+            meeting_link: "https://meet.example/1",
+            description: "Daily sync",
+            note: "",
+            recurrence_series_id: "series-1",
+            has_recurrence_rules: true,
+            is_all_day: false,
+            provider: "google",
+            participants_json: None,
+            attendance_json: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    let restored = get_event(db.pool(), "evt1").await.unwrap().unwrap();
+    assert_eq!(restored.title, "Standup restored");
+    assert_eq!(restored.created_at, created_at);
+    assert_eq!(restored.attendance_json, None);
+}
+
+#[tokio::test]
+async fn insert_event_if_missing_roundtrips_attendance_without_overwriting() {
+    let db = test_db().await;
+    let attendance = r#"{"version":1,"self_status":"organizer"}"#;
+
+    let input = UpsertEvent {
+        id: "evt1",
+        tracking_id_event: "tracking-evt-1",
+        calendar_id: "cal1",
+        title: "Planning",
+        started_at: "2026-04-15T09:00:00Z",
+        ended_at: "2026-04-15T09:30:00Z",
+        location: "",
+        meeting_link: "",
+        description: "",
+        note: "",
+        recurrence_series_id: "",
+        has_recurrence_rules: false,
+        is_all_day: false,
+        provider: "outlook",
+        participants_json: None,
+        attendance_json: Some(attendance),
+    };
+
+    assert!(insert_event_if_missing(db.pool(), input).await.unwrap());
+    assert_eq!(
+        get_event(db.pool(), "evt1")
+            .await
+            .unwrap()
+            .unwrap()
+            .attendance_json
+            .as_deref(),
+        Some(attendance)
+    );
+
+    assert!(
+        !insert_event_if_missing(
+            db.pool(),
+            UpsertEvent {
+                id: "evt1",
+                tracking_id_event: "replacement",
+                calendar_id: "cal2",
+                title: "Replacement",
+                started_at: "",
+                ended_at: "",
+                location: "",
+                meeting_link: "",
+                description: "",
+                note: "",
+                recurrence_series_id: "",
+                has_recurrence_rules: false,
+                is_all_day: false,
+                provider: "apple",
+                participants_json: None,
+                attendance_json: None,
+            },
+        )
+        .await
+        .unwrap()
+    );
+
+    let row = get_event(db.pool(), "evt1").await.unwrap().unwrap();
+    assert_eq!(row.title, "Planning");
+    assert_eq!(row.attendance_json.as_deref(), Some(attendance));
 }
 
 #[tokio::test]

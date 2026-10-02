@@ -2,12 +2,12 @@ import { useLingui } from "@lingui/react/macro";
 
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import type { MyWorkspaceInvitation } from "./client";
 import { useMyWorkspaceInvitations } from "./my-invitations";
 
 import { useConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { isAppWindowInactive } from "~/shared/window-activity";
 import { useTabs } from "~/store/zustand/tabs";
 

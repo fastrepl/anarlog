@@ -11,6 +11,7 @@ import {
   WarningCircle,
 } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
@@ -27,7 +28,6 @@ import {
 } from "~/shared-notes/cache";
 import { useSharedNotePreview } from "~/shared-notes/preview";
 import { useSharedAttachmentResolver } from "~/shared-notes/use-shared-attachment-resolver";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { Tab } from "~/store/zustand/tabs";
 
 export function TabContentSharedNote({

@@ -4,7 +4,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 const STORAGE_KEY = "anarlog:devtools-scan-layout";
 export type PanelRect = { x: number; y: number; width: number; height: number };

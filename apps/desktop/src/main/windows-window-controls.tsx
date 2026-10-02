@@ -2,9 +2,8 @@ import { t } from "@lingui/core/macro";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useState } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const appWindow = getCurrentWindow();
 

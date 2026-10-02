@@ -40,6 +40,8 @@ pub struct IncomingCalendarEvent {
     pub recurrence_series_id: Option<String>,
     pub has_recurrence_rules: bool,
     pub is_all_day: bool,
+    #[serde(default)]
+    pub attendance_json: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
@@ -264,6 +266,7 @@ async fn run(
             event.is_all_day,
             provider,
             encode_participants(&event.participants).as_deref(),
+            event.attendance_json.as_deref(),
             now,
         )
         .await
@@ -295,6 +298,7 @@ async fn run(
             event.is_all_day,
             provider,
             encode_participants(&event.participants).as_deref(),
+            event.attendance_json.as_deref(),
             now,
         )
         .await
@@ -531,6 +535,7 @@ struct EventToUpdate {
     recurrence_series_id: Option<String>,
     has_recurrence_rules: bool,
     is_all_day: bool,
+    attendance_json: Option<String>,
     legacy_tracking_ids: Vec<String>,
     participants: Vec<IncomingEventParticipant>,
 }
@@ -548,6 +553,7 @@ struct EventToAdd {
     recurrence_series_id: Option<String>,
     has_recurrence_rules: bool,
     is_all_day: bool,
+    attendance_json: Option<String>,
     legacy_tracking_ids: Vec<String>,
     participants: Vec<IncomingEventParticipant>,
 }
@@ -610,6 +616,7 @@ fn sync_events(
                 recurrence_series_id: matching.recurrence_series_id.clone(),
                 has_recurrence_rules: matching.has_recurrence_rules,
                 is_all_day: matching.is_all_day,
+                attendance_json: matching.attendance_json.clone(),
                 legacy_tracking_ids: matching.legacy_tracking_ids.clone(),
                 participants: incoming_participants
                     .get(&matching.tracking_id_event)
@@ -661,6 +668,7 @@ fn sync_events(
                 recurrence_series_id: incoming_event.recurrence_series_id.clone(),
                 has_recurrence_rules: incoming_event.has_recurrence_rules,
                 is_all_day: incoming_event.is_all_day,
+                attendance_json: incoming_event.attendance_json.clone(),
                 legacy_tracking_ids: incoming_event.legacy_tracking_ids.clone(),
                 participants: incoming_participants
                     .get(&incoming_event.tracking_id_event)
@@ -809,6 +817,7 @@ mod tests {
             recurrence_series_id: None,
             has_recurrence_rules: false,
             is_all_day: false,
+            attendance_json: None,
         };
         overrides(&mut event);
         event
@@ -1662,6 +1671,38 @@ mod tests {
             event.started_at = Some("2026-09-16T10:00:00Z".to_string());
             event.ended_at = Some("2026-09-16T11:00:00Z".to_string());
         })
+    }
+
+    #[tokio::test]
+    async fn persists_attendance_for_inserted_and_updated_events() {
+        let db = seed_participant_db().await;
+        let initial_attendance = r#"{"version":1,"self_status":"accepted"}"#;
+        let updated_attendance = r#"{"version":1,"self_status":"declined"}"#;
+        let mut event = google_event();
+        event.attendance_json = Some(initial_attendance.to_string());
+
+        sync_calendar_connection_events(db.pool(), google_request(vec![event.clone()], vec![]))
+            .await
+            .unwrap();
+        let stored: Option<String> =
+            sqlx::query_scalar("SELECT attendance_json FROM events WHERE tracking_id_event = ?")
+                .bind(&event.tracking_id_event)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(stored.as_deref(), Some(initial_attendance));
+
+        event.attendance_json = Some(updated_attendance.to_string());
+        sync_calendar_connection_events(db.pool(), google_request(vec![event], vec![]))
+            .await
+            .unwrap();
+        let stored: Option<String> =
+            sqlx::query_scalar("SELECT attendance_json FROM events WHERE tracking_id_event = ?")
+                .bind("tracking-1")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(stored.as_deref(), Some(updated_attendance));
     }
 
     async fn humans(db: &Db) -> Vec<(String, String, String)> {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   hasPendingZeroRetentionAudio,
@@ -8,8 +9,6 @@ import {
 } from "./capture-lifecycle-storage";
 import { listenCaptureRecoveryRequests } from "./capture-recovery-requests";
 import { useResumeListeningLifecycle } from "./useStartListening";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const CAPTURE_RECOVERY_BASE_RETRY_MS = 2_000;
 const CAPTURE_RECOVERY_MAX_ATTEMPTS = 5;

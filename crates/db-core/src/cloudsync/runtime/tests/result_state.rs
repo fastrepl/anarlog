@@ -213,13 +213,6 @@ fn background_sync_uses_shared_receive_errors() {
 
             let runtime = runtime.lock().unwrap();
             assert_eq!(runtime.last_error.as_deref(), expected);
-            if expected.is_some() {
-                let activity = runtime.activity_log.back().unwrap();
-                assert_eq!(activity.status, crate::CloudsyncActivityStatus::Failed);
-                assert_eq!(activity.error.as_deref(), expected);
-            } else {
-                assert!(runtime.activity_log.is_empty());
-            }
         }
     }
 }
@@ -258,82 +251,34 @@ fn bounded_sync_combines_send_and_receive_results() {
 }
 
 #[test]
-fn activity_log_records_manual_and_progress_entries_but_not_background_noops() {
-    let runtime = Mutex::new(CloudsyncRuntimeState::default());
-    record_sync_result(
-        &runtime,
-        network_result(None, Some((0, true, None))),
-        false,
-        CloudsyncActivityTrigger::Manual,
-    );
+fn sync_logging_persists_transfer_start_and_end_but_not_each_progress_step() {
+    use crate::cloudsync::types::CloudsyncActivityStatus::{Completed, Failed, Progress};
 
-    {
-        let runtime = runtime.lock().unwrap();
-        assert_eq!(runtime.activity_log.len(), 1);
-        assert_eq!(
-            runtime.activity_log.front().unwrap().status,
-            crate::CloudsyncActivityStatus::Completed
-        );
-        assert_eq!(
-            runtime.activity_log.front().unwrap().trigger,
-            CloudsyncActivityTrigger::Manual
-        );
-    }
-
-    let background_noop_runtime = Mutex::new(CloudsyncRuntimeState::default());
-    record_sync_result(
-        &background_noop_runtime,
-        network_result(None, Some((0, true, None))),
-        false,
-        CloudsyncActivityTrigger::Background,
-    );
-    assert!(
-        background_noop_runtime
-            .lock()
-            .unwrap()
-            .activity_log
-            .is_empty()
-    );
-
-    record_sync_result(
-        &runtime,
-        network_result(None, Some((3, false, None))),
-        false,
-        CloudsyncActivityTrigger::Background,
-    );
-    record_sync_result(
-        &runtime,
-        network_result(None, Some((0, true, None))),
-        false,
-        CloudsyncActivityTrigger::Background,
-    );
-
-    let runtime = runtime.lock().unwrap();
-    assert_eq!(runtime.activity_log.len(), 3);
-    assert_eq!(
-        runtime.activity_log.get(1).unwrap().status,
-        crate::CloudsyncActivityStatus::Progress
-    );
-    assert_eq!(
-        runtime.activity_log.back().unwrap().status,
-        crate::CloudsyncActivityStatus::Completed
-    );
-}
-
-#[test]
-fn sync_activity_log_is_bounded() {
-    let runtime = Mutex::new(CloudsyncRuntimeState::default());
-
-    for _ in 0..=MAX_ACTIVITY_LOG_ENTRIES {
-        record_sync_error(
-            &runtime,
-            &anlg_cloudsync::Error::Io(std::io::Error::other("offline")),
-            CloudsyncActivityTrigger::Background,
-        );
-    }
+    let background = CloudsyncActivityTrigger::Background;
+    let manual = CloudsyncActivityTrigger::Manual;
 
     assert_eq!(
-        runtime.lock().unwrap().activity_log.len(),
-        MAX_ACTIVITY_LOG_ENTRIES
+        sync_result_log_level(background, Completed, false, None),
+        None
+    );
+    assert_eq!(
+        sync_result_log_level(manual, Completed, false, None),
+        Some(SyncLogLevel::Info)
+    );
+    assert_eq!(
+        sync_result_log_level(background, Progress, true, Some(Completed)),
+        Some(SyncLogLevel::Info)
+    );
+    assert_eq!(
+        sync_result_log_level(background, Progress, true, Some(Progress)),
+        Some(SyncLogLevel::Debug)
+    );
+    assert_eq!(
+        sync_result_log_level(background, Completed, false, Some(Progress)),
+        Some(SyncLogLevel::Info)
+    );
+    assert_eq!(
+        sync_result_log_level(background, Completed, false, Some(Failed)),
+        Some(SyncLogLevel::Info)
     );
 }

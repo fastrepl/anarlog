@@ -5,6 +5,7 @@ import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
 import { CircleNotch } from "@anlg/ui/components/icons";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { OnboardingButton } from "./shared";
 
@@ -22,7 +23,6 @@ import { useOAuthCalendarSelection } from "~/calendar/components/oauth/calendar-
 import { ReconnectRequiredIndicator } from "~/calendar/components/oauth/status";
 import { PROVIDERS } from "~/calendar/components/shared";
 import { useEnabledCalendars } from "~/calendar/hooks";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usePermission } from "~/shared/hooks/usePermissions";
 import { openIntegrationUrl } from "~/shared/integration";
 

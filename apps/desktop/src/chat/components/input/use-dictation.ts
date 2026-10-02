@@ -5,9 +5,9 @@ import type { ChatEditorHandle } from "@anlg/editor/chat";
 import { commands as dictationCommands } from "@anlg/plugin-dictation";
 import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useRunBatch } from "~/stt/useRunBatch";
 
 type DictationPhase = "idle" | "starting" | "recording" | "transcribing";

@@ -212,6 +212,8 @@ calendarChangedEvent: "plugin:calendar:calendar-changed-event"
 
 export type ApplyCalendarInventoryRequest = { provider: CalendarProviderType; requested_connection_ids: string[]; successful_connections: CalendarInventoryConnection[] }
 export type ApplyContactEnhancementRequest = { human_id: string; owner_user_id: string; create_if_missing: boolean; name: string | null; email: string | null; company_name: string | null; job_title: string | null; phone: string | null; linkedin_username: string | null }
+export type AttendanceResponseCounts = { accepted: number; tentative: number; pending: number; declined: number; unknown: number }
+export type AttendanceRosterStatus = "complete" | "incomplete" | "unknown"
 export type AttendeeRole = "chair" | "required" | "optional" | "nonparticipant"
 export type AttendeeStatus = "pending" | "accepted" | "tentative" | "declined"
 export type CalendarChangedEvent = null
@@ -249,7 +251,11 @@ ended_at: string; timezone: string | null; is_all_day: boolean;
  * Apple: None | Confirmed | Tentative | Canceled -> map None to Confirmed.
  * Google: confirmed | tentative | cancelled.
  */
-status: EventStatus; organizer: EventPerson | null; attendees: EventAttendee[]; has_recurrence_rules: boolean; 
+status: EventStatus; organizer: EventPerson | null; attendees: EventAttendee[];
+/**
+ * Provider-normalized attendance evidence for automatic meeting actions.
+ */
+attendance?: EventAttendance | null; has_recurrence_rules: boolean;
 /**
  * Google's approach: for an instance of a recurring event, this is the id of the recurring
  * event to which this instance belongs. For Apple, this is the recurrence's series_identifier
@@ -267,6 +273,7 @@ export type ContactKind = "human" | "organization"
 export type CreateEventInput = { calendar_tracking_id: string; title: string; started_at: string; ended_at: string; is_all_day: boolean | null; location: string | null; notes: string | null; url: string | null }
 export type CreateHumanRequest = { id: string; owner_user_id: string; name: string; email: string }
 export type CreateOrganizationRequest = { id: string; owner_user_id: string; name: string }
+export type EventAttendance = { self_status: SelfAttendanceStatus; roster_status: AttendanceRosterStatus; others: AttendanceResponseCounts }
 export type EventAttendee = { name: string | null; 
 /**
  * Apple calendar events only provide a contact entry, which can possibly not have an email.
@@ -304,7 +311,7 @@ email: string | null;
 is_current_user: boolean }
 export type EventStatus = "confirmed" | "tentative" | "cancelled"
 export type IgnoredCalendarItemKind = "events" | "series"
-export type IncomingCalendarEvent = { tracking_id_event: string; tracking_id_calendar: string; legacy_tracking_ids?: string[]; is_cancelled?: boolean; title: string | null; started_at: string | null; ended_at: string | null; location: string | null; meeting_link: string | null; description: string | null; recurrence_series_id: string | null; has_recurrence_rules: boolean; is_all_day: boolean }
+export type IncomingCalendarEvent = { tracking_id_event: string; tracking_id_calendar: string; legacy_tracking_ids?: string[]; is_cancelled?: boolean; title: string | null; started_at: string | null; ended_at: string | null; location: string | null; meeting_link: string | null; description: string | null; recurrence_series_id: string | null; has_recurrence_rules: boolean; is_all_day: boolean; attendance_json?: string | null }
 export type IncomingEventParticipant = { name?: string | null; email?: string | null; is_organizer?: boolean; is_current_user?: boolean }
 export type IncomingEventParticipants = { tracking_id_event: string; participants: IncomingEventParticipant[] }
 export type MergeHumansRequest = { selected_human_id: string; duplicate_human_id: string }
@@ -312,6 +319,7 @@ export type PinnedContactEntry = { kind: ContactKind; id: string }
 export type ProviderConnectionIds = { provider: CalendarProviderType; connection_ids: string[] }
 export type ReorderPinnedContactsRequest = { contacts: PinnedContactEntry[] }
 export type SavePersonalContactRequest = { human_id: string; name: string; email: string; phone: string; job_title: string; linkedin_username: string; memo: string; organization_id: string; avatar_data_url: string | null; remove_avatar: boolean }
+export type SelfAttendanceStatus = "organizer" | "accepted" | "tentative" | "pending" | "declined" | "unknown"
 export type SetCalendarEnabledRequest = { calendar_id: string; enabled: boolean }
 export type SoftDeleteContactRequest = { kind: ContactKind; contact_id: string }
 export type SyncCalendarConnectionEventsRequest = { provider: CalendarProviderType; connection_id: string; from: string; to: string; calendars: SyncCalendarRef[]; events: IncomingCalendarEvent[]; participants: IncomingEventParticipants[] }
