@@ -1,0 +1,87 @@
+---
+meta_title: "Does Otter Use Recordings to Train AI? Plans and Exceptions"
+display_title: "Does Otter Use Your Recordings to Train AI? Plans and Exceptions Explained"
+meta_description: "Otter's general training policy differs from its Enterprise default and third-party AI commitments. Check which rules cover your recordings and workspace."
+author:
+  - "Anarlog Team"
+featured: !!bool "false"
+category: "Guides"
+date: "2026-10-08"
+---
+
+**Otter's general privacy policy permits training its proprietary AI using de-identified recordings and transcripts. Enterprise workspaces have a different documented default: they are opted out of model training.** The documented training/feedback control also lets an account revoke access. Identify the workspace, agreement, and permission setting covering your meeting.
+
+The relevant sources are Otter's [privacy policy](https://otter.ai/privacy-policy), effective June 16, 2026, and its [Enterprise admin guide](https://help.otter.ai/hc/en-us/articles/13352505516695-Enterprise-Admin-Controls-Overview). We checked them on September 22, 2026. We make Anarlog; this article explains published policy rather than auditing Otter's training systems.
+
+## Four statements that refer to different things
+
+| Statement | What it covers | What it does not establish |
+| --- | --- | --- |
+| Otter may improve its proprietary AI with de-identified content | Otter's general training practices | The terms of every Enterprise workspace |
+| Enterprise is opted out by default | The documented Enterprise agreement and configuration | An identical default on Basic, Pro, or Business |
+| Third-party AI providers cannot train on customer data | Otter's commitments concerning those providers | Whether Otter itself trains on the content |
+| Human review requires consent | Manual access described in the security FAQ | An opt-out from automated training |
+
+The third and fourth distinctions come from Otter's [Privacy & Security FAQ](https://otter.ai/privacy-security). Reading only the answer about external model providers can miss the separate answer about Otter's own models.
+
+## De-identification is not the same as opting out
+
+Otter describes removing identifying information before automated training. Its privacy policy nevertheless identifies recordings and transcripts among the inputs used to improve its technology. That is a statement about permitted processing, not evidence that a particular meeting was included in a training run. [Source: Otter privacy policy](https://otter.ai/privacy-policy).
+
+For a team deciding whether to use the product, the useful requirement is precise: "Our meeting content must not be used to improve shared models." That differs from "remove names before training" and from "do not let a person read the transcript."
+
+Write down the requirement before comparing tools. Otherwise, a security answer can sound reassuring while addressing a different question.
+
+## What Enterprise changes
+
+Otter's Enterprise documentation says the no-training default covers recordings, transcripts, and notes used to provide the workspace's features. The setting is managed by Otter under the Enterprise arrangement; the guide directs customers to their account manager to opt in. [Source: Enterprise controls](https://help.otter.ai/hc/en-us/articles/13352505516695-Enterprise-Admin-Controls-Overview).
+
+Do not infer the same protection from a paid subscription alone. Confirm the exact workspace containing the meeting and the applicable agreement. A person can use a work email address without establishing that every recording belongs to the intended Enterprise workspace.
+
+## Change training and feedback permissions
+
+Otter documents **Account Settings → Meetings → Feedback and Training → Help improve Otter**. Select the restrictive sharing option to revoke conversation access for training and product improvement. Its [feedback guide](https://help.otter.ai/hc/en-us/articles/25352082563863-Provide-feedback-to-Otter) explicitly says this removes access to past conversations and excludes future conversations from training.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/training/2026-09-22-training-options.png" alt="Otter Help improve Otter menu with training and improvement sharing choices" width={900} height={282} />
+
+<p className="blog-image-credit">Source: <a href="https://help.otter.ai/hc/en-us/articles/25352082563863-Provide-feedback-to-Otter">Otter</a>.</p>
+
+Read feedback prompts too: granting the optional permission there can change the account setting back to allow access. Simply undoing a feedback rating does not reverse that account-level choice.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/training/2026-09-22-feedback-training-permission.png" alt="Otter feedback prompt requesting permission to use conversation data" width={900} height={278} />
+
+<p className="blog-image-credit">Source: <a href="https://help.otter.ai/hc/en-us/articles/25352082563863-Provide-feedback-to-Otter">Otter</a>.</p>
+
+There is also a collaboration exception. When the owner's account preference is unset, a collaborator can grant training access for an individually shared conversation through feedback. Setting the owner's preference explicitly prevents collaborators from making that opt-in. These are documented controls; we did not toggle a live Otter account for this article.
+
+The guide does not establish that revoking access reverses a training run already completed. Keep that separate from its promise about access to past conversations and future use.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/training/2026-09-22-training-sharing-disabled.png" alt="Otter training preference showing sharing disabled" width={900} height={326} />
+
+<p className="blog-image-credit">Source: <a href="https://help.otter.ai/hc/en-us/articles/25352082563863-Provide-feedback-to-Otter">Otter</a>.</p>
+
+## Imported documents and third-party AI are separate cases
+
+Otter's security FAQ makes a separate commitment concerning imported customer data, including documents from Google Workspace. It also describes restrictions on external AI service providers. Do not automatically extend a statement about imported Workspace documents to every audio recording created in Otter. [Source: Otter security FAQ](https://otter.ai/privacy-security).
+
+The same distinction matters when a meeting tool offers several features. Recording audio, connecting a document source, and asking an AI chat question may involve different inputs and processors. Check the feature you intend to use.
+
+## A short account check before recording
+
+Use this checklist to obtain an answer you can rely on:
+
+1. Identify the plan, workspace, and account that will own the recording.
+2. Confirm whether the general policy or an Enterprise agreement governs that content.
+3. Ask whether audio, transcripts, notes, feedback, and connected documents are covered by the same training restriction.
+4. Check retention and sharing independently. No training does not mean no storage or no teammate access.
+5. Keep the dated policy and account-specific confirmation with your team's tool decision.
+
+This is a product-configuration checklist, not a legal approval. Recording consent and your organization's information policy still apply.
+
+## If you want a local AI workflow
+
+Otter can be a practical choice for a team that wants a hosted meeting workspace, especially when its Enterprise controls match the team's requirements. The relevant comparison is the actual configuration, not a claim that every cloud product behaves identically.
+
+[Anarlog](https://anarlog.so/) keeps canonical meeting data in local SQLite and lets you select local or external AI providers. A fully local setup requires both local transcription and local summaries; bringing your own cloud API key still sends the relevant input to that provider. See the [offline documentation](https://docs.anarlog.so/offline) before using local processing as your reason to switch.
+
+For the wider product assessment, read [our Otter review](/blog/otter-ai-review/). For the training question, keep the answer scoped to the plan, data type, processor, and agreement you verified.
