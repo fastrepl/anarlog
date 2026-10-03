@@ -1,0 +1,86 @@
+---
+meta_title: "Meetily vs Otter: Local Notes or a Cloud Meeting Workspace?"
+display_title: "Meetily vs Otter: Local Meeting Notes or a Cloud Workspace?"
+meta_description: "Compare Meetily and Otter by local processing, recording methods, collaboration, exports, and plan limits. Bot-free capture alone does not determine privacy."
+author:
+  - "Anarlog Team"
+featured: !!bool "false"
+category: "Comparisons"
+date: "2026-10-13"
+---
+
+**Meetily is the stronger starting point when you need to choose a local transcription and summary stack. Otter is the stronger starting point when you want a hosted workspace for shared meeting history.** Verify the edition and settings in either case: Meetily offers remote providers, and Otter now offers desktop capture as well as meeting-joining workflows.
+
+We make Anarlog. We checked official documentation on September 22, 2026, and tested one synthetic file in Meetily. Otter's illustration is vendor-provided; we did not run a head-to-head accuracy or speed test.
+
+## Compare the workflow you will actually use
+
+| Requirement | Meetily | Otter |
+| --- | --- | --- |
+| Process a meeting without internet after setup | Select downloaded local transcription and summary models | Hosted processing; not an offline transcription choice |
+| Choose your own model service | Local, hosted, and configurable provider options | Managed service with the controls of your plan |
+| Keep a shared cloud meeting history | Evaluate deployment, exports, and integration requirements | A central part of the product |
+| Record without a visible meeting bot | Desktop system-audio capture | Desktop options exist; not every Otter workflow requires a bot |
+| Automate access | Pro developer interfaces with scoped access | API, integrations, and MCP availability vary by feature and plan |
+
+Meetily's [current documentation](https://docs.meetily.ai/) is the starting point for its provider choices and desktop workflow. Otter's [desktop page](https://otter.ai/desktop) and [plan comparison](https://otter.ai/pricing) describe its capture options and service limits. Bot-free is a capture method, not a promise of local inference.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/meetily/meeting-summary/2026-09-22-windows-local-transcription.png" alt="Meetily transcription settings with local Parakeet Lightning ready" width={900} height={506} />
+
+## Follow audio and transcript separately
+
+In Meetily, inspect the transcription provider first and the summary provider second. Sending audio to a remote transcription endpoint and summarizing the result locally is still a partly remote workflow. Local transcription followed by a cloud summary sends a different artifact: the transcript text.
+
+Use Meetily's [transcription settings](https://docs.meetily.ai/features/transcription-providers) and [summary settings](https://docs.meetily.ai/features/summary-providers) to check those paths. Do not infer them from the product's general privacy positioning.
+
+Otter maintains a hosted service for transcripts, playback, collaboration, and AI features. Its [security documentation](https://otter.ai/privacy-security) explains storage and access practices. That architecture may be exactly what a distributed team wants: a common meeting record that does not depend on one person's laptop staying available.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/meetily/meeting-summary/2026-09-22-windows-local-summary.png" alt="Meetily Community with a synthetic transcript and a completed local summary" width={900} height={506} />
+
+## A useful comparison test
+
+Try one synthetic meeting in both products using the capture mode you expect to use every day. Include a name that is easy to mishear, an explicit decision, a proposal that is rejected, and a task without an assigned owner.
+
+Review five things before comparing the polish of the summaries:
+
+1. Did the tool capture both sides of the conversation?
+2. Can you trace a summary claim back to the transcript or recording?
+3. Did it invent an owner or deadline?
+4. Can the intended colleague access the result without an accidental broad share?
+5. Can you export the information you need in a usable form?
+
+Repeat the test with authorized audio that includes your usual background noise, vocabulary, and languages.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png" alt="Otter official illustration of calendar joining, a visible meeting guest, and the transcript workspace" width={900} height={294} />
+
+<p className="blog-image-credit">Source: <a href="https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview">Otter</a>.</p>
+
+## Plans change the comparison
+
+Meetily Community and Pro are different editions. Its [MCP documentation](https://docs.meetily.ai/developers/mcp) requires Pro, an enabled local gateway, and scoped credentials. Check the current [pricing page](https://meetily.ai/pricing) for the edition containing a feature before calling it free.
+
+Otter Basic currently lists 300 monthly transcription minutes, a 30-minute conversation cap, and three lifetime file imports. These are separate limits. Paid plans change the limits and add features; the [pricing table](https://otter.ai/pricing) is the source to check before a migration. "Unlimited" in one row does not override a cap in another.
+
+Training policy also varies. Otter's [Enterprise controls](https://help.otter.ai/hc/en-us/articles/13352505516695-Enterprise-Admin-Controls-Overview) document a no-training default for Enterprise workspaces. Do not apply a general consumer-plan description to every enterprise customer.
+
+## Platforms and exports before you migrate
+
+| Edition | Desktop requirements in official sources | Export entitlement |
+| --- | --- | --- |
+| Meetily Community | Native macOS/Windows; Apple Silicon Mac download; Linux source build | Basic copy sharing; advanced file formats are advertised for Pro |
+| Meetily Pro | Same native desktop availability | Markdown/DOCX/PDF summaries; TXT/DOCX transcripts; clipboard copy |
+| Otter Basic | macOS 12.3+ or Windows 10+; web also available | TXT transcript and MP3 audio |
+| Otter Pro | Same desktop requirements | Adds DOCX, PDF, and SRT |
+| Otter Business / Enterprise | Same desktop requirements | Adds bulk export; shared content still requires export permission |
+
+Sources: Meetily [downloads](https://meetily.ai/downloads), [pricing](https://meetily.ai/pricing), and [export guide](https://docs.meetily.ai/features/export-and-copy); Otter [desktop requirements](https://help.otter.ai/hc/en-us/articles/35973988280215-Otter-Desktop-App-Mac-Windows) and [conversation exports](https://help.otter.ai/hc/en-us/articles/360047733634-Export-conversations).
+
+Meetily Pro's GUI exports one meeting at a time. Its transcript formats preserve timestamps and speaker labels when present. Otter's export controls also expose speaker/timestamp options. Confirm which options you selected before treating an exported file as a complete archive.
+
+Open the output in the destination you actually use. Check a name, a decision, a speaker change, and the last segment of the meeting. Then decide who will maintain the archive and its backups. Complete these checks before switching.
+
+## Which one fits?
+
+Choose Meetily when local processing or a configurable AI stack is non-negotiable and the supported desktop edition meets your needs. Choose Otter when shared cloud history, cross-device access, and managed collaboration are the work you want the product to do.
+
+If you want a note-taking workspace with a local canonical record and selectable AI providers, [Anarlog](https://anarlog.so/) is another option. Our [Anarlog vs Meetily comparison](/blog/char-vs-meetily/) and [local meeting notes guide](/blog/local-ai-meeting-notes/) provide more context. Check current documentation for each product's platform support before installing.
