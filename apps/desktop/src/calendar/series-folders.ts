@@ -28,6 +28,14 @@ export async function getSeriesFolderRule(
 ): Promise<string | null> {
   if (!seriesId) return null;
   const rules = await loadSeriesFolderRules();
+  return ruleFolderForSeries(rules, seriesId);
+}
+
+export function ruleFolderForSeries(
+  rules: SeriesFolderRule[],
+  seriesId: string | null | undefined,
+): string | null {
+  if (!seriesId) return null;
   return rules.find((rule) => rule.series_id === seriesId)?.folder_path ?? null;
 }
 
