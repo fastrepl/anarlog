@@ -779,42 +779,48 @@ describe("useStartListening", () => {
     expect(runBatchMock).not.toHaveBeenCalled();
   });
 
-  test("transcribes retained Scribe V2 audio only after chunked capture stops", async () => {
-    useSTTConnectionMock.mockReturnValue({
-      conn: {
-        provider: "elevenlabs",
-        model: "scribe_v2",
-        baseUrl: "https://api.elevenlabs.io/v1",
-        apiKey: "token",
-      },
-    });
-    const { result } = renderHook(() => useStartListening("session-1"));
-    await act(async () => {
-      await result.current();
-    });
-    expect(startMock.mock.calls[0]?.[0]).toMatchObject({
-      transcription_mode: "batch",
-      retain_audio: true,
-    });
-    expect(runBatchMock).not.toHaveBeenCalled();
-
-    await act(async () => {
-      await startMock.mock.calls[0]?.[1].onStopped("session-1", {
-        chunkedAudio: true,
-        durationSeconds: 60,
-        audioPath: "/tmp/session.mp3",
-        requestedLiveTranscription: false,
-        liveTranscriptionActive: false,
-        needsBatchRepair: false,
+  test.each([
+    ["Scribe V2", "elevenlabs", "scribe_v2", "https://api.elevenlabs.io/v1"],
+    [
+      "AssemblyAI Universal-3.5 Pro",
+      "assemblyai",
+      "universal-3-5-pro",
+      "https://api.assemblyai.com",
+    ],
+  ])(
+    "transcribes retained %s audio only after chunked capture stops",
+    async (_label, provider, model, baseUrl) => {
+      useSTTConnectionMock.mockReturnValue({
+        conn: { provider, model, baseUrl, apiKey: "token" },
       });
-    });
+      const { result } = renderHook(() => useStartListening("session-1"));
+      await act(async () => {
+        await result.current();
+      });
+      expect(startMock.mock.calls[0]?.[0]).toMatchObject({
+        transcription_mode: "batch",
+        retain_audio: true,
+      });
+      expect(runBatchMock).not.toHaveBeenCalled();
 
-    expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.mp3", {
-      deferAudioFinalization: true,
-      notifyOnCompletion: true,
-      promotion: { scope: "whole_session" },
-    });
-  });
+      await act(async () => {
+        await startMock.mock.calls[0]?.[1].onStopped("session-1", {
+          chunkedAudio: true,
+          durationSeconds: 60,
+          audioPath: "/tmp/session.mp3",
+          requestedLiveTranscription: false,
+          liveTranscriptionActive: false,
+          needsBatchRepair: false,
+        });
+      });
+
+      expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.mp3", {
+        deferAudioFinalization: true,
+        notifyOnCompletion: true,
+        promotion: { scope: "whole_session" },
+      });
+    },
+  );
 
   test("a new recording adopts untranscribed zero-retention audio from the same note", async () => {
     const pending = {
