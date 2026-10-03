@@ -1,0 +1,92 @@
+---
+meta_title: "Zero Data Retention AI: Is Your Meeting Data Still Stored?"
+display_title: "Does Zero Data Retention Mean My Meeting Data Is Never Stored?"
+meta_description: "Zero data retention usually covers a specific processor and request path. Trace recordings, transcripts, app storage, AI requests, and exports separately."
+author:
+  - "Anarlog Team"
+featured: !!bool "false"
+category: "Guides"
+date: "2026-10-15"
+---
+
+**No. A zero data retention commitment can apply to an AI processor while your meeting app still stores the recording, transcript, and summary.** To understand the promise, identify the provider, covered content, endpoint, model, and exceptions.
+
+That distinction matters when you are choosing a meeting notetaker or configuring your own AI stack. You may want a searchable meeting archive and no retained copy at the summary provider. Those are compatible requirements.
+
+We make Anarlog. This guide reviews public technical policies checked September 22, 2026. It is not a certification or a legal assessment of any deployment.
+
+## Trace one meeting through every storage layer
+
+| Layer | Example artifact | Question to ask |
+| --- | --- | --- |
+| Capture device | Original audio file | Is the recording retained locally, remotely, or both? |
+| Transcription service | Audio request and transcript | What remains after speech processing? |
+| Meeting application | Searchable transcript and notes | What is the application's own retention policy? |
+| Summary provider | Prompt and generated summary | Does the specific request qualify for zero retention? |
+| Integration | Copied action items or recap | Does the destination keep an independent copy? |
+| Backup or export | Archive, Markdown, PDF, or backup | Who controls deletion of this copy? |
+
+Adapt these layers to your configuration: remove unused ones and add any intermediary that handles your content.
+
+Suppose a meeting app sends text to a summary provider, receives a result, and saves it in your account. The provider may discard the request after processing while the app retains the result for your team. Ask about both organizations rather than treating the provider's promise as a description of the entire product.
+
+## What the provider's policy actually covers
+
+OpenAI's [API data-controls documentation](https://developers.openai.com/api/docs/guides/your-data) distinguishes abuse-monitoring logs from application state. Zero Data Retention requires approval and has endpoint and feature limitations; some capabilities can retain application state. Check the exact request path, not just whether the organization has a ZDR setting.
+
+Anthropic's [Covered Models retention policy](https://privacy.claude.com/en/articles/15425996-data-retention-practices-for-covered-models) illustrates another boundary: particular model capabilities can carry retention requirements, with documented exceptions for eligible organizations. Verify the actual model and workspace arrangement instead of assuming a previous agreement covers every future model.
+
+These examples are reasons to keep configuration evidence. They do not mean the providers' policies are identical.
+
+## A meeting-app example
+
+Fireflies describes third-party processing restrictions in its [information-safety policy](https://guide.fireflies.ai/articles/2154538358-policy-on-keeping-information-safe). It also provides a workspace where users access meeting content. The external processor's retention and the workspace's retention answer different questions.
+
+For Fireflies specifically, its [storage and transfer guide](https://guide.fireflies.ai/articles/9596505232-learn-about-data-storage-and-transfer) separates storage location, processing location, and retention. The same method works when evaluating another hosted notetaker: identify each boundary before comparing the headline promise.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/fireflies/privacy/2026-09-22-auto-delete-period.png" alt="Fireflies auto-delete meeting setting with retention period choices" width={900} height={445} />
+
+<p className="blog-image-credit">Source: <a href="https://guide.fireflies.ai/articles/7870593373-learn-about-the-auto-delete-meeting-feature">Fireflies</a>.</p>
+
+## Four claims that should not be treated as synonyms
+
+**No model training** limits a use of content. It does not necessarily eliminate safety logs, saved chats, or application records.
+
+**Zero data retention** is scoped to the service and conditions stated in the agreement or documentation. It is not a universal instruction to every application that has received a copy.
+
+**Regional storage** concerns location. It does not automatically establish the location of inference, who can access the data, or when it is deleted.
+
+**Local processing** concerns where computation runs. It does not automatically secure the laptop, turn off a synchronized export folder, or remove an older cloud copy.
+
+Choose the combination your workflow needs. Do not use one of these phrases as shorthand for the others.
+
+## Keep a small verification record
+
+For a synthetic meeting, record the following before approving a configuration:
+
+```text
+Application and version:
+Account/workspace and plan:
+Transcription provider and endpoint:
+Summary provider, endpoint, and model:
+Retention control and covered request types:
+Features with additional storage:
+Workspace retention/deletion controls:
+Exports, integrations, and backup destinations:
+Policy or agreement checked, with date:
+Unresolved questions and owner:
+```
+
+Use an account-specific setting or agreement where required. A screenshot of a vendor's marketing page is not proof that your API project has the control enabled.
+
+Recheck this record after changing providers, models, file features, or integrations. A configuration can change its data path without changing the name of the meeting app.
+
+## When keeping the workflow local is simpler
+
+If the requirement is that meeting content should not be sent to a hosted AI service, choose and test local transcription and local summary models. That reduces the number of external processing boundaries you must evaluate.
+
+[Anarlog](https://anarlog.so/) keeps its canonical meeting record in local SQLite and exposes separate transcription and Intelligence selections. Its [provider documentation](https://docs.anarlog.so/models-and-providers) explains those inputs and destinations. Optional cloud AI, sync, sharing, and exports still need deliberate choices.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/anarlog/desktop/2026-09-22-mac-local-intelligence.png" alt="Anarlog Intelligence settings selecting Ollama Qwen2.5 1.5b" width={900} height={611} />
+
+For a concrete next step, compare the processing choices in [local AI meeting notes](/blog/local-ai-meeting-notes/), then test the selected providers on your own computer. Keep the completed verification record with that setup.
