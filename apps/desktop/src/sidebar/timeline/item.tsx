@@ -33,6 +33,10 @@ import {
 } from "./utils";
 
 import { useIgnoredEvents } from "~/calendar/ignored-events";
+import {
+  ruleFolderForSeries,
+  useSeriesFolderRules,
+} from "~/calendar/series-folders";
 import { writeSessionContextDragData } from "~/chat/context/session-drag";
 import { DEVICE_AUTH_REASON } from "~/lock/auth";
 import { isLockedFlag } from "~/lock/flag";
@@ -450,6 +454,17 @@ const EventItem = memo(
     const trackingIdEvent = item.data.tracking_id_event;
     const title = item.data.title || t`Untitled`;
     const recurrenceSeriesId = item.data.recurrence_series_id;
+    const groupBy = useSidebarNotes((state) => state.groupBy);
+    const showFolder = useConfigValue("sidebar_show_folder");
+    const seriesRules = useSeriesFolderRules();
+    const { folder } = resolveSidebarItemMeta({
+      folderId:
+        item.data.session_folder ||
+        ruleFolderForSeries(seriesRules, recurrenceSeriesId),
+      showFolder,
+      showTags: false,
+      groupBy,
+    });
 
     const {
       isIgnored,
@@ -574,6 +589,7 @@ const EventItem = memo(
       <ItemBase
         title={title}
         displayTime={displayTime}
+        folder={folder}
         showSpinner={isOpening}
         selected={selected}
         ignored={ignored}
@@ -626,8 +642,14 @@ const SessionItem = memo(
     const groupBy = useSidebarNotes((state) => state.groupBy);
     const showFolder = useConfigValue("sidebar_show_folder");
     const showTags = useConfigValue("sidebar_show_tags");
+    const seriesRules = useSeriesFolderRules();
     const { folder, tags } = resolveSidebarItemMeta({
-      folderId: item.data.folder_id,
+      folderId:
+        item.data.folder_id ||
+        ruleFolderForSeries(
+          seriesRules,
+          getSessionEvent(item.data)?.recurrence_series_id,
+        ),
       tags: item.data.tags,
       showFolder,
       showTags,
