@@ -356,11 +356,12 @@ impl AssemblyAIAdapter {
                 .map(|word| Self::convert_word(word, &mut speaker_ids, &mut next_speaker_id))
                 .collect();
             // Channel 0 (DirectMic) renders as exactly one speaker, the local
-            // user. Keep solo recordings there, but move words from a mixed
-            // single-track upload with several voices to the mixed-capture
-            // channel so their speaker labels survive.
+            // user. Keep solo recordings there, but move a mixed single-track
+            // upload with several voices to the mixed-capture channel so their
+            // speaker labels survive. Unlabeled words move too, like the Mistral
+            // adapter, so they render as unknown speech instead of the user.
             if speaker_ids.len() > 1 {
-                for word in words.iter_mut().filter(|word| word.speaker.is_some()) {
+                for word in &mut words {
                     word.channel = MIXED_CAPTURE_CHANNEL;
                 }
             }
@@ -526,7 +527,9 @@ mod tests {
         // and collapses every diarized label back into one there.
         assert_eq!(words[0].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(words[1].channel, MIXED_CAPTURE_CHANNEL);
-        assert_eq!(words[2].channel, 0);
+        // Unlabeled speech in a mixed recording must not render as the local user.
+        assert_eq!(words[2].channel, MIXED_CAPTURE_CHANNEL);
+        assert_eq!(words[2].speaker, None);
     }
 
     #[test]
