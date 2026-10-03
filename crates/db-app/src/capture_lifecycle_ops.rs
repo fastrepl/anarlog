@@ -100,7 +100,13 @@ pub async fn mark_capture_audio_saved(
            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
          ON CONFLICT(id) DO UPDATE SET
            value_json = excluded.value_json,
-           updated_at = excluded.updated_at
+           updated_at = CASE
+             WHEN json_valid(app_settings.value_json)
+               AND json_extract(app_settings.value_json, '$.transcriptId') IS NOT NULL
+               AND json_extract(excluded.value_json, '$.transcriptId') IS NOT NULL
+             THEN excluded.updated_at
+             ELSE app_settings.updated_at
+           END
          WHERE app_settings.value_json IS NOT excluded.value_json",
     )
     .bind(id)
@@ -160,5 +166,43 @@ mod tests {
 
         clear_capture_audio_saved(pool, "session-1").await.unwrap();
         assert_eq!(saved_at(pool).await, None);
+    }
+
+    #[tokio::test]
+    async fn upgrading_legacy_saved_audio_row_keeps_the_save_time() {
+        let db = Db::connect_memory_plain().await.unwrap();
+        crate::prepare_schema(&db).await.unwrap();
+        let pool = db.pool();
+
+        sqlx::query(
+            "INSERT INTO app_settings (id, value_json, updated_at)
+             VALUES (?, '{}', '2026-10-01T00:00:00.000Z')",
+        )
+        .bind(format!("{CAPTURE_AUDIO_SAVED_SETTING_PREFIX}session-1"))
+        .execute(pool)
+        .await
+        .unwrap();
+
+        upsert_capture_lifecycle_marker(pool, "session-1", r#"{"transcriptId":"t1"}"#, "t1")
+            .await
+            .unwrap();
+        mark_capture_audio_saved(pool, "session-1").await.unwrap();
+        assert_eq!(saved_at(pool).await.unwrap(), "2026-10-01T00:00:00.000Z");
+        let transcript_id: Option<String> = sqlx::query_scalar(
+            "SELECT json_extract(value_json, '$.transcriptId')
+             FROM app_settings WHERE id = ?",
+        )
+        .bind(format!("{CAPTURE_AUDIO_SAVED_SETTING_PREFIX}session-1"))
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        assert_eq!(transcript_id.as_deref(), Some("t1"));
+
+        upsert_capture_lifecycle_marker(pool, "session-1", r#"{"transcriptId":"t2"}"#, "t1")
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        mark_capture_audio_saved(pool, "session-1").await.unwrap();
+        assert_ne!(saved_at(pool).await.unwrap(), "2026-10-01T00:00:00.000Z");
     }
 }

@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -141,11 +141,9 @@ test("does not treat creating the meeting note as closing the prompt", async () 
   options.action.onClick();
   options.onDismiss();
   await vi.waitFor(() =>
-    expect(consoleError).toHaveBeenCalledWith(
-      "[listener] failed to request capture recovery",
-      expect.any(Error),
-    ),
+    expect(mocks.requestCaptureRecovery).toHaveBeenCalledOnce(),
   );
+  await act(async () => {});
   consoleError.mockRestore();
   first.unmount();
   mocks.toastWarning.mockClear();
