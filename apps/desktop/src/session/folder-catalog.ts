@@ -3,7 +3,10 @@ import { commands } from "@anlg/plugin-session";
 
 import { ancestorFolderPaths, normalizeFolderPath } from "./folders";
 
-import { remapSeriesFolderRules } from "~/calendar/series-folders";
+import {
+  clearSeriesFolderRulesForFolder,
+  remapSeriesFolderRules,
+} from "~/calendar/series-folders";
 import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { normalizeFolderIcon } from "~/session/folder-icon";
@@ -57,7 +60,14 @@ export async function renameNamedFolder(
     }
   });
 
-  await remapSeriesFolderRules(oldPath, newPath);
+  try {
+    await remapSeriesFolderRules(oldPath, newPath);
+  } catch (error) {
+    console.error(
+      "[folder-catalog] failed to remap series folder rules",
+      error,
+    );
+  }
 
   return newPath;
 }
@@ -104,6 +114,15 @@ export async function deleteNamedFolder(folderPath: string): Promise<void> {
     !String(deleted.error).includes("folder_source_missing")
   ) {
     throw new Error(deleted.error);
+  }
+
+  try {
+    await clearSeriesFolderRulesForFolder(path);
+  } catch (error) {
+    console.error(
+      "[folder-catalog] failed to clear series folder rules",
+      error,
+    );
   }
 }
 

@@ -56,6 +56,24 @@ export async function clearSeriesFolderRule(seriesId: string): Promise<void> {
   });
 }
 
+export async function clearSeriesFolderRulesForFolder(
+  folderPath: string,
+): Promise<void> {
+  const normalized = normalizeFolderPath(folderPath);
+  if (!normalized) return;
+  await enqueueDatabaseWrite(`app-setting:${SERIES_FOLDERS_ID}`, async () => {
+    const rules = await loadSeriesFolderRules();
+    const next = rules.filter(
+      (rule) =>
+        rule.folder_path !== normalized &&
+        !rule.folder_path.startsWith(`${normalized}/`),
+    );
+    if (next.length !== rules.length) {
+      await writeSeriesFolderRules(next);
+    }
+  });
+}
+
 export async function remapSeriesFolderRules(
   oldPath: string,
   newPath: string,

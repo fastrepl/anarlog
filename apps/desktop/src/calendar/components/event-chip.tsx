@@ -197,6 +197,9 @@ function EventPopoverContent({
   const [view, setView] = useState<"main" | "folders" | "manage">("main");
   const [filing, setFiling] = useState(false);
   const [pickerSessionId, setPickerSessionId] = useState<string | null>(null);
+  const [pickerMode, setPickerMode] = useState<"occurrence" | "rule">(
+    "occurrence",
+  );
   const [folderAtPickerOpen, setFolderAtPickerOpen] = useState("");
   const [pickerClosed, setPickerClosed] = useState(false);
   const declinedSeries = useRef<Set<string>>(new Set());
@@ -212,23 +215,27 @@ function EventPopoverContent({
     sessionFolder !== folderAtPickerOpen &&
     !declinedSeries.current.has(seriesId);
 
-  const openFolderPicker = useCallback(async () => {
-    setFiling(true);
-    try {
-      const sessionId = await getOrCreateSessionForEventId(
-        eventId,
-        event.title || "Untitled",
-      );
-      setPickerSessionId(sessionId);
-      setFolderAtPickerOpen(linkedSession?.folder_path ?? "");
-      setPickerClosed(false);
-      setView("folders");
-    } catch (error) {
-      console.error("[calendar] failed to open folder picker", error);
-    } finally {
-      setFiling(false);
-    }
-  }, [eventId, event.title, linkedSession?.folder_path]);
+  const openFolderPicker = useCallback(
+    async (mode: "occurrence" | "rule") => {
+      setFiling(true);
+      try {
+        const sessionId = await getOrCreateSessionForEventId(
+          eventId,
+          event.title || "Untitled",
+        );
+        setPickerSessionId(sessionId);
+        setPickerMode(mode);
+        setFolderAtPickerOpen(linkedSession?.folder_path ?? "");
+        setPickerClosed(false);
+        setView("folders");
+      } catch (error) {
+        console.error("[calendar] failed to open folder picker", error);
+      } finally {
+        setFiling(false);
+      }
+    },
+    [eventId, event.title, linkedSession?.folder_path],
+  );
 
   const handleFolderButton = useCallback(() => {
     if (filing) return;
@@ -236,13 +243,25 @@ function EventPopoverContent({
       setView("manage");
       return;
     }
-    void openFolderPicker();
+    void openFolderPicker("occurrence");
   }, [filing, ruleFolder, openFolderPicker]);
 
   const handlePickerClose = useCallback(() => {
     setPickerClosed(true);
     setView("main");
   }, []);
+
+  const handleRuleFolderSelect = useCallback(
+    async (folderPath: string) => {
+      if (!seriesId) return;
+      if (folderPath) {
+        await setSeriesFolderRule(seriesId, folderPath);
+      } else {
+        await clearSeriesFolderRule(seriesId);
+      }
+    },
+    [seriesId],
+  );
 
   const handleAutoAdd = useCallback(async () => {
     if (!seriesId || !sessionFolder) return;
@@ -287,10 +306,19 @@ function EventPopoverContent({
           {t`Back`}
         </button>
         {pickerSessionId ? (
-          <FolderPickerContent
-            sessionId={pickerSessionId}
-            onClose={handlePickerClose}
-          />
+          pickerMode === "rule" ? (
+            <FolderPickerContent
+              sessionId={pickerSessionId}
+              onClose={handlePickerClose}
+              selectedPath={ruleFolder ?? ""}
+              onSelectFolder={handleRuleFolderSelect}
+            />
+          ) : (
+            <FolderPickerContent
+              sessionId={pickerSessionId}
+              onClose={handlePickerClose}
+            />
+          )
         ) : null}
       </div>
     );
@@ -324,25 +352,32 @@ function EventPopoverContent({
             {folderDisplayName(ruleFolder)}
           </span>
         </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            className="min-h-8 flex-1"
-            disabled={filing}
-            onClick={() => void openFolderPicker()}
-          >
-            {t`Change folder`}
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            className="min-h-8 flex-1"
-            onClick={() => void handleStopAutoAdd()}
-          >
-            {t`Stop auto-add`}
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="min-h-8 w-full"
+          disabled={filing}
+          onClick={() => void openFolderPicker("occurrence")}
+        >
+          {t`Move this note`}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="min-h-8 w-full"
+          disabled={filing}
+          onClick={() => void openFolderPicker("rule")}
+        >
+          {t`Change auto-add folder`}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="min-h-8 w-full"
+          onClick={() => void handleStopAutoAdd()}
+        >
+          {t`Stop auto-add`}
+        </Button>
       </div>
     );
   }

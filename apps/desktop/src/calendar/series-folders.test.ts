@@ -25,6 +25,7 @@ vi.mock("~/db/write-queue", () => ({
 
 import {
   clearSeriesFolderRule,
+  clearSeriesFolderRulesForFolder,
   getSeriesFolderRule,
   remapSeriesFolderRules,
   setSeriesFolderRule,
@@ -136,6 +137,32 @@ describe("series folder auto-add rules", () => {
     );
 
     await remapSeriesFolderRules("Work", "Job");
+
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("clearSeriesFolderRulesForFolder drops rules for a deleted folder and its children", async () => {
+    mocks.execute.mockResolvedValue(
+      settingRows([
+        { series_id: "series-1", folder_path: "Work" },
+        { series_id: "series-2", folder_path: "Work/Clients" },
+        { series_id: "series-3", folder_path: "Personal" },
+      ]),
+    );
+
+    await clearSeriesFolderRulesForFolder("Work");
+
+    expect(writtenRules()).toEqual([
+      { series_id: "series-3", folder_path: "Personal" },
+    ]);
+  });
+
+  it("clearSeriesFolderRulesForFolder skips the write when no rule references the folder", async () => {
+    mocks.execute.mockResolvedValue(
+      settingRows([{ series_id: "series-1", folder_path: "Personal" }]),
+    );
+
+    await clearSeriesFolderRulesForFolder("Work");
 
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
   });

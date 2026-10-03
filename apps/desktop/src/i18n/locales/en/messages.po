@@ -1025,8 +1025,8 @@ msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr "Capture your first conversation. Every collection starts somewhere."
 
 #: src/calendar/components/event-chip.tsx
-msgid "Change folder"
-msgstr "Change folder"
+msgid "Change auto-add folder"
+msgstr "Change auto-add folder"
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
@@ -3582,6 +3582,10 @@ msgstr "Most conversations: {busiestDay}"
 #: src/templates/sections-editor.tsx
 msgid "Move down"
 msgstr "Move down"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Move this note"
+msgstr "Move this note"
 
 #: src/templates/sections-editor.tsx
 msgid "Move up"
