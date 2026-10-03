@@ -21,13 +21,15 @@ vi.mock("~/auth/billing-context", () => ({
 
 import { SttSettingsProvider, useSttSettings } from "./context";
 
+import { usePendingSttSelection } from "~/store/zustand/pending-stt-selection";
+
 function Probe() {
   const { queuedDownloads, startDownload } = useSttSettings();
 
   return (
     <>
       <div data-testid="queued">{queuedDownloads.join(",")}</div>
-      <button onClick={() => startDownload("soniqo-parakeet-batch")}>
+      <button onClick={() => startDownload("soniqo-parakeet-batch", "soniqo")}>
         Download
       </button>
     </>
@@ -37,6 +39,7 @@ function Probe() {
 describe("SttSettingsProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    usePendingSttSelection.setState({ selection: null, queuedDownloads: [] });
   });
 
   it("shows the command error and makes a failed model retryable", async () => {
@@ -51,6 +54,10 @@ describe("SttSettingsProvider", () => {
       </SttSettingsProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(usePendingSttSelection.getState().selection).toEqual({
+      provider: "soniqo",
+      model: "soniqo-parakeet-batch",
+    });
 
     await waitFor(() => {
       expect(mocks.toastError).toHaveBeenCalledWith(
@@ -59,5 +66,6 @@ describe("SttSettingsProvider", () => {
       );
     });
     expect(screen.getByTestId("queued").textContent).toBe("");
+    expect(usePendingSttSelection.getState().selection).toBeNull();
   });
 });

@@ -296,6 +296,7 @@ function toastPresentation(toast: ToastType) {
   return [
     toast.id,
     description,
+    toast.detail ?? "",
     toast.variant ?? "default",
     toast.loading ? "loading" : "idle",
     toast.primaryAction?.label ?? "",
@@ -311,6 +312,7 @@ function showNotification(
   const dismissible = toast.lifecycle.type === "persistent";
   const options = {
     id: toast.id,
+    description: toast.detail,
     duration: toast.variant === "error" ? TOAST_DURATIONS.error : Infinity,
     closeButton: dismissible,
     dismissible,
