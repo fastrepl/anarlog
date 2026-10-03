@@ -62,9 +62,10 @@ export function getSitemap(): Sitemap<TRoutes | "/security/" | "/about/"> {
         priority: 0.7,
         changeFrequency: "monthly",
       },
-      // Per-version release notes are noindex (see routes/changelog/$version),
+      // Per-version release notes are noindex (see routes/changelog/$stream.$version),
       // so listing them here would contradict the directive.
       "/changelog/$version": [],
+      "/changelog/$stream/$version": [],
       "/blog/$slug": slugs.map((slug) => ({
         path: `/blog/${slug}/`,
         priority: 0.6,

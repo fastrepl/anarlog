@@ -3529,6 +3529,10 @@ msgstr "Model being used"
 msgid "Model download couldn’t start"
 msgstr "Model download couldn’t start"
 
+#: src/contexts/notifications.tsx
+msgid "Model downloaded"
+msgstr "Model downloaded"
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Model is thinking..."
 msgstr "Model is thinking..."
@@ -5510,6 +5514,7 @@ msgid "Start writing..."
 msgstr "Start writing..."
 
 #: src/settings/ai/stt/select.tsx
+#: src/sidebar/toast/registry.tsx
 msgid "Starting"
 msgstr "Starting"
 

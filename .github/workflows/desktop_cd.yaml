@@ -94,7 +94,7 @@ jobs:
             fi
             VERSION="$INPUT_VERSION"
             node scripts/release-version.mjs --check "$VERSION"
-            if [[ ! -f "packages/changelog/content/$VERSION.md" ]]; then
+            if [[ ! -f "packages/changelog/content/desktop/$VERSION.md" ]]; then
               echo "::error::Missing changelog for stable version $VERSION"
               exit 1
             fi

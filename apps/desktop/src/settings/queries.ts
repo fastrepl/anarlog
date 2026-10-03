@@ -3,7 +3,10 @@ import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as detectCommands } from "@anlg/plugin-detect";
-import { commands as localSttCommands } from "@anlg/plugin-local-stt";
+import {
+  commands as localSttCommands,
+  type LocalModel,
+} from "@anlg/plugin-local-stt";
 import { commands as templateCommands } from "@anlg/plugin-template";
 import { commands as trayCommands } from "@anlg/plugin-tray";
 import { commands as updaterCommands } from "@anlg/plugin-updater2";
@@ -28,6 +31,7 @@ import {
   type SettingValues,
 } from "~/settings/schema";
 import { isAppStoreBuild } from "~/shared/app-store";
+import { usePendingSttSelection } from "~/store/zustand/pending-stt-selection";
 import { isConfiguredSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
 import {
   getDefaultSttModel,
@@ -213,15 +217,41 @@ export function setSettingValue<K extends SettingKey>(
 }
 
 export function setSettingValues(values: SettingValues): Promise<void> {
+  cancelPendingSttSelection(values);
   return enqueueDatabaseWrite("app-settings", () =>
     persistSettingValues(values),
   );
+}
+
+export function setDownloadedSttSelection(selection: {
+  provider: string;
+  model: LocalModel;
+}): Promise<void> {
+  return enqueueDatabaseWrite("app-settings", async () => {
+    if (usePendingSttSelection.getState().selection !== selection) return;
+    await persistSettingValues({
+      current_stt_provider: selection.provider,
+      current_stt_model: selection.model,
+    });
+  });
+}
+
+function cancelPendingSttSelection(values: SettingValues): void {
+  if (
+    values.current_stt_provider !== undefined ||
+    values.current_stt_model !== undefined
+  ) {
+    usePendingSttSelection.setState({ selection: null });
+  }
 }
 
 export function updateSettingValue<K extends SettingKey>(
   key: K,
   update: (current: SettingValue<K> | undefined) => SettingValue<K>,
 ): Promise<SettingValue<K>> {
+  if (key === "current_stt_provider" || key === "current_stt_model") {
+    usePendingSttSelection.setState({ selection: null });
+  }
   return enqueueDatabaseWrite("app-settings", async () => {
     const stored = await getStoredSettingValues();
     const definition = SETTING_DEFINITIONS[key];

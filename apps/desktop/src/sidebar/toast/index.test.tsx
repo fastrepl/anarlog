@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
       model: string;
       displayName: string;
       progress: number;
+      isStarting?: boolean;
     }>,
     localSttStatus: null as null | "loading" | "unreachable",
     isLocalSttModel: false,
@@ -260,6 +261,45 @@ describe("ToastNotifications", () => {
         closeButton: true,
       }),
     );
+  });
+
+  it("updates the model download toast from starting to download progress", () => {
+    mocks.notifications.hasActiveDownload = true;
+    mocks.notifications.downloadingModel = "Apple Speech";
+    mocks.notifications.activeDownloads = [
+      {
+        model: "apple-speech",
+        displayName: "Apple Speech",
+        progress: 0,
+        isStarting: true,
+      },
+    ];
+    const view = render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+    expect(mocks.loading).toHaveBeenLastCalledWith(
+      "Downloading Apple Speech",
+      expect.objectContaining({
+        id: "downloading-model",
+        description: "Starting",
+        duration: Infinity,
+      }),
+    );
+    mocks.notifications.activeDownloads = [
+      { model: "apple-speech", displayName: "Apple Speech", progress: 42 },
+    ];
+    view.rerender(<ToastNotifications />);
+    expect(mocks.loading).toHaveBeenLastCalledWith(
+      "Downloading Apple Speech",
+      expect.objectContaining({
+        id: "downloading-model",
+        description: "42%",
+        duration: Infinity,
+      }),
+    );
+    mocks.notifications.hasActiveDownload = false;
+    mocks.notifications.activeDownloads = [];
+    view.rerender(<ToastNotifications />);
+    expect(mocks.dismiss).toHaveBeenCalledWith("downloading-model");
   });
 
   it("offers Restart after the download finishes", () => {

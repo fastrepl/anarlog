@@ -10,6 +10,7 @@ export type DownloadProgress = {
   model: string;
   displayName: string;
   progress: number;
+  isStarting?: boolean;
 };
 
 type ToastLifecycle =
@@ -24,6 +25,7 @@ export type ToastType = {
   id: string;
   icon?: ReactNode;
   description: ReactNode;
+  detail?: string;
   primaryAction?: ToastAction;
   lifecycle: ToastLifecycle;
   variant?: "default" | "error" | "warning";

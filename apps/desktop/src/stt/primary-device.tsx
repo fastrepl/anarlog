@@ -243,24 +243,14 @@ export function startPrimaryDeviceCoordination({
       id: toastId,
       duration: Infinity,
       dismissible: false,
-      description: (
-        <div data-primary-device-prompt className="flex gap-3">
-          <button
-            type="button"
-            onClick={claim}
-            className="text-foreground font-medium underline-offset-2 hover:underline"
-          >
-            Yes
-          </button>
-          <button
-            type="button"
-            onClick={() => yieldTo(otherName)}
-            className="text-foreground font-medium underline-offset-2 hover:underline"
-          >
-            No
-          </button>
-        </div>
-      ),
+      action: {
+        label: <span data-primary-device-prompt>Yes</span>,
+        onClick: claim,
+      },
+      secondaryAction: {
+        label: "No",
+        onClick: () => yieldTo(otherName),
+      },
     });
   };
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getChangelogVersionFromPath } from "./changelog-path.ts";
+import { getChangelogReleaseFromPath } from "./changelog-path.ts";
 
 test("excludes all Nightly notes from the website", () => {
   for (const file of [
@@ -10,29 +10,37 @@ test("excludes all Nightly notes from the website", () => {
     "1.4.24-beta.1.md",
   ]) {
     assert.equal(
-      getChangelogVersionFromPath(`packages/changelog/content/${file}`),
+      getChangelogReleaseFromPath(`packages/changelog/content/desktop/${file}`),
       null,
     );
   }
 });
 
 test("extracts versions only from changelog release files", () => {
-  assert.equal(
-    getChangelogVersionFromPath(
-      "../../../../packages/changelog/content/1.0.32.md",
+  assert.deepEqual(
+    getChangelogReleaseFromPath(
+      "../../../../packages/changelog/content/desktop/1.0.32.md",
     ),
-    "1.0.32",
+    { stream: "desktop", version: "1.0.32" },
   );
+  assert.deepEqual(getChangelogReleaseFromPath("content/mobile/1.0.32.md"), {
+    stream: "mobile",
+    version: "1.0.32",
+  });
+  assert.equal(getChangelogReleaseFromPath("content/1.0.32.md"), null);
+  assert.equal(getChangelogReleaseFromPath("content/unknown/1.0.32.md"), null);
   assert.equal(
-    getChangelogVersionFromPath("packages/changelog/content/AGENTS.md"),
+    getChangelogReleaseFromPath("packages/changelog/content/AGENTS.md"),
     null,
   );
   assert.equal(
-    getChangelogVersionFromPath("packages/changelog/content/1.0.md"),
+    getChangelogReleaseFromPath("packages/changelog/content/desktop/1.0.md"),
     null,
   );
   assert.equal(
-    getChangelogVersionFromPath("packages/changelog/content/1.0.32.mdx"),
+    getChangelogReleaseFromPath(
+      "packages/changelog/content/desktop/1.0.32.mdx",
+    ),
     null,
   );
 });

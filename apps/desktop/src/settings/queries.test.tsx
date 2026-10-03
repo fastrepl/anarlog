@@ -51,21 +51,24 @@ vi.mock("~/db", () => ({
   useLiveQuery: vi.fn(() => ({ data: undefined })),
 }));
 
-vi.mock("~/db/write-queue", () => ({
-  enqueueDatabaseWrite: (_key: string, operation: () => Promise<unknown>) =>
-    operation(),
-}));
-
 import {
+  getStoredSettingValues,
   initializeApplicationSettings,
   parseSettingRows,
+  setDownloadedSttSelection,
   setSettingValues,
   updateSettingValue,
 } from "./queries";
 
+import { flushDatabaseWrites } from "~/db/write-queue";
+import { usePendingSttSelection } from "~/store/zustand/pending-stt-selection";
+
 describe("SQLite settings", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await flushDatabaseWrites();
     vi.clearAllMocks();
+    usePendingSttSelection.setState({ selection: null, queuedDownloads: [] });
+    mocks.executeTransaction.mockResolvedValue([1]);
     mocks.setDisabled.mockResolvedValue({ status: "ok", data: null });
     mocks.execute.mockResolvedValue([]);
     mocks.getPreferredLanguages.mockResolvedValue({
@@ -75,6 +78,83 @@ describe("SQLite settings", () => {
     mocks.getTemplateSource.mockResolvedValue({
       status: "ok",
       data: "- Use Markdown.",
+    });
+  });
+
+  it("persists download completion without overriding newer provider choices", async () => {
+    const rows = new Map<string, string>();
+    mocks.execute.mockImplementation(async () =>
+      Array.from(rows, ([id, value_json]) => ({ id, value_json })),
+    );
+    let heldKey: string | undefined;
+    let releaseWrite = () => {};
+    let startedWrite = () => {};
+    let writeGate = Promise.resolve();
+    mocks.executeTransaction.mockImplementation(async (statements) => {
+      if (statements.some((statement) => statement.params[0] === heldKey)) {
+        startedWrite();
+        await writeGate;
+      }
+      for (const statement of statements) {
+        rows.set(String(statement.params[0]), String(statement.params[1]));
+      }
+      return [1];
+    });
+    const selection = {
+      provider: "soniqo",
+      model: "soniqo-parakeet-batch",
+    } as const;
+    usePendingSttSelection.setState({ selection });
+    await setDownloadedSttSelection(selection);
+    expect((await getStoredSettingValues()).values).toMatchObject({
+      current_stt_provider: "soniqo",
+      current_stt_model: "soniqo-parakeet-batch",
+    });
+
+    // Hold an earlier write so the newer choice can cancel queued completion.
+    heldKey = "theme";
+    writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      startedWrite = resolve;
+    });
+    const blocker = setSettingValues({ theme: "dark" });
+    await started;
+    usePendingSttSelection.setState({ selection });
+    const completion = setDownloadedSttSelection(selection);
+    const providerOnly = setSettingValues({
+      current_stt_provider: "custom",
+      current_stt_model: "",
+    });
+    releaseWrite();
+    await Promise.all([blocker, completion, providerOnly]);
+    expect((await getStoredSettingValues()).values).toMatchObject({
+      current_stt_provider: "custom",
+      current_stt_model: "",
+    });
+
+    // A provider prompt also wins after completion has started persisting.
+    heldKey = "current_stt_provider";
+    writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    const persisting = new Promise<void>((resolve) => {
+      startedWrite = resolve;
+    });
+    usePendingSttSelection.setState({ selection });
+    const activeCompletion = setDownloadedSttSelection(selection);
+    await persisting;
+    const promptChoice = setSettingValues({
+      current_stt_provider: "deepgram",
+      current_stt_model: "",
+    });
+    releaseWrite();
+    await Promise.all([activeCompletion, promptChoice]);
+    await setDownloadedSttSelection(selection);
+    expect((await getStoredSettingValues()).values).toMatchObject({
+      current_stt_provider: "deepgram",
+      current_stt_model: "",
     });
   });
 

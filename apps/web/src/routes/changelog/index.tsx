@@ -1,14 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { ArrowRight } from "@anlg/ui/components/icons";
+import { cn } from "@anlg/utils";
 
+import { ChangelogAvailability } from "@/components/changelog-availability";
 import { SiteFooter } from "@/components/site-footer";
 import { changelogEntries, formatChangelogDate } from "@/lib/changelog";
+import {
+  type ChangelogStream,
+  changelogStreams,
+  changelogStreamLabel,
+  isChangelogStream,
+} from "@/lib/changelog-path";
 import { getEntrySummary } from "@/lib/changelog-summary";
 import { getCanonicalUrl } from "@/lib/seo";
 
 export const Route = createFileRoute("/changelog/")({
   component: Component,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { stream?: ChangelogStream } => ({
+    stream: isChangelogStream(search.stream) ? search.stream : undefined,
+  }),
   head: () => ({
     links: [{ rel: "canonical", href: getCanonicalUrl("/changelog") }],
     meta: [
@@ -16,7 +29,7 @@ export const Route = createFileRoute("/changelog/")({
       {
         name: "description",
         content:
-          "See the latest Anarlog desktop app updates, fixes, and product changes.",
+          "See the latest Anarlog desktop and mobile app updates, fixes, and product changes.",
       },
       { property: "og:title", content: "Anarlog Changelog" },
       { property: "og:url", content: getCanonicalUrl("/changelog") },
@@ -25,8 +38,12 @@ export const Route = createFileRoute("/changelog/")({
 });
 
 function Component() {
+  const { stream } = Route.useSearch();
+  const entries = changelogEntries.filter(
+    (entry) => !stream || entry.stream === stream,
+  );
   return (
-    <main className="min-h-screen bg-white text-[#181613]">
+    <main className="bg-surface text-fg min-h-screen">
       <div className="mx-auto w-full max-w-[860px] px-5 py-8 md:px-8 md:py-12">
         <header className="flex items-center justify-between gap-6">
           <Link to="/" aria-label="Anarlog home">
@@ -35,35 +52,66 @@ function Component() {
         </header>
 
         <section className="pt-24 pb-16 md:pt-32">
-          <h1 className="font-hand text-6xl leading-[0.98] font-semibold tracking-normal text-balance text-black md:text-8xl">
+          <h1 className="font-hand text-fg text-6xl leading-[0.98] font-semibold tracking-normal text-balance md:text-8xl">
             Changelog
           </h1>
-          <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
+          <p className="text-brand-dark mt-6 max-w-2xl text-xl leading-9">
             Product updates, fixes, and release notes for Anarlog.
           </p>
         </section>
 
-        {changelogEntries.length > 0 ? (
-          <ol className="border-y border-[#eee8df]">
-            {changelogEntries.map((entry, index) => (
+        <nav
+          aria-label="Changelog platform"
+          className="mb-8 flex flex-wrap gap-2"
+        >
+          {[undefined, ...changelogStreams].map((filter) => (
+            <Link
+              key={filter ?? "all"}
+              to="/changelog/"
+              search={{ stream: filter }}
+              aria-current={stream === filter ? "page" : undefined}
+              className={cn([
+                "rounded-full border px-4 py-2 text-sm transition-colors",
+                stream === filter
+                  ? "border-brand-dark bg-brand-dark text-white"
+                  : "border-border-subtle text-brand-dark hover:bg-surface-subtle",
+              ])}
+            >
+              {filter ? changelogStreamLabel(filter) : "All updates"}
+            </Link>
+          ))}
+        </nav>
+
+        {entries.length > 0 ? (
+          <ol className="border-border-subtle border-y">
+            {entries.map((entry) => (
               <li
-                key={entry.version}
-                id={entry.version}
-                className="scroll-mt-8 border-b border-[#eee8df] last:border-b-0"
+                key={`${entry.stream}/${entry.version}`}
+                id={
+                  entry.stream === "desktop"
+                    ? entry.version
+                    : `${entry.stream}-${entry.version}`
+                }
+                className="border-border-subtle scroll-mt-8 border-b last:border-b-0"
               >
                 <article>
                   <Link
-                    to="/changelog/$version/"
-                    params={{ version: entry.version }}
+                    to="/changelog/$stream/$version/"
+                    params={{ stream: entry.stream, version: entry.version }}
                     className="group grid gap-4 py-7 sm:grid-cols-[10rem_minmax(0,1fr)_1.5rem] sm:items-start sm:gap-6 md:py-9"
                   >
                     <header>
+                      <p className="text-brand-dark mb-2 text-xs font-semibold">
+                        {changelogStreamLabel(entry.stream)}
+                      </p>
                       <div className="flex flex-wrap items-center gap-2.5">
-                        <h2 className="font-hand text-4xl leading-none font-semibold tracking-normal text-[#756b5d] transition-colors group-hover:text-[#181613]">
+                        <h2 className="font-hand text-brand-dark group-hover:text-fg text-4xl leading-none font-semibold tracking-normal transition-colors">
                           v{entry.version}
                         </h2>
-                        {index === 0 && (
-                          <span className="rounded-full bg-[#f3eee6] px-2 py-1 text-[0.65rem] font-semibold tracking-[0.12em] text-[#756b5d] uppercase">
+                        {changelogEntries.find(
+                          (candidate) => candidate.stream === entry.stream,
+                        ) === entry && (
+                          <span className="bg-surface-subtle text-brand-dark rounded-full px-2 py-1 text-[0.65rem] font-semibold tracking-[0.12em] uppercase">
                             Latest
                           </span>
                         )}
@@ -71,18 +119,19 @@ function Component() {
                       {entry.date && (
                         <time
                           dateTime={entry.date}
-                          className="mt-2 block text-xs text-[#756b5d]"
+                          className="text-brand-dark mt-2 block text-xs"
                         >
                           {formatChangelogDate(entry.date)}
                         </time>
                       )}
+                      <ChangelogAvailability entry={entry} />
                     </header>
-                    <p className="text-base leading-7 text-[#4f4940] transition-colors group-hover:text-[#363029] md:text-lg md:leading-8">
+                    <p className="text-brand-dark group-hover:text-brand-dark text-base leading-7 transition-colors md:text-lg md:leading-8">
                       {getEntrySummary(entry.summary ?? entry.content)}
                     </p>
                     <ArrowRight
                       aria-hidden="true"
-                      className="mt-1 hidden text-[#9a9082] transition group-hover:translate-x-1 group-hover:text-[#181613] sm:block"
+                      className="text-brand-dark group-hover:text-fg mt-1 hidden transition group-hover:translate-x-1 sm:block"
                       size={20}
                     />
                   </Link>
@@ -91,8 +140,10 @@ function Component() {
             ))}
           </ol>
         ) : (
-          <p className="border-t border-[#eee8df] pt-8 text-[#4f4940]">
-            No changelog entries yet.
+          <p className="border-border-subtle text-brand-dark border-t pt-8">
+            {stream
+              ? `No ${changelogStreamLabel(stream).toLowerCase()} release notes yet.`
+              : "No changelog entries yet."}
           </p>
         )}
       </div>

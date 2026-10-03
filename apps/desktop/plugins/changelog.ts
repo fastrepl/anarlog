@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import type { Plugin, ViteDevServer } from "vite";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const changelogDir = resolve(__dirname, "../../../packages/changelog/content");
+const changelogDir = resolve(
+  __dirname,
+  "../../../packages/changelog/content/desktop",
+);
 
 const VIRTUAL_ID = "virtual:changelog";
 const RESOLVED_ID = "\0" + VIRTUAL_ID;
@@ -32,7 +35,7 @@ function buildModule(): string {
   if (latest) {
     try {
       content = readFileSync(
-        resolve(changelogDir, nightly ? "../nightly.md" : `${latest}.md`),
+        resolve(changelogDir, nightly ? "../../nightly.md" : `${latest}.md`),
         "utf-8",
       );
     } catch {}
@@ -59,7 +62,7 @@ export function changelog(): Plugin {
       }
 
       try {
-        watch(resolve(changelogDir, ".."), { recursive: true }, () => {
+        watch(resolve(changelogDir, "../.."), { recursive: true }, () => {
           const mod = server.moduleGraph.getModuleById(RESOLVED_ID);
           if (mod) {
             server.moduleGraph.invalidateModule(mod);
