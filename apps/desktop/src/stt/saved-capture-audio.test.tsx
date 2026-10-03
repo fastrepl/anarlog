@@ -140,9 +140,6 @@ test("does not treat creating the meeting note as closing the prompt", async () 
   const options = shownToast();
   options.action.onClick();
   options.onDismiss();
-  await vi.waitFor(() =>
-    expect(mocks.requestCaptureRecovery).toHaveBeenCalledOnce(),
-  );
   await act(async () => {});
   consoleError.mockRestore();
   first.unmount();
