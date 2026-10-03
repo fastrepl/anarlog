@@ -22,7 +22,7 @@ Recording, editing, and local storage do not require an AI model. A hosted Trans
 
 ## Anarlog Cloud
 
-Anarlog Cloud uses managed routes. Settings displays the managed selection as **Pro (Cloud)**. Transcription uses that Cloud route. Intelligence uses **Auto**, which Settings also displays as Pro (Cloud). Either selection lets Anarlog choose a suitable upstream model and retry a compatible provider when needed.
+Anarlog Cloud uses managed routes. Settings displays the managed selection as **Pro (Cloud)**. Transcription uses that Cloud route. Intelligence offers **Auto**, displayed as Pro (Cloud), or a curated model choice. Auto lets Anarlog choose a suitable upstream model and retry a compatible provider when needed.
 
 <Note>
   The routes below describe the current implementation, not a permanently pinned model contract. Anarlog may update a managed route to improve quality, language coverage, latency, or availability. Select your own provider and model when you need a fixed model ID.
@@ -46,6 +46,8 @@ For stereo recordings, Soniox combines the microphone and computer-audio channel
 For text tasks, **Anarlog → Auto** currently routes summaries, chat, and generated titles through the `~anthropic/claude-sonnet-latest` alias on OpenRouter.
 
 The alias tracks the current Claude Sonnet release instead of pinning a dated model. OpenRouter receives the prompt and chooses an available endpoint for that model.
+
+Under **Settings → Intelligence**, Pro users can also choose **Claude Sonnet**, **Claude Opus**, **GPT Sol**, **Gemini Pro**, or **Gemini Flash**. Anarlog tries the selected model first, then its managed fallback route if needed. These choices track model families; use your own provider when you need a fixed model ID. Requests containing audio continue to use the audio route below.
 
 Hosted Intelligence requests that contain audio use a separate ordered model pool:
 
