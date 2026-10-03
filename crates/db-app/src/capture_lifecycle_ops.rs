@@ -94,10 +94,17 @@ pub async fn mark_capture_audio_saved(
     let id = format!("{CAPTURE_AUDIO_SAVED_SETTING_PREFIX}{session_id}");
     sqlx::query(
         "INSERT INTO app_settings (id, value_json, updated_at)
-         VALUES (?, '{}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-         ON CONFLICT(id) DO NOTHING",
+         VALUES (?, json_object('transcriptId', (
+             SELECT json_extract(value_json, '$.transcriptId') FROM app_settings
+             WHERE id = ? AND json_valid(value_json))),
+           strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+         ON CONFLICT(id) DO UPDATE SET
+           value_json = excluded.value_json,
+           updated_at = excluded.updated_at
+         WHERE app_settings.value_json IS NOT excluded.value_json",
     )
     .bind(id)
+    .bind(format!("{CAPTURE_LIFECYCLE_SETTING_PREFIX}{session_id}"))
     .execute(pool)
     .await?;
     Ok(())
@@ -134,11 +141,22 @@ mod tests {
         crate::prepare_schema(&db).await.unwrap();
         let pool = db.pool();
 
+        upsert_capture_lifecycle_marker(pool, "session-1", r#"{"transcriptId":"t1"}"#, "t1")
+            .await
+            .unwrap();
+
         mark_capture_audio_saved(pool, "session-1").await.unwrap();
         let first = saved_at(pool).await.unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
         mark_capture_audio_saved(pool, "session-1").await.unwrap();
         assert_eq!(saved_at(pool).await.unwrap(), first);
+
+        upsert_capture_lifecycle_marker(pool, "session-1", r#"{"transcriptId":"t2"}"#, "t1")
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        mark_capture_audio_saved(pool, "session-1").await.unwrap();
+        assert_ne!(saved_at(pool).await.unwrap(), first);
 
         clear_capture_audio_saved(pool, "session-1").await.unwrap();
         assert_eq!(saved_at(pool).await, None);
