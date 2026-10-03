@@ -450,6 +450,14 @@ const EventItem = memo(
     const trackingIdEvent = item.data.tracking_id_event;
     const title = item.data.title || t`Untitled`;
     const recurrenceSeriesId = item.data.recurrence_series_id;
+    const groupBy = useSidebarNotes((state) => state.groupBy);
+    const showFolder = useConfigValue("sidebar_show_folder");
+    const { folder } = resolveSidebarItemMeta({
+      folderId: item.data.session_folder,
+      showFolder,
+      showTags: false,
+      groupBy,
+    });
 
     const {
       isIgnored,
@@ -574,6 +582,7 @@ const EventItem = memo(
       <ItemBase
         title={title}
         displayTime={displayTime}
+        folder={folder}
         showSpinner={isOpening}
         selected={selected}
         ignored={ignored}

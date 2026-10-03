@@ -23,7 +23,7 @@ import { toTz, useTimezone } from "~/calendar/hooks";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import {
   clearSeriesFolderRule,
-  setSeriesFolderRule,
+  setSeriesFolderRuleAndAlign,
   useSeriesFolderRules,
 } from "~/calendar/series-folders";
 import { useLiveQuery } from "~/db";
@@ -205,6 +205,7 @@ function EventPopoverContent({
   const declinedSeries = useRef<Set<string>>(new Set());
 
   const sessionFolder = linkedSession?.folder_path ?? "";
+  const displayFolder = sessionFolder || ruleFolder || "";
   const activeView = view === "manage" && !ruleFolder ? "main" : view;
   const showAutoAdd =
     activeView === "main" &&
@@ -255,7 +256,7 @@ function EventPopoverContent({
     async (folderPath: string) => {
       if (!seriesId) return;
       if (folderPath) {
-        await setSeriesFolderRule(seriesId, folderPath);
+        await setSeriesFolderRuleAndAlign(seriesId, folderPath);
       } else {
         await clearSeriesFolderRule(seriesId);
       }
@@ -266,7 +267,7 @@ function EventPopoverContent({
   const handleAutoAdd = useCallback(async () => {
     if (!seriesId || !sessionFolder) return;
     try {
-      await setSeriesFolderRule(seriesId, sessionFolder);
+      await setSeriesFolderRuleAndAlign(seriesId, sessionFolder);
     } catch (error) {
       console.error("[calendar] failed to set series folder rule", error);
     } finally {
@@ -439,7 +440,7 @@ function EventPopoverContent({
           <Folder className="size-3.5" aria-hidden="true" />
         )}
         <span className="min-w-0 flex-1 truncate text-left">
-          {sessionFolder ? folderDisplayName(sessionFolder) : t`Add to folder`}
+          {displayFolder ? folderDisplayName(displayFolder) : t`Add to folder`}
         </span>
         <CaretDown className="size-3.5 shrink-0" aria-hidden="true" />
       </Button>

@@ -29,6 +29,7 @@ import {
   getSeriesFolderRule,
   remapSeriesFolderRules,
   setSeriesFolderRule,
+  setSeriesFolderRuleAndAlign,
   useSeriesFolderRules,
 } from "./series-folders";
 
@@ -165,5 +166,21 @@ describe("series folder auto-add rules", () => {
     await clearSeriesFolderRulesForFolder("Work");
 
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("setSeriesFolderRuleAndAlign files existing unfiled sessions of the series", async () => {
+    mocks.execute.mockResolvedValue(settingRows([]));
+
+    await setSeriesFolderRuleAndAlign("series-1", "Work");
+
+    expect(mocks.executeTransaction).toHaveBeenCalledTimes(2);
+    const align = mocks.executeTransaction.mock.calls[1][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(align[0].sql).toContain("folder_path = ''");
+    expect(align[0].sql).toContain("recurrence_series_id = ?");
+    expect(align[0].params.slice(0, 2)).toEqual(["Work", expect.any(String)]);
+    expect(align[0].params[2]).toBe("series-1");
   });
 });

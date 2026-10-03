@@ -45,6 +45,32 @@ export async function setSeriesFolderRule(
   });
 }
 
+export async function setSeriesFolderRuleAndAlign(
+  seriesId: string,
+  folderPath: string,
+): Promise<void> {
+  const normalized = normalizeFolderPath(folderPath);
+  if (!seriesId || !normalized) return;
+  await setSeriesFolderRule(seriesId, normalized);
+  await enqueueDatabaseWrite(`app-setting:${SERIES_FOLDERS_ID}`, async () => {
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE sessions
+          SET folder_path = ?, updated_at = ?
+          WHERE deleted_at IS NULL
+            AND folder_path = ''
+            AND event_id IN (
+              SELECT id FROM events
+              WHERE recurrence_series_id = ? AND deleted_at IS NULL
+            )
+        `,
+        params: [normalized, new Date().toISOString(), seriesId],
+      },
+    ]);
+  });
+}
+
 export async function clearSeriesFolderRule(seriesId: string): Promise<void> {
   if (!seriesId) return;
   await enqueueDatabaseWrite(`app-setting:${SERIES_FOLDERS_ID}`, async () => {
