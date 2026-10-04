@@ -38,13 +38,7 @@ export function FloatingActionButton(_props: {
       <div
         ref={setSessionFabSelectionHost}
         data-session-fab-selection
-        className={cn([
-          "pointer-events-auto z-10 mb-2",
-          "origin-bottom transition-transform duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          "translate-y-8 dark:translate-y-7",
-          "peer-focus-within/session-fab:translate-y-0 peer-hover/session-fab:translate-y-0",
-          "dark:peer-focus-within/session-fab:translate-y-0 dark:peer-hover/session-fab:translate-y-0",
-        ])}
+        className={cn(["pointer-events-auto z-10 mb-2"])}
       />
     </div>
   );
