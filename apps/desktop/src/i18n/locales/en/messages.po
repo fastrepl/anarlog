@@ -462,6 +462,10 @@ msgstr "Add spoken language"
 msgid "Add step"
 msgstr "Add step"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Add to folder"
+msgstr "Add to folder"
+
 #: src/settings/developers/webhooks.tsx
 msgid "Add webhook"
 msgstr "Add webhook"
@@ -776,6 +780,14 @@ msgstr "Authorize access in your browser, then return to Anarlog."
 msgid "Auto summary format"
 msgstr "Auto summary format"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Auto-add"
+msgstr "Auto-add"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Auto-add future meetings?"
+msgstr "Auto-add future meetings?"
+
 #: src/settings/automations/index.tsx
 msgid "Automate what happens before, during, or after meetings based on the conditions you choose."
 msgstr "Automate what happens before, during, or after meetings based on the conditions you choose."
@@ -783,6 +795,10 @@ msgstr "Automate what happens before, during, or after meetings based on the con
 #: src/settings/general/app-settings.tsx
 msgid "Automatically install updates"
 msgstr "Automatically install updates"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Automatically put all future instances of this recurring meeting into a folder."
+msgstr "Automatically put all future instances of this recurring meeting into a folder."
 
 #: src/settings/automations/index.tsx
 msgid "Automation actions"
@@ -822,6 +838,7 @@ msgid "Average across the capture days counted above."
 msgstr "Average across the capture days counted above."
 
 #: src/calendar/components/apple/permission.tsx
+#: src/calendar/components/event-chip.tsx
 #: src/instruction/index.tsx
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/general/e2ee-setup.tsx
@@ -1006,6 +1023,10 @@ msgstr "Capture meeting chat in Memos"
 #: src/settings/stats/badge-collection.tsx
 msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr "Capture your first conversation. Every collection starts somewhere."
+
+#: src/calendar/components/event-chip.tsx
+msgid "Change auto-add folder"
+msgstr "Change auto-add folder"
 
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
@@ -2633,6 +2654,10 @@ msgstr "Full access"
 msgid "Full Screen"
 msgstr "Full Screen"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Future meetings"
+msgstr "Future meetings"
+
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "General"
@@ -3563,6 +3588,10 @@ msgstr "Most conversations: {busiestDay}"
 msgid "Move down"
 msgstr "Move down"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Move this note"
+msgstr "Move this note"
+
 #: src/templates/sections-editor.tsx
 msgid "Move up"
 msgstr "Move up"
@@ -3633,6 +3662,10 @@ msgstr "next month"
 #: src/sidebar/timeline/utils/index.ts
 msgid "next week"
 msgstr "next week"
+
+#: src/calendar/components/event-chip.tsx
+msgid "No"
+msgstr "No"
 
 #: src/imports/screen.tsx
 #: src/settings/general/notification.tsx
@@ -5563,6 +5596,10 @@ msgstr "Stone"
 msgid "Stop"
 msgstr "Stop"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Stop auto-add"
+msgstr "Stop auto-add"
+
 #: src/session/components/outer-header/index.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Stop listening"
@@ -5885,6 +5922,10 @@ msgstr "This is a prerecorded demo, so your camera stays off. Click Join & recor
 msgid "This name is synced to your other devices signed in to this account."
 msgstr "This name is synced to your other devices signed in to this account."
 
+#: src/calendar/components/event-chip.tsx
+msgid "This note"
+msgstr "This note"
+
 #: src/session/components/note-conflict-banner.tsx
 msgid "This note was edited on another device at the same time. The later edit was kept."
 msgstr "This note was edited on another device at the same time. The later edit was kept."
@@ -6043,6 +6084,10 @@ msgstr "Unavailable"
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "Undo"
 msgstr "Undo"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Unfiled"
+msgstr "Unfiled"
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Unknown"

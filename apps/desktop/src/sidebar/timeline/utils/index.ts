@@ -37,6 +37,7 @@ export type TimelineEventRow = {
   description?: string | null;
   calendar_color?: string | null;
   self_status?: string | null;
+  session_folder?: string | null;
 };
 
 export type TimelineSessionRow = {

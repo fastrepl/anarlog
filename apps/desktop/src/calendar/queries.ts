@@ -173,10 +173,18 @@ export function useTimelineEventsTable(): TimelineEventsTable {
         CASE
           WHEN json_valid(event.attendance_json)
             THEN json_extract(event.attendance_json, '$.self_status')
-        END AS self_status
+        END AS self_status,
+        session.folder_path AS session_folder
       FROM events AS event
       LEFT JOIN calendars AS calendar
         ON calendar.id = event.calendar_id AND calendar.deleted_at IS NULL
+      LEFT JOIN (
+        SELECT event_id, MAX(folder_path) AS folder_path
+        FROM sessions
+        WHERE deleted_at IS NULL AND event_id <> ''
+        GROUP BY event_id
+      ) AS session
+        ON session.event_id = event.id
       WHERE event.deleted_at IS NULL
       ORDER BY event.started_at, event.id
     `,
