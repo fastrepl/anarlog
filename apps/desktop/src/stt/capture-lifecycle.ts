@@ -7,7 +7,6 @@ import {
   commands as transcriptionCommands,
   events as transcriptionEvents,
   type LiveTranscriptTarget,
-  type TranscriptionMode,
 } from "@anlg/plugin-transcription";
 import { toast } from "@anlg/ui/components/ui/toast";
 
@@ -236,7 +235,6 @@ export function useCaptureLifecycle(sessionId: string) {
       recoveredMarker?: CaptureLifecycleMarker,
       startedAutomatically = false,
       pendingMarker?: CaptureLifecycleMarker,
-      transcriptionMode?: TranscriptionMode,
     ) => {
       const inheritedCaptures: InheritedCapture[] =
         recoveredMarker?.inheritedCaptures ??
@@ -302,9 +300,7 @@ export function useCaptureLifecycle(sessionId: string) {
           requiresRetainedBatchAudio(provider, model));
       // Persisted on the marker so restarts still run the full-file pass
       // instead of the chunks released during the meeting.
-      const postStopBatch =
-        recoveredMarker?.postStopBatch === true ||
-        transcriptionMode === "batch";
+      const postStopBatch = recoveredMarker?.postStopBatch === true;
       let batchFromRetainedAudio =
         retainAudio &&
         (requiresRetainedBatchAudio(provider, model) || postStopBatch);
@@ -1403,7 +1399,10 @@ export function useCaptureLifecycle(sessionId: string) {
           existingAudioPromise,
         ]).then(() => undefined),
         startAudioRecovery,
-        persistMarker: async () => {
+        persistMarker: async (options?: { postStopBatch?: boolean }) => {
+          if (options?.postStopBatch && retainAudio) {
+            batchFromRetainedAudio = true;
+          }
           await startAudioRecovery();
           await persistTranscriptWrite(async () => {
             const next = await marker();
