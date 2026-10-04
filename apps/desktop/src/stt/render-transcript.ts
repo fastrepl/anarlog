@@ -115,6 +115,9 @@ export function getRenderTranscriptRequestKey(
       writeValue(word.channel);
       writeValue(word.speaker_index);
       writeValue((word as { metadata?: unknown }).metadata);
+      writeValue(
+        syntheticChunkStartMs((word as { metadata?: unknown }).metadata),
+      );
     }
 
     for (const assignment of transcript.assignments) {

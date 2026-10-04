@@ -202,8 +202,33 @@ fn split_synthetic_transcript(transcript: RenderTranscriptInput) -> Vec<RenderTr
         return vec![transcript];
     }
     if !timed_words.is_empty() {
-        let start = timed_words.iter().map(|word| word.start_ms).min().unwrap() as f64;
-        groups.push((-1, start, timed_words));
+        // A timed word belongs to the latest synthetic chunk that started at
+        // or before it; merging all of them into one trailing group lets the
+        // renderer bridge speech across intervening chunks.
+        let mut chunk_starts: Vec<f64> = groups.iter().map(|group| group.1).collect();
+        chunk_starts.sort_by(f64::total_cmp);
+        chunk_starts.dedup();
+        let mut timed_groups: Vec<(f64, Vec<_>)> = Vec::new();
+        for word in timed_words {
+            let window = chunk_starts
+                .iter()
+                .rev()
+                .find(|start| **start <= word.start_ms as f64)
+                .copied()
+                .unwrap_or(f64::NEG_INFINITY);
+            match timed_groups.iter_mut().find(|group| group.0 == window) {
+                Some(group) => group.1.push(word),
+                None => timed_groups.push((window, vec![word])),
+            }
+        }
+        for (window, words) in timed_groups {
+            let start = if window.is_infinite() {
+                words.iter().map(|word| word.start_ms).min().unwrap() as f64
+            } else {
+                window
+            };
+            groups.push((-1, start, words));
+        }
     }
     groups.sort_by(|left, right| {
         left.1
@@ -565,6 +590,39 @@ mod tests {
         assert_eq!(remote[0].words[0].id.as_deref(), Some("remote-a"));
         assert_eq!(remote[1].words[0].id.as_deref(), Some("remote-b"));
         assert_eq!(remote[1].start_ms, 1000);
+    }
+
+    #[test]
+    fn timed_words_split_into_their_own_chunk_windows() {
+        let rows = vec![(
+            Some(0),
+            vec![
+                stored_word("mic-first", 0, 0, synthetic(Some(0))),
+                stored_word("remote-first", 0, 1, synthetic(Some(0))),
+                stored_word("timed-early", 5_000, 2, None),
+                stored_word("mic-second", 30_000, 0, synthetic(Some(30_000))),
+                stored_word("remote-second", 30_000, 1, synthetic(Some(30_000))),
+                stored_word("timed-late", 35_000, 2, None),
+            ],
+            vec![StoredSpeakerHint {
+                id: "timed-provider".into(),
+                word_id: None,
+                hint_type: "provider_speaker_index".into(),
+                value: json!({"channel": 2, "speaker_index": 3}),
+            }],
+        )];
+        let segments = render_rows(rows, request());
+        assert_eq!(
+            word_ids(&segments),
+            vec![
+                vec!["mic-first"],
+                vec!["remote-first"],
+                vec!["timed-early"],
+                vec!["mic-second"],
+                vec!["remote-second"],
+                vec!["timed-late"]
+            ]
+        );
     }
 
     #[test]

@@ -566,6 +566,49 @@ describe("getRenderTranscriptRequestKey", () => {
     expect(getRenderTranscriptRequestKey(request)).toMatch(/^\d+:\d+:\d+:/);
   });
 
+  it("changes when only synthetic timing differs", () => {
+    const request = buildRenderTranscriptRequestFromRows([
+      {
+        started_at: 0,
+        words: [
+          {
+            id: "synthetic-word",
+            text: " hello",
+            start_ms: 0,
+            end_ms: 400,
+            channel: 0,
+            metadata: {
+              timing: { source: "synthetic_text", chunk_start_ms: 0 },
+            },
+          },
+        ],
+        speaker_hints: [],
+      },
+    ])!;
+
+    const rekey = (
+      chunkStartMs: number | undefined,
+      source = "synthetic_text",
+    ) =>
+      getRenderTranscriptRequestKey({
+        ...request,
+        transcripts: request.transcripts.map((transcript) => ({
+          ...transcript,
+          words: transcript.words.map((word) => ({
+            ...word,
+            metadata: {
+              timing: { source, chunk_start_ms: chunkStartMs },
+            },
+          })),
+        })),
+      });
+
+    const base = getRenderTranscriptRequestKey(request);
+    expect(rekey(0)).toBe(base);
+    expect(rekey(30_000)).not.toBe(base);
+    expect(rekey(undefined, "provider_word")).not.toBe(base);
+  });
+
   it.each([
     {
       name: "rendered transcript inputs change",
