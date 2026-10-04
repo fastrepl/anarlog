@@ -116,25 +116,6 @@ export function useStartListeningState(
         hasPendingZeroRetentionAudio(previousMarker))
         ? previousMarker
         : undefined;
-    const lifecycle = createCaptureLifecycle(
-      undefined,
-      automatic,
-      pendingMarker,
-    );
-    // A fresh note or a just-focused window starts listening right as a sync
-    // round begins; waiting for that round to yield made the start feel slow
-    // and sometimes refused to record at all.
-    void lifecycle.deferCloudsync();
-    const releaseCloudsyncDeferral = async () => {
-      try {
-        await lifecycle.releaseCloudsyncLease();
-      } catch (error) {
-        console.error(
-          "[listener] failed to release capture CloudSync deferral",
-          error,
-        );
-      }
-    };
     const [keywords, liveTranscriptionConfig, remoteParticipantHumanIds] =
       await Promise.all([
         import("./useKeywords").then(({ getSessionKeywords }) =>
@@ -152,8 +133,28 @@ export function useStartListeningState(
           );
           return participantHumanIds;
         }),
-        lifecycle.ready,
       ]);
+    const lifecycle = createCaptureLifecycle(
+      undefined,
+      automatic,
+      pendingMarker,
+      liveTranscriptionConfig.transcriptionMode,
+    );
+    // A fresh note or a just-focused window starts listening right as a sync
+    // round begins; waiting for that round to yield made the start feel slow
+    // and sometimes refused to record at all.
+    void lifecycle.deferCloudsync();
+    const releaseCloudsyncDeferral = async () => {
+      try {
+        await lifecycle.releaseCloudsyncLease();
+      } catch (error) {
+        console.error(
+          "[listener] failed to release capture CloudSync deferral",
+          error,
+        );
+      }
+    };
+    await lifecycle.ready;
     if (!canStartLiveSession(sessionId)) {
       await releaseCloudsyncDeferral();
       return;
