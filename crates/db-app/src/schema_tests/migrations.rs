@@ -118,6 +118,8 @@ async fn migrations_apply_cleanly() {
             "humans",
             "local_library_attachment_state",
             "local_library_connections",
+            "local_meeting_purges",
+            "managed_app_settings",
             "migration_import_items",
             "migration_import_runs",
             "migration_import_targets",

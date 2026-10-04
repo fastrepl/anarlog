@@ -132,6 +132,145 @@ expression: canonicalize_json(contract)
       ],
       "subcommands": [
         {
+          "about": "Read local capture intervals without meeting content or identifiers",
+          "name": "anarlog meetings pilot-usage",
+          "options": [
+            {
+              "flags": "--from-ms",
+              "is_flag": false,
+              "required": true,
+              "value_name": "FROM_MS"
+            },
+            {
+              "flags": "--until-ms",
+              "is_flag": false,
+              "required": true,
+              "value_name": "UNTIL_MS"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings pilot-usage <--from-ms> <--until-ms> [-h]"
+        },
+        {
+          "about": "List all persisted local meetings for preservation, including deleted rows",
+          "name": "anarlog meetings hold-list",
+          "options": [
+            {
+              "default": "",
+              "flags": "--after",
+              "is_flag": false,
+              "required": false,
+              "value_name": "AFTER"
+            },
+            {
+              "default": "200",
+              "flags": "--limit",
+              "is_flag": false,
+              "required": false,
+              "value_name": "LIMIT"
+            },
+            {
+              "flags": "--database-only",
+              "help": "Skip filesystem discovery when a separate resumable file walk is used",
+              "is_flag": true,
+              "required": false
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings hold-list [--after] [--limit] [--database-only] [-h]"
+        },
+        {
+          "about": "Stream raw local meeting history as NDJSON for encrypted preservation",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings hold-export",
+          "options": [
+            {
+              "flags": "--database-only",
+              "help": "Archive database history only; recording files must be preserved separately",
+              "is_flag": true,
+              "required": false
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings hold-export [--database-only] [-h] <id>"
+        },
+        {
+          "about": "Describe managed capture capabilities without opening a database",
+          "name": "anarlog meetings capabilities",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings capabilities [-h]"
+        },
+        {
+          "about": "Prepare the local database using an existing managed settings policy",
+          "name": "anarlog meetings initialize-managed",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings initialize-managed [-h]"
+        },
+        {
+          "about": "Permanently remove an exact, completed local meeting and its recordings",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings delete",
+          "options": [
+            {
+              "flags": "--if-export-sha256",
+              "is_flag": false,
+              "required": true,
+              "value_name": "IF_EXPORT_SHA256"
+            },
+            {
+              "flags": "--require-transcription-complete",
+              "is_flag": true,
+              "required": true
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings delete <--if-export-sha256> <--require-transcription-complete> [-h] <id>"
+        },
+        {
           "about": "List meetings, optionally filtered by text, recurring series, or folder",
           "name": "anarlog meetings list",
           "options": [

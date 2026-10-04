@@ -13,12 +13,14 @@ import { CustomChatTransport } from "~/chat/transport";
 import type { AnlgUIMessage } from "~/chat/types";
 
 const config = vi.hoisted(() => ({
+  intelligence_disabled: false,
   current_llm_provider: "chatgpt",
   current_llm_model: "gpt-5.4",
   current_llm_reasoning_effort: "default",
 }));
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: vi.fn() }));
+vi.mock("~/settings/queries", () => ({ useSettingsReady: () => true }));
 vi.mock("~/auth", () => ({ useAuth: () => ({ session: null }) }));
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({ isPaid: false }),

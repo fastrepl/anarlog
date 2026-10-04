@@ -12,13 +12,17 @@ mod event_ops;
 mod event_types;
 mod folder_catalog_ops;
 mod legacy_import;
+mod managed_settings;
+mod pilot_usage_ops;
 mod session_audio_ops;
 mod session_content_ops;
 mod session_deletion;
+mod session_hold;
 mod session_lifecycle_ops;
 mod session_move_ops;
 mod session_ops;
 mod session_participant_ops;
+mod session_purge;
 mod session_review_ops;
 mod session_transcript_ops;
 mod session_types;
@@ -44,12 +48,16 @@ pub use event_ops::*;
 pub use event_types::*;
 pub use folder_catalog_ops::*;
 pub use legacy_import::*;
+pub use managed_settings::*;
+pub use pilot_usage_ops::*;
 pub use session_audio_ops::*;
 pub use session_content_ops::*;
+pub use session_hold::*;
 pub use session_lifecycle_ops::*;
 pub use session_move_ops::*;
 pub use session_ops::*;
 pub use session_participant_ops::*;
+pub use session_purge::*;
 pub use session_review_ops::*;
 pub use session_transcript_ops::*;
 pub use session_types::*;
@@ -579,6 +587,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260930120000_event_attendance.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20261002120000_managed_meeting_capture",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20261002120000_managed_meeting_capture.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {
@@ -676,6 +689,7 @@ pub async fn prepare_schema_with_progress(
     requeue_parked_e2ee_records(db.pool()).await?;
     backfill_session_share_activation(db.pool()).await?;
     ensure_cloudsync_workspace_binding(db.pool()).await?;
+    apply_managed_settings(db.pool()).await?;
     Ok(())
 }
 

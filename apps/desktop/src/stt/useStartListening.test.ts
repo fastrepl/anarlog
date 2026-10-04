@@ -6,6 +6,11 @@ import {
   events as transcriptionEvents,
 } from "@anlg/plugin-transcription";
 
+import {
+  completeCaptureTranscript,
+  loadCaptureStop,
+  saveCaptureStop,
+} from "./capture-completion";
 import { saveIncompleteCapture } from "./capture-result";
 import {
   CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
@@ -18,6 +23,12 @@ import {
 } from "./useStartListening";
 
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
+
+vi.mock("./capture-completion", () => ({
+  completeCaptureTranscript: vi.fn().mockResolvedValue(undefined),
+  loadCaptureStop: vi.fn().mockResolvedValue(null),
+  saveCaptureStop: vi.fn().mockResolvedValue(undefined),
+}));
 
 const {
   queueAutoEnhanceMock,
@@ -735,7 +746,10 @@ describe("useStartListening", () => {
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });
 
-  test("zero retention deletes temporary audio once transcription succeeds", async () => {
+  test("zero retention finalizes the native stop clock before deleting successfully transcribed audio", async () => {
+    const stoppedAtMs = Date.now() + 60_000;
+    vi.mocked(loadCaptureStop).mockResolvedValueOnce(stoppedAtMs);
+    useSessionHasTranscriptMock.mockReturnValue(true);
     useConfigValueMock.mockImplementation((key: string) =>
       key === "audio_retention" ? "none" : undefined,
     );
@@ -743,10 +757,20 @@ describe("useStartListening", () => {
     await act(async () => {
       await result.current();
     });
+    getStoppedCaptureMock.mockResolvedValueOnce({
+      status: "ok",
+      data: {
+        stopped_at_ms: stoppedAtMs,
+        duration_seconds: 60,
+        requested_live_transcription: true,
+        live_transcription_active: true,
+      },
+    });
     await act(async () => {
       await startMock.mock.calls[0]?.[1].onStopped("session-1", {
         chunkedAudio: true,
         durationSeconds: 60,
+        stoppedAtMs,
         audioPath: "/tmp/session.mp3",
         requestedLiveTranscription: true,
         liveTranscriptionActive: true,
@@ -754,6 +778,26 @@ describe("useStartListening", () => {
       });
     });
     expect(deleteTranscribedCaptureAudioMock).toHaveBeenCalledWith("session-1");
+    expect(saveCaptureStop).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+      stoppedAtMs,
+    );
+    expect(saveCaptureStop).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+      stoppedAtMs,
+      {
+        startedAtMs: stoppedAtMs - 60_000,
+        requestedLiveTranscription: true,
+        liveTranscriptionActiveAtStop: true,
+      },
+    );
+    expect(completeCaptureTranscript).toHaveBeenCalledWith(
+      "session-1",
+      "generated-id",
+      stoppedAtMs,
+    );
     expect(saveIncompleteCapture).not.toHaveBeenCalled();
     expect(toastWarningMock).not.toHaveBeenCalledWith(
       "Audio kept to finish your transcript",

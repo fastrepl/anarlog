@@ -15,6 +15,11 @@ import {
   createCaptureAudioRecovery,
 } from "./capture-audio-recovery";
 import {
+  completeCaptureTranscript,
+  loadCaptureStop,
+  saveCaptureStop,
+} from "./capture-completion";
+import {
   saveIncompleteCapture,
   clearIncompleteCapture,
 } from "./capture-result";
@@ -759,6 +764,46 @@ export function useCaptureLifecycle(sessionId: string) {
         details: Parameters<OnStoppedCallback>[1],
         requestRecoveryOnFailure: boolean,
       ) => {
+        const nativeStoppedAtMs = details.stoppedAtMs;
+        if (nativeStoppedAtMs !== undefined) {
+          await persistTranscriptWrite(() =>
+            saveCaptureStop(sessionId, transcriptId, nativeStoppedAtMs),
+          );
+        }
+        const stoppedAtMs = await loadCaptureStop(sessionId, transcriptId);
+        // The native registry knows when capture actually began. Transcript
+        // replacement and retry clocks cannot measure recorded minutes.
+        if (stoppedAtMs !== null) {
+          try {
+            const result =
+              await transcriptionCommands.getStoppedCapture(sessionId);
+            if (
+              result.status === "ok" &&
+              result.data?.stopped_at_ms === stoppedAtMs
+            ) {
+              const durationMs = Math.round(
+                result.data.duration_seconds * 1000,
+              );
+              if (
+                Number.isSafeInteger(durationMs) &&
+                durationMs > 0 &&
+                durationMs <= stoppedAtMs
+              ) {
+                await saveCaptureStop(sessionId, transcriptId, stoppedAtMs, {
+                  startedAtMs: stoppedAtMs - durationMs,
+                  requestedLiveTranscription:
+                    result.data.requested_live_transcription,
+                  liveTranscriptionActiveAtStop:
+                    result.data.live_transcription_active,
+                });
+              }
+            }
+          } catch {
+            // Missing measurement metadata is counted by the pilot report;
+            // it must not interrupt saving the meeting itself.
+            console.warn("[listener] capture usage metadata is unavailable");
+          }
+        }
         toast.dismiss("recording-without-transcription");
         toast.dismiss("recording-with-limited-transcription-languages");
         toast.dismiss("live-transcription-stalled");
@@ -943,6 +988,9 @@ export function useCaptureLifecycle(sessionId: string) {
                 : 0;
             await runBatchRef.current(details.audioPath!, {
               deferAudioFinalization: true,
+              ...(stoppedAtMs !== null
+                ? { captureInterval: { startedAtMs: startedAt, stoppedAtMs } }
+                : {}),
               notifyOnCompletion: !details.liveTranscriptionActive,
               ...(useLocalBatchForSpeakerDiarization
                 ? {
@@ -1081,6 +1129,26 @@ export function useCaptureLifecycle(sessionId: string) {
           preserveExistingTranscript ||
           transcriptTouched ||
           batchCompleted;
+        if (stoppedAtMs !== null && hasTranscriptEvidence) {
+          await persistTranscriptWrite(() =>
+            completeCaptureTranscript(sessionId, transcriptId, stoppedAtMs),
+          );
+        }
+        if (!details.needsBatchRepair) {
+          for (const capture of inheritedCaptures) {
+            const inheritedStoppedAtMs = await loadCaptureStop(
+              sessionId,
+              capture.transcriptId,
+            );
+            if (inheritedStoppedAtMs !== null) {
+              await completeCaptureTranscript(
+                sessionId,
+                capture.transcriptId,
+                inheritedStoppedAtMs,
+              );
+            }
+          }
+        }
         const shouldEnhance =
           hasTranscriptEvidence &&
           (transcriptIsComplete ||
@@ -1313,6 +1381,19 @@ export function useCaptureLifecycle(sessionId: string) {
           const recovery = await stopAudioRecovery();
           if (recovery.incomplete)
             throw new Error("earlier capture audio is still pending");
+          for (const capture of inheritedCaptures) {
+            const stoppedAtMs = await loadCaptureStop(
+              sessionId,
+              capture.transcriptId,
+            );
+            if (stoppedAtMs !== null) {
+              await completeCaptureTranscript(
+                sessionId,
+                capture.transcriptId,
+                stoppedAtMs,
+              );
+            }
+          }
           await clearIncompleteCapture(sessionId, transcriptId);
           await clearInheritedIncomplete();
           toast.dismiss(`capture-incomplete-${sessionId}`);

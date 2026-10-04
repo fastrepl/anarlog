@@ -249,6 +249,26 @@ pub struct Meeting {
     pub action_items: Vec<ActionItem>,
 }
 
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Type,
+    utoipa::ToSchema,
+    sqlx::FromRow,
+)]
+pub struct RecordingAttachment {
+    pub id: String,
+    pub relative_path: String,
+    pub filename: String,
+    pub content_type: String,
+    pub size_bytes: i64,
+    pub sha256: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Type, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct Transcript {
@@ -484,6 +504,73 @@ pub async fn get_recurring_meeting_history(
         },
     )
     .await
+}
+
+/// Local-only capture metadata. Cloud/API/MCP meeting contracts do not expose
+/// filesystem paths or imported calendar bodies.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LocalMeetingExport {
+    #[serde(flatten)]
+    pub export: MeetingExport,
+    pub folder_path: String,
+    pub event_id: String,
+    pub external_event_id: String,
+    pub external_provider: String,
+    pub event_json: String,
+    pub attachments: Vec<RecordingAttachment>,
+    /// Pending capture/recovery excludes even an older, fully final transcript.
+    pub capture_pending: bool,
+}
+
+pub async fn get_local_meeting_export(
+    pool: &SqlitePool,
+    meeting_id: String,
+) -> Result<LocalMeetingExport> {
+    let export = get_meeting_export(pool, meeting_id.clone()).await?;
+    let session = anlg_db_app::get_session(pool, &meeting_id)
+        .await
+        .map_err(|source| Error::Database {
+            action: "load local meeting metadata",
+            source,
+        })?
+        .ok_or_else(|| Error::NotFound(meeting_id.clone()))?;
+    let attachments = sqlx::query_as::<_, RecordingAttachment>(
+        "SELECT a.id, COALESCE(l.relative_path,a.relative_path) relative_path,
+         a.filename,a.content_type,a.size_bytes,a.sha256 FROM session_attachments a
+         LEFT JOIN attachment_local_state l ON l.attachment_id=a.id
+         WHERE a.session_id=? AND a.deleted_at IS NULL ORDER BY a.id",
+    )
+    .bind(&meeting_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|source| Error::Database {
+        action: "load recording attachments",
+        source,
+    })?;
+    let capture_pending = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM app_settings WHERE
+            id IN (?, ?) OR substr(id, 1, length(?)) = ?)",
+    )
+    .bind(format!("capture_lifecycle_pending:{meeting_id}"))
+    .bind(format!("capture_audio_saved:{meeting_id}"))
+    .bind(format!("capture_incomplete:{meeting_id}:"))
+    .bind(format!("capture_incomplete:{meeting_id}:"))
+    .fetch_one(pool)
+    .await
+    .map_err(|source| Error::Database {
+        action: "load capture completion state",
+        source,
+    })?;
+    Ok(LocalMeetingExport {
+        export,
+        folder_path: session.folder_path,
+        event_id: session.event_id,
+        external_event_id: session.external_event_id,
+        external_provider: session.external_provider,
+        event_json: session.event_json,
+        attachments,
+        capture_pending,
+    })
 }
 
 pub async fn get_meeting_export(pool: &SqlitePool, meeting_id: String) -> Result<MeetingExport> {
