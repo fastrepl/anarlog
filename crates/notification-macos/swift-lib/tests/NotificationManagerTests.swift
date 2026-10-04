@@ -119,6 +119,8 @@ final class NotificationManagerTests: XCTestCase {
       eventDetails: nil,
       actionLabel: nil,
       actionVariant: nil,
+      action: nil,
+      actionMenu: nil,
       options: nil,
       footer: nil,
       icon: nil

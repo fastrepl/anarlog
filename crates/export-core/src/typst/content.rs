@@ -61,7 +61,7 @@ fn build_preamble() -> String {
 
 #show heading.where(level: 1): it => block(
   width: 100%,
-  above: 0pt,
+  above: 1.8em,
   below: 1.2em,
   stroke: (bottom: 0.5pt + hairline),
   inset: (bottom: 8pt),

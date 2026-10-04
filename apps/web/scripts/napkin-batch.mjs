@@ -66,7 +66,7 @@ Declare figures in content/articles/figures.json:
 
 An empty array marks a post as deliberately figure-less and satisfies --check.
 
-Generation requires NAPKIN_API_TOKEN; see napkin-to-public.md for the Infisical command.
+Generation requires NAPKIN_API_TOKEN; see napkin-to-supabase.md for the Infisical command.
 `;
 }
 

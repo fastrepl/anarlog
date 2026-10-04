@@ -16,30 +16,67 @@ import {
 
 import { useLiveQuery } from "~/db";
 
-function useSavedCaptureAudio(sessionId: string) {
-  const { data } = useLiveQuery<{ saved: number }, boolean>({
-    sql: `SELECT 1 AS saved FROM app_settings
+const DISMISSED_SAVED_CAPTURE_AUDIO_KEY =
+  "anarlog:dismissed-saved-capture-audio-prompts";
+const MAX_DISMISSED_SAVED_CAPTURE_AUDIO_PROMPTS = 128;
+
+function useSavedCaptureAudioAt(sessionId: string) {
+  const { data } = useLiveQuery<{ saved_at: string }, string | null>({
+    sql: `SELECT updated_at AS saved_at FROM app_settings
       WHERE id = ? AND EXISTS (SELECT 1 FROM app_settings WHERE id = ?)
       LIMIT 1`,
     params: [
       `${CAPTURE_AUDIO_SAVED_SETTING_PREFIX}${sessionId}`,
       `${CAPTURE_LIFECYCLE_SETTING_PREFIX}${sessionId}`,
     ],
-    mapRows: (rows) => rows.length > 0,
+    mapRows: (rows) => rows[0]?.saved_at ?? null,
   });
-  return data === true;
+  return data ?? null;
+}
+
+function readDismissedSavedCaptureAudioPrompts(): string[] {
+  try {
+    const stored: unknown = JSON.parse(
+      localStorage.getItem(DISMISSED_SAVED_CAPTURE_AUDIO_KEY) ?? "[]",
+    );
+    return Array.isArray(stored)
+      ? stored.filter((key): key is string => typeof key === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberDismissedSavedCaptureAudioPrompt(promptKey: string) {
+  try {
+    const keys = readDismissedSavedCaptureAudioPrompts().filter(
+      (key) => key !== promptKey,
+    );
+    keys.push(promptKey);
+    localStorage.setItem(
+      DISMISSED_SAVED_CAPTURE_AUDIO_KEY,
+      JSON.stringify(keys.slice(-MAX_DISMISSED_SAVED_CAPTURE_AUDIO_PROMPTS)),
+    );
+  } catch {
+    return;
+  }
 }
 
 export function SavedCaptureAudioPrompt({ sessionId }: { sessionId: string }) {
-  const saved = useSavedCaptureAudio(sessionId);
+  const savedAt = useSavedCaptureAudioAt(sessionId);
   const inactive = useListener(
     (state) => state.getSessionMode(sessionId) === "inactive",
   );
   const startListening = useStartListening(sessionId);
 
   useEffect(() => {
-    if (!saved || !inactive) return;
+    if (savedAt === null || !inactive) return;
+    // Keyed by the save time; starting a new capture clears it, so a later
+    // unexpected stop prompts again.
+    const promptKey = `${sessionId}:${savedAt}`;
+    if (readDismissedSavedCaptureAudioPrompts().includes(promptKey)) return;
     const id = `capture-audio-saved-${sessionId}`;
+    let rememberDismissal = true;
     const resumeListening = () => {
       const start = isMainWebviewWindow()
         ? startListening()
@@ -70,6 +107,7 @@ export function SavedCaptureAudioPrompt({ sessionId }: { sessionId: string }) {
       action: {
         label: "Create meeting note",
         onClick: () => {
+          rememberDismissal = false;
           void requestCaptureRecovery(sessionId).catch((error) => {
             console.error(
               "[listener] failed to request capture recovery",
@@ -78,9 +116,14 @@ export function SavedCaptureAudioPrompt({ sessionId }: { sessionId: string }) {
           });
         },
       },
+      onDismiss: () => {
+        if (rememberDismissal) {
+          rememberDismissedSavedCaptureAudioPrompt(promptKey);
+        }
+      },
     });
     return () => toast.dismiss(id);
-  }, [inactive, saved, sessionId, startListening]);
+  }, [inactive, savedAt, sessionId, startListening]);
 
   return null;
 }

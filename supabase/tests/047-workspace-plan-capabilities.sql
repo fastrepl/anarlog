@@ -97,20 +97,19 @@ select results_eq(
       (select workspace_id from workspace_capability_test_state)
     )
   $$,
-  array['free'::text],
-  'A generic Pro feature on the workspace is not a Team entitlement'
+  array['team'::text],
+  'A paid Pro workspace uses the compatible collaboration tier'
 );
 
-select throws_ok(
+select results_eq(
   $$
-    select * from public.rename_workspace(
+    select workspace_name from public.rename_workspace(
       (select workspace_id from workspace_capability_test_state),
-      'Generic Pro workspace'
+      'Paid Pro workspace'
     )
   $$,
-  '42501',
-  'workspace capability required: team.manage_workspace',
-  'An active subscription without the Team feature stays locked'
+  array['Paid Pro workspace'::text],
+  'A workspace Pro entitlement unlocks collaboration without a separate Team feature'
 );
 
 select tests.clear_authentication();

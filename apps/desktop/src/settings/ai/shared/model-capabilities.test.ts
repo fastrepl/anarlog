@@ -5,6 +5,9 @@ import { modelSupportsImageInput } from "./model-capabilities";
 describe("modelSupportsImageInput", () => {
   it("allows known multimodal hosted models", () => {
     expect(modelSupportsImageInput("anarlog", "Auto")).toBe(true);
+    expect(modelSupportsImageInput("anarlog", "~openai/gpt-sol-latest")).toBe(
+      true,
+    );
     expect(modelSupportsImageInput("openai", "gpt-4o")).toBe(true);
     expect(modelSupportsImageInput("anthropic", "claude-3-5-sonnet")).toBe(
       true,

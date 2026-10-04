@@ -423,6 +423,8 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
                 participants: null,
                 event_details: null,
                 action_label: "Yes",
+                action: null,
+                action_menu: null,
                 action_variant: null,
                 options: null,
                 footer,

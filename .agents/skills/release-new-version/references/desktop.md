@@ -87,7 +87,7 @@ VERSION=<version>
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 node scripts/release-version.mjs "$VERSION"
 node scripts/release-version.mjs --check "$VERSION"
-test -f "packages/changelog/content/$VERSION.md"
+test -f "packages/changelog/content/desktop/$VERSION.md"
 ```
 
 Stable desktop releases never infer a version. The workflow requires the exact

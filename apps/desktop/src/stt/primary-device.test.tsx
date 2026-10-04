@@ -1,3 +1,4 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -70,11 +71,13 @@ async function flush(calls = 1) {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  mocks.toast.mockReset();
   mocks.live.sessionId = "session-1";
   mocks.live.status = "active";
 });
 
 afterEach(() => {
+  cleanup();
   endRecording();
   consumePrimaryDeviceYield("session-1");
   vi.useRealTimers();
@@ -159,7 +162,7 @@ test("asks when another device is recording, and interaction claims", async () =
     expect.objectContaining({ intent: "present" }),
   );
   expect(mocks.toast).toHaveBeenCalledWith(
-    "Is this the device you're joining from?",
+    expect.anything(),
     expect.objectContaining({ id: "primary-device:session-1" }),
   );
 
@@ -176,6 +179,67 @@ test("asks when another device is recording, and interaction claims", async () =
   expect(mocks.toast.dismiss).toHaveBeenCalledWith("primary-device:session-1");
   expect(mocks.stop).not.toHaveBeenCalled();
 });
+
+test.each(["Yes", "No"])(
+  "clicking the recording question keeps it unanswered until %s is selected",
+  async (answer) => {
+    const { toast, Toaster } = await vi.importActual<
+      typeof import("@anlg/ui/components/ui/toast")
+    >("@anlg/ui/components/ui/toast");
+    mocks.toast.mockImplementation(toast);
+    render(<Toaster />);
+    mocks.requestMeetingDevices.mockResolvedValue([
+      { ...self, primary: false },
+      { ...other, primary: false },
+    ]);
+    startPrimaryDeviceCoordination({
+      sessionId: "session-1",
+      event,
+      automatic: true,
+    });
+    await flush();
+
+    try {
+      fireEvent.pointerDown(
+        screen.getByText(String(mocks.toast.mock.calls[0][0])),
+      );
+      fireEvent.click(screen.getByText(String(mocks.toast.mock.calls[0][0])));
+      expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
+      await vi.advanceTimersByTimeAsync(PRIMARY_DEVICE_HEARTBEAT_MS);
+      expect(mocks.requestMeetingDevices).toHaveBeenLastCalledWith(
+        expect.objectContaining({ intent: "present" }),
+      );
+      expect(
+        mocks.requestMeetingDevices.mock.calls.map(
+          ([request]) => request.intent,
+        ),
+      ).not.toContain("claim");
+      expect(screen.getByRole("status")).toBeTruthy();
+
+      mocks.requestMeetingDevices.mockResolvedValue([
+        { ...self, primary: true },
+        { ...other, primary: false },
+      ]);
+      fireEvent.pointerDown(screen.getByRole("button", { name: answer }));
+      fireEvent.click(screen.getByRole("button", { name: answer }));
+      await flush(3);
+      expect(mocks.requestMeetingDevices).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          intent: answer === "Yes" ? "claim" : "release",
+        }),
+      );
+      expect(consumePrimaryDeviceYield("session-1")).toBe(answer === "No");
+      if (answer === "No") {
+        expect(mocks.stop).toHaveBeenCalled();
+      } else {
+        expect(mocks.stop).not.toHaveBeenCalled();
+      }
+    } finally {
+      toast.dismiss();
+      await vi.advanceTimersByTimeAsync(300);
+    }
+  },
+);
 
 test("stops and marks the capture for discard when another device is primary", async () => {
   mocks.requestMeetingDevices.mockResolvedValue([

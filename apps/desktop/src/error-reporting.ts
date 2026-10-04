@@ -332,6 +332,13 @@ export async function setErrorReportingEnabled(enabled: boolean) {
   await emit(ERROR_REPORTING_CONSENT_EVENT, { enabled });
 }
 
+export function reportCaughtReactError(error: unknown) {
+  if (isUserError(error) || isIgnoredError(error)) return;
+  Sentry.captureException(error, {
+    tags: { "anarlog.operation": "react_error_boundary" },
+  });
+}
+
 export function captureOperationalError(
   error: unknown,
   {

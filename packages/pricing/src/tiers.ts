@@ -1,5 +1,5 @@
 export type PlanTier = "free" | "pro";
-export type MarketingPlanTier = PlanTier | "team" | "enterprise";
+export type MarketingPlanTier = PlanTier | "enterprise";
 export type PlanFeature = {
   label: string;
   included: boolean;
@@ -69,11 +69,12 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
     name: "Pro",
     price: {
       kind: "fixed",
-      monthly: 15,
-      yearly: 150,
+      monthly: 14,
+      yearly: 140,
+      billingUnit: "person",
     },
     description:
-      "Hosted transcription, AI, dictation, sync, and personal workflows for one person.",
+      "Hosted transcription, AI, dictation, sync, and collaboration for individuals and teams.",
     popular: true,
     features: [
       { label: "Everything in Free", included: true },
@@ -87,7 +88,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Cloud LLM", included: true },
       { label: "Better Speaker Identification", included: true },
       {
-        label: "Cloud sync (3 devices included, add more anytime)",
+        label: "Cloud sync (3 personal devices or 5 per workspace member)",
         included: true,
       },
       { label: "End-to-end encryption (E2EE)", included: true },
@@ -108,22 +109,6 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
         included: true,
       },
       { label: "Custom dictionaries and summary formats", included: true },
-    ],
-  },
-  {
-    id: "team",
-    name: "Team",
-    price: {
-      kind: "fixed",
-      monthly: 20,
-      yearly: 200,
-      billingUnit: "person",
-    },
-    description:
-      "A paid shared workspace with Pro for every member; each workspace has its own per-seat billing.",
-    features: [
-      { label: "Everything in Pro for every member", included: true },
-      { label: "Sync across 5 devices per member", included: true },
       { label: "Shared workspaces and notes", included: true },
       { label: "Members, roles, and invitations", included: true },
       { label: "Centralized per-seat billing", included: true },
@@ -148,7 +133,7 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
     description:
       "Organization-wide security, policy, and deployment controls with a founder-led rollout.",
     features: [
-      { label: "Everything in Team", included: true },
+      { label: "Everything in Pro", included: true },
       { label: "Domain SSO and SCIM", included: true },
       { label: "Sharing, retention, and consent policies", included: true },
       { label: "Usage and audit visibility", included: true },

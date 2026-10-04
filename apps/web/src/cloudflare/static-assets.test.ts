@@ -49,3 +49,31 @@ test("serves static asset metadata through the shared Supabase handler without l
     404,
   );
 });
+
+test("serves blog preview HEAD requests from the image generator without returning the website HTML response", async (t) => {
+  t.mock.method(globalThis, "fetch", async (url: URL, options: RequestInit) => {
+    assert.equal(
+      url.toString(),
+      "https://anarlog.so/api/og/blog/local-ai-privacy-tools",
+    );
+    assert.equal(options.method, undefined);
+    assert.equal(options.headers, undefined);
+    return new Response("png", {
+      headers: {
+        "content-type": "image/png",
+        "cache-control": "public, max-age=3600",
+        "set-cookie": "private=value",
+      },
+    });
+  });
+  const response = await worker.fetch(
+    new Request("https://static.anarlog.so/og/blog/local-ai-privacy-tools", {
+      method: "HEAD",
+      headers: { cookie: "private=value", authorization: "Bearer secret" },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "image/png");
+  assert.equal(response.headers.get("set-cookie"), null);
+  assert.equal(await response.text(), "");
+});

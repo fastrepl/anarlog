@@ -300,7 +300,7 @@ export function ProScreen({
         </View>
         <Text style={styles.copy}>
           Sync across your devices and use Anarlog models for transcription and
-          summaries. New users get a free three-week trial, shared with desktop.
+          summaries. New users get a free two-week trial, shared with desktop.
         </Text>
         <Text style={styles.trialLine}>
           After your trial, your notes and recordings stay on this device.

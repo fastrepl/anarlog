@@ -19,7 +19,7 @@ export const ROOT_KEYWORDS =
   "private meeting notes, open source meeting notes, local-first AI notepad, Granola AI alternative, AI meeting notes, local meeting transcription, bot-free AI notes, offline meeting notes, on-device AI, BYOK AI, meeting transcription, meeting summaries, data ownership";
 
 export function getBlogOgImageUrl(slug: string) {
-  return `${ANARLOG_SITE_URL}/api/og/blog/${encodeURIComponent(slug)}`;
+  return `https://static.anarlog.so/og/blog/${encodeURIComponent(slug)}`;
 }
 
 export function getPublicSharedNoteOgImageUrl(publicSlug: string) {

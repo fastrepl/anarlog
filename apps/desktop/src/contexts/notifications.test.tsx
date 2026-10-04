@@ -1,18 +1,17 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { DownloadProgressPayload } from "@anlg/plugin-local-stt";
 
 const mocks = vi.hoisted(() => ({
   downloadHandler: null as
     | null
-    | ((event: {
-        payload: {
-          model: "soniqo-parakeet-batch";
-          status: { failed: string };
-        };
-      }) => void),
+    | ((event: { payload: DownloadProgressPayload }) => void),
   listen: vi.fn(),
   toastError: vi.fn(),
+  toastSuccess: vi.fn(),
+  setDownloadedSttSelection: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-local-stt", () => ({
@@ -25,7 +24,11 @@ vi.mock("@anlg/plugin-local-stt", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  toast: { error: mocks.toastError },
+  toast: { error: mocks.toastError, success: mocks.toastSuccess },
+}));
+
+vi.mock("~/settings/queries", () => ({
+  setDownloadedSttSelection: mocks.setDownloadedSttSelection,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -47,11 +50,28 @@ vi.mock("~/stt/capabilities", () => ({
   isOnDeviceSttModel: () => false,
 }));
 
-import { NotificationProvider } from "./notifications";
+import { NotificationProvider, useNotifications } from "./notifications";
+
+import { usePendingSttSelection } from "~/store/zustand/pending-stt-selection";
+
+function DownloadStatus() {
+  const { activeDownloads } = useNotifications();
+  return (
+    <div data-testid="download-status">
+      {activeDownloads
+        .map((download) =>
+          download.isStarting ? "Starting" : `${download.progress}%`,
+        )
+        .join(",")}
+    </div>
+  );
+}
 
 describe("NotificationProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    usePendingSttSelection.setState({ selection: null, queuedDownloads: [] });
+    mocks.setDownloadedSttSelection.mockResolvedValue(undefined);
     mocks.downloadHandler = null;
     mocks.listen.mockImplementation(async (handler) => {
       mocks.downloadHandler = handler;
@@ -75,6 +95,10 @@ describe("NotificationProvider", () => {
       expect(mocks.downloadHandler).not.toBeNull();
     });
 
+    usePendingSttSelection.setState({
+      selection: { provider: "soniqo", model: "soniqo-parakeet-batch" },
+    });
+
     act(() => {
       mocks.downloadHandler?.({
         payload: {
@@ -87,6 +111,68 @@ describe("NotificationProvider", () => {
     expect(mocks.toastError).toHaveBeenCalledWith(
       "Couldn’t download Soniqo Parakeet Batch",
       { description: "download server rejected the model" },
+    );
+    expect(usePendingSttSelection.getState().selection).toBeNull();
+  });
+
+  it("selects the pending download only after completion and honors a newer choice", async () => {
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotificationProvider>
+          <DownloadStatus />
+        </NotificationProvider>
+      </QueryClientProvider>,
+    );
+    act(() => {
+      usePendingSttSelection.setState({
+        selection: { provider: "soniqo", model: "soniqo-parakeet-batch" },
+        queuedDownloads: ["soniqo-parakeet-batch"],
+      });
+    });
+    expect(screen.getByTestId("download-status").textContent).toBe("Starting");
+    act(() => {
+      mocks.downloadHandler?.({
+        payload: {
+          model: "soniqo-parakeet-batch",
+          status: { downloading: 50 },
+        },
+      });
+    });
+    expect(mocks.setDownloadedSttSelection).not.toHaveBeenCalled();
+    expect(screen.getByTestId("download-status").textContent).toBe("50%");
+    expect(usePendingSttSelection.getState().selection?.model).toBe(
+      "soniqo-parakeet-batch",
+    );
+    act(() => {
+      mocks.downloadHandler?.({
+        payload: { model: "soniqo-parakeet-batch", status: "completed" },
+      });
+    });
+    await waitFor(() => {
+      expect(usePendingSttSelection.getState().selection).toBeNull();
+    });
+    expect(mocks.setDownloadedSttSelection).toHaveBeenCalledWith({
+      provider: "soniqo",
+      model: "soniqo-parakeet-batch",
+    });
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("Model downloaded", {
+      description: "Soniqo Parakeet Batch",
+    });
+    expect(screen.getByTestId("download-status").textContent).toBe("");
+
+    mocks.setDownloadedSttSelection.mockClear();
+    usePendingSttSelection.setState({
+      selection: { provider: "apple_speech", model: "apple-speech" },
+    });
+    act(() => {
+      mocks.downloadHandler?.({
+        payload: { model: "soniqo-parakeet-batch", status: "completed" },
+      });
+    });
+    expect(mocks.setDownloadedSttSelection).not.toHaveBeenCalled();
+    expect(usePendingSttSelection.getState().selection?.model).toBe(
+      "apple-speech",
     );
   });
 });

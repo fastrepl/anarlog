@@ -52,6 +52,8 @@ async function showCompletionNotification(userId: string) {
       participants: null,
       event_details: null,
       action_label: "Open Anarlog",
+      action: null,
+      action_menu: null,
       action_variant: null,
       options: null,
       footer: null,

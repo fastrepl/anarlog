@@ -1,3 +1,5 @@
+#[cfg(target_os = "macos")]
+mod bundle_icon;
 mod commands;
 mod error;
 mod ext;

@@ -7,10 +7,37 @@ on:
         type: choice
         options:
           - stable
+          - beta
+      stream:
+        description: "Release stream"
+        required: true
+        default: desktop
+        type: choice
+        options:
+          - desktop
+          - mobile
+      version:
+        description: "Explicit version (defaults to next desktop patch or current mobile version)"
+        required: false
+        type: string
+      source_sha:
+        description: "Optional exact source commit SHA for candidate notes or build promotion"
+        required: false
+        type: string
   workflow_call:
     inputs:
       channel:
         required: true
+        type: string
+      stream:
+        required: false
+        default: desktop
+        type: string
+      version:
+        required: false
+        type: string
+      source_sha:
+        required: false
         type: string
       issue_number:
         required: false
@@ -47,20 +74,32 @@ jobs:
       - id: version
         env:
           RELEASE_CHANNEL: ${{ inputs.channel }}
+          RELEASE_STREAM: ${{ inputs.stream || 'desktop' }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
-          if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
-            VERSION=$(doxxer --config doxxer.desktop.toml next patch)
-            FILE="packages/changelog/content/$VERSION.md"
+          if [[ "$RELEASE_STREAM" == "desktop" && "$RELEASE_CHANNEL" == "stable" ]]; then
+            VERSION="${RELEASE_VERSION:-$(doxxer --config doxxer.desktop.toml next patch)}"
+          elif [[ "$RELEASE_STREAM" == "mobile" && "$RELEASE_CHANNEL" =~ ^(stable|beta)$ ]]; then
+            VERSION="${RELEASE_VERSION:-$(python3 -c 'import json; print(json.load(open("apps/mobile/release-version.json"))["version"])')}"
           else
+            echo "::error::Unsupported stream/channel"
             exit 1
           fi
-          echo "file=$FILE" >> $GITHUB_OUTPUT
-          PREV=$(git tag -l 'desktop_v*' --sort=-v:refname | grep -E '^desktop_v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-          CURRENT="HEAD"
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "prev=$PREV" >> $GITHUB_OUTPUT
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid changelog version"
+            exit 1
+          fi
+          BASELINE=$(node scripts/changelog-baseline.mjs "$RELEASE_STREAM" "$RELEASE_CHANNEL" "$VERSION" "$RELEASE_SOURCE_SHA")
+          PREV=$(node -e 'console.log(JSON.parse(process.argv[1]).prev)' "$BASELINE")
+          CURRENT=$(node -e 'console.log(JSON.parse(process.argv[1]).current)' "$BASELINE")
+          INITIAL=$(node -e 'console.log(JSON.parse(process.argv[1]).initial)' "$BASELINE")
+          echo "file=packages/changelog/content/$RELEASE_STREAM/$VERSION.md" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "stream=$RELEASE_STREAM" >> "$GITHUB_OUTPUT"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "prev=$PREV" >> "$GITHUB_OUTPUT"
+          echo "initial=$INITIAL" >> "$GITHUB_OUTPUT"
 
       - uses: anomalyco/opencode/github@latest
         env:
@@ -74,13 +113,24 @@ jobs:
             Create or update ${{ steps.version.outputs.file }}.
             Follow .agents/skills/new-changelog/SKILL.md for the channel contract.
             Nightly notes must never be published in the website changelog.
-            Changelog should be generated from commits between ${{ steps.version.outputs.prev }} ~ ${{ steps.version.outputs.current }}.
+            Review the user-facing behavior at source ${{ steps.version.outputs.current }}.
+            Initial release: ${{ steps.version.outputs.initial }}.
+            For an initial release, review the complete source snapshot including
+            the root commit, rather than comparing it to a predecessor.
+            Otherwise, generate notes from commits between
+            ${{ steps.version.outputs.prev }} ~ ${{ steps.version.outputs.current }}.
             Follow guidelines in packages/changelog/content/AGENTS.md.
             Look up each merged PR author. If the PR came from someone
             outside the Fastrepl org (not MEMBER, OWNER, COLLABORATOR, or a
             bot), acknowledge them inline on that changelog item.
 
             2.
-            Create a PR with title "Prepare Changelog for ${{ steps.version.outputs.version }}"
+            For desktop notes, run node scripts/sync-desktop-changelogs.mjs
+            and include the generated compatibility copies in the same PR.
+            For mobile notes, cover only mobile user-facing changes for the
+            requested ${{ inputs.channel }} audience. Do not create publication
+            records while preparing notes; availability must be verified later.
+
+            Create a PR with title "Prepare ${{ steps.version.outputs.stream }} Changelog for ${{ steps.version.outputs.version }}"
 
             3. Do not run `typecheck`, `dprint` or `pnpm` things.

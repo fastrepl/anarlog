@@ -37,6 +37,7 @@ import {
   requiresKeyVerification,
   useProviderAvailability,
 } from "~/settings/ai/shared";
+import { ANARLOG_PRO_LLM_MODELS } from "~/settings/ai/shared/anarlog-pro-models";
 import {
   getProviderSelectionBlockers,
   requiresEntitlement,
@@ -557,13 +558,14 @@ export function getLlmProviderStatus({
 
   if (provider.id === "anarlog") {
     const result: ListModelsResult = {
-      models: ["Auto"],
+      models: ANARLOG_PRO_LLM_MODELS.map(({ id }) => id),
       ignored: [],
-      metadata: {
-        Auto: {
-          input_modalities: ["text", "image"] as InputModality[],
-        },
-      },
+      metadata: Object.fromEntries(
+        ANARLOG_PRO_LLM_MODELS.map(({ id }) => [
+          id,
+          { input_modalities: ["text", "image"] as InputModality[] },
+        ]),
+      ),
     };
     return { configured: true, listModels: async () => result };
   }

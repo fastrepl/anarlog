@@ -1,7 +1,7 @@
 import Cocoa
 
 extension NotificationManager {
-  private func compactPrimaryButton(notification: NotificationInstance) -> NSButton {
+  private func compactPrimaryButton(notification: NotificationInstance) -> NSView {
     if notification.payload.hasOptions {
       let optionsButton = OptionsButton()
       optionsButton.title = "Options"
@@ -22,7 +22,40 @@ extension NotificationManager {
       actionButton.title = actionLabel
     }
     actionButton.notification = notification
-    return actionButton
+    guard let actionMenu = notification.payload.actionMenu else { return actionButton }
+
+    let split = NSStackView()
+    split.orientation = .horizontal
+    split.alignment = .centerY
+    split.spacing = 2
+    split.translatesAutoresizingMaskIntoConstraints = false
+    actionButton.heightAnchor.constraint(equalToConstant: 36).isActive = true
+
+    let menuButton = SemanticMenuButton()
+    menuButton.title = ""
+    menuButton.menuLabel = actionMenu.label
+    menuButton.notification = notification
+    menuButton.imagePosition = .imageOnly
+    menuButton.imageScaling = .scaleProportionallyDown
+    if #available(macOS 11.0, *) {
+      let configuration = NSImage.SymbolConfiguration(pointSize: 9, weight: .semibold)
+      menuButton.image = NSImage(
+        systemSymbolName: "chevron.down",
+        accessibilityDescription: actionMenu.label
+      )?.withSymbolConfiguration(configuration)
+    }
+    menuButton.toolTip = actionMenu.label
+    menuButton.setBackgroundColors(
+      normal: NSColor.clear.cgColor,
+      pressed: NSColor.white.withAlphaComponent(0.16).cgColor
+    )
+    menuButton.contentTintColor = NSColor.white
+    menuButton.layer?.borderWidth = 0
+    menuButton.widthAnchor.constraint(equalToConstant: 24).isActive = true
+    menuButton.heightAnchor.constraint(equalToConstant: 36).isActive = true
+    split.addArrangedSubview(actionButton)
+    split.addArrangedSubview(menuButton)
+    return split
   }
 
   private func compactFooterButton() -> NSButton {

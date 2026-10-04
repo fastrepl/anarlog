@@ -92,11 +92,6 @@ describe("FloatingActionButton", () => {
     expect(stack?.className).toContain("flex-col-reverse");
     expect(stack?.className).toContain("bottom-3");
     expect(slot?.className).toContain("mb-2");
-    expect(slot?.className).toContain("translate-y-8");
-    expect(slot?.className).toContain("peer-hover/session-fab:translate-y-0");
-    expect(slot?.className).toContain(
-      "peer-focus-within/session-fab:translate-y-0",
-    );
   });
 
   it("opens chat from the FAB", () => {

@@ -21,7 +21,7 @@ type WorkspaceSubscription = {
 
 type WorkspaceCheckoutDependencies = {
   getContext: (workspaceId: string) => Promise<WorkspaceCheckoutContext>;
-  getPriceId: (period: "monthly" | "yearly") => string;
+  proPrices: { monthly?: string; yearly?: string };
   createCustomer: (input: {
     workspaceId: string;
     workspaceName: string;
@@ -76,11 +76,17 @@ export async function startWorkspaceCheckout(
     throw new Error("Team checkout must cover every occupied seat");
   }
 
+  const getPriceId = () => {
+    const priceId = dependencies.proPrices[input.period];
+    if (!priceId) throw new Error("Missing Pro price");
+    return priceId;
+  };
+
   let priceId: string | undefined;
   let customerId = context.stripeCustomerId;
 
   if (!customerId) {
-    priceId = dependencies.getPriceId(input.period);
+    priceId = getPriceId();
     const createdCustomer = await dependencies.createCustomer({
       workspaceId: input.workspaceId,
       workspaceName: context.workspaceName,
@@ -136,7 +142,7 @@ export async function startWorkspaceCheckout(
     return { url: portal.url, stripeCustomerId: customerId };
   }
 
-  priceId ??= dependencies.getPriceId(input.period);
+  priceId ??= getPriceId();
   const checkout = await dependencies.createCheckoutSession({
     customerId,
     priceId,

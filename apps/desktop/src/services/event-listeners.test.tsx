@@ -39,6 +39,8 @@ const {
   createSessionMock,
   getOrCreateSessionForEventIdMock,
   getCalendarEventStartedAtMock,
+  getCalendarEventMeetingLinkMock,
+  openUrlMock,
   setTriggerAppIdsMock,
   stopMock,
   updateCaptureConfigMock,
@@ -57,6 +59,12 @@ const {
   createSessionMock: vi.fn(async () => "session-new"),
   getOrCreateSessionForEventIdMock: vi.fn(async () => "session-event"),
   getCalendarEventStartedAtMock: vi.fn(),
+  getCalendarEventMeetingLinkMock: vi.fn(),
+  openUrlMock: vi.fn(
+    async (): Promise<
+      { status: "ok"; data: null } | { status: "error"; error: string }
+    > => ({ status: "ok", data: null }),
+  ),
   setTriggerAppIdsMock: vi.fn(),
   stopMock: vi.fn(),
   updateCaptureConfigMock: vi.fn(),
@@ -69,6 +77,10 @@ vi.mock("@anlg/plugin-notification", () => ({
       listen: notificationListenMock,
     },
   },
+}));
+
+vi.mock("@anlg/plugin-opener2", () => ({
+  commands: { openUrl: openUrlMock },
 }));
 
 vi.mock("@anlg/plugin-updater2", () => ({
@@ -108,6 +120,7 @@ vi.mock("~/session/queries", () => ({
 
 vi.mock("~/calendar/queries", () => ({
   getCalendarEventStartedAt: getCalendarEventStartedAtMock,
+  getCalendarEventMeetingLink: getCalendarEventMeetingLinkMock,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
@@ -225,6 +238,8 @@ describe("EventListeners notification events", () => {
     createSessionMock.mockReset();
     getOrCreateSessionForEventIdMock.mockReset();
     getCalendarEventStartedAtMock.mockReset();
+    getCalendarEventMeetingLinkMock.mockReset();
+    openUrlMock.mockReset();
     setTriggerAppIdsMock.mockReset();
     stopMock.mockReset();
     updateCaptureConfigMock.mockReset();
@@ -236,6 +251,8 @@ describe("EventListeners notification events", () => {
     createSessionMock.mockResolvedValue("session-new");
     getOrCreateSessionForEventIdMock.mockResolvedValue("session-event");
     getCalendarEventStartedAtMock.mockResolvedValue(null);
+    getCalendarEventMeetingLinkMock.mockResolvedValue(null);
+    openUrlMock.mockResolvedValue({ status: "ok", data: null });
     liveQuerySubscribeMock.mockImplementation(
       async (_sql, _params, handlers) => {
         handlers.onData([]);
@@ -332,6 +349,144 @@ describe("EventListeners notification events", () => {
       expect(openNewMock).not.toHaveBeenCalled();
     },
   );
+
+  test("notification_action open_meeting opens the current event link only", async () => {
+    getCalendarEventMeetingLinkMock.mockResolvedValue(
+      "https://meet.example.com/current",
+    );
+    const handler = await renderNotificationHandler();
+
+    handler({
+      payload: {
+        type: "notification_action",
+        action: "open_meeting",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(openUrlMock).toHaveBeenCalledWith(
+        "https://meet.example.com/current",
+        null,
+      ),
+    );
+    expect(openNewMock).not.toHaveBeenCalled();
+    expect(getOrCreateSessionForEventIdMock).not.toHaveBeenCalled();
+  });
+
+  test("notification_action join_and_record starts immediately and opens the meeting", async () => {
+    getCalendarEventMeetingLinkMock.mockResolvedValue(
+      "https://meet.example.com/current",
+    );
+    const handler = await renderNotificationHandler();
+
+    handler({
+      payload: {
+        type: "notification_action",
+        action: "join_and_record",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(openUrlMock).toHaveBeenCalledWith(
+        "https://meet.example.com/current",
+        null,
+      ),
+    );
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-event",
+      state: {
+        view: null,
+        autoStart: true,
+      },
+    });
+  });
+
+  test("notification_action join_and_record still starts when the meeting link is unavailable", async () => {
+    const handler = await renderNotificationHandler();
+
+    handler({
+      payload: {
+        type: "notification_action",
+        action: "join_and_record",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(openNewMock).toHaveBeenCalledWith({
+        type: "sessions",
+        id: "session-event",
+        state: {
+          view: null,
+          autoStart: true,
+        },
+      }),
+    );
+    expect(openUrlMock).not.toHaveBeenCalled();
+  });
+
+  test("notification_action join_and_record still opens the meeting when recording setup fails", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    getOrCreateSessionForEventIdMock.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+    getCalendarEventMeetingLinkMock.mockResolvedValue(
+      "https://meet.example.com/current",
+    );
+    const handler = await renderNotificationHandler();
+
+    handler({
+      payload: {
+        type: "notification_action",
+        action: "join_and_record",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(openUrlMock).toHaveBeenCalledWith(
+        "https://meet.example.com/current",
+        null,
+      ),
+    );
+    expect(openNewMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("notification_action reports meeting opener result errors", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    openUrlMock.mockResolvedValue({
+      status: "error",
+      error: "No application",
+    });
+    getCalendarEventMeetingLinkMock.mockResolvedValue(
+      "https://meet.example.com/current",
+    );
+    const handler = await renderNotificationHandler();
+
+    handler({
+      payload: {
+        type: "notification_action",
+        action: "open_meeting",
+        source: { type: "calendar_event", event_id: "evt-1" },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ message: "No application" }),
+      ),
+    );
+    consoleError.mockRestore();
+  });
 
   test("live capture config sync pushes remotes before the transcript snapshot", async () => {
     vi.useFakeTimers();
@@ -795,6 +950,7 @@ describe("EventListeners notification events", () => {
           },
         }),
       );
+      expect(openUrlMock).not.toHaveBeenCalled();
       expect(setTriggerAppIdsMock).not.toHaveBeenCalled();
     },
   );

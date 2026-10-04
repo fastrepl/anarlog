@@ -292,10 +292,14 @@ impl NotificationManager {
         let Some(instance) = self.instance_by_hwnd_mut(hwnd) else {
             return;
         };
-        let PrimaryAction::Options(options) = instance.payload.primary_action() else {
-            return;
+        let semantic_menu = instance.payload.action_menu.clone();
+        let options = match instance.payload.primary_action() {
+            PrimaryAction::Options(options) => options.to_vec(),
+            PrimaryAction::Accept { .. } if semantic_menu.is_some() => {
+                vec![semantic_menu.unwrap().label]
+            }
+            PrimaryAction::Accept { .. } => return,
         };
-        let options = options.to_vec();
         let key = instance.key.clone();
         let menu = unsafe { CreatePopupMenu().ok() };
         let Some(menu) = menu else {
@@ -307,14 +311,16 @@ impl NotificationManager {
                 let _ = AppendMenuW(menu, MF_STRING, index + 1, PCWSTR(text.as_mut_ptr()));
             }
         }
-        let mut create_new = wide("Create New Note...");
-        unsafe {
-            let _ = AppendMenuW(
-                menu,
-                MF_STRING,
-                options.len() + 1,
-                PCWSTR(create_new.as_mut_ptr()),
-            );
+        if semantic_menu.is_none() {
+            let mut create_new = wide("Create New Note...");
+            unsafe {
+                let _ = AppendMenuW(
+                    menu,
+                    MF_STRING,
+                    options.len() + 1,
+                    PCWSTR(create_new.as_mut_ptr()),
+                );
+            }
         }
         let mut cursor = POINT::default();
         unsafe {
@@ -610,6 +616,20 @@ fn draw_notification(hdc: HDC, instance: &NotificationInstance) {
                 },
             );
             draw_label(hdc, action, label, DT_VCENTER | DT_SINGLELINE);
+            if instance.payload.has_action_menu() && !instance.is_expanded {
+                SetTextColor(hdc, rgb(26, 26, 26));
+                draw_label(
+                    hdc,
+                    Rect {
+                        x: action.right() - 28,
+                        y: action.y,
+                        width: 28,
+                        height: action.height,
+                    },
+                    "▾",
+                    DT_VCENTER | DT_SINGLELINE | DT_CENTER,
+                );
+            }
         }
 
         if let Some(collapse) = instance.layout.collapse {

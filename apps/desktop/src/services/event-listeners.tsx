@@ -1,6 +1,7 @@
 import { type UnlistenFn } from "@tauri-apps/api/event";
 
 import { events as notificationEvents } from "@anlg/plugin-notification";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
 import type {
   CaptureConfigUpdate,
   IdentityAssignment,
@@ -12,7 +13,10 @@ import {
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
-import { getCalendarEventStartedAt } from "~/calendar/queries";
+import {
+  getCalendarEventMeetingLink,
+  getCalendarEventStartedAt,
+} from "~/calendar/queries";
 import { liveQueryClient } from "~/db";
 import { createSession, getOrCreateSessionForEventId } from "~/session/queries";
 import { setSettingValue } from "~/settings/queries";
@@ -151,6 +155,16 @@ async function createNotificationSession(
     sessionId,
     autoStart: await shouldAutoStartNotificationSession(eventId, triggerAppIds),
   };
+}
+
+async function openCalendarMeeting(eventId: string): Promise<void> {
+  const meetingLink = await getCalendarEventMeetingLink(eventId);
+  if (meetingLink) {
+    const result = await openerCommands.openUrl(meetingLink, null);
+    if (result.status === "error") {
+      throw new Error(result.error);
+    }
+  }
 }
 
 function handleAutoStopEndedNotification(
@@ -674,6 +688,51 @@ function useNotificationEvents() {
                 error,
               );
             });
+        } else if (payload.type === "notification_action") {
+          if (payload.source?.type !== "calendar_event") {
+            return;
+          }
+
+          const eventId = payload.source.event_id;
+          if (payload.action === "open_meeting") {
+            void openCalendarMeeting(eventId).catch((error) => {
+              console.error(
+                "[notification] failed to open calendar meeting",
+                error,
+              );
+            });
+            return;
+          }
+
+          void (async () => {
+            try {
+              const sessionId = await getOrCreateSessionForEventId(eventId);
+              openNewRef.current({
+                type: "sessions",
+                id: sessionId,
+                state: {
+                  view: null,
+                  autoStart: true,
+                },
+              });
+            } catch (error) {
+              console.error(
+                "[notification] failed to start calendar event recording",
+                error,
+              );
+            }
+
+            try {
+              // Opening the meeting last returns focus to the meeting client,
+              // while the session starts from the route's auto-start state.
+              await openCalendarMeeting(eventId);
+            } catch (error) {
+              console.error(
+                "[notification] failed to open calendar meeting",
+                error,
+              );
+            }
+          })();
         } else if (payload.type === "notification_option_selected") {
           const selectedIndex = payload.selected_index;
           const eventIds =

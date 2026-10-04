@@ -14,7 +14,7 @@ The Anarlog plugin connects to the hosted server:
 https://api.anarlog.so/mcp
 ```
 
-Cloud access needs Pro access through a personal plan or an eligible paid Team membership. In the desktop app, open **Settings → Developers → Cloud API & Connectors**, review the disclosure, and enable it. Wait for meeting snapshots to upload. Use the host's connection control to sign in and approve OAuth; some MCP hosts prompt on first cloud tool use. No cloud API key or local CLI is required for Cloud reads. Installing the skill alone does not create an account connection.
+Cloud access needs Pro access through a personal plan or an eligible paid Pro workspace membership. In the desktop app, open **Settings → Developers → Cloud API & Connectors**, review the disclosure, and enable it. Wait for meeting snapshots to upload. Use the host's connection control to sign in and approve OAuth; some MCP hosts prompt on first cloud tool use. No cloud API key or local CLI is required for Cloud reads. Installing the skill alone does not create an account connection.
 
 ## Local CLI
 

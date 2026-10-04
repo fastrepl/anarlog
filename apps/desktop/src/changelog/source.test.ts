@@ -7,7 +7,7 @@ describe("changelog sources", () => {
     expect(changelogUrl("1.4.24-nightly.123")).toBe(
       "https://api.github.com/repos/fastrepl/anarlog/releases/tags/desktop_nightly_v1.4.24-nightly.123",
     );
-    expect(changelogUrl("1.4.24")).toContain("/content/1.4.24.md");
+    expect(changelogUrl("1.4.24")).toContain("/content/desktop/1.4.24.md");
   });
 
   it("rejects unsupported versions and path injection", () => {

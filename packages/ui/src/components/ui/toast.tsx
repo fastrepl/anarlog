@@ -1,4 +1,4 @@
-import type { ComponentProps, MouseEvent, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { CircleNotch } from "@anlg/ui/components/icons";
 
@@ -7,6 +7,7 @@ import {
   dismissAppToast,
   dismissAppToasts,
   showAppToast,
+  type AppToastAction,
   type AppToastTone,
 } from "./app-toast";
 
@@ -25,10 +26,8 @@ type ToastOptions = {
   dismissible?: boolean;
   closeButton?: boolean;
   icon?: ReactNode;
-  action?: {
-    label: ReactNode;
-    onClick: (event: MouseEvent<HTMLButtonElement>) => void;
-  };
+  action?: AppToastAction;
+  secondaryAction?: AppToastAction;
   onDismiss?: () => void;
 };
 
@@ -67,6 +66,7 @@ function showToast(
     dismissible: options.dismissible,
     closeButton: options.closeButton,
     action: options.action,
+    secondaryAction: options.secondaryAction,
     onDismiss: (reason) => {
       if (reason === "user") options.onDismiss?.();
     },

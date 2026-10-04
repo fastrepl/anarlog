@@ -121,7 +121,9 @@ export function startPrimaryDeviceCoordination({
   const onInteraction = (event: Event) => {
     if (
       event.target instanceof Element &&
-      event.target.closest("[data-primary-device-prompt]")
+      event.target
+        .closest("[data-app-toast]")
+        ?.querySelector("[data-primary-device-prompt]")
     ) {
       return;
     }
@@ -237,33 +239,18 @@ export function startPrimaryDeviceCoordination({
   };
 
   const showPrompt = (otherName: string) => {
-    toast("Is this the device you're joining from?", {
+    toast("Is this your primary device?", {
       id: toastId,
       duration: Infinity,
-      description: (
-        <div data-primary-device-prompt className="space-y-2">
-          <p>
-            {otherName} is also recording this meeting. The device you pick
-            keeps recording, and the other one stops and discards its copy.
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={claim}
-              className="text-foreground font-medium underline-offset-2 hover:underline"
-            >
-              Yes, record here
-            </button>
-            <button
-              type="button"
-              onClick={() => yieldTo(otherName)}
-              className="text-foreground font-medium underline-offset-2 hover:underline"
-            >
-              No, use {otherName}
-            </button>
-          </div>
-        </div>
-      ),
+      dismissible: false,
+      action: {
+        label: <span data-primary-device-prompt>Yes</span>,
+        onClick: claim,
+      },
+      secondaryAction: {
+        label: "No",
+        onClick: () => yieldTo(otherName),
+      },
     });
   };
 

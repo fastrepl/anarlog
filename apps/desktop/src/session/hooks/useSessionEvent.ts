@@ -1,9 +1,14 @@
 import { useMemo } from "react";
 
+import { useSessionCalendarEvent } from "~/calendar/queries";
 import { useSession } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 
 export function useSessionEvent(sessionId: string) {
   const session = useSession(sessionId);
-  return useMemo(() => (session ? getSessionEvent(session) : null), [session]);
+  const calendarEvent = useSessionCalendarEvent(sessionId);
+  return useMemo(
+    () => calendarEvent ?? (session ? getSessionEvent(session) : null),
+    [calendarEvent, session],
+  );
 }

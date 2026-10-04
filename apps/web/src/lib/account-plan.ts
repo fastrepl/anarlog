@@ -129,13 +129,13 @@ export function getAccountPlanCopy({
   if (workspacePlan === "enterprise") {
     return {
       planLabel: "Enterprise",
-      planDetail: "Organization-wide Team with security and policy controls.",
+      planDetail: "Organization-wide Pro with security and policy controls.",
     };
   }
 
   if (workspacePlan === "team") {
     return {
-      planLabel: "Team",
+      planLabel: "Pro",
       planDetail: "Shared workspace with Pro for every member.",
     };
   }

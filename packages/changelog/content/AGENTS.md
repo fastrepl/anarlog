@@ -1,6 +1,8 @@
 # Instruction
 
-- Read through the commits, and most of the diffs, but only keep the desktop-related thing to the changelog.
+- Read through the commits and relevant diffs, keeping only user-facing changes for the requested release stream.
+- Maintain Desktop notes in `desktop/<version>.md` and Mobile notes in `mobile/<version>.md`. Read the stream directory’s `AGENTS.md`.
+- Root `<version>.md` files are generated compatibility copies for shipped desktop clients. Do not edit them directly. After editing desktop notes, run `node scripts/sync-desktop-changelogs.mjs` and include its output in the same commit; CI checks for drift.
 - All changelogs should "worth reading" for app users. No internal changes or infra updates.
 - If a user-facing change came from a pull request by someone outside the Fastrepl org, acknowledge them on that item. See [Contributor credit](#contributor-credit).
 - Each changelog must include `date` and `summary` frontmatter. `summary` is shown on the web changelog index, so keep it to one concise, plain-text, user-facing sentence with no markdown or custom tags.
@@ -17,7 +19,7 @@ summary: "One concise, user-facing sentence for the changelog index preview."
 1. This will give you all changelogs that we have now.
 
 ```bash
-find packages/changelog/content -type f | while read f; do
+find packages/changelog/content/desktop -type f | while read f; do
   echo "============================================================"
   echo "FILE: $f"
   echo "------------------------------------------------------------"
@@ -97,17 +99,21 @@ The old plugin format is no longer supported. Please update your plugins.
 </banner>
 ```
 
-## Channels
+## Release streams and channels
 
-This directory is exclusively for stable website changelogs, named
-`<major>.<minor>.<patch>.md`. Nightly publication is retired; preserve historical
-notes without generating new Nightly entries. Stable changelogs cover the full
-delta since the last stable release, including changes previously seen in
-Nightly. Never publish Nightly entries in the website changelog.
+Each release is identified by stream and version. Desktop and Mobile version
+independently; never compare their semantic versions to sort a combined feed.
+Website feeds sort by actual publication time. Keep OS-specific changes within
+the parent stream while those releases remain coupled. Add a new stream only
+when another surface has its own release lifecycle and user-facing notes.
 
-Preparing or merging a stable entry does not publish it. Website builds include
-only versions with a published, non-draft, non-prerelease GitHub `desktop_v*`
-release. Unreleased entries must stay absent from the public index, direct
-version URLs, and browser bundles. Local development can preview the drafts.
-After the desktop release is published, the next website deployment exposes its
-notes; never use the planned frontmatter date as the publication gate.
+Preparing or merging notes does not publish them. Desktop entries require a
+published, non-draft, non-prerelease GitHub `desktop_v<version>` release. Mobile
+entries require a verified publication record; see `mobile/AGENTS.md`. Production
+builds omit unpublished notes from the index, direct URLs, and browser bundles.
+Local development previews drafts. A planned frontmatter date is never a gate.
+
+Nightly publication is retired. Preserve historical notes without generating
+new Nightly entries or publishing them on the website. Stable notes cover the
+full delta since the preceding stable release, including changes previously
+seen in preview builds.
