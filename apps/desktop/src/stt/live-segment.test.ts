@@ -122,6 +122,22 @@ describe("SegmentKeyUtils", () => {
 });
 
 describe("mergeRenderedAndLiveSegments", () => {
+  it("preserves the rendered order when there is no live tail", () => {
+    const micEarly = createSegment("mic-early", [
+      { id: "mic-early", startMs: 0 },
+    ]);
+    const micLate = createSegment("mic-late", [
+      { id: "mic-late", startMs: 29_500 },
+    ]);
+    const remoteEarly = createSegment("remote-early", [
+      { id: "remote-early", startMs: 0 },
+    ]);
+
+    expect(
+      mergeRenderedAndLiveSegments([micEarly, micLate, remoteEarly], []),
+    ).toEqual([micEarly, micLate, remoteEarly]);
+  });
+
   it("preserves persisted words that share a segment with the live tail", () => {
     const persisted = createSegment("persisted", [
       { id: "word-prefix", startMs: 0 },

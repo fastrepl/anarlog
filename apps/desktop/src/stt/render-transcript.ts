@@ -469,13 +469,36 @@ function normalizeRenderTranscriptRequest(
     transcripts: request.transcripts.map((transcript) => ({
       ...transcript,
       started_at: normalizeOptionalTranscriptMs(transcript.started_at),
-      words: transcript.words.map((word) => ({
-        ...word,
-        start_ms: normalizeTranscriptMs(word.start_ms),
-        end_ms: normalizeTranscriptMs(word.end_ms),
-      })),
+      words: transcript.words.map((word) => {
+        const chunkStartMs = syntheticChunkStartMs(
+          (word as { metadata?: unknown }).metadata,
+        );
+        return {
+          ...word,
+          start_ms: normalizeTranscriptMs(word.start_ms),
+          end_ms: normalizeTranscriptMs(word.end_ms),
+          ...(chunkStartMs !== undefined
+            ? { synthetic_timing: { chunk_start_ms: chunkStartMs } }
+            : {}),
+        };
+      }),
     })),
   };
+}
+
+function syntheticChunkStartMs(metadata: unknown): number | null | undefined {
+  const timing = normalizeWordMetadata(metadata)?.timing;
+  if (!timing || typeof timing !== "object" || Array.isArray(timing)) {
+    return undefined;
+  }
+  const record = timing as Record<string, unknown>;
+  if (record.source !== "synthetic_text") {
+    return undefined;
+  }
+  const chunkStartMs = record.chunk_start_ms;
+  return typeof chunkStartMs === "number" && Number.isFinite(chunkStartMs)
+    ? chunkStartMs
+    : null;
 }
 
 function collectWordMetadataById(

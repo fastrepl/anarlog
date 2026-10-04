@@ -499,6 +499,64 @@ describe("buildRenderTranscriptRequestFromRows", () => {
       },
     });
   });
+
+  it("forwards synthetic timing to the renderer without splitting input rows", async () => {
+    renderTranscriptSegmentsCommand.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
+
+    const word = (
+      id: string,
+      start_ms: number,
+      channel: number,
+      chunk_start_ms?: number,
+    ) => ({
+      id,
+      text: ` ${id}`,
+      start_ms,
+      end_ms: start_ms + 400,
+      channel,
+      metadata: {
+        timing: { source: "synthetic_text", chunk_start_ms },
+      },
+    });
+
+    const request = buildRenderTranscriptRequestFromRows([
+      {
+        started_at: 1_000,
+        words: [
+          word("mic-1", 0, 0, 0),
+          word("remote-1", 0, 1, 0),
+          word("mic-legacy", 400, 0),
+          {
+            id: "timed-remote",
+            text: " timed-remote",
+            start_ms: 500,
+            end_ms: 900,
+            channel: 1,
+            metadata: { timing: { source: "provider_word" } },
+          },
+        ],
+        speaker_hints: [],
+      },
+    ])!;
+
+    expect(request.transcripts).toHaveLength(1);
+    await renderTranscriptSegments(request);
+
+    const sent = renderTranscriptSegmentsCommand.mock.calls[0]?.[0];
+    expect(
+      sent.transcripts[0]?.words.map(
+        (word: { synthetic_timing?: unknown }) => word.synthetic_timing,
+      ),
+    ).toEqual([
+      { chunk_start_ms: 0 },
+      { chunk_start_ms: 0 },
+      { chunk_start_ms: null },
+      undefined,
+    ]);
+  });
 });
 
 describe("getRenderTranscriptRequestKey", () => {
