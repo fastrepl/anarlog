@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
 
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
+import { completeCaptureTranscript } from "./capture-completion";
 import {
   canRunBatchTranscription,
   EMPTY_CURRENT_CAPTURE_TRANSCRIPT_ERROR_MESSAGE,
@@ -13,6 +14,10 @@ import {
   isTerminalTranscriptionError,
 } from "./useRunBatch";
 import { useRunBatch } from "./useRunBatch";
+
+vi.mock("./capture-completion", () => ({
+  completeCaptureTranscript: vi.fn().mockResolvedValue(undefined),
+}));
 
 const {
   startTranscriptionMock,
@@ -539,7 +544,7 @@ describe("useRunBatch", () => {
     );
   });
 
-  test("defers audio finalization for capture recovery", async () => {
+  test("capture repair saves its original interval while deferring audio finalization", async () => {
     startTranscriptionMock.mockImplementation(async (_params, options) => {
       options.handlePersist(
         [{ text: "recovered", start_ms: 0, end_ms: 100, channel: 0 }],
@@ -552,12 +557,18 @@ describe("useRunBatch", () => {
     await act(async () => {
       await result.current("/tmp/session.wav", {
         deferAudioFinalization: true,
+        captureInterval: { startedAtMs: 1000, stoppedAtMs: 2000 },
         promotion: { scope: "whole_session" },
       });
     });
 
     expect(saveBatchTranscriptMock).toHaveBeenCalledWith(
-      expect.objectContaining({ mark_audio_complete: false }),
+      expect.objectContaining({ mark_audio_complete: false, started_at: 1000 }),
+    );
+    expect(completeCaptureTranscript).toHaveBeenCalledWith(
+      "session-1",
+      saveBatchTranscriptMock.mock.calls[0][0].transcript_id,
+      2000,
     );
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
   });

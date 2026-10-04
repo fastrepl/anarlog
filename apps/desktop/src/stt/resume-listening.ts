@@ -344,6 +344,7 @@ export function useResumeListeningLifecycle(sessionId: string) {
         }
         await state.lifecycle.recoverStopped(sessionId, {
           durationSeconds,
+          stoppedAtMs: stoppedCapture?.stopped_at_ms,
           audioPath,
           requestedLiveTranscription:
             stoppedCapture?.requested_live_transcription ?? true,

@@ -39,6 +39,7 @@ import {
   type ProviderEligibilityContext,
 } from "~/settings/ai/shared/eligibility";
 import { useAiProvider } from "~/settings/providers";
+import { useSettingsReady } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
 
 // App attribution per https://openrouter.ai/docs/app-attribution. Mirrors
@@ -61,6 +62,7 @@ type LLMConnectionInfo = {
 };
 
 export type LLMConnectionStatus =
+  | { status: "pending"; reason: "managed_disabled" | "settings_loading" }
   | { status: "pending"; reason: "missing_provider" }
   | { status: "pending"; reason: "missing_model"; providerId: ProviderId }
   | { status: "error"; reason: "provider_not_found"; providerId: string }
@@ -110,6 +112,7 @@ export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
 };
 
 export const useLLMConnection = (): LLMConnectionResult => {
+  const settingsReady = useSettingsReady();
   const auth = useAuth();
   // Only the session feeds the connection; the auth object itself changes
   // identity on refresh-mutation state and would churn the model chain.
@@ -117,10 +120,12 @@ export const useLLMConnection = (): LLMConnectionResult => {
   const billing = useBillingAccess();
 
   const {
+    intelligence_disabled,
     current_llm_provider,
     current_llm_model,
     current_llm_reasoning_effort,
   } = useConfigValues([
+    "intelligence_disabled",
     "current_llm_provider",
     "current_llm_model",
     "current_llm_reasoning_effort",
@@ -131,15 +136,29 @@ export const useLLMConnection = (): LLMConnectionResult => {
 
   return useMemo<LLMConnectionResult>(
     () =>
-      resolveLLMConnection({
-        providerId: current_llm_provider,
-        modelId: current_llm_model,
-        reasoningEffort: normalizeReasoningEffort(current_llm_reasoning_effort),
-        providerConfig,
-        session,
-        isPaid: billing.isPaid,
-      }),
+      !settingsReady || intelligence_disabled
+        ? {
+            conn: null,
+            status: {
+              status: "pending",
+              reason: intelligence_disabled
+                ? "managed_disabled"
+                : "settings_loading",
+            },
+          }
+        : resolveLLMConnection({
+            providerId: current_llm_provider,
+            modelId: current_llm_model,
+            reasoningEffort: normalizeReasoningEffort(
+              current_llm_reasoning_effort,
+            ),
+            providerConfig,
+            session,
+            isPaid: billing.isPaid,
+          }),
     [
+      settingsReady,
+      intelligence_disabled,
       session,
       billing.isPaid,
       current_llm_model,

@@ -6,8 +6,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { normalizeLLMProviderId, useLanguageModel } from "./useLLMConnection";
 
 const mocks = vi.hoisted(() => ({ provider: "custom" as string }));
-
+const managed = vi.hoisted(() => ({ ready: true, disabled: false }));
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: vi.fn() }));
+vi.mock("~/settings/queries", () => ({
+  useSettingsReady: () => managed.ready,
+}));
 vi.mock("~/auth", () => ({ useAuth: () => ({ session: null }) }));
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({ isPaid: false }),
@@ -21,6 +24,7 @@ vi.mock("~/settings/providers", () => ({
 }));
 vi.mock("~/shared/config", () => ({
   useConfigValues: () => ({
+    intelligence_disabled: managed.disabled,
     current_llm_provider: mocks.provider,
     current_llm_model: "mtplx",
     current_llm_reasoning_effort: "default",
@@ -132,3 +136,24 @@ describe("normalizeLLMProviderId", () => {
     expect(normalizeLLMProviderId("openai")).toBe("openai");
   });
 });
+
+it.each([
+  { ready: true, disabled: true },
+  { ready: false, disabled: false },
+])(
+  "constructs no model before settings load or while intelligence is managed off (%j)",
+  (state) => {
+    managed.ready = state.ready;
+    managed.disabled = state.disabled;
+    vi.mocked(tauriFetch).mockClear();
+    try {
+      const { result, unmount } = renderHook(() => useLanguageModel());
+      expect(result.current).toBeNull();
+      expect(tauriFetch).not.toHaveBeenCalled();
+      unmount();
+    } finally {
+      managed.ready = true;
+      managed.disabled = false;
+    }
+  },
+);

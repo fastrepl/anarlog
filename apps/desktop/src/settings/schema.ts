@@ -1,4 +1,9 @@
 export const SETTING_DEFINITIONS = {
+  intelligence_disabled: {
+    type: "boolean",
+    path: ["ai", "intelligence_disabled"],
+    default: false as boolean,
+  },
   dictation_live_preview: {
     type: "boolean",
     path: ["dictation", "live_preview"],

@@ -5,6 +5,8 @@ mod flux;
 mod keywords;
 mod language;
 mod live;
+#[cfg(test)]
+mod managed_capture_opt_out;
 
 use super::{LanguageQuality, LanguageSupport};
 

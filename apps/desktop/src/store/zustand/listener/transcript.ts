@@ -30,6 +30,7 @@ export type OnStoppedCallback = (
   sessionId: string,
   details: {
     durationSeconds: number;
+    stoppedAtMs?: number;
     chunkedAudio?: boolean;
     audioDeletionFailed?: boolean;
     audioPath: string | null;

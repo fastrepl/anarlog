@@ -14,6 +14,7 @@ import {
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
+import { completeCaptureTranscript } from "./capture-completion";
 import { useListener } from "./contexts";
 import { persistTranscriptWrite } from "./persist-retry";
 import { useSTTConnection } from "./useSTTConnection";
@@ -73,6 +74,7 @@ type RunOptions = {
         replaceTranscriptId?: string;
         startedAt: number;
       };
+  captureInterval?: { startedAtMs: number; stoppedAtMs: number };
 };
 
 type BatchTarget = {
@@ -429,7 +431,7 @@ export const useRunBatch = (sessionId: string) => {
       }
 
       const createdAt = new Date().toISOString();
-      const startedAt = Date.now();
+      const startedAt = options?.captureInterval?.startedAtMs ?? Date.now();
       const memoMd = session?.raw_md ?? "";
       let keywords = options?.keywords;
       if (keywords === undefined) {
@@ -650,6 +652,15 @@ export const useRunBatch = (sessionId: string) => {
                 throw new Error(INCOMPLETE_BATCH_TRANSCRIPT_ERROR_MESSAGE);
               }
               if (saved.status === "saved" && saved.transcript_id) {
+                if (options?.captureInterval) {
+                  await persistTranscriptWrite(() =>
+                    completeCaptureTranscript(
+                      sessionId,
+                      saved.transcript_id!,
+                      options.captureInterval!.stoppedAtMs,
+                    ),
+                  );
+                }
                 await maybeExtractVoiceprintCandidates({
                   enabled: rememberSpeakers,
                   sessionId,

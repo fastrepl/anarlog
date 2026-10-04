@@ -378,6 +378,7 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "sqlx",
  "storage",
  "supabase-auth",
@@ -4400,6 +4401,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tiptap",
  "tokio",
+ "url",
  "uuid",
 ]
 
