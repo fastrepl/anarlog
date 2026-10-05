@@ -710,6 +710,19 @@ impl E2eeWitnessClient {
                 .await?;
             let status = response.status();
             let bytes = cancellation.run_network(read_bounded(response)).await??;
+            if status == reqwest::StatusCode::UPGRADE_REQUIRED {
+                self.accepted_support.store(0, Ordering::Release);
+                self.refresh_keyring_cancellable(pool, keyring, cancellation)
+                    .await?;
+                if anlg_db_app::e2ee_cloud_authority_enabled(pool, &self.workspace_id)
+                    .await
+                    .map_err(replica_error)?
+                {
+                    return self
+                        .publish_accepted(pool, keyring, initialize, cancellation)
+                        .await;
+                }
+            }
             if !status.is_success() {
                 return Err(io::Error::other(format!(
                     "E2EE witness publication was rejected with status {status}"
@@ -791,15 +804,51 @@ impl E2eeWitnessClient {
         through: Option<u64>,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<ReadPage> {
-        // Probe once per client configuration. Legacy deployments must not pay
-        // an extra network request for every history page and refresh.
-        if self.accepted_support.load(Ordering::Acquire) != 1 {
+        let mut retried_upgrade = false;
+        loop {
+            // Cache missing support until a legacy route requests an upgrade.
+            // Avoid an extra request for every legacy history page and refresh.
+            if self.accepted_support.load(Ordering::Acquire) != 1 {
+                let response = self
+                    .send_with_rate_limit_retry(
+                        || {
+                            let mut request = self
+                                .client
+                                .get(self.accepted_endpoint())
+                                .bearer_auth(&self.access_token)
+                                .query(&[("afterSequence", after)]);
+                            if let Some(through) = through {
+                                request = request.query(&[("throughSequence", through)]);
+                            }
+                            request
+                        },
+                        cancellation,
+                    )
+                    .await?;
+                let status = response.status();
+                let bytes = cancellation.run_network(read_bounded(response)).await??;
+                if status.is_success() {
+                    let mut page: ReadPage = serde_json::from_slice(&bytes)
+                        .map_err(|_| invalid_data("Invalid accepted cloud page"))?;
+                    page.accepted = true;
+                    self.accepted_support.store(2, Ordering::Release);
+                    return Ok(page);
+                }
+                if status != reqwest::StatusCode::NOT_FOUND
+                    || self.accepted_support.load(Ordering::Acquire) == 2
+                {
+                    return Err(io::Error::other(format!(
+                        "Accepted cloud read was rejected with status {status}"
+                    )));
+                }
+                self.accepted_support.store(1, Ordering::Release);
+            }
             let response = self
                 .send_with_rate_limit_retry(
                     || {
                         let mut request = self
                             .client
-                            .get(self.accepted_endpoint())
+                            .get(self.endpoint.clone())
                             .bearer_auth(&self.access_token)
                             .query(&[("afterSequence", after)]);
                         if let Some(through) = through {
@@ -812,47 +861,19 @@ impl E2eeWitnessClient {
                 .await?;
             let status = response.status();
             let bytes = cancellation.run_network(read_bounded(response)).await??;
-            if status.is_success() {
-                let mut page: ReadPage = serde_json::from_slice(&bytes)
-                    .map_err(|_| invalid_data("Invalid accepted cloud page"))?;
-                page.accepted = true;
-                self.accepted_support.store(2, Ordering::Release);
-                return Ok(page);
+            if status == reqwest::StatusCode::UPGRADE_REQUIRED && !retried_upgrade {
+                self.accepted_support.store(0, Ordering::Release);
+                retried_upgrade = true;
+                continue;
             }
-            if status != reqwest::StatusCode::NOT_FOUND
-                || self.accepted_support.load(Ordering::Acquire) == 2
-            {
+            if !status.is_success() {
                 return Err(io::Error::other(format!(
-                    "Accepted cloud read was rejected with status {status}"
+                    "E2EE witness read was rejected with status {status}"
                 )));
             }
-            self.accepted_support.store(1, Ordering::Release);
+            return serde_json::from_slice(&bytes)
+                .map_err(|_| invalid_data("E2EE witness read response is invalid"));
         }
-        let response = self
-            .send_with_rate_limit_retry(
-                || {
-                    let mut request = self
-                        .client
-                        .get(self.endpoint.clone())
-                        .bearer_auth(&self.access_token)
-                        .query(&[("afterSequence", after)]);
-                    if let Some(through) = through {
-                        request = request.query(&[("throughSequence", through)]);
-                    }
-                    request
-                },
-                cancellation,
-            )
-            .await?;
-        let status = response.status();
-        let bytes = cancellation.run_network(read_bounded(response)).await??;
-        if !status.is_success() {
-            return Err(io::Error::other(format!(
-                "E2EE witness read was rejected with status {status}"
-            )));
-        }
-        serde_json::from_slice(&bytes)
-            .map_err(|_| invalid_data("E2EE witness read response is invalid"))
     }
 
     async fn send_with_rate_limit_retry(
