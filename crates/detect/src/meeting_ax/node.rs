@@ -164,6 +164,35 @@ pub(super) fn is_platform_active_call_control(platform: &MeetingPlatform, node: 
     })
 }
 
+pub(super) fn nodes_show_remote_screen_share(nodes: &[AxNode]) -> bool {
+    nodes
+        .iter()
+        .any(|node| node_labels(node).any(label_indicates_remote_screen_share))
+}
+
+// Someone else's share is what the meeting window shows; our own share only
+// shows a "you are presenting" placeholder, so it is not worth capturing.
+pub(super) fn label_indicates_remote_screen_share(label: &str) -> bool {
+    let label = label.trim().to_lowercase().replace('\u{2019}', "'");
+    if label.is_empty() || label.len() > 160 {
+        return false;
+    }
+    if ["you are ", "you're ", "stop ", "share ", "present "]
+        .iter()
+        .any(|prefix| label.starts_with(prefix))
+        && !label.starts_with("you are viewing")
+        && !label.starts_with("you're viewing")
+    {
+        return false;
+    }
+
+    label.contains(" is presenting")
+        || label.contains(" is sharing")
+        || label.contains(" is screen sharing")
+        || label.ends_with("(presentation)")
+        || (label.contains("viewing") && label.contains("'s screen"))
+}
+
 pub(super) fn teams_has_active_call_evidence(nodes: &[AxNode]) -> bool {
     let has_leave = nodes.iter().any(|node| {
         matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))

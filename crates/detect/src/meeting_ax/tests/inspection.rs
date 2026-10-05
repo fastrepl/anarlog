@@ -194,3 +194,24 @@ fn test_native_fallback_evidence_marks_calls_active() {
         false,
     ));
 }
+
+#[test]
+fn test_remote_screen_share_ignores_own_share_and_share_controls() {
+    for label in [
+        "Alex Kim is presenting",
+        "You are viewing Alex Kim's screen",
+        "Priya is sharing their screen",
+        "Alex Kim (Presentation)",
+    ] {
+        assert!(label_indicates_remote_screen_share(label), "{label}");
+    }
+    for label in [
+        "You are presenting",
+        "You're sharing your screen",
+        "Stop presenting",
+        "Share screen",
+        "Present now",
+    ] {
+        assert!(!label_indicates_remote_screen_share(label), "{label}");
+    }
+}

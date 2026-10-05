@@ -24,7 +24,7 @@ tauri-plugin-detect = { path = ".", features = ["test-support"] }
 tokio = { workspace = true, features = ["test-util"] }
 
 [dependencies]
-anlg-detect = { workspace = true, features = ["mic", "list", "language", "sleep"] }
+anlg-detect = { workspace = true, features = ["mic", "list", "language", "sleep", "screen"] }
 anlg-notification-interface = { workspace = true }
 
 tauri = { workspace = true, features = ["specta", "test"] }

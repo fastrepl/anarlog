@@ -235,6 +235,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "capture_meeting_chat"],
     default: false as boolean,
   },
+  capture_shared_screens: {
+    type: "boolean",
+    path: ["general", "capture_shared_screens"],
+    default: false as boolean,
+  },
   cloud_sync_enabled: {
     type: "boolean",
     path: ["general", "cloud_sync_enabled"],

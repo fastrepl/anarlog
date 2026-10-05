@@ -16,6 +16,7 @@ import {
   MEETING_DISCLOSURE_MESSAGE,
   startMeetingRecordingDisclosure,
 } from "./meeting-disclosure";
+import { startMeetingScreenCapture } from "./meeting-screen-capture";
 import { startPrimaryDeviceCoordination } from "./primary-device";
 import {
   classifyStartFailure,
@@ -299,19 +300,21 @@ export function useStartListeningState(
       automatic,
     });
 
-    setStopMeetingChatCapture(
-      startMeetingChatCapture({
-        sessionId,
-        excludedTexts: [MEETING_DISCLOSURE_MESSAGE],
-        onParticipantDeclined: () => {
-          toast.warning(
-            "A participant declined recording. Anarlog stopped listening.",
-            { id: "meeting-consent-declined", duration: Infinity },
-          );
-          stop();
-        },
-      }),
-    );
+    const stopChatCapture = startMeetingChatCapture({
+      sessionId,
+      excludedTexts: [MEETING_DISCLOSURE_MESSAGE],
+      onParticipantDeclined: () => {
+        toast.warning(
+          "A participant declined recording. Anarlog stopped listening.",
+          { id: "meeting-consent-declined", duration: Infinity },
+        );
+        stop();
+      },
+    });
+    const stopScreenCapture = startMeetingScreenCapture({ sessionId });
+    setStopMeetingChatCapture(async () => {
+      await Promise.all([stopChatCapture(), stopScreenCapture()]);
+    });
 
     if (meetingDisclosureAutoSendChat) {
       startMeetingRecordingDisclosure(

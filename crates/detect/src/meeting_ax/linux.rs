@@ -674,17 +674,19 @@ fn inspection_from_nodes(
         classify_platform(&app.id, window_title.as_deref(), &nodes, bundle_platform)
     });
     let surface = classify_surface(&app.id, &platform);
+    let active_call = accessibility_trusted
+        && nodes
+            .iter()
+            .any(|node| super::is_platform_active_call_control(&platform, node));
     MeetingAccessibilityInspection {
-        active_call: accessibility_trusted
-            && nodes
-                .iter()
-                .any(|node| super::is_platform_active_call_control(&platform, node)),
+        active_call,
         app,
         pid,
         platform,
         surface,
         accessibility_trusted,
         window_title,
+        remote_screen_share: active_call && super::nodes_show_remote_screen_share(&nodes),
         warnings,
     }
 }

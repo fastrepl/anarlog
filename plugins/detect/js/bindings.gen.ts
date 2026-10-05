@@ -86,6 +86,18 @@ async captureMeetingChatMessages() : Promise<Result<MeetingChatCaptureResult, st
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Samples the meeting window while someone else is sharing their screen and
+ * returns a JPEG only when a new, settled frame appears.
+ */
+async captureMeetingScreenShare(reset: boolean) : Promise<Result<MeetingScreenShareCapture, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|capture_meeting_screen_share", { reset }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getPreferredLanguages() : Promise<Result<string[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:detect|get_preferred_languages") };
@@ -130,13 +142,14 @@ detectEvent: "plugin:detect:detect-event"
 export type DetectEvent = { type: "micDetected"; key: string; apps: InstalledApp[]; duration_secs: number } | { type: "micStopped"; apps: InstalledApp[] } | { type: "micMuted"; value: boolean } | { type: "sleepStateChanged"; value: boolean }
 export type InstalledApp = { id: string; name: string }
 export type InstalledApplicationIcon = { id: string; dataUrl: string }
-export type MeetingAccessibilityInspection = { activeCall: boolean; app: MeetingApp; pid: number; platform: MeetingPlatform; surface: MeetingSurface; accessibilityTrusted: boolean; windowTitle: string | null; warnings: string[] }
+export type MeetingAccessibilityInspection = { activeCall: boolean; app: MeetingApp; pid: number; platform: MeetingPlatform; surface: MeetingSurface; accessibilityTrusted: boolean; windowTitle: string | null; remoteScreenShare: boolean; warnings: string[] }
 export type MeetingApp = { id: string; name: string }
 export type MeetingCapturedChatMessage = { id: string; platform: MeetingPlatform; surface: MeetingSurface; sender: string | null; timestamp: string | null; direction: MeetingChatDirection | null; text: string; links: string[] }
 export type MeetingChatCaptureResult = { app: MeetingApp | null; platform: MeetingPlatform; surface: MeetingSurface; contextId: string | null; messages: MeetingCapturedChatMessage[]; warnings: string[] }
 export type MeetingChatDirection = "incoming" | "outgoing"
 export type MeetingChatSendResult = { sent: boolean; app: MeetingApp | null; platform: MeetingPlatform; surface: MeetingSurface; inputLabel: string | null; sendAction: string | null; warnings: string[] }
 export type MeetingPlatform = "zoom" | "googleMeet" | "microsoftTeams" | "slack" | "discord" | "webex" | "unknown"
+export type MeetingScreenShareCapture = { sharing: boolean; app: MeetingApp | null; platform: MeetingPlatform | null; jpeg: number[] | null; width: number; height: number }
 export type MeetingSurface = "native" | "web" | "unknown"
 
 /** tauri-specta globals **/
