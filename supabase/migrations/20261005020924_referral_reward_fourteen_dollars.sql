@@ -9,7 +9,7 @@ ALTER TABLE private.referral_invites
 
 UPDATE private.referral_invites
 SET reward_amount_cents = 1400
-WHERE qualifying_invoice_id IS NULL AND rewarded_at IS NULL;
+WHERE referred_user_id IS NULL AND qualifying_invoice_id IS NULL AND rewarded_at IS NULL;
 
 CREATE OR REPLACE FUNCTION public.get_or_create_referral_invites()
 RETURNS TABLE (

@@ -29,6 +29,7 @@ export function useAccountSession() {
       };
 
       return {
+        userId: session.user.id,
         billing: deriveBillingInfo(
           jwtDecode<SupabaseJwtPayload>(session.access_token),
         ),

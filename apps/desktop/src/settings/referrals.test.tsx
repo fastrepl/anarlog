@@ -49,12 +49,34 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
 import { SettingsReferrals } from "./referrals";
 
 const code = "0123456789abcdef01234567";
-const invite = (slot = 1, status = "available") => ({
-  slot,
-  status,
-  code: slot === 1 ? code : code.replace(/.$/, String(slot)),
-  reward_amount_cents: 1400,
-  reward_currency: "usd",
+const summary = (overrides = {}) => ({
+  enabled: true,
+  eligible: true,
+  code,
+  accepted: 2,
+  remaining: 1,
+  months_earned: 1,
+  invites: [
+    {
+      id: "a",
+      slot: 1,
+      policy: "trial_month",
+      accepted_at: "2026-10-05T00:00:00Z",
+      extended_until: null,
+      legacy_amount_cents: 1400,
+      status: "accepted",
+    },
+    {
+      id: "b",
+      slot: 2,
+      policy: "trial_month",
+      accepted_at: "2026-10-05T00:00:00Z",
+      extended_until: "2026-12-05T00:00:00Z",
+      legacy_amount_cents: 1400,
+      status: "applied",
+    },
+  ],
+  ...overrides,
 });
 const clients: QueryClient[] = [];
 function setup() {
@@ -84,20 +106,24 @@ beforeEach(() => {
   mocks.clipboard = "";
   mocks.response.mockReset();
   mocks.response.mockResolvedValue({
-    data: [invite(), invite(2, "trial_started"), invite(3, "reward_earned")],
+    data: summary(),
     error: null,
   });
 });
 
 describe("Referral invites", () => {
-  it("copies the available server invite as a public link and keeps consumed invites unshareable", async () => {
+  it("copies one personal link while showing acceptance separately from applied rewards", async () => {
     setup();
     const copy = await screen.findByRole("button", { name: "Copy link" });
-    expect(screen.getByText("Invite accepted")).toBeTruthy();
-    expect(screen.getByText("Reward applied")).toBeTruthy();
+    expect(
+      screen.getByText("Accepted · Waiting for trial to start"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Reward applied · 1 free month added"),
+    ).toBeTruthy();
     const rows = screen.getAllByRole("listitem");
+    expect(within(rows[0]).queryByRole("button")).toBeNull();
     expect(within(rows[1]).queryByRole("button")).toBeNull();
-    expect(within(rows[2]).queryByRole("button")).toBeNull();
     fireEvent.click(copy);
     await screen.findByRole("button", { name: "Copied" });
     expect(mocks.clipboard).toBe(`https://anarlog.so/invite/${code}`);
@@ -111,14 +137,17 @@ describe("Referral invites", () => {
     setup();
     await screen.findByRole("alert");
     expect(screen.queryByRole("listitem")).toBeNull();
-    mocks.response.mockResolvedValue({ data: [invite()], error: null });
+    mocks.response.mockResolvedValue({ data: summary(), error: null });
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByRole("button", { name: "Copy link" });
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("offers billing when the server returns no eligible invites", async () => {
-    mocks.response.mockResolvedValue({ data: [], error: null });
+    mocks.response.mockResolvedValue({
+      data: summary({ eligible: false, code: null, invites: [] }),
+      error: null,
+    });
     setup();
     await screen.findByRole("button", { name: "View billing" });
     expect(screen.queryByRole("button", { name: "Copy link" })).toBeNull();
@@ -127,7 +156,7 @@ describe("Referral invites", () => {
   it("does not show the previous account's links while another account loads or signs out", async () => {
     mocks.response.mockImplementation((token: string) =>
       token === "Bearer token-a"
-        ? Promise.resolve({ data: [invite()], error: null })
+        ? Promise.resolve({ data: summary(), error: null })
         : new Promise(() => {}),
     );
     const view = setup();

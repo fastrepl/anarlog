@@ -12,6 +12,7 @@ export function buildTrialEndingEmail({
   now: number;
 }): { email: string; dataVariables: Record<string, string | number> } | null {
   if (
+    subscription.metadata?.referral_extension === "true" ||
     !customer.email ||
     !subscription.trial_end ||
     isAutumnManagedCustomer(customer.metadata)

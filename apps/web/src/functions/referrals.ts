@@ -15,13 +15,7 @@ const REFERRAL_COOKIE = "anarlog-referral";
 const REFERRAL_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const referralCodeSchema = z.string().regex(/^[a-f0-9]{24}$/);
 
-type ReferralInviteRow = {
-  slot: number;
-  code: string;
-  status: "available" | "trial_started" | "reward_earned";
-  reward_amount_cents: number;
-  reward_currency: string;
-};
+import type { ReferralSummary } from "@anlg/supabase/referrals";
 
 export const persistReferralAttribution = createServerFn({ method: "POST" })
   .inputValidator(referralCodeSchema)
@@ -37,6 +31,15 @@ export const persistReferralAttribution = createServerFn({ method: "POST" })
       return "existing_account" as const;
     }
 
+    const { data: available, error } = await supabase.rpc(
+      "referral_link_available",
+      { p_code: code },
+    );
+    if (error) throw error;
+    if (available !== true) {
+      deleteCookie(REFERRAL_COOKIE, { path: "/" });
+      return "unavailable" as const;
+    }
     setCookie(REFERRAL_COOKIE, code, {
       httpOnly: true,
       maxAge: REFERRAL_COOKIE_MAX_AGE_SECONDS,
@@ -91,21 +94,12 @@ export const getReferralInvites = createServerFn({ method: "POST" }).handler(
       throw new Error("Unauthorized");
     }
 
-    const { data, error } = await supabase.rpc(
-      "get_or_create_referral_invites",
-    );
+    const { data, error } = await supabase.rpc("get_referral_summary");
     if (error) {
       throw error;
     }
 
-    const appOrigin = getRequestAppOrigin();
-    return ((data ?? []) as ReferralInviteRow[]).map((invite) => ({
-      slot: invite.slot,
-      status: invite.status,
-      rewardAmountCents: invite.reward_amount_cents,
-      rewardCurrency: invite.reward_currency,
-      url: `${appOrigin}/invite/${invite.code}`,
-    }));
+    return data as ReferralSummary;
   },
 );
 

@@ -51,6 +51,13 @@ export async function sendNewCustomerAlert(
     return { product: "anarlog" as Product, kind: "signup" as const };
   }
 
+  if (
+    event.type.startsWith("customer.subscription.") &&
+    (event.data.object as Stripe.Subscription).metadata?.referral_extension ===
+      "true"
+  )
+    return null;
+
   if (!startsPaidPlan(event)) {
     return null;
   }

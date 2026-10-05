@@ -17,6 +17,7 @@ export type SupabaseJwtPayload = {
   entitlements?: string[];
   subscription_status?: SubscriptionStatus | null;
   trial_end?: number | null;
+  referral_extension?: boolean;
   has_payment_method?: boolean | null;
   cancel_at_period_end?: boolean | null;
   current_period_end?: number | null;

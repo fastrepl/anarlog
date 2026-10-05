@@ -165,10 +165,6 @@ msgstr "{weeks} weeks ago"
 msgid "${0} /month after trial"
 msgstr "${0} /month after trial"
 
-#: src/settings/referrals.tsx
-msgid "$14 off your subscription"
-msgstr "$14 off your subscription"
-
 #: src/settings/general/audio-settings.tsx
 msgid "1 day"
 msgstr "1 day"
@@ -208,10 +204,6 @@ msgstr "3 days"
 #: src/settings/stats/date-range.tsx
 msgid "30 days"
 msgstr "30 days"
-
-#: src/settings/referrals.tsx
-msgid "30 days of Pro, free"
-msgstr "30 days of Pro, free"
 
 #: src/settings/stats/date-range.tsx
 msgid "7 days"
@@ -268,6 +260,14 @@ msgstr "Accept ownership"
 #: src/settings/team/index.tsx
 msgid "Accept workspace ownership?"
 msgstr "Accept workspace ownership?"
+
+#: src/settings/referrals.tsx
+msgid "Accepted"
+msgstr "Accepted"
+
+#: src/settings/referrals.tsx
+msgid "Accepted · Waiting for trial to start"
+msgstr "Accepted · Waiting for trial to start"
 
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
@@ -511,6 +511,10 @@ msgstr "AI step"
 #: src/contacts/details.tsx
 msgid "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 msgstr "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
+
+#: src/settings/referrals.tsx
+msgid "All 3 invites have been accepted."
+msgstr "All 3 invites have been accepted."
 
 #: src/settings/developers/webhooks.tsx
 msgid "All events"
@@ -821,7 +825,6 @@ msgstr "Automation removed"
 msgid "Automations"
 msgstr "Automations"
 
-#: src/settings/referrals.tsx
 #: src/settings/team/index.tsx
 msgid "Available"
 msgstr "Available"
@@ -2282,10 +2285,6 @@ msgstr "Duration"
 msgid "Each example must be 12,000 characters or fewer."
 msgstr "Each example must be 12,000 characters or fewer."
 
-#: src/settings/referrals.tsx
-msgid "Each invite is for one friend who is new to Anarlog. Referral invites are available to Pro subscribers."
-msgstr "Each invite is for one friend who is new to Anarlog. Referral invites are available to Pro subscribers."
-
 #: src/session/components/version-history-dialog.tsx
 msgid "Earlier versions of this note, newest first."
 msgstr "Earlier versions of this note, newest first."
@@ -2329,6 +2328,10 @@ msgstr "Email or name"
 #: src/settings/team/invitation.ts
 msgid "Email unavailable. Invite link copied instead."
 msgstr "Email unavailable. Invite link copied instead."
+
+#: src/settings/referrals.tsx
+msgid "Email us"
+msgstr "Email us"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Emojis"
@@ -2507,6 +2510,10 @@ msgstr "Export the meeting as Markdown"
 msgid "Exporting..."
 msgstr "Exporting..."
 
+#: src/settings/referrals.tsx
+msgid "Extended through {end} when this reward was applied."
+msgstr "Extended through {end} when this reward was applied."
+
 #: src/onboarding/calendar.tsx
 msgid "Failed to load Google Calendar"
 msgstr "Failed to load Google Calendar"
@@ -2640,14 +2647,6 @@ msgstr "Food & Drink"
 msgid "For enabled notifications"
 msgstr "For enabled notifications"
 
-#: src/settings/referrals.tsx
-msgid "For you"
-msgstr "For you"
-
-#: src/settings/referrals.tsx
-msgid "For your friend"
-msgstr "For your friend"
-
 #: src/settings/general/audio-settings.tsx
 msgid "Forever"
 msgstr "Forever"
@@ -2655,6 +2654,10 @@ msgstr "Forever"
 #: src/settings/general/billing.tsx
 msgid "Free"
 msgstr "Free"
+
+#: src/settings/referrals.tsx
+msgid "Free months earned"
+msgstr "Free months earned"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Frequently used"
@@ -2691,6 +2694,10 @@ msgstr "Generating transcript..."
 msgid "Get more slots"
 msgstr "Get more slots"
 
+#: src/settings/referrals.tsx
+msgid "Get one free month when a friend signs up through your link and starts their free trial. Invite up to 3 friends. Each friend gets 30 days of Pro free."
+msgstr "Get one free month when a friend signs up through your link and starts their free trial. Invite up to 3 friends. Each friend gets 30 days of Pro free."
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 #: src/settings/general/billing.tsx
 msgid "Get Pro"
@@ -2705,10 +2712,6 @@ msgstr "Get started"
 #: src/settings/general/notification.tsx
 msgid "Get your attention when Anarlog finishes work in the background."
 msgstr "Get your attention when Anarlog finishes work in the background."
-
-#: src/settings/referrals.tsx
-msgid "Give a friend 30 days of Anarlog Pro. Get $14 off your subscription after their first payment."
-msgstr "Give a friend 30 days of Anarlog Pro. Get $14 off your subscription after their first payment."
 
 #: src/sidebar/timeline/index.tsx
 msgid "Go back to now"
@@ -2894,6 +2897,10 @@ msgstr "Icons"
 msgid "If Anarlog stays closed, paste the link in the sign-in window."
 msgstr "If Anarlog stays closed, paste the link in the sign-in window."
 
+#: src/settings/referrals.tsx
+msgid "If your friend signed up through your link and started their free trial, but your free month hasn't appeared, email us and we'll help."
+msgstr "If your friend signed up through your link and started their free trial, but your free month hasn't appeared, email us and we'll help."
+
 #: src/onboarding/index.tsx
 msgid "Import notes and transcripts from the meeting apps you already use."
 msgstr "Import notes and transcripts from the meeting apps you already use."
@@ -3022,10 +3029,6 @@ msgid "Invite {slot}"
 msgstr "Invite {slot}"
 
 #: src/settings/referrals.tsx
-msgid "Invite accepted"
-msgstr "Invite accepted"
-
-#: src/settings/referrals.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Invite friends"
 msgstr "Invite friends"
@@ -3066,6 +3069,10 @@ msgstr "Invited by {0}"
 #: src/settings/team/index.tsx
 msgid "Invited to join"
 msgstr "Invited to join"
+
+#: src/settings/referrals.tsx
+msgid "Invites remaining"
+msgstr "Invites remaining"
 
 #: src/crm/enrich-contact.tsx
 msgid "job title"
@@ -3584,6 +3591,10 @@ msgstr "Migration status unavailable"
 msgid "Minimize"
 msgstr "Minimize"
 
+#: src/settings/referrals.tsx
+msgid "Missing a referral reward?"
+msgstr "Missing a referral reward?"
+
 #: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Model being used"
@@ -3672,6 +3683,10 @@ msgstr "New Note"
 msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
 msgstr "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
 
+#: src/settings/referrals.tsx
+msgid "New referral invites are available with a paid personal Pro subscription. Team-only subscriptions aren't eligible."
+msgstr "New referral invites are available with a paid personal Pro subscription. Team-only subscriptions aren't eligible."
+
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
 msgstr "New template"
@@ -3693,6 +3708,10 @@ msgstr "next month"
 #: src/sidebar/timeline/utils/index.ts
 msgid "next week"
 msgstr "next week"
+
+#: src/settings/referrals.tsx
+msgid "No accepted invites yet. Copying your link doesn't count as an accepted invite."
+msgstr "No accepted invites yet. Copying your link doesn't count as an accepted invite."
 
 #: src/imports/screen.tsx
 #: src/settings/general/notification.tsx
@@ -3794,10 +3813,6 @@ msgstr "No icons found"
 #: src/imports/screen.tsx
 msgid "No imports yet."
 msgstr "No imports yet."
-
-#: src/settings/referrals.tsx
-msgid "No invites are available for this account. Referral invites require an active paid subscription."
-msgstr "No invites are available for this account. Referral invites require an active paid subscription."
 
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
@@ -4152,6 +4167,10 @@ msgstr "Organization"
 msgid "Organization name"
 msgstr "Organization name"
 
+#: src/settings/referrals.tsx
+msgid "Original offer: {amount} off your subscription after your friend's first payment."
+msgstr "Original offer: {amount} off your subscription after your friend's first payment."
+
 #: src/session/components/version-history-dialog.tsx
 msgid "Other device's version"
 msgstr "Other device's version"
@@ -4353,6 +4372,18 @@ msgstr "Preview"
 msgid "Previous match"
 msgstr "Previous match"
 
+#: src/settings/referrals.tsx
+msgid "Previous referral offer · Reward applied"
+msgstr "Previous referral offer · Reward applied"
+
+#: src/settings/referrals.tsx
+msgid "Previous referral offer · Waiting for first payment"
+msgstr "Previous referral offer · Waiting for first payment"
+
+#: src/settings/referrals.tsx
+msgid "Previous referrals keep their original reward terms and count toward your 3-invite limit."
+msgstr "Previous referrals keep their original reward terms and count toward your 3-invite limit."
+
 #: src/settings/team/index.tsx
 msgid "Primary owner"
 msgstr "Primary owner"
@@ -4510,8 +4541,8 @@ msgid "Redo"
 msgstr "Redo"
 
 #: src/settings/referrals.tsx
-msgid "Referral invites are unavailable. Check your connection and try again."
-msgstr "Referral invites are unavailable. Check your connection and try again."
+msgid "Refer friends, get a month free"
+msgstr "Refer friends, get a month free"
 
 #: src/settings/referrals.tsx
 msgid "Refresh"
@@ -4807,8 +4838,12 @@ msgid "Revoke"
 msgstr "Revoke"
 
 #: src/settings/referrals.tsx
-msgid "Reward applied"
-msgstr "Reward applied"
+msgid "Reward applied · 1 free month added"
+msgstr "Reward applied · 1 free month added"
+
+#: src/settings/referrals.tsx
+msgid "Reward pending · Contact us for help"
+msgstr "Reward pending · Contact us for help"
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Right Command"
@@ -5192,10 +5227,6 @@ msgstr "Share this folder?"
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
 msgstr "Share usage data"
-
-#: src/settings/referrals.tsx
-msgid "Share your referral link"
-msgstr "Share your referral link"
 
 #: src/settings/general/billing.tsx
 msgid "Shared across cloud sync and your workspaces."
@@ -5916,6 +5947,10 @@ msgstr "Test runs are not available yet."
 msgid "The link may have expired or its access may have changed."
 msgstr "The link may have expired or its access may have changed."
 
+#: src/settings/referrals.tsx
+msgid "The new referral offer is not available yet. Your previous referrals are shown below."
+msgstr "The new referral offer is not available yet. Your previous referrals are shown below."
+
 #: src/shared-notes/index.tsx
 msgid "The note may have been unshared or moved out of a workspace you can access."
 msgstr "The note may have been unshared or moved out of a workspace you can access."
@@ -6084,6 +6119,10 @@ msgstr "Trial"
 #: src/onboarding/account/after-login.tsx
 msgid "Trial activated - {trialDays} days of Pro"
 msgstr "Trial activated - {trialDays} days of Pro"
+
+#: src/settings/referrals.tsx
+msgid "Trial started · Applying your free month"
+msgstr "Trial started · Applying your free month"
 
 #: src/settings/automations/index.tsx
 #: src/settings/automations/workflow-builder.tsx
@@ -6602,13 +6641,13 @@ msgstr "Your info"
 msgid "Your insights"
 msgstr "Your insights"
 
-#: src/settings/referrals.tsx
-msgid "Your invites"
-msgstr "Your invites"
-
 #: src/auth/context.tsx
 msgid "Your local notes are available. Connect this library to sync with your current account."
 msgstr "Your local notes are available. Connect this library to sync with your current account."
+
+#: src/settings/referrals.tsx
+msgid "Your next billing date moves back one month, on monthly or annual plans. No payment from your friend is required."
+msgstr "Your next billing date moves back one month, on monthly or annual plans. No payment from your friend is required."
 
 #: src/billing/trial-ended-dialog.tsx
 msgid "Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features."
@@ -6666,6 +6705,10 @@ msgstr "Your Pro trial just started"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 msgstr "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
+
+#: src/settings/referrals.tsx
+msgid "Your referrals"
+msgstr "Your referrals"
 
 #: src/services/enhancer/summary-notification.ts
 msgid "Your summary is ready."

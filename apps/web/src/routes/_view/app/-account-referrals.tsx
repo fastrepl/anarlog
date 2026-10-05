@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { Check, Copy } from "@anlg/ui/components/icons";
+import {
+  referralSupportUrl,
+  type ReferralSummary,
+} from "@anlg/supabase/referrals";
 
 import { getReferralInvites } from "@/functions/referrals";
-import { useAnalytics } from "@/hooks/use-posthog";
 
 import { useAccountSession } from "./-account-session";
 import {
@@ -12,146 +13,206 @@ import {
   accountPillSecondaryClassName,
 } from "./-account-ui";
 
-const referralInvitesQueryKey = ["referral-invites"];
-
 export function ReferralSection({ ineligible }: { ineligible: boolean }) {
   const session = useAccountSession();
-  const { track } = useAnalytics();
-  const [copiedSlot, setCopiedSlot] = useState<number | null>(null);
-  const isPaid = session.data?.billing.isPaid === true;
-  const invitesQuery = useQuery({
-    queryKey: referralInvitesQueryKey,
-    enabled: typeof window !== "undefined" && isPaid,
+  const summary = useQuery({
+    queryKey: ["referral-summary", session.data?.userId],
+    enabled: typeof window !== "undefined" && !!session.data,
     queryFn: () => getReferralInvites(),
+    gcTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) =>
+      query.state.data?.invites.some((i) =>
+        ["accepted", "applying"].includes(i.status),
+      )
+        ? 15_000
+        : false,
   });
-
-  if (session.isPending) {
-    return (
-      <div className={accountCardClassName}>
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          Checking your referral invites...
-        </p>
-      </div>
-    );
-  }
-
-  if (!isPaid) {
-    return (
-      <div className={accountCardClassName}>
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          {ineligible
-            ? "Referral invites are for new accounts. Ask your friend to send the link to someone who has not used Anarlog before."
-            : "Referral invites unlock when you become a Pro subscriber."}
-        </p>
-      </div>
-    );
-  }
-
-  if (invitesQuery.isPending) {
-    return (
-      <div className={accountCardClassName}>
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          Preparing your three invites...
-        </p>
-      </div>
-    );
-  }
-
-  if (invitesQuery.isError || !invitesQuery.data?.length) {
-    return (
-      <div className={accountCardClassName}>
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          We could not load your referral invites. Refresh the page to try
-          again.
-        </p>
-      </div>
-    );
-  }
-
-  const invites = invitesQuery.data;
-  const earnedRewards = invites.filter(
-    (invite) => invite.status === "reward_earned",
-  ).length;
-  const earnedRewardCents = invites
-    .filter((invite) => invite.status === "reward_earned")
-    .reduce((total, invite) => total + invite.rewardAmountCents, 0);
-  const rewardCurrency = invites[0]?.rewardCurrency ?? "usd";
-  const availableInvites = invites.filter(
-    (invite) => invite.status === "available",
-  ).length;
-  const earnedCredit = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: rewardCurrency.toUpperCase(),
-    maximumFractionDigits: 0,
-  }).format(earnedRewardCents / 100);
-
-  const handleCopy = async (slot: number, url: string) => {
-    await navigator.clipboard.writeText(url);
-    setCopiedSlot(slot);
-    track("referral_link_copied", {
-      slot,
-      available_invites: availableInvites,
-    });
-    setTimeout(() => setCopiedSlot(null), 2_000);
-  };
-
+  const copy = useMutation({
+    mutationFn: async () => {
+      if (
+        !summary.data?.code ||
+        !summary.data.eligible ||
+        summary.data.remaining === 0
+      )
+        throw new Error("No invites available");
+      await navigator.clipboard.writeText(
+        new URL(
+          `/invite/${summary.data.code}`,
+          window.location.origin,
+        ).toString(),
+      );
+    },
+  });
+  const data = summary.data;
   return (
     <div className={accountCardClassName}>
-      {ineligible && (
-        <p className="border-b border-[#ede7dc] bg-[#fffaf0] px-6 py-4 text-sm leading-6 text-[#756b5d] sm:px-8">
-          Referral invites are for new accounts. Your own three links are below.
-        </p>
-      )}
-      <ul className="divide-y divide-[#ede7dc]">
-        {invites.map((invite) => (
-          <li
-            key={invite.slot}
-            className="flex items-center justify-between gap-4 px-6 py-5 sm:px-8"
-          >
-            <div>
-              <p className="text-base font-medium text-[#181613]">
-                Invite {invite.slot}
-              </p>
-              <p className="mt-1 text-sm leading-6 text-[#756b5d]">
-                {statusLabel(invite.status)}
-              </p>
-            </div>
+      <div className="flex flex-col gap-5 p-6 sm:p-8">
+        {ineligible && (
+          <p className="text-color-muted text-sm">
+            Referral invites are for new accounts. You can view your own
+            referrals below.
+          </p>
+        )}
+        {summary.isPending ? (
+          <p role="status">Loading your referrals...</p>
+        ) : summary.isError || !data ? (
+          <div role="alert">
+            <p>We couldn't load your referrals.</p>
             <button
               type="button"
-              onClick={() => handleCopy(invite.slot, invite.url)}
+              onClick={() => void summary.refetch()}
               className={accountPillSecondaryClassName}
             >
-              {copiedSlot === invite.slot ? (
-                <>
-                  <Check className="mr-2 size-4" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="mr-2 size-4" />
-                  Copy link
-                </>
-              )}
+              Try again
             </button>
-          </li>
-        ))}
-      </ul>
-      <p className="border-t border-[#ede7dc] px-6 py-4 text-sm leading-6 text-[#756b5d] sm:px-8">
-        {earnedRewards > 0
-          ? `${earnedCredit} in referral credit earned.`
-          : "Your friend gets 30 days of Pro free. You get $14 off your subscription after their first payment."}
-      </p>
+          </div>
+        ) : (
+          <>
+            {data.enabled ? (
+              <>
+                <h3 className="text-lg font-medium">
+                  Refer friends, get a month free
+                </h3>
+                <p className="text-color-muted text-sm">
+                  Get one free month when a friend signs up through your link
+                  and starts their free trial. Invite up to 3 friends. Each
+                  friend gets 30 days of Pro free.
+                </p>
+                <p className="text-color-muted text-sm">
+                  Your next billing date moves back one month, on monthly or
+                  annual plans. No payment from your friend is required.
+                </p>
+                <dl className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <dt>Accepted</dt>
+                    <dd className="mt-2 text-xl">{data.accepted} / 3</dd>
+                  </div>
+                  <div>
+                    <dt>Free months earned</dt>
+                    <dd className="mt-2 text-xl">{data.months_earned}</dd>
+                  </div>
+                  <div>
+                    <dt>Invites remaining</dt>
+                    <dd className="mt-2 text-xl">{data.remaining}</dd>
+                  </div>
+                </dl>
+                {data.remaining === 0 ? (
+                  <p>All 3 invites have been accepted.</p>
+                ) : data.eligible && data.code ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="min-w-0 flex-1 text-sm break-all">
+                      {new URL(
+                        `/invite/${data.code}`,
+                        window.location.origin,
+                      ).toString()}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={copy.isPending}
+                      onClick={() => copy.mutate()}
+                      className={accountPillSecondaryClassName}
+                    >
+                      {copy.isSuccess ? "Copied" : "Copy link"}
+                    </button>
+                    {copy.isError && (
+                      <p role="alert">
+                        Couldn't copy the link. Please try again.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-color-muted text-sm">
+                    New referral invites require a paid personal Pro
+                    subscription. Team-only subscriptions aren't eligible.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p>
+                The new referral offer is not available yet. Your previous
+                referrals are shown below.
+              </p>
+            )}
+            <div className="flex items-center justify-between">
+              <h3>Your referrals</h3>
+              <button
+                type="button"
+                disabled={summary.isFetching}
+                onClick={() => void summary.refetch()}
+                className={accountPillSecondaryClassName}
+              >
+                Refresh
+              </button>
+            </div>
+            {data.invites.length ? (
+              <ul className="divide-border-subtle divide-y">
+                {data.invites.map((invite) => (
+                  <li
+                    key={invite.id}
+                    className="flex flex-col gap-2 py-4 text-sm"
+                  >
+                    <p>
+                      Invite {invite.slot} ·{" "}
+                      {new Date(invite.accepted_at).toLocaleDateString()}
+                    </p>
+                    <p className="text-color-muted">
+                      {statusLabel(invite.status)}
+                    </p>
+                    {invite.policy === "legacy_payment" && (
+                      <p className="text-color-muted">
+                        Original offer: $
+                        {(invite.legacy_amount_cents / 100).toFixed(2)} off your
+                        subscription after your friend's first payment.
+                      </p>
+                    )}
+                    {invite.extended_until && (
+                      <p className="text-color-muted">
+                        Extended through{" "}
+                        {new Date(invite.extended_until).toLocaleDateString()}{" "}
+                        when this reward was applied.
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-color-muted text-sm">
+                No accepted invites yet. Copying your link doesn't count as an
+                accepted invite.
+              </p>
+            )}
+            {data.invites.some((i) => i.policy === "legacy_payment") && (
+              <p className="text-color-muted text-sm">
+                Previous referrals keep their original reward terms and count
+                toward your 3-invite limit.
+              </p>
+            )}
+          </>
+        )}
+        <div className="border-border-subtle border-t pt-5 text-sm">
+          <p className="font-medium">Missing a referral reward?</p>
+          <p className="text-color-muted mt-2">
+            If your friend signed up through your link and started their free
+            trial, but your free month hasn't appeared,{" "}
+            <a href={referralSupportUrl} className="underline">
+              email us
+            </a>{" "}
+            and we'll help.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
-function statusLabel(status: "available" | "trial_started" | "reward_earned") {
-  switch (status) {
-    case "trial_started":
-      return "Trial started";
-    case "reward_earned":
-      return "Reward earned";
-    default:
-      return "Available";
-  }
+function statusLabel(status: ReferralSummary["invites"][number]["status"]) {
+  return {
+    accepted: "Accepted · Waiting for trial to start",
+    applying: "Trial started · Applying your free month",
+    applied: "Reward applied · 1 free month added",
+    pending: "Reward pending · Contact us for help",
+    legacy_pending: "Previous referral offer · Waiting for first payment",
+    legacy_applied: "Previous referral offer · Reward applied",
+  }[status];
 }
