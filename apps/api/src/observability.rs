@@ -444,7 +444,7 @@ fn is_sensitive_attribute_key(key: &str) -> bool {
 
 fn is_safe_attribute_value(key: &str, value: &Value) -> bool {
     if key == "serving_revision" {
-        return matches!(value, Value::String(revision) if revision.len() == 40
+        return matches!(value, Value::String(revision) if revision.as_str().len() == 40
             && revision.as_str().bytes().all(|byte| byte.is_ascii_hexdigit()));
     }
     match value {
