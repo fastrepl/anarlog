@@ -518,15 +518,17 @@ impl E2eeWitnessClient {
             return Err(rollback_error());
         }
 
-        if page.accepted {
-            anlg_db_app::set_e2ee_cloud_pull_in_progress(pool, &self.workspace_id, true)
-                .await
-                .map_err(replica_error)?;
-        }
+        let mut accepted_pull = false;
         let through = page.through_sequence;
         let mut received_events = 0_usize;
         let mut pages = 0_u64;
         loop {
+            if page.accepted && !accepted_pull {
+                anlg_db_app::set_e2ee_cloud_pull_in_progress(pool, &self.workspace_id, true)
+                    .await
+                    .map_err(replica_error)?;
+                accepted_pull = true;
+            }
             let page_has_events = !page.events.is_empty();
             let report_progress =
                 (pages == 0 && page_has_events) || last_progress.elapsed() >= PROGRESS_INTERVAL;
