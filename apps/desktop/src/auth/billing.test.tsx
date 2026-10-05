@@ -11,7 +11,13 @@ import { commands as authCommands } from "@anlg/plugin-auth";
 import { BillingProvider } from "./billing";
 import { useBillingAccess } from "./billing-context";
 
+import { getWorkspaceAccess } from "~/settings/team/client";
+
 const refreshSession = vi.fn();
+const workspaceState = vi.hoisted(() => ({
+  data: [] as Array<{ workspaceId: string }>,
+  isSuccess: true,
+}));
 const authState = vi.hoisted(() => ({
   session: {
     access_token: "stale-token",
@@ -62,6 +68,15 @@ vi.mock("@anlg/plugin-auth", () => ({
   commands: {
     decodeClaims: vi.fn(),
   },
+}));
+
+vi.mock("~/settings/team/mirror", () => ({
+  useMyWorkspacesWithMirror: () => workspaceState,
+}));
+
+vi.mock("~/settings/team/client", () => ({
+  getWorkspaceAccess: vi.fn(),
+  requireTeamContext: (auth: unknown) => auth,
 }));
 
 vi.mock("@anlg/plugin-opener2", () => ({
@@ -209,6 +224,9 @@ describe("BillingProvider", () => {
     });
 
     refreshSession.mockReset().mockResolvedValue(null);
+    workspaceState.data = [];
+    workspaceState.isSuccess = true;
+    vi.mocked(getWorkspaceAccess).mockReset();
     authState.session = {
       access_token: "stale-token",
       user: { id: "user-1", email: "test@example.com" },
@@ -270,6 +288,63 @@ describe("BillingProvider", () => {
       ).toBe("true");
     });
   });
+
+  it.each(["trialing", "paused"] as const)(
+    "suppresses personal trial dialogs while Team access loads and after it resolves (%s)",
+    async (subscriptionStatus) => {
+      vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
+        key.startsWith("anarlog:trial_started_seen:") ? "1" : null,
+      );
+      vi.mocked(authCommands.decodeClaims).mockResolvedValue({
+        ...paidClaims("user-1"),
+        data: {
+          ...paidClaims("user-1").data,
+          subscription_status: subscriptionStatus,
+          trial_end:
+            Math.floor(Date.now() / 1000) +
+            (subscriptionStatus === "trialing" ? 3 : -1) * 24 * 60 * 60,
+          has_payment_method: false,
+        },
+      });
+      workspaceState.data = [{ workspaceId: "workspace-1" }];
+      const access = deferred<Awaited<ReturnType<typeof getWorkspaceAccess>>>();
+      vi.mocked(getWorkspaceAccess).mockReturnValue(access.promise);
+      const { queryClient } = renderBillingProvider();
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("billing-access").getAttribute("data-is-ready"),
+        ).toBe("true");
+      });
+      const expectDialogsClosed = () => {
+        for (const dialog of [
+          "trial-started-dialog",
+          "trial-payment-reminder-dialog",
+          "trial-ended-dialog",
+        ]) {
+          expect(screen.getByTestId(dialog).getAttribute("data-open")).toBe(
+            "false",
+          );
+        }
+      };
+      expectDialogsClosed();
+
+      access.resolve({
+        role: "member",
+        tier: "team",
+        capabilities: [],
+        seatLimit: 5,
+        usedSeats: 2,
+      });
+      await waitFor(() => {
+        expect(
+          queryClient.getQueryState(["team-access", "workspace-1", "user-1"])
+            ?.status,
+        ).toBe("success");
+      });
+      expectDialogsClosed();
+    },
+  );
 
   it("automatically starts a trial for an eligible signed-in account", async () => {
     vi.mocked(canStartTrialApi).mockResolvedValue({
