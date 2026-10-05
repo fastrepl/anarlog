@@ -20,6 +20,8 @@ RUN cargo install cargo-chef --locked
 ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
+# cargo-chef does not include this non-workspace path dependency in its recipe.
+COPY crates/tiptap/vendor crates/tiptap/vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     cargo chef cook --release --recipe-path recipe.json -p api
