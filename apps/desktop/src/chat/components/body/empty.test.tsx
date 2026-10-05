@@ -18,25 +18,36 @@ describe("ChatBodyEmpty", () => {
     cleanup();
   });
 
-  it("sends a suggestion when clicked", () => {
-    const onSendMessage = vi.fn();
+  it.each([
+    {
+      hasContext: true,
+      prompt: "What were the key decisions that have been made?",
+    },
+    {
+      hasContext: false,
+      prompt: "What key decisions were made in my recent meetings?",
+    },
+  ])(
+    "offers usable quick actions with hasContext=$hasContext",
+    ({ hasContext, prompt }) => {
+      const onSendMessage = vi.fn();
 
-    render(<ChatBodyEmpty hasContext onSendMessage={onSendMessage} />);
+      render(
+        <ChatBodyEmpty hasContext={hasContext} onSendMessage={onSendMessage} />,
+      );
 
-    const decisions = screen.getByRole("button", {
-      name: "Find key decisions.",
-    });
+      const decisions = screen.getByRole("button", {
+        name: "Find key decisions.",
+      });
 
-    fireEvent.click(decisions);
+      fireEvent.click(decisions);
 
-    expect(onSendMessage).toHaveBeenCalledWith(
-      "What were the key decisions that have been made?",
-      [
+      expect(onSendMessage).toHaveBeenCalledWith(prompt, [
         {
           type: "text",
-          text: "What were the key decisions that have been made?",
+          text: prompt,
         },
-      ],
-    );
-  });
+      ]);
+    },
+  );
 });
