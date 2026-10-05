@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -51,10 +51,14 @@ import type { ChatEditorHandle } from "@anlg/editor/chat";
 
 import { useDictation } from "./use-dictation";
 
+import { useTabs } from "~/store/zustand/tabs";
+
 describe("useDictation", () => {
   beforeEach(() => {
+    cleanup();
     vi.useRealTimers();
     vi.clearAllMocks();
+    useTabs.setState({ chatMode: "FloatingOpen" });
     mocks.getCaptureState.mockResolvedValue({
       status: "ok",
       data: "inactive",
@@ -207,5 +211,25 @@ describe("useDictation", () => {
     await waitFor(() => {
       expect(mocks.cancelRecording).toHaveBeenCalledOnce();
     });
+  });
+
+  it("cancels voice input when chat closes while its composer stays mounted", async () => {
+    const editorRef = { current: null };
+    const { result } = renderHook(() => useDictation({ editorRef }));
+
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.phase).toBe("recording");
+
+    act(() => useTabs.setState({ chatMode: "FloatingClosed" }));
+    expect(result.current.phase).toBe("idle");
+    expect(mocks.cancelRecording).toHaveBeenCalledOnce();
+
+    act(() => useTabs.setState({ chatMode: "FloatingOpen" }));
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.phase).toBe("recording");
   });
 });

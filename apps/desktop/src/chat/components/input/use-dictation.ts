@@ -8,6 +8,7 @@ import { toast } from "@anlg/ui/components/ui/toast";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useConfigValue } from "~/shared/config";
+import { useTabs } from "~/store/zustand/tabs";
 import { useRunBatch } from "~/stt/useRunBatch";
 
 type DictationPhase = "idle" | "starting" | "recording" | "transcribing";
@@ -33,6 +34,8 @@ export function useDictation({
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopRef = useRef<() => Promise<void>>(async () => {});
   const mountedRef = useRef(true);
+  const generationRef = useRef(0);
+  const startInFlightRef = useRef(false);
 
   const setPhase = useCallback((nextPhase: DictationPhase) => {
     phaseRef.current = nextPhase;
@@ -47,14 +50,21 @@ export function useDictation({
   }, []);
 
   const start = useCallback(async () => {
-    if (disabled || phaseRef.current !== "idle") {
+    if (
+      disabled ||
+      !mountedRef.current ||
+      startInFlightRef.current ||
+      phaseRef.current !== "idle"
+    ) {
       return;
     }
 
     setPhase("starting");
+    startInFlightRef.current = true;
+    const generation = generationRef.current;
     try {
       const captureState = await transcriptionCommands.getCaptureState();
-      if (!mountedRef.current) {
+      if (!mountedRef.current || generation !== generationRef.current) {
         return;
       }
       if (captureState.status === "error") {
@@ -75,7 +85,7 @@ export function useDictation({
       if (result.status === "error") {
         throw new Error(result.error);
       }
-      if (!mountedRef.current) {
+      if (!mountedRef.current || generation !== generationRef.current) {
         await cancelActiveRecording(transcriptionSessionId);
         return;
       }
@@ -95,7 +105,7 @@ export function useDictation({
       }, 250);
     } catch (error) {
       await cancelActiveRecording(transcriptionSessionId);
-      if (!mountedRef.current) {
+      if (!mountedRef.current || generation !== generationRef.current) {
         return;
       }
       setPhase("idle");
@@ -103,6 +113,8 @@ export function useDictation({
         description: t`Check microphone permission and the selected input device, then try again.`,
       });
       console.error("[chat-dictation] failed to start recording", error);
+    } finally {
+      startInFlightRef.current = false;
     }
   }, [
     disabled,
@@ -120,6 +132,7 @@ export function useDictation({
 
     stopElapsedTimer();
     setPhase("transcribing");
+    const generation = generationRef.current;
     let recordedPath: string | null = null;
 
     try {
@@ -151,7 +164,9 @@ export function useDictation({
       if (!transcript) {
         throw new Error("No speech was detected in the audio.");
       }
-      editorRef.current?.insertText(transcript);
+      if (mountedRef.current && generation === generationRef.current) {
+        editorRef.current?.insertText(transcript);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (/no speech|empty transcript/iu.test(message)) {
@@ -168,7 +183,7 @@ export function useDictation({
       if (recordedPath) {
         await discardTemporaryRecording(recordedPath);
       }
-      if (mountedRef.current) {
+      if (mountedRef.current && generation === generationRef.current) {
         setPhase("idle");
         editorRef.current?.focus();
       }
@@ -185,8 +200,27 @@ export function useDictation({
 
   useMountEffect(() => {
     mountedRef.current = true;
-    return () => {
+    const unsubscribe = useTabs.subscribe((state, previous) => {
+      if (state.chatMode === previous.chatMode) {
+        return;
+      }
+      if (state.chatMode !== "FloatingClosed") {
+        mountedRef.current = true;
+        return;
+      }
+
       mountedRef.current = false;
+      generationRef.current += 1;
+      stopElapsedTimer();
+      if (phaseRef.current === "starting" || phaseRef.current === "recording") {
+        void cancelActiveRecording(transcriptionSessionId);
+      }
+      setPhase("idle");
+    });
+    return () => {
+      unsubscribe();
+      mountedRef.current = false;
+      generationRef.current += 1;
       stopElapsedTimer();
       if (phaseRef.current === "starting" || phaseRef.current === "recording") {
         void cancelActiveRecording(transcriptionSessionId);

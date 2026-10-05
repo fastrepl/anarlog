@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from "motion/react";
-import { useLayoutEffect, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -12,7 +12,7 @@ import { chatFloatingPanelShellClassNames } from "~/chat/surface";
 import { useShell } from "~/contexts/shell";
 
 const FLOATING_CHAT_INPUT_MAX_WIDTH = 640;
-const FLOATING_CHAT_SHELL_INSET = 4;
+const FLOATING_CHAT_SHELL_INSET = 5;
 const FLOATING_PANEL_MIN_WIDTH = 476;
 const FLOATING_PANEL_DEFAULT_MAX_WIDTH =
   FLOATING_CHAT_INPUT_MAX_WIDTH + FLOATING_CHAT_SHELL_INSET * 2;
@@ -24,6 +24,8 @@ type FloatingContainerRect = {
   left: number;
   width: number;
   height: number;
+  bottomInset: number;
+  composerHeight: number;
 };
 
 export function PersistentChatPanel({
@@ -35,10 +37,13 @@ export function PersistentChatPanel({
 }) {
   const { chat } = useShell();
   const isVisible = chat.mode === "FloatingOpen";
+  const isFloating = chat.mode !== "RightPanelOpen";
+  const reduceMotion = useReducedMotion();
 
   const [containerRect, setContainerRect] =
     useState<FloatingContainerRect | null>(null);
   const [draftHasContent, setDraftHasContent] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const getActiveContainer = () => {
     return (
@@ -55,7 +60,29 @@ export function PersistentChatPanel({
       return null;
     }
 
-    return toFloatingContainerRect(anchor.getBoundingClientRect());
+    const rect = anchor.getBoundingClientRect();
+    const composer = anchor.querySelector<HTMLElement>(
+      "[data-chat-cta-trigger]",
+    );
+
+    return {
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+      composerHeight:
+        panelRef.current
+          ?.querySelector("[data-chat-input-surface]")
+          ?.getBoundingClientRect().height ?? 40,
+      bottomInset: composer
+        ? Math.max(
+            0,
+            rect.bottom -
+              composer.getBoundingClientRect().bottom -
+              FLOATING_CHAT_SHELL_INSET,
+          )
+        : 7,
+    };
   };
 
   useHotkeys(
@@ -74,7 +101,7 @@ export function PersistentChatPanel({
     const root = floatingContainerRef.current;
     const container = getActiveContainer();
 
-    if (!isVisible || !root || !container) {
+    if (!isFloating || !root || !container) {
       return;
     }
 
@@ -93,6 +120,9 @@ export function PersistentChatPanel({
       observer.observe(root);
     }
     observer.observe(container);
+    if (panelRef.current) {
+      observer.observe(panelRef.current);
+    }
     window.addEventListener("resize", updateRect);
     window.addEventListener("scroll", updateRect, true);
 
@@ -101,21 +131,17 @@ export function PersistentChatPanel({
       window.removeEventListener("resize", updateRect);
       window.removeEventListener("scroll", updateRect, true);
     };
-  }, [isVisible, floatingContainerRef]);
+  }, [isFloating, isVisible, floatingContainerRef]);
 
-  const panelMotion = {
-    initial: { y: 10, scale: 0.985 },
-    animate: { y: 0, scale: 1 },
-    exit: { y: 6, scale: 0.99 },
+  const panelTransition = {
+    duration: reduceMotion ? 0 : 0.18,
+    ease: FLOATING_PANEL_EASE,
   };
-  const panelTransition = { duration: 0.18, ease: FLOATING_PANEL_EASE };
   const panelStyle = {
     width: "100%",
     minWidth: `min(${FLOATING_PANEL_MIN_WIDTH}px, 100%)`,
     maxWidth: `${FLOATING_PANEL_DEFAULT_MAX_WIDTH}px`,
     maxHeight: "100%",
-    transformOrigin: "bottom center",
-    willChange: "transform",
   };
 
   if (typeof document === "undefined") {
@@ -123,83 +149,76 @@ export function PersistentChatPanel({
   }
 
   return createPortal(
-    <AnimatePresence initial={false}>
-      {isVisible && (
-        <motion.div
-          className="pointer-events-none fixed"
-          style={
-            containerRect
-              ? {
-                  top: containerRect.top,
-                  left: containerRect.left,
-                  width: containerRect.width,
-                  height: containerRect.height,
-                  willChange: "opacity",
-                }
-              : { display: "none" }
-          }
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.12, ease: FLOATING_PANEL_EASE }}
-        >
-          <div
-            data-chat-floating-frame
-            className={cn([
-              "pointer-events-auto relative flex h-full min-h-0",
-              "items-end justify-center px-3 pb-2",
-            ])}
-            style={{
-              paddingTop: FLOATING_PANEL_TOP_CLEARANCE,
-            }}
-            onClick={(event) => {
-              if (event.target === event.currentTarget) {
-                if (draftHasContent) {
-                  return;
-                }
-
-                chat.sendEvent({ type: "CLOSE" });
+    isFloating ? (
+      <div
+        className="pointer-events-none fixed"
+        aria-hidden={!isVisible}
+        inert={!isVisible}
+        style={
+          containerRect
+            ? {
+                top: containerRect.top,
+                left: containerRect.left,
+                width: containerRect.width,
+                height: containerRect.height,
+                visibility: isVisible ? "visible" : "hidden",
               }
+            : { display: "none" }
+        }
+      >
+        <div
+          data-chat-floating-frame
+          className={cn([
+            "pointer-events-auto relative flex h-full min-h-0",
+            "items-end justify-center px-[11px]",
+          ])}
+          style={{
+            paddingTop: FLOATING_PANEL_TOP_CLEARANCE,
+            paddingBottom: containerRect?.bottomInset ?? 7,
+          }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              if (draftHasContent) {
+                return;
+              }
+
+              chat.sendEvent({ type: "CLOSE" });
+            }
+          }}
+        >
+          <motion.div
+            ref={panelRef}
+            data-chat-panel
+            data-chat-panel-reveal="wrap"
+            data-chat-size="floating"
+            className={cn([
+              "relative flex min-h-0 flex-col overflow-hidden",
+              chatFloatingPanelShellClassNames(),
+            ])}
+            style={panelStyle}
+            initial={false}
+            animate={{
+              clipPath: isVisible
+                ? "inset(calc(0% - 64px) -64px -64px -64px)"
+                : `inset(calc(100% - ${(containerRect?.composerHeight ?? 40) + FLOATING_CHAT_SHELL_INSET}px) -64px -64px -64px)`,
             }}
+            transition={panelTransition}
           >
-            <motion.div
-              data-chat-panel
-              data-chat-panel-reveal="lift"
-              data-chat-size="floating"
-              className={cn([
-                "relative flex min-h-0 flex-col overflow-hidden",
-                chatFloatingPanelShellClassNames(),
-              ])}
-              style={panelStyle}
-              initial={panelMotion.initial}
-              animate={panelMotion.animate}
-              exit={panelMotion.exit}
-              transition={panelTransition}
-            >
-              <ChatPanelFrame
-                layout="floating"
-                onDraftContentChange={setDraftHasContent}
-                onOpenRightPanel={() =>
-                  chat.sendEvent({ type: "OPEN_RIGHT_PANEL" })
-                }
-                sessionProps={sessionProps}
-              />
-            </motion.div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+            <ChatPanelFrame
+              key={sessionProps?.sessionId}
+              layout="floating"
+              onDraftContentChange={setDraftHasContent}
+              onOpenRightPanel={() =>
+                chat.sendEvent({ type: "OPEN_RIGHT_PANEL" })
+              }
+              sessionProps={sessionProps}
+            />
+          </motion.div>
+        </div>
+      </div>
+    ) : null,
     document.body,
   );
-}
-
-function toFloatingContainerRect(rect: DOMRect): FloatingContainerRect {
-  return {
-    top: rect.top,
-    left: rect.left,
-    width: rect.width,
-    height: rect.height,
-  };
 }
 
 function areFloatingContainerRectsEqual(
@@ -210,6 +229,8 @@ function areFloatingContainerRectsEqual(
     currentRect?.top === nextRect?.top &&
     currentRect?.left === nextRect?.left &&
     currentRect?.width === nextRect?.width &&
-    currentRect?.height === nextRect?.height
+    currentRect?.height === nextRect?.height &&
+    currentRect?.bottomInset === nextRect?.bottomInset &&
+    currentRect?.composerHeight === nextRect?.composerHeight
   );
 }
