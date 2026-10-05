@@ -8,12 +8,7 @@ import { normalizeQuery } from "./utils";
 
 import { trackAnalyticsEvent } from "~/analytics";
 
-export type {
-  SearchDocument,
-  SearchEntityType,
-  SearchFilters,
-  SearchHit,
-} from "./types";
+export type { SearchFilters, SearchHit } from "./types";
 
 const SearchEngineContext = createContext<{
   search: (

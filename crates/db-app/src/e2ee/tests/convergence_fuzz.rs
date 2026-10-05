@@ -287,3 +287,94 @@ async fn devices_converge_and_the_latest_title_edit_wins() {
         );
     }
 }
+
+#[tokio::test]
+async fn concurrent_default_summaries_converge_without_losing_either_body() {
+    let a = test_db().await;
+    let b = test_db().await;
+    let workspace_keys = keys("workspace-a");
+    let desktop_body = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Desktop decisions"}]}]}"#;
+    let mobile_body = "## Mobile decisions";
+    for (device, kind, template, format, body, edited_at) in [
+        (
+            &a,
+            "template_output",
+            "template-1",
+            "prosemirror_json",
+            desktop_body,
+            1_800_000_000_000_i64,
+        ),
+        (
+            &b,
+            "summary",
+            "",
+            "markdown",
+            mobile_body,
+            1_800_000_002_000_i64,
+        ),
+    ] {
+        sqlx::query("INSERT INTO sessions (id, workspace_id) VALUES ('meeting', 'workspace-a')")
+            .execute(device.pool())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO session_documents (id, workspace_id, session_id, kind, template_id, body_format, body)
+            VALUES ('summary:meeting', 'workspace-a', 'meeting', ?, ?, ?, ?)")
+            .bind(kind).bind(template).bind(format).bind(body).execute(device.pool()).await.unwrap();
+        sqlx::query("UPDATE e2ee_dirty_rows SET dirtied_at_ms = ?")
+            .bind(edited_at)
+            .execute(device.pool())
+            .await
+            .unwrap();
+        encrypt_e2ee_replica_changes(device.pool(), &workspace_keys)
+            .await
+            .unwrap();
+    }
+    let mut server = Server::new();
+    for device in [&a, &b] {
+        server.publish(device, &workspace_keys["workspace-a"]).await;
+    }
+    for _ in 0..8 {
+        for device in [&a, &b] {
+            sync(device, &mut server, &workspace_keys).await;
+        }
+        if !has_work(&a).await && !has_work(&b).await {
+            break;
+        }
+    }
+    assert!(!has_work(&a).await && !has_work(&b).await);
+    let mut converged = None;
+    let mut retained_desktop = false;
+    let mut retained_mobile = false;
+    for device in [&a, &b] {
+        let documents: Vec<(String, String, String)> = sqlx::query_as(
+            "SELECT id, body, body_format FROM session_documents WHERE deleted_at IS NULL",
+        )
+        .fetch_all(device.pool())
+        .await
+        .unwrap();
+        assert_eq!(documents.len(), 1);
+        assert_eq!(documents[0].0, "summary:meeting");
+        let body = &documents[0].1;
+        assert!(body == desktop_body || body == mobile_body);
+        assert_eq!(
+            documents[0].2,
+            if body == desktop_body {
+                "prosemirror_json"
+            } else {
+                "markdown"
+            }
+        );
+        if let Some(previous) = &converged {
+            assert_eq!(&documents, previous);
+        }
+        converged = Some(documents);
+        let versions: Vec<String> = sqlx::query_scalar("SELECT body FROM session_documents
+            UNION ALL SELECT body FROM session_document_versions WHERE document_id = 'summary:meeting'
+            UNION ALL SELECT json_extract(value_json, '$') FROM e2ee_field_conflicts
+              WHERE table_name = 'session_documents' AND row_id = 'summary:meeting' AND field_name = 'body'")
+            .fetch_all(device.pool()).await.unwrap();
+        retained_desktop |= versions.iter().any(|body| body == desktop_body);
+        retained_mobile |= versions.iter().any(|body| body == mobile_body);
+    }
+    assert!(retained_desktop && retained_mobile);
+}

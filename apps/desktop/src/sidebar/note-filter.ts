@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 export type SidebarNoteFilter = "mine" | "shared";
 export type SidebarNotesGroupBy = "date" | "folder";
-export type SidebarNotesSortOrder = "newest" | "oldest";
+type SidebarNotesSortOrder = "newest" | "oldest";
 
 type SidebarNotesState = {
   noteFilter: SidebarNoteFilter;

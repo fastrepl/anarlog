@@ -1,13 +1,13 @@
 import { emit, emitTo, listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   type AutoEnhanceMode,
   type EnhancerService,
   getEnhancerService,
 } from "~/services/enhancer";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { id } from "~/shared/utils";
 import type { AITaskStore } from "~/store/zustand/ai-task";
 import {

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
   renderSessionTranscript: vi.fn(),
+  dominantLanguage: vi.fn(),
   summaryLengthPolicy: vi.fn(),
 }));
 
@@ -29,7 +30,10 @@ vi.mock("@anlg/plugin-transcription", () => ({
 }));
 
 vi.mock("@anlg/plugin-template", () => ({
-  commands: { summaryLengthPolicy: mocks.summaryLengthPolicy },
+  commands: {
+    dominantLanguage: mocks.dominantLanguage,
+    summaryLengthPolicy: mocks.summaryLengthPolicy,
+  },
 }));
 
 vi.mock("~/stt/meeting-chat-records", () => ({
@@ -84,6 +88,10 @@ describe("enhanceTransform.transformArgs", () => {
       data: null,
     });
     mocks.summaryLengthPolicy.mockResolvedValue({
+      status: "ok",
+      data: null,
+    });
+    mocks.dominantLanguage.mockResolvedValue({
       status: "ok",
       data: null,
     });
@@ -295,8 +303,6 @@ describe("enhanceTransform.transformArgs", () => {
   it("builds the summary policy from the returned transcript segments", async () => {
     const lengthPolicy = {
       mode: "crisp",
-      max_characters: 320,
-      max_sections: 2,
       transcript_characters: 27,
       guidance: {
         max_characters: 320,
@@ -342,10 +348,48 @@ describe("enhanceTransform.transformArgs", () => {
     expect(mocks.summaryLengthPolicy).toHaveBeenCalledWith({
       transcript_texts: ["First segment", "Second segment"],
       mode: "crisp",
-      custom_format: true,
       template_section_count: 0,
     });
     expect(result.lengthPolicy).toEqual(lengthPolicy);
+  });
+
+  it("uses the dominant spoken language of transcript text for summaries", async () => {
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [
+          {
+            speaker_label: "Alice",
+            start_ms: 0,
+            end_ms: 10,
+            text: "Transcript segment in English",
+            words: [{ text: "Transcript", start_ms: 0, end_ms: 5 }],
+          },
+        ],
+      },
+    });
+    mocks.dominantLanguage.mockResolvedValue({ status: "ok", data: "ko" });
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      { ...settingsValues, spoken_languages: '["ko"]' },
+    );
+
+    expect(mocks.dominantLanguage).toHaveBeenCalledWith({
+      texts: ["Transcript segment in English"],
+      candidates: ["en", "ko"],
+    });
+    expect(result.language).toBe("ko");
+  });
+
+  it("keeps the main language when no additional spoken languages are set", async () => {
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      { ...settingsValues, spoken_languages: "[]" },
+    );
+
+    expect(mocks.dominantLanguage).not.toHaveBeenCalled();
+    expect(result.language).toBe("en");
   });
 
   it("includes personalization dictionary terms for summary spelling", async () => {
@@ -462,13 +506,97 @@ describe("enhanceTransform.transformArgs", () => {
     expect(result.transcripts).toEqual([
       {
         segments: [
-          { speaker: "Earlier speaker", text: "earlier words" },
           { speaker: "Later speaker", text: "later words" },
+          { speaker: "Earlier speaker", text: "earlier words" },
         ],
         startedAt: 100,
         endedAt: 200,
       },
     ]);
+  });
+
+  it("keeps the renderer's channel grouping in generated-note transcript context", async () => {
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [
+          {
+            speaker_label: "Speaker 1",
+            text: "Mic early",
+            start_ms: 0,
+            end_ms: 400,
+            words: [{ text: "Mic early", start_ms: 0, end_ms: 400 }],
+          },
+          {
+            speaker_label: "Speaker 1",
+            text: "Mic later",
+            start_ms: 29_500,
+            end_ms: 29_900,
+            words: [{ text: "Mic later", start_ms: 29_500, end_ms: 29_900 }],
+          },
+          {
+            speaker_label: "Speaker 2",
+            text: "Remote early",
+            start_ms: 0,
+            end_ms: 400,
+            words: [{ text: "Remote early", start_ms: 0, end_ms: 400 }],
+          },
+        ],
+        started_at: 100,
+        ended_at: 200,
+      },
+    });
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      settingsValues,
+    );
+
+    expect(
+      result.transcripts[0]?.segments.map((segment) => segment.text),
+    ).toEqual(["Mic early", "Mic later", "Remote early"]);
+  });
+
+  it("keeps timed two-channel transcripts in start order", async () => {
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [
+          {
+            speaker_label: "Speaker 1",
+            text: "Mic first",
+            start_ms: 0,
+            end_ms: 400,
+            words: [{ text: "Mic first", start_ms: 0, end_ms: 400 }],
+          },
+          {
+            speaker_label: "Speaker 2",
+            text: "Remote second",
+            start_ms: 500,
+            end_ms: 900,
+            words: [{ text: "Remote second", start_ms: 500, end_ms: 900 }],
+          },
+          {
+            speaker_label: "Speaker 1",
+            text: "Mic third",
+            start_ms: 1_000,
+            end_ms: 1_400,
+            words: [{ text: "Mic third", start_ms: 1_000, end_ms: 1_400 }],
+          },
+        ],
+        started_at: 100,
+        ended_at: 200,
+      },
+    });
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      settingsValues,
+    );
+
+    expect(
+      result.transcripts[0]?.segments.map((segment) => segment.text),
+    ).toEqual(["Mic first", "Remote second", "Mic third"]);
   });
 
   it("includes captured meeting chat in the post-meeting memo", async () => {

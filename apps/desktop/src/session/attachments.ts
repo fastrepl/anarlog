@@ -102,25 +102,6 @@ export async function markSessionAudioTranscriptionComplete(
   });
 }
 
-export async function setAttachmentCloudSyncEnabled(
-  inputSessionId: string,
-  inputAttachmentId: string,
-  enabled: boolean,
-): Promise<void> {
-  const sessionId = requireText(inputSessionId, "session ID", 512);
-  const attachmentId = requireText(inputAttachmentId, "attachment ID", 512);
-  await enqueueDatabaseWrite(`session:${sessionId}`, async () => {
-    const result = await commands.setAttachmentCloudSyncEnabled({
-      session_id: sessionId,
-      attachment_id: attachmentId,
-      enabled,
-    });
-    if (result.status === "error") {
-      throw new Error(result.error);
-    }
-  });
-}
-
 export async function deleteSessionAudio(
   inputSessionId: string,
   canDelete: () => boolean,

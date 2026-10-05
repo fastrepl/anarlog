@@ -6,6 +6,7 @@ import {
   events as detectEvents,
 } from "@anlg/plugin-detect";
 import { commands as notificationCommands } from "@anlg/plugin-notification";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   AUTO_STOP_CONFIRM_DELAY_MS,
@@ -36,7 +37,6 @@ import {
   type NearbyCalendarEvent,
 } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { ListenerStore } from "~/store/zustand/listener";
 
 const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
@@ -423,6 +423,8 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
                 participants: null,
                 event_details: null,
                 action_label: "Yes",
+                action: null,
+                action_menu: null,
                 action_variant: null,
                 options: null,
                 footer,

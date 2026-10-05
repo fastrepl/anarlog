@@ -52,7 +52,7 @@ export type DevtoolsAction =
   | "data:recurring-notes"
   | "error:trigger";
 
-export type DevtoolsMenuItem = {
+type DevtoolsMenuItem = {
   label: string;
   description: string;
   action: DevtoolsAction;
@@ -377,6 +377,8 @@ export function useDevtoolsActions() {
         location: "Conference Room",
       },
       action_label: "Open Anarlog",
+      action: null,
+      action_menu: null,
       action_variant: null,
       options: null,
       footer: null,
@@ -400,6 +402,8 @@ export function useDevtoolsActions() {
       participants: null,
       event_details: null,
       action_label: null,
+      action: null,
+      action_menu: null,
       action_variant: null,
       options: null,
       footer: null,
@@ -423,6 +427,8 @@ export function useDevtoolsActions() {
       participants: null,
       event_details: null,
       action_label: "Yes",
+      action: null,
+      action_menu: null,
       action_variant: null,
       options: null,
       footer: {
@@ -449,6 +455,8 @@ export function useDevtoolsActions() {
       participants: null,
       event_details: null,
       action_label: "Stop",
+      action: null,
+      action_menu: null,
       action_variant: "destructive",
       options: null,
       footer: null,

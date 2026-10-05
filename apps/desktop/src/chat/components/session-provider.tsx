@@ -10,6 +10,8 @@ import {
   useState,
 } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import { dedupeByKey, type ContextRef } from "~/chat/context/entities";
 import {
   type DisplayEntity,
@@ -46,7 +48,6 @@ import type {
   AnlgUIMessage,
 } from "~/chat/types";
 import { flushDatabaseWritesByPrefix } from "~/db/write-queue";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useOwnerUserId } from "~/shared/owner-user";
 import { id } from "~/shared/utils";
 

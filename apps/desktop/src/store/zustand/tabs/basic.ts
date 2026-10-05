@@ -494,7 +494,11 @@ const reuseExistingTab = (
 
     return {
       ...nextTab,
-      state: { ...nextTab.state, autoStart: true },
+      state: {
+        ...nextTab.state,
+        autoStart: true,
+        scheduledAutoStart: requestedTab.state.scheduledAutoStart ?? null,
+      },
     };
   }
 

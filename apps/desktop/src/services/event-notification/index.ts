@@ -21,6 +21,7 @@ type NotificationEventRow = {
   tracking_id_event: string;
   recurrence_series_id: string;
   is_all_day: boolean | number;
+  meeting_link: string;
 };
 
 export async function checkEventNotifications(
@@ -43,7 +44,8 @@ export async function checkEventNotifications(
         started_at,
         tracking_id_event,
         recurrence_series_id,
-        is_all_day
+        is_all_day,
+        meeting_link
       FROM events
       WHERE deleted_at IS NULL AND started_at <> '' AND is_all_day = 0
       ORDER BY started_at, id
@@ -76,6 +78,7 @@ export async function checkEventNotifications(
       notifiedEvents.set(notificationKey, now);
       const minutesUntil = Math.ceil(timeUntilStart / 60_000);
 
+      const hasMeetingLink = Boolean(event.meeting_link.trim());
       void notificationCommands.showNotification({
         key: notificationKey,
         title: event.title || t`Upcoming Event`,
@@ -88,7 +91,11 @@ export async function checkEventNotifications(
         start_time: Math.floor(startTime.getTime() / 1000),
         participants: null,
         event_details: null,
-        action_label: t`Open Anarlog`,
+        action_label: hasMeetingLink ? t`Join & record` : t`Start recording`,
+        action: "join_and_record",
+        action_menu: hasMeetingLink
+          ? { label: t`Open meeting`, action: "open_meeting" }
+          : null,
         action_variant: null,
         options: null,
         footer: null,

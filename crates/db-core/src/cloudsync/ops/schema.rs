@@ -9,13 +9,15 @@ pub(crate) async fn interruptible_cleanup<C: OwnedSqliteConnection>(
     table_name: &str,
     interrupt: &CloudsyncInterruptHandle,
 ) -> Result<(), anlg_cloudsync::Error> {
+    let was_enabled =
+        anlg_cloudsync::is_enabled(connection.connection().await?, table_name).await?;
     sqlx::query("SAVEPOINT cloudsync_cleanup")
         .execute(connection.connection().await?)
         .await?;
     let registration = match interrupt.register(connection.connection().await?).await {
         Ok(registration) => registration,
         Err(error) => {
-            rollback_cleanup_savepoint(connection).await?;
+            rollback_cleanup_savepoint(connection, table_name, was_enabled).await?;
             return Err(error.into());
         }
     };
@@ -25,7 +27,7 @@ pub(crate) async fn interruptible_cleanup<C: OwnedSqliteConnection>(
         Err(error) => Err(error),
     };
     if let Err(error) = finish_result {
-        rollback_cleanup_savepoint(connection).await?;
+        rollback_cleanup_savepoint(connection, table_name, was_enabled).await?;
         return Err(error);
     }
 
@@ -36,12 +38,12 @@ pub(crate) async fn interruptible_cleanup<C: OwnedSqliteConnection>(
         {
             Ok(_) => Ok(()),
             Err(error) => {
-                rollback_cleanup_savepoint(connection).await?;
+                rollback_cleanup_savepoint(connection, table_name, was_enabled).await?;
                 Err(error.into())
             }
         },
         Err(error) => {
-            rollback_cleanup_savepoint(connection).await?;
+            rollback_cleanup_savepoint(connection, table_name, was_enabled).await?;
             Err(error)
         }
     }
@@ -49,10 +51,36 @@ pub(crate) async fn interruptible_cleanup<C: OwnedSqliteConnection>(
 
 async fn rollback_cleanup_savepoint<C: OwnedSqliteConnection>(
     connection: &mut ReservedConnection<C>,
+    table_name: &str,
+    was_enabled: bool,
 ) -> Result<(), anlg_cloudsync::Error> {
     sqlx::raw_sql("ROLLBACK TO cloudsync_cleanup; RELEASE cloudsync_cleanup")
         .execute(connection.connection().await?)
         .await?;
+    let has_settings: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_schema WHERE name = 'cloudsync_table_settings')",
+    )
+    .fetch_one(connection.connection().await?)
+    .await?;
+    if has_settings {
+        let algo: Option<String> = sqlx::query_scalar(
+            "SELECT value FROM cloudsync_table_settings WHERE tbl_name = ? AND col_name = '*' AND key = 'algo'",
+        )
+        .bind(table_name)
+        .fetch_optional(connection.connection().await?)
+        .await?
+        .flatten();
+        if let Some(algo) = algo {
+            // SQL rollback does not restore sqlite-sync's removed in-memory table.
+            // The persisted table already passed validation, possibly with integer-key,
+            // nullable-key, or missing-default exemptions (flags 1 | 2 | 4).
+            anlg_cloudsync::init_on_connection(connection, table_name, Some(&algo), Some(7))
+                .await?;
+            if !was_enabled {
+                anlg_cloudsync::disable(connection.connection().await?, table_name).await?;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -147,4 +175,86 @@ where
     E: Executor<'e, Database = Sqlite>,
 {
     anlg_cloudsync::commit_alter(executor, table_name).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn cleanup_rollback_restores_native_tracking_and_sync_identity() {
+        let db = crate::Db::connect_memory().await.unwrap();
+        sqlx::query("CREATE TABLE items (id INTEGER PRIMARY KEY, value TEXT)")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        db.cloudsync_init("items", Some("gos"), Some(7))
+            .await
+            .unwrap();
+        let mut connection = ReservedConnection::new(db.pool().acquire().await.unwrap());
+        sqlx::query("INSERT INTO items VALUES (1, 'before')")
+            .execute(connection.connection().await.unwrap())
+            .await
+            .unwrap();
+        let site_id = anlg_cloudsync::siteid(connection.connection().await.unwrap())
+            .await
+            .unwrap();
+        sqlx::query("SELECT cloudsync_set('send_dbversion', '123')")
+            .execute(connection.connection().await.unwrap())
+            .await
+            .unwrap();
+        sqlx::query("SAVEPOINT cloudsync_cleanup")
+            .execute(connection.connection().await.unwrap())
+            .await
+            .unwrap();
+        anlg_cloudsync::cleanup_on_connection(&mut connection, "items")
+            .await
+            .unwrap();
+        rollback_cleanup_savepoint(&mut connection, "items", true)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO items VALUES (2, 'after')")
+            .execute(connection.connection().await.unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            anlg_cloudsync::siteid(connection.connection().await.unwrap())
+                .await
+                .unwrap(),
+            site_id
+        );
+        let cursor: String =
+            sqlx::query_scalar("SELECT value FROM cloudsync_settings WHERE key = 'send_dbversion'")
+                .fetch_one(connection.connection().await.unwrap())
+                .await
+                .unwrap();
+        assert_eq!(cursor, "123");
+        assert!(
+            anlg_cloudsync::is_enabled(connection.connection().await.unwrap(), "items")
+                .await
+                .unwrap()
+        );
+        anlg_cloudsync::disable(connection.connection().await.unwrap(), "items")
+            .await
+            .unwrap();
+        sqlx::query("SAVEPOINT cloudsync_cleanup")
+            .execute(connection.connection().await.unwrap())
+            .await
+            .unwrap();
+        anlg_cloudsync::cleanup_on_connection(&mut connection, "items")
+            .await
+            .unwrap();
+        rollback_cleanup_savepoint(&mut connection, "items", false)
+            .await
+            .unwrap();
+        assert!(
+            !anlg_cloudsync::is_enabled(connection.connection().await.unwrap(), "items")
+                .await
+                .unwrap()
+        );
+        sqlx::query("INSERT INTO items VALUES (3, 'disabled')")
+            .execute(connection.connection().await.unwrap())
+            .await
+            .unwrap();
+    }
 }

@@ -22,7 +22,7 @@ Recording, editing, and local storage do not require an AI model. A hosted Trans
 
 ## Anarlog Cloud
 
-Anarlog Cloud uses managed routes. Settings displays the managed selection as **Pro (Cloud)**. Transcription uses that Cloud route. Intelligence uses **Auto**, which Settings also displays as Pro (Cloud). Either selection lets Anarlog choose a suitable upstream model and retry a compatible provider when needed.
+Anarlog Cloud uses managed routes. Settings displays the managed selection as **Pro (Cloud)**. Transcription uses that Cloud route. Intelligence offers **Auto**, displayed as Pro (Cloud), or a curated model choice. Auto lets Anarlog choose a suitable upstream model and retry a compatible provider when needed.
 
 <Note>
   The routes below describe the current implementation, not a permanently pinned model contract. Anarlog may update a managed route to improve quality, language coverage, latency, or availability. Select your own provider and model when you need a fixed model ID.
@@ -32,19 +32,22 @@ Anarlog Cloud uses managed routes. Settings displays the managed selection as **
 
 The managed Transcription route chooses a provider from the meeting's languages and whether Anarlog needs live or after-recording transcription.
 
-- Deepgram currently resolves the route to **Nova 3** or **Nova 2**, depending on language support.
-- Soniox currently resolves it to **Soniox 5**: `stt-rt-v5` for live transcription and `stt-async-v5` after recording.
+- Soniox is the primary provider for live and after-recording transcription when it supports the selected languages. It uses **Soniox 5**: `stt-rt-v5` live and `stt-async-v5` after recording.
+- Deepgram is an eligible fallback and resolves the route to **Nova 3** or **Nova 2**, depending on language support.
 - AssemblyAI currently resolves it to **Universal 3.5 Pro**: `universal-3-5-pro-realtime` for live transcription and `universal-3-5-pro` after recording.
-- After-recording transcription prefers Soniox when it supports the selected languages.
 - The eligible fallback pool also includes configured routes for Gladia (currently **Solaria 1**), ElevenLabs, OpenAI, Mistral, and Alibaba Cloud Model Studio.
 
 Only configured providers that support the requested mode and languages enter the route. If one returns a retryable error, Anarlog can try the next eligible provider.
+
+For stereo recordings, Soniox combines the microphone and computer-audio channels and uses speaker diarization to distinguish speakers.
 
 ### Cloud Intelligence
 
 For text tasks, **Anarlog → Auto** currently routes summaries, chat, and generated titles through the `~anthropic/claude-sonnet-latest` alias on OpenRouter.
 
 The alias tracks the current Claude Sonnet release instead of pinning a dated model. OpenRouter receives the prompt and chooses an available endpoint for that model.
+
+Under **Settings → Intelligence**, Pro users can also choose **Claude Sonnet**, **Claude Opus**, **GPT Sol**, **Gemini Pro**, or **Gemini Flash**. Anarlog tries the selected model first, then its managed fallback route if needed. These choices track model families; use your own provider when you need a fixed model ID. Requests containing audio continue to use the audio route below.
 
 Hosted Intelligence requests that contain audio use a separate ordered model pool:
 
@@ -64,6 +67,8 @@ Anarlog currently offers three built-in on-device Transcription providers. Setti
 | Soniqo | Parakeet Batch | After recording | Apple Silicon; speaker-labeled transcription for 25 European languages. Prefer this for hour-long calls. |
 | Apple Speech | Apple Speech | During the meeting | macOS 26 with a supported language added in System Settings. Live transcription uses one language at a time from German, English, Spanish, French, Italian, Japanese, Korean, Portuguese, Cantonese, or Chinese. |
 | On-device file | A whisper.cpp `.bin` you select | After recording | Apple Silicon. In Settings this is labeled **On-device file**, with **Choose a .bin model** for the file picker. transcribe.cpp `.gguf` files are not supported yet. |
+
+Parakeet Batch does not always provide word-level audio timestamps. When it returns text without a usable speech alignment, Anarlog keeps the individual words editable and groups the display by audio channel and processing chunk. The order between channels within a chunk is uncertain, and those words cannot be used for precise audio seeking. Speech-aligned words retain their timing.
 
 You can also keep audio on your network by pointing **Custom**, or Deepgram's **Advanced** base URL, at a Deepgram-compatible server on this computer or your local network.
 
@@ -114,6 +119,11 @@ Recent bring-your-own Transcription models in Settings include:
 - **Meta Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) for live and after-recording transcription with speaker labels
 - **Nari Labs** for live transcription with a Nari API key. Saved beta model IDs that ended in `:free` move to the current models.
 - **Wispr Flow** for transcription and dictation with your own API key. Its after-recording adapter accepts at most six minutes per request; choose another provider for longer files.
+- **Inworld**, **Gradium**, **Modulate**, and **Alebex** for live transcription with your own provider credentials.
+- **NVIDIA Speech NIM** for live transcription through your own deployed NIM server. NVIDIA's hosted gRPC endpoint is not supported.
+- **Amazon Bedrock** for after-recording transcription through an OpenAI-compatible gateway exposing `/audio/transcriptions`. Native Bedrock endpoints are not supported.
+
+The new live-only providers keep credentials unverified until transcription starts. If live transcription fails, keep the recording and retry with a provider that supports after-recording transcription.
 
 Settings may still show older model IDs for compatibility. Prefer the current Gemini 3.5, Universal 3.5, Soniox 5, Smallest AI Pulse, and GPT Transcribe models when you configure a provider yourself.
 

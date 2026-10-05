@@ -184,7 +184,12 @@ export function getSttModelTranscriptionMode(
     return "batch";
   }
 
-  if (provider === "nari") return "live";
+  if (
+    ["nari", "inworld", "gradium", "modulate", "alebex", "nvidia"].includes(
+      provider ?? "",
+    )
+  )
+    return "live";
 
   if (provider === "smallestai" && model === "pulse-pro") {
     return "batch";
@@ -200,6 +205,7 @@ export function getSttModelTranscriptionMode(
     provider === "azure_speech" ||
     provider === "google_cloud" ||
     provider === "aws_transcribe" ||
+    provider === "amazon_bedrock" ||
     provider === "revai" ||
     provider === "pyannote" ||
     provider === "aquavoice" ||

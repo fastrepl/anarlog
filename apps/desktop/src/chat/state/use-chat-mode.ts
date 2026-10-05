@@ -6,8 +6,6 @@ import { useChatContext } from "./chat-context";
 import type { ChatScope } from "~/chat/types";
 import { useTabs } from "~/store/zustand/tabs";
 
-export type { ChatEvent, ChatMode } from "~/store/zustand/tabs";
-
 export function useChatMode() {
   const mode = useTabs((state) => state.chatMode);
   const transitionChatMode = useTabs((state) => state.transitionChatMode);

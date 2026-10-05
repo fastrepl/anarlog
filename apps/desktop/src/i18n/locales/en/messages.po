@@ -470,6 +470,10 @@ msgstr "Add spoken language"
 msgid "Add step"
 msgstr "Add step"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Add to folder"
+msgstr "Add to folder"
+
 #: src/settings/developers/webhooks.tsx
 msgid "Add webhook"
 msgstr "Add webhook"
@@ -544,6 +548,10 @@ msgstr "Allow public indexing"
 msgid "Already taken"
 msgstr "Already taken"
 
+#: src/session/components/outer-header/overflow/always-on-top.tsx
+msgid "Always on Top"
+msgstr "Always on Top"
+
 #: src/shared/control.tsx
 msgid "An unexpected error occurred."
 msgstr "An unexpected error occurred."
@@ -597,10 +605,6 @@ msgstr "Anarlog could not start cloud sync on this device."
 #: src/settings/sync/index.tsx
 msgid "Anarlog could not start cloud sync on this device. It will keep retrying."
 msgstr "Anarlog could not start cloud sync on this device. It will keep retrying."
-
-#: src/settings/sync/index.tsx
-msgid "Anarlog couldn't complete this sync. Your notes are safe on this device."
-msgstr "Anarlog couldn't complete this sync. Your notes are safe on this device."
 
 #: src/settings/general/account.tsx
 msgid "Anarlog couldn't sign you out. Try again."
@@ -788,6 +792,14 @@ msgstr "Authorize access in your browser, then return to Anarlog."
 msgid "Auto summary format"
 msgstr "Auto summary format"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Auto-add"
+msgstr "Auto-add"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Auto-add future meetings?"
+msgstr "Auto-add future meetings?"
+
 #: src/settings/automations/index.tsx
 msgid "Automate what happens before, during, or after meetings based on the conditions you choose."
 msgstr "Automate what happens before, during, or after meetings based on the conditions you choose."
@@ -795,6 +807,10 @@ msgstr "Automate what happens before, during, or after meetings based on the con
 #: src/settings/general/app-settings.tsx
 msgid "Automatically install updates"
 msgstr "Automatically install updates"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Automatically put all future instances of this recurring meeting into a folder."
+msgstr "Automatically put all future instances of this recurring meeting into a folder."
 
 #: src/settings/automations/index.tsx
 msgid "Automation actions"
@@ -834,16 +850,13 @@ msgid "Average across the capture days counted above."
 msgstr "Average across the capture days counted above."
 
 #: src/calendar/components/apple/permission.tsx
+#: src/calendar/components/event-chip.tsx
 #: src/instruction/index.tsx
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Back"
 msgstr "Back"
-
-#: src/settings/sync/index.tsx
-msgid "Background sync"
-msgstr "Background sync"
 
 #: src/settings/general/summary-length.tsx
 msgid "Balanced"
@@ -1023,6 +1036,10 @@ msgstr "Capture meeting chat in Memos"
 msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr "Capture your first conversation. Every collection starts somewhere."
 
+#: src/calendar/components/event-chip.tsx
+msgid "Change auto-add folder"
+msgstr "Change auto-add folder"
+
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/contacts/profile-photo.tsx
@@ -1065,10 +1082,6 @@ msgstr "Checking connection"
 #: src/settings/crm/index.tsx
 msgid "Checking connection…"
 msgstr "Checking connection…"
-
-#: src/settings/sync/index.tsx
-msgid "Checking for changes"
-msgstr "Checking for changes"
 
 #: src/imports/screen.tsx
 msgid "Checking installed meeting assistants…"
@@ -1625,8 +1638,8 @@ msgid "Continue"
 msgstr "Continue"
 
 #: src/settings/team/index.tsx
-msgid "Continue to Team checkout"
-msgstr "Continue to Team checkout"
+msgid "Continue to Pro checkout"
+msgstr "Continue to Pro checkout"
 
 #: src/onboarding/account/after-login.tsx
 msgid "Continuing without trial"
@@ -1767,6 +1780,10 @@ msgstr "Could not identify this device. Try again."
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr "Could not load Slack channels. Reconnect Slack and try again."
+
+#: src/settings/sync/log.tsx
+msgid "Could not load sync logs."
+msgstr "Could not load sync logs."
 
 #: src/settings/team/index.tsx
 msgid "Could not load workspace members."
@@ -2672,6 +2689,10 @@ msgstr "Full access"
 msgid "Full Screen"
 msgstr "Full Screen"
 
+#: src/calendar/components/event-chip.tsx
+msgid "Future meetings"
+msgstr "Future meetings"
+
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "General"
@@ -2680,6 +2701,10 @@ msgstr "General"
 #: src/session-sharing/general-access.tsx
 msgid "General access"
 msgstr "General access"
+
+#: src/session/components/note-input/enhanced/index.tsx
+msgid "Generate summary"
+msgstr "Generate summary"
 
 #: src/session/components/note-input/enhanced/streaming.tsx
 #: src/session/components/title-input.tsx
@@ -2847,7 +2872,7 @@ msgstr "Hide sidebar"
 msgid "Hide Sidebar"
 msgstr "Hide Sidebar"
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "Hide sync log"
 msgstr "Hide sync log"
 
@@ -3083,6 +3108,7 @@ msgstr "job title"
 msgid "Job Title"
 msgstr "Job Title"
 
+#: src/services/event-notification/index.ts
 #: src/session/components/outer-header/index.tsx
 msgid "Join & record"
 msgstr "Join & record"
@@ -3318,6 +3344,10 @@ msgstr "Loading scheduled captures…"
 msgid "Loading settings"
 msgstr "Loading settings"
 
+#: src/settings/sync/log.tsx
+msgid "Loading sync logs"
+msgstr "Loading sync logs"
+
 #: src/settings/sync/index.tsx
 msgid "Loading sync settings"
 msgstr "Loading sync settings"
@@ -3395,16 +3425,12 @@ msgid "Manage sign-in methods"
 msgstr "Manage sign-in methods"
 
 #: src/settings/team/index.tsx
-msgid "Manage Team billing"
-msgstr "Manage Team billing"
+msgid "Manage workspace billing"
+msgstr "Manage workspace billing"
 
 #: src/settings/general/account.tsx
 msgid "Manage your sign-in methods on the Anarlog website."
 msgstr "Manage your sign-in methods on the Anarlog website."
-
-#: src/settings/sync/index.tsx
-msgid "Manual sync"
-msgstr "Manual sync"
 
 #: src/settings/automations/google-drive-config.tsx
 msgid "Markdown (.md)"
@@ -3604,6 +3630,10 @@ msgstr "Model being used"
 msgid "Model download couldn’t start"
 msgstr "Model download couldn’t start"
 
+#: src/contexts/notifications.tsx
+msgid "Model downloaded"
+msgstr "Model downloaded"
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Model is thinking..."
 msgstr "Model is thinking..."
@@ -3633,6 +3663,10 @@ msgstr "Most conversations: {busiestDay}"
 #: src/templates/sections-editor.tsx
 msgid "Move down"
 msgstr "Move down"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Move this note"
+msgstr "Move this note"
 
 #: src/templates/sections-editor.tsx
 msgid "Move up"
@@ -3709,6 +3743,10 @@ msgstr "next month"
 msgid "next week"
 msgstr "next week"
 
+#: src/calendar/components/event-chip.tsx
+msgid "No"
+msgstr "No"
+
 #: src/settings/referrals.tsx
 msgid "No accepted invites yet. Copying your link doesn't count as an accepted invite."
 msgstr "No accepted invites yet. Copying your link doesn't count as an accepted invite."
@@ -3737,10 +3775,6 @@ msgstr "No calendars found"
 #: src/changelog/index.tsx
 msgid "No changelog available for this version."
 msgstr "No changelog available for this version."
-
-#: src/settings/sync/index.tsx
-msgid "No changes to sync"
-msgstr "No changes to sync"
 
 #: src/settings/automations/starter-config.tsx
 msgid "No channel selected yet."
@@ -3894,7 +3928,7 @@ msgstr "No single busiest day"
 msgid "No speech detected"
 msgstr "No speech detected"
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "No sync activity yet."
 msgstr "No sync activity yet."
 
@@ -3918,6 +3952,7 @@ msgstr "No upcoming bots."
 msgid "Not available"
 msgstr "Not available"
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/crm/index.tsx
 msgid "Not connected"
 msgstr "Not connected"
@@ -4055,7 +4090,6 @@ msgstr "Open AI Settings"
 #: src/composer/index.tsx
 #: src/onboarding/final.tsx
 #: src/services/enhancer/summary-notification.ts
-#: src/services/event-notification/index.ts
 #: src/store/zustand/listener/general-batch.ts
 msgid "Open Anarlog"
 msgstr "Open Anarlog"
@@ -4093,6 +4127,10 @@ msgstr "Open in New Window"
 #: src/chat/components/toolbar-controls.tsx
 msgid "Open in right panel"
 msgstr "Open in right panel"
+
+#: src/services/event-notification/index.ts
+msgid "Open meeting"
+msgstr "Open meeting"
 
 #: src/task/resource-view.tsx
 msgid "Open on GitHub"
@@ -4401,8 +4439,12 @@ msgid "Pro features available"
 msgstr "Pro features available"
 
 #: src/settings/team/index.tsx
-msgid "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
-msgstr "Pro for every member, shared workspaces, roles, and centralized billing. $20 per person monthly or $200 yearly."
+msgid "Pro for every member, shared workspaces, roles, and centralized billing. $14 per person monthly or $140 yearly."
+msgstr "Pro for every member, shared workspaces, roles, and centralized billing. $14 per person monthly or $140 yearly."
+
+#: src/settings/team/index.tsx
+msgid "Pro plan"
+msgstr "Pro plan"
 
 #: src/settings/general/billing.tsx
 msgid "Pro trial"
@@ -4464,18 +4506,13 @@ msgstr "Reasoning models think through the transcript before writing."
 msgid "received"
 msgstr "received"
 
-#. placeholder {0}: formatSyncBytes(entry.received_bytes)
-#: src/settings/sync/index.tsx
-msgid "Received {0}"
-msgstr "Received {0}"
-
 #: src/shared/open-note-dialog.tsx
 msgid "Recent"
 msgstr "Recent"
 
-#: src/settings/sync/index.tsx
-msgid "Recent activity from this app session."
-msgstr "Recent activity from this app session."
+#: src/settings/sync/log.tsx
+msgid "Recent CloudSync entries from the app log."
+msgstr "Recent CloudSync entries from the app log."
 
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/team/index.tsx
@@ -4809,6 +4846,7 @@ msgstr "Retention (days)"
 #: src/settings/general/account-profile.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Retry"
 msgstr "Retry"
@@ -4920,6 +4958,7 @@ msgstr "Save to Google Drive"
 msgid "Save visible chat from supported meetings using Accessibility."
 msgstr "Save visible chat from supported meetings using Accessibility."
 
+#: src/settings/ai/shared/index.tsx
 #: src/settings/general/account-profile.tsx
 msgid "Saved"
 msgstr "Saved"
@@ -5133,11 +5172,6 @@ msgstr "Sending and receiving your latest changes."
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "sent"
 msgstr "sent"
-
-#. placeholder {0}: formatSyncBytes(entry.sent_bytes)
-#: src/settings/sync/index.tsx
-msgid "Sent {0}"
-msgstr "Sent {0}"
 
 #: src/session/components/note-input/header.tsx
 msgid "Session note views"
@@ -5601,13 +5635,17 @@ msgstr "Start free trial"
 msgid "Start listening when a scheduled meeting begins."
 msgstr "Start listening when a scheduled meeting begins."
 
+#: src/settings/team/index.tsx
+msgid "Start Pro"
+msgstr "Start Pro"
+
+#: src/services/event-notification/index.ts
+msgid "Start recording"
+msgstr "Start recording"
+
 #: src/main/empty.tsx
 msgid "Start Recording"
 msgstr "Start Recording"
-
-#: src/settings/team/index.tsx
-msgid "Start Team"
-msgstr "Start Team"
 
 #: src/chat/components/input/index.tsx
 msgid "Start voice input"
@@ -5630,6 +5668,7 @@ msgid "Start writing..."
 msgstr "Start writing..."
 
 #: src/settings/ai/stt/select.tsx
+#: src/sidebar/toast/registry.tsx
 msgid "Starting"
 msgstr "Starting"
 
@@ -5677,6 +5716,10 @@ msgstr "Stone"
 #: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr "Stop"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Stop auto-add"
+msgstr "Stop auto-add"
 
 #: src/session/components/outer-header/index.tsx
 #: src/sidebar/timeline/item.tsx
@@ -5789,15 +5832,11 @@ msgstr "Symbols"
 msgid "Sync"
 msgstr "Sync"
 
-#: src/settings/sync/index.tsx
-msgid "Sync failed"
-msgstr "Sync failed"
-
 #: src/settings/sync/health.tsx
 msgid "Sync health"
 msgstr "Sync health"
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "Sync log"
 msgstr "Sync log"
 
@@ -5887,10 +5926,6 @@ msgstr "Team folder workspace"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team library"
 msgstr "Team library"
-
-#: src/settings/team/index.tsx
-msgid "Team plan"
-msgstr "Team plan"
 
 #: src/settings/general/billing.tsx
 msgid "Team seats"
@@ -6012,6 +6047,10 @@ msgstr "This is a prerecorded demo, so your camera stays off. Click Join & recor
 msgid "This name is synced to your other devices signed in to this account."
 msgstr "This name is synced to your other devices signed in to this account."
 
+#: src/calendar/components/event-chip.tsx
+msgid "This note"
+msgstr "This note"
+
 #: src/session/components/note-conflict-banner.tsx
 msgid "This note was edited on another device at the same time. The later edit was kept."
 msgstr "This note was edited on another device at the same time. The later edit was kept."
@@ -6027,10 +6066,6 @@ msgstr "This requires Anarlog Enterprise"
 #: src/settings/plan-gate.tsx
 msgid "This requires Anarlog Pro"
 msgstr "This requires Anarlog Pro"
-
-#: src/settings/plan-gate.tsx
-msgid "This requires Anarlog Team"
-msgstr "This requires Anarlog Team"
 
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
@@ -6179,6 +6214,10 @@ msgstr "Unavailable"
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "Undo"
 msgstr "Undo"
+
+#: src/calendar/components/event-chip.tsx
+msgid "Unfiled"
+msgstr "Unfiled"
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Unknown"
@@ -6438,7 +6477,7 @@ msgstr "View LinkedIn profile"
 msgid "View Note"
 msgstr "View Note"
 
-#: src/settings/sync/index.tsx
+#: src/settings/sync/log.tsx
 msgid "View sync log"
 msgstr "View sync log"
 

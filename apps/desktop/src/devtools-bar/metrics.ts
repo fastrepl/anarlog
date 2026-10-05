@@ -283,6 +283,9 @@ function startFrameProbe() {
 }
 
 export function startDevtoolsMetrics(): () => void {
+  resetDevtoolsMetrics();
+  commandBuckets = [new Map()];
+
   const traffic = installTrafficCounters();
   const frameProbe = startFrameProbe();
   const stopRenderTracker = startRenderTracker();

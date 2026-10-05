@@ -87,6 +87,7 @@ pub(in crate::batch) async fn run_direct_batch_for_adapter_kind(
         AssemblyAI => AssemblyAIAdapter,
         Fireworks => FireworksAdapter,
         OpenAI => OpenAIAdapter,
+        AmazonBedrock => owhisper_client::AmazonBedrockAdapter,
         OpenRouter => OpenRouterAdapter,
         SiliconFlow => SiliconFlowAdapter,
         Zai => ZaiAdapter,
@@ -109,7 +110,7 @@ pub(in crate::batch) async fn run_direct_batch_for_adapter_kind(
         Xai => XaiAdapter,
         SmallestAI => SmallestAIAdapter,
         WisprFlow => WisprFlowAdapter,
-    }, unsupported: [DashScope, Nari])
+    }, unsupported: [DashScope, Nari, Inworld, Gradium, Modulate, Alebex, Nvidia])
 }
 
 async fn run_anarlog_batch(

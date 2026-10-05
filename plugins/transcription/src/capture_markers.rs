@@ -41,6 +41,8 @@ pub struct CaptureLifecycleMarker {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retain_audio: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post_stop_batch: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phase: Option<CapturePhase>,
     pub session_id: String,
     pub transcript_id: String,
@@ -95,6 +97,7 @@ pub fn parse_marker(value_json: &str, session_id: &str) -> Option<CaptureLifecyc
         version: 1,
         chunked_audio: object.get("chunkedAudio").and_then(Value::as_bool),
         retain_audio: object.get("retainAudio").and_then(Value::as_bool),
+        post_stop_batch: object.get("postStopBatch").and_then(Value::as_bool),
         phase: object
             .get("phase")
             .and_then(Value::as_str)
@@ -299,6 +302,7 @@ mod tests {
             version: 1,
             chunked_audio: Some(true),
             retain_audio: Some(false),
+            post_stop_batch: Some(true),
             phase: Some(CapturePhase::Finalizing),
             session_id: "session-1".to_string(),
             transcript_id: "transcript-1".to_string(),

@@ -125,14 +125,13 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 
-    use super::{Interval, TrialOutcome, pro_trial_days, trial_end_date};
+    use super::{Interval, TrialOutcome, trial_end_date};
 
     #[test]
     fn analytics_uses_the_product_trial_duration() {
         let now = Utc.with_ymd_and_hms(2026, 7, 17, 0, 0, 0).unwrap();
 
-        assert_eq!(trial_end_date(now, None), "2026-08-07T00:00:00+00:00");
-        assert_eq!(pro_trial_days(), 21);
+        assert_eq!(trial_end_date(now, None), "2026-07-31T00:00:00+00:00");
     }
 
     #[test]

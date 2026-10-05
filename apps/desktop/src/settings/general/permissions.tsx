@@ -4,9 +4,9 @@ import { platform } from "@tauri-apps/plugin-os";
 import type { PermissionStatus } from "@anlg/plugin-permissions";
 import { ArrowRight, Check, WarningCircle } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   trackPermissionRequested,
   usePermissionAnalytics,

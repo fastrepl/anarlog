@@ -1,4 +1,13 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  defaultSummaryDocumentId,
+  resolveSummaryDocument,
+  visibleSummaryDocuments,
+} from "@anlg/utils/session";
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
@@ -99,6 +108,9 @@ describe("enhancer SQLite storage", () => {
       expect.any(String),
       expect.any(String),
       "session-1",
+      "session-1",
+      "template-2",
+      0,
     ]);
     expect(statement.expectedRowsAffected).toBe(1);
   });
@@ -232,5 +244,114 @@ describe("enhancer SQLite storage", () => {
       "template-1",
       "Summary",
     ]);
+  });
+  it("offline default creation converges and late summary content keeps its original document", async () => {
+    const { DatabaseSync } = createRequire(import.meta.url)(
+      "node:sqlite",
+    ) as typeof import("node:sqlite");
+    const devices = [
+      new DatabaseSync(":memory:"),
+      new DatabaseSync(":memory:"),
+    ];
+    let database = devices[0];
+    const rows = () =>
+      database
+        .prepare(
+          "SELECT * FROM session_documents WHERE kind IN ('summary', 'template_output') AND deleted_at IS NULL",
+        )
+        .all() as Array<{
+        id: string;
+        body: string;
+        kind: string;
+        template_id: string;
+        title: string;
+        sort_order: number;
+        created_at: string;
+        updated_at: string;
+        generation_metadata_json: string;
+      }>;
+    try {
+      for (const device of devices) {
+        device.exec(
+          readFileSync(
+            resolve(
+              process.cwd(),
+              "../../crates/db-app/migrations/20260710223922_canonical_data_model.sql",
+            ),
+            "utf8",
+          ),
+        );
+        device.exec(
+          "INSERT INTO sessions (id, workspace_id) VALUES ('session-1', 'workspace-1')",
+        );
+      }
+      mocks.execute.mockImplementation(
+        async (sql: string, params: unknown[] = []) =>
+          database
+            .prepare(sql)
+            .all(...(params as import("node:sqlite").SQLInputValue[])),
+      );
+      mocks.loadSessionContentSnapshot.mockImplementation(async () => ({
+        ...createSnapshot(),
+        enhancedNotes: rows().map((row) => ({
+          id: row.id,
+          content: row.body,
+          contentFormat: "prosemirror_json",
+          templateId: row.template_id,
+          position: row.sort_order,
+          title: row.title,
+          markdown: row.body,
+        })),
+      }));
+      mocks.executeTransaction.mockImplementation(async (statements) =>
+        statements.map(({ sql, params }: { sql: string; params: unknown[] }) =>
+          Number(
+            database
+              .prepare(sql)
+              .run(...(params as import("node:sqlite").SQLInputValue[]))
+              .changes,
+          ),
+        ),
+      );
+      const desktop = await ensureSummaryDocument("session-1", "template-1");
+      database = devices[1];
+      // Mobile uses this same identity, even when desktop selected a template.
+      database
+        .prepare(
+          "INSERT INTO session_documents (id, session_id, kind, body) VALUES (?, 'session-1', 'summary', 'Mobile summary')",
+        )
+        .run(defaultSummaryDocumentId("session-1"));
+      expect(desktop.id).toBe(rows()[0].id);
+      expect((await ensureSummaryDocument("session-1")).id).toBe(desktop.id);
+      database = devices[0];
+      database.exec(
+        "INSERT INTO session_documents (id, session_id, kind, title, body, created_at, updated_at) VALUES ('legacy', 'session-1', 'summary', 'Summary', 'Original desktop summary', 'old', 'old'); INSERT INTO session_documents (id, session_id, kind, title, body, created_at, updated_at) VALUES ('placeholder', 'session-1', 'summary', 'Summary', '', 'new', 'new')",
+      );
+      const documents = rows();
+      expect(
+        visibleSummaryDocuments(documents)
+          .map((row) => row.id)
+          .sort(),
+      ).toEqual(["legacy", desktop.id]);
+      expect(resolveSummaryDocument(documents)?.id).toBe("legacy");
+      expect(rows()).toHaveLength(3);
+      database.exec(
+        "UPDATE session_documents SET body = 'Late synced edit', updated_at = 'later' WHERE id = 'placeholder'",
+      );
+      expect(visibleSummaryDocuments(rows())).toHaveLength(3);
+      await ensureSummaryDocument("session-1", "template-2");
+      expect(
+        rows().filter((row) => row.kind === "template_output"),
+      ).toHaveLength(2);
+      database.exec(
+        "UPDATE session_documents SET deleted_at = 'deleted', updated_at = 'deleted'",
+      );
+      expect((await ensureSummaryDocument("session-1", "template-1")).id).toBe(
+        desktop.id,
+      );
+      expect(rows()).toHaveLength(1);
+    } finally {
+      devices.forEach((device) => device.close());
+    }
   });
 });

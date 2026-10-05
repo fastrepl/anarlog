@@ -12,10 +12,6 @@ use tauri::WebviewWindowBuilder;
 #[cfg(all(target_os = "macos", feature = "macos-private-api"))]
 use tauri::{LogicalSize, Size};
 
-#[cfg(any(
-    not(target_os = "macos"),
-    all(target_os = "macos", feature = "macos-private-api")
-))]
 use crate::ext::run_on_main_thread;
 use crate::{AppWindow, Error, WindowImpl};
 

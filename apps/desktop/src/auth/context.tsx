@@ -19,6 +19,7 @@ import {
   getProviderProfileImageUrl,
 } from "@anlg/supabase/profile";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   clearAuthAnalyticsGroups,
@@ -52,7 +53,6 @@ import {
 import { trackAnalyticsEvent } from "~/analytics";
 import { ConnectLocalLibraryDialog } from "~/auth/connect-local-library-dialog";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   buildWebAppUrl,
   DEVICE_FINGERPRINT_HEADER,

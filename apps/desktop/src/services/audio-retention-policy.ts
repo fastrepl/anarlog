@@ -1,4 +1,4 @@
-export const AUDIO_RETENTION_DURATION_MS = {
+const AUDIO_RETENTION_DURATION_MS = {
   none: 0,
   oneDay: 24 * 60 * 60 * 1000,
   threeDays: 3 * 24 * 60 * 60 * 1000,
@@ -6,8 +6,7 @@ export const AUDIO_RETENTION_DURATION_MS = {
   oneMonth: 30 * 24 * 60 * 60 * 1000,
 } as const;
 
-export type ExpiringAudioRetentionPolicy =
-  keyof typeof AUDIO_RETENTION_DURATION_MS;
+type ExpiringAudioRetentionPolicy = keyof typeof AUDIO_RETENTION_DURATION_MS;
 export type AudioRetentionPolicy = ExpiringAudioRetentionPolicy | "forever";
 
 const AUDIO_RETENTION_VALUES = new Set([

@@ -1832,7 +1832,6 @@ impl PluginDbRuntime {
             "recovery_delayed": false,
             "recovery_phase": null,
             "recovery_error": null,
-            "activity_log": [],
         }))
     }
 }

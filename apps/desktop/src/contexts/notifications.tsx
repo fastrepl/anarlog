@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { t } from "@lingui/core/macro";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   type ReactNode,
@@ -14,12 +15,15 @@ import {
   type LocalModel,
 } from "@anlg/plugin-local-stt";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
+import { setDownloadedSttSelection } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import type { DownloadProgress } from "~/sidebar/toast/types";
+import { usePendingSttSelection } from "~/store/zustand/pending-stt-selection";
 import { useTabs } from "~/store/zustand/tabs";
 import { isConfiguredSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
+import { localSttQueries } from "~/stt/useLocalSttModel";
 
 interface NotificationState {
   hasActiveBanner: boolean;
@@ -36,6 +40,7 @@ interface NotificationState {
 const NotificationContext = createContext<NotificationState | null>(null);
 
 const MODEL_DISPLAY_NAMES: Partial<Record<LocalModel, string>> = {
+  "apple-speech": "Apple Speech",
   "soniqo-parakeet-streaming": "Soniqo Parakeet Streaming",
   "soniqo-parakeet-batch": "Soniqo Parakeet Batch",
   "am-parakeet-v2": "Parakeet v2",
@@ -46,6 +51,10 @@ const MODEL_DISPLAY_NAMES: Partial<Record<LocalModel, string>> = {
 };
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const queuedDownloads = usePendingSttSelection(
+    (state) => state.queuedDownloads,
+  );
   const {
     current_stt_provider,
     current_stt_model,
@@ -92,9 +101,45 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
       const { model: eventModel, status } = event.payload;
       const isFailed = typeof status === "object" && "failed" in status;
+      const modelName = MODEL_DISPLAY_NAMES[eventModel] ?? eventModel;
+      usePendingSttSelection.setState((state) => ({
+        queuedDownloads: state.queuedDownloads.filter(
+          (model) => model !== eventModel,
+        ),
+      }));
+      if (status === "completed") {
+        queryClient.setQueryData(
+          localSttQueries.isDownloaded(eventModel).queryKey,
+          { status: "ok", data: true },
+        );
+        toast.success(t`Model downloaded`, { description: modelName });
+      }
+      const pendingSelection = usePendingSttSelection.getState().selection;
+      if (pendingSelection?.model === eventModel) {
+        const clearPendingSelection = () => {
+          if (
+            usePendingSttSelection.getState().selection === pendingSelection
+          ) {
+            usePendingSttSelection.setState({ selection: null });
+          }
+        };
+        if (isFailed) {
+          clearPendingSelection();
+        } else if (status === "completed") {
+          void setDownloadedSttSelection(pendingSelection).then(
+            clearPendingSelection,
+            (error) => {
+              clearPendingSelection();
+              console.error(
+                "[settings] failed to select downloaded model",
+                error,
+              );
+            },
+          );
+        }
+      }
 
       if (isFailed) {
-        const modelName = MODEL_DISPLAY_NAMES[eventModel] ?? eventModel;
         toast.error(`Couldn’t download ${modelName}`, {
           description: status.failed,
         });
@@ -129,7 +174,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<NotificationState>(() => {
     const hasActiveBanner = hasConfigBanner && !isAiTab;
-    const hasActiveDownload = activeDownloads.size > 0;
+    const hasActiveDownload =
+      activeDownloads.size > 0 || queuedDownloads.length > 0;
 
     const downloadsArray: DownloadProgress[] = Array.from(
       activeDownloads.entries(),
@@ -138,6 +184,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       displayName: MODEL_DISPLAY_NAMES[model] ?? model,
       progress,
     }));
+    for (const model of queuedDownloads) {
+      if (!activeDownloads.has(model)) {
+        downloadsArray.push({
+          model,
+          displayName: MODEL_DISPLAY_NAMES[model] ?? model,
+          progress: 0,
+          isStarting: true,
+        });
+      }
+    }
 
     const firstDownload = downloadsArray[0];
     const downloadingModel = firstDownload?.displayName ?? null;
@@ -162,6 +218,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     hasConfigBanner,
     hasActiveEnhancement,
     activeDownloads,
+    queuedDownloads,
     isAiTab,
     localSttStatus,
     isLocalSttModel,

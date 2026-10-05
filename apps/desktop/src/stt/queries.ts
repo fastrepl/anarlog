@@ -364,29 +364,54 @@ export function useSessionParticipantHumanIds(sessionId: string): string[] {
   return sessionId ? data : EMPTY_IDS;
 }
 
-export function useTranscriptHumans(
-  humanIds: readonly string[],
-): RenderTranscriptHuman[] {
-  const uniqueIds = [...new Set(humanIds.filter(Boolean))].sort();
-  const placeholders = uniqueIds.map(() => "?").join(", ");
-  const { data = EMPTY_HUMANS } = useLiveQuery<
-    HumanSqlRow,
-    RenderTranscriptHuman[]
-  >({
+function getTranscriptHumansQuery(humanIds: readonly string[]) {
+  const ids = [...new Set(humanIds.filter(Boolean))].sort();
+  const placeholders = ids.map(() => "?").join(", ");
+  return {
+    humanIds: ids,
     sql: `
       SELECT id, name
       FROM humans
       WHERE id IN (${placeholders || "NULL"})
         AND name <> ''
-        AND deleted_at IS NULL
       ORDER BY id
     `,
-    params: uniqueIds,
-    enabled: uniqueIds.length > 0,
-    mapRows: (rows) =>
-      rows.map((row) => ({ human_id: row.id, name: row.name })),
+  };
+}
+
+function mapTranscriptHumans(rows: HumanSqlRow[]): RenderTranscriptHuman[] {
+  return rows.map((row) => ({ human_id: row.id, name: row.name }));
+}
+
+export async function getTranscriptHumans(
+  humanIds: readonly string[],
+): Promise<RenderTranscriptHuman[]> {
+  const query = getTranscriptHumansQuery(humanIds);
+  if (query.humanIds.length === 0) {
+    return [];
+  }
+
+  const rows = await liveQueryClient.execute<HumanSqlRow>(
+    query.sql,
+    query.humanIds,
+  );
+  return mapTranscriptHumans(rows);
+}
+
+export function useTranscriptHumans(
+  humanIds: readonly string[],
+): RenderTranscriptHuman[] {
+  const query = getTranscriptHumansQuery(humanIds);
+  const { data = EMPTY_HUMANS } = useLiveQuery<
+    HumanSqlRow,
+    RenderTranscriptHuman[]
+  >({
+    sql: query.sql,
+    params: query.humanIds,
+    enabled: query.humanIds.length > 0,
+    mapRows: mapTranscriptHumans,
   });
-  return uniqueIds.length > 0 ? data : EMPTY_HUMANS;
+  return query.humanIds.length > 0 ? data : EMPTY_HUMANS;
 }
 
 export function createTranscript(input: TranscriptInsert): Promise<void> {

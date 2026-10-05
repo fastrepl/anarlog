@@ -126,7 +126,6 @@ anlg-pyannote-cloud = { path = "crates/pyannote-cloud", package = "pyannote-clou
 anlg-pyannote-local = { path = "crates/pyannote-local", package = "pyannote-local" }
 anlg-resampler = { path = "crates/resampler", package = "resampler" }
 anlg-s3 = { path = "crates/s3", package = "s3" }
-anlg-screen-core = { path = "crates/screen-core", package = "screen-core" }
 anlg-session-ingest = { path = "crates/session-ingest", package = "session-ingest" }
 anlg-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 anlg-slack-web = { path = "crates/slack-web", package = "slack-web" }
@@ -202,7 +201,6 @@ tauri-plugin-dock = { path = "plugins/dock" }
 tauri-plugin-export = { path = "plugins/export" }
 tauri-plugin-fs-sync = { path = "plugins/fs-sync" }
 tauri-plugin-fs2 = { path = "plugins/fs2" }
-tauri-plugin-git = { path = "plugins/git" }
 tauri-plugin-hooks = { path = "plugins/hooks" }
 tauri-plugin-icon = { path = "plugins/icon" }
 tauri-plugin-importer = { path = "plugins/importer" }
@@ -221,7 +219,6 @@ tauri-plugin-overlay = { path = "plugins/overlay" }
 tauri-plugin-path2 = { path = "plugins/path2" }
 tauri-plugin-permissions = { path = "plugins/permissions" }
 tauri-plugin-relay = { path = "plugins/relay" }
-tauri-plugin-screen = { path = "plugins/screen" }
 tauri-plugin-session = { path = "plugins/session" }
 tauri-plugin-settings = { path = "plugins/settings" }
 tauri-plugin-sfx = { path = "plugins/sfx" }
@@ -385,6 +382,7 @@ security-framework = "3.7"
 hmac = "0.13"
 sha2 = "0.11"
 
+whatlang = "0.18.0"
 whichlang = "0.1"
 
 swift-rs = { git = "https://github.com/Brendonovich/swift-rs", rev = "41a1605" }

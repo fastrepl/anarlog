@@ -1,4 +1,4 @@
-export type SessionIngestEnvelope = Record<string, unknown> & {
+type SessionIngestEnvelope = Record<string, unknown> & {
   schema_version: number;
   source_id: string;
   revision: number;

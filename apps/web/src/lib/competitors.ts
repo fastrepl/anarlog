@@ -30,7 +30,7 @@ export const ANARLOG_ROW: ComparisonRow = {
   name: "Anarlog",
   icon: "/icon-192x192.png",
   url: "/",
-  paidFrom: "$15/mo",
+  paidFrom: "$14/mo",
   freeTier: "Unlimited local",
   botFree: true,
   localData: true,

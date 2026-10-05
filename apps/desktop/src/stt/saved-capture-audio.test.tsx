@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -38,6 +38,7 @@ type ToastOptions = {
   id: string;
   description: React.ReactElement;
   action: { label: string; onClick: () => void };
+  onDismiss: () => void;
 };
 
 afterEach(cleanup);
@@ -46,8 +47,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.sessionMode = "inactive";
   mocks.isMainWebviewWindow.mockReturnValue(true);
-  mocks.useLiveQuery.mockReturnValue({ data: true });
+  mocks.useLiveQuery.mockReturnValue({ data: SAVED_AT });
+  localStorage.clear();
 });
+
+const SAVED_AT = "2026-10-01T00:00:00.000Z";
 
 function shownToast() {
   expect(mocks.toastWarning).toHaveBeenCalledOnce();
@@ -91,10 +95,10 @@ test("routes resume listening to the main window from note windows", () => {
 });
 
 test("stays hidden without saved audio or while the note is live", () => {
-  mocks.useLiveQuery.mockReturnValue({ data: false });
+  mocks.useLiveQuery.mockReturnValue({ data: null });
   const { unmount } = render(<SavedCaptureAudioPrompt sessionId="session-1" />);
   unmount();
-  mocks.useLiveQuery.mockReturnValue({ data: true });
+  mocks.useLiveQuery.mockReturnValue({ data: SAVED_AT });
   mocks.sessionMode = "active";
   render(<SavedCaptureAudioPrompt sessionId="session-1" />);
 
@@ -107,4 +111,40 @@ test("dismisses the toast when the note closes", () => {
   expect(mocks.toastDismiss).toHaveBeenCalledWith(
     "capture-audio-saved-session-1",
   );
+});
+
+test("does not reshow a closed prompt until audio is saved again", () => {
+  const first = render(<SavedCaptureAudioPrompt sessionId="session-1" />);
+  shownToast().onDismiss();
+  first.unmount();
+  mocks.toastWarning.mockClear();
+
+  const reopened = render(<SavedCaptureAudioPrompt sessionId="session-1" />);
+  expect(mocks.toastWarning).not.toHaveBeenCalled();
+  reopened.unmount();
+
+  mocks.useLiveQuery.mockReturnValue({ data: "2026-10-02T00:00:00.000Z" });
+  render(<SavedCaptureAudioPrompt sessionId="session-1" />);
+  expect(mocks.toastWarning).toHaveBeenCalledOnce();
+});
+
+test("does not treat creating the meeting note as closing the prompt", async () => {
+  const consoleError = vi
+    .spyOn(console, "error")
+    .mockImplementation(() => undefined);
+  mocks.requestCaptureRecovery.mockRejectedValueOnce(
+    new Error("recovery failed"),
+  );
+
+  const first = render(<SavedCaptureAudioPrompt sessionId="session-1" />);
+  const options = shownToast();
+  options.action.onClick();
+  options.onDismiss();
+  await act(async () => {});
+  consoleError.mockRestore();
+  first.unmount();
+  mocks.toastWarning.mockClear();
+
+  render(<SavedCaptureAudioPrompt sessionId="session-1" />);
+  expect(mocks.toastWarning).toHaveBeenCalledOnce();
 });

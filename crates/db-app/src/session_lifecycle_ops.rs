@@ -178,22 +178,74 @@ pub async fn find_session_id_for_event(
     conn: &mut SqliteConnection,
     event_id: &str,
     tracking_id_event: &str,
+    calendar_id: &str,
+    provider: &str,
     preferred_id: &str,
 ) -> Result<Option<String>, sqlx::Error> {
     sqlx::query_scalar::<_, String>(
-        "SELECT id
-        FROM sessions
-        WHERE deleted_at IS NULL
-          AND (event_id = ? OR (? <> '' AND external_event_id = ?))
-        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, created_at, id
+        "SELECT session.id
+        FROM sessions AS session
+        LEFT JOIN events AS linked_event ON linked_event.id = session.event_id
+        WHERE session.deleted_at IS NULL
+          AND (
+            session.event_id = ?
+            OR (
+              ? <> ''
+              AND session.external_event_id = ?
+              AND session.external_provider = ?
+              AND COALESCE(
+                NULLIF(linked_event.calendar_id, ''),
+                CASE WHEN json_valid(session.event_json)
+                  THEN NULLIF(json_extract(session.event_json, '$.calendar_id'), '')
+                END,
+                ''
+              ) = ?
+              AND COALESCE(
+                NULLIF(linked_event.provider, ''),
+                NULLIF(session.external_provider, ''),
+                ''
+              ) = ?
+            )
+          )
+        ORDER BY
+          CASE
+            WHEN session.event_id = ? THEN 0
+            WHEN session.id = ? THEN 1
+            ELSE 2
+          END,
+          session.created_at,
+          session.id
         LIMIT 1",
     )
     .bind(event_id)
     .bind(tracking_id_event)
     .bind(tracking_id_event)
+    .bind(provider)
+    .bind(calendar_id)
+    .bind(provider)
+    .bind(event_id)
     .bind(preferred_id)
     .fetch_optional(&mut *conn)
     .await
+}
+
+pub async fn relink_session_to_event(
+    conn: &mut SqliteConnection,
+    session_id: &str,
+    event_id: &str,
+    now: &str,
+) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE sessions
+        SET event_id = ?, updated_at = ?
+        WHERE id = ? AND deleted_at IS NULL",
+    )
+    .bind(event_id)
+    .bind(now)
+    .bind(session_id)
+    .execute(&mut *conn)
+    .await?;
+    Ok(result.rows_affected())
 }
 
 pub async fn insert_event_session(
@@ -226,9 +278,30 @@ pub async fn insert_event_session(
         ), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
         WHERE NOT EXISTS (
           SELECT 1
-          FROM sessions
-          WHERE deleted_at IS NULL
-            AND (event_id = ? OR (? <> '' AND external_event_id = ?))
+          FROM sessions AS existing_session
+          LEFT JOIN events AS linked_event
+            ON linked_event.id = existing_session.event_id
+          WHERE existing_session.deleted_at IS NULL
+            AND (
+              existing_session.event_id = ?
+              OR (
+                ? <> ''
+                AND existing_session.external_event_id = ?
+                AND existing_session.external_provider = ?
+                AND COALESCE(
+                  NULLIF(linked_event.calendar_id, ''),
+                  CASE WHEN json_valid(existing_session.event_json)
+                    THEN NULLIF(json_extract(existing_session.event_json, '$.calendar_id'), '')
+                  END,
+                  ''
+                ) = ?
+                AND COALESCE(
+                  NULLIF(linked_event.provider, ''),
+                  NULLIF(existing_session.external_provider, ''),
+                  ''
+                ) = ?
+              )
+            )
         )",
     )
     .bind(session_id)
@@ -246,6 +319,9 @@ pub async fn insert_event_session(
     .bind(&event.id)
     .bind(&event.tracking_id_event)
     .bind(&event.tracking_id_event)
+    .bind(&event.provider)
+    .bind(&event.calendar_id)
+    .bind(&event.provider)
     .execute(&mut *conn)
     .await?;
 

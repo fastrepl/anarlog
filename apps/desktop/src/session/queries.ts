@@ -6,10 +6,6 @@ export {
   useSessionConflicts,
   useSessionDocumentVersions,
 } from "./queries/conflicts";
-export type {
-  SessionConflictRecord,
-  SessionDocumentVersionRecord,
-} from "./queries/conflicts";
 export {
   finalizeSessionDeletion,
   isSessionDeleted,
@@ -34,7 +30,6 @@ export {
   useFolderPaths,
   useFolderWorkspaces,
 } from "./queries/folders";
-export type { FolderSessionSummary, FolderWorkspace } from "./queries/folders";
 export {
   applySessionProposal,
   declineSessionProposal,
@@ -42,7 +37,6 @@ export {
   persistChatSessionProposal,
   usePendingSessionProposals,
 } from "./queries/proposals";
-export type { SessionProposalRecord } from "./queries/proposals";
 export {
   addSessionParticipant,
   removeSessionParticipant,
@@ -61,10 +55,4 @@ export {
   useSessionTranscriptExistence,
   useUpdateSession,
 } from "./queries/sessions";
-export type {
-  EnhancedNoteRecord,
-  SessionChanges,
-  SessionParticipantRecord,
-  SessionRecord,
-  SessionSummaryRecord,
-} from "./queries/types";
+export type { SessionParticipantRecord } from "./queries/types";

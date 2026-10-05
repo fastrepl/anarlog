@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import { md2json } from "@anlg/editor/markdown";
+import { visibleSummaryDocuments } from "@anlg/utils/session";
 
 import type { EnhancedNoteRecord } from "./types";
 
@@ -15,6 +16,10 @@ type EnhancedNoteSqlRow = {
   body_format: string;
   template_id: string;
   sort_order: number;
+  kind: string;
+  created_at: string;
+  updated_at: string;
+  generation_metadata_json: string;
 };
 
 const PENDING_AUTO_ENHANCE_SETTING_PREFIX = "auto_enhance_pending:";
@@ -35,7 +40,11 @@ export function useEnhancedNoteRecords(
         body,
         body_format,
         template_id,
-        sort_order
+        sort_order,
+        kind,
+        created_at,
+        updated_at,
+        generation_metadata_json
       FROM session_documents
       WHERE session_id = ?
         AND kind IN ('summary', 'template_output')
@@ -44,7 +53,7 @@ export function useEnhancedNoteRecords(
     `,
     params: [sessionId],
     enabled: Boolean(sessionId),
-    mapRows: (rows) => rows.map(mapEnhancedNoteRow),
+    mapRows: (rows) => visibleSummaryDocuments(rows).map(mapEnhancedNoteRow),
   });
   return sessionId ? data : EMPTY_ENHANCED_NOTES;
 }
@@ -64,7 +73,11 @@ export function useEnhancedNote(
         body,
         body_format,
         template_id,
-        sort_order
+        sort_order,
+        kind,
+        created_at,
+        updated_at,
+        generation_metadata_json
       FROM session_documents
       WHERE id = ?
         AND kind IN ('summary', 'template_output')

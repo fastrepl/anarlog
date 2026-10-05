@@ -28,18 +28,18 @@ async fn streaming_cloud_model_removed_for_soniox() {
 }
 
 #[tokio::test]
-async fn streaming_routing_selects_soniox_for_en_ko() {
+async fn streaming_routing_prefers_soniox_when_deepgram_supports_language() {
     let dg_mock = start_mock_ws().await;
     let sox_mock = start_mock_ws().await;
     let proxy = start_proxy(Some(&dg_mock.ws_url()), Some(&sox_mock.ws_url())).await;
 
-    send_streaming(proxy, "model=cloud&language=en&language=ko").await;
+    send_streaming(proxy, "model=cloud&language=en").await;
     let sox_req = wait_for_first_request(&sox_mock, TIMEOUT).await;
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     assert!(
         dg_mock.captured_requests().is_empty(),
-        "deepgram should not be selected for en+ko"
+        "soniox should be preferred when both providers support English"
     );
     assert!(
         !sox_req.contains("model=cloud"),

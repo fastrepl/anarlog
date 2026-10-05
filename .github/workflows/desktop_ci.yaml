@@ -176,7 +176,6 @@ jobs:
             --exclude tauri-plugin-path2 \
             --exclude tauri-plugin-pdf \
             --exclude tauri-plugin-permissions \
-            --exclude tauri-plugin-screen \
             --exclude tauri-plugin-settings \
             --exclude tauri-plugin-sfx \
             --exclude tauri-plugin-sidecar2 \

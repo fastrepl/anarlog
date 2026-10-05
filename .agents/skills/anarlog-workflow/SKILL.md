@@ -9,6 +9,8 @@ Apply to Anarlog repository or Anarlog desktop, web, mobile, and API work. Apply
 
 Use Linear for work tracking and facts worth remembering. Keep implementation and verification details in commits, PRs, and CI.
 
+Do not read, create, edit, or comment in Notion for Anarlog work. Anarlog does not use Notion; keep its decisions and durable context in Linear.
+
 - Team: **Anarlog** (`ANLG`).
 - Workspace: [fastrepl-inc](https://linear.app/fastrepl-inc).
 - [Agent lessons](https://linear.app/fastrepl-inc/document/agent-lessons-45018045d01e).
@@ -36,7 +38,7 @@ Before writing a comment or document, ask: will this help someone make a future 
 
 - Ticket-specific findings or decisions: a concise comment on the existing issue.
 - Lessons reusable across tickets: the team's **Agent lessons** document (create it if missing). Check for an existing entry and update it rather than repeating it. Use a date, short title, lesson, and future action; newest first.
-- Durable specs, research conclusions, and product context: the relevant team or project document, only when there is substantive context to preserve.
+- Durable specs, research conclusions, and product context: the relevant Linear team or project document, only when there is substantive context to preserve.
 - Use one appropriate home for each fact. Do not duplicate it across an issue comment and a lessons document, or post a separate announcement that it was documented.
 
 ## Keep Slack updates selective

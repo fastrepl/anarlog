@@ -22,6 +22,9 @@ pub async fn do_log<R: tauri::Runtime>(
 #[specta::specta]
 pub async fn log_content<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    cloudsync_only: Option<bool>,
 ) -> Result<Option<String>, String> {
-    app.tracing().log_content().map_err(|e| e.to_string())
+    app.tracing()
+        .filtered_log_content(cloudsync_only.unwrap_or(false))
+        .map_err(|e| e.to_string())
 }

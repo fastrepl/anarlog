@@ -71,16 +71,6 @@ export async function loadCaptureLifecycleMarker(
   return result.data;
 }
 
-export async function loadCaptureLifecycleMarkers(): Promise<
-  CaptureLifecycleMarker[]
-> {
-  const result = await listenerCommands.listCaptureLifecycleMarkers();
-  if (result.status === "error") {
-    throw new Error(result.error);
-  }
-  return result.data;
-}
-
 export function hasAudioAwaitingUser(marker: CaptureLifecycleMarker) {
   return (
     !marker.summaryMode &&

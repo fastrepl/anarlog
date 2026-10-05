@@ -17,10 +17,10 @@ export function FloatingActionButton(_props: {
   return (
     <div
       className={cn([
-        "pointer-events-none absolute bottom-3 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 flex-col-reverse items-center",
+        "pointer-events-none absolute bottom-3 left-1/2 z-30 flex w-[min(640px,calc(100cqw_-_2rem))] max-w-[calc(100%-2rem)] -translate-x-1/2 flex-col-reverse items-center",
       ])}
     >
-      <div className="peer/session-fab pointer-events-auto relative h-10 w-[180px] max-w-full">
+      <div className="peer/session-fab pointer-events-auto relative h-10 w-[min(640px,calc(100cqw_-_2rem))] max-w-full">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key="chat"
@@ -38,13 +38,7 @@ export function FloatingActionButton(_props: {
       <div
         ref={setSessionFabSelectionHost}
         data-session-fab-selection
-        className={cn([
-          "pointer-events-auto z-10 mb-2",
-          "origin-bottom transition-transform duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          "translate-y-8 dark:translate-y-7",
-          "peer-focus-within/session-fab:translate-y-0 peer-hover/session-fab:translate-y-0",
-          "dark:peer-focus-within/session-fab:translate-y-0 dark:peer-hover/session-fab:translate-y-0",
-        ])}
+        className={cn(["pointer-events-auto z-10 mb-2"])}
       />
     </div>
   );

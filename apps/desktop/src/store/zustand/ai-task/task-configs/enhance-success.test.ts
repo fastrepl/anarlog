@@ -145,7 +145,7 @@ describe("enhanceSuccess.onSuccess", () => {
         status: "ok",
         data: text.trim()
           ? {
-              constrained_text: text,
+              text,
               tag_names: [],
               text_with_tags: text,
             }
@@ -153,9 +153,9 @@ describe("enhanceSuccess.onSuccess", () => {
       }));
     mocks.composeGeneratedSummary
       .mockReset()
-      .mockImplementation(async ({ constrained_text }) => ({
+      .mockImplementation(async ({ text }) => ({
         status: "ok",
-        data: constrained_text,
+        data: text,
       }));
   });
 
@@ -174,7 +174,7 @@ describe("enhanceSuccess.onSuccess", () => {
     mocks.prepareGeneratedSummary.mockResolvedValueOnce({
       status: "ok",
       data: {
-        constrained_text: "# Summary\n\nDiscussed #Launch.",
+        text: "# Summary\n\nDiscussed #Launch.",
         tag_names: ["launch", "prep"],
         text_with_tags: "# Summary\n\nDiscussed #Launch.\n\n#launch #prep",
       },
@@ -184,7 +184,6 @@ describe("enhanceSuccess.onSuccess", () => {
 
     expect(mocks.prepareGeneratedSummary).toHaveBeenCalledWith({
       text: "# Summary\n\nDiscussed #Launch.",
-      length_policy: null,
       tag_sources: ["Prep #prep #Launch", ""],
     });
     expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledWith({
@@ -199,10 +198,9 @@ describe("enhanceSuccess.onSuccess", () => {
       tagNames: ["launch", "prep"],
     });
     expect(mocks.composeGeneratedSummary).toHaveBeenCalledWith({
-      constrained_text: "# Summary\n\nDiscussed #Launch.",
+      text: "# Summary\n\nDiscussed #Launch.",
       title: null,
       tag_names: ["launch", "prep"],
-      length_policy: null,
     });
     expect(params.startTask).toHaveBeenCalledWith(
       "session-1-title",

@@ -5,10 +5,11 @@ use std::{
 
 use futures_util::{FutureExt, Stream, StreamExt};
 use owhisper_client::{
-    AdapterKind, AssemblyAIAdapter, CartesiaAdapter, DashScopeAdapter, DashScopeStreamingAdapter,
-    DeepgramAdapter, ElevenLabsAdapter, FinalizeHandle, GladiaAdapter, GoogleGenerativeAiAdapter,
-    ListenClient, ListenClientInput, MistralAdapter, NariAdapter, OpenAIAdapter,
-    RealtimeSttAdapter, SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter, XaiAdapter,
+    AdapterKind, AlebexAdapter, AssemblyAIAdapter, CartesiaAdapter, DashScopeAdapter,
+    DashScopeStreamingAdapter, DeepgramAdapter, ElevenLabsAdapter, FinalizeHandle, GladiaAdapter,
+    GoogleGenerativeAiAdapter, GradiumAdapter, InworldAdapter, ListenClient, ListenClientInput,
+    MistralAdapter, ModulateAdapter, NariAdapter, OpenAIAdapter, RealtimeSttAdapter,
+    SmallestAIAdapter, SonioxAdapter, WisprFlowAdapter, XaiAdapter,
 };
 use owhisper_interface::{ListenParams, MixedMessage, stream::StreamResponse};
 use serde::Deserialize;
@@ -104,6 +105,7 @@ async fn dispatch(
         };
     }
     adapters! {
+        Alebex => AlebexAdapter,
         AssemblyAI => AssemblyAIAdapter,
         Cartesia => CartesiaAdapter,
         DashScope => DashScopeAdapter,
@@ -111,7 +113,10 @@ async fn dispatch(
         ElevenLabs => ElevenLabsAdapter,
         Gladia => GladiaAdapter,
         GoogleGenerativeAi => GoogleGenerativeAiAdapter,
+        Gradium => GradiumAdapter,
+        Inworld => InworldAdapter,
         Mistral => MistralAdapter,
+        Modulate => ModulateAdapter,
         OpenAI => OpenAIAdapter,
         Nari => NariAdapter,
         SmallestAI => SmallestAIAdapter,
@@ -539,6 +544,68 @@ mod tests {
         assert_eq!(
             final_turn["channel"]["alternatives"][0]["words"][0]["speaker"],
             1
+        );
+    }
+
+    #[tokio::test]
+    async fn inworld_mobile_dispatch_streams_audio_and_delivers_the_final_transcript() {
+        let server = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", server.local_addr().unwrap());
+        let worker = tokio::spawn(async move {
+            let (socket, _) = server.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(socket).await.unwrap();
+            let Some(Ok(Message::Text(config))) = socket.next().await else {
+                panic!("missing Inworld configuration");
+            };
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&config).unwrap()["transcribeConfig"]["sampleRateHertz"],
+                16_000
+            );
+            let mut received_audio = false;
+            while let Some(Ok(Message::Text(text))) = socket.next().await {
+                let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+                if value.get("audioChunk").is_some() {
+                    received_audio = true;
+                }
+                if value.get("closeStream").is_some() {
+                    assert!(received_audio);
+                    socket.send(Message::Text(json!({"result":{"transcription":{"transcript":"Hello mobile", "isFinal":true}}}).to_string().into())).await.unwrap();
+                    socket.close(None).await.unwrap();
+                    return;
+                }
+            }
+            panic!("Inworld session did not finalize");
+        });
+        let events = Arc::new(Events::default());
+        let live = dispatch(
+            AdapterKind::Inworld,
+            Request {
+                provider: "inworld".into(),
+                params: ListenParams {
+                    model: Some("inworld/inworld-stt-1".into()),
+                    ..Default::default()
+                },
+                ..request(base)
+            },
+            events.clone(),
+        )
+        .await
+        .unwrap();
+        live.send_audio(vec![7; 3_200]).unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_secs(7), live.finish())
+                .await
+                .unwrap()
+        );
+        worker.await.unwrap();
+        assert!(
+            events
+                .messages
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|event| event["is_final"] == true
+                    && event["channel"]["alternatives"][0]["transcript"] == "Hello mobile")
         );
     }
 

@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { computeCurrentNoteTab } from "@anlg/utils/session";
 
 import { FloatingActionButton } from "./components/floating";
 import { NoteConflictBanner } from "./components/note-conflict-banner";
@@ -20,16 +21,9 @@ import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { PendingProposalsBanner } from "./components/pending-proposals-banner";
 import { SessionSurface } from "./components/session-surface";
-import {
-  computeCurrentNoteTab,
-  getCanShowTranscript,
-  useHasTranscript,
-} from "./components/shared";
+import { getCanShowTranscript, useHasTranscript } from "./components/shared";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
-import {
-  useEnhancedNotes,
-  useEnsureDefaultSummaryFromState,
-} from "./hooks/useEnhancedNotes";
+import { useEnhancedNotes } from "./hooks/useEnhancedNotes";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 import { getSessionEvent } from "./utils";
 
@@ -128,7 +122,10 @@ function UnlockedTabContentNote({
       {tab.state.autoStart && !standaloneWindow ? (
         // Stay mounted under the lock overlay so a locked session can clear
         // autoStart instead of blocking later scheduled meetings.
-        <ScheduledSessionAutoStart sessionId={tab.id} />
+        <ScheduledSessionAutoStart
+          sessionId={tab.id}
+          requiresCalendarEligibility={Boolean(tab.state.scheduledAutoStart)}
+        />
       ) : null}
       <SearchProvider>
         <AudioPlayer.Provider sessionId={tab.id} url={audioUrl ?? ""}>
@@ -179,19 +176,12 @@ function TabContentNoteInner({
     hasTranscript,
     sessionMode,
   });
-  const enhancedNoteIds = useEnhancedNotes(sessionId);
+  const enhancedNoteIds = useEnhancedNotes(
+    sessionId,
+    hasTranscript && sessionMode === "inactive",
+  );
   const session = useSession(sessionId);
   const sessionEvent = session ? getSessionEvent(session) : null;
-  const contentHydrated = session !== null;
-  useEnsureDefaultSummaryFromState({
-    batchError: Boolean(batchError),
-    enabled: contentHydrated && !lockOverlay,
-    enhancedNoteCount: enhancedNoteIds.length,
-    hasTranscript,
-    memoTemplateId: session?.raw_template_id,
-    sessionId,
-    sessionMode,
-  });
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
 
   const { skipReason } = useAutoEnhance(tab);

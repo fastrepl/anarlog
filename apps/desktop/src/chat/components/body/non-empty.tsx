@@ -4,7 +4,7 @@ import { ErrorMessage } from "~/chat/components/message/error";
 import { LoadingMessage } from "~/chat/components/message/loading";
 import { NormalMessage } from "~/chat/components/message/normal";
 import { MessageTimestamp } from "~/chat/components/message/timestamp";
-import { hasRenderableContent } from "~/chat/components/shared";
+import { hasRenderableContent } from "~/chat/message-content";
 import type { AnlgUIMessage } from "~/chat/types";
 
 function isWaitingForAssistantContent(message: AnlgUIMessage | undefined) {

@@ -4,7 +4,7 @@ display_title: "Best Free Transcription Software for Windows: Local and Cloud Op
 meta_description: "Choose free Windows transcription software for audio files or meetings. Compare Buzz, whisper.cpp, and Otter by setup, offline processing, exports, and limits."
 author:
   - "Anarlog Team"
-featured: !!bool "false"
+featured: false
 category: "Guides"
 date: "2026-09-26"
 ---
@@ -43,7 +43,7 @@ Choose a local backend, download its model while online, and start with a short 
 
 Check the export before processing a folder of recordings. TXT is useful for reading and editing. SRT or VTT is useful when another tool needs time-aligned segments. Do not assume a plain-text file preserves the timing information visible inside the app.
 
-<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-import-dialog.png" alt="Buzz import dialog selecting local Whisper Tiny for a WAV file" width={312} height={354} />
+<Image src="https://static.anarlog.so/blog/library/products/buzz/transcription/2026-09-22-windows-import-dialog.png" alt="Buzz import dialog selecting local Whisper Tiny for a WAV file" width={312} height={354} />
 
 ### The file workflow we ran
 
@@ -56,7 +56,7 @@ Our test used Buzz 1.4.5 on Windows Server 2022 Standard (build 20348), with a 7
 5. Open **Export**, choose **TXT**, and save. Repeat with **SRT** if you need timed segments.
 6. Reopen both files. In our check, `sample-buzz.txt` was 1,105 bytes and `sample-buzz.srt` was 1,894 bytes; both were read back from disk.
 
-<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png" alt="Buzz completed transcript with TXT and SRT export choices" width={900} height={611} />
+<Image src="https://static.anarlog.so/blog/library/products/buzz/transcription/2026-09-22-windows-export-menu.png" alt="Buzz completed transcript with TXT and SRT export choices" width={900} height={611} />
 
 ## whisper.cpp for repeatable transcription
 
@@ -73,7 +73,7 @@ Get-Content .\sample.wav.txt -TotalCount 5
 
 The CPU run completed and wrote a transcript file. We used this pinned release for its Windows x64 archive; GPU acceleration and live capture were not tested.
 
-<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/whisper-cpp/transcription/2026-09-22-windows-transcription.png" alt="whisper.cpp terminal showing completed transcription and saved text output" width={900} height={506} />
+<Image src="https://static.anarlog.so/blog/library/products/whisper-cpp/transcription/2026-09-22-windows-transcription.png" alt="whisper.cpp terminal showing completed transcription and saved text output" width={900} height={506} />
 
 ## Otter Basic when you prefer a cloud workspace
 
@@ -83,7 +83,7 @@ These limits work independently. A remaining monthly minute allowance does not r
 
 Otter provides a [Windows desktop option](https://otter.ai/desktop) as well as web workflows. Installing a desktop client does not turn the service into local inference. Review the data policy and intended share audience before uploading a work recording.
 
-<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png" alt="Otter official illustration of calendar joining, a visible meeting guest, and the transcript workspace" width={900} height={294} />
+<Image src="https://static.anarlog.so/blog/library/products/otter/notetaker/2026-07-17-notetaker-overview.png" alt="Otter official illustration of calendar joining, a visible meeting guest, and the transcript workspace" width={900} height={294} />
 
 <p className="blog-image-credit">Source: <a href="https://help.otter.ai/hc/en-us/articles/4425393298327-Otter-Notetaker-Overview">Otter</a>.</p>
 

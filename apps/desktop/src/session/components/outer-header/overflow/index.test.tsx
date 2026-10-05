@@ -92,6 +92,10 @@ vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
   ),
 }));
 
+vi.mock("./always-on-top", () => ({
+  AlwaysOnTop: () => <button type="button">Always on Top</button>,
+}));
+
 vi.mock("./delete", () => ({
   DeleteNote: () => <button type="button">Delete note</button>,
 }));

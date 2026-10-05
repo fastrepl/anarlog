@@ -6,16 +6,12 @@ import {
   events as updaterEvents,
   type Result,
 } from "@anlg/plugin-updater2";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { isAppStoreBuild } from "~/shared/app-store";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useDevtoolsOtaPreview } from "~/store/zustand/devtools-ota-preview";
 
-export type UpdateBannerStatus =
-  | "available"
-  | "downloading"
-  | "ready"
-  | "failed";
+type UpdateBannerStatus = "available" | "downloading" | "ready" | "failed";
 
 export type DesktopUpdateControl = {
   status: UpdateBannerStatus | null;

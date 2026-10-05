@@ -16,6 +16,7 @@ import {
   init as initWindowsPlugin,
 } from "@anlg/plugin-windows";
 import { Toaster } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { AITaskWindowSyncBridge } from "./ai/task-window-sync";
 import { trackAnalyticsEvent } from "./analytics";
@@ -23,6 +24,7 @@ import { createToolRegistry } from "./contexts/tool-registry/core";
 import {
   captureOperationalError,
   initializeErrorReporting,
+  reportCaughtReactError,
 } from "./error-reporting";
 import { AppI18nProvider } from "./i18n/provider";
 import { AppLockGate } from "./lock/gate";
@@ -52,8 +54,6 @@ import { AppThemeProvider } from "./shared/theme/provider";
 import type { ThemePreference } from "./shared/theme/resolve";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const toolRegistry = createToolRegistry();
 const queryClient = new QueryClient({
@@ -167,7 +167,9 @@ async function renderApp() {
   }
 
   await Promise.all([bootstrapThemeFromSettings(), initializeAppStoreBuild()]);
-  const root = ReactDOM.createRoot(rootElement);
+  const root = ReactDOM.createRoot(rootElement, {
+    onCaughtError: reportCaughtReactError,
+  });
   root.render(
     <StrictMode>
       <AppRoot />

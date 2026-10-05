@@ -3,7 +3,7 @@ import type { MeetingCapturedChatMessage } from "@anlg/plugin-detect";
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
-export type MeetingChatDocumentRow = {
+type MeetingChatDocumentRow = {
   id: string;
   body: string;
   created_at: string;

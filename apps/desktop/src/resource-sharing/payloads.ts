@@ -38,7 +38,7 @@ export type SharedFolderPayload = {
   notes: SharedFolderNote[];
 };
 
-export type SharedTemplatePayload = {
+type SharedTemplatePayload = {
   version: 1;
   template: UserTemplateDraft;
 };

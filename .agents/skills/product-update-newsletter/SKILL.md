@@ -28,7 +28,7 @@ update the Loops campaign once the stable release and linked Nightly are live.
 
 ## Source of Truth
 
-Read `https://anarlog.so/changelog/<version>`, which renders `packages/changelog/content/<version>.md`.
+Read `https://anarlog.so/changelog/desktop/<version>`, which renders `packages/changelog/content/desktop/<version>.md`.
 
 The changelog is frequently edited after first publish. When told it changed, re-fetch and diff
 against the current email body, then apply only the delta. Do not reapply the whole rewrite.

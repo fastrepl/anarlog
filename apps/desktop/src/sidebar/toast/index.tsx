@@ -4,6 +4,7 @@ import {
   toast as notificationToast,
   TOAST_DURATIONS,
 } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   createDevtoolsToastPreview,
@@ -18,7 +19,6 @@ import { useNotifications } from "~/contexts/notifications";
 import { useDesktopUpdateControl } from "~/main/update-banner";
 import { useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useDevtoolsToastPreview } from "~/store/zustand/devtools-toast-preview";
 import { useTabs } from "~/store/zustand/tabs";
 import {
@@ -296,6 +296,7 @@ function toastPresentation(toast: ToastType) {
   return [
     toast.id,
     description,
+    toast.detail ?? "",
     toast.variant ?? "default",
     toast.loading ? "loading" : "idle",
     toast.primaryAction?.label ?? "",
@@ -311,6 +312,7 @@ function showNotification(
   const dismissible = toast.lifecycle.type === "persistent";
   const options = {
     id: toast.id,
+    description: toast.detail,
     duration: toast.variant === "error" ? TOAST_DURATIONS.error : Infinity,
     closeButton: dismissible,
     dismissible,

@@ -5,6 +5,7 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-summary-length-policy`
+- `allow-dominant-language`
 - `allow-prepare-generated-summary`
 - `allow-compose-generated-summary`
 - `allow-save-generated-summary`
@@ -72,6 +73,32 @@ Enables the compose_generated_summary command without any pre-configured scope.
 <td>
 
 Denies the compose_generated_summary command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`template:allow-dominant-language`
+
+</td>
+<td>
+
+Enables the dominant_language command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`template:deny-dominant-language`
+
+</td>
+<td>
+
+Denies the dominant_language command without any pre-configured scope.
 
 </td>
 </tr>

@@ -31,6 +31,9 @@ export function ignoreRenderTracking(props: object): void {
 export function startRenderTracker(): () => void {
   if (stopTracking) return stopTracking;
 
+  pendingRenders = 0;
+  buckets = [new Map()];
+
   const unsubscribe = onReactCommit(handleCommit);
   stopTracking = () => {
     unsubscribe();

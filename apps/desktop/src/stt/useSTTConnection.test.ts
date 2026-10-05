@@ -65,6 +65,11 @@ vi.mock("~/settings/providers", () => ({
         base_url: "   ",
         api_key: "test-key",
       },
+      "stt:nvidia": {
+        type: "stt",
+        base_url: "http://localhost:9000",
+        api_key: "",
+      },
       "stt:deepgram": {
         type: "stt",
         base_url: "   ",
@@ -145,6 +150,24 @@ describe("useSTTConnection", () => {
       baseUrl: "https://api.deepgram.com/v1",
       apiKey: "test-key",
     });
+  });
+
+  it("routes an unauthenticated NVIDIA NIM endpoint to its native adapter", () => {
+    config.current_stt_provider = "nvidia";
+    config.current_stt_model = "nemotron-asr-streaming";
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    const { result } = renderHook(() => useSTTConnection(), { wrapper });
+    expect(result.current.conn).toEqual({
+      provider: "nvidia",
+      model: "nemotron-asr-streaming",
+      baseUrl: "http://localhost:9000/?provider=nvidia",
+      apiKey: "",
+    });
+    expect(result.current.isReady).toBe(true);
   });
 
   it("waits for stored settings and secure provider configuration", () => {

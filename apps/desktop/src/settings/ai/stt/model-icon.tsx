@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { cn } from "@anlg/utils";
 
 import { AiIconSlot, ProviderLobeIcon } from "~/settings/ai/shared";
+import { staticAssetUrl, fallbackToLocalAsset } from "~/shared/static-assets";
 
 type ModelIconSpec = {
   title: string;
@@ -146,7 +147,8 @@ export function LocalModelLabel({
           {icon.node ??
             (icon.imageSrc ? (
               <img
-                src={icon.imageSrc}
+                src={staticAssetUrl(icon.imageSrc)}
+                onError={fallbackToLocalAsset(icon.imageSrc)}
                 alt=""
                 className={cn([
                   "object-contain object-center",

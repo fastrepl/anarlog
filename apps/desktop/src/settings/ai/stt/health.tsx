@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
+import { usesDeferredProviderAuthentication } from "@anlg/provider-validation";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 
 import { useConfigValues } from "~/shared/config";
@@ -137,5 +138,11 @@ export function useConnectionHealth(): HealthStatus {
     }
   }
 
+  if (usesDeferredProviderAuthentication("stt", current_stt_provider ?? "")) {
+    return {
+      status: null,
+      message: "Credentials will be checked when transcription starts.",
+    };
+  }
   return { status: "success" };
 }

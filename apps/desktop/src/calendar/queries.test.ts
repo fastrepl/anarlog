@@ -44,6 +44,31 @@ describe("calendar SQLite queries", () => {
     });
   });
 
+  it("carries the linked session folder onto timeline events", () => {
+    expect(
+      mapTimelineEventRows([
+        {
+          id: "event-1",
+          title: "Planning",
+          started_at: "2026-07-10T09:00:00.000Z",
+          ended_at: "2026-07-10T10:00:00.000Z",
+          calendar_id: "calendar-1",
+          tracking_id_event: "external-event-1",
+          has_recurrence_rules: 0,
+          recurrence_series_id: "",
+          is_all_day: 0,
+          location: null,
+          meeting_link: null,
+          description: null,
+          calendar_color: "#4285f4",
+          session_folder: "Work",
+        },
+      ]),
+    ).toEqual({
+      "event-1": expect.objectContaining({ session_folder: "Work" }),
+    });
+  });
+
   it("preserves commas inside tag names from JSON aggregation", () => {
     expect(
       mapTimelineSessionRows([

@@ -56,6 +56,8 @@ anarlog meetings export MEETING_ID --format json --output meeting.json
 
 Export refuses to replace an existing file. Pass `--force` only after the user explicitly approves overwriting that exact path.
 
+Markdown exports label transcript paragraphs with speaker names when word-level speaker information is available. Exports without that information retain flat text. JSON exports can include optional `speakers` and `speaker_context` fields.
+
 Global database overrides:
 
 ```bash

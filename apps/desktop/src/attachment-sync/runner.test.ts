@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AttachmentBackupGatewayError,
   type AttachmentBackupDeleteRequest,
-} from "./client";
+} from "@anlg/supabase/attachment-backups";
+
 import { NativeAttachmentTransferError } from "./native";
 import {
   runAttachmentTransferJob,

@@ -20,11 +20,7 @@ import {
   resetProcessLocalAttachmentTransferAttempts,
 } from "./store/reconcile";
 
-export type {
-  AttachmentTransferDirection,
-  AttachmentTransferJob,
-  AttachmentTransferPhase,
-} from "./store/types";
+export type { AttachmentTransferJob } from "./store/types";
 export {
   claimNextAttachmentTransferJob,
   completeCancelledAttachmentTransferDelete,

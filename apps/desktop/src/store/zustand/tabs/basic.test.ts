@@ -122,6 +122,7 @@ describe("Basic Tab Actions", () => {
       state: {
         view: { type: "enhanced", id: "summary-1" },
         autoStart: true,
+        scheduledAutoStart: null,
       },
     });
     expect(useTabs.getState().tabs).toHaveLength(1);

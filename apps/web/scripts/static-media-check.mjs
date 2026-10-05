@@ -11,10 +11,16 @@ const textExtensions = new Set([".md", ".mdx", ".ts", ".tsx"]);
 
 const SUPABASE_BLOG_PREFIX =
   "https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/";
+const STATIC_BLOG_PREFIX = "https://static.anarlog.so/blog/";
 const legacyLocalPattern = /\/images\/blog\/[A-Za-z0-9._+%/-]+/g;
 const legacyProxyPattern = /\/api\/assets\/blog\/[A-Za-z0-9._+%/-]+/g;
 const supabaseBlogPattern = new RegExp(
   `${SUPABASE_BLOG_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[A-Za-z0-9._+%/-]+`,
+  "g",
+);
+
+const staticBlogPattern = new RegExp(
+  `${STATIC_BLOG_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[A-Za-z0-9._+%/-]+`,
   "g",
 );
 
@@ -29,14 +35,16 @@ async function collectFiles(directory) {
 }
 
 async function collectTextFiles(directory) {
-  return (await collectFiles(directory)).filter((file) =>
-    textExtensions.has(extname(file)),
+  return (await collectFiles(directory)).filter(
+    (file) =>
+      textExtensions.has(extname(file)) && !/\.test\.[cm]?[jt]sx?$/.test(file),
   );
 }
 
 const legacyLocalReferences = [];
 const legacyProxyReferences = [];
-const supabaseUrls = new Set();
+const assetUrls = new Set();
+const directSupabaseReferences = [];
 
 for (const root of scanRoots) {
   for (const file of await collectTextFiles(root)) {
@@ -47,8 +55,9 @@ for (const root of scanRoots) {
     for (const url of text.match(legacyProxyPattern) || []) {
       legacyProxyReferences.push({ file, url });
     }
+    for (const url of text.match(staticBlogPattern) || []) assetUrls.add(url);
     for (const url of text.match(supabaseBlogPattern) || []) {
-      supabaseUrls.add(url);
+      directSupabaseReferences.push({ file, url });
     }
   }
 }
@@ -65,6 +74,15 @@ if (legacyLocalReferences.length > 0) {
 if (legacyProxyReferences.length > 0) {
   console.error("Legacy /api/assets/blog/* references remain:");
   for (const item of legacyProxyReferences)
+    console.error(`  - ${item.file}: ${item.url}`);
+  process.exitCode = 1;
+}
+
+if (directSupabaseReferences.length > 0) {
+  console.error(
+    "Direct Supabase blog image URLs remain; use https://static.anarlog.so/blog/:",
+  );
+  for (const item of directSupabaseReferences)
     console.error(`  - ${item.file}: ${item.url}`);
   process.exitCode = 1;
 }
@@ -87,15 +105,33 @@ if (localDirExists) {
   }
 }
 
-console.log(`Checking ${supabaseUrls.size} referenced Supabase blog asset URL(s)...`);
-const missing = [];
-const urlList = [...supabaseUrls];
-const results = await Promise.allSettled(
-  urlList.map(async (url) => {
-    const response = await fetch(url, { method: "HEAD" });
-    if (!response.ok) throw new Error(`${response.status}`);
-  }),
+console.log(
+  `Checking ${assetUrls.size} referenced public blog asset URL(s)...`,
 );
+const missing = [];
+const urlList = [...assetUrls];
+const results = [];
+for (let index = 0; index < urlList.length; index += 8) {
+  results.push(
+    ...(await Promise.allSettled(
+      urlList.slice(index, index + 8).map(async (url) => {
+        let response;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            response = await fetch(url, {
+              method: "HEAD",
+              signal: AbortSignal.timeout(30_000),
+            });
+            break;
+          } catch (error) {
+            if (attempt === 2) throw error;
+          }
+        }
+        if (!response?.ok) throw new Error(`${response?.status}`);
+      }),
+    )),
+  );
+}
 results.forEach((result, index) => {
   if (result.status === "rejected") {
     missing.push({ url: urlList[index], reason: result.reason?.message });
@@ -103,14 +139,16 @@ results.forEach((result, index) => {
 });
 
 if (missing.length > 0) {
-  console.error(`${missing.length} referenced Supabase blog asset(s) did not resolve:`);
+  console.error(
+    `${missing.length} referenced public blog asset(s) did not resolve:`,
+  );
   for (const item of missing) console.error(`  - ${item.url} (${item.reason})`);
   process.exitCode = 1;
 }
 
 if (!process.exitCode) {
   console.log(
-    `All ${supabaseUrls.size} referenced blog asset(s) resolve on Supabase Storage; ` +
-      "no local or legacy-proxy blog asset references remain.",
+    `All ${assetUrls.size} referenced blog asset(s) resolve through their public serving URLs; ` +
+      "no direct Supabase, local, or legacy-proxy image references remain in posts.",
   );
 }

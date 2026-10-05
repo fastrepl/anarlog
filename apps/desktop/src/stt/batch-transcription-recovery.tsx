@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { TranscriptionSession } from "@anlg/plugin-transcription";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { getEnhancerService } from "~/services/enhancer";
 import { useSession } from "~/session/queries";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { recoverRunningBatchSessions } from "~/store/zustand/listener/general-batch";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { parseBatchResumeContext } from "~/stt/batch-resume-context";

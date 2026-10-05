@@ -141,18 +141,29 @@ pub(super) fn reconciled_send_result(
     status: &anlg_cloudsync::NetworkStatus,
     has_unsent_changes: bool,
 ) -> anlg_cloudsync::NetworkResult {
+    let fully_confirmed = batch.watermark_db_version.is_some_and(|watermark| {
+        status.last_optimistic_version >= watermark && status.last_confirmed_version >= watermark
+    });
     anlg_cloudsync::NetworkResult {
         send: Some(anlg_cloudsync::NetworkSendResult {
-            status: if batch.remaining || has_unsent_changes {
-                "out-of-sync"
+            status: if !fully_confirmed || batch.remaining || has_unsent_changes {
+                "syncing"
             } else {
                 "synced"
             }
             .to_string(),
             local_version: batch.watermark_db_version.unwrap_or(batch.start_db_version),
             server_version: status.last_confirmed_version,
-            chunks: i64::from(batch.chunks),
-            bytes: i64::try_from(batch.bytes).unwrap_or(i64::MAX),
+            chunks: if fully_confirmed {
+                i64::from(batch.chunks)
+            } else {
+                0
+            },
+            bytes: if fully_confirmed {
+                i64::try_from(batch.bytes).unwrap_or(i64::MAX)
+            } else {
+                0
+            },
             last_failure: None,
         }),
         receive: None,

@@ -250,7 +250,27 @@ impl NotificationInstance {
                     callbacks::accept(action_key.clone());
                     NotificationManager::dismiss_global(&action_key, DismissReason::Action);
                 });
-                main_box.pack_start(&action_button, false, false, 0);
+                if let Some(menu_action) = &payload.action_menu {
+                    let menu = Menu::new();
+                    let menu_item = MenuItem::with_label(&menu_action.label);
+                    let menu_key = self.key.clone();
+                    menu_item.connect_activate(move |_| {
+                        callbacks::option_selected(menu_key.clone(), 0);
+                        NotificationManager::dismiss_global(&menu_key, DismissReason::Action);
+                    });
+                    menu.append(&menu_item);
+                    menu.show_all();
+                    let menu_button = MenuButton::new();
+                    menu_button.set_label("▾");
+                    menu_button.style_context().add_class("action-button");
+                    menu_button.set_popup(Some(&menu));
+                    let split = GtkBox::new(Orientation::Horizontal, 1);
+                    split.pack_start(&action_button, false, false, 0);
+                    split.pack_start(&menu_button, false, false, 0);
+                    main_box.pack_start(&split, false, false, 0);
+                } else {
+                    main_box.pack_start(&action_button, false, false, 0);
+                }
                 None
             }
         };

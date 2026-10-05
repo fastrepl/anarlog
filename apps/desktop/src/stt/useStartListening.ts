@@ -45,7 +45,6 @@ export {
   CLOUDSYNC_CAPTURE_LEASE_ATTEMPTS,
   getPostCaptureAction,
   getPostCaptureRepairReasons,
-  type PostCaptureRepairReason,
 } from "./capture-lifecycle";
 export { sendMeetingRecordingDisclosure } from "./meeting-disclosure";
 export { useResumeListeningLifecycle } from "./resume-listening";
@@ -161,7 +160,9 @@ export function useStartListeningState(
     }
 
     try {
-      await lifecycle.persistMarker();
+      await lifecycle.persistMarker({
+        postStopBatch: liveTranscriptionConfig.transcriptionMode === "batch",
+      });
     } catch (error) {
       console.error(
         "[listener] failed to prepare durable capture state",

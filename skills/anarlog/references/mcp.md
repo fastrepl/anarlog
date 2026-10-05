@@ -18,6 +18,8 @@ Cloud MCP is read-only. Local MCP adds `list_folders` and proposal tools, which 
 
 Local meeting objects include `folder_path`; it is `null` for meetings outside a folder.
 
+Meeting exports can include optional `speakers` and `speaker_context` fields for transcript rendering. Older or trimmed Cloud snapshots may omit them; do not infer a speaker name when the export lacks evidence.
+
 Transcript limits are measured in words. The default is 200 and the maximum is 500.
 
 Available resources:

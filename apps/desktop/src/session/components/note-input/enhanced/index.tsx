@@ -1,7 +1,11 @@
+import { Trans } from "@lingui/react/macro";
+import { useMutation } from "@tanstack/react-query";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef } from "react";
 
 import type { NoteEditorRef } from "@anlg/editor/note";
+import { Button } from "@anlg/ui/components/ui/button";
+import { defaultSummaryDocumentId } from "@anlg/utils/session";
 
 import { ConfigError } from "./config-error";
 import { EnhancedEditor } from "./editor";
@@ -10,6 +14,11 @@ import { StreamingView } from "./streaming";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
+import {
+  isMainAITaskHostWindow,
+  requestMainEnhance,
+} from "~/ai/task-window-sync";
+import { getEnhancerService } from "~/services/enhancer";
 import { hasStoredNoteContent } from "~/session/components/shared";
 import { shouldShowEmptySummaryConfigError } from "~/session/enhance-config";
 import { useEnhancedNote } from "~/session/queries";
@@ -47,6 +56,7 @@ export const Enhanced = forwardRef<
     const isAwaitingPersistedContent =
       status === "success" && streamedText.trim().length > 0 && !hasContent;
     const showStreaming = status === "generating" || isAwaitingPersistedContent;
+    const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
 
     if (status === "error") {
       return (
@@ -69,10 +79,14 @@ export const Enhanced = forwardRef<
           sessionTitle={sessionTitle}
           enhancedNoteId={enhancedNoteId}
         />
+      ) : enhancedNoteId === defaultSummaryDocumentId(sessionId) ? (
+        isConfigError ? (
+          <ConfigError />
+        ) : (
+          <EmptySummary sessionId={sessionId} />
+        )
       ) : null;
     }
-
-    const isConfigError = shouldShowEmptySummaryConfigError(llmStatus);
 
     if (status === "idle" && isConfigError && !hasContent) {
       return <ConfigError />;
@@ -102,3 +116,29 @@ export const Enhanced = forwardRef<
     );
   },
 );
+
+function EmptySummary({ sessionId }: { sessionId: string }) {
+  const generate = useMutation({
+    mutationFn: async () => {
+      if (!isMainAITaskHostWindow()) {
+        await requestMainEnhance(sessionId);
+        return;
+      }
+      const service = getEnhancerService();
+      if (!service) throw new Error("Summary generation is not ready yet.");
+      const result = await service.enhance(sessionId);
+      if (result.type === "no_model")
+        throw new Error("Set up AI summaries first.");
+      if (result.type === "too_short")
+        throw new Error("Not enough transcript recorded to summarize.");
+    },
+  });
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-6">
+      <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
+        <Trans>Generate summary</Trans>
+      </Button>
+      {generate.error && <p role="alert">{generate.error.message}</p>}
+    </div>
+  );
+}

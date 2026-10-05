@@ -1,11 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  execute: vi.fn(),
+}));
+
+vi.mock("~/db", () => ({
+  liveQueryClient: { execute: mocks.execute },
+  useLiveQuery: vi.fn(),
+}));
 
 import {
+  EMPTY_SPEAKER_CONTEXT,
   appendSpeakerObservation,
   closeSpeakerContext,
   isSharedMicrophone,
   parseSpeakerContext,
 } from "./speaker-context";
+import { getSpeakerContext } from "./speaker-context-query";
 
 const observation = {
   start_ms: 1000,
@@ -19,7 +30,32 @@ const observation = {
   participants: [],
 };
 
+beforeEach(() => {
+  mocks.execute.mockReset();
+});
+
 describe("speaker capture evidence", () => {
+  it("does not query for speaker context without a session id", async () => {
+    await expect(getSpeakerContext("")).resolves.toBe(EMPTY_SPEAKER_CONTEXT);
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
+  it("loads and parses speaker context for a session", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      { context: JSON.stringify({ intervals: [observation] }) },
+    ]);
+
+    await expect(getSpeakerContext("session-1")).resolves.toEqual({
+      intervals: [observation],
+    });
+    expect(mocks.execute).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "json_extract(metadata_json, '$.speaker_context')",
+      ),
+      ["session-1"],
+    );
+  });
+
   it("coalesces repeated observations while retaining device boundaries", () => {
     let context = appendSpeakerObservation({ intervals: [] }, observation);
     context = appendSpeakerObservation(context, {

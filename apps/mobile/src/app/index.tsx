@@ -136,22 +136,24 @@ export default function HomeScreen() {
     }
   };
 
-  const createAndOpen = async (query = "") => {
+  const createAndOpen = async (listen = false) => {
+    const entryPoint = listen ? "start_listening" : "new_note";
     if (busyRef.current) return;
     busyRef.current = true;
     try {
       const sessionId = await createSession({
-        entryPoint: query.includes("listen=1") ? "start_listening" : "new_note",
+        entryPoint,
         ownerUserId: auth.session?.user.id,
       });
-      router.push(`/note/${sessionId}${query}`);
+      router.push({
+        pathname: "/note/[id]",
+        params: { id: sessionId, ...(listen && { listen: "1" }) },
+      });
     } catch (error) {
       captureOperationalError(error, {
         operation: "session_create",
         tags: {
-          entry_point: query.includes("listen=1")
-            ? "start_listening"
-            : "new_note",
+          entry_point: entryPoint,
         },
       });
     } finally {
@@ -278,9 +280,7 @@ export default function HomeScreen() {
             buttonHidden ? "no-hide-descendants" : "auto"
           }
         >
-          <StartListeningButton
-            onPress={() => void createAndOpen("?listen=1")}
-          />
+          <StartListeningButton onPress={() => void createAndOpen(true)} />
         </Animated.View>
       </View>
       {searching && (

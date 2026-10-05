@@ -29,7 +29,7 @@ export function summaryRequest(
       headers,
       body: {
         model: provider.model,
-        max_tokens: 4096,
+        max_tokens: 32_000,
         system,
         messages: [{ role: "user", content: source }],
       },

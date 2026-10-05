@@ -1,5 +1,3 @@
-import { uploadPrivateAttachment } from "@anlg/supabase/storage";
-
 import {
   AttachmentBackupGatewayError,
   createAttachmentBackupClient,
@@ -8,7 +6,9 @@ import {
   isAttachmentBackupDeleteTooLate,
   type AttachmentBackupDeleteRequest,
   type ScheduledAttachmentBackupDelete,
-} from "./client";
+} from "@anlg/supabase/attachment-backups";
+import { uploadPrivateAttachment } from "@anlg/supabase/storage";
+
 import {
   attachmentTransferNative,
   NativeAttachmentTransferError,

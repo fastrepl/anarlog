@@ -1,4 +1,5 @@
 import { renderHook } from "@testing-library/react";
+import { createRequire } from "node:module";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { LiveTranscriptDelta } from "@anlg/plugin-transcription";
@@ -60,6 +61,7 @@ import {
   flushLiveTranscriptDeltasToDatabase,
   getSessionParticipantHumanIds,
   getSessionTranscriptRecords,
+  getTranscriptHumans,
   mergeTranscriptSegments,
   removeHumanSpeakerAssignments,
   splitTranscriptSpeaker,
@@ -71,6 +73,10 @@ import {
   useTranscriptHumans,
   useTranscriptMetadata,
 } from "./queries";
+
+const { DatabaseSync } = createRequire(import.meta.url)(
+  "node:sqlite",
+) as typeof import("node:sqlite");
 
 describe("transcript SQLite queries", () => {
   beforeEach(() => {
@@ -328,6 +334,45 @@ describe("transcript SQLite queries", () => {
       expect.stringContaining("source <> 'excluded'"),
       ["session-1"],
     );
+  });
+
+  it("returns no named humans without querying when there are no ids", async () => {
+    await expect(getTranscriptHumans([])).resolves.toEqual([]);
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
+  it("loads named humans with unique sorted ids", async () => {
+    mocks.execute.mockResolvedValueOnce([{ id: "human-1", name: "Alice" }]);
+
+    await expect(
+      getTranscriptHumans(["human-2", "human-1", "human-2", ""]),
+    ).resolves.toEqual([{ human_id: "human-1", name: "Alice" }]);
+    expect(mocks.execute).toHaveBeenCalledWith(
+      expect.stringContaining("WHERE id IN (?, ?)"),
+      ["human-1", "human-2"],
+    );
+  });
+
+  it("keeps historical speaker names after the assigned contact is deleted", async () => {
+    const db = new DatabaseSync(":memory:");
+    try {
+      db.exec(
+        "CREATE TABLE humans (id TEXT PRIMARY KEY, name TEXT, deleted_at TEXT)",
+      );
+      db.prepare("INSERT INTO humans VALUES (?, ?, ?)").run(
+        "artem",
+        "Artem",
+        "2026-09-24",
+      );
+      mocks.execute.mockImplementationOnce((sql: string, params: string[]) =>
+        Promise.resolve(db.prepare(sql).all(...params)),
+      );
+      await expect(getTranscriptHumans(["artem"])).resolves.toEqual([
+        { human_id: "artem", name: "Artem" },
+      ]);
+    } finally {
+      db.close();
+    }
   });
 
   it("deduplicates and sorts ids before loading named humans", () => {

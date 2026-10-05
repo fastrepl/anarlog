@@ -7,10 +7,12 @@ mod processor;
 mod render;
 mod segments;
 mod speaker_context;
+mod synthetic_render;
 pub use speaker_context::{
     ProvisionalSpeakerLabel, SpeakerContext, SpeakerContextInterval, SpeakerResolutionReason,
     segment_options_for_assignments,
 };
+pub use synthetic_render::synthetic_timing_from_metadata;
 mod types;
 mod words;
 
@@ -33,8 +35,8 @@ pub use postprocessor::{
 pub use processor::TranscriptProcessor;
 pub use render::{
     RenderTranscriptHuman, RenderTranscriptInput, RenderTranscriptRequest,
-    RenderTranscriptWordInput, RenderedTranscriptSegment, normalize_rendered_segment_words,
-    render_transcript_segments, stable_segment_id,
+    RenderTranscriptWordInput, RenderedTranscriptSegment, SyntheticTiming,
+    normalize_rendered_segment_words, render_transcript_segments, stable_segment_id,
 };
 pub use segments::build_segments;
 pub use types::{

@@ -5,10 +5,9 @@ import {
   events as windowsEvents,
   type FloatingBarState,
 } from "@anlg/plugin-windows";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { FloatingBarOverlay } from "./bar";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function FloatingBarOverlayScreen() {
   const [state, setState] = useState<FloatingBarState | null>(null);

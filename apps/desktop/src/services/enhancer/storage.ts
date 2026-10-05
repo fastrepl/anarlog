@@ -1,3 +1,8 @@
+import {
+  defaultSummaryDocumentId,
+  hasSummaryContent,
+} from "@anlg/utils/session";
+
 import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import {
@@ -180,15 +185,56 @@ function ensureSummaryDocumentWithMetadata(
   pendingAutoEnhance: boolean,
 ): Promise<EnhancerNote | PendingAutoEnhanceJob> {
   return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
-    const snapshot = await loadSessionContentSnapshot(sessionId);
+    let snapshot = await loadSessionContentSnapshot(sessionId);
     if (!snapshot) {
       throw new Error(`Session ${sessionId} no longer exists`);
     }
 
+    let restoredDefault = false;
+    if (snapshot.enhancedNotes.length === 0) {
+      const [retired] = await liveQueryClient.execute<{
+        deleted_at: string;
+        updated_at: string;
+      }>(
+        `SELECT deleted_at, updated_at FROM session_documents
+         WHERE id = ? AND session_id = ? AND kind IN ('summary', 'template_output') AND deleted_at IS NOT NULL`,
+        [defaultSummaryDocumentId(sessionId), sessionId],
+      );
+      if (retired) {
+        await executeTransaction([
+          {
+            sql: `UPDATE session_documents SET deleted_at = NULL, updated_at = ?
+            WHERE id = ? AND session_id = ? AND deleted_at = ? AND updated_at = ?
+              AND EXISTS (SELECT 1 FROM sessions WHERE id = ? AND deleted_at IS NULL)`,
+            params: [
+              new Date().toISOString(),
+              defaultSummaryDocumentId(sessionId),
+              sessionId,
+              retired.deleted_at,
+              retired.updated_at,
+              sessionId,
+            ],
+            expectedRowsAffected: 1,
+          },
+        ]);
+        restoredDefault = true;
+        snapshot = await loadSessionContentSnapshot(sessionId);
+        if (!snapshot) throw new Error(`Session ${sessionId} no longer exists`);
+      }
+    }
+
     const normalizedTemplateId = templateId ?? "";
-    const existing = snapshot.enhancedNotes.find(
-      (note) => note.templateId === normalizedTemplateId,
-    );
+    const existing = snapshot.enhancedNotes
+      .filter(
+        (note) =>
+          note.templateId === normalizedTemplateId ||
+          (restoredDefault && note.id === defaultSummaryDocumentId(sessionId)),
+      )
+      .sort(
+        (left, right) =>
+          Number(hasSummaryContent(right.content, snapshot.title)) -
+          Number(hasSummaryContent(left.content, snapshot.title)),
+      )[0];
     if (existing) {
       if (pendingAutoEnhance) {
         const generation = id();
@@ -227,7 +273,10 @@ function ensureSummaryDocumentWithMetadata(
       return existing;
     }
 
-    const noteId = id();
+    const noteId =
+      snapshot.enhancedNotes.length === 0
+        ? defaultSummaryDocumentId(sessionId)
+        : id();
     const generation = pendingAutoEnhance ? id() : "";
     const position =
       snapshot.enhancedNotes.reduce(
@@ -252,6 +301,12 @@ function ensureSummaryDocumentWithMetadata(
             owner_user_id, owner_user_id, ?, ?, NULL
           FROM sessions
           WHERE id = ? AND deleted_at IS NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM session_documents AS document
+              WHERE document.session_id = ? AND document.kind IN ('summary', 'template_output')
+                AND document.deleted_at IS NULL AND (document.template_id = ? OR ?)
+            )
+          ON CONFLICT(id) DO NOTHING
         `,
         params: [
           noteId,
@@ -261,6 +316,9 @@ function ensureSummaryDocumentWithMetadata(
           now,
           now,
           sessionId,
+          sessionId,
+          normalizedTemplateId,
+          snapshot.enhancedNotes.length === 0 ? 1 : 0,
         ],
         expectedRowsAffected: 1,
       },

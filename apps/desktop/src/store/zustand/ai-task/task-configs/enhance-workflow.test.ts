@@ -54,8 +54,6 @@ it.each(["crisp", "balanced", "detailed"] as const)(
       imageContext: [],
       lengthPolicy: {
         mode: summaryLength,
-        max_characters: 636,
-        max_sections: null,
         transcript_characters: 636,
         guidance: {
           max_characters: 636,
@@ -67,7 +65,7 @@ it.each(["crisp", "balanced", "detailed"] as const)(
     };
     const chunks = [];
     for await (const chunk of enhanceWorkflow.executeWorkflow!({
-      model: {} as LanguageModel,
+      model: { provider: "openai.responses" } as LanguageModel,
       args,
       onProgress: vi.fn(),
       signal: new AbortController().signal,
@@ -85,6 +83,7 @@ it.each(["crisp", "balanced", "detailed"] as const)(
     );
     expect(request.prompt).toContain("Keep the requested structure");
     expect(request.prompt).not.toMatch(/\d to \d sections/);
+    expect(request.maxOutputTokens).toBeUndefined();
   },
 );
 
@@ -115,8 +114,6 @@ it("adds length guidance to prompts rendered from a template with sections", asy
     imageContext: [],
     lengthPolicy: {
       mode: "detailed",
-      max_characters: 10_000,
-      max_sections: null,
       transcript_characters: 10_000,
       guidance: {
         max_characters: 10_000,
@@ -127,7 +124,7 @@ it("adds length guidance to prompts rendered from a template with sections", asy
     dictionaryTerms: [],
   };
   for await (const _ of enhanceWorkflow.executeWorkflow!({
-    model: {} as LanguageModel,
+    model: { provider: "anthropic.messages" } as LanguageModel,
     args,
     onProgress: vi.fn(),
     signal: new AbortController().signal,
@@ -138,4 +135,5 @@ it("adds length guidance to prompts rendered from a template with sections", asy
   expect(request.prompt).toContain("Summary length:");
   expect(request.prompt).toContain("Keep every requested template section");
   expect(request.prompt).not.toMatch(/\d to \d sections/);
+  expect(request.maxOutputTokens).toBe(64_000);
 });

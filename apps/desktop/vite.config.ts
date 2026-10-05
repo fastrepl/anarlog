@@ -26,12 +26,6 @@ export default defineConfig(() => ({
   ],
   resolve: {
     tsconfigPaths: true,
-    alias:
-      process.env.NODE_ENV === "development"
-        ? {
-            "@tauri-apps/plugin-updater": "/src/shared/mock-updater.ts",
-          }
-        : {},
     dedupe: [
       "@codemirror/state",
       "@codemirror/view",

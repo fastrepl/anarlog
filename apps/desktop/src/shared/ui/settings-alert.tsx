@@ -1,8 +1,7 @@
 import type { MouseEvent } from "react";
 
 import { toast, TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
-
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 export function SettingsAlertToast({
   id,

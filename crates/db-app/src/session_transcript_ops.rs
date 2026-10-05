@@ -87,7 +87,7 @@ pub async fn load_render_humans(
 
     let mut query = QueryBuilder::<Sqlite>::new(
         "SELECT id, name FROM humans
-         WHERE deleted_at IS NULL AND name <> '' AND id IN (",
+         WHERE name <> '' AND id IN (",
     );
     let mut separated = query.separated(", ");
     for human_id in human_ids {
@@ -152,5 +152,21 @@ mod tests {
             .unwrap();
 
         assert_eq!(participant_ids, vec!["participant-human"]);
+    }
+
+    #[tokio::test]
+    async fn historical_transcript_names_survive_contact_deletion() {
+        let db = test_db().await;
+        sqlx::query("UPDATE humans SET deleted_at = '2026-10-01' WHERE id = 'participant-human'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let mut conn = db.pool().acquire().await.unwrap();
+        assert_eq!(
+            load_render_humans(&mut conn, &["participant-human".to_owned()])
+                .await
+                .unwrap(),
+            vec![("participant-human".to_owned(), "Participant".to_owned())]
+        );
     }
 }

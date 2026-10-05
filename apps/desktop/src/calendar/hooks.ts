@@ -111,18 +111,6 @@ export function useWeekStartsOn(): 0 | 1 {
   }, [value]);
 }
 
-export type Calendar = {
-  id: string;
-  tracking_id_calendar: string;
-  name: string;
-  enabled: boolean;
-  provider: string;
-  source: string;
-  color: string;
-  connection_id: string;
-  created_at: string;
-};
-
 export type EnabledCalendar = { id: string; provider: string };
 
 export function useEnabledCalendars(): EnabledCalendar[] {

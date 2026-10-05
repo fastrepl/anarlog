@@ -22,7 +22,7 @@ import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validat
 import { assertCanonicalTemplateSections } from "~/templates/codec";
 
 const AI_GENERATION_MAX_RETRIES = 4;
-const SUMMARY_MAX_OUTPUT_TOKENS = 8192;
+const ANTHROPIC_SUMMARY_MAX_OUTPUT_TOKENS = 64_000;
 const IMAGE_CONTEXT_NOTE =
   "Attached note images are included as visual context. Use visible text, diagrams, screenshots, and other image content when it materially improves the summary.";
 
@@ -36,6 +36,14 @@ export const enhanceWorkflow: Pick<
     smoothStream({ delayInMs: 250, chunking: "line" }),
   ],
 };
+
+// Anthropic requires max_tokens and the SDK clamps it to known model limits;
+// other providers default to the model's own maximum when omitted.
+function getSummaryMaxOutputTokens(model: LanguageModel): number | undefined {
+  return typeof model !== "string" && model.provider.startsWith("anthropic")
+    ? ANTHROPIC_SUMMARY_MAX_OUTPUT_TOKENS
+    : undefined;
+}
 
 async function* executeWorkflow(params: {
   model: LanguageModel;
@@ -167,7 +175,7 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
         ...createPromptInput(enhancedPrompt, args.imageContext),
         abortSignal: combinedController.signal,
         maxRetries: AI_GENERATION_MAX_RETRIES,
-        maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS,
+        maxOutputTokens: getSummaryMaxOutputTokens(model),
       });
       return withCleanup(result.fullStream, () => {
         signal.removeEventListener("abort", abortFromOuter);

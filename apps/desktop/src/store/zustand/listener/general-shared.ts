@@ -10,7 +10,7 @@ export type LiveSessionStatus = "inactive" | "active" | "finalizing";
 export type SessionMode = LiveSessionStatus | "running_batch";
 export type LiveCaptureUiMode = "live" | "record_only" | "fallback_record_only";
 
-export type LoadingPhase =
+type LoadingPhase =
   | "idle"
   | "audio_initializing"
   | "audio_ready"

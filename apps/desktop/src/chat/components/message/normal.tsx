@@ -10,6 +10,7 @@ import {
   Copy,
 } from "@anlg/ui/components/icons";
 import { streamdownIcons } from "@anlg/ui/components/streamdown-icons";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { cn } from "@anlg/utils";
 
 import {
@@ -23,9 +24,8 @@ import { MessageTimestamp } from "./timestamp";
 import { Tool } from "./tool";
 import type { Part } from "./types";
 
-import { hasRenderableContent } from "~/chat/components/shared";
+import { hasRenderableContent } from "~/chat/message-content";
 import type { AnlgUIMessage } from "~/chat/types";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 function getMessageText(message: AnlgUIMessage): string {
   return message.parts

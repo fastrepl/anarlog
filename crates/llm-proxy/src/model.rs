@@ -8,6 +8,16 @@ pub const MODEL_KEY_TOOL_CALLING: &str = "tool_calling";
 pub const MODEL_KEY_AUDIO: &str = "audio";
 const MODEL_LATEST_SONNET: &str = "~anthropic/claude-sonnet-latest";
 
+/// OpenRouter models a client may request by id. Any other requested model
+/// falls back to the task's default routing.
+pub const SELECTABLE_MODELS: &[&str] = &[
+    MODEL_LATEST_SONNET,
+    "~anthropic/claude-opus-latest",
+    "~openai/gpt-sol-latest",
+    "~google/gemini-pro-latest",
+    "~google/gemini-flash-latest",
+];
+
 #[derive(
     Debug,
     Clone,
@@ -31,6 +41,7 @@ pub enum CharTask {
 
 pub struct ModelContext {
     pub task: Option<CharTask>,
+    pub requested_model: Option<String>,
     pub needs_tool_calling: bool,
     pub has_audio: bool,
 }
@@ -83,16 +94,8 @@ impl StaticModelResolver {
         self.models.insert(key.into(), models);
         self
     }
-}
 
-impl ModelResolver for StaticModelResolver {
-    fn resolve(&self, ctx: &ModelContext) -> Vec<String> {
-        if ctx.has_audio
-            && let Some(models) = self.models.get(MODEL_KEY_AUDIO)
-        {
-            return models.clone();
-        }
-
+    fn resolve_defaults(&self, ctx: &ModelContext) -> Vec<String> {
         if let Some(models) = ctx.task.and_then(|t| self.models.get(&t.to_string())) {
             return models.clone();
         }
@@ -103,6 +106,28 @@ impl ModelResolver for StaticModelResolver {
             MODEL_KEY_DEFAULT
         };
         self.models.get(key).cloned().unwrap_or_default()
+    }
+}
+
+impl ModelResolver for StaticModelResolver {
+    fn resolve(&self, ctx: &ModelContext) -> Vec<String> {
+        if ctx.has_audio
+            && let Some(models) = self.models.get(MODEL_KEY_AUDIO)
+        {
+            return models.clone();
+        }
+
+        let defaults = self.resolve_defaults(ctx);
+        match ctx
+            .requested_model
+            .as_deref()
+            .filter(|model| SELECTABLE_MODELS.contains(model))
+        {
+            Some(requested) => std::iter::once(requested.to_owned())
+                .chain(defaults.into_iter().filter(|model| model != requested))
+                .collect(),
+            None => defaults,
+        }
     }
 }
 
@@ -211,11 +236,43 @@ mod tests {
                 resolver,
                 ModelContext {
                     task: *task,
+                    requested_model: None,
                     needs_tool_calling: *needs_tool_calling,
                     has_audio: *has_audio,
                 },
                 expected,
             );
         }
+    }
+    #[test]
+    fn requested_model_is_used_only_when_selectable() {
+        let ctx = |requested: Option<&str>, has_audio: bool| ModelContext {
+            task: Some(CharTask::Enhance),
+            requested_model: requested.map(str::to_owned),
+            needs_tool_calling: false,
+            has_audio,
+        };
+        let resolver = StaticModelResolver::default();
+
+        assert_eq!(
+            resolver.resolve(&ctx(Some("~anthropic/claude-opus-latest"), false)),
+            vec!["~anthropic/claude-opus-latest", MODEL_LATEST_SONNET],
+        );
+        assert_eq!(
+            resolver.resolve(&ctx(Some(MODEL_LATEST_SONNET), false)),
+            vec![MODEL_LATEST_SONNET],
+        );
+        assert_eq!(
+            resolver.resolve(&ctx(Some("openai/gpt-5.5-pro"), false)),
+            vec![MODEL_LATEST_SONNET],
+        );
+        assert_eq!(
+            resolver.resolve(&ctx(Some("Auto"), false)),
+            vec![MODEL_LATEST_SONNET],
+        );
+        assert_eq!(
+            resolver.resolve(&ctx(Some("~anthropic/claude-opus-latest"), true)),
+            resolver.resolve(&ctx(None, true)),
+        );
     }
 }

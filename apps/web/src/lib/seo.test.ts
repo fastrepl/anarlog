@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  getBlogOgImageUrl,
   getBlogPostingJsonLd,
   getCanonicalUrl,
   getSoftwareApplicationJsonLd,
@@ -40,7 +41,7 @@ test("builds blog posting metadata with typed authors", () => {
     url,
     headline: "Local AI meeting notes",
     description: "A practical guide.",
-    image: "https://anarlog.so/api/og/blog/local-ai-meeting-notes",
+    image: getBlogOgImageUrl("local-ai-meeting-notes"),
     datePublished: "2026-01-01",
     authors: ["Jeehoon Ong", "Anarlog Team"],
   });
@@ -54,4 +55,8 @@ test("builds blog posting metadata with typed authors", () => {
     "@id": url,
   });
   assert.equal(jsonLd.publisher.name, "Anarlog");
+  assert.equal(
+    jsonLd.image,
+    "https://static.anarlog.so/og/blog/local-ai-meeting-notes",
+  );
 });

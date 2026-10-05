@@ -158,7 +158,12 @@ export function PlanSection({
     },
   });
 
-  const currentPlanId = workspacePlan ?? (billing?.isPaid ? "pro" : "free");
+  const currentPlanId =
+    workspacePlan === "enterprise"
+      ? "enterprise"
+      : workspacePlan === "team" || billing?.isPaid
+        ? "pro"
+        : "free";
 
   return (
     <div className={accountCardClassName}>
@@ -441,7 +446,7 @@ function FieldError({ errors }: { errors: Array<unknown> }) {
 function PlanComparison({
   currentPlanId,
 }: {
-  currentPlanId: "free" | "pro" | "team" | "enterprise";
+  currentPlanId: "free" | "pro" | "enterprise";
 }) {
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
 

@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   startRunner: vi.fn((_dependencies: unknown) => mocks.stopRunner),
 }));
 
-vi.mock("./client", () => ({
+vi.mock("@anlg/supabase/attachment-backups", () => ({
   createAttachmentBackupClient: mocks.createClient,
 }));
 

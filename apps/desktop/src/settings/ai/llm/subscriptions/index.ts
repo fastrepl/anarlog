@@ -3,7 +3,6 @@ export { listSubscriptionModels } from "./models";
 export {
   CHATGPT_API_BASE_URL,
   isSubscriptionProviderId,
-  type ConnectSession,
   type SubscriptionProviderId,
   usesSubscriptionFetch,
 } from "./oauth";

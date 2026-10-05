@@ -20,6 +20,7 @@ import { sessionEventSchema } from "@anlg/store";
 import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 import { collectEnhanceImageContext } from "./enhance-images";
 
+import { resolveSummaryLanguage } from "~/services/enhancer/summary-language";
 import { normalizeSummaryLengthMode } from "~/services/enhancer/summary-length";
 import {
   loadSessionContentSnapshot,
@@ -89,23 +90,26 @@ async function transformArgs(
       sections: memoTemplateSections,
     };
   }
-  const language = getLanguage(settingsValues);
   const formatOverride = getFormatOverride(settingsValues, templateId);
   const segments = await getTranscriptSegments(snapshot);
   const transcripts = formatTranscripts(
     segments,
     sessionContext.transcriptsMeta,
   );
+  const transcriptTexts = transcripts.flatMap((transcript) =>
+    transcript.segments.map((segment) => segment.text),
+  );
+  const language = await resolveSummaryLanguage(
+    settingsValues,
+    transcriptTexts,
+  );
   const summaryLength = normalizeSummaryLengthMode(
     settingsValues.summary_length,
   );
   const templateSectionCount = template?.sections.length ?? 0;
   const policyResult = await templateCommands.summaryLengthPolicy({
-    transcript_texts: transcripts.flatMap((transcript) =>
-      transcript.segments.map((segment) => segment.text),
-    ),
+    transcript_texts: transcriptTexts,
     mode: summaryLength,
-    custom_format: Boolean(formatOverride.trim()) || templateSectionCount > 0,
     template_section_count: templateSectionCount,
   });
   if (policyResult.status === "error") {
@@ -221,11 +225,6 @@ function formatTranscripts(
   return [];
 }
 
-function getLanguage(settingsValues: SettingValues): string | null {
-  const value = settingsValues.ai_language;
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
 function getFormatOverride(
   settingsValues: SettingValues,
   templateId: string | undefined,
@@ -322,14 +321,12 @@ async function getTranscriptSegments(
     return [];
   }
 
-  return result.data.segments
-    .reduce<SegmentPayload[]>((result, segment) => {
-      if (segment.words.length > 0) {
-        result.push(toSegmentPayload(segment));
-      }
-      return result;
-    }, [])
-    .sort((left, right) => left.start_ms - right.start_ms);
+  return result.data.segments.reduce<SegmentPayload[]>((result, segment) => {
+    if (segment.words.length > 0) {
+      result.push(toSegmentPayload(segment));
+    }
+    return result;
+  }, []);
 }
 
 function toSegmentPayload(segment: RenderedTranscriptSegment): SegmentPayload {

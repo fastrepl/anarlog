@@ -14,7 +14,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
     | Option | What you pay | When to use it |
     | --- | --- | --- |
     | On-device | Nothing extra after you download the model | Apple Silicon Mac, and you want no usage bill |
-    | Anarlog Cloud | [Pro](https://anarlog.so/pricing) at $15/month or $150/year | Hosted transcription without managing API keys |
+    | Anarlog Cloud | [Pro](https://anarlog.so/pricing) at $14/month or $140/year | Hosted transcription without managing API keys |
     | Your API key | The provider's own speech-to-text rates | You already have credits, a preferred vendor, or a required endpoint |
 
     On-device and bring-your-own-key transcription stay on the Free plan. Cloud transcription is a Pro feature.
@@ -121,11 +121,11 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
     | On-device file | The whisper.cpp `.bin` you select. Check that model's language list. |
     | Your API key | The provider and model you configure. Check that model's language list before a multilingual meeting. |
 
-    Summaries and chat use the main language. See [Use multiple languages](/languages).
+    Chat uses the main language. When you configure additional spoken languages, summaries use the language used most in the transcript, falling back to the main language if detection is unavailable. See [Use multiple languages](/languages).
   </Accordion>
 
   <Accordion title="Which AI models does Anarlog use?" id="which-ai-models-does-anarlog-use">
-    There is no single hidden model. Your Transcription selection handles audio, and your Intelligence selection handles summaries, titles, and chat. Anarlog Cloud currently routes transcription by language and mode and routes text Intelligence tasks through the latest Claude Sonnet alias on OpenRouter. See [Models and providers](/models-and-providers) for the current routes and local options.
+    There is no single hidden model. Your Transcription selection handles audio, and your Intelligence selection handles summaries, titles, and chat. Anarlog Cloud currently routes transcription by language and mode and offers Auto routing or a curated Cloud Intelligence model choice. See [Models and providers](/models-and-providers) for the current routes and local options.
   </Accordion>
 
   <Accordion title="Where is my data stored?" id="where-is-my-data-stored">
@@ -137,7 +137,7 @@ Browse a topic, then expand the question. If something is not working, go to [Tr
   </Accordion>
 
   <Accordion title="Can a meeting use multiple languages?" id="can-a-meeting-use-multiple-languages">
-    Yes. Choose the summary language and add every spoken language you expect. The selected Transcription model must support them. See [Languages](/languages).
+    Yes. Choose your main language and add every spoken language you expect. The selected Transcription model must support them. See [Languages](/languages).
   </Accordion>
 </AccordionGroup>
 

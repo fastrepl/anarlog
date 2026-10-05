@@ -1,7 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::future::Future;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use anlg_db_core::{CloudsyncAuth, CloudsyncRuntimeConfig, Db, DbOpenOptions, DbStorage};
+use anlg_db_core::{
+    CloudsyncAuth, CloudsyncNetworkResult, CloudsyncRuntimeConfig, Db, DbOpenOptions, DbStorage,
+};
 use anlg_e2ee::{RecoveryKey, WorkspaceKeyring};
 use db_app::{
     apply_e2ee_replica_changes, claim_cloudsync_workspace, cloudsync_table_registry,
@@ -10,6 +14,8 @@ use db_app::{
 
 const SYNC_TIMEOUT: Duration = Duration::from_secs(90);
 const SYNC_ATTEMPTS: usize = 3;
+const SYNC_PROGRESS_STEPS: usize = 10;
+const SYNC_RETRY_INTERVAL: Duration = Duration::from_secs(2);
 const POLICY_SYNC_TIMEOUT: Duration = Duration::from_secs(30);
 const REPLICA_VISIBILITY_TIMEOUT: Duration = Duration::from_secs(90);
 const REPLICA_VISIBILITY_POLL_INTERVAL: Duration = Duration::from_secs(2);
@@ -90,45 +96,151 @@ async fn stop_db(db: &Db, label: &str) {
 }
 
 async fn sync_ok(db: &Db, label: &str) {
-    let mut result = None;
-    let mut last_failure = None;
-    for attempt in 1..=SYNC_ATTEMPTS {
+    drive_sync_until_settled(label, SYNC_RETRY_INTERVAL, || async {
         match tokio::time::timeout(SYNC_TIMEOUT, db.cloudsync_trigger_sync()).await {
-            Ok(Ok(value)) => {
-                result = Some(value);
-                break;
-            }
-            Ok(Err(error)) => last_failure = Some(error.to_string()),
-            Err(_) => last_failure = Some("timed out".to_string()),
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(error)) => Err(error.to_string()),
+            Err(_) => Err("timed out".to_string()),
         }
-        if attempt < SYNC_ATTEMPTS {
-            tokio::time::sleep(Duration::from_secs(2)).await;
-        }
-    }
-    let result = result.unwrap_or_else(|| {
-        panic!(
-            "{label} failed after {SYNC_ATTEMPTS} attempts: {}",
-            last_failure.as_deref().unwrap_or("unknown error")
-        )
-    });
-    if let Some(send) = result.send {
-        assert_eq!(send.status, "synced", "{label} send did not complete");
-        assert!(send.last_failure.is_none(), "{label} send failed");
-    }
-    if let Some(receive) = result.receive {
-        assert!(receive.complete, "{label} receive did not complete");
-        assert!(receive.error.is_none(), "{label} receive failed");
-        assert!(
-            receive.last_failure.is_none(),
-            "{label} receive did not complete"
-        );
-    }
+    })
+    .await;
     let status = db.cloudsync_status().await.unwrap();
     assert!(
         status.last_error.is_none(),
         "{label} recorded a sync error: {:?}",
         status.last_error
     );
+}
+
+#[derive(Debug, PartialEq)]
+enum SyncStepState {
+    Settled,
+    InProgress,
+    Failed,
+}
+
+// A bounded sync step may legitimately leave work behind: upstream reports
+// "out-of-sync" until the server's optimistic version reaches the newest local
+// version, and receive drains one chunk per step.
+fn sync_step_state(result: &CloudsyncNetworkResult) -> SyncStepState {
+    let send_failed = result.send.as_ref().is_some_and(|send| {
+        send.last_failure.is_some()
+            || !matches!(send.status.as_str(), "synced" | "syncing" | "out-of-sync")
+    });
+    let receive_failed = result
+        .receive
+        .as_ref()
+        .is_some_and(|receive| receive.error.is_some() || receive.last_failure.is_some());
+    if send_failed || receive_failed {
+        return SyncStepState::Failed;
+    }
+    let send_settled = result
+        .send
+        .as_ref()
+        .is_none_or(|send| send.status == "synced");
+    let receive_settled = result
+        .receive
+        .as_ref()
+        .is_none_or(|receive| receive.complete);
+    if send_settled && receive_settled {
+        SyncStepState::Settled
+    } else {
+        SyncStepState::InProgress
+    }
+}
+
+// Content-free: versions, counts, and failure classification only.
+fn describe_sync_step(result: &CloudsyncNetworkResult) -> String {
+    let failure = |failure: &Option<serde_json::Value>| match failure {
+        None => "none".to_string(),
+        Some(failure) => {
+            let field = |key: &str| {
+                failure
+                    .get(key)
+                    .map_or_else(|| "?".to_string(), |value| value.to_string())
+            };
+            format!(
+                "code={} stage={} retryable={}",
+                field("code"),
+                field("stage"),
+                field("retryable")
+            )
+        }
+    };
+    let send = result.send.as_ref().map_or_else(
+        || "none".to_string(),
+        |send| {
+            format!(
+                "status={} local_version={} server_version={} chunks={} bytes={} last_failure={}",
+                send.status,
+                send.local_version,
+                send.server_version,
+                send.chunks,
+                send.bytes,
+                failure(&send.last_failure)
+            )
+        },
+    );
+    let receive = result.receive.as_ref().map_or_else(
+        || "none".to_string(),
+        |receive| {
+            format!(
+                "complete={} rows={} chunks={} bytes={} error={} last_failure={}",
+                receive.complete,
+                receive.rows,
+                receive.chunks,
+                receive.bytes,
+                if receive.error.is_some() {
+                    "present"
+                } else {
+                    "none"
+                },
+                failure(&receive.last_failure)
+            )
+        },
+    );
+    format!("send[{send}] receive[{receive}]")
+}
+
+async fn drive_sync_until_settled<F, Fut>(label: &str, retry_interval: Duration, mut step: F)
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<CloudsyncNetworkResult, String>>,
+{
+    let mut history = Vec::new();
+    let mut transport_failures = 0;
+    let mut progress_steps = 0;
+    loop {
+        match step().await {
+            Ok(result) => {
+                history.push(describe_sync_step(&result));
+                match sync_step_state(&result) {
+                    SyncStepState::Settled => return,
+                    SyncStepState::Failed => {
+                        panic!("{label} reported a sync failure: {}", history.join(" | "))
+                    }
+                    SyncStepState::InProgress => progress_steps += 1,
+                }
+                if progress_steps == SYNC_PROGRESS_STEPS {
+                    panic!(
+                        "{label} did not settle after {SYNC_PROGRESS_STEPS} bounded sync steps: {}",
+                        history.join(" | ")
+                    );
+                }
+            }
+            Err(error) => {
+                history.push(format!("transport error: {error}"));
+                transport_failures += 1;
+                if transport_failures == SYNC_ATTEMPTS {
+                    panic!(
+                        "{label} failed after {SYNC_ATTEMPTS} attempts: {}",
+                        history.join(" | ")
+                    );
+                }
+            }
+        }
+        tokio::time::sleep(retry_interval).await;
+    }
 }
 
 async fn sync_full_snapshot(db: &Db, label: &str) {
@@ -344,10 +456,21 @@ fn is_rls_policy_denial(message: &str) -> bool {
 }
 
 async fn expect_policy_sync_completed_or_denied(db: &Db, operation: &str) -> Result<(), String> {
-    let outcome = tokio::time::timeout(POLICY_SYNC_TIMEOUT, db.cloudsync_trigger_sync())
-        .await
-        .unwrap_or_else(|_| panic!("{operation} foreign-write sync timed out"));
-    let mut evidence = Vec::new();
+    let mut steps = 0;
+    let outcome = loop {
+        let outcome = tokio::time::timeout(POLICY_SYNC_TIMEOUT, db.cloudsync_trigger_sync())
+            .await
+            .unwrap_or_else(|_| panic!("{operation} foreign-write sync timed out"));
+        steps += 1;
+        let in_progress = outcome
+            .as_ref()
+            .is_ok_and(|result| sync_step_state(result) == SyncStepState::InProgress);
+        if !in_progress || steps == SYNC_PROGRESS_STEPS {
+            break outcome;
+        }
+        tokio::time::sleep(SYNC_RETRY_INTERVAL).await;
+    };
+    let mut evidence = vec![format!("bounded sync steps: {steps}")];
     let mut clean_send = false;
     let mut clean_receive = true;
     match outcome {
@@ -801,4 +924,86 @@ async fn cleanup_e2ee_verification_workspaces() {
         "verification workspace cleanup failed: {}",
         failures.join("; ")
     );
+}
+
+fn upload_step(
+    status: &str,
+    server_version: i64,
+    last_failure: Option<serde_json::Value>,
+) -> CloudsyncNetworkResult {
+    CloudsyncNetworkResult {
+        send: Some(anlg_cloudsync::NetworkSendResult {
+            status: status.to_string(),
+            local_version: 2,
+            server_version,
+            chunks: 1,
+            bytes: 1024,
+            last_failure,
+        }),
+        receive: Some(anlg_cloudsync::NetworkReceiveResult {
+            rows: 0,
+            tables: Vec::new(),
+            chunks: 0,
+            bytes: 0,
+            complete: true,
+            error: None,
+            last_failure: None,
+        }),
+    }
+}
+
+async fn scripted_sync_outcome(steps: Vec<CloudsyncNetworkResult>) -> Result<(), String> {
+    let steps = Arc::new(Mutex::new(VecDeque::from(steps)));
+    tokio::spawn(async move {
+        drive_sync_until_settled("scripted upload", Duration::ZERO, || {
+            let mut steps = steps.lock().unwrap();
+            let next = if steps.len() > 1 {
+                steps.pop_front()
+            } else {
+                steps.front().cloned()
+            };
+            async move { Ok(next.unwrap()) }
+        })
+        .await;
+    })
+    .await
+    .map_err(|error| {
+        let panic = error.into_panic();
+        panic.downcast_ref::<String>().cloned().unwrap_or_default()
+    })
+}
+
+#[tokio::test]
+async fn bounded_out_of_sync_upload_continues_until_synced_or_fails_with_diagnostics() {
+    let outcome = scripted_sync_outcome(vec![
+        upload_step("out-of-sync", 0, None),
+        upload_step("synced", 2, None),
+    ])
+    .await;
+    assert_eq!(outcome, Ok(()));
+
+    let message = scripted_sync_outcome(vec![upload_step("out-of-sync", 0, None)])
+        .await
+        .unwrap_err();
+    assert!(message.contains("did not settle after"), "{message}");
+    assert!(
+        message.contains("status=out-of-sync local_version=2 server_version=0"),
+        "{message}"
+    );
+
+    let failure = serde_json::json!({
+        "code": "internal_error",
+        "stage": "apply_payload",
+        "retryable": true,
+        "message": "server detail",
+    });
+    let message = scripted_sync_outcome(vec![upload_step("out-of-sync", 0, Some(failure))])
+        .await
+        .unwrap_err();
+    assert!(message.contains("reported a sync failure"), "{message}");
+    assert!(
+        message.contains(r#"code="internal_error" stage="apply_payload" retryable=true"#),
+        "{message}"
+    );
+    assert!(!message.contains("server detail"), "{message}");
 }

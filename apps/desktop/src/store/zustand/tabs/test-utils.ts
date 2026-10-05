@@ -30,6 +30,7 @@ export const createSessionTab = (
   state: {
     view: null,
     autoStart: null,
+    scheduledAutoStart: null,
     ...overrides.state,
   },
 });

@@ -7,6 +7,7 @@ import {
 import type { ReactNode } from "react";
 
 import { commands as iconCommands } from "@anlg/plugin-icon";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { applyDocumentTheme, writeStoredThemePreference } from "./apply";
 import {
@@ -18,7 +19,6 @@ import type { ThemePreference } from "./resolve";
 import { useSettingsThemeReady } from "./use-settings-theme-ready";
 
 import { useConfigValue } from "~/shared/config";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 let activeThemePreference: ThemePreference = "system";
 

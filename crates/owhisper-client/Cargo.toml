@@ -47,5 +47,6 @@ deepgram = { workspace = true, features = ["listen"] }
 rodio = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+tokio-tungstenite = { workspace = true }
 tracing-subscriber = { workspace = true }
 wiremock = { workspace = true }

@@ -1,5 +1,6 @@
 const COMMANDS: &[&str] = &[
     "summary_length_policy",
+    "dominant_language",
     "prepare_generated_summary",
     "compose_generated_summary",
     "save_generated_summary",

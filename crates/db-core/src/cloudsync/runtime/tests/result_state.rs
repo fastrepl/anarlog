@@ -213,13 +213,6 @@ fn background_sync_uses_shared_receive_errors() {
 
             let runtime = runtime.lock().unwrap();
             assert_eq!(runtime.last_error.as_deref(), expected);
-            if expected.is_some() {
-                let activity = runtime.activity_log.back().unwrap();
-                assert_eq!(activity.status, crate::CloudsyncActivityStatus::Failed);
-                assert_eq!(activity.error.as_deref(), expected);
-            } else {
-                assert!(runtime.activity_log.is_empty());
-            }
         }
     }
 }
@@ -258,82 +251,187 @@ fn bounded_sync_combines_send_and_receive_results() {
 }
 
 #[test]
-fn activity_log_records_manual_and_progress_entries_but_not_background_noops() {
-    let runtime = Mutex::new(CloudsyncRuntimeState::default());
-    record_sync_result(
-        &runtime,
-        network_result(None, Some((0, true, None))),
-        false,
-        CloudsyncActivityTrigger::Manual,
-    );
+fn sync_logging_persists_transfer_start_and_end_but_not_each_progress_step() {
+    use crate::cloudsync::types::CloudsyncActivityStatus::{Completed, Failed, Progress};
 
-    {
-        let runtime = runtime.lock().unwrap();
-        assert_eq!(runtime.activity_log.len(), 1);
-        assert_eq!(
-            runtime.activity_log.front().unwrap().status,
-            crate::CloudsyncActivityStatus::Completed
-        );
-        assert_eq!(
-            runtime.activity_log.front().unwrap().trigger,
-            CloudsyncActivityTrigger::Manual
-        );
-    }
+    let background = CloudsyncActivityTrigger::Background;
+    let manual = CloudsyncActivityTrigger::Manual;
 
-    let background_noop_runtime = Mutex::new(CloudsyncRuntimeState::default());
-    record_sync_result(
-        &background_noop_runtime,
-        network_result(None, Some((0, true, None))),
-        false,
-        CloudsyncActivityTrigger::Background,
-    );
-    assert!(
-        background_noop_runtime
-            .lock()
-            .unwrap()
-            .activity_log
-            .is_empty()
-    );
-
-    record_sync_result(
-        &runtime,
-        network_result(None, Some((3, false, None))),
-        false,
-        CloudsyncActivityTrigger::Background,
-    );
-    record_sync_result(
-        &runtime,
-        network_result(None, Some((0, true, None))),
-        false,
-        CloudsyncActivityTrigger::Background,
-    );
-
-    let runtime = runtime.lock().unwrap();
-    assert_eq!(runtime.activity_log.len(), 3);
     assert_eq!(
-        runtime.activity_log.get(1).unwrap().status,
-        crate::CloudsyncActivityStatus::Progress
+        sync_result_log_level(background, Completed, false, None),
+        None
     );
     assert_eq!(
-        runtime.activity_log.back().unwrap().status,
-        crate::CloudsyncActivityStatus::Completed
+        sync_result_log_level(manual, Completed, false, None),
+        Some(SyncLogLevel::Info)
+    );
+    assert_eq!(
+        sync_result_log_level(background, Progress, true, Some(Completed)),
+        Some(SyncLogLevel::Info)
+    );
+    assert_eq!(
+        sync_result_log_level(background, Progress, true, Some(Progress)),
+        Some(SyncLogLevel::Debug)
+    );
+    assert_eq!(
+        sync_result_log_level(background, Completed, false, Some(Progress)),
+        Some(SyncLogLevel::Info)
+    );
+    assert_eq!(
+        sync_result_log_level(background, Completed, false, Some(Failed)),
+        Some(SyncLogLevel::Info)
     );
 }
 
-#[test]
-fn sync_activity_log_is_bounded() {
-    let runtime = Mutex::new(CloudsyncRuntimeState::default());
+#[tokio::test]
+async fn confirmed_prefix_retry_sends_the_tail_without_recording_a_sync_failure() {
+    use crate::cloudsync::ops::guarded_interruptible_network_send_changes;
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
-    for _ in 0..=MAX_ACTIVITY_LOG_ENTRIES {
-        record_sync_error(
-            &runtime,
-            &anlg_cloudsync::Error::Io(std::io::Error::other("offline")),
-            CloudsyncActivityTrigger::Background,
-        );
-    }
+    let db = super::db_with_cloudsync_items_table(
+        "CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL DEFAULT '')",
+    )
+    .await;
+    let mut connection =
+        anlg_cloudsync::ReservedConnection::new(db.pool().acquire().await.unwrap());
+    sqlx::query(
+        "INSERT INTO items VALUES ('confirmed', 'uploaded before acknowledgement was lost')",
+    )
+    .execute(connection.connection().await.unwrap())
+    .await
+    .unwrap();
+    let original = anlg_cloudsync::pending_payload_batch(
+        connection.connection().await.unwrap(),
+        8,
+        4096,
+        32 * 1024 * 1024,
+    )
+    .await
+    .unwrap();
+    let confirmed = original.watermark_db_version.unwrap();
+    sqlx::query("INSERT INTO items VALUES ('tail', 'new edit before retry')")
+        .execute(connection.connection().await.unwrap())
+        .await
+        .unwrap();
+    let pending = anlg_cloudsync::pending_payload_batch(
+        connection.connection().await.unwrap(),
+        8,
+        4096,
+        32 * 1024 * 1024,
+    )
+    .await
+    .unwrap();
+    let newest = pending.watermark_db_version.unwrap();
+    assert!(newest > confirmed);
 
-    assert_eq!(
-        runtime.lock().unwrap().activity_log.len(),
-        MAX_ACTIVITY_LOG_ENTRIES
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    sqlx::query("SELECT cloudsync_network_init_custom(?, 'prefix-retry-test')")
+        .bind(endpoint)
+        .execute(connection.connection().await.unwrap())
+        .await
+        .unwrap();
+    let server = tokio::spawn(async move {
+        for step in 0..3 {
+            let (stream, _) = tokio::time::timeout(Duration::from_secs(10), listener.accept())
+                .await
+                .unwrap()
+                .unwrap();
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.unwrap();
+            assert!(line.starts_with(if step == 1 { "GET " } else { "POST " }));
+            let mut length = 0;
+            loop {
+                line.clear();
+                assert!(reader.read_line(&mut line).await.unwrap() > 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some((name, value)) = line.split_once(':')
+                    && name.eq_ignore_ascii_case("content-length")
+                {
+                    length = value.trim().parse::<usize>().unwrap();
+                }
+            }
+            assert!(length < 128 * 1024);
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).await.unwrap();
+            if step != 1 {
+                let payload = String::from_utf8(body).unwrap().replace(' ', "");
+                let start = if step == 0 {
+                    original.start_db_version + 1
+                } else {
+                    confirmed + 1
+                };
+                assert!(
+                    payload.contains(&format!("\"dbVersionMin\":{start},")),
+                    "{payload}"
+                );
+                assert!(
+                    payload.contains(&format!("\"dbVersionMax\":{newest},")),
+                    "{payload}"
+                );
+            }
+            let (status, body) = if step == 0 {
+                ("409 Conflict", r#"{"errors":[{"status":"409","code":"already_exists","detail":"resource already exists"}]}"#.to_string())
+            } else {
+                let version = if step == 1 { confirmed } else { newest };
+                (
+                    "200 OK",
+                    format!(
+                        "{{\"lastOptimisticVersion\":{version},\"lastConfirmedVersion\":{version},\"gaps\":[]}}"
+                    ),
+                )
+            };
+            reader.get_mut().write_all(format!(
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len(),
+            ).as_bytes()).await.unwrap();
+        }
+    });
+    let recovered = guarded_interruptible_network_send_changes(
+        &mut connection,
+        &db.cloudsync_interrupt,
+        || false,
+    )
+    .await
+    .unwrap();
+    record_sync_result(
+        &db.cloudsync_runtime,
+        recovered,
+        true,
+        CloudsyncActivityTrigger::Manual,
     );
+    let (last_error, failures, settled_at, activity) = {
+        let state = db.cloudsync_runtime.lock().unwrap();
+        (
+            state.last_error.clone(),
+            state.consecutive_failures,
+            state.last_sync_at_ms,
+            state.last_logged_activity,
+        )
+    };
+    assert!(last_error.is_none(), "{last_error:?}");
+    assert_eq!(failures, 0);
+    assert!(settled_at.is_none());
+    assert_eq!(
+        activity,
+        Some(crate::cloudsync::types::CloudsyncActivityStatus::Progress)
+    );
+    let tail = guarded_interruptible_network_send_changes(
+        &mut connection,
+        &db.cloudsync_interrupt,
+        || false,
+    )
+    .await
+    .unwrap();
+    assert_eq!(tail.send.unwrap().status, "synced");
+    assert!(
+        !crate::cloudsync::ops::cloudsync_has_local_unsent_changes_on(
+            connection.connection().await.unwrap(),
+        )
+        .await
+        .unwrap()
+    );
+    server.await.unwrap();
 }

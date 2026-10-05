@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   ),
   markSessionAudioAbsent: vi.fn(),
   markSessionAudioTranscriptionComplete: vi.fn(),
-  setAttachmentCloudSyncEnabled: vi.fn(),
   tombstoneSessionAudio: vi.fn(),
 }));
 
@@ -21,7 +20,6 @@ vi.mock("@anlg/plugin-session", () => ({
     markSessionAudioAbsent: mocks.markSessionAudioAbsent,
     markSessionAudioTranscriptionComplete:
       mocks.markSessionAudioTranscriptionComplete,
-    setAttachmentCloudSyncEnabled: mocks.setAttachmentCloudSyncEnabled,
     tombstoneSessionAudio: mocks.tombstoneSessionAudio,
   },
 }));
@@ -55,10 +53,6 @@ describe("attachment catalog", () => {
       data: null,
     });
     mocks.markSessionAudioTranscriptionComplete.mockResolvedValue({
-      status: "ok",
-      data: null,
-    });
-    mocks.setAttachmentCloudSyncEnabled.mockResolvedValue({
       status: "ok",
       data: null,
     });

@@ -49,7 +49,7 @@ export function accountPlanLabel(
   workspacePlan: "team" | "enterprise" | null,
 ) {
   if (workspacePlan === "enterprise") return "Anarlog Enterprise";
-  if (workspacePlan === "team") return "Anarlog Team";
+  if (workspacePlan === "team") return "Anarlog Pro";
   if (billing.plan === "trial")
     return `Pro trial · ${billing.trialDaysRemaining ?? 0} days left`;
   return billing.plan === "pro" ? "Anarlog Pro" : "Free";

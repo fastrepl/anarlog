@@ -56,8 +56,116 @@ pub fn setup_dock_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
             }
 
             crate::menu_items::register_action_handlers(delegate_class);
+            register_termination_handler(delegate_class);
+            register_system_termination_observer(&*delegate);
         }
     })?;
 
     Ok(())
+}
+
+unsafe fn register_termination_handler(delegate_class: *mut objc2::runtime::AnyClass) {
+    use objc2::{runtime::Imp, sel};
+
+    let selector = sel!(applicationShouldTerminate:);
+    let handler: Imp = unsafe { std::mem::transmute(application_should_terminate as *const ()) };
+    unsafe {
+        let added =
+            objc2::ffi::class_addMethod(delegate_class, selector, handler, c"Q@:@".as_ptr());
+        if !added.as_bool() {
+            objc2::ffi::class_replaceMethod(delegate_class, selector, handler, c"Q@:@".as_ptr());
+        }
+        let handler: Imp = std::mem::transmute(system_will_terminate as *const ());
+        objc2::ffi::class_addMethod(
+            delegate_class,
+            sel!(anlgSystemWillTerminate:),
+            handler,
+            c"v@:@".as_ptr(),
+        );
+    }
+}
+
+unsafe fn register_system_termination_observer(delegate: &objc2::runtime::AnyObject) {
+    use objc2::sel;
+    use objc2_app_kit::{NSWorkspace, NSWorkspaceWillPowerOffNotification};
+
+    unsafe {
+        NSWorkspace::sharedWorkspace()
+            .notificationCenter()
+            .addObserver_selector_name_object(
+                delegate,
+                sel!(anlgSystemWillTerminate:),
+                Some(NSWorkspaceWillPowerOffNotification),
+                None,
+            );
+    }
+}
+
+extern "C" fn system_will_terminate(
+    _this: *mut objc2::runtime::AnyObject,
+    _selector: objc2::runtime::Sel,
+    _notification: *mut objc2::runtime::AnyObject,
+) {
+    anlg_intercept::set_force_quit();
+    if let Some(app) = crate::APP_HANDLE.get() {
+        app.exit(0);
+    }
+}
+
+extern "C" fn application_should_terminate(
+    _this: *mut objc2::runtime::AnyObject,
+    _selector: objc2::runtime::Sel,
+    _sender: *mut objc2::runtime::AnyObject,
+) -> objc2_app_kit::NSApplicationTerminateReply {
+    use objc2_app_kit::NSApplicationTerminateReply;
+
+    if anlg_intercept::should_force_quit() {
+        return NSApplicationTerminateReply::TerminateNow;
+    }
+
+    // The system Dock Quit action bypasses Tauri's custom Quit menu item.
+    if let Some(app) = crate::APP_HANDLE.get() {
+        tauri_plugin_tray::AnlgMenuItem::TrayQuit.handle(app);
+    }
+    NSApplicationTerminateReply::TerminateCancel
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use objc2::{
+        ClassType, msg_send,
+        rc::Retained,
+        runtime::{AnyObject, ClassBuilder},
+    };
+    use objc2_app_kit::NSApplicationTerminateReply;
+    use objc2_foundation::NSObject;
+
+    #[test]
+    fn native_quit_keeps_app_running_until_full_termination_is_requested() {
+        let class = ClassBuilder::new(c"AnarlogQuitTestDelegate", NSObject::class())
+            .unwrap()
+            .register();
+        unsafe {
+            register_termination_handler(class as *const _ as *mut _);
+            let delegate: Retained<AnyObject> = msg_send![class, new];
+            register_system_termination_observer(&delegate);
+            let reply: NSApplicationTerminateReply = msg_send![&*delegate,
+                applicationShouldTerminate: std::ptr::null_mut::<AnyObject>()];
+            assert_eq!(reply, NSApplicationTerminateReply::TerminateCancel);
+
+            objc2_app_kit::NSWorkspace::sharedWorkspace()
+                .notificationCenter()
+                .postNotificationName_object(
+                    objc2_app_kit::NSWorkspaceWillPowerOffNotification,
+                    None,
+                );
+            let reply: NSApplicationTerminateReply = msg_send![&*delegate,
+                applicationShouldTerminate: std::ptr::null_mut::<AnyObject>()];
+            assert_eq!(reply, NSApplicationTerminateReply::TerminateNow);
+            objc2_app_kit::NSWorkspace::sharedWorkspace()
+                .notificationCenter()
+                .removeObserver(&delegate);
+        }
+    }
 }

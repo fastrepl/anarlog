@@ -3,11 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useListener } from "./contexts";
 import { useStartListeningWithBatchOverride } from "./useStartListeningWithBatchOverride";
 
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 const LISTENER_CONTROL_EVENT = "anlg:listener-control";

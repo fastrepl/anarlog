@@ -480,3 +480,39 @@ for (const data of [{ accessPermitted: false }, [], {}]) {
     );
   });
 }
+
+test("native streaming providers validate input without requiring a model catalog", async () => {
+  const fetcher = async () => {
+    throw new Error("No documented credential probe");
+  };
+  for (const provider of [
+    "inworld",
+    "gradium",
+    "amazon_bedrock",
+    "modulate",
+    "alebex",
+    "nvidia",
+  ]) {
+    await verifyProviderCredentials(
+      { ...credential, type: "stt", provider },
+      fetcher,
+    );
+  }
+  await verifyProviderCredentials(
+    {
+      ...credential,
+      type: "stt",
+      provider: "nvidia",
+      baseUrl: "http://localhost:9000",
+      apiKey: "",
+    },
+    fetcher,
+  );
+  await assert.rejects(
+    verifyProviderCredentials(
+      { ...credential, type: "stt", provider: "inworld", apiKey: "" },
+      fetcher,
+    ),
+    /valid API key/,
+  );
+});

@@ -9,7 +9,7 @@ export const ENROLLMENT_REQUIRES_EXISTING_KEY_ERROR_CODE =
 
 export type SyncDeviceKind = "desktop" | "mobile" | "watch";
 
-export type SyncDevice = {
+type SyncDevice = {
   deviceFingerprint: string;
   deviceName: string | null;
   deviceKind?: SyncDeviceKind | null;
@@ -17,7 +17,7 @@ export type SyncDevice = {
   lastSeenAt: string;
 };
 
-export type PendingSyncDevice = {
+type PendingSyncDevice = {
   requestId: string;
   deviceFingerprint: string;
   deviceName: string | null;

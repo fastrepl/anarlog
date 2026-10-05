@@ -75,7 +75,6 @@ export type {
   SessionShareDeletionResult,
   SessionShareLinkResult,
   SessionShareManagement,
-  SessionShareScope,
   SessionShareScopeResult,
   SettableSessionShareScope,
   ShareManagementContext,

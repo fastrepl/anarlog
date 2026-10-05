@@ -1,5 +1,6 @@
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import { useSetSettingValues } from "~/settings/queries";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function PersistAiSelection({
   type,

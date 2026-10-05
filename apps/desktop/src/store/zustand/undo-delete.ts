@@ -13,7 +13,7 @@ export type DeletedSessionData = {
 
 export const UNDO_TIMEOUT_MS = 5000;
 
-export type PendingDeletion = {
+type PendingDeletion = {
   data: DeletedSessionData;
   timeoutId: ReturnType<typeof setTimeout> | null;
   onDeleteConfirm: (() => void | Promise<unknown>) | null;

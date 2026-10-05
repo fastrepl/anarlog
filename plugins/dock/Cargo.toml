@@ -7,6 +7,15 @@ exclude = ["/js", "/node_modules"]
 links = "tauri-plugin-dock"
 description = ""
 
+[[test]]
+name = "native_quit"
+harness = false
+
+[dev-dependencies]
+tauri = { workspace = true, features = ["test"] }
+tauri-plugin-window-state = { workspace = true }
+tauri-plugin-windows = { workspace = true }
+
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
@@ -14,7 +23,8 @@ tauri-plugin = { workspace = true, features = ["build"] }
 tauri = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+anlg-intercept = { workspace = true }
 objc2 = { workspace = true }
-objc2-app-kit = { workspace = true, features = ["NSApplication", "NSMenu", "NSMenuItem", "NSRunningApplication"] }
-objc2-foundation = { workspace = true, features = ["NSString", "NSArray", "NSObject"] }
+objc2-app-kit = { workspace = true, features = ["NSApplication", "NSMenu", "NSMenuItem", "NSRunningApplication", "NSWorkspace"] }
+objc2-foundation = { workspace = true, features = ["NSString", "NSArray", "NSObject", "NSNotification"] }
 tauri-plugin-tray = { workspace = true }

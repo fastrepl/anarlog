@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getIdentifier } from "@tauri-apps/api/app";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  stopDevtoolsMetrics: vi.fn(),
   identifier: "com.hyprnote.staging",
   outlinesEnabled: true,
   topComponents: [] as Array<{ name: string; count: number }>,
@@ -20,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   setRenderOutlinesEnabled: vi.fn(),
   runAction: vi.fn(),
   copyDiagnostics: vi.fn(),
-  startDevtoolsMetrics: vi.fn(() => vi.fn()),
+  startDevtoolsMetrics: vi.fn(() => mocks.stopDevtoolsMetrics),
 }));
 
 vi.mock("@tauri-apps/api/app", () => ({
@@ -203,5 +204,29 @@ describe("DevtoolsStatusBar", () => {
     await vi.waitFor(() => expect(commands.showDevtool).toHaveBeenCalled());
     expect(screen.queryByTestId("devtools-status-bar")).toBeNull();
     expect(mocks.startDevtoolsMetrics).not.toHaveBeenCalled();
+  });
+
+  it("collects metrics only while the expanded bar is mounted", async () => {
+    renderBar();
+
+    const expandButton = await screen.findByRole("button", {
+      name: "Expand developer bar",
+    });
+    expect(screen.getByTestId("devtools-status-bar-collapsed")).not.toBeNull();
+    expect(mocks.startDevtoolsMetrics).not.toHaveBeenCalled();
+
+    fireEvent.click(expandButton);
+    await screen.findByTestId("devtools-status-bar");
+    expect(mocks.startDevtoolsMetrics).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Collapse developer bar" }),
+    );
+    await vi.waitFor(() =>
+      expect(mocks.stopDevtoolsMetrics).toHaveBeenCalledTimes(1),
+    );
+    expect(
+      screen.getByRole("button", { name: "Expand developer bar" }),
+    ).not.toBeNull();
   });
 });

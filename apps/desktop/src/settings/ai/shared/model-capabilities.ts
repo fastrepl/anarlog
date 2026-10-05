@@ -1,3 +1,4 @@
+import { isAnarlogProLlmModel } from "./anarlog-pro-models";
 import { getCloudflareWorkersAIModelMetadata } from "./list-cloudflare-workers-ai";
 
 const TEXT_ONLY_MODEL_RE =
@@ -25,7 +26,7 @@ export function modelSupportsImageInput(
     return false;
   }
 
-  if (providerId === "anarlog" && modelId === "Auto") {
+  if (providerId === "anarlog" && isAnarlogProLlmModel(modelId)) {
     return true;
   }
 

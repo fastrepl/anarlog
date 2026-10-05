@@ -1,7 +1,7 @@
 Package: anarlog
-Version: 1.4.27
+Version: 1.4.28
 Architecture: arm64
-Installed-Size: 1089700
+Installed-Size: 1128461
 Maintainer: you
 Priority: optional
 Depends: libwebkit2gtk-4.1-0, libgtk-3-0, libpipewire-0.3-0, libpulse0, libasound2, libssl3, libstdc++6, ca-certificates, desktop-file-utils, xdg-utils, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
@@ -10,8 +10,8 @@ Conflicts: char
 Replaces: char
 Description: Anarlog Desktop App
  (none)
-Filename: pool/desktop_v1.4.27/arm64/anarlog.deb
-Size: 315979974
-MD5sum: 8ab8f7f045382ab08f270ef1992319eb
-SHA1: 21f680fb01f331771b981d40de88d7a6adc7f966
-SHA256: 7619afdf7c4d7faebc9e4cdae8e0f241074d416829f9d59b4bab451a2f2fae69
+Filename: pool/desktop_v1.4.28/arm64/anarlog.deb
+Size: 323055708
+MD5sum: a99b583ccb0cd6bd70fcfd013bd92147
+SHA1: a57f6dc50a0741bebdd6e4d54969e19c6ba1f7d6
+SHA256: 72514690e3fa4317bbe807b51e37d354af9049bee35dc3e9a8cfd45cbbae7417

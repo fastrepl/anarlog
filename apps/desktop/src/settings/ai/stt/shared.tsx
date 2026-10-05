@@ -3,14 +3,16 @@ import {
   AssemblyAI,
   Apple,
   Aws,
+  Bedrock,
   Azure,
-  Cloudflare,
+  WorkersAI,
   Cohere,
   ElevenLabs,
   Gemini,
   GoogleCloud,
   Groq,
   Mistral,
+  Nvidia,
   OpenAI,
   OpenRouter,
   SiliconCloud,
@@ -645,10 +647,153 @@ const _PROVIDERS = [
   },
   {
     disabled: false,
+    id: "inworld",
+    displayName: "Inworld",
+    badge: null,
+    icon: (
+      <ProviderBrandImage
+        src="/assets/inworld-icon.png"
+        alt="Inworld"
+        preserveColor
+      />
+    ),
+    baseUrl: "https://api.inworld.ai",
+    models: ["inworld/inworld-stt-1"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "API documentation",
+        url: "https://docs.inworld.ai/stt/overview",
+      },
+      setup: { label: "API setup", url: "https://platform.inworld.ai/" },
+    },
+  },
+  {
+    disabled: false,
+    id: "gradium",
+    displayName: "Gradium",
+    badge: null,
+    icon: <ProviderBrandImage src="/assets/gradium-icon.svg" alt="Gradium" />,
+    baseUrl: "https://api.gradium.ai",
+    models: ["default"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "API documentation",
+        url: "https://docs.gradium.ai/guides/speech-to-text",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://docs.gradium.ai/guides/introduction",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "modulate",
+    displayName: "Modulate",
+    badge: null,
+    icon: (
+      <ProviderBrandImage
+        src="/assets/modulate-icon.png"
+        alt="Modulate"
+        preserveColor
+      />
+    ),
+    baseUrl: "https://platform.modulate.ai",
+    models: [
+      "velma-2-stt-streaming-multilingual-vfast",
+      "velma-2-stt-streaming-english-v2",
+    ],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "API documentation",
+        url: "https://docs.modulate.ai/get-started/stt",
+      },
+      setup: { label: "API setup", url: "https://platform.modulate.ai/" },
+    },
+  },
+  {
+    disabled: false,
+    id: "alebex",
+    displayName: "Alebex",
+    badge: null,
+    icon: (
+      <ProviderBrandImage
+        src="/assets/alebex-icon.svg"
+        alt="Alebex"
+        preserveColor
+      />
+    ),
+    baseUrl: "https://asr.alebex.ai",
+    models: ["alebex-asr"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "API documentation",
+        url: "https://www.alebex.ai/models-speech-to-text",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://www.alebex.ai/models-api-access",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "nvidia",
+    displayName: "NVIDIA Speech NIM",
+    badge: "Self-hosted",
+    icon: <ProviderLobeIcon icon={Nvidia} />,
+    baseUrl: undefined,
+    models: ["nemotron-asr-streaming"],
+    requirements: [{ kind: "requires_config", fields: ["base_url"] }],
+    links: {
+      models: {
+        label: "API documentation",
+        url: "https://docs.nvidia.com/nim/speech/latest/reference/api-references/asr/realtime-asr.html",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://docs.nvidia.com/nim/speech/latest/get-started/tutorials/asr.html",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "amazon_bedrock",
+    displayName: "Amazon Bedrock",
+    badge: "Gateway",
+    icon: <ProviderLobeIcon icon={Bedrock} />,
+    baseUrl: undefined,
+    models: ["amazon.nova-2-sonic-v1:0"],
+    requirements: [
+      { kind: "requires_config", fields: ["base_url", "api_key"] },
+    ],
+    links: {
+      models: {
+        label: "API documentation",
+        url: "https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-getting-started.html",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://docs.aws.amazon.com/bedrock/latest/userguide/models-api-compatibility.html",
+      },
+    },
+  },
+  {
+    disabled: false,
     id: "nari",
     displayName: "Nari Labs",
     badge: null,
-    icon: <Waveform className="h-4 w-4" />,
+    icon: (
+      <ProviderBrandImage
+        src="/assets/nari-icon.png"
+        alt="Nari Labs"
+        preserveColor
+      />
+    ),
     baseUrl: "https://api.narilabs.com",
     models: ["qwen3-asr-fast", "qwen3-asr"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -665,7 +810,13 @@ const _PROVIDERS = [
     id: "wisprflow",
     displayName: "Wispr Flow",
     badge: null,
-    icon: <Waveform className="h-4 w-4" />,
+    icon: (
+      <ProviderBrandImage
+        src="/assets/wispr-flow-icon.png"
+        alt="Wispr Flow"
+        preserveColor
+      />
+    ),
     baseUrl: "https://platform-api.wisprflow.ai",
     models: ["flow"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
@@ -878,7 +1029,7 @@ const _PROVIDERS = [
     id: "cloudflare_workers_ai",
     displayName: "Cloudflare Workers AI",
     badge: null,
-    icon: <ProviderLobeIcon icon={Cloudflare} />,
+    icon: <ProviderLobeIcon icon={WorkersAI} />,
     baseUrl: undefined,
     models: ["nova-3"],
     requirements: [
@@ -950,6 +1101,7 @@ const _PROVIDERS = [
       <ProviderBrandImage
         src="/assets/model-icons/meta-logo.svg"
         alt="Meta Muse"
+        preserveColor
         className="rounded-xs"
       />
     ),
@@ -1122,6 +1274,12 @@ const PROVIDER_ORDER = [
   "xai",
   "smallestai",
   "wisprflow",
+  "inworld",
+  "gradium",
+  "modulate",
+  "alebex",
+  "nvidia",
+  "amazon_bedrock",
   "nari",
   "pyannote",
   "cohere",

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-dominant-language"
+description = "Enables the dominant_language command without any pre-configured scope."
+commands.allow = ["dominant_language"]
+
+[[permission]]
+identifier = "deny-dominant-language"
+description = "Denies the dominant_language command without any pre-configured scope."
+commands.deny = ["dominant_language"]

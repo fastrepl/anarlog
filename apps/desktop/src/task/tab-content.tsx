@@ -55,7 +55,7 @@ export function TabContentTask({ tab }: { tab: TaskTab }) {
   );
 
   const floatingButton = (
-    <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
+    <div className="absolute bottom-4 left-1/2 z-20 w-[min(640px,calc(100cqw_-_2rem))] -translate-x-1/2">
       <ChatCTA label={<Trans>Work on this task</Trans>} />
     </div>
   );

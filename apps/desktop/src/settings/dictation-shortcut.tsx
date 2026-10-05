@@ -5,11 +5,11 @@ import { useRef, useState } from "react";
 
 import { commands as shortcuts } from "@anlg/plugin-shortcut";
 import { Button } from "@anlg/ui/components/ui/button";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { waitForDictationCleanup } from "~/dictation/lifecycle";
 import { useDictationStatus } from "~/dictation/state";
 import { setSettingValue } from "~/settings/queries";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function DictationShortcut({ shortcut }: { shortcut: string }) {
   const { t } = useLingui();

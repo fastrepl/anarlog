@@ -1,12 +1,13 @@
 import type { Session } from "@supabase/supabase-js";
 import { useRef } from "react";
 
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
+
 import { startSharedAttachmentCacheRunner } from "./attachment-cache-runner";
 import { createSharedAttachmentClient } from "./attachment-client";
 
 import { useAuth } from "~/auth";
 import { env } from "~/env";
-import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function SharedAttachmentCacheLifecycle() {
   const { session } = useAuth();

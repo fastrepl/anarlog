@@ -104,10 +104,10 @@ fn resolve_listen_params_for_provider(
     resolved_params
 }
 
-/// A stereo capture keeps the direct mic on channel 0 and the remote party on
-/// channel 1. Providers that downmix return one mixed channel instead, which the
-/// desktop can still diarize, so for a single-language request they run only
-/// after every provider that keeps the split has been tried. A request that
+/// Soniox remains primary even when it downmixes stereo; the desktop can still
+/// diarize its transcript. A stereo capture keeps the direct mic on channel 0
+/// and the remote party on channel 1, so single-language fallbacks prefer
+/// providers that preserve that split. A request that
 /// spans several languages keeps the router's order instead: the
 /// channel-preserving providers transcribe batch audio in one detected language,
 /// so promoting them would drop the other language's speech, which is worse than
@@ -117,8 +117,12 @@ fn prefer_channel_preserving_providers(
     listen_params: &ListenParams,
 ) {
     if listen_params.channels > 1 && listen_params.languages.len() <= 1 {
-        provider_chain
-            .sort_by_key(|selected| !selected.provider().preserves_batch_channel_identity());
+        provider_chain.sort_by_key(|selected| {
+            (
+                selected.provider() != Provider::Soniox,
+                !selected.provider().preserves_batch_channel_identity(),
+            )
+        });
     }
 }
 
@@ -507,7 +511,7 @@ mod tests {
     }
 
     #[test]
-    fn stereo_batch_orders_channel_preserving_providers_first() {
+    fn stereo_batch_keeps_soniox_primary() {
         let state = test_state(&[Provider::Deepgram, Provider::Soniox]);
 
         assert_eq!(
@@ -516,7 +520,7 @@ mod tests {
         );
         assert_eq!(
             ordered_chain(&state, &["en"], 2),
-            vec![Provider::Deepgram, Provider::Soniox]
+            vec![Provider::Soniox, Provider::Deepgram]
         );
     }
 

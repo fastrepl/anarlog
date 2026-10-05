@@ -49,6 +49,24 @@ pub fn init(app: tauri::AppHandle<tauri::Wry>) {
         let app = app.clone();
         anlg_notification::setup_expanded_accept_handler(move |ctx| {
             let source = source_kind(&ctx.source);
+            if let Some(action) = ctx.action {
+                let _ = NotificationEvent::Action {
+                    key: ctx.key,
+                    source: ctx.source,
+                    action,
+                }
+                .emit(&app);
+                track_notification_event(
+                    &app,
+                    "notification_actioned",
+                    source,
+                    Some(match action {
+                        anlg_notification::NotificationAction::JoinAndRecord => "join_and_record",
+                        anlg_notification::NotificationAction::OpenMeeting => "open_meeting",
+                    }),
+                );
+                return;
+            }
             if let Err(_e) = app.windows().show(tauri_plugin_windows::AppWindow::Main) {}
 
             let _ = NotificationEvent::Accept {
@@ -99,6 +117,24 @@ pub fn init(app: tauri::AppHandle<tauri::Wry>) {
         let app = app.clone();
         anlg_notification::setup_option_selected_handler(move |ctx, selected_index| {
             let source = source_kind(&ctx.source);
+            if let Some(action) = ctx.action {
+                let _ = NotificationEvent::Action {
+                    key: ctx.key,
+                    source: ctx.source,
+                    action,
+                }
+                .emit(&app);
+                track_notification_event(
+                    &app,
+                    "notification_actioned",
+                    source,
+                    Some(match action {
+                        anlg_notification::NotificationAction::JoinAndRecord => "join_and_record",
+                        anlg_notification::NotificationAction::OpenMeeting => "open_meeting",
+                    }),
+                );
+                return;
+            }
             if let Err(_e) = app.windows().show(tauri_plugin_windows::AppWindow::Main) {}
 
             let _ = NotificationEvent::OptionSelected {

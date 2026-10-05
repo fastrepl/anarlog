@@ -43,6 +43,7 @@ fn request(context: SpeakerContext, speakers: &[(i32, i32)]) -> RenderTranscript
                     end_ms: i as i64 * 1000 + 500,
                     channel: *channel,
                     speaker_index: Some(*speaker),
+                    synthetic_timing: None,
                 })
                 .collect(),
         }],
@@ -274,6 +275,34 @@ fn room_microphone_on_a_call_needs_a_single_local_voice() {
         SpeakerResolutionReason::VirtualMeetingMicrophone
     );
     let segments = render_transcript_segments(request(context, &[(0, 0), (0, 1)]));
+    assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
+}
+
+#[test]
+fn room_microphone_on_a_call_names_only_the_dominant_local_voice() {
+    let mut context = context();
+    context.intervals[0].mic_isolated = Some(false);
+    context.intervals[0].end_ms = 20000;
+    let segments = render_transcript_segments(request(
+        context.clone(),
+        &[(0, 0), (0, 0), (0, 0), (0, 1), (0, 0)],
+    ));
+    for segment in &segments {
+        let expected = if segment.key.speaker_index == Some(0) {
+            "John"
+        } else {
+            "Speaker 1"
+        };
+        assert_eq!(segment.speaker_label, expected);
+    }
+    let segments =
+        render_transcript_segments(request(context.clone(), &[(0, 0), (0, 0), (0, 0), (0, 1)]));
+    assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
+    let mut req = request(context, &[(0, 0), (0, 0), (0, 0), (0, 0), (0, 1)]);
+    for word in &mut req.transcripts[0].words[..4] {
+        word.speaker_index = None;
+    }
+    let segments = render_transcript_segments(req);
     assert!(segments.iter().all(|s| s.provisional_speaker.is_none()));
 }
 

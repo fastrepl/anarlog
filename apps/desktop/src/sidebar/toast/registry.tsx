@@ -83,6 +83,16 @@ export function createToastRegistry({
       toast: {
         id: "downloading-model",
         description: downloadTitle,
+        detail: activeDownloads
+          .map((download) => {
+            const status = download.isStarting
+              ? t`Starting`
+              : `${Math.round(download.progress)}%`;
+            return activeDownloads.length === 1
+              ? status
+              : `${download.displayName}: ${status}`;
+          })
+          .join(", "),
         lifecycle: { type: "persistent", dismissal: "session" },
         loading: true,
       },
