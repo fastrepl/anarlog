@@ -369,6 +369,69 @@ describe("createReadOnlyPlugin", () => {
 });
 
 describe("browser-safe editor controls", () => {
+  it("keeps newly typed lines above a floating composer", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const scroller = document.createElement("div");
+    scroller.style.position = "fixed";
+    document.body.appendChild(scroller);
+    const rendered = render(
+      createElement(NoteEditor, {
+        ref,
+        initialContent: baseDoc,
+        enforceTitleHeading: false,
+        scrollBottomInset: 80,
+      }),
+      { container: scroller },
+    );
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+    const view = ref.current!.view!;
+
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+      function () {
+        return this === scroller ? 600 : 1200;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+      function () {
+        return this === scroller ? 600 : 1200;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(800);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function () {
+        return new DOMRect(0, 0, 800, this === scroller ? 600 : 1200);
+      },
+    );
+    vi.spyOn(view, "coordsAtPos").mockImplementation(() => {
+      const bottom =
+        540 + (view.state.doc.childCount - 1) * 28 - scroller.scrollTop;
+      return { top: bottom - 20, bottom, left: 12, right: 12 };
+    });
+    act(() => {
+      view.focus();
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.atEnd(view.state.doc)),
+      );
+    });
+
+    for (let line = 0; line < 5; line++) {
+      act(() => {
+        view.dispatch(
+          view.state.tr
+            .split(view.state.selection.head)
+            .insertText("new line")
+            .scrollIntoView(),
+        );
+      });
+      expect(
+        view.coordsAtPos(view.state.selection.head).bottom,
+      ).toBeLessThanOrEqual(520);
+    }
+    rendered.unmount();
+    scroller.remove();
+  });
+
   it("reports document changes before debounced persistence", async () => {
     const ref = createRef<NoteEditorRef>();
     const handleChange = vi.fn();

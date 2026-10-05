@@ -154,6 +154,7 @@ const EnhancedEditorInner = forwardRef<
             className="session-note-editor enhanced-summary-editor"
             key={editorKey}
             initialContent={initialContent}
+            scrollBottomInset={80}
             resolveAttachment={resolveAttachment}
             handleChange={persistChanges ? handleChange : undefined}
             placeholderComponent={documentTitlePlaceholder}

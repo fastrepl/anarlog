@@ -295,6 +295,7 @@ export const RawEditor = forwardRef<
               onDocumentChange={handleDocumentChange}
               placeholderComponent={placeholderComponent}
               readOnly={isGenerating}
+              scrollBottomInset={80}
               mentionConfig={mentionConfig}
               sessionMentionDropConfig={sessionMentionDropConfig}
               onNavigateToTitle={onNavigateToTitle}

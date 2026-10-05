@@ -201,6 +201,7 @@ export interface NoteEditorProps {
   showFormatToolbar?: boolean;
   showSlashCommand?: boolean;
   readOnly?: boolean;
+  scrollBottomInset?: number;
   onViewReady?: (view: EditorView) => void;
   onViewDisposed?: (view: EditorView) => void;
   syncContentWhenFocused?: boolean;
@@ -622,6 +623,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       showFormatToolbar = true,
       showSlashCommand = true,
       readOnly = false,
+      scrollBottomInset = 0,
       onViewReady: onViewReadyProp,
       onViewDisposed,
       syncContentWhenFocused = false,
@@ -989,6 +991,18 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                 defaultState={defaultState}
                 nodeViewComponents={nodeViews}
                 editable={() => !readOnly}
+                scrollThreshold={{
+                  top: 0,
+                  right: 0,
+                  bottom: scrollBottomInset,
+                  left: 0,
+                }}
+                scrollMargin={{
+                  top: 5,
+                  right: 5,
+                  bottom: scrollBottomInset + 5,
+                  left: 5,
+                }}
                 attributes={{
                   spellCheck: "false",
                   autoComplete: "off",
