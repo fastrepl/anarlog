@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -358,6 +358,56 @@ describe("BillingProvider", () => {
       expectDialogsClosed();
     },
   );
+
+  it("keeps an open trial dialog visible through background checks until Team access is confirmed", async () => {
+    vi.mocked(authCommands.decodeClaims).mockResolvedValue({
+      ...paidClaims("user-1"),
+      data: {
+        ...paidClaims("user-1").data,
+        subscription_status: "trialing",
+        trial_end: Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60,
+        has_payment_method: false,
+      },
+    });
+    workspaceState.data = [{ workspaceId: "workspace-1" }];
+    vi.mocked(getWorkspaceAccess).mockResolvedValue({
+      role: "member",
+      tier: "free",
+      capabilities: [],
+      seatLimit: null,
+      usedSeats: 1,
+    });
+    const { queryClient, view } = renderBillingProvider();
+    const dialog = () => screen.getByTestId("trial-started-dialog");
+    await waitFor(() =>
+      expect(dialog().getAttribute("data-open")).toBe("true"),
+    );
+
+    workspaceState.fetchStatus = "fetching";
+    view.rerender(billingTree(queryClient));
+    expect(dialog().getAttribute("data-open")).toBe("true");
+    workspaceState.fetchStatus = "idle";
+    view.rerender(billingTree(queryClient));
+
+    const access = deferred<Awaited<ReturnType<typeof getWorkspaceAccess>>>();
+    vi.mocked(getWorkspaceAccess).mockReturnValue(access.promise);
+    await act(async () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["team-access", "workspace-1", "user-1"],
+      });
+    });
+    expect(dialog().getAttribute("data-open")).toBe("true");
+    access.resolve({
+      role: "member",
+      tier: "team",
+      capabilities: [],
+      seatLimit: 5,
+      usedSeats: 2,
+    });
+    await waitFor(() =>
+      expect(dialog().getAttribute("data-open")).toBe("false"),
+    );
+  });
 
   it("does not start a personal trial from cached eligibility while Team membership settles", async () => {
     const userId = "team-member-with-free-claims";

@@ -111,18 +111,18 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       retry: false,
     })),
   });
-  const canUsePersonalTrial =
+  const canShowPersonalTrialDialogs =
     !!auth.session &&
     isReady &&
     claimsAreCurrent &&
     workspaces.isSuccess &&
-    workspaces.fetchStatus === "idle" &&
     workspaceAccess.every(
-      (query) =>
-        query.isSuccess &&
-        query.fetchStatus === "idle" &&
-        query.data.tier === "free",
+      (query) => query.isSuccess && query.data.tier === "free",
     );
+  const canUsePersonalTrial =
+    canShowPersonalTrialDialogs &&
+    workspaces.fetchStatus === "idle" &&
+    workspaceAccess.every((query) => query.fetchStatus === "idle");
 
   // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Auth supplies request headers; the user ID is the eligibility identity.
   const canTrialQuery = useQuery({
@@ -430,13 +430,13 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     <BillingContext.Provider value={value}>
       {children}
       <TrialStartedDialog
-        open={canUsePersonalTrial && trialStartedOpen}
+        open={canShowPersonalTrialDialogs && trialStartedOpen}
         onOpenChange={setTrialStartedOpen}
         trialDaysRemaining={billing.trialDaysRemaining}
         hasPaymentMethod={billing.hasPaymentMethod}
       />
       <TrialPaymentReminderDialog
-        open={canUsePersonalTrial && trialPaymentReminderOpen}
+        open={canShowPersonalTrialDialogs && trialPaymentReminderOpen}
         onOpenChange={setTrialPaymentReminderOpen}
         daysRemaining={billing.trialDaysRemaining ?? 0}
         onAddPaymentMethod={() => {
@@ -449,7 +449,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         }}
       />
       <TrialEndedDialog
-        open={canUsePersonalTrial && !billing.isPaid && trialEndedOpen}
+        open={canShowPersonalTrialDialogs && !billing.isPaid && trialEndedOpen}
         onOpenChange={setTrialEndedOpen}
         onUpgrade={() => void openUpgrade("trial_ended")}
       />
