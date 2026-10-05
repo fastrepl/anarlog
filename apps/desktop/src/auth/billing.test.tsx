@@ -17,6 +17,7 @@ const refreshSession = vi.fn();
 const workspaceState = vi.hoisted(() => ({
   data: [] as Array<{ workspaceId: string }>,
   isSuccess: true,
+  fetchStatus: "idle",
 }));
 const authState = vi.hoisted(() => ({
   session: {
@@ -143,15 +144,15 @@ vi.mock("../billing/trial-started-dialog", () => ({
   ),
 }));
 
-function renderBillingProvider() {
-  const queryClient = new QueryClient({
+function renderBillingProvider(
+  queryClient = new QueryClient({
     defaultOptions: {
       queries: {
         retry: false,
       },
     },
-  });
-
+  }),
+) {
   return {
     queryClient,
     view: render(billingTree(queryClient)),
@@ -226,6 +227,7 @@ describe("BillingProvider", () => {
     refreshSession.mockReset().mockResolvedValue(null);
     workspaceState.data = [];
     workspaceState.isSuccess = true;
+    workspaceState.fetchStatus = "idle";
     vi.mocked(getWorkspaceAccess).mockReset();
     authState.session = {
       access_token: "stale-token",
@@ -290,7 +292,7 @@ describe("BillingProvider", () => {
   });
 
   it.each(["trialing", "paused"] as const)(
-    "suppresses personal trial dialogs while Team access loads and after it resolves (%s)",
+    "does not open or consume trial reminders from cached free access while Team access refetches (%s)",
     async (subscriptionStatus) => {
       vi.mocked(localStorage.getItem).mockImplementation((key: string) =>
         key.startsWith("anarlog:trial_started_seen:") ? "1" : null,
@@ -309,7 +311,17 @@ describe("BillingProvider", () => {
       workspaceState.data = [{ workspaceId: "workspace-1" }];
       const access = deferred<Awaited<ReturnType<typeof getWorkspaceAccess>>>();
       vi.mocked(getWorkspaceAccess).mockReturnValue(access.promise);
-      const { queryClient } = renderBillingProvider();
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      queryClient.setQueryData(["team-access", "workspace-1", "user-1"], {
+        role: "member",
+        tier: "free",
+        capabilities: [],
+        seatLimit: null,
+        usedSeats: 1,
+      });
+      renderBillingProvider(queryClient);
 
       await waitFor(() => {
         expect(
@@ -328,6 +340,7 @@ describe("BillingProvider", () => {
         }
       };
       expectDialogsClosed();
+      expect(localStorage.setItem).not.toHaveBeenCalled();
 
       access.resolve({
         role: "member",
@@ -345,6 +358,53 @@ describe("BillingProvider", () => {
       expectDialogsClosed();
     },
   );
+
+  it("does not start a personal trial from cached eligibility while Team membership settles", async () => {
+    const userId = "team-member-with-free-claims";
+    authState.session = {
+      access_token: "team-member-token",
+      user: { id: userId, email: "member@example.com" },
+    };
+    vi.mocked(authCommands.decodeClaims).mockResolvedValue(freeClaims(userId));
+    vi.mocked(canStartTrialApi).mockResolvedValue({
+      data: { canStartTrial: true, reason: "eligible" as const },
+      error: undefined,
+      request: new Request("https://api.example.test/can-start-trial"),
+      response: new Response(),
+    });
+    workspaceState.data = [{ workspaceId: "workspace-1" }];
+    const access = deferred<Awaited<ReturnType<typeof getWorkspaceAccess>>>();
+    vi.mocked(getWorkspaceAccess).mockReturnValue(access.promise);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData([userId, "canStartTrial"], {
+      canStartTrial: true,
+      reason: "eligible",
+    });
+    renderBillingProvider(queryClient);
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("billing-access").getAttribute("data-is-ready"),
+      ).toBe("true");
+    });
+    expect(startTrialApi).not.toHaveBeenCalled();
+    access.resolve({
+      role: "member",
+      tier: "team",
+      capabilities: [],
+      seatLimit: 5,
+      usedSeats: 2,
+    });
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryState(["team-access", "workspace-1", userId])
+          ?.status,
+      ).toBe("success");
+    });
+    expect(startTrialApi).not.toHaveBeenCalled();
+  });
 
   it("automatically starts a trial for an eligible signed-in account", async () => {
     vi.mocked(canStartTrialApi).mockResolvedValue({

@@ -111,18 +111,23 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       retry: false,
     })),
   });
-  const canShowPersonalTrialDialogs =
+  const canUsePersonalTrial =
     !!auth.session &&
     isReady &&
     claimsAreCurrent &&
     workspaces.isSuccess &&
+    workspaces.fetchStatus === "idle" &&
     workspaceAccess.every(
-      (query) => query.isSuccess && query.data.tier === "free",
+      (query) =>
+        query.isSuccess &&
+        query.fetchStatus === "idle" &&
+        query.data.tier === "free",
     );
 
   // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Auth supplies request headers; the user ID is the eligibility identity.
   const canTrialQuery = useQuery({
-    enabled: !!auth?.session && auth?.isFingerprintSettled && !billing.isPaid,
+    enabled:
+      canUsePersonalTrial && auth?.isFingerprintSettled && !billing.isPaid,
     queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
     queryFn: async () => {
       const headers = auth?.getHeaders();
@@ -143,13 +148,15 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const canStartTrial = useMemo(
     () => ({
-      data: billing.isPaid
-        ? false
-        : (canTrialQuery.data?.canStartTrial ?? false),
+      data:
+        billing.isPaid || !canUsePersonalTrial
+          ? false
+          : (canTrialQuery.data?.canStartTrial ?? false),
       isPending: canTrialQuery.isPending,
     }),
     [
       billing.isPaid,
+      canUsePersonalTrial,
       canTrialQuery.data?.canStartTrial,
       canTrialQuery.isPending,
     ],
@@ -162,6 +169,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       auth?.isFingerprintSettled &&
       isReady &&
       claimsAreCurrent &&
+      canUsePersonalTrial &&
       !billing.isPaid &&
       canTrialQuery.data?.canStartTrial === true,
     queryKey: [auth?.session?.user.id ?? "", "startEligibleTrial"],
@@ -325,7 +333,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const userId = auth?.session?.user.id;
-    if (!userId || !canShowPersonalTrialDialogs) {
+    if (!userId || !canUsePersonalTrial) {
       return;
     }
 
@@ -400,7 +408,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     billing.hasPaymentMethod,
     hasTrial,
     billing.isPaid,
-    canShowPersonalTrialDialogs,
+    canUsePersonalTrial,
     canTrialQuery.data?.reason,
     canTrialQuery.isPending,
     trialEligibilityRefreshedUserId,
@@ -422,13 +430,13 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     <BillingContext.Provider value={value}>
       {children}
       <TrialStartedDialog
-        open={canShowPersonalTrialDialogs && trialStartedOpen}
+        open={canUsePersonalTrial && trialStartedOpen}
         onOpenChange={setTrialStartedOpen}
         trialDaysRemaining={billing.trialDaysRemaining}
         hasPaymentMethod={billing.hasPaymentMethod}
       />
       <TrialPaymentReminderDialog
-        open={canShowPersonalTrialDialogs && trialPaymentReminderOpen}
+        open={canUsePersonalTrial && trialPaymentReminderOpen}
         onOpenChange={setTrialPaymentReminderOpen}
         daysRemaining={billing.trialDaysRemaining ?? 0}
         onAddPaymentMethod={() => {
@@ -441,7 +449,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         }}
       />
       <TrialEndedDialog
-        open={canShowPersonalTrialDialogs && !billing.isPaid && trialEndedOpen}
+        open={canUsePersonalTrial && !billing.isPaid && trialEndedOpen}
         onOpenChange={setTrialEndedOpen}
         onUpgrade={() => void openUpgrade("trial_ended")}
       />
