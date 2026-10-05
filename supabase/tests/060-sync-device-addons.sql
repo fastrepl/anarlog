@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(13);
 
 select tests.create_supabase_user('addon_pro', 'addon-pro@example.com');
 
@@ -54,6 +54,16 @@ do $$begin
     perform * from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-' || ordinal::text);
   end loop;
 end$$;
+select results_eq(
+  format(
+    $$select allowed, enrollment_status, device_count
+      from public.register_e2ee_device_enrollment(%L, 'addon-device-9', 'Phone', %L, null)$$,
+    tests.get_supabase_uid('addon_pro'),
+    rpad('A', 43, 'A')
+  ),
+  $$values (true, 'pending'::text, 9::bigint)$$,
+  'Encrypted enrollment above five devices honors purchased slots'
+);
 select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-9')), true,
   'Purchased slots can be claimed');
 select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('addon_pro'), 'addon-device-10')), false,
