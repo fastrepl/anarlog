@@ -94,7 +94,7 @@ pub(super) async fn fetch_sync_device_limit(
         return Err(SyncError::Upstream);
     }
     match response.json::<u8>().await {
-        Ok(limit @ (3 | 5)) => Ok(limit),
+        Ok(limit) if limit > 0 => Ok(limit),
         _ => Err(SyncError::Upstream),
     }
 }
