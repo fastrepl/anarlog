@@ -909,6 +909,7 @@ pub(super) async fn persist_prepared_dirty_row_cancellable(
                 return Err(E2eeReplicaError::RollbackDetected);
             }
         }
+        super::authority::enqueue(&mut transaction, &field.state).await?;
         upsert_local_state(&mut transaction, &field.state).await?;
         if let Err(error) = check_e2ee_cancellation(is_cancelled) {
             transaction.rollback().await?;

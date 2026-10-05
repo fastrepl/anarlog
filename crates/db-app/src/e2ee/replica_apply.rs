@@ -315,6 +315,24 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
         return Ok(E2eeReplicaStats::default());
     }
 
+    if require_witness {
+        let incomplete: Vec<String> = sqlx::query_scalar(
+            "SELECT workspace_id FROM e2ee_cloud_authority WHERE pull_in_progress = 1",
+        )
+        .fetch_all(pool)
+        .await?;
+        if incomplete
+            .iter()
+            .any(|workspace_id| keys.contains_key(workspace_id))
+        {
+            return Ok(E2eeReplicaStats {
+                remaining_replica_changes: true,
+                skipped_local_changes: 1,
+                ..Default::default()
+            });
+        }
+    }
+
     check_e2ee_apply_cancellation(is_cancelled)?;
     clear_stale_apply_guards(pool).await?;
     check_e2ee_apply_cancellation(is_cancelled)?;
@@ -594,12 +612,49 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
         let mut states =
             load_row_local_states(&mut transaction, &workspace_id, &table, &row_id).await?;
         rollback_if_cancelled!(transaction, is_cancelled);
+        let cloud_authority: bool = require_witness
+            && sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_authority WHERE workspace_id = ?)",
+            )
+            .bind(&workspace_id)
+            .fetch_one(&mut *transaction)
+            .await?;
+        if cloud_authority {
+            let pending_row: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM e2ee_cloud_outbox WHERE workspace_id = ? AND table_name = ? AND row_id = ?)")
+                .bind(&workspace_id).bind(&table).bind(&row_id).fetch_one(&mut *transaction).await?;
+            let present = row_exists(&mut transaction, &table, &workspace_id, &row_id).await?;
+            if pending_row
+                || row_changed_since_snapshot(
+                    &mut transaction,
+                    keyring,
+                    &workspace_id,
+                    &table,
+                    &row_id,
+                    present,
+                    &states,
+                )
+                .await?
+            {
+                stats.skipped_local_changes += records.len() as u64;
+                remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
+                commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
+                continue;
+            }
+        }
         let mut stale_manifest = false;
         let mut accepted_records = Vec::with_capacity(records.len());
         for record in records {
             rollback_if_cancelled!(transaction, is_cancelled);
             let is_stale = match states.get(&record.record_id) {
-                Some(state) => incoming_is_stale(state, &record)?,
+                Some(state) => {
+                    let accepted: bool = cloud_authority && sqlx::query_scalar(
+                        "SELECT EXISTS(SELECT 1 FROM e2ee_witness_records AS witness JOIN e2ee_cloud_authority AS authority
+                         ON authority.workspace_id = witness.workspace_id WHERE witness.workspace_id = ? AND witness.record_id = ?
+                         AND witness.payload_hash = ? AND witness.sequence > authority.after_sequence)")
+                        .bind(&workspace_id).bind(&record.record_id).bind(&record.payload_hash).fetch_one(&mut *transaction).await?;
+                    !accepted && incoming_is_stale(state, &record)?
+                }
                 None => false,
             };
             if is_stale {
@@ -1153,7 +1208,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
 }
 
 // Bookkeeping columns contain no user content to recover as conflict copies.
-fn field_keeps_conflict_copies(field_name: &str) -> bool {
+pub(super) fn field_keeps_conflict_copies(field_name: &str) -> bool {
     !field_name.contains('#')
         && !matches!(
             field_name,

@@ -699,3 +699,81 @@ async fn mixed_transcript_formats_yield_when_a_local_field_is_deferred() {
     assert!(!settled.remaining_replica_changes, "{settled:?}");
     assert_eq!(read_words(&db).await, newer_items);
 }
+
+#[tokio::test]
+async fn accepted_transcript_chunks_follow_cloud_order_after_offline_revision_divergence() {
+    let workspace_keys = keys("workspace-a");
+    let keyring = &workspace_keys["workspace-a"];
+    let (a, b) = seed_transcript(&workspace_keys, &words(0..500)).await;
+    for db in [&a, &b] {
+        configure_e2ee_cloud_authority(db.pool(), "workspace-a", Some(0))
+            .await
+            .unwrap();
+    }
+    let mut head = 0;
+    while let Some(batch) = pending_e2ee_cloud_batch(a.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+    {
+        let events = super::authority::accept(a.pool(), keyring, &batch, &mut head).await;
+        merge_e2ee_witness_events_with_keyring(b.pool(), keyring, "workspace-a", &events)
+            .await
+            .unwrap();
+    }
+    // B's offline edit starts before A's successive accepted revisions.
+    write_words(&b, &words(500..1000), EIGHT_AM).await;
+    encrypt_e2ee_replica_changes(b.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    for start in [1000, 1500, 2000] {
+        write_words(&a, &words(start..start + 500), NINE_AM).await;
+        encrypt_e2ee_replica_changes(a.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        while let Some(batch) = pending_e2ee_cloud_batch(a.pool(), "workspace-a", false)
+            .await
+            .unwrap()
+        {
+            let events = super::authority::accept(a.pool(), keyring, &batch, &mut head).await;
+            merge_e2ee_witness_events_with_keyring(b.pool(), keyring, "workspace-a", &events)
+                .await
+                .unwrap();
+        }
+    }
+    apply_received_e2ee_replica_changes_with_witness(b.pool(), &workspace_keys, true)
+        .await
+        .unwrap();
+    assert_eq!(read_words(&b).await, words(500..1000));
+    while let Some(batch) = pending_e2ee_cloud_batch(b.pool(), "workspace-a", false)
+        .await
+        .unwrap()
+    {
+        preserve_e2ee_cloud_conflicts(b.pool(), "workspace-a", keyring, &batch)
+            .await
+            .unwrap();
+        let events = super::authority::accept(b.pool(), keyring, &batch, &mut head).await;
+        merge_e2ee_witness_events_with_keyring(a.pool(), keyring, "workspace-a", &events)
+            .await
+            .unwrap();
+    }
+    for db in [&a, &b] {
+        apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, true)
+            .await
+            .unwrap();
+        assert_eq!(read_words(db).await, words(500..1000));
+        encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+            .await
+            .unwrap();
+        assert!(
+            pending_e2ee_cloud_batch(db.pool(), "workspace-a", false)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+    let copies = list_e2ee_field_conflicts(b.pool(), "transcripts", "transcript-1", false)
+        .await
+        .unwrap();
+    assert!(copies.iter().any(|copy| copy.field_name == "words_json"
+        && copy.value_json == serde_json::to_string(&words_json(&words(2000..2500))).unwrap()));
+}

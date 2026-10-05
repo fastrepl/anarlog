@@ -684,6 +684,8 @@ async fn load_bounded_e2ee_witness_repairs(
                        WHERE local.record_id = replica.id
                          AND local.workspace_id = replica.workspace_id
                          AND local.payload_hash = replica_hash.payload_hash
+                         AND NOT EXISTS (SELECT 1 FROM e2ee_cloud_authority AS authority
+                           WHERE authority.workspace_id = witness.workspace_id AND witness.sequence > authority.after_sequence)
                          AND (
                            local.revision > witness.revision
                            OR (
@@ -1014,7 +1016,16 @@ async fn upsert_witness_record(
            payload_hash = excluded.payload_hash,
            sequence = MAX(e2ee_witness_records.sequence, excluded.sequence),
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-         WHERE excluded.revision > e2ee_witness_records.revision
+         WHERE (
+           EXISTS (SELECT 1 FROM e2ee_cloud_authority AS authority
+             WHERE authority.workspace_id = excluded.workspace_id
+               AND excluded.sequence > authority.after_sequence)
+           AND excluded.sequence > e2ee_witness_records.sequence
+         ) OR (
+           NOT EXISTS (SELECT 1 FROM e2ee_cloud_authority AS authority
+             WHERE authority.workspace_id = excluded.workspace_id
+               AND MAX(excluded.sequence, e2ee_witness_records.sequence) > authority.after_sequence)
+           AND (excluded.revision > e2ee_witness_records.revision
             OR (
               excluded.revision = e2ee_witness_records.revision
               AND excluded.writer_id > e2ee_witness_records.writer_id
@@ -1029,7 +1040,7 @@ async fn upsert_witness_record(
               AND excluded.writer_id = e2ee_witness_records.writer_id
               AND excluded.payload_hash = e2ee_witness_records.payload_hash
               AND excluded.sequence > e2ee_witness_records.sequence
-            )",
+            )))",
     )
     .bind(&record.workspace_id)
     .bind(&record.record_id)
@@ -1039,6 +1050,13 @@ async fn upsert_witness_record(
     .bind(record.sequence)
     .execute(&mut **transaction)
     .await?;
+    if record.sequence > 0 {
+        // A feed event is also proof of acceptance. This covers restoring a
+        // backup taken after encryption but before the upload ID was frozen.
+        sqlx::query("DELETE FROM e2ee_cloud_outbox WHERE workspace_id = ? AND record_id = ? AND payload_hash = ?")
+            .bind(&record.workspace_id).bind(&record.record_id).bind(&record.payload_hash)
+            .execute(&mut **transaction).await?;
+    }
     reconcile_e2ee_witness_pending(transaction, &record.record_id).await?;
     prune_ciphertext_archive(transaction, &record.workspace_id, &record.record_id).await?;
     Ok(())

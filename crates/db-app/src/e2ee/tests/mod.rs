@@ -89,6 +89,7 @@ async fn seed_nightly_field(
     transaction.commit().await.unwrap();
 }
 
+mod authority;
 mod block_merge;
 mod chunked_fields;
 mod compatibility;

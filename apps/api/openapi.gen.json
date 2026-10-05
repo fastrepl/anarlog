@@ -3631,6 +3631,107 @@
         ]
       }
     },
+    "/sync/e2ee/witness/{workspace_id}/accepted": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "read_accepted_e2ee_replica",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "afterSequence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "throughSequence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accepted cloud state and legacy cutover boundary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedPage"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "accept_e2ee_replica_batch",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Atomic acceptance receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Cloud base changed; pull and rebase"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/e2ee/witness/{workspace_id}/wait": {
       "get": {
         "tags": [
@@ -5455,6 +5556,89 @@
   },
   "components": {
     "schemas": {
+      "AcceptRequest": {
+        "type": "object",
+        "required": [
+          "mutationId",
+          "baseSequence",
+          "initialize",
+          "events"
+        ],
+        "properties": {
+          "baseSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/E2eeWitnessEvent"
+            }
+          },
+          "initialize": {
+            "type": "boolean"
+          },
+          "mutationId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AcceptResponse": {
+        "type": "object",
+        "required": [
+          "initializedAt",
+          "headSequence",
+          "cloudAuthorityAfter",
+          "mutationId",
+          "receipts"
+        ],
+        "properties": {
+          "cloudAuthorityAfter": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "headSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "initializedAt": {
+            "type": "string"
+          },
+          "mutationId": {
+            "type": "string"
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Receipt"
+            }
+          }
+        }
+      },
+      "AcceptedPage": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/E2eeWitnessPage"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "cloudAuthorityAfter": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
       "AccessRole": {
         "type": "string",
         "enum": [
@@ -11081,6 +11265,27 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "Receipt": {
+        "type": "object",
+        "required": [
+          "sequence",
+          "recordId",
+          "payloadHash"
+        ],
+        "properties": {
+          "payloadHash": {
+            "type": "string"
+          },
+          "recordId": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },

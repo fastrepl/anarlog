@@ -1,3 +1,5 @@
+mod accepted;
+
 use anlg_api_auth::AuthContext;
 use axum::{
     Extension, Json, Router,
@@ -148,8 +150,18 @@ struct PostgrestError {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(read_e2ee_witness, publish_e2ee_witness, wait_e2ee_witness),
+    paths(
+        read_e2ee_witness,
+        publish_e2ee_witness,
+        wait_e2ee_witness,
+        accepted::read,
+        accepted::accept
+    ),
     components(schemas(
+        accepted::AcceptRequest,
+        accepted::AcceptResponse,
+        accepted::Receipt,
+        accepted::AcceptedPage,
         E2eeWitnessEvent,
         PublishE2eeWitnessRequest,
         PublishE2eeWitnessResponse,
@@ -166,6 +178,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
 
 pub fn router() -> Router<ReplicaState> {
     Router::new()
+        .merge(accepted::router())
         .route(
             "/e2ee/witness/{workspace_id}",
             get(read_e2ee_witness).post(publish_e2ee_witness),
@@ -641,6 +654,7 @@ fn map_postgrest_error(status: HttpStatusCode, bytes: &[u8]) -> SyncError {
             SyncError::E2eeWitnessForbidden
         }
         (_, Some("22023")) => SyncError::BadRequest("E2EE witness request is invalid".to_string()),
+        (_, Some("A0002")) => SyncError::CloudsyncUpgradeRequired,
         (_, Some("55000")) => SyncError::E2eeWitnessUninitialized,
         _ => SyncError::E2eeWitnessServiceUnavailable,
     }
@@ -737,6 +751,50 @@ mod tests {
                 "payload": "opaque"
             }]
         })
+    }
+
+    #[tokio::test]
+    async fn acceptance_validates_receipts_and_exposes_a_retryable_base_conflict() {
+        for case in ["accepted", "wrong_receipt", "stale_base"] {
+            let server = MockServer::start().await;
+            let mutation = "11111111-1111-4111-8111-111111111111";
+            let upstream = if case == "stale_base" {
+                ResponseTemplate::new(409).set_body_json(json!({"code":"40001"}))
+            } else {
+                ResponseTemplate::new(200).set_body_json(json!([{
+                    "initialized_at":"2026-10-05T00:00:00Z", "head_sequence":1, "cloud_authority_after":0,
+                    "mutation_id": mutation, "receipts":[{"sequence":1,"recordId": RECORD_ID,
+                        "payloadHash": if case == "wrong_receipt" { RECORD_ID } else { PAYLOAD_HASH }}]
+                }]))
+            };
+            Mock::given(method("POST")).and(path("/rest/v1/rpc/accept_e2ee_replica_batch"))
+                .and(body_partial_json(json!({"p_actor_user_id":OWNER,"p_workspace_id":OWNER,"p_mutation_id":mutation,"p_base_sequence":0})))
+                .respond_with(upstream).mount(&server).await;
+            let mut body = publish_body();
+            body["mutationId"] = json!(mutation);
+            body["baseSequence"] = json!(0);
+            let response = test_router(&server)
+                .oneshot(request(
+                    Method::POST,
+                    &format!("/e2ee/witness/{OWNER}/accepted"),
+                    Some(body),
+                ))
+                .await
+                .unwrap();
+            let expected = match case {
+                "accepted" => StatusCode::OK,
+                "stale_base" => StatusCode::CONFLICT,
+                _ => StatusCode::BAD_GATEWAY,
+            };
+            assert_eq!(response.status(), expected, "{case}");
+            let body = response_json(response).await;
+            if case == "accepted" {
+                assert_eq!(body["receipts"][0]["sequence"], 1);
+            }
+            if case == "stale_base" {
+                assert_eq!(body["error"]["code"], "e2ee_replica_base_changed");
+            }
+        }
     }
 
     #[tokio::test]

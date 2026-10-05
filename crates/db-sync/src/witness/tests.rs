@@ -1361,3 +1361,143 @@ async fn wait_for_remote_head_ignores_stale_and_uninitialized_heads() {
     assert_eq!(stale, None);
     assert_eq!(uninitialized, None);
 }
+
+#[derive(Default)]
+struct AcceptedServer {
+    events: Vec<serde_json::Value>,
+    receipts: HashMap<String, (serde_json::Value, serde_json::Value)>,
+    lose_response: bool,
+}
+
+#[derive(Clone)]
+struct AcceptedResponder(Arc<Mutex<AcceptedServer>>);
+
+impl Respond for AcceptedResponder {
+    fn respond(&self, request: &Request) -> ResponseTemplate {
+        let mut server = self.0.lock().unwrap();
+        if request.method.as_str() == "GET" {
+            let after = request
+                .url
+                .query_pairs()
+                .find_map(|(k, v)| (k == "afterSequence").then(|| v.parse::<u64>().unwrap()))
+                .unwrap_or(0);
+            let head = server.events.len() as u64;
+            return ResponseTemplate::new(200).set_body_json(json!({
+                "initialized": true, "initializedAt": "2026-10-05T00:00:00Z", "cloudAuthorityAfter": 0,
+                "headSequence": head, "throughSequence": head, "nextAfterSequence": head,
+                "events": server.events.iter().filter(|e| e["sequence"].as_u64().unwrap() > after).collect::<Vec<_>>(),
+            }));
+        }
+        let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+        let id = body["mutationId"].as_str().unwrap().to_string();
+        if let Some((original, receipt)) = server.receipts.get(&id) {
+            assert_eq!(original, &body, "A retry must retain the immutable request");
+            return ResponseTemplate::new(200).set_body_json(receipt);
+        }
+        if body["baseSequence"] != server.events.len() {
+            return ResponseTemplate::new(409)
+                .set_body_json(json!({"error":{"code":"e2ee_replica_base_changed"}}));
+        }
+        let mut receipts = Vec::new();
+        for event in body["events"].as_array().unwrap() {
+            let sequence = server.events.len() + 1;
+            let mut event = event.clone();
+            event["sequence"] = json!(sequence);
+            receipts.push(json!({"sequence": sequence, "recordId": event["recordId"], "payloadHash": event["payloadHash"]}));
+            server.events.push(event);
+        }
+        let receipt = json!({"initializedAt":"2026-10-05T00:00:00Z", "headSequence": server.events.len(),
+            "cloudAuthorityAfter":0, "mutationId":id, "receipts": receipts});
+        server.receipts.insert(id, (body, receipt.clone()));
+        if server.lose_response {
+            server.lose_response = false;
+            ResponseTemplate::new(500)
+        } else {
+            ResponseTemplate::new(200).set_body_json(receipt)
+        }
+    }
+}
+
+#[tokio::test]
+async fn accepted_sync_recovers_a_lost_receipt_without_losing_a_newer_offline_edit() {
+    let server = MockServer::start().await;
+    let state = Arc::new(Mutex::new(AcceptedServer {
+        lose_response: true,
+        ..Default::default()
+    }));
+    Mock::given(path("/sync/e2ee/witness/user-a/accepted"))
+        .respond_with(AcceptedResponder(state.clone()))
+        .mount(&server)
+        .await;
+    let make_client = || {
+        E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "token".into(),
+            },
+            "user-a",
+        )
+        .unwrap()
+    };
+    let key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap()
+    .workspace_key("user-a")
+    .unwrap();
+    let keys = HashMap::from([("user-a".to_string(), key.clone().into())]);
+    let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    sqlx::query("INSERT INTO sessions(id, workspace_id, owner_user_id, title) VALUES('s','user-a','user-a','First')").execute(db.pool()).await.unwrap();
+    anlg_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+    assert!(make_client().initialize(db.pool(), &key).await.is_err());
+    let frozen = anlg_db_app::pending_e2ee_cloud_batch(db.pool(), "user-a", false)
+        .await
+        .unwrap()
+        .unwrap();
+    sqlx::query("UPDATE sessions SET title = 'Newer offline edit' WHERE id = 's'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    anlg_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
+        .await
+        .unwrap();
+    assert_eq!(
+        anlg_db_app::pending_e2ee_cloud_batch(db.pool(), "user-a", false)
+            .await
+            .unwrap()
+            .unwrap()
+            .mutation_id,
+        frozen.mutation_id
+    );
+    // A newly constructed client must recover solely from durable SQLite state.
+    make_client().initialize(db.pool(), &key).await.unwrap();
+    assert!(
+        anlg_db_app::pending_e2ee_cloud_batch(db.pool(), "user-a", false)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let fresh = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&fresh).await.unwrap();
+    make_client().initialize(fresh.pool(), &key).await.unwrap();
+    anlg_db_app::apply_received_e2ee_replica_changes_with_witness(fresh.pool(), &keys, true)
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = 's'")
+            .fetch_one(fresh.pool())
+            .await
+            .unwrap(),
+        "Newer offline edit"
+    );
+    // Receipts can be durable before the paginated read cursor advances.
+    sqlx::query("UPDATE e2ee_witness_state SET last_sequence = 0 WHERE workspace_id = 'user-a'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    state.lock().unwrap().events.clear();
+    assert!(make_client().refresh(db.pool(), &key).await.is_err());
+}

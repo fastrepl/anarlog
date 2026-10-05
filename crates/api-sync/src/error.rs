@@ -38,6 +38,9 @@ pub enum SyncError {
     #[error("E2EE freshness witness is not initialized")]
     E2eeWitnessUninitialized,
 
+    #[error("Cloud state changed; pull before retrying")]
+    E2eeReplicaBaseChanged,
+
     #[error("E2EE freshness witness is unavailable")]
     E2eeWitnessServiceUnavailable,
 
@@ -117,6 +120,11 @@ pub enum SyncError {
 impl IntoResponse for SyncError {
     fn into_response(self) -> Response {
         let (status, code, message) = match self {
+            Self::E2eeReplicaBaseChanged => (
+                StatusCode::CONFLICT,
+                "e2ee_replica_base_changed",
+                "Cloud state changed; pull before retrying".to_string(),
+            ),
             Self::BadRequest(message) => (StatusCode::BAD_REQUEST, "bad_request", message),
             Self::ProPlanRequired => (
                 StatusCode::FORBIDDEN,
