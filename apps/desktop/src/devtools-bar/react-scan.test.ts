@@ -39,7 +39,6 @@ vi.mock("react-scan", () => {
       getComponentName: vi.fn((path) => path[path.length - 1]),
       getEventSeverity: vi.fn(() => "high"),
       mountInspector: vi.fn(() => () => {}),
-      playNotificationSound: vi.fn(),
     },
     getOptions: () => options,
     ReactScanInternals: {
