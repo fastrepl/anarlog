@@ -89,6 +89,133 @@ async fn write_words(db: &anlg_db_core::Db, items: &[Value], edited_at_ms: i64) 
     .unwrap();
 }
 
+#[tokio::test]
+async fn cloud_winners_do_not_get_republished_by_a_clean_replica_with_a_faster_clock() {
+    let workspace_keys = keys("workspace-a");
+    let key = workspace_keys["workspace-a"].active();
+    let (local, remote) = seed_transcript(&workspace_keys, &words(0..3)).await;
+    let fresh = test_db().await;
+    let pending = test_db().await;
+    copy_replica(local.pool(), pending.pool()).await;
+    apply_e2ee_replica_changes(pending.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let offline_words = words(20..23);
+    write_words(&pending, &offline_words, NINE_AM).await;
+    sqlx::query("UPDATE sessions SET title = 'Offline title' WHERE id = 'session-1'")
+        .execute(pending.pool())
+        .await
+        .unwrap();
+    let cloud_words = words(10..13);
+    write_words(&remote, &cloud_words, EIGHT_AM - 7_200_000).await;
+    sqlx::query("UPDATE sessions SET title = 'Cloud title' WHERE id = 'session-1'")
+        .execute(remote.pool())
+        .await
+        .unwrap();
+    sqlx::query("UPDATE e2ee_dirty_rows SET dirtied_at_ms = ?")
+        .bind(EIGHT_AM - 7_200_000)
+        .execute(remote.pool())
+        .await
+        .unwrap();
+    encrypt_e2ee_replica_changes(remote.pool(), &workspace_keys)
+        .await
+        .unwrap();
+
+    let uploads = pending_e2ee_witness_uploads(remote.pool(), "workspace-a", key, 128, usize::MAX)
+        .await
+        .unwrap();
+    let events = uploads
+        .iter()
+        .enumerate()
+        .map(|(index, upload)| E2eeWitnessEvent {
+            sequence: index as u64 + 1,
+            workspace_id: upload.workspace_id.clone(),
+            record_id: upload.record_id.clone(),
+            payload_hash: upload.payload_hash.clone(),
+            payload: upload.payload.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    for db in [&local, &fresh] {
+        merge_e2ee_witness_events(db.pool(), key, "workspace-a", &events)
+            .await
+            .unwrap();
+        apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, true)
+            .await
+            .unwrap();
+        let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        assert_eq!(title, "Cloud title");
+        assert_eq!(read_words(db).await, cloud_words);
+        assert_eq!(
+            encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
+                .await
+                .unwrap()
+                .encrypted_fields,
+            0
+        );
+        assert!(
+            pending_e2ee_witness_uploads(db.pool(), "workspace-a", key, 128, usize::MAX)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    let conflicts = list_e2ee_field_conflicts(local.pool(), "sessions", "session-1", false)
+        .await
+        .unwrap();
+    assert!(
+        conflicts
+            .iter()
+            .any(|conflict| conflict.field_name == "title"
+                && conflict.lost_side == "local"
+                && conflict.value_json == "\"Meeting\"")
+    );
+    let conflicts = list_e2ee_field_conflicts(local.pool(), "transcripts", "transcript-1", false)
+        .await
+        .unwrap();
+    let original_words = json!(words_json(&words(0..3))).to_string();
+    assert!(
+        conflicts
+            .iter()
+            .any(|conflict| conflict.field_name == "words_json"
+                && conflict.lost_side == "local"
+                && conflict.value_json == original_words)
+    );
+
+    merge_e2ee_witness_events(pending.pool(), key, "workspace-a", &events)
+        .await
+        .unwrap();
+    apply_received_e2ee_replica_changes_with_witness(pending.pool(), &workspace_keys, true)
+        .await
+        .unwrap();
+    let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+        .fetch_one(pending.pool())
+        .await
+        .unwrap();
+    assert_eq!(title, "Offline title");
+    assert_eq!(read_words(&pending).await, offline_words);
+    assert!(
+        encrypt_e2ee_replica_changes(pending.pool(), &workspace_keys)
+            .await
+            .unwrap()
+            .encrypted_fields
+            > 0
+    );
+    let uploads = pending_e2ee_witness_uploads(pending.pool(), "workspace-a", key, 128, usize::MAX)
+        .await
+        .unwrap();
+    assert!(uploads.iter().any(|upload| {
+        let field = key
+            .open_field("workspace-a", &upload.record_id, &upload.payload)
+            .unwrap();
+        field.table == "sessions" && field.field == "title" && field.value == json!("Offline title")
+    }));
+}
+
 async fn chunk_state_revisions(db: &anlg_db_core::Db) -> HashMap<String, i64> {
     sqlx::query_as::<_, (String, i64)>(
         "SELECT field_name, revision FROM e2ee_local_state

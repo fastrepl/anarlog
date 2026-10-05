@@ -965,41 +965,70 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                         &state.writer_id,
                     )
                 {
-                    // The record won the revision race but was written before
-                    // the value this device already holds. Keep the later
-                    // edit, remember the earlier one, and republish above the
-                    // incoming revision so every replica converges on it.
+                    // A verified cloud winner must not be overturned by a
+                    // clean replica's clock. Keep the displaced value for
+                    // recovery; unwitnessed replication retains its policy.
                     let recorded = field_keeps_conflict_copies(field_name)
                         && record_conflict(
                             &mut transaction,
                             &ConflictCopy {
-                                id: format!("{}:{}", record.record_id, record.payload_hash),
+                                id: format!(
+                                    "{}:{}",
+                                    record.record_id,
+                                    if require_witness {
+                                        &state.payload_hash
+                                    } else {
+                                        &record.payload_hash
+                                    }
+                                ),
                                 workspace_id: &workspace_id,
                                 table_name: &table,
                                 row_id: &row_id,
                                 field_name,
-                                lost_side: ConflictLoser::Remote,
-                                writer_id: &record.field.writer_id,
-                                revision: i64::try_from(record.field.revision)
-                                    .map_err(|_| E2eeReplicaError::InvalidRow)?,
-                                edited_at_ms: Some(i64::try_from(incoming).unwrap_or(i64::MAX)),
-                                value: &record.field.value,
+                                lost_side: if require_witness {
+                                    ConflictLoser::Local
+                                } else {
+                                    ConflictLoser::Remote
+                                },
+                                writer_id: if require_witness {
+                                    &state.writer_id
+                                } else {
+                                    &record.field.writer_id
+                                },
+                                revision: if require_witness {
+                                    state.revision
+                                } else {
+                                    i64::try_from(record.field.revision)
+                                        .map_err(|_| E2eeReplicaError::InvalidRow)?
+                                },
+                                edited_at_ms: Some(if require_witness {
+                                    local
+                                } else {
+                                    i64::try_from(incoming).unwrap_or(i64::MAX)
+                                }),
+                                value: if require_witness {
+                                    &current
+                                } else {
+                                    &record.field.value
+                                },
                             },
                         )
                         .await?;
                     rollback_if_cancelled!(transaction, is_cancelled);
-                    mark_local_state_for_republish(
-                        &mut transaction,
-                        &record.record_id,
-                        i64::try_from(record.field.revision)
-                            .map_err(|_| E2eeReplicaError::InvalidRow)?,
-                    )
-                    .await?;
-                    rollback_if_cancelled!(transaction, is_cancelled);
-                    queue_dirty_row(&mut transaction, &workspace_id, &table, &row_id).await?;
-                    rollback_if_cancelled!(transaction, is_cancelled);
                     stats.recorded_conflicts += u64::from(recorded);
-                    continue;
+                    if !require_witness {
+                        mark_local_state_for_republish(
+                            &mut transaction,
+                            &record.record_id,
+                            i64::try_from(record.field.revision)
+                                .map_err(|_| E2eeReplicaError::InvalidRow)?,
+                        )
+                        .await?;
+                        rollback_if_cancelled!(transaction, is_cancelled);
+                        queue_dirty_row(&mut transaction, &workspace_id, &table, &row_id).await?;
+                        rollback_if_cancelled!(transaction, is_cancelled);
+                        continue;
+                    }
                 }
             }
 
@@ -1057,6 +1086,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 column_records,
                 &mut states,
                 row_materialized,
+                require_witness,
             )
             .await?;
             rollback_if_cancelled!(transaction, is_cancelled);
@@ -1069,8 +1099,10 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 ChunkedColumnOutcome::Applied {
                     applied_fields,
                     kept_local,
+                    recorded_conflicts,
                 } => {
                     stats.applied_fields += applied_fields;
+                    stats.recorded_conflicts += recorded_conflicts;
                     republish_merged_row |= kept_local;
                 }
             }
@@ -1120,8 +1152,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
     Ok(stats)
 }
 
-// Bookkeeping columns still resolve by edit time, but their values mean
-// nothing to the user, so they never produce conflict copies.
+// Bookkeeping columns contain no user content to recover as conflict copies.
 fn field_keeps_conflict_copies(field_name: &str) -> bool {
     !field_name.contains('#')
         && !matches!(
@@ -1146,6 +1177,7 @@ enum ChunkedColumnOutcome {
     Applied {
         applied_fields: u64,
         kept_local: bool,
+        recorded_conflicts: u64,
     },
 }
 
@@ -1223,6 +1255,7 @@ async fn load_remaining_chunk_records(
 /// (or when edit times are unknown), otherwise the incoming chunk wins. The
 /// column is only written once every chunk the count names is available, so a
 /// partly received transcript never lands.
+#[allow(clippy::too_many_arguments)]
 async fn apply_chunked_column(
     transaction: &mut Transaction<'_, Sqlite>,
     keyring: &WorkspaceKeyring,
@@ -1231,6 +1264,7 @@ async fn apply_chunked_column(
     column_records: ChunkedColumnRecords,
     states: &mut HashMap<String, LocalState>,
     row_materialized: bool,
+    require_witness: bool,
 ) -> E2eeReplicaResult<ChunkedColumnOutcome> {
     let (workspace_id, table, row_id) = row;
     let all_record_ids = || {
@@ -1268,6 +1302,7 @@ async fn apply_chunked_column(
     let mut applied_fields = 0;
     let mut kept_local = false;
     let mut applied_states = Vec::new();
+    let mut displaced_local_state = None;
     for index in 0..count {
         let record = &column_records.chunks[&index];
         let remote_chunk = record.field.value.as_array().cloned().unwrap_or_default();
@@ -1281,8 +1316,8 @@ async fn apply_chunked_column(
                         == state.value_tag
                 });
                 if matches_snapshot {
-                    // Unchanged here; take the record unless it is an older
-                    // edit that merely won the revision race.
+                    // Cloud winners replace clean snapshots regardless of
+                    // device clocks, just like unchunked fields.
                     match (record.field.edited_at_ms, state.edited_at_ms) {
                         (Some(incoming), Some(local))
                             if state.payload_hash != record.payload_hash
@@ -1293,14 +1328,19 @@ async fn apply_chunked_column(
                                     &state.writer_id,
                                 ) =>
                         {
-                            mark_local_state_for_republish(
-                                transaction,
-                                &record.record_id,
-                                i64::try_from(record.field.revision)
-                                    .map_err(|_| E2eeReplicaError::InvalidRow)?,
-                            )
-                            .await?;
-                            true
+                            if require_witness {
+                                displaced_local_state = Some(state);
+                                false
+                            } else {
+                                mark_local_state_for_republish(
+                                    transaction,
+                                    &record.record_id,
+                                    i64::try_from(record.field.revision)
+                                        .map_err(|_| E2eeReplicaError::InvalidRow)?,
+                                )
+                                .await?;
+                                true
+                            }
                         }
                         _ => false,
                     }
@@ -1341,6 +1381,33 @@ async fn apply_chunked_column(
     }
 
     let joined = join_chunks(&merged);
+    let recorded_conflicts = if let (Some(state), Some(current)) = (displaced_local_state, &current)
+        && current != &joined
+    {
+        let value_tag = keyring
+            .active()
+            .value_tag(table, row_id, column, false, current);
+        u64::from(
+            record_conflict(
+                transaction,
+                &ConflictCopy {
+                    id: format!("{}:local:{value_tag}", count_record.record_id),
+                    workspace_id,
+                    table_name: table,
+                    row_id,
+                    field_name: column,
+                    lost_side: ConflictLoser::Local,
+                    writer_id: &state.writer_id,
+                    revision: state.revision,
+                    edited_at_ms: state.edited_at_ms,
+                    value: current,
+                },
+            )
+            .await?,
+        )
+    } else {
+        0
+    };
     if current.as_ref() != Some(&joined) {
         update_field(transaction, table, workspace_id, row_id, column, &joined).await?;
     }
@@ -1400,6 +1467,7 @@ async fn apply_chunked_column(
     Ok(ChunkedColumnOutcome::Applied {
         applied_fields,
         kept_local,
+        recorded_conflicts,
     })
 }
 
@@ -1446,8 +1514,8 @@ fn incoming_edit_is_older(
 }
 
 // Lower revisions are replays and are always rejected. Equal revisions from
-// different writers are concurrent edits: when both carry an edit time the
-// field loop orders them by it; otherwise the writer order decides as before.
+// different writers may need the field loop's edit-time resolution on the
+// unwitnessed path. Verified records already passed witness selection.
 fn incoming_is_stale(state: &LocalState, record: &DecryptedRecord) -> E2eeReplicaResult<bool> {
     let state_revision = u64::try_from(state.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
     Ok(match record.field.revision.cmp(&state_revision) {
