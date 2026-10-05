@@ -54,8 +54,9 @@ import { useDictation } from "./use-dictation";
 import { useTabs } from "~/store/zustand/tabs";
 
 describe("useDictation", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup();
+    await Promise.resolve();
     vi.useRealTimers();
     vi.clearAllMocks();
     useTabs.setState({ chatMode: "FloatingOpen" });
@@ -213,23 +214,87 @@ describe("useDictation", () => {
     });
   });
 
-  it("cancels voice input when chat closes while its composer stays mounted", async () => {
-    const editorRef = { current: null };
-    const { result } = renderHook(() => useDictation({ editorRef }));
-
+  it("waits for native cancellation before starting after chat reopens", async () => {
+    let releaseCancellation!: () => void;
+    const cancellation = new Promise<void>((resolve) => {
+      releaseCancellation = resolve;
+    });
+    let capturing = false;
+    mocks.startRecording.mockImplementation(async () => {
+      if (capturing) {
+        return { status: "error", error: "AlreadyRecording" };
+      }
+      capturing = true;
+      return { status: "ok", data: null };
+    });
+    mocks.cancelRecording.mockImplementation(async () => {
+      await cancellation;
+      capturing = false;
+      return { status: "ok", data: null };
+    });
+    const { result } = renderHook(() =>
+      useDictation({ editorRef: { current: null } }),
+    );
     await act(async () => {
       await result.current.start();
     });
-    expect(result.current.phase).toBe("recording");
-
     act(() => useTabs.setState({ chatMode: "FloatingClosed" }));
-    expect(result.current.phase).toBe("idle");
-    expect(mocks.cancelRecording).toHaveBeenCalledOnce();
+    act(() => useTabs.setState({ chatMode: "FloatingOpen" }));
+    let restarted!: Promise<void>;
+    await act(async () => {
+      restarted = result.current.start();
+    });
+    expect(result.current.phase).toBe("starting");
+    await act(async () => {
+      releaseCancellation();
+      await restarted;
+    });
+    expect(result.current.phase).toBe("recording");
+    expect(capturing).toBe(true);
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
 
+  it("keeps transcription busy across close and reopen until the old batch settles", async () => {
+    let finishBatch!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finishBatch = resolve;
+    });
+    mocks.runBatch.mockImplementationOnce(async (_path, options) => {
+      await pending;
+      options.handlePersist([
+        { text: "Discarded", start_ms: 0, end_ms: 1, channel: 0 },
+      ]);
+    });
+    const editor = {
+      focus: vi.fn(),
+      insertText: vi.fn(),
+    } as unknown as ChatEditorHandle;
+    const { result } = renderHook(() =>
+      useDictation({ editorRef: { current: editor } }),
+    );
+    await act(async () => {
+      await result.current.start();
+    });
+    let stopped!: Promise<void>;
+    await act(async () => {
+      stopped = result.current.stop();
+    });
+    act(() => useTabs.setState({ chatMode: "FloatingClosed" }));
     act(() => useTabs.setState({ chatMode: "FloatingOpen" }));
     await act(async () => {
       await result.current.start();
     });
-    expect(result.current.phase).toBe("recording");
+    expect(result.current.phase).toBe("transcribing");
+    await act(async () => {
+      finishBatch();
+      await stopped;
+    });
+    expect(result.current.phase).toBe("idle");
+    expect(editor.insertText).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.start();
+      await result.current.stop();
+    });
+    expect(editor.insertText).toHaveBeenCalledWith("Hello world.");
   });
 });

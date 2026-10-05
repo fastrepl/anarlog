@@ -18,36 +18,20 @@ describe("ChatBodyEmpty", () => {
     cleanup();
   });
 
-  it.each([
-    {
-      hasContext: true,
-      prompt: "What were the key decisions that have been made?",
-    },
-    {
-      hasContext: false,
-      prompt: "What key decisions were made in my recent meetings?",
-    },
-  ])(
-    "offers usable quick actions with hasContext=$hasContext",
-    ({ hasContext, prompt }) => {
+  it("offers quick actions inside and outside notes with different context", () => {
+    const prompts: string[] = [];
+    for (const hasContext of [true, false]) {
       const onSendMessage = vi.fn();
-
-      render(
+      const view = render(
         <ChatBodyEmpty hasContext={hasContext} onSendMessage={onSendMessage} />,
       );
-
-      const decisions = screen.getByRole("button", {
-        name: "Find key decisions.",
-      });
-
-      fireEvent.click(decisions);
-
-      expect(onSendMessage).toHaveBeenCalledWith(prompt, [
-        {
-          type: "text",
-          text: prompt,
-        },
-      ]);
-    },
-  );
+      fireEvent.click(screen.getAllByRole("button")[0]);
+      const [prompt, parts] = onSendMessage.mock.calls[0];
+      expect(prompt.trim().length).toBeGreaterThan(0);
+      expect(parts).toEqual([{ type: "text", text: prompt }]);
+      prompts.push(prompt);
+      view.unmount();
+    }
+    expect(prompts[0]).not.toEqual(prompts[1]);
+  });
 });

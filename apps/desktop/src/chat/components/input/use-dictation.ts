@@ -36,6 +36,7 @@ export function useDictation({
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
   const startInFlightRef = useRef(false);
+  const cancellationRef = useRef<Promise<void> | null>(null);
 
   const setPhase = useCallback((nextPhase: DictationPhase) => {
     phaseRef.current = nextPhase;
@@ -48,6 +49,19 @@ export function useDictation({
       elapsedTimerRef.current = null;
     }
   }, []);
+
+  const cancelRecording = useCallback(() => {
+    const cancellation = (cancellationRef.current ?? Promise.resolve()).then(
+      () => cancelActiveRecording(transcriptionSessionId),
+    );
+    cancellationRef.current = cancellation;
+    void cancellation.finally(() => {
+      if (cancellationRef.current === cancellation) {
+        cancellationRef.current = null;
+      }
+    });
+    return cancellation;
+  }, [transcriptionSessionId]);
 
   const start = useCallback(async () => {
     if (
@@ -63,6 +77,10 @@ export function useDictation({
     startInFlightRef.current = true;
     const generation = generationRef.current;
     try {
+      await cancellationRef.current;
+      if (!mountedRef.current || generation !== generationRef.current) {
+        return;
+      }
       const captureState = await transcriptionCommands.getCaptureState();
       if (!mountedRef.current || generation !== generationRef.current) {
         return;
@@ -86,7 +104,7 @@ export function useDictation({
         throw new Error(result.error);
       }
       if (!mountedRef.current || generation !== generationRef.current) {
-        await cancelActiveRecording(transcriptionSessionId);
+        await cancelRecording();
         return;
       }
 
@@ -104,7 +122,7 @@ export function useDictation({
         }
       }, 250);
     } catch (error) {
-      await cancelActiveRecording(transcriptionSessionId);
+      await cancelRecording();
       if (!mountedRef.current || generation !== generationRef.current) {
         return;
       }
@@ -117,6 +135,7 @@ export function useDictation({
       startInFlightRef.current = false;
     }
   }, [
+    cancelRecording,
     disabled,
     microphoneDevice,
     setPhase,
@@ -168,6 +187,9 @@ export function useDictation({
         editorRef.current?.insertText(transcript);
       }
     } catch (error) {
+      if (!mountedRef.current || generation !== generationRef.current) {
+        return;
+      }
       const message = error instanceof Error ? error.message : String(error);
       if (/no speech|empty transcript/iu.test(message)) {
         toast.warning(t`No speech detected`, {
@@ -183,8 +205,8 @@ export function useDictation({
       if (recordedPath) {
         await discardTemporaryRecording(recordedPath);
       }
+      setPhase("idle");
       if (mountedRef.current && generation === generationRef.current) {
-        setPhase("idle");
         editorRef.current?.focus();
       }
     }
@@ -213,9 +235,11 @@ export function useDictation({
       generationRef.current += 1;
       stopElapsedTimer();
       if (phaseRef.current === "starting" || phaseRef.current === "recording") {
-        void cancelActiveRecording(transcriptionSessionId);
+        void cancelRecording();
       }
-      setPhase("idle");
+      if (phaseRef.current !== "transcribing") {
+        setPhase("idle");
+      }
     });
     return () => {
       unsubscribe();
@@ -223,7 +247,7 @@ export function useDictation({
       generationRef.current += 1;
       stopElapsedTimer();
       if (phaseRef.current === "starting" || phaseRef.current === "recording") {
-        void cancelActiveRecording(transcriptionSessionId);
+        void cancelRecording();
       }
     };
   });
