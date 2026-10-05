@@ -15,6 +15,14 @@ pub struct RenderTranscriptWordInput {
     pub channel: i32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub speaker_index: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub synthetic_timing: Option<SyntheticTiming>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct SyntheticTiming {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chunk_start_ms: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -56,6 +64,12 @@ pub struct RenderedTranscriptSegment {
 }
 
 pub fn render_transcript_segments(
+    request: RenderTranscriptRequest,
+) -> Vec<RenderedTranscriptSegment> {
+    crate::synthetic_render::render_segments(request)
+}
+
+pub(crate) fn render_transcript_segments_ungrouped(
     request: RenderTranscriptRequest,
 ) -> Vec<RenderedTranscriptSegment> {
     let RenderTranscriptRequest {
@@ -360,6 +374,7 @@ mod tests {
             end_ms,
             channel,
             speaker_index: None,
+            synthetic_timing: None,
         }
     }
 
@@ -378,6 +393,7 @@ mod tests {
             end_ms,
             channel,
             speaker_index: Some(speaker_index),
+            synthetic_timing: None,
         }
     }
 
@@ -434,6 +450,55 @@ mod tests {
         assert_eq!(segments[0].text, "hello");
         assert_eq!(segments[1].speaker_label, "Bob");
         assert_eq!(segments[1].text, "world");
+    }
+
+    #[test]
+    fn grouped_channel_inputs_keep_words_in_sentence_segments() {
+        let segments = render_transcript_segments(RenderTranscriptRequest {
+            speaker_context: None,
+            preview: None,
+            transcripts: vec![
+                RenderTranscriptInput {
+                    started_at: Some(0),
+                    words: vec![
+                        word("mic-1", " Hello", 0, 400, 0),
+                        word("mic-2", " world.", 400, 800, 0),
+                    ],
+                    assignments: vec![],
+                },
+                RenderTranscriptInput {
+                    started_at: Some(0),
+                    words: vec![
+                        word("remote-1", " Remote", 0, 400, 1),
+                        word("remote-2", " reply.", 400, 800, 1),
+                    ],
+                    assignments: vec![],
+                },
+            ],
+            participant_human_ids: vec![],
+            self_human_id: None,
+            humans: vec![],
+        });
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].text, "Hello world.");
+        assert_eq!(segments[1].text, "Remote reply.");
+        assert_eq!(
+            segments[0]
+                .words
+                .iter()
+                .map(|word| word.id.as_deref())
+                .collect::<Vec<_>>(),
+            vec![Some("mic-1"), Some("mic-2")]
+        );
+        assert_eq!(
+            segments[1]
+                .words
+                .iter()
+                .map(|word| word.id.as_deref())
+                .collect::<Vec<_>>(),
+            vec![Some("remote-1"), Some("remote-2")]
+        );
     }
 
     #[test]

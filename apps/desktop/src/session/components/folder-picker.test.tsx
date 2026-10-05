@@ -7,13 +7,14 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FolderPicker } from "./folder-picker";
+import { FolderPicker, FolderPickerContent } from "./folder-picker";
 
 const mocks = vi.hoisted(() => ({
   createNamedFolder: vi.fn(() => Promise.resolve("clients")),
   folderId: "",
   folderPaths: [] as string[],
   icons: {} as Record<string, { type: "icon"; value: string; color: string }>,
+  onSelectFolder: vi.fn(() => Promise.resolve()),
   openNew: vi.fn(),
   setSelectedPath: vi.fn(),
   updateSession: vi.fn(() => Promise.resolve()),
@@ -49,6 +50,7 @@ describe("FolderPicker", () => {
     mocks.folderPaths = ["personal", "work"];
     mocks.icons = {};
     mocks.createNamedFolder.mockClear();
+    mocks.onSelectFolder.mockClear();
     mocks.openNew.mockClear();
     mocks.setSelectedPath.mockClear();
     mocks.updateSession.mockClear();
@@ -163,6 +165,29 @@ describe("FolderPicker", () => {
     fireEvent.click(screen.getByRole("option", { name: "work" }));
 
     expect(mocks.updateSession).toHaveBeenCalledWith({ folder_id: "work" });
+  });
+
+  it("routes selection through onSelectFolder and highlights selectedPath when overridden", async () => {
+    render(
+      <FolderPickerContent
+        sessionId="session-1"
+        onClose={() => {}}
+        selectedPath="work"
+        onSelectFolder={mocks.onSelectFolder}
+      />,
+    );
+
+    expect(
+      screen
+        .getByRole("option", { name: "work" })
+        .getAttribute("data-selected"),
+    ).toBe("true");
+    fireEvent.click(screen.getByRole("option", { name: "personal" }));
+
+    await waitFor(() => {
+      expect(mocks.onSelectFolder).toHaveBeenCalledWith("personal");
+    });
+    expect(mocks.updateSession).not.toHaveBeenCalled();
   });
 
   it("opens the folders workspace from see all folders", () => {

@@ -2,8 +2,10 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands } from "@anlg/plugin-session";
 import { eventParticipantSchema, type EventParticipant } from "@anlg/store";
 
+import { updateSession } from "./sessions";
 import type { SessionChanges } from "./types";
 
+import { getSeriesFolderRule } from "~/calendar/series-folders";
 import { deriveContactIdentity } from "~/contacts/identity";
 import { liveQueryClient } from "~/db";
 import { ensureFolderCatalog } from "~/session/folder-catalog";
@@ -13,6 +15,7 @@ import { DEFAULT_USER_ID } from "~/shared/utils";
 type EventParticipantsSqlRow = {
   id: string;
   participants_json: string | null;
+  recurrence_series_id: string | null;
 };
 
 export async function createSession(
@@ -47,7 +50,7 @@ export async function getOrCreateSessionForEventId(
 ): Promise<string> {
   const [event] = await liveQueryClient.execute<EventParticipantsSqlRow>(
     `
-      SELECT id, participants_json
+      SELECT id, participants_json, recurrence_series_id
       FROM events
       WHERE id = ? AND deleted_at IS NULL
       LIMIT 1
@@ -74,8 +77,36 @@ export async function getOrCreateSessionForEventId(
 
   if (result.data.created) {
     trackNoteCreated(true);
+    await applySeriesFolderRule(
+      result.data.session_id,
+      event.recurrence_series_id,
+    );
   }
   return result.data.session_id;
+}
+
+async function applySeriesFolderRule(
+  sessionId: string,
+  seriesId: string | null,
+): Promise<void> {
+  if (!seriesId) return;
+  try {
+    const folderPath = await getSeriesFolderRule(seriesId);
+    if (!folderPath) return;
+    const [folder] = await liveQueryClient.execute<{ present: number }>(
+      `
+        SELECT 1 AS present
+        FROM folders
+        WHERE path = ? AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [folderPath],
+    );
+    if (!folder) return;
+    await updateSession(sessionId, { folder_id: folderPath });
+  } catch (error) {
+    console.error("[session] failed to apply series folder rule", error);
+  }
 }
 
 function resolveEventParticipantIdentities(

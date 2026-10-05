@@ -182,6 +182,7 @@ fn normalize_transcript(transcript: &Transcript) -> Option<RenderTranscriptInput
                 .map(|channel| channel as i32)
                 .unwrap_or(0),
             speaker_index: None,
+            synthetic_timing: anlg_transcript::synthetic_timing_from_metadata(word.get("metadata")),
         });
     }
 

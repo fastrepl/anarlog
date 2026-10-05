@@ -462,6 +462,10 @@ msgstr "Lisage kõnekeel"
 msgid "Add step"
 msgstr ""
 
+#: src/calendar/components/event-chip.tsx
+msgid "Add to folder"
+msgstr ""
+
 #: src/settings/developers/webhooks.tsx
 msgid "Add webhook"
 msgstr ""
@@ -776,12 +780,24 @@ msgstr ""
 msgid "Auto summary format"
 msgstr ""
 
+#: src/calendar/components/event-chip.tsx
+msgid "Auto-add"
+msgstr ""
+
+#: src/calendar/components/event-chip.tsx
+msgid "Auto-add future meetings?"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Automate what happens before, during, or after meetings based on the conditions you choose."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
 msgid "Automatically install updates"
+msgstr ""
+
+#: src/calendar/components/event-chip.tsx
+msgid "Automatically put all future instances of this recurring meeting into a folder."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -822,6 +838,7 @@ msgid "Average across the capture days counted above."
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
+#: src/calendar/components/event-chip.tsx
 #: src/instruction/index.tsx
 #: src/session-sharing/delivery-panel.tsx
 #: src/settings/general/e2ee-setup.tsx
@@ -1005,6 +1022,10 @@ msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Capture your first conversation. Every collection starts somewhere."
+msgstr ""
+
+#: src/calendar/components/event-chip.tsx
+msgid "Change auto-add folder"
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -2633,6 +2654,10 @@ msgstr ""
 msgid "Full Screen"
 msgstr ""
 
+#: src/calendar/components/event-chip.tsx
+msgid "Future meetings"
+msgstr ""
+
 #: src/settings/general/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "General"
@@ -3567,6 +3592,10 @@ msgstr ""
 msgid "Move down"
 msgstr ""
 
+#: src/calendar/components/event-chip.tsx
+msgid "Move this note"
+msgstr ""
+
 #: src/templates/sections-editor.tsx
 msgid "Move up"
 msgstr ""
@@ -3636,6 +3665,10 @@ msgstr ""
 
 #: src/sidebar/timeline/utils/index.ts
 msgid "next week"
+msgstr ""
+
+#: src/calendar/components/event-chip.tsx
+msgid "No"
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -5567,6 +5600,10 @@ msgstr ""
 msgid "Stop"
 msgstr ""
 
+#: src/calendar/components/event-chip.tsx
+msgid "Stop auto-add"
+msgstr ""
+
 #: src/session/components/outer-header/index.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Stop listening"
@@ -5889,6 +5926,10 @@ msgstr ""
 msgid "This name is synced to your other devices signed in to this account."
 msgstr ""
 
+#: src/calendar/components/event-chip.tsx
+msgid "This note"
+msgstr ""
+
 #: src/session/components/note-conflict-banner.tsx
 msgid "This note was edited on another device at the same time. The later edit was kept."
 msgstr ""
@@ -6046,6 +6087,10 @@ msgstr ""
 #: src/main/windows-title-bar.tsx
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "Undo"
+msgstr ""
+
+#: src/calendar/components/event-chip.tsx
+msgid "Unfiled"
 msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx

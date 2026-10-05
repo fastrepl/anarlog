@@ -321,14 +321,12 @@ async function getTranscriptSegments(
     return [];
   }
 
-  return result.data.segments
-    .reduce<SegmentPayload[]>((result, segment) => {
-      if (segment.words.length > 0) {
-        result.push(toSegmentPayload(segment));
-      }
-      return result;
-    }, [])
-    .sort((left, right) => left.start_ms - right.start_ms);
+  return result.data.segments.reduce<SegmentPayload[]>((result, segment) => {
+    if (segment.words.length > 0) {
+      result.push(toSegmentPayload(segment));
+    }
+    return result;
+  }, []);
 }
 
 function toSegmentPayload(segment: RenderedTranscriptSegment): SegmentPayload {

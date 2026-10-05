@@ -60,12 +60,52 @@ pub fn batch_response_from_channels(
     let has_diarization = channels
         .iter()
         .any(|channel| !channel.speaker_segments.is_empty());
-    let metadata = metadata_json(
+    let mut metadata = metadata_json(
         model,
         duration_seconds,
         channels.len() as u32,
         has_diarization,
     );
+    if channels.len() > 1 {
+        metadata["timing_sources_by_channel"] = serde_json::json!(
+            channels
+                .iter()
+                .map(|channel| if channel.speaker_segments.is_empty() {
+                    "synthetic_text"
+                } else {
+                    "provider_segment_interpolated"
+                })
+                .collect::<Vec<_>>()
+        );
+        let chunks = channels
+            .iter()
+            .enumerate()
+            .flat_map(|(channel, transcript)| {
+                if transcript.chunks.is_empty() {
+                    vec![serde_json::json!({
+                        "channel": channel,
+                        "start_seconds": 0.0,
+                        "end_seconds": transcript.duration_seconds.max(synthetic_text_duration(&transcript.text)),
+                    })]
+                } else {
+                    transcript
+                        .chunks
+                        .iter()
+                        .map(|chunk| {
+                            serde_json::json!({
+                                "channel": channel,
+                                "start_seconds": chunk.start_seconds,
+                                "end_seconds": chunk.start_seconds + chunk.duration_seconds,
+                            })
+                        })
+                        .collect()
+                }
+            })
+            .collect::<Vec<_>>();
+        if !chunks.is_empty() {
+            metadata["synthetic_chunks"] = serde_json::json!(chunks);
+        }
+    }
 
     batch::Response {
         metadata,

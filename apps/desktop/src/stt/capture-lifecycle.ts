@@ -298,8 +298,12 @@ export function useCaptureLifecycle(sessionId: string) {
         recoveredMarker?.retainAudio ??
         (audioRetention !== "none" ||
           requiresRetainedBatchAudio(provider, model));
-      const batchFromRetainedAudio =
-        retainAudio && requiresRetainedBatchAudio(provider, model);
+      // Persisted on the marker so restarts still run the full-file pass
+      // instead of the chunks released during the meeting.
+      const postStopBatch = recoveredMarker?.postStopBatch === true;
+      let batchFromRetainedAudio =
+        retainAudio &&
+        (requiresRetainedBatchAudio(provider, model) || postStopBatch);
       const hasMultipleRemoteParticipants =
         new Set(
           participantHumanIds.filter(
@@ -666,9 +670,10 @@ export function useCaptureLifecycle(sessionId: string) {
             if (payload.type === "started") {
               if (payload.live_transcription_active) audioRecovery.connected();
               else if (batchFromRetainedAudio) audioRecovery.batchOnly(true);
-              else if (!payload.requested_live_transcription)
-                audioRecovery.batchOnly(false);
-              else audioRecovery.interrupted();
+              else if (!payload.requested_live_transcription) {
+                batchFromRetainedAudio = retainAudio;
+                audioRecovery.batchOnly(retainAudio);
+              } else audioRecovery.interrupted();
             }
           }),
           transcriptionEvents.captureStatusEvent.listen(({ payload }) => {
@@ -713,10 +718,20 @@ export function useCaptureLifecycle(sessionId: string) {
         if (result.status === "error") throw new Error(result.error);
         return { incomplete: !result.data };
       };
+      // Without the full recording, the chunks are the only audio left to
+      // transcribe, so they must be repaired instead of released.
+      const repairChunksWithoutRecording = async (audioPath: string | null) => {
+        await recoveryListening;
+        if (!batchFromRetainedAudio || audioPath) return;
+        batchFromRetainedAudio = false;
+        audioRecovery.batchOnly(false);
+        audioRecovery.recoverPending();
+      };
       const marker = async (): Promise<CaptureLifecycleMarker> => ({
         version: 1,
         chunkedAudio: usesChunkedAudio,
         retainAudio,
+        ...(batchFromRetainedAudio ? { postStopBatch: true } : {}),
         phase: capturePhase,
         sessionId,
         transcriptId,
@@ -1229,6 +1244,11 @@ export function useCaptureLifecycle(sessionId: string) {
           await transcriptPersistence.flush();
           if (transcriptPersistence.hasPendingFailure())
             audioRecovery.persistenceFailed();
+          // The native stop is authoritative for whether live STT ran.
+          if (!requiresRetainedBatchAudio(provider, model))
+            batchFromRetainedAudio =
+              retainAudio && details.requestedLiveTranscription === false;
+          await repairChunksWithoutRecording(details.audioPath);
           const recovery = await stopAudioRecovery().catch((error) => {
             console.error(
               "[listener] failed to delete transcribed audio",
@@ -1324,6 +1344,7 @@ export function useCaptureLifecycle(sessionId: string) {
           return;
         }
         if (usesChunkedAudio) {
+          await repairChunksWithoutRecording(details.audioPath);
           if (!batchFromRetainedAudio) await restoreAudioRecovery();
           const recovery = await stopAudioRecovery();
           details = {
@@ -1378,7 +1399,10 @@ export function useCaptureLifecycle(sessionId: string) {
           existingAudioPromise,
         ]).then(() => undefined),
         startAudioRecovery,
-        persistMarker: async () => {
+        persistMarker: async (options?: { postStopBatch?: boolean }) => {
+          if (options?.postStopBatch && retainAudio) {
+            batchFromRetainedAudio = true;
+          }
           await startAudioRecovery();
           await persistTranscriptWrite(async () => {
             const next = await marker();

@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   windowShow: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
   authAvailable: false as boolean | null,
   revealedNoteIds: {} as Record<string, true>,
+  configValues: {} as Record<string, boolean | undefined>,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -130,7 +131,7 @@ vi.mock("~/calendar/ignored-events", () => ({
 }));
 
 vi.mock("~/shared/config", () => ({
-  useConfigValue: () => undefined,
+  useConfigValue: (key: string) => mocks.configValues[key],
 }));
 
 vi.mock("~/store/zustand/live-title", () => ({
@@ -206,12 +207,13 @@ describe("TimelineItemComponent", () => {
     mocks.timelineSelection.setAnchor.mockClear();
     mocks.timelineSelection.selectRange.mockClear();
     mocks.timelineSelection.toggleSelect.mockClear();
+    mocks.configValues = {};
     resetSidebarNotes();
   });
 
   function renderSession(
     id: string,
-    data: { locked?: number } = {},
+    data: { locked?: number; folder_id?: string; event_json?: string } = {},
     props: { selected?: boolean } = {},
   ) {
     return render(
@@ -351,4 +353,78 @@ describe("TimelineItemComponent", () => {
       expect(screen.queryByLabelText(hiddenLabel)).toBeNull();
     },
   );
+
+  it.each([true, false])(
+    "shows the folder tag on a filed session row when selected=%s",
+    (selected) => {
+      mocks.configValues = { sidebar_show_folder: true };
+      renderSession("session-filed", { folder_id: "Work" }, { selected });
+
+      expect(screen.getByText("Work")).toBeTruthy();
+    },
+  );
+
+  it.each([true, false])(
+    "shows the folder tag on a filed event row when selected=%s",
+    (selected) => {
+      mocks.configValues = { sidebar_show_folder: true };
+      render(
+        <TimelineItemComponent
+          item={{
+            type: "event",
+            id: "event-1",
+            data: {
+              title: "Standup",
+              started_at: "2026-10-03T03:00:00.000Z",
+              has_recurrence_rules: false,
+              session_folder: "Work",
+            },
+          }}
+          precision="time"
+          selected={selected}
+          timezone="UTC"
+          multiSelected={false}
+          flatItemKeys={["event-event-1"]}
+        />,
+      );
+
+      expect(screen.getByText("Work")).toBeTruthy();
+    },
+  );
+
+  it("shows no folder tag on a sessionless recurring event row", () => {
+    mocks.configValues = { sidebar_show_folder: true };
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "event",
+          id: "event-1",
+          data: {
+            title: "Standup",
+            started_at: "2026-10-03T03:00:00.000Z",
+            has_recurrence_rules: true,
+            recurrence_series_id: "series-1",
+            session_folder: "",
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["event-event-1"]}
+      />,
+    );
+
+    expect(screen.queryByText("Work")).toBeNull();
+  });
+
+  it("shows no folder tag on an unfiled session row of a recurring series", () => {
+    mocks.configValues = { sidebar_show_folder: true };
+    renderSession("session-unfiled", {
+      folder_id: "",
+      event_json: JSON.stringify({ recurrence_series_id: "series-1" }),
+    });
+
+    expect(screen.queryByText("Work")).toBeNull();
+  });
 });

@@ -43,6 +43,7 @@ fn request(context: SpeakerContext, speakers: &[(i32, i32)]) -> RenderTranscript
                     end_ms: i as i64 * 1000 + 500,
                     channel: *channel,
                     speaker_index: Some(*speaker),
+                    synthetic_timing: None,
                 })
                 .collect(),
         }],

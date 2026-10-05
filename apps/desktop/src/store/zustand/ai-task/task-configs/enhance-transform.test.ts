@@ -506,13 +506,97 @@ describe("enhanceTransform.transformArgs", () => {
     expect(result.transcripts).toEqual([
       {
         segments: [
-          { speaker: "Earlier speaker", text: "earlier words" },
           { speaker: "Later speaker", text: "later words" },
+          { speaker: "Earlier speaker", text: "earlier words" },
         ],
         startedAt: 100,
         endedAt: 200,
       },
     ]);
+  });
+
+  it("keeps the renderer's channel grouping in generated-note transcript context", async () => {
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [
+          {
+            speaker_label: "Speaker 1",
+            text: "Mic early",
+            start_ms: 0,
+            end_ms: 400,
+            words: [{ text: "Mic early", start_ms: 0, end_ms: 400 }],
+          },
+          {
+            speaker_label: "Speaker 1",
+            text: "Mic later",
+            start_ms: 29_500,
+            end_ms: 29_900,
+            words: [{ text: "Mic later", start_ms: 29_500, end_ms: 29_900 }],
+          },
+          {
+            speaker_label: "Speaker 2",
+            text: "Remote early",
+            start_ms: 0,
+            end_ms: 400,
+            words: [{ text: "Remote early", start_ms: 0, end_ms: 400 }],
+          },
+        ],
+        started_at: 100,
+        ended_at: 200,
+      },
+    });
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      settingsValues,
+    );
+
+    expect(
+      result.transcripts[0]?.segments.map((segment) => segment.text),
+    ).toEqual(["Mic early", "Mic later", "Remote early"]);
+  });
+
+  it("keeps timed two-channel transcripts in start order", async () => {
+    mocks.renderSessionTranscript.mockResolvedValue({
+      status: "ok",
+      data: {
+        segments: [
+          {
+            speaker_label: "Speaker 1",
+            text: "Mic first",
+            start_ms: 0,
+            end_ms: 400,
+            words: [{ text: "Mic first", start_ms: 0, end_ms: 400 }],
+          },
+          {
+            speaker_label: "Speaker 2",
+            text: "Remote second",
+            start_ms: 500,
+            end_ms: 900,
+            words: [{ text: "Remote second", start_ms: 500, end_ms: 900 }],
+          },
+          {
+            speaker_label: "Speaker 1",
+            text: "Mic third",
+            start_ms: 1_000,
+            end_ms: 1_400,
+            words: [{ text: "Mic third", start_ms: 1_000, end_ms: 1_400 }],
+          },
+        ],
+        started_at: 100,
+        ended_at: 200,
+      },
+    });
+
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      settingsValues,
+    );
+
+    expect(
+      result.transcripts[0]?.segments.map((segment) => segment.text),
+    ).toEqual(["Mic first", "Remote second", "Mic third"]);
   });
 
   it("includes captured meeting chat in the post-meeting memo", async () => {
