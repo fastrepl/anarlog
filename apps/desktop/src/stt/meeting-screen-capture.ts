@@ -58,7 +58,7 @@ export function startMeetingScreenCapture({
       if (stopped) {
         return;
       }
-      if (!(await captureIsEnabled())) {
+      if (!(await captureIsEnabled()) || stopped) {
         resetSampler = true;
         return;
       }
