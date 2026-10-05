@@ -15,6 +15,7 @@
     ]
   },
   "excludes": [
+    "crates/tiptap/vendor/mdast_util_to_markdown",
     ".venv",
     ".drizzle",
     "**/*-lock.yaml",

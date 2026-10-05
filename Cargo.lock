@@ -9639,8 +9639,6 @@ dependencies = [
 [[package]]
 name = "mdast_util_to_markdown"
 version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4847e9e76278c5ad9a101a017c2798226c6fe1094dfb8e6338efd97e9a5bc55"
 dependencies = [
  "markdown",
  "regex",
