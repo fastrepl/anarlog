@@ -719,6 +719,7 @@ def build_and_push_image(app: str, config: str, dockerfile: str, version: str) -
     image = image_ref(app, version)
     source_sha = os.environ.get("GITHUB_SHA")
     labels = ["--label", f"GH_SHA={source_sha}"] if source_sha else []
+    revision_args = ["--build-arg", f"GH_SHA={source_sha}"] if source_sha else []
     fly(
         "deploy",
         "--app",
@@ -734,6 +735,7 @@ def build_and_push_image(app: str, config: str, dockerfile: str, version: str) -
         image.rsplit(":", 1)[1],
         "--build-arg",
         f"APP_VERSION={version}",
+        *revision_args,
         *labels,
     )
     return image

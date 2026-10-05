@@ -192,6 +192,9 @@ pub fn sanitize_sentry_event(mut event: Event<'static>) -> Option<Event<'static>
     event.culprit = None;
     event.fingerprint = Default::default();
     event.tags.retain(|key, value| {
+        if key == "serving_revision" {
+            return value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit());
+        }
         matches!(
             key.as_str(),
             "anarlog.error.stage"
@@ -402,6 +405,10 @@ mod tests {
             }),
             tags: [
                 ("error.type".to_string(), "database_error".to_string()),
+                (
+                    "serving_revision".to_string(),
+                    "2a8459e98f5d91537adc10550449c3e4454008e6".to_string(),
+                ),
                 ("enduser.id".to_string(), "user-1".to_string()),
             ]
             .into_iter()
@@ -419,6 +426,10 @@ mod tests {
         assert!(sanitized.user.is_none());
         assert!(sanitized.message.is_none());
         assert_eq!(sanitized.tags.get("error.type").unwrap(), "database_error");
+        assert_eq!(
+            sanitized.tags.get("serving_revision").unwrap(),
+            "2a8459e98f5d91537adc10550449c3e4454008e6"
+        );
         assert!(!sanitized.tags.contains_key("enduser.id"));
         assert_eq!(
             sanitized.exception[0].value.as_deref(),

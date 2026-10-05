@@ -80,7 +80,20 @@ fn sanitized_properties(
     properties
         .iter()
         .filter(|(key, _)| !is_sensitive_property_key(key))
-        .filter_map(|(key, value)| sanitized_value(value).map(|value| (key.clone(), value)))
+        .filter_map(|(key, value)| {
+            let value = if key == "serving_revision" {
+                value
+                    .as_str()
+                    .filter(|revision| {
+                        revision.len() == 40
+                            && revision.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    })
+                    .map(|revision| serde_json::Value::String(revision.to_string()))
+            } else {
+                sanitized_value(value)
+            };
+            value.map(|value| (key.clone(), value))
+        })
         .collect()
 }
 
@@ -172,14 +185,25 @@ impl LazyPosthogClient {
 #[derive(Clone)]
 pub struct AnalyticsClient {
     posthog: Option<Arc<LazyPosthogClient>>,
+    event_properties: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Default)]
 pub struct AnalyticsClientBuilder {
     posthog_key: Option<String>,
+    event_properties: HashMap<String, serde_json::Value>,
 }
 
 impl AnalyticsClientBuilder {
+    pub fn with_event_property(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<serde_json::Value>,
+    ) -> Self {
+        self.event_properties.insert(key.into(), value.into());
+        self
+    }
+
     pub fn with_posthog(mut self, key: impl Into<String>) -> Self {
         self.posthog_key = Some(key.into());
         self
@@ -189,11 +213,20 @@ impl AnalyticsClientBuilder {
         let posthog = self
             .posthog_key
             .map(|key| Arc::new(LazyPosthogClient::new(key)));
-        AnalyticsClient { posthog }
+        AnalyticsClient {
+            posthog,
+            event_properties: sanitized_properties(&self.event_properties),
+        }
     }
 }
 
 impl AnalyticsClient {
+    fn event_properties(&self, payload: &AnalyticsPayload) -> HashMap<String, serde_json::Value> {
+        let mut properties = sanitized_properties(&payload.props);
+        properties.extend(self.event_properties.clone());
+        properties
+    }
+
     pub async fn event(
         &self,
         distinct_id: impl Into<String>,
@@ -204,7 +237,7 @@ impl AnalyticsClient {
         if let Some(lazy) = &self.posthog {
             let state = lazy.get().await;
             let mut event = Event::new(safe_event_name(&payload.event), &distinct_id);
-            for (key, value) in sanitized_properties(&payload.props) {
+            for (key, value) in self.event_properties(&payload) {
                 let _ = event.insert_prop(key, value);
             }
             if let Some(groups) = &payload.groups {
@@ -432,6 +465,32 @@ impl AnalyticsPayloadBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_attribution_survives_event_payloads_without_private_properties() {
+        let revision = "2a8459e98f5d91537adc10550449c3e4454008e6";
+        let client = AnalyticsClientBuilder::default()
+            .with_event_property("serving_revision", revision)
+            .with_event_property("app_version", "0.0.100")
+            .with_event_property("service", "ai")
+            .with_event_property("email", "person@example.com")
+            .build();
+        let payload = AnalyticsPayload::builder("$ai_generation")
+            .with("serving_revision", "untrusted")
+            .with("$ai_model", "openai/gpt-6.1-sol")
+            .with("prompt", "private-note")
+            .build();
+
+        assert_eq!(
+            client.event_properties(&payload),
+            HashMap::from([
+                ("serving_revision".into(), serde_json::json!(revision)),
+                ("app_version".into(), serde_json::json!("0.0.100")),
+                ("service".into(), serde_json::json!("ai")),
+                ("$ai_model".into(), serde_json::json!("openai/gpt-6.1-sol")),
+            ])
+        );
+    }
 
     #[test]
     fn legacy_device_id_is_stable() {

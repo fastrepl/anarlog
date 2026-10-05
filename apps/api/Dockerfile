@@ -30,6 +30,8 @@ RUN sed -i '/^members = \[/,/^\]/c\members = ["apps/api", "crates/*"]' Cargo.tom
 COPY crates crates
 COPY packages/pricing/src/trial-policy.json packages/pricing/src/trial-policy.json
 COPY apps/api apps/api
+ARG GH_SHA
+ENV GH_SHA=${GH_SHA}
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     cargo clean -p progenitor-utils

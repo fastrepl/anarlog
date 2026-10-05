@@ -100,6 +100,10 @@ def test_image_ref_uses_the_fly_registry_tag():
     args = build.call_args.args
     assert args[args.index("--image-label") + 1] == image.rsplit(":", 1)[1]
     assert args[args.index("--label") + 1] == "GH_SHA=test-source"
+    assert any(
+        args[index : index + 2] == ("--build-arg", "GH_SHA=test-source")
+        for index in range(len(args) - 1)
+    )
 
 
 def test_stop_config_reads_graceful_shutdown_settings():
