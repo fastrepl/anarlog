@@ -356,7 +356,7 @@ export function SessionSharePopoverContent({
       sideOffset={8}
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
-      className="w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
+      className="w-[380px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
       <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] flex-col overflow-hidden">
         <div ref={operationLifecycleRef} className="contents">
@@ -367,7 +367,7 @@ export function SessionSharePopoverContent({
             <Trans>Invite people to this note.</Trans>
           </p>
 
-          <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
+          <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
             <div className="space-y-2">
               {error && !data ? (
                 <div className="border-destructive/30 bg-destructive/5 flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2">
@@ -575,7 +575,7 @@ export function SessionSharePopoverContent({
             </div>
           </div>
 
-          <footer className="border-border/60 flex items-center gap-1 border-t px-3 py-2">
+          <footer className="border-border/60 flex items-center gap-1 border-t p-3">
             <GeneralAccessSelector
               value={shownScopeValue}
               workspaces={workspaces}
@@ -602,7 +602,7 @@ export function SessionSharePopoverContent({
                 onClick={() => {
                   generalCopyMutation.mutate();
                 }}
-                className="h-7 shrink-0 rounded-l-md rounded-r-none px-2.5 text-xs"
+                className="h-7 shrink-0 rounded-none px-2.5 text-xs focus-visible:-outline-offset-2"
               >
                 {generalCopyMutation.isPending || scopeMutation.isPending ? (
                   <CircleNotch

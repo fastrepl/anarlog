@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { CircleNotch, X } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 import { cn } from "@anlg/utils";
 
 import { isInviteEmail } from "./invitation-management";
@@ -132,6 +133,7 @@ export function ShareInviteForm({
   placeholder?: string;
 }) {
   const humans = useHumans();
+  const inputRef = useSquircleRef<HTMLDivElement>();
   const normalized = invite.query.trim().toLowerCase();
   const suggestions =
     !normalized || isInviteEmail(normalized)
@@ -160,8 +162,9 @@ export function ShareInviteForm({
         }}
       >
         <div
+          ref={inputRef}
           className={cn([
-            "border-input focus-within:ring-ring flex h-8 min-w-0 flex-1 items-center rounded-full border bg-transparent px-3 shadow-xs focus-within:ring-1",
+            "border-input focus-within:ring-ring flex h-8 min-w-0 flex-1 items-center rounded-lg border bg-transparent px-3 shadow-xs focus-within:ring-1",
             disabled && "opacity-50",
           ])}
         >
@@ -186,7 +189,7 @@ export function ShareInviteForm({
           type="submit"
           size="sm"
           disabled={disabled || !invite.canSubmit}
-          className="h-8 shrink-0 rounded-full px-3"
+          className="h-8 shrink-0 rounded-lg px-3"
         >
           {pending ? (
             <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
