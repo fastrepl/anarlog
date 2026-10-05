@@ -674,6 +674,8 @@ def bootstrap_deploy(
     if image:
         fly("deploy", "--app", app, "--config", config, "--image", image, "--ha=true")
     else:
+        source_sha = os.environ.get("GITHUB_SHA")
+        revision_args = ["--build-arg", f"GH_SHA={source_sha}"] if source_sha else []
         fly(
             "deploy",
             "--app",
@@ -685,6 +687,7 @@ def bootstrap_deploy(
             "--remote-only",
             "--build-arg",
             f"APP_VERSION={version}",
+            *revision_args,
         )
     for machine in list_machines(app):
         wait_until_healthy(app, machine["id"])

@@ -139,7 +139,7 @@ fn is_safe_analytics_string(value: &str) -> bool {
 }
 
 fn safe_event_name(value: &str) -> &str {
-    if value.len() <= 64 && is_safe_analytics_string(value) {
+    if value.len() <= 64 && is_safe_analytics_string(value.strip_prefix('$').unwrap_or(value)) {
         value
     } else {
         "analytics_event"
@@ -221,10 +221,12 @@ impl AnalyticsClientBuilder {
 }
 
 impl AnalyticsClient {
-    fn event_properties(&self, payload: &AnalyticsPayload) -> HashMap<String, serde_json::Value> {
-        let mut properties = sanitized_properties(&payload.props);
-        properties.extend(self.event_properties.clone());
-        properties
+    async fn capture(&self, state: &PosthogState, mut event: Event) -> Result<(), Error> {
+        for (key, value) in &self.event_properties {
+            let _ = event.insert_prop(key, value);
+        }
+        state.client.capture(event).await?;
+        Ok(())
     }
 
     pub async fn event(
@@ -237,7 +239,7 @@ impl AnalyticsClient {
         if let Some(lazy) = &self.posthog {
             let state = lazy.get().await;
             let mut event = Event::new(safe_event_name(&payload.event), &distinct_id);
-            for (key, value) in self.event_properties(&payload) {
+            for (key, value) in sanitized_properties(&payload.props) {
                 let _ = event.insert_prop(key, value);
             }
             if let Some(groups) = &payload.groups {
@@ -245,7 +247,7 @@ impl AnalyticsClient {
                     event.add_group(safe_event_name(group_type), group_key);
                 }
             }
-            state.client.capture(event).await?;
+            self.capture(state, event).await?;
         } else {
             tracing::info!(
                 event.name = safe_event_name(&payload.event),
@@ -274,7 +276,7 @@ impl AnalyticsClient {
             if !set_once.is_empty() {
                 let _ = event.insert_prop("$set_once", &set_once);
             }
-            state.client.capture(event).await?;
+            self.capture(state, event).await?;
         } else {
             tracing::info!("analytics_backend_unavailable");
         }
@@ -307,7 +309,7 @@ impl AnalyticsClient {
             if !set_once.is_empty() {
                 let _ = event.insert_prop("$set_once", &set_once);
             }
-            state.client.capture(event).await?;
+            self.capture(state, event).await?;
 
             if let Some(group) = payload.group {
                 let group_type = safe_event_name(&group.r#type);
@@ -316,7 +318,7 @@ impl AnalyticsClient {
                 let _ = event.insert_prop("$group_key", &group.key);
                 let group_properties = sanitized_properties(&group.properties);
                 let _ = event.insert_prop("$group_set", &group_properties);
-                state.client.capture(event).await?;
+                self.capture(state, event).await?;
             }
         } else {
             tracing::info!("analytics_backend_unavailable");
@@ -339,7 +341,7 @@ impl AnalyticsClient {
             let state = lazy.get().await;
             let mut event = Event::new("$merge_dangerously", &distinct_id);
             let _ = event.insert_prop("alias", &other_distinct_id);
-            state.client.capture(event).await?;
+            self.capture(state, event).await?;
         } else {
             tracing::info!("analytics_backend_unavailable");
         }
@@ -466,30 +468,119 @@ impl AnalyticsPayloadBuilder {
 mod tests {
     use super::*;
 
-    #[test]
-    fn runtime_attribution_survives_event_payloads_without_private_properties() {
+    #[tokio::test]
+    async fn emitted_events_keep_runtime_attribution_without_private_or_person_properties() {
+        use wiremock::{Mock, MockServer, ResponseTemplate, matchers::method};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
         let revision = "2a8459e98f5d91537adc10550449c3e4454008e6";
-        let client = AnalyticsClientBuilder::default()
+        let mut client = AnalyticsClientBuilder::default()
             .with_event_property("serving_revision", revision)
             .with_event_property("app_version", "0.0.100")
             .with_event_property("service", "ai")
             .with_event_property("email", "person@example.com")
             .build();
-        let payload = AnalyticsPayload::builder("$ai_generation")
-            .with("serving_revision", "untrusted")
-            .with("$ai_model", "openai/gpt-6.1-sol")
-            .with("prompt", "private-note")
-            .build();
+        let lazy = LazyPosthogClient::new("test-key".into());
+        lazy.state
+            .get_or_init(|| async {
+                PosthogState {
+                    client: posthog_rs::client(("test-key", server.uri().as_str())).await,
+                }
+            })
+            .await;
+        client.posthog = Some(Arc::new(lazy));
 
+        client
+            .event(
+                "test-user",
+                AnalyticsPayload::builder("$ai_generation")
+                    .with("serving_revision", "untrusted")
+                    .with("service", "untrusted")
+                    .with("$ai_model", "openai/gpt-6.1-sol")
+                    .with("prompt", "private-note")
+                    .build(),
+            )
+            .await
+            .unwrap();
+        let mut properties = PropertiesPayload::builder()
+            .set("platform", "desktop")
+            .set("email", "person@example.com")
+            .set_once("channel", "stable")
+            .build();
+        client
+            .set_properties("test-user", properties.clone())
+            .await
+            .unwrap();
+        properties.group = Some(AnalyticsGroup {
+            r#type: "workspace".into(),
+            key: "test-group".into(),
+            properties: HashMap::from([
+                ("plan".into(), serde_json::json!("pro")),
+                ("name".into(), serde_json::json!("Private workspace")),
+            ]),
+        });
+        client
+            .identify("test-user", "test-anon", properties)
+            .await
+            .unwrap();
+        client
+            .merge_distinct_ids("test-user", "test-other")
+            .await
+            .unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        let events: Vec<serde_json::Value> = requests
+            .iter()
+            .map(|request| serde_json::from_slice(&request.body).unwrap())
+            .collect();
         assert_eq!(
-            client.event_properties(&payload),
-            HashMap::from([
-                ("serving_revision".into(), serde_json::json!(revision)),
-                ("app_version".into(), serde_json::json!("0.0.100")),
-                ("service".into(), serde_json::json!("ai")),
-                ("$ai_model".into(), serde_json::json!("openai/gpt-6.1-sol")),
-            ])
+            events
+                .iter()
+                .map(|event| event["event"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            [
+                "$ai_generation",
+                "$set",
+                "$identify",
+                "$groupidentify",
+                "$merge_dangerously"
+            ]
         );
+        for event in &events {
+            let properties = &event["properties"];
+            assert_eq!(properties["serving_revision"], revision);
+            assert_eq!(properties["app_version"], "0.0.100");
+            assert_eq!(properties["service"], "ai");
+            assert!(properties.get("email").is_none());
+            assert!(properties.get("prompt").is_none());
+            for key in ["$set", "$set_once", "$group_set"] {
+                if let Some(person) = properties.get(key) {
+                    assert!(person.get("serving_revision").is_none());
+                    assert!(person.get("app_version").is_none());
+                    assert!(person.get("service").is_none());
+                    assert!(person.get("email").is_none());
+                    assert!(person.get("name").is_none());
+                }
+            }
+        }
+        assert_eq!(events[0]["properties"]["$ai_model"], "openai/gpt-6.1-sol");
+        assert_eq!(
+            events[1]["properties"]["$set"],
+            serde_json::json!({"platform": "desktop"})
+        );
+        assert_eq!(
+            events[2]["properties"]["$set_once"],
+            serde_json::json!({"channel": "stable"})
+        );
+        assert_eq!(
+            events[3]["properties"]["$group_set"],
+            serde_json::json!({"plan": "pro"})
+        );
+        assert_eq!(events[4]["properties"]["alias"], "test-other");
     }
 
     #[test]
