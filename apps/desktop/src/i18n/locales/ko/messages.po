@@ -165,6 +165,10 @@ msgstr ""
 msgid "${0} /month after trial"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "$14 off your subscription"
+msgstr "구독료 $14 할인"
+
 #: src/settings/general/audio-settings.tsx
 msgid "1 day"
 msgstr ""
@@ -204,6 +208,10 @@ msgstr ""
 #: src/settings/stats/date-range.tsx
 msgid "30 days"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "30 days of Pro, free"
+msgstr "Pro 30일 무료 체험"
 
 #: src/settings/stats/date-range.tsx
 msgid "7 days"
@@ -813,9 +821,10 @@ msgstr ""
 msgid "Automations"
 msgstr ""
 
+#: src/settings/referrals.tsx
 #: src/settings/team/index.tsx
 msgid "Available"
-msgstr ""
+msgstr "사용 가능"
 
 #: src/settings/stats/insights.tsx
 msgid "Average across the capture days counted above."
@@ -1641,6 +1650,7 @@ msgid "Conversations: {total}"
 msgstr ""
 
 #: src/settings/dictation.tsx
+#: src/settings/referrals.tsx
 msgid "Copied"
 msgstr ""
 
@@ -1666,8 +1676,9 @@ msgstr ""
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
+#: src/settings/referrals.tsx
 msgid "Copy link"
-msgstr ""
+msgstr "링크 복사"
 
 #: src/chat/components/message/normal.tsx
 msgid "Copy message"
@@ -1860,6 +1871,10 @@ msgstr ""
 msgid "Couldn’t check availability. You can still try Save."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Couldn't copy the invite link. Try again."
+msgstr "초대 링크를 복사하지 못했어요. 다시 시도해 주세요."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't load your badges. Reopen this page to try again."
 msgstr ""
@@ -1879,6 +1894,10 @@ msgstr ""
 #: src/settings/sync/index.tsx
 msgid "Couldn't open device add-ons. Try again."
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Couldn't open sign-in. Try again."
+msgstr "로그인 화면을 열지 못했어요. 다시 시도해 주세요."
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
@@ -2263,6 +2282,10 @@ msgstr ""
 msgid "Each example must be 12,000 characters or fewer."
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Each invite is for one friend who is new to Anarlog. Referral invites are available to Pro subscribers."
+msgstr "초대권은 Anarlog를 처음 사용하는 친구 한 명에게 사용할 수 있어요. 친구 초대는 Pro 구독자에게 제공됩니다."
+
 #: src/session/components/version-history-dialog.tsx
 msgid "Earlier versions of this note, newest first."
 msgstr ""
@@ -2551,6 +2574,7 @@ msgid "Finish checkout in your browser to unlock more, then return to Anarlog."
 msgstr ""
 
 #: src/settings/general/account.tsx
+#: src/settings/referrals.tsx
 msgid "Finish in your browser, then return to Anarlog."
 msgstr ""
 
@@ -2616,6 +2640,14 @@ msgstr ""
 msgid "For enabled notifications"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "For you"
+msgstr "나에게"
+
+#: src/settings/referrals.tsx
+msgid "For your friend"
+msgstr "친구에게"
+
 #: src/settings/general/audio-settings.tsx
 msgid "Forever"
 msgstr ""
@@ -2673,6 +2705,10 @@ msgstr ""
 #: src/settings/general/notification.tsx
 msgid "Get your attention when Anarlog finishes work in the background."
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Give a friend 30 days of Anarlog Pro. Get $14 off your subscription after their first payment."
+msgstr "친구에게 Anarlog Pro 30일 체험을 선물하세요. 친구의 첫 결제 후 내 구독료에서 $14가 차감돼요."
 
 #: src/sidebar/timeline/index.tsx
 msgid "Go back to now"
@@ -2981,6 +3017,23 @@ msgstr ""
 msgid "Invite"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Invite {slot}"
+msgstr "초대권 {slot}"
+
+#: src/settings/referrals.tsx
+msgid "Invite accepted"
+msgstr "초대 수락됨"
+
+#: src/settings/referrals.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Invite friends"
+msgstr "친구 초대"
+
+#: src/settings/referrals.tsx
+msgid "Invite link copied"
+msgstr "초대 링크를 복사했어요"
+
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite people"
@@ -3266,6 +3319,10 @@ msgstr ""
 msgid "Loading teams…"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "Loading your account..."
+msgstr "계정을 불러오는 중..."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Loading your badges…"
 msgstr ""
@@ -3273,6 +3330,10 @@ msgstr ""
 #: src/settings/stats/index.tsx
 msgid "Loading your insights…"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Loading your invites..."
+msgstr "초대권을 불러오는 중..."
 
 #: src/changelog/index.tsx
 #: src/contacts/details.tsx
@@ -3733,6 +3794,10 @@ msgstr ""
 #: src/imports/screen.tsx
 msgid "No imports yet."
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "No invites are available for this account. Referral invites require an active paid subscription."
+msgstr "이 계정에서 사용할 수 있는 초대권이 없어요. 친구 초대에는 활성 유료 구독이 필요해요."
 
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
@@ -4282,7 +4347,7 @@ msgstr ""
 #: src/settings/automations/index.tsx
 #: src/settings/general/notification.tsx
 msgid "Preview"
-msgstr ""
+msgstr "미리보기"
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
@@ -4442,6 +4507,14 @@ msgstr ""
 
 #: src/main/windows-title-bar.tsx
 msgid "Redo"
+msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Referral invites are unavailable. Check your connection and try again."
+msgstr "초대권을 불러올 수 없어요. 연결 상태를 확인하고 다시 시도해 주세요."
+
+#: src/settings/referrals.tsx
+msgid "Refresh"
 msgstr ""
 
 #: src/settings/general/billing.tsx
@@ -4732,6 +4805,10 @@ msgstr ""
 #: src/settings/developers/api-key-row.tsx
 msgid "Revoke"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Reward applied"
+msgstr "보상 지급됨"
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Right Command"
@@ -5116,6 +5193,10 @@ msgstr ""
 msgid "Share usage data"
 msgstr "사용 데이터 공유"
 
+#: src/settings/referrals.tsx
+msgid "Share your referral link"
+msgstr "리퍼럴 링크를 공유하세요"
+
 #: src/settings/general/billing.tsx
 msgid "Shared across cloud sync and your workspaces."
 msgstr ""
@@ -5259,6 +5340,7 @@ msgstr ""
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
+#: src/settings/referrals.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -5315,6 +5397,10 @@ msgstr ""
 #: src/sidebar/toast/registry.tsx
 msgid "Sign in to get the most out of Anarlog"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Sign in to see your referral invites."
+msgstr "로그인하고 내 초대권을 확인하세요."
 
 #: src/session-sharing/index.tsx
 msgid "Sign in to share"
@@ -6008,6 +6094,7 @@ msgstr ""
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
+#: src/settings/referrals.tsx
 #: src/settings/stats/badge-collection.tsx
 #: src/settings/team/index.tsx
 msgid "Try again"
@@ -6300,6 +6387,10 @@ msgstr ""
 msgid "View Anarlog"
 msgstr ""
 
+#: src/settings/referrals.tsx
+msgid "View billing"
+msgstr "구독 관리"
+
 #: src/contacts/organization-details.tsx
 msgid "View LinkedIn profile"
 msgstr ""
@@ -6339,6 +6430,10 @@ msgstr ""
 #: src/settings/appearance/app-icon.tsx
 msgid "Walnut"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "We couldn't load your invites. Please try again."
+msgstr "초대권을 불러오지 못했어요. 다시 시도해 주세요."
 
 #: src/settings/developers/webhooks.tsx
 msgid "Webhooks"
@@ -6506,6 +6601,10 @@ msgstr ""
 #: src/settings/stats/index.tsx
 msgid "Your insights"
 msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Your invites"
+msgstr "내 초대권"
 
 #: src/auth/context.tsx
 msgid "Your local notes are available. Connect this library to sync with your current account."

@@ -165,6 +165,10 @@ msgstr "{weeks} weeks ago"
 msgid "${0} /month after trial"
 msgstr "${0} /month after trial"
 
+#: src/settings/referrals.tsx
+msgid "$14 off your subscription"
+msgstr "$14 off your subscription"
+
 #: src/settings/general/audio-settings.tsx
 msgid "1 day"
 msgstr "1 day"
@@ -204,6 +208,10 @@ msgstr "3 days"
 #: src/settings/stats/date-range.tsx
 msgid "30 days"
 msgstr "30 days"
+
+#: src/settings/referrals.tsx
+msgid "30 days of Pro, free"
+msgstr "30 days of Pro, free"
 
 #: src/settings/stats/date-range.tsx
 msgid "7 days"
@@ -813,6 +821,7 @@ msgstr "Automation removed"
 msgid "Automations"
 msgstr "Automations"
 
+#: src/settings/referrals.tsx
 #: src/settings/team/index.tsx
 msgid "Available"
 msgstr "Available"
@@ -1641,6 +1650,7 @@ msgid "Conversations: {total}"
 msgstr "Conversations: {total}"
 
 #: src/settings/dictation.tsx
+#: src/settings/referrals.tsx
 msgid "Copied"
 msgstr "Copied"
 
@@ -1666,6 +1676,7 @@ msgstr "Copy last dictation"
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
+#: src/settings/referrals.tsx
 msgid "Copy link"
 msgstr "Copy link"
 
@@ -1860,6 +1871,10 @@ msgstr "Could not use the selected model"
 msgid "Couldn’t check availability. You can still try Save."
 msgstr "Couldn’t check availability. You can still try Save."
 
+#: src/settings/referrals.tsx
+msgid "Couldn't copy the invite link. Try again."
+msgstr "Couldn't copy the invite link. Try again."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't load your badges. Reopen this page to try again."
 msgstr "Couldn't load your badges. Reopen this page to try again."
@@ -1879,6 +1894,10 @@ msgstr "Couldn't open connected accounts. Try again."
 #: src/settings/sync/index.tsx
 msgid "Couldn't open device add-ons. Try again."
 msgstr "Couldn't open device add-ons. Try again."
+
+#: src/settings/referrals.tsx
+msgid "Couldn't open sign-in. Try again."
+msgstr "Couldn't open sign-in. Try again."
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
@@ -2263,6 +2282,10 @@ msgstr "Duration"
 msgid "Each example must be 12,000 characters or fewer."
 msgstr "Each example must be 12,000 characters or fewer."
 
+#: src/settings/referrals.tsx
+msgid "Each invite is for one friend who is new to Anarlog. Referral invites are available to Pro subscribers."
+msgstr "Each invite is for one friend who is new to Anarlog. Referral invites are available to Pro subscribers."
+
 #: src/session/components/version-history-dialog.tsx
 msgid "Earlier versions of this note, newest first."
 msgstr "Earlier versions of this note, newest first."
@@ -2551,6 +2574,7 @@ msgid "Finish checkout in your browser to unlock more, then return to Anarlog."
 msgstr "Finish checkout in your browser to unlock more, then return to Anarlog."
 
 #: src/settings/general/account.tsx
+#: src/settings/referrals.tsx
 msgid "Finish in your browser, then return to Anarlog."
 msgstr "Finish in your browser, then return to Anarlog."
 
@@ -2616,6 +2640,14 @@ msgstr "Food & Drink"
 msgid "For enabled notifications"
 msgstr "For enabled notifications"
 
+#: src/settings/referrals.tsx
+msgid "For you"
+msgstr "For you"
+
+#: src/settings/referrals.tsx
+msgid "For your friend"
+msgstr "For your friend"
+
 #: src/settings/general/audio-settings.tsx
 msgid "Forever"
 msgstr "Forever"
@@ -2673,6 +2705,10 @@ msgstr "Get started"
 #: src/settings/general/notification.tsx
 msgid "Get your attention when Anarlog finishes work in the background."
 msgstr "Get your attention when Anarlog finishes work in the background."
+
+#: src/settings/referrals.tsx
+msgid "Give a friend 30 days of Anarlog Pro. Get $14 off your subscription after their first payment."
+msgstr "Give a friend 30 days of Anarlog Pro. Get $14 off your subscription after their first payment."
 
 #: src/sidebar/timeline/index.tsx
 msgid "Go back to now"
@@ -2981,6 +3017,23 @@ msgstr "Invitations sent."
 msgid "Invite"
 msgstr "Invite"
 
+#: src/settings/referrals.tsx
+msgid "Invite {slot}"
+msgstr "Invite {slot}"
+
+#: src/settings/referrals.tsx
+msgid "Invite accepted"
+msgstr "Invite accepted"
+
+#: src/settings/referrals.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Invite friends"
+msgstr "Invite friends"
+
+#: src/settings/referrals.tsx
+msgid "Invite link copied"
+msgstr "Invite link copied"
+
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite people"
@@ -3266,6 +3319,10 @@ msgstr "Loading sync settings"
 msgid "Loading teams…"
 msgstr "Loading teams…"
 
+#: src/settings/referrals.tsx
+msgid "Loading your account..."
+msgstr "Loading your account..."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Loading your badges…"
 msgstr "Loading your badges…"
@@ -3273,6 +3330,10 @@ msgstr "Loading your badges…"
 #: src/settings/stats/index.tsx
 msgid "Loading your insights…"
 msgstr "Loading your insights…"
+
+#: src/settings/referrals.tsx
+msgid "Loading your invites..."
+msgstr "Loading your invites..."
 
 #: src/changelog/index.tsx
 #: src/contacts/details.tsx
@@ -3733,6 +3794,10 @@ msgstr "No icons found"
 #: src/imports/screen.tsx
 msgid "No imports yet."
 msgstr "No imports yet."
+
+#: src/settings/referrals.tsx
+msgid "No invites are available for this account. Referral invites require an active paid subscription."
+msgstr "No invites are available for this account. Referral invites require an active paid subscription."
 
 #: src/sidebar/timeline/index.tsx
 msgid "No items today"
@@ -4444,6 +4509,14 @@ msgstr "Recording status prompts"
 msgid "Redo"
 msgstr "Redo"
 
+#: src/settings/referrals.tsx
+msgid "Referral invites are unavailable. Check your connection and try again."
+msgstr "Referral invites are unavailable. Check your connection and try again."
+
+#: src/settings/referrals.tsx
+msgid "Refresh"
+msgstr "Refresh"
+
 #: src/settings/general/billing.tsx
 msgid "Refresh billing status"
 msgstr "Refresh billing status"
@@ -4732,6 +4805,10 @@ msgstr "Review transfer"
 #: src/settings/developers/api-key-row.tsx
 msgid "Revoke"
 msgstr "Revoke"
+
+#: src/settings/referrals.tsx
+msgid "Reward applied"
+msgstr "Reward applied"
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Right Command"
@@ -5116,6 +5193,10 @@ msgstr "Share this folder?"
 msgid "Share usage data"
 msgstr "Share usage data"
 
+#: src/settings/referrals.tsx
+msgid "Share your referral link"
+msgstr "Share your referral link"
+
 #: src/settings/general/billing.tsx
 msgid "Shared across cloud sync and your workspaces."
 msgstr "Shared across cloud sync and your workspaces."
@@ -5259,6 +5340,7 @@ msgstr "Show words in the floating panel as you speak. Uses a live connection to
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
+#: src/settings/referrals.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -5315,6 +5397,10 @@ msgstr "Sign in to generate this summary"
 #: src/sidebar/toast/registry.tsx
 msgid "Sign in to get the most out of Anarlog"
 msgstr "Sign in to get the most out of Anarlog"
+
+#: src/settings/referrals.tsx
+msgid "Sign in to see your referral invites."
+msgstr "Sign in to see your referral invites."
 
 #: src/session-sharing/index.tsx
 msgid "Sign in to share"
@@ -6008,6 +6094,7 @@ msgstr "Trigger"
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
+#: src/settings/referrals.tsx
 #: src/settings/stats/badge-collection.tsx
 #: src/settings/team/index.tsx
 msgid "Try again"
@@ -6300,6 +6387,10 @@ msgstr "View"
 msgid "View Anarlog"
 msgstr "View Anarlog"
 
+#: src/settings/referrals.tsx
+msgid "View billing"
+msgstr "View billing"
+
 #: src/contacts/organization-details.tsx
 msgid "View LinkedIn profile"
 msgstr "View LinkedIn profile"
@@ -6339,6 +6430,10 @@ msgstr "Waiting for authorization in your browser…"
 #: src/settings/appearance/app-icon.tsx
 msgid "Walnut"
 msgstr "Walnut"
+
+#: src/settings/referrals.tsx
+msgid "We couldn't load your invites. Please try again."
+msgstr "We couldn't load your invites. Please try again."
 
 #: src/settings/developers/webhooks.tsx
 msgid "Webhooks"
@@ -6506,6 +6601,10 @@ msgstr "Your info"
 #: src/settings/stats/index.tsx
 msgid "Your insights"
 msgstr "Your insights"
+
+#: src/settings/referrals.tsx
+msgid "Your invites"
+msgstr "Your invites"
 
 #: src/auth/context.tsx
 msgid "Your local notes are available. Connect this library to sync with your current account."

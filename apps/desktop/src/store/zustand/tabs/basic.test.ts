@@ -379,6 +379,7 @@ describe("Basic Tab Actions", () => {
     ["personalization", "dictionary"],
     ["audio", "meetings"],
     ["billing", "billing"],
+    ["referrals", "referrals"],
   ] as const)(
     "openNew normalizes settings tab %s to %s",
     (requested, expected) => {

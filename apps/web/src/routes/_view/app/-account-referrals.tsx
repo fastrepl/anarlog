@@ -72,7 +72,9 @@ export function ReferralSection({ ineligible }: { ineligible: boolean }) {
   const earnedRewards = invites.filter(
     (invite) => invite.status === "reward_earned",
   ).length;
-  const rewardAmount = invites[0]?.rewardAmountCents ?? 0;
+  const earnedRewardCents = invites
+    .filter((invite) => invite.status === "reward_earned")
+    .reduce((total, invite) => total + invite.rewardAmountCents, 0);
   const rewardCurrency = invites[0]?.rewardCurrency ?? "usd";
   const availableInvites = invites.filter(
     (invite) => invite.status === "available",
@@ -81,7 +83,7 @@ export function ReferralSection({ ineligible }: { ineligible: boolean }) {
     style: "currency",
     currency: rewardCurrency.toUpperCase(),
     maximumFractionDigits: 0,
-  }).format((earnedRewards * rewardAmount) / 100);
+  }).format(earnedRewardCents / 100);
 
   const handleCopy = async (slot: number, url: string) => {
     await navigator.clipboard.writeText(url);
@@ -137,7 +139,7 @@ export function ReferralSection({ ineligible }: { ineligible: boolean }) {
       <p className="border-t border-[#ede7dc] px-6 py-4 text-sm leading-6 text-[#756b5d] sm:px-8">
         {earnedRewards > 0
           ? `${earnedCredit} in referral credit earned.`
-          : "You both get a month of Pro free. Your friend's starts right away, and yours kicks in after their first payment."}
+          : "Your friend gets 30 days of Pro free. You get $14 off your subscription after their first payment."}
       </p>
     </div>
   );

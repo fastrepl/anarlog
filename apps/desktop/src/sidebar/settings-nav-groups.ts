@@ -60,6 +60,7 @@ export function useSettingsNavGroups(): SettingsNavGroup[] {
         { id: "app", label: t`General`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
         { id: "billing", label: t`Billing`, icon: CreditCard },
+        { id: "referrals", label: t`Invite friends`, icon: Users },
         { id: "insights", label: t`Insights`, icon: ChartLineUp },
         {
           id: "team",
