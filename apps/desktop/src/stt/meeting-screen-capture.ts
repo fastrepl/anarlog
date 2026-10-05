@@ -1,3 +1,5 @@
+import { platform } from "@tauri-apps/plugin-os";
+
 import { commands as detectCommands } from "@anlg/plugin-detect";
 import { commands as permissionsCommands } from "@anlg/plugin-permissions";
 import { toast } from "@anlg/ui/components/ui/toast";
@@ -36,8 +38,10 @@ export function startMeetingScreenCapture({
       }
 
       const permission =
-        await permissionsCommands.checkPermission("screenRecording");
-      if (permission.status === "ok" && permission.data === "denied") {
+        platform() === "macos"
+          ? await permissionsCommands.checkPermission("screenRecording")
+          : null;
+      if (permission?.status === "ok" && permission.data === "denied") {
         if (!permissionWarned) {
           permissionWarned = true;
           toast.warning(
@@ -54,6 +58,10 @@ export function startMeetingScreenCapture({
       if (stopped) {
         return;
       }
+      if (!(await captureIsEnabled())) {
+        resetSampler = true;
+        return;
+      }
       if (result.status === "error") {
         console.warn(
           "[listener] failed to capture shared screen",
@@ -67,6 +75,7 @@ export function startMeetingScreenCapture({
 
       await persistMeetingScreenCapture({ sessionId, capture: result.data });
     } catch (error) {
+      resetSampler = true;
       console.warn("[listener] failed to capture shared screen", error);
     }
   };

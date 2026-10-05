@@ -4,6 +4,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 
+import { sessionAttachmentPathsQueryKey } from "~/session/hooks/useAttachmentResolver";
 import { formatMeetingPlatform } from "~/stt/meeting-chat-records";
 import {
   type MeetingScreenRecord,
@@ -14,7 +15,11 @@ export function MeetingScreenGallery({ sessionId }: { sessionId: string }) {
   const records = useMeetingScreenRecords(sessionId);
   const attachmentIds = records.map((record) => record.attachmentId).join(",");
   const { data: sources } = useQuery({
-    queryKey: ["session", sessionId, "meeting-screens", attachmentIds],
+    queryKey: [
+      ...sessionAttachmentPathsQueryKey(sessionId),
+      "meeting-screens",
+      attachmentIds,
+    ],
     enabled: records.length > 0,
     queryFn: async () => {
       const result = await fsSyncCommands.attachmentList(sessionId);
