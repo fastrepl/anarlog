@@ -16,13 +16,15 @@ describe("auth callback handling", () => {
         session = access;
       },
     });
-    expect(handle("attacker", "refresh")).toBe(false);
+    expect(await handle("attacker", "refresh")).toBe(false);
     const state = beginDesktopAuth();
-    expect(handle("attacker", "refresh", crypto.randomUUID())).toBe(false);
+    expect(await handle("attacker", "refresh", crypto.randomUUID())).toBe(
+      false,
+    );
     expect(session).toBeUndefined();
-    expect(handle("legitimate", "refresh", state)).toBe(true);
+    expect(await handle("legitimate", "refresh", state)).toBe(true);
     expect(session).toBe("legitimate");
-    expect(handle("attacker", "refresh", state)).toBe(false);
+    expect(await handle("attacker", "refresh", state)).toBe(false);
     expect(session).toBe("legitimate");
     const oldState = beginDesktopAuth(1_000);
     expect(consumeDesktopAuthState(oldState, 1_000 + 15 * 60 * 1_000 + 1)).toBe(
@@ -30,8 +32,29 @@ describe("auth callback handling", () => {
     );
     const replacedState = beginDesktopAuth();
     const newestState = beginDesktopAuth();
-    expect(handle("stale", "refresh", replacedState)).toBe(false);
-    expect(handle("newest", "refresh", newestState)).toBe(true);
+    expect(await handle("stale", "refresh", replacedState)).toBe(false);
+    expect(await handle("newest", "refresh", newestState)).toBe(true);
     expect(session).toBe("newest");
+  });
+  it("allows a failed installation to retry while blocking concurrent and completed replays", async () => {
+    const state = beginDesktopAuth();
+    let reject: ((error: Error) => void) | undefined;
+    let installed = false;
+    const handle = createAuthCallbackHandler({
+      setSessionFromTokens: async () => {
+        if (!reject)
+          await new Promise<void>((_resolve, fail) => {
+            reject = fail;
+          });
+        installed = true;
+      },
+    });
+    const first = handle("access", "refresh", state);
+    expect(await handle("access", "refresh", state)).toBe(false);
+    reject!(new Error("offline"));
+    await expect(first).rejects.toThrow("offline");
+    expect(await handle("access", "refresh", state)).toBe(true);
+    expect(installed).toBe(true);
+    expect(await handle("access", "refresh", state)).toBe(false);
   });
 });

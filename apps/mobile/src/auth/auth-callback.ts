@@ -1,11 +1,12 @@
 export const pendingAuthStorageKey = "anarlog:auth:pending-handoff";
-let consuming = false;
+let callbackQueue: Promise<unknown> = Promise.resolve();
 
-export async function consumeAuthCallback({
+async function checkAuthCallback({
   url,
   scheme,
   storage,
   now = Date.now(),
+  installSession,
 }: {
   url: string;
   scheme: string;
@@ -14,9 +15,11 @@ export async function consumeAuthCallback({
     removeItem: (key: string) => Promise<void>;
   };
   now?: number;
+  installSession?: (tokens: {
+    accessToken: string;
+    refreshToken: string;
+  }) => Promise<boolean>;
 }) {
-  if (consuming) return null;
-  consuming = true;
   try {
     const parsed = new URL(url);
     if (
@@ -39,11 +42,22 @@ export async function consumeAuthCallback({
       now - pending.createdAt > 15 * 60 * 1_000
     )
       return null;
-    await storage.removeItem(pendingAuthStorageKey);
-    return { accessToken, refreshToken };
+    const tokens = { accessToken, refreshToken };
+    if (installSession && !(await installSession(tokens))) return null;
+    if ((await storage.getItem(pendingAuthStorageKey)) === raw)
+      await storage.removeItem(pendingAuthStorageKey);
+    return tokens;
   } catch {
     return null;
-  } finally {
-    consuming = false;
   }
+}
+
+export function consumeAuthCallback(
+  options: Parameters<typeof checkAuthCallback>[0],
+) {
+  const next = callbackQueue
+    .catch(() => {})
+    .then(() => checkAuthCallback(options));
+  callbackQueue = next;
+  return next;
 }

@@ -1,4 +1,5 @@
 const PENDING_AUTH_KEY = "anarlog.pending-desktop-auth";
+const installingStates = new Set<string>();
 const PENDING_AUTH_MAX_AGE_MS = 15 * 60 * 1000;
 
 export function beginDesktopAuth(now = Date.now()) {
@@ -10,7 +11,7 @@ export function beginDesktopAuth(now = Date.now()) {
   return state;
 }
 
-export function consumeDesktopAuthState(
+function pendingDesktopAuthState(
   state: string | null | undefined,
   now = Date.now(),
 ) {
@@ -26,11 +27,39 @@ export function consumeDesktopAuthState(
       now - pending.createdAt > PENDING_AUTH_MAX_AGE_MS
     )
       return false;
-    // Consume before installing the session so queued callbacks cannot replay it.
-    localStorage.removeItem(PENDING_AUTH_KEY);
-    return true;
+    return stored;
   } catch {
     return false;
+  }
+}
+
+export function consumeDesktopAuthState(
+  state: string | null | undefined,
+  now = Date.now(),
+) {
+  if (!pendingDesktopAuthState(state, now)) return false;
+  localStorage.removeItem(PENDING_AUTH_KEY);
+  return true;
+}
+
+export async function installDesktopAuthSession(
+  accessToken: string,
+  refreshToken: string,
+  state: string | null | undefined,
+  install: (accessToken: string, refreshToken: string) => Promise<void>,
+) {
+  if (!accessToken || !refreshToken || !state || installingStates.has(state))
+    return false;
+  const pending = pendingDesktopAuthState(state);
+  if (!pending) return false;
+  installingStates.add(state);
+  try {
+    await install(accessToken, refreshToken);
+    if (localStorage.getItem(PENDING_AUTH_KEY) === pending)
+      localStorage.removeItem(PENDING_AUTH_KEY);
+    return true;
+  } finally {
+    installingStates.delete(state);
   }
 }
 
@@ -42,10 +71,11 @@ export function createAuthCallbackHandler({
     refreshToken: string,
   ) => Promise<void>;
 }) {
-  return (accessToken: string, refreshToken: string, state?: string) => {
-    if (!accessToken || !refreshToken || !consumeDesktopAuthState(state))
-      return false;
-    void setSessionFromTokens(accessToken, refreshToken).catch(() => {});
-    return true;
-  };
+  return (accessToken: string, refreshToken: string, state?: string) =>
+    installDesktopAuthSession(
+      accessToken,
+      refreshToken,
+      state,
+      setSessionFromTokens,
+    );
 }

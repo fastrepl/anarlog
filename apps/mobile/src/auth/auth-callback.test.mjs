@@ -33,3 +33,59 @@ test("mobile accepts only the pending login once, including duplicate delivery a
   ]);
   assert.equal(await consume(callback), null);
 });
+
+test("queued mobile callbacks survive a stale URL and a failed session installation", async () => {
+  const state = "8d58e770-3a95-41ba-bfa1-ec03633a3a55";
+  let pending = JSON.stringify({ state, createdAt: 1_000 });
+  let release;
+  let started;
+  const reading = new Promise((resolve) => {
+    started = resolve;
+  });
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let firstRead = true;
+  const storage = {
+    getItem: async () => {
+      if (firstRead) {
+        firstRead = false;
+        started();
+        await gate;
+      }
+      return pending;
+    },
+    removeItem: async () => {
+      pending = null;
+    },
+  };
+  const callback = `anarlog://auth/callback?access_token=access&refresh_token=refresh&state=${state}`;
+  let available = false;
+  let session = null;
+  const consume = (url) =>
+    consumeAuthCallback({
+      url,
+      scheme: "anarlog",
+      storage,
+      now: 1_000,
+      installSession: async (tokens) => {
+        if (!available) return false;
+        session = tokens.accessToken;
+        return true;
+      },
+    });
+  const stale = consume(callback.replace(state, "stale"));
+  await reading;
+  const valid = consume(callback);
+  release();
+  assert.equal(await stale, null);
+  assert.equal(await valid, null);
+  assert.notEqual(pending, null);
+  available = true;
+  assert.deepEqual(await consume(callback), {
+    accessToken: "access",
+    refreshToken: "refresh",
+  });
+  assert.equal(session, "access");
+  assert.equal(await consume(callback), null);
+});

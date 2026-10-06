@@ -35,7 +35,7 @@ import {
   prepareCloudsyncSignOut,
   refreshCloudsyncForSession,
 } from "./cloudsync";
-import { consumeDesktopAuthState } from "./deeplink";
+import { installDesktopAuthSession } from "./deeplink";
 import { clearAuthStorage } from "./errors";
 import { loadInitialSession } from "./initial-session";
 import {
@@ -194,15 +194,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         parsed.hostname !== "auth" ||
         parsed.pathname !== "/callback" ||
         !accessToken ||
-        !refreshToken ||
-        !consumeDesktopAuthState(parsed.searchParams.get("state"))
+        !refreshToken
       ) {
         throw new Error(
           "Invalid or expired sign-in callback. Start sign-in again.",
         );
       }
 
-      await setSessionFromTokens(accessToken, refreshToken);
+      if (
+        !(await installDesktopAuthSession(
+          accessToken,
+          refreshToken,
+          parsed.searchParams.get("state"),
+          setSessionFromTokens,
+        ))
+      ) {
+        throw new Error(
+          "Invalid or expired sign-in callback. Start sign-in again.",
+        );
+      }
     },
     [setSessionFromTokens],
   );

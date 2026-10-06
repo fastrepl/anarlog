@@ -1,3 +1,4 @@
+import { isRedirect } from "@tanstack/react-router";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import test from "node:test";
@@ -12,6 +13,7 @@ import {
   resolveDesktopAuthCallbackMethod,
   useDesktopAppAutoOpen,
 } from "./desktop-auth-handoff.ts";
+import { completeOAuthCallback } from "./desktop-oauth-callback.ts";
 
 const require = createRequire(import.meta.url);
 const { JSDOM } = require("jsdom") as {
@@ -83,6 +85,65 @@ test("stores credentials before returning a token-free HTTP callback URL", () =>
       () => buildDesktopAuthCallbackPath("access", "refresh"),
       /storage unavailable/,
     );
+  } finally {
+    dom.window.close();
+    restoreGlobal("window", previousWindow);
+  }
+});
+
+test("the OAuth callback stores the exchanged session before its token-free redirect", async () => {
+  const dom = new JSDOM("", { url: "https://anarlog.so/auth/" });
+  const previousWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: dom.window,
+  });
+  const state = "8d58e770-3a95-41ba-bfa1-ec03633a3a55";
+  const finish = () =>
+    completeOAuthCallback({
+      search: {
+        code: "oauth-code",
+        flow: "desktop",
+        scheme: "anarlog-staging",
+        desktop_state: state,
+        method: "google",
+      },
+      exchangeOAuthCode: async ({ data }) => {
+        assert.equal(data.code, "oauth-code");
+        return {
+          success: true,
+          access_token: "route-access",
+          refresh_token: "route-refresh",
+          newAccount: false,
+          createdAccount: false,
+          userId: "user",
+        };
+      },
+      capturePrivateRouteEvent: () => {},
+    });
+  try {
+    await assert.rejects(finish(), (error: unknown) => {
+      assert.ok(isRedirect(error));
+      assert.equal(error.options.to, "/callback/auth/");
+      assert.deepEqual(error.options.search, {
+        flow: "desktop",
+        handoff: "stored",
+        scheme: "anarlog-staging",
+        method: "google",
+        desktop_state: state,
+      });
+      assert.deepEqual(consumeDesktopAuthHandoff(Date.now(), state), {
+        accessToken: "route-access",
+        refreshToken: "route-refresh",
+      });
+      return true;
+    });
+    Object.defineProperty(dom.window, "sessionStorage", {
+      get() {
+        throw new Error("storage unavailable");
+      },
+    });
+    await assert.rejects(finish(), /storage unavailable/);
   } finally {
     dom.window.close();
     restoreGlobal("window", previousWindow);

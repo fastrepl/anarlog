@@ -125,11 +125,13 @@ async function handleAuthCallbackUrl(url: string): Promise<boolean> {
     url,
     scheme: env.appScheme,
     storage: AsyncStorage,
+    installSession: ({ accessToken, refreshToken }) =>
+      acceptAuthTokens(accessToken, refreshToken),
   });
   if (!tokens) {
     return Promise.resolve(false);
   }
-  return acceptAuthTokens(tokens.accessToken, tokens.refreshToken);
+  return true;
 }
 
 // Offline fallback: a retryable getSession error must not lock a Pro user out

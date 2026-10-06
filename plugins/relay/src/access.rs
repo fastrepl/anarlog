@@ -70,10 +70,15 @@ pub(crate) async fn authorize(
     }
 
     // Only a top-level browser navigation can bootstrap the HttpOnly credential.
-    let bootstrap = req
+    let trusted_navigation = req
         .headers()
-        .get("sec-fetch-mode")
-        .is_some_and(|mode| mode == "navigate")
+        .get("sec-fetch-site")
+        .is_some_and(|site| site == "none" || site == "same-origin");
+    let bootstrap = trusted_navigation
+        && req
+            .headers()
+            .get("sec-fetch-mode")
+            .is_some_and(|mode| mode == "navigate")
         && req
             .headers()
             .get("sec-fetch-dest")
@@ -203,6 +208,7 @@ mod tests {
                     Request::builder()
                         .uri("/")
                         .header(header::HOST, "localhost:1423")
+                        .header("sec-fetch-site", "none")
                         .header("sec-fetch-mode", "navigate")
                         .header("sec-fetch-dest", dest)
                         .body(Body::empty())
@@ -225,6 +231,23 @@ mod tests {
                     format!("{cookie}; HttpOnly; SameSite=Strict; Path=/ws")
                 );
             }
+        }
+        for site in ["cross-site", "same-site", ""] {
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/")
+                        .header(header::HOST, "localhost:1423")
+                        .header("sec-fetch-site", site)
+                        .header("sec-fetch-mode", "navigate")
+                        .header("sec-fetch-dest", "document")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert!(!response.headers().contains_key(header::SET_COOKIE));
         }
         let restarted = RelayAccess::new(1423);
         assert!(!restarted.authenticated(&HeaderMap::from_iter([(

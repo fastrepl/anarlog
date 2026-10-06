@@ -72,7 +72,16 @@ export function useDeeplinkHandler() {
       if (payload.to === "/auth/callback") {
         const { access_token, refresh_token, state } = payload.search;
         if (access_token && refresh_token) {
-          authCallbackHandler(access_token, refresh_token, state ?? undefined);
+          void authCallbackHandler(
+            access_token,
+            refresh_token,
+            state ?? undefined,
+          ).catch((error) => {
+            console.error(
+              "[auth] sign-in failed; retry the callback or start sign-in again",
+              error,
+            );
+          });
         }
       } else if (payload.to === "/billing/refresh") {
         void authRef.current.refreshSession();
