@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use image::{DynamicImage, RgbImage, RgbaImage, imageops::FilterType};
 
 use crate::MeetingAccessibilityInspection;
@@ -6,6 +8,8 @@ const SIGNATURE_WIDTH: u32 = 64;
 const SIGNATURE_HEIGHT: u32 = 36;
 const MAX_CAPTURE_WIDTH: u32 = 1920;
 const JPEG_QUALITY: u8 = 80;
+// Going back to an earlier slide should not save it again.
+const MAX_REMEMBERED_FRAMES: usize = 200;
 // Mean per-channel difference (0..1) on the downscaled colour signature.
 const STABLE_FRAME_DISTANCE: f32 = 0.02;
 const NEW_CONTENT_DISTANCE: f32 = 0.06;
@@ -69,11 +73,11 @@ impl FrameSignature {
 }
 
 /// Keeps a frame once it has held still for two samples (skips live video and
-/// slide transitions) and differs from the last kept frame (a new slide).
+/// slide transitions) and differs from every frame kept so far (a new slide).
 #[derive(Debug, Default)]
 pub struct ScreenShareSampler {
     previous: Option<FrameSignature>,
-    last_kept: Option<FrameSignature>,
+    kept: VecDeque<FrameSignature>,
     followed: Option<MeetingAccessibilityInspection>,
 }
 
@@ -111,18 +115,21 @@ impl ScreenShareSampler {
             .as_ref()
             .is_some_and(|previous| previous.distance(&signature) <= STABLE_FRAME_DISTANCE);
         let new_content = self
-            .last_kept
-            .as_ref()
-            .is_none_or(|kept| signature.shows_new_content(kept));
+            .kept
+            .iter()
+            .all(|kept| signature.shows_new_content(kept));
         let keep = stable && new_content;
         if keep {
-            self.last_kept = Some(signature.clone());
+            if self.kept.len() == MAX_REMEMBERED_FRAMES {
+                self.kept.pop_front();
+            }
+            self.kept.push_back(signature.clone());
         }
         self.previous = Some(signature);
         keep
     }
 
-    /// Forget the in-progress sample but keep the last kept frame so a share
+    /// Forget the in-progress sample but remember kept frames so a share
     /// that pauses and resumes on the same slide is not captured twice.
     pub fn pause(&mut self) {
         self.previous = None;
@@ -235,6 +242,10 @@ mod tests {
         assert!(
             keeps_after_settling(&mut sampler, &template_slide([0x58, 0x21, 0x8f], 60..80)),
             "same template with only the text moved"
+        );
+        assert!(
+            !keeps_after_settling(&mut sampler, &template_slide([0xac, 0x24, 0x1a], 20..40)),
+            "going back to an earlier slide"
         );
     }
 
