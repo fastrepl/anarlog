@@ -12,6 +12,7 @@ import {
   AUTO_STOP_CONFIRM_DELAY_MS,
   getAutoStopActiveCheckAppIds,
   getAutoStopCandidateAppIds,
+  getMeetingAppsStillOnCall,
   getNetworkInterruptionDeadlineMs,
   isRecentNetworkDrop,
   resolveNetworkHoldUntilMs,
@@ -222,6 +223,20 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
       if (result.status === "ok") {
         const activeAppIds = new Set(result.data.map((app) => app.id));
         if (activeCheckAppIds.some((id) => activeAppIds.has(id))) {
+          return;
+        }
+
+        const meetingAppsStillOnCall = getMeetingAppsStillOnCall({
+          triggerAppIds: currentTrigger,
+          quietApps: candidateAppIds.map(
+            (id) =>
+              stoppedApps.find((app) => app.id === id) ?? { id, name: "" },
+          ),
+          micApps: result.data,
+        });
+        if (meetingAppsStillOnCall.length > 0) {
+          // Track them so the recording stops when the call itself ends.
+          captureTriggerApps(meetingAppsStillOnCall);
           return;
         }
       } else if (pending.requireMicSnapshot || hasUnreliableActiveCheckApp) {

@@ -10,6 +10,8 @@ import {
 import {
   BROWSER_AUTO_STOP_APP_IDS,
   getNotificationIconForApp,
+  isMeetingCapableMicApp,
+  type MicApp,
 } from "./meeting-apps";
 
 import { loadSessionEvent } from "~/session/queries";
@@ -132,6 +134,31 @@ export function getAutoStopActiveCheckAppIds(
     triggerAppIds?.filter((id) => UNRELIABLE_AUTO_STOP_APP_IDS.has(id)) ?? [];
 
   return [...new Set([...candidateAppIds, ...unreliableTriggerAppIds])];
+}
+
+// The app that went quiet is not always the one carrying the call: a browser
+// tab, recorder, or dictation tool can hold the mic for part of a meeting.
+// When a meeting app went quiet, only another trigger counts, so an unrelated
+// browser tab cannot keep a finished call recording.
+export function getMeetingAppsStillOnCall({
+  triggerAppIds,
+  quietApps,
+  micApps,
+}: {
+  triggerAppIds: string[] | null | undefined;
+  quietApps: MicApp[];
+  micApps: MicApp[];
+}) {
+  const quietAppIds = new Set(quietApps.map((app) => app.id));
+  const meetingAppWentQuiet = quietApps.some(isMeetingCapableMicApp);
+  const triggers = new Set(triggerAppIds ?? []);
+
+  return micApps.filter(
+    (app) =>
+      !quietAppIds.has(app.id) &&
+      isMeetingCapableMicApp(app) &&
+      (!meetingAppWentQuiet || triggers.has(app.id)),
+  );
 }
 
 export async function showMeetingEndedPrompt({
