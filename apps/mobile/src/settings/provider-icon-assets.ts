@@ -15,6 +15,18 @@ const PROVIDER_ICONS: Record<string, { light: number; dark: number }> = {
     light: require("../../assets/providers/openai-light.png"),
     dark: require("../../assets/providers/openai-dark.png"),
   },
+  claude: {
+    light: require("../../assets/providers/anthropic-light.png"),
+    dark: require("../../assets/providers/anthropic-dark.png"),
+  },
+  grok: {
+    light: require("../../assets/providers/xai-light.png"),
+    dark: require("../../assets/providers/xai-dark.png"),
+  },
+  kimi_code: {
+    light: require("../../assets/providers/moonshot-light.png"),
+    dark: require("../../assets/providers/moonshot-dark.png"),
+  },
   chatgpt: {
     light: require("../../assets/providers/openai-light.png"),
     dark: require("../../assets/providers/openai-dark.png"),

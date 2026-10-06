@@ -18,6 +18,7 @@ import {
   validateProviderConfig,
   normalizeTranscriptionResponse,
   providersFor,
+  isSubscriptionProvider,
 } from "./providers-model.ts";
 
 const sourceRoot = new URL("../", import.meta.url);
@@ -131,10 +132,10 @@ const { dismissToast, getToast } = await import("../lib/toast.ts");
 const { loadSessionTranscripts } = await import("../data/transcripts.ts");
 const { Platform } = await import("react-native");
 const {
-  readChatgptCredential,
-  saveChatgptCredential,
-  resolveChatgptCredential,
-} = await import("./chatgpt-access.ts");
+  readSubscriptionCredential,
+  saveSubscriptionCredential,
+  resolveSubscriptionCredential,
+} = await import("./subscription-access.ts");
 
 function signedInWith(claims) {
   fixture.session = {
@@ -441,7 +442,7 @@ test("ChatGPT device credentials discover models and generate a persisted summar
   signedInWith({ entitlements: [] });
   createNote();
   const credential = chatgptCredential();
-  await saveChatgptCredential("account-a", credential);
+  await saveSubscriptionCredential("account-a", "chatgpt", credential);
   const config = {
     ...defaultProviderConfig("llm", "chatgpt"),
     model: "test-chat",
@@ -504,14 +505,130 @@ test("ChatGPT device credentials discover models and generate a persisted summar
     ).includes(credential.refresh),
   );
   await assert.rejects(
-    resolveChatgptCredential("account-b"),
+    resolveSubscriptionCredential("account-b", "chatgpt"),
     /Connect ChatGPT/,
   );
 });
 
+test("other subscription providers isolate credentials and persist summaries through their own authenticated endpoints", async () => {
+  for (const provider of ["claude", "grok", "github_copilot", "kimi_code"]) {
+    fixture.db.exec(
+      "DELETE FROM app_settings; DELETE FROM session_documents; DELETE FROM sessions",
+    );
+    signedInWith({ entitlements: [] });
+    createNote();
+    const credential = {
+      type: "oauth",
+      access: `${provider}-access`,
+      refresh: `${provider}-refresh`,
+      expires: Date.now() + 3600_000,
+    };
+    const config = {
+      ...defaultProviderConfig("llm", provider),
+      model: "test-chat",
+    };
+    if (provider !== "kimi_code")
+      await saveSubscriptionCredential("account-a", provider, credential);
+    fixture.verify = async (value) => {
+      assert.equal(value.provider, "kimi_code");
+      assert.equal(value.apiKey, "kimi-key");
+    };
+    await saveProviderConfig(
+      "account-a",
+      "llm",
+      config,
+      provider === "kimi_code" ? "kimi-key" : undefined,
+    );
+    fixture.respond = (url, options) => {
+      assert.equal(
+        options.headers.Authorization,
+        `Bearer ${provider === "kimi_code" ? "kimi-key" : credential.access}`,
+      );
+      if (url.endsWith("/models"))
+        return Response.json({
+          data: [
+            { id: "test-chat" },
+            ...(provider === "github_copilot"
+              ? [{ id: "hidden-model", model_picker_enabled: false }]
+              : []),
+          ],
+        });
+      const body = JSON.parse(options.body);
+      assert.equal(body.model, "test-chat");
+      if (provider === "claude") {
+        assert.equal(url, "https://api.anthropic.com/v1/messages");
+        assert.ok(!("x-api-key" in options.headers));
+        assert.ok(options.headers["anthropic-beta"].includes("oauth"));
+        assert.equal(
+          body.system[0].text,
+          "You are Claude Code, Anthropic's official CLI for Claude.",
+        );
+        assert.ok(body.messages[0].content.includes("Ship the app"));
+        return Response.json({
+          content: [
+            { type: "thinking", text: "reasoning" },
+            { type: "text", text: "## Decisions\nShip the mobile app." },
+          ],
+        });
+      }
+      assert.equal(url, `${config.baseUrl}/chat/completions`);
+      if (provider === "github_copilot")
+        assert.equal(options.headers["Copilot-Integration-Id"], "vscode-chat");
+      assert.ok(body.messages[1].content.includes("Ship the app"));
+      return Response.json({
+        choices: [
+          { message: { content: "## Decisions\nShip the mobile app." } },
+        ],
+      });
+    };
+    assert.equal(
+      (await readProviderStatus("account-a", "llm", provider)).isConfigured,
+      true,
+    );
+    assert.deepEqual(
+      await discoverProviderModels(
+        "account-a",
+        config,
+        new AbortController().signal,
+      ),
+      ["test-chat"],
+    );
+    await summarizeSession("note-1");
+    assert.equal(
+      fixture.db
+        .prepare("SELECT body FROM session_documents WHERE kind = 'summary'")
+        .get().body,
+      "## Decisions\nShip the mobile app.",
+    );
+    const persisted = JSON.stringify(
+      fixture.db.prepare("SELECT * FROM app_settings").all(),
+    );
+    assert.ok(
+      !persisted.includes(credential.access) &&
+        !persisted.includes(credential.refresh) &&
+        !persisted.includes("kimi-key"),
+    );
+    if (provider !== "kimi_code") {
+      await assert.rejects(
+        resolveSubscriptionCredential("account-b", provider),
+        /Connect/,
+      );
+      assert.equal(
+        await readSubscriptionCredential("account-a", "chatgpt"),
+        null,
+      );
+    }
+    await removeProviderKey("account-a", "llm", provider);
+    assert.equal(
+      (await readProviderStatus("account-a", "llm", provider)).hasKey,
+      false,
+    );
+  }
+});
+
 test("concurrent ChatGPT requests persist rotated tokens and disconnect cannot be undone by a late refresh", async () => {
   const expired = chatgptCredential({ expires: 0 });
-  await saveChatgptCredential("account-a", expired);
+  await saveSubscriptionCredential("account-a", "chatgpt", expired);
   const next = chatgptCredential({
     refresh: "rotated-refresh",
     access: "rotated-access",
@@ -536,16 +653,16 @@ test("concurrent ChatGPT requests persist rotated tokens and disconnect cannot b
     });
   };
   const results = await Promise.all([
-    resolveChatgptCredential("account-a"),
-    resolveChatgptCredential("account-a"),
+    resolveSubscriptionCredential("account-a", "chatgpt"),
+    resolveSubscriptionCredential("account-a", "chatgpt"),
   ]);
   assert.equal(results[0].access, next.access);
   assert.equal(results[1].refresh, next.refresh);
   assert.equal(
-    (await readChatgptCredential("account-a")).refresh,
+    (await readSubscriptionCredential("account-a", "chatgpt")).refresh,
     next.refresh,
   );
-  await saveChatgptCredential("account-a", expired);
+  await saveSubscriptionCredential("account-a", "chatgpt", expired);
   let finish;
   let started;
   const requestStarted = new Promise((resolve) => {
@@ -557,7 +674,7 @@ test("concurrent ChatGPT requests persist rotated tokens and disconnect cannot b
       finish = resolve;
     });
   };
-  const refreshing = resolveChatgptCredential("account-a");
+  const refreshing = resolveSubscriptionCredential("account-a", "chatgpt");
   await requestStarted;
   const disconnecting = removeProviderKey("account-a", "llm", "chatgpt");
   finish(
@@ -568,9 +685,9 @@ test("concurrent ChatGPT requests persist rotated tokens and disconnect cannot b
     }),
   );
   await Promise.all([refreshing, disconnecting]);
-  assert.equal(await readChatgptCredential("account-a"), null);
+  assert.equal(await readSubscriptionCredential("account-a", "chatgpt"), null);
   await assert.rejects(
-    resolveChatgptCredential("account-a"),
+    resolveSubscriptionCredential("account-a", "chatgpt"),
     /Connect ChatGPT/,
   );
   assert.equal(fixture.keys.size, 0);
@@ -582,25 +699,39 @@ test("large ChatGPT credentials survive keychain limits and failed replacement k
       throw new Error("Keychain value too large");
   };
   const original = chatgptCredential({ access: "a".repeat(6000) });
-  await saveChatgptCredential("account-a", original);
-  assert.deepEqual(await readChatgptCredential("account-a"), original);
+  await saveSubscriptionCredential("account-a", "chatgpt", original);
+  assert.deepEqual(
+    await readSubscriptionCredential("account-a", "chatgpt"),
+    original,
+  );
   const before = [...fixture.keys.entries()];
   fixture.beforeKeyWrite = () => {
     throw new Error("Keychain unavailable");
   };
   await assert.rejects(
-    saveChatgptCredential("account-a", chatgptCredential()),
+    saveSubscriptionCredential("account-a", "chatgpt", chatgptCredential()),
     /Keychain unavailable/,
   );
-  assert.deepEqual(await readChatgptCredential("account-a"), original);
+  assert.deepEqual(
+    await readSubscriptionCredential("account-a", "chatgpt"),
+    original,
+  );
   assert.deepEqual([...fixture.keys.entries()], before);
   const cancelled = new AbortController();
   cancelled.abort();
   await assert.rejects(
-    saveChatgptCredential("account-a", chatgptCredential(), cancelled.signal),
+    saveSubscriptionCredential(
+      "account-a",
+      "chatgpt",
+      chatgptCredential(),
+      cancelled.signal,
+    ),
     { name: "AbortError" },
   );
-  assert.deepEqual(await readChatgptCredential("account-a"), original);
+  assert.deepEqual(
+    await readSubscriptionCredential("account-a", "chatgpt"),
+    original,
+  );
 });
 
 test("saving provider credentials leaves the active selection unchanged", async () => {
@@ -1367,7 +1498,7 @@ test("analytics opt-out aborts in-flight requests and prevents subsequent events
 test("every provider keeps its key on this device and restores its own setup", async () => {
   for (const kind of ["stt", "llm"]) {
     for (const definition of providersFor(kind).filter(
-      ({ id }) => id !== "anarlog" && id !== "chatgpt",
+      ({ id }) => id !== "anarlog" && !isSubscriptionProvider(id),
     )) {
       const tag = `${kind}/${definition.id}`;
       fixture.db.exec("DELETE FROM app_settings");

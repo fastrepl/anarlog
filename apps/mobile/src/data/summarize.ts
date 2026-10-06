@@ -16,6 +16,7 @@ import { queryClient } from "@/lib/query-client";
 import { showToast } from "@/lib/toast";
 import { readPreferences } from "@/settings/preferences";
 import { resolveProvider } from "@/settings/providers";
+import { isSubscriptionProvider } from "@/settings/providers-model";
 
 import { readChatgptSummary } from "./chatgpt-summary";
 import { docToPlainText, stripMarkdownTitle } from "./note-doc";
@@ -148,11 +149,11 @@ async function runSummary(
     if (!response.ok) {
       await response.body?.cancel();
       throw new Error(
-        provider.provider === "chatgpt" &&
+        isSubscriptionProvider(provider.provider) &&
           (response.status === 401 || response.status === 403)
-          ? "Reconnect ChatGPT in Settings."
-          : provider.provider === "chatgpt" && response.status === 429
-            ? "Your ChatGPT usage limit was reached. Try again later or choose another provider."
+          ? "Reconnect your subscription in Settings."
+          : isSubscriptionProvider(provider.provider) && response.status === 429
+            ? "Your subscription usage limit was reached. Try again later or choose another provider."
             : response.status === 401 || response.status === 403
               ? "Check your provider API key or sign in again."
               : `The summary provider could not complete the request (${response.status}).`,

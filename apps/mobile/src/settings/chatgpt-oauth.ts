@@ -1,5 +1,8 @@
 import { decodeJwtPayload } from "../auth/billing.ts";
-import { readBoundedTranscriptionResponse } from "../data/transcription-response.ts";
+import {
+  record,
+  subscriptionJson as chatgptJson,
+} from "./subscription-http.ts";
 
 export const CHATGPT_BASE_URL = "https://chatgpt.com/backend-api/codex";
 export const CHATGPT_DEVICE_URL = "https://auth.openai.com/codex/device";
@@ -20,12 +23,6 @@ export type ChatgptDeviceCode = {
   interval: number;
   expires: number;
 };
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
-}
 
 function claims(token: string) {
   return record(decodeJwtPayload(token));
@@ -81,42 +78,6 @@ export function chatgptHeaders(
       ? { "x-openai-internal-codex-residency": residency }
       : {}),
   };
-}
-
-async function chatgptJson(
-  url: string,
-  init: RequestInit,
-  fetcher: typeof fetch,
-  timeout: number,
-) {
-  init.signal?.throwIfAborted();
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  init.signal?.addEventListener("abort", abort, { once: true });
-  const timer = setTimeout(abort, timeout);
-  try {
-    const response = await fetcher(url, {
-      ...init,
-      redirect: "error",
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      await response.body?.cancel();
-      return { status: response.status, json: {} as Record<string, unknown> };
-    }
-    const body = await readBoundedTranscriptionResponse(
-      response,
-      url.startsWith(CHATGPT_BASE_URL) ? 8 * 1024 * 1024 : 128 * 1024,
-    );
-    try {
-      return { status: response.status, json: record(JSON.parse(body)) };
-    } catch {
-      throw new Error("ChatGPT returned an invalid response. Try again.");
-    }
-  } finally {
-    clearTimeout(timer);
-    init.signal?.removeEventListener("abort", abort);
-  }
 }
 
 async function post(

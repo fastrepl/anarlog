@@ -8,13 +8,13 @@ import {
 } from "@tanstack/react-query";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
+import { Linking } from "react-native";
 
 import { ProRequiredError } from "@/auth/billing";
 import { useAuth } from "@/auth/context";
 import { FieldGroup } from "@/settings/field-group";
 import { Button, ListItem, Text, TextInput } from "@/settings/fields";
 
-import { ChatgptConnect } from "./chatgpt-connect";
 import { SettingsPage } from "./components";
 import { createProviderAutosave } from "./provider-autosave";
 import { ProviderIcon } from "./provider-icon";
@@ -31,10 +31,12 @@ import {
 } from "./providers";
 import {
   defaultProviderConfig,
+  isOAuthSubscriptionProvider,
   providersFor,
   type ProviderConfig,
   type ProviderKind,
 } from "./providers-model";
+import { SubscriptionConnect } from "./subscription-connect";
 import { useColors } from "./theme-provider";
 
 export function ProviderSettings({ kind }: { kind: ProviderKind }) {
@@ -242,7 +244,7 @@ function ProviderForm({
                   />
                 }
               >
-                <Text>{`${provider.name}${active ? " · Active" : setup.data?.hasKey ? (provider.id === "chatgpt" ? " · Connected" : " · Key saved") : ""}`}</Text>
+                <Text>{`${provider.name}${active ? " · Active" : setup.data?.hasKey ? (isOAuthSubscriptionProvider(provider.id) ? " · Connected" : " · Key saved") : ""}`}</Text>
               </ListItem>
               {setup.isPending ? (
                 open && <Text>Loading…</Text>
@@ -253,9 +255,11 @@ function ProviderForm({
                     onPress={() => void setup.refetch()}
                   />
                 )
-              ) : provider.id === "chatgpt" ? (
+              ) : isOAuthSubscriptionProvider(provider.id) ? (
                 open && (
-                  <ChatgptConnect
+                  <SubscriptionConnect
+                    key={provider.id}
+                    provider={provider.id}
                     account={account}
                     connected={setup.data.hasKey}
                     verificationError={setup.data.verificationError}
@@ -361,6 +365,12 @@ function ProviderFields({
       await invalidate();
     },
   });
+  const browser = useMutation({
+    mutationFn: () =>
+      Linking.openURL(
+        "https://www.kimi.com/en/help/kimi-code/membership-guide",
+      ),
+  });
   const form = useForm({
     defaultValues: { baseUrl: config.baseUrl },
   });
@@ -380,6 +390,17 @@ function ProviderFields({
         paddingBottom: 8,
       }}
     >
+      {config.provider === "kimi_code" && (
+        <Column spacing={8}>
+          <Text>Use the API key from your Kimi Code membership settings.</Text>
+          <Button
+            label="Open Kimi Code"
+            variant="text"
+            disabled={browser.isPending}
+            onPress={() => browser.mutate()}
+          />
+        </Column>
+      )}
       <Row alignment="center" spacing={8}>
         <Icon
           name={Icon.select({
@@ -449,9 +470,9 @@ function ProviderFields({
         </Row>
       )}
       {save.isPending && <Text>Verifying key…</Text>}
-      {(save.error || remove.error) && (
+      {(save.error || remove.error || browser.error) && (
         <Text textStyle={{ color: Colors.destructive }}>
-          {(save.error || remove.error)?.message}
+          {(save.error || remove.error || browser.error)?.message}
         </Text>
       )}
       {!save.isPending && !save.error && verificationError && (

@@ -2,12 +2,13 @@ import { randomUUID } from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import { fetch } from "expo/fetch";
 
-import {
-  parseChatgptCredential,
-  refreshChatgptCredential,
-  type ChatgptCredential,
-} from "./chatgpt-oauth";
 import { providerStorageKey } from "./providers-model";
+import {
+  parseSubscriptionCredential,
+  refreshSubscriptionCredential,
+  type SubscriptionCredential,
+  type OAuthSubscriptionProvider,
+} from "./subscription-oauth";
 
 const options: SecureStore.SecureStoreOptions = {
   keychainService: "so.anarlog.mobile.providers",
@@ -17,9 +18,10 @@ const pending = new Map<string, Promise<unknown>>();
 
 function serialized<T>(
   account: string | null,
+  provider: OAuthSubscriptionProvider,
   operation: (key: string) => Promise<T>,
 ): Promise<T> {
-  const key = providerStorageKey(account, "llm", "chatgpt");
+  const key = providerStorageKey(account, "llm", provider);
   const previous = pending.get(key) ?? Promise.resolve();
   const next = previous.catch(() => {}).then(() => operation(key));
   pending.set(key, next);
@@ -48,11 +50,14 @@ async function manifest(
       return value;
   } catch {}
   throw new Error(
-    "Reconnect ChatGPT in Settings to repair the saved connection.",
+    "Reconnect your subscription in Settings to repair the saved connection.",
   );
 }
 
-async function read(key: string): Promise<ChatgptCredential | null> {
+async function read(
+  key: string,
+  provider: OAuthSubscriptionProvider,
+): Promise<SubscriptionCredential | null> {
   const saved = await manifest(key);
   if (!saved) return null;
   const chunks = await Promise.all(
@@ -61,11 +66,11 @@ async function read(key: string): Promise<ChatgptCredential | null> {
     ),
   );
   const credential = chunks.every((chunk) => chunk !== null)
-    ? parseChatgptCredential(chunks.join(""))
+    ? parseSubscriptionCredential(provider, chunks.join(""))
     : null;
   if (!credential)
     throw new Error(
-      "Reconnect ChatGPT in Settings to repair the saved connection.",
+      "Reconnect your subscription in Settings to repair the saved connection.",
     );
   return credential;
 }
@@ -80,18 +85,19 @@ async function cleanup(key: string, saved: { version: string; count: number }) {
 
 async function write(
   key: string,
-  credential: ChatgptCredential,
+  credential: SubscriptionCredential,
+  provider: OAuthSubscriptionProvider,
   signal?: AbortSignal,
 ) {
   const value = JSON.stringify(credential);
-  if (!parseChatgptCredential(value))
-    throw new Error("Invalid ChatGPT connection.");
+  if (!parseSubscriptionCredential(provider, value))
+    throw new Error("Invalid subscription connection.");
   const previous = await manifest(key).catch(() => null);
-  // ChatGPT JWTs exceed some iOS keychain value limits. Publish a new manifest
+  // Subscription JWTs exceed some iOS keychain value limits. Publish a new manifest
   // only after every chunk is saved, keeping the old connection on write failure.
   const next = { version: randomUUID(), count: Math.ceil(value.length / 1500) };
   if (next.count > 64)
-    throw new Error("ChatGPT connection is too large to save.");
+    throw new Error("Subscription connection is too large to save.");
   try {
     for (let index = 0; index < next.count; index++) {
       signal?.throwIfAborted();
@@ -110,34 +116,48 @@ async function write(
   if (previous) await cleanup(key, previous);
 }
 
-export function readChatgptCredential(account: string | null) {
-  return serialized(account, read);
+export function readSubscriptionCredential(
+  account: string | null,
+  provider: OAuthSubscriptionProvider,
+) {
+  return serialized(account, provider, (key) => read(key, provider));
 }
 
-export function saveChatgptCredential(
+export function saveSubscriptionCredential(
   account: string | null,
-  credential: ChatgptCredential,
+  provider: OAuthSubscriptionProvider,
+  credential: SubscriptionCredential,
   signal?: AbortSignal,
 ) {
-  return serialized(account, (key) => write(key, credential, signal));
+  return serialized(account, provider, (key) =>
+    write(key, credential, provider, signal),
+  );
 }
 
-export function removeChatgptCredential(account: string | null) {
-  return serialized(account, async (key) => {
+export function removeSubscriptionCredential(
+  account: string | null,
+  provider: OAuthSubscriptionProvider,
+) {
+  return serialized(account, provider, async (key) => {
     const saved = await manifest(key).catch(() => null);
     await SecureStore.deleteItemAsync(key, options);
     if (saved) await cleanup(key, saved);
   });
 }
 
-export function resolveChatgptCredential(account: string | null) {
-  return serialized(account, async (key) => {
-    const saved = await read(key);
+export function resolveSubscriptionCredential(
+  account: string | null,
+  provider: OAuthSubscriptionProvider,
+) {
+  return serialized(account, provider, async (key) => {
+    const saved = await read(key, provider);
     if (!saved)
-      throw new Error("Connect ChatGPT in Settings to use your subscription.");
+      throw new Error(
+        `Connect ${provider === "chatgpt" ? "ChatGPT" : "your subscription"} in Settings to use your subscription.`,
+      );
     if (saved.access && saved.expires - 120_000 > Date.now()) return saved;
-    const next = await refreshChatgptCredential(saved, fetch);
-    await write(key, next);
+    const next = await refreshSubscriptionCredential(provider, saved, fetch);
+    await write(key, next, provider);
     return next;
   });
 }

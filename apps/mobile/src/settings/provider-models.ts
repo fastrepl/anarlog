@@ -1,12 +1,13 @@
 import { fetch } from "expo/fetch";
 
-import { resolveChatgptCredential } from "./chatgpt-access";
-import { listChatgptModels } from "./chatgpt-oauth";
 import { readProviderKey, readProviderSetup } from "./providers";
 import {
+  isOAuthSubscriptionProvider,
   validateProviderConnection,
   type ProviderConfig,
 } from "./providers-model";
+import { resolveSubscriptionCredential } from "./subscription-access";
+import { listSubscriptionModels } from "./subscription-oauth";
 
 export async function discoverProviderModels(
   account: string | null,
@@ -18,15 +19,13 @@ export async function discoverProviderModels(
   const saved = await readProviderSetup(account, "llm", config.provider);
   if (saved.baseUrl !== connection.baseUrl)
     throw new Error("Provider connection changed. Reload models.");
-  if (config.provider === "chatgpt") {
-    const credential = await resolveChatgptCredential(account);
-    signal.throwIfAborted();
-    return listChatgptModels(
-      credential.access,
-      credential.accountId,
-      fetch,
-      signal,
+  if (isOAuthSubscriptionProvider(config.provider)) {
+    const credential = await resolveSubscriptionCredential(
+      account,
+      config.provider,
     );
+    signal.throwIfAborted();
+    return listSubscriptionModels(config.provider, credential, fetch, signal);
   }
   const apiKey = await readProviderKey(account, "llm", config.provider);
   if (!apiKey) throw new Error("Add an API key to load models.");

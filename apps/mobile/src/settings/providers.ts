@@ -12,13 +12,8 @@ import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
 
 import {
-  readChatgptCredential,
-  removeChatgptCredential,
-  resolveChatgptCredential,
-} from "./chatgpt-access";
-import { listChatgptModels } from "./chatgpt-oauth";
-import {
   defaultProviderConfig,
+  isOAuthSubscriptionProvider,
   providerStorageKey,
   validateProviderApiKey,
   validateProviderConfig,
@@ -26,6 +21,11 @@ import {
   type ProviderConfig,
   type ProviderKind,
 } from "./providers-model";
+import {
+  removeSubscriptionCredential,
+  resolveSubscriptionCredential,
+} from "./subscription-access";
+import { listSubscriptionModels } from "./subscription-oauth";
 
 const secureOptions: SecureStore.SecureStoreOptions = {
   keychainService: "so.anarlog.mobile.providers",
@@ -86,14 +86,21 @@ export async function readProviderStatus(
   kind: ProviderKind,
   provider: string,
 ) {
-  if (provider === "chatgpt") {
+  if (isOAuthSubscriptionProvider(provider)) {
     const config = await readProviderSetup(accountId, kind, provider);
     let hasKey = false;
     try {
-      hasKey = Boolean(await readChatgptCredential(accountId));
+      hasKey = Boolean(await readProviderKey(accountId, kind, provider));
       if (!hasKey) return { config, hasKey, isConfigured: false };
-      const credential = await resolveChatgptCredential(accountId);
-      await listChatgptModels(credential.access, credential.accountId, fetch);
+      const credential = await resolveSubscriptionCredential(
+        accountId,
+        provider,
+      );
+      const models = await listSubscriptionModels(provider, credential, fetch);
+      if (!models.length)
+        throw new Error(
+          "No subscription models are available for this account.",
+        );
       return { config, hasKey, isConfigured: true };
     } catch (error) {
       return {
@@ -103,7 +110,7 @@ export async function readProviderStatus(
         verificationError:
           error instanceof Error
             ? error.message
-            : "Reconnect ChatGPT in Settings.",
+            : "Reconnect your subscription in Settings.",
       };
     }
   }
@@ -175,8 +182,8 @@ async function persistProviderConfig(
   const normalized = connectionOnly
     ? { ...config, ...validateProviderConnection(kind, config) }
     : validateProviderConfig(kind, config);
-  if (normalized.provider === "chatgpt") {
-    await resolveChatgptCredential(accountId);
+  if (isOAuthSubscriptionProvider(normalized.provider)) {
+    await resolveSubscriptionCredential(accountId, normalized.provider);
   } else if (normalized.provider !== "anarlog") {
     const key = validateProviderApiKey(
       apiKey?.trim() ||
@@ -231,7 +238,8 @@ export async function removeProviderKey(
   kind: ProviderKind,
   provider: string,
 ): Promise<void> {
-  if (provider === "chatgpt") return removeChatgptCredential(accountId);
+  if (isOAuthSubscriptionProvider(provider))
+    return removeSubscriptionCredential(accountId, provider);
   await SecureStore.deleteItemAsync(
     providerStorageKey(accountId, kind, provider),
     secureOptions,
@@ -243,8 +251,11 @@ export async function resolveProvider(kind: ProviderKind) {
   if (auth?.error) throw new Error("Sign in again to continue.");
   const session = auth?.data.session;
   const config = await readProviderConfig(session?.user.id ?? null, kind);
-  if (config.provider === "chatgpt") {
-    const credential = await resolveChatgptCredential(session?.user.id ?? null);
+  if (isOAuthSubscriptionProvider(config.provider)) {
+    const credential = await resolveSubscriptionCredential(
+      session?.user.id ?? null,
+      config.provider,
+    );
     return {
       ...config,
       apiKey: credential.access,

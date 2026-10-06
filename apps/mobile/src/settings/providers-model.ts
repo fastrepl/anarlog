@@ -239,6 +239,30 @@ export const SUMMARY_PROVIDERS = [
     model: "",
   },
   {
+    id: "claude",
+    name: "Claude subscription",
+    baseUrl: "https://api.anthropic.com/v1",
+    model: "",
+  },
+  {
+    id: "grok",
+    name: "Grok subscription",
+    baseUrl: "https://api.x.ai/v1",
+    model: "",
+  },
+  {
+    id: "github_copilot",
+    name: "GitHub Copilot subscription",
+    baseUrl: "https://api.githubcopilot.com",
+    model: "",
+  },
+  {
+    id: "kimi_code",
+    name: "Kimi Code subscription",
+    baseUrl: "https://api.kimi.com/coding/v1",
+    model: "kimi-for-coding",
+  },
+  {
     id: "anthropic",
     name: "Anthropic",
     baseUrl: "https://api.anthropic.com/v1",
@@ -493,4 +517,14 @@ export function normalizeTranscriptionResponse(
       ],
     },
   };
+}
+
+export function isOAuthSubscriptionProvider(
+  provider: string,
+): provider is "chatgpt" | "claude" | "grok" | "github_copilot" {
+  return ["chatgpt", "claude", "grok", "github_copilot"].includes(provider);
+}
+
+export function isSubscriptionProvider(provider: string) {
+  return isOAuthSubscriptionProvider(provider) || provider === "kimi_code";
 }

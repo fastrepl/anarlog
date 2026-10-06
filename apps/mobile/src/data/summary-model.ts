@@ -15,7 +15,7 @@ export function readSummaryText(provider: string, payload: unknown): string {
     }>;
   };
   const text =
-    provider === "anthropic"
+    provider === "anthropic" || provider === "claude"
       ? body.content
           ?.filter(
             (part) => part.type === "text" && typeof part.text === "string",
