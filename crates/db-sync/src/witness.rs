@@ -1,7 +1,9 @@
+mod accepted;
+
 use std::future::Future;
 use std::io;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::time::Instant;
 
 use futures_util::StreamExt;
@@ -79,6 +81,7 @@ impl E2eeWitnessCancellation {
 #[derive(Clone)]
 pub struct E2eeWitnessClient {
     client: reqwest::Client,
+    accepted_support: Arc<AtomicU8>,
     endpoint: reqwest::Url,
     access_token: String,
     workspace_id: String,
@@ -109,6 +112,10 @@ struct PublishResponse {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ReadPage {
+    #[serde(skip)]
+    accepted: bool,
+    #[serde(default)]
+    cloud_authority_after: Option<u64>,
     initialized: bool,
     initialized_at: Option<String>,
     head_sequence: u64,
@@ -155,6 +162,7 @@ impl E2eeWitnessClient {
             .map_err(|error| io::Error::other(format!("E2EE witness client failed: {error}")))?;
         Ok(Self {
             client,
+            accepted_support: Arc::default(),
             endpoint,
             access_token: config.access_token,
             workspace_id: workspace_id.to_string(),
@@ -179,6 +187,7 @@ impl E2eeWitnessClient {
         drop(segments);
         Ok(Self {
             client: self.client.clone(),
+            accepted_support: self.accepted_support.clone(),
             endpoint,
             access_token: self.access_token.clone(),
             workspace_id: workspace_id.to_string(),
@@ -256,10 +265,16 @@ impl E2eeWitnessClient {
             "initializing E2EE witness"
         );
 
-        if status.initialized {
+        self.configure_authority(pool, &status).await?;
+        if status.accepted && status.initialized {
+            self.refresh_keyring_cancellable(pool, keyring, cancellation)
+                .await?;
+            self.publish_pending(pool, keyring, false, cancellation)
+                .await?;
+        } else if status.initialized {
             // Receiving history can retire pending local versions. Publish them
             // first so an offline edit reaches the witness before hydration.
-            self.publish_pending(pool, keyring.active(), false, cancellation)
+            self.publish_pending(pool, keyring, false, cancellation)
                 .await?;
         } else {
             cancellation.check()?;
@@ -272,7 +287,7 @@ impl E2eeWitnessClient {
                     "E2EE freshness witness must be initialized from an existing trusted device",
                 ));
             }
-            self.publish_pending(pool, keyring.active(), true, cancellation)
+            self.publish_pending(pool, keyring, true, cancellation)
                 .await?;
         }
 
@@ -325,7 +340,7 @@ impl E2eeWitnessClient {
         keyring: &anlg_e2ee::WorkspaceKeyring,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize> {
-        self.publish_pending(pool, keyring.active(), false, cancellation)
+        self.publish_pending(pool, keyring, false, cancellation)
             .await?;
         self.refresh_keyring_cancellable(pool, keyring, cancellation)
             .await
@@ -361,7 +376,7 @@ impl E2eeWitnessClient {
     where
         F: FnMut(),
     {
-        self.publish_pending(pool, keyring.active(), false, cancellation)
+        self.publish_pending(pool, keyring, false, cancellation)
             .await?;
         self.refresh_keyring_notifying_cancellable(pool, keyring, on_events, cancellation)
             .await
@@ -493,6 +508,7 @@ impl E2eeWitnessClient {
             .read_page_cancellable(cursor, None, cancellation)
             .await?;
         self.validate_page(&page, cursor, None)?;
+        self.configure_authority(pool, &page).await?;
         if !page.initialized {
             return Err(io::Error::other(
                 "E2EE freshness witness is not initialized",
@@ -502,10 +518,17 @@ impl E2eeWitnessClient {
             return Err(rollback_error());
         }
 
+        let mut accepted_pull = false;
         let through = page.through_sequence;
         let mut received_events = 0_usize;
         let mut pages = 0_u64;
         loop {
+            if page.accepted && !accepted_pull {
+                anlg_db_app::set_e2ee_cloud_pull_in_progress(pool, &self.workspace_id, true)
+                    .await
+                    .map_err(replica_error)?;
+                accepted_pull = true;
+            }
             let page_has_events = !page.events.is_empty();
             let report_progress =
                 (pages == 0 && page_has_events) || last_progress.elapsed() >= PROGRESS_INTERVAL;
@@ -550,7 +573,7 @@ impl E2eeWitnessClient {
             .map_err(replica_error)?;
             cancellation.check()?;
             let after = page.next_after_sequence;
-            if page_has_events {
+            if page_has_events && !page.accepted {
                 on_merged_page().await?;
                 cancellation.check()?;
             }
@@ -564,6 +587,13 @@ impl E2eeWitnessClient {
             }
             pages += 1;
             if after == through {
+                if page.accepted {
+                    anlg_db_app::set_e2ee_cloud_pull_in_progress(pool, &self.workspace_id, false)
+                        .await
+                        .map_err(replica_error)?;
+                    on_merged_page().await?;
+                    cancellation.check()?;
+                }
                 if received_events > 0 || started.elapsed() >= PROGRESS_INTERVAL {
                     tracing::info!(
                         phase = "complete",
@@ -584,6 +614,7 @@ impl E2eeWitnessClient {
                 .read_page_cancellable(after, Some(through), cancellation)
                 .await?;
             self.validate_page(&page, after, Some(through))?;
+            self.configure_authority(pool, &page).await?;
         }
         Ok(received_events)
     }
@@ -591,10 +622,19 @@ impl E2eeWitnessClient {
     async fn publish_pending(
         &self,
         pool: &sqlx::SqlitePool,
-        key: &anlg_e2ee::WorkspaceKey,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
         initialize: bool,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<()> {
+        if anlg_db_app::e2ee_cloud_authority_enabled(pool, &self.workspace_id)
+            .await
+            .map_err(replica_error)?
+        {
+            return self
+                .publish_accepted(pool, keyring, initialize, cancellation)
+                .await;
+        }
+        let key = keyring.active();
         let started = Instant::now();
         let mut last_progress = started;
         let mut batches = 0_u64;
@@ -672,6 +712,19 @@ impl E2eeWitnessClient {
                 .await?;
             let status = response.status();
             let bytes = cancellation.run_network(read_bounded(response)).await??;
+            if status == reqwest::StatusCode::UPGRADE_REQUIRED {
+                self.accepted_support.store(0, Ordering::Release);
+                self.refresh_keyring_cancellable(pool, keyring, cancellation)
+                    .await?;
+                if anlg_db_app::e2ee_cloud_authority_enabled(pool, &self.workspace_id)
+                    .await
+                    .map_err(replica_error)?
+                {
+                    return self
+                        .publish_accepted(pool, keyring, initialize, cancellation)
+                        .await;
+                }
+            }
             if !status.is_success() {
                 return Err(io::Error::other(format!(
                     "E2EE witness publication was rejected with status {status}"
@@ -753,31 +806,76 @@ impl E2eeWitnessClient {
         through: Option<u64>,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<ReadPage> {
-        let response = self
-            .send_with_rate_limit_retry(
-                || {
-                    let mut request = self
-                        .client
-                        .get(self.endpoint.clone())
-                        .bearer_auth(&self.access_token)
-                        .query(&[("afterSequence", after)]);
-                    if let Some(through) = through {
-                        request = request.query(&[("throughSequence", through)]);
-                    }
-                    request
-                },
-                cancellation,
-            )
-            .await?;
-        let status = response.status();
-        let bytes = cancellation.run_network(read_bounded(response)).await??;
-        if !status.is_success() {
-            return Err(io::Error::other(format!(
-                "E2EE witness read was rejected with status {status}"
-            )));
+        let mut retried_upgrade = false;
+        loop {
+            // Cache missing support until a legacy route requests an upgrade.
+            // Avoid an extra request for every legacy history page and refresh.
+            if self.accepted_support.load(Ordering::Acquire) != 1 {
+                let response = self
+                    .send_with_rate_limit_retry(
+                        || {
+                            let mut request = self
+                                .client
+                                .get(self.accepted_endpoint())
+                                .bearer_auth(&self.access_token)
+                                .query(&[("afterSequence", after)]);
+                            if let Some(through) = through {
+                                request = request.query(&[("throughSequence", through)]);
+                            }
+                            request
+                        },
+                        cancellation,
+                    )
+                    .await?;
+                let status = response.status();
+                let bytes = cancellation.run_network(read_bounded(response)).await??;
+                if status.is_success() {
+                    let mut page: ReadPage = serde_json::from_slice(&bytes)
+                        .map_err(|_| invalid_data("Invalid accepted cloud page"))?;
+                    page.accepted = true;
+                    self.accepted_support.store(2, Ordering::Release);
+                    return Ok(page);
+                }
+                if status != reqwest::StatusCode::NOT_FOUND
+                    || self.accepted_support.load(Ordering::Acquire) == 2
+                {
+                    return Err(io::Error::other(format!(
+                        "Accepted cloud read was rejected with status {status}"
+                    )));
+                }
+                self.accepted_support.store(1, Ordering::Release);
+            }
+            let response = self
+                .send_with_rate_limit_retry(
+                    || {
+                        let mut request = self
+                            .client
+                            .get(self.endpoint.clone())
+                            .bearer_auth(&self.access_token)
+                            .query(&[("afterSequence", after)]);
+                        if let Some(through) = through {
+                            request = request.query(&[("throughSequence", through)]);
+                        }
+                        request
+                    },
+                    cancellation,
+                )
+                .await?;
+            let status = response.status();
+            let bytes = cancellation.run_network(read_bounded(response)).await??;
+            if status == reqwest::StatusCode::UPGRADE_REQUIRED && !retried_upgrade {
+                self.accepted_support.store(0, Ordering::Release);
+                retried_upgrade = true;
+                continue;
+            }
+            if !status.is_success() {
+                return Err(io::Error::other(format!(
+                    "E2EE witness read was rejected with status {status}"
+                )));
+            }
+            return serde_json::from_slice(&bytes)
+                .map_err(|_| invalid_data("E2EE witness read response is invalid"));
         }
-        serde_json::from_slice(&bytes)
-            .map_err(|_| invalid_data("E2EE witness read response is invalid"))
     }
 
     async fn send_with_rate_limit_retry(
@@ -809,7 +907,10 @@ impl E2eeWitnessClient {
         requested_after: u64,
         requested_through: Option<u64>,
     ) -> io::Result<()> {
-        if page.initialized != page.initialized_at.is_some()
+        if page
+            .cloud_authority_after
+            .is_some_and(|boundary| boundary > page.head_sequence)
+            || page.initialized != page.initialized_at.is_some()
             || page.through_sequence > page.head_sequence
             || requested_after > page.through_sequence
             || requested_through.is_some_and(|through| through != page.through_sequence)

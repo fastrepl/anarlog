@@ -1,0 +1,112 @@
+---
+meta_title: "ChatGPT vs Claude vs Gemini: Data Retention and Privacy"
+display_title: "ChatGPT vs Claude vs Gemini: Data Retention in Chat Apps and APIs"
+meta_description: "Compare chat-app and API data retention across OpenAI, Anthropic, and Google. Separate saved history, model training, safety logs, files, and plan exceptions."
+author:
+  - "Anarlog Team"
+featured: !!bool "false"
+category: "Comparisons"
+date: "2026-10-06"
+---
+
+**There is no single retention period for ChatGPT, Claude, or Gemini.** The answer changes with the product surface, account type, training controls, model, and features you use. Pasting a transcript into a chat app and sending it through a developer API are different data-handling decisions.
+
+This comparison is for people deciding where to process meeting text. We make Anarlog. Sources were checked September 22, 2026; the tables summarize specific documented paths, not a universal privacy ranking or a legal approval.
+
+## Identify the surface before comparing the brands
+
+Write down the exact path you intend to use: personal chat account, employer-managed workspace, developer API, or another application calling that API. Also identify uploaded files, saved history, connected tools, and feedback you submit.
+
+| Question | Why the answer changes the comparison |
+| --- | --- |
+| Is this a personal or managed account? | Workspace agreements and administrator controls can differ |
+| Are you using a chat app or an API? | Saved conversations and API request logs are different objects |
+| Is training/model improvement enabled? | A training commitment does not necessarily set a storage deadline |
+| Which model and optional features are used? | Files, background work, search, and particular models can have exceptions |
+| Does another app keep the result? | The meeting app may retain a copy independently of the AI provider |
+
+That last row is easy to miss. A model provider discarding your request does not delete the transcript from the meeting app that sent it.
+
+## Personal chat accounts
+
+Compare personal accounts with personal accounts first. These settings do not establish the rules of an employer-managed workspace.
+
+| Question | ChatGPT personal | Claude Free, Pro, Max | Gemini personal |
+| --- | --- | --- | --- |
+| Saved conversations | Remain until deletion; archiving does not delete them | Remain available until deleted, subject to applicable policy | Keep Activity uses a configurable auto-delete period; default 18 months |
+| Model improvement | Turn off the training preference for new conversations; voluntarily submitted feedback is a separate case | Model Improvement permission can allow eligible data in training pipelines for up to five years | Keep Activity affects use; audio/Live improvement has a separate control |
+| Temporary/private mode | Temporary chats are excluded from training while temporary; safety retention can last up to 30 days | Incognito chats are excluded from model improvement | Activity-off conversations can remain for up to 72 hours |
+| Deleting a chat | Removed from view; normally scheduled for deletion within 30 days | Removed from history; normally deleted from backend storage within 30 days | Delete activity separately from changing future activity settings |
+| Exceptions to check | Security/legal exceptions, de-identified content, feedback, Library files, saved memories | Safety/legal exceptions, feedback, and training already in progress/completed | Reviewed/feedback data and separate shared links or connected-app copies |
+
+Sources: OpenAI's [data controls](https://help.openai.com/en/articles/7730893-data-controls-faq), [chat/file retention](https://help.openai.com/en/articles/8983778-chat-and-file-retention-policies-in-chatgpt), and [training/feedback explanation](https://help.openai.com/en/articles/5722486-how-your-data-is-used-to-improve-model-performance); Anthropic's [consumer retention policy](https://privacy.claude.com/en/articles/10023548-how-long-do-you-store-my-data); Google's [activity controls](https://support.google.com/gemini/answer/13278892) and [Gemini Privacy Hub](https://support.google.com/gemini/answer/13594961?hl=en).
+
+For ChatGPT, open **Settings → Data controls → Improve the model for everyone** to manage the training preference. Switching it off leaves saved chats in place. A file saved in Library must be managed separately from the chat that used it. Saving a temporary conversation changes it into a regular chat with the account's normal settings.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/chatgpt/privacy/2026-09-22-training-control.png" alt="ChatGPT Improve the model for everyone switch" width={400} height={204} />
+
+<p className="blog-image-credit">Source: <a href="https://help.openai.com/en/articles/7730893-data-controls-faq">OpenAI</a>.</p>
+
+For Claude, check the Model Improvement preference and whether the conversation is Incognito. The five-year provision is conditional on permitted model-improvement use; it is not the lifetime of every Claude chat. Feedback and flagged content have additional rules.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/claude/privacy/2026-09-22-vendor-opt-in-notice-2025.png" alt="Anthropic 2025 consumer notice explaining optional model improvement and retention" width={900} height={506} />
+
+<p className="blog-image-credit">Source: <a href="https://www.anthropic.com/news/updates-to-our-consumer-terms">Anthropic (2025)</a>.</p>
+
+For Gemini, inspect both Keep Activity and its auto-delete period. Do not treat activity-off as zero storage. The separate audio/Live setting means you should also distinguish a pasted transcript from an audio or screen-sharing session.
+
+<Image src="https://ijoptyyjrfqwaqhyxkxj.supabase.co/storage/v1/object/public/blog/library/products/gemini/privacy/2026-09-22-keep-activity.webp" alt="Google Gemini illustration of Keep Activity and audio improvement controls" width={500} height={500} />
+
+<p className="blog-image-credit">Source: <a href="https://blog.google/products-and-platforms/products/gemini/temporary-chats-privacy-controls/">Google (2025)</a>.</p>
+
+### Human access is a separate question
+
+A no-training choice is not a promise that no person can ever access content. Safety investigations, support, feedback, and legal requirements can have separate access rules. Google's personal Gemini Privacy Hub describes human review and handling of reviewed data; Anthropic's policy describes flagged-content exceptions. OpenAI's [consumer-data explanation](https://help.openai.com/en/articles/7039943-data-usage-for-consumer-services-faq) describes limited authorized access. Review the applicable policy rather than inferring a human-access guarantee from a training toggle.
+
+## Managed workspaces
+
+| Service scope | Training/use baseline | Retention and deletion control | Important boundary |
+| --- | --- | --- | --- |
+| ChatGPT Business / Enterprise / Edu | Business content is excluded from model training by default | Applicable workspace controls; chat, Library, project files, and memory are separate objects | An individual paid subscription is not a managed workspace |
+| Claude Team / Enterprise | Commercial content is not used for model training by default | Enterprise can set separate chat/project retention; defaults can retain data indefinitely | Project retention can override chat retention; minimum custom period is 30 days |
+| Gemini with a qualifying Workspace edition | No human review or generative-model training outside the domain without permission | Administrators govern history; Gemini app retention can be up to 36 months | Gemini in Workspace has a separate 90-day-to-indefinite history policy and destination-file rules |
+
+Sources: OpenAI's [business-data defaults](https://help.openai.com/en/articles/5722486-how-your-data-is-used-to-improve-model-performance) and [Work data handling](https://learn.chatgpt.com/docs/enterprise/chatgpt-work-overview); Anthropic's [commercial training policy](https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-model-training) and [Enterprise retention controls](https://support.claude.com/en/articles/10440198-configure-custom-data-retention-controls-for-enterprise-plans); Google's [Workspace Privacy Hub](https://knowledge.workspace.google.com/admin/generative-ai/generative-ai-in-google-workspace-privacy-hub).
+
+Anthropic also treats voluntarily submitted commercial feedback separately: the related conversation may be used for training and retained for up to five years under its [commercial feedback rules](https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-model-training). A no-training default does not remove this opt-in path.
+
+These are account and administration boundaries, not a claim that all three vendors have identical human-access rules. Keep the workspace agreement and safety/legal exceptions with the configuration record. A work email address alone does not establish the applicable managed service.
+
+## APIs have their own rules
+
+| API context | Published retention or use boundary | What to verify |
+| --- | --- | --- |
+| OpenAI API | Default abuse-monitoring retention can be up to 30 days; application-state rules are separate | Endpoint, stored state, eligible controls, and exceptions |
+| Anthropic API | Standard inputs/outputs are normally deleted within 30 days, with exceptions | Files, agreements, safety requirements, and model eligibility |
+| Gemini API unpaid services | Broader product-improvement use is described, with regional exceptions | Billing state, geography, and whether unpaid-service terms apply |
+| Gemini API paid services | Prompts/responses are not used to improve products under those terms; limited safety logging remains | Project billing and additional feature-specific terms |
+
+OpenAI's [API data-controls guide](https://developers.openai.com/api/docs/guides/your-data) distinguishes request logging from stored application state. ZDR requires approval and does not make every endpoint or capability storage-free. Do not convert “API data is not used for training by default” into “no API content is retained.”
+
+Anthropic's [organization retention guide](https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data) describes the standard API period and exceptions. Its separate [Covered Models policy](https://privacy.claude.com/en/articles/15425996-data-retention-practices-for-covered-models) adds model-specific requirements for some ZDR arrangements and notes eligible exceptions. Check the current model and workspace, not only the provider name.
+
+Google's [Gemini API terms](https://ai.google.dev/gemini-api/terms) distinguish paid and unpaid services. They also apply the paid-service data-use provisions to services in the EEA, Switzerland, and UK even when offered free. A model's advertised free quota is therefore not enough to determine the applicable data-use terms.
+
+## Compare a concrete meeting workflow
+
+Suppose you want a summary of a confidential planning call. Your requirements might be:
+
+1. Keep the original transcript in a workspace you control.
+2. Exclude its content from general model training.
+3. Limit retained copies at the summary processor.
+4. Preserve decisions and task owners in the output.
+
+Check those requirements independently. A model can satisfy the training requirement while a file feature retains the uploaded transcript. A temporary chat mode can have a retention exception. A downstream integration can create another copy after the summary is complete.
+
+Keep a dated record of the account, project, model, endpoint, enabled features, and applicable policy. Recheck it when one of those changes.
+
+## Using these providers through Anarlog
+
+[Anarlog](https://anarlog.so/) stores canonical meeting data in local SQLite and separates transcription from Intelligence, which handles summaries and chat. Choosing a hosted provider sends that stage's input to the selected service; a local model uses a different path. See [Models and providers](https://docs.anarlog.so/models-and-providers).
+
+If keeping the text away from hosted inference is the requirement, the [local AI meeting notes guide](/blog/local-ai-meeting-notes/) explains how to evaluate a local configuration. If you prefer a hosted model, evaluate its exact API path and your app's own storage together. Our [ChatGPT retention guide](/blog/chatgpt-data-retention-policy/), [Anthropic retention guide](/blog/anthropic-data-retention-policy/), and [Gemini retention guide](/blog/google-gemini-data-retention-policy/) provide additional product-specific context.

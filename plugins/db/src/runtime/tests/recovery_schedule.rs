@@ -724,7 +724,10 @@ async fn run_witness_repair(scenario: WitnessRepairScenario) {
     let requests = witness_server.received_requests().await.unwrap();
     let refreshes = requests
         .iter()
-        .filter(|request| request.method == wiremock::http::Method::GET)
+        .filter(|request| {
+            request.method == wiremock::http::Method::GET
+                && request.url.path() == "/sync/e2ee/witness/workspace-1"
+        })
         .count();
     assert!(
         refreshes >= 4,

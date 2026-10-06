@@ -9,6 +9,7 @@ debug = false
 
 [workspace]
 resolver = "2"
+exclude = ["crates/tiptap/vendor/mdast_util_to_markdown"]
 members = [
   "apps/api",
   "apps/cli",
@@ -326,7 +327,8 @@ vergen-gix = "9"
 askama = "0.15"
 askama_parser = "0.15"
 markdown = "1"
-mdast_util_to_markdown = "0.0.2"
+# Vendored 0.0.2 with byte-indexed Unicode escaping fixed; upstream still uses chars().nth(byte_offset).
+mdast_util_to_markdown = { path = "crates/tiptap/vendor/mdast_util_to_markdown" }
 minijinja = "2.7.0"
 minijinja-contrib = "2.7.0"
 

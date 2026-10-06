@@ -327,7 +327,24 @@ async fn app_with_session_gate(
 }
 
 fn build_analytics_client(env: &Env) -> Arc<anlg_analytics::AnalyticsClient> {
-    let mut builder = anlg_analytics::AnalyticsClientBuilder::default();
+    let mut builder = anlg_analytics::AnalyticsClientBuilder::default()
+        .with_event_property(
+            "app_version",
+            option_env!("APP_VERSION").unwrap_or("unknown"),
+        )
+        .with_event_property("service", env.anarlog_service.name())
+        .with_event_property("channel", "hosted")
+        .with_event_property(
+            "environment",
+            if cfg!(debug_assertions) {
+                "development"
+            } else {
+                "production"
+            },
+        );
+    if let Some(revision) = option_env!("GH_SHA").filter(|revision| !revision.is_empty()) {
+        builder = builder.with_event_property("serving_revision", revision);
+    }
     if cfg!(debug_assertions) {
         tracing::info!("analytics: dev mode, printing events as tracing");
     } else {
@@ -374,6 +391,9 @@ fn main() -> std::io::Result<()> {
     sentry::configure_scope(|scope| {
         scope.set_tag("service.namespace", "anarlog");
         scope.set_tag("service.name", env.anarlog_service.name());
+        if let Some(revision) = option_env!("GH_SHA").filter(|revision| !revision.is_empty()) {
+            scope.set_tag("serving_revision", revision);
+        }
     });
 
     let observability = observability::init(env.anarlog_service.name(), &env.observability);

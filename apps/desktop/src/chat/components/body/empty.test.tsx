@@ -18,25 +18,20 @@ describe("ChatBodyEmpty", () => {
     cleanup();
   });
 
-  it("sends a suggestion when clicked", () => {
-    const onSendMessage = vi.fn();
-
-    render(<ChatBodyEmpty hasContext onSendMessage={onSendMessage} />);
-
-    const decisions = screen.getByRole("button", {
-      name: "Find key decisions.",
-    });
-
-    fireEvent.click(decisions);
-
-    expect(onSendMessage).toHaveBeenCalledWith(
-      "What were the key decisions that have been made?",
-      [
-        {
-          type: "text",
-          text: "What were the key decisions that have been made?",
-        },
-      ],
-    );
+  it("offers quick actions inside and outside notes with different context", () => {
+    const prompts: string[] = [];
+    for (const hasContext of [true, false]) {
+      const onSendMessage = vi.fn();
+      const view = render(
+        <ChatBodyEmpty hasContext={hasContext} onSendMessage={onSendMessage} />,
+      );
+      fireEvent.click(screen.getAllByRole("button")[0]);
+      const [prompt, parts] = onSendMessage.mock.calls[0];
+      expect(prompt.trim().length).toBeGreaterThan(0);
+      expect(parts).toEqual([{ type: "text", text: prompt }]);
+      prompts.push(prompt);
+      view.unmount();
+    }
+    expect(prompts[0]).not.toEqual(prompts[1]);
   });
 });

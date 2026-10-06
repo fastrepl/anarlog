@@ -235,7 +235,7 @@ function Container({
           "flex max-h-full border",
           isFloating
             ? [
-                "border-border/70 text-card-foreground max-h-40 min-h-[38px] flex-row overflow-hidden rounded-[19px] bg-white pr-[6px] pl-4 text-sm shadow-none",
+                "border-border/70 text-card-foreground max-h-40 min-h-10 flex-row overflow-hidden rounded-[20px] bg-white pr-[6px] pl-4 text-sm shadow-none",
                 "dark:bg-card dark:text-card-foreground",
                 hasVoiceStatus ? "items-stretch py-2" : "items-center py-[3px]",
               ]

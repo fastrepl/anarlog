@@ -1158,3 +1158,17 @@ fn test_mention_schema_validation() {
         errors
     );
 }
+
+#[test]
+fn unicode_minus_with_markdown_punctuation_does_not_panic_or_corrupt_text() {
+    let text = "−*a−*";
+    let json = serde_json::json!({
+        "type": "doc",
+        "content": [{
+            "type": "paragraph",
+            "content": [{ "type": "text", "text": text }]
+        }]
+    });
+
+    assert_eq!(tiptap_json_to_md(&json).unwrap().trim_end(), text);
+}

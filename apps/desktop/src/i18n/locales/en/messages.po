@@ -2282,6 +2282,10 @@ msgid "Draft"
 msgstr "Draft"
 
 #: src/chat/components/body/empty.tsx
+msgid "Draft a follow-up email for my most recent meeting."
+msgstr "Draft a follow-up email for my most recent meeting."
+
+#: src/chat/components/body/empty.tsx
 msgid "Draft a follow-up email to the participants"
 msgstr "Draft a follow-up email to the participants"
 
@@ -6538,6 +6542,14 @@ msgstr "Welcome to Anarlog"
 #: src/chat/components/body/empty.tsx
 msgid "What are my action items from this meeting?"
 msgstr "What are my action items from this meeting?"
+
+#: src/chat/components/body/empty.tsx
+msgid "What are my outstanding action items across my meetings?"
+msgstr "What are my outstanding action items across my meetings?"
+
+#: src/chat/components/body/empty.tsx
+msgid "What key decisions were made in my recent meetings?"
+msgstr "What key decisions were made in my recent meetings?"
 
 #: src/folders/folder-editor.tsx
 msgid "What these notes are usually about"

@@ -1,6 +1,62 @@
 use super::*;
 
 #[tokio::test]
+async fn cloud_authority_upgrade_preserves_pending_legacy_ciphertext() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20261005090000_e2ee_cloud_authority"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+    let key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap()
+    .workspace_key("user-a")
+    .unwrap();
+    let sealed = key
+        .seal_field(
+            "user-a",
+            "sessions",
+            "s",
+            "title",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            1,
+            false,
+            serde_json::json!("Offline before upgrade"),
+        )
+        .unwrap();
+    let hash = anlg_e2ee::payload_hash(&sealed.payload);
+    sqlx::query("INSERT INTO e2ee_local_state(record_id,workspace_id,table_name,row_id,field_name,revision,writer_id,payload_hash,payload) VALUES(?,'user-a','sessions','s','title',1,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',?,?)")
+        .bind(&sealed.record_id).bind(&hash).bind(&sealed.payload)
+        .execute(db.pool()).await.unwrap();
+    sqlx::query("INSERT INTO e2ee_witness_pending(record_id,workspace_id) VALUES(?,'user-a')")
+        .bind(&sealed.record_id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    prepare_schema(&db).await.unwrap();
+    for _ in 0..2 {
+        crate::configure_e2ee_cloud_authority(db.pool(), "user-a", Some(0))
+            .await
+            .unwrap();
+    }
+    let batch = crate::pending_e2ee_cloud_batch(db.pool(), "user-a", false)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(batch.events.len(), 1);
+    assert_eq!(batch.events[0].record_id, sealed.record_id);
+    assert_eq!(batch.events[0].payload_hash, hash);
+    assert_eq!(batch.events[0].payload, sealed.payload);
+}
+
+#[tokio::test]
 async fn schema_declares_legacy_migrations_and_cloudsync_registry() {
     let db = test_db().await;
 
@@ -96,6 +152,9 @@ async fn migrations_apply_cleanly() {
             "daily_notes",
             "e2ee_apply_guard",
             "e2ee_ciphertext_archive",
+            "e2ee_cloud_authority",
+            "e2ee_cloud_batches",
+            "e2ee_cloud_outbox",
             "e2ee_dirty_rows",
             "e2ee_field_conflicts",
             "e2ee_local_device",

@@ -17,7 +17,7 @@ export function chatPanelBorderClassNames(): string {
 }
 
 export function chatFloatingPanelShellClassNames(): string {
-  return "bg-[#f4f4f5] text-card-foreground rounded-[24px] border border-border/70 border-t-app-floating-border shadow-[0_32px_84px_rgba(0,0,0,0.32)] dark:border-white/10 dark:border-t-app-floating-border dark:bg-[#202020] dark:shadow-[0_36px_96px_rgba(0,0,0,0.72)]";
+  return "bg-[#f4f4f5] text-card-foreground rounded-[24px] border border-border/70 border-t-app-floating-border shadow-[0_12px_32px_rgba(0,0,0,0.14)] dark:border-white/10 dark:border-t-app-floating-border dark:bg-[#202020] dark:shadow-[0_16px_40px_rgba(0,0,0,0.40)]";
 }
 
 export function chatElevatedSurfaceClassNames(): string {

@@ -19,7 +19,6 @@ use crate::{
 
 const MAX_DEVICE_NAME_BYTES: usize = 128;
 const MAX_ENROLLMENT_CIPHERTEXT_BYTES: usize = 2_048;
-const MAX_SYNC_DEVICES: i64 = 5;
 
 #[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -318,7 +317,7 @@ fn validate_registration_row(
     let expiration = DateTime::parse_from_rfc3339(&expires_at)
         .map_err(|_| SyncError::Upstream)?
         .with_timezone(&Utc);
-    if expiration <= Utc::now() || !(1..=MAX_SYNC_DEVICES).contains(&row.device_count) {
+    if expiration <= Utc::now() || row.device_count < 1 {
         return Err(SyncError::Upstream);
     }
     let status = parse_status(row.enrollment_status.as_deref())?;
@@ -471,9 +470,6 @@ pub(super) async fn list_e2ee_device_enrollments(
 }
 
 fn validate_enrollment_rows(rows: Vec<EnrollmentRow>) -> Result<Vec<E2eeDeviceEnrollmentSummary>> {
-    if rows.len() > MAX_SYNC_DEVICES as usize {
-        return Err(SyncError::Upstream);
-    }
     let now = Utc::now();
     let mut enrollments = Vec::with_capacity(rows.len());
     for row in rows {

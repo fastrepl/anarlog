@@ -36,7 +36,7 @@ fn denied_enrollment(requires_existing_key: bool, device_count: i64) -> Value {
 }
 
 #[tokio::test]
-async fn registers_and_polls_a_device_enrollment() {
+async fn registers_an_enrollment_above_five_when_the_database_allows_purchased_slots() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/rest/v1/rpc/register_e2ee_device_enrollment"))
@@ -58,7 +58,7 @@ async fn registers_and_polls_a_device_enrollment() {
             "ephemeral_public_key": EPHEMERAL_PUBLIC_KEY,
             "nonce": NONCE,
             "ciphertext": CIPHERTEXT,
-            "device_count": 2,
+            "device_count": 6,
         }])))
         .mount(&server)
         .await;
@@ -266,12 +266,12 @@ async fn acknowledges_a_consumed_enrollment_package() {
 }
 
 #[tokio::test]
-async fn lists_active_and_pending_devices_without_ciphertext() {
+async fn lists_purchased_capacity_and_more_than_five_pending_devices_without_ciphertext() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/rest/v1/rpc/get_sync_device_limit"))
         .and(body_partial_json(json!({ "p_actor_user_id": "user-123" })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!(5)))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!(7)))
         .mount(&server)
         .await;
     Mock::given(method("GET"))
@@ -288,16 +288,24 @@ async fn lists_active_and_pending_devices_without_ciphertext() {
     Mock::given(method("GET"))
         .and(path("/rest/v1/e2ee_device_enrollment_requests"))
         .and(query_param("user_id", "eq.user-123"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
-            "id": REQUEST_ID,
-            "device_fingerprint": "fingerprint-pending",
-            "device_name": "Pending Mac",
-            "recipient_public_key": PUBLIC_KEY,
-            "created_at": "2026-08-20T00:00:00Z",
-            "expires_at": "2099-08-21T00:00:00Z",
-            "sealed_at": null,
-            "consumed_at": null,
-        }])))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(
+                (0..6)
+                    .map(|ordinal| {
+                        json!({
+                            "id": format!("11111111-1111-4111-8111-{ordinal:012}"),
+                            "device_fingerprint": format!("fingerprint-pending-{ordinal}"),
+                            "device_name": "Pending Mac",
+                            "recipient_public_key": PUBLIC_KEY,
+                            "created_at": "2026-08-20T00:00:00Z",
+                            "expires_at": "2099-08-21T00:00:00Z",
+                            "sealed_at": null,
+                            "consumed_at": null,
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+        )
         .mount(&server)
         .await;
 
@@ -308,14 +316,15 @@ async fn lists_active_and_pending_devices_without_ciphertext() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = response_json(response).await;
-    assert_eq!(body["maxDevices"], 5);
+    assert_eq!(body["maxDevices"], 7);
+    assert_eq!(body["pendingDevices"].as_array().unwrap().len(), 6);
     assert_eq!(
         body["devices"][0]["deviceFingerprint"],
         "fingerprint-active"
     );
     assert_eq!(
         body["pendingDevices"][0]["deviceFingerprint"],
-        "fingerprint-pending"
+        "fingerprint-pending-0"
     );
     assert_eq!(body["pendingDevices"][0]["status"], "pending");
     assert!(body["pendingDevices"][0].get("ciphertext").is_none());

@@ -54,6 +54,7 @@ vi.mock("./chat-panel", () => ({
     onOpenRightPanel?: () => void;
   }) => (
     <>
+      <input aria-label="Chat draft" defaultValue="" />
       <button
         data-testid="open-right-panel"
         type="button"
@@ -79,13 +80,15 @@ function TestHost() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={containerRef} data-testid="full-panel-container">
-      <div data-chat-floating-anchor />
+    <>
+      <div ref={containerRef} data-testid="full-panel-container">
+        <div data-chat-floating-anchor />
+      </div>
       <PersistentChatPanel
         floatingContainerRef={containerRef}
         sessionProps={mocks.sessionProps}
       />
-    </div>
+    </>
   );
 }
 
@@ -157,5 +160,23 @@ describe("PersistentChatPanel", () => {
         document.querySelector<HTMLElement>("[data-chat-panel]"),
       ).toBeNull();
     });
+  });
+
+  it("keeps the composer draft mounted when closing and reopening chat", () => {
+    const { rerender } = render(<TestHost />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Chat draft" }), {
+      target: { value: "Draft in progress" },
+    });
+
+    mocks.chatMode.current = "FloatingClosed";
+    rerender(<TestHost />);
+    expect(screen.queryByRole("textbox", { name: "Chat draft" })).toBeNull();
+
+    mocks.chatMode.current = "FloatingOpen";
+    rerender(<TestHost />);
+    expect(
+      (screen.getByRole("textbox", { name: "Chat draft" }) as HTMLInputElement)
+        .value,
+    ).toBe("Draft in progress");
   });
 });

@@ -32,17 +32,23 @@ export function ChatBodyEmpty({
     {
       label: t`List action items.`,
       icon: ListChecks,
-      prompt: t`What are my action items from this meeting?`,
+      prompt: hasContext
+        ? t`What are my action items from this meeting?`
+        : t`What are my outstanding action items across my meetings?`,
     },
     {
       label: t`Draft follow-up email.`,
       icon: Envelope,
-      prompt: t`Draft a follow-up email to the participants`,
+      prompt: hasContext
+        ? t`Draft a follow-up email to the participants`
+        : t`Draft a follow-up email for my most recent meeting.`,
     },
     {
       label: t`Find key decisions.`,
       icon: MagnifyingGlass,
-      prompt: t`What were the key decisions that have been made?`,
+      prompt: hasContext
+        ? t`What were the key decisions that have been made?`
+        : t`What key decisions were made in my recent meetings?`,
     },
   ];
 
@@ -102,36 +108,34 @@ export function ChatBodyEmpty({
   return (
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
-        {hasContext && (
-          <div className="flex flex-col gap-0.5">
-            {suggestions.map(({ label, icon: Icon, prompt }) => (
-              <button
-                key={label}
-                onClick={() => handleSuggestionClick(prompt)}
-                className={cn([
-                  "group grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg py-2 pr-3 pl-0 text-left text-sm",
-                  isDarkAppearance
-                    ? "text-primary-foreground/85 hover:bg-primary-foreground/10"
-                    : "text-muted-foreground hover:bg-muted/55",
-                  "transition-colors",
-                ])}
-              >
-                <span className="flex size-6 items-center justify-center">
-                  <Icon
-                    size={16}
-                    className={cn([
-                      "shrink-0 transition-colors",
-                      isDarkAppearance
-                        ? "text-primary-foreground/55 group-hover:text-primary-foreground/80"
-                        : "text-muted-foreground/75 group-hover:text-foreground",
-                    ])}
-                  />
-                </span>
-                <span className="min-w-0 truncate">{label}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex flex-col gap-0.5">
+          {suggestions.map(({ label, icon: Icon, prompt }) => (
+            <button
+              key={label}
+              onClick={() => handleSuggestionClick(prompt)}
+              className={cn([
+                "group grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg py-2 pr-3 pl-0 text-left text-sm",
+                isDarkAppearance
+                  ? "text-primary-foreground/85 hover:bg-primary-foreground/10"
+                  : "text-muted-foreground hover:bg-muted/55",
+                "transition-colors",
+              ])}
+            >
+              <span className="flex size-6 items-center justify-center">
+                <Icon
+                  size={16}
+                  className={cn([
+                    "shrink-0 transition-colors",
+                    isDarkAppearance
+                      ? "text-primary-foreground/55 group-hover:text-primary-foreground/80"
+                      : "text-muted-foreground/75 group-hover:text-foreground",
+                  ])}
+                />
+              </span>
+              <span className="min-w-0 truncate">{label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

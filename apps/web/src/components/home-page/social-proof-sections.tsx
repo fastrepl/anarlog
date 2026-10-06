@@ -307,7 +307,7 @@ export function CredibilityLogoMarquee() {
           people love us at
         </p>
         <ArrowRight
-          className="absolute top-[1.65rem] left-[1.15rem] h-[2.9rem] w-[4.65rem] rotate-[5deg] text-neutral-950"
+          className="absolute top-[1.65rem] left-[1.15rem] h-[2.9rem] w-[4.65rem] rotate-90 text-neutral-950"
           aria-hidden="true"
         />
       </div>

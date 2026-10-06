@@ -1,6 +1,6 @@
 import type { BillingPeriod } from "./subscription-selection.ts";
 
-export const INCLUDED_PRO_SYNC_DEVICES = 3;
+export const INCLUDED_PRO_SYNC_DEVICES = 5;
 export const MAX_SYNC_DEVICE_ADDONS = 50;
 
 // Lookup keys are the contract shared with

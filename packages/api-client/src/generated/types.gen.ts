@@ -4,6 +4,25 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type AcceptRequest = {
+    baseSequence: number;
+    events: Array<E2EeWitnessEvent>;
+    initialize: boolean;
+    mutationId: string;
+};
+
+export type AcceptResponse = {
+    cloudAuthorityAfter: number;
+    headSequence: number;
+    initializedAt: string;
+    mutationId: string;
+    receipts: Array<Receipt>;
+};
+
+export type AcceptedPage = E2EeWitnessPage & {
+    cloudAuthorityAfter?: number | null;
+};
+
 export type AccessRole = 'freeBusyReader' | 'reader' | 'writer' | 'owner' | 'unknown';
 
 export type ActionItem = {
@@ -1484,6 +1503,12 @@ export type PullRequestDetail = {
     merged_by?: null | PersonRef;
     source_branch?: string | null;
     target_branch?: string | null;
+};
+
+export type Receipt = {
+    payloadHash: string;
+    recordId: string;
+    sequence: number;
 };
 
 export type Recipient = {
@@ -4889,6 +4914,52 @@ export type PublishE2EeWitnessResponses = {
 };
 
 export type PublishE2EeWitnessResponse2 = PublishE2EeWitnessResponses[keyof PublishE2EeWitnessResponses];
+
+export type ReadAcceptedE2EeReplicaData = {
+    body?: never;
+    path: {
+        workspace_id: string;
+    };
+    query?: {
+        afterSequence?: number;
+        throughSequence?: number;
+    };
+    url: '/sync/e2ee/witness/{workspace_id}/accepted';
+};
+
+export type ReadAcceptedE2EeReplicaResponses = {
+    /**
+     * Accepted cloud state and legacy cutover boundary
+     */
+    200: AcceptedPage;
+};
+
+export type ReadAcceptedE2EeReplicaResponse = ReadAcceptedE2EeReplicaResponses[keyof ReadAcceptedE2EeReplicaResponses];
+
+export type AcceptE2EeReplicaBatchData = {
+    body: AcceptRequest;
+    path: {
+        workspace_id: string;
+    };
+    query?: never;
+    url: '/sync/e2ee/witness/{workspace_id}/accepted';
+};
+
+export type AcceptE2EeReplicaBatchErrors = {
+    /**
+     * Cloud base changed; pull and rebase
+     */
+    409: unknown;
+};
+
+export type AcceptE2EeReplicaBatchResponses = {
+    /**
+     * Atomic acceptance receipt
+     */
+    200: AcceptResponse;
+};
+
+export type AcceptE2EeReplicaBatchResponse = AcceptE2EeReplicaBatchResponses[keyof AcceptE2EeReplicaBatchResponses];
 
 export type WaitE2EeWitnessData = {
     body?: never;

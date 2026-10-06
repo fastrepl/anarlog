@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
+import { useSquircleRef } from "@anlg/ui/hooks/use-squircle";
 
 import { listSlackChannels } from "./delivery-client";
 import {
@@ -60,9 +61,13 @@ export function ShareLinkActions({
   onValueChange: (value: Exclude<ShareRecapMode, "invite">) => void;
 }) {
   const { t } = useLingui();
+  const actionsRef = useSquircleRef<HTMLDivElement>();
 
   return (
-    <div className="border-input bg-background flex shrink-0 items-center rounded-md border shadow-xs">
+    <div
+      ref={actionsRef}
+      className="border-input bg-background flex shrink-0 items-center overflow-hidden rounded-lg border shadow-xs"
+    >
       {children}
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
@@ -72,7 +77,7 @@ export function ShareLinkActions({
             variant="ghost"
             aria-label={t`More options`}
             smoothCorners={false}
-            className="text-muted-foreground hover:text-foreground h-7 w-6 rounded-l-none rounded-r-md"
+            className="text-muted-foreground hover:text-foreground h-7 w-6 rounded-none focus-visible:-outline-offset-2"
           >
             <CaretDown className="size-3" />
           </Button>

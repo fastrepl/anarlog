@@ -96,7 +96,7 @@ export function SessionShareDraftContent({
       sideOffset={8}
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
-      className="w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
+      className="w-[380px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
       <AppFloatingPanel className="relative flex max-h-[min(530px,calc(100vh-74px))] flex-col overflow-hidden">
         <div
@@ -113,7 +113,7 @@ export function SessionShareDraftContent({
             <Trans>Invite people to this note.</Trans>
           </p>
 
-          <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
+          <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
             <div className="space-y-2">
               {recapMode === "invite" ? (
                 <section aria-labelledby="invite-people-heading">
@@ -175,7 +175,7 @@ export function SessionShareDraftContent({
             </div>
           </div>
 
-          <footer className="border-border/60 flex items-center gap-1 border-t px-3 py-2">
+          <footer className="border-border/60 flex items-center gap-1 border-t p-3">
             <GeneralAccessSelector
               value={generalAccessValue}
               workspaces={workspaces}
@@ -197,7 +197,7 @@ export function SessionShareDraftContent({
                 smoothCorners={false}
                 disabled={disabled || actionPending}
                 onClick={() => onAction({ type: "copy-link" })}
-                className="h-7 shrink-0 rounded-l-md rounded-r-none px-2.5 text-xs"
+                className="h-7 shrink-0 rounded-none px-2.5 text-xs focus-visible:-outline-offset-2"
               >
                 {pendingAction?.type === "copy-link" ? (
                   <CircleNotch

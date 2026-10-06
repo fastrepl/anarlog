@@ -13,27 +13,29 @@ select ok(
   'Device allowances can only be read through trusted service code'
 );
 
-select is(public.get_sync_device_limit(tests.get_supabase_uid('device_pro')), 3,
-  'Personal accounts have three included slots');
+select is(public.get_sync_device_limit(tests.get_supabase_uid('device_pro')), 5,
+  'Personal Pro accounts have five included slots');
 
 select tests.authenticate_as_service_role();
-select is(public.get_sync_device_limit(tests.get_supabase_uid('device_pro')), 3,
+select is(public.get_sync_device_limit(tests.get_supabase_uid('device_pro')), 5,
   'The service role can read the authoritative allowance');
 select public.claim_personal_workspace_e2ee_key(tests.get_supabase_uid('device_pro'), 'abcdefghijklmnopqrstuv');
 select * from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-1');
 select * from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-2');
-select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-3')), true,
-  'Pro can connect its third device');
-select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-4')), false,
-  'Pro cannot claim a fourth device');
-select is((select allowed from public.register_e2ee_device_enrollment(tests.get_supabase_uid('device_pro'), 'pro-device-4', 'Phone', rpad('A', 43, 'A'))), false,
+select * from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-3');
+select * from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-4');
+select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-5')), true,
+  'Pro can connect its fifth device');
+select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-6')), false,
+  'Pro cannot claim a sixth device');
+select is((select allowed from public.register_e2ee_device_enrollment(tests.get_supabase_uid('device_pro'), 'pro-device-6', 'Phone', rpad('A', 43, 'A'))), false,
   'Enrollment enforces the same Pro limit as credential claims');
-select public.remove_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-3');
+select public.remove_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-5');
 select results_eq(
-  $$select allowed, device_count from public.register_e2ee_device_enrollment(tests.get_supabase_uid('device_pro'), 'pro-device-4', 'Phone', rpad('A', 43, 'A'))$$,
-  $$values (true, 3::bigint)$$,
+  $$select allowed, device_count from public.register_e2ee_device_enrollment(tests.get_supabase_uid('device_pro'), 'pro-device-6', 'Phone', rpad('A', 43, 'A'))$$,
+  $$values (true, 5::bigint)$$,
   'A pending approval reserves the last Pro slot');
-select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-5')), false,
+select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('device_pro'), 'pro-device-7')), false,
   'Credential claims cannot consume a slot already reserved by enrollment');
 
 reset role;
@@ -43,8 +45,8 @@ insert into public.workspace_memberships (workspace_id, user_id, role)
 values
   ('05000000-0000-4000-8000-000000000001', tests.get_supabase_uid('device_team'), 'owner'),
   ('05000000-0000-4000-8000-000000000001', tests.get_supabase_uid('device_member'), 'member');
-select is(public.get_sync_device_limit(tests.get_supabase_uid('device_team')), 3,
-  'Creating an unpaid Team workspace does not grant extra devices');
+select is(public.get_sync_device_limit(tests.get_supabase_uid('device_team')), 5,
+  'Creating an unpaid Team workspace keeps the five-slot baseline');
 select tests.enable_workspace_plan('05000000-0000-4000-8000-000000000001');
 select is(public.get_sync_device_limit(tests.get_supabase_uid('device_team')), 5,
   'Paid Team owners have five included slots');
@@ -66,22 +68,23 @@ select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('
 reset role;
 update public.workspace_memberships set deleted_at = now()
 where workspace_id = '05000000-0000-4000-8000-000000000001' and user_id = tests.get_supabase_uid('device_member');
-select is(public.get_sync_device_limit(tests.get_supabase_uid('device_member')), 3,
-  'Removed members no longer receive Team device capacity');
+select is(public.get_sync_device_limit(tests.get_supabase_uid('device_member')), 5,
+  'Removed Team members retain five included personal slots');
 update stripe.subscriptions set status = 'canceled' where customer = (
   select stripe_customer_id from public.workspaces where id = '05000000-0000-4000-8000-000000000001'
 );
-select is(public.get_sync_device_limit(tests.get_supabase_uid('device_team')), 3,
-  'Canceled Team subscriptions no longer grant five slots');
+select is(public.get_sync_device_limit(tests.get_supabase_uid('device_team')), 5,
+  'Canceling a Team subscription retains the five-slot baseline');
 select tests.authenticate_as_service_role();
 select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('device_team'), 'team-device-5')), true,
-  'A lower allowance does not disconnect existing devices');
+  'A Team cancellation does not disconnect existing devices');
 select is((select allowed from public.claim_sync_device(tests.get_supabase_uid('device_team'), 'team-device-6')), false,
-  'An account above its new allowance cannot add a device');
-select is((select allowed from public.register_e2ee_device_enrollment(tests.get_supabase_uid('device_team'), 'team-device-6', 'Phone', rpad('B', 43, 'B'), 'team-device-1')), false,
-  'An over-limit account must free enough slots before replacement');
-select is((select count(*) from public.sync_devices where user_id = tests.get_supabase_uid('device_team')), 5::bigint,
-  'A rejected replacement leaves existing connections intact');
+  'An account at its included allowance cannot add a device');
+select is((select allowed from public.register_e2ee_device_enrollment(tests.get_supabase_uid('device_team'), 'team-device-6', 'Phone', rpad('B', 43, 'B'), 'team-device-1')), true,
+  'An account at its allowance can atomically replace a device');
+reset role;
+select is(private.sync_device_slot_count(tests.get_supabase_uid('device_team')), 5::bigint,
+  'Replacement keeps active and pending devices within the allowance');
 
 select * from finish();
 rollback;

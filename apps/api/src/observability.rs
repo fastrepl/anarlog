@@ -267,13 +267,17 @@ fn init_otel_tracer_provider(service_name: &str, env: &Env) -> Option<SdkTracerP
     };
     let version = option_env!("APP_VERSION").unwrap_or("unknown");
 
+    let mut resource_attributes = vec![
+        KeyValue::new("service.namespace", "anarlog"),
+        KeyValue::new("service.name", configured_service_name),
+        KeyValue::new("service.version", version.to_string()),
+        KeyValue::new("deployment.environment", environment),
+    ];
+    if let Some(revision) = option_env!("GH_SHA").filter(|revision| !revision.is_empty()) {
+        resource_attributes.push(KeyValue::new("serving_revision", revision));
+    }
     let resource = Resource::builder_empty()
-        .with_attributes([
-            KeyValue::new("service.namespace", "anarlog"),
-            KeyValue::new("service.name", configured_service_name),
-            KeyValue::new("service.version", version.to_string()),
-            KeyValue::new("deployment.environment", environment),
-        ])
+        .with_attributes(resource_attributes)
         .build();
 
     let provider = SdkTracerProvider::builder()
@@ -439,6 +443,10 @@ fn is_sensitive_attribute_key(key: &str) -> bool {
 }
 
 fn is_safe_attribute_value(key: &str, value: &Value) -> bool {
+    if key == "serving_revision" {
+        return matches!(value, Value::String(revision) if revision.as_str().len() == 40
+            && revision.as_str().bytes().all(|byte| byte.is_ascii_hexdigit()));
+    }
     match value {
         Value::Bool(_) | Value::I64(_) | Value::F64(_) => true,
         Value::String(value) => {
@@ -634,6 +642,10 @@ mod tests {
             KeyValue::new("http.response.status_code", 503_i64),
             KeyValue::new("anarlog.stt.provider.name", "deepgram"),
             KeyValue::new("http.route", "/v1/transcribe/{id}"),
+            KeyValue::new(
+                "serving_revision",
+                "2a8459e98f5d91537adc10550449c3e4454008e6",
+            ),
             KeyValue::new("user.id", "user_123"),
             KeyValue::new("error.message", "Patient Jane Doe has diabetes"),
             KeyValue::new("url.full", "https://example.com/note?token=secret"),
@@ -650,7 +662,8 @@ mod tests {
                 "error.type",
                 "http.response.status_code",
                 "anarlog.stt.provider.name",
-                "http.route"
+                "http.route",
+                "serving_revision"
             ]
         );
     }

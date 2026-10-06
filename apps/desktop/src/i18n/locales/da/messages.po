@@ -2282,6 +2282,10 @@ msgid "Draft"
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
+msgid "Draft a follow-up email for my most recent meeting."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
 msgid "Draft a follow-up email to the participants"
 msgstr ""
 
@@ -6537,6 +6541,14 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "What are my action items from this meeting?"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "What are my outstanding action items across my meetings?"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "What key decisions were made in my recent meetings?"
 msgstr ""
 
 #: src/folders/folder-editor.tsx

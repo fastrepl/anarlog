@@ -100,6 +100,10 @@ def test_image_ref_uses_the_fly_registry_tag():
     args = build.call_args.args
     assert args[args.index("--image-label") + 1] == image.rsplit(":", 1)[1]
     assert args[args.index("--label") + 1] == "GH_SHA=test-source"
+    assert any(
+        args[index : index + 2] == ("--build-arg", "GH_SHA=test-source")
+        for index in range(len(args) - 1)
+    )
 
 
 def test_stop_config_reads_graceful_shutdown_settings():
@@ -658,15 +662,21 @@ def test_desired_runtime_replaces_stale_machine_settings():
     assert desired["env"]["PORT"] == "3001"
 
 
-def test_bootstrap_marks_healthy_machines_for_future_drains():
+def test_bootstrap_preserves_source_revision_and_marks_healthy_machines():
     with (
-        patch.object(deploy_api_drain, "fly"),
+        patch.dict(deploy_api_drain.os.environ, {"GITHUB_SHA": "test-source"}),
+        patch.object(deploy_api_drain, "fly") as fly,
         patch.object(deploy_api_drain, "list_machines", return_value=[{"id": "new"}]),
         patch.object(deploy_api_drain, "wait_until_healthy") as healthy,
         patch.object(deploy_api_drain, "api_request") as api,
     ):
         deploy_api_drain.bootstrap_deploy(
             "anarlog-inference", "config", "Dockerfile", "test"
+        )
+        args = fly.call_args.args
+        assert any(
+            args[index : index + 2] == ("--build-arg", "GH_SHA=test-source")
+            for index in range(len(args) - 1)
         )
         healthy.assert_called_once_with("anarlog-inference", "new")
         api.assert_called_once_with(
@@ -1131,7 +1141,7 @@ if __name__ == "__main__":
     test_override_support_is_verified_before_cleanup()
     test_unknown_override_does_not_inherit_drain_support()
     test_idle_legacy_stripe_retirement_requires_cordon_and_healthy_capacity()
-    test_bootstrap_marks_healthy_machines_for_future_drains()
+    test_bootstrap_preserves_source_revision_and_marks_healthy_machines()
     test_drain_adoption_only_marks_the_verified_image()
     test_billing_replacement_migrates_process_group_and_keeps_capacity()
     test_rollback_requires_an_immutable_api_image_before_mutating_machines()
