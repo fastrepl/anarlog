@@ -4,6 +4,7 @@ import {
   getCustomerIdentityMetadata,
   getCustomerOwner,
 } from "./customer-metadata";
+import { withDatabaseRetry } from "./database-retry";
 import { getWorkspaceBillingUpdate } from "./workspace-billing";
 
 const CUSTOMER_EVENTS: Stripe.Event.Type[] = [
@@ -64,11 +65,13 @@ export async function syncBillingBridge(
 
   if (owner.kind === "workspace") {
     const update = getWorkspaceBillingUpdate(event);
-    const assignedCustomerId = await activeDependencies.syncWorkspaceCustomer({
-      workspaceId: owner.id,
-      customerId,
-      ...update,
-    });
+    const assignedCustomerId = await withDatabaseRetry(() =>
+      activeDependencies.syncWorkspaceCustomer({
+        workspaceId: owner.id,
+        customerId,
+        ...update,
+      }),
+    );
     if (assignedCustomerId && assignedCustomerId !== customerId) {
       throw new Error("Workspace Stripe customer assignment conflict");
     }
@@ -88,9 +91,8 @@ export async function syncBillingBridge(
     );
   }
 
-  const assignedCustomerId = await activeDependencies.assignProfileCustomer(
-    userId,
-    customerId,
+  const assignedCustomerId = await withDatabaseRetry(() =>
+    activeDependencies.assignProfileCustomer(userId, customerId),
   );
   if (assignedCustomerId !== customerId) {
     await activeDependencies.deleteCustomer(customerId);
@@ -161,7 +163,7 @@ async function createDefaultDependencies(): Promise<BillingBridgeDependencies> {
       await stripe.customers.update(customerId, { metadata });
     },
     async assignProfileCustomer(userId, customerId) {
-      const { data, error } = await supabaseAdmin.rpc(
+      const { data, error, status } = await supabaseAdmin.rpc(
         "assign_profile_stripe_customer",
         {
           p_owner_user_id: userId,
@@ -173,25 +175,29 @@ async function createDefaultDependencies(): Promise<BillingBridgeDependencies> {
         return data?.[0]?.assigned_customer_id as string | null | undefined;
       }
       if (error.code !== "PGRST202") {
-        throw error;
+        throw Object.assign(error, { status });
       }
 
-      const { error: updateError } = await supabaseAdmin
+      const { error: updateError, status: updateStatus } = await supabaseAdmin
         .from("profiles")
         .update({ stripe_customer_id: customerId })
         .eq("id", userId)
         .is("stripe_customer_id", null);
       if (updateError) {
-        throw updateError;
+        throw Object.assign(updateError, { status: updateStatus });
       }
 
-      const { data: profile, error: profileError } = await supabaseAdmin
+      const {
+        data: profile,
+        error: profileError,
+        status: profileStatus,
+      } = await supabaseAdmin
         .from("profiles")
         .select("stripe_customer_id")
         .eq("id", userId)
         .single();
       if (profileError) {
-        throw profileError;
+        throw Object.assign(profileError, { status: profileStatus });
       }
       return profile.stripe_customer_id as string | null;
     },
@@ -199,7 +205,7 @@ async function createDefaultDependencies(): Promise<BillingBridgeDependencies> {
       await stripe.customers.del(customerId);
     },
     async syncWorkspaceCustomer(update) {
-      const { data, error } = await supabaseAdmin.rpc(
+      const { data, error, status } = await supabaseAdmin.rpc(
         "sync_workspace_stripe_billing",
         {
           p_workspace_id: update.workspaceId,
@@ -209,7 +215,7 @@ async function createDefaultDependencies(): Promise<BillingBridgeDependencies> {
         },
       );
       if (error) {
-        throw error;
+        throw Object.assign(error, { status });
       }
       return data?.[0]?.assigned_customer_id as string | null | undefined;
     },

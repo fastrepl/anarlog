@@ -38,13 +38,18 @@ const dependencies = (
 });
 
 describe("syncBillingBridge", () => {
-  it("routes Team subscription quantities to the workspace billing RPC", async () => {
+  it("syncs Team subscription quantities after the database recovers", async () => {
     const updates: Array<Record<string, unknown>> = [];
+    let recovering = true;
 
     await syncBillingBridge(
       event("customer.subscription.updated", teamSubscription),
       dependencies({
         syncWorkspaceCustomer: async (update) => {
+          if (recovering) {
+            recovering = false;
+            throw { code: "PGRST001" };
+          }
           updates.push(update);
           return update.customerId;
         },
@@ -83,9 +88,10 @@ describe("syncBillingBridge", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("preserves personal customer assignment and metadata repair", async () => {
+  it("finishes personal billing sync after a transient database outage without deleting the customer", async () => {
     const metadataUpdates: Array<Record<string, string>> = [];
     const assignments: string[][] = [];
+    const failures = [{ code: "PGRST002" }, { code: "", status: 503 }];
 
     await syncBillingBridge(
       event(
@@ -98,6 +104,8 @@ describe("syncBillingBridge", () => {
           metadataUpdates.push(metadata);
         },
         assignProfileCustomer: async (userId, customerId) => {
+          const failure = failures.shift();
+          if (failure) throw failure;
           assignments.push([userId, customerId]);
           return customerId;
         },
@@ -115,4 +123,37 @@ describe("syncBillingBridge", () => {
     ]);
     expect(assignments).toEqual([["user-123", "cus_team123"]]);
   });
+
+  it.each([
+    { code: "23505", message: "assignment conflict" },
+    { code: "57P03", message: "database is recovering" },
+  ])(
+    "propagates permanent or exhausted database failures ($code)",
+    async (failure) => {
+      let assigned = false;
+      let deleted = false;
+      await expect(
+        syncBillingBridge(
+          event("customer.subscription.updated", teamSubscription),
+          dependencies({
+            getCustomer: async () =>
+              customer({
+                userId: "user-123",
+                posthog_person_distinct_id: "user-123",
+              }),
+            assignProfileCustomer: async () => {
+              // A permanent failure must not be retried into a false success.
+              if (failure.code === "23505" && assigned) return "cus_team123";
+              assigned = true;
+              throw failure;
+            },
+            deleteCustomer: async () => {
+              deleted = true;
+            },
+          }),
+        ),
+      ).rejects.toBe(failure);
+      expect(deleted).toBe(false);
+    },
+  );
 });
