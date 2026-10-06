@@ -1,5 +1,9 @@
 import { useCallback, useRef } from "react";
 
+import {
+  commands as detectCommands,
+  events as detectEvents,
+} from "@anlg/plugin-detect";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
@@ -13,6 +17,7 @@ import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import type { LiveSessionStatus } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
+import { isMeetingCapableMicApp, type MicApp } from "~/stt/meeting-apps";
 import { hasScheduledAutoStartInFlight } from "~/stt/scheduled-auto-start-state";
 import { decideAutomaticMeetingAttendance } from "~/stt/scheduled-meeting-attendance";
 
@@ -21,7 +26,14 @@ import { decideAutomaticMeetingAttendance } from "~/stt/scheduled-meeting-attend
 // a meeting that is already over.
 export const SCHEDULED_AUTO_START_GRACE_MS = 5 * 60_000;
 
+// A meeting app that has held the mic this long before a meeting starts is
+// still on an earlier call. Early joins happen closer to the start.
+const PREVIOUS_CALL_MIN_HOLD_MS = 10 * 60_000;
+
 const TICK_MS = 15_000;
+const MIC_HOLD_POLL_MS = 30_000;
+// Watching starts early enough to see a hold reach PREVIOUS_CALL_MIN_HOLD_MS.
+const MIC_HOLD_LOOKAHEAD_MS = PREVIOUS_CALL_MIN_HOLD_MS + 5 * 60_000;
 
 // Calendar blocks without a meeting link ("Lunch", "Focus time") are excluded:
 // auto-start watches every calendar, so anything looser would record all day.
@@ -29,6 +41,7 @@ const SCHEDULED_MEETINGS_SQL = `
   SELECT
     id,
     started_at,
+    ended_at,
     meeting_link,
     tracking_id_event,
     recurrence_series_id,
@@ -44,6 +57,7 @@ const SCHEDULED_MEETINGS_SQL = `
 export type ScheduledMeetingRow = {
   id: string;
   started_at: string;
+  ended_at: string;
   meeting_link: string;
   tracking_id_event: string;
   recurrence_series_id: string;
@@ -57,6 +71,7 @@ function isSameScheduledMeeting(
   return (
     left.id === right.id &&
     left.started_at === right.started_at &&
+    left.ended_at === right.ended_at &&
     left.meeting_link === right.meeting_link &&
     left.tracking_id_event === right.tracking_id_event &&
     left.recurrence_series_id === right.recurrence_series_id &&
@@ -108,6 +123,61 @@ export function selectDueMeetings({
   return due.sort((a, b) => b.startMs - a.startMs).map(({ row }) => row);
 }
 
+// Keeps the first time each meeting app was seen on the mic. Any stop removes
+// the app, so a kept time means the app has held the mic ever since.
+function trackMicHolds(
+  holds: Map<string, number>,
+  micApps: MicApp[],
+  nowMs: number,
+) {
+  const onMic = new Set(
+    micApps.filter(isMeetingCapableMicApp).map((app) => app.id),
+  );
+  for (const appId of holds.keys()) {
+    if (!onMic.has(appId)) {
+      holds.delete(appId);
+    }
+  }
+  for (const appId of onMic) {
+    if (!holds.has(appId)) {
+      holds.set(appId, nowMs);
+    }
+  }
+}
+
+// True when a meeting app took the mic during another scheduled meeting and
+// has held it since. A hold that began in free time is an early join.
+export function isPreviousCallOnMic({
+  holds,
+  meeting,
+  rows,
+}: {
+  holds: ReadonlyMap<string, number>;
+  meeting: ScheduledMeetingRow;
+  rows: ScheduledMeetingRow[];
+}): boolean {
+  const meetingStartMs = parseEventInstant(meeting.started_at)?.getTime();
+  if (meetingStartMs === undefined) {
+    return false;
+  }
+
+  return [...holds.values()].some(
+    (heldSinceMs) =>
+      heldSinceMs <= meetingStartMs - PREVIOUS_CALL_MIN_HOLD_MS &&
+      rows.some((row) => {
+        if (row.id === meeting.id) return false;
+        const startMs = parseEventInstant(row.started_at)?.getTime();
+        const endMs = parseEventInstant(row.ended_at)?.getTime();
+        return (
+          startMs !== undefined &&
+          endMs !== undefined &&
+          startMs <= heldSinceMs &&
+          heldSinceMs < endMs
+        );
+      }),
+  );
+}
+
 export function hasPendingAutoStart(tabs: readonly Tab[]): boolean {
   return tabs.some(
     (tab) =>
@@ -131,6 +201,7 @@ async function readDueScheduledMeeting(
       SELECT
         id,
         started_at,
+        ended_at,
         meeting_link,
         tracking_id_event,
         recurrence_series_id,
@@ -163,6 +234,7 @@ export async function readDueScheduledSessionMeeting(
       SELECT
         events.id,
         events.started_at,
+        events.ended_at,
         events.meeting_link,
         events.tracking_id_event,
         events.recurrence_series_id,
@@ -297,6 +369,35 @@ export function ScheduledMeetingAutoStart() {
     const firedEventIds = new Set<string>();
     const eventRevisions = new Map<string, number>();
     const ineligibleEventRevisions = new Map<string, number>();
+    const micHolds = new Map<string, number>();
+
+    const pollMicHolds = async () => {
+      const now = Date.now();
+      const meetingNear = rows.some((row) => {
+        const start = parseEventInstant(row.started_at)?.getTime();
+        return (
+          start !== undefined &&
+          now >= start - MIC_HOLD_LOOKAHEAD_MS &&
+          now <= start + SCHEDULED_AUTO_START_GRACE_MS
+        );
+      });
+      if (!autoStartRef.current || !meetingNear) {
+        micHolds.clear();
+        return;
+      }
+
+      try {
+        const result = await detectCommands.listMicUsingApplications();
+        if (!cancelled && result.status === "ok") {
+          trackMicHolds(micHolds, result.data, Date.now());
+        }
+      } catch (error) {
+        console.warn("[calendar] failed to read mic usage", error);
+      }
+    };
+    const micHoldInterval = setInterval(() => {
+      void pollMicHolds();
+    }, MIC_HOLD_POLL_MS);
 
     const scheduleTick = (delayMs: number) => {
       clearTimeout(timeout);
@@ -397,6 +498,13 @@ export function ScheduledMeetingAutoStart() {
         return;
       }
 
+      if (isPreviousCallOnMic({ holds: micHolds, meeting: next, rows })) {
+        // The earlier recording ended but its call did not; starting now would
+        // file the rest of that call under this meeting.
+        scheduleTick(TICK_MS);
+        return;
+      }
+
       const startEventRevision = eventRevisions.get(next.id) ?? 0;
       starting = true;
       void startScheduledMeeting(next, Boolean(autoJoinRef.current))
@@ -451,6 +559,26 @@ export function ScheduledMeetingAutoStart() {
       if (state.live.status !== previous.live.status) tick();
     });
 
+    let unlistenMicStopped: (() => void) | undefined;
+    void detectEvents.detectEvent
+      .listen(({ payload }) => {
+        if (payload.type !== "micStopped") return;
+        for (const app of payload.apps) {
+          micHolds.delete(app.id);
+        }
+        tick();
+      })
+      .then((stopListening) => {
+        if (cancelled) {
+          stopListening();
+          return;
+        }
+        unlistenMicStopped = stopListening;
+      })
+      .catch((error) => {
+        console.error("[calendar] failed to listen for mic stops", error);
+      });
+
     void liveQueryClient
       .subscribe<ScheduledMeetingRow>(SCHEDULED_MEETINGS_SQL, [], {
         onData: (nextRows) => {
@@ -500,8 +628,10 @@ export function ScheduledMeetingAutoStart() {
       cancelled = true;
       configChangedRef.current = () => {};
       clearTimeout(timeout);
+      clearInterval(micHoldInterval);
       unsubscribeTabs();
       unsubscribeListener();
+      unlistenMicStopped?.();
       void unsubscribe?.();
     };
   });
