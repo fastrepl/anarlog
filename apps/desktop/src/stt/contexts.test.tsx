@@ -388,6 +388,84 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).not.toHaveBeenCalled();
   });
 
+  describe("when a side app releases the mic during a call", () => {
+    const teams = { id: "com.microsoft.teams2", name: "Microsoft Teams" };
+    const recorder = { id: "com.example.recorder", name: "Recorder" };
+    const chrome = { id: "com.google.Chrome", name: "Google Chrome" };
+
+    async function renderActiveWithTriggers(triggerAppIds: string[]) {
+      const store = createListenerStore();
+      const stopSpy = vi.fn();
+      store.setState({ stop: stopSpy });
+      store.getState().setTriggerAppIds(triggerAppIds);
+      setStoreActive(store);
+      const handler = await renderProvider(store);
+      vi.useFakeTimers();
+      return { store, stopSpy, handler };
+    }
+
+    test("keeps listening, then stops when the meeting app ends", async () => {
+      const { store, stopSpy, handler } = await renderActiveWithTriggers([
+        recorder.id,
+      ]);
+
+      listMicUsingApplicationsMock.mockResolvedValue({
+        status: "ok",
+        data: [teams],
+      });
+      handler({ payload: { type: "micStopped", apps: [recorder] } });
+      await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+      expect(stopSpy).not.toHaveBeenCalled();
+      expect(store.getState().live.triggerAppIds).toContain(teams.id);
+
+      listMicUsingApplicationsMock.mockResolvedValue({
+        status: "ok",
+        data: [],
+      });
+      handler({ payload: { type: "micStopped", apps: [teams] } });
+      await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+      expect(stopSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test("stops when the meeting app stops in the same event, even with a browser on the mic", async () => {
+      const { stopSpy, handler } = await renderActiveWithTriggers([
+        recorder.id,
+      ]);
+
+      listMicUsingApplicationsMock.mockResolvedValue({
+        status: "ok",
+        data: [chrome],
+      });
+      handler({ payload: { type: "micStopped", apps: [recorder, teams] } });
+      await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+
+      expect(stopSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test("ignores a mic snapshot that returns after the recording changed", async () => {
+      const { store, stopSpy, handler } = await renderActiveWithTriggers([
+        recorder.id,
+      ]);
+      let resolveSnapshot: (value: unknown) => void = () => {};
+      listMicUsingApplicationsMock.mockReturnValue(
+        new Promise((resolve) => {
+          resolveSnapshot = resolve;
+        }),
+      );
+
+      handler({ payload: { type: "micStopped", apps: [recorder] } });
+      await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+      setStoreActive(store, "session-2");
+      resolveSnapshot({ status: "ok", data: [teams] });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(store.getState().live.triggerAppIds).not.toContain(teams.id);
+      expect(stopSpy).not.toHaveBeenCalled();
+    });
+  });
+
   test("holds a network-interrupted meeting until its event end grace expires", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();

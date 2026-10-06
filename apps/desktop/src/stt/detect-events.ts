@@ -226,15 +226,28 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
           return;
         }
 
+        // Every app in the stop event went quiet, including meeting apps that
+        // never became triggers.
+        const quietApps = [
+          ...stoppedApps,
+          ...candidateAppIds
+            .filter((id) => !stoppedApps.some((app) => app.id === id))
+            .map((id) => ({ id, name: "" })),
+        ];
         const meetingAppsStillOnCall = getMeetingAppsStillOnCall({
           triggerAppIds: currentTrigger,
-          quietApps: candidateAppIds.map(
-            (id) =>
-              stoppedApps.find((app) => app.id === id) ?? { id, name: "" },
-          ),
+          quietApps,
           micApps: result.data,
         });
         if (meetingAppsStillOnCall.length > 0) {
+          const liveAfterCheck = store.getState().live;
+          if (
+            pendingAutoStopRef.current !== pending ||
+            liveAfterCheck.status !== "active" ||
+            liveAfterCheck.sessionId !== pending.sessionId
+          ) {
+            return;
+          }
           // Track them so the recording stops when the call itself ends.
           captureTriggerApps(meetingAppsStillOnCall);
           return;
