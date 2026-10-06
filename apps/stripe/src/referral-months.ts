@@ -25,11 +25,7 @@ export function planReferralExtension(
     !prices.includes(item.price.id) ||
     !["month", "year"].includes(item.price.recurring?.interval ?? "") ||
     item.price.recurring?.interval_count !== 1 ||
-    (subscription.status !== "active" &&
-      !(
-        subscription.status === "trialing" &&
-        subscription.metadata.referral_extension === "true"
-      )) ||
+    !["active", "trialing"].includes(subscription.status) ||
     subscription.cancel_at_period_end ||
     subscription.cancel_at ||
     subscription.schedule ||
@@ -40,7 +36,7 @@ export function planReferralExtension(
     throw new Error("subscription_requires_review");
   }
   const previousEnd =
-    subscription.trial_end && subscription.status === "trialing"
+    subscription.status === "trialing"
       ? subscription.trial_end
       : item.current_period_end;
   if (!previousEnd || previousEnd <= now)
@@ -83,7 +79,11 @@ export async function applyPreparedReferralExtension({
         trial_end: targetEnd,
         proration_behavior: "none",
         metadata: {
-          referral_extension: "true",
+          referral_extension:
+            subscription.status === "active" ||
+            subscription.metadata.referral_extension === "true"
+              ? "true"
+              : "false",
           referral_last_reward: referralId,
         },
       },

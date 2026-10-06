@@ -121,3 +121,33 @@ test("changed, team-sized, canceled, scheduled and unsupported subscriptions can
     }),
   ).rejects.toThrow("subscription_changed_before_reward");
 });
+
+test("cardless trial referrals extend the existing trial without turning it into a paid extension", async () => {
+  const trial = {
+    ...subscription(),
+    status: "trialing",
+    trial_end: epoch("2026-10-08T09:00:00Z"),
+    trial_settings: { end_behavior: { missing_payment_method: "pause" } },
+  } as Stripe.Subscription;
+  const plan = planReferralExtension(trial, ["price_pro"], now);
+  const extended = await applyPreparedReferralExtension({
+    subscription: trial,
+    prices: ["price_pro"],
+    ...plan,
+    referralId: "trial-reward",
+    now,
+    update: async (_id, params) => ({
+      ...trial,
+      trial_end: params.trial_end as number,
+      metadata: params.metadata as Record<string, string>,
+    }),
+  });
+  expect(extended.trial_end).toBe(epoch("2026-11-08T09:00:00Z"));
+  expect(extended.metadata.referral_extension).toBe("false");
+  expect(extended.trial_settings?.end_behavior.missing_payment_method).toBe(
+    "pause",
+  );
+  expect(() =>
+    planReferralExtension({ ...trial, trial_end: now - 1 }, ["price_pro"], now),
+  ).toThrow();
+});

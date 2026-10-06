@@ -19,6 +19,7 @@ import { commands as authCommands } from "@anlg/plugin-auth";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
 import { deriveBillingInfo, type SupabaseJwtPayload } from "@anlg/supabase";
+import type { ReferralSummary } from "@anlg/supabase/referrals";
 
 import { TrialEndedDialog } from "../billing/trial-ended-dialog";
 import { TrialPaymentReminderDialog } from "../billing/trial-payment-reminder-dialog";
@@ -33,6 +34,7 @@ import { type BillingAccess, BillingContext } from "./billing-context";
 
 import { setSettingValues } from "~/settings/queries";
 import { useConfigValues } from "~/shared/config";
+import { useTabs } from "~/store/zustand/tabs";
 import { getUnsupportedDesktopLocalSttRepair } from "~/stt/capabilities";
 
 async function getClaimsFromToken(
@@ -49,6 +51,7 @@ async function getClaimsFromToken(
     subscription_status: result.data.subscription_status,
     trial_end: result.data.trial_end,
     has_payment_method: result.data.has_payment_method,
+    referral_extension: result.data.referral_extension ?? undefined,
   };
 }
 
@@ -300,6 +303,33 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     useState<string | null>(null);
   const trialEligibilityRefreshPendingRef = useRef<string | null>(null);
   const hasTrial = billing.trialEnd !== null;
+  const trialEndTimestamp = billing.trialEnd?.getTime();
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- Share the account-scoped referral cache; the session only supplies request credentials.
+  const referralSummary = useQuery({
+    queryKey: ["referral-summary", auth?.session?.user.id],
+    enabled:
+      trialPaymentReminderOpen &&
+      !!auth?.supabase &&
+      !!auth?.session &&
+      !auth.session.user.is_anonymous,
+    queryFn: async ({ signal }) => {
+      if (!auth.supabase || !auth.session) throw new Error("Unauthorized");
+      const { data, error } = await auth.supabase
+        .rpc("get_referral_summary")
+        .setHeader("Authorization", `Bearer ${auth.session.access_token}`)
+        .abortSignal(signal);
+      if (error) throw error;
+      return data as ReferralSummary;
+    },
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
+  const canRefer =
+    referralSummary.isSuccess &&
+    referralSummary.data.enabled &&
+    referralSummary.data.eligible &&
+    referralSummary.data.remaining > 0;
 
   useEffect(() => {
     const userId = auth?.session?.user.id;
@@ -324,7 +354,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
             : null;
 
       if (reminderThreshold && !billing.hasPaymentMethod) {
-        const reminderKey = `${TRIAL_PAYMENT_REMINDER_SEEN_PREFIX}${userId}:${reminderThreshold}`;
+        const reminderKey = `${TRIAL_PAYMENT_REMINDER_SEEN_PREFIX}${userId}:${trialEndTimestamp}:${reminderThreshold}`;
         if (!readSeen(reminderKey)) {
           setTrialPaymentReminderThreshold(reminderThreshold);
           setTrialPaymentReminderOpen(true);
@@ -375,6 +405,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     auth?.session?.user.id,
     billing.isTrialing,
     billing.trialDaysRemaining,
+    trialEndTimestamp,
     billing.hasPaymentMethod,
     hasTrial,
     billing.isPaid,
@@ -406,9 +437,23 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         hasPaymentMethod={billing.hasPaymentMethod}
       />
       <TrialPaymentReminderDialog
-        open={trialPaymentReminderOpen}
+        open={
+          trialPaymentReminderOpen &&
+          billing.isTrialing &&
+          !billing.hasPaymentMethod &&
+          billing.trialDaysRemaining !== null &&
+          billing.trialDaysRemaining <= 7
+        }
         onOpenChange={setTrialPaymentReminderOpen}
         daysRemaining={billing.trialDaysRemaining ?? 0}
+        onReferFriend={
+          canRefer
+            ? () =>
+                useTabs
+                  .getState()
+                  .openNew({ type: "settings", state: { tab: "referrals" } })
+            : undefined
+        }
         onAddPaymentMethod={() => {
           void analyticsCommands.event({
             event: "trial_payment_method_clicked",

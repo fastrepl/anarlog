@@ -21,11 +21,13 @@ export function TrialPaymentReminderDialog({
   onOpenChange,
   daysRemaining,
   onAddPaymentMethod,
+  onReferFriend,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   daysRemaining: number;
   onAddPaymentMethod: () => void;
+  onReferFriend?: () => void;
 }) {
   const title =
     daysRemaining === 1
@@ -34,7 +36,7 @@ export function TrialPaymentReminderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <GlassDialogContent>
+      <GlassDialogContent className="sm:max-w-[360px]">
         <DialogHeader className="items-center gap-2 text-center sm:text-center">
           <TrialDialogIcon state="started" />
           <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
@@ -58,6 +60,26 @@ export function TrialPaymentReminderDialog({
             {t`Add payment method`}
           </Button>
         </DialogFooter>
+        {onReferFriend && (
+          <div className="border-border/60 flex flex-col items-center gap-2 border-t pt-4 text-center">
+            <p className="text-foreground text-[13px] font-medium">
+              {t`Need more time? Refer a friend.`}
+            </p>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {t`When they start their free trial, yours gets one more month. Up to 3 friends.`}
+            </p>
+            <Button
+              variant="link"
+              className="h-auto p-0 text-xs"
+              onClick={() => {
+                onReferFriend();
+                onOpenChange(false);
+              }}
+            >
+              {t`Invite friends`}
+            </Button>
+          </div>
+        )}
       </GlassDialogContent>
     </Dialog>
   );

@@ -186,8 +186,8 @@ function ReferralInvites() {
           </p>
           <p className="text-muted-foreground text-xs">
             <Trans>
-              Your next billing date moves back one month, on monthly or annual
-              plans. No payment from your friend is required.
+              Your trial or paid subscription is extended by one month. No
+              payment from your friend is required.
             </Trans>
           </p>
         </div>
@@ -246,8 +246,9 @@ function ReferralInvites() {
           <div className="flex flex-col items-start gap-3">
             <p className="text-muted-foreground text-sm">
               <Trans>
-                New referral invites are available with a paid personal Pro
-                subscription. Team-only subscriptions aren't eligible.
+                New referral invites are available with an active personal Pro
+                trial or paid subscription. Team-only subscriptions aren't
+                eligible.
               </Trans>
             </p>
             <Button

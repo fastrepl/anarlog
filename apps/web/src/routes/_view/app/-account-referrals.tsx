@@ -80,8 +80,8 @@ export function ReferralSection({ ineligible }: { ineligible: boolean }) {
                   friend gets 30 days of Pro free.
                 </p>
                 <p className="text-color-muted text-sm">
-                  Your next billing date moves back one month, on monthly or
-                  annual plans. No payment from your friend is required.
+                  Your trial or paid subscription is extended by one month. No
+                  payment from your friend is required.
                 </p>
                 <dl className="grid grid-cols-3 gap-3 text-sm">
                   <div>
@@ -123,8 +123,8 @@ export function ReferralSection({ ineligible }: { ineligible: boolean }) {
                   </div>
                 ) : (
                   <p className="text-color-muted text-sm">
-                    New referral invites require a paid personal Pro
-                    subscription. Team-only subscriptions aren't eligible.
+                    New referral invites require an active personal Pro trial or
+                    paid subscription. Team-only subscriptions aren't eligible.
                   </p>
                 )}
               </>

@@ -3053,6 +3053,7 @@ msgstr ""
 msgid "Invite {slot}"
 msgstr ""
 
+#: src/billing/trial-payment-reminder-dialog.tsx
 #: src/settings/referrals.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "Invite friends"
@@ -3687,6 +3688,10 @@ msgstr ""
 msgid "Name"
 msgstr ""
 
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "Need more time? Refer a friend."
+msgstr ""
+
 #: src/settings/automations/workflow-builder.tsx
 msgid "Needs setup"
 msgstr ""
@@ -3718,7 +3723,7 @@ msgid "New notes in this folder will sync to everyone in {0}. Notes already in t
 msgstr ""
 
 #: src/settings/referrals.tsx
-msgid "New referral invites are available with a paid personal Pro subscription. Team-only subscriptions aren't eligible."
+msgid "New referral invites are available with an active personal Pro trial or paid subscription. Team-only subscriptions aren't eligible."
 msgstr ""
 
 #: src/session/components/note-input/raw.tsx
@@ -6546,6 +6551,10 @@ msgstr ""
 msgid "What's new in {version}?"
 msgstr ""
 
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "When they start their free trial, yours gets one more month. Up to 3 friends."
+msgstr ""
+
 #: src/settings/automations/workflow-builder.tsx
 msgid "When this happens"
 msgstr ""
@@ -6684,10 +6693,6 @@ msgstr ""
 msgid "Your local notes are available. Connect this library to sync with your current account."
 msgstr ""
 
-#: src/settings/referrals.tsx
-msgid "Your next billing date moves back one month, on monthly or annual plans. No payment from your friend is required."
-msgstr ""
-
 #: src/billing/trial-ended-dialog.tsx
 msgid "Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features."
 msgstr ""
@@ -6755,6 +6760,10 @@ msgstr ""
 
 #: src/store/zustand/listener/general-batch.ts
 msgid "Your transcript is ready."
+msgstr ""
+
+#: src/settings/referrals.tsx
+msgid "Your trial or paid subscription is extended by one month. No payment from your friend is required."
 msgstr ""
 
 #: src/settings/stats/insights.tsx

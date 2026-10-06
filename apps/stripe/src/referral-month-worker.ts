@@ -134,9 +134,7 @@ async function processReward() {
         limit: 100,
       });
       const eligible = subscriptions.data.filter(
-        (s) =>
-          s.status === "active" ||
-          (s.status === "trialing" && s.metadata.referral_extension === "true"),
+        (s) => s.status === "active" || s.status === "trialing",
       );
       if (subscriptions.has_more || eligible.length !== 1)
         throw new Error("subscription_requires_review");
