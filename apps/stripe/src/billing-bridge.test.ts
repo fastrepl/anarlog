@@ -14,6 +14,8 @@ const event = (type: Stripe.Event.Type, object: Stripe.Event.Data.Object) =>
   }) as Stripe.Event;
 
 const teamSubscription = {
+  id: "sub_team123",
+  status: "active",
   customer: "cus_team123",
   items: {
     data: [{ price: { id: "price_pro" }, quantity: 4 }],
@@ -23,6 +25,7 @@ const teamSubscription = {
 const dependencies = (
   overrides: Partial<NonNullable<Parameters<typeof syncBillingBridge>[1]>> = {},
 ): NonNullable<Parameters<typeof syncBillingBridge>[1]> => ({
+  getSubscription: async () => teamSubscription,
   getCustomer: async () => customer({ workspaceId: "workspace-123" }),
   updateCustomerMetadata: async () => {
     throw new Error("should not update personal metadata");
@@ -38,16 +41,26 @@ const dependencies = (
 });
 
 describe("syncBillingBridge", () => {
-  it("syncs Team subscription quantities after the database recovers", async () => {
+  it("an older retry keeps newer workspace seats after the database recovers", async () => {
     const updates: Array<Record<string, unknown>> = [];
     let recovering = true;
+    let currentSubscription = teamSubscription;
 
     await syncBillingBridge(
       event("customer.subscription.updated", teamSubscription),
       dependencies({
+        getSubscription: async () => currentSubscription,
         syncWorkspaceCustomer: async (update) => {
           if (recovering) {
             recovering = false;
+            currentSubscription = {
+              ...teamSubscription,
+              items: {
+                ...teamSubscription.items,
+                data: [{ ...teamSubscription.items.data[0], quantity: 6 }],
+              },
+            };
+            updates.push({ ...update, seatLimit: 6 });
             throw { code: "PGRST001" };
           }
           updates.push(update);
@@ -56,14 +69,12 @@ describe("syncBillingBridge", () => {
       }),
     );
 
-    expect(updates).toEqual([
-      {
-        workspaceId: "workspace-123",
-        customerId: "cus_team123",
-        seatLimit: 4,
-        updateSeatLimit: true,
-      },
-    ]);
+    expect(updates.at(-1)).toEqual({
+      workspaceId: "workspace-123",
+      customerId: "cus_team123",
+      seatLimit: 6,
+      updateSeatLimit: true,
+    });
   });
 
   it("fails closed when Stripe metadata conflicts with the bound customer", async () => {

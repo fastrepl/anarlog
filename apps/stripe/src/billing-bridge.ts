@@ -18,6 +18,7 @@ const CUSTOMER_EVENTS: Stripe.Event.Type[] = [
 
 type BillingBridgeDependencies = {
   getCustomer: (customerId: string) => Promise<Stripe.Customer | null>;
+  getSubscription: (subscriptionId: string) => Promise<Stripe.Subscription>;
   updateCustomerMetadata: (
     customerId: string,
     metadata: Record<string, string>,
@@ -64,14 +65,32 @@ export async function syncBillingBridge(
   }
 
   if (owner.kind === "workspace") {
-    const update = getWorkspaceBillingUpdate(event);
-    const assignedCustomerId = await withDatabaseRetry(() =>
-      activeDependencies.syncWorkspaceCustomer({
+    const assignedCustomerId = await withDatabaseRetry(async () => {
+      let currentEvent = event;
+      if (
+        event.type === "customer.subscription.created" ||
+        event.type === "customer.subscription.updated" ||
+        event.type === "customer.subscription.deleted"
+      ) {
+        const subscription = await activeDependencies.getSubscription(
+          event.data.object.id,
+        );
+        currentEvent = {
+          ...event,
+          type:
+            subscription.status === "canceled"
+              ? "customer.subscription.deleted"
+              : "customer.subscription.updated",
+          data: { object: subscription },
+        };
+      }
+      const update = getWorkspaceBillingUpdate(currentEvent);
+      return activeDependencies.syncWorkspaceCustomer({
         workspaceId: owner.id,
         customerId,
         ...update,
-      }),
-    );
+      });
+    });
     if (assignedCustomerId && assignedCustomerId !== customerId) {
       throw new Error("Workspace Stripe customer assignment conflict");
     }
@@ -159,6 +178,8 @@ async function createDefaultDependencies(): Promise<BillingBridgeDependencies> {
       const customer = await stripe.customers.retrieve(customerId);
       return isDeletedCustomer(customer) ? null : customer;
     },
+    getSubscription: (subscriptionId) =>
+      stripe.subscriptions.retrieve(subscriptionId),
     async updateCustomerMetadata(customerId, metadata) {
       await stripe.customers.update(customerId, { metadata });
     },
