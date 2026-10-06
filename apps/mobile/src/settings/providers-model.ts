@@ -233,6 +233,12 @@ export const SUMMARY_PROVIDERS = [
     model: "",
   },
   {
+    id: "chatgpt",
+    name: "ChatGPT subscription",
+    baseUrl: "https://chatgpt.com/backend-api/codex",
+    model: "",
+  },
+  {
     id: "anthropic",
     name: "Anthropic",
     baseUrl: "https://api.anthropic.com/v1",

@@ -14,6 +14,7 @@ import { useAuth } from "@/auth/context";
 import { FieldGroup } from "@/settings/field-group";
 import { Button, ListItem, Text, TextInput } from "@/settings/fields";
 
+import { ChatgptConnect } from "./chatgpt-connect";
 import { SettingsPage } from "./components";
 import { createProviderAutosave } from "./provider-autosave";
 import { ProviderIcon } from "./provider-icon";
@@ -206,7 +207,7 @@ function ProviderForm({
               ? select.error.message
               : selectedProvider === "anarlog"
                 ? "Included with your Pro trial or subscription. No API key needed."
-                : "Choose your model here. Configure API keys and connections below."}
+                : "Choose your model here. Configure connections below."}
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>
@@ -241,7 +242,7 @@ function ProviderForm({
                   />
                 }
               >
-                <Text>{`${provider.name}${active ? " · Active" : setup.data?.hasKey ? " · Key saved" : ""}`}</Text>
+                <Text>{`${provider.name}${active ? " · Active" : setup.data?.hasKey ? (provider.id === "chatgpt" ? " · Connected" : " · Key saved") : ""}`}</Text>
               </ListItem>
               {setup.isPending ? (
                 open && <Text>Loading…</Text>
@@ -250,6 +251,18 @@ function ProviderForm({
                   <Button
                     label="Try again"
                     onPress={() => void setup.refetch()}
+                  />
+                )
+              ) : provider.id === "chatgpt" ? (
+                open && (
+                  <ChatgptConnect
+                    account={account}
+                    connected={setup.data.hasKey}
+                    verificationError={setup.data.verificationError}
+                    onSaved={() => {
+                      if (selectedProviderRef.current === provider.id)
+                        select.mutate({ provider: provider.id });
+                    }}
                   />
                 )
               ) : (
@@ -276,7 +289,7 @@ function ProviderForm({
         })}
         <FieldGroup.SectionFooter>
           <Text>
-            Valid settings save automatically. API keys stay on this device.
+            Valid settings save automatically. Credentials stay on this device.
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>

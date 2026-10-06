@@ -86,7 +86,7 @@ test("mobile catalogs include the desktop's remote API-key providers supported b
   for (const kind of ["stt", "llm"]) {
     const desktop = desktopProviders(kind);
     const mobile = providersFor(kind).filter(
-      (provider) => provider.id !== "anarlog",
+      (provider) => provider.id !== "anarlog" && provider.id !== "chatgpt",
     );
     assert.deepEqual(
       mobile.map((provider) => provider.id).sort(),

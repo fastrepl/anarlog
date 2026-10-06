@@ -1,7 +1,9 @@
 import type { ProviderConfig } from "@/settings/providers-model";
 
+import { CHATGPT_BASE_URL, chatgptHeaders } from "../settings/chatgpt-oauth";
+
 export function summaryRequest(
-  provider: ProviderConfig & { apiKey: string },
+  provider: ProviderConfig & { apiKey: string; accountId?: string },
   system: string,
   source: string,
   apiUrl: string,
@@ -9,6 +11,25 @@ export function summaryRequest(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+  if (provider.provider === "chatgpt") {
+    return {
+      url: `${CHATGPT_BASE_URL}/responses`,
+      headers: {
+        ...headers,
+        ...chatgptHeaders(provider.apiKey, provider.accountId),
+        Accept: "text/event-stream",
+      },
+      body: {
+        model: provider.model,
+        instructions: system,
+        input: [
+          { role: "user", content: [{ type: "input_text", text: source }] },
+        ],
+        store: false,
+        stream: true,
+      },
+    };
+  }
   if (provider.provider === "google_generative_ai") {
     headers["x-goog-api-key"] = provider.apiKey;
     const model = encodeURIComponent(provider.model.replace(/^models\//, ""));

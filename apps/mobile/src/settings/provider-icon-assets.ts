@@ -15,6 +15,10 @@ const PROVIDER_ICONS: Record<string, { light: number; dark: number }> = {
     light: require("../../assets/providers/openai-light.png"),
     dark: require("../../assets/providers/openai-dark.png"),
   },
+  chatgpt: {
+    light: require("../../assets/providers/openai-light.png"),
+    dark: require("../../assets/providers/openai-dark.png"),
+  },
   openrouter: {
     light: require("../../assets/providers/openrouter-light.png"),
     dark: require("../../assets/providers/openrouter-light.png"),

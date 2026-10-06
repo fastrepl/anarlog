@@ -12,6 +12,12 @@ import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
 
 import {
+  readChatgptCredential,
+  removeChatgptCredential,
+  resolveChatgptCredential,
+} from "./chatgpt-access";
+import { listChatgptModels } from "./chatgpt-oauth";
+import {
   defaultProviderConfig,
   providerStorageKey,
   validateProviderApiKey,
@@ -80,6 +86,27 @@ export async function readProviderStatus(
   kind: ProviderKind,
   provider: string,
 ) {
+  if (provider === "chatgpt") {
+    const config = await readProviderSetup(accountId, kind, provider);
+    let hasKey = false;
+    try {
+      hasKey = Boolean(await readChatgptCredential(accountId));
+      if (!hasKey) return { config, hasKey, isConfigured: false };
+      const credential = await resolveChatgptCredential(accountId);
+      await listChatgptModels(credential.access, credential.accountId, fetch);
+      return { config, hasKey, isConfigured: true };
+    } catch (error) {
+      return {
+        config,
+        hasKey,
+        isConfigured: false,
+        verificationError:
+          error instanceof Error
+            ? error.message
+            : "Reconnect ChatGPT in Settings.",
+      };
+    }
+  }
   const [config, apiKey] = await Promise.all([
     readProviderSetup(accountId, kind, provider),
     readProviderKey(accountId, kind, provider),
@@ -148,7 +175,9 @@ async function persistProviderConfig(
   const normalized = connectionOnly
     ? { ...config, ...validateProviderConnection(kind, config) }
     : validateProviderConfig(kind, config);
-  if (normalized.provider !== "anarlog") {
+  if (normalized.provider === "chatgpt") {
+    await resolveChatgptCredential(accountId);
+  } else if (normalized.provider !== "anarlog") {
     const key = validateProviderApiKey(
       apiKey?.trim() ||
         (await readProviderKey(accountId, kind, normalized.provider)) ||
@@ -202,6 +231,7 @@ export async function removeProviderKey(
   kind: ProviderKind,
   provider: string,
 ): Promise<void> {
+  if (provider === "chatgpt") return removeChatgptCredential(accountId);
   await SecureStore.deleteItemAsync(
     providerStorageKey(accountId, kind, provider),
     secureOptions,
@@ -213,6 +243,14 @@ export async function resolveProvider(kind: ProviderKind) {
   if (auth?.error) throw new Error("Sign in again to continue.");
   const session = auth?.data.session;
   const config = await readProviderConfig(session?.user.id ?? null, kind);
+  if (config.provider === "chatgpt") {
+    const credential = await resolveChatgptCredential(session?.user.id ?? null);
+    return {
+      ...config,
+      apiKey: credential.access,
+      accountId: credential.accountId,
+    };
+  }
   if (config.provider === "anarlog") {
     if (session?.access_token) {
       if (!deriveBillingInfo(decodeJwtPayload(session.access_token)).isPro)
