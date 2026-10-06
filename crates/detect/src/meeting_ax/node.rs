@@ -174,6 +174,7 @@ pub(super) fn nodes_show_remote_screen_share(nodes: &[AxNode]) -> bool {
 // shows a "you are presenting" placeholder, so it is not worth capturing.
 pub(super) fn label_indicates_remote_screen_share(label: &str) -> bool {
     let label = label.trim().to_lowercase().replace('\u{2019}', "'");
+    let label = label.strip_suffix(", selected").unwrap_or(&label);
     if label.is_empty() || label.len() > 160 {
         return false;
     }
@@ -191,6 +192,7 @@ pub(super) fn label_indicates_remote_screen_share(label: &str) -> bool {
         || label.contains(" is screen sharing")
         || label.ends_with("(presentation)")
         || (label.contains("viewing") && label.contains("'s screen"))
+        || label.ends_with("'s screen")
 }
 
 pub(super) fn teams_has_active_call_evidence(nodes: &[AxNode]) -> bool {

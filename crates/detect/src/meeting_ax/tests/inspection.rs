@@ -202,6 +202,7 @@ fn test_remote_screen_share_ignores_own_share_and_share_controls() {
         "You are viewing Alex Kim's screen",
         "Priya is sharing their screen",
         "Alex Kim (Presentation)",
+        "Alex Kim's screen, selected",
     ] {
         assert!(label_indicates_remote_screen_share(label), "{label}");
     }
@@ -211,6 +212,8 @@ fn test_remote_screen_share_ignores_own_share_and_share_controls() {
         "Stop presenting",
         "Share screen",
         "Present now",
+        "Change screen",
+        "Your screen",
     ] {
         assert!(!label_indicates_remote_screen_share(label), "{label}");
     }
