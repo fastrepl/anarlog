@@ -23,6 +23,8 @@ describe("remote meeting detection", () => {
     expect(detectMeetingType("https://call.x.com/")).toBeNull();
     expect(detectMeetingType("https://call.x.com/new")).toBeNull();
     expect(detectMeetingType("https://x.com/anarlog")).toBeNull();
+    expect(detectMeetingType("https://x.com/i/call/new")).toBeNull();
+    expect(detectMeetingType("https://call.x.com/123-456")).toBeNull();
   });
 
   test("returns the remote meeting payload for recognized links", () => {

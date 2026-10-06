@@ -11,20 +11,27 @@ export type RemoteMeeting = {
   url: string;
 };
 
+function isXCallId(segment: string | undefined): boolean {
+  return !!segment && segment !== "new" && !/^(g\d+|\d+-\d+)$/.test(segment);
+}
+
 function isXCallUrl(parsed: URL): boolean {
   const hostname = parsed.hostname.toLowerCase();
   const segments = parsed.pathname.split("/").filter(Boolean);
 
   if (hostname === "call.x.com") {
-    return segments.length === 1 && segments[0] !== "new";
+    return segments.length === 1 && isXCallId(segments[0]);
   }
 
   if (hostname === "x.com" || hostname === "www.x.com") {
     return (
       (segments.length === 3 &&
         segments[0] === "i" &&
-        segments[1] === "call") ||
-      (segments.length === 2 && segments[0] === "call")
+        segments[1] === "call" &&
+        isXCallId(segments[2])) ||
+      (segments.length === 2 &&
+        segments[0] === "call" &&
+        isXCallId(segments[1]))
     );
   }
 
