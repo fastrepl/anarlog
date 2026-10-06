@@ -1,22 +1,26 @@
-use image::{DynamicImage, GrayImage, RgbaImage, imageops::FilterType};
+use image::{DynamicImage, RgbImage, RgbaImage, imageops::FilterType};
 
-const SIGNATURE_WIDTH: u32 = 32;
-const SIGNATURE_HEIGHT: u32 = 18;
+const SIGNATURE_WIDTH: u32 = 64;
+const SIGNATURE_HEIGHT: u32 = 36;
 const MAX_CAPTURE_WIDTH: u32 = 1920;
 const JPEG_QUALITY: u8 = 80;
-// Mean per-pixel difference (0..1) on the downscaled grayscale signature.
+// Mean per-channel difference (0..1) on the downscaled colour signature.
 const STABLE_FRAME_DISTANCE: f32 = 0.02;
 const NEW_CONTENT_DISTANCE: f32 = 0.06;
+// Same-template slides that only change text or swap a similarly bright
+// colour have a low mean difference, so also count strongly changed cells.
+const CHANGED_CELL_DIFFERENCE: u8 = 32;
+const NEW_CONTENT_CHANGED_CELLS: f32 = 0.04;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FrameSignature(Vec<u8>);
 
 impl FrameSignature {
     pub fn of(image: &RgbaImage) -> Self {
-        let gray: GrayImage = DynamicImage::ImageRgba8(image.clone())
+        let rgb: RgbImage = DynamicImage::ImageRgba8(image.clone())
             .resize_exact(SIGNATURE_WIDTH, SIGNATURE_HEIGHT, FilterType::Triangle)
-            .to_luma8();
-        Self(gray.into_raw())
+            .to_rgb8();
+        Self(rgb.into_raw())
     }
 
     pub fn distance(&self, other: &Self) -> f32 {
@@ -30,6 +34,27 @@ impl FrameSignature {
             .map(|(a, b)| u32::from(a.abs_diff(*b)))
             .sum();
         total as f32 / (self.0.len() as f32 * 255.0)
+    }
+
+    fn changed_cell_fraction(&self, other: &Self) -> f32 {
+        if self.0.len() != other.0.len() || self.0.is_empty() {
+            return 1.0;
+        }
+        let cells = self.0.chunks_exact(3).zip(other.0.chunks_exact(3));
+        let total = self.0.len() / 3;
+        let changed = cells
+            .filter(|(a, b)| {
+                a.iter()
+                    .zip(b.iter())
+                    .any(|(a, b)| a.abs_diff(*b) >= CHANGED_CELL_DIFFERENCE)
+            })
+            .count();
+        changed as f32 / total as f32
+    }
+
+    fn shows_new_content(&self, kept: &Self) -> bool {
+        self.distance(kept) >= NEW_CONTENT_DISTANCE
+            || self.changed_cell_fraction(kept) >= NEW_CONTENT_CHANGED_CELLS
     }
 }
 
@@ -50,7 +75,7 @@ impl ScreenShareSampler {
         let new_content = self
             .last_kept
             .as_ref()
-            .is_none_or(|kept| kept.distance(&signature) >= NEW_CONTENT_DISTANCE);
+            .is_none_or(|kept| signature.shows_new_content(kept));
         let keep = stable && new_content;
         if keep {
             self.last_kept = Some(signature.clone());
@@ -139,6 +164,39 @@ mod tests {
         assert!(
             !sampler.observe(second),
             "resuming on the same slide is not re-kept"
+        );
+    }
+
+    fn template_slide(background: [u8; 3], text_rows: std::ops::Range<u32>) -> RgbaImage {
+        RgbaImage::from_fn(320, 180, |x, y| {
+            if (20..300).contains(&x) && text_rows.contains(&y) {
+                image::Rgba([255, 255, 255, 255])
+            } else {
+                image::Rgba([background[0], background[1], background[2], 255])
+            }
+        })
+    }
+
+    fn keeps_after_settling(sampler: &mut ScreenShareSampler, image: &RgbaImage) -> bool {
+        let signature = FrameSignature::of(image);
+        sampler.observe(signature.clone());
+        sampler.observe(signature)
+    }
+
+    #[test]
+    fn keeps_similar_looking_slides_from_one_deck() {
+        let mut sampler = ScreenShareSampler::default();
+        assert!(keeps_after_settling(
+            &mut sampler,
+            &template_slide([0xac, 0x24, 0x1a], 20..40)
+        ));
+        assert!(
+            keeps_after_settling(&mut sampler, &template_slide([0x58, 0x21, 0x8f], 20..40)),
+            "equally bright background in another colour"
+        );
+        assert!(
+            keeps_after_settling(&mut sampler, &template_slide([0x58, 0x21, 0x8f], 60..80)),
+            "same template with only the text moved"
         );
     }
 
