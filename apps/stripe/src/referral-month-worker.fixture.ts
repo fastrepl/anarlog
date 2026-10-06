@@ -116,6 +116,13 @@ mock.module("pg", () => ({
     },
   },
 }));
+const telemetry: string[] = [];
+mock.module("./analytics", () => ({
+  captureReferralOutcome: async ({ event }: { event: string }) => {
+    telemetry.push(event);
+    throw new Error("PostHog unavailable");
+  },
+}));
 mock.module("./env", () => ({
   env: { DATABASE_URL: "isolated-in-memory-fixture" },
 }));
@@ -209,4 +216,8 @@ assert.equal(
   1,
 );
 assert.equal(errors.length, 1);
+assert.deepEqual(telemetry, [
+  "referral_trial_started",
+  "referral_reward_applied",
+]);
 await db.close();

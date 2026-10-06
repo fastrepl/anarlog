@@ -6,6 +6,8 @@ import {
 } from "@anlg/supabase/referrals";
 
 import { getReferralInvites } from "@/functions/referrals";
+import { useMountEffect } from "@/hooks/useMountEffect";
+import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 import { useAccountSession } from "./-account-session";
 import {
@@ -15,6 +17,9 @@ import {
 
 export function ReferralSection({ ineligible }: { ineligible: boolean }) {
   const session = useAccountSession();
+  useMountEffect(() => {
+    capturePrivateRouteEvent("referral_page_viewed");
+  });
   const summary = useQuery({
     queryKey: ["referral-summary", session.data?.userId],
     enabled: typeof window !== "undefined" && !!session.data,
@@ -29,6 +34,7 @@ export function ReferralSection({ ineligible }: { ineligible: boolean }) {
         : false,
   });
   const copy = useMutation({
+    onSuccess: () => capturePrivateRouteEvent("referral_link_copied"),
     mutationFn: async () => {
       if (
         !summary.data?.code ||

@@ -1,5 +1,6 @@
 import { t } from "@lingui/core/macro";
 
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
@@ -8,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { TrialDialogIcon } from "./trial-dialog-icon";
 
@@ -61,26 +63,59 @@ export function TrialPaymentReminderDialog({
           </Button>
         </DialogFooter>
         {onReferFriend && (
-          <div className="border-border/60 flex flex-col items-center gap-2 border-t pt-4 text-center">
-            <p className="text-foreground text-[13px] font-medium">
-              {t`Need more time? Refer a friend.`}
-            </p>
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              {t`When they start their free trial, yours gets one more month. Up to 3 friends.`}
-            </p>
-            <Button
-              variant="link"
-              className="h-auto p-0 text-xs"
-              onClick={() => {
-                onReferFriend();
-                onOpenChange(false);
-              }}
-            >
-              {t`Invite friends`}
-            </Button>
-          </div>
+          <ReferralNudge
+            daysRemaining={daysRemaining}
+            onInvite={() => {
+              onReferFriend();
+              onOpenChange(false);
+            }}
+          />
         )}
       </GlassDialogContent>
     </Dialog>
+  );
+}
+
+function ReferralNudge({
+  daysRemaining,
+  onInvite,
+}: {
+  daysRemaining: number;
+  onInvite: () => void;
+}) {
+  useMountEffect(() => {
+    void analyticsCommands
+      .event({
+        event: "referral_nudge_shown",
+        surface: "desktop",
+        reminder_threshold: daysRemaining <= 3 ? 3 : 7,
+      })
+      .catch(() => {});
+  });
+  return (
+    <div className="border-border/60 flex flex-col items-center gap-2 border-t pt-4 text-center">
+      <p className="text-foreground text-[13px] font-medium">
+        {t`Need more time? Refer a friend.`}
+      </p>
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        {t`When they start their free trial, yours gets one more month. Up to 3 friends.`}
+      </p>
+      <Button
+        variant="link"
+        className="h-auto p-0 text-xs"
+        onClick={() => {
+          void analyticsCommands
+            .event({
+              event: "referral_nudge_clicked",
+              surface: "desktop",
+              reminder_threshold: daysRemaining <= 3 ? 3 : 7,
+            })
+            .catch(() => {});
+          onInvite();
+        }}
+      >
+        {t`Invite friends`}
+      </Button>
+    </div>
   );
 }

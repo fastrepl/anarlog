@@ -3,6 +3,7 @@ import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import {
   deleteCookie,
   getCookie,
+  getRequestHeaders,
   setCookie,
   setResponseHeader,
 } from "@tanstack/react-start/server";
@@ -10,6 +11,7 @@ import { z } from "zod";
 
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { getSupabaseServerClient } from "@/functions/supabase";
+import { captureServerAnalytics } from "@/lib/server-analytics";
 
 const REFERRAL_COOKIE = "anarlog-referral";
 const REFERRAL_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
@@ -26,7 +28,18 @@ export const persistReferralAttribution = createServerFn({ method: "POST" })
       data: { user },
     } = await supabase.auth.getUser();
 
+    const trackVisit = (entry_point: string) =>
+      getRequestHeaders().get("sec-gpc") === "1"
+        ? Promise.resolve()
+        : captureServerAnalytics({
+            userId: "",
+            event: "referral_link_visited",
+            timestamp: new Date(),
+            properties: { entry_point },
+          }).catch(() => {});
+
     if (user) {
+      await trackVisit("existing_account");
       deleteCookie(REFERRAL_COOKIE, { path: "/" });
       return "existing_account" as const;
     }
@@ -37,6 +50,7 @@ export const persistReferralAttribution = createServerFn({ method: "POST" })
     );
     if (error) throw error;
     if (available !== true) {
+      await trackVisit("unavailable");
       deleteCookie(REFERRAL_COOKIE, { path: "/" });
       return "unavailable" as const;
     }
@@ -47,6 +61,7 @@ export const persistReferralAttribution = createServerFn({ method: "POST" })
       sameSite: "lax",
       secure: getRequestAppOrigin().startsWith("https://"),
     });
+    await trackVisit("available");
     return "stored" as const;
   });
 
@@ -69,6 +84,21 @@ export const claimPendingReferral = createServerOnlyFn(
     }
 
     deleteCookie(REFERRAL_COOKIE, { path: "/" });
+    if (data === true && getRequestHeaders().get("sec-gpc") !== "1") {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user)
+          await captureServerAnalytics({
+            userId: user.id,
+            event: "referral_claimed",
+            insertId: `referral-claim:${user.id}`,
+            timestamp: new Date(),
+            properties: { entry_point: "invite" },
+          });
+      } catch {}
+    }
     return data === true;
   },
 );

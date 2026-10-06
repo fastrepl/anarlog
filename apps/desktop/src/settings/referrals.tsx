@@ -4,10 +4,12 @@ import { isTauri } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { z } from "zod";
 
+import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { referralSupportUrl } from "@anlg/supabase/referrals";
 import { ArrowsClockwise, Check, Copy } from "@anlg/ui/components/icons";
 import { Button } from "@anlg/ui/components/ui/button";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import { useAuth } from "~/auth/auth-context";
 import { env } from "~/env";
@@ -46,6 +48,11 @@ const summarySchema = z.object({
 
 export function SettingsReferrals() {
   const { session } = useAuth();
+  useMountEffect(() => {
+    void analyticsCommands
+      .event({ event: "referral_page_viewed", surface: "desktop" })
+      .catch(() => {});
+  });
   return (
     <div className="@container flex w-full min-w-0 flex-col gap-8">
       <SettingsPageTitle title={<Trans>Invite friends</Trans>} />
@@ -120,7 +127,12 @@ function ReferralInvites() {
       if (isTauri()) await writeText(url);
       else await navigator.clipboard.writeText(url);
     },
-    onSuccess: () => toast.success(t`Invite link copied`),
+    onSuccess: () => {
+      toast.success(t`Invite link copied`);
+      void analyticsCommands
+        .event({ event: "referral_link_copied", surface: "desktop" })
+        .catch(() => {});
+    },
     onError: () => toast.error(t`Couldn't copy the invite link. Try again.`),
   });
   if (auth.session === undefined)

@@ -1,6 +1,7 @@
 import pg from "pg";
 import type Stripe from "stripe";
 
+import { captureReferralOutcome } from "./analytics";
 import { getCustomerOwner, isAutumnManagedCustomer } from "./customer-metadata";
 import { env } from "./env";
 import { captureOperationalError } from "./error-reporting";
@@ -77,12 +78,23 @@ async function processReward() {
       WHERE i.reward_policy = 'trial_month' AND t.started_at >= i.claimed_at - interval '5 minutes'
         AND NOT EXISTS (SELECT 1 FROM private.referral_month_rewards r WHERE r.referral_id=i.id)
       ON CONFLICT DO NOTHING`);
-    await client.query(`INSERT INTO private.referral_events(event_key,kind,referrer_user_id,referred_user_id,referral_id,occurred_at,details)
+    const trialEvents =
+      await client.query(`INSERT INTO private.referral_events(event_key,kind,referrer_user_id,referred_user_id,referral_id,occurred_at,details)
       SELECT 'trial:' || i.id, 'referral_trial_started', i.referrer_user_id, i.referred_user_id, i.id, t.started_at,
         jsonb_build_object('subscription_id',t.subscription_id,'stripe_event_id',t.stripe_event_id)
       FROM private.referral_invites i JOIN private.referral_trial_starts t ON t.referred_user_id = i.referred_user_id
       WHERE i.reward_policy = 'trial_month'
-        AND NOT EXISTS (SELECT 1 FROM private.referral_events e WHERE e.event_key='trial:' || i.id) ON CONFLICT DO NOTHING`);
+        AND NOT EXISTS (SELECT 1 FROM private.referral_events e WHERE e.event_key='trial:' || i.id) ON CONFLICT DO NOTHING
+      RETURNING referral_id,referrer_user_id,referred_user_id,occurred_at`);
+    for (const event of trialEvents.rows) {
+      await captureReferralOutcome({
+        event: "referral_trial_started",
+        referralId: event.referral_id,
+        referrerUserId: event.referrer_user_id,
+        referredUserId: event.referred_user_id,
+        timestamp: event.occurred_at,
+      }).catch(() => {});
+    }
     const candidate = (
       await client.query(`SELECT r.referral_id, i.referrer_user_id
       FROM private.referral_month_rewards r JOIN private.referral_invites i ON i.id = r.referral_id
@@ -190,6 +202,13 @@ async function processReward() {
       ],
     );
     await client.query("COMMIT");
+    await captureReferralOutcome({
+      event: "referral_reward_applied",
+      referralId: referralId!,
+      referrerUserId: lockedUser!,
+      referredUserId: reward.referred_user_id,
+      timestamp: new Date(),
+    }).catch(() => {});
     return true;
   } catch (error) {
     await client.query("ROLLBACK");

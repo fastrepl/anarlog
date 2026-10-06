@@ -100,3 +100,33 @@ export async function captureTrialEndingEmailSent({
   });
   await posthog.flush();
 }
+
+export async function captureReferralOutcome({
+  event,
+  referralId,
+  referrerUserId,
+  referredUserId,
+  timestamp,
+}: {
+  event: "referral_trial_started" | "referral_reward_applied";
+  referralId: string;
+  referrerUserId: string;
+  referredUserId: string;
+  timestamp: Date;
+}) {
+  if (!posthog) return;
+  posthog.capture({
+    distinctId: referredUserId,
+    event,
+    timestamp,
+    properties: {
+      $insert_id: `${event}:${referralId}`,
+      referral_id: referralId,
+      referrer_user_id: referrerUserId,
+      reward_policy: "trial_month",
+      surface: "stripe",
+      analytics_schema_version: 1,
+    },
+  });
+  await posthog.flush();
+}
