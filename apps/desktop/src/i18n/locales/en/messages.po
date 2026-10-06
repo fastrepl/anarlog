@@ -614,6 +614,10 @@ msgstr "Anarlog needs access to your microphone and system audio to record and t
 msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat."
 msgstr "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat."
 
+#: src/settings/general/primary-recording-device.tsx
+msgid "Anarlog Pro coordinates recording across your devices."
+msgstr "Anarlog Pro coordinates recording across your devices."
+
 #. placeholder {0}: statuses[0].displayName
 #: src/settings/developers/skills.tsx
 msgid "Anarlog skill added to {0}"
@@ -726,6 +730,10 @@ msgstr "Ask anything"
 #: src/settings/general/notification.tsx
 msgid "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening."
 msgstr "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening."
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Ask each meeting"
+msgstr "Ask each meeting"
 
 #: src/task/resource-view.tsx
 msgid "Assignees:"
@@ -1104,6 +1112,10 @@ msgstr "Choose a .bin model"
 #: src/settings/automations/starter-config.tsx
 msgid "Choose a channel"
 msgstr "Choose a channel"
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Choose a device"
+msgstr "Choose a device"
 
 #: src/settings/sync/index.tsx
 msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
@@ -1775,6 +1787,7 @@ msgstr "Could not load sync logs."
 msgid "Could not load workspace members."
 msgstr "Could not load workspace members."
 
+#: src/settings/general/primary-recording-device.tsx
 #: src/settings/sync/index.tsx
 msgid "Could not load your devices."
 msgstr "Could not load your devices."
@@ -1806,6 +1819,10 @@ msgstr "Could not remove the automation"
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "Could not restore deleted note"
 msgstr "Could not restore deleted note"
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Could not save primary device. Try again."
+msgstr "Could not save primary device. Try again."
 
 #: src/settings/automations/index.tsx
 msgid "Could not save the automation draft"
@@ -4293,6 +4310,10 @@ msgstr "Post the meeting summary to a channel you can access."
 msgid "Post to a channel"
 msgstr "Post to a channel"
 
+#: src/settings/general/primary-recording-device.tsx
+msgid "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
+msgstr "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
+
 #: src/settings/general/notification.tsx
 msgid "Prepare for events with a 5-minute reminder."
 msgstr "Prepare for events with a 5-minute reminder."
@@ -4333,6 +4354,10 @@ msgstr "Previous match"
 #: src/settings/team/index.tsx
 msgid "Primary owner"
 msgstr "Primary owner"
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Primary recording device"
+msgstr "Primary recording device"
 
 #: src/settings/general/app-settings.tsx
 msgid "Privacy"
@@ -5324,6 +5349,10 @@ msgstr "Sign in to add this folder"
 msgid "Sign in to Anarlog"
 msgstr "Sign in to Anarlog"
 
+#: src/settings/general/primary-recording-device.tsx
+msgid "Sign in to choose a primary recording device."
+msgstr "Sign in to choose a primary recording device."
+
 #: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
 msgid "Sign in to connect"
@@ -6047,6 +6076,7 @@ msgstr "Trigger"
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
+#: src/settings/general/primary-recording-device.tsx
 #: src/settings/stats/badge-collection.tsx
 #: src/settings/team/index.tsx
 msgid "Try again"
@@ -6087,6 +6117,10 @@ msgstr "Typical conversation length"
 #: src/settings/developers/cli.tsx
 msgid "Unavailable"
 msgstr "Unavailable"
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Unavailable device"
+msgstr "Unavailable device"
 
 #: src/main/windows-title-bar.tsx
 #: src/sidebar/toast/undo-delete-toast.tsx
@@ -6131,6 +6165,7 @@ msgstr "Unlock your login Keychain in the macOS prompt. Anarlog will retry savin
 msgid "Unnamed"
 msgstr "Unnamed"
 
+#: src/settings/general/primary-recording-device.tsx
 #: src/settings/sync/index.tsx
 msgid "Unnamed device"
 msgstr "Unnamed device"
