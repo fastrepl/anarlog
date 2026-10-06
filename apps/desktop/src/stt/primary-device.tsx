@@ -8,6 +8,8 @@ import {
   type MeetingDeviceIntent,
   requestMeetingDevices,
 } from "~/auth/sync-devices";
+import { getStoredSettingValues } from "~/settings/queries";
+import { resolveConfigValue } from "~/shared/config";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
 export const PRIMARY_DEVICE_HEARTBEAT_MS = 10_000;
@@ -18,14 +20,26 @@ export type PrimaryDeviceDecision = "alone" | "primary" | "yield" | "ask";
 export function decidePrimaryDevice(
   devices: MeetingDevice[],
   fingerprint: string,
+  preferredFingerprint = "",
 ): PrimaryDeviceDecision {
-  const primary = devices.find((device) => device.primary);
+  const primary = primaryDeviceForMeeting(devices, preferredFingerprint);
   if (primary) {
     return primary.deviceFingerprint === fingerprint ? "primary" : "yield";
   }
   return devices.some((device) => device.deviceFingerprint !== fingerprint)
     ? "ask"
     : "alone";
+}
+
+function primaryDeviceForMeeting(
+  devices: MeetingDevice[],
+  preferredFingerprint: string,
+) {
+  return (
+    devices.find(
+      (device) => device.deviceFingerprint === preferredFingerprint,
+    ) ?? devices.find((device) => device.primary)
+  );
 }
 
 export async function meetingKeyForEvent(
@@ -95,8 +109,9 @@ function isRecording(sessionId: string) {
 // recording a calendar meeting. Automatic starts announce themselves and ask
 // the user which device they're joining from; the device the user answers or
 // interacts with becomes primary and the others stop and discard their copy.
-// Manual starts claim the meeting immediately. Without an account, Pro, or a
-// network connection every device keeps recording.
+// A saved preference wins while that device is recording the same meeting.
+// Manual starts claim when no preferred device is recording. Without an
+// account, Pro, or a network connection every device keeps recording.
 export function startPrimaryDeviceCoordination({
   sessionId,
   event,
@@ -117,6 +132,7 @@ export function startPrimaryDeviceCoordination({
   let prompted = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let meetingKey: string | null = null;
+  let firstHeartbeat = true;
 
   const onInteraction = (event: Event) => {
     if (
@@ -181,12 +197,23 @@ export function startPrimaryDeviceCoordination({
   const beat = async () => {
     timer = undefined;
     if (stopped || !meetingKey) return;
-    const sentIntent = intent;
+    let sentIntent: MeetingDeviceIntent;
     let result: Awaited<ReturnType<typeof sendHeartbeat>>;
+    let preferredFingerprint: string;
     try {
+      const settings = await getStoredSettingValues();
+      if (stopped) return;
+      preferredFingerprint = resolveConfigValue(
+        "primary_recording_device",
+        settings,
+      );
+      // Check whether the preferred device is present before a manual start
+      // can replace its claim and make a device with older settings stop.
+      sentIntent = firstHeartbeat && preferredFingerprint ? "present" : intent;
       const request = sendHeartbeat(meetingKey, sentIntent);
       inflight = request;
       result = await request;
+      firstHeartbeat = false;
     } catch (error) {
       console.warn("[listener] meeting device heartbeat failed", error);
       if (!stopped) timer = setTimeout(beat, PRIMARY_DEVICE_HEARTBEAT_MS);
@@ -198,6 +225,20 @@ export function startPrimaryDeviceCoordination({
       finish();
       return;
     }
+    const { devices, fingerprint } = result;
+    const primary = primaryDeviceForMeeting(devices, preferredFingerprint);
+    const decision = decidePrimaryDevice(
+      devices,
+      fingerprint,
+      preferredFingerprint,
+    );
+    if (
+      decision === "yield" &&
+      primary?.deviceFingerprint === preferredFingerprint
+    ) {
+      yieldTo(primary.deviceName || "your other device");
+      return;
+    }
     if (intent === "claim" && sentIntent !== "claim") {
       void beat();
       return;
@@ -205,13 +246,20 @@ export function startPrimaryDeviceCoordination({
     if (sentIntent === "claim") {
       intent = "present";
     }
-    const { devices, fingerprint } = result;
-    const decision = decidePrimaryDevice(devices, fingerprint);
     if (decision === "yield") {
-      yieldTo(
-        devices.find((device) => device.primary)?.deviceName ||
-          "your other device",
-      );
+      yieldTo(primary?.deviceName || "your other device");
+      return;
+    }
+    // Claim on the server too, so devices that haven't synced the preference
+    // yet yield through the existing per-meeting coordination.
+    if (
+      decision === "primary" &&
+      preferredFingerprint === fingerprint &&
+      !primary?.primary &&
+      sentIntent !== "claim"
+    ) {
+      intent = "claim";
+      void beat();
       return;
     }
     if (decision === "ask" && !prompted) {
