@@ -225,6 +225,8 @@ pub fn parse_meeting_link(text: &str) -> Option<String> {
             Regex::new(r#"https://(?:[a-z0-9.-]+\.)?webex\.com/(?:meet|j\.php)[^\s<>"']*"#)
                 .unwrap(),
             Regex::new(r#"https://(?:[a-z0-9.-]+\.)?whereby\.com/[^\s<>"']+"#).unwrap(),
+            Regex::new(r#"https://call\.x\.com/[^\s<>"'/?#]+"#).unwrap(),
+            Regex::new(r#"https://(?:www\.)?x\.com/i/call/[^\s<>"'/?#]+"#).unwrap(),
             Regex::new(r"https://app\.cal\.com/video/[a-zA-Z0-9]+").unwrap(),
         ]
     });
@@ -414,6 +416,16 @@ mod tests {
                 "https://whereby.com/jane-doe",
             ),
             (
+                "x calls",
+                "Join the call: https://call.x.com/1A2b3C4d5E\nSee you there",
+                "https://call.x.com/1A2b3C4d5E",
+            ),
+            (
+                "x calls on x.com",
+                "<a href=\"https://x.com/i/call/1A2b3C4d5E\">Join</a>",
+                "https://x.com/i/call/1A2b3C4d5E",
+            ),
+            (
                 "zoom bare domain",
                 "https://zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
                 "https://zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
@@ -449,6 +461,8 @@ mod tests {
 
         // No link at all.
         assert_eq!(parse_meeting_link("Conference room 4"), None);
+
+        assert_eq!(parse_meeting_link("Follow us: https://x.com/anarlog"), None);
     }
 
     #[test]

@@ -437,6 +437,17 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
         name: "Cal.com",
         icon: <VideoCamera className="size-3.5 shrink-0" />,
       };
+    case "x-call":
+      return {
+        name: "X",
+        icon: (
+          <img
+            src="/assets/X logo.svg"
+            alt=""
+            className="size-3.5 shrink-0 dark:invert"
+          />
+        ),
+      };
     default:
       return {
         name: "Meeting",
