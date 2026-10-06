@@ -4,6 +4,7 @@ import test from "node:test";
 import { StrictMode, act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 
+import { consumeDesktopAuthHandoff } from "./auth-route-privacy.ts";
 import {
   attemptDesktopAppOpen,
   buildDesktopAuthCallbackPath,
@@ -46,16 +47,46 @@ test("builds an encoded desktop auth callback", () => {
   assert.ok(nightly.startsWith("anarlog-nightly://auth/callback?"));
 });
 
-test("builds a web callback that preserves the sign-in method", () => {
-  assert.equal(
-    buildDesktopAuthCallbackPath(
+test("stores credentials before returning a token-free HTTP callback URL", () => {
+  const dom = new JSDOM("", { url: "https://anarlog.so" });
+  const previousWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: dom.window,
+  });
+  try {
+    const state = "8d58e770-3a95-41ba-bfa1-ec03633a3a55";
+    const path = buildDesktopAuthCallbackPath(
       "fake access",
       "fake&refresh",
       "anarlog-staging",
       "email",
-    ),
-    "/callback/auth?flow=desktop&access_token=fake+access&refresh_token=fake%26refresh&scheme=anarlog-staging&method=email",
-  );
+      state,
+    );
+    const url = new URL(path, dom.window.location.origin);
+    assert.equal(url.searchParams.has("access_token"), false);
+    assert.equal(url.searchParams.has("refresh_token"), false);
+    assert.equal(url.searchParams.get("scheme"), "anarlog-staging");
+    assert.equal(url.searchParams.get("desktop_state"), state);
+    assert.equal(url.searchParams.get("method"), "email");
+    assert.deepEqual(consumeDesktopAuthHandoff(Date.now(), state), {
+      accessToken: "fake access",
+      refreshToken: "fake&refresh",
+    });
+    assert.equal(consumeDesktopAuthHandoff(), null);
+    Object.defineProperty(dom.window, "sessionStorage", {
+      get() {
+        throw new Error("storage unavailable");
+      },
+    });
+    assert.throws(
+      () => buildDesktopAuthCallbackPath("access", "refresh"),
+      /storage unavailable/,
+    );
+  } finally {
+    dom.window.close();
+    restoreGlobal("window", previousWindow);
+  }
 });
 
 test("prefers the requested desktop sign-in method over a remembered method", () => {

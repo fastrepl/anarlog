@@ -39,28 +39,31 @@ jobs:
           comment: ${{ inputs.comment_id }}
           reaction: eyes
       - id: resolve
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          WRITE_TOKEN: ${{ secrets.REPO_GITHUB_TOKEN }}
         run: |
-          PR_DATA=$(gh api repos/$REPO/pulls/${{ inputs.issue_number }} 2>/dev/null) || {
-            echo "resolved=false" >> $GITHUB_OUTPUT
-            echo "error=Not a pull request or PR not found" >> $GITHUB_OUTPUT
+          PR_DATA=$(gh api "repos/$REPO/pulls/$ISSUE_NUMBER" 2>/dev/null) || {
+            echo "resolved=false" >> "$GITHUB_OUTPUT"
+            echo "error=Not a pull request or PR not found" >> "$GITHUB_OUTPUT"
             exit 0
           }
 
           MERGED=$(echo "$PR_DATA" | jq -r '.merged')
           if [ "$MERGED" != "true" ]; then
-            echo "resolved=false" >> $GITHUB_OUTPUT
-            echo "error=PR must be merged first" >> $GITHUB_OUTPUT
+            echo "resolved=false" >> "$GITHUB_OUTPUT"
+            echo "error=PR must be merged first" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           MERGE_SHA=$(echo "$PR_DATA" | jq -r '.merge_commit_sha')
           TEMP_BRANCH="release-temp-${MERGE_SHA:0:8}"
 
-          GH_TOKEN=${{ secrets.REPO_GITHUB_TOKEN }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$MERGE_SHA"
+          GH_TOKEN="$WRITE_TOKEN" gh api "repos/$REPO/git/refs" -f ref="refs/heads/$TEMP_BRANCH" -f sha="$MERGE_SHA"
 
-          echo "resolved=true" >> $GITHUB_OUTPUT
-          echo "target_sha=$MERGE_SHA" >> $GITHUB_OUTPUT
-          echo "branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
+          echo "resolved=true" >> "$GITHUB_OUTPUT"
+          echo "target_sha=$MERGE_SHA" >> "$GITHUB_OUTPUT"
+          echo "branch=$TEMP_BRANCH" >> "$GITHUB_OUTPUT"
       - if: steps.resolve.outputs.resolved == 'true'
         id: trigger
         uses: ./.github/actions/trigger-workflow
@@ -74,12 +77,14 @@ jobs:
           repo: ${{ github.repository }}
       - id: result
         if: ${{ always() }}
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          RESOLVED: ${{ steps.resolve.outputs.resolved }}
+          TARGET_SHA: ${{ steps.resolve.outputs.target_sha }}
+          ERROR: ${{ steps.resolve.outputs.error }}
+          RUN_ID: ${{ steps.trigger.outputs.run_id }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: |
-          CHANNEL="${{ inputs.channel }}"
-          RESOLVED="${{ steps.resolve.outputs.resolved }}"
-          TARGET_SHA="${{ steps.resolve.outputs.target_sha }}"
-          ERROR="${{ steps.resolve.outputs.error }}"
-          RUN_ID="${{ steps.trigger.outputs.run_id }}"
 
           if [ "$RESOLVED" != "true" ]; then
             DATA=$(jq -cn \
@@ -97,10 +102,10 @@ jobs:
             DATA=$(jq -cn \
               --arg channel "\`$CHANNEL\`" \
               --arg sha "[\`${TARGET_SHA:0:8}\`](https://github.com/$REPO/commit/$TARGET_SHA)" \
-              --arg status "[Logs](https://github.com/$REPO/actions/runs/${{ github.run_id }})" \
+              --arg status "[Logs](https://github.com/$REPO/actions/runs/$WORKFLOW_RUN_ID)" \
               '[{header: "Channel", value: $channel}, {header: "Commit", value: $sha}, {header: "Status", value: $status}]')
           fi
-          echo "data=$DATA" >> $GITHUB_OUTPUT
+          echo "data=$DATA" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/comment-result
         if: ${{ always() && steps.result.outputs.data != '' }}
         with:
@@ -111,4 +116,5 @@ jobs:
       - if: ${{ always() && steps.resolve.outputs.resolved == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.REPO_GITHUB_TOKEN }}
-        run: gh api repos/${{ github.repository }}/git/refs/heads/${{ steps.resolve.outputs.branch }} -X DELETE || true
+          BRANCH: ${{ steps.resolve.outputs.branch }}
+        run: gh api "repos/$REPO/git/refs/heads/$BRANCH" -X DELETE || true

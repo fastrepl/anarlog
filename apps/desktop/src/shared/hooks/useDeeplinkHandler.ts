@@ -70,9 +70,9 @@ export function useDeeplinkHandler() {
     };
     const handleDeepLink = (payload: DeepLink) => {
       if (payload.to === "/auth/callback") {
-        const { access_token, refresh_token } = payload.search;
+        const { access_token, refresh_token, state } = payload.search;
         if (access_token && refresh_token) {
-          authCallbackHandler(access_token, refresh_token);
+          authCallbackHandler(access_token, refresh_token, state ?? undefined);
         }
       } else if (payload.to === "/billing/refresh") {
         void authRef.current.refreshSession();

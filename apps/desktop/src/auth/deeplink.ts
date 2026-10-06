@@ -1,45 +1,51 @@
-const DEFAULT_RECENT_AUTH_CALLBACK_WINDOW_MS = 5_000;
+const PENDING_AUTH_KEY = "anarlog.pending-desktop-auth";
+const PENDING_AUTH_MAX_AGE_MS = 15 * 60 * 1000;
+
+export function beginDesktopAuth(now = Date.now()) {
+  const state = crypto.randomUUID();
+  localStorage.setItem(
+    PENDING_AUTH_KEY,
+    JSON.stringify({ state, createdAt: now }),
+  );
+  return state;
+}
+
+export function consumeDesktopAuthState(
+  state: string | null | undefined,
+  now = Date.now(),
+) {
+  if (!state) return false;
+  try {
+    const stored = localStorage.getItem(PENDING_AUTH_KEY);
+    if (!stored) return false;
+    const pending = JSON.parse(stored);
+    if (
+      pending.state !== state ||
+      typeof pending.createdAt !== "number" ||
+      now < pending.createdAt ||
+      now - pending.createdAt > PENDING_AUTH_MAX_AGE_MS
+    )
+      return false;
+    // Consume before installing the session so queued callbacks cannot replay it.
+    localStorage.removeItem(PENDING_AUTH_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function createAuthCallbackHandler({
   setSessionFromTokens,
-  now = Date.now,
-  recentWindowMs = DEFAULT_RECENT_AUTH_CALLBACK_WINDOW_MS,
 }: {
   setSessionFromTokens: (
     accessToken: string,
     refreshToken: string,
   ) => Promise<void>;
-  now?: () => number;
-  recentWindowMs?: number;
 }) {
-  const inFlight = new Set<string>();
-  const recent = new Map<string, number>();
-
-  return (accessToken: string, refreshToken: string) => {
-    const timestamp = now();
-
-    for (const [key, completedAt] of recent) {
-      if (timestamp - completedAt >= recentWindowMs) {
-        recent.delete(key);
-      }
-    }
-
-    const key = JSON.stringify([accessToken, refreshToken]);
-    if (inFlight.has(key) || recent.has(key)) {
+  return (accessToken: string, refreshToken: string, state?: string) => {
+    if (!accessToken || !refreshToken || !consumeDesktopAuthState(state))
       return false;
-    }
-
-    inFlight.add(key);
-    void setSessionFromTokens(accessToken, refreshToken).then(
-      () => {
-        inFlight.delete(key);
-        recent.set(key, now());
-      },
-      () => {
-        inFlight.delete(key);
-      },
-    );
-
+    void setSessionFromTokens(accessToken, refreshToken).catch(() => {});
     return true;
   };
 }

@@ -15,6 +15,7 @@ import { exchangeOAuthCode } from "@/functions/auth";
 import {
   DEFAULT_DESKTOP_SCHEME,
   desktopSchemeSchema,
+  desktopAuthStateSchema,
 } from "@/functions/desktop-flow";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
@@ -32,6 +33,7 @@ import {
 import {
   consumeDesktopAuthHandoff,
   prepareAuthRoutePrivacy,
+  storeDesktopAuthHandoff,
 } from "@/lib/auth-route-privacy";
 import {
   buildDesktopAuthDeeplink,
@@ -59,6 +61,7 @@ const validateSearch = z.object({
   method: z.enum(authSignInMethods).optional(),
   flow: z.enum(["desktop", "web"]).default("web"),
   scheme: desktopSchemeSchema.catch(DEFAULT_DESKTOP_SCHEME),
+  desktop_state: desktopAuthStateSchema.optional(),
   redirect: z.string().optional(),
   access_token: z.string().optional(),
   refresh_token: z.string().optional(),
@@ -168,15 +171,20 @@ export const Route = createFileRoute("/_view/callback/auth")({
         } as any);
       }
 
+      storeDesktopAuthHandoff(
+        result.access_token,
+        result.refresh_token,
+        Date.now(),
+        search.desktop_state,
+      );
       throw redirect({
         to: "/callback/auth/",
         search: {
           flow: "desktop",
+          handoff: "stored",
           scheme: search.scheme,
-          access_token: result.access_token,
-          refresh_token: result.refresh_token,
           method: search.method,
-          auto_open: "oauth",
+          desktop_state: search.desktop_state,
         },
       });
     }
@@ -189,6 +197,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
           type: search.type,
           flow: search.flow,
           scheme: search.scheme,
+          desktop_state: search.desktop_state,
           redirect: search.redirect,
           method: search.method,
         },
@@ -215,6 +224,7 @@ function Component() {
     accessToken,
     refreshToken,
     search.method,
+    search.desktop_state,
   );
 
   useMountEffect(() => {
@@ -223,7 +233,10 @@ function Component() {
       search.handoff === "stored" ||
       (search.access_token && search.refresh_token)
     ) {
-      const handoff = consumeDesktopAuthHandoff();
+      const handoff = consumeDesktopAuthHandoff(
+        Date.now(),
+        search.desktop_state,
+      );
       if (handoff) {
         setStoredHandoff(handoff);
       }
@@ -233,6 +246,8 @@ function Component() {
   if (search.error) {
     const retrySearch = toAuthFlowSearch(resolveAuthFlowContext(search));
     const retryParams = new URLSearchParams({ flow: retrySearch.flow });
+    if (retrySearch.desktop_state)
+      retryParams.set("desktop_state", retrySearch.desktop_state);
     if (retrySearch.scheme) retryParams.set("scheme", retrySearch.scheme);
     if (retrySearch.redirect) retryParams.set("redirect", retrySearch.redirect);
 
@@ -349,6 +364,7 @@ function redirectToExchangeError(
     flow: "desktop" | "web";
     scheme: z.infer<typeof desktopSchemeSchema>;
     redirect?: string;
+    desktop_state?: string;
   },
   error: string,
 ) {
@@ -357,6 +373,7 @@ function redirectToExchangeError(
     search: {
       flow: search.flow,
       scheme: search.scheme,
+      desktop_state: search.desktop_state,
       redirect: search.redirect,
       error: "exchange_failed",
       error_description: error,

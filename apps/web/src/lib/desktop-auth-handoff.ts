@@ -2,6 +2,7 @@ import type { DesktopScheme } from "@/functions/desktop-flow";
 import type { AuthSignInMethod } from "@/lib/auth-last-sign-in-method";
 
 import { useMountEffect } from "../hooks/useMountEffect.ts";
+import { storeDesktopAuthHandoff } from "./auth-route-privacy.ts";
 
 const autoOpenAttempts = new WeakMap<Document, Set<string>>();
 
@@ -17,6 +18,7 @@ export function buildDesktopAuthDeeplink(
   accessToken: string | undefined,
   refreshToken: string | undefined,
   method?: AuthSignInMethod,
+  desktopState?: string,
 ) {
   if (!accessToken || !refreshToken) {
     return null;
@@ -29,6 +31,7 @@ export function buildDesktopAuthDeeplink(
   if (method) {
     params.set("method", method);
   }
+  if (desktopState) params.set("state", desktopState);
   return `${scheme}://auth/callback?${params.toString()}`;
 }
 
@@ -37,11 +40,12 @@ export function buildDesktopAuthCallbackPath(
   refreshToken: string,
   scheme?: DesktopScheme,
   method?: AuthSignInMethod,
+  desktopState?: string,
 ) {
+  storeDesktopAuthHandoff(accessToken, refreshToken, Date.now(), desktopState);
   const params = new URLSearchParams({
     flow: "desktop",
-    access_token: accessToken,
-    refresh_token: refreshToken,
+    handoff: "stored",
   });
   if (scheme) {
     params.set("scheme", scheme);
@@ -49,6 +53,7 @@ export function buildDesktopAuthCallbackPath(
   if (method) {
     params.set("method", method);
   }
+  if (desktopState) params.set("desktop_state", desktopState);
   return `/callback/auth?${params.toString()}`;
 }
 

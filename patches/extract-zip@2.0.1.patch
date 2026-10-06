@@ -1,0 +1,85 @@
+diff --git a/index.js b/index.js
+index 23384ea16bb848616886f356d8d69f94325535bf..c703a30a431b6e0a857c7082a8e1cf8a46a10403 100644
+--- a/index.js
++++ b/index.js
+@@ -1,6 +1,6 @@
+ const debug = require('debug')('extract-zip')
+ // eslint-disable-next-line node/no-unsupported-features/node-builtins
+-const { createWriteStream, promises: fs } = require('fs')
++const { createWriteStream, promises: fs, constants } = require('fs')
+ const getStream = require('get-stream')
+ const path = require('path')
+ const { promisify } = require('util')
+@@ -53,14 +53,9 @@ class Extractor {
+         const destDir = path.dirname(path.join(this.opts.dir, entry.fileName))
+ 
+         try {
++          await this.assertInsideRoot(destDir)
+           await fs.mkdir(destDir, { recursive: true })
+-
+-          const canonicalDestDir = await fs.realpath(destDir)
+-          const relativeDestDir = path.relative(this.opts.dir, canonicalDestDir)
+-
+-          if (relativeDestDir.split(path.sep).includes('..')) {
+-            throw new Error(`Out of bound path "${canonicalDestDir}" found while processing file ${entry.fileName}`)
+-          }
++          await this.assertInsideRoot(destDir)
+ 
+           await this.extractEntry(entry)
+           debug('finished processing', entry.fileName)
+@@ -74,6 +69,31 @@ class Extractor {
+     })
+   }
+ 
++  async assertInsideRoot (target) {
++    const inside = candidate => {
++      const relative = path.relative(this.opts.dir, candidate)
++      if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
++        throw new Error(`Out of bound path "${candidate}"`)
++      }
++    }
++    inside(target)
++    let current = target
++    for (;;) {
++      try {
++        inside(await fs.realpath(current))
++        return
++      } catch (err) {
++        if (err.code !== 'ENOENT') throw err
++        const info = await fs.lstat(current).catch(error => {
++          if (error.code !== 'ENOENT') throw error
++          return null
++        })
++        if (info && info.isSymbolicLink()) throw new Error(`Unresolved symlink "${current}"`)
++        current = path.dirname(current)
++      }
++    }
++  }
++
+   async extractEntry (entry) {
+     /* istanbul ignore if */
+     if (this.canceled) {
+@@ -118,6 +138,7 @@ class Extractor {
+       mkdirOptions.mode = procMode
+     }
+     debug('mkdir', { dir: destDir, ...mkdirOptions })
++    await this.assertInsideRoot(destDir)
+     await fs.mkdir(destDir, mkdirOptions)
+     if (isDir) return
+ 
+@@ -125,11 +146,13 @@ class Extractor {
+     const readStream = await promisify(this.zipfile.openReadStream.bind(this.zipfile))(entry)
+ 
+     if (symlink) {
+-      const link = await getStream(readStream)
++      const link = await getStream(readStream, { maxBuffer: 4096 })
++      await this.assertInsideRoot(path.resolve(path.dirname(dest), link))
+       debug('creating symlink', link, dest)
+       await fs.symlink(link, dest)
+     } else {
+-      await pipeline(readStream, createWriteStream(dest, { mode: procMode }))
++      await this.assertInsideRoot(dest)
++      await pipeline(readStream, createWriteStream(dest, { mode: procMode, flags: constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW }))
+     }
+   }
+ 

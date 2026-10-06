@@ -1,5 +1,6 @@
 import { getIdentifier } from "@tauri-apps/api/app";
 
+import { beginDesktopAuth } from "~/auth/deeplink";
 import { env } from "~/env";
 
 // export * from "../shared/config/configure-pro-settings";
@@ -62,6 +63,9 @@ export const buildWebAppUrl = async (
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value);
     }
+  }
+  if (path === "/auth") {
+    url.searchParams.set("desktop_state", beginDesktopAuth());
   }
   return url.toString();
 };

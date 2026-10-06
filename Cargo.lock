@@ -17456,8 +17456,10 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tokio",
- "tower-http",
+ "tokio-tungstenite 0.29.0",
+ "tower",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

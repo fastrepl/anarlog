@@ -35,6 +35,7 @@ import {
   prepareCloudsyncSignOut,
   refreshCloudsyncForSession,
 } from "./cloudsync";
+import { consumeDesktopAuthState } from "./deeplink";
 import { clearAuthStorage } from "./errors";
 import { loadInitialSession } from "./initial-session";
 import {
@@ -55,6 +56,7 @@ import { ConnectLocalLibraryDialog } from "~/auth/connect-local-library-dialog";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import {
   buildWebAppUrl,
+  getScheme,
   DEVICE_FINGERPRINT_HEADER,
   REQUEST_ID_HEADER,
   id,
@@ -166,8 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setSessionFromTokens = useCallback(
     async (accessToken: string, refreshToken: string) => {
       if (!supabase) {
-        console.error("Supabase client not found");
-        return;
+        throw new Error("Supabase client not found");
       }
 
       const res = await supabase.auth.setSession({
@@ -176,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (res.error) {
-        console.error(res.error);
+        throw res.error;
       }
     },
     [],
@@ -188,9 +189,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const accessToken = parsed.searchParams.get("access_token");
       const refreshToken = parsed.searchParams.get("refresh_token");
 
-      if (!accessToken || !refreshToken) {
-        console.error("invalid_callback_url");
-        return;
+      if (
+        parsed.protocol !== `${await getScheme()}:` ||
+        parsed.hostname !== "auth" ||
+        parsed.pathname !== "/callback" ||
+        !accessToken ||
+        !refreshToken ||
+        !consumeDesktopAuthState(parsed.searchParams.get("state"))
+      ) {
+        throw new Error(
+          "Invalid or expired sign-in callback. Start sign-in again.",
+        );
       }
 
       await setSessionFromTokens(accessToken, refreshToken);
