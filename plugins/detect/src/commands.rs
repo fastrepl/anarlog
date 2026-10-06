@@ -200,10 +200,7 @@ pub(crate) async fn capture_meeting_screen_share<R: tauri::Runtime>(
             *sampler = anlg_detect::ScreenShareSampler::default();
         }
 
-        let Some(inspection) = anlg_detect::inspect_meeting_accessibility()
-            .into_iter()
-            .find(|inspection| inspection.remote_screen_share)
-        else {
+        let Some(inspection) = sampler.follow(&anlg_detect::inspect_meeting_accessibility()) else {
             sampler.pause();
             return Ok(MeetingScreenShareCapture {
                 sharing: false,
@@ -215,10 +212,12 @@ pub(crate) async fn capture_meeting_screen_share<R: tauri::Runtime>(
             });
         };
 
-        let image = anlg_detect::capture_meeting_window(
-            inspection.pid,
-            inspection.window_title.as_deref(),
-        )?;
+        let image =
+            anlg_detect::capture_meeting_window(inspection.pid, inspection.window_title.as_deref())
+                .inspect_err(|_| {
+                    sampler.unfollow();
+                    sampler.pause();
+                })?;
         let keep = sampler.observe(anlg_detect::FrameSignature::of(&image));
         let (jpeg, width, height) = if keep {
             let (jpeg, width, height) = anlg_detect::encode_capture_jpeg(&image)?;

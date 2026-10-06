@@ -1,5 +1,7 @@
 use image::{DynamicImage, RgbImage, RgbaImage, imageops::FilterType};
 
+use crate::MeetingAccessibilityInspection;
+
 const SIGNATURE_WIDTH: u32 = 64;
 const SIGNATURE_HEIGHT: u32 = 36;
 const MAX_CAPTURE_WIDTH: u32 = 1920;
@@ -36,25 +38,33 @@ impl FrameSignature {
         total as f32 / (self.0.len() as f32 * 255.0)
     }
 
-    fn changed_cell_fraction(&self, other: &Self) -> f32 {
-        if self.0.len() != other.0.len() || self.0.is_empty() {
-            return 1.0;
-        }
-        let cells = self.0.chunks_exact(3).zip(other.0.chunks_exact(3));
-        let total = self.0.len() / 3;
-        let changed = cells
-            .filter(|(a, b)| {
-                a.iter()
-                    .zip(b.iter())
-                    .any(|(a, b)| a.abs_diff(*b) >= CHANGED_CELL_DIFFERENCE)
-            })
-            .count();
-        changed as f32 / total as f32
-    }
-
+    // Only the inner area counts, so meeting chrome along the window edges
+    // (auto-hiding toolbars, participant strips) does not look like a new slide.
     fn shows_new_content(&self, kept: &Self) -> bool {
-        self.distance(kept) >= NEW_CONTENT_DISTANCE
-            || self.changed_cell_fraction(kept) >= NEW_CONTENT_CHANGED_CELLS
+        if self.0.len() != kept.0.len() || self.0.is_empty() {
+            return true;
+        }
+        let (margin_x, margin_y) = (SIGNATURE_WIDTH / 8, SIGNATURE_HEIGHT / 8);
+        let (mut cells, mut changed_cells, mut total_difference) = (0u32, 0u32, 0u32);
+        for y in margin_y..SIGNATURE_HEIGHT - margin_y {
+            for x in margin_x..SIGNATURE_WIDTH - margin_x {
+                let start = ((y * SIGNATURE_WIDTH + x) * 3) as usize;
+                let differences = self.0[start..start + 3]
+                    .iter()
+                    .zip(&kept.0[start..start + 3])
+                    .map(|(a, b)| a.abs_diff(*b));
+                let mut changed = false;
+                for difference in differences {
+                    total_difference += u32::from(difference);
+                    changed |= difference >= CHANGED_CELL_DIFFERENCE;
+                }
+                cells += 1;
+                changed_cells += u32::from(changed);
+            }
+        }
+        let mean = total_difference as f32 / (cells as f32 * 3.0 * 255.0);
+        mean >= NEW_CONTENT_DISTANCE
+            || changed_cells as f32 / cells as f32 >= NEW_CONTENT_CHANGED_CELLS
     }
 }
 
@@ -64,9 +74,37 @@ impl FrameSignature {
 pub struct ScreenShareSampler {
     previous: Option<FrameSignature>,
     last_kept: Option<FrameSignature>,
+    followed: Option<MeetingAccessibilityInspection>,
 }
 
 impl ScreenShareSampler {
+    /// Picks the meeting whose remote share should be captured. Zoom drops most
+    /// of its accessibility tree (share label and Leave button included) while
+    /// its controls auto-hide, so a share stays followed until the meeting is
+    /// seen again without it or its window can no longer be captured.
+    pub fn follow(
+        &mut self,
+        inspections: &[MeetingAccessibilityInspection],
+    ) -> Option<MeetingAccessibilityInspection> {
+        if let Some(sharing) = inspections
+            .iter()
+            .find(|inspection| inspection.remote_screen_share)
+        {
+            self.followed = Some(sharing.clone());
+        } else if let Some(followed) = &self.followed
+            && inspections
+                .iter()
+                .any(|inspection| inspection.pid == followed.pid && inspection.active_call)
+        {
+            self.followed = None;
+        }
+        self.followed.clone()
+    }
+
+    pub fn unfollow(&mut self) {
+        self.followed = None;
+    }
+
     pub fn observe(&mut self, signature: FrameSignature) -> bool {
         let stable = self
             .previous
@@ -198,6 +236,67 @@ mod tests {
             keeps_after_settling(&mut sampler, &template_slide([0x58, 0x21, 0x8f], 60..80)),
             "same template with only the text moved"
         );
+    }
+
+    #[test]
+    fn ignores_meeting_chrome_along_the_window_edges() {
+        for background in [[0xac, 0x24, 0x1a], [0xff, 0xff, 0xff]] {
+            let slide = template_slide(background, 60..80);
+            let mut with_chrome = slide.clone();
+            for (x, y, pixel) in with_chrome.enumerate_pixels_mut() {
+                if y >= 160 || (x >= 260 && y < 40) {
+                    *pixel = image::Rgba([30, 30, 30, 255]);
+                }
+            }
+
+            let mut sampler = ScreenShareSampler::default();
+            assert!(keeps_after_settling(&mut sampler, &slide));
+            assert!(!keeps_after_settling(&mut sampler, &with_chrome));
+            assert!(!keeps_after_settling(&mut sampler, &slide));
+        }
+    }
+
+    fn inspection(
+        pid: i32,
+        active_call: bool,
+        remote_screen_share: bool,
+    ) -> MeetingAccessibilityInspection {
+        MeetingAccessibilityInspection {
+            active_call,
+            app: crate::MeetingApp {
+                id: "us.zoom.xos".to_string(),
+                name: "zoom.us".to_string(),
+            },
+            pid,
+            platform: crate::MeetingPlatform::Zoom,
+            surface: crate::MeetingSurface::Native,
+            accessibility_trusted: true,
+            window_title: Some("Zoom Meeting".to_string()),
+            remote_screen_share,
+            warnings: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn follows_a_share_while_the_meeting_hides_its_controls() {
+        let mut sampler = ScreenShareSampler::default();
+        assert!(sampler.follow(&[inspection(7, false, false)]).is_none());
+        assert_eq!(
+            sampler.follow(&[inspection(7, true, true)]).map(|i| i.pid),
+            Some(7)
+        );
+        assert_eq!(
+            sampler
+                .follow(&[inspection(7, false, false)])
+                .map(|i| i.pid),
+            Some(7),
+            "controls hidden: keep following"
+        );
+        assert!(
+            sampler.follow(&[inspection(7, true, false)]).is_none(),
+            "visible meeting without a share ends it"
+        );
+        assert!(sampler.follow(&[]).is_none());
     }
 
     #[test]
