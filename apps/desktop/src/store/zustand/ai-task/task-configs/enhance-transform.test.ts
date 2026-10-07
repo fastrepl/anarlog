@@ -598,6 +598,62 @@ describe("enhanceTransform.transformArgs", () => {
     ]);
   });
 
+  it("attaches live guidance to a memo rename shifted by an added heading", async () => {
+    const result = await runTransform(
+      {
+        rawTemplateId: "template-1",
+        rawUpdatedAt: "2026-10-07T00:00:00.000Z",
+        rawHeadingsUpdatedAt: "2026-10-07T00:00:00.000Z",
+        rawContent: docWithHeadings("Custom", "Updates", "Next Steps"),
+        rawContentFormat: "prosemirror_json",
+        rawMarkdown: "## Custom\n\n## Updates\n\n## Next Steps",
+      },
+      {
+        title: "1:1 Meeting",
+        description: "Weekly conversation",
+        updatedAt: "2026-10-06T00:00:00Z",
+        sections: [
+          { title: "Updates", description: "Recent changes" },
+          { title: "Action Items", description: "Follow-ups" },
+        ],
+      },
+    );
+
+    expect(result.template?.sections).toEqual([
+      { title: "Custom", description: "" },
+      { title: "Updates", description: "Recent changes" },
+      { title: "Next Steps", description: "Follow-ups" },
+    ]);
+  });
+
+  it("keeps newer memo order when the memo reordered and added headings", async () => {
+    const result = await runTransform(
+      {
+        rawTemplateId: "template-1",
+        rawUpdatedAt: "2026-10-07T00:00:00.000Z",
+        rawHeadingsUpdatedAt: "2026-10-07T00:00:00.000Z",
+        rawContent: docWithHeadings("Actions", "Updates", "Custom"),
+        rawContentFormat: "prosemirror_json",
+        rawMarkdown: "## Actions\n\n## Updates\n\n## Custom",
+      },
+      {
+        title: "1:1 Meeting",
+        description: "Weekly conversation",
+        updatedAt: "2026-10-06T00:00:00Z",
+        sections: [
+          { title: "Updates", description: "Recent changes" },
+          { title: "Actions", description: "Open actions" },
+        ],
+      },
+    );
+
+    expect(result.template?.sections.map((section) => section.title)).toEqual([
+      "Actions",
+      "Updates",
+      "Custom",
+    ]);
+  });
+
   it("keeps memo renames when the unchanged template was saved after them", async () => {
     const result = await runTransform(
       {

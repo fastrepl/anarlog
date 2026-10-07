@@ -480,34 +480,115 @@ function getMemoTemplateSections(
     // an unmatched live section is ambiguous: a template addition the memo
     // never had, or a section the user deleted from the memo. When the memo
     // gained no headings the divergence can only be deletions, so memo
-    // headings win. Otherwise the memo edit does not explain the missing
-    // live sections, so they stay as likely template additions while
-    // memo-only headings keep their titles; a live title resembling a
-    // memo-only heading loses to the memo rename instead of duplicating it.
+    // headings win outright.
     if (unmatchedMemo.length === 0) {
       return headings.map((title) => ({
         title,
         description: originalByTitle.get(title)?.description ?? "",
       }));
     }
-    const memoOnlyTitles = headings.filter(
-      (title) => !originalByTitle.has(title),
-    );
-    return [
-      ...originalSections
-        .filter(
-          (section) =>
-            memoTitles.has(section.title.trim()) ||
-            !memoOnlyTitles.some((title) =>
-              looksLikeRenameOf(title, [section.title.trim()]),
-            ),
-        )
-        .map((section) => ({
-          title: section.title,
-          description: section.description ?? "",
-        })),
-      ...memoOnlyTitles.map((title) => ({ title, description: "" })),
-    ];
+    // Otherwise the memo edit does not explain the missing live sections,
+    // so they stay as likely template additions. Reconcile in memo order,
+    // which is authoritative here: a memo-only and a live-only title
+    // sharing a gap between common headings exactly 1:1 read as a rename
+    // shifted by an addition, so the memo title takes the live guidance
+    // instead of duplicating the section. Remaining live-only titles
+    // insert after their preceding common anchor. Resemblance alone never
+    // drops a live section: similar titles may be independent additions,
+    // while same-index similar pairs still merge through the positional
+    // rename path above.
+    const liveTitles = originalSections.map((section) => section.title.trim());
+    const gapKey = (prev: string | null, next: string | null): string =>
+      `${prev ?? ""}\n${next ?? ""}`;
+    const groupByGap = (titles: string[], only: number[]) => {
+      const groups = new Map<string, number[]>();
+      for (const onlyIndex of only) {
+        let prev: string | null = null;
+        for (let i = onlyIndex - 1; i >= 0; i -= 1) {
+          const title = titles[i];
+          if (
+            title !== undefined &&
+            memoTitles.has(title) &&
+            originalByTitle.has(title)
+          ) {
+            prev = title;
+            break;
+          }
+        }
+        let next: string | null = null;
+        for (let i = onlyIndex + 1; i < titles.length; i += 1) {
+          const title = titles[i];
+          if (
+            title !== undefined &&
+            memoTitles.has(title) &&
+            originalByTitle.has(title)
+          ) {
+            next = title;
+            break;
+          }
+        }
+        const key = gapKey(prev, next);
+        const group = groups.get(key) ?? [];
+        group.push(onlyIndex);
+        groups.set(key, group);
+      }
+      return groups;
+    };
+    const memoGaps = groupByGap(headings, unmatchedMemo);
+    const liveGaps = groupByGap(liveTitles, unmatchedTemplate);
+    const pairedGuidance = new Map<number, string>();
+    const consumedLive = new Set<number>();
+    memoGaps.forEach((memoIdxs, key) => {
+      const liveIdxs = liveGaps.get(key);
+      if (memoIdxs.length !== 1 || liveIdxs?.length !== 1) {
+        return;
+      }
+      const memoIdx = memoIdxs[0];
+      const liveIdx = liveIdxs[0];
+      if (memoIdx === undefined || liveIdx === undefined) {
+        return;
+      }
+      pairedGuidance.set(memoIdx, originalSections[liveIdx]?.description ?? "");
+      consumedLive.add(liveIdx);
+    });
+    const result = headings.map((title, index) => ({
+      title,
+      description:
+        originalByTitle.get(title)?.description ??
+        pairedGuidance.get(index) ??
+        "",
+    }));
+    const insertions: Array<{ index: number; liveIdx: number }> = [];
+    for (const liveIdx of unmatchedTemplate) {
+      if (consumedLive.has(liveIdx)) {
+        continue;
+      }
+      let anchor = -1;
+      for (let i = liveIdx - 1; i >= 0; i -= 1) {
+        const title = liveTitles[i];
+        if (
+          title !== undefined &&
+          memoTitles.has(title) &&
+          originalByTitle.has(title)
+        ) {
+          anchor = headings.indexOf(title);
+          break;
+        }
+      }
+      insertions.push({ index: anchor + 1, liveIdx });
+    }
+    insertions
+      .sort((a, b) => b.index - a.index || b.liveIdx - a.liveIdx)
+      .forEach(({ index, liveIdx }) => {
+        const section = originalSections[liveIdx];
+        if (section) {
+          result.splice(index, 0, {
+            title: section.title,
+            description: section.description ?? "",
+          });
+        }
+      });
+    return result;
   }
 
   // Diverged with an authoritative template: the template gained, lost, or
