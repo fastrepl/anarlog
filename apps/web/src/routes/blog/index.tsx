@@ -1,5 +1,9 @@
+import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import allArticleSummaries from "article-summaries";
+import { useState } from "react";
+
+import { cn } from "@anlg/utils";
 
 import { SiteFooter } from "@/components/site-footer";
 import { formatBlogDate } from "@/lib/blog-date";
@@ -23,8 +27,25 @@ export const Route = createFileRoute("/blog/")({
 });
 
 function Component() {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const categories = [
+    { label: "All", value: null, icon: "lucide:layout-grid" },
+    { label: "Product", value: "Product", icon: "lucide:package" },
+    { label: "Comparisons", value: "Comparisons", icon: "lucide:columns-2" },
+    { label: "Engineering", value: "Engineering", icon: "lucide:code-2" },
+    {
+      label: "Founders' notes",
+      value: "Founders' notes",
+      icon: "lucide:rocket",
+    },
+    { label: "Guides", value: "Guides", icon: "lucide:book-open" },
+  ];
   const sortedArticles = [...allArticleSummaries].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
+  const visibleArticles = sortedArticles.filter(
+    (article) =>
+      selectedCategory === null || article.category === selectedCategory,
   );
 
   return (
@@ -40,14 +61,42 @@ function Component() {
           <h1 className="font-hand text-6xl leading-[0.98] font-semibold tracking-normal text-balance text-black md:text-8xl">
             Blog
           </h1>
-          <p className="mt-6 max-w-2xl text-xl leading-9 text-[#363029]">
-            Notes on private meetings, local-first workflows, open source, and
-            AI you can run on your own terms.
-          </p>
+          <div
+            role="group"
+            aria-label="Filter blog articles by category"
+            className="mt-8 flex flex-wrap gap-2"
+          >
+            {categories.map((category) => (
+              <button
+                key={category.label}
+                type="button"
+                aria-pressed={selectedCategory === category.value}
+                onClick={() => setSelectedCategory(category.value)}
+                className={cn([
+                  "focus-visible:outline-brand-dark rounded-pill inline-flex items-center gap-2 border px-4 py-2 font-sans text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-4",
+                  selectedCategory === category.value
+                    ? "border-border bg-surface-subtle text-fg"
+                    : "border-border-subtle bg-surface text-fg-secondary hover:border-border hover:bg-surface-subtle",
+                ])}
+              >
+                <Icon
+                  icon={category.icon}
+                  width={18}
+                  height={18}
+                  aria-hidden="true"
+                />
+                {category.label}
+              </button>
+            ))}
+          </div>
         </section>
 
+        <p role="status" className="sr-only">
+          {visibleArticles.length} articles
+          {selectedCategory ? ` in ${selectedCategory}` : " in all categories"}
+        </p>
         <ul className="grid gap-9">
-          {sortedArticles.map((article) => (
+          {visibleArticles.map((article) => (
             <li key={article.slug}>
               <Link
                 to="/blog/$slug/"

@@ -1032,6 +1032,10 @@ msgstr "Capture conversations in 4 different weeks. They don't need to be consec
 msgid "Capture meeting chat in Memos"
 msgstr "Capture meeting chat in Memos"
 
+#: src/settings/general/meeting-settings.tsx
+msgid "Capture shared screens in Memos"
+msgstr "Capture shared screens in Memos"
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Capture your first conversation. Every collection starts somewhere."
 msgstr "Capture your first conversation. Every collection starts somewhere."
@@ -4947,6 +4951,10 @@ msgstr "Save policies"
 msgid "Save SCIM token"
 msgstr "Save SCIM token"
 
+#: src/settings/general/meeting-settings.tsx
+msgid "Save slides and screens others share in meetings. Requires Screen Recording."
+msgstr "Save slides and screens others share in meetings. Requires Screen Recording."
+
 #: src/settings/team/index.tsx
 msgid "Save subdomain"
 msgstr "Save subdomain"
@@ -5295,6 +5303,14 @@ msgstr "Shared note unavailable"
 #: src/shared-notes/index.tsx
 msgid "Shared notes are tied to the account they were shared with."
 msgstr "Shared notes are tied to the account they were shared with."
+
+#: src/session/components/note-input/meeting-screen-gallery.tsx
+msgid "Shared screen at {time}"
+msgstr "Shared screen at {time}"
+
+#: src/session/components/note-input/meeting-screen-gallery.tsx
+msgid "Shared screens"
+msgstr "Shared screens"
 
 #: src/resource-sharing/library.tsx
 msgid "Shared with me"

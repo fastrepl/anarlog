@@ -1,4 +1,6 @@
-use crate::DetectPluginExt;
+use tauri::Manager;
+
+use crate::{DetectPluginExt, ScreenShareSamplerState};
 
 #[derive(Debug, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -170,6 +172,71 @@ pub(crate) async fn capture_meeting_chat_messages<R: tauri::Runtime>(
     Ok(anlg_detect::capture_meeting_chat_messages(
         verified_bundle_ids,
     ))
+}
+
+#[derive(Debug, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MeetingScreenShareCapture {
+    sharing: bool,
+    app: Option<anlg_detect::MeetingApp>,
+    platform: Option<anlg_detect::MeetingPlatform>,
+    jpeg: Option<Vec<u8>>,
+    width: u32,
+    height: u32,
+}
+
+/// Samples the meeting window while someone else is sharing their screen and
+/// returns a JPEG only when a new, settled frame appears.
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn capture_meeting_screen_share<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    reset: bool,
+) -> Result<MeetingScreenShareCapture, String> {
+    let sampler = app.state::<ScreenShareSamplerState>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut sampler = sampler.lock().map_err(|error| error.to_string())?;
+        if reset {
+            *sampler = anlg_detect::ScreenShareSampler::default();
+        }
+
+        let Some(inspection) = sampler.follow(&anlg_detect::inspect_meeting_accessibility()) else {
+            sampler.pause();
+            return Ok(MeetingScreenShareCapture {
+                sharing: false,
+                app: None,
+                platform: None,
+                jpeg: None,
+                width: 0,
+                height: 0,
+            });
+        };
+
+        let image =
+            anlg_detect::capture_meeting_window(inspection.pid, inspection.window_title.as_deref())
+                .inspect_err(|_| {
+                    sampler.unfollow();
+                    sampler.pause();
+                })?;
+        let keep = sampler.observe(anlg_detect::FrameSignature::of(&image));
+        let (jpeg, width, height) = if keep {
+            let (jpeg, width, height) = anlg_detect::encode_capture_jpeg(&image)?;
+            (Some(jpeg), width, height)
+        } else {
+            (None, 0, 0)
+        };
+
+        Ok(MeetingScreenShareCapture {
+            sharing: true,
+            app: Some(inspection.app),
+            platform: Some(inspection.platform),
+            jpeg,
+            width,
+            height,
+        })
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]

@@ -45,6 +45,7 @@ const SETTINGS_FORM_KEYS = [
   "notification_detect",
   "consent_auto_send_chat",
   "capture_meeting_chat",
+  "capture_shared_screens",
   "ai_language",
   "spoken_languages",
   "current_stt_provider",
@@ -69,6 +70,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
       notification_detect: settingsValue.notification_detect,
       consent_auto_send_chat: settingsValue.consent_auto_send_chat,
       capture_meeting_chat: settingsValue.capture_meeting_chat,
+      capture_shared_screens: settingsValue.capture_shared_screens,
       ai_language: settingsValue.ai_language,
       spoken_languages: getAdditionalSpokenLanguages(
         settingsValue.ai_language,
@@ -109,6 +111,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         notification_detect: normalizedValue.notification_detect,
         consent_auto_send_chat: normalizedValue.consent_auto_send_chat,
         capture_meeting_chat: normalizedValue.capture_meeting_chat,
+        capture_shared_screens: normalizedValue.capture_shared_screens,
         ai_language: normalizedValue.ai_language,
         spoken_languages: JSON.stringify(normalizedValue.spoken_languages),
       });
@@ -128,6 +131,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         notification_detect: normalizedValue.notification_detect,
         consent_auto_send_chat: normalizedValue.consent_auto_send_chat,
         capture_meeting_chat: normalizedValue.capture_meeting_chat,
+        capture_shared_screens: normalizedValue.capture_shared_screens,
       });
     },
   });
@@ -321,6 +325,11 @@ function SettingsSectionContent({
                   value: values.capture_meeting_chat,
                   onChange: (value) =>
                     submitFieldValue("capture_meeting_chat", value),
+                }}
+                captureSharedScreens={{
+                  value: values.capture_shared_screens,
+                  onChange: (value) =>
+                    submitFieldValue("capture_shared_screens", value),
                 }}
               />
             )}

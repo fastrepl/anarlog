@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 
 import {
   referralSupportUrl,
@@ -8,6 +9,7 @@ import {
 import { getReferralInvites } from "@/functions/referrals";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
+import { observeReferralView } from "@/lib/referral-visibility";
 
 import { useAccountSession } from "./-account-session";
 import {
@@ -17,8 +19,12 @@ import {
 
 export function ReferralSection({ ineligible }: { ineligible: boolean }) {
   const session = useAccountSession();
+  const sectionRef = useRef<HTMLDivElement>(null);
   useMountEffect(() => {
-    capturePrivateRouteEvent("referral_page_viewed");
+    if (!sectionRef.current) return;
+    return observeReferralView(sectionRef.current, () =>
+      capturePrivateRouteEvent("referral_page_viewed"),
+    );
   });
   const summary = useQuery({
     queryKey: ["referral-summary", session.data?.userId],
@@ -52,7 +58,7 @@ export function ReferralSection({ ineligible }: { ineligible: boolean }) {
   });
   const data = summary.data;
   return (
-    <div className={accountCardClassName}>
+    <div ref={sectionRef} className={accountCardClassName}>
       <div className="flex flex-col gap-5 p-6 sm:p-8">
         {ineligible && (
           <p className="text-color-muted text-sm">

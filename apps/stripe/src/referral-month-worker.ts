@@ -78,23 +78,12 @@ async function processReward() {
       WHERE i.reward_policy = 'trial_month' AND t.started_at >= i.claimed_at - interval '5 minutes'
         AND NOT EXISTS (SELECT 1 FROM private.referral_month_rewards r WHERE r.referral_id=i.id)
       ON CONFLICT DO NOTHING`);
-    const trialEvents =
-      await client.query(`INSERT INTO private.referral_events(event_key,kind,referrer_user_id,referred_user_id,referral_id,occurred_at,details)
+    await client.query(`INSERT INTO private.referral_events(event_key,kind,referrer_user_id,referred_user_id,referral_id,occurred_at,details)
       SELECT 'trial:' || i.id, 'referral_trial_started', i.referrer_user_id, i.referred_user_id, i.id, t.started_at,
         jsonb_build_object('subscription_id',t.subscription_id,'stripe_event_id',t.stripe_event_id)
       FROM private.referral_invites i JOIN private.referral_trial_starts t ON t.referred_user_id = i.referred_user_id
       WHERE i.reward_policy = 'trial_month'
-        AND NOT EXISTS (SELECT 1 FROM private.referral_events e WHERE e.event_key='trial:' || i.id) ON CONFLICT DO NOTHING
-      RETURNING referral_id,referrer_user_id,referred_user_id,occurred_at`);
-    for (const event of trialEvents.rows) {
-      await captureReferralOutcome({
-        event: "referral_trial_started",
-        referralId: event.referral_id,
-        referrerUserId: event.referrer_user_id,
-        referredUserId: event.referred_user_id,
-        timestamp: event.occurred_at,
-      }).catch(() => {});
-    }
+        AND NOT EXISTS (SELECT 1 FROM private.referral_events e WHERE e.event_key='trial:' || i.id) ON CONFLICT DO NOTHING`);
     const candidate = (
       await client.query(`SELECT r.referral_id, i.referrer_user_id
       FROM private.referral_month_rewards r JOIN private.referral_invites i ON i.id = r.referral_id
@@ -202,13 +191,6 @@ async function processReward() {
       ],
     );
     await client.query("COMMIT");
-    await captureReferralOutcome({
-      event: "referral_reward_applied",
-      referralId: referralId!,
-      referrerUserId: lockedUser!,
-      referredUserId: reward.referred_user_id,
-      timestamp: new Date(),
-    }).catch(() => {});
     return true;
   } catch (error) {
     await client.query("ROLLBACK");
@@ -255,6 +237,39 @@ async function processReward() {
   }
 }
 
+export async function flushReferralAnalytics() {
+  const { rows } = await pool.query(`SELECT * FROM private.referral_events
+    WHERE kind IN ('referral_trial_started','referral_reward_applied')
+      AND NOT (details ? 'analytics_delivered_at')
+      AND COALESCE((details->>'analytics_retry_at')::timestamptz, occurred_at) <= now()
+    ORDER BY occurred_at, id LIMIT 20`);
+  for (const event of rows) {
+    try {
+      const delivered = await captureReferralOutcome({
+        event: event.kind,
+        referralId: event.referral_id,
+        referrerUserId: event.referrer_user_id,
+        referredUserId: event.referred_user_id,
+        timestamp: event.occurred_at,
+      });
+      if (!delivered) return;
+      await pool.query(
+        `UPDATE private.referral_events SET details = details ||
+        jsonb_build_object('analytics_delivered_at', now()) WHERE id=$1`,
+        [event.id],
+      );
+    } catch (error) {
+      await pool.query(
+        `UPDATE private.referral_events SET details = details ||
+        jsonb_build_object('analytics_retry_at', now()+interval '1 minute')
+        WHERE id=$1 AND NOT (details ? 'analytics_delivered_at')`,
+        [event.id],
+      );
+      captureOperationalError(error, { operation: "referral_analytics" });
+    }
+  }
+}
+
 export function startReferralMonthWorker() {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -263,6 +278,7 @@ export function startReferralMonthWorker() {
     try {
       for (let count = 0; count < 20 && !stopped; count++)
         if (!(await processReward())) break;
+      await flushReferralAnalytics();
     } catch (error) {
       captureOperationalError(error, { operation: "referral_month_worker" });
     }

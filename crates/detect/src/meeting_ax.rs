@@ -61,12 +61,15 @@ use context::{
     validated_chat_capture_scope, validated_chat_scope, zoom_capture_context_id,
 };
 #[cfg(test)]
+use node::label_indicates_remote_screen_share;
+#[cfg(test)]
 use node::node_text;
 #[cfg_attr(any(target_os = "linux", target_os = "windows"), allow(unused_imports))]
 #[cfg(any(test, target_os = "macos", target_os = "linux", target_os = "windows"))]
 use node::{
     is_platform_active_call_control, is_platform_meeting_control, node_has_positive_bounds,
-    node_labels, node_needs_bounds, searchable_node_text, teams_has_active_call_evidence,
+    node_labels, node_needs_bounds, nodes_show_remote_screen_share, searchable_node_text,
+    teams_has_active_call_evidence,
 };
 #[cfg(any(test, target_os = "linux", target_os = "windows"))]
 use platform::is_browser_active_call_control;
@@ -1905,15 +1908,17 @@ fn inspect_app(
         classify_platform(&app.id, window_title.as_deref(), &nodes, bundle_platform)
     });
     let surface = classify_surface(&app.id, &platform);
+    let active_call =
+        accessibility_trusted && scoped_meeting_is_active(&platform, &nodes, native_scope);
     MeetingAccessibilityInspection {
-        active_call: accessibility_trusted
-            && scoped_meeting_is_active(&platform, &nodes, native_scope),
+        active_call,
         app,
         pid,
         platform,
         surface,
         accessibility_trusted,
         window_title,
+        remote_screen_share: active_call && nodes_show_remote_screen_share(&nodes),
         warnings,
     }
 }

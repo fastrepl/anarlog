@@ -117,10 +117,12 @@ mock.module("pg", () => ({
   },
 }));
 const telemetry: string[] = [];
+let analyticsAvailable = false;
 mock.module("./analytics", () => ({
   captureReferralOutcome: async ({ event }: { event: string }) => {
     telemetry.push(event);
-    throw new Error("PostHog unavailable");
+    if (!analyticsAvailable) throw new Error("PostHog unavailable");
+    return true;
   },
 }));
 mock.module("./env", () => ({
@@ -154,8 +156,11 @@ mock.module("./integration/stripe", () => ({
     },
   },
 }));
-const { recordReferralTrial, startReferralMonthWorker } =
-  await import("./referral-month-worker");
+const {
+  recordReferralTrial,
+  startReferralMonthWorker,
+  flushReferralAnalytics,
+} = await import("./referral-month-worker");
 const event = {
   type: "customer.subscription.created",
   id: "evt_friend",
@@ -215,9 +220,37 @@ assert.equal(
   ).rows[0].n,
   1,
 );
-assert.equal(errors.length, 1);
+assert.equal(errors.length, 3);
 assert.deepEqual(telemetry, [
   "referral_trial_started",
   "referral_reward_applied",
 ]);
+assert.equal(
+  (
+    await db.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM private.referral_events WHERE details ? 'analytics_delivered_at'",
+    )
+  ).rows[0].n,
+  0,
+);
+analyticsAvailable = true;
+await db.exec(
+  "UPDATE private.referral_events SET details=details - 'analytics_retry_at'",
+);
+await flushReferralAnalytics();
+assert.equal(
+  (
+    await db.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM private.referral_events WHERE details ? 'analytics_delivered_at'",
+    )
+  ).rows[0].n,
+  2,
+);
+assert.deepEqual(telemetry.slice(2).sort(), [
+  "referral_reward_applied",
+  "referral_trial_started",
+]);
+await flushReferralAnalytics();
+assert.equal(telemetry.length, 4);
+assert.equal(live.trial_end, target);
 await db.close();

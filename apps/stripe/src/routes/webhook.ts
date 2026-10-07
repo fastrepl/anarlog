@@ -2,6 +2,7 @@ import { Hono } from "hono";
 
 import { captureBillingEvent, captureTrialEndingEmailSent } from "../analytics";
 import { syncBillingBridge } from "../billing-bridge";
+import { withDatabaseRetry } from "../database-retry";
 import { env } from "../env";
 import { captureOperationalError } from "../error-reporting";
 import type { AppBindings } from "../hono-bindings";
@@ -21,7 +22,9 @@ webhook.post("/stripe", async (c) => {
   const signature = c.get("stripeSignature");
 
   try {
-    await stripeSync.processWebhook(rawBody, signature);
+    await withDatabaseRetry(() =>
+      stripeSync.processWebhook(rawBody, signature),
+    );
   } catch (error) {
     if (env.NODE_ENV !== "production") {
       console.error(error);

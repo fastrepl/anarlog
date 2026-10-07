@@ -13,6 +13,7 @@ const activeInspection = {
   surface: "web" as const,
   accessibilityTrusted: true,
   windowTitle: "Meet - abc-defg-hij",
+  remoteScreenShare: false,
   warnings: [],
 };
 
