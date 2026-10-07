@@ -436,8 +436,9 @@ function getMemoTemplateSections(
   // (e.g. a memo-added heading where the template later added a section).
   // When the template was saved after the memo headings last changed, the
   // divergence most likely comes from the template edit, so the live
-  // template takes authority. Otherwise a rename keeps each edited heading
-  // in its template position.
+  // template takes authority. Otherwise a positional rename keeps each edited
+  // heading in its template position, and other memo-newer edits reconcile
+  // memo additions with likely template additions below.
   const memoTitles = new Set(headings);
   const unmatchedMemo: number[] = [];
   headings.forEach((title, index) => {
@@ -475,12 +476,38 @@ function getMemoTemplateSections(
 
   if (!preferTemplate) {
     // The memo headings changed after the template was last saved, so the
-    // divergence most likely comes from the memo edit. Honor user deletions
-    // by starting from memo headings, keeping live guidance for survivors.
-    return headings.map((title) => ({
-      title,
-      description: originalByTitle.get(title)?.description ?? "",
-    }));
+    // divergence most likely comes from the memo edit. Without a snapshot
+    // an unmatched live section is ambiguous: a template addition the memo
+    // never had, or a section the user deleted from the memo. When the memo
+    // gained no headings the divergence can only be deletions, so memo
+    // headings win. Otherwise the memo edit does not explain the missing
+    // live sections, so they stay as likely template additions while
+    // memo-only headings keep their titles; a live title resembling a
+    // memo-only heading loses to the memo rename instead of duplicating it.
+    if (unmatchedMemo.length === 0) {
+      return headings.map((title) => ({
+        title,
+        description: originalByTitle.get(title)?.description ?? "",
+      }));
+    }
+    const memoOnlyTitles = headings.filter(
+      (title) => !originalByTitle.has(title),
+    );
+    return [
+      ...originalSections
+        .filter(
+          (section) =>
+            memoTitles.has(section.title.trim()) ||
+            !memoOnlyTitles.some((title) =>
+              looksLikeRenameOf(title, [section.title.trim()]),
+            ),
+        )
+        .map((section) => ({
+          title: section.title,
+          description: section.description ?? "",
+        })),
+      ...memoOnlyTitles.map((title) => ({ title, description: "" })),
+    ];
   }
 
   // Diverged with an authoritative template: the template gained, lost, or

@@ -568,6 +568,36 @@ describe("enhanceTransform.transformArgs", () => {
     ]);
   });
 
+  it("keeps template additions when a snapshot-less memo is edited after them", async () => {
+    const result = await runTransform(
+      {
+        rawTemplateId: "template-1",
+        rawUpdatedAt: "2026-10-07T00:00:00.000Z",
+        rawHeadingsUpdatedAt: "2026-10-07T00:00:00.000Z",
+        rawContent: docWithHeadings("Updates", "Action Items", "Custom"),
+        rawContentFormat: "prosemirror_json",
+        rawMarkdown: "## Updates\n\n## Action Items\n\n## Custom",
+      },
+      {
+        title: "1:1 Meeting",
+        description: "Weekly conversation",
+        updatedAt: "2026-10-06T00:00:00Z",
+        sections: [
+          { title: "TL;DR", description: "One-sentence overview" },
+          { title: "Updates", description: "Recent changes" },
+          { title: "Action Items", description: "Follow-ups" },
+        ],
+      },
+    );
+
+    expect(result.template?.sections.map((section) => section.title)).toEqual([
+      "TL;DR",
+      "Updates",
+      "Action Items",
+      "Custom",
+    ]);
+  });
+
   it("keeps memo renames when the unchanged template was saved after them", async () => {
     const result = await runTransform(
       {
