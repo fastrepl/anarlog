@@ -97,6 +97,7 @@ describe("template queries", () => {
           icon: { type: "emoji", value: "☀️" },
           targets: ["engineering"],
           sections: [{ title: "Notes", description: "Capture updates" }],
+          updatedAt: "2026-04-14T00:00:00Z",
         },
       ]);
       expect(templateResult.current.data).toEqual({
@@ -109,6 +110,7 @@ describe("template queries", () => {
         icon: { type: "emoji", value: "☀️" },
         targets: ["engineering"],
         sections: [{ title: "Notes", description: "Capture updates" }],
+        updatedAt: "2026-04-14T00:00:00Z",
       });
     });
   });
@@ -157,6 +159,7 @@ describe("template queries", () => {
           icon: DEFAULT_TEMPLATE_ICON,
           targets: undefined,
           sections: [{ title: "", description: "" }],
+          updatedAt: "2026-04-14T00:00:00Z",
         },
       ]);
     });
@@ -191,6 +194,7 @@ describe("template queries", () => {
       icon: { type: "icon", value: "target", color: "#5b67d8" },
       targets: ["engineering"],
       sections: [{ title: "Notes", description: "Capture updates" }],
+      updatedAt: "2026-04-14T00:00:00Z",
     });
   });
 

@@ -32,6 +32,7 @@ import { useCanShowTranscript } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useCreatePreMeetingBrief } from "~/session/hooks/useCreatePreMeetingBrief";
 import { useUpdateSession } from "~/session/queries";
+import type { AppliedTemplateSnapshot } from "~/session/queries/types";
 import { removeDocumentTitle } from "~/session/title-content";
 import { useListener } from "~/stt/contexts";
 import {
@@ -148,17 +149,27 @@ export const RawEditor = forwardRef<
     );
 
     const persistChange = useCallback(
-      (input: JSONContent, templateId?: string) => {
+      (
+        input: JSONContent,
+        templateId?: string,
+        templateSnapshot?: AppliedTemplateSnapshot,
+      ) => {
         const portableInput = normalizePortableAttachmentUrls(input);
         return updateSession({
           raw_md: JSON.stringify(portableInput),
           ...(templateId ? { raw_template_id: templateId } : {}),
+          ...(templateSnapshot
+            ? { raw_template_snapshot: templateSnapshot }
+            : {}),
         });
       },
       [updateSession],
     );
 
     const pendingTemplateIdRef = useRef<string | undefined>(undefined);
+    const pendingTemplateSnapshotRef = useRef<
+      AppliedTemplateSnapshot | undefined
+    >(undefined);
     const hasTrackedWriteRef = useRef(false);
     const trackedSessionIdRef = useRef(sessionId);
     if (trackedSessionIdRef.current !== sessionId) {
@@ -176,10 +187,14 @@ export const RawEditor = forwardRef<
     const handleChange = useCallback(
       (input: JSONContent) => {
         const templateId = pendingTemplateIdRef.current;
+        const templateSnapshot = pendingTemplateSnapshotRef.current;
         pendingTemplateIdRef.current = undefined;
-        void persistChange(input, templateId).catch((error) => {
-          console.error("[raw-editor] failed to persist note", error);
-        });
+        pendingTemplateSnapshotRef.current = undefined;
+        void persistChange(input, templateId, templateSnapshot).catch(
+          (error) => {
+            console.error("[raw-editor] failed to persist note", error);
+          },
+        );
 
         if (!hasTrackedWriteRef.current) {
           const hasContent = hasNonEmptyText(input);
@@ -258,6 +273,13 @@ export const RawEditor = forwardRef<
 
       const nextContent = { type: "doc", content };
       pendingTemplateIdRef.current = template.id;
+      pendingTemplateSnapshotRef.current = {
+        templateId: template.id,
+        sections: template.sections.flatMap((section) => {
+          const title = section.title.trim();
+          return title ? [title] : [];
+        }),
+      };
       editor.commands.replaceContent(nextContent);
       editor.flushPendingChanges();
       trackAnalyticsEvent("template_applied", {

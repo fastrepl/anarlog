@@ -31,6 +31,7 @@ type TemplateLiveRow = {
   icon_json: unknown;
   targets_json: unknown;
   sections_json: unknown;
+  updated_at: string;
 };
 
 export type UserTemplate = {
@@ -43,6 +44,7 @@ export type UserTemplate = {
   icon: TemplateIcon;
   targets?: string[];
   sections: TemplateSection[];
+  updatedAt?: string;
 };
 
 export type UserTemplateDraft = Pick<
@@ -74,6 +76,7 @@ function toUserTemplate(
   iconJson: unknown,
   targetsJson: unknown,
   sectionsJson: unknown,
+  updatedAt?: string,
 ): UserTemplate {
   return {
     id,
@@ -85,6 +88,7 @@ function toUserTemplate(
     icon: normalizeTemplateIcon(iconJson),
     targets: parseStoredTemplateTargets(targetsJson, id),
     sections: parseStoredTemplateSections(sectionsJson, id),
+    updatedAt,
   };
 }
 
@@ -100,6 +104,7 @@ function mapTemplateRows(rows: TemplateRow[]): UserTemplate[] {
       row.iconJson,
       row.targetsJson,
       row.sectionsJson,
+      row.updatedAt,
     ),
   );
 }
@@ -116,6 +121,7 @@ function mapTemplateLiveRows(rows: TemplateLiveRow[]): UserTemplate[] {
       row.icon_json,
       row.targets_json,
       row.sections_json,
+      row.updated_at,
     ),
   );
 }
