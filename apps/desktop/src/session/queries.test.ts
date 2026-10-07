@@ -95,6 +95,32 @@ const event = {
   ]),
 };
 
+type SqlStatement = { sql: string; params: unknown[] };
+
+// Reads the persisted note metadata back out of a transaction without
+// pinning statement counts or positions.
+function readWrittenMetadata(statements: SqlStatement[]): unknown {
+  const metadataWrite = statements.find((statement) =>
+    statement.sql.includes("generation_metadata_json = ?"),
+  );
+  if (!metadataWrite) {
+    throw new Error("expected a generation_metadata_json write");
+  }
+  return JSON.parse(metadataWrite.params[0] as string);
+}
+
+function writesDocument(statements: SqlStatement[]): boolean {
+  return statements.some((statement) =>
+    statement.sql.includes("INSERT INTO session_documents"),
+  );
+}
+
+function writesMetadata(statements: SqlStatement[]): boolean {
+  return statements.some((statement) =>
+    statement.sql.includes("generation_metadata_json"),
+  );
+}
+
 describe("session SQLite operations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -262,14 +288,10 @@ describe("session SQLite operations", () => {
       },
     });
 
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain("INSERT INTO session_documents");
-    expect(statements[1].sql).toContain("generation_metadata_json = ?");
-    expect(JSON.parse(statements[1].params[0] as string)).toEqual({
+    const statements = mocks.executeTransaction.mock
+      .calls[0][0] as SqlStatement[];
+    expect(writesDocument(statements)).toBe(true);
+    expect(readWrittenMetadata(statements)).toEqual({
       appliedTemplate: {
         templateId: "template-1",
         sections: ["Updates"],
@@ -306,13 +328,9 @@ describe("session SQLite operations", () => {
 
     await updateSession("session-1", { raw_md: body });
 
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(2);
-    expect(statements[1].sql).toContain("generation_metadata_json = ?");
-    const metadata = JSON.parse(statements[1].params[0] as string) as {
+    const statements = mocks.executeTransaction.mock
+      .calls[0][0] as SqlStatement[];
+    const metadata = readWrittenMetadata(statements) as {
       appliedTemplate: unknown;
       headings: { key: string; updatedAt: string };
     };
@@ -358,12 +376,9 @@ describe("session SQLite operations", () => {
       }),
     });
 
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(2);
-    const metadata = JSON.parse(statements[1].params[0] as string) as {
+    const statements = mocks.executeTransaction.mock
+      .calls[0][0] as SqlStatement[];
+    const metadata = readWrittenMetadata(statements) as {
       headings: { key: string; updatedAt: string };
     };
     expect(metadata.headings.key).toBe("To do");
@@ -395,12 +410,9 @@ describe("session SQLite operations", () => {
 
     await updateSession("session-1", { raw_md: body });
 
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(2);
-    const metadata = JSON.parse(statements[1].params[0] as string) as {
+    const statements = mocks.executeTransaction.mock
+      .calls[0][0] as SqlStatement[];
+    const metadata = readWrittenMetadata(statements) as {
       headings: { key: string; updatedAt: string };
     };
     expect(metadata.headings).toEqual({
@@ -436,12 +448,8 @@ describe("session SQLite operations", () => {
 
     await updateSession("session-1", { raw_md: body });
 
-    const restamp = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(restamp).toHaveLength(2);
-    const metadata = JSON.parse(restamp[1].params[0] as string) as {
+    const restamp = mocks.executeTransaction.mock.calls[0][0] as SqlStatement[];
+    const metadata = readWrittenMetadata(restamp) as {
       headings: { key: string; updatedAt: string };
     };
     expect(metadata.headings.key).toBe("Updates\nNext Steps");
@@ -465,12 +473,10 @@ describe("session SQLite operations", () => {
 
     await updateSession("session-1", { raw_md: body });
 
-    const unchanged = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(unchanged).toHaveLength(1);
-    expect(unchanged[0].sql).toContain("INSERT INTO session_documents");
+    const unchanged = mocks.executeTransaction.mock
+      .calls[0][0] as SqlStatement[];
+    expect(writesMetadata(unchanged)).toBe(false);
+    expect(writesDocument(unchanged)).toBe(true);
   });
 
   it("skips heading tracking for unparseable memo bodies", async () => {
@@ -483,12 +489,10 @@ describe("session SQLite operations", () => {
 
     await updateSession("session-1", { raw_md: "not json" });
 
-    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
-      sql: string;
-      params: unknown[];
-    }>;
-    expect(statements).toHaveLength(1);
-    expect(statements[0].sql).toContain("INSERT INTO session_documents");
+    const statements = mocks.executeTransaction.mock
+      .calls[0][0] as SqlStatement[];
+    expect(writesMetadata(statements)).toBe(false);
+    expect(writesDocument(statements)).toBe(true);
   });
 
   it("commits enhanced note content and the derived session title together", async () => {
