@@ -275,21 +275,22 @@ export function useDeleteTemplate() {
 }
 
 export function useToggleTemplateFavorite() {
-  const saveTemplate = useSaveTemplate();
-
-  return useCallback(
-    async (templateId: string) => {
+  return useCallback(async (templateId: string) => {
+    try {
       const template = await getTemplateById(templateId);
       if (!template) {
         return;
       }
 
+      // Pin-only update: favoriting is not a content edit, so the timestamp
+      // stays untouched. Regeneration compares it against memo headings to
+      // decide merge authority; stamping it here would silently flip
+      // snapshot-less memos to template authority.
       if (template.pinned) {
-        await saveTemplate({
-          ...template,
-          pinned: false,
-          pinOrder: 0,
-        });
+        await db
+          .update(templates)
+          .set({ pinned: false, pinOrder: 0 })
+          .where(eq(templates.id, templateId));
         return;
       }
 
@@ -298,14 +299,18 @@ export function useToggleTemplateFavorite() {
         .from(templates)
         .where(ne(templates.id, templateId));
 
-      await saveTemplate({
-        ...template,
-        pinned: true,
-        pinOrder: ((row?.maxOrder as number | null) ?? 0) + 1,
-      });
-    },
-    [saveTemplate],
-  );
+      await db
+        .update(templates)
+        .set({
+          pinned: true,
+          pinOrder: ((row?.maxOrder as number | null) ?? 0) + 1,
+        })
+        .where(eq(templates.id, templateId));
+    } catch (error) {
+      console.error("[useToggleTemplateFavorite]", error);
+      throw error;
+    }
+  }, []);
 }
 
 export function getTemplateCopyTitle(title: string) {

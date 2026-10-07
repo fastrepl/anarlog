@@ -8,6 +8,7 @@ import { executeProxy, subscribe } from "@anlg/plugin-db";
 import {
   getTemplateById,
   useCreateTemplate,
+  useToggleTemplateFavorite,
   useUserTemplate,
   useUserTemplates,
 } from "./queries";
@@ -196,6 +197,43 @@ describe("template queries", () => {
       sections: [{ title: "Notes", description: "Capture updates" }],
       updatedAt: "2026-04-14T00:00:00Z",
     });
+  });
+
+  it("keeps the template timestamp when toggling its favorite flag", async () => {
+    executeProxyMock
+      .mockResolvedValueOnce({
+        rows: [
+          [
+            "template-1",
+            "Standup",
+            "Daily sync",
+            0,
+            null,
+            null,
+            '{"type":"icon","value":"target","color":"#5b67d8"}',
+            '["engineering"]',
+            '[{"title":"Notes","description":"Capture updates"}]',
+            "2026-04-14T00:00:00Z",
+            "2026-04-14T00:00:00Z",
+          ],
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [[2]] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const { result } = renderHook(() => useToggleTemplateFavorite(), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current("template-1");
+    });
+
+    const updateCall = executeProxyMock.mock.calls.find(([sql]) =>
+      String(sql).toLowerCase().startsWith("update"),
+    );
+    expect(updateCall?.[0]).toContain('"pinned"');
+    expect(updateCall?.[0]).not.toContain("updated_at");
   });
 
   it("creates a template row through the SQLite proxy", async () => {
