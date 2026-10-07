@@ -5,6 +5,7 @@ import {
   renderHook,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,6 +29,11 @@ const hoisted = vi.hoisted(() => ({
   requestMainListenerControl: vi.fn(),
   deleteRecording: vi.fn(),
   activeTemplateTitle: "Customer Call",
+  activeTemplateIcon: null as {
+    type: string;
+    value: string;
+    color?: string;
+  } | null,
   audioExists: true,
   audioExistsResolved: true,
   hasTranscript: true,
@@ -314,7 +320,12 @@ vi.mock("~/templates", () => ({
   useCreateTemplate: () => vi.fn(),
   useOpenTemplatesTab: () => vi.fn(),
   useTemplateCreatorName: () => "You",
-  useUserTemplate: () => ({ data: { title: hoisted.activeTemplateTitle } }),
+  useUserTemplate: () => ({
+    data: {
+      title: hoisted.activeTemplateTitle,
+      icon: hoisted.activeTemplateIcon,
+    },
+  }),
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
@@ -374,6 +385,7 @@ describe("SessionViewSwitcher", () => {
     hoisted.requestMainListenerControl.mockReset();
     hoisted.deleteRecording.mockReset();
     hoisted.activeTemplateTitle = "Customer Call";
+    hoisted.activeTemplateIcon = null;
     hoisted.audioExists = true;
     hoisted.audioExistsResolved = true;
     hoisted.hasTranscript = true;
@@ -442,6 +454,20 @@ describe("SessionViewSwitcher", () => {
     fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
 
     expect(screen.getByPlaceholderText("Search templates...")).not.toBeNull();
+  });
+
+  it("shows the used template's icon in the active summary pill", () => {
+    hoisted.activeTemplateTitle = "Scrum";
+    hoisted.activeTemplateIcon = {
+      type: "icon",
+      value: "milestone",
+      color: "#16a34a",
+    };
+    renderSwitcher({ currentTab: { type: "enhanced", id: "note-1" } });
+
+    const pill = screen.getByRole("button", { name: "Scrum" });
+    const icon = within(pill).getByTestId("template-icon");
+    expect(icon.textContent).toBe("milestone");
   });
 
   it("hides the view switcher when the memo is the only view", () => {

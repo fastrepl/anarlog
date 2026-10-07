@@ -24,7 +24,11 @@ import {
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
-import { useUserTemplate } from "~/templates";
+import {
+  TemplateIconGlyph,
+  useUserTemplate,
+  type TemplateIcon,
+} from "~/templates";
 
 export function HeaderViewEnhanced({
   isActive,
@@ -69,6 +73,7 @@ function useEnhancedViewTitle(enhancedNoteId: string) {
   const templateId = enhancedNote?.templateId;
   const { data: template } = useUserTemplate(templateId);
   const templateTitle = template?.title?.trim() || null;
+  const templateIcon: TemplateIcon | null = template?.icon ?? null;
   const viewTitle = getEnhancedNoteTitle({
     rawTitle,
     templateTitle,
@@ -77,6 +82,7 @@ function useEnhancedViewTitle(enhancedNoteId: string) {
 
   return {
     viewTitle,
+    templateIcon,
     templateTooltip:
       templateId && templateTitle
         ? `${templateTitle} was used to generate this summary.`
@@ -98,7 +104,8 @@ function HeaderViewEnhancedInactive({
   enhancedNoteId: string;
   onClick?: () => void;
 }) {
-  const { viewTitle, templateTooltip } = useEnhancedViewTitle(enhancedNoteId);
+  const { viewTitle, templateIcon, templateTooltip } =
+    useEnhancedViewTitle(enhancedNoteId);
   const isGenerating = useEnhancedViewGenerating(enhancedNoteId);
 
   return (
@@ -113,6 +120,8 @@ function HeaderViewEnhancedInactive({
     >
       {isGenerating ? (
         <Spinner size={16} className="shrink-0" />
+      ) : templateIcon ? (
+        <TemplateIconGlyph icon={templateIcon} className="size-4 text-sm" />
       ) : (
         <Sparkle className="size-4" />
       )}
@@ -140,7 +149,8 @@ function HeaderViewEnhancedActive({
   const enhancedNote = useEnhancedNote(enhancedNoteId);
   const content = enhancedNote?.content;
   const usedTemplateId = enhancedNote?.templateId?.trim() || null;
-  const { viewTitle, templateTooltip } = useEnhancedViewTitle(enhancedNoteId);
+  const { viewTitle, templateIcon, templateTooltip } =
+    useEnhancedViewTitle(enhancedNoteId);
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
   const handleCopy = useCallback(() => {
@@ -260,6 +270,8 @@ function HeaderViewEnhancedActive({
     >
       {isGenerating ? (
         <Spinner size={16} className="shrink-0" />
+      ) : templateIcon ? (
+        <TemplateIconGlyph icon={templateIcon} className="size-4 text-sm" />
       ) : (
         <Sparkle className="size-4" />
       )}
