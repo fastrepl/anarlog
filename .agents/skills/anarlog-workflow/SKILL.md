@@ -9,6 +9,8 @@ Apply to Anarlog repository or Anarlog desktop, web, mobile, and API work. Apply
 
 Use Linear for work tracking and facts worth remembering. Keep implementation and verification details in commits, PRs, and CI.
 
+Write everything you log or edit in English, even when the conversation is in another language: Linear issues, comments, and documents; Slack updates; commits, PRs, and review replies; code comments and docs. Only replies to the user in the conversation follow the user's language.
+
 Do not read, create, edit, or comment in Notion for Anarlog work. Anarlog does not use Notion; keep its decisions and durable context in Linear.
 
 - Team: **Anarlog** (`ANLG`).
@@ -31,7 +33,6 @@ Before writing a comment or document, ask: will this help someone make a future 
 - Record a blocker or handoff only when someone needs to act, including the missing context and required next step.
 - Skip investigation-start announcements, step-by-step progress, change summaries, commit/push notices, test counts, formatting results, and routine verification caveats. These belong in the task response, PR, or CI, not another Linear comment.
 - Do not copy information already captured in an issue, document, or PR. Link to the source when it supports a new fact; include only the context needed to understand that fact.
-- Write everything you post to Linear (issues, comments, and documents) in English, even when the conversation is in another language.
 - Keep each note short: what we learned, why it matters, and what it changes next time. No required headings or per-turn documentation quota. If nothing worth remembering emerged, write nothing.
 - Link the issue in commits/PRs when one exists (`ANLG-123`).
 
