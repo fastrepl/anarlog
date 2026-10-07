@@ -5,7 +5,6 @@ import {
   renderHook,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -303,31 +302,32 @@ vi.mock("~/stt/window-control", () => ({
   requestMainListenerControl: hoisted.requestMainListenerControl,
 }));
 
-vi.mock("~/templates", () => ({
-  DEFAULT_TEMPLATE_ICON: {
-    type: "icon",
-    value: "notebook-tabs",
-    color: "#9ca3af",
-  },
-  TemplateIconGlyph: ({ icon }: { icon?: { type: string; value: string } }) => (
-    <span aria-hidden data-testid="template-icon">
-      {icon?.value}
-    </span>
-  ),
-  filterWebTemplatesAgainstUserTemplates: () => [],
-  getTemplateCreatorLabel: () => "You",
-  parseWebTemplates: () => [],
-  useCreateTemplate: () => vi.fn(),
-  useOpenTemplatesTab: () => vi.fn(),
-  useTemplateCreatorName: () => "You",
-  useUserTemplate: () => ({
-    data: {
-      title: hoisted.activeTemplateTitle,
-      icon: hoisted.activeTemplateIcon,
+vi.mock("~/templates", async () => {
+  const { TemplateIconGlyph } = await vi.importActual<
+    typeof import("~/templates/template-icon")
+  >("~/templates/template-icon");
+  return {
+    DEFAULT_TEMPLATE_ICON: {
+      type: "icon",
+      value: "notebook-tabs",
+      color: "#9ca3af",
     },
-  }),
-  useUserTemplates: () => hoisted.userTemplates,
-}));
+    TemplateIconGlyph,
+    filterWebTemplatesAgainstUserTemplates: () => [],
+    getTemplateCreatorLabel: () => "You",
+    parseWebTemplates: () => [],
+    useCreateTemplate: () => vi.fn(),
+    useOpenTemplatesTab: () => vi.fn(),
+    useTemplateCreatorName: () => "You",
+    useUserTemplate: () => ({
+      data: {
+        title: hoisted.activeTemplateTitle,
+        icon: hoisted.activeTemplateIcon,
+      },
+    }),
+    useUserTemplates: () => hoisted.userTemplates,
+  };
+});
 
 import { SessionViewSwitcher, useEditorTabs } from "./header";
 
@@ -466,8 +466,8 @@ describe("SessionViewSwitcher", () => {
     renderSwitcher({ currentTab: { type: "enhanced", id: "note-1" } });
 
     const pill = screen.getByRole("button", { name: "Scrum" });
-    const icon = within(pill).getByTestId("template-icon");
-    expect(icon.textContent).toBe("milestone");
+    const icon = pill.querySelector("svg");
+    expect(icon?.getAttribute("color")).toBe("#16a34a");
   });
 
   it("hides the view switcher when the memo is the only view", () => {
