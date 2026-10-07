@@ -281,6 +281,7 @@ function mergeWithAppliedSnapshot(
   headings: string[],
   snapshotTitles: string[],
   originalSections: TemplateSection[],
+  preferTemplate = false,
 ): TemplateSection[] {
   const snapshotSet = new Set(snapshotTitles);
   const templateByTitle = new Map(
@@ -297,6 +298,20 @@ function mergeWithAppliedSnapshot(
       headings.length === snapshotTitles.length &&
       headings.every((title, index) => title === snapshotTitles[index]);
     if (memoMatchesSnapshot) {
+      return originalSections.map((section) => ({
+        title: section.title,
+        description: section.description ?? "",
+      }));
+    }
+    // Both sides changed the snapshot titles or order: the later edit wins.
+    // A template that still matches the snapshot never reordered, so a
+    // memo-only reorder always keeps memo order.
+    const templateMatchesSnapshot =
+      originalSections.length === snapshotTitles.length &&
+      originalSections.every(
+        (section, index) => section.title.trim() === snapshotTitles[index],
+      );
+    if (preferTemplate && !templateMatchesSnapshot) {
       return originalSections.map((section) => ({
         title: section.title,
         description: section.description ?? "",
@@ -412,6 +427,7 @@ function getMemoTemplateSections(
       headings,
       appliedSnapshot.sections,
       originalSections,
+      preferTemplate,
     );
   }
 
@@ -457,13 +473,23 @@ function getMemoTemplateSections(
     }));
   }
 
-  // Diverged: the template gained, lost, or moved sections after the memo was
-  // written, or the memo added custom headings. Use the live template as the
-  // base so added sections survive regeneration, and keep memo-only headings
-  // so user additions are not lost. When the template is authoritative,
-  // memo-only headings that look like renames of unmatched live titles are
-  // stale residue and drop instead of duplicating the renamed section.
-  // Descriptions stay strings: the render validator rejects null.
+  if (!preferTemplate) {
+    // The memo headings changed after the template was last saved, so the
+    // divergence most likely comes from the memo edit. Honor user deletions
+    // by starting from memo headings, keeping live guidance for survivors.
+    return headings.map((title) => ({
+      title,
+      description: originalByTitle.get(title)?.description ?? "",
+    }));
+  }
+
+  // Diverged with an authoritative template: the template gained, lost, or
+  // moved sections after the memo was written, or the memo added custom
+  // headings. Use the live template as the base so added sections survive
+  // regeneration, and keep memo-only headings so user additions are not
+  // lost. Memo-only headings that look like renames of unmatched live
+  // titles are stale residue and drop instead of duplicating the renamed
+  // section. Descriptions stay strings: the render validator rejects null.
   const unmatchedTemplateTitles = unmatchedTemplate.map(
     (index) => originalSections[index]?.title.trim() ?? "",
   );
