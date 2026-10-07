@@ -353,34 +353,40 @@ describe("enhanceTransform.transformArgs", () => {
     expect(result.lengthPolicy).toEqual(lengthPolicy);
   });
 
-  it("uses the dominant spoken language of transcript text for summaries", async () => {
-    mocks.renderSessionTranscript.mockResolvedValue({
-      status: "ok",
-      data: {
-        segments: [
-          {
-            speaker_label: "Alice",
-            start_ms: 0,
-            end_ms: 10,
-            text: "Transcript segment in English",
-            words: [{ text: "Transcript", start_ms: 0, end_ms: 5 }],
-          },
-        ],
-      },
-    });
-    mocks.dominantLanguage.mockResolvedValue({ status: "ok", data: "ko" });
+  it.each([
+    { summaryUseMainLanguage: undefined, expected: "ko" },
+    { summaryUseMainLanguage: true, expected: "en" },
+  ])(
+    "uses $expected for summaries with Korean transcription enabled (main language override: $summaryUseMainLanguage)",
+    async ({ summaryUseMainLanguage, expected }) => {
+      mocks.renderSessionTranscript.mockResolvedValue({
+        status: "ok",
+        data: {
+          segments: [
+            {
+              speaker_label: "Alice",
+              start_ms: 0,
+              end_ms: 10,
+              text: "오늘 회의에 참석해 주셔서 감사합니다.",
+              words: [{ text: "오늘", start_ms: 0, end_ms: 5 }],
+            },
+          ],
+        },
+      });
+      mocks.dominantLanguage.mockResolvedValue({ status: "ok", data: "ko" });
 
-    const result = await enhanceTransform.transformArgs(
-      { sessionId: "session-1", enhancedNoteId: "note-1" },
-      { ...settingsValues, spoken_languages: '["ko"]' },
-    );
+      const result = await enhanceTransform.transformArgs(
+        { sessionId: "session-1", enhancedNoteId: "note-1" },
+        {
+          ...settingsValues,
+          spoken_languages: '["ko"]',
+          summary_use_main_language: summaryUseMainLanguage,
+        },
+      );
 
-    expect(mocks.dominantLanguage).toHaveBeenCalledWith({
-      texts: ["Transcript segment in English"],
-      candidates: ["en", "ko"],
-    });
-    expect(result.language).toBe("ko");
-  });
+      expect(result.language).toBe(expected);
+    },
+  );
 
   it("keeps the main language when no additional spoken languages are set", async () => {
     const result = await enhanceTransform.transformArgs(

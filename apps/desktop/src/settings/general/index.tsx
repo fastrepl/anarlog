@@ -30,6 +30,7 @@ import {
   useSetSettingValues,
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
+import { SettingSwitchRow } from "~/settings/setting-row";
 import { isAppStoreBuild } from "~/shared/app-store";
 import { resolveConfigValue, resolveConfigValues } from "~/shared/config";
 
@@ -48,6 +49,7 @@ const SETTINGS_FORM_KEYS = [
   "capture_shared_screens",
   "ai_language",
   "spoken_languages",
+  "summary_use_main_language",
   "current_stt_provider",
 ] as const;
 
@@ -72,6 +74,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
       capture_meeting_chat: settingsValue.capture_meeting_chat,
       capture_shared_screens: settingsValue.capture_shared_screens,
       ai_language: settingsValue.ai_language,
+      summary_use_main_language: settingsValue.summary_use_main_language,
       spoken_languages: getAdditionalSpokenLanguages(
         settingsValue.ai_language,
         settingsValue.spoken_languages,
@@ -113,6 +116,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         capture_meeting_chat: normalizedValue.capture_meeting_chat,
         capture_shared_screens: normalizedValue.capture_shared_screens,
         ai_language: normalizedValue.ai_language,
+        summary_use_main_language: normalizedValue.summary_use_main_language,
         spoken_languages: JSON.stringify(normalizedValue.spoken_languages),
       });
 
@@ -262,6 +266,21 @@ function SettingsSectionContent({
                       );
                     }}
                     supportedLanguages={CORE_TRANSCRIPTION_LANGUAGE_CODES}
+                  />
+                )}
+              </form.Field>
+              <form.Field name="summary_use_main_language">
+                {(field) => (
+                  <SettingSwitchRow
+                    title={<Trans>Use main language for summaries</Trans>}
+                    description={
+                      <Trans>
+                        When off, summaries follow the detected meeting
+                        language.
+                      </Trans>
+                    }
+                    checked={field.state.value}
+                    onChange={field.handleChange}
                   />
                 )}
               </form.Field>

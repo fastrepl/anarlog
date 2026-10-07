@@ -2075,6 +2075,10 @@ msgstr "Decline"
 msgid "Default"
 msgstr "Default"
 
+#: src/settings/general/main-language.tsx
+msgid "Default language for transcription and AI responses."
+msgstr "Default language for transcription and AI responses."
+
 #: src/settings/general/default-share-access.tsx
 msgid "Default sharing"
 msgstr "Default sharing"
@@ -6122,10 +6126,6 @@ msgstr "Today"
 msgid "Tomorrow"
 msgstr "Tomorrow"
 
-#: src/settings/general/spoken-languages.tsx
-msgid "Transcribe meetings that use more than one language."
-msgstr "Transcribe meetings that use more than one language."
-
 #: src/chat/components/input/index.tsx
 msgid "Transcribing voice input"
 msgstr "Transcribing voice input"
@@ -6428,6 +6428,10 @@ msgstr "Use an existing key"
 msgid "Use files"
 msgstr "Use files"
 
+#: src/settings/general/index.tsx
+msgid "Use main language for summaries"
+msgstr "Use main language for summaries"
+
 #: src/settings/sync/index.tsx
 msgid "Use recovery key instead"
 msgstr "Use recovery key instead"
@@ -6452,10 +6456,6 @@ msgstr "Use the other version"
 msgid "Use this domain for links shared from this workspace."
 msgstr "Use this domain for links shared from this workspace."
 
-#: src/settings/general/main-language.tsx
-msgid "Use this language for summaries and AI responses."
-msgstr "Use this language for summaries and AI responses."
-
 #: src/lock/screen.tsx
 msgid "Use Touch ID or enter your password to view."
 msgstr "Use Touch ID or enter your password to view."
@@ -6467,6 +6467,10 @@ msgstr "Use Windows Hello face, PIN, or password to view."
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
 msgstr "Use your microphone to capture your voice"
+
+#: src/settings/general/spoken-languages.tsx
+msgid "Used for transcription and automatic summary language detection."
+msgstr "Used for transcription and automatic summary language detection."
 
 #: src/settings/team/index.tsx
 msgid "Verify domain"
@@ -6578,6 +6582,10 @@ msgstr "What were the key decisions that have been made?"
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
 msgstr "What's new in {version}?"
+
+#: src/settings/general/index.tsx
+msgid "When off, summaries follow the detected meeting language."
+msgstr "When off, summaries follow the detected meeting language."
 
 #: src/billing/trial-payment-reminder-dialog.tsx
 msgid "When they start their free trial, yours gets one more month. Up to 3 friends."

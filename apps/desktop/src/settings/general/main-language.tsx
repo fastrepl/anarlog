@@ -49,7 +49,7 @@ export function MainLanguageView({
     <SettingRow
       title={<Trans>Main language</Trans>}
       description={
-        <Trans>Use this language for summaries and AI responses.</Trans>
+        <Trans>Default language for transcription and AI responses.</Trans>
       }
     >
       {(labelProps) => (

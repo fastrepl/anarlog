@@ -16,7 +16,10 @@ export async function resolveSummaryLanguage(
     mainLanguage,
     parseStringArray(settingsValues.spoken_languages ?? "[]"),
   );
-  if (additionalLanguages.length === 0) {
+  if (
+    settingsValues.summary_use_main_language === true ||
+    additionalLanguages.length === 0
+  ) {
     return mainLanguage;
   }
 
