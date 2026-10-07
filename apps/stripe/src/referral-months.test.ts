@@ -32,12 +32,14 @@ function subscription(interval = "month") {
 
 test("calendar extensions preserve paid time on monthly and annual plans, including leap-day boundaries", () => {
   for (const interval of ["month", "year"]) {
-    const plan = planReferralExtension(
-      subscription(interval),
-      ["price_pro"],
-      now,
-    );
-    expect(plan.targetEnd).toBe(epoch("2026-11-30T09:00:00Z"));
+    for (const type of ["classic", "flexible"] as const) {
+      const plan = planReferralExtension(
+        { ...subscription(interval), billing_mode: { type, flexible: null } },
+        ["price_pro"],
+        now,
+      );
+      expect(plan.targetEnd).toBe(epoch("2026-11-30T09:00:00Z"));
+    }
   }
   expect(addCalendarMonth(epoch("2028-01-31T09:00:00Z"))).toBe(
     epoch("2028-02-29T09:00:00Z"),
@@ -45,7 +47,11 @@ test("calendar extensions preserve paid time on monthly and annual plans, includ
 });
 
 test("a Stripe success followed by a database failure can be replayed without granting an extra month", async () => {
-  let live = subscription();
+  let live = {
+    ...subscription(),
+    billing_mode: { type: "flexible" },
+    discounts: ["di_lifetime_pro"],
+  } as Stripe.Subscription;
   const plan = planReferralExtension(live, ["price_pro"], now);
   const update = async (
     _id: string,
@@ -55,6 +61,7 @@ test("a Stripe success followed by a database failure can be replayed without gr
       ...live,
       status: "trialing",
       trial_end: params.trial_end as number,
+      billing_cycle_anchor: params.trial_end as number,
       metadata: params.metadata as Record<string, string>,
     };
     return live;
@@ -87,6 +94,11 @@ test("a Stripe success followed by a database failure can be replayed without gr
     });
   }
   expect(live.trial_end).toBe(epoch("2027-01-30T09:00:00Z"));
+  expect(live.billing_cycle_anchor).toBe(live.trial_end!);
+  expect(live.billing_mode.type).toBe("flexible");
+  expect(live.discounts).toEqual(["di_lifetime_pro"]);
+  expect(live.items.data[0].price.id).toBe("price_pro");
+  expect(live.metadata.referral_extension).toBe("true");
 });
 
 test("changed, team-sized, canceled, scheduled and unsupported subscriptions cannot be automatically extended", async () => {
@@ -94,7 +106,6 @@ test("changed, team-sized, canceled, scheduled and unsupported subscriptions can
     { cancel_at_period_end: true },
     { schedule: "sub_sched" },
     { status: "past_due" },
-    { billing_mode: { type: "flexible" } },
     { items: { data: [{ ...subscription().items.data[0], quantity: 5 }] } },
   ]) {
     expect(() =>
@@ -125,6 +136,7 @@ test("changed, team-sized, canceled, scheduled and unsupported subscriptions can
 test("cardless trial referrals extend the existing trial without turning it into a paid extension", async () => {
   const trial = {
     ...subscription(),
+    billing_mode: { type: "flexible" },
     status: "trialing",
     trial_end: epoch("2026-10-08T09:00:00Z"),
     trial_settings: { end_behavior: { missing_payment_method: "pause" } },
@@ -139,6 +151,7 @@ test("cardless trial referrals extend the existing trial without turning it into
     update: async (_id, params) => ({
       ...trial,
       trial_end: params.trial_end as number,
+      billing_cycle_anchor: params.trial_end as number,
       metadata: params.metadata as Record<string, string>,
     }),
   });
@@ -150,4 +163,27 @@ test("cardless trial referrals extend the existing trial without turning it into
   expect(() =>
     planReferralExtension({ ...trial, trial_end: now - 1 }, ["price_pro"], now),
   ).toThrow();
+});
+
+test("a trial extension without the intended renewal date is left for review", async () => {
+  const live = {
+    ...subscription("year"),
+    billing_mode: { type: "flexible" },
+    billing_cycle_anchor: epoch("2025-10-31T09:00:00Z"),
+  } as Stripe.Subscription;
+  const plan = planReferralExtension(live, ["price_pro"], now);
+  await expect(
+    applyPreparedReferralExtension({
+      subscription: live,
+      prices: ["price_pro"],
+      ...plan,
+      referralId: "anchor-not-moved",
+      now,
+      update: async (_id, params) => ({
+        ...live,
+        trial_end: params.trial_end as number,
+        metadata: params.metadata as Record<string, string>,
+      }),
+    }),
+  ).rejects.toThrow("extension_renewal_not_confirmed");
 });

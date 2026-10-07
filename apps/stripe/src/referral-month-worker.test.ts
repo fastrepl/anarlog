@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 
-test("a replayed trial webhook and failed reward persistence cannot extend a trial twice", async () => {
+test("reward retries reconcile provider success and leave cancellation review pending without polling it again", async () => {
   // Isolate provider module mocks from other billing tests.
   const child = Bun.spawn(
     [

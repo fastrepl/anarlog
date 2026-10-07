@@ -9,6 +9,7 @@ import { stripe } from "./integration/stripe";
 import {
   applyPreparedReferralExtension,
   planReferralExtension,
+  ReferralReviewError,
 } from "./referral-months";
 
 const pool = new pg.Pool({
@@ -108,21 +109,22 @@ async function processReward() {
       await client.query(
         `SELECT r.*, p.stripe_customer_id, i.referred_user_id
       FROM private.referral_month_rewards r JOIN private.referral_invites i ON i.id = r.referral_id
-      JOIN public.profiles p ON p.id = i.referrer_user_id WHERE r.referral_id = $1 AND r.applied_at IS NULL`,
+      JOIN public.profiles p ON p.id = i.referrer_user_id
+      WHERE r.referral_id = $1 AND r.applied_at IS NULL AND r.next_attempt_at <= now()`,
         [candidate.referral_id],
       )
     ).rows[0];
     if (!reward) return true;
     referralId = reward.referral_id;
     if (!reward.stripe_customer_id)
-      throw new Error("subscription_requires_review");
+      throw new ReferralReviewError("referrer_customer_missing");
     const customer = await stripe.customers.retrieve(reward.stripe_customer_id);
     if (
       customer.deleted ||
       getCustomerOwner(customer.metadata)?.id !== lockedUser ||
       getCustomerOwner(customer.metadata)?.kind !== "user"
     )
-      throw new Error("subscription_requires_review");
+      throw new ReferralReviewError("referrer_customer_requires_review");
     let subscription: Stripe.Subscription;
     if (reward.subscription_id) {
       subscription = await stripe.subscriptions.retrieve(
@@ -138,7 +140,7 @@ async function processReward() {
         (s) => s.status === "active" || s.status === "trialing",
       );
       if (subscriptions.has_more || eligible.length !== 1)
-        throw new Error("subscription_requires_review");
+        throw new ReferralReviewError("referrer_subscription_ambiguous");
       subscription = eligible[0];
       const plan = planReferralExtension(
         subscription,
@@ -159,7 +161,7 @@ async function processReward() {
         ? subscription.customer
         : subscription.customer.id;
     if (ownerCustomer !== reward.stripe_customer_id)
-      throw new Error("subscription_requires_review");
+      throw new ReferralReviewError("subscription_customer_mismatch");
     subscription = await applyPreparedReferralExtension({
       subscription,
       prices: config.price_ids,
@@ -193,35 +195,37 @@ async function processReward() {
     await client.query("COMMIT");
     return true;
   } catch (error) {
-    await client.query("ROLLBACK");
+    const requiresReview = error instanceof ReferralReviewError;
+    // Persist review decisions before releasing the referrer's lock.
+    if (!requiresReview) await client.query("ROLLBACK");
+    const reason = requiresReview ? error.reason : "provider_or_database_error";
     if (referralId) {
-      const reason =
-        error instanceof Error &&
-        [
-          "subscription_requires_review",
-          "subscription_changed_before_reward",
-          "extension_not_confirmed",
-        ].includes(error.message)
-          ? error.message
-          : "provider_or_database_error";
       await client.query(
         `UPDATE private.referral_month_rewards SET attempts=attempts+1,last_error=$2,
-        next_attempt_at=now()+make_interval(secs => LEAST(21600, 60 * power(2, LEAST(attempts,9))::integer)) WHERE referral_id=$1 AND applied_at IS NULL`,
-        [referralId, reason],
+        next_attempt_at=CASE WHEN $3 THEN 'infinity'::timestamptz ELSE
+          now()+make_interval(secs => LEAST(21600, 60 * power(2, LEAST(attempts,9))::integer)) END
+        WHERE referral_id=$1 AND applied_at IS NULL`,
+        [referralId, reason, requiresReview],
       );
       await client.query(
         `INSERT INTO private.referral_events(event_key,kind,referrer_user_id,referral_id,details)
-        VALUES ($1,'referral_reward_retry',$2,$3,$4) ON CONFLICT DO NOTHING`,
+        VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
         [
-          `retry:${referralId}:${Date.now()}`,
+          requiresReview
+            ? `review:${referralId}`
+            : `retry:${referralId}:${Date.now()}`,
+          requiresReview ? "referral_reward_review" : "referral_reward_retry",
           lockedUser,
           referralId,
           JSON.stringify({ reason }),
         ],
       );
     }
+    if (requiresReview) await client.query("COMMIT");
     captureOperationalError(error, {
       operation: "referral_month_reward",
+      level: requiresReview ? "warning" : "error",
+      tags: { reason, requires_review: requiresReview },
       context: { referral_id: referralId ?? null },
     });
     return false;

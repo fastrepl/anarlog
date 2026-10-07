@@ -72,6 +72,7 @@ let live = {
   id: "sub_ref",
   customer: "cus_ref",
   status: "trialing",
+  billing_mode: { type: "flexible" },
   trial_end: now + 3 * 86400,
   metadata: {},
   items: {
@@ -88,7 +89,7 @@ let live = {
   },
 } as Stripe.Subscription;
 const previousEnd = live.trial_end!;
-const failed = Promise.withResolvers<void>();
+let failed = Promise.withResolvers<void>();
 const applied = Promise.withResolvers<void>();
 let failPersistence = true;
 const errors: unknown[] = [];
@@ -149,6 +150,7 @@ mock.module("./integration/stripe", () => ({
         live = {
           ...live,
           trial_end: params.trial_end as number,
+          billing_cycle_anchor: params.trial_end as number,
           metadata: params.metadata as Stripe.Metadata,
         };
         return live;
@@ -252,5 +254,46 @@ assert.deepEqual(telemetry.slice(2).sort(), [
 ]);
 await flushReferralAnalytics();
 assert.equal(telemetry.length, 4);
+assert.equal(live.trial_end, target);
+
+const anotherFriend = "00000000-0000-0000-0000-000000000003";
+await db.query("INSERT INTO auth.users(id) VALUES ($1)", [anotherFriend]);
+await db.query(
+  `UPDATE private.referral_invites SET referred_user_id=$2,
+    claimed_at=now(),reward_policy='trial_month' WHERE referrer_user_id=$1 AND slot=2`,
+  [referrer, anotherFriend],
+);
+await db.query(
+  `INSERT INTO private.referral_trial_starts
+    (referred_user_id,subscription_id,stripe_event_id,started_at,ends_at)
+    VALUES ($1,'sub_another_friend','evt_another_friend',now(),now()+interval '30 days')`,
+  [anotherFriend],
+);
+live = { ...live, cancel_at_period_end: true };
+const errorsBeforeReview = errors.length;
+failed = Promise.withResolvers<void>();
+stop = startReferralMonthWorker();
+await failed.promise;
+await stop();
+const review = (
+  await db.query<{ attempts: number; last_error: string; due: boolean }>(
+    `SELECT attempts,last_error,next_attempt_at <= now() AS due
+      FROM private.referral_month_rewards WHERE applied_at IS NULL`,
+  )
+).rows[0];
+assert.equal(review.last_error, "subscription_cancellation_pending");
+assert.equal(review.attempts, 1);
+assert.equal(review.due, false);
+stop = startReferralMonthWorker();
+await stop();
+assert.equal(errors.length, errorsBeforeReview + 1);
+assert.equal(
+  (
+    await db.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM private.referral_events WHERE kind='referral_reward_review'",
+    )
+  ).rows[0].n,
+  1,
+);
 assert.equal(live.trial_end, target);
 await db.close();
