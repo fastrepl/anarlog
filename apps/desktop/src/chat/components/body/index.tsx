@@ -21,6 +21,7 @@ export function ChatBody({
   onReload,
   isModelConfigured = true,
   hasContext = false,
+  hasSummary = false,
   onSendMessage,
 }: {
   messages: AnlgUIMessage[];
@@ -29,6 +30,7 @@ export function ChatBody({
   onReload?: () => void;
   isModelConfigured?: boolean;
   hasContext?: boolean;
+  hasSummary?: boolean;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
@@ -83,6 +85,7 @@ export function ChatBody({
             <ChatBodyEmpty
               isModelConfigured={isModelConfigured}
               hasContext={hasContext}
+              hasSummary={hasSummary}
               onSendMessage={onSendMessage}
             />
           ) : (
