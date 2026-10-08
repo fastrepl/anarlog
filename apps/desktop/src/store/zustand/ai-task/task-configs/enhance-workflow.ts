@@ -13,7 +13,10 @@ import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
 import { appendPreferredNamesGuidance } from "./preferred-names";
 
-import { formatSummaryLengthGuidance } from "~/services/enhancer/summary-length";
+import {
+  formatSummaryDetailGuidance,
+  formatSummaryLengthGuidance,
+} from "~/services/enhancer/summary-length";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 import { assertCanonicalTemplateSections } from "~/templates/codec";
@@ -80,7 +83,18 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["enhance"]) {
     throw new Error(result.error);
   }
 
-  return appendPreferredNamesGuidance(result.data, args.dictionaryTerms);
+  const detailGuidance = formatSummaryDetailGuidance(
+    Boolean(args.template?.sections.length),
+  );
+
+  return appendPreferredNamesGuidance(
+    `${result.data}
+
+# Summary Mode
+
+${detailGuidance}`,
+    args.dictionaryTerms,
+  );
 }
 
 async function getUserPrompt(args: TaskArgsMapTransformed["enhance"]) {

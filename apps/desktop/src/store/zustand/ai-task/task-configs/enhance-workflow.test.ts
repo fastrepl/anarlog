@@ -74,6 +74,7 @@ it("passes custom formatting to the renderer without adding layout rules", async
     enhanceSystem: { language: "en", formatOverride },
   });
   expect(request.system).toContain("Rendered system prompt");
+  expect(request.system).toContain("Capture every material topic");
   expect(request.system).not.toMatch(
     /never put prose|bullets per section|# Next Steps/,
   );

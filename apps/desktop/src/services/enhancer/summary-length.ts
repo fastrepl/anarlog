@@ -20,6 +20,19 @@ export function countTranscriptWordCharacters(
   );
 }
 
+export function formatSummaryDetailGuidance(
+  hasTemplateSections: boolean,
+): string {
+  return [
+    "Summary mode: detailed. Capture every material topic, decision, rationale, example, open question, and commitment.",
+    "Explain material points with concrete details and enough context to stand on their own.",
+    "Retain useful secondary discussion and examples, but remove repetition and conversational filler.",
+    hasTemplateSections
+      ? "Preserve every requested template section and do not add sections based on this mode."
+      : "Follow the requested format and include only explicitly stated or unambiguous owners, commitments, and deadlines; do not turn proposals into commitments.",
+  ].join(" ");
+}
+
 export function formatSummaryLengthGuidance(
   policy: SummaryLengthPolicy | null,
   options: { customFormat?: boolean; hasTemplateSections?: boolean } = {},
