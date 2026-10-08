@@ -44,6 +44,22 @@ function GoogleAnalyticsScript() {
       return;
     }
 
+    const analyticsWindow = window as AnalyticsWindow;
+    analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
+    analyticsWindow.gtag =
+      analyticsWindow.gtag ??
+      function gtag() {
+        analyticsWindow.dataLayer?.push(arguments);
+      };
+    const gtag = analyticsWindow.gtag;
+    gtag("js", new Date());
+    gtag("config", GOOGLE_ANALYTICS_ID, {
+      send_page_view: false,
+    });
+    gtag("config", GOOGLE_ADS_ID, {
+      send_page_view: false,
+    });
+
     const cancelIdle = runWhenIdle(() => {
       setGoogleAnalyticsDisabled(false);
 
@@ -51,21 +67,7 @@ function GoogleAnalyticsScript() {
         return;
       }
 
-      const analyticsWindow = window as AnalyticsWindow;
-      analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
-      analyticsWindow.gtag =
-        analyticsWindow.gtag ??
-        function gtag() {
-          analyticsWindow.dataLayer?.push(arguments);
-        };
-      analyticsWindow.gtag("js", new Date());
-      analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID, {
-        send_page_view: false,
-      });
-      analyticsWindow.gtag("config", GOOGLE_ADS_ID, {
-        send_page_view: false,
-      });
-      analyticsWindow.gtag("event", "page_view", {
+      gtag("event", "page_view", {
         page_location: `${window.location.origin}${window.location.pathname}`,
         page_path: window.location.pathname,
       });

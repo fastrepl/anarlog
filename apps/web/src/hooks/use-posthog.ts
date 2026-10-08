@@ -5,6 +5,8 @@ import {
   sanitizeAnalyticsEventName,
   sanitizeAnalyticsProperties,
 } from "@/lib/analytics-sanitization";
+import { isTelemetryPrivateLocation } from "@/lib/auth-route-privacy";
+import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
 import {
   usePostHogClient,
   usePostHogOperation,
@@ -22,6 +24,24 @@ export function useAnalytics() {
 
   const track = useCallback(
     (eventName: string, properties?: Record<string, any>) => {
+      if (eventName === "download_clicked" && typeof window !== "undefined") {
+        const analyticsWindow = window as Window & {
+          gtag?: (...args: unknown[]) => void;
+        };
+        if (
+          !import.meta.env.DEV &&
+          !hasGlobalPrivacyControl() &&
+          !window.location.pathname.startsWith("/admin") &&
+          !isTelemetryPrivateLocation(
+            window.location.pathname,
+            window.location.search,
+          )
+        ) {
+          analyticsWindow.gtag?.("event", "conversion", {
+            send_to: "AW-18481972229/i7OTCMKHiJUdEIWI8uxE",
+          });
+        }
+      }
       runOrQueue((client) => {
         client.capture(sanitizeAnalyticsEventName(eventName), {
           ...sanitizeAnalyticsProperties(properties ?? {}),
