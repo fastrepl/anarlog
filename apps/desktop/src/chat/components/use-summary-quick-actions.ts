@@ -1,6 +1,5 @@
 import { hasSummaryContent } from "@anlg/utils/session";
 
-import { resolveSummaryTargetId } from "~/chat/tools/current-session";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { useEnhancedNoteRecords, useSession } from "~/session/queries";
 
@@ -16,12 +15,15 @@ export function useHasEditableSummary(
   );
 }
 
+// Only offered while a summary tab is open, so the rewrite targets what the
+// user is looking at.
 export function canEditSummary(
-  notes: ReadonlyArray<{ id: string; templateId: string; content: string }>,
+  notes: ReadonlyArray<{ id: string; content: string }>,
   activeEnhancedNoteId: string | undefined,
   sessionTitle: string | undefined,
 ): boolean {
-  const targetId = resolveSummaryTargetId(notes, activeEnhancedNoteId);
-  const target = notes.find((note) => note.id === targetId);
+  const target = activeEnhancedNoteId
+    ? notes.find((note) => note.id === activeEnhancedNoteId)
+    : undefined;
   return target ? hasSummaryContent(target.content, sessionTitle) : false;
 }

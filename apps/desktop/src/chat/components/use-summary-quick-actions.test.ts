@@ -14,30 +14,22 @@ const titleHeading = (text: string) => ({
 });
 
 describe("canEditSummary", () => {
-  it("enables rewrites when the summary chat would edit has content", () => {
-    const notes = [
-      { id: "summary", templateId: "", content: doc(paragraph("Decisions")) },
-    ];
-    expect(canEditSummary(notes, undefined, "Standup")).toBe(true);
+  const notes = [
+    { id: "summary", content: doc(paragraph("Decisions")) },
+    { id: "template", content: doc({ type: "paragraph" }) },
+    { id: "title-only", content: doc(titleHeading("Standup")) },
+  ];
+
+  it("offers rewrites only while a summary with content is open", () => {
     expect(canEditSummary(notes, "summary", "Standup")).toBe(true);
+    expect(canEditSummary(notes, undefined, "Standup")).toBe(false);
   });
 
   it("follows the open summary even when another summary has content", () => {
-    const notes = [
-      { id: "summary", templateId: "", content: doc(paragraph("Decisions")) },
-      {
-        id: "template",
-        templateId: "tpl",
-        content: doc({ type: "paragraph" }),
-      },
-    ];
     expect(canEditSummary(notes, "template", "Standup")).toBe(false);
   });
 
   it("treats a summary holding only the session title as empty", () => {
-    const notes = [
-      { id: "summary", templateId: "", content: doc(titleHeading("Standup")) },
-    ];
-    expect(canEditSummary(notes, undefined, "Standup")).toBe(false);
+    expect(canEditSummary(notes, "title-only", "Standup")).toBe(false);
   });
 });
