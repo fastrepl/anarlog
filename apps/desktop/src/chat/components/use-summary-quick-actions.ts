@@ -48,8 +48,9 @@ export function canEditSummary(
     return false;
   }
   // Without an explicit view, `edit_summary` falls back to the first
-  // non-template summary, so only offer rewrites when that is what is shown.
-  if (noteView === null && target.templateId) {
+  // non-template summary (or the only summary), so only offer rewrites when
+  // that is what is shown.
+  if (noteView === null && target.templateId && notes.length > 1) {
     return false;
   }
   return hasSummaryContent(target.content, sessionTitle);
