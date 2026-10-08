@@ -4,6 +4,10 @@ import { useMemo } from "react";
 import { sharedNoteEventKey } from "./event-key";
 
 import { useAuth } from "~/auth";
+import {
+  SESSION_EVENT_MATCH,
+  SESSION_EVENT_ORDER,
+} from "~/calendar/session-event-match";
 import { executeTransaction, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { useDurableSharedNotes } from "~/shared-notes/cache";
@@ -11,6 +15,17 @@ import { useDurableSharedNotes } from "~/shared-notes/cache";
 const SETTING_ID = "shared_note_event_keys";
 const EMPTY_KEYS: ReadonlyMap<string, string> = new Map();
 const EMPTY_IDS: string[] = [];
+const MATCHED_EVENT_SELECT = `
+  SELECT matched.tracking_id_event, matched.started_at
+  FROM sessions AS session
+  JOIN events AS matched ON matched.id = (
+    SELECT event.id
+    FROM events AS event
+    WHERE ${SESSION_EVENT_MATCH}
+    ORDER BY ${SESSION_EVENT_ORDER}
+    LIMIT 1
+  )
+`;
 const EMPTY_LOCAL_KEYS: ReadonlySet<string> = new Set();
 
 type AppSettingSqlRow = { value_json: string | null };
@@ -132,10 +147,7 @@ export function useSessionSharedNoteIds(sessionId: string): string[] {
   const notes = useDurableSharedNotes(viewerUserId);
   const { data: sessionEventKey = "" } = useLiveQuery<EventSqlRow, string>({
     sql: `
-      SELECT calendar_event.tracking_id_event, calendar_event.started_at
-      FROM sessions AS session
-      JOIN events AS calendar_event
-        ON calendar_event.id = NULLIF(session.event_id, '')
+      ${MATCHED_EVENT_SELECT}
       WHERE session.id = ?
     `,
     params: [sessionId],
@@ -154,12 +166,8 @@ export function useLocalSessionEventKeys(): ReadonlySet<string> {
     ReadonlySet<string>
   >({
     sql: `
-      SELECT calendar_event.tracking_id_event, calendar_event.started_at
-      FROM sessions AS session
-      JOIN events AS calendar_event
-        ON calendar_event.id = NULLIF(session.event_id, '')
+      ${MATCHED_EVENT_SELECT}
       WHERE session.deleted_at IS NULL
-        AND calendar_event.tracking_id_event <> ''
     `,
     params: [],
     mapRows: (rows) =>
