@@ -12,6 +12,7 @@ common_derives! {
     pub struct Segment {
         pub text: String,
         pub speaker: String,
+        pub start_ms: Option<i64>,
     }
 }
 
@@ -72,12 +73,12 @@ mod tests {
         TestTranscripts {
             transcripts: vec![
                 Transcript {
-                    segments: vec![Segment { speaker: "Alice".to_string(), text: "First meeting".to_string() }],
+                    segments: vec![Segment { speaker: "Alice".to_string(), text: "First meeting".to_string(), start_ms: None }],
                     started_at: None,
                     ended_at: None,
                 },
                 Transcript {
-                    segments: vec![Segment { speaker: "Bob".to_string(), text: "Second meeting".to_string() }],
+                    segments: vec![Segment { speaker: "Bob".to_string(), text: "Second meeting".to_string(), start_ms: None }],
                     started_at: None,
                     ended_at: None,
                 },

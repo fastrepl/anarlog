@@ -18,12 +18,16 @@ describe("ChatBodyEmpty", () => {
     cleanup();
   });
 
-  it("offers quick actions inside and outside notes with different context", () => {
+  it("offers different quick actions for notes, live meetings, and no context", () => {
     const prompts: string[] = [];
-    for (const hasContext of [true, false]) {
+    for (const props of [
+      { hasContext: true },
+      { hasContext: true, isLiveMeeting: true },
+      { hasContext: false },
+    ]) {
       const onSendMessage = vi.fn();
       const view = render(
-        <ChatBodyEmpty hasContext={hasContext} onSendMessage={onSendMessage} />,
+        <ChatBodyEmpty {...props} onSendMessage={onSendMessage} />,
       );
       fireEvent.click(screen.getAllByRole("button")[0]);
       const [prompt, parts] = onSendMessage.mock.calls[0];
@@ -32,6 +36,6 @@ describe("ChatBodyEmpty", () => {
       prompts.push(prompt);
       view.unmount();
     }
-    expect(prompts[0]).not.toEqual(prompts[1]);
+    expect(new Set(prompts).size).toBe(prompts.length);
   });
 });

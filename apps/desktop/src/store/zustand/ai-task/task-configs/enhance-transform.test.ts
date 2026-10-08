@@ -506,8 +506,8 @@ describe("enhanceTransform.transformArgs", () => {
     expect(result.transcripts).toEqual([
       {
         segments: [
-          { speaker: "Later speaker", text: "later words" },
-          { speaker: "Earlier speaker", text: "earlier words" },
+          { speaker: "Later speaker", text: "later words", startMs: 200 },
+          { speaker: "Earlier speaker", text: "earlier words", startMs: 100 },
         ],
         startedAt: 100,
         endedAt: 200,

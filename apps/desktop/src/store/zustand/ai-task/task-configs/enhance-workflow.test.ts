@@ -48,7 +48,7 @@ it.each(["crisp", "balanced", "detailed"] as const)(
         {
           startedAt: null,
           endedAt: null,
-          segments: [{ speaker: "John", text: "a".repeat(636) }],
+          segments: [{ speaker: "John", text: "a".repeat(636), startMs: null }],
         },
       ],
       imageContext: [],
@@ -108,7 +108,9 @@ it("adds length guidance to prompts rendered from a template with sections", asy
       {
         startedAt: null,
         endedAt: null,
-        segments: [{ speaker: "John", text: "a".repeat(10_000) }],
+        segments: [
+          { speaker: "John", text: "a".repeat(10_000), startMs: null },
+        ],
       },
     ],
     imageContext: [],

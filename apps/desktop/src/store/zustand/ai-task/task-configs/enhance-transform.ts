@@ -214,6 +214,7 @@ function formatTranscripts(
           (segment): Segment => ({
             speaker: segment.speaker_label,
             text: segment.text,
+            startMs: segment.start_ms,
           }),
         ),
         startedAt: Number.isFinite(startedAt) ? startedAt : null,

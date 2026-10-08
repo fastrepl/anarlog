@@ -271,6 +271,7 @@ End with next steps."#
                 segments: vec![Segment {
                     text: "Hello".to_string(),
                     speaker: "John Doe".to_string(),
+                    start_ms: None,
                 }],
                 started_at: Some(1719859200),
                 ended_at: Some(1719862800),
@@ -324,6 +325,7 @@ End with next steps."#
                 segments: vec![Segment {
                     text: "Shipped the feature".to_string(),
                     speaker: "Alice".to_string(),
+                    start_ms: None,
                 }],
                 started_at: None,
                 ended_at: None,

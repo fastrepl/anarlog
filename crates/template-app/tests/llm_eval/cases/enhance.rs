@@ -56,11 +56,13 @@ pub fn structured_summary(samples: usize) -> Result<EvalCase, Failed> {
                             Segment {
                                 speaker: "Alice".to_string(),
                                 text: "Shipped the feature and started rollout.".to_string(),
+                                start_ms: None,
                             },
                             Segment {
                                 speaker: "Bob".to_string(),
                                 text: "Need to check CI before release and follow up on the PR review."
                                     .to_string(),
+                                start_ms: None,
                             },
                         ],
                         started_at: None,

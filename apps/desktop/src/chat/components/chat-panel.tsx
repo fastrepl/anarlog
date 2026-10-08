@@ -87,6 +87,13 @@ export function ChatPanelFrame({
   const { panelClassName, toolbarSurface } = useChatAppearance();
   const isFloating = layout === "floating";
   const model = useLanguageModel("chat");
+  const { currentSessionId } = useSessionTab();
+  const isLiveMeeting = useListener(
+    (state) =>
+      chat.scope !== "automations" &&
+      !!currentSessionId &&
+      state.getSessionMode(currentSessionId) === "active",
+  );
 
   const handleGroupCreated = useCallback(
     (newGroupId: string) => {
@@ -153,6 +160,7 @@ export function ChatPanelFrame({
             onReload={sessionProps.regenerate}
             isModelConfigured={!!model}
             hasContext={sessionProps.contextEntities.length > 0}
+            isLiveMeeting={isLiveMeeting}
             onSendMessage={(content, parts) => {
               handleSendMessage(
                 content,

@@ -870,6 +870,10 @@ msgstr "Base URL"
 msgid "Based on captured conversations, including imported transcripts. Each conversation is counted once, on its first capture day in the selected period, using your calendar timezone. Deleted conversations are excluded."
 msgstr "Based on captured conversations, including imported transcripts. Each conversation is counted once, on its first capture day in the selected period, using your calendar timezone. Deleted conversations are excluded."
 
+#: src/chat/components/body/empty.tsx
+msgid "Based on the conversation so far, suggest a few questions I could ask next."
+msgstr "Based on the conversation so far, suggest a few questions I could ask next."
+
 #: src/settings/ai/stt/select.tsx
 msgid "Best for this Mac"
 msgstr "Best for this Mac"
@@ -3292,6 +3296,10 @@ msgid "LinkedIn"
 msgstr "LinkedIn"
 
 #: src/chat/components/body/empty.tsx
+msgid "List action items so far."
+msgstr "List action items so far."
+
+#: src/chat/components/body/empty.tsx
 msgid "List action items."
 msgstr "List action items."
 
@@ -4514,6 +4522,14 @@ msgstr "Reasoning effort"
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Reasoning models think through the transcript before writing."
 msgstr "Reasoning models think through the transcript before writing."
+
+#: src/chat/components/body/empty.tsx
+msgid "Recap the last 5 minutes."
+msgstr "Recap the last 5 minutes."
+
+#: src/chat/components/body/empty.tsx
+msgid "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
+msgstr "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
 
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "received"
@@ -5795,6 +5811,10 @@ msgstr "Success"
 msgid "Suggest a Feature"
 msgstr "Suggest a Feature"
 
+#: src/chat/components/body/empty.tsx
+msgid "Suggest what to ask next."
+msgstr "Suggest what to ask next."
+
 #: src/session-sharing/invite-recipients.tsx
 msgid "Suggested attendees"
 msgstr "Suggested attendees"
@@ -6554,6 +6574,10 @@ msgstr "Weekly streak: {0}"
 #: src/onboarding/index.tsx
 msgid "Welcome to Anarlog"
 msgstr "Welcome to Anarlog"
+
+#: src/chat/components/body/empty.tsx
+msgid "What action items have come up so far in this meeting?"
+msgstr "What action items have come up so far in this meeting?"
 
 #: src/chat/components/body/empty.tsx
 msgid "What are my action items from this meeting?"

@@ -42,6 +42,7 @@ async function buildTranscript(
     segments: result.data.segments.map((segment) => ({
       speaker: segment.speaker_label,
       text: segment.text,
+      startMs: segment.start_ms,
     })),
     startedAt: result.data.started_at,
     endedAt: result.data.ended_at,

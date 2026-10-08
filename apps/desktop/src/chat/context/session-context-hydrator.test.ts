@@ -28,7 +28,13 @@ describe("session chat context hydration", () => {
     mocks.renderSessionTranscript.mockResolvedValue({
       status: "ok",
       data: {
-        segments: [{ speaker_label: "SQLite Person", text: "Transcript text" }],
+        segments: [
+          {
+            speaker_label: "SQLite Person",
+            text: "Transcript text",
+            start_ms: 4_000,
+          },
+        ],
         started_at: 100,
         ended_at: 200,
       },
@@ -98,7 +104,13 @@ describe("session chat context hydration", () => {
         meetingChat:
           "- Slack · 10:42 AM · Ada · received\n  Review the rollout plan",
         transcript: {
-          segments: [{ speaker: "SQLite Person", text: "Transcript text" }],
+          segments: [
+            {
+              speaker: "SQLite Person",
+              text: "Transcript text",
+              startMs: 4_000,
+            },
+          ],
           startedAt: 100,
           endedAt: 200,
         },
