@@ -16,7 +16,7 @@ export function activateMobileBackgroundSync(): {
   if (!native) return { refresh: () => {}, stop: () => {} };
 
   let stopped = false;
-  let lastReported: number | undefined;
+  let lastReported = "";
 
   const report = (action: string, work: Promise<void>) => {
     work.catch((error: unknown) =>
@@ -33,10 +33,13 @@ export function activateMobileBackgroundSync(): {
       "refresh",
       countDueMobileAttachmentUploads().then(async (uploads) => {
         if (stopped) return;
-        const remaining = backgroundSyncWork(getMobileSyncSnapshot(), uploads);
-        if (remaining === lastReported) return;
-        lastReported = remaining;
-        await native.setPendingWork(remaining);
+        const snapshot = getMobileSyncSnapshot();
+        const remaining = backgroundSyncWork(snapshot, uploads);
+        const synced = remaining === 0 && snapshot.hasUnsentChanges === false;
+        const key = `${remaining}:${synced}`;
+        if (key === lastReported) return;
+        lastReported = key;
+        await native.setPendingWork(remaining, synced);
       }),
     );
   };

@@ -16,8 +16,11 @@ public class AnarlogBackgroundSyncModule: Module {
       BackgroundSyncService.shared.setEnabled(enabled)
     }.runOnQueue(.main)
 
-    AsyncFunction("setPendingWork") { (remaining: Int) in
-      BackgroundSyncService.shared.setPendingWork(remaining: remaining)
+    AsyncFunction("setPendingWork") { (remaining: Int, synced: Bool) in
+      BackgroundSyncService.shared.setPendingWork(
+        remaining: remaining,
+        synced: synced
+      )
     }.runOnQueue(.main)
 
     AsyncFunction("finishBackgroundFlush") {
@@ -78,11 +81,10 @@ private final class BackgroundSyncService {
     endBackgroundTime()
   }
 
-  func setPendingWork(remaining: Int) {
+  func setPendingWork(remaining: Int, synced: Bool) {
     self.remaining = max(0, remaining)
-    guard self.remaining == 0 else { return }
-    clearSyncFailure()
-    if !flushPending { endBackgroundTime() }
+    if synced { clearSyncFailure() }
+    if self.remaining == 0, !flushPending { endBackgroundTime() }
   }
 
   func finishBackgroundFlush() {
