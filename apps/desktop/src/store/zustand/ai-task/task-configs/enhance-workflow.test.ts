@@ -4,6 +4,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { TaskArgsMapTransformed } from ".";
 import { enhanceWorkflow } from "./enhance-workflow";
 
+import { formatSummaryDetailGuidance } from "~/services/enhancer/summary-length";
+
 const mocks = vi.hoisted(() => ({ render: vi.fn(), streamText: vi.fn() }));
 vi.mock("@anlg/plugin-template", () => ({
   commands: { render: mocks.render },
@@ -74,7 +76,7 @@ it("passes custom formatting to the renderer without adding layout rules", async
     enhanceSystem: { language: "en", formatOverride },
   });
   expect(request.system).toContain("Rendered system prompt");
-  expect(request.system).toContain("Capture every material topic");
+  expect(request.system).toContain(formatSummaryDetailGuidance(false));
   expect(request.system).not.toMatch(
     /never put prose|bullets per section|# Next Steps/,
   );
