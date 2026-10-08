@@ -44,29 +44,28 @@ export function activateMobileBackgroundSync(): {
     await native.notifySyncFailed();
   };
 
-  const refresh = () => {
+  const update = async () => {
+    const [uploads, failedUploads] = await Promise.all([
+      countDueMobileAttachmentUploads(),
+      countFailedMobileAttachmentUploads(),
+    ]);
     if (stopped) return;
-    report(
-      "refresh",
-      Promise.all([
-        countDueMobileAttachmentUploads(),
-        countFailedMobileAttachmentUploads(),
-      ]).then(async ([uploads, failedUploads]) => {
-        if (stopped) return;
-        const snapshot = getMobileSyncSnapshot();
-        const remaining = backgroundSyncWork(snapshot, uploads);
-        const synced =
-          remaining === 0 &&
-          snapshot.hasUnsentChanges === false &&
-          failedUploads === 0;
-        const key = `${remaining}:${synced}`;
-        if (key !== lastReported) {
-          lastReported = key;
-          await native.setPendingWork(remaining, synced);
-        }
-        await notifyIfFailed();
-      }),
-    );
+    const snapshot = getMobileSyncSnapshot();
+    const remaining = backgroundSyncWork(snapshot, uploads);
+    const synced =
+      remaining === 0 &&
+      snapshot.hasUnsentChanges === false &&
+      failedUploads === 0;
+    await notifyIfFailed();
+    const key = `${remaining}:${synced}`;
+    if (key !== lastReported) {
+      lastReported = key;
+      await native.setPendingWork(remaining, synced);
+    }
+  };
+
+  const refresh = () => {
+    if (!stopped) report("refresh", update());
   };
 
   const flush = async () => {
@@ -78,8 +77,15 @@ export function activateMobileBackgroundSync(): {
       await syncMobileNow();
     } finally {
       flushing = false;
-      refresh();
-      if (!stopped) await native.finishBackgroundFlush();
+      if (!stopped) {
+        await update().catch((error: unknown) =>
+          captureOperationalError(error, {
+            operation: "background_sync_refresh",
+            level: "warning",
+          }),
+        );
+        await native.finishBackgroundFlush();
+      }
     }
   };
 
