@@ -217,6 +217,25 @@ test("failed verification never creates a provider or exposes it in selection", 
   assert.equal((await readProviderConfig(null, "stt")).provider, "anarlog");
 });
 
+test("mobile provider verification receives the provider kind", async () => {
+  const credentials = [];
+  fixture.verify = async (credential) => credentials.push(credential);
+  await saveProviderConnection(
+    "account-a",
+    "stt",
+    { provider: "custom", baseUrl: "https://custom.test/v1" },
+    "synthetic-key",
+  );
+  await readProviderStatus("account-a", "stt", "custom");
+  assert.deepEqual(
+    credentials.map(({ type, provider }) => ({ type, provider })),
+    [
+      { type: "stt", provider: "custom" },
+      { type: "stt", provider: "custom" },
+    ],
+  );
+});
+
 test("provider availability follows saved device keys for transcription and summaries", async () => {
   for (const kind of ["stt", "llm"]) {
     for (const { id } of providersFor(kind)) {

@@ -91,7 +91,10 @@ export async function readProviderStatus(
     validateProviderApiKey(apiKey ?? "");
     hasKey = true;
     validateProviderConnection(kind, config);
-    await verifyProviderCredentials({ ...config, apiKey: apiKey! }, fetch);
+    await verifyProviderCredentials(
+      { type: kind, ...config, apiKey: apiKey! },
+      fetch,
+    );
     isConfigured = true;
   } catch (error) {
     if (hasKey)
@@ -154,7 +157,10 @@ async function persistProviderConfig(
         (await readProviderKey(accountId, kind, normalized.provider)) ||
         "",
     );
-    await verifyProviderCredentials({ ...normalized, apiKey: key }, fetch);
+    await verifyProviderCredentials(
+      { type: kind, ...normalized, apiKey: key },
+      fetch,
+    );
     if (apiKey?.trim())
       await SecureStore.setItemAsync(
         providerStorageKey(accountId, kind, normalized.provider),
