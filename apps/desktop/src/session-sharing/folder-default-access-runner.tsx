@@ -3,6 +3,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   createOrReuseSessionShare,
   publishSessionShareSnapshot,
+  shareSnapshotConflict,
 } from "./client";
 import type { ShareManagementContext } from "./client-contract";
 import { applyDefaultMeetingShareAccess } from "./default-access";
@@ -241,6 +242,10 @@ async function shareWithFolderDefaultAccess({
     meetingAt: source.meetingAt,
     attachmentIds: [],
     signal,
+  }).catch((error: unknown) => {
+    const existing = share.wasCreated ? null : shareSnapshotConflict(error);
+    if (!existing) throw error;
+    return existing;
   });
   await recordPublishedSessionShareState({
     viewerUserId: ownerUserId,
