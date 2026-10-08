@@ -162,7 +162,6 @@ async function runSummary(
     provider: provider.provider,
     model: provider.model,
     language: preferences.ai_language,
-    summary_length: preferences.summary_length,
   });
   const [changed] = await executeTransaction([
     target
