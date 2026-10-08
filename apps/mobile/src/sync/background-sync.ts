@@ -34,20 +34,12 @@ export function activateMobileBackgroundSync(): {
     );
   };
 
-  const notifyIfFailed = async () => {
-    const since = backgroundSince;
-    if (since === null || flushing || notified) return;
-    const failedUploads = await countFailedMobileAttachmentUploads(since);
-    if (stopped || backgroundSince !== since || notified) return;
-    if (!backgroundSyncFailed(getMobileSyncSnapshot(), failedUploads)) return;
-    notified = true;
-    await native.notifySyncFailed();
-  };
-
   const update = async () => {
-    const [uploads, failedUploads] = await Promise.all([
+    const since = backgroundSince;
+    const [uploads, failedUploads, newFailedUploads] = await Promise.all([
       countDueMobileAttachmentUploads(),
       countFailedMobileAttachmentUploads(),
+      since === null ? 0 : countFailedMobileAttachmentUploads(since),
     ]);
     if (stopped) return;
     const snapshot = getMobileSyncSnapshot();
@@ -56,12 +48,20 @@ export function activateMobileBackgroundSync(): {
       remaining === 0 &&
       snapshot.hasUnsentChanges === false &&
       failedUploads === 0;
-    await notifyIfFailed();
-    const key = `${remaining}:${synced}`;
-    if (key !== lastReported) {
-      lastReported = key;
-      await native.setPendingWork(remaining, synced);
+    if (
+      since !== null &&
+      since === backgroundSince &&
+      !flushing &&
+      !notified &&
+      backgroundSyncFailed(snapshot, newFailedUploads)
+    ) {
+      notified = true;
+      report("notify_failure", native.notifySyncFailed());
     }
+    const key = `${remaining}:${synced}`;
+    if (key === lastReported) return;
+    lastReported = key;
+    await native.setPendingWork(remaining, synced);
   };
 
   const refresh = () => {
