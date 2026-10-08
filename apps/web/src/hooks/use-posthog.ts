@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, type MouseEvent } from "react";
 
 import { env } from "@/env";
 import {
@@ -7,6 +7,7 @@ import {
 } from "@/lib/analytics-sanitization";
 import { isTelemetryPrivateLocation } from "@/lib/auth-route-privacy";
 import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
+import { reportDownloadConversion } from "@/lib/google-ads-conversion";
 import {
   usePostHogClient,
   usePostHogOperation,
@@ -23,7 +24,19 @@ export function useAnalytics() {
   const runOrQueue = usePostHogOperation();
 
   const track = useCallback(
-    (eventName: string, properties?: Record<string, any>) => {
+    (
+      eventName: string,
+      properties?: Record<string, any>,
+      click?: MouseEvent<HTMLAnchorElement>,
+    ) => {
+      runOrQueue((client) => {
+        client.capture(sanitizeAnalyticsEventName(eventName), {
+          ...sanitizeAnalyticsProperties(properties ?? {}),
+          surface: "web",
+          analytics_schema_version: 1,
+          app_version: env.VITE_APP_VERSION ?? "unknown",
+        });
+      });
       if (eventName === "download_clicked" && typeof window !== "undefined") {
         const analyticsWindow = window as Window & {
           gtag?: (...args: unknown[]) => void;
@@ -37,19 +50,29 @@ export function useAnalytics() {
             window.location.search,
           )
         ) {
-          analyticsWindow.gtag?.("event", "conversion", {
-            send_to: "AW-18481972229/i7OTCMKHiJUdEIWI8uxE",
-          });
+          const anchor = click?.currentTarget;
+          const delayNavigation =
+            click &&
+            anchor &&
+            !click.defaultPrevented &&
+            click.button === 0 &&
+            !click.metaKey &&
+            !click.ctrlKey &&
+            !click.shiftKey &&
+            !click.altKey &&
+            anchor.target !== "_blank";
+          if (delayNavigation) click.preventDefault();
+          const url = anchor?.href;
+          reportDownloadConversion(
+            analyticsWindow.gtag,
+            delayNavigation
+              ? () => {
+                  if (url) window.location.assign(url);
+                }
+              : undefined,
+          );
         }
       }
-      runOrQueue((client) => {
-        client.capture(sanitizeAnalyticsEventName(eventName), {
-          ...sanitizeAnalyticsProperties(properties ?? {}),
-          surface: "web",
-          analytics_schema_version: 1,
-          app_version: env.VITE_APP_VERSION ?? "unknown",
-        });
-      });
     },
     [runOrQueue],
   );

@@ -60,13 +60,9 @@ function GoogleAnalyticsScript() {
       send_page_view: false,
     });
 
-    const cancelIdle = runWhenIdle(() => {
-      setGoogleAnalyticsDisabled(false);
+    setGoogleAnalyticsDisabled(false);
 
-      if (document.getElementById(GOOGLE_TAG_ID)) {
-        return;
-      }
-
+    if (!document.getElementById(GOOGLE_TAG_ID)) {
       gtag("event", "page_view", {
         page_location: `${window.location.origin}${window.location.pathname}`,
         page_path: window.location.pathname,
@@ -77,10 +73,9 @@ function GoogleAnalyticsScript() {
       script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`;
       script.async = true;
       document.head.appendChild(script);
-    });
+    }
 
     return () => {
-      cancelIdle();
       setGoogleAnalyticsDisabled(true);
     };
   });
