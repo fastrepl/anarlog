@@ -1,31 +1,27 @@
+import { hasSummaryContent } from "@anlg/utils/session";
+
+import { resolveSummaryTargetId } from "~/chat/tools/current-session";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
-import { useEnhancedNoteRecords } from "~/session/queries";
+import { useEnhancedNoteRecords, useSession } from "~/session/queries";
 
-export function useHasEditableSummary(sessionId: string | undefined) {
+export function useHasEditableSummary(
+  sessionId: string | undefined,
+  activeEnhancedNoteId: string | undefined,
+) {
   const notes = useEnhancedNoteRecords(sessionId ?? "");
+  const session = useSession(sessionId ?? "");
   const isEnhancing = useIsSessionEnhancing(sessionId ?? "");
-  return !isEnhancing && notes.some((note) => hasSummaryText(note.content));
+  return (
+    !isEnhancing && canEditSummary(notes, activeEnhancedNoteId, session?.title)
+  );
 }
 
-export function hasSummaryText(content: string): boolean {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return false;
-  }
-  try {
-    return hasTextNode(JSON.parse(trimmed));
-  } catch {
-    return true;
-  }
-}
-
-function hasTextNode(node: unknown): boolean {
-  if (typeof node !== "object" || node === null) {
-    return false;
-  }
-  const { text, content } = node as { text?: unknown; content?: unknown };
-  if (typeof text === "string" && text.trim()) {
-    return true;
-  }
-  return Array.isArray(content) && content.some(hasTextNode);
+export function canEditSummary(
+  notes: ReadonlyArray<{ id: string; templateId: string; content: string }>,
+  activeEnhancedNoteId: string | undefined,
+  sessionTitle: string | undefined,
+): boolean {
+  const targetId = resolveSummaryTargetId(notes, activeEnhancedNoteId);
+  const target = notes.find((note) => note.id === targetId);
+  return target ? hasSummaryContent(target.content, sessionTitle) : false;
 }

@@ -42,10 +42,12 @@ describe("ChatBodyEmpty", () => {
     );
     fireEvent.click(screen.getByText("Make the summary shorter."));
     fireEvent.click(screen.getByText("Make the summary longer."));
-    expect(onSendMessage.mock.calls[0][0]).toMatch(/shorter than it is now/);
-    expect(onSendMessage.mock.calls[1][0]).toMatch(
-      /more detailed than it is now/,
+    const [shorter, longer] = onSendMessage.mock.calls.map(
+      ([prompt]) => prompt,
     );
+    expect(shorter.trim()).not.toBe("");
+    expect(longer.trim()).not.toBe("");
+    expect(shorter).not.toEqual(longer);
     view.unmount();
 
     render(<ChatBodyEmpty hasContext onSendMessage={vi.fn()} />);

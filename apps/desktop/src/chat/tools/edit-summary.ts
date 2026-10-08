@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   resolveActiveEnhancedNoteId,
   resolveCurrentSessionId,
+  resolveSummaryTargetId,
 } from "./current-session";
 import type { ToolDependencies } from "./types";
 
@@ -106,18 +107,10 @@ export const buildEditSummaryTool = (
         };
       }
 
-      const defaultEnhancedNoteId =
-        notes.find((note) => !note.templateId)?.id ?? null;
-
       const enhancedNoteId =
         (requestedEnhancedNoteId && noteIdSet.has(requestedEnhancedNoteId)
           ? requestedEnhancedNoteId
-          : null) ??
-        (activeEnhancedNoteId && noteIdSet.has(activeEnhancedNoteId)
-          ? activeEnhancedNoteId
-          : null) ??
-        defaultEnhancedNoteId ??
-        (noteIds.length === 1 ? noteIds[0] : null);
+          : null) ?? resolveSummaryTargetId(notes, activeEnhancedNoteId);
 
       if (!enhancedNoteId) {
         return {

@@ -36,3 +36,20 @@ export function resolveActiveEnhancedNoteId(
     ? deps.getEnhancedNoteId()
     : undefined;
 }
+
+// Mirrors the summary `edit_summary` rewrites when no note id is requested.
+export function resolveSummaryTargetId(
+  notes: ReadonlyArray<{ id: string; templateId?: string | null }>,
+  activeEnhancedNoteId: string | undefined,
+): string | null {
+  if (
+    activeEnhancedNoteId &&
+    notes.some((note) => note.id === activeEnhancedNoteId)
+  ) {
+    return activeEnhancedNoteId;
+  }
+  return (
+    notes.find((note) => !note.templateId)?.id ??
+    (notes.length === 1 ? notes[0].id : null)
+  );
+}

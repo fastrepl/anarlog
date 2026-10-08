@@ -31,6 +31,7 @@ export function useSessionTab() {
 
   return {
     currentSessionId: stickySessionIdRef.current,
+    currentEnhancedNoteId: enhancedNoteId,
     getSessionId,
     getEnhancedNoteId,
   };
