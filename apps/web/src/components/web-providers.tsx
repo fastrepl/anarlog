@@ -14,6 +14,7 @@ import { bootstrapBrowserTelemetry, stopBrowserTelemetry } from "@/telemetry";
 
 const GOOGLE_TAG_ID = "google-tag";
 const GOOGLE_ANALYTICS_ID = "G-4CDGPKJ8JB";
+const GOOGLE_ADS_ID = "AW-18481972229";
 const MICROSOFT_CLARITY_SCRIPT_ID = "microsoft-clarity-script";
 const MICROSOFT_CLARITY_TAG_ID = "wcjttoibok";
 
@@ -59,6 +60,9 @@ function GoogleAnalyticsScript() {
         };
       analyticsWindow.gtag("js", new Date());
       analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID, {
+        send_page_view: false,
+      });
+      analyticsWindow.gtag("config", GOOGLE_ADS_ID, {
         send_page_view: false,
       });
       analyticsWindow.gtag("event", "page_view", {
