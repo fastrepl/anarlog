@@ -8,12 +8,15 @@ export type AIErrorSource =
 
 const SOURCE_KEY = "aiErrorSource";
 
-const DIRECT_PROVIDER_NAMES: Record<string, string> = {
-  anthropic: "Anthropic",
-  azure: "Azure OpenAI",
-  google: "Google",
-  openai: "OpenAI",
-};
+// Direct providers accept custom base URLs, so only name a provider when the
+// failing request actually went to its API host.
+const PROVIDER_HOSTS: ReadonlyArray<[RegExp, string]> = [
+  [/(^|\.)anthropic\.com$/, "Anthropic"],
+  [/(^|\.)openai\.com$/, "OpenAI"],
+  [/(^|\.)chatgpt\.com$/, "OpenAI"],
+  [/(^|\.)googleapis\.com$/, "Google"],
+  [/(^|\.)azure\.com$/, "Azure OpenAI"],
+];
 
 // Plain-text bodies the Anarlog LLM proxy returns when it cannot reach or
 // read from OpenRouter (crates/llm-proxy/src/handler/mod.rs).
@@ -56,11 +59,7 @@ export function withAIErrorSource<E extends Error>(
 export function streamStallSource(
   providerId: string,
 ): AIErrorSource | undefined {
-  if (providerId === "openrouter") {
-    return { kind: "upstream" };
-  }
-  const provider = DIRECT_PROVIDER_NAMES[providerId];
-  return provider ? { kind: "provider", provider } : undefined;
+  return providerId === "openrouter" ? { kind: "upstream" } : undefined;
 }
 
 export function attributeAIError(
@@ -81,7 +80,7 @@ export function attributeAIError(
   }
 
   if (providerId !== "openrouter") {
-    const provider = DIRECT_PROVIDER_NAMES[providerId];
+    const provider = providerFromUrl(apiError?.url);
     return provider ? { kind: "provider", provider } : undefined;
   }
 
@@ -130,6 +129,18 @@ function isHostedProxyUrl(url: string | undefined): boolean {
     return new URL(url).pathname.startsWith("/llm/");
   } catch {
     return false;
+  }
+}
+
+function providerFromUrl(url: string | undefined): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+  try {
+    const { hostname } = new URL(url);
+    return PROVIDER_HOSTS.find(([host]) => host.test(hostname))?.[1];
+  } catch {
+    return undefined;
   }
 }
 

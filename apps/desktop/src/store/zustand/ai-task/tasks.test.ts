@@ -538,8 +538,12 @@ describe("extractUnderlyingError", () => {
 
   it("keeps the message of mid-stream provider error payloads", () => {
     const error = extractUnderlyingError(
-      { code: 400, message: "prompt is too long" },
-      "anthropic",
+      {
+        code: 400,
+        message: "prompt is too long",
+        metadata: { provider_name: "Anthropic" },
+      },
+      "openrouter",
     );
 
     expect(error.message).toBe("prompt is too long");

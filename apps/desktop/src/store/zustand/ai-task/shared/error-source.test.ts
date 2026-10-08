@@ -84,7 +84,13 @@ describe("attributeAIError", () => {
     [
       "an unknown custom endpoint",
       apiError("http://localhost:1234/v1/chat/completions", 500, "{}"),
-      "openai-compatible",
+      "openai",
+      undefined,
+    ],
+    [
+      "a direct provider error with no request URL",
+      { message: "Overloaded" },
+      "anthropic",
       undefined,
     ],
     [

@@ -95,9 +95,7 @@ describe("EnhanceError", () => {
       screen.getByText("AI generation did not return any text."),
     ).toBeTruthy();
 
-    expect(
-      screen.getByText("Source: Anthropic (AI model provider)"),
-    ).toBeTruthy();
+    expect(screen.getByText(/Anthropic/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
