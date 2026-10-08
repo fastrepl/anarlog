@@ -38,4 +38,23 @@ describe("ChatBodyEmpty", () => {
     }
     expect(new Set(prompts).size).toBe(prompts.length);
   });
+
+  it("offers shorter and longer rewrites only when the note has a summary", () => {
+    const onSendMessage = vi.fn();
+    const view = render(
+      <ChatBodyEmpty hasContext hasSummary onSendMessage={onSendMessage} />,
+    );
+    fireEvent.click(screen.getByText("Make the summary shorter."));
+    fireEvent.click(screen.getByText("Make the summary longer."));
+    const [shorter, longer] = onSendMessage.mock.calls.map(
+      ([prompt]) => prompt,
+    );
+    expect(shorter.trim()).not.toBe("");
+    expect(longer.trim()).not.toBe("");
+    expect(shorter).not.toEqual(longer);
+    view.unmount();
+
+    render(<ChatBodyEmpty hasContext onSendMessage={vi.fn()} />);
+    expect(screen.queryByText("Make the summary shorter.")).toBeNull();
+  });
 });

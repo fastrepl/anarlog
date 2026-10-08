@@ -7,6 +7,7 @@ import { ChatContent } from "./content";
 import { ChatSession, type ChatSessionRenderProps } from "./session-provider";
 import { ChatToolbarControls } from "./toolbar-controls";
 import { useSessionTab } from "./use-session-tab";
+import { useHasEditableSummary } from "./use-summary-quick-actions";
 
 import { useLanguageModel } from "~/ai/hooks";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
@@ -87,7 +88,11 @@ export function ChatPanelFrame({
   const { panelClassName, toolbarSurface } = useChatAppearance();
   const isFloating = layout === "floating";
   const model = useLanguageModel("chat");
-  const { currentSessionId } = useSessionTab();
+  const { currentSessionId, currentNoteView } = useSessionTab();
+  const hasSummary = useHasEditableSummary(
+    chat.scope === "automations" ? undefined : currentSessionId,
+    currentNoteView,
+  );
   const isLiveMeeting = useListener(
     (state) =>
       chat.scope !== "automations" &&
@@ -161,6 +166,7 @@ export function ChatPanelFrame({
             isModelConfigured={!!model}
             hasContext={sessionProps.contextEntities.length > 0}
             isLiveMeeting={isLiveMeeting}
+            hasSummary={hasSummary && sessionProps.contextEntities.length > 0}
             onSendMessage={(content, parts) => {
               handleSendMessage(
                 content,

@@ -22,6 +22,7 @@ export function ChatBody({
   isModelConfigured = true,
   hasContext = false,
   isLiveMeeting = false,
+  hasSummary = false,
   onSendMessage,
 }: {
   messages: AnlgUIMessage[];
@@ -31,6 +32,7 @@ export function ChatBody({
   isModelConfigured?: boolean;
   hasContext?: boolean;
   isLiveMeeting?: boolean;
+  hasSummary?: boolean;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
@@ -86,6 +88,7 @@ export function ChatBody({
               isModelConfigured={isModelConfigured}
               hasContext={hasContext}
               isLiveMeeting={isLiveMeeting}
+              hasSummary={hasSummary}
               onSendMessage={onSendMessage}
             />
           ) : (

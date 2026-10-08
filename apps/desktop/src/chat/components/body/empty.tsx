@@ -2,6 +2,8 @@ import { t } from "@lingui/core/macro";
 import { useCallback } from "react";
 
 import {
+  ArrowsInSimple,
+  ArrowsOutSimple,
   ClockCounterClockwise,
   Envelope,
   Lightbulb,
@@ -19,11 +21,13 @@ export function ChatBodyEmpty({
   isModelConfigured = true,
   hasContext = false,
   isLiveMeeting = false,
+  hasSummary = false,
   onSendMessage,
 }: {
   isModelConfigured?: boolean;
   hasContext?: boolean;
   isLiveMeeting?: boolean;
+  hasSummary?: boolean;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
@@ -32,47 +36,64 @@ export function ChatBodyEmpty({
 }) {
   const { isDarkAppearance } = useChatAppearance();
   const openNew = useTabs((state) => state.openNew);
-  const suggestions = isLiveMeeting
+  const liveMeetingSuggestions = [
+    {
+      label: t`Recap the last 5 minutes.`,
+      icon: ClockCounterClockwise,
+      prompt: t`Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now.`,
+    },
+    {
+      label: t`Suggest what to ask next.`,
+      icon: Lightbulb,
+      prompt: t`Based on the conversation so far, suggest a few questions I could ask next.`,
+    },
+    {
+      label: t`List action items so far.`,
+      icon: ListChecks,
+      prompt: t`What action items have come up so far in this meeting?`,
+    },
+  ];
+  const summarySuggestions = hasSummary
     ? [
         {
-          label: t`Recap the last 5 minutes.`,
-          icon: ClockCounterClockwise,
-          prompt: t`Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now.`,
+          label: t`Make the summary shorter.`,
+          icon: ArrowsInSimple,
+          prompt: t`Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail.`,
         },
         {
-          label: t`Suggest what to ask next.`,
-          icon: Lightbulb,
-          prompt: t`Based on the conversation so far, suggest a few questions I could ask next.`,
-        },
-        {
-          label: t`List action items so far.`,
-          icon: ListChecks,
-          prompt: t`What action items have come up so far in this meeting?`,
+          label: t`Make the summary longer.`,
+          icon: ArrowsOutSimple,
+          prompt: t`Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything.`,
         },
       ]
-    : [
-        {
-          label: t`List action items.`,
-          icon: ListChecks,
-          prompt: hasContext
-            ? t`What are my action items from this meeting?`
-            : t`What are my outstanding action items across my meetings?`,
-        },
-        {
-          label: t`Draft follow-up email.`,
-          icon: Envelope,
-          prompt: hasContext
-            ? t`Draft a follow-up email to the participants`
-            : t`Draft a follow-up email for my most recent meeting.`,
-        },
-        {
-          label: t`Find key decisions.`,
-          icon: MagnifyingGlass,
-          prompt: hasContext
-            ? t`What were the key decisions that have been made?`
-            : t`What key decisions were made in my recent meetings?`,
-        },
-      ];
+    : [];
+  const meetingSuggestions = [
+    ...summarySuggestions,
+    {
+      label: t`List action items.`,
+      icon: ListChecks,
+      prompt: hasContext
+        ? t`What are my action items from this meeting?`
+        : t`What are my outstanding action items across my meetings?`,
+    },
+    {
+      label: t`Draft follow-up email.`,
+      icon: Envelope,
+      prompt: hasContext
+        ? t`Draft a follow-up email to the participants`
+        : t`Draft a follow-up email for my most recent meeting.`,
+    },
+    {
+      label: t`Find key decisions.`,
+      icon: MagnifyingGlass,
+      prompt: hasContext
+        ? t`What were the key decisions that have been made?`
+        : t`What key decisions were made in my recent meetings?`,
+    },
+  ];
+  const suggestions = isLiveMeeting
+    ? liveMeetingSuggestions
+    : meetingSuggestions;
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });

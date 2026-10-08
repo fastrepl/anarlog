@@ -3413,6 +3413,22 @@ msgstr "macOS could not access your recovery key. Repair Keychain access, then r
 msgid "Main language"
 msgstr "Main language"
 
+#: src/chat/components/body/empty.tsx
+msgid "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything."
+msgstr "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail."
+msgstr "Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the summary longer."
+msgstr "Make the summary longer."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the summary shorter."
+msgstr "Make the summary shorter."
+
 #: src/settings/general/billing.tsx
 msgid "Manage billing"
 msgstr "Manage billing"
