@@ -34,7 +34,11 @@ describe("canEditSummary", () => {
   it("uses the summary a session tab shows by default", () => {
     expect(canEditSummary(notes, null, false, "Standup")).toBe(true);
     expect(canEditSummary(notes, null, true, "Standup")).toBe(false);
-    expect(canEditSummary(notes.slice(1), null, false, "Standup")).toBe(false);
+    const template = { ...notes[1], content: doc(paragraph("Agenda")) };
+    expect(canEditSummary([template, notes[0]], null, false, "Standup")).toBe(
+      false,
+    );
+    expect(canEditSummary([template], null, false, "Standup")).toBe(true);
   });
 
   it("follows the shown summary even when another summary has content", () => {
