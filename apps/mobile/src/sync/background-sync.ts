@@ -34,12 +34,21 @@ export function activateMobileBackgroundSync(): {
     );
   };
 
+  const countFailedUploads = (since?: string) =>
+    countFailedMobileAttachmentUploads(since).catch((error: unknown) => {
+      captureOperationalError(error, {
+        operation: "background_sync_count_failed_uploads",
+        level: "warning",
+      });
+      return null;
+    });
+
   const update = async () => {
     const since = backgroundSince;
     const [uploads, failedUploads, newFailedUploads] = await Promise.all([
       countDueMobileAttachmentUploads(),
-      countFailedMobileAttachmentUploads(),
-      since === null ? 0 : countFailedMobileAttachmentUploads(since),
+      countFailedUploads(),
+      since === null ? 0 : countFailedUploads(since),
     ]);
     if (stopped) return;
     const snapshot = getMobileSyncSnapshot();
@@ -53,7 +62,7 @@ export function activateMobileBackgroundSync(): {
       since === backgroundSince &&
       !flushing &&
       !notified &&
-      backgroundSyncFailed(snapshot, newFailedUploads)
+      backgroundSyncFailed(snapshot, newFailedUploads ?? 0)
     ) {
       notified = true;
       report("notify_failure", native.notifySyncFailed());
