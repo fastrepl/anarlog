@@ -288,21 +288,10 @@ describe("enhanceTransform.transformArgs", () => {
     );
 
     expect(result.formatOverride).toBe("");
-    expect(result.summaryLength).toBe("detailed");
-  });
-
-  it("uses the saved summary length mode", async () => {
-    const result = await enhanceTransform.transformArgs(
-      { sessionId: "session-1", enhancedNoteId: "note-1" },
-      { ...settingsValues, summary_length: "crisp" },
-    );
-
-    expect(result.summaryLength).toBe("crisp");
   });
 
   it("builds the summary policy from the returned transcript segments", async () => {
     const lengthPolicy = {
-      mode: "crisp",
       transcript_characters: 27,
       guidance: {
         max_characters: 320,
@@ -340,14 +329,12 @@ describe("enhanceTransform.transformArgs", () => {
       { sessionId: "session-1", enhancedNoteId: "note-1" },
       {
         ...settingsValues,
-        summary_length: "crisp",
         auto_summary_prompt: "  Use concise prose.  ",
       },
     );
 
     expect(mocks.summaryLengthPolicy).toHaveBeenCalledWith({
       transcript_texts: ["First segment", "Second segment"],
-      mode: "crisp",
       template_section_count: 0,
     });
     expect(result.lengthPolicy).toEqual(lengthPolicy);

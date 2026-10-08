@@ -858,10 +858,6 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
-#: src/settings/general/summary-length.tsx
-msgid "Balanced"
-msgstr ""
-
 #: src/settings/ai/shared/index.tsx
 msgid "Base URL"
 msgstr ""
@@ -1233,10 +1229,6 @@ msgstr ""
 
 #: src/settings/general/audio-settings.tsx
 msgid "Choose how long recordings stay on this device."
-msgstr ""
-
-#: src/settings/general/summary-length.tsx
-msgid "Choose how much detail generated meeting summaries include."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2010,10 +2002,6 @@ msgstr ""
 msgid "Creating brief..."
 msgstr ""
 
-#: src/settings/general/summary-length.tsx
-msgid "Crisp"
-msgstr ""
-
 #: src/settings/crm/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "CRM"
@@ -2166,10 +2154,6 @@ msgstr ""
 
 #: src/session-sharing/management-panel.tsx
 msgid "Desktop edits published. Sharing resumed."
-msgstr ""
-
-#: src/settings/general/summary-length.tsx
-msgid "Detailed"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -5158,10 +5142,6 @@ msgstr "Dil seçin"
 msgid "Select or type to add speaker"
 msgstr ""
 
-#: src/settings/general/summary-length.tsx
-msgid "Select summary length"
-msgstr ""
-
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
 msgstr ""
@@ -5823,10 +5803,6 @@ msgstr ""
 msgid "Suggested templates"
 msgstr ""
 
-#: src/settings/general/index.tsx
-msgid "Summaries"
-msgstr ""
-
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -5849,10 +5825,6 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Summary generation failed"
-msgstr ""
-
-#: src/settings/general/summary-length.tsx
-msgid "Summary length"
 msgstr ""
 
 #: src/automations/starters.tsx

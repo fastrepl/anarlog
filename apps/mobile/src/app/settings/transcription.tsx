@@ -15,7 +15,6 @@ export default function TranscriptionSettings() {
   const router = useRouter();
   const preferences = usePreferences();
   const language = usePreferenceMutation("ai_language");
-  const length = usePreferenceMutation("summary_length");
   const languages = [
     ...new Set([preferences.ai_language, ...LANGUAGE_CODES]),
   ].sort((a, b) => languageName(a).localeCompare(languageName(b)));
@@ -70,22 +69,6 @@ export default function TranscriptionSettings() {
           </Text>
         </FieldGroup.SectionFooter>
         <SettingsError error={language.error} />
-      </FieldGroup.Section>
-      <FieldGroup.Section>
-        <Row alignment="center">
-          <Text>Summary length</Text>
-          <Spacer flexible />
-          <Picker
-            selectedValue={preferences.summary_length}
-            onValueChange={(value) => length.mutate(value)}
-            enabled={!length.isPending}
-          >
-            <Picker.Item value="crisp" label="Crisp" />
-            <Picker.Item value="balanced" label="Balanced" />
-            <Picker.Item value="detailed" label="Detailed" />
-          </Picker>
-        </Row>
-        <SettingsError error={length.error} />
       </FieldGroup.Section>
     </SettingsPage>
   );

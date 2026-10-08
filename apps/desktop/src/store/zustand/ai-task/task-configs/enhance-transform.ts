@@ -21,7 +21,6 @@ import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 import { collectEnhanceImageContext } from "./enhance-images";
 
 import { resolveSummaryLanguage } from "~/services/enhancer/summary-language";
-import { normalizeSummaryLengthMode } from "~/services/enhancer/summary-length";
 import {
   loadSessionContentSnapshot,
   type SessionContentSnapshot,
@@ -103,13 +102,9 @@ async function transformArgs(
     settingsValues,
     transcriptTexts,
   );
-  const summaryLength = normalizeSummaryLengthMode(
-    settingsValues.summary_length,
-  );
   const templateSectionCount = template?.sections.length ?? 0;
   const policyResult = await templateCommands.summaryLengthPolicy({
     transcript_texts: transcriptTexts,
-    mode: summaryLength,
     template_section_count: templateSectionCount,
   });
   if (policyResult.status === "error") {
@@ -136,7 +131,6 @@ async function transformArgs(
     postMeetingMemo: sessionContext.postMeetingMemo,
     transcripts,
     imageContext,
-    summaryLength,
     lengthPolicy: policyResult.data,
     dictionaryTerms: parseDictionaryTermsJson(
       settingsValues.personalization_dictionary_terms,

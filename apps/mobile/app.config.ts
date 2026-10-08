@@ -65,9 +65,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       infoPlist: {
         ...config.ios?.infoPlist,
         ITSAppUsesNonExemptEncryption: false,
-        BGTaskSchedulerPermittedIdentifiers: [
-          `${variant.bundleIdentifier}.sync.*`,
-        ],
       },
     },
     android: {

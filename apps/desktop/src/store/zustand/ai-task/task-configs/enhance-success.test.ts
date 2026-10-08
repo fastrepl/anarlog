@@ -104,7 +104,6 @@ function createTransformedArgs(): EnhanceSuccessParams["transformedArgs"] {
     postMeetingMemo: "",
     transcripts: [],
     imageContext: [],
-    summaryLength: "detailed",
     lengthPolicy: null,
     dictionaryTerms: [],
   };
