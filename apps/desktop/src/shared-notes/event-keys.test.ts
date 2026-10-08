@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { sharedNoteEventKey } from "./event-key";
-import { parseSharedNoteEventKeys, withoutSharedEvents } from "./event-keys";
+import {
+  parseSharedNoteEventKeys,
+  sharedNoteIdsForEventKey,
+} from "./event-keys";
 
 describe("shared note event keys", () => {
   it("matches a recipient's calendar event regardless of timestamp format", () => {
@@ -23,16 +26,19 @@ describe("shared note event keys", () => {
     expect(parseSharedNoteEventKeys("{", "viewer").size).toBe(0);
   });
 
-  it("hides only the calendar rows that a shared note already covers", () => {
-    const keys = new Map([["share", "ical-uid|2026-10-08T15:00:00.000Z"]]);
-    const shared = {
-      tracking_id_event: "ical-uid",
-      started_at: "2026-10-08T15:00:00Z",
-    };
-    const other = {
-      tracking_id_event: "ical-uid",
-      started_at: "2026-10-15T15:00:00Z",
-    };
-    expect(withoutSharedEvents({ shared, other }, keys)).toEqual({ other });
+  it("merges only received shares for the same event into a note", () => {
+    const key = "ical-uid|2026-10-08T15:00:00.000Z";
+    const keys = new Map([
+      ["received", key],
+      ["owned", key],
+      ["other-event", "ical-uid|2026-10-15T15:00:00.000Z"],
+    ]);
+    const notes = [
+      { shareId: "received", manageAccess: false },
+      { shareId: "owned", manageAccess: true },
+      { shareId: "other-event", manageAccess: false },
+    ];
+    expect(sharedNoteIdsForEventKey(key, keys, notes)).toEqual(["received"]);
+    expect(sharedNoteIdsForEventKey("", keys, notes)).toEqual([]);
   });
 });

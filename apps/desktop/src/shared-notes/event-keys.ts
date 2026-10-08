@@ -1,14 +1,23 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { useMemo } from "react";
 
 import { sharedNoteEventKey } from "./event-key";
 
+import { useAuth } from "~/auth";
 import { executeTransaction, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import { useDurableSharedNotes } from "~/shared-notes/cache";
 
 const SETTING_ID = "shared_note_event_keys";
 const EMPTY_KEYS: ReadonlyMap<string, string> = new Map();
+const EMPTY_IDS: string[] = [];
+const EMPTY_LOCAL_KEYS: ReadonlySet<string> = new Set();
 
 type AppSettingSqlRow = { value_json: string | null };
+type EventSqlRow = {
+  tracking_id_event: string | null;
+  started_at: string | null;
+};
 
 export async function syncSharedNoteEventKeys(
   supabase: SupabaseClient,
@@ -100,25 +109,67 @@ export function useSharedNoteEventKeys(
   return data;
 }
 
-export function withoutSharedEvents<
-  T extends {
-    tracking_id_event?: string | null;
-    started_at?: string | null;
-  },
->(
-  table: Record<string, T> | null | undefined,
+export function sharedNoteIdsForEventKey(
+  eventKey: string,
   eventKeys: ReadonlyMap<string, string>,
-): Record<string, T> | null | undefined {
-  if (!table || eventKeys.size === 0) return table;
-  const sharedKeys = new Set(eventKeys.values());
-  const entries = Object.entries(table);
-  const visible = entries.filter(
-    ([, event]) =>
-      !sharedKeys.has(
-        sharedNoteEventKey(event.tracking_id_event, event.started_at),
-      ),
+  notes: readonly { shareId: string; manageAccess: boolean }[],
+): string[] {
+  if (!eventKey) return EMPTY_IDS;
+  const received = new Set(
+    notes.filter((note) => !note.manageAccess).map((note) => note.shareId),
   );
-  return visible.length === entries.length
-    ? table
-    : Object.fromEntries(visible);
+  const ids = [...eventKeys]
+    .filter(([shareId, key]) => key === eventKey && received.has(shareId))
+    .map(([shareId]) => shareId)
+    .sort();
+  return ids.length > 0 ? ids : EMPTY_IDS;
+}
+
+export function useSessionSharedNoteIds(sessionId: string): string[] {
+  const { session } = useAuth();
+  const viewerUserId = session?.user.id ?? null;
+  const eventKeys = useSharedNoteEventKeys(viewerUserId);
+  const notes = useDurableSharedNotes(viewerUserId);
+  const { data: sessionEventKey = "" } = useLiveQuery<EventSqlRow, string>({
+    sql: `
+      SELECT calendar_event.tracking_id_event, calendar_event.started_at
+      FROM sessions AS session
+      JOIN events AS calendar_event
+        ON calendar_event.id = NULLIF(session.event_id, '')
+      WHERE session.id = ?
+    `,
+    params: [sessionId],
+    mapRows: (rows) =>
+      sharedNoteEventKey(rows[0]?.tracking_id_event, rows[0]?.started_at),
+  });
+  return useMemo(
+    () => sharedNoteIdsForEventKey(sessionEventKey, eventKeys, notes),
+    [sessionEventKey, eventKeys, notes],
+  );
+}
+
+export function useLocalSessionEventKeys(): ReadonlySet<string> {
+  const { data = EMPTY_LOCAL_KEYS } = useLiveQuery<
+    EventSqlRow,
+    ReadonlySet<string>
+  >({
+    sql: `
+      SELECT calendar_event.tracking_id_event, calendar_event.started_at
+      FROM sessions AS session
+      JOIN events AS calendar_event
+        ON calendar_event.id = NULLIF(session.event_id, '')
+      WHERE session.deleted_at IS NULL
+        AND calendar_event.tracking_id_event <> ''
+    `,
+    params: [],
+    mapRows: (rows) =>
+      new Set(
+        rows
+          .map((row) =>
+            sharedNoteEventKey(row.tracking_id_event, row.started_at),
+          )
+          .filter(Boolean),
+      ),
+  });
+  return data;
 }
