@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   loadMeetingChatRecords: vi.fn(),
   loadSessionContentSnapshot: vi.fn(),
   renderSessionTranscript: vi.fn(),
+  getSessionMode: vi.fn(),
 }));
 
 vi.mock("~/session/content-queries", () => ({
@@ -13,6 +14,12 @@ vi.mock("~/session/content-queries", () => ({
 
 vi.mock("@anlg/plugin-transcription", () => ({
   commands: { renderSessionTranscript: mocks.renderSessionTranscript },
+}));
+
+vi.mock("~/store/zustand/listener/instance", () => ({
+  listenerStore: {
+    getState: () => ({ getSessionMode: mocks.getSessionMode }),
+  },
 }));
 
 vi.mock("~/stt/meeting-chat-records", () => ({
@@ -25,6 +32,7 @@ import { hydrateSessionContext } from "./session-context-hydrator";
 describe("session chat context hydration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getSessionMode.mockReturnValue("inactive");
     mocks.renderSessionTranscript.mockResolvedValue({
       status: "ok",
       data: {
@@ -113,11 +121,22 @@ describe("session chat context hydration", () => {
           ],
           startedAt: 100,
           endedAt: 200,
+          nowMs: null,
         },
         participants: [{ name: "SQLite Person", jobTitle: "Engineer" }],
         event: { name: "Weekly planning" },
       },
     );
+  });
+
+  it("marks the current recording time while the session is recording", async () => {
+    vi.useFakeTimers({ now: 100 + 6 * 60_000 });
+    mocks.getSessionMode.mockReturnValue("active");
+
+    const result = await hydrateSessionContext("session-1", "user-1");
+
+    vi.useRealTimers();
+    expect(result?.transcript?.nowMs).toBe(6 * 60_000);
   });
 
   it("returns a null transcript when Rust has no renderable transcript", async () => {

@@ -5,6 +5,7 @@ common_derives! {
         pub segments: Vec<Segment>,
         pub started_at: Option<u64>,
         pub ended_at: Option<u64>,
+        pub now_ms: Option<i64>,
     }
 }
 
@@ -76,11 +77,13 @@ mod tests {
                     segments: vec![Segment { speaker: "Alice".to_string(), text: "First meeting".to_string(), start_ms: None }],
                     started_at: None,
                     ended_at: None,
+                    now_ms: None,
                 },
                 Transcript {
                     segments: vec![Segment { speaker: "Bob".to_string(), text: "Second meeting".to_string(), start_ms: None }],
                     started_at: None,
                     ended_at: None,
+                    now_ms: None,
                 },
             ],
         },

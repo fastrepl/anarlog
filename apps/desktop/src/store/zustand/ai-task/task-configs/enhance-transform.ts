@@ -219,6 +219,7 @@ function formatTranscripts(
         ),
         startedAt: Number.isFinite(startedAt) ? startedAt : null,
         endedAt: Number.isFinite(endedAt) ? endedAt : null,
+        nowMs: null,
       },
     ];
   }

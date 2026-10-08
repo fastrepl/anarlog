@@ -162,13 +162,14 @@ mod tests {
                     ],
                     started_at: None,
                     ended_at: None,
+                    now_ms: Some(3_900_000),
                 }),
                 participants: vec![],
                 event: None,
             }],
             current_session_id: None,
         },
-        |v| v.contains("[00:05] Alice: Kickoff") && v.contains("[62:05] Bob: Status update") && v.contains("\nCarol: Imported line"),
+        |v| v.contains("[00:05] Alice: Kickoff") && v.contains("[62:05] Bob: Status update") && v.contains("\nCarol: Imported line") && v.contains("[65:00] (now, still recording)"),
         @r#"
     <context>
 
@@ -179,6 +180,7 @@ mod tests {
     [00:05] Alice: Kickoff
     [62:05] Bob: Status update
     Carol: Imported line
+    [65:00] (now, still recording)
     </context>
     "#);
 }

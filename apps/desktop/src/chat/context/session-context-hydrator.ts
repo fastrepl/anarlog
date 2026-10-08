@@ -2,6 +2,7 @@ import type { SessionContext, Transcript } from "@anlg/plugin-template";
 import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 
 import { loadSessionContentSnapshot } from "~/session/content-queries";
+import { listenerStore } from "~/store/zustand/listener/instance";
 import {
   formatMeetingChatRecordsAsMarkdown,
   loadMeetingChatRecords,
@@ -21,6 +22,17 @@ function extractEventName(event: unknown): string | null {
   }
 
   return null;
+}
+
+function recordingNowMs(
+  sessionId: string,
+  startedAt: number | null,
+): number | null {
+  if (startedAt === null) return null;
+  if (listenerStore.getState().getSessionMode(sessionId) !== "active") {
+    return null;
+  }
+  return Math.max(0, Date.now() - startedAt);
 }
 
 async function buildTranscript(
@@ -46,6 +58,7 @@ async function buildTranscript(
     })),
     startedAt: result.data.started_at,
     endedAt: result.data.ended_at,
+    nowMs: recordingNowMs(sessionId, result.data.started_at),
   };
 }
 

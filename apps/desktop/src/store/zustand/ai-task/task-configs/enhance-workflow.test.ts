@@ -48,6 +48,7 @@ it.each(["crisp", "balanced", "detailed"] as const)(
         {
           startedAt: null,
           endedAt: null,
+          nowMs: null,
           segments: [{ speaker: "John", text: "a".repeat(636), startMs: null }],
         },
       ],
@@ -108,6 +109,7 @@ it("adds length guidance to prompts rendered from a template with sections", asy
       {
         startedAt: null,
         endedAt: null,
+        nowMs: null,
         segments: [
           { speaker: "John", text: "a".repeat(10_000), startMs: null },
         ],

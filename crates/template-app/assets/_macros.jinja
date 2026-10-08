@@ -4,6 +4,9 @@
 [{{ "{:02}:{:02}"|format(start_ms / 60000, start_ms / 1000 % 60) }}] {% endif -%}
 {{ segment.speaker }}: {{ segment.text }}
 {%- endfor -%}
+{%- if let Some(now_ms) = transcript.now_ms %}
+[{{ "{:02}:{:02}"|format(now_ms / 60000, now_ms / 1000 % 60) }}] (now, still recording)
+{%- endif -%}
 {%- endmacro -%}
 
 {%- macro transcripts(transcripts) -%}

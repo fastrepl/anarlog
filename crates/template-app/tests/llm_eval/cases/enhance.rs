@@ -67,6 +67,7 @@ pub fn structured_summary(samples: usize) -> Result<EvalCase, Failed> {
                         ],
                         started_at: None,
                         ended_at: None,
+                        now_ms: None,
                     }],
                     pre_meeting_memo: "- align on priorities\n- review rollout risks".to_string(),
                     post_meeting_memo: "- check CI\n- ship before EOD".to_string(),

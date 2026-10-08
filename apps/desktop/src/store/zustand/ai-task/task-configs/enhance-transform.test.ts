@@ -511,6 +511,7 @@ describe("enhanceTransform.transformArgs", () => {
         ],
         startedAt: 100,
         endedAt: 200,
+        nowMs: null,
       },
     ]);
   });
