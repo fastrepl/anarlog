@@ -8,10 +8,7 @@ import { useAITask } from "~/ai/contexts";
 import { useLanguageModel } from "~/ai/hooks";
 import { useAuth } from "~/auth";
 import { useEnhancedNote } from "~/session/queries";
-import {
-  type AIErrorSource,
-  getAIErrorSource,
-} from "~/store/zustand/ai-task/shared/error-source";
+import { getAIErrorSource } from "~/store/zustand/ai-task/shared/error-source";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 export function EnhanceError({
@@ -111,29 +108,25 @@ function ErrorSourceNote({ error }: { error: Error | undefined }) {
     return null;
   }
 
-  return (
-    <p className="text-muted-foreground text-xs">
-      {formatErrorSource(source, t)}
-    </p>
-  );
-}
-
-function formatErrorSource(
-  source: AIErrorSource,
-  t: ReturnType<typeof useLingui>["t"],
-): string {
+  let label: string;
   switch (source.kind) {
     case "provider": {
       const provider = source.provider;
-      return provider
+      label = provider
         ? t`Source: ${provider} (AI model provider)`
         : t`Source: AI model provider`;
+      break;
     }
     case "openrouter":
-      return t`Source: OpenRouter (AI routing service)`;
+      label = t`Source: OpenRouter (AI routing service)`;
+      break;
     case "upstream":
-      return t`Source: OpenRouter or the AI model provider`;
+      label = t`Source: OpenRouter or the AI model provider`;
+      break;
     case "anarlog":
-      return t`Source: Anarlog`;
+      label = t`Source: Anarlog`;
+      break;
   }
+
+  return <p className="text-muted-foreground text-xs">{label}</p>;
 }
