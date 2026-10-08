@@ -62,11 +62,15 @@ export async function setFolderDefaultAccess(
     const existing = folderDefaultAccessRule(rules, normalized);
     const next = rules.filter((rule) => rule.folder_path !== normalized);
     if (value) {
+      const workspaceId = value.access === "workspace" ? value.workspaceId : "";
+      const unchanged =
+        existing?.access === value.access &&
+        existing.workspace_id === workspaceId;
       next.push({
         folder_path: normalized,
         access: value.access,
-        workspace_id: value.access === "workspace" ? value.workspaceId : "",
-        since: existing?.since || now,
+        workspace_id: workspaceId,
+        since: (unchanged && existing.since) || now,
       });
     }
     await writeSetting(RULES_ID, JSON.stringify(next));

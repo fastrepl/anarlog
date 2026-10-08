@@ -163,7 +163,7 @@ export function FolderDefaultAccessRunner() {
             rule.workspace_id,
             candidate.documentUpdatedAt,
           ],
-          retry: false,
+          retry: 3,
           staleTime: Infinity,
           queryFn: async ({ signal }: { signal: AbortSignal }) => {
             await abortableDelay(SHARE_DEBOUNCE_MS, signal);
@@ -214,11 +214,9 @@ async function shareWithFolderDefaultAccess({
     workspaceId: source.workspaceId,
     sessionId: source.sessionId,
   });
-  if (!share.wasCreated) {
-    await markFolderDefaultAccessApplied(sessionId);
-    return;
+  if (share.wasCreated) {
+    trackAnalyticsEvent("share_created", { entry_point: "folder_default" });
   }
-  trackAnalyticsEvent("share_created", { entry_point: "folder_default" });
 
   const sourceHash = await hashSessionShareProjection({
     title: source.title,
@@ -267,7 +265,6 @@ async function shareWithFolderDefaultAccess({
     webEditBase: null,
     publishedAt: published.publishedAt,
   });
-  await markFolderDefaultAccessApplied(sessionId);
   await applyDefaultMeetingShareAccess({
     wasCreated: true,
     actionType: "auto",
@@ -281,6 +278,7 @@ async function shareWithFolderDefaultAccess({
     requireActive: () => signal.throwIfAborted(),
   });
   await markSessionShareActivated(ownerUserId, share.shareId, sessionId);
+  await markFolderDefaultAccessApplied(sessionId);
 }
 
 function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
