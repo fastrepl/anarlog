@@ -82,7 +82,8 @@ export function useUploadFile(sessionId: string) {
       const result = await service.enhance(sessionId);
       if (
         (result.type === "started" || result.type === "already_active") &&
-        sessionTab
+        sessionTab &&
+        sessionTab.state.view?.type !== "transcript"
       ) {
         updateSessionTabState(sessionTab, {
           ...sessionTab.state,
