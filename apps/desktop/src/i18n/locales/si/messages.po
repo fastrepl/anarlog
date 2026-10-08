@@ -3410,6 +3410,22 @@ msgstr ""
 msgid "Main language"
 msgstr "ප්‍රධාන භාෂාව"
 
+#: src/chat/components/body/empty.tsx
+msgid "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the summary longer."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the summary shorter."
+msgstr ""
+
 #: src/settings/general/billing.tsx
 msgid "Manage billing"
 msgstr ""
