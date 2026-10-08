@@ -7,11 +7,12 @@ export function useSessionTab() {
 
   const sessionTabId =
     currentTab?.type === "sessions" ? currentTab.id : undefined;
-  const enhancedNoteId =
-    currentTab?.type === "sessions" &&
-    currentTab.state.view?.type === "enhanced"
-      ? currentTab.state.view.id
+  const noteView =
+    currentTab?.type === "sessions"
+      ? (currentTab.state.view ?? null)
       : undefined;
+  const enhancedNoteId =
+    noteView?.type === "enhanced" ? noteView.id : undefined;
 
   const stickySessionIdRef = useRef(sessionTabId);
   if (currentTab?.type === "empty") {
@@ -31,7 +32,7 @@ export function useSessionTab() {
 
   return {
     currentSessionId: stickySessionIdRef.current,
-    currentEnhancedNoteId: enhancedNoteId,
+    currentNoteView: noteView,
     getSessionId,
     getEnhancedNoteId,
   };

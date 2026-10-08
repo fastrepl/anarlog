@@ -13,6 +13,8 @@ const titleHeading = (text: string) => ({
   content: [{ type: "text", text }],
 });
 
+const enhanced = (id: string) => ({ type: "enhanced" as const, id });
+
 describe("canEditSummary", () => {
   const notes = [
     { id: "summary", content: doc(paragraph("Decisions")) },
@@ -20,16 +22,29 @@ describe("canEditSummary", () => {
     { id: "title-only", content: doc(titleHeading("Standup")) },
   ];
 
-  it("offers rewrites only while a summary with content is open", () => {
-    expect(canEditSummary(notes, "summary", "Standup")).toBe(true);
-    expect(canEditSummary(notes, undefined, "Standup")).toBe(false);
+  it("offers rewrites only while a summary with content is shown", () => {
+    expect(canEditSummary(notes, enhanced("summary"), false, "Standup")).toBe(
+      true,
+    );
+    expect(canEditSummary(notes, { type: "raw" }, false, "Standup")).toBe(
+      false,
+    );
   });
 
-  it("follows the open summary even when another summary has content", () => {
-    expect(canEditSummary(notes, "template", "Standup")).toBe(false);
+  it("uses the summary a session tab shows by default", () => {
+    expect(canEditSummary(notes, null, false, "Standup")).toBe(true);
+    expect(canEditSummary(notes, null, true, "Standup")).toBe(false);
+  });
+
+  it("follows the shown summary even when another summary has content", () => {
+    expect(canEditSummary(notes, enhanced("template"), false, "Standup")).toBe(
+      false,
+    );
   });
 
   it("treats a summary holding only the session title as empty", () => {
-    expect(canEditSummary(notes, "title-only", "Standup")).toBe(false);
+    expect(
+      canEditSummary(notes, enhanced("title-only"), false, "Standup"),
+    ).toBe(false);
   });
 });
