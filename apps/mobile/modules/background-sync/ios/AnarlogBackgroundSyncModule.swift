@@ -80,7 +80,9 @@ private final class BackgroundSyncService {
 
   func setPendingWork(remaining: Int) {
     self.remaining = max(0, remaining)
-    if self.remaining == 0, !flushPending { endBackgroundTime() }
+    guard self.remaining == 0 else { return }
+    clearSyncFailure()
+    if !flushPending { endBackgroundTime() }
   }
 
   func finishBackgroundFlush() {
@@ -113,10 +115,16 @@ private final class BackgroundSyncService {
 
   private func appDidBecomeActive() {
     flushPending = false
-    UNUserNotificationCenter.current().removeDeliveredNotifications(
+    clearSyncFailure()
+    endBackgroundTime()
+  }
+
+  private func clearSyncFailure() {
+    let center = UNUserNotificationCenter.current()
+    center.removePendingNotificationRequests(
       withIdentifiers: [failureNotificationId]
     )
-    endBackgroundTime()
+    center.removeDeliveredNotifications(withIdentifiers: [failureNotificationId])
   }
 
   private func beginBackgroundTime() {
