@@ -120,15 +120,6 @@ vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
   },
 }));
 
-vi.mock("~/auth", () => ({
-  useAuth: () => ({ session: null }),
-}));
-
-vi.mock("~/shared-notes/event-keys", () => ({
-  shareIdForEventKey: () => null,
-  useSharedNoteEventKeys: () => new Map(),
-}));
-
 vi.mock("~/calendar/ignored-events", () => ({
   useIgnoredEvents: () => ({
     ignoreEvent: mocks.ignoreEvent,

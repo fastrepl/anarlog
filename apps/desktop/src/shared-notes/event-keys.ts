@@ -7,10 +7,8 @@ import { enqueueDatabaseWrite } from "~/db/write-queue";
 
 const SETTING_ID = "shared_note_event_keys";
 const EMPTY_KEYS: ReadonlyMap<string, string> = new Map();
-const EMPTY_LOCAL_KEYS: ReadonlySet<string> = new Set();
 
 type AppSettingSqlRow = { value_json: string | null };
-type LocalEventSqlRow = { tracking_id_event: string; started_at: string };
 
 export async function syncSharedNoteEventKeys(
   supabase: SupabaseClient,
@@ -94,51 +92,33 @@ export function useSharedNoteEventKeys(
     AppSettingSqlRow,
     ReadonlyMap<string, string>
   >({
-    sql: `SELECT value_json FROM app_settings WHERE id = ?`,
-    params: [SETTING_ID],
+    sql: `SELECT value_json FROM app_settings WHERE id = ? AND ? <> ''`,
+    params: [SETTING_ID, viewerUserId ?? ""],
     mapRows: (rows) =>
       parseSharedNoteEventKeys(rows[0]?.value_json, viewerUserId),
   });
   return data;
 }
 
-export function shareIdForEventKey(
+export function withoutSharedEvents<
+  T extends {
+    tracking_id_event?: string | null;
+    started_at?: string | null;
+  },
+>(
+  table: Record<string, T> | null | undefined,
   eventKeys: ReadonlyMap<string, string>,
-  eventKey: string,
-): string | null {
-  if (!eventKey) return null;
-  for (const [shareId, key] of eventKeys) {
-    if (key === eventKey) return shareId;
-  }
-  return null;
-}
-
-export function useLocalEventKeys(
-  eventKeys: ReadonlyMap<string, string>,
-): ReadonlySet<string> {
-  const trackingIds = Array.from(
-    new Set(
-      Array.from(eventKeys.values(), (key) =>
-        key.slice(0, key.lastIndexOf("|")),
+): Record<string, T> | null | undefined {
+  if (!table || eventKeys.size === 0) return table;
+  const sharedKeys = new Set(eventKeys.values());
+  const entries = Object.entries(table);
+  const visible = entries.filter(
+    ([, event]) =>
+      !sharedKeys.has(
+        sharedNoteEventKey(event.tracking_id_event, event.started_at),
       ),
-    ),
-  ).sort();
-  const { data = EMPTY_LOCAL_KEYS } = useLiveQuery<
-    LocalEventSqlRow,
-    ReadonlySet<string>
-  >({
-    sql: `
-      SELECT tracking_id_event, started_at
-      FROM events
-      WHERE tracking_id_event IN (SELECT value FROM json_each(?))
-    `,
-    params: [JSON.stringify(trackingIds)],
-    mapRows: (rows) =>
-      new Set(
-        rows.map((row) =>
-          sharedNoteEventKey(row.tracking_id_event, row.started_at),
-        ),
-      ),
-  });
-  return data;
+  );
+  return visible.length === entries.length
+    ? table
+    : Object.fromEntries(visible);
 }

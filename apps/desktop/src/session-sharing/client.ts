@@ -724,7 +724,7 @@ function normalizePreviewMetadata(
   return {
     participants: normalizedParticipants,
     meetingAt: parsedMeetingAt.toISOString(),
-    ...(eventKey && eventKey.length <= 512 ? { eventKey } : {}),
+    ...(eventKey !== undefined && eventKey.length <= 512 ? { eventKey } : {}),
   };
 }
 

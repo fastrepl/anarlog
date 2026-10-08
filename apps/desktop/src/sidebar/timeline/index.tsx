@@ -40,6 +40,10 @@ import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineTables } from "~/calendar/queries";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { useActivatedSessionShareIds } from "~/shared-notes/cache";
+import {
+  useSharedNoteEventKeys,
+  withoutSharedEvents,
+} from "~/shared-notes/event-keys";
 import { useConfigValue } from "~/shared/config";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
@@ -68,7 +72,13 @@ export const TimelineView = memo(function TimelineView({
   const timezone = useConfigValue("timezone") || undefined;
   const { session } = useAuth();
   const managedSharedSessionIds = useActivatedSessionShareIds(session?.user.id);
-  const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
+  const { timelineEventsTable: calendarEventsTable, timelineSessionsTable } =
+    useTimelineTables();
+  const sharedEventKeys = useSharedNoteEventKeys(session?.user.id);
+  const timelineEventsTable = useMemo(
+    () => withoutSharedEvents(calendarEventsTable, sharedEventKeys),
+    [calendarEventsTable, sharedEventKeys],
+  );
   const groupBy = useSidebarNotes((state) => state.groupBy);
   const sortOrder = useSidebarNotes((state) => state.sortOrder);
   const isDateTimeline = groupBy === "date";

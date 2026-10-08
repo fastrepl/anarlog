@@ -668,7 +668,7 @@ fn validate_preview_metadata(
         .map_err(|_| SyncError::BadRequest("Shared note preview metadata is invalid".to_string()))?
         .to_rfc3339();
     let event_key = match request.event_key.as_deref().map(str::trim) {
-        None | Some("") => None,
+        None => None,
         Some(key) if key.chars().count() > 512 || key.chars().any(char::is_control) => {
             return Err(SyncError::BadRequest(
                 "Shared note preview metadata is invalid".to_string(),
