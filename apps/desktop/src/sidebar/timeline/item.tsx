@@ -32,6 +32,7 @@ import {
   TimelinePrecision,
 } from "./utils";
 
+import { useAuth } from "~/auth";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { writeSessionContextDragData } from "~/chat/context/session-drag";
 import { DEVICE_AUTH_REASON } from "~/lock/auth";
@@ -46,6 +47,11 @@ import {
 } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { openStandaloneNoteWindow } from "~/session/window";
+import { sharedNoteEventKey } from "~/shared-notes/event-key";
+import {
+  shareIdForEventKey,
+  useSharedNoteEventKeys,
+} from "~/shared-notes/event-keys";
 import { useConfigValue } from "~/shared/config";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
 import { useTimeFormat } from "~/shared/hooks/useTimeFormat";
@@ -481,8 +487,19 @@ const EventItem = memo(
       [item.data.started_at, precision, timezone, timeFormat],
     );
 
+    const { session } = useAuth();
+    const sharedEventKeys = useSharedNoteEventKeys(session?.user.id);
+    const sharedShareId = shareIdForEventKey(
+      sharedEventKeys,
+      sharedNoteEventKey(trackingIdEvent, item.data.started_at),
+    );
+
     const [isOpening, setIsOpening] = useState(false);
     const openEvent = useCallback(() => {
+      if (sharedShareId) {
+        openCurrent({ id: sharedShareId, type: "shared_sessions" });
+        return;
+      }
       if (!eventId || isOpening) return;
       setIsOpening(true);
       void getOrCreateSessionForEventId(eventId, title)
@@ -495,7 +512,7 @@ const EventItem = memo(
         .finally(() => {
           setIsOpening(false);
         });
-    }, [eventId, title, openCurrent, isOpening]);
+    }, [eventId, title, openCurrent, isOpening, sharedShareId]);
 
     const itemKey = `event-${item.id}`;
     const muted = isTimelineItemInFuture(item);

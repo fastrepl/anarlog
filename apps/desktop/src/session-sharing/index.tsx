@@ -262,6 +262,7 @@ export function SessionShareButton({
             body: source.body,
             participants: source.participants,
             meetingAt: source.meetingAt,
+            eventKey: source.eventKey,
             attachmentIds: [],
             signal,
           });

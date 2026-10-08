@@ -240,6 +240,7 @@ async function shareWithFolderDefaultAccess({
     body: source.body,
     participants: source.participants,
     meetingAt: source.meetingAt,
+    eventKey: source.eventKey,
     attachmentIds: [],
     signal,
   }).catch((error: unknown) => {

@@ -182,6 +182,7 @@ export function OwnedSharedNotePublisher() {
               body: projection.body,
               participants: projection.source.participants,
               meetingAt: projection.source.meetingAt,
+              eventKey: projection.source.eventKey,
               attachmentIds: durable.attachments.map(
                 (attachment) => attachment.id,
               ),
