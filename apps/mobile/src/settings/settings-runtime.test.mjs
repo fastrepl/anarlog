@@ -318,12 +318,10 @@ test("desktop list encoding and malformed preferences preserve usable defaults",
       ),
       source_rank: 0,
     },
-    { id: "summary_length", value_json: '"unknown"', source_rank: 0 },
     { id: "sidebar_show_tags", value_json: "{broken", source_rank: 0 },
   ]);
   assert.equal(preferences.theme, "light");
   assert.deepEqual(preferences.spoken_languages, ["ko", "en"]);
-  assert.equal(preferences.summary_length, "detailed");
   assert.equal(preferences.sidebar_show_tags, false);
   assert.deepEqual(
     normalizeDictionary([
@@ -975,7 +973,6 @@ function createNote() {
 test("summary generation uses the selected provider and persists a canonical summary without changing notes", async () => {
   createNote();
   await setPreference("ai_language", "ko");
-  await setPreference("summary_length", "crisp");
   await saveProviderConfig(
     null,
     "llm",
@@ -992,7 +989,7 @@ test("summary generation uses the selected provider and persists a canonical sum
   assert.equal(options.headers["x-api-key"], "synthetic-anthropic-key");
   const request = JSON.parse(options.body);
   assert.match(request.system, /in ko/);
-  assert.match(request.system, /Keep it brief/);
+  assert.match(request.system, /detailed account/);
   const summary = fixture.db
     .prepare("SELECT * FROM session_documents WHERE kind = 'summary'")
     .get();

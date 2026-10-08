@@ -1,16 +1,5 @@
-import type {
-  SummaryLengthMode as RustSummaryLengthMode,
-  SummaryLengthPolicy as RustSummaryLengthPolicy,
-} from "@anlg/plugin-template";
+import type { SummaryLengthPolicy as RustSummaryLengthPolicy } from "@anlg/plugin-template";
 
-const SUMMARY_LENGTH_MODES: SummaryLengthMode[] = [
-  "crisp",
-  "balanced",
-  "detailed",
-];
-const DEFAULT_SUMMARY_LENGTH_MODE: SummaryLengthMode = "detailed";
-
-export type SummaryLengthMode = RustSummaryLengthMode;
 export type SummaryLengthPolicy = RustSummaryLengthPolicy;
 
 export function countNormalizedCharacters(text: string): number {
@@ -31,56 +20,16 @@ export function countTranscriptWordCharacters(
   );
 }
 
-export function normalizeSummaryLengthMode(value: unknown): SummaryLengthMode {
-  return SUMMARY_LENGTH_MODES.includes(value as SummaryLengthMode)
-    ? (value as SummaryLengthMode)
-    : DEFAULT_SUMMARY_LENGTH_MODE;
-}
-
-function getRelativeLengthDescription(mode: SummaryLengthMode): string {
-  if (mode === "crisp") {
-    return "about half the length of a balanced summary";
-  }
-  if (mode === "balanced") {
-    return "the baseline length";
-  }
-  return "about twice the length of a balanced summary";
-}
-
-export function formatSummaryLengthModeGuidance(
-  mode: SummaryLengthMode,
+export function formatSummaryDetailGuidance(
   hasTemplateSections: boolean,
 ): string {
-  const templateGuidance = hasTemplateSections
-    ? "Preserve every requested template section and do not add sections based on this mode."
-    : "Follow the requested format and include only explicitly stated or unambiguous owners, commitments, and deadlines; do not turn proposals into commitments.";
-
-  if (mode === "crisp") {
-    return [
-      "Summary mode: crisp. Make the summary fast to scan.",
-      "Cover only decisions, outcomes, blockers, commitments, and the context required to understand them.",
-      "Do not omit any explicit decision, blocker, owner, commitment, or deadline.",
-      "Use short, direct sentences with one idea per sentence.",
-      "Omit secondary discussion, repetition, conversational framing, minor examples, and rationale that did not affect the outcome without changing the requested structure.",
-      templateGuidance,
-    ].join(" ");
-  }
-
-  if (mode === "balanced") {
-    return [
-      "Summary mode: balanced. Keep the primary discussion complete while remaining concise.",
-      "Do not omit any explicit decision, blocker, owner, commitment, or deadline.",
-      "Include important supporting context and rationale, but omit repetition, tangents, and minor examples.",
-      "Explain each key point briefly with enough context to understand it.",
-      templateGuidance,
-    ].join(" ");
-  }
-
   return [
     "Summary mode: detailed. Capture every material topic, decision, rationale, example, open question, and commitment.",
     "Explain material points with concrete details and enough context to stand on their own.",
     "Retain useful secondary discussion and examples, but remove repetition and conversational filler.",
-    templateGuidance,
+    hasTemplateSections
+      ? "Preserve every requested template section and do not add sections based on this mode."
+      : "Follow the requested format and include only explicitly stated or unambiguous owners, commitments, and deadlines; do not turn proposals into commitments.",
   ].join(" ");
 }
 
@@ -102,7 +51,6 @@ export function formatSummaryLengthGuidance(
 
   return [
     `Summary length: the transcript contains about ${policy.transcript_characters} characters.`,
-    `Summary length mode "${policy.mode}" is ${getRelativeLengthDescription(policy.mode)}.`,
     hasTemplateSections
       ? `Keep every requested template section and stay under ${guidance.max_characters} characters overall.`
       : customFormat

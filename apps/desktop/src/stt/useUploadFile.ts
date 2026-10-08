@@ -65,14 +65,6 @@ export function useUploadFile(sessionId: string) {
 
   const session = useSession(sessionId);
   const updateSession = useUpdateSession(sessionId);
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-  const sessionTab = useTabs((state) => {
-    const found = state.tabs.find(
-      (tab): tab is Extract<Tab, { type: "sessions" }> =>
-        tab.type === "sessions" && tab.id === sessionId,
-    );
-    return found ?? null;
-  });
 
   const triggerEnhance = useCallback(async () => {
     const service = getEnhancerService();
@@ -80,11 +72,16 @@ export function useUploadFile(sessionId: string) {
 
     try {
       const result = await service.enhance(sessionId);
-      if (
-        (result.type === "started" || result.type === "already_active") &&
-        sessionTab
-      ) {
-        updateSessionTabState(sessionTab, {
+      if (result.type !== "started" && result.type !== "already_active") {
+        return;
+      }
+      const tabsState = useTabs.getState();
+      const sessionTab = tabsState.tabs.find(
+        (tab): tab is Extract<Tab, { type: "sessions" }> =>
+          tab.type === "sessions" && tab.id === sessionId,
+      );
+      if (sessionTab && sessionTab.state.view?.type !== "transcript") {
+        tabsState.updateSessionTabState(sessionTab, {
           ...sessionTab.state,
           view: { type: "enhanced", id: result.noteId },
         });
@@ -92,7 +89,7 @@ export function useUploadFile(sessionId: string) {
     } catch (error) {
       console.error("[enhancer] failed to enhance uploaded file", error);
     }
-  }, [sessionId, sessionTab, updateSessionTabState]);
+  }, [sessionId]);
 
   const triggerEnhanceIfSummaryEmpty = useCallback(async () => {
     try {

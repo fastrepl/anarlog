@@ -15,7 +15,6 @@ pub fn summary_length_policy(
 ) -> Result<Option<anlg_summary::SummaryLengthPolicy>, String> {
     Ok(anlg_summary::summary_length_policy_for_texts(
         &request.transcript_texts,
-        request.mode,
         request.template_section_count as usize,
     ))
 }

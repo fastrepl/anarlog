@@ -19,6 +19,7 @@ import {
   isPrivateAttachmentIdentity,
 } from "./upload-policy";
 import {
+  MOBILE_ATTACHMENT_UPLOAD_PAUSED,
   type MobileAttachmentUploadJob,
   mobileAttachmentUploadStore,
 } from "./upload-store";
@@ -379,7 +380,7 @@ async function persistFailure(
 ) {
   const message = error instanceof Error ? error.message : String(error);
   if (aborted) {
-    await store.retry(job, "Attachment upload paused.", new Date());
+    await store.retry(job, MOBILE_ATTACHMENT_UPLOAD_PAUSED, new Date());
     return;
   }
   if (isPermanentFailure(error)) {

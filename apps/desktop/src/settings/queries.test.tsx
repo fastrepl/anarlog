@@ -180,11 +180,6 @@ describe("SQLite settings", () => {
       table: "app_settings",
     },
     {
-      key: "summary_length",
-      value: "crisp",
-      table: "app_settings",
-    },
-    {
       key: "consent_auto_send_chat",
       value: false,
       table: "app_settings",

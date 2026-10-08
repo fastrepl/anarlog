@@ -56,4 +56,36 @@ describe("useAutoEnhance", () => {
       },
     );
   });
+
+  it.each([
+    [{ type: "raw" }, { type: "enhanced", id: "note-1" }],
+    [{ type: "transcript" }, null],
+  ])(
+    "does not pull a reader off the transcript when the auto summary starts (from %o)",
+    (view, expected) => {
+      const tab = { type: "sessions", id: "session-1", state: { view } };
+      const updateSessionTabState = vi.fn();
+      mocks.tabsGetState.mockReturnValue({
+        tabs: [tab],
+        updateSessionTabState,
+      });
+      renderHook(() => useAutoEnhance(tab as any));
+
+      act(() => {
+        mocks.listener?.({
+          type: "auto-enhance-started",
+          sessionId: "session-1",
+          noteId: "note-1",
+        });
+      });
+
+      if (expected) {
+        expect(updateSessionTabState).toHaveBeenCalledWith(tab, {
+          view: expected,
+        });
+      } else {
+        expect(updateSessionTabState).not.toHaveBeenCalled();
+      }
+    },
+  );
 });

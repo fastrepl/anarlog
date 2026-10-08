@@ -8,7 +8,6 @@ export const DEFAULT_PREFERENCES = {
   ai_language: "en",
   spoken_languages: [] as string[],
   personalization_dictionary_terms: [] as string[],
-  summary_length: "detailed" as "crisp" | "balanced" | "detailed",
   theme: "system" as "system" | "light" | "dark",
   sidebar_show_folder: true,
   sidebar_show_tags: false,
@@ -55,10 +54,6 @@ export function parsePreferences(rows: PreferenceRow[]): Preferences {
       case "theme":
         if (value === "system" || value === "light" || value === "dark")
           result.theme = value;
-        break;
-      case "summary_length":
-        if (value === "crisp" || value === "balanced" || value === "detailed")
-          result.summary_length = value;
         break;
       case "ai_language":
         if (
