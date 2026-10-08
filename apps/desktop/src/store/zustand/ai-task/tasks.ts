@@ -2,6 +2,13 @@ import { APICallError, type LanguageModel } from "ai";
 import { create as mutate } from "mutative";
 import type { StoreApi } from "zustand";
 
+import {
+  type AIErrorSource,
+  attributeAIError,
+  getModelProviderId,
+  streamStallSource,
+  withAIErrorSource,
+} from "./shared/error-source";
 import { applyTransforms } from "./shared/transform_infra";
 import {
   TASK_CONFIGS,
@@ -60,7 +67,7 @@ export type RemoteTaskState<T extends TaskType = TaskType> = {
   taskType: T;
   status: TaskStatus;
   streamedText: string;
-  error?: { name?: string; message: string };
+  error?: { name?: string; message: string; source?: AIErrorSource };
   currentStep?: TaskStepInfo<T>;
 };
 
@@ -79,7 +86,7 @@ const initialState: TasksState = {
   tasks: {},
 };
 
-export const TASK_STREAM_IDLE_TIMEOUT_MS = 15_000;
+export const TASK_STREAM_IDLE_TIMEOUT_MS = 30_000;
 export const TASK_STREAM_START_TIMEOUT_MS = 60_000;
 // On-device models can spend minutes loading weights and prefilling a long
 // transcript before the first token; the remote-grade start timeout would
@@ -369,10 +376,14 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
 
           if (result === STREAM_TIMEOUT) {
             workflowAbortController.abort();
-            if (fullText.trim()) {
-              break;
-            }
-            throw new Error("AI generation did not return any text.");
+            throw withAIErrorSource(
+              new Error(
+                fullText.trim()
+                  ? "The AI model stopped responding before it finished."
+                  : "AI generation did not return any text.",
+              ),
+              streamStallSource(getModelProviderId(config.model)),
+            );
           }
 
           if (result.done) {
@@ -489,7 +500,10 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
           }),
         );
       } else {
-        const error = extractUnderlyingError(err);
+        const error = extractUnderlyingError(
+          err,
+          getModelProviderId(config.model),
+        );
         set((state) =>
           mutate(state, (draft) => {
             draft.tasks[taskId] = {
@@ -543,37 +557,51 @@ function toSyncedTaskState(task: RemoteTaskState): TaskState {
   };
 }
 
-function createSyncedTaskError(error: { name?: string; message: string }) {
+function createSyncedTaskError(error: NonNullable<RemoteTaskState["error"]>) {
   const synced = new Error(error.message);
   if (error.name) {
     synced.name = error.name;
   }
-  return synced;
+  return withAIErrorSource(synced, error.source);
 }
 
-export function extractUnderlyingError(err: unknown): Error {
-  if (!(err instanceof Error)) {
-    return new Error(String(err));
-  }
+export function extractUnderlyingError(err: unknown, providerId = ""): Error {
+  const underlying = findUnderlyingError(err);
+  const error =
+    underlying instanceof Error
+      ? normalizeTaskError(underlying)
+      : errorFromPayload(underlying);
+  return withAIErrorSource(error, attributeAIError(underlying, providerId));
+}
 
-  let error = err;
+function errorFromPayload(value: unknown): Error {
+  if (typeof value === "object" && value !== null) {
+    const { message } = value as { message?: unknown };
+    if (typeof message === "string" && message.trim()) {
+      return normalizeTaskError(new Error(message));
+    }
+  }
+  return new Error(String(value));
+}
+
+function findUnderlyingError(err: unknown): unknown {
+  if (!(err instanceof Error)) {
+    return err;
+  }
 
   if (err.name === "AI_RetryError") {
     if ("cause" in err && err.cause instanceof Error) {
-      error = err.cause;
-      return normalizeTaskError(error);
+      return err.cause;
     }
 
     if ("lastError" in err && err.lastError instanceof Error) {
-      error = err.lastError;
-      return normalizeTaskError(error);
+      return err.lastError;
     }
 
     if ("errors" in err && Array.isArray((err as any).errors)) {
       const errors = (err as any).errors;
       if (errors.length > 0 && errors[errors.length - 1] instanceof Error) {
-        error = errors[errors.length - 1];
-        return normalizeTaskError(error);
+        return errors[errors.length - 1];
       }
     }
 
@@ -582,11 +610,11 @@ export function extractUnderlyingError(err: unknown): Error {
       const underlyingMessage = match[1];
       const underlyingError = new Error(underlyingMessage);
       underlyingError.name = "AI_ProviderError";
-      return normalizeTaskError(underlyingError);
+      return underlyingError;
     }
   }
 
-  return normalizeTaskError(error);
+  return err;
 }
 
 const TRANSIENT_AI_ERROR_MESSAGE =

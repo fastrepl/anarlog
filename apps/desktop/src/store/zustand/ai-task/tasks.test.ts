@@ -1,6 +1,7 @@
 import { APICallError } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { getAIErrorSource } from "./shared/error-source";
 import { TASK_CONFIGS } from "./task-configs";
 import {
   createTasksSlice,
@@ -333,7 +334,7 @@ describe("createTasksSlice", () => {
     });
   });
 
-  it("persists streamed text when the provider never closes the stream", async () => {
+  it("fails instead of saving a partial summary when the stream stalls", async () => {
     vi.useFakeTimers();
     let state: ReturnType<typeof createTasksSlice>;
     const set = (updater: any) => {
@@ -355,7 +356,7 @@ describe("createTasksSlice", () => {
 
     const taskId = "session-idle-enhance" as const;
     const promise = state.generate(taskId, {
-      model: {} as any,
+      model: { provider: "openrouter" } as any,
       taskType: "enhance",
       args: { sessionId: "session-1", enhancedNoteId: "note-1" },
     });
@@ -366,12 +367,10 @@ describe("createTasksSlice", () => {
     await vi.advanceTimersByTimeAsync(TASK_STREAM_IDLE_TIMEOUT_MS);
     await promise;
 
-    expect(TASK_CONFIGS.enhance.onSuccess).toHaveBeenCalledWith(
-      expect.objectContaining({ text: "Generated summary" }),
-    );
-    expect(state.tasks[taskId]).toMatchObject({
-      status: "success",
-      streamedText: "Generated summary",
+    expect(TASK_CONFIGS.enhance.onSuccess).not.toHaveBeenCalled();
+    expect(state.tasks[taskId]?.status).toBe("error");
+    expect(getAIErrorSource(state.tasks[taskId]?.error)).toEqual({
+      kind: "upstream",
     });
   });
 
@@ -535,6 +534,23 @@ describe("extractUnderlyingError", () => {
     });
 
     expect(extractUnderlyingError(error)).toBe(error);
+  });
+
+  it("keeps the message of mid-stream provider error payloads", () => {
+    const error = extractUnderlyingError(
+      {
+        code: 400,
+        message: "prompt is too long",
+        metadata: { provider_name: "Anthropic" },
+      },
+      "openrouter",
+    );
+
+    expect(error.message).toBe("prompt is too long");
+    expect(getAIErrorSource(error)).toEqual({
+      kind: "provider",
+      provider: "Anthropic",
+    });
   });
 
   it("preserves non-transient errors", () => {

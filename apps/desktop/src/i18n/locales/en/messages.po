@@ -5635,6 +5635,26 @@ msgstr "Sort options"
 msgid "Sound"
 msgstr "Sound"
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: {provider} (AI model provider)"
+msgstr "Source: {provider} (AI model provider)"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: AI model provider"
+msgstr "Source: AI model provider"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: Anarlog"
+msgstr "Source: Anarlog"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: OpenRouter (AI routing service)"
+msgstr "Source: OpenRouter (AI routing service)"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: OpenRouter or the AI model provider"
+msgstr "Source: OpenRouter or the AI model provider"
+
 #: src/settings/general/notification.tsx
 msgid "Sparkle"
 msgstr "Sparkle"
