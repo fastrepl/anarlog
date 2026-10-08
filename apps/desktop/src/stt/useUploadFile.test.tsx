@@ -170,6 +170,12 @@ describe("useUploadFile", () => {
         updateSessionTabState: updateSessionTabStateMock,
       }),
     );
+    Object.assign(useTabsMock, {
+      getState: () => ({
+        tabs: [],
+        updateSessionTabState: updateSessionTabStateMock,
+      }),
+    });
   });
 
   test("infers the session date for an ordinary audio upload", async () => {

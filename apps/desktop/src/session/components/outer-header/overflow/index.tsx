@@ -33,7 +33,6 @@ import { DeleteNote } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
 import { LockNote } from "./lock-note";
-import { ShowInFolder } from "./misc";
 
 import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
@@ -218,7 +217,6 @@ export function OverflowButton({
                 <Trans>Export</Trans>
               </span>
             </DropdownMenuItem>
-            <ShowInFolder sessionId={sessionId} />
             <DropdownMenuSeparator />
             {!standaloneWindow && (
               <DropdownMenuItem
