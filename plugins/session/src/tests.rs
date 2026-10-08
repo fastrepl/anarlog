@@ -137,7 +137,7 @@ async fn create_session_persists_session_note_owner_and_participant() {
 }
 
 #[tokio::test]
-async fn create_session_uses_matching_folder_workspace() {
+async fn create_session_keeps_personal_workspace_inside_team_folder() {
     let db = test_db().await;
     sqlx::query(
         "INSERT INTO folders (id, workspace_id, path) VALUES ('folder-1', 'team-ws', 'CS 101')",
@@ -152,7 +152,7 @@ async fn create_session_uses_matching_folder_workspace() {
         .fetch_one(db.pool())
         .await
         .unwrap();
-    assert_eq!(workspace, "team-ws");
+    assert_ne!(workspace, "team-ws");
 }
 
 #[tokio::test]

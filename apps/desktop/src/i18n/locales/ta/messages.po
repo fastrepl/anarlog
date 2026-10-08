@@ -1252,10 +1252,6 @@ msgstr ""
 msgid "Choose who can access notes from new meetings."
 msgstr ""
 
-#: src/folders/folder-editor.tsx
-msgid "Choose who receives new notes created in this folder."
-msgstr ""
-
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
 msgstr ""
@@ -2075,6 +2071,10 @@ msgstr ""
 msgid "Default"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Default access"
+msgstr ""
+
 #: src/settings/general/default-share-access.tsx
 msgid "Default sharing"
 msgstr ""
@@ -2473,9 +2473,14 @@ msgstr ""
 
 #. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
+#: src/folders/folder-editor.tsx
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/general-access.tsx
 msgid "Everyone in {0}"
+msgstr ""
+
+#: src/folders/sidebar.tsx
+msgid "Everyone in {name}"
 msgstr ""
 
 #: src/settings/general/default-share-access.tsx
@@ -3725,9 +3730,9 @@ msgstr ""
 msgid "New Note"
 msgstr ""
 
-#. placeholder {0}: workspaceConfirmation?.name
+#. placeholder {0}: accessConfirmation?.label
 #: src/folders/folder-editor.tsx
-msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+msgid "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
 msgstr ""
 
 #: src/settings/referrals.tsx
@@ -4296,6 +4301,8 @@ msgstr ""
 msgid "People"
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+#: src/folders/sidebar.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "People in the meeting"
 msgstr ""
@@ -5259,6 +5266,14 @@ msgstr ""
 msgid "Share link copied."
 msgstr ""
 
+#: src/folders/folder-editor.tsx
+msgid "Share new notes in this folder when their summary is ready. You can still change access on each note."
+msgstr ""
+
+#: src/folders/folder-editor.tsx
+msgid "Share new notes in this folder?"
+msgstr ""
+
 #: src/session-sharing/index.tsx
 msgid "Share note"
 msgstr ""
@@ -5269,10 +5284,6 @@ msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Share one item with a guest, or add it to a Team for everyone."
-msgstr ""
-
-#: src/folders/folder-editor.tsx
-msgid "Share this folder?"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -5938,14 +5949,6 @@ msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team"
-msgstr ""
-
-#: src/folders/folder-editor.tsx
-msgid "Team folder"
-msgstr ""
-
-#: src/folders/folder-editor.tsx
-msgid "Team folder workspace"
 msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx

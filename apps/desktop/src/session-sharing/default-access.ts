@@ -80,7 +80,7 @@ export async function loadMeetingShareInviteEmails({
 
 export async function applyDefaultMeetingShareAccess(input: {
   wasCreated: boolean;
-  actionType: "invite" | "email" | "slack" | "copy-link" | "scope";
+  actionType: "invite" | "email" | "slack" | "copy-link" | "scope" | "auto";
   access: DefaultMeetingShareAccess;
   workspaces: AvailableShareWorkspace[];
   context: ShareManagementContext;
