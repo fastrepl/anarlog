@@ -10,6 +10,7 @@ import {
 } from "~/services/enhancer";
 import { id } from "~/shared/utils";
 import type { AITaskStore } from "~/store/zustand/ai-task";
+import { getAIErrorSource } from "~/store/zustand/ai-task/shared/error-source";
 import {
   MAX_AI_TASK_STREAM_CHARACTERS,
   type RemoteTaskState,
@@ -375,7 +376,11 @@ export function serializeEnhanceTasks(tasks: Record<string, TaskState>) {
             MAX_AI_TASK_STREAM_CHARACTERS,
           ),
           error: task.error
-            ? { name: task.error.name, message: task.error.message }
+            ? {
+                name: task.error.name,
+                message: task.error.message,
+                source: getAIErrorSource(task.error),
+              }
             : undefined,
           currentStep: task.currentStep,
         } satisfies RemoteTaskState,
