@@ -23,9 +23,11 @@ export function backgroundSyncFailed(
     MobileSyncSnapshot,
     "phase" | "hasUnsentChanges" | "errorMessage" | "consecutiveFailures"
   >,
+  failedUploads: number,
 ): boolean {
+  if (sync.phase !== "ready") return false;
+  if (failedUploads > 0) return true;
   return (
-    sync.phase === "ready" &&
     sync.hasUnsentChanges !== false &&
     (sync.consecutiveFailures > 0 || sync.errorMessage !== null)
   );

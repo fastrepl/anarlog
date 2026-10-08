@@ -39,22 +39,29 @@ test("does not hold background time for a failing or inactive runtime", () => {
 
 test("reports a background sync failure only while changes are unsent", () => {
   const failing = { ...ready, hasUnsentChanges: true, consecutiveFailures: 1 };
-  assert.equal(backgroundSyncFailed(failing), true);
+  assert.equal(backgroundSyncFailed(failing, 0), true);
   assert.equal(
-    backgroundSyncFailed({
-      ...ready,
-      hasUnsentChanges: true,
-      errorMessage: "offline",
-    }),
+    backgroundSyncFailed(
+      { ...ready, hasUnsentChanges: true, errorMessage: "offline" },
+      0,
+    ),
     true,
   );
   assert.equal(
-    backgroundSyncFailed({ ...failing, hasUnsentChanges: false }),
+    backgroundSyncFailed({ ...failing, hasUnsentChanges: false }, 0),
     false,
   );
   assert.equal(
-    backgroundSyncFailed({ ...ready, hasUnsentChanges: true }),
+    backgroundSyncFailed({ ...ready, hasUnsentChanges: true }, 0),
     false,
   );
-  assert.equal(backgroundSyncFailed({ ...failing, phase: "starting" }), false);
+  assert.equal(
+    backgroundSyncFailed({ ...failing, phase: "starting" }, 0),
+    false,
+  );
+});
+
+test("reports failed attachment uploads even when notes are synced", () => {
+  assert.equal(backgroundSyncFailed(ready, 1), true);
+  assert.equal(backgroundSyncFailed({ ...ready, phase: "starting" }, 1), false);
 });
