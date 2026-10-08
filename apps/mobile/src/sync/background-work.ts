@@ -17,3 +17,16 @@ export function backgroundSyncWork(
     (sync.hasUnsentChanges === true && sync.consecutiveFailures === 0);
   return Math.max(0, pendingUploads) + (syncPending ? 1 : 0);
 }
+
+export function backgroundSyncFailed(
+  sync: Pick<
+    MobileSyncSnapshot,
+    "phase" | "hasUnsentChanges" | "errorMessage" | "consecutiveFailures"
+  >,
+): boolean {
+  return (
+    sync.phase === "ready" &&
+    sync.hasUnsentChanges !== false &&
+    (sync.consecutiveFailures > 0 || sync.errorMessage !== null)
+  );
+}

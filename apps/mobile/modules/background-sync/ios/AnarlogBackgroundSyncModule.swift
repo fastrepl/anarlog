@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import UIKit
+import UserNotifications
 
 public class AnarlogBackgroundSyncModule: Module {
   public func definition() -> ModuleDefinition {
@@ -22,11 +23,16 @@ public class AnarlogBackgroundSyncModule: Module {
     AsyncFunction("finishBackgroundFlush") {
       BackgroundSyncService.shared.finishBackgroundFlush()
     }.runOnQueue(.main)
+
+    AsyncFunction("notifySyncFailed") {
+      BackgroundSyncService.shared.notifySyncFailed()
+    }.runOnQueue(.main)
   }
 }
 
 // Sync runs silently in background execution time; it never presents
-// system UI such as a Live Activity.
+// system UI such as a Live Activity. Only a failed background sync is
+// surfaced, as a local notification.
 // All state is confined to the main queue.
 private final class BackgroundSyncService {
   static let shared = BackgroundSyncService()
@@ -36,6 +42,7 @@ private final class BackgroundSyncService {
   private var remaining = 0
   private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
   private var flushPending = false
+  private let failureNotificationId = "anarlog.sync.failed"
 
   func activate() {
     guard observers.isEmpty else { return }
@@ -60,7 +67,12 @@ private final class BackgroundSyncService {
 
   func setEnabled(_ enabled: Bool) {
     self.enabled = enabled
-    guard !enabled else { return }
+    if enabled {
+      UNUserNotificationCenter.current().requestAuthorization(
+        options: [.alert, .sound]
+      ) { _, _ in }
+      return
+    }
     remaining = 0
     flushPending = false
     endBackgroundTime()
@@ -76,6 +88,23 @@ private final class BackgroundSyncService {
     if remaining == 0 { endBackgroundTime() }
   }
 
+  func notifySyncFailed() {
+    guard enabled, UIApplication.shared.applicationState != .active else {
+      return
+    }
+    let content = UNMutableNotificationContent()
+    content.title = "Anarlog couldn't sync"
+    content.body = "Open Anarlog to finish syncing your notes."
+    content.sound = .default
+    UNUserNotificationCenter.current().add(
+      UNNotificationRequest(
+        identifier: failureNotificationId,
+        content: content,
+        trigger: nil
+      )
+    )
+  }
+
   private func appDidEnterBackground() {
     guard enabled else { return }
     flushPending = true
@@ -84,6 +113,9 @@ private final class BackgroundSyncService {
 
   private func appDidBecomeActive() {
     flushPending = false
+    UNUserNotificationCenter.current().removeDeliveredNotifications(
+      withIdentifiers: [failureNotificationId]
+    )
     endBackgroundTime()
   }
 

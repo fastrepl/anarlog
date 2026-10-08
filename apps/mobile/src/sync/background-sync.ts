@@ -5,7 +5,7 @@ import { countDueMobileAttachmentUploads } from "@/attachment-sync/upload-store"
 import { captureOperationalError } from "@/lib/error-reporting";
 
 import BackgroundSyncModule from "../../modules/background-sync";
-import { backgroundSyncWork } from "./background-work";
+import { backgroundSyncFailed, backgroundSyncWork } from "./background-work";
 import { getMobileSyncSnapshot, syncMobileNow } from "./mobile-sync";
 
 export function activateMobileBackgroundSync(): {
@@ -47,7 +47,12 @@ export function activateMobileBackgroundSync(): {
       await syncMobileNow();
     } finally {
       refresh();
-      if (!stopped) await native.finishBackgroundFlush();
+      if (!stopped) {
+        if (backgroundSyncFailed(getMobileSyncSnapshot())) {
+          report("notify_failure", native.notifySyncFailed());
+        }
+        await native.finishBackgroundFlush();
+      }
     }
   };
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { backgroundSyncWork } from "./background-work.ts";
+import { backgroundSyncFailed, backgroundSyncWork } from "./background-work.ts";
 
 const ready = {
   phase: "ready",
@@ -9,6 +9,7 @@ const ready = {
   syncingNow: false,
   hasUnsentChanges: false,
   consecutiveFailures: 0,
+  errorMessage: null,
 };
 
 test("keeps sync alive while local changes or uploads are outstanding", () => {
@@ -34,4 +35,26 @@ test("does not hold background time for a failing or inactive runtime", () => {
     0,
   );
   assert.equal(backgroundSyncWork({ ...ready, running: false }, 1), 0);
+});
+
+test("reports a background sync failure only while changes are unsent", () => {
+  const failing = { ...ready, hasUnsentChanges: true, consecutiveFailures: 1 };
+  assert.equal(backgroundSyncFailed(failing), true);
+  assert.equal(
+    backgroundSyncFailed({
+      ...ready,
+      hasUnsentChanges: true,
+      errorMessage: "offline",
+    }),
+    true,
+  );
+  assert.equal(
+    backgroundSyncFailed({ ...failing, hasUnsentChanges: false }),
+    false,
+  );
+  assert.equal(
+    backgroundSyncFailed({ ...ready, hasUnsentChanges: true }),
+    false,
+  );
+  assert.equal(backgroundSyncFailed({ ...failing, phase: "starting" }), false);
 });
