@@ -30,7 +30,7 @@ export function useHasEditableSummary(
 // Only offered while a summary tab is shown, so the rewrite targets what the
 // user is looking at.
 export function canEditSummary(
-  notes: ReadonlyArray<{ id: string; content: string }>,
+  notes: ReadonlyArray<{ id: string; templateId: string; content: string }>,
   noteView: SessionNoteView | null,
   isLiveSessionActive: boolean,
   sessionTitle: string | undefined,
@@ -44,5 +44,13 @@ export function canEditSummary(
     view.type === "enhanced"
       ? notes.find((note) => note.id === view.id)
       : undefined;
-  return target ? hasSummaryContent(target.content, sessionTitle) : false;
+  if (!target) {
+    return false;
+  }
+  // Without an explicit view, `edit_summary` falls back to the first
+  // non-template summary, so only offer rewrites when that is what is shown.
+  if (noteView === null && target.templateId) {
+    return false;
+  }
+  return hasSummaryContent(target.content, sessionTitle);
 }

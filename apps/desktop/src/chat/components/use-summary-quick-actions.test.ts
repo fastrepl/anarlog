@@ -17,9 +17,9 @@ const enhanced = (id: string) => ({ type: "enhanced" as const, id });
 
 describe("canEditSummary", () => {
   const notes = [
-    { id: "summary", content: doc(paragraph("Decisions")) },
-    { id: "template", content: doc({ type: "paragraph" }) },
-    { id: "title-only", content: doc(titleHeading("Standup")) },
+    { id: "summary", templateId: "", content: doc(paragraph("Decisions")) },
+    { id: "template", templateId: "tpl", content: doc({ type: "paragraph" }) },
+    { id: "title-only", templateId: "", content: doc(titleHeading("Standup")) },
   ];
 
   it("offers rewrites only while a summary with content is shown", () => {
@@ -34,6 +34,7 @@ describe("canEditSummary", () => {
   it("uses the summary a session tab shows by default", () => {
     expect(canEditSummary(notes, null, false, "Standup")).toBe(true);
     expect(canEditSummary(notes, null, true, "Standup")).toBe(false);
+    expect(canEditSummary(notes.slice(1), null, false, "Standup")).toBe(false);
   });
 
   it("follows the shown summary even when another summary has content", () => {
