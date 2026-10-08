@@ -2,6 +2,8 @@ import { t } from "@lingui/core/macro";
 import { useCallback } from "react";
 
 import {
+  ArrowsInSimple,
+  ArrowsOutSimple,
   Envelope,
   ListChecks,
   MagnifyingGlass,
@@ -16,10 +18,12 @@ import { useTabs } from "~/store/zustand/tabs";
 export function ChatBodyEmpty({
   isModelConfigured = true,
   hasContext = false,
+  hasSummary = false,
   onSendMessage,
 }: {
   isModelConfigured?: boolean;
   hasContext?: boolean;
+  hasSummary?: boolean;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
@@ -28,7 +32,22 @@ export function ChatBodyEmpty({
 }) {
   const { isDarkAppearance } = useChatAppearance();
   const openNew = useTabs((state) => state.openNew);
+  const summarySuggestions = hasSummary
+    ? [
+        {
+          label: t`Make the summary shorter.`,
+          icon: ArrowsInSimple,
+          prompt: t`Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail.`,
+        },
+        {
+          label: t`Make the summary longer.`,
+          icon: ArrowsOutSimple,
+          prompt: t`Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything.`,
+        },
+      ]
+    : [];
   const suggestions = [
+    ...summarySuggestions,
     {
       label: t`List action items.`,
       icon: ListChecks,
