@@ -21,6 +21,10 @@ import {
 } from "./providers-model.ts";
 
 const sourceRoot = new URL("../", import.meta.url);
+const providerValidationUrl = new URL(
+  "../../../../packages/provider-validation/src/index.ts",
+  import.meta.url,
+).href;
 const fixture = (globalThis.mobileSettingsFixture = {
   db: null,
   keys: new Map(),
@@ -34,7 +38,13 @@ const fixture = (globalThis.mobileSettingsFixture = {
     }),
 });
 const modules = {
-  "@anlg/provider-validation": `export async function verifyProviderCredentials(credential) { return globalThis.mobileSettingsFixture.verify(credential); }`,
+  "@anlg/provider-validation": `import { verifyProviderCredentials as verifyReal } from "${providerValidationUrl}";
+    export async function verifyProviderCredentials(credential, fetcher, signal) {
+      const fixture = globalThis.mobileSettingsFixture;
+      if (fixture.useRealProviderValidation)
+        return verifyReal(credential, fetcher, signal);
+      return fixture.verify(credential);
+    }`,
   "@anlg/mobile-bridge": `export const ProviderTranscriptionError = Object.fromEntries(["AudioTooLarge", "AudioMissing", "ResponseTooLarge", "InvalidSettings", "TimedOut", "RequestFailed"].map(tag => [tag, {instanceOf: error => error.tag === tag}]));
   export async function transcribeProviderAudio(request, options) {
     const fixture = globalThis.mobileSettingsFixture;
@@ -164,6 +174,7 @@ beforeEach(() => {
   fixture.keys.clear();
   fixture.session = null;
   fixture.requests = [];
+  fixture.useRealProviderValidation = false;
   fixture.verify = async () => {};
   fixture.respond = () =>
     Response.json({
@@ -217,23 +228,20 @@ test("failed verification never creates a provider or exposes it in selection", 
   assert.equal((await readProviderConfig(null, "stt")).provider, "anarlog");
 });
 
-test("mobile provider verification receives the provider kind", async () => {
-  const credentials = [];
-  fixture.verify = async (credential) => credentials.push(credential);
+test("custom STT save and availability skip model-list verification", async () => {
+  fixture.useRealProviderValidation = true;
+  fixture.respond = () => {
+    throw Error("Custom STT verification must not request a model list.");
+  };
   await saveProviderConnection(
     "account-a",
     "stt",
     { provider: "custom", baseUrl: "https://custom.test/v1" },
     "synthetic-key",
   );
-  await readProviderStatus("account-a", "stt", "custom");
-  assert.deepEqual(
-    credentials.map(({ type, provider }) => ({ type, provider })),
-    [
-      { type: "stt", provider: "custom" },
-      { type: "stt", provider: "custom" },
-    ],
-  );
+  const status = await readProviderStatus("account-a", "stt", "custom");
+  assert.equal(status.isConfigured, true);
+  assert.equal(fixture.requests.length, 0);
 });
 
 test("provider availability follows saved device keys for transcription and summaries", async () => {
