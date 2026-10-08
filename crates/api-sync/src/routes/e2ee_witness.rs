@@ -19,7 +19,9 @@ const MAX_EVENTS_PER_BATCH: usize = 64;
 const MAX_EVENT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_WITNESS_REQUEST_BYTES: usize = 64 * 1024 * 1024;
 const MAX_WITNESS_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
-const MAX_WITNESS_PAGE_BYTES: i32 = 48 * 1024 * 1024;
+// Keeps each page short enough to download on slow mobile networks. The first
+// event is always returned, so a maximum-size event still fits.
+const MAX_WITNESS_PAGE_BYTES: i32 = 16 * 1024 * 1024;
 const WITNESS_PAGE_SIZE: i32 = 1024;
 const LEGACY_WITNESS_PAGE_SIZE: i32 = 3;
 const WITNESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
@@ -811,7 +813,7 @@ mod tests {
                 "p_workspace_id": OWNER,
                 "p_after_sequence": 0,
                 "p_limit": 1024,
-                "p_max_bytes": 50331648
+                "p_max_bytes": 16777216
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
                 "initialized_at": "2026-07-17T00:00:00Z",

@@ -1774,3 +1774,53 @@ async fn running_legacy_clients_reprobe_after_cloud_cutover() {
         }
     }
 }
+
+#[tokio::test]
+async fn a_slow_witness_page_outlasts_the_idle_timeout_while_bytes_arrive() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let body = serde_json::to_vec(&json!({
+        "initialized": true,
+        "initializedAt": "2026-07-17T00:00:00Z",
+        "headSequence": 0,
+        "throughSequence": 0,
+        "nextAfterSequence": 0,
+        "events": [],
+    }))
+    .unwrap();
+    tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut request = [0; 4096];
+        let _ = socket.read(&mut request).await.unwrap();
+        socket
+            .write_all(
+                format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                    body.len()
+                )
+                .as_bytes(),
+            )
+            .await
+            .unwrap();
+        for chunk in body.chunks(body.len().div_ceil(8)) {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            socket.write_all(chunk).await.unwrap();
+        }
+    });
+    let mut client = E2eeWitnessClient::new(
+        E2eeWitnessConfig {
+            endpoint: format!("http://{address}/sync/e2ee/witness/user-a"),
+            access_token: "access-token".to_string(),
+        },
+        "user-a",
+    )
+    .unwrap();
+    client.client = http_client(std::time::Duration::from_millis(300)).unwrap();
+    client.accepted_support.store(1, Ordering::Release);
+
+    let page = client.read_page(0, None).await.unwrap();
+
+    assert_eq!(page.head_sequence, 0);
+}
