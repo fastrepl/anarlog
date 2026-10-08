@@ -254,6 +254,19 @@ async function shareWithFolderDefaultAccess({
     contentRevision: published.contentRevision,
     sourceHash,
   });
+  await applyDefaultMeetingShareAccess({
+    wasCreated: true,
+    actionType: "auto",
+    access: rule.access,
+    workspaces,
+    context,
+    shareId: share.shareId,
+    sessionId: source.sessionId,
+    noteTitle: source.title,
+    signal,
+    requireActive: () => signal.throwIfAborted(),
+  });
+  await markSessionShareActivated(ownerUserId, share.shareId, sessionId);
   await upsertDurableSharedNoteCache(ownerUserId, {
     shareId: published.shareId,
     workspaceId: source.workspaceId,
@@ -270,19 +283,6 @@ async function shareWithFolderDefaultAccess({
     webEditBase: null,
     publishedAt: published.publishedAt,
   });
-  await applyDefaultMeetingShareAccess({
-    wasCreated: true,
-    actionType: "auto",
-    access: rule.access,
-    workspaces,
-    context,
-    shareId: share.shareId,
-    sessionId: source.sessionId,
-    noteTitle: source.title,
-    signal,
-    requireActive: () => signal.throwIfAborted(),
-  });
-  await markSessionShareActivated(ownerUserId, share.shareId, sessionId);
   await markFolderDefaultAccessApplied(sessionId);
 }
 
