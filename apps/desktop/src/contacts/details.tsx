@@ -312,6 +312,7 @@ export function DetailsColumn({
                     value={email}
                     onCommit={(next) => {
                       const trimmed = next.trim();
+                      if (trimmed === email) return;
                       const additionalEmails = trimmed
                         ? human.additionalEmails.map((entry, entryIndex) =>
                             entryIndex === index ? trimmed : entry,
