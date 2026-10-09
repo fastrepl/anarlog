@@ -278,7 +278,7 @@ def run_sql(
     return rows
 
 
-def verify_remote_database(values: dict[str, str]) -> None:
+def verify_remote_database(values: dict[str, str]) -> str:
     mode = protocol_mode(values)
     legacy_id = values["ANARLOG_CLOUDSYNC_DATABASE_ID"].strip()
     database_id = values["ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID"].strip()
@@ -391,6 +391,8 @@ def verify_remote_database(values: dict[str, str]) -> None:
     if [column.get("name") for column in indexed_columns] != ["workspace_id", "id"]:
         raise ValueError("e2ee_records workspace index has unexpected columns")
 
+    return database_name
+
 
 def mint_token(
     project_url: str,
@@ -463,7 +465,44 @@ def run_test(test: str, environment: dict[str, str]) -> None:
     )
 
 
-def run_test_with_cleanup(test: str, environment: dict[str, str]) -> None:
+def cleanup_remote_workspaces(
+    environment: dict[str, str], project_url: str, database_name: str
+) -> None:
+    for suffix in ("A", "B"):
+        workspace = environment[f"ANARLOG_CLOUDSYNC_WORKSPACE_{suffix}"]
+        prefix = f"deploy-e2ee-{suffix.lower()}-"
+        if not workspace.startswith(prefix):
+            raise ValueError("cleanup requires a deployment verification workspace")
+        uuid.UUID(workspace.removeprefix(prefix))
+        token = environment[f"ANARLOG_CLOUDSYNC_TOKEN_{suffix}"]
+        where = f"workspace_id = '{workspace}'"
+        # A fresh native client cannot clean up when the failing check is download visibility.
+        request_json(
+            project_url.rstrip("/") + "/v2/weblite/sql",
+            token,
+            "verification workspace cleanup",
+            {
+                "database": database_name,
+                "sql": f"DELETE FROM e2ee_records WHERE {where}",
+            },
+        )
+        remaining = run_sql(
+            project_url,
+            token,
+            database_name,
+            f"SELECT count(*) AS remaining FROM e2ee_records WHERE {where}",
+            "verification workspace cleanup check",
+        )
+        if remaining != [{"remaining": 0}]:
+            raise RuntimeError("verification workspace cleanup left remote records")
+
+
+def run_test_with_cleanup(
+    test: str,
+    environment: dict[str, str],
+    project_url: str,
+    database_name: str,
+) -> None:
     test_error = None
     try:
         run_test(test, environment)
@@ -474,6 +513,11 @@ def run_test_with_cleanup(test: str, environment: dict[str, str]) -> None:
     try:
         run_test("cleanup_e2ee_verification_workspaces", environment)
     except subprocess.SubprocessError as error:
+        cleanup_error = error
+
+    try:
+        cleanup_remote_workspaces(environment, project_url, database_name)
+    except Exception as error:
         cleanup_error = error
 
     if test_error and cleanup_error:
@@ -491,7 +535,7 @@ def main() -> None:
         raise ValueError("usage: verify_cloudsync_e2ee.py <infisical-export.json>")
 
     values = load_secrets(sys.argv[1])
-    verify_remote_database(values)
+    database_name = verify_remote_database(values)
 
     cargo_env = sanitized_cargo_env()
     subprocess.run(
@@ -530,6 +574,8 @@ def main() -> None:
     run_test_with_cleanup(
         "same_personal_workspace_syncs_and_decrypts_a_real_note",
         sync_env,
+        project_url,
+        database_name,
     )
 
     workspace_a = f"deploy-e2ee-a-{uuid.uuid4()}"
@@ -551,6 +597,8 @@ def main() -> None:
     run_test_with_cleanup(
         "personal_workspace_tokens_block_foreign_encrypted_writes",
         policy_env,
+        project_url,
+        database_name,
     )
 
 

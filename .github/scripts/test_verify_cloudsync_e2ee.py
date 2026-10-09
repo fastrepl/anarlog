@@ -1,5 +1,7 @@
 import importlib.util
 import pathlib
+import sqlite3
+import subprocess
 import unittest
 from unittest import mock
 
@@ -12,6 +14,54 @@ SPEC.loader.exec_module(verify)
 
 
 class VerifyCloudSyncE2eeTests(unittest.TestCase):
+    def test_failed_download_cleans_own_remote_fixtures_and_preserves_failure(
+        self,
+    ) -> None:
+        workspace_a = "deploy-e2ee-a-00000000-0000-4000-8000-000000000001"
+        workspace_b = "deploy-e2ee-b-00000000-0000-4000-8000-000000000002"
+        environment = {
+            "ANARLOG_CLOUDSYNC_WORKSPACE_A": workspace_a,
+            "ANARLOG_CLOUDSYNC_WORKSPACE_B": workspace_b,
+            "ANARLOG_CLOUDSYNC_TOKEN_A": "fixture-a-token",
+            "ANARLOG_CLOUDSYNC_TOKEN_B": "fixture-b-token",
+        }
+        failure = subprocess.CalledProcessError(101, ["cargo", "test"])
+        with sqlite3.connect(":memory:") as database:
+            database.row_factory = sqlite3.Row
+            database.execute("CREATE TABLE e2ee_records (workspace_id TEXT)")
+            database.executemany(
+                "INSERT INTO e2ee_records VALUES (?)",
+                [(workspace_a,), (workspace_b,), ("unrelated-workspace",)],
+            )
+
+            def sql_request(_url, _token, _label, body):
+                cursor = database.execute(body["sql"])
+                return {
+                    "data": [dict(row) for row in cursor.fetchall()]
+                    if cursor.description
+                    else {}
+                }
+
+            with (
+                mock.patch.object(verify, "run_test", side_effect=[failure, None]),
+                mock.patch.object(verify, "request_json", side_effect=sql_request),
+            ):
+                with self.assertRaises(subprocess.CalledProcessError) as raised:
+                    verify.run_test_with_cleanup(
+                        "replication-check",
+                        environment,
+                        "https://project.example",
+                        "e2ee.sqlite",
+                    )
+            self.assertIs(raised.exception, failure)
+            self.assertEqual(
+                [
+                    row[0]
+                    for row in database.execute("SELECT workspace_id FROM e2ee_records")
+                ],
+                ["unrelated-workspace"],
+            )
+
     def e2ee_record_columns(self) -> list[dict[str, object]]:
         timestamp_default = "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
         return [
