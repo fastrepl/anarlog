@@ -10,7 +10,8 @@ publicHoistPattern:
   - "!@types/bun"
 
 overrides:
-  prosemirror-view: "1.41.7"
+  prosemirror-model: "1.25.12"
+  prosemirror-view: "1.42.3"
   lightningcss: "1.30.1"
   protobufjs: "7.6.5"
   seroval: "1.5.3"
