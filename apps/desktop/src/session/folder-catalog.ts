@@ -9,6 +9,10 @@ import {
 } from "~/calendar/series-folders";
 import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import {
+  clearFolderDefaultAccessRulesForFolder,
+  remapFolderDefaultAccessRules,
+} from "~/session-sharing/folder-default-access";
 import { normalizeFolderIcon } from "~/session/folder-icon";
 import { type TemplateIcon } from "~/templates/template-icon";
 
@@ -59,6 +63,15 @@ export async function renameNamedFolder(
       throw new Error(result.error);
     }
   });
+
+  try {
+    await remapFolderDefaultAccessRules(oldPath, newPath);
+  } catch (error) {
+    console.error(
+      "[folder-catalog] failed to remap folder default access rules",
+      error,
+    );
+  }
 
   try {
     await remapSeriesFolderRules(oldPath, newPath);
@@ -114,6 +127,15 @@ export async function deleteNamedFolder(folderPath: string): Promise<void> {
     !String(deleted.error).includes("folder_source_missing")
   ) {
     throw new Error(deleted.error);
+  }
+
+  try {
+    await clearFolderDefaultAccessRulesForFolder(path);
+  } catch (error) {
+    console.error(
+      "[folder-catalog] failed to clear folder default access rules",
+      error,
+    );
   }
 
   try {

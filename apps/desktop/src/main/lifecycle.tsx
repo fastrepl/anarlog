@@ -15,6 +15,7 @@ import { DictationLifecycle } from "~/dictation/lifecycle";
 import { takePendingWelcomeSession } from "~/onboarding/welcome-note";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
+import { FolderDefaultAccessRunner } from "~/session-sharing/folder-default-access-runner";
 import { OwnedSharedNotePublisher } from "~/session-sharing/sync";
 import { SharedAttachmentCacheLifecycle } from "~/shared-notes/attachment-cache-lifecycle";
 import { SharedNotePreviewAuthLifecycle } from "~/shared-notes/preview";
@@ -58,6 +59,7 @@ export function ClassicMainServices() {
       <DurableSharedNoteCacheSync />
       <SharedAttachmentCacheLifecycle />
       <OwnedSharedNotePublisher />
+      <FolderDefaultAccessRunner />
       <SharedNotePreviewAuthLifecycle />
       <LiveCaptureRecovery />
       <BatchTranscriptionRecovery />

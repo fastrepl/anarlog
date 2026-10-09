@@ -1252,10 +1252,6 @@ msgstr "Choose which day begins your calendar week."
 msgid "Choose who can access notes from new meetings."
 msgstr "Choose who can access notes from new meetings."
 
-#: src/folders/folder-editor.tsx
-msgid "Choose who receives new notes created in this folder."
-msgstr "Choose who receives new notes created in this folder."
-
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
 msgstr "Claim email domain"
@@ -2071,6 +2067,10 @@ msgstr "Decline"
 msgid "Default"
 msgstr "Default"
 
+#: src/folders/folder-editor.tsx
+msgid "Default access"
+msgstr "Default access"
+
 #: src/settings/general/default-share-access.tsx
 msgid "Default sharing"
 msgstr "Default sharing"
@@ -2465,10 +2465,15 @@ msgstr "Every note summarized after enabling this automation is saved here as on
 
 #. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
+#: src/folders/folder-editor.tsx
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/general-access.tsx
 msgid "Everyone in {0}"
 msgstr "Everyone in {0}"
+
+#: src/folders/sidebar.tsx
+msgid "Everyone in {name}"
+msgstr "Everyone in {name}"
 
 #: src/settings/general/default-share-access.tsx
 msgid "Everyone in {workspaceLabel}"
@@ -3737,10 +3742,10 @@ msgstr "New meetings are imported automatically while Anarlog is running."
 msgid "New Note"
 msgstr "New Note"
 
-#. placeholder {0}: workspaceConfirmation?.name
+#. placeholder {0}: accessConfirmation?.label
 #: src/folders/folder-editor.tsx
-msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
-msgstr "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+msgid "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
+msgstr "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
 
 #: src/settings/referrals.tsx
 msgid "New referral invites are available with an active personal Pro trial or paid subscription. Team-only subscriptions aren't eligible."
@@ -4308,6 +4313,8 @@ msgstr "Pending"
 msgid "People"
 msgstr "People"
 
+#: src/folders/folder-editor.tsx
+#: src/folders/sidebar.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "People in the meeting"
 msgstr "People in the meeting"
@@ -5279,6 +5286,14 @@ msgstr "Share audio"
 msgid "Share link copied."
 msgstr "Share link copied."
 
+#: src/folders/folder-editor.tsx
+msgid "Share new notes in this folder when their summary is ready. You can still change access on each note."
+msgstr "Share new notes in this folder when their summary is ready. You can still change access on each note."
+
+#: src/folders/folder-editor.tsx
+msgid "Share new notes in this folder?"
+msgstr "Share new notes in this folder?"
+
 #: src/session-sharing/index.tsx
 msgid "Share note"
 msgstr "Share note"
@@ -5290,10 +5305,6 @@ msgstr "Share notes with others"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Share one item with a guest, or add it to a Team for everyone."
 msgstr "Share one item with a guest, or add it to a Team for everyone."
-
-#: src/folders/folder-editor.tsx
-msgid "Share this folder?"
-msgstr "Share this folder?"
 
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
@@ -5975,14 +5986,6 @@ msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team"
 msgstr "Team"
-
-#: src/folders/folder-editor.tsx
-msgid "Team folder"
-msgstr "Team folder"
-
-#: src/folders/folder-editor.tsx
-msgid "Team folder workspace"
-msgstr "Team folder workspace"
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team library"

@@ -87,6 +87,12 @@ class ShareSnapshotConflictError extends ShareManagementError {
   }
 }
 
+export function shareSnapshotConflict(
+  error: unknown,
+): PublishedSessionShareSnapshot | null {
+  return error instanceof ShareSnapshotConflictError ? error.snapshot : null;
+}
+
 export async function createOrReuseSessionShare(
   context: ShareManagementContext,
   input: { workspaceId: string; sessionId: string },
