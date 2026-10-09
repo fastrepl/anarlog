@@ -37,7 +37,7 @@ Sharing emails are action-based:
 - **Email** sends the summary in an email without granting access to the shared note.
 - **Slack**, **Copy link**, and General access changes do not send email.
 
-There is no global switch for sharing emails because Anarlog does not send them automatically. If you open or close the panel without submitting **Invite** or **Email**, nothing is sent.
+Opening or closing the panel without submitting **Invite** or **Email** does not send an email. A folder's **People in the meeting** default is a separate automatic-sharing rule: once a new summary is ready, it grants viewing access and sends invitations to those participants.
 
 ## Choose who can open it
 
@@ -54,6 +54,16 @@ See [Teams and shared libraries](/teams) to create a workspace, manage members, 
 <Warning>
   Treat an **Anyone with the link** URL like sensitive data. Replace the link if it was sent to the wrong place, or switch General access back to invited-only.
 </Warning>
+
+## Share new notes from a folder
+
+Open a folder and choose **Default access**. Keep **Only me**, or confirm **People in the meeting** or **Everyone in your workspace**. New notes in that folder are shared once their summary is ready. **People in the meeting** sends viewing invitations to participants with email addresses; the workspace setting grants workspace access without invitation emails. Existing notes keep their access, and you can change access on each note.
+
+Automatic sharing uses the folder access you confirmed. Review that setting before recording a private meeting in the folder.
+
+## Read a received summary
+
+When someone shares a note for the same calendar meeting as your own note, Anarlog shows it in a **Shared** summary tab beside your summaries. Your private memo and transcript stay separate. Notes without a matching calendar meeting remain available in **Shared notes**.
 
 ## Include audio
 
