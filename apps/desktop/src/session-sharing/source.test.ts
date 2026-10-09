@@ -113,6 +113,7 @@ describe("loadSessionShareSource", () => {
       workspaceId: ACCOUNT_ID,
       title: "Planning notes",
       meetingAt: "2026-08-06T01:30:00.000Z",
+      eventKey: "",
       participants: ["John Jeong", "Sungbin Jo"],
       body: {
         type: "doc",
@@ -159,6 +160,7 @@ describe("loadSessionShareSource", () => {
       loadSessionShareSource("session-1", ACCOUNT_ID),
     ).resolves.toMatchObject({
       meetingAt: "2026-08-06T00:30:00.000Z",
+      eventKey: "",
       participants: ["John Jeong"],
     });
   });

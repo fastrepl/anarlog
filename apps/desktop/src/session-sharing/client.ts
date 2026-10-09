@@ -567,6 +567,7 @@ export async function publishSessionShareSnapshot(
     const previewMetadata = normalizePreviewMetadata(
       input.participants,
       input.meetingAt,
+      input.eventKey,
     );
     const attachmentIds =
       input.attachmentIds === undefined
@@ -703,6 +704,7 @@ async function callRpc(
 function normalizePreviewMetadata(
   participants: string[] | undefined,
   meetingAt: string | undefined,
+  eventKey: string | undefined,
 ) {
   if (participants === undefined && meetingAt === undefined) return {};
   if (!participants || !meetingAt) {
@@ -722,6 +724,7 @@ function normalizePreviewMetadata(
   return {
     participants: normalizedParticipants,
     meetingAt: parsedMeetingAt.toISOString(),
+    ...(eventKey !== undefined && eventKey.length <= 512 ? { eventKey } : {}),
   };
 }
 

@@ -215,6 +215,7 @@ export type CasSessionShareSnapshotRequest = {
     attachmentIds: Array<string>;
     baseRevision: number;
     body: unknown;
+    eventKey?: string | null;
     meetingAt?: string | null;
     mutationId: string;
     participants?: Array<string> | null;

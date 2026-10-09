@@ -9,6 +9,7 @@ import {
   useSession,
   useSessionHasTranscript,
 } from "~/session/queries";
+import { useSessionSharedNoteIds } from "~/shared-notes/event-keys";
 import type { SessionMode } from "~/store/zustand/listener/general";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
@@ -56,14 +57,23 @@ export function useCurrentNoteTab(
     hasTranscript && sessionMode === "inactive",
   );
 
+  const sharedNoteIds = useSessionSharedNoteIds(tab.id);
+
   return useMemo(() => {
     return computeCurrentNoteTab(
       tab.state.view ?? null,
       isLiveSessionActive,
       enhancedNoteIds,
       canShowTranscript,
+      sharedNoteIds,
     );
-  }, [tab.state.view, isLiveSessionActive, enhancedNoteIds, canShowTranscript]);
+  }, [
+    tab.state.view,
+    isLiveSessionActive,
+    enhancedNoteIds,
+    canShowTranscript,
+    sharedNoteIds,
+  ]);
 }
 
 export function useCanShowTranscript(

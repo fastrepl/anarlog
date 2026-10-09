@@ -5343,6 +5343,10 @@ msgstr "Shared screen at {time}"
 msgid "Shared screens"
 msgstr "Shared screens"
 
+#: src/session/components/note-input/header-shared-note.tsx
+msgid "Shared summary"
+msgstr "Shared summary"
+
 #: src/resource-sharing/library.tsx
 msgid "Shared with me"
 msgstr "Shared with me"
