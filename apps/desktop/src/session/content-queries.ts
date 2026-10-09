@@ -160,9 +160,11 @@ const SESSION_CONTENT_SQL = `
             FROM humans AS self_human
             WHERE self_human.id = session.owner_user_id
               AND self_human.deleted_at IS NULL
-              AND NULLIF(lower(self_human.email), '') IS NOT NULL
               AND (
-                lower(self_human.email) = lower(COALESCE(NULLIF(human.email, ''), participant.email))
+                (
+                  NULLIF(lower(self_human.email), '') IS NOT NULL
+                  AND lower(self_human.email) = lower(COALESCE(NULLIF(human.email, ''), participant.email))
+                )
                 OR EXISTS (
                   SELECT 1
                   FROM json_each(CASE

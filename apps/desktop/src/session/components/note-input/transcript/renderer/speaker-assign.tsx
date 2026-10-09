@@ -181,9 +181,11 @@ export function buildSpeakerParticipantGroups({
       return true;
     }
 
-    return [option.name, option.email ?? ""].some((value) =>
-      value.toLowerCase().includes(normalizedQuery),
-    );
+    return [
+      option.name,
+      option.email ?? "",
+      ...(option.additionalEmails ?? []),
+    ].some((value) => value.toLowerCase().includes(normalizedQuery));
   };
 
   const participantKeys = new Set<string>();
@@ -240,7 +242,7 @@ export function buildCreateSpeakerParticipantOption({
 
   const normalizedName = name.toLowerCase();
   const alreadyExists = existingOptions.some((option) =>
-    [option.name, option.email ?? ""].some(
+    [option.name, option.email ?? "", ...(option.additionalEmails ?? [])].some(
       (value) => value.toLowerCase() === normalizedName,
     ),
   );
@@ -446,8 +448,10 @@ export function SpeakerParticipantPicker({
       const email = option.email?.trim().toLowerCase();
       const name = option.name.trim().toLowerCase();
       const existingContact = email
-        ? contacts.find(
-            (contact) => contact.email?.trim().toLowerCase() === email,
+        ? contacts.find((contact) =>
+            [contact.email, ...(contact.additionalEmails ?? [])].some(
+              (value) => value?.trim().toLowerCase() === email,
+            ),
           )
         : contacts.find(
             (contact) => contact.name.trim().toLowerCase() === name,

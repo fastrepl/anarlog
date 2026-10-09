@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 
 import {
   Buildings,
@@ -72,6 +72,28 @@ export function DetailsColumn({
   const { t } = useLingui();
   const [showCompactIdentity, setShowCompactIdentity] = useState(false);
   const [addingEmail, setAddingEmail] = useState(false);
+  const pendingEmailsRef = useRef<{
+    humanId: string;
+    base: string[];
+    list: string[];
+  } | null>(null);
+  const currentAdditionalEmails = () => {
+    if (!human) return [];
+    const pending = pendingEmailsRef.current;
+    return pending?.humanId === human.id &&
+      pending.base === human.additionalEmails
+      ? pending.list
+      : human.additionalEmails;
+  };
+  const persistAdditionalEmails = (list: string[]) => {
+    if (!human) return;
+    pendingEmailsRef.current = {
+      humanId: human.id,
+      base: human.additionalEmails,
+      list,
+    };
+    persistHumanUpdate(human.id, { additionalEmails: list });
+  };
   const personSessions = useHumanSessions(human?.id ?? "");
   const organizationName =
     organizations.find(
@@ -306,28 +328,28 @@ export function DetailsColumn({
                   personId={human.id}
                   value={human.email}
                 />
-                {human.additionalEmails.map((email, index) => (
+                {human.additionalEmails.map((email) => (
                   <EditableAdditionalEmailRow
                     key={`${human.id}:${email}`}
                     value={email}
                     onCommit={(next) => {
                       const trimmed = next.trim();
                       if (trimmed === email) return;
-                      const additionalEmails = trimmed
-                        ? human.additionalEmails.map((entry, entryIndex) =>
-                            entryIndex === index ? trimmed : entry,
-                          )
-                        : human.additionalEmails.filter(
-                            (_, entryIndex) => entryIndex !== index,
-                          );
-                      persistHumanUpdate(human.id, { additionalEmails });
+                      const current = currentAdditionalEmails();
+                      persistAdditionalEmails(
+                        trimmed
+                          ? current.map((entry) =>
+                              entry === email ? trimmed : entry,
+                            )
+                          : current.filter((entry) => entry !== email),
+                      );
                     }}
                     onRemove={() => {
-                      persistHumanUpdate(human.id, {
-                        additionalEmails: human.additionalEmails.filter(
-                          (_, entryIndex) => entryIndex !== index,
+                      persistAdditionalEmails(
+                        currentAdditionalEmails().filter(
+                          (entry) => entry !== email,
                         ),
-                      });
+                      );
                     }}
                   />
                 ))}
@@ -340,12 +362,10 @@ export function DetailsColumn({
                       setAddingEmail(false);
                       const trimmed = next.trim();
                       if (trimmed) {
-                        persistHumanUpdate(human.id, {
-                          additionalEmails: [
-                            ...human.additionalEmails,
-                            trimmed,
-                          ],
-                        });
+                        persistAdditionalEmails([
+                          ...currentAdditionalEmails(),
+                          trimmed,
+                        ]);
                       }
                     }}
                   />

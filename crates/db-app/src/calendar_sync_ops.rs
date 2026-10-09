@@ -458,6 +458,7 @@ pub async fn list_humans_by_emails(
     if emails.is_empty() {
         return Ok(Vec::new());
     }
+    let emails: Vec<String> = emails.iter().map(|email| email.to_lowercase()).collect();
     let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new(
         "SELECT id, email, name, organization_id, match_email
             FROM (
@@ -470,7 +471,7 @@ pub async fn list_humans_by_emails(
     );
     {
         let mut separated = builder.separated(", ");
-        for email in emails {
+        for email in &emails {
             separated.push_bind(email);
         }
     }
@@ -487,7 +488,7 @@ pub async fn list_humans_by_emails(
     ));
     {
         let mut separated = builder.separated(", ");
-        for email in emails {
+        for email in &emails {
             separated.push_bind(email);
         }
     }
@@ -1085,4 +1086,69 @@ pub async fn insert_app_setting(
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected())
+}
+
+#[cfg(test)]
+mod tests {
+    use anlg_db_core::Db;
+
+    use super::*;
+    use crate::prepare_schema;
+
+    async fn test_db() -> Db {
+        let db = Db::connect_memory_plain().await.unwrap();
+        prepare_schema(&db).await.unwrap();
+        db
+    }
+
+    #[tokio::test]
+    async fn list_humans_by_emails_matches_additional_email_case_insensitively() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO humans (id, owner_user_id, name, email, metadata_json)
+             VALUES ('human-1', 'user-1', 'Ada', 'ada@example.com',
+               json_object('additionalEmails', json_array('alias@x.com')))",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let mut conn = db.pool().acquire().await.unwrap();
+
+        let rows = list_humans_by_emails(&mut conn, &["ALIAS@x.com".to_string()])
+            .await
+            .unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "human-1");
+        assert_eq!(rows[0].email, "ada@example.com");
+        assert_eq!(rows[0].match_email, "alias@x.com");
+    }
+
+    #[tokio::test]
+    async fn insert_human_if_missing_skips_when_additional_email_matches() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO humans (id, owner_user_id, name, email, metadata_json)
+             VALUES ('human-1', 'user-1', 'Ada', 'ada@example.com',
+               json_object('additionalEmails', json_array('alias@x.com')))",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let mut conn = db.pool().acquire().await.unwrap();
+
+        let inserted = insert_human_if_missing(
+            &mut conn,
+            "human-new",
+            "user-1",
+            "Alias",
+            "ALIAS@x.com",
+            "",
+            "2026-01-01T00:00:00.000Z",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(inserted, 0);
+    }
 }

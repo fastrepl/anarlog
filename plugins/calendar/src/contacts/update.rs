@@ -49,22 +49,45 @@ pub async fn update_human(pool: &SqlitePool, request: UpdateHumanRequest) -> Res
                 .await
                 .map_err(|error| error.to_string())?;
             }
-            if let Some(additional_emails) = &request.additional_emails {
-                let primary_email = match &request.email {
-                    Some(email) => email.clone(),
-                    None => sqlx::query_scalar::<_, String>(
-                        "SELECT email FROM humans WHERE id = ? AND deleted_at IS NULL",
+            let additional_emails = match &request.additional_emails {
+                Some(emails) => {
+                    let primary_email = match &request.email {
+                        Some(email) => email.clone(),
+                        None => sqlx::query_scalar::<_, String>(
+                            "SELECT email FROM humans WHERE id = ? AND deleted_at IS NULL",
+                        )
+                        .bind(&request.human_id)
+                        .fetch_optional(&mut *conn)
+                        .await
+                        .map_err(|error| error.to_string())?
+                        .unwrap_or_default(),
+                    };
+                    Some(anlg_db_app::normalize_additional_emails(
+                        &primary_email,
+                        emails.iter().cloned(),
+                    ))
+                }
+                // A new primary must not also stay in the additional list.
+                None if request.email.is_some() => {
+                    let metadata_json: Option<String> = sqlx::query_scalar(
+                        "SELECT metadata_json FROM humans WHERE id = ? AND deleted_at IS NULL",
                     )
                     .bind(&request.human_id)
                     .fetch_optional(&mut *conn)
                     .await
-                    .map_err(|error| error.to_string())?
-                    .unwrap_or_default(),
-                };
-                let normalized = anlg_db_app::normalize_additional_emails(
-                    &primary_email,
-                    additional_emails.iter().cloned(),
-                );
+                    .map_err(|error| error.to_string())?;
+                    let stored = anlg_db_app::human_additional_emails_from_metadata(
+                        metadata_json.as_deref().unwrap_or("{}"),
+                    );
+                    let normalized = anlg_db_app::normalize_additional_emails(
+                        request.email.as_deref().unwrap_or_default(),
+                        stored.iter().cloned(),
+                    );
+                    (normalized != stored).then_some(normalized)
+                }
+                None => None,
+            };
+            if let Some(normalized) = additional_emails {
                 let additional_emails_json = if normalized.is_empty() {
                     None
                 } else {
@@ -375,6 +398,52 @@ mod tests {
         .unwrap();
         assert_eq!(metadata["other"], "keep");
         assert!(metadata.get("additionalEmails").is_none());
+    }
+
+    #[tokio::test]
+    async fn update_human_primary_email_drop_that_address_from_additional_emails() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO humans (id, owner_user_id, name, email, metadata_json)
+             VALUES ('human-1', 'user-1', 'Ada', 'ada@example.com',
+               json_object('other', 'keep',
+                 'additionalEmails', json_array('work@example.com', 'home@example.com')))",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        update_human(
+            db.pool(),
+            UpdateHumanRequest {
+                human_id: "human-1".to_string(),
+                name: None,
+                email: Some("Work@Example.com".to_string()),
+                phone: None,
+                job_title: None,
+                linkedin_username: None,
+                memo: None,
+                organization_id: None,
+                additional_emails: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let metadata: serde_json::Value = serde_json::from_str(
+            &sqlx::query_scalar::<_, String>(
+                "SELECT metadata_json FROM humans WHERE id = 'human-1'",
+            )
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(metadata["other"], "keep");
+        assert_eq!(
+            metadata["additionalEmails"],
+            serde_json::json!(["home@example.com"])
+        );
     }
 
     #[tokio::test]

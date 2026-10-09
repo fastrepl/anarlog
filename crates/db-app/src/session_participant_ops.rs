@@ -358,7 +358,7 @@ pub async fn insert_event_session_participant(
             FROM humans AS owner
             WHERE owner.id = session.owner_user_id
               AND owner.deleted_at IS NULL
-              AND NULLIF(lower(owner.email), '') IS NOT NULL
+              AND NULLIF(lower(?), '') IS NOT NULL
               AND {}
           )
           AND NOT EXISTS (
@@ -379,7 +379,7 @@ pub async fn insert_event_session_participant(
                 )
               )
           )",
-        crate::human_has_email_sql("owner", "?")
+        crate::human_has_email_nonempty_primary_sql("owner", "?")
     );
     let result = sqlx::query(sqlx::AssertSqlSafe(sql))
         .bind(participant_id)
@@ -390,6 +390,7 @@ pub async fn insert_event_session_participant(
         .bind(input.now)
         .bind(input.session_id)
         .bind(input.human_id)
+        .bind(input.email)
         .bind(input.email)
         .bind(input.email)
         .bind(input.human_id)

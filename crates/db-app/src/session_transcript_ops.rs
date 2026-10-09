@@ -66,11 +66,10 @@ pub async fn load_session_render_participant_ids(
                FROM humans AS self_human
                WHERE self_human.id = session.owner_user_id
                  AND self_human.deleted_at IS NULL
-                 AND NULLIF(lower(self_human.email), '') IS NOT NULL
                  AND {}
              )
            )",
-        crate::human_has_email_sql(
+        crate::human_has_email_nonempty_primary_sql(
             "self_human",
             "COALESCE(NULLIF(human.email, ''), participant.email)"
         )
@@ -148,6 +147,30 @@ mod tests {
     #[tokio::test]
     async fn session_render_participants_exclude_source_and_self_email_duplicates() {
         let db = test_db().await;
+        let mut conn = db.pool().acquire().await.unwrap();
+
+        let participant_ids = load_session_render_participant_ids(&mut conn, "session-1")
+            .await
+            .unwrap();
+
+        assert_eq!(participant_ids, vec!["participant-human"]);
+    }
+
+    #[tokio::test]
+    async fn session_render_participants_match_owner_additional_email_with_empty_primary() {
+        let db = test_db().await;
+        sqlx::query(
+            "UPDATE humans SET email = '', metadata_json = json_object('additionalEmails', json_array('owner-alias@example.com')) WHERE id = 'owner-human'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE humans SET email = 'Owner-Alias@example.com' WHERE id = 'duplicate-self'",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
         let mut conn = db.pool().acquire().await.unwrap();
 
         let participant_ids = load_session_render_participant_ids(&mut conn, "session-1")

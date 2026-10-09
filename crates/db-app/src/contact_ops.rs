@@ -33,19 +33,26 @@ const VALID_METADATA_SQL: &str =
 const VALID_HUMANS_METADATA_SQL: &str =
     "CASE WHEN json_valid(humans.metadata_json) THEN humans.metadata_json ELSE '{}' END";
 
-/// Guarded `json_each` over `$.additionalEmails`: one row per additional email,
-/// empty when the metadata is malformed or the value is not an array.
+// The json_valid / json_type guards keep one malformed synced metadata
+// row from breaking the whole query.
 pub fn human_additional_emails_json_each_sql(alias: &str) -> String {
     format!(
         "json_each(CASE WHEN json_valid({alias}.metadata_json) AND json_type({alias}.metadata_json, '$.additionalEmails') = 'array' THEN json_extract({alias}.metadata_json, '$.additionalEmails') ELSE '[]' END)"
     )
 }
 
-/// `email_sql` matches the human's primary or any additional email,
-/// case-insensitively. `email_sql` is a SQL expression (e.g. `?`), not a literal.
 pub fn human_has_email_sql(alias: &str, email_sql: &str) -> String {
     format!(
         "(lower({alias}.email) = lower({email_sql}) OR EXISTS (SELECT 1 FROM {} AS additional_email WHERE lower(additional_email.value) = lower({email_sql})))",
+        human_additional_emails_json_each_sql(alias)
+    )
+}
+
+// Same as human_has_email_sql, but the primary only matches when it is
+// non-empty: an empty primary must not block the additional-email branch.
+pub fn human_has_email_nonempty_primary_sql(alias: &str, email_sql: &str) -> String {
+    format!(
+        "((NULLIF(lower({alias}.email), '') IS NOT NULL AND lower({alias}.email) = lower({email_sql})) OR EXISTS (SELECT 1 FROM {} AS additional_email WHERE lower(additional_email.value) = lower({email_sql})))",
         human_additional_emails_json_each_sql(alias)
     )
 }
