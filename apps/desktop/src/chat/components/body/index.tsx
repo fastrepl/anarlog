@@ -21,6 +21,7 @@ export function ChatBody({
   onReload,
   isModelConfigured = true,
   hasContext = false,
+  isLiveMeeting = false,
   hasSummary = false,
   onSendMessage,
 }: {
@@ -30,6 +31,7 @@ export function ChatBody({
   onReload?: () => void;
   isModelConfigured?: boolean;
   hasContext?: boolean;
+  isLiveMeeting?: boolean;
   hasSummary?: boolean;
   onSendMessage?: (
     content: string,
@@ -85,6 +87,7 @@ export function ChatBody({
             <ChatBodyEmpty
               isModelConfigured={isModelConfigured}
               hasContext={hasContext}
+              isLiveMeeting={isLiveMeeting}
               hasSummary={hasSummary}
               onSendMessage={onSendMessage}
             />

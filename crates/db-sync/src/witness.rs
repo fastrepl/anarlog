@@ -22,7 +22,11 @@ const MAX_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_RATE_LIMIT_RETRIES: usize = 3;
 const DEFAULT_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
 const MAX_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
-const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+// Fails stalled connections without cutting off large pages that are still
+// downloading on slow mobile networks. Must exceed the server's wait hold.
+const READ_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 const PROGRESS_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Clone, Default)]
@@ -155,13 +159,8 @@ impl E2eeWitnessClient {
         }
         #[cfg(any(target_os = "android", target_os = "ios"))]
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .timeout(REQUEST_TIMEOUT)
-            .build()
-            .map_err(|error| io::Error::other(format!("E2EE witness client failed: {error}")))?;
         Ok(Self {
-            client,
+            client: http_client(READ_IDLE_TIMEOUT)?,
             accepted_support: Arc::default(),
             endpoint,
             access_token: config.access_token,
@@ -955,6 +954,16 @@ async fn witness_cursor_cancellable(
     let cursor = witness_cursor(pool, workspace_id).await?;
     cancellation.check()?;
     Ok(cursor)
+}
+
+fn http_client(read_idle_timeout: std::time::Duration) -> io::Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(CONNECT_TIMEOUT)
+        .read_timeout(read_idle_timeout)
+        .timeout(REQUEST_TIMEOUT)
+        .build()
+        .map_err(|error| io::Error::other(format!("E2EE witness client failed: {error}")))
 }
 
 async fn read_bounded(response: reqwest::Response) -> io::Result<Vec<u8>> {
