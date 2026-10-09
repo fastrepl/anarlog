@@ -112,10 +112,6 @@ vi.mock("./listening", () => ({
   ),
 }));
 
-vi.mock("./misc", () => ({
-  ShowInFolder: () => <button type="button">Show in folder</button>,
-}));
-
 vi.mock("./lock-note", () => ({
   LockNote: () => <button type="button">Lock Note</button>,
 }));

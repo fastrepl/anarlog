@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { Desktop, DeviceMobile, Devices } from "@anlg/ui/components/icons";
+import { Devices } from "@anlg/ui/components/icons";
 
 import { getSyncDeviceAddon, updateSyncDeviceAddon } from "@/functions/billing";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
-import { inferSyncDeviceType } from "@/lib/sync-device-type";
 
 import {
   accountCardClassName,
@@ -165,20 +164,6 @@ export function DevicesSection() {
       ) : (
         <ul className="divide-border-subtle divide-y">
           {devices.map((device) => {
-            const deviceType = inferSyncDeviceType(device.device_name);
-            const DeviceTypeIcon =
-              deviceType === "mobile"
-                ? DeviceMobile
-                : deviceType === "desktop"
-                  ? Desktop
-                  : Devices;
-            const deviceTypeLabel =
-              deviceType === "mobile"
-                ? "Mobile device"
-                : deviceType === "desktop"
-                  ? "Desktop device"
-                  : "Device";
-
             return (
               <li
                 key={device.id}
@@ -186,12 +171,10 @@ export function DevicesSection() {
               >
                 <div className="flex items-center gap-3">
                   <span
-                    role="img"
-                    aria-label={deviceTypeLabel}
-                    title={deviceTypeLabel}
+                    aria-hidden="true"
                     className="surface-subtle border-color-subtle text-color-muted flex size-10 shrink-0 items-center justify-center rounded-xl border"
                   >
-                    <DeviceTypeIcon size={20} aria-hidden="true" />
+                    <Devices size={20} />
                   </span>
                   <div>
                     <p className="text-color text-base font-medium">

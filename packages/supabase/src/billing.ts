@@ -35,17 +35,18 @@ export function deriveBillingInfo(
       secondsRemaining <= 0 ? 0 : Math.ceil(secondsRemaining / (24 * 60 * 60));
   }
 
-  const isTrialing =
+  const hasActiveTrial =
     subscriptionStatus === "trialing" &&
     trialDaysRemaining !== null &&
     trialDaysRemaining > 0;
 
+  const isTrialing = hasActiveTrial && payload?.referral_extension !== true;
   const isPaused = subscriptionStatus === "paused";
   const hasProEntitlement = entitlements.includes("hyprnote_pro");
   const hasLiteEntitlement = entitlements.includes("hyprnote_lite");
   const hasEffectiveProEntitlement =
     subscriptionStatus === "trialing"
-      ? isTrialing
+      ? hasActiveTrial
       : isPaused
         ? false
         : hasProEntitlement;

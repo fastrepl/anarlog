@@ -269,38 +269,113 @@ function SharedNoteDocument({
       }
     >
       <div className="h-full overflow-auto px-3 pt-2 pb-6">
-        <div ref={commentController.containerRef} className="relative">
-          <NoteEditor
-            key={contentKey}
-            className="session-note-editor"
-            commentAnchorsEnabled={comments !== undefined}
-            initialContent={content}
-            onCommentAnchorsEvent={
-              comments ? commentController.onCommentAnchorsEvent : undefined
-            }
-            onCommentSelection={
-              commentController.selection && !commentController.draft
-                ? commentController.startDraft
-                : undefined
-            }
-            onLinkOpen={openEditorLink}
-            onViewDisposed={
-              comments ? commentController.onViewDisposed : undefined
-            }
-            onViewReady={comments ? commentController.onViewReady : undefined}
-            readOnly
-            resolveAttachment={resolveAttachment}
-            showFormatToolbar={false}
-          />
-          <SessionCommentsLayer controller={commentController} />
-        </div>
-        <SharedAttachmentList
+        <SharedNoteBody
           attachments={attachments}
           body={body}
+          commentController={commentController}
+          comments={comments}
+          content={content}
+          contentKey={contentKey}
           resolveAttachment={resolveAttachment}
         />
       </div>
     </SessionSurface>
+  );
+}
+
+export function SharedNoteSummary({ shareId }: { shareId: string }) {
+  const { session } = useAuth();
+  const viewerUserId =
+    session && session.user.is_anonymous !== true ? session.user.id : null;
+  const snapshot = useDurableSharedNote(viewerUserId, shareId).data;
+  const resolveAttachment = useSharedAttachmentResolver(
+    viewerUserId ?? "",
+    shareId,
+  );
+  const comments = snapshot
+    ? {
+        canCompose: snapshot.capability !== "viewer",
+        currentRevision: snapshot.contentRevision,
+        manageAccess: snapshot.manageAccess,
+        shareId: snapshot.shareId,
+      }
+    : undefined;
+  const commentController = useSharedSessionComments({
+    canCompose: comments?.canCompose ?? false,
+    currentRevision: comments?.currentRevision ?? -1,
+    manageAccess: comments?.manageAccess ?? false,
+    shareId: comments?.shareId ?? null,
+  });
+  if (!snapshot) return <SharedNoteLoading />;
+
+  return (
+    <SharedNoteBody
+      attachments={snapshot.attachments}
+      body={snapshot.body}
+      commentController={commentController}
+      comments={comments}
+      content={ensureFirstLineTitle(
+        hydrateSharedAttachmentAttrs(snapshot.body, snapshot.attachments),
+        snapshot.title,
+      )}
+      contentKey={`${snapshot.shareId}:${snapshot.contentRevision}`}
+      resolveAttachment={resolveAttachment}
+    />
+  );
+}
+
+function SharedNoteBody({
+  attachments,
+  body,
+  commentController,
+  comments,
+  content,
+  contentKey,
+  resolveAttachment,
+}: {
+  attachments: SharedNoteSnapshot["attachments"];
+  body: SharedNoteSnapshot["body"];
+  commentController: ReturnType<typeof useSharedSessionComments>;
+  comments?: { shareId: string };
+  content: ReturnType<typeof ensureFirstLineTitle>;
+  contentKey: string;
+  resolveAttachment?: React.ComponentProps<
+    typeof NoteEditor
+  >["resolveAttachment"];
+}) {
+  return (
+    <>
+      <div ref={commentController.containerRef} className="relative">
+        <NoteEditor
+          key={contentKey}
+          className="session-note-editor"
+          commentAnchorsEnabled={comments !== undefined}
+          initialContent={content}
+          onCommentAnchorsEvent={
+            comments ? commentController.onCommentAnchorsEvent : undefined
+          }
+          onCommentSelection={
+            commentController.selection && !commentController.draft
+              ? commentController.startDraft
+              : undefined
+          }
+          onLinkOpen={openEditorLink}
+          onViewDisposed={
+            comments ? commentController.onViewDisposed : undefined
+          }
+          onViewReady={comments ? commentController.onViewReady : undefined}
+          readOnly
+          resolveAttachment={resolveAttachment}
+          showFormatToolbar={false}
+        />
+        <SessionCommentsLayer controller={commentController} />
+      </div>
+      <SharedAttachmentList
+        attachments={attachments}
+        body={body}
+        resolveAttachment={resolveAttachment}
+      />
+    </>
   );
 }
 

@@ -14,6 +14,7 @@ import { bootstrapBrowserTelemetry, stopBrowserTelemetry } from "@/telemetry";
 
 const GOOGLE_TAG_ID = "google-tag";
 const GOOGLE_ANALYTICS_ID = "G-4CDGPKJ8JB";
+const GOOGLE_ADS_ID = "AW-18481972229";
 const MICROSOFT_CLARITY_SCRIPT_ID = "microsoft-clarity-script";
 const MICROSOFT_CLARITY_TAG_ID = "wcjttoibok";
 
@@ -43,25 +44,26 @@ function GoogleAnalyticsScript() {
       return;
     }
 
-    const cancelIdle = runWhenIdle(() => {
-      setGoogleAnalyticsDisabled(false);
+    const analyticsWindow = window as AnalyticsWindow;
+    analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
+    analyticsWindow.gtag =
+      analyticsWindow.gtag ??
+      function gtag() {
+        analyticsWindow.dataLayer?.push(arguments);
+      };
+    const gtag = analyticsWindow.gtag;
+    gtag("js", new Date());
+    gtag("config", GOOGLE_ANALYTICS_ID, {
+      send_page_view: false,
+    });
+    gtag("config", GOOGLE_ADS_ID, {
+      send_page_view: false,
+    });
 
-      if (document.getElementById(GOOGLE_TAG_ID)) {
-        return;
-      }
+    setGoogleAnalyticsDisabled(false);
 
-      const analyticsWindow = window as AnalyticsWindow;
-      analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
-      analyticsWindow.gtag =
-        analyticsWindow.gtag ??
-        function gtag() {
-          analyticsWindow.dataLayer?.push(arguments);
-        };
-      analyticsWindow.gtag("js", new Date());
-      analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID, {
-        send_page_view: false,
-      });
-      analyticsWindow.gtag("event", "page_view", {
+    if (!document.getElementById(GOOGLE_TAG_ID)) {
+      gtag("event", "page_view", {
         page_location: `${window.location.origin}${window.location.pathname}`,
         page_path: window.location.pathname,
       });
@@ -71,10 +73,9 @@ function GoogleAnalyticsScript() {
       script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`;
       script.async = true;
       document.head.appendChild(script);
-    });
+    }
 
     return () => {
-      cancelIdle();
       setGoogleAnalyticsDisabled(true);
     };
   });

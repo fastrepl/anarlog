@@ -10,10 +10,10 @@ use windows::Win32::Graphics::Dwm::{
 };
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, CLEARTYPE_QUALITY, CLIP_DEFAULT_PRECIS, CreateFontW, CreateSolidBrush,
-    DEFAULT_CHARSET, DEFAULT_PITCH, DRAW_TEXT_FORMAT, DT_END_ELLIPSIS, DT_LEFT, DT_SINGLELINE,
-    DT_TOP, DT_VCENTER, DT_WORDBREAK, DeleteObject, DrawTextW, EndPaint, FW_NORMAL, FW_SEMIBOLD,
-    FillRect, HDC, HFONT, InvalidateRect, OUT_DEFAULT_PRECIS, PAINTSTRUCT, SelectObject, SetBkMode,
-    SetTextColor, TRANSPARENT,
+    DEFAULT_CHARSET, DEFAULT_PITCH, DRAW_TEXT_FORMAT, DT_CENTER, DT_END_ELLIPSIS, DT_LEFT,
+    DT_SINGLELINE, DT_TOP, DT_VCENTER, DT_WORDBREAK, DeleteObject, DrawTextW, EndPaint, FW_NORMAL,
+    FW_SEMIBOLD, FillRect, HDC, HFONT, InvalidateRect, OUT_DEFAULT_PRECIS, PAINTSTRUCT,
+    SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
@@ -39,7 +39,7 @@ use anlg_notification_interface::{
 
 use crate::callbacks;
 use crate::icon::{destroy_icon, header_title, load_notification_icon};
-use crate::layout::{HitTarget, MAX_NOTIFICATIONS, NotificationLayout, stacked_origin};
+use crate::layout::{HitTarget, MAX_NOTIFICATIONS, NotificationLayout, Rect, stacked_origin};
 
 const CLASS_NAME: windows::core::PCWSTR = w!("AnarlogNotification");
 const TIMER_ID: usize = 1;
@@ -296,7 +296,7 @@ impl NotificationManager {
         let options = match instance.payload.primary_action() {
             PrimaryAction::Options(options) => options.to_vec(),
             PrimaryAction::Accept { .. } if semantic_menu.is_some() => {
-                vec![semantic_menu.unwrap().label]
+                vec![semantic_menu.as_ref().unwrap().label.clone()]
             }
             PrimaryAction::Accept { .. } => return,
         };

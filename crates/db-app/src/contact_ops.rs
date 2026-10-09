@@ -6,10 +6,12 @@ pub struct MergeHumanRow {
     pub name: String,
     pub owner_user_id: String,
     pub organization_id: String,
+    pub email: String,
     pub job_title: String,
     pub linkedin_username: String,
     pub phone: String,
     pub memo: String,
+    pub metadata_json: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +32,64 @@ const VALID_METADATA_SQL: &str =
 
 const VALID_HUMANS_METADATA_SQL: &str =
     "CASE WHEN json_valid(humans.metadata_json) THEN humans.metadata_json ELSE '{}' END";
+
+// The json_valid / json_type guards keep one malformed synced metadata
+// row from breaking the whole query.
+pub fn human_additional_emails_json_each_sql(alias: &str) -> String {
+    format!(
+        "json_each(CASE WHEN json_valid({alias}.metadata_json) AND json_type({alias}.metadata_json, '$.additionalEmails') = 'array' THEN json_extract({alias}.metadata_json, '$.additionalEmails') ELSE '[]' END)"
+    )
+}
+
+pub fn human_has_email_sql(alias: &str, email_sql: &str) -> String {
+    format!(
+        "(lower({alias}.email) = lower({email_sql}) OR EXISTS (SELECT 1 FROM {} AS additional_email WHERE lower(additional_email.value) = lower({email_sql})))",
+        human_additional_emails_json_each_sql(alias)
+    )
+}
+
+// Same as human_has_email_sql, but the primary only matches when it is
+// non-empty: an empty primary must not block the additional-email branch.
+pub fn human_has_email_nonempty_primary_sql(alias: &str, email_sql: &str) -> String {
+    format!(
+        "((NULLIF(lower({alias}.email), '') IS NOT NULL AND lower({alias}.email) = lower({email_sql})) OR EXISTS (SELECT 1 FROM {} AS additional_email WHERE lower(additional_email.value) = lower({email_sql})))",
+        human_additional_emails_json_each_sql(alias)
+    )
+}
+
+pub fn human_additional_emails_from_metadata(metadata_json: &str) -> Vec<String> {
+    serde_json::from_str::<serde_json::Value>(metadata_json)
+        .ok()
+        .and_then(|value| {
+            value.get("additionalEmails")?.as_array().map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(str::to_string))
+                    .collect()
+            })
+        })
+        .unwrap_or_default()
+}
+
+/// Trimmed, no empties, deduped case-insensitively (first spelling wins),
+/// never equal to the primary (case-insensitive), order preserved.
+pub fn normalize_additional_emails(
+    primary_email: &str,
+    emails: impl IntoIterator<Item = String>,
+) -> Vec<String> {
+    let primary = primary_email.trim().to_lowercase();
+    let mut seen = std::collections::HashSet::new();
+    let mut normalized = Vec::new();
+    for email in emails {
+        let trimmed = email.trim();
+        let key = trimmed.to_lowercase();
+        if key.is_empty() || key == primary || !seen.insert(key) {
+            continue;
+        }
+        normalized.push(trimmed.to_string());
+    }
+    normalized
+}
 
 pub async fn create_human(
     conn: &mut SqliteConnection,
@@ -342,7 +402,7 @@ pub async fn list_merge_humans(
     sqlx::query_as::<_, MergeHumanRow>(
         "SELECT
           id, owner_user_id, created_at, organization_id, name, email, phone,
-          job_title, linkedin_username, memo, pinned, pin_order
+          job_title, linkedin_username, memo, pinned, pin_order, metadata_json
         FROM humans
         WHERE id IN (?, ?) AND deleted_at IS NULL",
     )
@@ -407,10 +467,18 @@ pub async fn update_merged_human(
     phone: &str,
     memo: &str,
     organization_id: &str,
+    email: &str,
+    additional_emails_json: Option<&str>,
     now: &str,
     primary_id: &str,
 ) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query(
+    let metadata = match additional_emails_json {
+        None => format!("json_remove({VALID_METADATA_SQL}, '$.additionalEmails')"),
+        Some(_) => {
+            format!("json_set({VALID_METADATA_SQL}, '$.additionalEmails', json(?))")
+        }
+    };
+    let sql = format!(
         "UPDATE humans
           SET
             job_title = ?,
@@ -418,18 +486,51 @@ pub async fn update_merged_human(
             phone = ?,
             memo = ?,
             organization_id = ?,
+            email = ?,
+            metadata_json = {metadata},
             updated_at = ?
-          WHERE id = ? AND deleted_at IS NULL",
-    )
-    .bind(job_title)
-    .bind(linkedin_username)
-    .bind(phone)
-    .bind(memo)
-    .bind(organization_id)
-    .bind(now)
-    .bind(primary_id)
-    .execute(&mut *conn)
-    .await?;
+          WHERE id = ? AND deleted_at IS NULL"
+    );
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql))
+        .bind(job_title)
+        .bind(linkedin_username)
+        .bind(phone)
+        .bind(memo)
+        .bind(organization_id)
+        .bind(email);
+    if let Some(json) = additional_emails_json {
+        query = query.bind(json);
+    }
+    let result = query.bind(now).bind(primary_id).execute(&mut *conn).await?;
+    Ok(result.rows_affected())
+}
+
+/// `additional_emails_json`: `Some` sets `$.additionalEmails` to that JSON
+/// array, `None` removes the key. Other metadata keys are preserved.
+pub async fn update_human_additional_emails(
+    conn: &mut SqliteConnection,
+    additional_emails_json: Option<&str>,
+    now: &str,
+    human_id: &str,
+) -> Result<u64, sqlx::Error> {
+    let set = match additional_emails_json {
+        None => format!("json_remove({VALID_METADATA_SQL}, '$.additionalEmails')"),
+        Some(_) => {
+            format!("json_set({VALID_METADATA_SQL}, '$.additionalEmails', json(?))")
+        }
+    };
+    let sql = format!(
+        "UPDATE humans
+          SET
+            metadata_json = {set},
+            updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL"
+    );
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql));
+    if let Some(json) = additional_emails_json {
+        query = query.bind(json);
+    }
+    let result = query.bind(now).bind(human_id).execute(&mut *conn).await?;
     Ok(result.rows_affected())
 }
 

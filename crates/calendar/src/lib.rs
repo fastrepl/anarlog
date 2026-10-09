@@ -253,6 +253,9 @@ pub fn parse_meeting_link(text: &str) -> Option<String> {
                 .unwrap(),
             ),
             Matcher::Simple(Regex::new(r"https://app\.cal\.com/video/[a-zA-Z0-9]+").unwrap()),
+            Matcher::Simple(
+                Regex::new(r#"https://[a-z0-9-]+\.ktalk\.ru/[^\s<>"'/?#][^\s<>"']*"#).unwrap(),
+            ),
         ]
     });
     // Only links from known conferencing providers count as meeting links. A
@@ -465,6 +468,11 @@ mod tests {
                 "https://zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
                 "https://zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
             ),
+            (
+                "Kontur Talk room in html invitation",
+                "<a href=\"https://acme.ktalk.ru/myroom?token=abc\">Join Kontur Talk</a>",
+                "https://acme.ktalk.ru/myroom?token=abc",
+            ),
         ];
 
         for (name, input, expected) in cases {
@@ -496,6 +504,15 @@ mod tests {
 
         // No link at all.
         assert_eq!(parse_meeting_link("Conference room 4"), None);
+        for link in [
+            "https://ktalk.ru/",
+            "https://acme.ktalk.ru/",
+            "https://acme.ktalk.ru/?source=calendar",
+            "https://acme.ktalk.ru/#room",
+            "https://acme.ktalk.ru.example.com/myroom",
+        ] {
+            assert_eq!(parse_meeting_link(link), None, "not a Kontur room: {link}");
+        }
 
         assert_eq!(parse_meeting_link("Follow us: https://x.com/anarlog"), None);
         assert_eq!(parse_meeting_link("Call: https://call.x.com/new"), None);

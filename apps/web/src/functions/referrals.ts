@@ -3,6 +3,7 @@ import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import {
   deleteCookie,
   getCookie,
+  getRequestHeaders,
   setCookie,
   setResponseHeader,
 } from "@tanstack/react-start/server";
@@ -10,18 +11,13 @@ import { z } from "zod";
 
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { getSupabaseServerClient } from "@/functions/supabase";
+import { captureServerAnalytics } from "@/lib/server-analytics";
 
 const REFERRAL_COOKIE = "anarlog-referral";
 const REFERRAL_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const referralCodeSchema = z.string().regex(/^[a-f0-9]{24}$/);
 
-type ReferralInviteRow = {
-  slot: number;
-  code: string;
-  status: "available" | "trial_started" | "reward_earned";
-  reward_amount_cents: number;
-  reward_currency: string;
-};
+import type { ReferralSummary } from "@anlg/supabase/referrals";
 
 export const persistReferralAttribution = createServerFn({ method: "POST" })
   .inputValidator(referralCodeSchema)
@@ -32,11 +28,32 @@ export const persistReferralAttribution = createServerFn({ method: "POST" })
       data: { user },
     } = await supabase.auth.getUser();
 
+    const trackVisit = (entry_point: string) =>
+      getRequestHeaders().get("sec-gpc") === "1"
+        ? Promise.resolve()
+        : captureServerAnalytics({
+            userId: "",
+            event: "referral_link_visited",
+            timestamp: new Date(),
+            properties: { entry_point },
+          }).catch(() => {});
+
     if (user) {
+      await trackVisit("existing_account");
       deleteCookie(REFERRAL_COOKIE, { path: "/" });
       return "existing_account" as const;
     }
 
+    const { data: available, error } = await supabase.rpc(
+      "referral_link_available",
+      { p_code: code },
+    );
+    if (error) throw error;
+    if (available !== true) {
+      await trackVisit("unavailable");
+      deleteCookie(REFERRAL_COOKIE, { path: "/" });
+      return "unavailable" as const;
+    }
     setCookie(REFERRAL_COOKIE, code, {
       httpOnly: true,
       maxAge: REFERRAL_COOKIE_MAX_AGE_SECONDS,
@@ -44,6 +61,7 @@ export const persistReferralAttribution = createServerFn({ method: "POST" })
       sameSite: "lax",
       secure: getRequestAppOrigin().startsWith("https://"),
     });
+    await trackVisit("available");
     return "stored" as const;
   });
 
@@ -66,6 +84,21 @@ export const claimPendingReferral = createServerOnlyFn(
     }
 
     deleteCookie(REFERRAL_COOKIE, { path: "/" });
+    if (data === true && getRequestHeaders().get("sec-gpc") !== "1") {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user)
+          await captureServerAnalytics({
+            userId: user.id,
+            event: "referral_claimed",
+            insertId: `referral-claim:${user.id}`,
+            timestamp: new Date(),
+            properties: { entry_point: "invite" },
+          });
+      } catch {}
+    }
     return data === true;
   },
 );
@@ -91,21 +124,12 @@ export const getReferralInvites = createServerFn({ method: "POST" }).handler(
       throw new Error("Unauthorized");
     }
 
-    const { data, error } = await supabase.rpc(
-      "get_or_create_referral_invites",
-    );
+    const { data, error } = await supabase.rpc("get_referral_summary");
     if (error) {
       throw error;
     }
 
-    const appOrigin = getRequestAppOrigin();
-    return ((data ?? []) as ReferralInviteRow[]).map((invite) => ({
-      slot: invite.slot,
-      status: invite.status,
-      rewardAmountCents: invite.reward_amount_cents,
-      rewardCurrency: invite.reward_currency,
-      url: `${appOrigin}/invite/${invite.code}`,
-    }));
+    return data as ReferralSummary;
   },
 );
 

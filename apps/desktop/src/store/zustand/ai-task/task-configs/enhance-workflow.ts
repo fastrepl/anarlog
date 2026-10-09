@@ -14,7 +14,7 @@ import { createEnhanceValidator } from "./enhance-validator";
 import { appendPreferredNamesGuidance } from "./preferred-names";
 
 import {
-  formatSummaryLengthModeGuidance,
+  formatSummaryDetailGuidance,
   formatSummaryLengthGuidance,
 } from "~/services/enhancer/summary-length";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
@@ -83,8 +83,7 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["enhance"]) {
     throw new Error(result.error);
   }
 
-  const modeGuidance = formatSummaryLengthModeGuidance(
-    args.summaryLength,
+  const detailGuidance = formatSummaryDetailGuidance(
     Boolean(args.template?.sections.length),
   );
 
@@ -93,7 +92,7 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["enhance"]) {
 
 # Summary Mode
 
-${modeGuidance}`,
+${detailGuidance}`,
     args.dictionaryTerms,
   );
 }

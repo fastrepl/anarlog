@@ -725,6 +725,9 @@ importers:
       '@dotenvx/dotenvx':
         specifier: ^1.61.0
         version: 1.61.0
+      '@electric-sql/pglite':
+        specifier: 0.3.14
+        version: 0.3.14
       '@types/bun':
         specifier: ^1.3.12
         version: 1.3.12
@@ -917,7 +920,7 @@ importers:
         version: 0.3.24
       nitro:
         specifier: 3.0.260429-beta
-        version: 3.0.260429-beta(dotenv@17.4.2)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))(giget@3.3.1)(jiti@2.7.0)(vite@8.0.16(@types/node@22.19.17)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))(wrangler@4.129.0(@types/node@22.19.17))
+        version: 3.0.260429-beta(@electric-sql/pglite@0.3.14)(dotenv@17.4.2)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))(giget@3.3.1)(jiti@2.7.0)(vite@8.0.16(@types/node@22.19.17)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))(wrangler@4.129.0(@types/node@22.19.17))
       pagefind:
         specifier: ^1.5.2
         version: 1.5.2
@@ -1008,7 +1011,7 @@ importers:
         version: link:../db-runtime
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)
+        version: 0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)
     devDependencies:
       drizzle-kit:
         specifier: ^0.31.3
@@ -1914,8 +1917,8 @@ packages:
     resolution: {integrity: sha512-iES0Skag9ERIF68aXadpO6dbXa03mNWK3sEqJaMnLNs/eC3l0lkImdfoy6Y09/SfkpawdAB4RjQ7PVA7TcVGdw==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/helpers@7.29.7':
-    resolution: {integrity: sha512-1k2lAGRMfHTcwuNYcCNUmaUffmQv8KWMfh2iJUUeRlwlwH4FdNG7mfPI10NPfLHJFThE4Tyr4mv7kTNZOiPuBg==}
+  '@babel/helpers@7.29.10':
+    resolution: {integrity: sha512-EMCx3AGZ3WfAl6ht7AyQoPm2Lh+BGYEMdc4Q6Hf7uSCDOZFuLq44qNwL+iaim8VlyYhRAo4X43+weadK8ZB4Yg==}
     engines: {node: '>=6.9.0'}
 
   '@babel/parser@7.29.2':
@@ -2560,6 +2563,9 @@ packages:
   '@egjs/hammerjs@2.0.17':
     resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
     engines: {node: '>=0.8.0'}
+
+  '@electric-sql/pglite@0.3.14':
+    resolution: {integrity: sha512-3DB258dhqdsArOI1fIt7cb9RpUOgcDg5hXWVgVHAeqVQ/qxtFy605QKs4gx6mFq3jWsSPqDN8TgSEsqC3OfV9Q==}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -15088,7 +15094,7 @@ snapshots:
       '@babel/generator': 7.29.8
       '@babel/helper-compilation-targets': 7.29.7
       '@babel/helper-module-transforms': 7.29.7(@babel/core@7.29.7)
-      '@babel/helpers': 7.29.7
+      '@babel/helpers': 7.29.10
       '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
       '@babel/traverse': 7.29.8
@@ -15246,7 +15252,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@babel/helpers@7.29.7':
+  '@babel/helpers@7.29.10':
     dependencies:
       '@babel/template': 7.29.7
       '@babel/types': 7.29.8
@@ -15878,6 +15884,8 @@ snapshots:
   '@egjs/hammerjs@2.0.17':
     dependencies:
       '@types/hammerjs': 2.0.46
+
+  '@electric-sql/pglite@0.3.14': {}
 
   '@emnapi/core@1.10.0':
     dependencies:
@@ -18093,7 +18101,7 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 2.8.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/semantic-conventions': 1.43.0
+      '@opentelemetry/semantic-conventions': 1.40.0
 
   '@opentelemetry/resources@2.11.0(@opentelemetry/api@1.9.1)':
     dependencies:
@@ -18105,7 +18113,7 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 2.8.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/semantic-conventions': 1.43.0
+      '@opentelemetry/semantic-conventions': 1.40.0
 
   '@opentelemetry/resources@2.6.1(@opentelemetry/api@1.9.1)':
     dependencies:
@@ -18144,7 +18152,7 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 2.8.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/resources': 2.0.1(@opentelemetry/api@1.9.1)
-      '@opentelemetry/semantic-conventions': 1.43.0
+      '@opentelemetry/semantic-conventions': 1.40.0
 
   '@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1)':
     dependencies:
@@ -23221,9 +23229,10 @@ snapshots:
 
   dayjs@1.11.23: {}
 
-  db0@0.3.4(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)):
+  db0@0.3.4(@electric-sql/pglite@0.3.14)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)):
     optionalDependencies:
-      drizzle-orm: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)
+      '@electric-sql/pglite': 0.3.14
+      drizzle-orm: 0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)
 
   debounce-fn@6.0.0:
     dependencies:
@@ -23372,8 +23381,9 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.21.0
 
-  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0):
+  drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0):
     optionalDependencies:
+      '@electric-sql/pglite': 0.3.14
       '@opentelemetry/api': 1.9.1
       '@types/pg': 8.20.0
       bun-types: 1.3.12
@@ -27034,11 +27044,11 @@ snapshots:
 
   nf3@0.3.24: {}
 
-  nitro@3.0.260429-beta(dotenv@17.4.2)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))(giget@3.3.1)(jiti@2.7.0)(vite@8.0.16(@types/node@22.19.17)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))(wrangler@4.129.0(@types/node@22.19.17)):
+  nitro@3.0.260429-beta(@electric-sql/pglite@0.3.14)(dotenv@17.4.2)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))(giget@3.3.1)(jiti@2.7.0)(vite@8.0.16(@types/node@22.19.17)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))(wrangler@4.129.0(@types/node@22.19.17)):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.5(srvx@0.11.22)
-      db0: 0.3.4(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))
+      db0: 0.3.4(@electric-sql/pglite@0.3.14)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))
       env-runner: 0.1.16(wrangler@4.129.0(@types/node@22.19.17))
       h3: 2.0.1-rc.20(crossws@0.4.5(srvx@0.11.22))
       hookable: 6.1.1

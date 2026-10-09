@@ -157,6 +157,7 @@ export type SpeakerParticipantOption = {
   id: string;
   name: string;
   email?: string;
+  additionalEmails?: string[];
   avatarDataUrl?: string;
   isSessionParticipant: boolean;
   isNew?: boolean;
@@ -180,9 +181,11 @@ export function buildSpeakerParticipantGroups({
       return true;
     }
 
-    return [option.name, option.email ?? ""].some((value) =>
-      value.toLowerCase().includes(normalizedQuery),
-    );
+    return [
+      option.name,
+      option.email ?? "",
+      ...(option.additionalEmails ?? []),
+    ].some((value) => value.toLowerCase().includes(normalizedQuery));
   };
 
   const participantKeys = new Set<string>();
@@ -239,7 +242,7 @@ export function buildCreateSpeakerParticipantOption({
 
   const normalizedName = name.toLowerCase();
   const alreadyExists = existingOptions.some((option) =>
-    [option.name, option.email ?? ""].some(
+    [option.name, option.email ?? "", ...(option.additionalEmails ?? [])].some(
       (value) => value.toLowerCase() === normalizedName,
     ),
   );
@@ -264,9 +267,11 @@ export function buildEventSpeakerParticipantOptions({
   contacts: SpeakerParticipantOption[];
 }): SpeakerParticipantOption[] {
   const contactByEmail = new Map(
-    contacts
-      .filter((contact) => contact.email)
-      .map((contact) => [contact.email!.toLowerCase(), contact]),
+    contacts.flatMap((contact) =>
+      [contact.email, ...(contact.additionalEmails ?? [])]
+        .filter((email): email is string => Boolean(email))
+        .map((email) => [email.toLowerCase(), contact] as const),
+    ),
   );
   const contactByName = new Map(
     contacts.map((contact) => [contact.name.toLowerCase(), contact]),
@@ -373,6 +378,7 @@ export function SpeakerParticipantPicker({
             id: human.id,
             name: name || email,
             email: email || undefined,
+            additionalEmails: human.additionalEmails,
             avatarDataUrl: human.avatarDataUrl ?? undefined,
             isSessionParticipant: false,
           };
@@ -442,8 +448,10 @@ export function SpeakerParticipantPicker({
       const email = option.email?.trim().toLowerCase();
       const name = option.name.trim().toLowerCase();
       const existingContact = email
-        ? contacts.find(
-            (contact) => contact.email?.trim().toLowerCase() === email,
+        ? contacts.find((contact) =>
+            [contact.email, ...(contact.additionalEmails ?? [])].some(
+              (value) => value?.trim().toLowerCase() === email,
+            ),
           )
         : contacts.find(
             (contact) => contact.name.trim().toLowerCase() === name,

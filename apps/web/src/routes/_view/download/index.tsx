@@ -168,13 +168,17 @@ function Component() {
                                   ? `${download.actionLabel}: ${download.name}`
                                   : `Download ${download.name} for ${section.name}`
                               }
-                              onClick={() =>
-                                track("download_clicked", {
-                                  platform: section.platform,
-                                  spec: download.name,
-                                  source: "download_page",
-                                  ...experiment,
-                                })
+                              onClick={(event) =>
+                                track(
+                                  "download_clicked",
+                                  {
+                                    platform: section.platform,
+                                    spec: download.name,
+                                    source: "download_page",
+                                    ...experiment,
+                                  },
+                                  event,
+                                )
                               }
                               className={cn([
                                 downloadButtonClassName,
@@ -225,13 +229,17 @@ function Component() {
                           {...("actionLabel" in download
                             ? { target: "_blank", rel: "noreferrer" }
                             : {})}
-                          onClick={() =>
-                            track("download_clicked", {
-                              platform: section.platform,
-                              spec: toAnalyticsToken(download.name),
-                              source: "download_page",
-                              ...experiment,
-                            })
+                          onClick={(event) =>
+                            track(
+                              "download_clicked",
+                              {
+                                platform: section.platform,
+                                spec: toAnalyticsToken(download.name),
+                                source: "download_page",
+                                ...experiment,
+                              },
+                              event,
+                            )
                           }
                           className="text-color underline underline-offset-2"
                         >
@@ -300,13 +308,17 @@ function Component() {
                                   ? `${download.actionLabel}: ${download.name}`
                                   : `Download ${download.name} for ${section.name}`
                               }
-                              onClick={() =>
-                                track("download_clicked", {
-                                  platform: section.platform,
-                                  spec: download.name,
-                                  source: "download_page",
-                                  ...experiment,
-                                })
+                              onClick={(event) =>
+                                track(
+                                  "download_clicked",
+                                  {
+                                    platform: section.platform,
+                                    spec: download.name,
+                                    source: "download_page",
+                                    ...experiment,
+                                  },
+                                  event,
+                                )
                               }
                               className={cn([
                                 downloadButtonClassName,

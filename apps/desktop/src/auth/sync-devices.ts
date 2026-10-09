@@ -7,12 +7,9 @@ import { env } from "~/env";
 export const ENROLLMENT_REQUIRES_EXISTING_KEY_ERROR_CODE =
   "e2ee_enrollment_requires_existing_key";
 
-export type SyncDeviceKind = "desktop" | "mobile" | "watch";
-
 type SyncDevice = {
   deviceFingerprint: string;
   deviceName: string | null;
-  deviceKind?: SyncDeviceKind | null;
   createdAt: string;
   lastSeenAt: string;
 };
@@ -21,7 +18,6 @@ type PendingSyncDevice = {
   requestId: string;
   deviceFingerprint: string;
   deviceName: string | null;
-  deviceKind?: SyncDeviceKind | null;
   publicKey: string;
   createdAt: string;
   expiresAt: string;

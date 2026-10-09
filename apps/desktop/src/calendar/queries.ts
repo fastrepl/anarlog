@@ -3,6 +3,10 @@ import { useMemo } from "react";
 import { commands as calendarCommands } from "@anlg/plugin-calendar";
 import { eventParticipantSchema, type EventParticipant } from "@anlg/store";
 
+import {
+  SESSION_EVENT_MATCH,
+  SESSION_EVENT_ORDER,
+} from "~/calendar/session-event-match";
 import { liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import { getSessionEvent } from "~/session/utils";
@@ -117,25 +121,6 @@ export type CalendarRow = Omit<CalendarSqlRow, "enabled"> & {
 
 const EMPTY_EVENTS: Record<string, TimelineEventRow> = {};
 const EMPTY_SESSIONS: Record<string, TimelineSessionRow> = {};
-const SESSION_EVENT_MATCH = `event.deleted_at IS NULL
-        AND (
-          event.id = session.event_id
-          OR (
-            event.tracking_id_event <> ''
-            AND event.tracking_id_event = CASE
-              WHEN json_valid(session.event_json)
-              THEN json_extract(session.event_json, '$.tracking_id')
-              ELSE ''
-            END
-            AND event.calendar_id = CASE
-              WHEN json_valid(session.event_json)
-              THEN json_extract(session.event_json, '$.calendar_id')
-              ELSE ''
-            END
-          )
-        )`;
-const SESSION_EVENT_ORDER = `CASE WHEN event.id = session.event_id THEN 0 ELSE 1 END,
-  event.started_at, event.id`;
 
 const EMPTY_CALENDARS: CalendarRow[] = [];
 const EMPTY_EVENT_PARTICIPANTS: EventParticipant[] = [];

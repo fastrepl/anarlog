@@ -58,6 +58,11 @@ export function OwnedSharedNotePublisher() {
           session.updated_at,
           share_document.updated_at,
           COALESCE((
+            SELECT calendar_event.updated_at
+            FROM events AS calendar_event
+            WHERE calendar_event.id = NULLIF(session.event_id, '')
+          ), ''),
+          COALESCE((
             SELECT MAX(
               CASE
                 WHEN COALESCE(human.updated_at, '') > participant.updated_at
@@ -182,6 +187,7 @@ export function OwnedSharedNotePublisher() {
               body: projection.body,
               participants: projection.source.participants,
               meetingAt: projection.source.meetingAt,
+              eventKey: projection.source.eventKey,
               attachmentIds: durable.attachments.map(
                 (attachment) => attachment.id,
               ),

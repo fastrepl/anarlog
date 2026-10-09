@@ -385,12 +385,16 @@ function DownloadButton() {
     >
       <a
         href={preferredDownload.url}
-        onClick={() =>
-          track("download_clicked", {
-            platform: preferredSection.platform,
-            spec: toAnalyticsToken(preferredDownload.name),
-            source: "homepage",
-          })
+        onClick={(event) =>
+          track(
+            "download_clicked",
+            {
+              platform: preferredSection.platform,
+              spec: toAnalyticsToken(preferredDownload.name),
+              source: "homepage",
+            },
+            event,
+          )
         }
         className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] py-3 pr-2 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
       >
@@ -441,12 +445,16 @@ function DownloadButton() {
                   key={download.url}
                   href={download.url}
                   role="menuitem"
-                  onClick={() => {
-                    track("download_clicked", {
-                      platform: section.platform,
-                      spec: toAnalyticsToken(download.name),
-                      source: "homepage_menu",
-                    });
+                  onClick={(event) => {
+                    track(
+                      "download_clicked",
+                      {
+                        platform: section.platform,
+                        spec: toAnalyticsToken(download.name),
+                        source: "homepage_menu",
+                      },
+                      event,
+                    );
                     setOpen(false);
                   }}
                   className="text-color hover:surface-subtle flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"

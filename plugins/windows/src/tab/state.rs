@@ -9,6 +9,8 @@ crate::common_derives! {
         Enhanced { id: String },
         #[serde(rename = "attachments")]
         Attachments,
+        #[serde(rename = "shared")]
+        Shared { id: String },
     }
 }
 

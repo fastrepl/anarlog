@@ -904,14 +904,27 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
         return Ok(());
     };
 
-    let owner_email: Option<String> = sqlx::query_scalar::<_, Option<String>>(
-        "SELECT NULLIF(lower(email), '') FROM humans WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+    let owner_emails: Vec<String> = sqlx::query_scalar::<_, String>(
+        "SELECT email FROM (
+          SELECT NULLIF(lower(email), '') AS email
+          FROM humans WHERE id = ? AND deleted_at IS NULL
+          UNION ALL
+          SELECT NULLIF(lower(additional_email.value), '')
+          FROM humans,
+            json_each(CASE
+              WHEN json_valid(humans.metadata_json)
+                AND json_type(humans.metadata_json, '$.additionalEmails') = 'array'
+              THEN json_extract(humans.metadata_json, '$.additionalEmails')
+              ELSE '[]'
+            END) AS additional_email
+          WHERE humans.id = ? AND humans.deleted_at IS NULL
+        ) WHERE email IS NOT NULL",
     )
     .bind(&owner_user_id)
-    .fetch_optional(pool)
+    .bind(&owner_user_id)
+    .fetch_all(pool)
     .await
-    .map_err(|error| error.to_string())?
-    .flatten();
+    .map_err(|error| error.to_string())?;
 
     let participants = anlg_db_app::list_session_participants(pool, session_id)
         .await
@@ -921,7 +934,7 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
             .iter()
             .map(|participant| (participant.human_id.as_str(), participant.email.as_str())),
         &owner_user_id,
-        owner_email.as_deref(),
+        &owner_emails,
     );
     // 1:1 meetings are named from the participant list. Voiceprints only
     // identify people when the calendar cannot uniquely name the remotes.

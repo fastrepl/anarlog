@@ -83,6 +83,7 @@ fn test_router_with_transport(
                 subscription_status: None,
                 trial_end: None,
                 has_payment_method: None,
+                referral_extension: None,
             },
         }))
 }

@@ -389,7 +389,8 @@ export type EditorView =
   | { type: "raw" }
   | { type: "transcript" }
   | { type: "enhanced"; id: string }
-  | { type: "attachments" };
+  | { type: "attachments" }
+  | { type: "shared"; id: string };
 export type ExtensionsState = { selectedExtension: string | null };
 export type FloatingBarColorScheme = "light" | "dark";
 export type FloatingBarDictationAction = {

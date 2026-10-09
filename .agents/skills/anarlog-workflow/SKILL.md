@@ -9,6 +9,8 @@ Apply to Anarlog repository or Anarlog desktop, web, mobile, and API work. Apply
 
 Use Linear for work tracking and facts worth remembering. Keep implementation and verification details in commits, PRs, and CI.
 
+Write everything you log or edit in English, even when the conversation is in another language: Linear issues, comments, and documents; Slack updates; commits, PRs, and review replies; code comments and docs. Only replies to the user in the conversation follow the user's language, and localized product content such as translation catalogs keeps its target language.
+
 Do not read, create, edit, or comment in Notion for Anarlog work. Anarlog does not use Notion; keep its decisions and durable context in Linear.
 
 - Team: **Anarlog** (`ANLG`).

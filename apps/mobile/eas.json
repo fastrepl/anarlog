@@ -36,7 +36,7 @@
         "ascAppId": "6807350358"
       },
       "android": {
-        "track": "beta",
+        "track": "internal",
         "releaseStatus": "completed"
       }
     }

@@ -68,6 +68,7 @@ vi.mock("@anlg/api-client/client", () => ({
 vi.mock("@anlg/plugin-auth", () => ({
   commands: {
     decodeClaims: vi.fn(),
+    getItem: vi.fn().mockResolvedValue({ status: "ok", data: null }),
   },
 }));
 
@@ -191,6 +192,7 @@ function paidClaims(userId: string) {
       subscription_status: "active" as const,
       trial_end: null,
       has_payment_method: true,
+      referral_extension: null,
     },
   };
 }
@@ -205,6 +207,7 @@ function freeClaims(userId: string) {
       subscription_status: null,
       trial_end: null,
       has_payment_method: null,
+      referral_extension: null,
     },
   };
 }
@@ -251,6 +254,7 @@ describe("BillingProvider", () => {
           subscription_status: null,
           trial_end: null,
           has_payment_method: null,
+          referral_extension: null,
         },
       });
 
@@ -627,6 +631,110 @@ describe("BillingProvider", () => {
     switchedClaims.resolve(paidClaims("user-2"));
   });
 
+  it("dismisses the old reminder after a trial extension and reminds again near the new end", async () => {
+    const initialNow = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(initialNow);
+    const seen = new Map<string, string>([
+      ["anarlog:trial_started_seen:user-1", "1"],
+    ]);
+    vi.mocked(localStorage.getItem).mockImplementation(
+      (key) => seen.get(key) ?? null,
+    );
+    vi.mocked(localStorage.setItem).mockImplementation((key, value) => {
+      seen.set(key, value);
+    });
+    const claims = {
+      ...paidClaims("user-1").data,
+      subscription_status: "trialing" as const,
+      trial_end: Math.floor(initialNow / 1000) + 2 * 86400,
+      has_payment_method: false,
+      referral_extension: false,
+    };
+    vi.mocked(authCommands.decodeClaims).mockResolvedValue({
+      status: "ok",
+      data: claims,
+    });
+    const { view, queryClient } = renderBillingProvider();
+    try {
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId("trial-payment-reminder-dialog")
+            .getAttribute("data-open"),
+        ).toBe("true"),
+      );
+      vi.mocked(authCommands.decodeClaims).mockResolvedValue({
+        status: "ok",
+        data: { ...claims, trial_end: claims.trial_end + 30 * 86400 },
+      });
+      authState.session = {
+        ...authState.session!,
+        access_token: "extended-token",
+      };
+      view.rerender(billingTree(queryClient));
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId("trial-payment-reminder-dialog")
+            .getAttribute("data-open"),
+        ).toBe("false"),
+      );
+      clock.mockReturnValue(initialNow + 30 * 86400000);
+      view.rerender(billingTree(queryClient));
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId("trial-payment-reminder-dialog")
+            .getAttribute("data-open"),
+        ).toBe("true"),
+      );
+      expect(
+        screen
+          .getByTestId("trial-payment-reminder-dialog")
+          .getAttribute("data-days-remaining"),
+      ).toBe("2");
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it.each([false, true])(
+    "keeps referral extensions on Pro without trial dialogs (seen: %s)",
+    async (seen) => {
+      vi.mocked(localStorage.getItem).mockImplementation(() =>
+        seen ? "1" : null,
+      );
+      vi.mocked(authCommands.decodeClaims).mockResolvedValue({
+        status: "ok",
+        data: {
+          ...paidClaims("user-1").data,
+          subscription_status: "trialing",
+          trial_end: Math.floor(Date.now() / 1000) + 2 * 24 * 60 * 60,
+          has_payment_method: false,
+          referral_extension: true,
+        },
+      });
+      renderBillingProvider();
+      await waitFor(() =>
+        expect(
+          screen.getByTestId("billing-access").getAttribute("data-is-ready"),
+        ).toBe("true"),
+      );
+      expect(
+        screen.getByTestId("billing-access").getAttribute("data-is-paid"),
+      ).toBe("true");
+      for (const dialog of [
+        "trial-started-dialog",
+        "trial-payment-reminder-dialog",
+        "trial-ended-dialog",
+      ]) {
+        expect(screen.getByTestId(dialog).getAttribute("data-open")).toBe(
+          "false",
+        );
+      }
+    },
+  );
+
   it.each([
     [false, "true"],
     [true, "false"],
@@ -645,6 +753,7 @@ describe("BillingProvider", () => {
           subscription_status: "trialing",
           trial_end: Math.floor(Date.now() / 1000) + 6 * 24 * 60 * 60,
           has_payment_method: hasPaymentMethod,
+          referral_extension: null,
         },
       });
 
