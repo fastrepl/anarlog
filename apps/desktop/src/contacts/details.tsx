@@ -92,7 +92,12 @@ export function DetailsColumn({
       base: human.additionalEmails,
       list,
     };
-    persistHumanUpdate(human.id, { additionalEmails: list });
+    void updateHuman(human.id, { additionalEmails: list }).catch((error) => {
+      console.error("[contacts] failed to update contact", error);
+      if (pendingEmailsRef.current?.list === list) {
+        pendingEmailsRef.current = null;
+      }
+    });
   };
   const personSessions = useHumanSessions(human?.id ?? "");
   const organizationName =
@@ -332,22 +337,22 @@ export function DetailsColumn({
                   <EditableAdditionalEmailRow
                     key={`${human.id}:${email}`}
                     value={email}
-                    onCommit={(next) => {
+                    onCommit={(next, previous) => {
                       const trimmed = next.trim();
-                      if (trimmed === email) return;
+                      if (trimmed === previous) return;
                       const current = currentAdditionalEmails();
                       persistAdditionalEmails(
                         trimmed
                           ? current.map((entry) =>
-                              entry === email ? trimmed : entry,
+                              entry === previous ? trimmed : entry,
                             )
-                          : current.filter((entry) => entry !== email),
+                          : current.filter((entry) => entry !== previous),
                       );
                     }}
-                    onRemove={() => {
+                    onRemove={(current) => {
                       persistAdditionalEmails(
                         currentAdditionalEmails().filter(
-                          (entry) => entry !== email,
+                          (entry) => entry !== current,
                         ),
                       );
                     }}
@@ -604,10 +609,11 @@ function EditableAdditionalEmailRow({
 }: {
   value: string;
   autoFocus?: boolean;
-  onCommit: (value: string) => void;
-  onRemove?: () => void;
+  onCommit: (value: string, previous: string) => void;
+  onRemove?: (current: string) => void;
 }) {
   const { t } = useLingui();
+  const lastCommittedRef = useRef(value);
 
   return (
     <div className="border-border flex items-center border-b px-4 py-3">
@@ -617,7 +623,10 @@ function EditableAdditionalEmailRow({
           type="email"
           defaultValue={value}
           autoFocus={autoFocus}
-          onBlur={(event) => onCommit(event.target.value)}
+          onBlur={(event) => {
+            onCommit(event.target.value, lastCommittedRef.current);
+            lastCommittedRef.current = event.target.value.trim();
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.currentTarget.blur();
@@ -633,7 +642,7 @@ function EditableAdditionalEmailRow({
             size="icon"
             className="text-muted-foreground size-6 shrink-0"
             aria-label={t`Remove email`}
-            onClick={onRemove}
+            onClick={() => onRemove(lastCommittedRef.current)}
           >
             <X className="size-3.5" />
           </Button>
