@@ -15,13 +15,10 @@ import {
   CheckCircle,
   CircleNotch,
   CloudSlash,
-  Desktop,
-  DeviceMobile,
   PencilSimple,
   Plugs,
   Plus,
   Warning,
-  Watch,
 } from "@anlg/ui/components/icons";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -39,7 +36,6 @@ import { toast } from "@anlg/ui/components/ui/toast";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { E2eeSetupDialog } from "../general/e2ee-setup";
-import { resolveDeviceKind } from "./device-kind";
 import { SyncHealthSection } from "./health";
 import { SyncLog } from "./log";
 
@@ -208,29 +204,6 @@ function RenameDeviceDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-const DEVICE_KIND_ICONS = {
-  desktop: Desktop,
-  mobile: DeviceMobile,
-  watch: Watch,
-} as const;
-
-function DeviceKindIcon({
-  kind,
-  name,
-}: {
-  kind?: string | null;
-  name: string | null;
-}) {
-  const resolved = resolveDeviceKind(kind, name);
-  const Icon = DEVICE_KIND_ICONS[resolved];
-  return (
-    <Icon
-      aria-hidden="true"
-      className="text-muted-foreground size-4 shrink-0"
-    />
   );
 }
 
@@ -960,10 +933,6 @@ export function SettingsSync() {
                 key={device.deviceFingerprint}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <DeviceKindIcon
-                  kind={device.deviceKind}
-                  name={device.deviceName}
-                />
                 <div className="min-w-0 flex-1">
                   <DeviceTitle
                     name={device.deviceName}
@@ -1023,10 +992,6 @@ export function SettingsSync() {
                 key={device.requestId}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <DeviceKindIcon
-                  kind={device.deviceKind}
-                  name={device.deviceName}
-                />
                 <div className="min-w-0 flex-1">
                   <DeviceTitle
                     name={device.deviceName}

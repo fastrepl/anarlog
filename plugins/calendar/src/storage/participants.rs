@@ -52,7 +52,7 @@ pub(crate) fn sync_session_participants(
     let mut humans_by_id: IndexMap<String, &ParticipantHumanRow> = IndexMap::new();
     for human in snapshot.humans {
         humans_by_id.insert(human.id.clone(), human);
-        let email = human.email.trim().to_lowercase();
+        let email = human.match_email.trim().to_lowercase();
         if !email.is_empty() && !humans_by_email.contains_key(&email) {
             humans_by_email.insert(email, human.id.clone());
         }
@@ -270,6 +270,20 @@ mod tests {
             email: email.to_string(),
             name: name.to_string(),
             organization_id: organization_id.to_string(),
+            match_email: email.to_lowercase(),
+        }
+    }
+
+    fn human_matching(
+        id: &str,
+        email: &str,
+        match_email: &str,
+        name: &str,
+        organization_id: &str,
+    ) -> ParticipantHumanRow {
+        ParticipantHumanRow {
+            match_email: match_email.to_lowercase(),
+            ..human(id, email, name, organization_id)
         }
     }
 
@@ -370,6 +384,27 @@ mod tests {
             snapshot(vec![session("session-1", "tracking-1")], &humans, &[]),
         );
         assert!(result.humans_to_create.is_empty());
+        assert_eq!(result.to_add[0].human_id, "human-1");
+    }
+
+    #[test]
+    fn uses_an_existing_human_when_the_participant_matches_an_additional_email() {
+        let humans = [human_matching(
+            "human-1",
+            "primary@example.com",
+            "alias@example.com",
+            "Existing",
+            "org-1",
+        )];
+        let result = sync_session_participants(
+            &incoming(vec![(
+                "tracking-1",
+                vec![participant("Alias@Example.com", Some("Existing"))],
+            )]),
+            snapshot(vec![session("session-1", "tracking-1")], &humans, &[]),
+        );
+        assert!(result.humans_to_create.is_empty());
+        assert_eq!(result.to_add.len(), 1);
         assert_eq!(result.to_add[0].human_id, "human-1");
     }
 

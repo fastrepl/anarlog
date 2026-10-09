@@ -89,6 +89,7 @@ describe("contact SQLite queries", () => {
           generatedAt: "2026-08-12T12:00:00.000Z",
           sources: [],
         },
+        additionalEmails: [],
       },
     ]);
   });

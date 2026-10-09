@@ -8,6 +8,8 @@ mod list;
 mod meeting_ax;
 #[cfg(feature = "mic")]
 mod mic;
+#[cfg(feature = "screen")]
+mod screen;
 #[cfg(all(target_os = "macos", feature = "sleep"))]
 mod sleep;
 
@@ -34,6 +36,8 @@ pub use list::*;
 pub use meeting_ax::*;
 #[cfg(feature = "mic")]
 pub use mic::*;
+#[cfg(feature = "screen")]
+pub use screen::*;
 
 #[cfg(all(
     target_os = "macos",

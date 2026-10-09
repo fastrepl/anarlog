@@ -56,6 +56,7 @@ const inspection = {
   platform: "googleMeet",
   windowTitle: "Meet - abc-defg-hij",
   app: { id: "chrome", name: "Chrome" },
+  remoteScreenShare: false,
   warnings: [],
 };
 

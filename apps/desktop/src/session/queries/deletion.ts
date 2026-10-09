@@ -70,7 +70,7 @@ export async function isSessionEmpty(sessionId: string): Promise<boolean> {
           SELECT COUNT(*)
           FROM session_documents
           WHERE session_id = sessions.id
-            AND kind = 'meeting_chat'
+            AND kind IN ('meeting_chat', 'meeting_screen')
             AND deleted_at IS NULL
         ) AS meeting_chat_count,
         (

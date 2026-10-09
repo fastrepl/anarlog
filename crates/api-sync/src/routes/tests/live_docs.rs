@@ -179,6 +179,7 @@ fn authed_router(state: AppState, user_id: &str) -> Router {
                 subscription_status: None,
                 trial_end: None,
                 has_payment_method: None,
+                referral_extension: None,
             },
         }))
 }

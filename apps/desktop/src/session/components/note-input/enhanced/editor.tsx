@@ -144,11 +144,10 @@ const EnhancedEditorInner = forwardRef<
 
     return (
       <AudioDropTarget
-        className="h-full"
         targetProps={audioDropTargetProps}
         isActive={isAudioDragActive}
       >
-        <div ref={comments.containerRef} className="relative h-full">
+        <div ref={comments.containerRef} className="relative min-h-full">
           <NoteEditor
             ref={ref}
             className="session-note-editor enhanced-summary-editor"

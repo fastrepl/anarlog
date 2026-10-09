@@ -50,7 +50,11 @@ export function getBillingAnalyticsPayload(
           }
         | undefined;
 
-      if (subscription.status === "active" && previous?.status === "trialing") {
+      if (
+        subscription.status === "active" &&
+        previous?.status === "trialing" &&
+        subscription.metadata?.referral_extension !== "true"
+      ) {
         return subscriptionPayload("subscription_activated", subscription);
       }
       if (

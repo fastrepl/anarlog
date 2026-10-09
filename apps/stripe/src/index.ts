@@ -9,6 +9,7 @@ import { env } from "./env";
 import { captureOperationalError, sanitizeErrorEvent } from "./error-reporting";
 import type { AppBindings } from "./hono-bindings";
 import { verifyStripeWebhook } from "./middleware";
+import { startReferralMonthWorker } from "./referral-month-worker";
 import { routes } from "./routes";
 import { drainServer } from "./shutdown";
 import { startWorkspaceSeatWorker } from "./workspace-seat-worker";
@@ -59,6 +60,10 @@ app.onError((err, c) => {
 app.notFound((c) => c.text("not_found", 404));
 
 const stopSeatWorker = startWorkspaceSeatWorker();
+const stopReferralWorker = startReferralMonthWorker();
+const stopWorkers = async () => {
+  await Promise.all([stopSeatWorker(), stopReferralWorker()]);
+};
 const server = Bun.serve({
   port: Bun.env.BILLING_API_BINARY ? 8788 : env.PORT,
   hostname: Bun.env.BILLING_API_BINARY ? "127.0.0.1" : "0.0.0.0",
@@ -76,7 +81,7 @@ if (api) {
       operation: "billing_api_exit",
     });
     try {
-      await drainServer(server, stopSeatWorker);
+      await drainServer(server, stopWorkers);
     } finally {
       await Sentry.flush(2000);
       process.exit(1);
@@ -92,10 +97,10 @@ for (const signal of ["SIGTERM", "SIGINT", "SIGUSR1"] as const) {
       try {
         if (api) {
           await drainBillingRuntime(api, () =>
-            drainServer(server, stopSeatWorker),
+            drainServer(server, stopWorkers),
           );
         } else {
-          await drainServer(server, stopSeatWorker);
+          await drainServer(server, stopWorkers);
         }
       } catch (error) {
         exitCode = 1;

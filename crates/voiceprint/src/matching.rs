@@ -165,7 +165,7 @@ pub fn complete_by_elimination(
 pub fn remote_participant_human_ids<'a>(
     participants: impl IntoIterator<Item = (&'a str, &'a str)>,
     owner_user_id: &str,
-    owner_email: Option<&str>,
+    owner_emails: &[String],
 ) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     let mut ids = Vec::new();
@@ -173,9 +173,10 @@ pub fn remote_participant_human_ids<'a>(
         if human_id.is_empty() || human_id == owner_user_id {
             continue;
         }
-        if let Some(owner_email) = owner_email
-            && !email.is_empty()
-            && email.eq_ignore_ascii_case(owner_email)
+        if !email.is_empty()
+            && owner_emails
+                .iter()
+                .any(|owner_email| email.eq_ignore_ascii_case(owner_email))
         {
             continue;
         }
@@ -360,7 +361,7 @@ mod tests {
                     ("", "nobody@example.com"),
                 ],
                 "john",
-                Some("john@example.com"),
+                &["john@example.com".to_string()],
             ),
             vec!["marco".to_string(), "ada".to_string()]
         );

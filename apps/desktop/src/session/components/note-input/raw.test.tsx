@@ -206,6 +206,10 @@ vi.mock("~/stt/meeting-chat-records", () => ({
   useMeetingChatRecords: () => hoisted.meetingChatRecords,
 }));
 
+vi.mock("./meeting-screen-gallery", () => ({
+  MeetingScreenGallery: () => null,
+}));
+
 vi.mock("~/shared/hooks/useFileUpload", () => ({
   useFileUpload: () => hoisted.fileUpload,
 }));

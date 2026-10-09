@@ -17,6 +17,12 @@ const hoisted = vi.hoisted(() => ({
   noteEditorProps: [] as Record<string, unknown>[],
 }));
 
+vi.mock("@anlg/plugin-auth", () => ({
+  commands: {
+    getItem: vi.fn().mockResolvedValue({ status: "ok", data: null }),
+  },
+}));
+
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,
 }));

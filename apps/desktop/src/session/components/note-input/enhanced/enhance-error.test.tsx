@@ -38,6 +38,8 @@ vi.mock("~/store/zustand/ai-task/task-configs", () => ({
 
 import { EnhanceError } from "./enhance-error";
 
+import { withAIErrorSource } from "~/store/zustand/ai-task/shared/error-source";
+
 function renderError(isUnauthenticated: boolean) {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -48,7 +50,10 @@ function renderError(isUnauthenticated: boolean) {
       <EnhanceError
         sessionId="session-1"
         enhancedNoteId="note-1"
-        error={new Error("AI generation did not return any text.")}
+        error={withAIErrorSource(
+          new Error("AI generation did not return any text."),
+          { kind: "provider", provider: "Anthropic" },
+        )}
         isUnauthenticated={isUnauthenticated}
       />
     </QueryClientProvider>,
@@ -89,6 +94,8 @@ describe("EnhanceError", () => {
     expect(
       screen.getByText("AI generation did not return any text."),
     ).toBeTruthy();
+
+    expect(screen.getByText(/Anthropic/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 

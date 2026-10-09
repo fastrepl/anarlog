@@ -36,9 +36,7 @@ export function PrimaryRecordingDeviceSelector() {
       ),
     onError: () => toast.error(t`Could not save primary device. Try again.`),
   });
-  const devices = (devicesQuery.data?.devices ?? []).filter(
-    (device) => !device.deviceKind || device.deviceKind === "desktop",
-  );
+  const devices = devicesQuery.data?.devices ?? [];
   const unavailable =
     value && !devices.some((device) => device.deviceFingerprint === value);
 

@@ -127,6 +127,7 @@ async fn verifies_and_sends_a_resend_shared_note_invitation_email() {
             subscription_status: None,
             trial_end: None,
             has_payment_method: None,
+            referral_extension: None,
         },
     }));
 
@@ -198,6 +199,7 @@ async fn verifies_and_sends_a_workspace_invitation_email() {
             subscription_status: None,
             trial_end: None,
             has_payment_method: None,
+            referral_extension: None,
         },
     }));
 
@@ -272,6 +274,7 @@ async fn authorizes_and_sends_a_meeting_recap_to_each_recipient() {
             subscription_status: None,
             trial_end: None,
             has_payment_method: None,
+            referral_extension: None,
         },
     }));
 

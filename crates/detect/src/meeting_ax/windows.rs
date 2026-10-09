@@ -16,8 +16,8 @@ use super::{
     MeetingSurface, NativeMeetingRoot, browser_capture_context_id, classify_browser_context,
     classify_bundle, classify_surface, extract_chat_messages, is_browser_bundle,
     is_platform_active_call_control, native_capture_context_id, node_needs_bounds,
-    running_apps_for_bundle, running_meeting_apps, searchable_node_text, select_active_bundle_ids,
-    validated_chat_capture_scope,
+    nodes_show_remote_screen_share, running_apps_for_bundle, running_meeting_apps,
+    searchable_node_text, select_active_bundle_ids, validated_chat_capture_scope,
 };
 
 struct ComGuard {
@@ -563,6 +563,7 @@ pub(super) fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspect
                 surface,
                 accessibility_trusted: true,
                 window_title: has_active_call.then_some(title).flatten(),
+                remote_screen_share: has_active_call && nodes_show_remote_screen_share(&nodes),
                 warnings,
             })
         })

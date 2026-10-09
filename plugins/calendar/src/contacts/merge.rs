@@ -183,6 +183,24 @@ pub async fn merge_humans(pool: &SqlitePool, request: MergeHumansRequest) -> Res
             let phone = merge_text(&primary.phone, &duplicate_row.phone);
             let memo = merge_text(&primary.memo, &duplicate_row.memo);
 
+            let mut extra_emails =
+                anlg_db_app::human_additional_emails_from_metadata(&primary.metadata_json);
+            let email = if primary.email.trim().is_empty() {
+                duplicate_row.email.clone()
+            } else {
+                extra_emails.push(duplicate_row.email.clone());
+                primary.email.clone()
+            };
+            extra_emails.extend(anlg_db_app::human_additional_emails_from_metadata(
+                &duplicate_row.metadata_json,
+            ));
+            let additional_emails = anlg_db_app::normalize_additional_emails(&email, extra_emails);
+            let additional_emails_json = if additional_emails.is_empty() {
+                None
+            } else {
+                Some(serde_json::to_string(&additional_emails).map_err(|error| error.to_string())?)
+            };
+
             anlg_db_app::tombstone_duplicate_participant_mappings(
                 conn,
                 &now,
@@ -203,6 +221,8 @@ pub async fn merge_humans(pool: &SqlitePool, request: MergeHumansRequest) -> Res
                 &phone,
                 &memo,
                 &organization_id,
+                &email,
+                additional_emails_json.as_deref(),
                 &now,
                 &primary_id,
             )
@@ -472,6 +492,86 @@ mod tests {
                 .await
                 .unwrap();
         assert!(deleted);
+    }
+
+    #[tokio::test]
+    async fn merging_contacts_keeps_both_contacts_emails() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO humans (id, owner_user_id, name, email, metadata_json)
+             VALUES
+               ('primary', 'u', 'N', 'primary@example.com',
+                 json_object('additionalEmails', json_array('alias@example.com'), 'other', 'keep')),
+               ('duplicate', 'u', 'N', 'dup@example.com',
+                 json_object('additionalEmails', json_array('dup-alias@example.com', 'DUP@example.com')))",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        merge_humans(
+            db.pool(),
+            MergeHumansRequest {
+                selected_human_id: "primary".to_string(),
+                duplicate_human_id: "duplicate".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let (email, metadata_json): (String, String) =
+            sqlx::query_as("SELECT email, metadata_json FROM humans WHERE id = 'primary'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(email, "primary@example.com");
+        let metadata: serde_json::Value = serde_json::from_str(&metadata_json).unwrap();
+        assert_eq!(metadata["other"], "keep");
+        assert_eq!(
+            metadata["additionalEmails"],
+            serde_json::json!([
+                "alias@example.com",
+                "dup@example.com",
+                "dup-alias@example.com"
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn merging_into_a_contact_without_email_takes_the_duplicates_primary() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO humans (id, owner_user_id, name, email, metadata_json)
+             VALUES
+               ('primary', 'u', 'N', '', '{}'),
+               ('duplicate', 'u', 'N', 'dup@example.com',
+                 json_object('additionalEmails', json_array('dup-alias@example.com')))",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        merge_humans(
+            db.pool(),
+            MergeHumansRequest {
+                selected_human_id: "primary".to_string(),
+                duplicate_human_id: "duplicate".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let (email, metadata_json): (String, String) =
+            sqlx::query_as("SELECT email, metadata_json FROM humans WHERE id = 'primary'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(email, "dup@example.com");
+        let metadata: serde_json::Value = serde_json::from_str(&metadata_json).unwrap();
+        assert_eq!(
+            metadata["additionalEmails"],
+            serde_json::json!(["dup-alias@example.com"])
+        );
     }
 
     #[tokio::test]

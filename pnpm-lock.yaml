@@ -5,7 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  prosemirror-view: 1.41.7
+  prosemirror-model: 1.25.12
+  prosemirror-view: 1.42.3
   lightningcss: 1.30.1
   protobufjs: 7.6.5
   seroval: 1.5.3
@@ -251,7 +252,7 @@ importers:
         version: 0.27.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@handlewithcare/react-prosemirror':
         specifier: ^3.2.6
-        version: 3.2.6(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
+        version: 3.2.6(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.3)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
       '@iconify-icon/react':
         specifier: ^3.0.3
         version: 3.0.3(react@19.2.5)
@@ -352,11 +353,11 @@ importers:
         specifier: ^0.6.3
         version: 0.6.3
       prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
+        specifier: 1.25.12
+        version: 1.25.12
       prosemirror-view:
-        specifier: 1.41.7
-        version: 1.41.7
+        specifier: 1.42.3
+        version: 1.42.3
       react:
         specifier: ^19.2.5
         version: 19.2.5
@@ -672,6 +673,9 @@ importers:
       '@dotenvx/dotenvx':
         specifier: ^1.61.0
         version: 1.61.0
+      '@electric-sql/pglite':
+        specifier: 0.3.14
+        version: 0.3.14
       '@types/bun':
         specifier: ^1.3.12
         version: 1.3.12
@@ -864,7 +868,7 @@ importers:
         version: 0.3.24
       nitro:
         specifier: 3.0.260429-beta
-        version: 3.0.260429-beta(dotenv@17.4.2)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))(giget@3.3.1)(jiti@2.7.0)(vite@8.0.16(@types/node@22.19.17)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))(wrangler@4.129.0)
+        version: 3.0.260429-beta(@electric-sql/pglite@0.3.14)(dotenv@17.4.2)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))(giget@3.3.1)(jiti@2.7.0)(vite@8.0.16(@types/node@22.19.17)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))(wrangler@4.129.0)
       pagefind:
         specifier: ^1.5.2
         version: 1.5.2
@@ -955,7 +959,7 @@ importers:
         version: link:../db-runtime
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)
+        version: 0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)
     devDependencies:
       drizzle-kit:
         specifier: ^0.31.3
@@ -1038,7 +1042,7 @@ importers:
         version: 1.7.6
       '@handlewithcare/react-prosemirror':
         specifier: ^3.2.6
-        version: 3.2.6(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
+        version: 3.2.6(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.3)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)
       facehash:
         specifier: ^0.0.7
         version: 0.0.7(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1070,8 +1074,8 @@ importers:
         specifier: ^1.13.4
         version: 1.13.4
       prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
+        specifier: 1.25.12
+        version: 1.25.12
       prosemirror-schema-list:
         specifier: ^1.5.1
         version: 1.5.1
@@ -1085,8 +1089,8 @@ importers:
         specifier: ^1.12.0
         version: 1.12.0
       prosemirror-view:
-        specifier: 1.41.7
-        version: 1.41.7
+        specifier: 1.42.3
+        version: 1.42.3
       react:
         specifier: ^19.2.3
         version: 19.2.5
@@ -1101,7 +1105,7 @@ importers:
         version: 3.1.1(react@19.2.5)
       y-prosemirror:
         specifier: 1.3.7
-        version: 1.3.7(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
+        version: 1.3.7(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.3)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
       yjs:
         specifier: 13.6.32
         version: 13.6.32
@@ -2518,6 +2522,9 @@ packages:
     resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
     engines: {node: '>=0.8.0'}
 
+  '@electric-sql/pglite@0.3.14':
+    resolution: {integrity: sha512-3DB258dhqdsArOI1fIt7cb9RpUOgcDg5hXWVgVHAeqVQ/qxtFy605QKs4gx6mFq3jWsSPqDN8TgSEsqC3OfV9Q==}
+
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
 
@@ -3690,9 +3697,9 @@ packages:
       '@tiptap/core': ^3.0.0
       '@tiptap/pm': ^3.0.0
       '@tiptap/react': ^3.0.0
-      prosemirror-model: ^1.0.0
+      prosemirror-model: 1.25.12
       prosemirror-state: ^1.0.0
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
       react: '>=17 <20'
       react-dom: '>=17 <20'
       react-reconciler: '>=0.26.1 <=0.33.0'
@@ -12516,8 +12523,8 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
-  oxlint-plugin-react-doctor@0.9.14:
-    resolution: {integrity: sha512-YGdwFmQXGQulT63SnVD9JI1hV2EwGnZHrgSlUMQaOkvnhYA200QwDeb7DfVT8UBt34lBvbkjtz8VRFJugHjsRQ==}
+  oxlint-plugin-react-doctor@0.9.17:
+    resolution: {integrity: sha512-j6tdFoJbLztISYNlw7LMT+6naqhVsXTNn7drhoGRIqf0x2mCSD2Ur71hK0E/VrLens355finI6j+sMqHxHpEfA==}
     engines: {node: ^20.19.0 || >=22.13.0}
 
   oxlint-tsgolint@0.21.1:
@@ -12910,8 +12917,8 @@ packages:
   prosemirror-markdown@1.13.4:
     resolution: {integrity: sha512-D98dm4cQ3Hs6EmjK500TdAOew4Z03EV71ajEFiWra3Upr7diytJsjF4mPV2dW+eK5uNectiRj0xFxYI9NLXDbw==}
 
-  prosemirror-model@1.25.4:
-    resolution: {integrity: sha512-PIM7E43PBxKce8OQeezAs9j4TP+5yDpZVbuurd1h5phUxEKIu+G2a+EUZzIC5nS1mJktDJWzbqS23n1tsAf5QA==}
+  prosemirror-model@1.25.12:
+    resolution: {integrity: sha512-Ue2gTmXMa7EhpLNhC7J+h4+ykD8ha12K6rrZFFKKJHBForfIStw5gJ6Zrf1mqqAa9NmpmEB4wp9bKmA4eUVjWg==}
 
   prosemirror-schema-list@1.5.1:
     resolution: {integrity: sha512-927lFx/uwyQaGwJxLWCZRkjXG0p48KpMj6ueoYiu4JX05GGuGcgzAy62dfiV8eFZftgyBUvLx76RsMe20fJl+Q==}
@@ -12925,8 +12932,8 @@ packages:
   prosemirror-transform@1.12.0:
     resolution: {integrity: sha512-GxboyN4AMIsoHNtz5uf2r2Ru551i5hWeCMD6E2Ib4Eogqoub0NflniaBPVQ4MrGE5yZ8JV9tUHg9qcZTTrcN4w==}
 
-  prosemirror-view@1.41.7:
-    resolution: {integrity: sha512-jUwKNCEIGiqdvhlS91/2QAg21e4dfU5bH2iwmSDQeosXJgKF7smG0YSplOWK0cjSNgIqXe7VXqo7EIfUFJdt3w==}
+  prosemirror-view@1.42.3:
+    resolution: {integrity: sha512-oTN7EtH+CpwxU9NrwEYWd0UZ4JUx7l048l5A2Xppm4p/60isZYLnth9QVQmC3VRIvdrIWCxwZSd+Uz791G31/w==}
 
   protobufjs@7.6.5:
     resolution: {integrity: sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==}
@@ -13089,8 +13096,8 @@ packages:
   react-devtools-core@6.1.5:
     resolution: {integrity: sha512-ePrwPfxAnB+7hgnEr8vpKxL9cmnp7F322t8oqcPshbIQQhDKgFDW4tjhF2wjVbdXF9O/nyuy3sQWd9JGpiLPvA==}
 
-  react-doctor@0.9.14:
-    resolution: {integrity: sha512-JzOwAY/hoSxHa4Siyqgfxr/KCNak0SB9pSTseFVStFHAnWS+XxR6RsWU6Q5Ho+J5Jmyb9LZRXc6ZK5jt3cfcQQ==}
+  react-doctor@0.9.17:
+    resolution: {integrity: sha512-YCsjYk6MocO/oBhVxCcKvPotFxEOf/WJep/oF7jrpyVUBVKDKdpt7jVwTxrJrFE8uALMmVTljzXNTIjoL3talg==}
     engines: {node: ^20.19.0 || >=22.13.0}
     hasBin: true
 
@@ -15013,9 +15020,9 @@ packages:
     resolution: {integrity: sha512-NpM99WSdD4Fx4if5xOMDpPtU3oAmTSjlzh5U4353ABbRHl1HtAFUx6HlebLZfyFxXN9jzKMDkVbcRjqOZVkYQg==}
     engines: {node: '>=16.0.0', npm: '>=8.0.0'}
     peerDependencies:
-      prosemirror-model: ^1.7.1
+      prosemirror-model: 1.25.12
       prosemirror-state: ^1.2.3
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
       y-protocols: ^1.0.1
       yjs: ^13.5.38
 
@@ -16164,6 +16171,8 @@ snapshots:
     dependencies:
       '@types/hammerjs': 2.0.46
 
+  '@electric-sql/pglite@0.3.14': {}
+
   '@emnapi/core@1.10.0':
     dependencies:
       '@emnapi/wasi-threads': 1.2.1
@@ -17213,12 +17222,12 @@ snapshots:
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
 
-  '@handlewithcare/react-prosemirror@3.2.6(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)':
+  '@handlewithcare/react-prosemirror@3.2.6(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.3)(react-dom@19.2.5(react@19.2.5))(react-reconciler@0.33.0(react@19.2.5))(react@19.2.5)':
     dependencies:
       classnames: 2.5.1
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
       prosemirror-state: 1.4.4
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
       react-reconciler: 0.33.0(react@19.2.5)
@@ -23589,9 +23598,10 @@ snapshots:
 
   dayjs@1.11.23: {}
 
-  db0@0.3.4(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)):
+  db0@0.3.4(@electric-sql/pglite@0.3.14)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)):
     optionalDependencies:
-      drizzle-orm: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)
+      '@electric-sql/pglite': 0.3.14
+      drizzle-orm: 0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0)
 
   debounce-fn@6.0.0:
     dependencies:
@@ -23740,8 +23750,9 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.21.0
 
-  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0):
+  drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0):
     optionalDependencies:
+      '@electric-sql/pglite': 0.3.14
       '@opentelemetry/api': 1.9.1
       '@types/pg': 8.20.0
       bun-types: 1.3.12
@@ -27471,11 +27482,11 @@ snapshots:
 
   nf3@0.3.24: {}
 
-  nitro@3.0.260429-beta(dotenv@17.4.2)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))(giget@3.3.1)(jiti@2.7.0)(vite@8.0.16(@types/node@22.19.17)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))(wrangler@4.129.0):
+  nitro@3.0.260429-beta(@electric-sql/pglite@0.3.14)(dotenv@17.4.2)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))(giget@3.3.1)(jiti@2.7.0)(vite@8.0.16(@types/node@22.19.17)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))(wrangler@4.129.0):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.5(srvx@0.11.22)
-      db0: 0.3.4(drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))
+      db0: 0.3.4(@electric-sql/pglite@0.3.14)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(bun-types@1.3.12)(pg@8.20.0))
       env-runner: 0.1.16(wrangler@4.129.0)
       h3: 2.0.1-rc.20(crossws@0.4.5(srvx@0.11.22))
       hookable: 6.1.1
@@ -27766,7 +27777,7 @@ snapshots:
       '@oxfmt/binding-win32-ia32-msvc': 0.45.0
       '@oxfmt/binding-win32-x64-msvc': 0.45.0
 
-  oxlint-plugin-react-doctor@0.9.14:
+  oxlint-plugin-react-doctor@0.9.17:
     dependencies:
       '@shaderfrog/glsl-parser': 7.0.1
       '@typescript-eslint/types': 8.71.0
@@ -28191,7 +28202,7 @@ snapshots:
 
   prosemirror-commands@1.7.1:
     dependencies:
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
       prosemirror-state: 1.4.4
       prosemirror-transform: 1.12.0
 
@@ -28199,20 +28210,20 @@ snapshots:
     dependencies:
       prosemirror-state: 1.4.4
       prosemirror-transform: 1.12.0
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
 
   prosemirror-gapcursor@1.4.0:
     dependencies:
       prosemirror-keymap: 1.2.3
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
       prosemirror-state: 1.4.4
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
 
   prosemirror-history@1.5.0:
     dependencies:
       prosemirror-state: 1.4.4
       prosemirror-transform: 1.12.0
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
       rope-sequence: 1.3.4
 
   prosemirror-inputrules@1.5.1:
@@ -28229,37 +28240,37 @@ snapshots:
     dependencies:
       '@types/markdown-it': 14.1.2
       markdown-it: 14.3.1
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
 
-  prosemirror-model@1.25.4:
+  prosemirror-model@1.25.12:
     dependencies:
       orderedmap: 2.1.1
 
   prosemirror-schema-list@1.5.1:
     dependencies:
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
       prosemirror-state: 1.4.4
       prosemirror-transform: 1.12.0
 
   prosemirror-search@1.1.0:
     dependencies:
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
       prosemirror-state: 1.4.4
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
 
   prosemirror-state@1.4.4:
     dependencies:
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
       prosemirror-transform: 1.12.0
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
 
   prosemirror-transform@1.12.0:
     dependencies:
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
 
-  prosemirror-view@1.41.7:
+  prosemirror-view@1.42.3:
     dependencies:
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
       prosemirror-state: 1.4.4
       prosemirror-transform: 1.12.0
 
@@ -28496,7 +28507,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  react-doctor@0.9.14(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.9.1))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react@19.2.5):
+  react-doctor@0.9.17(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.9.1))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react@19.2.5):
     dependencies:
       '@astrojs/compiler': 4.0.0
       '@sentry/node': 10.75.3(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.9.1))
@@ -28511,7 +28522,7 @@ snapshots:
       oxc-parser: 0.148.0
       oxc-resolver: 11.24.2
       oxlint: 1.81.0(oxlint-tsgolint@0.21.1)
-      oxlint-plugin-react-doctor: 0.9.14
+      oxlint-plugin-react-doctor: 0.9.17
       playwright-core: 1.63.0
       prompts: 2.4.2
       typescript: 5.9.3
@@ -28815,7 +28826,7 @@ snapshots:
       preact: 10.29.1
       prompts: 2.4.2
       react: 19.2.5
-      react-doctor: 0.9.14(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.9.1))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react@19.2.5)
+      react-doctor: 0.9.17(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.9.1))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react@19.2.5)
       react-dom: 19.2.5(react@19.2.5)
       react-grab: 0.2.0(react@19.2.5)
     optionalDependencies:
@@ -30798,12 +30809,12 @@ snapshots:
 
   xtend@4.0.2: {}
 
-  y-prosemirror@1.3.7(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32):
+  y-prosemirror@1.3.7(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.3)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32):
     dependencies:
       lib0: 0.2.118
-      prosemirror-model: 1.25.4
+      prosemirror-model: 1.25.12
       prosemirror-state: 1.4.4
-      prosemirror-view: 1.41.7
+      prosemirror-view: 1.42.3
       y-protocols: 1.0.7(yjs@13.6.32)
       yjs: 13.6.32
 

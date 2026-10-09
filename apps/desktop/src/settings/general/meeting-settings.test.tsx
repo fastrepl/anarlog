@@ -32,6 +32,7 @@ function renderMeetingSettings({
   floatingBar = true,
   meetingDisclosureAutoPost = setting(),
   captureMeetingChat = setting(false),
+  captureSharedScreens = setting(false),
 } = {}) {
   return {
     ...render(
@@ -42,6 +43,7 @@ function renderMeetingSettings({
         floatingBar={setting(floatingBar)}
         meetingDisclosureAutoPost={meetingDisclosureAutoPost}
         captureMeetingChat={captureMeetingChat}
+        captureSharedScreens={captureSharedScreens}
       />,
     ),
     meetingDisclosureAutoPost,

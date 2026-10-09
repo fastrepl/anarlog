@@ -17,6 +17,7 @@ import { AudioDropTarget } from "./audio-drop-target";
 import { CreateBriefSuggestion } from "./create-brief-suggestion";
 import { useNoteFileHandlerConfig } from "./file-handler";
 import { MeetingChatHighlights } from "./meeting-chat-highlights";
+import { MeetingScreenGallery } from "./meeting-screen-gallery";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAudioPlayer } from "~/audio-player";
@@ -331,6 +332,7 @@ export const RawEditor = forwardRef<
               </div>
             ) : null}
           </div>
+          <MeetingScreenGallery sessionId={sessionId} />
           <MeetingChatHighlights sessionId={sessionId} />
         </>
       </AudioDropTarget>

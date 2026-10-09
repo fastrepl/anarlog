@@ -77,11 +77,32 @@ const CAPTURE_IDENTITY_SQL = `
         AND self_human.deleted_at IS NULL
         AND (
           (
-            NULLIF(lower(self_human.email), '') IS NOT NULL
-            AND lower(self_human.email) = lower(COALESCE(
+            NULLIF(lower(COALESCE(
               NULLIF(participant_human.email, ''),
               participant.email
-            ))
+            )), '') IS NOT NULL
+            AND (
+              (
+                NULLIF(lower(self_human.email), '') IS NOT NULL
+                AND lower(self_human.email) = lower(COALESCE(
+                  NULLIF(participant_human.email, ''),
+                  participant.email
+                ))
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM json_each(CASE
+                  WHEN json_valid(self_human.metadata_json)
+                    AND json_type(self_human.metadata_json, '$.additionalEmails') = 'array'
+                  THEN json_extract(self_human.metadata_json, '$.additionalEmails')
+                  ELSE '[]'
+                END) AS self_additional_email
+                WHERE lower(self_additional_email.value) = lower(COALESCE(
+                  NULLIF(participant_human.email, ''),
+                  participant.email
+                ))
+              )
+            )
           )
           OR (
             NULLIF(lower(owner_participant.email), '') IS NOT NULL

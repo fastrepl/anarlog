@@ -7,7 +7,7 @@ const preparedReward = {
   referral_id: "referral_1",
   referrer_user_id: "user_referrer",
   referrer_customer_id: "cus_referrer",
-  reward_amount_cents: 1500,
+  reward_amount_cents: 1400,
   reward_currency: "usd",
 };
 
@@ -67,13 +67,13 @@ describe("issueReferralReward", () => {
     expect(result).toEqual({
       referralId: "referral_1",
       referrerUserId: "user_referrer",
-      amount: 1500,
+      amount: 1400,
       currency: "usd",
     });
     expect(calls).toEqual([
       "customer:cus_referred",
       "prepare:user_referred:in_referral_first",
-      "credit:cus_referrer:1500:in_referral_first",
+      "credit:cus_referrer:1400:in_referral_first",
       "complete:referral_1:in_referral_first:cbtxn_referral",
     ]);
   });

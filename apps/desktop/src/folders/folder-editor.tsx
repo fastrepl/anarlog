@@ -44,6 +44,11 @@ import {
   useSharedResources,
 } from "~/resource-sharing/hooks";
 import {
+  folderDefaultAccessRule,
+  setFolderDefaultAccess,
+  useFolderDefaultAccessRules,
+} from "~/session-sharing/folder-default-access";
+import {
   useAvailableShareWorkspaces,
   usePersonalWorkspaceId,
 } from "~/session-sharing/source";
@@ -67,7 +72,9 @@ import { useFolderMaterialUpload } from "~/shared/hooks/useFileUpload";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { TemplateIconPicker } from "~/templates/template-icon-picker";
 
-const PERSONAL_WORKSPACE_VALUE = "__personal__";
+const ONLY_ME_VALUE = "me";
+const PARTICIPANTS_VALUE = "participants";
+const WORKSPACE_VALUE_PREFIX = "workspace:";
 
 export function FolderEditor({ folderPath }: { folderPath: string }) {
   const { t } = useLingui();
@@ -102,21 +109,54 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
   const [busy, setBusy] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [workspaceConfirmation, setWorkspaceConfirmation] = useState<{
-    id: string;
-    name: string;
+  const [accessConfirmation, setAccessConfirmation] = useState<{
+    value: string;
+    label: string;
   } | null>(null);
   const folderWorkspaceId = useFolderWorkspaceId(folderPath);
-  const selectedWorkspaceValue = availableWorkspaces.some(
+  const legacyTeamWorkspaceId = availableWorkspaces.some(
     (workspace) => workspace.id === folderWorkspaceId,
   )
     ? folderWorkspaceId
-    : PERSONAL_WORKSPACE_VALUE;
-  const workspaceMutation = useMutation({
-    mutationFn: (workspaceId: string) =>
-      updateFolderWorkspace(folderPath, workspaceId),
-    onSuccess: () => setWorkspaceConfirmation(null),
+    : "";
+  const accessRule = folderDefaultAccessRule(
+    useFolderDefaultAccessRules(),
+    folderPath,
+  );
+  const selectedAccessValue =
+    accessRule?.access === "participants"
+      ? PARTICIPANTS_VALUE
+      : accessRule?.access === "workspace"
+        ? `${WORKSPACE_VALUE_PREFIX}${accessRule.workspace_id}`
+        : legacyTeamWorkspaceId
+          ? `${WORKSPACE_VALUE_PREFIX}${legacyTeamWorkspaceId}`
+          : ONLY_ME_VALUE;
+  const accessMutation = useMutation({
+    mutationFn: async (value: string) => {
+      if (legacyTeamWorkspaceId && personalWorkspaceId) {
+        await updateFolderWorkspace(folderPath, personalWorkspaceId);
+      }
+      await setFolderDefaultAccess(
+        folderPath,
+        value === PARTICIPANTS_VALUE
+          ? { access: "participants", workspaceId: "" }
+          : value.startsWith(WORKSPACE_VALUE_PREFIX)
+            ? {
+                access: "workspace",
+                workspaceId: value.slice(WORKSPACE_VALUE_PREFIX.length),
+              }
+            : null,
+      );
+    },
+    onSuccess: () => setAccessConfirmation(null),
   });
+  const accessLabel = (value: string) => {
+    if (value === PARTICIPANTS_VALUE) return t`People in the meeting`;
+    const workspace = availableWorkspaces.find(
+      (candidate) => `${WORKSPACE_VALUE_PREFIX}${candidate.id}` === value,
+    );
+    return workspace ? t`Everyone in ${workspace.name}` : t`Only me`;
+  };
   const displayName = folderDisplayName(folderPath);
   const [draft, setDraft] = useState(displayName);
 
@@ -267,47 +307,49 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
 
       <div className="scrollbar-hide flex-1 overflow-y-auto px-3 pt-3 pb-6">
         <div className="flex max-w-2xl flex-col gap-6">
-          {auth?.session?.user.id && availableWorkspaces.length > 0 ? (
+          {auth?.session?.user.id ? (
             <div className="flex items-start justify-between gap-4">
               <div className="flex flex-col gap-1.5">
                 <h4 className="text-sm font-medium">
-                  <Trans>Team folder</Trans>
+                  <Trans>Default access</Trans>
                 </h4>
                 <p className="text-muted-foreground text-xs">
                   <Trans>
-                    Choose who receives new notes created in this folder.
+                    Share new notes in this folder when their summary is ready.
+                    You can still change access on each note.
                   </Trans>
                 </p>
               </div>
               <Select
-                value={selectedWorkspaceValue}
-                disabled={workspaceMutation.isPending}
-                onValueChange={(workspaceId) => {
-                  if (workspaceId === PERSONAL_WORKSPACE_VALUE) {
-                    workspaceMutation.mutate(personalWorkspaceId);
+                value={selectedAccessValue}
+                disabled={accessMutation.isPending}
+                onValueChange={(value) => {
+                  if (value === ONLY_ME_VALUE) {
+                    accessMutation.mutate(value);
                     return;
                   }
-                  const workspace = availableWorkspaces.find(
-                    (candidate) => candidate.id === workspaceId,
-                  );
-                  if (workspace) {
-                    setWorkspaceConfirmation(workspace);
-                  }
+                  setAccessConfirmation({ value, label: accessLabel(value) });
                 }}
               >
                 <SelectTrigger
-                  aria-label={t`Team folder workspace`}
+                  aria-label={t`Default access`}
                   className="h-8 w-44 text-xs"
                 >
                   <SelectValue placeholder={t`Only me`} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={PERSONAL_WORKSPACE_VALUE}>
+                  <SelectItem value={ONLY_ME_VALUE}>
                     <Trans>Only me</Trans>
                   </SelectItem>
+                  <SelectItem value={PARTICIPANTS_VALUE}>
+                    <Trans>People in the meeting</Trans>
+                  </SelectItem>
                   {availableWorkspaces.map((workspace) => (
-                    <SelectItem key={workspace.id} value={workspace.id}>
-                      {workspace.name}
+                    <SelectItem
+                      key={workspace.id}
+                      value={`${WORKSPACE_VALUE_PREFIX}${workspace.id}`}
+                    >
+                      <Trans>Everyone in {workspace.name}</Trans>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -414,39 +456,39 @@ export function FolderEditor({ folderPath }: { folderPath: string }) {
       </div>
 
       <Dialog
-        open={workspaceConfirmation !== null}
+        open={accessConfirmation !== null}
         onOpenChange={(open) => {
-          if (!open && !workspaceMutation.isPending) {
-            setWorkspaceConfirmation(null);
+          if (!open && !accessMutation.isPending) {
+            setAccessConfirmation(null);
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              <Trans>Share this folder?</Trans>
+              <Trans>Share new notes in this folder?</Trans>
             </DialogTitle>
             <DialogDescription>
               <Trans>
-                New notes in this folder will sync to everyone in{" "}
-                {workspaceConfirmation?.name}. Notes already in the folder are
-                not moved.
+                New notes in this folder will be shared with{" "}
+                {accessConfirmation?.label} once their summary is ready. Notes
+                already in the folder are not changed.
               </Trans>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              disabled={workspaceMutation.isPending}
-              onClick={() => setWorkspaceConfirmation(null)}
+              disabled={accessMutation.isPending}
+              onClick={() => setAccessConfirmation(null)}
             >
               <Trans>Cancel</Trans>
             </Button>
             <Button
-              disabled={workspaceMutation.isPending}
+              disabled={accessMutation.isPending}
               onClick={() => {
-                if (workspaceConfirmation) {
-                  workspaceMutation.mutate(workspaceConfirmation.id);
+                if (accessConfirmation) {
+                  accessMutation.mutate(accessConfirmation.value);
                 }
               }}
             >

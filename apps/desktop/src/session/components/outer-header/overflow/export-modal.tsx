@@ -23,6 +23,7 @@ import { cn } from "@anlg/utils";
 
 import { formatDate, formatDuration } from "./export-utils";
 
+import { useAuth } from "~/auth";
 import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";
 import {
   useEnhancedNote,
@@ -31,6 +32,7 @@ import {
 } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { getStoredSettingValues } from "~/settings/queries";
+import { useDurableSharedNote } from "~/shared-notes/cache";
 import { isAppStoreBuild } from "~/shared/app-store";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useSessionTranscriptMetadata } from "~/stt/queries";
@@ -90,6 +92,16 @@ export function ExportModal({
 
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
   const enhancedNoteContent = useEnhancedNote(enhancedNoteId)?.content;
+  const { session: authSession } = useAuth();
+  const sharedNoteId = currentView.type === "shared" ? currentView.id : "";
+  const sharedNote = useDurableSharedNote(
+    sharedNoteId ? authSession?.user.id : null,
+    sharedNoteId,
+  ).data;
+  const summaryContent =
+    currentView.type === "shared"
+      ? sharedNote && JSON.stringify(sharedNote.body)
+      : enhancedNoteContent;
   const participants = useSessionParticipants(sessionId);
 
   const participantNames = useMemo(
@@ -138,9 +150,9 @@ export function ExportModal({
   };
 
   const getSummaryMd = (): string => {
-    if (!enhancedNoteContent) return "";
+    if (!summaryContent) return "";
     try {
-      const parsed = JSON.parse(enhancedNoteContent);
+      const parsed = JSON.parse(summaryContent);
       return json2md(parsed);
     } catch {
       return "";

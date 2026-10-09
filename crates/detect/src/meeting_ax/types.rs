@@ -65,6 +65,7 @@ pub struct MeetingAccessibilityInspection {
     pub surface: MeetingSurface,
     pub accessibility_trusted: bool,
     pub window_title: Option<String>,
+    pub remote_screen_share: bool,
     pub warnings: Vec<String>,
 }
 

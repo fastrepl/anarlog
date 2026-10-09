@@ -41,8 +41,6 @@ export function parseSyncDeviceResponse(body: unknown) {
         deviceFingerprint: device.deviceFingerprint as string,
         deviceName:
           typeof device.deviceName === "string" ? device.deviceName : null,
-        deviceKind:
-          typeof device.deviceKind === "string" ? device.deviceKind : null,
       };
     });
   return { devices, maxDevices, usedDevices: fingerprints.size };

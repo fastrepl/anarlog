@@ -249,6 +249,10 @@ vi.mock("./meeting-chat-capture", () => ({
   startMeetingChatCapture: startMeetingChatCaptureMock,
 }));
 
+vi.mock("./meeting-screen-capture", () => ({
+  startMeetingScreenCapture: vi.fn(() => async () => {}),
+}));
+
 vi.mock("./useKeywords", () => ({
   getSessionKeywords: vi.fn(async () => []),
   useKeywords: vi.fn(() => []),

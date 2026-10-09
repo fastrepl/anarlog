@@ -54,24 +54,11 @@ afterEach(() => {
   }
 });
 
-test("chooses a recording-capable desktop and can return to asking each meeting", async () => {
+test("chooses a device and can return to asking each meeting", async () => {
   mocks.requestSyncDevices.mockResolvedValue({
     devices: [
-      {
-        deviceFingerprint: "work-device",
-        deviceName: "Work Mac",
-        deviceKind: "desktop",
-      },
-      {
-        deviceFingerprint: "home-device",
-        deviceName: "Home Mac",
-        deviceKind: null,
-      },
-      {
-        deviceFingerprint: "phone-device",
-        deviceName: "Phone",
-        deviceKind: "mobile",
-      },
+      { deviceFingerprint: "work-device", deviceName: "Work Mac" },
+      { deviceFingerprint: "home-device", deviceName: "Home Mac" },
     ],
     pendingDevices: [],
     maxDevices: 3,
@@ -95,7 +82,6 @@ test("chooses a recording-capable desktop and can return to asking each meeting"
   });
   await waitFor(() => expect(trigger).toHaveProperty("disabled", false));
   fireEvent.keyDown(trigger, { key: "Enter" });
-  expect(screen.queryByRole("option", { name: "Phone" })).toBeNull();
   fireEvent.click(screen.getByRole("option", { name: "Work Mac" }));
   await waitFor(() => expect(trigger.textContent).toContain("Work Mac"));
   expect(mocks.setSettingValue).toHaveBeenLastCalledWith(
