@@ -866,6 +866,10 @@ msgstr ""
 msgid "Based on captured conversations, including imported transcripts. Each conversation is counted once, on its first capture day in the selected period, using your calendar timezone. Deleted conversations are excluded."
 msgstr ""
 
+#: src/chat/components/body/empty.tsx
+msgid "Based on the conversation so far, suggest a few questions I could ask next."
+msgstr ""
+
 #: src/settings/ai/stt/select.tsx
 msgid "Best for this Mac"
 msgstr ""
@@ -3281,6 +3285,10 @@ msgid "LinkedIn"
 msgstr ""
 
 #: src/chat/components/body/empty.tsx
+msgid "List action items so far."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
 msgid "List action items."
 msgstr ""
 
@@ -4520,6 +4528,14 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Reasoning models think through the transcript before writing."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "Recap the last 5 minutes."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
 msgstr ""
 
 #: src/session/components/note-input/meeting-chat-highlights.tsx
@@ -5826,6 +5842,10 @@ msgstr ""
 msgid "Suggest a Feature"
 msgstr ""
 
+#: src/chat/components/body/empty.tsx
+msgid "Suggest what to ask next."
+msgstr ""
+
 #: src/session-sharing/invite-recipients.tsx
 msgid "Suggested attendees"
 msgstr ""
@@ -6568,6 +6588,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Welcome to Anarlog"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "What action items have come up so far in this meeting?"
 msgstr ""
 
 #: src/chat/components/body/empty.tsx

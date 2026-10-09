@@ -93,6 +93,12 @@ export function ChatPanelFrame({
     chat.scope === "automations" ? undefined : currentSessionId,
     currentNoteView,
   );
+  const isLiveMeeting = useListener(
+    (state) =>
+      chat.scope !== "automations" &&
+      !!currentSessionId &&
+      state.getSessionMode(currentSessionId) === "active",
+  );
 
   const handleGroupCreated = useCallback(
     (newGroupId: string) => {
@@ -159,6 +165,7 @@ export function ChatPanelFrame({
             onReload={sessionProps.regenerate}
             isModelConfigured={!!model}
             hasContext={sessionProps.contextEntities.length > 0}
+            isLiveMeeting={isLiveMeeting}
             hasSummary={hasSummary && sessionProps.contextEntities.length > 0}
             onSendMessage={(content, parts) => {
               handleSendMessage(

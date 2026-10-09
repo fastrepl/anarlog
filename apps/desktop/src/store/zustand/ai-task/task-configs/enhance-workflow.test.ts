@@ -47,7 +47,8 @@ it("passes custom formatting to the renderer without adding layout rules", async
       {
         startedAt: null,
         endedAt: null,
-        segments: [{ speaker: "John", text: "a".repeat(636) }],
+        nowMs: null,
+        segments: [{ speaker: "John", text: "a".repeat(636), startMs: null }],
       },
     ],
     imageContext: [],
@@ -105,7 +106,10 @@ it("adds length guidance to prompts rendered from a template with sections", asy
       {
         startedAt: null,
         endedAt: null,
-        segments: [{ speaker: "John", text: "a".repeat(10_000) }],
+        nowMs: null,
+        segments: [
+          { speaker: "John", text: "a".repeat(10_000), startMs: null },
+        ],
       },
     ],
     imageContext: [],
