@@ -409,6 +409,10 @@ msgstr ""
 msgid "Add device"
 msgstr ""
 
+#: src/contacts/details.tsx
+msgid "Add email"
+msgstr ""
+
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Add example"
 msgstr ""
@@ -4661,6 +4665,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Remove automation"
+msgstr ""
+
+#: src/contacts/details.tsx
+msgid "Remove email"
 msgstr ""
 
 #. placeholder {0}: index + 1

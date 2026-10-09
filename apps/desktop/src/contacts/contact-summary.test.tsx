@@ -505,6 +505,7 @@ function makeHuman(): HumanRecord {
     pinOrder: null,
     avatarDataUrl: null,
     summary: null,
+    additionalEmails: [],
   };
 }
 

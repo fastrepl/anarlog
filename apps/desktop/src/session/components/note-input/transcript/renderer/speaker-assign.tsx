@@ -157,6 +157,7 @@ export type SpeakerParticipantOption = {
   id: string;
   name: string;
   email?: string;
+  additionalEmails?: string[];
   avatarDataUrl?: string;
   isSessionParticipant: boolean;
   isNew?: boolean;
@@ -264,9 +265,11 @@ export function buildEventSpeakerParticipantOptions({
   contacts: SpeakerParticipantOption[];
 }): SpeakerParticipantOption[] {
   const contactByEmail = new Map(
-    contacts
-      .filter((contact) => contact.email)
-      .map((contact) => [contact.email!.toLowerCase(), contact]),
+    contacts.flatMap((contact) =>
+      [contact.email, ...(contact.additionalEmails ?? [])]
+        .filter((email): email is string => Boolean(email))
+        .map((email) => [email.toLowerCase(), contact] as const),
+    ),
   );
   const contactByName = new Map(
     contacts.map((contact) => [contact.name.toLowerCase(), contact]),
@@ -373,6 +376,7 @@ export function SpeakerParticipantPicker({
             id: human.id,
             name: name || email,
             email: email || undefined,
+            additionalEmails: human.additionalEmails,
             avatarDataUrl: human.avatarDataUrl ?? undefined,
             isSessionParticipant: false,
           };

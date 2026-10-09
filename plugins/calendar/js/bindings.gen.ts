@@ -328,7 +328,7 @@ export type ToggleContactPinRequest = { kind: ContactKind; contact_id: string }
 export type TombstoneCalendarConnectionRequest = { provider: CalendarProviderType; connection_id: string }
 export type UpdateContactAvatarRequest = { kind: ContactKind; contact_id: string; avatar_data_url: string | null }
 export type UpdateHumanContactSummaryRequest = { human_id: string; summary_json: string }
-export type UpdateHumanRequest = { human_id: string; name: string | null; email: string | null; phone: string | null; job_title: string | null; linkedin_username: string | null; memo: string | null; organization_id: string | null }
+export type UpdateHumanRequest = { human_id: string; name: string | null; email: string | null; phone: string | null; job_title: string | null; linkedin_username: string | null; memo: string | null; organization_id: string | null; additional_emails: string[] | null }
 export type UpdateIgnoredCalendarItemRequest = { kind: IgnoredCalendarItemKind; item_id: string; ignored: boolean }
 export type UpdateOrganizationRequest = { organization_id: string; name: string | null; memo: string | null }
 

@@ -46,7 +46,7 @@ pub async fn load_session_render_participant_ids(
     conn: &mut SqliteConnection,
     session_id: &str,
 ) -> Result<Vec<String>, sqlx::Error> {
-    sqlx::query_scalar(
+    sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "SELECT participant.human_id
          FROM session_participants AS participant
          JOIN sessions AS session ON session.id = participant.session_id
@@ -67,11 +67,14 @@ pub async fn load_session_render_participant_ids(
                WHERE self_human.id = session.owner_user_id
                  AND self_human.deleted_at IS NULL
                  AND NULLIF(lower(self_human.email), '') IS NOT NULL
-                 AND lower(self_human.email) =
-                     lower(COALESCE(NULLIF(human.email, ''), participant.email))
+                 AND {}
              )
            )",
-    )
+        crate::human_has_email_sql(
+            "self_human",
+            "COALESCE(NULLIF(human.email, ''), participant.email)"
+        )
+    )))
     .bind(session_id)
     .fetch_all(&mut *conn)
     .await

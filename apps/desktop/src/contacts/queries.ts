@@ -22,6 +22,7 @@ type HumanSqlRow = {
   pin_order: number | null;
   avatar_data_url: string | null;
   contact_summary_json: string | null;
+  additional_emails_json?: string | null;
 };
 
 export type ContactSummaryRecord = {
@@ -47,6 +48,7 @@ export type HumanRecord = {
   pinOrder: number | null;
   avatarDataUrl: string | null;
   summary: ContactSummaryRecord | null;
+  additionalEmails: string[];
 };
 
 type HumanDisplaySqlRow = {
@@ -106,6 +108,19 @@ const CONTACT_SUMMARY_SQL = `CASE
   WHEN json_valid(metadata_json)
   THEN json_extract(metadata_json, '$.contactSummary')
 END AS contact_summary_json`;
+
+const ADDITIONAL_EMAILS_SQL = `CASE
+  WHEN json_valid(metadata_json)
+    AND json_type(metadata_json, '$.additionalEmails') = 'array'
+  THEN json_extract(metadata_json, '$.additionalEmails')
+END AS additional_emails_json`;
+
+const ADDITIONAL_EMAILS_JSON_EACH_SQL = `json_each(CASE
+  WHEN json_valid(humans.metadata_json)
+    AND json_type(humans.metadata_json, '$.additionalEmails') = 'array'
+  THEN json_extract(humans.metadata_json, '$.additionalEmails')
+  ELSE '[]'
+END)`;
 
 const TEAM_WORKSPACE_SQL = `CASE
   WHEN json_valid(metadata_json)
@@ -170,7 +185,8 @@ export function useHumans(): HumanRecord[] {
         pinned,
         pin_order,
         ${AVATAR_SQL},
-        ${CONTACT_SUMMARY_SQL}
+        ${CONTACT_SUMMARY_SQL},
+        ${ADDITIONAL_EMAILS_SQL}
       FROM humans
       WHERE deleted_at IS NULL
       ORDER BY name, email, id
@@ -280,7 +296,8 @@ export async function loadHumansByIds(
         pinned,
         pin_order,
         ${AVATAR_SQL},
-        ${CONTACT_SUMMARY_SQL}
+        ${CONTACT_SUMMARY_SQL},
+        ${ADDITIONAL_EMAILS_SQL}
       FROM humans
       WHERE id IN (${uniqueIds.map(() => "?").join(", ")})
         AND deleted_at IS NULL
@@ -394,7 +411,11 @@ export async function searchContacts(
             humans.phone || char(10) ||
             humans.job_title || char(10) ||
             humans.memo || char(10) ||
-            COALESCE(organizations.name, '')
+            COALESCE(organizations.name, '') || char(10) ||
+            COALESCE((
+              SELECT group_concat(additional_email.value, char(10))
+              FROM ${ADDITIONAL_EMAILS_JSON_EACH_SQL} AS additional_email
+            ), '')
           ) LIKE '%' || ? || '%'
         )
       ORDER BY humans.created_at DESC, humans.id
@@ -468,7 +489,8 @@ export function createOrganization({
 
 export function usePersonalContact(humanId: string) {
   return useLiveQuery<HumanSqlRow, HumanRecord | null>({
-    sql: `SELECT *, ${AVATAR_SQL}, ${CONTACT_SUMMARY_SQL}
+    sql: `SELECT *, ${AVATAR_SQL}, ${CONTACT_SUMMARY_SQL},
+        ${ADDITIONAL_EMAILS_SQL}
       FROM humans WHERE id = ? AND deleted_at IS NULL`,
     params: [humanId],
     mapRows: (rows) => (rows[0] ? mapHumanRow(rows[0]) : null),
@@ -520,6 +542,7 @@ export function updateHuman(
       | "linkedinUsername"
       | "memo"
       | "organizationId"
+      | "additionalEmails"
     >
   >,
 ): Promise<void> {
@@ -535,6 +558,7 @@ export function updateHuman(
       linkedin_username: changes.linkedinUsername ?? null,
       memo: changes.memo ?? null,
       organization_id: changes.organizationId ?? null,
+      additional_emails: changes.additionalEmails ?? null,
     });
     if (result.status === "error") {
       throw new Error(result.error);
@@ -723,7 +747,22 @@ function mapHumanRow(row: HumanSqlRow): HumanRecord {
     pinOrder: row.pin_order,
     avatarDataUrl: row.avatar_data_url ?? null,
     summary: parseContactSummary(row.contact_summary_json),
+    additionalEmails: parseAdditionalEmails(row.additional_emails_json),
   };
+}
+
+function parseAdditionalEmails(value: string | null | undefined): string[] {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (email): email is string => typeof email === "string" && !!email.trim(),
+    );
+  } catch {
+    return [];
+  }
 }
 
 function parseContactSummary(value: string | null | undefined) {

@@ -63,6 +63,7 @@ function human(): HumanRecord {
     pinOrder: 0,
     avatarDataUrl: null,
     summary: null,
+    additionalEmails: [],
   };
 }
 
