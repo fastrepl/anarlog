@@ -63,7 +63,7 @@ extension NotificationManager {
 
     surface.addSubview(actionButton)
     surface.addSubview(menuButton)
-    surface.addSubview(divider)
+    menuButton.addSubview(divider)
     NSLayoutConstraint.activate([
       actionButton.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
       actionButton.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
@@ -76,8 +76,8 @@ extension NotificationManager {
       menuButton.bottomAnchor.constraint(equalTo: surface.bottomAnchor),
       menuButton.widthAnchor.constraint(equalToConstant: menuSegmentWidth),
 
-      divider.trailingAnchor.constraint(equalTo: menuButton.leadingAnchor),
-      divider.centerYAnchor.constraint(equalTo: surface.centerYAnchor),
+      divider.leadingAnchor.constraint(equalTo: menuButton.leadingAnchor),
+      divider.centerYAnchor.constraint(equalTo: menuButton.centerYAnchor),
       divider.widthAnchor.constraint(equalToConstant: 1),
       divider.heightAnchor.constraint(equalToConstant: 16),
     ])
