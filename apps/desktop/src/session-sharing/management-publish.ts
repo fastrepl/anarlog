@@ -148,6 +148,7 @@ export function createPublishLatestSessionShare({
       body,
       participants: source.participants,
       meetingAt: source.meetingAt,
+      eventKey: source.eventKey,
       attachmentIds: publishableAttachments.map((attachment) => attachment.id),
       signal,
     });

@@ -6,6 +6,7 @@ import {
   parseDurableSharedNoteSnapshots,
   replaceDurableSharedNoteCache,
 } from "./cache";
+import { syncSharedNoteEventKeys } from "./event-keys";
 
 import { useAuth } from "~/auth";
 import {
@@ -115,6 +116,10 @@ export async function syncDurableSharedNoteCache(
   );
   signal.throwIfAborted();
   if (!cacheReplaced) return result;
+  await syncSharedNoteEventKeys(supabase, session, signal).catch((error) => {
+    signal.throwIfAborted();
+    console.warn("[shared-notes] failed to sync event keys", error);
+  });
 
   const authorizedShareIds = new Set(
     snapshots.map((snapshot) => snapshot.shareId),

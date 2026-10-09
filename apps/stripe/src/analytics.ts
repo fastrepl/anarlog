@@ -8,6 +8,7 @@ import {
   getUserIdFromCustomer,
 } from "./billing-bridge";
 import { env } from "./env";
+import { sendReferralOutcome } from "./referral-analytics";
 
 const posthog = env.POSTHOG_API_KEY
   ? new PostHog(env.POSTHOG_API_KEY, {
@@ -99,4 +100,27 @@ export async function captureTrialEndingEmailSent({
     },
   });
   await posthog.flush();
+}
+
+export async function captureReferralOutcome({
+  event,
+  referralId,
+  referrerUserId,
+  referredUserId,
+  timestamp,
+}: {
+  event: "referral_trial_started" | "referral_reward_applied";
+  referralId: string;
+  referrerUserId: string;
+  referredUserId: string;
+  timestamp: Date;
+}) {
+  return sendReferralOutcome({
+    apiKey: env.POSTHOG_API_KEY,
+    event,
+    referralId,
+    referrerUserId,
+    referredUserId,
+    timestamp,
+  });
 }

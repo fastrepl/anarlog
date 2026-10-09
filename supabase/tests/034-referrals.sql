@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(19);
 
 select tests.create_supabase_user('referrer_paid', 'referrer-paid@example.com');
 select tests.create_supabase_user('referrer_free', 'referrer-free@example.com');
@@ -80,9 +80,9 @@ select results_eq(
   $$,
   $$
     values
-      (1::smallint, 'available'::text, 1500, 'usd'::text),
-      (2::smallint, 'available'::text, 1500, 'usd'::text),
-      (3::smallint, 'available'::text, 1500, 'usd'::text)
+      (1::smallint, 'available'::text, 1400, 'usd'::text),
+      (2::smallint, 'available'::text, 1400, 'usd'::text),
+      (3::smallint, 'available'::text, 1400, 'usd'::text)
   $$,
   'An active paid subscriber receives three available referral slots'
 );
@@ -178,11 +178,11 @@ select results_eq(
     values (
       tests.get_supabase_uid('referrer_paid'),
       'cus_referrer_paid'::text,
-      1500,
+      1400,
       'usd'::text
     )
   $$,
-  'The first paid invoice prepares a $15 referrer credit'
+  'The first paid invoice prepares a $14 referrer credit'
 );
 
 select is(
@@ -237,6 +237,28 @@ select is(
   ),
   'reward_earned',
   'The referrer sees when the reward is earned'
+);
+
+select tests.clear_authentication();
+reset role;
+
+-- An in-flight reward from before the amount change must retain the same
+-- Stripe idempotency parameters when its webhook is retried.
+update private.referral_invites
+set referred_user_id = tests.get_supabase_uid('referred_other'),
+    claimed_at = now(),
+    qualifying_invoice_id = 'in_referrallegacy',
+    qualified_at = now(),
+    reward_amount_cents = 1500
+where referrer_user_id = tests.get_supabase_uid('referrer_paid') and slot = 2;
+
+select tests.authenticate_as_service_role();
+select is(
+  (select reward_amount_cents from public.prepare_referral_reward(
+    tests.get_supabase_uid('referred_other'), 'in_referrallegacy'
+  )),
+  1500,
+  'An already-prepared $15 reward keeps its amount on retry'
 );
 
 select * from finish();

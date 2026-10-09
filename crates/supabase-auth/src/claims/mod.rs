@@ -32,6 +32,8 @@ pub struct Claims {
     pub trial_end: Option<DateTime<Utc>>,
     #[serde(default)]
     pub has_payment_method: Option<bool>,
+    #[serde(default)]
+    pub referral_extension: Option<bool>,
 }
 
 impl Claims {
@@ -105,7 +107,8 @@ mod tests {
             "entitlements": ["hyprnote_pro"],
             "subscription_status": "trialing",
             "trial_end": 1771406553,
-            "has_payment_method": true
+            "has_payment_method": true,
+            "referral_extension": true
         }"#;
         let token = make_test_token(payload);
 
@@ -119,6 +122,7 @@ mod tests {
         ));
         assert_eq!(claims.trial_end.unwrap().year(), 2026);
         assert_eq!(claims.has_payment_method, Some(true));
+        assert_eq!(claims.referral_extension, Some(true));
     }
 
     #[test]
@@ -159,6 +163,7 @@ mod tests {
             subscription_status: Some(SubscriptionStatus::Trialing),
             trial_end: Some(Utc::now() + Duration::minutes(5)),
             has_payment_method: Some(false),
+            referral_extension: None,
         };
 
         assert!(claims.has_active_trial());
@@ -176,6 +181,7 @@ mod tests {
             subscription_status: Some(SubscriptionStatus::Trialing),
             trial_end: Some(Utc::now() - Duration::minutes(5)),
             has_payment_method: Some(false),
+            referral_extension: None,
         };
 
         assert!(!claims.has_active_trial());
@@ -196,6 +202,7 @@ mod tests {
             subscription_status: Some(SubscriptionStatus::Paused),
             trial_end: None,
             has_payment_method: Some(false),
+            referral_extension: None,
         };
 
         assert!(!claims.has_entitlement("hyprnote_pro"));

@@ -20,6 +20,11 @@ import {
   parseSharedFolderPayload,
   SharedResourceLibrarySection,
 } from "~/resource-sharing";
+import {
+  folderDefaultAccessRule,
+  useFolderDefaultAccessRules,
+} from "~/session-sharing/folder-default-access";
+import { useAvailableShareWorkspaces } from "~/session-sharing/source";
 import { createNamedFolder } from "~/session/folder-catalog";
 import { resolvedFolderIcon } from "~/session/folder-icon";
 import {
@@ -37,6 +42,21 @@ export function FoldersSidebar() {
   const folders = useFolderPaths();
   const persistedIcons = useFolderIcons();
   const folderWorkspaces = useFolderWorkspaces();
+  const folderAccessRules = useFolderDefaultAccessRules();
+  const shareWorkspaces = useAvailableShareWorkspaces(
+    auth?.session?.user.id ?? null,
+  );
+  const folderShareLabel = (folder: string): string | null => {
+    const rule = folderDefaultAccessRule(folderAccessRules, folder);
+    if (rule?.access === "participants") return t`People in the meeting`;
+    const workspaceId =
+      rule?.workspace_id ?? folderWorkspaces[folder]?.workspaceId;
+    if (!workspaceId) return null;
+    const name =
+      shareWorkspaces.find((workspace) => workspace.id === workspaceId)?.name ??
+      folderWorkspaces[folder]?.name;
+    return name ? t`Everyone in ${name}` : "";
+  };
   const iconOverrides = useFolderSelection((state) => state.iconOverrides);
   const setSelectedPath = useFolderSelection((state) => state.setSelectedPath);
   const activeFolder = useActiveFolderPath(folders);
@@ -152,10 +172,10 @@ export function FoldersSidebar() {
                         className="size-4 text-sm"
                       />
                       <span className="min-w-0 truncate">{folder}</span>
-                      {folderWorkspaces[folder]?.workspaceId ? (
+                      {folderShareLabel(folder) !== null ? (
                         <span
                           className="text-muted-foreground shrink-0"
-                          title={folderWorkspaces[folder]?.name || undefined}
+                          title={folderShareLabel(folder) || undefined}
                         >
                           <Buildings className="size-3.5" aria-hidden="true" />
                         </span>

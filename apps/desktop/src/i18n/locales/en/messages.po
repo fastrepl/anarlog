@@ -261,6 +261,14 @@ msgstr "Accept ownership"
 msgid "Accept workspace ownership?"
 msgstr "Accept workspace ownership?"
 
+#: src/settings/referrals.tsx
+msgid "Accepted"
+msgstr "Accepted"
+
+#: src/settings/referrals.tsx
+msgid "Accepted · Waiting for trial to start"
+msgstr "Accepted · Waiting for trial to start"
+
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
 msgstr "Access no longer available"
@@ -401,6 +409,10 @@ msgstr "Add context for this folder"
 msgid "Add device"
 msgstr "Add device"
 
+#: src/contacts/details.tsx
+msgid "Add email"
+msgstr "Add email"
+
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Add example"
 msgstr "Add example"
@@ -507,6 +519,10 @@ msgstr "AI step"
 #: src/contacts/details.tsx
 msgid "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 msgstr "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
+
+#: src/settings/referrals.tsx
+msgid "All 3 invites have been accepted."
+msgstr "All 3 invites have been accepted."
 
 #: src/settings/developers/webhooks.tsx
 msgid "All events"
@@ -846,10 +862,6 @@ msgstr "Average across the capture days counted above."
 msgid "Back"
 msgstr "Back"
 
-#: src/settings/general/summary-length.tsx
-msgid "Balanced"
-msgstr "Balanced"
-
 #: src/settings/ai/shared/index.tsx
 msgid "Base URL"
 msgstr "Base URL"
@@ -857,6 +869,10 @@ msgstr "Base URL"
 #: src/settings/stats/insights.tsx
 msgid "Based on captured conversations, including imported transcripts. Each conversation is counted once, on its first capture day in the selected period, using your calendar timezone. Deleted conversations are excluded."
 msgstr "Based on captured conversations, including imported transcripts. Each conversation is counted once, on its first capture day in the selected period, using your calendar timezone. Deleted conversations are excluded."
+
+#: src/chat/components/body/empty.tsx
+msgid "Based on the conversation so far, suggest a few questions I could ask next."
+msgstr "Based on the conversation so far, suggest a few questions I could ask next."
 
 #: src/settings/ai/stt/select.tsx
 msgid "Best for this Mac"
@@ -1219,10 +1235,6 @@ msgstr "Choose how Auto structures and styles your summaries."
 msgid "Choose how long recordings stay on this device."
 msgstr "Choose how long recordings stay on this device."
 
-#: src/settings/general/summary-length.tsx
-msgid "Choose how much detail generated meeting summaries include."
-msgstr "Choose how much detail generated meeting summaries include."
-
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
 msgstr "Choose template icon"
@@ -1239,10 +1251,6 @@ msgstr "Choose which day begins your calendar week."
 #: src/settings/general/default-share-access.tsx
 msgid "Choose who can access notes from new meetings."
 msgstr "Choose who can access notes from new meetings."
-
-#: src/folders/folder-editor.tsx
-msgid "Choose who receives new notes created in this folder."
-msgstr "Choose who receives new notes created in this folder."
 
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
@@ -1658,6 +1666,7 @@ msgid "Conversations: {total}"
 msgstr "Conversations: {total}"
 
 #: src/settings/dictation.tsx
+#: src/settings/referrals.tsx
 msgid "Copied"
 msgstr "Copied"
 
@@ -1683,6 +1692,7 @@ msgstr "Copy last dictation"
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
+#: src/settings/referrals.tsx
 msgid "Copy link"
 msgstr "Copy link"
 
@@ -1881,6 +1891,10 @@ msgstr "Could not use the selected model"
 msgid "Couldn’t check availability. You can still try Save."
 msgstr "Couldn’t check availability. You can still try Save."
 
+#: src/settings/referrals.tsx
+msgid "Couldn't copy the invite link. Try again."
+msgstr "Couldn't copy the invite link. Try again."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't load your badges. Reopen this page to try again."
 msgstr "Couldn't load your badges. Reopen this page to try again."
@@ -1900,6 +1914,10 @@ msgstr "Couldn't open connected accounts. Try again."
 #: src/settings/sync/index.tsx
 msgid "Couldn't open device add-ons. Try again."
 msgstr "Couldn't open device add-ons. Try again."
+
+#: src/settings/referrals.tsx
+msgid "Couldn't open sign-in. Try again."
+msgstr "Couldn't open sign-in. Try again."
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
@@ -1984,10 +2002,6 @@ msgstr "Created {createdAt}"
 msgid "Creating brief..."
 msgstr "Creating brief..."
 
-#: src/settings/general/summary-length.tsx
-msgid "Crisp"
-msgstr "Crisp"
-
 #: src/settings/crm/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "CRM"
@@ -2052,6 +2066,10 @@ msgstr "Decline"
 #: src/settings/appearance/app-icon.tsx
 msgid "Default"
 msgstr "Default"
+
+#: src/folders/folder-editor.tsx
+msgid "Default access"
+msgstr "Default access"
 
 #: src/settings/general/default-share-access.tsx
 msgid "Default sharing"
@@ -2141,10 +2159,6 @@ msgstr "Describe the template purpose..."
 #: src/session-sharing/management-panel.tsx
 msgid "Desktop edits published. Sharing resumed."
 msgstr "Desktop edits published. Sharing resumed."
-
-#: src/settings/general/summary-length.tsx
-msgid "Detailed"
-msgstr "Detailed"
 
 #: src/settings/general/notification.tsx
 msgid "Detect meetings from microphone activity."
@@ -2332,6 +2346,10 @@ msgstr "Email or name"
 msgid "Email unavailable. Invite link copied instead."
 msgstr "Email unavailable. Invite link copied instead."
 
+#: src/settings/referrals.tsx
+msgid "Email us"
+msgstr "Email us"
+
 #: src/templates/template-icon-picker.tsx
 msgid "Emojis"
 msgstr "Emojis"
@@ -2447,10 +2465,15 @@ msgstr "Every note summarized after enabling this automation is saved here as on
 
 #. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
+#: src/folders/folder-editor.tsx
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/general-access.tsx
 msgid "Everyone in {0}"
 msgstr "Everyone in {0}"
+
+#: src/folders/sidebar.tsx
+msgid "Everyone in {name}"
+msgstr "Everyone in {name}"
 
 #: src/settings/general/default-share-access.tsx
 msgid "Everyone in {workspaceLabel}"
@@ -2508,6 +2531,10 @@ msgstr "Export the meeting as Markdown"
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Exporting..."
 msgstr "Exporting..."
+
+#: src/settings/referrals.tsx
+msgid "Extended through {end} when this reward was applied."
+msgstr "Extended through {end} when this reward was applied."
 
 #: src/onboarding/calendar.tsx
 msgid "Failed to load Google Calendar"
@@ -2576,6 +2603,7 @@ msgid "Finish checkout in your browser to unlock more, then return to Anarlog."
 msgstr "Finish checkout in your browser to unlock more, then return to Anarlog."
 
 #: src/settings/general/account.tsx
+#: src/settings/referrals.tsx
 msgid "Finish in your browser, then return to Anarlog."
 msgstr "Finish in your browser, then return to Anarlog."
 
@@ -2649,6 +2677,10 @@ msgstr "Forever"
 msgid "Free"
 msgstr "Free"
 
+#: src/settings/referrals.tsx
+msgid "Free months earned"
+msgstr "Free months earned"
+
 #: src/templates/template-icon-picker.tsx
 msgid "Frequently used"
 msgstr "Frequently used"
@@ -2691,6 +2723,10 @@ msgstr "Generating transcript..."
 #: src/settings/sync/index.tsx
 msgid "Get more slots"
 msgstr "Get more slots"
+
+#: src/settings/referrals.tsx
+msgid "Get one free month when a friend signs up through your link and starts their free trial. Invite up to 3 friends. Each friend gets 30 days of Pro free."
+msgstr "Get one free month when a friend signs up through your link and starts their free trial. Invite up to 3 friends. Each friend gets 30 days of Pro free."
 
 #: src/session/components/note-input/enhanced/config-error.tsx
 #: src/settings/general/billing.tsx
@@ -2891,6 +2927,10 @@ msgstr "Icons"
 msgid "If Anarlog stays closed, paste the link in the sign-in window."
 msgstr "If Anarlog stays closed, paste the link in the sign-in window."
 
+#: src/settings/referrals.tsx
+msgid "If your friend signed up through your link and started their free trial, but your free month hasn't appeared, email us and we'll help."
+msgstr "If your friend signed up through your link and started their free trial, but your free month hasn't appeared, email us and we'll help."
+
 #: src/onboarding/index.tsx
 msgid "Import notes and transcripts from the meeting apps you already use."
 msgstr "Import notes and transcripts from the meeting apps you already use."
@@ -3014,6 +3054,20 @@ msgstr "Invitations sent."
 msgid "Invite"
 msgstr "Invite"
 
+#: src/settings/referrals.tsx
+msgid "Invite {slot}"
+msgstr "Invite {slot}"
+
+#: src/billing/trial-payment-reminder-dialog.tsx
+#: src/settings/referrals.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Invite friends"
+msgstr "Invite friends"
+
+#: src/settings/referrals.tsx
+msgid "Invite link copied"
+msgstr "Invite link copied"
+
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite people"
@@ -3046,6 +3100,10 @@ msgstr "Invited by {0}"
 #: src/settings/team/index.tsx
 msgid "Invited to join"
 msgstr "Invited to join"
+
+#: src/settings/referrals.tsx
+msgid "Invites remaining"
+msgstr "Invites remaining"
 
 #: src/crm/enrich-contact.tsx
 msgid "job title"
@@ -3231,6 +3289,10 @@ msgid "LinkedIn"
 msgstr "LinkedIn"
 
 #: src/chat/components/body/empty.tsx
+msgid "List action items so far."
+msgstr "List action items so far."
+
+#: src/chat/components/body/empty.tsx
 msgid "List action items."
 msgstr "List action items."
 
@@ -3304,6 +3366,10 @@ msgstr "Loading sync settings"
 msgid "Loading teams…"
 msgstr "Loading teams…"
 
+#: src/settings/referrals.tsx
+msgid "Loading your account..."
+msgstr "Loading your account..."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Loading your badges…"
 msgstr "Loading your badges…"
@@ -3311,6 +3377,10 @@ msgstr "Loading your badges…"
 #: src/settings/stats/index.tsx
 msgid "Loading your insights…"
 msgstr "Loading your insights…"
+
+#: src/settings/referrals.tsx
+msgid "Loading your invites..."
+msgstr "Loading your invites..."
 
 #: src/changelog/index.tsx
 #: src/contacts/details.tsx
@@ -3351,6 +3421,22 @@ msgstr "macOS could not access your recovery key. Repair Keychain access, then r
 #: src/settings/general/main-language.tsx
 msgid "Main language"
 msgstr "Main language"
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything."
+msgstr "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail."
+msgstr "Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the summary longer."
+msgstr "Make the summary longer."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the summary shorter."
+msgstr "Make the summary shorter."
 
 #: src/settings/general/billing.tsx
 msgid "Manage billing"
@@ -3557,6 +3643,10 @@ msgstr "Migration status unavailable"
 msgid "Minimize"
 msgstr "Minimize"
 
+#: src/settings/referrals.tsx
+msgid "Missing a referral reward?"
+msgstr "Missing a referral reward?"
+
 #: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Model being used"
@@ -3623,6 +3713,10 @@ msgstr "name"
 msgid "Name"
 msgstr "Name"
 
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "Need more time? Refer a friend."
+msgstr "Need more time? Refer a friend."
+
 #: src/settings/automations/workflow-builder.tsx
 msgid "Needs setup"
 msgstr "Needs setup"
@@ -3648,10 +3742,14 @@ msgstr "New meetings are imported automatically while Anarlog is running."
 msgid "New Note"
 msgstr "New Note"
 
-#. placeholder {0}: workspaceConfirmation?.name
+#. placeholder {0}: accessConfirmation?.label
 #: src/folders/folder-editor.tsx
-msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
-msgstr "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+msgid "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
+msgstr "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
+
+#: src/settings/referrals.tsx
+msgid "New referral invites are available with an active personal Pro trial or paid subscription. Team-only subscriptions aren't eligible."
+msgstr "New referral invites are available with an active personal Pro trial or paid subscription. Team-only subscriptions aren't eligible."
 
 #: src/session/components/note-input/raw.tsx
 msgid "New template"
@@ -3678,6 +3776,10 @@ msgstr "next week"
 #: src/calendar/components/event-chip.tsx
 msgid "No"
 msgstr "No"
+
+#: src/settings/referrals.tsx
+msgid "No accepted invites yet. Copying your link doesn't count as an accepted invite."
+msgstr "No accepted invites yet. Copying your link doesn't count as an accepted invite."
 
 #: src/imports/screen.tsx
 #: src/settings/general/notification.tsx
@@ -4133,6 +4235,10 @@ msgstr "Organization"
 msgid "Organization name"
 msgstr "Organization name"
 
+#: src/settings/referrals.tsx
+msgid "Original offer: {amount} off your subscription after your friend's first payment."
+msgstr "Original offer: {amount} off your subscription after your friend's first payment."
+
 #: src/session/components/version-history-dialog.tsx
 msgid "Other device's version"
 msgstr "Other device's version"
@@ -4207,6 +4313,8 @@ msgstr "Pending"
 msgid "People"
 msgstr "People"
 
+#: src/folders/folder-editor.tsx
+#: src/folders/sidebar.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "People in the meeting"
 msgstr "People in the meeting"
@@ -4334,6 +4442,18 @@ msgstr "Preview"
 msgid "Previous match"
 msgstr "Previous match"
 
+#: src/settings/referrals.tsx
+msgid "Previous referral offer · Reward applied"
+msgstr "Previous referral offer · Reward applied"
+
+#: src/settings/referrals.tsx
+msgid "Previous referral offer · Waiting for first payment"
+msgstr "Previous referral offer · Waiting for first payment"
+
+#: src/settings/referrals.tsx
+msgid "Previous referrals keep their original reward terms and count toward your 3-invite limit."
+msgstr "Previous referrals keep their original reward terms and count toward your 3-invite limit."
+
 #: src/settings/team/index.tsx
 msgid "Primary owner"
 msgstr "Primary owner"
@@ -4414,6 +4534,14 @@ msgstr "Reasoning effort"
 msgid "Reasoning models think through the transcript before writing."
 msgstr "Reasoning models think through the transcript before writing."
 
+#: src/chat/components/body/empty.tsx
+msgid "Recap the last 5 minutes."
+msgstr "Recap the last 5 minutes."
+
+#: src/chat/components/body/empty.tsx
+msgid "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
+msgstr "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
+
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "received"
 msgstr "received"
@@ -4489,6 +4617,14 @@ msgstr "Recording status prompts"
 msgid "Redo"
 msgstr "Redo"
 
+#: src/settings/referrals.tsx
+msgid "Refer friends, get a month free"
+msgstr "Refer friends, get a month free"
+
+#: src/settings/referrals.tsx
+msgid "Refresh"
+msgstr "Refresh"
+
 #: src/settings/general/billing.tsx
 msgid "Refresh billing status"
 msgstr "Refresh billing status"
@@ -4553,6 +4689,10 @@ msgstr "Remove {term}"
 #: src/settings/automations/index.tsx
 msgid "Remove automation"
 msgstr "Remove automation"
+
+#: src/contacts/details.tsx
+msgid "Remove email"
+msgstr "Remove email"
 
 #. placeholder {0}: index + 1
 #: src/templates/auto-format-examples-dialog.tsx
@@ -4778,6 +4918,14 @@ msgstr "Review transfer"
 #: src/settings/developers/api-key-row.tsx
 msgid "Revoke"
 msgstr "Revoke"
+
+#: src/settings/referrals.tsx
+msgid "Reward applied · 1 free month added"
+msgstr "Reward applied · 1 free month added"
+
+#: src/settings/referrals.tsx
+msgid "Reward pending · Contact us for help"
+msgstr "Reward pending · Contact us for help"
 
 #: src/settings/dictation-shortcut.tsx
 msgid "Right Command"
@@ -5025,10 +5173,6 @@ msgstr "Select language"
 msgid "Select or type to add speaker"
 msgstr "Select or type to add speaker"
 
-#: src/settings/general/summary-length.tsx
-msgid "Select summary length"
-msgstr "Select summary length"
-
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
 msgstr "Select timezone"
@@ -5142,6 +5286,14 @@ msgstr "Share audio"
 msgid "Share link copied."
 msgstr "Share link copied."
 
+#: src/folders/folder-editor.tsx
+msgid "Share new notes in this folder when their summary is ready. You can still change access on each note."
+msgstr "Share new notes in this folder when their summary is ready. You can still change access on each note."
+
+#: src/folders/folder-editor.tsx
+msgid "Share new notes in this folder?"
+msgstr "Share new notes in this folder?"
+
 #: src/session-sharing/index.tsx
 msgid "Share note"
 msgstr "Share note"
@@ -5153,10 +5305,6 @@ msgstr "Share notes with others"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Share one item with a guest, or add it to a Team for everyone."
 msgstr "Share one item with a guest, or add it to a Team for everyone."
-
-#: src/folders/folder-editor.tsx
-msgid "Share this folder?"
-msgstr "Share this folder?"
 
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
@@ -5194,6 +5342,10 @@ msgstr "Shared screen at {time}"
 #: src/session/components/note-input/meeting-screen-gallery.tsx
 msgid "Shared screens"
 msgstr "Shared screens"
+
+#: src/session/components/note-input/header-shared-note.tsx
+msgid "Shared summary"
+msgstr "Shared summary"
 
 #: src/resource-sharing/library.tsx
 msgid "Shared with me"
@@ -5313,6 +5465,7 @@ msgstr "Show words in the floating panel as you speak. Uses a live connection to
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/index.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
+#: src/settings/referrals.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
 #: src/sidebar/toast/registry.tsx
@@ -5369,6 +5522,10 @@ msgstr "Sign in to generate this summary"
 #: src/sidebar/toast/registry.tsx
 msgid "Sign in to get the most out of Anarlog"
 msgstr "Sign in to get the most out of Anarlog"
+
+#: src/settings/referrals.tsx
+msgid "Sign in to see your referral invites."
+msgstr "Sign in to see your referral invites."
 
 #: src/session-sharing/index.tsx
 msgid "Sign in to share"
@@ -5505,6 +5662,26 @@ msgstr "Sort options"
 #: src/settings/general/notification.tsx
 msgid "Sound"
 msgstr "Sound"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: {provider} (AI model provider)"
+msgstr "Source: {provider} (AI model provider)"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: AI model provider"
+msgstr "Source: AI model provider"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: Anarlog"
+msgstr "Source: Anarlog"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: OpenRouter (AI routing service)"
+msgstr "Source: OpenRouter (AI routing service)"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: OpenRouter or the AI model provider"
+msgstr "Source: OpenRouter or the AI model provider"
 
 #: src/settings/general/notification.tsx
 msgid "Sparkle"
@@ -5673,6 +5850,10 @@ msgstr "Success"
 msgid "Suggest a Feature"
 msgstr "Suggest a Feature"
 
+#: src/chat/components/body/empty.tsx
+msgid "Suggest what to ask next."
+msgstr "Suggest what to ask next."
+
 #: src/session-sharing/invite-recipients.tsx
 msgid "Suggested attendees"
 msgstr "Suggested attendees"
@@ -5680,10 +5861,6 @@ msgstr "Suggested attendees"
 #: src/session/components/note-input/raw.tsx
 msgid "Suggested templates"
 msgstr "Suggested templates"
-
-#: src/settings/general/index.tsx
-msgid "Summaries"
-msgstr "Summaries"
 
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
@@ -5708,10 +5885,6 @@ msgstr "Summary format cannot be empty."
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Summary generation failed"
 msgstr "Summary generation failed"
-
-#: src/settings/general/summary-length.tsx
-msgid "Summary length"
-msgstr "Summary length"
 
 #: src/automations/starters.tsx
 #: src/services/enhancer/summary-notification.ts
@@ -5818,14 +5991,6 @@ msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
 msgid "Team"
 msgstr "Team"
 
-#: src/folders/folder-editor.tsx
-msgid "Team folder"
-msgstr "Team folder"
-
-#: src/folders/folder-editor.tsx
-msgid "Team folder workspace"
-msgstr "Team folder workspace"
-
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team library"
 msgstr "Team library"
@@ -5884,6 +6049,10 @@ msgstr "Test runs are not available yet."
 #: src/shared-notes/index.tsx
 msgid "The link may have expired or its access may have changed."
 msgstr "The link may have expired or its access may have changed."
+
+#: src/settings/referrals.tsx
+msgid "The new referral offer is not available yet. Your previous referrals are shown below."
+msgstr "The new referral offer is not available yet. Your previous referrals are shown below."
 
 #: src/shared-notes/index.tsx
 msgid "The note may have been unshared or moved out of a workspace you can access."
@@ -6054,6 +6223,10 @@ msgstr "Trial"
 msgid "Trial activated - {trialDays} days of Pro"
 msgstr "Trial activated - {trialDays} days of Pro"
 
+#: src/settings/referrals.tsx
+msgid "Trial started · Applying your free month"
+msgstr "Trial started · Applying your free month"
+
 #: src/settings/automations/index.tsx
 #: src/settings/automations/workflow-builder.tsx
 msgid "Trigger"
@@ -6063,6 +6236,7 @@ msgstr "Trigger"
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
+#: src/settings/referrals.tsx
 #: src/settings/stats/badge-collection.tsx
 #: src/settings/team/index.tsx
 msgid "Try again"
@@ -6359,6 +6533,10 @@ msgstr "View"
 msgid "View Anarlog"
 msgstr "View Anarlog"
 
+#: src/settings/referrals.tsx
+msgid "View billing"
+msgstr "View billing"
+
 #: src/contacts/organization-details.tsx
 msgid "View LinkedIn profile"
 msgstr "View LinkedIn profile"
@@ -6399,6 +6577,10 @@ msgstr "Waiting for authorization in your browser…"
 msgid "Walnut"
 msgstr "Walnut"
 
+#: src/settings/referrals.tsx
+msgid "We couldn't load your invites. Please try again."
+msgstr "We couldn't load your invites. Please try again."
+
 #: src/settings/developers/webhooks.tsx
 msgid "Webhooks"
 msgstr "Webhooks"
@@ -6415,6 +6597,10 @@ msgstr "Weekly streak: {0}"
 #: src/onboarding/index.tsx
 msgid "Welcome to Anarlog"
 msgstr "Welcome to Anarlog"
+
+#: src/chat/components/body/empty.tsx
+msgid "What action items have come up so far in this meeting?"
+msgstr "What action items have come up so far in this meeting?"
 
 #: src/chat/components/body/empty.tsx
 msgid "What are my action items from this meeting?"
@@ -6439,6 +6625,10 @@ msgstr "What were the key decisions that have been made?"
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
 msgstr "What's new in {version}?"
+
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "When they start their free trial, yours gets one more month. Up to 3 friends."
+msgstr "When they start their free trial, yours gets one more month. Up to 3 friends."
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "When this happens"
@@ -6635,6 +6825,10 @@ msgstr "Your Pro trial just started"
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 msgstr "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 
+#: src/settings/referrals.tsx
+msgid "Your referrals"
+msgstr "Your referrals"
+
 #: src/services/enhancer/summary-notification.ts
 msgid "Your summary is ready."
 msgstr "Your summary is ready."
@@ -6642,6 +6836,10 @@ msgstr "Your summary is ready."
 #: src/store/zustand/listener/general-batch.ts
 msgid "Your transcript is ready."
 msgstr "Your transcript is ready."
+
+#: src/settings/referrals.tsx
+msgid "Your trial or paid subscription is extended by one month. No payment from your friend is required."
+msgstr "Your trial or paid subscription is extended by one month. No payment from your friend is required."
 
 #: src/settings/stats/insights.tsx
 msgid "Your week at a glance"

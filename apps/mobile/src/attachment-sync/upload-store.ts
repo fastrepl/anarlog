@@ -132,6 +132,27 @@ export async function countDueMobileAttachmentUploads(): Promise<number> {
   return Number(row?.count ?? 0);
 }
 
+export const MOBILE_ATTACHMENT_UPLOAD_PAUSED = "Attachment upload paused.";
+
+export async function countFailedMobileAttachmentUploads(
+  since = "",
+): Promise<number> {
+  const [row] = await execute<{ count: number }>(
+    `
+      SELECT COUNT(*) AS count
+      FROM attachment_transfer_jobs
+      WHERE direction = 'upload'
+        AND updated_at >= ?
+        AND (
+          phase = 'failed'
+          OR (phase = 'retry_wait' AND last_error NOT IN ('', ?))
+        )
+    `,
+    [since, MOBILE_ATTACHMENT_UPLOAD_PAUSED],
+  );
+  return Number(row?.count ?? 0);
+}
+
 export async function claimNextMobileAttachmentUpload(): Promise<
   MobileAttachmentUploadJob | undefined
 > {

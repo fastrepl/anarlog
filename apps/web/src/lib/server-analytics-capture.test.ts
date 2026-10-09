@@ -131,3 +131,36 @@ test("reports a rejected capture without including its response body", async () 
     { message: "PostHog capture failed with 500" },
   );
 });
+
+test("referral claims deduplicate without exposing the invite or account identity", async () => {
+  const captured: Array<{ uuid: string; properties: Record<string, unknown> }> =
+    [];
+  const send = () =>
+    sendServerAnalytics({
+      ...checkout,
+      event: "referral_claimed",
+      insertId: "referral-claim:private-user-id",
+      properties: {
+        entry_point: "invite",
+        referral_code: "private-invite-code",
+        user_id: "private-user-id",
+        email: "friend@example.com",
+      },
+      fetcher: async (_url, init) => {
+        captured.push(JSON.parse(String(init?.body)));
+        return new Response(null, { status: 200 });
+      },
+    });
+  await send();
+  await send();
+  assert.equal(captured[0].uuid, captured[1].uuid);
+  assert.equal(captured[0].properties.entry_point, "invite");
+  const serialized = JSON.stringify(captured);
+  for (const value of [
+    "private-user-id",
+    "private-invite-code",
+    "friend@example.com",
+  ]) {
+    assert.equal(serialized.includes(value), false);
+  }
+});

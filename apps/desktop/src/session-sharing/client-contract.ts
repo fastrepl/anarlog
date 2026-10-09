@@ -179,6 +179,7 @@ export type PublishSessionShareSnapshotInput = {
   body: unknown;
   participants?: string[];
   meetingAt?: string;
+  eventKey?: string;
   attachmentIds?: string[];
   signal?: AbortSignal;
   fetcher?: typeof fetch;

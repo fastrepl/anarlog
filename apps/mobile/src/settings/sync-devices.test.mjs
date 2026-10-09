@@ -10,7 +10,6 @@ test("shows the server-provided 5-device allowance and counts reservations once"
       {
         deviceFingerprint: "desktop-1",
         deviceName: "Mac",
-        deviceKind: "desktop",
       },
     ],
     pendingDevices: [

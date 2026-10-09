@@ -131,4 +131,56 @@ mod tests {
     New notes
     </context>
     "#);
+
+    tpl_snapshot_with_assert!(
+        test_context_block_transcript_timestamps_for_recent_recaps,
+        ContextBlock {
+            contexts: vec![SessionContext {
+                session_id: None,
+                title: Some("Standup".to_string()),
+                date: None,
+                raw_content: None,
+                enhanced_content: None,
+                meeting_chat: None,
+                transcript: Some(Transcript {
+                    segments: vec![
+                        crate::Segment {
+                            text: "Kickoff".to_string(),
+                            speaker: "Alice".to_string(),
+                            start_ms: Some(5_000),
+                        },
+                        crate::Segment {
+                            text: "Status update".to_string(),
+                            speaker: "Bob".to_string(),
+                            start_ms: Some(3_725_000),
+                        },
+                        crate::Segment {
+                            text: "Imported line".to_string(),
+                            speaker: "Carol".to_string(),
+                            start_ms: None,
+                        },
+                    ],
+                    started_at: None,
+                    ended_at: None,
+                    now_ms: Some(3_900_000),
+                }),
+                participants: vec![],
+                event: None,
+            }],
+            current_session_id: None,
+        },
+        |v| v.contains("[00:05] Alice: Kickoff") && v.contains("[62:05] Bob: Status update") && v.contains("\nCarol: Imported line") && v.contains("[65:00] (now, still recording)"),
+        @r#"
+    <context>
+
+    Title: Standup
+
+    Full Meeting Transcript:
+
+    [00:05] Alice: Kickoff
+    [62:05] Bob: Status update
+    Carol: Imported line
+    [65:00] (now, still recording)
+    </context>
+    "#);
 }

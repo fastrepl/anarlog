@@ -200,13 +200,6 @@ export default function SyncSettings() {
               <SettingsRow
                 key={device.deviceFingerprint}
                 title={device.deviceName || "Unnamed device"}
-                value={
-                  device.deviceKind === "mobile"
-                    ? "Phone"
-                    : device.deviceKind === "watch"
-                      ? "Watch"
-                      : "Desktop"
-                }
               />
             ))
           )}

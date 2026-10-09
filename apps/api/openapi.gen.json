@@ -6522,6 +6522,12 @@
             "format": "int64"
           },
           "body": {},
+          "eventKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "meetingAt": {
             "type": [
               "string",

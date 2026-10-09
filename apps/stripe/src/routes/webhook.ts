@@ -2,12 +2,14 @@ import { Hono } from "hono";
 
 import { captureBillingEvent, captureTrialEndingEmailSent } from "../analytics";
 import { syncBillingBridge } from "../billing-bridge";
+import { withDatabaseRetry } from "../database-retry";
 import { env } from "../env";
 import { captureOperationalError } from "../error-reporting";
 import type { AppBindings } from "../hono-bindings";
 import { stripeSync } from "../integration/stripe-sync";
 import { sendNewCustomerAlert } from "../new-customer-alert";
 import { scheduleReplacedPersonalPlanCancellation } from "../personal-plan-transition";
+import { recordReferralTrial } from "../referral-month-worker";
 import { issueReferralReward } from "../referral-rewards";
 import { sendSubscriptionWelcomeEmail } from "../subscription-welcome-email";
 import { sendTrialEndingEmail } from "../trial-emails";
@@ -20,7 +22,9 @@ webhook.post("/stripe", async (c) => {
   const signature = c.get("stripeSignature");
 
   try {
-    await stripeSync.processWebhook(rawBody, signature);
+    await withDatabaseRetry(() =>
+      stripeSync.processWebhook(rawBody, signature),
+    );
   } catch (error) {
     if (env.NODE_ENV !== "production") {
       console.error(error);
@@ -74,6 +78,7 @@ webhook.post("/stripe", async (c) => {
   }
 
   try {
+    await recordReferralTrial(stripeEvent);
     await issueReferralReward(stripeEvent);
   } catch (error) {
     captureOperationalError(error, {

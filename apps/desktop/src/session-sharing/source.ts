@@ -3,6 +3,7 @@ import type { JSONContent } from "@anlg/editor/note";
 
 import { liveQueryClient, useLiveQuery } from "~/db";
 import { flushDatabaseWrites } from "~/db/write-queue";
+import { sharedNoteEventKey } from "~/shared-notes/event-key";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 
 const EMPTY_DOCUMENT: JSONContent = { type: "doc", content: [] };
@@ -29,6 +30,8 @@ type SessionShareSourceSqlRow = {
   title: string;
   created_at: string;
   started_at: string;
+  event_tracking_id: string | null;
+  event_started_at: string | null;
   participants_json: string;
   body: string;
   body_format: string;
@@ -55,6 +58,7 @@ export type SessionShareSource = {
   workspaceId: string;
   title: string;
   meetingAt: string;
+  eventKey: string;
   participants: string[];
   body: JSONContent;
   rawBody: string;
@@ -75,6 +79,8 @@ const SESSION_SHARE_SOURCE_SQL = `
     session.title,
     session.created_at,
     session.started_at,
+    calendar_event.tracking_id_event AS event_tracking_id,
+    calendar_event.started_at AS event_started_at,
     COALESCE((
       SELECT json_group_array(json_object('name', ordered_participant.name))
       FROM (
@@ -138,6 +144,8 @@ const SESSION_SHARE_SOURCE_SQL = `
   FROM sessions AS session
   LEFT JOIN session_documents AS share_document
     ON share_document.id = (${SESSION_SHARE_DOCUMENT_ID_SQL})
+  LEFT JOIN events AS calendar_event
+    ON calendar_event.id = NULLIF(session.event_id, '')
   WHERE session.id = ?
     AND session.deleted_at IS NULL
   LIMIT 1
@@ -212,6 +220,7 @@ export async function loadSessionShareSource(
     workspaceId: resolveSourceWorkspace(row, normalizedAccountUserId),
     title: row.title,
     meetingAt: resolveMeetingAt(row.started_at, row.created_at),
+    eventKey: sharedNoteEventKey(row.event_tracking_id, row.event_started_at),
     participants: parseParticipantNames(row.participants_json),
     body,
     rawBody: row.body,

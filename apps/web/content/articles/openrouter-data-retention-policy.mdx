@@ -10,70 +10,75 @@ date: "2026-03-20"
 
 OpenRouter is an aggregator that routes your API requests to dozens of underlying providers, including OpenAI, Anthropic, Mistral, Google, and many others.
 
-That creates a data retention question with two layers. What does OpenRouter itself store? And what does the provider your request gets routed to store?
+That leaves two retention questions: what OpenRouter stores and what the receiving provider stores.
 
-Both matter. Here is how each works.
+Freshness review: October 6, 2026.
 
 ## What OpenRouter Itself Keeps From Your Requests
 
-By default, OpenRouter does not log your prompts or completions. What it does store is request metadata: timestamps, the model you used, token counts, and latency. That information is retained for billing and operational purposes.
+According to [OpenRouter's data-collection guide](https://openrouter.ai/docs/guides/privacy/data-collection), it does not store prompts or responses unless you opt into content logging or data sharing. It does store request metadata, including token counts and latency, for reporting and model ranking.
 
-Your actual conversation content is not retained by OpenRouter unless you specifically opt in to prompt logging.
+No prompt storage does not mean no processing. OpenRouter also describes anonymous prompt categorization using a zero-retention model. Its [privacy policy](https://openrouter.ai/privacy) separately covers uploaded files and security or legal exceptions; do not apply the inference default to every feature.
 
-## Why You Should Never Enable Prompt Logging
+## Two Logging Settings That Do Different Jobs
 
-OpenRouter offers a 1% discount on usage costs in exchange for enabling prompt logging. If you turn this on, OpenRouter stores your prompts and completions.
+OpenRouter now distinguishes private logging from permission to use your data. [Its logging documentation](https://openrouter.ai/docs/guides/features/input-output-logging) describes both:
 
-There is a significant term attached to this. [OpenRouter's privacy policy](https://openrouter.ai/privacy) states that enabling prompt logging grants OpenRouter an irrevocable right to commercial use of those inputs and outputs. That language is broader than most providers use. It means logged data could be used for purposes beyond just displaying your history in the dashboard.
+- **Private Input & Output Logging**, enabled in Observability, saves prompts and completions for your review. OpenRouter says it does not use this content for training or analytics. Retention is at least three months and can be longer unless you request deletion. Organization admins can view all logged content; members can view requests attributed to them.
+- **OpenRouter Use of Inputs/Outputs**, enabled in Privacy, permits product-improvement use in exchange for a 1% usage discount. This is independent of private logging. Both settings are off by default.
 
-If you are evaluating OpenRouter for any use case involving confidential information, sensitive conversations, or regulated data, do not enable prompt logging. The 1% discount is not worth the data rights you are granting.
+For confidential meeting text, keep both off unless the logging requirement and retention have been approved. Private debugging logs still create another stored copy. Do not confuse them with the separate data-discount arrangement.
 
-## How to Make Sure OpenRouter Never Logs Your Requests
+## What OpenRouter ZDR Actually Enforces
 
-OpenRouter supports ZDR at the request level. You can pass the zdr parameter in individual API calls to prevent OpenRouter from logging that specific request, regardless of your account-wide settings. It also works as an account-wide setting.
+[Zero Data Retention enforcement](https://openrouter.ai/docs/guides/features/zdr) filters the underlying model endpoints eligible to receive your request. It is not a switch that merely disables OpenRouter's own prompt logging.
 
-This gives you granular control if you need it. For most use cases, simply not enabling prompt logging achieves the same result for OpenRouter's own data handling.
+You can enforce it in account privacy settings, through guardrails, or per request with `provider.zdr: true`. Account and guardrail enforcement cannot be disabled by setting the request value to false. Current account settings also support separate model-group scopes.
+
+ZDR and no-training controls answer different questions. A provider can exclude data from training while retaining it for abuse monitoring. Check the exact endpoint rather than inferring its policy from the model name.
+
+Two boundaries matter: OpenRouter treats in-memory prompt caching as compatible with ZDR, and ZDR filtering does not cover every plugin or third-party tool backend. Review those paths separately if you enable them.
 
 ## What OpenRouter's Underlying Provider Stores
 
 ![An OpenRouter request passes through the gateway, then the underlying provider's own retention policy applies](https://static.anarlog.so/blog/articles/openrouter-data-retention-policy/openrouter-request-path.png)
 
-This is where OpenRouter's data policy gets more complicated.
+When OpenRouter routes your request, the receiving endpoint has its own data policy. [OpenRouter documents endpoint-specific policies](https://openrouter.ai/docs/guides/features/zdr), including special provider agreements that can differ from a provider's direct API baseline. Do not assume every OpenAI or Anthropic route has the same retention period.
 
-When you send a request through OpenRouter, it routes that request to a provider. That provider processes your prompt under their own data retention policy. OpenRouter does not change what the provider stores. If your request goes to OpenAI's API, [OpenAI's 30-day abuse monitoring window](https://anarlog.so/blog/chatgpt-data-retention-policy/) applies. If it goes to Anthropic's API, [Anthropic's 7-day window](https://anarlog.so/blog/anthropic-data-retention-policy/) applies.
+For direct API context, see our [OpenAI retention guide](/blog/chatgpt-data-retention-policy/) and [Anthropic retention guide](/blog/anthropic-data-retention-policy/). Those baselines are not proof of the policy for a particular OpenRouter endpoint.
 
 OpenRouter displays the data retention policy for each provider endpoint in its interface. Before routing sensitive data through a model, check the provider policy shown for that endpoint.
 
-By default, OpenRouter does not guarantee which specific provider instance handles your request. It selects based on availability, price, and performance. You can specify a preferred provider using routing parameters in your API call, but unless you do, the selection is automatic.
+By default, OpenRouter load-balances across available providers, prioritizing price. A preferred provider is not an exclusive provider: [routing documentation](https://openrouter.ai/docs/guides/routing/provider-selection) explains that fallbacks are enabled by default. Use an allowed-provider list or explicitly disable fallbacks when other providers must not receive the request.
 
 ## How to Keep Your Data in the EU
 
-For enterprise customers, OpenRouter supports EU in-region routing. When enabled, your prompts and completions are processed within the European Union and do not leave the EU. This is relevant for organizations operating under GDPR or with contractual data residency requirements.
+[In-region routing](https://openrouter.ai/docs/guides/features/in-region-routing) is available on Business and Enterprise plans for the EU and US. Choose the region by sending requests to `https://eu.openrouter.ai` or `https://us.openrouter.ai`; there is no separate activation setting.
 
-EU routing is not enabled by default and requires an enterprise account configuration. Contact OpenRouter's team to enable it.
+Shared endpoints must be eligible for the selected region, and requests fail rather than fall back out of region. Some features are unavailable on regional hosts. If you bring your own upstream provider credentials, verify that your own cloud deployment is in the matching region too; a regional OpenRouter hostname does not reconfigure infrastructure you own.
 
 ## Is OpenRouter Safe for Regulated Industries?
 
-OpenRouter does not publish a HIPAA Business Associate Agreement. If your use case involves protected health information, OpenRouter is not the right routing layer without a BAA in place. The same applies to other regulated data categories.
+ZDR is a retention control, not a compliance agreement. Before sending protected health information, confirm the applicable BAA, covered services, and every processor in the route with the vendors and your compliance team. Do not infer HIPAA eligibility from a privacy toggle.
 
 For compliance-sensitive deployments, the multi-provider nature of OpenRouter adds complexity. You are not just evaluating OpenRouter's compliance posture but also the compliance posture of every provider your requests might be routed to. Unless you lock routing to a specific provider with known compliance certifications, the compliance surface is difficult to bound.
 
-## **When OpenRouter Works for Sensitive Work and When It Does Not**
+## Evaluate a Specific Route
 
-OpenRouter's value is flexibility and cost optimization across providers. For non-sensitive workloads where you want access to a broad model catalog, routing optimization, and fallback handling, it is a practical tool.
-
-For sensitive work, the two-layer data question requires more active management. You need to be specific about which provider your requests go to, verify that provider's data policy, confirm that OpenRouter ZDR is enabled, and ensure prompt logging is off. That is manageable, but it requires deliberate configuration rather than relying on defaults.
-
-The defaults at OpenRouter are reasonably privacy-conscious. Prompts are not logged out of the box. But the flexibility that makes OpenRouter useful also makes its data handling harder to audit than a direct provider relationship.
+For sensitive work, record the exact model endpoint, allowed providers and fallbacks, ZDR enforcement, both logging settings, and any enabled tools. Add regional routing and the relevant contracts where required. A no-training label alone does not establish zero retention.
 
 ## Use OpenRouter to Take AI Notes Through Anarlog
 
-![Anarlog Settings → Intelligence with OpenRouter selected and an API key entered](https://static.anarlog.so/blog/library/products/anarlog/desktop/2026-09-23-settings-intelligence-openrouter.png)
+![Anarlog Intelligence settings with the OpenRouter provider panel expanded and its API key masked](https://static.anarlog.so/blog/library/products/anarlog/desktop/2026-09-23-settings-intelligence-openrouter.png)
+
+See Anarlog's [Models and providers documentation](https://docs.anarlog.so/models-and-providers) for the separate transcription and Intelligence paths.
 
 Anarlog supports OpenRouter as an API provider option. When you bring your own OpenRouter API key, your meeting data routes through OpenRouter under your account settings.
 
-If you configure OpenRouter with ZDR enabled and prompt logging off, those settings apply to requests Anarlog sends through your account. If you have locked routing to a specific provider within OpenRouter, requests from Anarlog will follow that configuration.
+Configure account-level OpenRouter privacy controls for your own key, including the model groups that require ZDR and allowed providers. Keep both private logging and data-discount sharing off if you do not want stored content. These account controls matter even when another app sends the request.
 
-As with all Anarlog integrations, your meeting notes are stored on your device. The AI provider processes your data to generate a summary, but the output lives locally. Switching from OpenRouter to a direct provider relationship, or to a local model, does not require any changes to how your notes are organized.
+The screenshot shows the OpenRouter configuration panel, not an active OpenRouter model or proof that ZDR is enabled. Check your OpenRouter account settings separately.
+
+Anarlog stores canonical meeting data in local SQLite. Hosted Intelligence sends the text needed for summaries or chat to the selected provider; optional sync, sharing, and integrations have separate data paths. You can switch to a direct provider or a local model without giving up your local meeting record.
 
 [Download Anarlog](https://anarlog.so/download) and use the AI provider your security team actually approves.

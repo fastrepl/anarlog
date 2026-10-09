@@ -95,3 +95,15 @@ test("a scheduled cancellation stays paid through the current period", () => {
   expect(billing.cancelAtPeriodEnd).toBe(true);
   expect(billing.currentPeriodEnd?.getTime()).toBe(periodEnd * 1000);
 });
+
+test("a referral extension retains Pro access without showing new-user trial UI", () => {
+  const billing = deriveBillingInfo({
+    entitlements: [],
+    subscription_status: "trialing",
+    trial_end: secondsFromNow(3600),
+    referral_extension: true,
+  });
+  expect(billing.plan).toBe("pro");
+  expect(billing.isPaid).toBe(true);
+  expect(billing.isTrialing).toBe(false);
+});

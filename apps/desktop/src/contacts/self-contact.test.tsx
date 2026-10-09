@@ -94,6 +94,7 @@ function human(id: string, name: string, pinned = false): HumanRecord {
     pinOrder: 0,
     avatarDataUrl: null,
     summary: null,
+    additionalEmails: [],
   };
 }
 
