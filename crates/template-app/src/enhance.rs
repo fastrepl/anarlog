@@ -271,9 +271,11 @@ End with next steps."#
                 segments: vec![Segment {
                     text: "Hello".to_string(),
                     speaker: "John Doe".to_string(),
+                    start_ms: None,
                 }],
                 started_at: Some(1719859200),
                 ended_at: Some(1719862800),
+                now_ms: None,
             }],
             pre_meeting_memo: String::new(),
             post_meeting_memo: String::new(),
@@ -324,9 +326,11 @@ End with next steps."#
                 segments: vec![Segment {
                     text: "Shipped the feature".to_string(),
                     speaker: "Alice".to_string(),
+                    start_ms: None,
                 }],
                 started_at: None,
                 ended_at: None,
+                now_ms: None,
             }],
             pre_meeting_memo: "- follow up on PR review\n- align on priorities".to_string(),
             post_meeting_memo: "- check CI\n- ship before EOD".to_string(),

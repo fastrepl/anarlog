@@ -24,5 +24,5 @@ reqwest = { workspace = true, features = ["json", "query", "stream"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread"] }
 wiremock = { workspace = true }
