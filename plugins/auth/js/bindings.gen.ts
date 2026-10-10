@@ -53,6 +53,12 @@ async getAccountInfo() : Promise<Result<AccountInfo | null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async beginRefresh(refreshToken: string) : Promise<RefreshPermit> {
+    return await TAURI_INVOKE("plugin:auth|begin_refresh", { refreshToken });
+},
+async finishRefresh(leaseId: number, status: number | null, retryAfterMs: number | null) : Promise<void> {
+    await TAURI_INVOKE("plugin:auth|finish_refresh", { leaseId, status, retryAfterMs });
 }
 }
 
@@ -68,6 +74,7 @@ async getAccountInfo() : Promise<Result<AccountInfo | null, string>> {
 
 export type AccountInfo = { userId: string; email: string | null; fullName: string | null; avatarUrl: string | null; stripeCustomerId: string | null }
 export type Claims = { sub: string; email?: string | null; entitlements?: string[]; subscription_status?: SubscriptionStatus | null; trial_end?: number | null; has_payment_method?: boolean | null; referral_extension?: boolean | null }
+export type RefreshPermit = { leaseId: number | null; retryAfterMs: number }
 export type SubscriptionStatus = "incomplete" | "incomplete_expired" | "trialing" | "active" | "past_due" | "canceled" | "unpaid" | "paused"
 
 /** tauri-specta globals **/

@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the begin_refresh command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-begin-refresh",
+          "markdownDescription": "Enables the begin_refresh command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the begin_refresh command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-begin-refresh",
+          "markdownDescription": "Denies the begin_refresh command without any pre-configured scope."
+        },
+        {
           "description": "Enables the clear command without any pre-configured scope.",
           "type": "string",
           "const": "allow-clear",
@@ -317,6 +329,18 @@
           "type": "string",
           "const": "deny-decode-claims",
           "markdownDescription": "Denies the decode_claims command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the finish_refresh command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finish-refresh",
+          "markdownDescription": "Enables the finish_refresh command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finish_refresh command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finish-refresh",
+          "markdownDescription": "Denies the finish_refresh command without any pre-configured scope."
         },
         {
           "description": "Enables the get_account_info command without any pre-configured scope.",
@@ -367,10 +391,10 @@
           "markdownDescription": "Denies the set_item command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-decode-claims`\n- `allow-get-item`\n- `allow-set-item`\n- `allow-remove-item`\n- `allow-clear`\n- `allow-get-account-info`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-decode-claims`\n- `allow-get-item`\n- `allow-set-item`\n- `allow-remove-item`\n- `allow-clear`\n- `allow-get-account-info`\n- `allow-begin-refresh`\n- `allow-finish-refresh`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-decode-claims`\n- `allow-get-item`\n- `allow-set-item`\n- `allow-remove-item`\n- `allow-clear`\n- `allow-get-account-info`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-decode-claims`\n- `allow-get-item`\n- `allow-set-item`\n- `allow-remove-item`\n- `allow-clear`\n- `allow-get-account-info`\n- `allow-begin-refresh`\n- `allow-finish-refresh`"
         }
       ]
     }
