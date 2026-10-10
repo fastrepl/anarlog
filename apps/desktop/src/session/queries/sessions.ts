@@ -3,6 +3,7 @@ import { useCallback, useRef } from "react";
 import { md2json } from "@anlg/editor/markdown";
 import type { SessionEvent } from "@anlg/store";
 
+import { extractBodyHeadingsKey } from "../title-content";
 import type {
   SessionChanges,
   SessionRecord,
@@ -239,6 +240,41 @@ export function useSessionHasTranscript(sessionId: string): boolean {
   return useSessionTranscriptExistence(sessionId) === true;
 }
 
+function parseJsonRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== "string" || !value) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed !== null &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+// A memo without a stored key predates heading tracking. Compare against the
+// stored body: unchanged headings keep the note's previous write time so a
+// newer template keeps authority, while a real heading edit stamps now. An
+// unreadable or missing baseline stamps now, favoring the memo.
+function previousHeadingsTime(
+  row: { updated_at?: string; body?: string; body_format?: string } | undefined,
+  headingsKey: string,
+  now: string,
+): string {
+  if (row?.body === undefined) {
+    return now;
+  }
+  const storedKey = extractBodyHeadingsKey(row.body, row.body_format);
+  if (storedKey === null || storedKey !== headingsKey) {
+    return now;
+  }
+  return row.updated_at ?? now;
+}
+
 export function updateSession(
   sessionId: string,
   changes: SessionChanges,
@@ -275,6 +311,45 @@ export function updateSession(
       });
     }
 
+    let noteMetadata: string | undefined;
+    if (changes.raw_md !== undefined) {
+      const existing =
+        (await liveQueryClient.execute<{
+          generation_metadata_json: string;
+          updated_at: string;
+          body: string;
+          body_format: string;
+        }>(
+          `SELECT generation_metadata_json, updated_at, body, body_format FROM session_documents WHERE id = ? AND kind = 'note'`,
+          [sessionId],
+        )) ?? [];
+      const metadata = parseJsonRecord(existing[0]?.generation_metadata_json);
+      let changed = false;
+      if (changes.raw_template_snapshot !== undefined) {
+        metadata.appliedTemplate = changes.raw_template_snapshot;
+        changed = true;
+      }
+      const headingsKey = extractBodyHeadingsKey(changes.raw_md);
+      if (headingsKey !== null) {
+        const stored = metadata.headings as
+          | { key?: unknown; updatedAt?: unknown }
+          | undefined;
+        if (stored?.key !== headingsKey) {
+          metadata.headings = {
+            key: headingsKey,
+            updatedAt:
+              stored?.key === undefined
+                ? previousHeadingsTime(existing[0], headingsKey, now)
+                : now,
+          };
+          changed = true;
+        }
+      }
+      if (changed) {
+        noteMetadata = JSON.stringify(metadata);
+      }
+    }
+
     if (changes.raw_md !== undefined) {
       const hasTemplateChange = changes.raw_template_id !== undefined;
       statements.push({
@@ -303,6 +378,13 @@ export function updateSession(
           now,
           sessionId,
         ],
+      });
+    }
+
+    if (noteMetadata !== undefined) {
+      statements.push({
+        sql: `UPDATE session_documents SET generation_metadata_json = ? WHERE id = ? AND kind = 'note'`,
+        params: [noteMetadata, sessionId],
       });
     }
 

@@ -379,6 +379,10 @@ describe("RawEditor", () => {
       expect(hoisted.persistChange).toHaveBeenCalledWith({
         raw_md: JSON.stringify(expectedContent),
         raw_template_id: "template-standup",
+        raw_template_snapshot: {
+          templateId: "template-standup",
+          sections: ["Yesterday", "Today"],
+        },
       }),
     );
   });

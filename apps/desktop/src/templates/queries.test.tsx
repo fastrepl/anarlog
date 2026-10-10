@@ -1,5 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +11,7 @@ import { executeProxy, subscribe } from "@anlg/plugin-db";
 import {
   getTemplateById,
   useCreateTemplate,
+  useToggleTemplateFavorite,
   useUserTemplate,
   useUserTemplates,
 } from "./queries";
@@ -97,6 +101,7 @@ describe("template queries", () => {
           icon: { type: "emoji", value: "☀️" },
           targets: ["engineering"],
           sections: [{ title: "Notes", description: "Capture updates" }],
+          updatedAt: "2026-04-14T00:00:00Z",
         },
       ]);
       expect(templateResult.current.data).toEqual({
@@ -109,6 +114,7 @@ describe("template queries", () => {
         icon: { type: "emoji", value: "☀️" },
         targets: ["engineering"],
         sections: [{ title: "Notes", description: "Capture updates" }],
+        updatedAt: "2026-04-14T00:00:00Z",
       });
     });
   });
@@ -157,6 +163,7 @@ describe("template queries", () => {
           icon: DEFAULT_TEMPLATE_ICON,
           targets: undefined,
           sections: [{ title: "", description: "" }],
+          updatedAt: "2026-04-14T00:00:00Z",
         },
       ]);
     });
@@ -191,7 +198,79 @@ describe("template queries", () => {
       icon: { type: "icon", value: "target", color: "#5b67d8" },
       targets: ["engineering"],
       sections: [{ title: "Notes", description: "Capture updates" }],
+      updatedAt: "2026-04-14T00:00:00Z",
     });
+  });
+
+  it("keeps the template timestamp when toggling its favorite flag", async () => {
+    const { DatabaseSync } = createRequire(import.meta.url)(
+      "node:sqlite",
+    ) as typeof import("node:sqlite");
+    const database = new DatabaseSync(":memory:");
+    try {
+      for (const migration of [
+        "20260413020000_templates.sql",
+        "20260712170000_template_icons.sql",
+      ]) {
+        database.exec(
+          readFileSync(
+            resolve(process.cwd(), "../../crates/db-app/migrations", migration),
+            "utf8",
+          ),
+        );
+      }
+      database
+        .prepare(
+          "INSERT INTO templates (id, title, description, pinned, pin_order, category, targets_json, sections_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .run(
+          "template-1",
+          "Standup",
+          "Daily sync",
+          0,
+          null,
+          null,
+          '["engineering"]',
+          '[{"title":"Notes","description":"Capture updates"}]',
+          "2026-04-14T00:00:00Z",
+          "2026-04-14T00:00:00Z",
+        );
+      executeProxyMock.mockImplementation(async (sql, params, method) => {
+        const args = params as import("node:sqlite").SQLInputValue[];
+        if (method === "run") {
+          database.prepare(sql).run(...args);
+          return { rows: [] };
+        }
+        const rows = database.prepare(sql).all(...args) as Record<
+          string,
+          unknown
+        >[];
+        return { rows: rows.map((row) => Object.values(row)) };
+      });
+
+      const { result } = renderHook(() => useToggleTemplateFavorite(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await result.current("template-1");
+      });
+
+      const stored = database
+        .prepare(
+          "SELECT pinned, pin_order AS pinOrder, updated_at AS updatedAt FROM templates WHERE id = ?",
+        )
+        .get("template-1") as {
+        pinned: number;
+        pinOrder: number;
+        updatedAt: string;
+      };
+      expect(stored.pinned).toBe(1);
+      expect(stored.pinOrder).toBe(1);
+      expect(stored.updatedAt).toBe("2026-04-14T00:00:00Z");
+    } finally {
+      database.close();
+    }
   });
 
   it("creates a template row through the SQLite proxy", async () => {
