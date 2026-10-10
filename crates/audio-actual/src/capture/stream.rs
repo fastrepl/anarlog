@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use std::task::{Context, Poll};
 use std::{panic::AssertUnwindSafe, panic::catch_unwind};
 
@@ -12,7 +15,8 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
 
-use anlg_audio::{CaptureFrame, CaptureStream, Error};
+use super::recovery::{ChannelItem, OpenedChannel, run_channel};
+use anlg_audio::{CaptureChannel, CaptureConfig, CaptureEvent, CaptureFrame, CaptureStream, Error};
 
 use crate::mic::MicInput;
 use crate::speaker::SpeakerInput;
@@ -35,13 +39,13 @@ const AEC_ROBUST_GAIN_SEGMENTS: usize = 8;
 const AEC_ROBUST_GAIN_MIN_SEGMENTS: usize = 3;
 
 struct CaptureStreamInner {
-    inner: ReceiverStream<Result<CaptureFrame, Error>>,
+    inner: ReceiverStream<Result<CaptureEvent, Error>>,
     cancel_token: CancellationToken,
     task: JoinHandle<()>,
 }
 
 impl Stream for CaptureStreamInner {
-    type Item = Result<CaptureFrame, Error>;
+    type Item = Result<CaptureEvent, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Pin::new(&mut self.inner).poll_next(cx)
@@ -81,27 +85,96 @@ pub(crate) fn setup_speaker_stream(
         .map_err(|_| Error::SpeakerStreamSetupFailed)
 }
 
-pub(crate) fn open_dual(
-    sample_rate: u32,
-    mic_stream: ChunkStream,
-    speaker_stream: ChunkStream,
-    enable_aec: bool,
-) -> CaptureStream {
+pub(crate) fn open_recovering(config: CaptureConfig) -> CaptureStream {
     let cancel_token = CancellationToken::new();
     let (tx, rx) = tokio::sync::mpsc::channel(32);
-    let task = tokio::spawn(run_dual_loop(
-        tx,
-        cancel_token.clone(),
-        sample_rate,
-        enable_aec,
-        mic_stream,
-        speaker_stream,
-    ));
-
-    CaptureStream::new(CaptureStreamInner {
+    let (mic_retry, mic_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (speaker_retry, speaker_rx) = tokio::sync::mpsc::unbounded_channel();
+    let cancel = cancel_token.clone();
+    let aec_enabled = Arc::new(AtomicBool::new(config.enable_aec));
+    let aec_config = aec_enabled.clone();
+    let speaker_output_retry = speaker_retry.clone();
+    let task = tokio::spawn(async move {
+        let (chunks_tx, chunks_rx) = tokio::sync::mpsc::channel(32);
+        let rate = config.sample_rate;
+        let size = config.chunk_size;
+        let mic = run_channel(
+            CaptureChannel::Mic,
+            Arc::new(move |device, excluded| {
+                if crate::mic::startup_pending() {
+                    return Err(Error::MicStreamInitializationFailed(
+                        "previous microphone startup is still pending".into(),
+                    ));
+                }
+                let mut excluded = excluded.to_vec();
+                let first = MicInput::new_excluding(device.clone(), &excluded).or_else(|error| {
+                    if excluded.is_empty() {
+                        Err(error)
+                    } else {
+                        excluded.clear();
+                        MicInput::new_excluding(device.clone(), &excluded)
+                    }
+                });
+                let mut input = Some(first?);
+                loop {
+                    let input = match input.take() {
+                        Some(input) => input,
+                        None => MicInput::new_excluding(device.clone(), &excluded)?,
+                    };
+                    let name = input.device_name();
+                    match input.stream() {
+                        Ok(stream) => {
+                            return Ok(OpenedChannel {
+                                stream: Box::pin(
+                                    stream
+                                        .resampled_chunks(rate, size)
+                                        .map_err(|_| Error::MicStreamSetupFailed)?,
+                                ),
+                                device: Some(name),
+                            });
+                        }
+                        Err(error) => {
+                            excluded.push(name);
+                            if crate::mic::startup_pending() {
+                                return Err(error);
+                            }
+                        }
+                    }
+                }
+            }),
+            config.mic_device,
+            mic_rx,
+            chunks_tx.clone(),
+            cancel.clone(),
+        );
+        let speaker = run_channel(
+            CaptureChannel::Speaker,
+            Arc::new(move |_, _| {
+                Ok(OpenedChannel {
+                    stream: setup_speaker_stream(rate, size)?,
+                    device: None,
+                })
+            }),
+            None,
+            speaker_rx,
+            chunks_tx,
+            cancel.clone(),
+        );
+        let output = run_dual_loop(tx, cancel.clone(), rate, aec_config, chunks_rx);
+        tokio::join!(mic, speaker, output);
+    });
+    CaptureStream::with_events(CaptureStreamInner {
         inner: ReceiverStream::new(rx),
         cancel_token,
         task,
+    })
+    .with_retry(move |device, force_mic| {
+        let _ = mic_retry.send((device.clone(), force_mic));
+        let _ = speaker_retry.send((device, false));
+    })
+    .with_output_change(move |enable_aec| {
+        aec_enabled.store(enable_aec, Ordering::Release);
+        let _ = speaker_output_retry.send((None, true));
     })
 }
 
@@ -121,28 +194,22 @@ pub(crate) fn open_single(chunk_stream: ChunkStream, side: CaptureSide) -> Captu
         side,
     ));
 
-    CaptureStream::new(CaptureStreamInner {
+    CaptureStream::with_events(CaptureStreamInner {
         inner: ReceiverStream::new(rx),
         cancel_token,
         task,
     })
 }
 
-enum StreamResult {
-    Continue,
-    Stop,
-    Failed(Error),
-}
-
 async fn run_dual_loop(
-    tx: tokio::sync::mpsc::Sender<Result<CaptureFrame, Error>>,
+    tx: tokio::sync::mpsc::Sender<Result<CaptureEvent, Error>>,
     cancel_token: CancellationToken,
     sample_rate: u32,
-    enable_aec: bool,
-    mut mic_stream: ChunkStream,
-    mut speaker_stream: ChunkStream,
+    aec_enabled: Arc<AtomicBool>,
+    mut chunks: tokio::sync::mpsc::Receiver<ChannelItem>,
 ) {
     let mut joiner = Joiner::new();
+    let mut enable_aec = aec_enabled.load(Ordering::Acquire);
     let mut aec = if enable_aec { build_aec() } else { None };
     let mut linear_echo_gain = None;
     let mut aec_reference = if aec.is_some() {
@@ -151,58 +218,103 @@ async fn run_dual_loop(
         None
     };
 
+    let mut mic_ready = false;
+    let mut speaker_ready = false;
     loop {
-        let result = tokio::select! {
-            _ = cancel_token.cancelled() => StreamResult::Stop,
-            item = mic_stream.next() => {
-                handle_stream_item(item, CaptureSide::Mic, &mut joiner)
-            }
-            item = speaker_stream.next() => {
-                handle_stream_item(item, CaptureSide::Speaker, &mut joiner)
-            }
+        let item = tokio::select! {
+            _ = cancel_token.cancelled() => return,
+            item = chunks.recv() => item,
         };
-
-        match result {
-            StreamResult::Continue => {
-                while let Some((raw_mic, raw_speaker)) = joiner.pop_pair() {
-                    let raw_mic = Arc::<[f32]>::from(raw_mic);
-                    let raw_speaker = Arc::<[f32]>::from(raw_speaker);
-                    let aligned = aec_reference
-                        .as_mut()
-                        .map(|aligner| aligner.align(&raw_speaker, &raw_mic))
-                        .unwrap_or_else(|| AecAlignedPair {
-                            mic: Arc::clone(&raw_mic),
-                            speaker: Arc::clone(&raw_speaker),
-                            alignment_changed: false,
-                        });
-                    if aligned.alignment_changed {
-                        if let Some(processor) = aec.as_mut() {
-                            processor.reset();
-                        }
-                        linear_echo_gain = None;
-                    }
-                    let aec_mic = process_aec(
-                        &mut aec,
-                        &mut linear_echo_gain,
-                        &aligned.mic,
-                        &aligned.speaker,
-                    );
-                    if tx
-                        .send(Ok(CaptureFrame {
-                            raw_mic,
-                            raw_speaker,
-                            aec_mic,
-                        }))
-                        .await
-                        .is_err()
-                    {
-                        return;
-                    }
+        let Some(item) = item else {
+            return;
+        };
+        let updated_aec = aec_enabled.load(Ordering::Acquire);
+        if updated_aec != enable_aec {
+            enable_aec = updated_aec;
+            aec = if enable_aec { build_aec() } else { None };
+            linear_echo_gain = None;
+            aec_reference = aec.as_ref().map(|_| AecReferenceAligner::new(sample_rate));
+        }
+        match item {
+            ChannelItem::Ready(channel, device) => {
+                match channel {
+                    CaptureChannel::Mic => mic_ready = true,
+                    CaptureChannel::Speaker => speaker_ready = true,
+                }
+                if tx
+                    .send(Ok(CaptureEvent::ChannelReady { channel, device }))
+                    .await
+                    .is_err()
+                {
+                    return;
                 }
             }
-            StreamResult::Stop => return,
-            StreamResult::Failed(err) => {
-                let _ = tx.send(Err(err)).await;
+            ChannelItem::Failed(channel, error) => {
+                match channel {
+                    CaptureChannel::Mic => {
+                        mic_ready = false;
+                        joiner.clear_mic();
+                    }
+                    CaptureChannel::Speaker => {
+                        speaker_ready = false;
+                        joiner.clear_speaker();
+                    }
+                }
+                if let Some(aec) = aec.as_mut() {
+                    aec.reset();
+                }
+                linear_echo_gain = None;
+                aec_reference = aec.as_ref().map(|_| AecReferenceAligner::new(sample_rate));
+                if tx
+                    .send(Ok(CaptureEvent::ChannelFailed { channel, error }))
+                    .await
+                    .is_err()
+                {
+                    return;
+                }
+            }
+            ChannelItem::Chunk(channel, data) => match channel {
+                CaptureChannel::Mic => joiner.push_mic(data),
+                CaptureChannel::Speaker => joiner.push_speaker(data),
+            },
+        }
+        while let Some((raw_mic, raw_speaker)) = joiner.pop_available_pair(mic_ready, speaker_ready)
+        {
+            let raw_mic = Arc::<[f32]>::from(raw_mic);
+            let raw_speaker = Arc::<[f32]>::from(raw_speaker);
+            let aec_mic = if mic_ready && speaker_ready {
+                let aligned = aec_reference
+                    .as_mut()
+                    .map(|aligner| aligner.align(&raw_speaker, &raw_mic))
+                    .unwrap_or_else(|| AecAlignedPair {
+                        mic: Arc::clone(&raw_mic),
+                        speaker: Arc::clone(&raw_speaker),
+                        alignment_changed: false,
+                    });
+                if aligned.alignment_changed {
+                    if let Some(processor) = aec.as_mut() {
+                        processor.reset();
+                    }
+                    linear_echo_gain = None;
+                }
+                process_aec(
+                    &mut aec,
+                    &mut linear_echo_gain,
+                    &aligned.mic,
+                    &aligned.speaker,
+                )
+            } else {
+                None
+            };
+            if tx
+                .send(Ok(CaptureEvent::Frame(CaptureFrame {
+                    raw_mic,
+                    raw_speaker,
+                    aec_mic,
+                })))
+                .await
+                .is_err()
+            {
                 return;
             }
         }
@@ -444,7 +556,7 @@ impl SampleDelayLine {
 }
 
 async fn run_single_loop(
-    tx: tokio::sync::mpsc::Sender<Result<CaptureFrame, Error>>,
+    tx: tokio::sync::mpsc::Sender<Result<CaptureEvent, Error>>,
     cancel_token: CancellationToken,
     mut chunk_stream: ChunkStream,
     side: CaptureSide,
@@ -469,7 +581,7 @@ async fn run_single_loop(
                                 aec_mic: None,
                             },
                         };
-                        if tx.send(Ok(frame)).await.is_err() {
+                        if tx.send(Ok(CaptureEvent::Frame(frame))).await.is_err() {
                             return;
                         }
                     }
@@ -492,30 +604,6 @@ async fn run_single_loop(
                 }
             }
         }
-    }
-}
-
-fn handle_stream_item(
-    item: Option<Result<Vec<f32>, anlg_resampler::Error>>,
-    side: CaptureSide,
-    joiner: &mut Joiner,
-) -> StreamResult {
-    match item {
-        Some(Ok(data)) => {
-            match side {
-                CaptureSide::Mic => joiner.push_mic(data),
-                CaptureSide::Speaker => joiner.push_speaker(data),
-            }
-            StreamResult::Continue
-        }
-        Some(Err(_)) => StreamResult::Failed(match side {
-            CaptureSide::Mic => Error::MicResampleFailed,
-            CaptureSide::Speaker => Error::SpeakerResampleFailed,
-        }),
-        None => StreamResult::Failed(match side {
-            CaptureSide::Mic => Error::MicStreamEnded,
-            CaptureSide::Speaker => Error::SpeakerStreamEnded,
-        }),
     }
 }
 
@@ -663,6 +751,48 @@ fn segmented_trimmed_gain(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn channel_failure_preserves_healthy_audio_and_recovery_restores_stereo_frames() {
+        let (chunks_tx, chunks_rx) = tokio::sync::mpsc::channel(32);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+        let task = tokio::spawn(run_dual_loop(
+            tx,
+            CancellationToken::new(),
+            16_000,
+            Arc::new(AtomicBool::new(false)),
+            chunks_rx,
+        ));
+        let speaker = vec![0.25; 32];
+        let mic = vec![0.5; 32];
+        for item in [
+            ChannelItem::Failed(CaptureChannel::Mic, Error::MicOpenFailed),
+            ChannelItem::Ready(CaptureChannel::Speaker, None),
+            ChannelItem::Chunk(CaptureChannel::Speaker, speaker.clone()),
+            ChannelItem::Ready(CaptureChannel::Mic, Some("fallback".into())),
+            ChannelItem::Chunk(CaptureChannel::Mic, mic.clone()),
+            ChannelItem::Chunk(CaptureChannel::Speaker, speaker.clone()),
+            ChannelItem::Failed(CaptureChannel::Speaker, Error::SpeakerStreamSetupFailed),
+            ChannelItem::Chunk(CaptureChannel::Mic, mic.clone()),
+        ] {
+            chunks_tx.send(item).await.unwrap();
+        }
+        drop(chunks_tx);
+        let mut frames = Vec::new();
+        while let Some(event) = rx.recv().await {
+            if let CaptureEvent::Frame(frame) = event.unwrap() {
+                frames.push(frame);
+            }
+        }
+        task.await.unwrap();
+        assert_eq!(frames.len(), 3);
+        assert_eq!(&*frames[0].raw_speaker, &speaker);
+        assert!(frames[0].raw_mic.iter().all(|sample| *sample == 0.0));
+        assert_eq!(&*frames[1].raw_mic, &mic);
+        assert_eq!(&*frames[1].raw_speaker, &speaker);
+        assert_eq!(&*frames[2].raw_mic, &mic);
+        assert!(frames[2].raw_speaker.iter().all(|sample| *sample == 0.0));
+    }
 
     #[test]
     fn process_aec_returns_output_when_enabled() {

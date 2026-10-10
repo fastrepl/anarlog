@@ -13,7 +13,7 @@ use crate::DegradedError;
 use crate::actors::session::types::{
     SessionConfigUpdate, SessionContext, SessionParams, session_span, session_supervisor_name,
 };
-use crate::actors::{ChannelMode, ListenerConfigUpdate, ListenerInitError, ListenerMsg};
+use crate::actors::{ListenerConfigUpdate, ListenerInitError, ListenerMsg};
 
 use self::children::ChildKind;
 use self::mode::SessionModeState;
@@ -47,6 +47,8 @@ pub enum SessionMsg {
     Shutdown,
     RetryListener,
     RetryRecorder,
+    SourceHealthy,
+    SourceRoutingChanged,
     UpdateCredentials(String),
     UpdateConfig(SessionConfigUpdate),
 }
@@ -146,6 +148,10 @@ impl Actor for SessionActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
+            SessionMsg::SourceHealthy => state.source_restarts.reset(),
+            SessionMsg::SourceRoutingChanged => {
+                refresh_listener_on_isolation_change(&myself, state).await;
+            }
             SessionMsg::Shutdown => {
                 state.shutting_down = true;
                 children::shutdown_children(state, "session_stop").await;
@@ -188,9 +194,6 @@ impl Actor for SessionActor {
     ) -> Result<(), ActorProcessingErr> {
         let span = session_span(&state.ctx.params.session_id);
         async {
-            state
-                .source_restarts
-                .maybe_reset(&children::SOURCE_RESTART_BUDGET);
             state
                 .recorder_restarts
                 .maybe_reset(&children::RECORDER_RESTART_BUDGET);
@@ -428,12 +431,7 @@ async fn refresh_listener_on_isolation_change(
         return;
     }
 
-    let mic_isolated = ChannelMode::determine(state.ctx.params.onboarding)
-        == ChannelMode::MicAndSpeaker
-        && crate::actors::source::mic_isolated(
-            &state.ctx.params.mic_device,
-            state.ctx.audio.as_ref(),
-        );
+    let mic_isolated = children::source_mic_isolated(&state.ctx).await;
     if mic_isolated != state.listener_mic_isolated {
         refresh_listener(myself.clone(), state).await;
     }

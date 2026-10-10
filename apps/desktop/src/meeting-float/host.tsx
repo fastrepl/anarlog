@@ -410,6 +410,8 @@ export function haveFloatingRouteInputsChanged(
   previousState: ListenerState,
 ) {
   return (
+    state.live.captureHealth !== previousState.live.captureHealth ||
+    state.live.lastError !== previousState.live.lastError ||
     state.live.status !== previousState.live.status ||
     state.live.sessionId !== previousState.live.sessionId ||
     state.live.loadingPhase !== previousState.live.loadingPhase ||

@@ -4,6 +4,7 @@ permissions = [
     "allow-list-microphone-devices",
     "allow-get-current-microphone-device",
     "allow-start-capture",
+    "allow-retry-audio-capture",
     "allow-flush-live-transcript",
     "allow-release-live-transcript",
     "allow-list-stopped-captures",

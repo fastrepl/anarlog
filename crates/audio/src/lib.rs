@@ -2,7 +2,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_util::Stream;
+use futures_util::{Stream, StreamExt};
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
@@ -60,11 +60,74 @@ impl CaptureFrame {
     }
 }
 
-pub struct CaptureStream(Pin<Box<dyn Stream<Item = Result<CaptureFrame, Error>> + Send>>);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureChannel {
+    Mic,
+    Speaker,
+}
+
+pub enum CaptureEvent {
+    Frame(CaptureFrame),
+    ChannelReady {
+        channel: CaptureChannel,
+        device: Option<String>,
+    },
+    ChannelFailed {
+        channel: CaptureChannel,
+        error: Error,
+    },
+}
+
+type CaptureRetry = dyn Fn(Option<String>, bool) + Send + Sync;
+
+pub struct CaptureStream {
+    inner: Pin<Box<dyn Stream<Item = Result<CaptureEvent, Error>> + Send>>,
+    retry: Option<Box<CaptureRetry>>,
+    output_changed: Option<Box<dyn Fn(bool) + Send + Sync>>,
+}
 
 impl CaptureStream {
     pub fn new(stream: impl Stream<Item = Result<CaptureFrame, Error>> + Send + 'static) -> Self {
-        Self(Box::pin(stream))
+        Self::with_events(stream.map(|item| item.map(CaptureEvent::Frame)))
+    }
+
+    pub fn with_events(
+        stream: impl Stream<Item = Result<CaptureEvent, Error>> + Send + 'static,
+    ) -> Self {
+        Self {
+            inner: Box::pin(stream),
+            retry: None,
+            output_changed: None,
+        }
+    }
+
+    pub fn with_retry(
+        mut self,
+        retry: impl Fn(Option<String>, bool) + Send + Sync + 'static,
+    ) -> Self {
+        self.retry = Some(Box::new(retry));
+        self
+    }
+
+    pub fn retry(&self, device: Option<String>, force_mic: bool) {
+        if let Some(retry) = &self.retry {
+            retry(device, force_mic);
+        }
+    }
+
+    pub fn with_output_change(mut self, update: impl Fn(bool) + Send + Sync + 'static) -> Self {
+        self.output_changed = Some(Box::new(update));
+        self
+    }
+
+    pub fn update_output(&self, enable_aec: bool) {
+        if let Some(update) = &self.output_changed {
+            update(enable_aec);
+        }
+    }
+
+    pub async fn next_event(&mut self) -> Option<Result<CaptureEvent, Error>> {
+        self.inner.next().await
     }
 }
 
@@ -72,7 +135,17 @@ impl Stream for CaptureStream {
     type Item = Result<CaptureFrame, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.0.as_mut().poll_next(cx)
+        loop {
+            match self.inner.as_mut().poll_next(cx) {
+                Poll::Ready(Some(Ok(CaptureEvent::Frame(frame)))) => {
+                    return Poll::Ready(Some(Ok(frame)));
+                }
+                Poll::Ready(Some(Ok(_))) => continue,
+                Poll::Ready(Some(Err(error))) => return Poll::Ready(Some(Err(error))),
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Pending => return Poll::Pending,
+            }
+        }
     }
 }
 

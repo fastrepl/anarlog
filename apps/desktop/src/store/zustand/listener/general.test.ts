@@ -1506,7 +1506,7 @@ describe("General Listener Slice", () => {
             delta: { new_words: [], replaced_ids: [], partials: [word] },
           },
         });
-        expect(dismiss).not.toHaveBeenCalled();
+        expect(dismiss).not.toHaveBeenCalledWith("live-transcription-stalled");
         expect(store.getState().live.transcriptionStalled).toBe(true);
 
         dataHandler({

@@ -24,6 +24,7 @@ import { toast } from "@anlg/ui/components/ui/toast";
 
 import {
   type GeneralState,
+  getCaptureWarning,
   type LiveIntervalId,
   markLiveActive,
   markLiveCaptureStarted,
@@ -239,6 +240,62 @@ const clearLiveEventUnlisteners = (unlisteners?: (() => void)[]) => {
   unlisteners?.forEach((fn) => fn());
 };
 
+const notifyCaptureWarning = <T extends GeneralState>(
+  get: StoreApi<T>["getState"],
+  targetSessionId: string,
+) => {
+  const warning = getCaptureWarning(get().live);
+  if (warning) {
+    toast.warning(warning, {
+      id: `audio-capture-${targetSessionId}`,
+      duration: Infinity,
+      dismissible: false,
+      closeButton: false,
+      description:
+        "Choose a working audio device and retry. Audio missing during this interruption cannot be recovered.",
+      action: {
+        label: "Retry",
+        dismissOnClick: false,
+        onClick: () => {
+          void import("~/settings/queries")
+            .then(async ({ getStoredSettingValues }) => {
+              const settings = await getStoredSettingValues();
+              if (
+                get().live.sessionId !== targetSessionId ||
+                get().live.status !== "active"
+              )
+                return;
+              const result = await listenerCommands.retryAudioCapture(
+                targetSessionId,
+                settings.values.microphone_device || null,
+              );
+              if (result.status === "error")
+                toast.error("Audio retry failed", {
+                  description: result.error,
+                });
+            })
+            .catch((error) =>
+              console.error("[listener] audio retry failed", error),
+            );
+        },
+      },
+      secondaryAction: {
+        dismissOnClick: false,
+        label: "Device settings",
+        onClick: () => {
+          void import("~/store/zustand/tabs").then(({ useTabs }) =>
+            useTabs
+              .getState()
+              .openNew({ type: "settings", state: { tab: "general" } }),
+          );
+        },
+      },
+    });
+  } else {
+    toast.dismiss(`audio-capture-${targetSessionId}`);
+  }
+};
+
 const createSessionEventHandlers = <T extends LiveStore>(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
@@ -252,6 +309,8 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
+    if (payload.type === "stopped")
+      toast.dismiss(`audio-capture-${targetSessionId}`);
     if (payload.type === "started") {
       startSpeakerContextCapture(targetSessionId);
       const currentLive = get().live;
@@ -482,8 +541,20 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
-    if (payload.type === "audio_ready")
-      observeSpeakerMicrophone(targetSessionId, { device: payload.device });
+    if (
+      (payload.type === "audio_error" &&
+        /^audio_(mic|speaker|capture)_(ready|unavailable)/.test(
+          payload.error,
+        )) ||
+      payload.type === "audio_ready"
+    ) {
+      setLiveState(set, (live) => updateLiveProgress(live, payload));
+      notifyCaptureWarning(get, targetSessionId);
+      if (payload.type === "audio_ready")
+        observeSpeakerMicrophone(targetSessionId, { device: payload.device });
+      return;
+    }
+
     setLiveState(set, (live) => {
       updateLiveProgress(live, payload);
     });
@@ -918,10 +989,14 @@ function applyCaptureSnapshot<T extends LiveStore>(
       if (snapshot.startedAtMs != null) {
         live.seconds = elapsedSecondsSince(snapshot.startedAtMs);
       }
+      if (snapshot.captureHealth != null) {
+        live.captureHealth = snapshot.captureHealth;
+      }
       if (snapshot.micMuted != null) {
         live.muted = snapshot.micMuted;
       }
     });
+    notifyCaptureWarning(get, targetSessionId);
     return;
   }
 

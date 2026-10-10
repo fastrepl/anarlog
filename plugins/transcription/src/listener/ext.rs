@@ -117,8 +117,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
             hydrate_session_state(&mut snapshot, session_id, cached);
         }
 
-        if snapshot.active_session_id.is_some() {
-            snapshot.mic_muted = Some(self.get_mic_muted().await);
+        if let Some(session_id) = &snapshot.active_session_id
+            && let Some(cell) = registry::where_is(SourceActor::name(session_id))
+        {
+            let source: ActorRef<SourceMsg> = cell.into();
+            snapshot.mic_muted = call_t!(source, SourceMsg::GetMicMute, 100).ok();
+            snapshot.capture_health = call_t!(source, SourceMsg::GetCaptureHealth, 100).ok();
         }
 
         Ok(snapshot)
@@ -138,6 +142,23 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
         if let Some(actor) = active_source().await {
             let _ = actor.cast(SourceMsg::SetMicMute(muted));
         }
+    }
+
+    pub async fn retry_audio_capture(
+        &self,
+        session_id: String,
+        device: Option<String>,
+    ) -> crate::Result<()> {
+        let snapshot = self.get_capture_snapshot().await?;
+        if snapshot.active_session_id.as_ref() != Some(&session_id) {
+            return Err(crate::Error::ActorNotFound("active source".into()));
+        }
+        let cell = registry::where_is(SourceActor::name(&session_id))
+            .ok_or_else(|| crate::Error::ActorNotFound("active source".into()))?;
+        let source: ActorRef<SourceMsg> = cell.into();
+        source
+            .cast(SourceMsg::RetryCapture(device))
+            .map_err(|_| crate::Error::ActorNotFound("active source".into()))
     }
 
     #[tracing::instrument(skip_all)]
@@ -340,6 +361,7 @@ mod tests {
             started_at_ms: None,
             mic_muted: None,
             degraded: None,
+            capture_health: None,
         };
 
         hydrate_session_state(&mut snapshot, "session-a".to_string(), None);

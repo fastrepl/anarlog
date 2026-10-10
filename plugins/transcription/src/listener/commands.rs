@@ -134,6 +134,19 @@ pub async fn set_mic_muted<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn retry_audio_capture<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+    device: Option<String>,
+) -> Result<(), String> {
+    app.listener()
+        .retry_audio_capture(session_id, device)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn start_capture<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: CaptureParams,
