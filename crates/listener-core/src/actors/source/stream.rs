@@ -268,9 +268,14 @@ async fn handle_capture_item(
                 .cast(SourceMsg::ChannelFailed(channel, error.to_string()));
             StreamResult::Continue
         }
-        Some(Ok(CaptureEvent::Frame(frame))) => {
+        Some(Ok(event @ (CaptureEvent::Frame(_) | CaptureEvent::Gap(_)))) => {
+            let captured = matches!(event, CaptureEvent::Frame(_));
+            let (CaptureEvent::Frame(frame) | CaptureEvent::Gap(frame)) = event else {
+                unreachable!()
+            };
             let frame = SourceFrame {
                 capture: frame,
+                captured,
                 mic_muted: ctx.mic_muted.load(std::sync::atomic::Ordering::Relaxed),
             };
 

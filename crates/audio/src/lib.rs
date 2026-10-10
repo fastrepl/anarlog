@@ -68,6 +68,8 @@ pub enum CaptureChannel {
 
 pub enum CaptureEvent {
     Frame(CaptureFrame),
+    // Clock padding preserves offsets without claiming that a device delivered audio.
+    Gap(CaptureFrame),
     ChannelReady {
         channel: CaptureChannel,
         device: Option<String>,
@@ -137,7 +139,7 @@ impl Stream for CaptureStream {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             match self.inner.as_mut().poll_next(cx) {
-                Poll::Ready(Some(Ok(CaptureEvent::Frame(frame)))) => {
+                Poll::Ready(Some(Ok(CaptureEvent::Frame(frame) | CaptureEvent::Gap(frame)))) => {
                     return Poll::Ready(Some(Ok(frame)));
                 }
                 Poll::Ready(Some(Ok(_))) => continue,

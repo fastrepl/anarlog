@@ -551,7 +551,18 @@ const createSessionEventHandlers = <T extends LiveStore>(
       setLiveState(set, (live) => updateLiveProgress(live, payload));
       notifyCaptureWarning(get, targetSessionId);
       if (payload.type === "audio_ready")
-        observeSpeakerMicrophone(targetSessionId, { device: payload.device });
+        observeSpeakerMicrophone(targetSessionId, {
+          device: payload.device,
+          available:
+            payload.device !== null || get().live.captureHealth.mic === true,
+        });
+      else if (payload.error === "audio_mic_ready")
+        observeSpeakerMicrophone(targetSessionId, { available: true });
+      else if (payload.error.startsWith("audio_mic_unavailable"))
+        observeSpeakerMicrophone(targetSessionId, {
+          device: null,
+          available: false,
+        });
       return;
     }
 

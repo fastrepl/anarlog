@@ -160,7 +160,7 @@ pub(crate) fn open_recovering(config: CaptureConfig) -> CaptureStream {
             chunks_tx,
             cancel.clone(),
         );
-        let output = run_dual_loop(tx, cancel.clone(), rate, aec_config, chunks_rx);
+        let output = run_dual_loop(tx, cancel.clone(), rate, size, aec_config, chunks_rx);
         tokio::join!(mic, speaker, output);
     });
     CaptureStream::with_events(CaptureStreamInner {
@@ -205,6 +205,7 @@ async fn run_dual_loop(
     tx: tokio::sync::mpsc::Sender<Result<CaptureEvent, Error>>,
     cancel_token: CancellationToken,
     sample_rate: u32,
+    chunk_size: usize,
     aec_enabled: Arc<AtomicBool>,
     mut chunks: tokio::sync::mpsc::Receiver<ChannelItem>,
 ) {
@@ -220,9 +221,21 @@ async fn run_dual_loop(
 
     let mut mic_ready = false;
     let mut speaker_ready = false;
+    let mut last_frame_at = None;
+    let mut gap = None;
+    let mut clock = tokio::time::interval(std::time::Duration::from_secs_f64(
+        chunk_size as f64 / sample_rate as f64,
+    ));
+    clock.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         let item = tokio::select! {
             _ = cancel_token.cancelled() => return,
+            _ = clock.tick(), if gap.is_some() => {
+                if !emit_gap(&tx, &cancel_token, sample_rate, chunk_size, gap.as_mut().unwrap()).await {
+                    return;
+                }
+                continue;
+            },
             item = chunks.recv() => item,
         };
         let Some(item) = item else {
@@ -237,6 +250,11 @@ async fn run_dual_loop(
         }
         match item {
             ChannelItem::Ready(channel, device) => {
+                if let Some(mut gap) = gap.take()
+                    && !emit_gap(&tx, &cancel_token, sample_rate, chunk_size, &mut gap).await
+                {
+                    return;
+                }
                 match channel {
                     CaptureChannel::Mic => mic_ready = true,
                     CaptureChannel::Speaker => speaker_ready = true,
@@ -260,6 +278,9 @@ async fn run_dual_loop(
                         joiner.clear_speaker();
                     }
                 }
+                if !mic_ready && !speaker_ready && gap.is_none() {
+                    gap = last_frame_at.map(|at| (at, 0));
+                }
                 if let Some(aec) = aec.as_mut() {
                     aec.reset();
                 }
@@ -280,6 +301,7 @@ async fn run_dual_loop(
         }
         while let Some((raw_mic, raw_speaker)) = joiner.pop_available_pair(mic_ready, speaker_ready)
         {
+            last_frame_at = Some(tokio::time::Instant::now());
             let raw_mic = Arc::<[f32]>::from(raw_mic);
             let raw_speaker = Arc::<[f32]>::from(raw_speaker);
             let aec_mic = if mic_ready && speaker_ready {
@@ -319,6 +341,33 @@ async fn run_dual_loop(
             }
         }
     }
+}
+
+async fn emit_gap(
+    tx: &tokio::sync::mpsc::Sender<Result<CaptureEvent, Error>>,
+    cancel: &CancellationToken,
+    sample_rate: u32,
+    chunk_size: usize,
+    gap: &mut (tokio::time::Instant, usize),
+) -> bool {
+    let elapsed_samples = (gap.0.elapsed().as_secs_f64() * sample_rate as f64) as usize;
+    while gap.1 < elapsed_samples {
+        let count = (elapsed_samples - gap.1).min(chunk_size);
+        let silence = Arc::<[f32]>::from(vec![0.0; count]);
+        let frame = CaptureFrame {
+            raw_mic: silence.clone(),
+            raw_speaker: silence,
+            aec_mic: None,
+        };
+        tokio::select! {
+            _ = cancel.cancelled() => return false,
+            result = tx.send(Ok(CaptureEvent::Gap(frame))) => {
+                if result.is_err() { return false; }
+            }
+        }
+        gap.1 += count;
+    }
+    true
 }
 
 struct AecReferenceAligner {
@@ -760,6 +809,7 @@ mod tests {
             tx,
             CancellationToken::new(),
             16_000,
+            32,
             Arc::new(AtomicBool::new(false)),
             chunks_rx,
         ));
@@ -792,6 +842,114 @@ mod tests {
         assert_eq!(&*frames[1].raw_speaker, &speaker);
         assert_eq!(&*frames[2].raw_mic, &mic);
         assert!(frames[2].raw_speaker.iter().all(|sample| *sample == 0.0));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn dual_outage_keeps_sixty_seconds_of_silence_before_recovered_audio() {
+        let (chunks_tx, chunks_rx) = tokio::sync::mpsc::channel(32);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+        let cancel = CancellationToken::new();
+        let task = tokio::spawn(run_dual_loop(
+            tx,
+            cancel.clone(),
+            100,
+            10,
+            Arc::new(AtomicBool::new(false)),
+            chunks_rx,
+        ));
+        chunks_tx
+            .send(ChannelItem::Ready(CaptureChannel::Mic, Some("mic".into())))
+            .await
+            .unwrap();
+        chunks_tx
+            .send(ChannelItem::Chunk(CaptureChannel::Mic, vec![0.5; 10]))
+            .await
+            .unwrap();
+        while !matches!(
+            tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap(),
+            CaptureEvent::Frame(_)
+        ) {}
+        chunks_tx
+            .send(ChannelItem::Failed(
+                CaptureChannel::Mic,
+                Error::MicOpenFailed,
+            ))
+            .await
+            .unwrap();
+        chunks_tx
+            .send(ChannelItem::Failed(
+                CaptureChannel::Speaker,
+                Error::SpeakerStreamSetupFailed,
+            ))
+            .await
+            .unwrap();
+        for _ in 0..2 {
+            assert!(matches!(
+                tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap(),
+                CaptureEvent::ChannelFailed { .. }
+            ));
+        }
+        // Advance once; catch-up padding stays bounded by the output queue.
+        tokio::time::advance(std::time::Duration::from_secs(60)).await;
+        let mut gap_samples = 0;
+        while gap_samples < 6000 {
+            match tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap()
+            {
+                CaptureEvent::Gap(frame) => {
+                    assert!(
+                        frame
+                            .raw_dual()
+                            .0
+                            .iter()
+                            .chain(frame.raw_dual().1.iter())
+                            .all(|sample| *sample == 0.0)
+                    );
+                    gap_samples += frame.raw_mic.len();
+                }
+                _ => panic!("silence cannot claim capture readiness"),
+            }
+        }
+        chunks_tx
+            .send(ChannelItem::Ready(CaptureChannel::Speaker, None))
+            .await
+            .unwrap();
+        chunks_tx
+            .send(ChannelItem::Chunk(CaptureChannel::Speaker, vec![0.25; 10]))
+            .await
+            .unwrap();
+        loop {
+            match tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap()
+            {
+                CaptureEvent::Gap(frame) => gap_samples += frame.raw_mic.len(),
+                CaptureEvent::Frame(frame) => {
+                    assert_eq!(&*frame.raw_speaker, &[0.25; 10]);
+                    assert!(
+                        gap_samples >= 6000,
+                        "recorder and transcription must retain the full outage offset"
+                    );
+                    break;
+                }
+                _ => {}
+            }
+        }
+        cancel.cancel();
+        task.await.unwrap();
     }
 
     #[test]

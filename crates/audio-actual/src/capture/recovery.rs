@@ -374,6 +374,54 @@ mod tests {
         );
         cancel.cancel();
         task.await.unwrap();
+        // Start a new capture before the old native callback returns.
+        let open: OpenChannel = Arc::new(|_, _| {
+            Ok(OpenedChannel {
+                stream: Box::pin(stream::iter([Ok(vec![0.5; 32])]).chain(stream::pending())),
+                device: Some("new microphone".into()),
+            })
+        });
+        let (next_retry, next_retry_rx) = mpsc::unbounded_channel();
+        let (next_tx, mut next_rx) = mpsc::channel(32);
+        let next_cancel = CancellationToken::new();
+        let next_task = tokio::spawn(run_channel(
+            CaptureChannel::Mic,
+            open,
+            None,
+            next_retry_rx,
+            next_tx,
+            next_cancel.clone(),
+        ));
+        assert!(matches!(
+            next_rx.recv().await,
+            Some(ChannelItem::Failed(CaptureChannel::Mic, _))
+        ));
+        let open: OpenChannel = Arc::new(|_, _| {
+            Ok(OpenedChannel {
+                stream: Box::pin(stream::iter([Ok(vec![0.25; 32])]).chain(stream::pending())),
+                device: None,
+            })
+        });
+        let (_speaker_retry, speaker_retry_rx) = mpsc::unbounded_channel();
+        let (speaker_tx, mut speaker_rx) = mpsc::channel(32);
+        let speaker_task = tokio::spawn(run_channel(
+            CaptureChannel::Speaker,
+            open,
+            None,
+            speaker_retry_rx,
+            speaker_tx,
+            next_cancel.clone(),
+        ));
+        assert!(matches!(
+            speaker_rx.recv().await,
+            Some(ChannelItem::Ready(CaptureChannel::Speaker, _))
+        ));
+        match speaker_rx.recv().await.unwrap() {
+            ChannelItem::Chunk(CaptureChannel::Speaker, samples) => {
+                assert_eq!(samples, vec![0.25; 32])
+            }
+            _ => panic!("next recording must retain healthy system audio"),
+        }
         release_tx.send(()).unwrap();
         // The callback remains protected even after its session is cancelled.
         tokio::time::timeout(Duration::from_secs(1), async {
@@ -383,5 +431,19 @@ mod tests {
         })
         .await
         .unwrap();
+        next_retry.send((None, true)).unwrap();
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(1), next_rx.recv())
+                .await
+                .unwrap(),
+            Some(ChannelItem::Ready(CaptureChannel::Mic, _))
+        ));
+        match next_rx.recv().await.unwrap() {
+            ChannelItem::Chunk(CaptureChannel::Mic, samples) => assert_eq!(samples, vec![0.5; 32]),
+            _ => panic!("microphone must recover after the old startup returns"),
+        }
+        next_cancel.cancel();
+        next_task.await.unwrap();
+        speaker_task.await.unwrap();
     }
 }

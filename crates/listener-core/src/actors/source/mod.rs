@@ -55,6 +55,7 @@ pub struct CaptureHealth {
 pub struct SourceFrame {
     pub capture: CaptureFrame,
     pub mic_muted: bool,
+    pub captured: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -498,23 +499,29 @@ impl Actor for SourceActor {
                             break;
                         };
                         let now = std::time::Instant::now();
-                        if st
-                            .last_frame
-                            .is_none_or(|last| now.duration_since(last) > Duration::from_secs(5))
-                        {
-                            st.healthy_since = Some(now);
-                        }
-                        st.last_frame = Some(now);
-                        if st.healthy_since.is_some_and(|started| {
-                            now.duration_since(started) >= Duration::from_secs(30)
-                        }) {
-                            if let Some(cell) = ractor::registry::where_is(
-                                crate::actors::session_supervisor_name(&st.session_id),
-                            ) {
-                                let supervisor: ActorRef<crate::actors::SessionMsg> = cell.into();
-                                let _ = supervisor.cast(crate::actors::SessionMsg::SourceHealthy);
+                        if !frame.captured {
+                            st.healthy_since = None;
+                            st.last_frame = None;
+                        } else {
+                            if st.last_frame.is_none_or(|last| {
+                                now.duration_since(last) > Duration::from_secs(5)
+                            }) {
+                                st.healthy_since = Some(now);
                             }
-                            st.healthy_since = Some(now);
+                            st.last_frame = Some(now);
+                            if st.healthy_since.is_some_and(|started| {
+                                now.duration_since(started) >= Duration::from_secs(30)
+                            }) {
+                                if let Some(cell) = ractor::registry::where_is(
+                                    crate::actors::session_supervisor_name(&st.session_id),
+                                ) {
+                                    let supervisor: ActorRef<crate::actors::SessionMsg> =
+                                        cell.into();
+                                    let _ =
+                                        supervisor.cast(crate::actors::SessionMsg::SourceHealthy);
+                                }
+                                st.healthy_since = Some(now);
+                            }
                         }
                         st.pipeline
                             .dispatch_frame(
@@ -641,12 +648,24 @@ mod tests {
         end_immediately: bool,
         emit_frame: bool,
         partial_audio: bool,
+        gap_only: bool,
         output_tx: Option<mpsc::UnboundedSender<bool>>,
     }
 
     impl AudioProvider for TestAudio {
         fn open_capture(&self, config: CaptureConfig) -> Result<CaptureStream, Error> {
             let _ = self.capture_tx.send(config.mic_device);
+            if self.gap_only {
+                let silence = Arc::from(vec![0.0; config.chunk_size]);
+                return Ok(CaptureStream::with_events(
+                    stream::iter([Ok(CaptureEvent::Gap(CaptureFrame {
+                        raw_mic: Arc::clone(&silence),
+                        raw_speaker: silence,
+                        aec_mic: None,
+                    }))])
+                    .chain(stream::pending()),
+                ));
+            }
             if self.partial_audio {
                 let samples = (0..16_000)
                     .map(|i| (i as f32 * 440.0 * std::f32::consts::TAU / 16_000.0).sin() * 0.25)
@@ -747,6 +766,7 @@ mod tests {
             end_immediately: false,
             emit_frame: true,
             partial_audio: false,
+            gap_only: false,
             output_tx: None,
         });
         let expected = mic_device.map(str::to_string);
@@ -812,6 +832,7 @@ mod tests {
                     end_immediately: false,
                     emit_frame: false,
                     partial_audio: false,
+                    gap_only: true,
                     output_tx: None,
                 }),
                 session_id: "no-frames".into(),
@@ -903,6 +924,7 @@ mod tests {
                     end_immediately: false,
                     emit_frame: true,
                     partial_audio: false,
+                    gap_only: false,
                     output_tx: Some(output_tx),
                 }),
                 session_id: "output-change".into(),
@@ -951,6 +973,7 @@ mod tests {
             end_immediately: true,
             emit_frame: false,
             partial_audio: false,
+            gap_only: false,
             output_tx: None,
         });
         let (_actor, handle) = Actor::spawn(
@@ -1044,6 +1067,7 @@ mod tests {
                     end_immediately: false,
                     emit_frame: false,
                     partial_audio: true,
+                    gap_only: false,
                     output_tx: None,
                 }),
                 session_id: "partial-audio".into(),
@@ -1219,6 +1243,7 @@ mod tests {
                         end_immediately: false,
                         emit_frame: true,
                         partial_audio: false,
+                        gap_only: false,
                         output_tx: None,
                     });
                     let (source, source_handle) = Actor::spawn(
