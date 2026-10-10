@@ -14,13 +14,15 @@ use super::*;
 
 #[derive(Clone, Default)]
 struct RateLimitedOnce {
+    status: u16,
     requests: Arc<AtomicUsize>,
 }
 
 impl Respond for RateLimitedOnce {
     fn respond(&self, _request: &Request) -> ResponseTemplate {
         if self.requests.fetch_add(1, Ordering::Relaxed) == 0 {
-            return ResponseTemplate::new(429).insert_header("retry-after", "0");
+            return ResponseTemplate::new(if self.status == 0 { 429 } else { self.status })
+                .insert_header("retry-after", "0");
         }
         ResponseTemplate::new(200).set_body_json(json!({
             "initialized": true,
@@ -192,28 +194,33 @@ fn cancelled_replica_work_is_reported_as_an_interrupted_witness_operation() {
 }
 
 #[tokio::test]
-async fn retries_a_rate_limited_witness_read() {
-    let server = MockServer::start().await;
-    let responder = RateLimitedOnce::default();
-    Mock::given(method("GET"))
-        .and(path("/sync/e2ee/witness/user-a"))
-        .respond_with(responder.clone())
-        .expect(2)
-        .mount(&server)
-        .await;
-    let client = E2eeWitnessClient::new(
-        E2eeWitnessConfig {
-            endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
-            access_token: "access-token".to_string(),
-        },
-        "user-a",
-    )
-    .unwrap();
+async fn retries_rate_limited_and_busy_witness_reads() {
+    for status in [429, 503] {
+        let server = MockServer::start().await;
+        let responder = RateLimitedOnce {
+            status,
+            ..Default::default()
+        };
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(responder.clone())
+            .expect(2)
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
 
-    let page = client.read_page(0, None).await.unwrap();
+        let page = client.read_page(0, None).await.unwrap();
 
-    assert_eq!(page.head_sequence, 0);
-    assert_eq!(responder.requests.load(Ordering::Relaxed), 2);
+        assert_eq!(page.head_sequence, 0);
+        assert_eq!(responder.requests.load(Ordering::Relaxed), 2);
+    }
 }
 
 #[tokio::test]

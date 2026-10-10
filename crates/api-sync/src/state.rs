@@ -8,6 +8,60 @@ use crate::live_docs::LiveDocs;
 
 const UPSTREAM_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const ATTACHMENT_VERIFICATION_CONCURRENCY: usize = 1;
+const WITNESS_WRITE_CONCURRENCY: usize = 4;
+const WITNESS_WRITE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+
+type WitnessWorkspaces = Arc<Mutex<HashMap<String, (bool, std::time::Instant)>>>;
+
+#[derive(Clone)]
+pub(crate) struct WitnessWrites {
+    slots: Arc<Semaphore>,
+    workspaces: WitnessWorkspaces,
+}
+
+impl Default for WitnessWrites {
+    fn default() -> Self {
+        Self {
+            slots: Arc::new(Semaphore::new(WITNESS_WRITE_CONCURRENCY)),
+            workspaces: Arc::default(),
+        }
+    }
+}
+
+impl WitnessWrites {
+    pub(crate) fn try_acquire(&self, workspace_id: &str) -> Option<WitnessWritePermit> {
+        let slot = Arc::clone(&self.slots).try_acquire_owned().ok()?;
+        let now = std::time::Instant::now();
+        let mut workspaces = self.workspaces.lock().unwrap();
+        workspaces.retain(|_, (active, deadline)| *active || *deadline > now);
+        if workspaces.contains_key(workspace_id) {
+            return None;
+        }
+        workspaces.insert(
+            workspace_id.to_string(),
+            (true, now + WITNESS_WRITE_INTERVAL),
+        );
+        Some(WitnessWritePermit {
+            _slot: slot,
+            workspaces: Arc::clone(&self.workspaces),
+            workspace_id: workspace_id.to_string(),
+        })
+    }
+}
+
+pub(crate) struct WitnessWritePermit {
+    _slot: tokio::sync::OwnedSemaphorePermit,
+    workspaces: WitnessWorkspaces,
+    workspace_id: String,
+}
+
+impl Drop for WitnessWritePermit {
+    fn drop(&mut self) {
+        if let Some((active, _)) = self.workspaces.lock().unwrap().get_mut(&self.workspace_id) {
+            *active = false;
+        }
+    }
+}
 
 /// Instance-local wake channels for witness long-polls. Publishes on this
 /// instance wake waiters immediately; cross-instance publishes are covered by
@@ -40,6 +94,7 @@ pub struct ReplicaState {
     pub(crate) config: ReplicaConfig,
     pub(crate) client: reqwest::Client,
     pub(crate) witness_wakes: WitnessWakes,
+    pub(crate) witness_writes: WitnessWrites,
 }
 
 impl ReplicaState {
@@ -54,6 +109,7 @@ impl ReplicaState {
             config,
             client,
             witness_wakes: WitnessWakes::default(),
+            witness_writes: WitnessWrites::default(),
         }
     }
 }

@@ -888,8 +888,10 @@ impl E2eeWitnessClient {
                 .run_network(request().send())
                 .await?
                 .map_err(transport_error)?;
-            if response.status() != reqwest::StatusCode::TOO_MANY_REQUESTS
-                || retries == MAX_RATE_LIMIT_RETRIES
+            if !matches!(
+                response.status(),
+                reqwest::StatusCode::TOO_MANY_REQUESTS | reqwest::StatusCode::SERVICE_UNAVAILABLE
+            ) || retries == MAX_RATE_LIMIT_RETRIES
             {
                 return Ok(response);
             }
