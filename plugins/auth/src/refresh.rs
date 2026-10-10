@@ -30,9 +30,13 @@ impl RefreshGate {
     pub(crate) fn begin(&self, refresh_token: &str, now: Instant) -> RefreshPermit {
         let identity: [u8; 32] = Sha256::digest(refresh_token.as_bytes()).into();
         let mut state = self.0.lock().unwrap();
-        // Keep old-token backoff while another account or rotated token is active.
-        state.credentials.retain(|key, credential| {
-            key == &identity || credential.deadline().is_some_and(|deadline| deadline > now)
+        // Keep failure history for an hour after cooldown, including interleaved accounts.
+        state.credentials.retain(|_, credential| {
+            credential.deadline().is_some_and(|deadline| {
+                deadline > now
+                    || (credential.failures > 0
+                        && now.saturating_duration_since(deadline) < Duration::from_secs(3600))
+            })
         });
         let deadline = state
             .credentials
@@ -108,6 +112,32 @@ impl CredentialRefresh {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interleaved_credentials_keep_backoff_until_failure_history_expires() {
+        let gate = RefreshGate::default();
+        let now = Instant::now();
+        let first = gate.begin("account-a", now).lease_id.unwrap();
+        gate.finish(first, None, None, now);
+        let later = now + Duration::from_secs(32);
+        let other = gate.begin("account-b", later).lease_id.unwrap();
+        gate.finish(other, Some(200), None, later);
+        let retry = gate.begin("account-a", later).lease_id.unwrap();
+        gate.finish(retry, None, None, later);
+        assert!(
+            gate.begin("account-a", later + Duration::from_secs(59))
+                .lease_id
+                .is_none()
+        );
+        let expired = now + Duration::from_secs(4000);
+        let fresh = gate.begin("account-a", expired).lease_id.unwrap();
+        gate.finish(fresh, None, None, expired);
+        assert!(
+            gate.begin("account-a", expired + Duration::from_secs(32))
+                .lease_id
+                .is_some()
+        );
+    }
 
     #[test]
     fn refresh_rate_limits_are_shared_and_expired_windows_cannot_release_new_leases() {

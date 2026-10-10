@@ -11,12 +11,16 @@ test("concurrent windows do not duplicate refreshes or receive another account's
   const options = {
     supabaseUrl: "https://project.supabase.co",
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (!input.toString().includes("grant_type=refresh_token")) {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (!url.includes("grant_type=refresh_token")) {
         return Response.json({ operation: "sign-in" });
       }
       const body = await new Request(input, init).json();
       if (body.refresh_token === "other-account") {
         return Response.json({ access_token: "other-account-result" });
+      }
+      if (body.option === "B") {
+        return Response.json({ access_token: "option-b-result" });
       }
       return new Promise<Response>((resolve) => {
         release = resolve;
@@ -43,6 +47,11 @@ test("concurrent windows do not duplicate refreshes or receive another account's
   };
   const first = firstWindow(url, request);
   const joined = firstWindow(url, request);
+  const distinctRequest = {
+    ...request,
+    body: JSON.stringify({ refresh_token: "first-account", option: "B" }),
+  };
+  expect((await firstWindow(url, distinctRequest)).status).toBe(429);
   const otherAccount = await firstWindow(url, {
     ...request,
     body: JSON.stringify({ refresh_token: "other-account" }),
@@ -63,6 +72,37 @@ test("concurrent windows do not duplicate refreshes or receive another account's
   expect(await (await joined).json()).toEqual({
     access_token: "first-account-result",
   });
+  expect(await (await firstWindow(url, distinctRequest)).json()).toEqual({
+    access_token: "option-b-result",
+  });
+});
+
+test("streaming refresh bodies reach auth unchanged", async () => {
+  const fetch = createRefreshFetch({
+    supabaseUrl: "https://project.supabase.co",
+    fetch: async (input, init) => {
+      const body = await new Request(input, init).json();
+      return Response.json({ access_token: body.refresh_token });
+    },
+    beginRefresh: async () => ({ leaseId: 1, retryAfterMs: 0 }),
+    finishRefresh: async () => {},
+  });
+  const response = await fetch(
+    "https://project.supabase.co/auth/v1/token?grant_type=refresh_token",
+    {
+      method: "POST",
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode('{"refresh_token":"stream-token"}'),
+          );
+          controller.close();
+        },
+      }),
+      ...{ duplex: "half" },
+    },
+  );
+  expect(await response.json()).toEqual({ access_token: "stream-token" });
 });
 
 test.each(["rate-limit", "offline"])(

@@ -36,10 +36,27 @@ export function createRefreshFetch({
     ) {
       return fetch(input, init);
     }
-    const body = await new Request(
+    const request = new Request(
       input instanceof Request ? input.clone() : input,
       init,
-    ).text();
+    );
+    const body = await request.clone().text();
+    const key = JSON.stringify([
+      request.url,
+      request.method,
+      body,
+      [...request.headers],
+      request.credentials,
+      request.mode,
+      request.cache,
+      request.redirect,
+      request.referrer,
+      request.referrerPolicy,
+      request.integrity,
+      request.keepalive,
+    ]);
+    // Explicitly cancellable requests must retain their own response and signal.
+    const canJoin = !init?.signal && !(input instanceof Request);
     let credential = body;
     try {
       const parsed = JSON.parse(body);
@@ -66,15 +83,13 @@ export function createRefreshFetch({
       }
       let response: Response | null = null;
       const controller = new AbortController();
-      const signal =
-        init?.signal ?? (input instanceof Request ? input.signal : null);
+      const signal = request.signal;
       const abort = () => controller.abort(signal?.reason);
       signal?.addEventListener("abort", abort, { once: true });
       if (signal?.aborted) abort();
       const timeout = setTimeout(() => controller.abort(), 45_000);
       try {
-        const upstream = await fetch(input, {
-          ...init,
+        const upstream = await fetch(request, {
           signal: controller.signal,
         });
         response = new Response(await upstream.arrayBuffer(), {
@@ -104,12 +119,12 @@ export function createRefreshFetch({
         });
       }
     };
-    let pending = inFlight.get(credential);
+    let pending = canJoin ? inFlight.get(key) : undefined;
     if (!pending) {
       pending = refresh().finally(() => {
-        inFlight.delete(credential);
+        if (canJoin) inFlight.delete(key);
       });
-      inFlight.set(credential, pending);
+      if (canJoin) inFlight.set(key, pending);
     }
     return (await pending).clone();
   };
