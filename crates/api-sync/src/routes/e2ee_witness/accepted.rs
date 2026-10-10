@@ -126,7 +126,8 @@ pub(super) async fn read(
 #[utoipa::path(post, path = "/e2ee/witness/{workspace_id}/accepted", tag = "sync", operation_id = "accept_e2ee_replica_batch",
     params(("workspace_id" = String, Path)), request_body = AcceptRequest,
     responses((status = 200, description = "Atomic acceptance receipt", body = AcceptResponse),
-              (status = 409, description = "Cloud base changed; pull and rebase")))]
+              (status = 409, description = "Cloud base changed; pull and rebase"),
+              (status = 503, description = "Acceptance busy; retry after the Retry-After delay")))]
 pub(super) async fn accept(
     Extension(auth): Extension<AuthContext>,
     State(state): State<ReplicaState>,
@@ -137,6 +138,10 @@ pub(super) async fn accept(
     if Uuid::parse_str(&request.mutation_id).is_err() {
         return Err(SyncError::BadRequest("Invalid mutation identity".into()));
     }
+    let _permit = state
+        .witness_writes
+        .try_acquire(&workspace_id)
+        .ok_or(SyncError::E2eeWitnessBusy)?;
     let legacy = PublishE2eeWitnessRequest {
         initialize: request.initialize,
         events: request.events,

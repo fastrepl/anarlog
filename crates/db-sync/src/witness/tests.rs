@@ -14,13 +14,15 @@ use super::*;
 
 #[derive(Clone, Default)]
 struct RateLimitedOnce {
+    status: u16,
     requests: Arc<AtomicUsize>,
 }
 
 impl Respond for RateLimitedOnce {
     fn respond(&self, _request: &Request) -> ResponseTemplate {
         if self.requests.fetch_add(1, Ordering::Relaxed) == 0 {
-            return ResponseTemplate::new(429).insert_header("retry-after", "0");
+            return ResponseTemplate::new(if self.status == 0 { 429 } else { self.status })
+                .insert_header("retry-after", "0");
         }
         ResponseTemplate::new(200).set_body_json(json!({
             "initialized": true,
@@ -192,13 +194,42 @@ fn cancelled_replica_work_is_reported_as_an_interrupted_witness_operation() {
 }
 
 #[tokio::test]
-async fn retries_a_rate_limited_witness_read() {
+async fn retries_rate_limited_and_busy_witness_reads() {
+    for status in [429, 503] {
+        let server = MockServer::start().await;
+        let responder = RateLimitedOnce {
+            status,
+            ..Default::default()
+        };
+        Mock::given(method("GET"))
+            .and(path("/sync/e2ee/witness/user-a"))
+            .respond_with(responder.clone())
+            .expect(2)
+            .mount(&server)
+            .await;
+        let client = E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "user-a",
+        )
+        .unwrap();
+
+        let page = client.read_page(0, None).await.unwrap();
+
+        assert_eq!(page.head_sequence, 0);
+        assert_eq!(responder.requests.load(Ordering::Relaxed), 2);
+    }
+}
+
+#[tokio::test]
+async fn headerless_service_outages_fail_without_a_rate_limit_retry_delay() {
     let server = MockServer::start().await;
-    let responder = RateLimitedOnce::default();
     Mock::given(method("GET"))
         .and(path("/sync/e2ee/witness/user-a"))
-        .respond_with(responder.clone())
-        .expect(2)
+        .respond_with(ResponseTemplate::new(503))
+        .expect(1)
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
@@ -209,11 +240,12 @@ async fn retries_a_rate_limited_witness_read() {
         "user-a",
     )
     .unwrap();
-
-    let page = client.read_page(0, None).await.unwrap();
-
-    assert_eq!(page.head_sequence, 0);
-    assert_eq!(responder.requests.load(Ordering::Relaxed), 2);
+    let error = tokio::time::timeout(std::time::Duration::from_secs(1), client.read_page(0, None))
+        .await
+        .expect("ordinary outages must not enter the busy retry sleep")
+        .err()
+        .expect("service outage must fail");
+    assert!(error.to_string().contains("503"));
 }
 
 #[tokio::test]
@@ -1469,16 +1501,16 @@ async fn accepted_refresh_resumes_after_restart_without_exposing_partial_rows() 
 #[test]
 fn retry_after_delays_are_bounded_and_allow_immediate_test_retries() {
     let mut headers = reqwest::header::HeaderMap::new();
-    assert_eq!(retry_after_delay(&headers), DEFAULT_RETRY_AFTER);
+    assert_eq!(retry_after_delay(&headers), None);
 
     headers.insert(reqwest::header::RETRY_AFTER, "0".parse().unwrap());
-    assert!(retry_after_delay(&headers).is_zero());
+    assert_eq!(retry_after_delay(&headers), Some(std::time::Duration::ZERO));
 
     headers.insert(reqwest::header::RETRY_AFTER, "later".parse().unwrap());
-    assert_eq!(retry_after_delay(&headers), DEFAULT_RETRY_AFTER);
+    assert_eq!(retry_after_delay(&headers), None);
 
     headers.insert(reqwest::header::RETRY_AFTER, "120".parse().unwrap());
-    assert_eq!(retry_after_delay(&headers), MAX_RETRY_AFTER);
+    assert_eq!(retry_after_delay(&headers), Some(MAX_RETRY_AFTER));
 }
 
 #[tokio::test]

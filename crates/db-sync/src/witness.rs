@@ -888,12 +888,20 @@ impl E2eeWitnessClient {
                 .run_network(request().send())
                 .await?
                 .map_err(transport_error)?;
-            if response.status() != reqwest::StatusCode::TOO_MANY_REQUESTS
-                || retries == MAX_RATE_LIMIT_RETRIES
-            {
+            let retry_after = retry_after_delay(response.headers());
+            let delay = match response.status() {
+                reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                    retry_after.unwrap_or(DEFAULT_RETRY_AFTER)
+                }
+                reqwest::StatusCode::SERVICE_UNAVAILABLE => match retry_after {
+                    Some(delay) => delay,
+                    None => return Ok(response),
+                },
+                _ => return Ok(response),
+            };
+            if retries == MAX_RATE_LIMIT_RETRIES {
                 return Ok(response);
             }
-            let delay = retry_after_delay(response.headers());
             cancellation.run_network(read_bounded(response)).await??;
             cancellation.run_network(tokio::time::sleep(delay)).await?;
             retries += 1;
@@ -1009,17 +1017,19 @@ fn cancelled_error() -> io::Error {
     io::Error::new(io::ErrorKind::Interrupted, "E2EE witness request cancelled")
 }
 
-fn retry_after_delay(headers: &reqwest::header::HeaderMap) -> std::time::Duration {
+fn retry_after_delay(headers: &reqwest::header::HeaderMap) -> Option<std::time::Duration> {
     let seconds = headers
         .get(reqwest::header::RETRY_AFTER)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.parse::<u64>().ok());
     match seconds {
-        None => DEFAULT_RETRY_AFTER,
-        Some(0) => std::time::Duration::ZERO,
-        Some(seconds) => std::time::Duration::from_secs(seconds)
-            .saturating_add(std::time::Duration::from_secs(1))
-            .min(MAX_RETRY_AFTER),
+        None => None,
+        Some(0) => Some(std::time::Duration::ZERO),
+        Some(seconds) => Some(
+            std::time::Duration::from_secs(seconds)
+                .saturating_add(std::time::Duration::from_secs(1))
+                .min(MAX_RETRY_AFTER),
+        ),
     }
 }
 
