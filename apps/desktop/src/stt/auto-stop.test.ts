@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   AUTO_STOP_NETWORK_HOLD_MS,
   AUTO_STOP_RECENT_OFFLINE_MS,
+  getMeetingAppsStillOnCall,
   isRecentNetworkDrop,
   resolveNetworkHoldUntilMs,
   showMeetingEndedPrompt,
@@ -54,6 +55,41 @@ describe("resolveNetworkHoldUntilMs", () => {
     expect(
       resolveNetworkHoldUntilMs({ calendarDeadlineMs, nowMs: 1_000 }),
     ).toBe(expected);
+  });
+});
+
+describe("getMeetingAppsStillOnCall", () => {
+  const teams = { id: "com.microsoft.teams2", name: "Microsoft Teams" };
+  const braveOrigin = { id: "com.brave.Browser.origin", name: "Brave Origin" };
+  const chrome = { id: "com.google.Chrome", name: "Google Chrome" };
+  const recorder = { id: "com.example.recorder", name: "Recorder" };
+
+  test.each([
+    {
+      name: "keeps recording when a browser goes quiet during a Teams call",
+      triggerAppIds: [teams.id, braveOrigin.id],
+      quietApps: [braveOrigin],
+      micApps: [teams, recorder],
+      expected: [teams],
+    },
+    {
+      name: "keeps recording when a recorder goes quiet while an untracked meeting app has the call",
+      triggerAppIds: [recorder.id],
+      quietApps: [recorder],
+      micApps: [teams],
+      expected: [teams],
+    },
+    {
+      name: "stops when the meeting app itself goes quiet, even if an unrelated browser has the mic",
+      triggerAppIds: [teams.id, recorder.id],
+      quietApps: [teams],
+      micApps: [chrome, recorder],
+      expected: [],
+    },
+  ])("$name", ({ triggerAppIds, quietApps, micApps, expected }) => {
+    expect(
+      getMeetingAppsStillOnCall({ triggerAppIds, quietApps, micApps }),
+    ).toEqual(expected);
   });
 });
 

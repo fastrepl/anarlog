@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   getScheduledAutoStartAction,
   hasPendingAutoStart,
+  isPreviousCallOnMic,
   SCHEDULED_AUTO_START_GRACE_MS,
   type ScheduledMeetingRow,
   ScheduledMeetingAutoStart,
@@ -25,7 +26,14 @@ const mocks = vi.hoisted(() => ({
   subscribeMeetings: vi.fn(),
   subscribeListener: vi.fn(),
   subscribeTabs: vi.fn(),
+  listMicUsingApplications: vi.fn(),
+  listenDetectEvent: vi.fn(),
   tabs: [] as Tab[],
+}));
+
+vi.mock("@anlg/plugin-detect", () => ({
+  commands: { listMicUsingApplications: mocks.listMicUsingApplications },
+  events: { detectEvent: { listen: mocks.listenDetectEvent } },
 }));
 
 vi.mock("@anlg/plugin-windows", () => ({
@@ -116,6 +124,7 @@ function meeting(
   return {
     id,
     started_at: new Date(NOW + offsetMs).toISOString(),
+    ended_at: new Date(NOW + offsetMs + 30 * 60_000).toISOString(),
     meeting_link: `https://zoom.us/j/${id}`,
     tracking_id_event: `tracking-${id}`,
     recurrence_series_id: "",
@@ -295,6 +304,10 @@ describe("startScheduledMeeting", () => {
     mocks.subscribeMeetings.mockReset().mockResolvedValue(async () => {});
     mocks.subscribeListener.mockReset().mockReturnValue(() => {});
     mocks.subscribeTabs.mockReset().mockReturnValue(() => {});
+    mocks.listMicUsingApplications
+      .mockReset()
+      .mockResolvedValue({ status: "ok", data: [] });
+    mocks.listenDetectEvent.mockReset().mockResolvedValue(() => {});
     mocks.tabs = [];
   });
 
@@ -514,6 +527,36 @@ describe("startScheduledMeeting", () => {
     expect(mocks.openNew).not.toHaveBeenCalled();
   });
 
+  test("waits for an earlier call that is still on the mic, then starts when it ends", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW - 15 * 60_000);
+    const teams = { id: "com.microsoft.teams2", name: "Microsoft Teams" };
+    mocks.listMicUsingApplications.mockResolvedValue({
+      status: "ok",
+      data: [teams],
+    });
+    render(createElement(ScheduledMeetingAutoStart));
+    mocks.subscribeMeetings.mock.calls[0][2].onData([
+      meeting("earlier", -30 * 60_000),
+      meeting("next", 0),
+    ]);
+
+    await vi.advanceTimersByTimeAsync(15 * 60_000);
+    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
+
+    mocks.listMicUsingApplications.mockResolvedValue({
+      status: "ok",
+      data: [],
+    });
+    mocks.listenDetectEvent.mock.calls[0][0]({
+      payload: { type: "micStopped", apps: [teams] },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(mocks.getOrCreateSessionForEventId).toHaveBeenCalledWith("next");
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
+  });
+
   test("starts when a due unanswered meeting becomes accepted", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -654,6 +697,42 @@ describe("startScheduledMeeting", () => {
     );
     expect(mocks.openUrl).toHaveBeenCalledWith("https://zoom.us/j/newer", null);
     expect(mocks.openNew).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isPreviousCallOnMic", () => {
+  test.each([
+    {
+      name: "sees a call that took the mic during the earlier meeting",
+      heldSinceMs: NOW - 20 * 60_000,
+      earlierEndMs: NOW,
+      expected: true,
+    },
+    {
+      name: "starts an early join that took the mic in free time",
+      heldSinceMs: NOW - 12 * 60_000,
+      earlierEndMs: NOW - 15 * 60_000,
+      expected: false,
+    },
+    {
+      name: "starts a join from just before the meeting",
+      heldSinceMs: NOW - 2 * 60_000,
+      earlierEndMs: NOW,
+      expected: false,
+    },
+  ])("$name", ({ heldSinceMs, earlierEndMs, expected }) => {
+    const next = meeting("next", 0);
+    const earlier = meeting("earlier", -30 * 60_000, {
+      ended_at: new Date(earlierEndMs).toISOString(),
+    });
+
+    expect(
+      isPreviousCallOnMic({
+        holds: new Map([["com.microsoft.teams2", heldSinceMs]]),
+        meeting: next,
+        rows: [earlier, next],
+      }),
+    ).toBe(expected);
   });
 });
 

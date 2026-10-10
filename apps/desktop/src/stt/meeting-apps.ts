@@ -14,6 +14,7 @@ export const BROWSER_AUTO_STOP_APP_IDS = new Set([
   "com.brave.Browser",
   "com.brave.Browser.beta",
   "com.brave.Browser.nightly",
+  "com.brave.Browser.origin",
   "com.duckduckgo.macos.browser",
   "chrome",
   "comet",
@@ -381,6 +382,10 @@ export function getNotificationAppName(app: MicApp) {
 
 function isBrowserApp(app: MicApp) {
   return BROWSER_AUTO_STOP_APP_IDS.has(app.id);
+}
+
+export function isMeetingCapableMicApp(app: MicApp) {
+  return isBrowserApp(app) || getMicAppNotificationOverride(app) !== undefined;
 }
 
 function detectMeetingPlatformFromUrl(value: string): MeetingPlatform | null {

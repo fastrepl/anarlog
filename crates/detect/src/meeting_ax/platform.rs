@@ -66,6 +66,7 @@ pub(super) const MEETING_APP_BUNDLES: &[MeetingAppBundle] = &[
     MeetingAppBundle::browser("com.brave.Browser"),
     MeetingAppBundle::browser("com.brave.Browser.beta"),
     MeetingAppBundle::browser("com.brave.Browser.nightly"),
+    MeetingAppBundle::browser("com.brave.Browser.origin"),
     MeetingAppBundle::browser("org.chromium.Chromium"),
     MeetingAppBundle::browser("com.vivaldi.Vivaldi"),
     MeetingAppBundle::browser("com.operasoftware.Opera"),
