@@ -82,14 +82,33 @@ export function prepareAuthRoutePrivacy(now = Date.now()) {
   );
 
   try {
-    window.sessionStorage.setItem(
-      AUTH_HANDOFF_STORAGE_KEY,
-      JSON.stringify({ accessToken, refreshToken, storedAt: now }),
+    storeDesktopAuthHandoff(
+      accessToken,
+      refreshToken,
+      now,
+      params.get("desktop_state") ?? undefined,
     );
   } catch {}
 }
 
-export function consumeDesktopAuthHandoff(now = Date.now()) {
+export function storeDesktopAuthHandoff(
+  accessToken: string,
+  refreshToken: string,
+  now = Date.now(),
+  desktopState?: string,
+) {
+  if (typeof window === "undefined")
+    throw new Error("Desktop handoff requires browser storage");
+  window.sessionStorage.setItem(
+    AUTH_HANDOFF_STORAGE_KEY,
+    JSON.stringify({ accessToken, refreshToken, storedAt: now, desktopState }),
+  );
+}
+
+export function consumeDesktopAuthHandoff(
+  now = Date.now(),
+  desktopState?: string,
+) {
   if (typeof window === "undefined") {
     return null;
   }
@@ -112,6 +131,7 @@ export function consumeDesktopAuthHandoff(now = Date.now()) {
       typeof parsed.refreshToken === "string" &&
       typeof parsed.storedAt === "number"
     ) {
+      if (Reflect.get(parsed, "desktopState") !== desktopState) return null;
       const age = now - parsed.storedAt;
       if (age < 0 || age > AUTH_HANDOFF_MAX_AGE_MS) {
         return null;

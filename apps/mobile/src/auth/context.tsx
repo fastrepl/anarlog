@@ -5,6 +5,7 @@ import {
   type Session,
   type SupabaseClient,
 } from "@supabase/supabase-js";
+import { randomUUID } from "expo-crypto";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import {
@@ -18,6 +19,10 @@ import {
   type ReactNode,
 } from "react";
 
+import {
+  consumeAuthCallback,
+  pendingAuthStorageKey,
+} from "@/auth/auth-callback";
 import {
   decodeJwtPayload,
   deriveBillingInfo,
@@ -74,46 +79,6 @@ const isFatalSessionError = (error: unknown): boolean => {
   return false;
 };
 
-function parseAuthCallbackUrl(
-  url: string,
-): { accessToken: string; refreshToken: string } | null {
-  const queryIndex = url.indexOf("?");
-  const base = queryIndex === -1 ? url : url.slice(0, queryIndex);
-  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/auth\/callback\/?$/.test(base)) {
-    return null;
-  }
-
-  const params: Record<string, string> = {};
-  if (queryIndex !== -1) {
-    for (const pair of url.slice(queryIndex + 1).split("&")) {
-      const eq = pair.indexOf("=");
-      if (eq === -1) {
-        continue;
-      }
-      try {
-        params[decodeURIComponent(pair.slice(0, eq))] = decodeURIComponent(
-          pair.slice(eq + 1),
-        );
-      } catch {
-        return null;
-      }
-    }
-  }
-
-  const accessToken = params["access_token"];
-  const refreshToken = params["refresh_token"];
-  if (!accessToken || !refreshToken) {
-    return null;
-  }
-  return { accessToken, refreshToken };
-}
-
-// Deep links can be delivered twice (auth-session result + Linking event);
-// mirror desktop's 5s dedupe window (apps/desktop/src/auth/deeplink.ts).
-const RECENT_CALLBACK_WINDOW_MS = 5_000;
-const inFlightTokens = new Map<string, Promise<boolean>>();
-const recentTokens = new Map<string, number>();
-
 function acceptAuthTokens(
   accessToken: string,
   refreshToken: string,
@@ -121,22 +86,6 @@ function acceptAuthTokens(
   const client = supabase;
   if (!client) {
     return Promise.resolve(false);
-  }
-
-  const now = Date.now();
-  for (const [key, completedAt] of recentTokens) {
-    if (now - completedAt >= RECENT_CALLBACK_WINDOW_MS) {
-      recentTokens.delete(key);
-    }
-  }
-
-  const key = `${accessToken}\n${refreshToken}`;
-  if (recentTokens.has(key)) {
-    return Promise.resolve(true);
-  }
-  const inFlight = inFlightTokens.get(key);
-  if (inFlight) {
-    return inFlight;
   }
 
   const request = client.auth
@@ -154,7 +103,6 @@ function acceptAuthTokens(
           });
           return false;
         }
-        recentTokens.set(key, Date.now());
         return true;
       },
       (error) => {
@@ -168,18 +116,22 @@ function acceptAuthTokens(
         });
         return false;
       },
-    )
-    .finally(() => inFlightTokens.delete(key));
-  inFlightTokens.set(key, request);
+    );
   return request;
 }
 
-function handleAuthCallbackUrl(url: string): Promise<boolean> {
-  const tokens = parseAuthCallbackUrl(url);
+async function handleAuthCallbackUrl(url: string): Promise<boolean> {
+  const tokens = await consumeAuthCallback({
+    url,
+    scheme: env.appScheme,
+    storage: AsyncStorage,
+    installSession: ({ accessToken, refreshToken }) =>
+      acceptAuthTokens(accessToken, refreshToken),
+  });
   if (!tokens) {
     return Promise.resolve(false);
   }
-  return acceptAuthTokens(tokens.accessToken, tokens.refreshToken);
+  return true;
 }
 
 // Offline fallback: a retryable getSession error must not lock a Pro user out
@@ -411,8 +363,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         entry_point: "mobile_sign_in",
       });
       try {
+        const state = randomUUID();
+        await AsyncStorage.setItem(
+          pendingAuthStorageKey,
+          JSON.stringify({ state, createdAt: Date.now() }),
+        );
         const result = await WebBrowser.openAuthSessionAsync(
-          buildSignInUrl(env.appUrl, signInMethod, env.appScheme),
+          buildSignInUrl(env.appUrl, signInMethod, env.appScheme, state),
           `${env.appScheme}://auth/callback`,
         );
         if (result.type === "success") {

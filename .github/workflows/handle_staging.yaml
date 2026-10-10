@@ -32,31 +32,33 @@ jobs:
           comment: ${{ inputs.comment_id }}
           reaction: eyes
       - id: resolve
+        env:
+          EXPLICIT_REF: ${{ inputs.ref }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          WRITE_TOKEN: ${{ secrets.REPO_GITHUB_TOKEN }}
         run: |
-          EXPLICIT_REF="${{ inputs.ref }}"
-
           output_ref() {
-            echo "ref=$1" >> $GITHUB_OUTPUT
-            echo "sha=$2" >> $GITHUB_OUTPUT
-            echo "branch=$3" >> $GITHUB_OUTPUT
-            echo "needs_cleanup=$4" >> $GITHUB_OUTPUT
+            echo "ref=$1" >> "$GITHUB_OUTPUT"
+            echo "sha=$2" >> "$GITHUB_OUTPUT"
+            echo "branch=$3" >> "$GITHUB_OUTPUT"
+            echo "needs_cleanup=$4" >> "$GITHUB_OUTPUT"
           }
 
           if [ -z "$EXPLICIT_REF" ]; then
-            PR_DATA=$(gh api repos/$REPO/pulls/${{ inputs.issue_number }} 2>/dev/null) || {
-              echo "error=Not a pull request" >> $GITHUB_OUTPUT
+            PR_DATA=$(gh api "repos/$REPO/pulls/$ISSUE_NUMBER" 2>/dev/null) || {
+              echo "error=Not a pull request" >> "$GITHUB_OUTPUT"
               exit 0
             }
             BRANCH=$(echo "$PR_DATA" | jq -r '.head.ref')
             SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
             output_ref "$BRANCH" "$SHA" "$BRANCH" "false"
           else
-            SHA=$(gh api repos/$REPO/commits/$EXPLICIT_REF --jq '.sha')
-            if gh api repos/$REPO/git/refs/heads/$EXPLICIT_REF --jq '.ref' >/dev/null 2>&1; then
+            SHA=$(gh api "repos/$REPO/commits/$EXPLICIT_REF" --jq '.sha')
+            if gh api "repos/$REPO/git/refs/heads/$EXPLICIT_REF" --jq '.ref' >/dev/null 2>&1; then
               output_ref "$EXPLICIT_REF" "$SHA" "$EXPLICIT_REF" "false"
             else
               TEMP_BRANCH="staging-temp-${SHA:0:8}"
-              GH_TOKEN=${{ secrets.REPO_GITHUB_TOKEN }} gh api repos/$REPO/git/refs -f ref="refs/heads/$TEMP_BRANCH" -f sha="$SHA"
+              GH_TOKEN="$WRITE_TOKEN" gh api "repos/$REPO/git/refs" -f ref="refs/heads/$TEMP_BRANCH" -f sha="$SHA"
               output_ref "$EXPLICIT_REF" "$SHA" "$TEMP_BRANCH" "true"
             fi
           fi
@@ -72,11 +74,13 @@ jobs:
           repo: ${{ github.repository }}
       - id: result
         if: ${{ always() }}
+        env:
+          BRANCH: ${{ steps.resolve.outputs.branch }}
+          SHA: ${{ steps.resolve.outputs.sha }}
+          RUN_ID: ${{ steps.trigger.outputs.run_id }}
+          ERROR: ${{ steps.resolve.outputs.error }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: |
-          BRANCH="${{ steps.resolve.outputs.branch }}"
-          SHA="${{ steps.resolve.outputs.sha }}"
-          RUN_ID="${{ steps.trigger.outputs.run_id }}"
-          ERROR="${{ steps.resolve.outputs.error }}"
 
           if [ -n "$ERROR" ]; then
             DATA=$(jq -cn \
@@ -92,10 +96,10 @@ jobs:
             DATA=$(jq -cn \
               --arg branch "[\`$BRANCH\`](https://github.com/$REPO/tree/$BRANCH)" \
               --arg sha "[\`${SHA:0:8}\`](https://github.com/$REPO/commit/$SHA)" \
-              --arg status "[Logs](https://github.com/$REPO/actions/runs/${{ github.run_id }})" \
+              --arg status "[Logs](https://github.com/$REPO/actions/runs/$WORKFLOW_RUN_ID)" \
               '[{header: "Branch", value: $branch}, {header: "Commit", value: $sha}, {header: "Status", value: $status}]')
           fi
-          echo "data=$DATA" >> $GITHUB_OUTPUT
+          echo "data=$DATA" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/comment-result
         if: ${{ always() && steps.result.outputs.data != '' }}
         with:
@@ -106,4 +110,5 @@ jobs:
       - if: ${{ always() && steps.resolve.outputs.needs_cleanup == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.REPO_GITHUB_TOKEN }}
-        run: gh api repos/${{ github.repository }}/git/refs/heads/${{ steps.resolve.outputs.branch }} -X DELETE || true
+          BRANCH: ${{ steps.resolve.outputs.branch }}
+        run: gh api "repos/$REPO/git/refs/heads/$BRANCH" -X DELETE || true

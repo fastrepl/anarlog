@@ -1,0 +1,17 @@
+diff --git a/src/sprintf.js b/src/sprintf.js
+index c0fc7c08b2e6fe38de2883034b8d28c8f34e9866..af81044a7a493032f23ec9a776aa488bd8780984 100644
+--- a/src/sprintf.js
++++ b/src/sprintf.js
+@@ -29,7 +29,11 @@
+                 output[output.length] = parse_tree[i]
+             }
+             else if (node_type === "array") {
+-                match = parse_tree[i] // convenience purposes only
++                match = parse_tree[i].slice() // keep cached format specifiers immutable
++                if (match[7] && /[efg]/.test(match[8])) {
++                    match[7] = Math.max(match[8] === "g" ? 1 : 0, Math.min(100, Number(match[7])))
++                }
++                if (match[6]) match[6] = Math.min(10000, Number(match[6]))
+                 if (match[2]) { // keyword argument
+                     arg = argv[cursor]
+                     for (k = 0; k < match[2].length; k++) {

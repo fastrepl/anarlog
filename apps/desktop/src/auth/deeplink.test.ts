@@ -1,94 +1,60 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAuthCallbackHandler } from "./deeplink";
+import {
+  beginDesktopAuth,
+  consumeDesktopAuthState,
+  createAuthCallbackHandler,
+} from "./deeplink";
 
-function deferred() {
-  let resolve!: () => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-
-  return { promise, reject, resolve };
-}
+beforeEach(() => localStorage.clear());
 
 describe("auth callback handling", () => {
-  it("coalesces identical callbacks while accepting distinct callbacks", async () => {
-    let now = 1_000;
-    const first = deferred();
-    const second = deferred();
-    const third = deferred();
-    const setSessionFromTokens = vi
-      .fn<(accessToken: string, refreshToken: string) => Promise<void>>()
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise)
-      .mockReturnValueOnce(third.promise);
+  it("installs only the session matching a pending login and rejects replay", async () => {
+    let session: string | undefined;
     const handle = createAuthCallbackHandler({
-      setSessionFromTokens,
-      now: () => now,
-      recentWindowMs: 100,
+      setSessionFromTokens: async (access) => {
+        session = access;
+      },
     });
-
-    expect(handle("access-a", "refresh-a")).toBe(true);
-    expect(handle("access-a", "refresh-a")).toBe(false);
-    expect(handle("access-b", "refresh-b")).toBe(true);
-    expect(setSessionFromTokens.mock.calls).toEqual([
-      ["access-a", "refresh-a"],
-      ["access-b", "refresh-b"],
-    ]);
-
-    first.resolve();
-    second.resolve();
-    await Promise.all([first.promise, second.promise]);
-    expect(handle("access-a", "refresh-a")).toBe(false);
-
-    now += 101;
-    expect(handle("access-a", "refresh-a")).toBe(true);
-    expect(setSessionFromTokens).toHaveBeenLastCalledWith(
-      "access-a",
-      "refresh-a",
+    expect(await handle("attacker", "refresh")).toBe(false);
+    const state = beginDesktopAuth();
+    expect(await handle("attacker", "refresh", crypto.randomUUID())).toBe(
+      false,
     );
-
-    third.resolve();
-    await third.promise;
+    expect(session).toBeUndefined();
+    expect(await handle("legitimate", "refresh", state)).toBe(true);
+    expect(session).toBe("legitimate");
+    expect(await handle("attacker", "refresh", state)).toBe(false);
+    expect(session).toBe("legitimate");
+    const oldState = beginDesktopAuth(1_000);
+    expect(consumeDesktopAuthState(oldState, 1_000 + 15 * 60 * 1_000 + 1)).toBe(
+      false,
+    );
+    const replacedState = beginDesktopAuth();
+    const newestState = beginDesktopAuth();
+    expect(await handle("stale", "refresh", replacedState)).toBe(false);
+    expect(await handle("newest", "refresh", newestState)).toBe(true);
+    expect(session).toBe("newest");
   });
-
-  it("allows a failed callback to be retried", async () => {
-    const first = deferred();
-    const setSessionFromTokens = vi
-      .fn<(accessToken: string, refreshToken: string) => Promise<void>>()
-      .mockReturnValueOnce(first.promise)
-      .mockResolvedValueOnce(undefined);
-    const handle = createAuthCallbackHandler({ setSessionFromTokens });
-
-    expect(handle("access", "refresh")).toBe(true);
-    first.reject(new Error("temporary failure"));
-    await expect(first.promise).rejects.toThrow("temporary failure");
-
-    expect(handle("access", "refresh")).toBe(true);
-    expect(setSessionFromTokens).toHaveBeenCalledTimes(2);
-  });
-
-  it("keeps a distinct callback guarded when an earlier callback fails", async () => {
-    const first = deferred();
-    const second = deferred();
-    const setSessionFromTokens = vi
-      .fn<(accessToken: string, refreshToken: string) => Promise<void>>()
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise);
-    const handle = createAuthCallbackHandler({ setSessionFromTokens });
-
-    expect(handle("access-a", "refresh-a")).toBe(true);
-    expect(handle("access-b", "refresh-b")).toBe(true);
-
-    first.reject(new Error("stale callback failed"));
-    await expect(first.promise).rejects.toThrow("stale callback failed");
-
-    expect(handle("access-b", "refresh-b")).toBe(false);
-    expect(setSessionFromTokens).toHaveBeenCalledTimes(2);
-
-    second.resolve();
-    await second.promise;
+  it("allows a failed installation to retry while blocking concurrent and completed replays", async () => {
+    const state = beginDesktopAuth();
+    let reject: ((error: Error) => void) | undefined;
+    let installed = false;
+    const handle = createAuthCallbackHandler({
+      setSessionFromTokens: async () => {
+        if (!reject)
+          await new Promise<void>((_resolve, fail) => {
+            reject = fail;
+          });
+        installed = true;
+      },
+    });
+    const first = handle("access", "refresh", state);
+    expect(await handle("access", "refresh", state)).toBe(false);
+    reject!(new Error("offline"));
+    await expect(first).rejects.toThrow("offline");
+    expect(await handle("access", "refresh", state)).toBe(true);
+    expect(installed).toBe(true);
+    expect(await handle("access", "refresh", state)).toBe(false);
   });
 });

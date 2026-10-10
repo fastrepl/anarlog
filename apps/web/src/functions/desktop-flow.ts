@@ -15,6 +15,7 @@ export const DESKTOP_SCHEMES = [
 
 export const DEFAULT_DESKTOP_SCHEME = "anarlog";
 export const desktopSchemeSchema = z.enum(DESKTOP_SCHEMES);
+export const desktopAuthStateSchema = z.uuid();
 export type DesktopScheme = z.infer<typeof desktopSchemeSchema>;
 
 export const flowSearchSchema = <T extends z.ZodRawShape>(
@@ -32,11 +33,13 @@ export const flowSearchSchema = <T extends z.ZodRawShape>(
   return z.union([
     z.object({
       ...common,
+      desktop_state: desktopAuthStateSchema.optional(),
       flow: desktopFlowSchema,
       scheme: desktopSchemeSchema,
     }),
     z.object({
       ...common,
+      desktop_state: desktopAuthStateSchema.optional(),
       flow: webFlowSchema,
       scheme: desktopSchemeSchema.optional(),
     }),

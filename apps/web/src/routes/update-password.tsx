@@ -16,6 +16,7 @@ import {
 import { doUpdatePassword, fetchUser } from "@/functions/auth";
 import { flowSearchSchema } from "@/functions/desktop-flow";
 import { toAuthFlowSearch } from "@/lib/auth-flow-context";
+import { buildDesktopAuthCallbackPath } from "@/lib/desktop-auth-handoff";
 
 const validateSearch = flowSearchSchema({
   redirect: z.string().optional(),
@@ -59,17 +60,17 @@ function Component() {
         if (
           context.flow === "desktop" &&
           "access_token" in result &&
-          "refresh_token" in result
+          "refresh_token" in result &&
+          result.access_token &&
+          result.refresh_token
         ) {
-          navigate({
-            to: "/callback/auth/",
-            search: {
-              flow: "desktop",
-              scheme: context.scheme,
-              access_token: result.access_token,
-              refresh_token: result.refresh_token,
-            },
-          });
+          window.location.href = buildDesktopAuthCallbackPath(
+            result.access_token,
+            result.refresh_token,
+            context.scheme,
+            undefined,
+            context.desktop_state,
+          );
           return;
         }
 
