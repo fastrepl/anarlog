@@ -2,6 +2,7 @@ import { Trans } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 
 import { DefaultMeetingShareAccessSelector } from "./default-share-access";
+import { PrimaryRecordingDeviceSelector } from "./primary-recording-device";
 
 import { SettingSwitchRow } from "~/settings/setting-row";
 
@@ -37,6 +38,7 @@ export function MeetingSettingsView({
   return (
     <div className="flex flex-col gap-4">
       <DefaultMeetingShareAccessSelector />
+      <PrimaryRecordingDeviceSelector />
       <SettingSwitchRow
         title={<Trans>Start when meeting begins</Trans>}
         description={
