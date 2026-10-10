@@ -261,6 +261,11 @@ export const SETTING_DEFINITIONS = {
     path: ["language", "spoken_languages"],
     default: "[]" as string,
   },
+  summary_use_main_language: {
+    type: "boolean",
+    path: ["language", "summary_use_main_language"],
+    default: false as boolean,
+  },
   personalization_dictionary_terms: {
     type: "string",
     path: ["personalization", "dictionary_terms"],

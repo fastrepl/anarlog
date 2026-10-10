@@ -2088,6 +2088,10 @@ msgstr ""
 msgid "Default access"
 msgstr ""
 
+#: src/settings/general/main-language.tsx
+msgid "Default language for transcription and AI responses."
+msgstr ""
+
 #: src/settings/general/default-share-access.tsx
 msgid "Default sharing"
 msgstr ""
@@ -6194,10 +6198,6 @@ msgstr ""
 msgid "Tomorrow"
 msgstr ""
 
-#: src/settings/general/spoken-languages.tsx
-msgid "Transcribe meetings that use more than one language."
-msgstr ""
-
 #: src/chat/components/input/index.tsx
 msgid "Transcribing voice input"
 msgstr ""
@@ -6506,6 +6506,10 @@ msgstr ""
 msgid "Use files"
 msgstr ""
 
+#: src/settings/general/index.tsx
+msgid "Use main language for summaries"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Use recovery key instead"
 msgstr ""
@@ -6530,10 +6534,6 @@ msgstr ""
 msgid "Use this domain for links shared from this workspace."
 msgstr ""
 
-#: src/settings/general/main-language.tsx
-msgid "Use this language for summaries and AI responses."
-msgstr ""
-
 #: src/lock/screen.tsx
 msgid "Use Touch ID or enter your password to view."
 msgstr ""
@@ -6544,6 +6544,10 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
+msgstr ""
+
+#: src/settings/general/spoken-languages.tsx
+msgid "Used for transcription and automatic summary language detection."
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -6659,6 +6663,10 @@ msgstr ""
 
 #: src/changelog/index.tsx
 msgid "What's new in {version}?"
+msgstr ""
+
+#: src/settings/general/index.tsx
+msgid "When off, summaries follow the detected meeting language."
 msgstr ""
 
 #: src/billing/trial-payment-reminder-dialog.tsx

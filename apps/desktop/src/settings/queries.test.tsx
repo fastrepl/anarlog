@@ -194,6 +194,11 @@ describe("SQLite settings", () => {
       value: false,
       table: "app_settings",
     },
+    {
+      key: "summary_use_main_language",
+      value: true,
+      table: "app_settings",
+    },
   ] as const)(
     "persists and reloads $key=$value in $table",
     async ({ key, value, table }) => {
