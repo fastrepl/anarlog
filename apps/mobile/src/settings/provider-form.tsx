@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
+import { Linking } from "react-native";
 
 import { ProRequiredError } from "@/auth/billing";
 import { useAuth } from "@/auth/context";
@@ -30,10 +31,12 @@ import {
 } from "./providers";
 import {
   defaultProviderConfig,
+  isOAuthSubscriptionProvider,
   providersFor,
   type ProviderConfig,
   type ProviderKind,
 } from "./providers-model";
+import { SubscriptionConnect } from "./subscription-connect";
 import { useColors } from "./theme-provider";
 
 export function ProviderSettings({ kind }: { kind: ProviderKind }) {
@@ -206,7 +209,7 @@ function ProviderForm({
               ? select.error.message
               : selectedProvider === "anarlog"
                 ? "Included with your Pro trial or subscription. No API key needed."
-                : "Choose your model here. Configure API keys and connections below."}
+                : "Choose your model here. Configure connections below."}
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>
@@ -241,7 +244,7 @@ function ProviderForm({
                   />
                 }
               >
-                <Text>{`${provider.name}${active ? " · Active" : setup.data?.hasKey ? " · Key saved" : ""}`}</Text>
+                <Text>{`${provider.name}${active ? " · Active" : setup.data?.hasKey ? (isOAuthSubscriptionProvider(provider.id) ? " · Connected" : " · Key saved") : ""}`}</Text>
               </ListItem>
               {setup.isPending ? (
                 open && <Text>Loading…</Text>
@@ -250,6 +253,20 @@ function ProviderForm({
                   <Button
                     label="Try again"
                     onPress={() => void setup.refetch()}
+                  />
+                )
+              ) : isOAuthSubscriptionProvider(provider.id) ? (
+                open && (
+                  <SubscriptionConnect
+                    key={provider.id}
+                    provider={provider.id}
+                    account={account}
+                    connected={setup.data.hasKey}
+                    verificationError={setup.data.verificationError}
+                    onSaved={() => {
+                      if (selectedProviderRef.current === provider.id)
+                        select.mutate({ provider: provider.id });
+                    }}
                   />
                 )
               ) : (
@@ -276,7 +293,7 @@ function ProviderForm({
         })}
         <FieldGroup.SectionFooter>
           <Text>
-            Valid settings save automatically. API keys stay on this device.
+            Valid settings save automatically. Credentials stay on this device.
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>
@@ -348,6 +365,12 @@ function ProviderFields({
       await invalidate();
     },
   });
+  const browser = useMutation({
+    mutationFn: () =>
+      Linking.openURL(
+        "https://www.kimi.com/en/help/kimi-code/membership-guide",
+      ),
+  });
   const form = useForm({
     defaultValues: { baseUrl: config.baseUrl },
   });
@@ -367,6 +390,17 @@ function ProviderFields({
         paddingBottom: 8,
       }}
     >
+      {config.provider === "kimi_code" && (
+        <Column spacing={8}>
+          <Text>Use the API key from your Kimi Code membership settings.</Text>
+          <Button
+            label="Open Kimi Code"
+            variant="text"
+            disabled={browser.isPending}
+            onPress={() => browser.mutate()}
+          />
+        </Column>
+      )}
       <Row alignment="center" spacing={8}>
         <Icon
           name={Icon.select({
@@ -436,9 +470,9 @@ function ProviderFields({
         </Row>
       )}
       {save.isPending && <Text>Verifying key…</Text>}
-      {(save.error || remove.error) && (
+      {(save.error || remove.error || browser.error) && (
         <Text textStyle={{ color: Colors.destructive }}>
-          {(save.error || remove.error)?.message}
+          {(save.error || remove.error || browser.error)?.message}
         </Text>
       )}
       {!save.isPending && !save.error && verificationError && (
