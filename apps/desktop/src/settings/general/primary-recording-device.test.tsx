@@ -10,6 +10,12 @@ import { afterEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   value: "",
+  getDeviceIdentity: vi.fn(
+    async (): Promise<{ fingerprint: string | null; name: string }> => ({
+      fingerprint: "work-device",
+      name: "Work Mac",
+    }),
+  ),
   requestSyncDevices: vi.fn(),
   setSettingValue: vi.fn(async (_key: string, value: string) => {
     mocks.value = value;
@@ -22,10 +28,7 @@ vi.mock("~/auth", () => ({
   }),
 }));
 vi.mock("~/auth/cloudsync-credentials", () => ({
-  getDeviceIdentity: async () => ({
-    fingerprint: "work-device",
-    name: "Work Mac",
-  }),
+  getDeviceIdentity: mocks.getDeviceIdentity,
 }));
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({ isPro: true }),
@@ -105,5 +108,46 @@ test("offers only the current desktop and can clear its preference", async () =>
     "primary_recording_device",
     "",
   );
+  queryClient.clear();
+});
+
+test("identity lookup failure can clear a preference and retry without remounting", async () => {
+  mocks.value = "work-device";
+  mocks.getDeviceIdentity.mockResolvedValueOnce({
+    fingerprint: null,
+    name: "Work Mac",
+  });
+  mocks.requestSyncDevices.mockResolvedValue({
+    devices: [{ deviceFingerprint: "work-device", deviceName: "Work Mac" }],
+    pendingDevices: [],
+    maxDevices: 3,
+  });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: vi.fn(),
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <PrimaryRecordingDeviceSelector />
+    </QueryClientProvider>,
+  );
+  await screen.findByRole("alert");
+  const trigger = screen.getByRole("combobox", {
+    name: "Primary recording device",
+  });
+  expect(trigger).toHaveProperty("disabled", false);
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  fireEvent.click(screen.getByRole("option", { name: "Ask each meeting" }));
+  await waitFor(() =>
+    expect(trigger.textContent).toContain("Ask each meeting"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  fireEvent.click(screen.getByRole("option", { name: "Work Mac" }));
+  await waitFor(() => expect(trigger.textContent).toContain("Work Mac"));
   queryClient.clear();
 });

@@ -31,7 +31,11 @@ export function PrimaryRecordingDeviceSelector() {
   });
   const identityQuery = useQuery({
     queryKey: ["local-recording-device"],
-    queryFn: getDeviceIdentity,
+    queryFn: async () => {
+      const identity = await getDeviceIdentity();
+      if (!identity.fingerprint) throw new Error("Device identity unavailable");
+      return identity;
+    },
     enabled: Boolean(session && isPro),
   });
   const saveMutation = useMutation({
@@ -81,7 +85,6 @@ export function PrimaryRecordingDeviceSelector() {
                 !session ||
                 !isPro ||
                 devicesQuery.isPending ||
-                identityQuery.isPending ||
                 saveMutation.isPending
               }
             >
@@ -108,13 +111,16 @@ export function PrimaryRecordingDeviceSelector() {
           </Select>
         )}
       </SettingRow>
-      {devicesQuery.isError ? (
+      {devicesQuery.isError || identityQuery.isError ? (
         <p role="alert" className="text-muted-foreground mt-2 text-xs">
           <Trans>Could not load your devices.</Trans>{" "}
           <button
             type="button"
             className="underline"
-            onClick={() => void devicesQuery.refetch()}
+            onClick={() => {
+              if (devicesQuery.isError) void devicesQuery.refetch();
+              if (identityQuery.isError) void identityQuery.refetch();
+            }}
           >
             <Trans>Try again</Trans>
           </button>

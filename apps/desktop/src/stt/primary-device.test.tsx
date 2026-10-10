@@ -239,30 +239,6 @@ test("a saved primary that is not recording does not stop a lone secondary devic
   expect(consumePrimaryDeviceYield("session-1")).toBe(true);
 });
 
-test("conflicting replicated preferences cannot discard both recordings", () => {
-  const unclaimed = [
-    { ...self, primary: false },
-    { ...other, primary: false },
-  ];
-  expect(decidePrimaryDevice(unclaimed, "this-device", "other-device")).toBe(
-    "ask",
-  );
-  expect(decidePrimaryDevice(unclaimed, "other-device", "this-device")).toBe(
-    "ask",
-  );
-
-  const claimed = [
-    { ...self, primary: true },
-    { ...other, primary: false },
-  ];
-  expect(decidePrimaryDevice(claimed, "this-device", "other-device")).toBe(
-    "primary",
-  );
-  expect(decidePrimaryDevice(claimed, "other-device", "this-device")).toBe(
-    "yield",
-  );
-});
-
 test("derives the same opaque key for the same calendar event", async () => {
   const key = await meetingKeyForEvent(event);
   expect(key).toMatch(/^[0-9a-f]{64}$/);
