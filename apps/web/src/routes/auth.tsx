@@ -38,6 +38,7 @@ import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
+import { storeDesktopAuthHandoff } from "@/lib/auth-route-privacy";
 import {
   buildDesktopAuthCallbackPath,
   resolveDesktopAuthCallbackMethod,
@@ -45,6 +46,7 @@ import {
 import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   validateSearch: authSearchSchema,
   component: Component,
   head: () => ({
@@ -67,14 +69,20 @@ export const Route = createFileRoute("/auth")({
         const result = await createDesktopSession();
 
         if (result) {
+          storeDesktopAuthHandoff(
+            result.access_token,
+            result.refresh_token,
+            Date.now(),
+            search.desktop_state,
+          );
           throw redirect({
             to: "/callback/auth/",
             search: {
               flow: "desktop",
+              handoff: "stored",
               scheme: search.scheme ?? DEFAULT_DESKTOP_SCHEME,
-              access_token: result.access_token,
-              refresh_token: result.refresh_token,
               method: search.provider ?? search.view,
+              desktop_state: search.desktop_state,
             },
           });
         }
@@ -105,6 +113,7 @@ function Component() {
   const {
     flow,
     scheme,
+    desktop_state,
     redirect,
     provider,
     view: initialView,
@@ -130,6 +139,7 @@ function Component() {
         <DesktopReauthView
           email={existingUser.email}
           scheme={scheme ?? DEFAULT_DESKTOP_SCHEME}
+          desktop_state={desktop_state}
           callbackMethod={resolveDesktopAuthCallbackMethod(
             provider ?? initialView,
             lastSignInMethod,
@@ -155,6 +165,7 @@ function Component() {
               <OAuthButton
                 flow={flow}
                 scheme={scheme}
+                desktop_state={desktop_state}
                 redirect={redirect}
                 provider="apple"
                 autoStart={autoStartOAuth}
@@ -165,6 +176,7 @@ function Component() {
               <OAuthButton
                 flow={flow}
                 scheme={scheme}
+                desktop_state={desktop_state}
                 redirect={redirect}
                 provider="google"
                 autoStart={autoStartOAuth}
@@ -175,6 +187,7 @@ function Component() {
               <OAuthButton
                 flow={flow}
                 scheme={scheme}
+                desktop_state={desktop_state}
                 redirect={redirect}
                 provider="azure"
                 autoStart={autoStartOAuth}
@@ -185,6 +198,7 @@ function Component() {
               <OAuthButton
                 flow={flow}
                 scheme={scheme}
+                desktop_state={desktop_state}
                 redirect={redirect}
                 provider="github"
                 autoStart={autoStartOAuth}
@@ -231,6 +245,7 @@ function Component() {
         <EmailAuthView
           flow={flow}
           scheme={scheme}
+          desktop_state={desktop_state}
           redirect={redirect}
           onBack={() => setView("main")}
         />
@@ -239,6 +254,7 @@ function Component() {
         <SsoAuthView
           flow={flow}
           scheme={scheme}
+          desktop_state={desktop_state}
           redirect={redirect}
           onBack={() => setView("main")}
         />
@@ -250,11 +266,13 @@ function Component() {
 function DesktopReauthView({
   email,
   scheme,
+  desktop_state,
   callbackMethod,
   lastSignInMethod,
 }: {
   email: string;
   scheme: DesktopScheme;
+  desktop_state?: string;
   callbackMethod: AuthSignInMethod | undefined;
   lastSignInMethod: AuthSignInMethod | null;
 }) {
@@ -273,6 +291,7 @@ function DesktopReauthView({
           result.refresh_token,
           scheme,
           callbackMethod,
+          desktop_state,
         );
       }
     },
@@ -315,28 +334,36 @@ function DesktopReauthView({
             <OAuthButton
               flow="desktop"
               scheme={scheme}
+              desktop_state={desktop_state}
               provider="apple"
               isLastUsed={lastSignInMethod === "apple"}
             />
             <OAuthButton
               flow="desktop"
               scheme={scheme}
+              desktop_state={desktop_state}
               provider="google"
               isLastUsed={lastSignInMethod === "google"}
             />
             <OAuthButton
               flow="desktop"
               scheme={scheme}
+              desktop_state={desktop_state}
               provider="azure"
               isLastUsed={lastSignInMethod === "azure"}
             />
             <OAuthButton
               flow="desktop"
               scheme={scheme}
+              desktop_state={desktop_state}
               provider="github"
               isLastUsed={lastSignInMethod === "github"}
             />
-            <SsoAuthView flow="desktop" scheme={scheme} />
+            <SsoAuthView
+              flow="desktop"
+              scheme={scheme}
+              desktop_state={desktop_state}
+            />
           </div>
         </>
       )}
@@ -371,11 +398,13 @@ type EmailMode = "password" | "magic-link";
 function EmailAuthView({
   flow,
   scheme,
+  desktop_state,
   redirect,
   onBack,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
+  desktop_state?: string;
   redirect?: string;
   onBack: () => void;
 }) {
@@ -417,10 +446,20 @@ function EmailAuthView({
       </div>
 
       {mode === "password" && (
-        <PasswordForm flow={flow} scheme={scheme} redirect={redirect} />
+        <PasswordForm
+          flow={flow}
+          scheme={scheme}
+          desktop_state={desktop_state}
+          redirect={redirect}
+        />
       )}
       {mode === "magic-link" && (
-        <MagicLinkForm flow={flow} scheme={scheme} redirect={redirect} />
+        <MagicLinkForm
+          flow={flow}
+          scheme={scheme}
+          desktop_state={desktop_state}
+          redirect={redirect}
+        />
       )}
 
       <LegalText />
@@ -431,11 +470,13 @@ function EmailAuthView({
 function SsoAuthView({
   flow,
   scheme,
+  desktop_state,
   redirect,
   onBack,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
+  desktop_state?: string;
   redirect?: string;
   onBack?: () => void;
 }) {
@@ -451,6 +492,7 @@ function SsoAuthView({
           domain,
           flow,
           scheme,
+          desktop_state,
           redirect,
         },
       });
@@ -522,10 +564,12 @@ function SsoAuthView({
 function PasswordForm({
   flow,
   scheme,
+  desktop_state,
   redirect,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
+  desktop_state?: string;
   redirect?: string;
 }) {
   const [name, setName] = useState("");
@@ -551,6 +595,7 @@ function PasswordForm({
           password,
           flow,
           scheme,
+          desktop_state,
           redirect,
           ...(captchaToken ? { captchaToken } : {}),
         },
@@ -587,6 +632,7 @@ function PasswordForm({
           result.refresh_token as string,
           flow,
           scheme,
+          desktop_state,
           redirect,
           false,
         );
@@ -616,6 +662,7 @@ function PasswordForm({
           password,
           flow,
           scheme,
+          desktop_state,
           redirect,
           ...(captchaToken ? { captchaToken } : {}),
         },
@@ -657,6 +704,7 @@ function PasswordForm({
             result.refresh_token as string,
             flow,
             scheme,
+            desktop_state,
             redirect,
             "newAccount" in result && result.newAccount,
           );
@@ -798,7 +846,7 @@ function PasswordForm({
         {!isSignUp && (
           <Link
             to="/reset-password/"
-            search={toAuthFlowSearch({ flow, scheme, redirect })}
+            search={toAuthFlowSearch({ flow, scheme, desktop_state, redirect })}
             className="text-sm text-[#756b5d] transition-colors hover:text-[#181613] hover:underline"
           >
             Forgot password?
@@ -814,6 +862,7 @@ function handlePasswordSuccess(
   refreshToken: string,
   flow: "desktop" | "web",
   scheme?: DesktopScheme,
+  desktop_state?: string,
   redirectPath?: string,
   newAccount = false,
 ) {
@@ -823,6 +872,7 @@ function handlePasswordSuccess(
       refreshToken,
       scheme,
       "email",
+      desktop_state,
     );
   } else {
     window.location.href = buildPostAuthDestination({
@@ -835,10 +885,12 @@ function handlePasswordSuccess(
 function MagicLinkForm({
   flow,
   scheme,
+  desktop_state,
   redirect,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
+  desktop_state?: string;
   redirect?: string;
 }) {
   const [email, setEmail] = useState("");
@@ -864,6 +916,7 @@ function MagicLinkForm({
           email,
           flow,
           scheme,
+          desktop_state,
           redirect,
           ...(captchaToken ? { captchaToken } : {}),
         },
@@ -994,6 +1047,7 @@ function AuthMethodButton({
 function OAuthButton({
   flow,
   scheme,
+  desktop_state,
   redirect,
   provider,
   autoStart = false,
@@ -1001,6 +1055,7 @@ function OAuthButton({
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
+  desktop_state?: string;
   redirect?: string;
   provider: OAuthProvider;
   autoStart?: boolean;
@@ -1018,6 +1073,7 @@ function OAuthButton({
           provider,
           flow,
           scheme,
+          desktop_state,
           redirect,
         },
       });

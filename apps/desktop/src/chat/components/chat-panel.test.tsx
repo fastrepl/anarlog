@@ -69,6 +69,10 @@ vi.mock("./use-session-tab", () => ({
   useSessionTab: () => ({ currentSessionId: "session-1" }),
 }));
 
+vi.mock("./use-summary-quick-actions", () => ({
+  useHasEditableSummary: () => false,
+}));
+
 vi.mock("~/sidebar/note-filter", () => ({
   folderIdForNewNote: (noteFilter: string, folderFilter: string | null) =>
     noteFilter === "mine" && folderFilter !== null ? folderFilter : undefined,

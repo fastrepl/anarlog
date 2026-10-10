@@ -69,9 +69,6 @@ vi.mock("./notification", () => ({ NotificationSettingsView: () => null }));
 vi.mock("./permissions", () => ({ Permissions: () => null }));
 vi.mock("./spoken-languages", () => ({ SpokenLanguagesView: () => null }));
 vi.mock("./storage", () => ({ StorageSettingsView: () => null }));
-vi.mock("./summary-length", () => ({
-  SummaryLengthSelector: () => <span>Summary length selector</span>,
-}));
 vi.mock("./timezone", () => ({ TimezoneSelector: () => null }));
 vi.mock("./week-start", () => ({ WeekStartSelector: () => null }));
 

@@ -14,6 +14,7 @@ import { exchangeOtpToken } from "@/functions/auth";
 import {
   DEFAULT_DESKTOP_SCHEME,
   desktopSchemeSchema,
+  desktopAuthStateSchema,
 } from "@/functions/desktop-flow";
 import {
   resolveAuthFlowContext,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/auth-flow-context";
 import { authSignInMethods } from "@/lib/auth-last-sign-in-method";
 import { buildPostAuthDestination } from "@/lib/auth-redirect";
+import { buildDesktopAuthCallbackPath } from "@/lib/desktop-auth-handoff";
 import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 const validateSearch = z.object({
@@ -35,6 +37,7 @@ const validateSearch = z.object({
   ]),
   flow: z.enum(["desktop", "web"]).optional(),
   scheme: desktopSchemeSchema.optional(),
+  desktop_state: desktopAuthStateSchema.optional(),
   redirect: z.string().optional(),
   redirect_to: z.string().max(2048).optional(),
   method: z.enum(authSignInMethods).optional(),
@@ -56,6 +59,7 @@ function Component() {
   const context = resolveAuthFlowContext({
     flow: search.flow,
     scheme: search.scheme,
+    desktop_state: search.desktop_state,
     redirect: search.redirect,
     redirectTo: search.redirect_to,
   });
@@ -104,16 +108,13 @@ function Component() {
         return;
       }
 
-      const params = new URLSearchParams({
-        flow: "desktop",
-        scheme: context.scheme ?? DEFAULT_DESKTOP_SCHEME,
-        access_token: result.access_token,
-        refresh_token: result.refresh_token,
-      });
-      if (search.method) {
-        params.set("method", search.method);
-      }
-      window.location.href = `/callback/auth?${params.toString()}`;
+      window.location.href = buildDesktopAuthCallbackPath(
+        result.access_token,
+        result.refresh_token,
+        context.scheme ?? DEFAULT_DESKTOP_SCHEME,
+        search.method,
+        context.desktop_state,
+      );
     },
   });
 

@@ -39,6 +39,12 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "auto_stop_meetings"],
     default: true as boolean,
   },
+  primary_recording_device: {
+    type: "string",
+    path: ["general", "primary_recording_device"],
+    synced: true,
+    default: "" as string,
+  },
   auto_start_scheduled_meetings: {
     type: "boolean",
     path: ["general", "auto_start_scheduled_meetings"],
@@ -279,11 +285,6 @@ export const SETTING_DEFINITIONS = {
     type: "string",
     path: ["ai", "auto_summary_prompt"],
     default: "" as string,
-  },
-  summary_length: {
-    type: "string",
-    path: ["ai", "summary_length"],
-    default: "detailed" as string,
   },
   ignored_platforms: {
     type: "string",

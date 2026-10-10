@@ -28,6 +28,11 @@ const hoisted = vi.hoisted(() => ({
   requestMainListenerControl: vi.fn(),
   deleteRecording: vi.fn(),
   activeTemplateTitle: "Customer Call",
+  activeTemplateIcon: null as {
+    type: string;
+    value: string;
+    color?: string;
+  } | null,
   audioExists: true,
   audioExistsResolved: true,
   hasTranscript: true,
@@ -297,26 +302,32 @@ vi.mock("~/stt/window-control", () => ({
   requestMainListenerControl: hoisted.requestMainListenerControl,
 }));
 
-vi.mock("~/templates", () => ({
-  DEFAULT_TEMPLATE_ICON: {
-    type: "icon",
-    value: "notebook-tabs",
-    color: "#9ca3af",
-  },
-  TemplateIconGlyph: ({ icon }: { icon?: { type: string; value: string } }) => (
-    <span aria-hidden data-testid="template-icon">
-      {icon?.value}
-    </span>
-  ),
-  filterWebTemplatesAgainstUserTemplates: () => [],
-  getTemplateCreatorLabel: () => "You",
-  parseWebTemplates: () => [],
-  useCreateTemplate: () => vi.fn(),
-  useOpenTemplatesTab: () => vi.fn(),
-  useTemplateCreatorName: () => "You",
-  useUserTemplate: () => ({ data: { title: hoisted.activeTemplateTitle } }),
-  useUserTemplates: () => hoisted.userTemplates,
-}));
+vi.mock("~/templates", async () => {
+  const { TemplateIconGlyph } = await vi.importActual<
+    typeof import("~/templates/template-icon")
+  >("~/templates/template-icon");
+  return {
+    DEFAULT_TEMPLATE_ICON: {
+      type: "icon",
+      value: "notebook-tabs",
+      color: "#9ca3af",
+    },
+    TemplateIconGlyph,
+    filterWebTemplatesAgainstUserTemplates: () => [],
+    getTemplateCreatorLabel: () => "You",
+    parseWebTemplates: () => [],
+    useCreateTemplate: () => vi.fn(),
+    useOpenTemplatesTab: () => vi.fn(),
+    useTemplateCreatorName: () => "You",
+    useUserTemplate: () => ({
+      data: {
+        title: hoisted.activeTemplateTitle,
+        icon: hoisted.activeTemplateIcon,
+      },
+    }),
+    useUserTemplates: () => hoisted.userTemplates,
+  };
+});
 
 import { SessionViewSwitcher, useEditorTabs } from "./header";
 
@@ -374,6 +385,7 @@ describe("SessionViewSwitcher", () => {
     hoisted.requestMainListenerControl.mockReset();
     hoisted.deleteRecording.mockReset();
     hoisted.activeTemplateTitle = "Customer Call";
+    hoisted.activeTemplateIcon = null;
     hoisted.audioExists = true;
     hoisted.audioExistsResolved = true;
     hoisted.hasTranscript = true;
@@ -442,6 +454,20 @@ describe("SessionViewSwitcher", () => {
     fireEvent.click(screen.getByRole("button", { name: "Customer Call" }));
 
     expect(screen.getByPlaceholderText("Search templates...")).not.toBeNull();
+  });
+
+  it("shows the used template's icon in the active summary pill", () => {
+    hoisted.activeTemplateTitle = "Scrum";
+    hoisted.activeTemplateIcon = {
+      type: "icon",
+      value: "milestone",
+      color: "#16a34a",
+    };
+    renderSwitcher({ currentTab: { type: "enhanced", id: "note-1" } });
+
+    const pill = screen.getByRole("button", { name: "Scrum" });
+    const icon = pill.querySelector("svg");
+    expect(icon?.getAttribute("color")).toBe("#16a34a");
   });
 
   it("hides the view switcher when the memo is the only view", () => {
@@ -703,3 +729,7 @@ describe("useEditorTabs", () => {
     },
   );
 });
+
+vi.mock("~/shared-notes/event-keys", () => ({
+  useSessionSharedNoteIds: () => [],
+}));

@@ -200,6 +200,33 @@ describe("capturing speaker context", () => {
     ).toBe(true);
   });
 
+  it("drops failed headset identity while system audio continues and restores the recovered input", async () => {
+    observeSpeakerMicrophone("session", {
+      device: "AirPods Pro",
+      isolated: true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(latestInterval()?.mic_isolated).toBe(true);
+    vi.setSystemTime(3000);
+    observeSpeakerMicrophone("session", { device: null, available: false });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(mocks.context.intervals[0]?.end_ms).toBe(3000);
+    expect(latestInterval()).toMatchObject({
+      active_call: true,
+      mic_isolated: null,
+      shared_microphone: false,
+    });
+    observeSpeakerMicrophone("session", {
+      device: "Jabra Speak 750",
+      available: true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(latestInterval()).toMatchObject({
+      mic_isolated: null,
+      shared_microphone: true,
+    });
+  });
+
   it("trusts the runtime isolation verdict for a built-in input on headphones", async () => {
     mocks.currentDevice.mockResolvedValue({
       status: "ok",

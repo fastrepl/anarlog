@@ -3622,6 +3622,9 @@
           },
           "502": {
             "description": "Witness service unavailable"
+          },
+          "503": {
+            "description": "Publication busy; retry after the Retry-After delay"
           }
         },
         "security": [
@@ -3723,6 +3726,9 @@
           },
           "409": {
             "description": "Cloud base changed; pull and rebase"
+          },
+          "503": {
+            "description": "Acceptance busy; retry after the Retry-After delay"
           }
         },
         "security": [
@@ -6522,6 +6528,12 @@
             "format": "int64"
           },
           "body": {},
+          "eventKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "meetingAt": {
             "type": [
               "string",

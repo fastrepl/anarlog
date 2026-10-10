@@ -43,6 +43,11 @@ export type GeneralState = {
     intervalId?: LiveIntervalId;
     sessionId: string | null;
     muted: boolean;
+    captureHealth: {
+      mic: boolean | null;
+      speaker: boolean | null;
+      unavailable: boolean;
+    };
     lastError: string | null;
     lastErrorSessionId: string | null;
     lastErrorIsAudioRelated: boolean;
@@ -77,6 +82,7 @@ const initialLiveState: LiveState = {
   captureGenerationBySession: {},
   sessionId: null,
   muted: false,
+  captureHealth: { mic: null, speaker: null, unavailable: false },
   lastError: null,
   lastErrorSessionId: null,
   lastErrorIsAudioRelated: false,
@@ -166,6 +172,12 @@ export const releaseLiveCaptureGeneration = (
 };
 
 export const markLiveCaptureStarted = (live: LiveState, sessionId: string) => {
+  if (live.sessionId !== sessionId && live.lastErrorSessionId !== sessionId) {
+    live.captureHealth = { mic: null, speaker: null, unavailable: false };
+    live.lastError = null;
+    live.lastErrorSessionId = null;
+    live.lastErrorIsAudioRelated = false;
+  }
   ensureLiveCaptureGeneration(live, sessionId);
   live.status = "active";
   live.loading = false;
@@ -173,6 +185,7 @@ export const markLiveCaptureStarted = (live: LiveState, sessionId: string) => {
 };
 
 export const markLiveStartRequested = (live: LiveState, sessionId: string) => {
+  live.captureHealth = { mic: null, speaker: null, unavailable: false };
   ensureLiveCaptureGeneration(live, sessionId);
   live.loading = true;
   live.status = "inactive";
@@ -349,6 +362,50 @@ export const noteLiveTranscriptActivity = (
   }
 };
 
+const getChannelCaptureWarning = (
+  live: Pick<LiveState, "captureHealth">,
+): string | null => {
+  const health = live.captureHealth;
+  if (health.unavailable || (health.mic === false && health.speaker === false))
+    return "No audio is being captured";
+  if (health.mic === false)
+    return health.speaker === true
+      ? "Microphone unavailable. System audio continues"
+      : "Microphone unavailable";
+  if (health.speaker === false)
+    return health.mic === true
+      ? "System audio unavailable. Microphone capture continues"
+      : "System audio unavailable";
+  return null;
+};
+
+export const getCaptureWarning = (
+  live: Pick<
+    LiveState,
+    "captureHealth" | "lastError" | "lastErrorIsAudioRelated"
+  >,
+): string | null =>
+  getChannelCaptureWarning(live) ??
+  (live.lastErrorIsAudioRelated &&
+  live.lastError &&
+  !live.lastError.startsWith("audio_storage_")
+    ? "Audio capture was interrupted"
+    : null);
+
+const updateCaptureHealth = (live: LiveState, error: string): boolean => {
+  if (error === "audio_capture_ready") live.captureHealth.unavailable = false;
+  else if (error === "audio_capture_unavailable")
+    live.captureHealth.unavailable = true;
+  else if (error === "audio_mic_ready") live.captureHealth.mic = true;
+  else if (error === "audio_speaker_ready") live.captureHealth.speaker = true;
+  else if (error.startsWith("audio_mic_unavailable:"))
+    live.captureHealth.mic = false;
+  else if (error.startsWith("audio_speaker_unavailable:"))
+    live.captureHealth.speaker = false;
+  else return false;
+  return true;
+};
+
 export const updateLiveProgress = (
   live: LiveState,
   payload: CaptureStatusEvent,
@@ -356,13 +413,24 @@ export const updateLiveProgress = (
   switch (payload.type) {
     case "audio_initializing":
       live.loadingPhase = "audio_initializing";
-      live.lastError = null;
-      live.lastErrorSessionId = null;
-      live.lastErrorIsAudioRelated = false;
+      if (!live.lastErrorIsAudioRelated) {
+        live.lastError = null;
+        live.lastErrorSessionId = null;
+      }
       return;
     case "audio_ready":
       live.loadingPhase = "audio_ready";
       live.device = payload.device;
+      if (
+        !getCaptureWarning(live) ||
+        (live.captureHealth.mic === null &&
+          live.captureHealth.speaker === null &&
+          !live.lastError?.startsWith("audio_storage_"))
+      ) {
+        live.lastError = null;
+        live.lastErrorSessionId = null;
+        live.lastErrorIsAudioRelated = false;
+      }
       return;
     case "connecting":
       live.loadingPhase = "connecting";
@@ -376,6 +444,13 @@ export const updateLiveProgress = (
       }
       return;
     case "audio_error":
+      if (updateCaptureHealth(live, payload.error)) {
+        if (live.lastError?.startsWith("audio_storage_")) return;
+        live.lastError = getChannelCaptureWarning(live);
+        live.lastErrorSessionId = live.lastError ? payload.session_id : null;
+        live.lastErrorIsAudioRelated = live.lastError !== null;
+        return;
+      }
       live.lastError = payload.error;
       live.lastErrorSessionId = payload.session_id;
       live.lastErrorIsAudioRelated = true;

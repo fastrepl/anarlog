@@ -15,20 +15,15 @@ import { exchangeOAuthCode } from "@/functions/auth";
 import {
   DEFAULT_DESKTOP_SCHEME,
   desktopSchemeSchema,
+  desktopAuthStateSchema,
 } from "@/functions/desktop-flow";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
   resolveAuthFlowContext,
   toAuthFlowSearch,
 } from "@/lib/auth-flow-context";
-import {
-  type AuthSignInMethod,
-  authSignInMethods,
-} from "@/lib/auth-last-sign-in-method";
-import {
-  buildPostAuthDestination,
-  sanitizeInternalReturnPath,
-} from "@/lib/auth-redirect";
+import { authSignInMethods } from "@/lib/auth-last-sign-in-method";
+import { sanitizeInternalReturnPath } from "@/lib/auth-redirect";
 import {
   consumeDesktopAuthHandoff,
   prepareAuthRoutePrivacy,
@@ -38,6 +33,7 @@ import {
   getDesktopAppOpenLinkProps,
   useDesktopAppAutoOpen,
 } from "@/lib/desktop-auth-handoff";
+import { completeOAuthCallback } from "@/lib/desktop-oauth-callback";
 import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 
 const validateSearch = z.object({
@@ -59,6 +55,7 @@ const validateSearch = z.object({
   method: z.enum(authSignInMethods).optional(),
   flow: z.enum(["desktop", "web"]).default("web"),
   scheme: desktopSchemeSchema.catch(DEFAULT_DESKTOP_SCHEME),
+  desktop_state: desktopAuthStateSchema.optional(),
   redirect: z.string().optional(),
   access_token: z.string().optional(),
   refresh_token: z.string().optional(),
@@ -68,25 +65,6 @@ const validateSearch = z.object({
   error_code: z.string().optional(),
   error_description: z.string().optional(),
 });
-
-function toAuthCompletionMethod(
-  method: AuthSignInMethod | undefined,
-  type: string | undefined,
-) {
-  switch (method) {
-    case "apple":
-    case "google":
-    case "azure":
-    case "github":
-      return { method: "oauth", provider: method };
-    case "sso":
-      return { method: "sso" };
-    case "email":
-      return { method: type === "magiclink" ? "magic_link" : "email_link" };
-    default:
-      return { method: "code_exchange" };
-  }
-}
 
 export const Route = createFileRoute("/_view/callback/auth")({
   // Exchange from a same-origin request after Safari's cross-site return.
@@ -129,55 +107,11 @@ export const Route = createFileRoute("/_view/callback/auth")({
       });
     }
 
-    const context = resolveAuthFlowContext(search);
-
     if (search.code) {
-      const result = await exchangeOAuthCode({
-        data: {
-          code: search.code,
-          flow: search.flow,
-          type: search.type,
-          method: search.method,
-        },
-      });
-
-      if (!result.success) {
-        throw redirectToExchangeError(search, result.error);
-      }
-
-      capturePrivateRouteEvent("auth_completed", {
-        ...toAuthCompletionMethod(search.method, search.type),
-        action: search.type ?? "sign_in",
-        flow: search.flow,
-        new_account: result.createdAccount === true,
-      });
-
-      if (search.type === "recovery") {
-        throw redirect({
-          to: "/update-password/",
-          search: toAuthFlowSearch(context),
-        });
-      }
-
-      if (search.flow === "web") {
-        throw redirect({
-          href: buildPostAuthDestination({
-            newAccount: result.newAccount,
-            returnTo: search.redirect,
-          }),
-        } as any);
-      }
-
-      throw redirect({
-        to: "/callback/auth/",
-        search: {
-          flow: "desktop",
-          scheme: search.scheme,
-          access_token: result.access_token,
-          refresh_token: result.refresh_token,
-          method: search.method,
-          auto_open: "oauth",
-        },
+      await completeOAuthCallback({
+        search: { ...search, code: search.code },
+        exchangeOAuthCode,
+        capturePrivateRouteEvent,
       });
     }
 
@@ -189,6 +123,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
           type: search.type,
           flow: search.flow,
           scheme: search.scheme,
+          desktop_state: search.desktop_state,
           redirect: search.redirect,
           method: search.method,
         },
@@ -215,6 +150,7 @@ function Component() {
     accessToken,
     refreshToken,
     search.method,
+    search.desktop_state,
   );
 
   useMountEffect(() => {
@@ -223,7 +159,10 @@ function Component() {
       search.handoff === "stored" ||
       (search.access_token && search.refresh_token)
     ) {
-      const handoff = consumeDesktopAuthHandoff();
+      const handoff = consumeDesktopAuthHandoff(
+        Date.now(),
+        search.desktop_state,
+      );
       if (handoff) {
         setStoredHandoff(handoff);
       }
@@ -233,6 +172,8 @@ function Component() {
   if (search.error) {
     const retrySearch = toAuthFlowSearch(resolveAuthFlowContext(search));
     const retryParams = new URLSearchParams({ flow: retrySearch.flow });
+    if (retrySearch.desktop_state)
+      retryParams.set("desktop_state", retrySearch.desktop_state);
     if (retrySearch.scheme) retryParams.set("scheme", retrySearch.scheme);
     if (retrySearch.redirect) retryParams.set("redirect", retrySearch.redirect);
 
@@ -342,24 +283,4 @@ function DesktopAuthHandoffActions({ deeplink }: { deeplink: string }) {
       </div>
     </div>
   );
-}
-
-function redirectToExchangeError(
-  search: {
-    flow: "desktop" | "web";
-    scheme: z.infer<typeof desktopSchemeSchema>;
-    redirect?: string;
-  },
-  error: string,
-) {
-  return redirect({
-    to: "/callback/auth/",
-    search: {
-      flow: search.flow,
-      scheme: search.scheme,
-      redirect: search.redirect,
-      error: "exchange_failed",
-      error_description: error,
-    },
-  });
 }

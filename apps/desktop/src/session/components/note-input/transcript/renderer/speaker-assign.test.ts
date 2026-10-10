@@ -368,6 +368,25 @@ describe("buildSpeakerParticipantGroups", () => {
     ]);
   });
 
+  it("finds contacts by an additional email", () => {
+    const contact = option("human-1", "Alice", {
+      email: "alice@example.com",
+      additionalEmails: ["alice.work@example.com"],
+    });
+    const groups = buildSpeakerParticipantGroups({
+      sessionParticipants: [],
+      contacts: [contact],
+      query: "alice.work@example.com",
+    });
+
+    expect(groups).toEqual([
+      {
+        title: "People",
+        options: [contact],
+      },
+    ]);
+  });
+
   it("keeps participants first and excludes duplicate people", () => {
     const participant = option("human-1", "Alice", {
       isSessionParticipant: true,

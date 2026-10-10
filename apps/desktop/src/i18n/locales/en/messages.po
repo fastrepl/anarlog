@@ -409,6 +409,10 @@ msgstr "Add context for this folder"
 msgid "Add device"
 msgstr "Add device"
 
+#: src/contacts/details.tsx
+msgid "Add email"
+msgstr "Add email"
+
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Add example"
 msgstr "Add example"
@@ -626,6 +630,10 @@ msgstr "Anarlog needs access to your microphone and system audio to record and t
 msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat."
 msgstr "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat."
 
+#: src/settings/general/primary-recording-device.tsx
+msgid "Anarlog Pro coordinates recording across your devices."
+msgstr "Anarlog Pro coordinates recording across your devices."
+
 #. placeholder {0}: statuses[0].displayName
 #: src/settings/developers/skills.tsx
 msgid "Anarlog skill added to {0}"
@@ -738,6 +746,10 @@ msgstr "Ask anything"
 #: src/settings/general/notification.tsx
 msgid "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening."
 msgstr "Ask before stopping when a meeting may have ended. When alerts are off, Anarlog keeps listening."
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Ask each meeting"
+msgstr "Ask each meeting"
 
 #: src/task/resource-view.tsx
 msgid "Assignees:"
@@ -858,10 +870,6 @@ msgstr "Average across the capture days counted above."
 msgid "Back"
 msgstr "Back"
 
-#: src/settings/general/summary-length.tsx
-msgid "Balanced"
-msgstr "Balanced"
-
 #: src/settings/ai/shared/index.tsx
 msgid "Base URL"
 msgstr "Base URL"
@@ -869,6 +877,10 @@ msgstr "Base URL"
 #: src/settings/stats/insights.tsx
 msgid "Based on captured conversations, including imported transcripts. Each conversation is counted once, on its first capture day in the selected period, using your calendar timezone. Deleted conversations are excluded."
 msgstr "Based on captured conversations, including imported transcripts. Each conversation is counted once, on its first capture day in the selected period, using your calendar timezone. Deleted conversations are excluded."
+
+#: src/chat/components/body/empty.tsx
+msgid "Based on the conversation so far, suggest a few questions I could ask next."
+msgstr "Based on the conversation so far, suggest a few questions I could ask next."
 
 #: src/settings/ai/stt/select.tsx
 msgid "Best for this Mac"
@@ -1121,6 +1133,10 @@ msgstr "Choose a .bin model"
 msgid "Choose a channel"
 msgstr "Choose a channel"
 
+#: src/settings/general/primary-recording-device.tsx
+msgid "Choose a device"
+msgstr "Choose a device"
+
 #: src/settings/sync/index.tsx
 msgid "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
 msgstr "Choose a device below to replace, or add more device slots to your plan. This device will continue automatically."
@@ -1231,10 +1247,6 @@ msgstr "Choose how Auto structures and styles your summaries."
 msgid "Choose how long recordings stay on this device."
 msgstr "Choose how long recordings stay on this device."
 
-#: src/settings/general/summary-length.tsx
-msgid "Choose how much detail generated meeting summaries include."
-msgstr "Choose how much detail generated meeting summaries include."
-
 #: src/templates/template-icon-picker.tsx
 msgid "Choose template icon"
 msgstr "Choose template icon"
@@ -1251,10 +1263,6 @@ msgstr "Choose which day begins your calendar week."
 #: src/settings/general/default-share-access.tsx
 msgid "Choose who can access notes from new meetings."
 msgstr "Choose who can access notes from new meetings."
-
-#: src/folders/folder-editor.tsx
-msgid "Choose who receives new notes created in this folder."
-msgstr "Choose who receives new notes created in this folder."
 
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
@@ -1793,6 +1801,7 @@ msgstr "Could not load sync logs."
 msgid "Could not load workspace members."
 msgstr "Could not load workspace members."
 
+#: src/settings/general/primary-recording-device.tsx
 #: src/settings/sync/index.tsx
 msgid "Could not load your devices."
 msgstr "Could not load your devices."
@@ -1824,6 +1833,10 @@ msgstr "Could not remove the automation"
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "Could not restore deleted note"
 msgstr "Could not restore deleted note"
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Could not save primary device. Try again."
+msgstr "Could not save primary device. Try again."
 
 #: src/settings/automations/index.tsx
 msgid "Could not save the automation draft"
@@ -2006,10 +2019,6 @@ msgstr "Created {createdAt}"
 msgid "Creating brief..."
 msgstr "Creating brief..."
 
-#: src/settings/general/summary-length.tsx
-msgid "Crisp"
-msgstr "Crisp"
-
 #: src/settings/crm/index.tsx
 #: src/sidebar/settings-nav-groups.ts
 msgid "CRM"
@@ -2074,6 +2083,10 @@ msgstr "Decline"
 #: src/settings/appearance/app-icon.tsx
 msgid "Default"
 msgstr "Default"
+
+#: src/folders/folder-editor.tsx
+msgid "Default access"
+msgstr "Default access"
 
 #: src/settings/general/main-language.tsx
 msgid "Default language for transcription and AI responses."
@@ -2167,10 +2180,6 @@ msgstr "Describe the template purpose..."
 #: src/session-sharing/management-panel.tsx
 msgid "Desktop edits published. Sharing resumed."
 msgstr "Desktop edits published. Sharing resumed."
-
-#: src/settings/general/summary-length.tsx
-msgid "Detailed"
-msgstr "Detailed"
 
 #: src/settings/general/notification.tsx
 msgid "Detect meetings from microphone activity."
@@ -2477,10 +2486,15 @@ msgstr "Every note summarized after enabling this automation is saved here as on
 
 #. placeholder {0}: owned.workspaceName
 #. placeholder {0}: workspace.name
+#: src/folders/folder-editor.tsx
 #: src/resource-sharing/share-dialog.tsx
 #: src/session-sharing/general-access.tsx
 msgid "Everyone in {0}"
 msgstr "Everyone in {0}"
+
+#: src/folders/sidebar.tsx
+msgid "Everyone in {name}"
+msgstr "Everyone in {name}"
 
 #: src/settings/general/default-share-access.tsx
 msgid "Everyone in {workspaceLabel}"
@@ -3296,6 +3310,10 @@ msgid "LinkedIn"
 msgstr "LinkedIn"
 
 #: src/chat/components/body/empty.tsx
+msgid "List action items so far."
+msgstr "List action items so far."
+
+#: src/chat/components/body/empty.tsx
 msgid "List action items."
 msgstr "List action items."
 
@@ -3424,6 +3442,22 @@ msgstr "macOS could not access your recovery key. Repair Keychain access, then r
 #: src/settings/general/main-language.tsx
 msgid "Main language"
 msgstr "Main language"
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything."
+msgstr "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail."
+msgstr "Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the summary longer."
+msgstr "Make the summary longer."
+
+#: src/chat/components/body/empty.tsx
+msgid "Make the summary shorter."
+msgstr "Make the summary shorter."
 
 #: src/settings/general/billing.tsx
 msgid "Manage billing"
@@ -3729,10 +3763,10 @@ msgstr "New meetings are imported automatically while Anarlog is running."
 msgid "New Note"
 msgstr "New Note"
 
-#. placeholder {0}: workspaceConfirmation?.name
+#. placeholder {0}: accessConfirmation?.label
 #: src/folders/folder-editor.tsx
-msgid "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
-msgstr "New notes in this folder will sync to everyone in {0}. Notes already in the folder are not moved."
+msgid "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
+msgstr "New notes in this folder will be shared with {0} once their summary is ready. Notes already in the folder are not changed."
 
 #: src/settings/referrals.tsx
 msgid "New referral invites are available with an active personal Pro trial or paid subscription. Team-only subscriptions aren't eligible."
@@ -4300,6 +4334,8 @@ msgstr "Pending"
 msgid "People"
 msgstr "People"
 
+#: src/folders/folder-editor.tsx
+#: src/folders/sidebar.tsx
 #: src/settings/general/default-share-access.tsx
 msgid "People in the meeting"
 msgstr "People in the meeting"
@@ -4390,6 +4426,10 @@ msgstr "Post the meeting summary to a channel you can access."
 msgid "Post to a channel"
 msgstr "Post to a channel"
 
+#: src/settings/general/primary-recording-device.tsx
+msgid "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
+msgstr "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
+
 #: src/settings/general/notification.tsx
 msgid "Prepare for events with a 5-minute reminder."
 msgstr "Prepare for events with a 5-minute reminder."
@@ -4442,6 +4482,10 @@ msgstr "Previous referrals keep their original reward terms and count toward you
 #: src/settings/team/index.tsx
 msgid "Primary owner"
 msgstr "Primary owner"
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Primary recording device"
+msgstr "Primary recording device"
 
 #: src/settings/general/app-settings.tsx
 msgid "Privacy"
@@ -4518,6 +4562,14 @@ msgstr "Reasoning effort"
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Reasoning models think through the transcript before writing."
 msgstr "Reasoning models think through the transcript before writing."
+
+#: src/chat/components/body/empty.tsx
+msgid "Recap the last 5 minutes."
+msgstr "Recap the last 5 minutes."
+
+#: src/chat/components/body/empty.tsx
+msgid "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
+msgstr "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now."
 
 #: src/session/components/note-input/meeting-chat-highlights.tsx
 msgid "received"
@@ -4666,6 +4718,10 @@ msgstr "Remove {term}"
 #: src/settings/automations/index.tsx
 msgid "Remove automation"
 msgstr "Remove automation"
+
+#: src/contacts/details.tsx
+msgid "Remove email"
+msgstr "Remove email"
 
 #. placeholder {0}: index + 1
 #: src/templates/auto-format-examples-dialog.tsx
@@ -5146,10 +5202,6 @@ msgstr "Select language"
 msgid "Select or type to add speaker"
 msgstr "Select or type to add speaker"
 
-#: src/settings/general/summary-length.tsx
-msgid "Select summary length"
-msgstr "Select summary length"
-
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
 msgstr "Select timezone"
@@ -5263,6 +5315,14 @@ msgstr "Share audio"
 msgid "Share link copied."
 msgstr "Share link copied."
 
+#: src/folders/folder-editor.tsx
+msgid "Share new notes in this folder when their summary is ready. You can still change access on each note."
+msgstr "Share new notes in this folder when their summary is ready. You can still change access on each note."
+
+#: src/folders/folder-editor.tsx
+msgid "Share new notes in this folder?"
+msgstr "Share new notes in this folder?"
+
 #: src/session-sharing/index.tsx
 msgid "Share note"
 msgstr "Share note"
@@ -5274,10 +5334,6 @@ msgstr "Share notes with others"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Share one item with a guest, or add it to a Team for everyone."
 msgstr "Share one item with a guest, or add it to a Team for everyone."
-
-#: src/folders/folder-editor.tsx
-msgid "Share this folder?"
-msgstr "Share this folder?"
 
 #: src/settings/general/app-settings.tsx
 msgid "Share usage data"
@@ -5315,6 +5371,10 @@ msgstr "Shared screen at {time}"
 #: src/session/components/note-input/meeting-screen-gallery.tsx
 msgid "Shared screens"
 msgstr "Shared screens"
+
+#: src/session/components/note-input/header-shared-note.tsx
+msgid "Shared summary"
+msgstr "Shared summary"
 
 #: src/resource-sharing/library.tsx
 msgid "Shared with me"
@@ -5461,6 +5521,10 @@ msgstr "Sign in to add this folder"
 #: src/settings/general/billing.tsx
 msgid "Sign in to Anarlog"
 msgstr "Sign in to Anarlog"
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Sign in to choose a primary recording device."
+msgstr "Sign in to choose a primary recording device."
 
 #: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
@@ -5632,6 +5696,26 @@ msgstr "Sort options"
 msgid "Sound"
 msgstr "Sound"
 
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: {provider} (AI model provider)"
+msgstr "Source: {provider} (AI model provider)"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: AI model provider"
+msgstr "Source: AI model provider"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: Anarlog"
+msgstr "Source: Anarlog"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: OpenRouter (AI routing service)"
+msgstr "Source: OpenRouter (AI routing service)"
+
+#: src/session/components/note-input/enhanced/enhance-error.tsx
+msgid "Source: OpenRouter or the AI model provider"
+msgstr "Source: OpenRouter or the AI model provider"
+
 #: src/settings/general/notification.tsx
 msgid "Sparkle"
 msgstr "Sparkle"
@@ -5799,6 +5883,10 @@ msgstr "Success"
 msgid "Suggest a Feature"
 msgstr "Suggest a Feature"
 
+#: src/chat/components/body/empty.tsx
+msgid "Suggest what to ask next."
+msgstr "Suggest what to ask next."
+
 #: src/session-sharing/invite-recipients.tsx
 msgid "Suggested attendees"
 msgstr "Suggested attendees"
@@ -5806,10 +5894,6 @@ msgstr "Suggested attendees"
 #: src/session/components/note-input/raw.tsx
 msgid "Suggested templates"
 msgstr "Suggested templates"
-
-#: src/settings/general/index.tsx
-msgid "Summaries"
-msgstr "Summaries"
 
 #: src/contacts/details.tsx
 #: src/edit/tab-content.tsx
@@ -5834,10 +5918,6 @@ msgstr "Summary format cannot be empty."
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Summary generation failed"
 msgstr "Summary generation failed"
-
-#: src/settings/general/summary-length.tsx
-msgid "Summary length"
-msgstr "Summary length"
 
 #: src/automations/starters.tsx
 #: src/services/enhancer/summary-notification.ts
@@ -5943,14 +6023,6 @@ msgstr "Teach coding agents when and how to use the Anarlog CLI and MCP"
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team"
 msgstr "Team"
-
-#: src/folders/folder-editor.tsx
-msgid "Team folder"
-msgstr "Team folder"
-
-#: src/folders/folder-editor.tsx
-msgid "Team folder workspace"
-msgstr "Team folder workspace"
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Team library"
@@ -6193,6 +6265,7 @@ msgstr "Trigger"
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
+#: src/settings/general/primary-recording-device.tsx
 #: src/settings/referrals.tsx
 #: src/settings/stats/badge-collection.tsx
 #: src/settings/team/index.tsx
@@ -6234,6 +6307,10 @@ msgstr "Typical conversation length"
 #: src/settings/developers/cli.tsx
 msgid "Unavailable"
 msgstr "Unavailable"
+
+#: src/settings/general/primary-recording-device.tsx
+msgid "Unavailable device"
+msgstr "Unavailable device"
 
 #: src/main/windows-title-bar.tsx
 #: src/sidebar/toast/undo-delete-toast.tsx
@@ -6278,6 +6355,7 @@ msgstr "Unlock your login Keychain in the macOS prompt. Anarlog will retry savin
 msgid "Unnamed"
 msgstr "Unnamed"
 
+#: src/settings/general/primary-recording-device.tsx
 #: src/settings/sync/index.tsx
 msgid "Unnamed device"
 msgstr "Unnamed device"
@@ -6558,6 +6636,10 @@ msgstr "Weekly streak: {0}"
 #: src/onboarding/index.tsx
 msgid "Welcome to Anarlog"
 msgstr "Welcome to Anarlog"
+
+#: src/chat/components/body/empty.tsx
+msgid "What action items have come up so far in this meeting?"
+msgstr "What action items have come up so far in this meeting?"
 
 #: src/chat/components/body/empty.tsx
 msgid "What are my action items from this meeting?"

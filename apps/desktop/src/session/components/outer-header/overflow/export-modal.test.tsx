@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   onOpenChange: vi.fn(),
   save: vi.fn(),
   isAppStoreBuild: vi.fn(),
+  sharedNote: undefined as { body: unknown } | undefined,
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
@@ -49,10 +50,22 @@ vi.mock("~/session/components/note-input/transcript/export-data", () => ({
   useTranscriptExportSegments: () => ({ data: [], isLoading: false }),
 }));
 vi.mock("~/stt/queries", () => ({ useSessionTranscriptMetadata: () => [] }));
+vi.mock("~/auth", () => ({
+  useAuth: () => ({ session: { user: { id: "viewer" } } }),
+}));
+vi.mock("~/shared-notes/cache", () => ({
+  useDurableSharedNote: (_viewer: string | null, shareId: string) => ({
+    data: shareId ? mocks.sharedNote : undefined,
+  }),
+}));
 
 import { ExportModal } from "./export-modal";
 
-function renderModal() {
+function renderModal(
+  currentView: React.ComponentProps<typeof ExportModal>["currentView"] = {
+    type: "raw",
+  },
+) {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
@@ -60,7 +73,7 @@ function renderModal() {
     <QueryClientProvider client={client}>
       <ExportModal
         sessionId="session-1"
-        currentView={{ type: "raw" }}
+        currentView={currentView}
         open
         onOpenChange={mocks.onOpenChange}
       />
@@ -120,6 +133,25 @@ describe("ExportModal destination", () => {
       );
     },
   );
+
+  it("exports the shared summary from a shared tab", async () => {
+    mocks.sharedNote = {
+      body: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Shared decisions" }],
+          },
+        ],
+      },
+    };
+    renderModal({ type: "shared", id: "share-1" });
+    fireEvent.click(screen.getByRole("radio", { name: "Markdown" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(mocks.onOpenChange).toHaveBeenCalledWith(false));
+    expect(mocks.writeTextFile.mock.calls[0][1]).toContain("Shared decisions");
+  });
 
   it("does not export to Downloads if reading the saved preference fails", async () => {
     mocks.settings.mockRejectedValue(new Error("Database unavailable"));

@@ -16600,6 +16600,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "specta",
  "specta-typescript",
  "storage",
@@ -17387,8 +17388,10 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tokio",
- "tower-http",
+ "tokio-tungstenite 0.29.0",
+ "tower",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

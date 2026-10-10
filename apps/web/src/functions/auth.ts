@@ -5,7 +5,10 @@ import { z } from "zod";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { rememberLastSignInMethod } from "@/functions/auth-last-used";
 import { mintDesktopSessionForAuthenticatedUser } from "@/functions/auth-session";
-import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import {
+  desktopAuthStateSchema,
+  desktopSchemeSchema,
+} from "@/functions/desktop-flow";
 import { ensureNewAccountTrial } from "@/functions/new-account-trial";
 import {
   isConfirmedNewAccount,
@@ -44,6 +47,7 @@ import {
 const shared = z.object({
   flow: z.enum(["desktop", "web"]).default("desktop"),
   scheme: desktopSchemeSchema.optional(),
+  desktop_state: desktopAuthStateSchema.optional(),
   redirect: z.string().optional(),
 });
 
@@ -155,12 +159,14 @@ function buildAuthCallbackParams(
   data: {
     flow: Flow;
     scheme?: string;
+    desktop_state?: string;
     redirect?: string;
   },
   method?: AuthSignInMethod,
 ) {
   const params = new URLSearchParams({ flow: data.flow });
   if (data.scheme) params.set("scheme", data.scheme);
+  if (data.desktop_state) params.set("desktop_state", data.desktop_state);
   if (data.redirect) {
     params.set("redirect", sanitizeInternalReturnPath(data.redirect));
   }
@@ -675,6 +681,7 @@ export const doPasswordResetRequest = createServerFn({ method: "POST" })
       email: z.string().email(),
       flow: z.enum(["desktop", "web"]).default("web"),
       scheme: desktopSchemeSchema.optional(),
+      desktop_state: desktopAuthStateSchema.optional(),
       redirect: z.string().optional(),
       captchaToken: z.string().min(1).max(4096).optional(),
     }),

@@ -8,7 +8,10 @@ import {
 import type { FloatingSpeakerLabels } from "./speaker-labels";
 
 import type { ListenerStore } from "~/store/zustand/listener";
-import { isLiveTranscriptInterrupted } from "~/store/zustand/listener/general-shared";
+import {
+  getCaptureWarning,
+  isLiveTranscriptInterrupted,
+} from "~/store/zustand/listener/general-shared";
 import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/transcript";
 import { SegmentKeyUtils, type RenderLabelContext } from "~/stt/live-segment";
 import { getLiveTranscriptPausedMessage } from "~/stt/live-transcript-interrupted";
@@ -91,7 +94,7 @@ export function getFloatingRouteState(
       Math.hypot(state.live.amplitude.mic, state.live.amplitude.speaker),
       1,
     ),
-    status: "recording",
+    status: getCaptureWarning(state.live) ? "error" : "recording",
     colorScheme,
     opacity: settings.floatingBarOpacity,
     liveCaptionOpacity: settings.liveCaptionOpacity,
@@ -107,12 +110,14 @@ export function getFloatingRouteState(
         speakerLabelContext,
         speakerLabels,
       ),
-    transcriptNotice: isLiveTranscriptInterrupted(state.live)
-      ? getLiveTranscriptPausedMessage({
-          degraded: state.live.degraded,
-          sttProvider,
-        })
-      : null,
+    transcriptNotice:
+      getCaptureWarning(state.live) ??
+      (isLiveTranscriptInterrupted(state.live)
+        ? getLiveTranscriptPausedMessage({
+            degraded: state.live.degraded,
+            sttProvider,
+          })
+        : null),
   };
 }
 

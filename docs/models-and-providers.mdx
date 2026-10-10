@@ -123,6 +123,8 @@ Recent bring-your-own Transcription models in Settings include:
 - **NVIDIA Speech NIM** for live transcription through your own deployed NIM server. NVIDIA's hosted gRPC endpoint is not supported.
 - **Amazon Bedrock** for after-recording transcription through an OpenAI-compatible gateway exposing `/audio/transcriptions`. Native Bedrock endpoints are not supported.
 
+Desktop 1.4.30 and later transcribes **AssemblyAI Universal-3.5 Pro** (`universal-3-5-pro`) recordings once after you stop. Older Universal-3 Pro selections now use Universal-3.5 Pro. Processing the whole meeting preserves speaker labels across the recording instead of restarting them for each minute.
+
 The new live-only providers keep credentials unverified until transcription starts. If live transcription fails, keep the recording and retry with a provider that supports after-recording transcription.
 
 Settings may still show older model IDs for compatibility. Prefer the current Gemini 3.5, Universal 3.5, Soniox 5, Smallest AI Pulse, and GPT Transcribe models when you configure a provider yourself.

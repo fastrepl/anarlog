@@ -32,17 +32,11 @@ pub async fn insert_session(
           id, workspace_id, owner_user_id, title, event_json, folder_path,
           created_at, updated_at, deleted_at
         ) VALUES (
-          ?, COALESCE(
-            (SELECT NULLIF(folder.workspace_id, '') FROM folders AS folder
-              WHERE folder.deleted_at IS NULL AND folder.workspace_id <> ''
-                AND folder.path = ?
-              LIMIT 1),
-            NULLIF((
-              SELECT json_extract(value_json, '$.workspace_id')
-              FROM app_settings
-              WHERE id = 'cloudsync_workspace_binding'
-            ), '')
-          ), COALESCE(
+          ?, NULLIF((
+            SELECT json_extract(value_json, '$.workspace_id')
+            FROM app_settings
+            WHERE id = 'cloudsync_workspace_binding'
+          ), ''), COALESCE(
             (SELECT library_workspace_id FROM local_library_connections WHERE active = 1),
             NULLIF(NULLIF(?, ''), '00000000-0000-0000-0000-000000000000'),
             NULLIF((
@@ -54,7 +48,6 @@ pub async fn insert_session(
         )",
     )
     .bind(session_id)
-    .bind(folder_path)
     .bind(user_id)
     .bind(title)
     .bind(event_json)

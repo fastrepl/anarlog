@@ -113,12 +113,25 @@ pub async fn find_human_ids_by_email(
     let placeholders = emails.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
     let sql = format!(
         "SELECT id, email
-        FROM humans
-        WHERE deleted_at IS NULL
-          AND lower(email) IN ({placeholders})
-        ORDER BY id"
+        FROM (
+          SELECT humans.id AS id, lower(humans.email) AS email
+          FROM humans
+          WHERE humans.deleted_at IS NULL
+            AND lower(humans.email) IN ({placeholders})
+          UNION ALL
+          SELECT humans.id, lower(additional_email.value)
+          FROM humans,
+            {} AS additional_email
+          WHERE humans.deleted_at IS NULL
+            AND lower(additional_email.value) IN ({placeholders})
+        )
+        ORDER BY id",
+        crate::human_additional_emails_json_each_sql("humans")
     );
     let mut query = sqlx::query_as::<_, (String, String)>(sqlx::AssertSqlSafe(sql));
+    for email in emails {
+        query = query.bind(email);
+    }
     for email in emails {
         query = query.bind(email);
     }
@@ -143,13 +156,13 @@ pub async fn insert_new_participant_organization(
     conn: &mut SqliteConnection,
     input: &EventParticipantInsert<'_>,
 ) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query(
+    let sql = format!(
         "INSERT INTO organizations (
           id, workspace_id, owner_user_id, name, memo, pinned, pin_order,
           metadata_json, created_at, updated_at, deleted_at
         )
         SELECT ?, session.workspace_id, session.owner_user_id, ?, '', 0, NULL,
-          '{}', ?, ?, NULL
+          '{{}}', ?, ?, NULL
         FROM sessions AS session
         WHERE session.id = ? AND session.deleted_at IS NULL
           AND ? <> session.owner_user_id
@@ -161,19 +174,23 @@ pub async fn insert_new_participant_organization(
           AND NOT EXISTS (
             SELECT 1
             FROM humans
-            WHERE lower(email) = lower(?) AND deleted_at IS NULL
+            WHERE deleted_at IS NULL
+              AND {}
           )",
-    )
-    .bind(input.organization_id)
-    .bind(input.company_name)
-    .bind(input.now)
-    .bind(input.now)
-    .bind(input.session_id)
-    .bind(input.human_id)
-    .bind(input.company_name)
-    .bind(input.email)
-    .execute(&mut *conn)
-    .await?;
+        crate::human_has_email_sql("humans", "?")
+    );
+    let result = sqlx::query(sqlx::AssertSqlSafe(sql))
+        .bind(input.organization_id)
+        .bind(input.company_name)
+        .bind(input.now)
+        .bind(input.now)
+        .bind(input.session_id)
+        .bind(input.human_id)
+        .bind(input.company_name)
+        .bind(input.email)
+        .bind(input.email)
+        .execute(&mut *conn)
+        .await?;
 
     Ok(result.rows_affected())
 }
@@ -230,7 +247,7 @@ pub async fn insert_event_human(
     conn: &mut SqliteConnection,
     input: &EventHumanInsert<'_>,
 ) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query(
+    let sql = format!(
         "INSERT INTO humans (
           id, workspace_id, owner_user_id, name, email, organization_id,
           created_at, updated_at, deleted_at
@@ -250,21 +267,25 @@ pub async fn insert_event_human(
           AND NOT EXISTS (
             SELECT 1
             FROM humans
-            WHERE lower(email) = lower(?) AND deleted_at IS NULL
+            WHERE deleted_at IS NULL
+              AND {}
           )",
-    )
-    .bind(input.human_id)
-    .bind(input.name)
-    .bind(input.email)
-    .bind(input.company_name)
-    .bind(input.company_name)
-    .bind(input.now)
-    .bind(input.now)
-    .bind(input.session_id)
-    .bind(input.human_id)
-    .bind(input.email)
-    .execute(&mut *conn)
-    .await?;
+        crate::human_has_email_sql("humans", "?")
+    );
+    let result = sqlx::query(sqlx::AssertSqlSafe(sql))
+        .bind(input.human_id)
+        .bind(input.name)
+        .bind(input.email)
+        .bind(input.company_name)
+        .bind(input.company_name)
+        .bind(input.now)
+        .bind(input.now)
+        .bind(input.session_id)
+        .bind(input.human_id)
+        .bind(input.email)
+        .bind(input.email)
+        .execute(&mut *conn)
+        .await?;
 
     Ok(result.rows_affected())
 }
@@ -322,7 +343,7 @@ pub async fn insert_event_session_participant(
     participant_id: &str,
     input: &EventHumanInsert<'_>,
 ) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query(
+    let sql = format!(
         "INSERT INTO session_participants (
           id, workspace_id, owner_user_id, session_id, human_id, display_name,
           email, source, created_at, updated_at, deleted_at
@@ -337,8 +358,8 @@ pub async fn insert_event_session_participant(
             FROM humans AS owner
             WHERE owner.id = session.owner_user_id
               AND owner.deleted_at IS NULL
-              AND NULLIF(lower(owner.email), '') IS NOT NULL
-              AND lower(owner.email) = lower(?)
+              AND NULLIF(lower(?), '') IS NOT NULL
+              AND {}
           )
           AND NOT EXISTS (
             SELECT 1
@@ -358,21 +379,25 @@ pub async fn insert_event_session_participant(
                 )
               )
           )",
-    )
-    .bind(participant_id)
-    .bind(input.human_id)
-    .bind(input.name)
-    .bind(input.email)
-    .bind(input.now)
-    .bind(input.now)
-    .bind(input.session_id)
-    .bind(input.human_id)
-    .bind(input.email)
-    .bind(input.human_id)
-    .bind(input.email)
-    .bind(input.email)
-    .execute(&mut *conn)
-    .await?;
+        crate::human_has_email_nonempty_primary_sql("owner", "?")
+    );
+    let result = sqlx::query(sqlx::AssertSqlSafe(sql))
+        .bind(participant_id)
+        .bind(input.human_id)
+        .bind(input.name)
+        .bind(input.email)
+        .bind(input.now)
+        .bind(input.now)
+        .bind(input.session_id)
+        .bind(input.human_id)
+        .bind(input.email)
+        .bind(input.email)
+        .bind(input.email)
+        .bind(input.human_id)
+        .bind(input.email)
+        .bind(input.email)
+        .execute(&mut *conn)
+        .await?;
 
     Ok(result.rows_affected())
 }

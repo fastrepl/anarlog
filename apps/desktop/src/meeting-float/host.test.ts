@@ -171,23 +171,22 @@ describe("getFloatingRouteState", () => {
     ).toBe(true);
   });
 
-  it("keeps recording status while connecting or after a capture error", () => {
-    for (const live of [
-      { loadingPhase: "connecting" as const },
-      { lastError: "microphone unavailable", lastErrorIsAudioRelated: true },
-    ]) {
-      expect(
-        getFloatingRouteState(
-          createListenerState({
-            status: "active",
-            sessionId: "session-1",
-            requestedLiveTranscription: true,
-            liveTranscriptionActive: true,
-            ...live,
-          }),
-        )?.status,
-      ).toBe("recording");
-    }
+  it("shows capture failure in the floating bar while connection retries keep recording", () => {
+    const healthy = createListenerState({
+      status: "active",
+      sessionId: "session-1",
+      loadingPhase: "connecting",
+      requestedLiveTranscription: true,
+      liveTranscriptionActive: true,
+    });
+    expect(getFloatingRouteState(healthy)?.status).toBe("recording");
+    const failed = createListenerState({
+      ...healthy.live,
+      captureHealth: { mic: false, speaker: true, unavailable: false },
+    });
+    expect(getFloatingRouteState(failed)?.status).toBe("error");
+    expect(getFloatingRouteState(failed)?.transcriptNotice).toBeTruthy();
+    expect(haveFloatingRouteInputsChanged(failed, healthy)).toBe(true);
   });
 
   it("keeps recording status and adds a quiet notice when live transcription is interrupted", () => {

@@ -1,10 +1,5 @@
 import type { MobileSyncSnapshot } from "./controller";
 
-export type BackgroundSyncWork = {
-  remaining: number;
-  subtitle: string;
-};
-
 export function backgroundSyncWork(
   sync: Pick<
     MobileSyncSnapshot,
@@ -15,19 +10,25 @@ export function backgroundSyncWork(
     | "consecutiveFailures"
   >,
   pendingUploads: number,
-): BackgroundSyncWork {
-  if (sync.phase !== "ready" || !sync.running) {
-    return { remaining: 0, subtitle: "Syncing notes" };
-  }
+): number {
+  if (sync.phase !== "ready" || !sync.running) return 0;
   const syncPending =
     sync.syncingNow ||
     (sync.hasUnsentChanges === true && sync.consecutiveFailures === 0);
-  const uploads = Math.max(0, pendingUploads);
-  return {
-    remaining: uploads + (syncPending ? 1 : 0),
-    subtitle:
-      uploads > 0
-        ? `Uploading ${uploads} ${uploads === 1 ? "file" : "files"}`
-        : "Syncing notes",
-  };
+  return Math.max(0, pendingUploads) + (syncPending ? 1 : 0);
+}
+
+export function backgroundSyncFailed(
+  sync: Pick<
+    MobileSyncSnapshot,
+    "phase" | "hasUnsentChanges" | "errorMessage" | "consecutiveFailures"
+  >,
+  failedUploads: number,
+): boolean {
+  if (sync.phase !== "ready") return false;
+  if (failedUploads > 0) return true;
+  return (
+    sync.hasUnsentChanges !== false &&
+    (sync.consecutiveFailures > 0 || sync.errorMessage !== null)
+  );
 }

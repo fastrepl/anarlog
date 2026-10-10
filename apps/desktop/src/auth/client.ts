@@ -9,6 +9,8 @@ import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
 import { commands as authCommands } from "@anlg/plugin-auth";
 
+import { createRefreshFetch } from "./refresh-fetch";
+
 import { env } from "~/env";
 
 const authStorageKey = env.VITE_SUPABASE_URL
@@ -79,7 +81,14 @@ export const supabase: SupabaseClient | null =
   env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY
     ? createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
         global: {
-          fetch: tauriFetch,
+          fetch: createRefreshFetch({
+            fetch: tauriFetch,
+            supabaseUrl: env.VITE_SUPABASE_URL,
+            beginRefresh: (refreshToken) =>
+              authCommands.beginRefresh(refreshToken),
+            finishRefresh: (leaseId, status, retryAfterMs) =>
+              authCommands.finishRefresh(leaseId, status, retryAfterMs),
+          }),
         },
         auth: {
           storage: tauriStorage,

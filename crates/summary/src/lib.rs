@@ -10,14 +10,6 @@ const SECTION_GUIDANCE_CHARACTER_STEP: usize = 2_000;
 const TEMPLATE_SECTION_MIN_CHARACTERS: usize = 150;
 const MAX_GUIDANCE_SECTIONS: usize = 8;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, Type)]
-#[serde(rename_all = "lowercase")]
-pub enum SummaryLengthMode {
-    Crisp,
-    Balanced,
-    Detailed,
-}
-
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Type)]
 pub struct SummaryLengthGuidance {
     pub max_characters: u32,
@@ -27,7 +19,6 @@ pub struct SummaryLengthGuidance {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Type)]
 pub struct SummaryLengthPolicy {
-    pub mode: SummaryLengthMode,
     pub transcript_characters: u32,
     pub guidance: Option<SummaryLengthGuidance>,
 }
@@ -35,7 +26,6 @@ pub struct SummaryLengthPolicy {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, Type)]
 pub struct SummaryLengthPolicyRequest {
     pub transcript_texts: Vec<String>,
-    pub mode: SummaryLengthMode,
     pub template_section_count: u32,
 }
 
@@ -65,18 +55,12 @@ pub fn count_normalized_characters(text: &str) -> usize {
 
 pub fn summary_length_policy(
     transcript_characters: usize,
-    mode: SummaryLengthMode,
     template_section_count: usize,
 ) -> Option<SummaryLengthPolicy> {
     if transcript_characters == 0 {
         return None;
     }
 
-    let ratio = match mode {
-        SummaryLengthMode::Crisp => 0.25_f64,
-        SummaryLengthMode::Balanced => 0.5_f64,
-        SummaryLengthMode::Detailed => 1.0_f64,
-    };
     let transcript_characters_f64 = transcript_characters as f64;
     let base_min_sections = clamp_f64(
         (transcript_characters_f64 / (SECTION_GUIDANCE_CHARACTER_STEP * 2) as f64).ceil(),
@@ -89,18 +73,16 @@ pub fn summary_length_policy(
         MAX_GUIDANCE_SECTIONS as f64,
     );
     let minimum = MIN_SUMMARY_CHARACTERS as f64;
-    let guidance_max_characters = (transcript_characters_f64 * ratio)
-        .round()
+    let guidance_max_characters = transcript_characters_f64
         .max(minimum)
         .max((template_section_count as f64) * TEMPLATE_SECTION_MIN_CHARACTERS as f64);
     let guidance = SummaryLengthGuidance {
         max_characters: to_u32(guidance_max_characters),
-        min_sections: to_u32((base_min_sections * ratio).ceil()),
-        max_sections: to_u32((base_max_sections * ratio).ceil().max(2.0)),
+        min_sections: to_u32(base_min_sections),
+        max_sections: to_u32(base_max_sections),
     };
 
     Some(SummaryLengthPolicy {
-        mode,
         transcript_characters: usize_to_u32(transcript_characters),
         guidance: Some(guidance),
     })
@@ -108,7 +90,6 @@ pub fn summary_length_policy(
 
 pub fn summary_length_policy_for_texts(
     texts: &[String],
-    mode: SummaryLengthMode,
     template_section_count: usize,
 ) -> Option<SummaryLengthPolicy> {
     let joined = texts
@@ -117,11 +98,7 @@ pub fn summary_length_policy_for_texts(
         .map(String::as_str)
         .collect::<Vec<_>>()
         .join(" ");
-    summary_length_policy(
-        count_normalized_characters(&joined),
-        mode,
-        template_section_count,
-    )
+    summary_length_policy(count_normalized_characters(&joined), template_section_count)
 }
 
 pub fn extract_tag_names(sources: &[Option<&str>]) -> Vec<String> {
@@ -370,9 +347,8 @@ mod tests {
     #[test]
     fn computes_the_short_transcript_policy() {
         assert_eq!(
-            summary_length_policy(200, SummaryLengthMode::Detailed, 0),
+            summary_length_policy(200, 0),
             Some(SummaryLengthPolicy {
-                mode: SummaryLengthMode::Detailed,
                 transcript_characters: 200,
                 guidance: Some(SummaryLengthGuidance {
                     max_characters: 320,
@@ -388,7 +364,6 @@ mod tests {
         let cases = [
             (
                 636,
-                SummaryLengthMode::Detailed,
                 SummaryLengthGuidance {
                     max_characters: 636,
                     min_sections: 1,
@@ -397,7 +372,6 @@ mod tests {
             ),
             (
                 6_000,
-                SummaryLengthMode::Detailed,
                 SummaryLengthGuidance {
                     max_characters: 6_000,
                     min_sections: 2,
@@ -406,7 +380,6 @@ mod tests {
             ),
             (
                 10_000,
-                SummaryLengthMode::Detailed,
                 SummaryLengthGuidance {
                     max_characters: 10_000,
                     min_sections: 3,
@@ -414,26 +387,7 @@ mod tests {
                 },
             ),
             (
-                10_000,
-                SummaryLengthMode::Balanced,
-                SummaryLengthGuidance {
-                    max_characters: 5_000,
-                    min_sections: 2,
-                    max_sections: 3,
-                },
-            ),
-            (
-                10_000,
-                SummaryLengthMode::Crisp,
-                SummaryLengthGuidance {
-                    max_characters: 2_500,
-                    min_sections: 1,
-                    max_sections: 2,
-                },
-            ),
-            (
                 30_000,
-                SummaryLengthMode::Detailed,
                 SummaryLengthGuidance {
                     max_characters: 30_000,
                     min_sections: 5,
@@ -442,27 +396,15 @@ mod tests {
             ),
         ];
 
-        for (characters, mode, guidance) in cases {
-            let result = summary_length_policy(characters, mode, 0).unwrap();
+        for (characters, guidance) in cases {
+            let result = summary_length_policy(characters, 0).unwrap();
             assert_eq!(result.guidance, Some(guidance));
         }
     }
 
     #[test]
-    fn guidance_budget_scales_by_summary_length_mode() {
-        for (mode, max_characters) in [
-            (SummaryLengthMode::Crisp, 7_500),
-            (SummaryLengthMode::Balanced, 15_000),
-            (SummaryLengthMode::Detailed, 30_000),
-        ] {
-            let result = summary_length_policy(30_000, mode, 0).unwrap();
-            assert_eq!(result.guidance.unwrap().max_characters, max_characters);
-        }
-    }
-
-    #[test]
     fn policy_uses_the_template_section_floor() {
-        let policy = summary_length_policy(160, SummaryLengthMode::Crisp, 12).unwrap();
+        let policy = summary_length_policy(160, 12).unwrap();
         assert_eq!(
             policy.guidance,
             Some(SummaryLengthGuidance {
@@ -476,14 +418,13 @@ mod tests {
     #[test]
     fn policy_for_texts_joins_nonempty_segments_before_counting() {
         let texts = vec!["first".to_owned(), String::new(), "second".to_owned()];
-        let policy =
-            summary_length_policy_for_texts(&texts, SummaryLengthMode::Detailed, 0).unwrap();
+        let policy = summary_length_policy_for_texts(&texts, 0).unwrap();
         assert_eq!(policy.transcript_characters, 12);
     }
 
     #[test]
     fn policy_is_absent_without_transcript_characters() {
-        assert!(summary_length_policy(0, SummaryLengthMode::Detailed, 0).is_none());
+        assert!(summary_length_policy(0, 0).is_none());
     }
 
     #[test]

@@ -41,6 +41,9 @@ pub enum SyncError {
     #[error("Cloud state changed; pull before retrying")]
     E2eeReplicaBaseChanged,
 
+    #[error("Encrypted sync is busy; retry later")]
+    E2eeWitnessBusy,
+
     #[error("E2EE freshness witness is unavailable")]
     E2eeWitnessServiceUnavailable,
 
@@ -119,7 +122,13 @@ pub enum SyncError {
 
 impl IntoResponse for SyncError {
     fn into_response(self) -> Response {
+        let retry_after = matches!(self, Self::E2eeWitnessBusy);
         let (status, code, message) = match self {
+            Self::E2eeWitnessBusy => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "e2ee_witness_busy",
+                "Encrypted sync is busy; retry later".to_string(),
+            ),
             Self::E2eeReplicaBaseChanged => (
                 StatusCode::CONFLICT,
                 "e2ee_replica_base_changed",
@@ -301,6 +310,13 @@ impl IntoResponse for SyncError {
             ),
         };
 
-        anlg_api_error::error_response(status, code, &message)
+        let mut response = anlg_api_error::error_response(status, code, &message);
+        if retry_after {
+            response.headers_mut().insert(
+                axum::http::header::RETRY_AFTER,
+                axum::http::HeaderValue::from_static("1"),
+            );
+        }
+        response
     }
 }

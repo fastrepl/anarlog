@@ -44,10 +44,12 @@ export function buildSignInUrl(
   appUrl: string,
   method: SignInMethod,
   scheme = "anarlog",
+  desktopState?: string,
 ): string {
   const url = new URL(`${appUrl.replace(/\/+$/, "")}/auth`);
   url.searchParams.set("flow", "desktop");
   url.searchParams.set("scheme", scheme);
+  if (desktopState) url.searchParams.set("desktop_state", desktopState);
 
   if (method === "email" || method === "sso") {
     url.searchParams.set("view", method);

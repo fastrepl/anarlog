@@ -648,7 +648,7 @@ def test_desired_runtime_replaces_stale_machine_settings():
         "PORT": "3001",
         "PRIMARY_REGION": "sjc",
     }
-    assert result["guest"] == {"memory_mb": 1024, "cpu_kind": "shared", "cpus": 1}
+    assert result["guest"] == {"memory_mb": 2048, "cpu_kind": "performance", "cpus": 1}
     assert result["checks"] == {}
     (service,) = result["services"]
     assert service["internal_port"] == 3001
@@ -1121,7 +1121,7 @@ def test_rollback_health_preserves_capacity_and_worker_ownership():
     text = deploy_api_drain.rollback_health_config("apps/api/fly.gateway.toml", machine)
     profile = tomllib.loads(text)
     assert profile["http_service"]["checks"][0]["path"] == "/health"
-    assert profile["http_service"]["min_machines_running"] == 2
+    assert profile["http_service"]["min_machines_running"] == 3
     assert profile["env"]["ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED"] == "false"
     assert profile["env"]["ANARLOG_AI_ORIGIN"] == "https://anarlog-inference.fly.dev"
     try:

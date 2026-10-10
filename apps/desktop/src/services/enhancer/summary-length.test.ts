@@ -4,13 +4,10 @@ import {
   countNormalizedCharacters,
   countTranscriptWordCharacters,
   formatSummaryLengthGuidance,
-  formatSummaryLengthModeGuidance,
-  normalizeSummaryLengthMode,
   type SummaryLengthPolicy,
 } from "./summary-length";
 
 const detailedPolicy: SummaryLengthPolicy = {
-  mode: "detailed",
   transcript_characters: 636,
   guidance: {
     max_characters: 636,
@@ -38,20 +35,6 @@ describe("summary length guidance", () => {
     expect(formatSummaryLengthGuidance(null)).toBeNull();
   });
 
-  it.each([
-    ["crisp", "about half the length of a balanced summary"],
-    ["balanced", "the baseline length"],
-    ["detailed", "about twice the length of a balanced summary"],
-  ] as const)(
-    "describes %s mode relative to balanced summaries",
-    (mode, description) => {
-      const policy = { ...detailedPolicy, mode };
-      expect(formatSummaryLengthGuidance(policy)).toContain(
-        `Summary length mode "${mode}" is ${description}.`,
-      );
-    },
-  );
-
   it("keeps every template section under the length budget", () => {
     const guidance = formatSummaryLengthGuidance(
       {
@@ -73,30 +56,6 @@ describe("summary length guidance", () => {
     expect(guidance).not.toContain("sections and stay under");
     expect(guidance).not.toMatch(/\d to \d sections|exactly \d+ section/);
   });
-
-  it("keeps detailed as the default and explicitly requests full context", () => {
-    expect(normalizeSummaryLengthMode(undefined)).toBe("detailed");
-    expect(normalizeSummaryLengthMode("unsupported")).toBe("detailed");
-    expect(normalizeSummaryLengthMode("crisp")).toBe("crisp");
-    expect(formatSummaryLengthModeGuidance("detailed", false)).toContain(
-      "every material topic",
-    );
-  });
-
-  it.each(["crisp", "balanced", "detailed"] as const)(
-    "keeps %s guidance independent of presentation",
-    (mode) => {
-      for (const hasTemplate of [false, true]) {
-        const guidance = formatSummaryLengthModeGuidance(mode, hasTemplate);
-        expect(guidance).not.toMatch(
-          /bullet|list item|# Next Steps|never put prose/,
-        );
-      }
-      expect(formatSummaryLengthModeGuidance(mode, true)).toContain(
-        "Preserve every requested template section",
-      );
-    },
-  );
 
   it("keeps custom-format guidance independent of section count", () => {
     expect(

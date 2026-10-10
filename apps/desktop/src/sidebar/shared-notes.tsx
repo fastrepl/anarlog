@@ -7,6 +7,10 @@ import { cn } from "@anlg/utils";
 import { useAuth } from "~/auth";
 import { useSessionSummaries } from "~/session/queries";
 import { useDurableSharedNotes } from "~/shared-notes/cache";
+import {
+  useLocalSessionEventKeys,
+  useSharedNoteEventKeys,
+} from "~/shared-notes/event-keys";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function SharedNotesNav() {
@@ -17,8 +21,12 @@ export function SharedNotesNav() {
     () => new Set(sessions.map((session) => session.id)),
     [sessions],
   );
-  const notes = useDurableSharedNotes(session?.user.id).filter(
-    (note) => !(note.manageAccess && localSessionIds.has(note.sessionId)),
+  const sharedEventKeys = useSharedNoteEventKeys(session?.user.id);
+  const localEventKeys = useLocalSessionEventKeys();
+  const notes = useDurableSharedNotes(session?.user.id).filter((note) =>
+    note.manageAccess
+      ? !localSessionIds.has(note.sessionId)
+      : !localEventKeys.has(sharedEventKeys.get(note.shareId) ?? ""),
   );
   const currentTab = useTabs((state) => state.currentTab);
   const openCurrent = useTabs((state) => state.openCurrent);

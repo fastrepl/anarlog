@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-list-microphone-devices`
 - `allow-get-current-microphone-device`
 - `allow-start-capture`
+- `allow-retry-audio-capture`
 - `allow-flush-live-transcript`
 - `allow-release-live-transcript`
 - `allow-list-stopped-captures`
@@ -1049,6 +1050,32 @@ Enables the render_transcript_segments command without any pre-configured scope.
 <td>
 
 Denies the render_transcript_segments command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-retry-audio-capture`
+
+</td>
+<td>
+
+Enables the retry_audio_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-retry-audio-capture`
+
+</td>
+<td>
+
+Denies the retry_audio_capture command without any pre-configured scope.
 
 </td>
 </tr>

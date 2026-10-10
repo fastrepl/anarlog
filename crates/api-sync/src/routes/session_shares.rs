@@ -41,6 +41,8 @@ pub(super) struct CasSessionShareSnapshotRequest {
     attachment_ids: Vec<String>,
     participants: Option<Vec<String>>,
     meeting_at: Option<String>,
+    #[serde(default)]
+    event_key: Option<String>,
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -115,6 +117,7 @@ struct PublishSnapshotWithPreviewCasRpcRequest<'a> {
 struct PreviewMetadata {
     participants: Vec<String>,
     meeting_at: String,
+    event_key: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -569,6 +572,37 @@ async fn mutate_session_share_snapshot(
     }
 
     let outcome = row.outcome;
+    if outcome != "conflict"
+        && let Some(event_key) = preview_metadata
+            .as_ref()
+            .and_then(|metadata| metadata.event_key.as_deref())
+    {
+        let result = state
+            .client
+            .post(format!(
+                "{}/rest/v1/rpc/set_session_share_event_key",
+                state.config.supabase_url
+            ))
+            .header("apikey", &state.config.supabase_service_role_key)
+            .bearer_auth(&state.config.supabase_service_role_key)
+            .timeout(SNAPSHOT_PUBLISH_TIMEOUT)
+            .json(&serde_json::json!({
+                "p_share_id": share_id,
+                "p_actor_user_id": actor_user_id,
+                "p_event_key": event_key,
+            }))
+            .send()
+            .await;
+        match result {
+            Ok(response) if response.status().is_success() => {}
+            Ok(response) => {
+                tracing::warn!(status = %response.status(), "Supabase shared-note event key update was rejected");
+            }
+            Err(error) => {
+                tracing::warn!(%error, "Supabase shared-note event key update failed");
+            }
+        }
+    }
     let snapshot = PublishedSessionShareSnapshot {
         share_id: row.share_id,
         schema_version: row.schema_version,
@@ -601,7 +635,10 @@ fn validate_preview_metadata(
 ) -> Result<Option<PreviewMetadata>> {
     let (Some(participants), Some(meeting_at)) = (&request.participants, &request.meeting_at)
     else {
-        if request.participants.is_some() || request.meeting_at.is_some() {
+        if request.participants.is_some()
+            || request.meeting_at.is_some()
+            || request.event_key.is_some()
+        {
             return Err(SyncError::BadRequest(
                 "Shared note preview metadata is invalid".to_string(),
             ));
@@ -630,9 +667,19 @@ fn validate_preview_metadata(
     let meeting_at = chrono::DateTime::parse_from_rfc3339(meeting_at)
         .map_err(|_| SyncError::BadRequest("Shared note preview metadata is invalid".to_string()))?
         .to_rfc3339();
+    let event_key = match request.event_key.as_deref().map(str::trim) {
+        None => None,
+        Some(key) if key.chars().count() > 512 || key.chars().any(char::is_control) => {
+            return Err(SyncError::BadRequest(
+                "Shared note preview metadata is invalid".to_string(),
+            ));
+        }
+        Some(key) => Some(key.to_string()),
+    };
     Ok(Some(PreviewMetadata {
         participants: normalized_participants,
         meeting_at,
+        event_key,
     }))
 }
 

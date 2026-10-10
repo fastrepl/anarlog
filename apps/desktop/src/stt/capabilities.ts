@@ -85,11 +85,18 @@ export function isAnarlogCloudSttModel(
   return provider === "anarlog" && model === "cloud";
 }
 
+// Batch models that accept a whole meeting in one request. Their recordings are
+// transcribed once after capture stops, instead of in minute-long recovery
+// chunks whose speaker labels reset every chunk.
 export function requiresRetainedBatchAudio(
   provider?: string | null,
   model?: string | null,
 ) {
-  return provider === "elevenlabs" && model === "scribe_v2";
+  return (
+    (provider === "elevenlabs" && model === "scribe_v2") ||
+    (provider === "assemblyai" &&
+      (model === "universal-3-5-pro" || model === "universal-3-pro"))
+  );
 }
 
 export function isOnDeviceSttModel(

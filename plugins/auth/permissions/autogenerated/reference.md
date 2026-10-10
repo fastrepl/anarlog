@@ -10,6 +10,8 @@ Default permissions for the plugin
 - `allow-remove-item`
 - `allow-clear`
 - `allow-get-account-info`
+- `allow-begin-refresh`
+- `allow-finish-refresh`
 
 ## Permission Table
 
@@ -19,6 +21,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`auth:allow-begin-refresh`
+
+</td>
+<td>
+
+Enables the begin_refresh command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`auth:deny-begin-refresh`
+
+</td>
+<td>
+
+Denies the begin_refresh command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -68,6 +96,32 @@ Enables the decode_claims command without any pre-configured scope.
 <td>
 
 Denies the decode_claims command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`auth:allow-finish-refresh`
+
+</td>
+<td>
+
+Enables the finish_refresh command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`auth:deny-finish-refresh`
+
+</td>
+<td>
+
+Denies the finish_refresh command without any pre-configured scope.
 
 </td>
 </tr>

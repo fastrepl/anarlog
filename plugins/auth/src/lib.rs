@@ -3,6 +3,7 @@ mod error;
 mod ext;
 mod manifest;
 mod migrate;
+mod refresh;
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -39,6 +40,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::remove_item::<tauri::Wry>,
             commands::clear::<tauri::Wry>,
             commands::get_account_info::<tauri::Wry>,
+            commands::begin_refresh,
+            commands::finish_refresh,
         ])
         .typ::<anlg_supabase_auth::Claims>()
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
@@ -66,6 +69,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             };
 
             app.manage(auth_store);
+            app.manage(refresh::RefreshGate::default());
             Ok(())
         })
         .build()

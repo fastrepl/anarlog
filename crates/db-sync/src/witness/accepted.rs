@@ -114,6 +114,16 @@ impl E2eeWitnessClient {
                         "Cloud state kept changing; pending edits will retry",
                     ));
                 }
+                let jitter = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .subsec_millis() as u64
+                    % 250;
+                cancellation
+                    .run_network(tokio::time::sleep(std::time::Duration::from_millis(
+                        250 * (1 << (conflicts - 1)) + jitter,
+                    )))
+                    .await?;
                 continue;
             }
             if !status.is_success() {

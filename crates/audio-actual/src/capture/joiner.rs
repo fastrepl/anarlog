@@ -34,6 +34,36 @@ impl Joiner {
         }
     }
 
+    pub(crate) fn clear_mic(&mut self) {
+        self.mic.clear();
+    }
+    pub(crate) fn clear_speaker(&mut self) {
+        self.speaker.clear();
+    }
+
+    pub(crate) fn pop_available_pair(
+        &mut self,
+        mic_ready: bool,
+        speaker_ready: bool,
+    ) -> Option<AudioPair> {
+        if !mic_ready {
+            self.clear_mic();
+        }
+        if !speaker_ready {
+            self.clear_speaker();
+        }
+        if !mic_ready {
+            let speaker = self.speaker.pop_front()?;
+            return Some((vec![0.0; speaker.len()], speaker));
+        }
+        if !speaker_ready {
+            let mic = self.mic.pop_front()?;
+            let silence = vec![0.0; mic.len()];
+            return Some((mic, silence));
+        }
+        self.pop_pair()
+    }
+
     pub(crate) fn pop_pair(&mut self) -> Option<AudioPair> {
         if self.mic.front().is_some() && self.speaker.front().is_some() {
             return Some((self.mic.pop_front()?, self.speaker.pop_front()?));

@@ -69,6 +69,8 @@ pub struct ParticipantHumanRow {
     pub email: String,
     pub name: String,
     pub organization_id: String,
+    /// Lowercased email (primary or additional) that matched the lookup list.
+    pub match_email: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
@@ -456,19 +458,41 @@ pub async fn list_humans_by_emails(
     if emails.is_empty() {
         return Ok(Vec::new());
     }
+    let emails: Vec<String> = emails.iter().map(|email| email.to_lowercase()).collect();
     let mut builder: QueryBuilder<Sqlite> = QueryBuilder::new(
-        "SELECT id, email, name, organization_id
-            FROM humans
-            WHERE deleted_at IS NULL
-              AND lower(email) IN (",
+        "SELECT id, email, name, organization_id, match_email
+            FROM (
+              SELECT humans.id, humans.email, humans.name, humans.organization_id,
+                lower(humans.email) AS match_email, 0 AS match_rank,
+                humans.created_at AS created_at
+              FROM humans
+              WHERE humans.deleted_at IS NULL
+                AND lower(humans.email) IN (",
     );
     {
         let mut separated = builder.separated(", ");
-        for email in emails {
+        for email in &emails {
             separated.push_bind(email);
         }
     }
-    builder.push(")\n            ORDER BY created_at, id");
+    builder.push(format!(
+        ")
+              UNION ALL
+              SELECT humans.id, humans.email, humans.name, humans.organization_id,
+                lower(additional_email.value), 1, humans.created_at
+              FROM humans,
+                {} AS additional_email
+              WHERE humans.deleted_at IS NULL
+                AND lower(additional_email.value) IN (",
+        crate::human_additional_emails_json_each_sql("humans")
+    ));
+    {
+        let mut separated = builder.separated(", ");
+        for email in &emails {
+            separated.push_bind(email);
+        }
+    }
+    builder.push(")\n            )\n            ORDER BY match_rank, created_at, id");
     builder
         .build_query_as::<ParticipantHumanRow>()
         .fetch_all(&mut *conn)
@@ -753,14 +777,16 @@ pub async fn insert_organization_if_still_needed(
           WHERE NOT EXISTS (
             SELECT 1
             FROM humans
-            WHERE lower(email) = planned.column1 AND deleted_at IS NULL
+            WHERE deleted_at IS NULL
+              AND {}
           )
         )",
             new_human_emails
                 .iter()
                 .map(|_| "(?)")
                 .collect::<Vec<_>>()
-                .join(", ")
+                .join(", "),
+            crate::human_has_email_sql("humans", "planned.column1")
         ));
     }
     if !enrich_human_ids.is_empty() {
@@ -848,8 +874,9 @@ pub async fn insert_human_if_missing(
         WHERE NOT EXISTS (
           SELECT 1
           FROM humans
-          WHERE deleted_at IS NULL AND lower(email) = lower(?)
-        )"
+          WHERE deleted_at IS NULL AND {}
+        )",
+        crate::human_has_email_sql("humans", "?")
     );
     let result = sqlx::query(sqlx::AssertSqlSafe(sql))
         .bind(id)
@@ -860,6 +887,7 @@ pub async fn insert_human_if_missing(
         .bind(company_name)
         .bind(now)
         .bind(now)
+        .bind(email)
         .bind(email)
         .execute(&mut *conn)
         .await?;
@@ -934,7 +962,7 @@ pub async fn insert_session_participant_mapping(
     email: &str,
     session_id: &str,
 ) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query(
+    let sql = format!(
         "INSERT INTO session_participants (
           id,
           workspace_id,
@@ -960,7 +988,7 @@ pub async fn insert_session_participant_mapping(
           human.email,
           '',
           'auto',
-          '{}',
+          '{{}}',
           ?,
           ?,
           NULL
@@ -969,7 +997,7 @@ pub async fn insert_session_participant_mapping(
           SELECT candidate.id
           FROM humans AS candidate
           WHERE candidate.deleted_at IS NULL
-            AND (candidate.id = ? OR lower(candidate.email) = lower(?))
+            AND (candidate.id = ? OR {})
           ORDER BY candidate.id <> ?, candidate.created_at, candidate.id
           LIMIT 1
         )
@@ -982,16 +1010,19 @@ pub async fn insert_session_participant_mapping(
               AND existing.human_id = human.id
               AND existing.deleted_at IS NULL
           )",
-    )
-    .bind(id)
-    .bind(now)
-    .bind(now)
-    .bind(human_id)
-    .bind(email)
-    .bind(human_id)
-    .bind(session_id)
-    .execute(&mut *conn)
-    .await?;
+        crate::human_has_email_sql("candidate", "?")
+    );
+    let result = sqlx::query(sqlx::AssertSqlSafe(sql))
+        .bind(id)
+        .bind(now)
+        .bind(now)
+        .bind(human_id)
+        .bind(email)
+        .bind(email)
+        .bind(human_id)
+        .bind(session_id)
+        .execute(&mut *conn)
+        .await?;
     Ok(result.rows_affected())
 }
 
@@ -1055,4 +1086,69 @@ pub async fn insert_app_setting(
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected())
+}
+
+#[cfg(test)]
+mod tests {
+    use anlg_db_core::Db;
+
+    use super::*;
+    use crate::prepare_schema;
+
+    async fn test_db() -> Db {
+        let db = Db::connect_memory_plain().await.unwrap();
+        prepare_schema(&db).await.unwrap();
+        db
+    }
+
+    #[tokio::test]
+    async fn list_humans_by_emails_matches_additional_email_case_insensitively() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO humans (id, owner_user_id, name, email, metadata_json)
+             VALUES ('human-1', 'user-1', 'Ada', 'ada@example.com',
+               json_object('additionalEmails', json_array('alias@x.com')))",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let mut conn = db.pool().acquire().await.unwrap();
+
+        let rows = list_humans_by_emails(&mut conn, &["ALIAS@x.com".to_string()])
+            .await
+            .unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "human-1");
+        assert_eq!(rows[0].email, "ada@example.com");
+        assert_eq!(rows[0].match_email, "alias@x.com");
+    }
+
+    #[tokio::test]
+    async fn insert_human_if_missing_skips_when_additional_email_matches() {
+        let db = test_db().await;
+        sqlx::query(
+            "INSERT INTO humans (id, owner_user_id, name, email, metadata_json)
+             VALUES ('human-1', 'user-1', 'Ada', 'ada@example.com',
+               json_object('additionalEmails', json_array('alias@x.com')))",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let mut conn = db.pool().acquire().await.unwrap();
+
+        let inserted = insert_human_if_missing(
+            &mut conn,
+            "human-new",
+            "user-1",
+            "Alias",
+            "ALIAS@x.com",
+            "",
+            "2026-01-01T00:00:00.000Z",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(inserted, 0);
+    }
 }

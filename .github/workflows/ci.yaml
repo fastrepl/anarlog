@@ -15,6 +15,13 @@ jobs:
       - run: node scripts/sync-desktop-changelogs.mjs --check
       - run: node scripts/release-version.mjs --check
       - run: node scripts/release-version.mjs --mobile --check
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - run: pnpm install --frozen-lockfile
       - run: >-
           node --test
           scripts/dev.test.mjs
@@ -25,6 +32,8 @@ jobs:
           scripts/changelog-baseline.test.mjs
           scripts/verify-release-candidate.test.mjs
           scripts/desktop-release-provenance.test.mjs
+          scripts/workflow-security.test.mjs
+          scripts/security-dependencies.test.mjs
           scripts/publish-anarlog-skill.test.mjs
           scripts/repack-linux-appimage.test.mjs
           scripts/verify-linux-audio-qa-run.test.mjs

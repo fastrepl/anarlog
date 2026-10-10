@@ -215,6 +215,7 @@ export type CasSessionShareSnapshotRequest = {
     attachmentIds: Array<string>;
     baseRevision: number;
     body: unknown;
+    eventKey?: string | null;
     meetingAt?: string | null;
     mutationId: string;
     participants?: Array<string> | null;
@@ -4904,6 +4905,10 @@ export type PublishE2EeWitnessErrors = {
      * Witness service unavailable
      */
     502: unknown;
+    /**
+     * Publication busy; retry after the Retry-After delay
+     */
+    503: unknown;
 };
 
 export type PublishE2EeWitnessResponses = {
@@ -4950,6 +4955,10 @@ export type AcceptE2EeReplicaBatchErrors = {
      * Cloud base changed; pull and rebase
      */
     409: unknown;
+    /**
+     * Acceptance busy; retry after the Retry-After delay
+     */
+    503: unknown;
 };
 
 export type AcceptE2EeReplicaBatchResponses = {

@@ -282,7 +282,14 @@ struct FloatingBarView: View {
         ? "Finish dictation"
         : model.status == .reconnecting
           ? "Reconnecting live transcription; stop listening"
-          : model.status == .error ? "Transcription unavailable; stop listening" : "Stop listening"
+          : model.status == .error
+            ? "\(model.transcriptNotice ?? "Recording needs attention"); stop listening"
+            : "Stop listening"
+    )
+    .help(
+      model.status == .error
+        ? "\(model.transcriptNotice ?? "Recording needs attention"). Open Anarlog to retry or change devices."
+        : "Stop listening"
     )
     .onHover { isStopHovered = $0 }
   }

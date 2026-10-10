@@ -13,6 +13,7 @@ import { execute, executeTransaction } from "@/db";
 
 import {
   defaultProviderConfig,
+  isOAuthSubscriptionProvider,
   providerStorageKey,
   validateProviderApiKey,
   validateProviderConfig,
@@ -20,6 +21,11 @@ import {
   type ProviderConfig,
   type ProviderKind,
 } from "./providers-model";
+import {
+  removeSubscriptionCredential,
+  resolveSubscriptionCredential,
+} from "./subscription-access";
+import { listSubscriptionModels } from "./subscription-oauth";
 
 const secureOptions: SecureStore.SecureStoreOptions = {
   keychainService: "so.anarlog.mobile.providers",
@@ -80,6 +86,34 @@ export async function readProviderStatus(
   kind: ProviderKind,
   provider: string,
 ) {
+  if (isOAuthSubscriptionProvider(provider)) {
+    const config = await readProviderSetup(accountId, kind, provider);
+    let hasKey = false;
+    try {
+      hasKey = Boolean(await readProviderKey(accountId, kind, provider));
+      if (!hasKey) return { config, hasKey, isConfigured: false };
+      const credential = await resolveSubscriptionCredential(
+        accountId,
+        provider,
+      );
+      const models = await listSubscriptionModels(provider, credential, fetch);
+      if (!models.length)
+        throw new Error(
+          "No subscription models are available for this account.",
+        );
+      return { config, hasKey, isConfigured: true };
+    } catch (error) {
+      return {
+        config,
+        hasKey,
+        isConfigured: false,
+        verificationError:
+          error instanceof Error
+            ? error.message
+            : "Reconnect your subscription in Settings.",
+      };
+    }
+  }
   const [config, apiKey] = await Promise.all([
     readProviderSetup(accountId, kind, provider),
     readProviderKey(accountId, kind, provider),
@@ -91,7 +125,10 @@ export async function readProviderStatus(
     validateProviderApiKey(apiKey ?? "");
     hasKey = true;
     validateProviderConnection(kind, config);
-    await verifyProviderCredentials({ ...config, apiKey: apiKey! }, fetch);
+    await verifyProviderCredentials(
+      { type: kind, ...config, apiKey: apiKey! },
+      fetch,
+    );
     isConfigured = true;
   } catch (error) {
     if (hasKey)
@@ -148,13 +185,18 @@ async function persistProviderConfig(
   const normalized = connectionOnly
     ? { ...config, ...validateProviderConnection(kind, config) }
     : validateProviderConfig(kind, config);
-  if (normalized.provider !== "anarlog") {
+  if (isOAuthSubscriptionProvider(normalized.provider)) {
+    await resolveSubscriptionCredential(accountId, normalized.provider);
+  } else if (normalized.provider !== "anarlog") {
     const key = validateProviderApiKey(
       apiKey?.trim() ||
         (await readProviderKey(accountId, kind, normalized.provider)) ||
         "",
     );
-    await verifyProviderCredentials({ ...normalized, apiKey: key }, fetch);
+    await verifyProviderCredentials(
+      { type: kind, ...normalized, apiKey: key },
+      fetch,
+    );
     if (apiKey?.trim())
       await SecureStore.setItemAsync(
         providerStorageKey(accountId, kind, normalized.provider),
@@ -202,6 +244,8 @@ export async function removeProviderKey(
   kind: ProviderKind,
   provider: string,
 ): Promise<void> {
+  if (isOAuthSubscriptionProvider(provider))
+    return removeSubscriptionCredential(accountId, provider);
   await SecureStore.deleteItemAsync(
     providerStorageKey(accountId, kind, provider),
     secureOptions,
@@ -213,6 +257,17 @@ export async function resolveProvider(kind: ProviderKind) {
   if (auth?.error) throw new Error("Sign in again to continue.");
   const session = auth?.data.session;
   const config = await readProviderConfig(session?.user.id ?? null, kind);
+  if (isOAuthSubscriptionProvider(config.provider)) {
+    const credential = await resolveSubscriptionCredential(
+      session?.user.id ?? null,
+      config.provider,
+    );
+    return {
+      ...config,
+      apiKey: credential.access,
+      accountId: credential.accountId,
+    };
+  }
   if (config.provider === "anarlog") {
     if (session?.access_token) {
       if (!deriveBillingInfo(decodeJwtPayload(session.access_token)).isPro)

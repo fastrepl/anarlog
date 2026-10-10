@@ -32,7 +32,10 @@
 
   function createRelayConnection(port) {
     var maxPendingInvokes = 64;
-    var wsUrl = "ws://localhost:" + port + "/ws";
+    if (window.location.port !== String(port)) {
+      throw new Error("Open the desktop relay URL to connect to Anarlog");
+    }
+    var wsUrl = "ws://" + window.location.host + "/ws";
     var ws = null;
     var nextId = 0;
     var pending = {};

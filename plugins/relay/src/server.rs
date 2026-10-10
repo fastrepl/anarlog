@@ -1,5 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
+use crate::access::{RelayAccess, authorize};
 use axum::{
     Router,
     extract::{State, ws::WebSocketUpgrade},
@@ -7,7 +8,6 @@ use axum::{
     routing::get,
 };
 use tauri::{AppHandle, Runtime};
-use tower_http::cors::{Any, CorsLayer};
 
 use crate::relay::PendingResults;
 
@@ -23,20 +23,17 @@ pub async fn run<R: Runtime>(
 ) -> Result<(), std::io::Error> {
     let state = Arc::new(AppState { app, pending });
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let local_addr = listener.local_addr()?;
+    let access = RelayAccess::new(local_addr.port());
 
     let router = Router::new()
         .route("/ws", get(ws_upgrade::<R>))
         .route("/health", get(|| async { "ok" }))
         .fallback(get(proxy_to_vite))
-        .layer(cors)
+        .layer(axum::middleware::from_fn_with_state(access, authorize))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    let local_addr = listener.local_addr()?;
     tracing::info!("[relay] listening on http://{local_addr}");
 
     axum::serve(listener, router).await?;

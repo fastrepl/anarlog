@@ -75,6 +75,12 @@ vi.mock("~/session/folder-catalog", () => ({
   useFolderInstructions: () => mocks.instructions,
 }));
 
+vi.mock("~/session-sharing/folder-default-access", () => ({
+  folderDefaultAccessRule: () => null,
+  setFolderDefaultAccess: vi.fn(),
+  useFolderDefaultAccessRules: () => [],
+}));
+
 vi.mock("~/session-sharing/source", () => ({
   useAvailableShareWorkspaces: () => mocks.workspaces,
   usePersonalWorkspaceId: () => mocks.personalWorkspaceId,

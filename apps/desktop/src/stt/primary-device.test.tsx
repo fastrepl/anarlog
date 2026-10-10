@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => {
         },
       }),
     ),
+    preferredFingerprint: "",
   };
 });
 
@@ -29,6 +30,12 @@ vi.mock("~/auth/cloudsync-credentials", () => ({
 }));
 vi.mock("~/auth/sync-devices", () => ({
   requestMeetingDevices: mocks.requestMeetingDevices,
+}));
+vi.mock("~/settings/queries", () => ({
+  getStoredSettingValues: async () => ({
+    values: { primary_recording_device: mocks.preferredFingerprint },
+    hasValues: new Set(["primary_recording_device"]),
+  }),
 }));
 vi.mock("~/store/zustand/listener/instance", () => ({
   listenerStore: {
@@ -74,6 +81,7 @@ beforeEach(() => {
   mocks.toast.mockReset();
   mocks.live.sessionId = "session-1";
   mocks.live.status = "active";
+  mocks.preferredFingerprint = "";
 });
 
 afterEach(() => {
@@ -114,6 +122,121 @@ test("decides from the devices present for the meeting", () => {
       "this-device",
     ),
   ).toBe("yield");
+  expect(
+    decidePrimaryDevice(
+      [{ ...self, primary: false }],
+      "this-device",
+      "other-device",
+    ),
+  ).toBe("alone");
+  expect(
+    decidePrimaryDevice(
+      [
+        { ...self, primary: false },
+        { ...other, primary: false },
+      ],
+      "this-device",
+      "unavailable-device",
+    ),
+  ).toBe("ask");
+});
+
+test.each([true, false])(
+  "a server-confirmed preferred recorder stops a duplicate (automatic=%s)",
+  async (automatic) => {
+    mocks.preferredFingerprint = "other-device";
+    mocks.requestMeetingDevices.mockResolvedValue([
+      { ...self, primary: false },
+      { ...other, primary: true },
+    ]);
+    startPrimaryDeviceCoordination({
+      sessionId: "session-1",
+      event,
+      automatic,
+    });
+    await flush();
+
+    expect(mocks.stop).toHaveBeenCalled();
+    expect(consumePrimaryDeviceYield("session-1")).toBe(true);
+    expect(mocks.toast).not.toHaveBeenCalled();
+    expect(mocks.toast.info).toHaveBeenCalledWith(
+      "Recording on Home Mac",
+      expect.anything(),
+    );
+    expect(
+      mocks.requestMeetingDevices.mock.calls.map(([request]) => request.intent),
+    ).not.toContain("claim");
+  },
+);
+
+test("a preferred recorder claims an unclaimed meeting and respects a later shared winner", async () => {
+  mocks.preferredFingerprint = "this-device";
+  let primaryFingerprint = "";
+  mocks.requestMeetingDevices.mockImplementation(async ({ intent }) => {
+    if (intent === "claim") primaryFingerprint = "this-device";
+    return [
+      { ...self, primary: primaryFingerprint === "this-device" },
+      { ...other, primary: primaryFingerprint === "other-device" },
+    ];
+  });
+  startPrimaryDeviceCoordination({
+    sessionId: "session-1",
+    event,
+    automatic: true,
+  });
+  await flush(2);
+  expect(primaryFingerprint).toBe("this-device");
+
+  primaryFingerprint = "other-device";
+  await vi.advanceTimersByTimeAsync(PRIMARY_DEVICE_HEARTBEAT_MS);
+  expect(primaryFingerprint).toBe("other-device");
+  expect(consumePrimaryDeviceYield("session-1")).toBe(true);
+  expect(mocks.stop).toHaveBeenCalled();
+});
+
+test("a secondary manual start still checks the saved primary after a network failure", async () => {
+  mocks.preferredFingerprint = "other-device";
+  mocks.requestMeetingDevices
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValue([
+      { ...self, primary: false },
+      { ...other, primary: true },
+    ]);
+  startPrimaryDeviceCoordination({
+    sessionId: "session-1",
+    event,
+    automatic: false,
+  });
+  await flush();
+  await vi.advanceTimersByTimeAsync(PRIMARY_DEVICE_HEARTBEAT_MS);
+
+  expect(mocks.stop).toHaveBeenCalled();
+  expect(consumePrimaryDeviceYield("session-1")).toBe(true);
+  expect(
+    mocks.requestMeetingDevices.mock.calls.map(([request]) => request.intent),
+  ).not.toContain("claim");
+});
+
+test("a saved primary that is not recording does not stop a lone secondary device", async () => {
+  mocks.preferredFingerprint = "other-device";
+  mocks.requestMeetingDevices.mockResolvedValue([{ ...self, primary: false }]);
+  startPrimaryDeviceCoordination({
+    sessionId: "session-1",
+    event,
+    automatic: true,
+  });
+  await flush();
+  await vi.advanceTimersByTimeAsync(PRIMARY_DEVICE_HEARTBEAT_MS);
+  expect(mocks.stop).not.toHaveBeenCalled();
+  expect(mocks.toast).not.toHaveBeenCalled();
+
+  mocks.requestMeetingDevices.mockResolvedValue([
+    { ...self, primary: false },
+    { ...other, primary: true },
+  ]);
+  await vi.advanceTimersByTimeAsync(PRIMARY_DEVICE_HEARTBEAT_MS);
+  expect(mocks.stop).toHaveBeenCalled();
+  expect(consumePrimaryDeviceYield("session-1")).toBe(true);
 });
 
 test("derives the same opaque key for the same calendar event", async () => {

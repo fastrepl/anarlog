@@ -160,6 +160,16 @@ describe("SQLite settings", () => {
 
   it.each([
     {
+      key: "primary_recording_device",
+      value: "work-device",
+      table: "synced_preferences",
+    },
+    {
+      key: "primary_recording_device",
+      value: "",
+      table: "synced_preferences",
+    },
+    {
       key: "use_24_hour_time",
       value: true,
       table: "synced_preferences",
@@ -177,11 +187,6 @@ describe("SQLite settings", () => {
     {
       key: "microphone_device",
       value: "External Microphone",
-      table: "app_settings",
-    },
-    {
-      key: "summary_length",
-      value: "crisp",
       table: "app_settings",
     },
     {
