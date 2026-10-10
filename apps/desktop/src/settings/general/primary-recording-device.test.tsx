@@ -21,6 +21,12 @@ vi.mock("~/auth", () => ({
     session: { access_token: "token", user: { id: "user-1" } },
   }),
 }));
+vi.mock("~/auth/cloudsync-credentials", () => ({
+  getDeviceIdentity: async () => ({
+    fingerprint: "work-device",
+    name: "Work Mac",
+  }),
+}));
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({ isPro: true }),
 }));
@@ -54,11 +60,11 @@ afterEach(() => {
   }
 });
 
-test("chooses a device and can return to asking each meeting", async () => {
+test("offers only the current desktop and can clear its preference", async () => {
   mocks.requestSyncDevices.mockResolvedValue({
     devices: [
       { deviceFingerprint: "work-device", deviceName: "Work Mac" },
-      { deviceFingerprint: "home-device", deviceName: "Home Mac" },
+      { deviceFingerprint: "phone-device", deviceName: "My phone" },
     ],
     pendingDevices: [],
     maxDevices: 3,
@@ -82,6 +88,7 @@ test("chooses a device and can return to asking each meeting", async () => {
   });
   await waitFor(() => expect(trigger).toHaveProperty("disabled", false));
   fireEvent.keyDown(trigger, { key: "Enter" });
+  expect(screen.queryByRole("option", { name: "My phone" })).toBeNull();
   fireEvent.click(screen.getByRole("option", { name: "Work Mac" }));
   await waitFor(() => expect(trigger.textContent).toContain("Work Mac"));
   expect(mocks.setSettingValue).toHaveBeenLastCalledWith(
