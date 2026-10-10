@@ -12,6 +12,7 @@ import { toast } from "@anlg/ui/components/ui/toast";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { getDeviceIdentity } from "~/auth/cloudsync-credentials";
 import { requestSyncDevices } from "~/auth/sync-devices";
 import { setSettingValue } from "~/settings/queries";
 import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
@@ -28,6 +29,15 @@ export function PrimaryRecordingDeviceSelector() {
     queryFn: ({ signal }) => requestSyncDevices(session!.access_token, signal),
     enabled: Boolean(session && isPro),
   });
+  const identityQuery = useQuery({
+    queryKey: ["local-recording-device"],
+    queryFn: async () => {
+      const identity = await getDeviceIdentity();
+      if (!identity.fingerprint) throw new Error("Device identity unavailable");
+      return identity;
+    },
+    enabled: Boolean(session && isPro),
+  });
   const saveMutation = useMutation({
     mutationFn: (fingerprint: string) =>
       setSettingValue(
@@ -36,7 +46,11 @@ export function PrimaryRecordingDeviceSelector() {
       ),
     onError: () => toast.error(t`Could not save primary device. Try again.`),
   });
-  const devices = devicesQuery.data?.devices ?? [];
+  // The service does not identify device kinds. Only this app's identity is
+  // known to be a desktop recorder; do not offer untyped phones or watches.
+  const devices = (devicesQuery.data?.devices ?? []).filter(
+    (device) => device.deviceFingerprint === identityQuery.data?.fingerprint,
+  );
   const unavailable =
     value && !devices.some((device) => device.deviceFingerprint === value);
 
@@ -97,13 +111,16 @@ export function PrimaryRecordingDeviceSelector() {
           </Select>
         )}
       </SettingRow>
-      {devicesQuery.isError ? (
+      {devicesQuery.isError || identityQuery.isError ? (
         <p role="alert" className="text-muted-foreground mt-2 text-xs">
           <Trans>Could not load your devices.</Trans>{" "}
           <button
             type="button"
             className="underline"
-            onClick={() => void devicesQuery.refetch()}
+            onClick={() => {
+              if (devicesQuery.isError) void devicesQuery.refetch();
+              if (identityQuery.isError) void identityQuery.refetch();
+            }}
           >
             <Trans>Try again</Trans>
           </button>

@@ -142,12 +142,12 @@ test("decides from the devices present for the meeting", () => {
 });
 
 test.each([true, false])(
-  "the saved primary stops a duplicate even if it claimed the meeting (automatic=%s)",
+  "a server-confirmed preferred recorder stops a duplicate (automatic=%s)",
   async (automatic) => {
     mocks.preferredFingerprint = "other-device";
     mocks.requestMeetingDevices.mockResolvedValue([
-      { ...self, primary: !automatic },
-      { ...other, primary: false },
+      { ...self, primary: false },
+      { ...other, primary: true },
     ]);
     startPrimaryDeviceCoordination({
       sessionId: "session-1",
@@ -169,7 +169,7 @@ test.each([true, false])(
   },
 );
 
-test("the saved primary stays recording and reclaims when another device starts manually", async () => {
+test("a preferred recorder claims an unclaimed meeting and respects a later shared winner", async () => {
   mocks.preferredFingerprint = "this-device";
   let primaryFingerprint = "";
   mocks.requestMeetingDevices.mockImplementation(async ({ intent }) => {
@@ -189,9 +189,9 @@ test("the saved primary stays recording and reclaims when another device starts 
 
   primaryFingerprint = "other-device";
   await vi.advanceTimersByTimeAsync(PRIMARY_DEVICE_HEARTBEAT_MS);
-  expect(primaryFingerprint).toBe("this-device");
-  expect(mocks.stop).not.toHaveBeenCalled();
-  expect(mocks.toast).not.toHaveBeenCalled();
+  expect(primaryFingerprint).toBe("other-device");
+  expect(consumePrimaryDeviceYield("session-1")).toBe(true);
+  expect(mocks.stop).toHaveBeenCalled();
 });
 
 test("a secondary manual start still checks the saved primary after a network failure", async () => {
@@ -200,7 +200,7 @@ test("a secondary manual start still checks the saved primary after a network fa
     .mockRejectedValueOnce(new Error("offline"))
     .mockResolvedValue([
       { ...self, primary: false },
-      { ...other, primary: false },
+      { ...other, primary: true },
     ]);
   startPrimaryDeviceCoordination({
     sessionId: "session-1",
@@ -232,7 +232,7 @@ test("a saved primary that is not recording does not stop a lone secondary devic
 
   mocks.requestMeetingDevices.mockResolvedValue([
     { ...self, primary: false },
-    { ...other, primary: false },
+    { ...other, primary: true },
   ]);
   await vi.advanceTimersByTimeAsync(PRIMARY_DEVICE_HEARTBEAT_MS);
   expect(mocks.stop).toHaveBeenCalled();

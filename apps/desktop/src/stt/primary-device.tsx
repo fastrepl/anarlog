@@ -24,7 +24,8 @@ export function decidePrimaryDevice(
 ): PrimaryDeviceDecision {
   const primary = primaryDeviceForMeeting(devices, preferredFingerprint);
   if (primary) {
-    return primary.deviceFingerprint === fingerprint ? "primary" : "yield";
+    if (primary.deviceFingerprint === fingerprint) return "primary";
+    if (primary.primary) return "yield";
   }
   return devices.some((device) => device.deviceFingerprint !== fingerprint)
     ? "ask"
@@ -36,9 +37,9 @@ function primaryDeviceForMeeting(
   preferredFingerprint: string,
 ) {
   return (
-    devices.find(
-      (device) => device.deviceFingerprint === preferredFingerprint,
-    ) ?? devices.find((device) => device.primary)
+    // Replicated preferences can disagree; only the shared claim permits discard.
+    devices.find((device) => device.primary) ??
+    devices.find((device) => device.deviceFingerprint === preferredFingerprint)
   );
 }
 
@@ -109,8 +110,8 @@ function isRecording(sessionId: string) {
 // recording a calendar meeting. Automatic starts announce themselves and ask
 // the user which device they're joining from; the device the user answers or
 // interacts with becomes primary and the others stop and discard their copy.
-// A saved preference wins while that device is recording the same meeting.
-// Manual starts claim when no preferred device is recording. Without an
+// A saved preference can claim an unclaimed meeting. The shared server claim
+// decides which device keeps its recording. Without an
 // account, Pro, or a network connection every device keeps recording.
 export function startPrimaryDeviceCoordination({
   sessionId,
