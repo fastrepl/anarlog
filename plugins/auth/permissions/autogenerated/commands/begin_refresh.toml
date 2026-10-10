@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-begin-refresh"
+description = "Enables the begin_refresh command without any pre-configured scope."
+commands.allow = ["begin_refresh"]
+
+[[permission]]
+identifier = "deny-begin-refresh"
+description = "Denies the begin_refresh command without any pre-configured scope."
+commands.deny = ["begin_refresh"]

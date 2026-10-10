@@ -51,8 +51,29 @@ pub(crate) async fn remove_item<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn clear<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+    use tauri::Manager;
+    app.state::<crate::refresh::RefreshGate>().clear();
     tauri::async_runtime::spawn_blocking(move || app.clear_auth())
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) fn begin_refresh(
+    gate: tauri::State<'_, crate::refresh::RefreshGate>,
+) -> crate::refresh::RefreshPermit {
+    gate.begin(std::time::Instant::now())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) fn finish_refresh(
+    gate: tauri::State<'_, crate::refresh::RefreshGate>,
+    lease_id: u64,
+    status: Option<u16>,
+    retry_after_ms: Option<u64>,
+) {
+    gate.finish(lease_id, status, retry_after_ms, std::time::Instant::now());
 }

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-finish-refresh"
+description = "Enables the finish_refresh command without any pre-configured scope."
+commands.allow = ["finish_refresh"]
+
+[[permission]]
+identifier = "deny-finish-refresh"
+description = "Denies the finish_refresh command without any pre-configured scope."
+commands.deny = ["finish_refresh"]

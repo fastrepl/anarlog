@@ -9,4 +9,6 @@ pub(crate) const COMMANDS: &[&str] = &[
     "remove_item",
     "clear",
     "get_account_info",
+    "begin_refresh",
+    "finish_refresh",
 ];
