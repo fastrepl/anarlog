@@ -216,6 +216,33 @@ impl Drop for CpalHandles {
     }
 }
 
+static MIC_STARTING: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn startup_pending() -> bool {
+    MIC_STARTING.load(Ordering::Acquire)
+}
+
+struct StartupPermit;
+
+impl StartupPermit {
+    fn acquire() -> Result<Self, crate::Error> {
+        MIC_STARTING
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map(|_| Self)
+            .map_err(|_| {
+                crate::Error::MicStreamInitializationFailed(
+                    "previous microphone startup is still pending".into(),
+                )
+            })
+    }
+}
+
+impl Drop for StartupPermit {
+    fn drop(&mut self) {
+        MIC_STARTING.store(false, Ordering::Release);
+    }
+}
+
 pub struct MicInput {
     handles: CpalHandles,
     config: cpal::SupportedStreamConfig,
@@ -302,10 +329,17 @@ impl MicInput {
     }
 
     pub fn new(device_name: Option<String>) -> Result<Self, crate::Error> {
-        with_cpal_host_lock(|| Self::new_locked(device_name))
+        Self::new_excluding(device_name, &[])
     }
 
-    fn new_locked(device_name: Option<String>) -> Result<Self, crate::Error> {
+    pub(crate) fn new_excluding(
+        device_name: Option<String>,
+        excluded: &[String],
+    ) -> Result<Self, crate::Error> {
+        with_cpal_host_lock(|| Self::new_locked(device_name, excluded))
+    }
+
+    fn new_locked(device_name: Option<String>, excluded: &[String]) -> Result<Self, crate::Error> {
         let bluetooth = device_name
             .as_deref()
             .filter(|name| !name.is_empty())
@@ -348,6 +382,9 @@ impl MicInput {
         } else {
             let mut opened = None;
             for name in ranked {
+                if excluded.contains(&name) {
+                    continue;
+                }
                 let is_default = default_name.as_deref() == Some(name.as_str());
 
                 let device = resolve_ranked_candidate(
@@ -409,6 +446,8 @@ impl MicInput {
 
         match opened {
             Some((device, config, name)) => {
+                let bluetooth =
+                    bluetooth.filter(|activation| activation.name.as_ref() == Some(&name));
                 tracing::info!(
                     anarlog.audio.sample_rate_hz = ?config.sample_rate(),
                     device_name = name,
@@ -438,6 +477,7 @@ impl MicInput {
 
 impl MicInput {
     pub fn stream(&self) -> Result<MicStream, crate::Error> {
+        let startup_permit = StartupPermit::acquire()?;
         let config = self.config.clone();
         let device = self.handles.device().clone();
         let (drop_tx, drop_rx) = std::sync::mpsc::channel();
@@ -561,7 +601,9 @@ impl MicInput {
                 Ok(stream)
             };
 
-            let stream = match with_cpal_host_lock(start_stream) {
+            let result = with_cpal_host_lock(start_stream);
+            drop(startup_permit);
+            let stream = match result {
                 Ok(stream) => stream,
                 Err(error) => {
                     let _ = init_tx.send(Err(error));

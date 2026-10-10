@@ -59,6 +59,16 @@ impl RestartTracker {
         }
     }
 
+    pub fn record_consecutive_restart(&mut self, budget: &RestartBudget) -> bool {
+        self.count = self.count.saturating_add(1);
+        self.count <= budget.max_restarts
+    }
+
+    pub fn reset(&mut self) {
+        self.count = 0;
+        self.window_start = Instant::now();
+    }
+
     pub fn count(&self) -> u32 {
         self.count
     }
@@ -119,6 +129,20 @@ mod tests {
         tracker.record_restart(&b);
         tracker.maybe_reset(&b);
         assert_eq!(tracker.count(), 2);
+    }
+
+    #[test]
+    fn consecutive_failures_stay_bounded_until_capture_is_healthy() {
+        let mut tracker = RestartTracker::new();
+        let b = budget(3, 1);
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(3));
+            assert!(tracker.record_consecutive_restart(&b));
+        }
+        std::thread::sleep(Duration::from_millis(3));
+        assert!(!tracker.record_consecutive_restart(&b));
+        tracker.reset();
+        assert!(tracker.record_consecutive_restart(&b));
     }
 
     #[test]

@@ -33,7 +33,7 @@ export function startSpeakerContextCapture(sessionId: string) {
 
 export function observeSpeakerMicrophone(
   sessionId: string,
-  update: { device?: string | null; isolated?: boolean },
+  update: { device?: string | null; isolated?: boolean; available?: boolean },
 ) {
   startSpeakerContextCapture(sessionId);
   captures.get(sessionId)?.microphone(update);
@@ -49,6 +49,7 @@ function createCapture(sessionId: string) {
   let stopped = false;
   let device: string | null = null;
   let isolated: boolean | null = null;
+  let available = true;
   // The app last seen in an active call. Accessibility reads flicker while the call
   // continues, so the call is only over once that app releases the microphone or an
   // inspection positively shows it out of the call.
@@ -103,7 +104,7 @@ function createCapture(sessionId: string) {
           [sessionId],
         ),
         getSessionParticipantHumanIds(sessionId),
-        device === null
+        available && device === null
           ? transcriptionCommands.getCurrentMicrophoneDevice().catch(() => null)
           : Promise.resolve(null),
       ]);
@@ -158,8 +159,9 @@ function createCapture(sessionId: string) {
       micApps.some((app) => MEETING_CAPABLE_MIC_APP.test(app.id)) &&
       inspections.length === 0,
     );
-    const inputDevice =
-      device ?? (currentDevice?.status === "ok" ? currentDevice.data : null);
+    const inputDevice = available
+      ? (device ?? (currentDevice?.status === "ok" ? currentDevice.data : null))
+      : null;
     await persist(
       {
         start_ms: at,
@@ -169,7 +171,11 @@ function createCapture(sessionId: string) {
         // A headset is isolated by construction; for anything else the runtime verdict
         // decides — headphones already keep speaker output out of the mic, and a
         // Bluetooth-swapped replacement is a room mic as far as we know.
-        mic_isolated: isPersonalMicrophone(inputDevice) ? true : isolated,
+        mic_isolated: available
+          ? isPersonalMicrophone(inputDevice)
+            ? true
+            : isolated
+          : null,
         shared_microphone: isSharedMicrophone(inputDevice),
         title: row.title,
         self_names: [row.name, ...aliases].filter(Boolean),
@@ -194,7 +200,12 @@ function createCapture(sessionId: string) {
   const timer = setInterval(schedule, POLL_MS);
   schedule();
   return {
-    microphone(update: { device?: string | null; isolated?: boolean }) {
+    microphone(update: {
+      device?: string | null;
+      isolated?: boolean;
+      available?: boolean;
+    }) {
+      if ("available" in update) available = update.available ?? false;
       if ("device" in update) {
         device = update.device ?? null;
         isolated = null;

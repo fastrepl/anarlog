@@ -9,6 +9,7 @@ import {
   ArrowsOutSimple,
   CaretDown,
   Square,
+  WarningCircle,
 } from "@anlg/ui/components/icons";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { cn } from "@anlg/utils";
@@ -197,7 +198,18 @@ function StopControl({
     <button
       type="button"
       data-tauri-drag-region="false"
-      aria-label={state.dictation ? "Finish dictation" : "Stop listening"}
+      aria-label={
+        state.dictation
+          ? "Finish dictation"
+          : state.status === "error"
+            ? `${state.transcriptNotice ?? "Recording needs attention"}; stop listening`
+            : "Stop listening"
+      }
+      title={
+        state.status === "error"
+          ? `${state.transcriptNotice ?? "Recording needs attention"}. Open Anarlog to retry or change devices.`
+          : undefined
+      }
       disabled={state.dictation?.phase === "transcribing"}
       onClick={onStop}
       onMouseEnter={() => setHovered(true)}
@@ -220,6 +232,8 @@ function StopControl({
           <Square size={9} />
           {state.dictation ? "Done" : "Stop"}
         </span>
+      ) : state.status === "error" ? (
+        <WarningCircle size={20} aria-hidden="true" />
       ) : (
         <DancingSticks
           color={colors.accent}

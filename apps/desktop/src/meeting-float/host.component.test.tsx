@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
       status: "active",
       sessionId: "session-1",
       amplitude: { mic: 0, speaker: 0 },
+      captureHealth: { mic: null, speaker: null, unavailable: false },
       degraded: null,
       lastError: null,
       liveTranscriptionActive: true,

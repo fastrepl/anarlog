@@ -26,6 +26,8 @@ pub struct CaptureSnapshot {
     pub mic_muted: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub degraded: Option<listener::DegradedError>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture_health: Option<listener::actors::CaptureHealth>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -344,6 +346,7 @@ impl From<listener::Snapshot> for CaptureSnapshot {
             started_at_ms: None,
             mic_muted: None,
             degraded: None,
+            capture_health: None,
         }
     }
 }

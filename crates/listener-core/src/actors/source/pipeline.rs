@@ -1125,6 +1125,7 @@ mod tests {
 
     fn source_frame(mic_muted: bool) -> SourceFrame {
         SourceFrame {
+            captured: true,
             capture: capture_frame(),
             mic_muted,
         }
@@ -1132,6 +1133,7 @@ mod tests {
 
     fn source_frame_with_speaker_value(value: f32) -> SourceFrame {
         SourceFrame {
+            captured: true,
             capture: CaptureFrame {
                 raw_mic: Arc::from([0.0_f32; 4]),
                 raw_speaker: Arc::from([value; 4]),

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-retry-audio-capture"
+description = "Enables the retry_audio_capture command without any pre-configured scope."
+commands.allow = ["retry_audio_capture"]
+
+[[permission]]
+identifier = "deny-retry-audio-capture"
+description = "Denies the retry_audio_capture command without any pre-configured scope."
+commands.deny = ["retry_audio_capture"]
