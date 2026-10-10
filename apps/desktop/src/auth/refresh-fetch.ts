@@ -6,7 +6,7 @@ export function createRefreshFetch({
 }: {
   fetch: typeof globalThis.fetch;
   supabaseUrl: string;
-  beginRefresh: () => Promise<{
+  beginRefresh: (refreshToken: string) => Promise<{
     leaseId: number | null;
     retryAfterMs: number;
   }>;
@@ -20,8 +20,7 @@ export function createRefreshFetch({
     "auth/v1/token",
     `${supabaseUrl.replace(/\/+$/, "")}/`,
   );
-  let inFlight: Promise<Response> | null = null;
-  let inFlightBody: BodyInit | null | undefined;
+  const inFlight = new Map<string, Promise<Response>>();
 
   return async (input, init) => {
     const url = new URL(
@@ -37,8 +36,20 @@ export function createRefreshFetch({
     ) {
       return fetch(input, init);
     }
+    const body = await new Request(
+      input instanceof Request ? input.clone() : input,
+      init,
+    ).text();
+    let credential = body;
+    try {
+      const parsed = JSON.parse(body);
+      if (typeof parsed.refresh_token === "string")
+        credential = parsed.refresh_token;
+    } catch {
+      // Malformed requests still share a cooldown for their exact payload.
+    }
     const refresh = async () => {
-      const permit = await beginRefresh();
+      const permit = await beginRefresh(credential);
       if (permit.leaseId === null) {
         return Response.json(
           {
@@ -93,19 +104,13 @@ export function createRefreshFetch({
         });
       }
     };
-    if (
-      inFlight &&
-      (typeof init?.body !== "string" || init.body !== inFlightBody)
-    ) {
-      return refresh();
-    }
-    if (!inFlight) {
-      inFlightBody = init?.body;
-      inFlight = refresh().finally(() => {
-        inFlight = null;
-        inFlightBody = undefined;
+    let pending = inFlight.get(credential);
+    if (!pending) {
+      pending = refresh().finally(() => {
+        inFlight.delete(credential);
       });
+      inFlight.set(credential, pending);
     }
-    return (await inFlight).clone();
+    return (await pending).clone();
   };
 }

@@ -63,8 +63,9 @@ pub(crate) async fn clear<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result
 #[specta::specta]
 pub(crate) fn begin_refresh(
     gate: tauri::State<'_, crate::refresh::RefreshGate>,
+    refresh_token: String,
 ) -> crate::refresh::RefreshPermit {
-    gate.begin(std::time::Instant::now())
+    gate.begin(&refresh_token, std::time::Instant::now())
 }
 
 #[tauri::command]

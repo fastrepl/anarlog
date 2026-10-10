@@ -84,7 +84,8 @@ export const supabase: SupabaseClient | null =
           fetch: createRefreshFetch({
             fetch: tauriFetch,
             supabaseUrl: env.VITE_SUPABASE_URL,
-            beginRefresh: () => authCommands.beginRefresh(),
+            beginRefresh: (refreshToken) =>
+              authCommands.beginRefresh(refreshToken),
             finishRefresh: (leaseId, status, retryAfterMs) =>
               authCommands.finishRefresh(leaseId, status, retryAfterMs),
           }),

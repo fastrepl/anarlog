@@ -54,8 +54,8 @@ async getAccountInfo() : Promise<Result<AccountInfo | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async beginRefresh() : Promise<RefreshPermit> {
-    return await TAURI_INVOKE("plugin:auth|begin_refresh");
+async beginRefresh(refreshToken: string) : Promise<RefreshPermit> {
+    return await TAURI_INVOKE("plugin:auth|begin_refresh", { refreshToken });
 },
 async finishRefresh(leaseId: number, status: number | null, retryAfterMs: number | null) : Promise<void> {
     await TAURI_INVOKE("plugin:auth|finish_refresh", { leaseId, status, retryAfterMs });

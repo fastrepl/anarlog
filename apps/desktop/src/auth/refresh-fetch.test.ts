@@ -4,25 +4,33 @@ import { expect, test, vi } from "vitest";
 import { createRefreshFetch } from "./refresh-fetch";
 
 test("concurrent windows do not duplicate refreshes or receive another account's refresh result", async () => {
-  let busy = false;
+  const busy = new Map<string, number>();
+  const leases = new Map<number, string>();
+  let sequence = 0;
   let release!: (response: Response) => void;
   const options = {
     supabaseUrl: "https://project.supabase.co",
-    fetch: async (input: RequestInfo | URL) => {
+    fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       if (!input.toString().includes("grant_type=refresh_token")) {
         return Response.json({ operation: "sign-in" });
+      }
+      const body = await new Request(input, init).json();
+      if (body.refresh_token === "other-account") {
+        return Response.json({ access_token: "other-account-result" });
       }
       return new Promise<Response>((resolve) => {
         release = resolve;
       });
     },
-    beginRefresh: async () => {
-      const leaseId = busy ? null : 1;
-      busy = true;
-      return { leaseId, retryAfterMs: 1000 };
+    beginRefresh: async (identity: string) => {
+      if (busy.has(identity)) return { leaseId: null, retryAfterMs: 1000 };
+      const leaseId = ++sequence;
+      busy.set(identity, leaseId);
+      leases.set(leaseId, identity);
+      return { leaseId, retryAfterMs: 0 };
     },
-    finishRefresh: async () => {
-      busy = false;
+    finishRefresh: async (leaseId: number) => {
+      busy.delete(leases.get(leaseId)!);
     },
   };
   const firstWindow = createRefreshFetch(options);
@@ -39,8 +47,10 @@ test("concurrent windows do not duplicate refreshes or receive another account's
     ...request,
     body: JSON.stringify({ refresh_token: "other-account" }),
   });
-  expect(otherAccount.status).toBe(429);
-  expect((await secondWindow(url, request)).status).toBe(429);
+  expect(await otherAccount.json()).toEqual({
+    access_token: "other-account-result",
+  });
+  expect((await secondWindow(new Request(url, request))).status).toBe(429);
   const signIn = await secondWindow(
     "https://project.supabase.co/auth/v1/token?grant_type=password",
     { method: "POST" },

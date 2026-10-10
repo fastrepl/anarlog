@@ -1,3 +1,5 @@
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -7,6 +9,11 @@ pub(crate) struct RefreshGate(Mutex<RefreshState>);
 #[derive(Default)]
 struct RefreshState {
     sequence: u64,
+    credentials: HashMap<[u8; 32], CredentialRefresh>,
+}
+
+#[derive(Default)]
+struct CredentialRefresh {
     lease: Option<(u64, Instant)>,
     retry_at: Option<Instant>,
     failures: u32,
@@ -20,14 +27,17 @@ pub(crate) struct RefreshPermit {
 }
 
 impl RefreshGate {
-    pub(crate) fn begin(&self, now: Instant) -> RefreshPermit {
+    pub(crate) fn begin(&self, refresh_token: &str, now: Instant) -> RefreshPermit {
+        let identity: [u8; 32] = Sha256::digest(refresh_token.as_bytes()).into();
         let mut state = self.0.lock().unwrap();
+        // Keep old-token backoff while another account or rotated token is active.
+        state.credentials.retain(|key, credential| {
+            key == &identity || credential.deadline().is_some_and(|deadline| deadline > now)
+        });
         let deadline = state
-            .lease
-            .map(|(_, deadline)| deadline)
-            .into_iter()
-            .chain(state.retry_at)
-            .max();
+            .credentials
+            .get(&identity)
+            .and_then(CredentialRefresh::deadline);
         if let Some(deadline) = deadline.filter(|deadline| *deadline > now) {
             return RefreshPermit {
                 lease_id: None,
@@ -37,7 +47,8 @@ impl RefreshGate {
         state.sequence += 1;
         let lease_id = state.sequence;
         // A closed webview must not leave every other window blocked forever.
-        state.lease = Some((lease_id, now + Duration::from_secs(60)));
+        state.credentials.entry(identity).or_default().lease =
+            Some((lease_id, now + Duration::from_secs(60)));
         RefreshPermit {
             lease_id: Some(lease_id),
             retry_after_ms: 0,
@@ -52,31 +63,45 @@ impl RefreshGate {
         now: Instant,
     ) {
         let mut state = self.0.lock().unwrap();
-        if state.lease.is_none_or(|(id, _)| id != lease_id) {
+        let Some(credential) = state
+            .credentials
+            .values_mut()
+            .find(|credential| credential.lease.is_some_and(|(id, _)| id == lease_id))
+        else {
             return;
-        }
-        state.lease = None;
+        };
+        credential.lease = None;
         let delay = if status.is_some_and(|status| (200..300).contains(&status)) {
-            state.failures = 0;
+            credential.failures = 0;
             // Let the SDK persist the rotated token before another window refreshes.
             Duration::from_secs(1)
         } else {
-            let seconds = 30_u64.saturating_mul(1 << state.failures.min(4)).min(300);
-            state.failures = state.failures.saturating_add(1);
+            let seconds = 30_u64
+                .saturating_mul(1 << credential.failures.min(4))
+                .min(300);
+            credential.failures = credential.failures.saturating_add(1);
             let jitter = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .subsec_millis() as u64;
             Duration::from_millis(retry_after_ms.unwrap_or(seconds * 1000 + jitter).max(1000))
         };
-        state.retry_at = now.checked_add(delay);
+        credential.retry_at = now.checked_add(delay);
     }
 
     pub(crate) fn clear(&self) {
         let mut state = self.0.lock().unwrap();
-        state.lease = None;
-        state.retry_at = None;
-        state.failures = 0;
+        state.credentials.clear();
+    }
+}
+
+impl CredentialRefresh {
+    fn deadline(&self) -> Option<Instant> {
+        self.lease
+            .map(|(_, deadline)| deadline)
+            .into_iter()
+            .chain(self.retry_at)
+            .max()
     }
 }
 
@@ -88,27 +113,53 @@ mod tests {
     fn refresh_rate_limits_are_shared_and_expired_windows_cannot_release_new_leases() {
         let gate = RefreshGate::default();
         let now = Instant::now();
-        let first = gate.begin(now).lease_id.unwrap();
-        assert!(gate.begin(now).lease_id.is_none());
+        let first = gate.begin("first-token", now).lease_id.unwrap();
+        assert!(gate.begin("first-token", now).lease_id.is_none());
         gate.finish(first, Some(429), Some(90_000), now);
-        assert!(gate.begin(now + Duration::from_secs(89)).lease_id.is_none());
-        let second = gate.begin(now + Duration::from_secs(90)).lease_id.unwrap();
-        let recovered = gate.begin(now + Duration::from_secs(151)).lease_id.unwrap();
+        let other_account = gate.begin("other-account-token", now).lease_id.unwrap();
+        gate.finish(other_account, Some(200), None, now);
+        let rotated = gate.begin("rotated-token", now).lease_id.unwrap();
+        gate.finish(rotated, Some(200), None, now);
+        let stale = gate.begin("stale-token", now).lease_id.unwrap();
+        gate.finish(stale, Some(200), None, now);
+        let stale_retry = gate
+            .begin("stale-token", now + Duration::from_secs(1))
+            .lease_id
+            .unwrap();
+        gate.finish(stale_retry, Some(400), None, now + Duration::from_secs(1));
+        assert!(
+            gate.begin("rotated-token", now + Duration::from_secs(1))
+                .lease_id
+                .is_some()
+        );
+        assert!(
+            gate.begin("first-token", now + Duration::from_secs(89))
+                .lease_id
+                .is_none()
+        );
+        let second = gate
+            .begin("first-token", now + Duration::from_secs(90))
+            .lease_id
+            .unwrap();
+        let recovered = gate
+            .begin("first-token", now + Duration::from_secs(151))
+            .lease_id
+            .unwrap();
         gate.finish(second, Some(200), None, now + Duration::from_secs(151));
         assert!(
-            gate.begin(now + Duration::from_secs(151))
+            gate.begin("first-token", now + Duration::from_secs(151))
                 .lease_id
                 .is_none()
         );
         gate.finish(recovered, Some(200), None, now + Duration::from_secs(151));
         assert!(
-            gate.begin(now + Duration::from_secs(152))
+            gate.begin("first-token", now + Duration::from_secs(152))
                 .lease_id
                 .is_some()
         );
         gate.clear();
         assert!(
-            gate.begin(now + Duration::from_secs(152))
+            gate.begin("first-token", now + Duration::from_secs(152))
                 .lease_id
                 .is_some()
         );
