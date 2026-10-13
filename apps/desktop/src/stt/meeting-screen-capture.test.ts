@@ -113,7 +113,7 @@ describe("startMeetingScreenCapture", () => {
     expect(persistMeetingScreenCaptureMock).toHaveBeenCalledTimes(1);
   });
 
-  test("drops a frame that finishes after recording stopped", async () => {
+  test("stops without waiting for a slow accessibility walk and drops its frame", async () => {
     const pending = deferred<unknown>();
     captureMeetingScreenShareMock.mockReturnValue(pending.promise);
 
@@ -122,6 +122,28 @@ describe("startMeetingScreenCapture", () => {
       isEnabled: () => true,
     });
     await vi.advanceTimersByTimeAsync(0);
+    await stop();
+
+    pending.resolve({ status: "ok", data: frame });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(persistMeetingScreenCaptureMock).not.toHaveBeenCalled();
+  });
+
+  test("waits for an in-flight frame write when capture stops", async () => {
+    const write = deferred<undefined>();
+    captureMeetingScreenShareMock.mockResolvedValue({
+      status: "ok",
+      data: frame,
+    });
+    persistMeetingScreenCaptureMock.mockReturnValue(write.promise);
+
+    const stop = startMeetingScreenCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(persistMeetingScreenCaptureMock).toHaveBeenCalledTimes(1);
     let stopped = false;
     const stopping = stop().then(() => {
       stopped = true;
@@ -129,10 +151,9 @@ describe("startMeetingScreenCapture", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(stopped).toBe(false);
 
-    pending.resolve({ status: "ok", data: frame });
+    write.resolve(undefined);
     await stopping;
-
-    expect(persistMeetingScreenCaptureMock).not.toHaveBeenCalled();
+    expect(stopped).toBe(true);
   });
 
   test("drops a frame when the setting is turned off mid-capture", async () => {

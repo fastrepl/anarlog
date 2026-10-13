@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
 
+mod ax_worker;
 mod commands;
 mod dnd;
 mod error;
@@ -93,6 +94,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             app.manage(DetectorState::default());
             app.manage(ProcessorState::default());
             app.manage(ScreenShareSamplerState::default());
+            app.manage(ax_worker::AxWorker::default());
 
             let app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {

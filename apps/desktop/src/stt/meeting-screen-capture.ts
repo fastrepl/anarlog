@@ -20,6 +20,7 @@ export function startMeetingScreenCapture({
   let stopped = false;
   let resetSampler = true;
   let inFlight: Promise<void> | null = null;
+  let pendingPersistence: Promise<void> | null = null;
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let permissionWarned = false;
   const captureIsEnabled =
@@ -52,6 +53,9 @@ export function startMeetingScreenCapture({
         return;
       }
 
+      if (stopped) {
+        return;
+      }
       const result =
         await detectCommands.captureMeetingScreenShare(resetSampler);
       resetSampler = false;
@@ -73,7 +77,22 @@ export function startMeetingScreenCapture({
         return;
       }
 
-      await persistMeetingScreenCapture({ sessionId, capture: result.data });
+      const persistence = persistMeetingScreenCapture({
+        sessionId,
+        capture: result.data,
+      });
+      const settledPersistence = persistence.then(
+        () => undefined,
+        () => undefined,
+      );
+      pendingPersistence = settledPersistence;
+      try {
+        await persistence;
+      } finally {
+        if (pendingPersistence === settledPersistence) {
+          pendingPersistence = null;
+        }
+      }
     } catch (error) {
       resetSampler = true;
       console.warn("[listener] failed to capture shared screen", error);
@@ -111,6 +130,6 @@ export function startMeetingScreenCapture({
       clearTimeout(timeout);
       timeout = null;
     }
-    await inFlight;
+    await pendingPersistence;
   };
 }
