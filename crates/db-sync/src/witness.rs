@@ -20,6 +20,10 @@ const MAX_EVENT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_BATCH_BYTES: usize = 48 * 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_RATE_LIMIT_RETRIES: usize = 3;
+// Mobile resumes reuse pooled connections the OS already dropped; a fresh
+// connection usually succeeds immediately.
+const MAX_TRANSPORT_RETRIES: u32 = 2;
+const TRANSPORT_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
 const DEFAULT_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
 const MAX_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(60);
 const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
@@ -883,11 +887,32 @@ impl E2eeWitnessClient {
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<reqwest::Response> {
         let mut retries = 0;
+        let mut transport_retries = 0;
         loop {
-            let response = cancellation
-                .run_network(request().send())
-                .await?
-                .map_err(transport_error)?;
+            let (client, request) = request().build_split();
+            let request = request.map_err(transport_error)?;
+            let idempotent = request.method() == reqwest::Method::GET;
+            let response = match cancellation.run_network(client.execute(request)).await? {
+                Ok(response) => response,
+                Err(error)
+                    if transport_retries < MAX_TRANSPORT_RETRIES
+                        && is_retryable_transport_error(&error, idempotent) =>
+                {
+                    transport_retries += 1;
+                    tracing::warn!(
+                        attempt = transport_retries,
+                        error = %transport_error(error),
+                        "Retrying E2EE witness request on a fresh connection"
+                    );
+                    cancellation
+                        .run_network(tokio::time::sleep(
+                            TRANSPORT_RETRY_DELAY * transport_retries,
+                        ))
+                        .await?;
+                    continue;
+                }
+                Err(error) => return Err(transport_error(error)),
+            };
             let retry_after = retry_after_delay(response.headers());
             let delay = match response.status() {
                 reqwest::StatusCode::TOO_MANY_REQUESTS => {
@@ -1001,8 +1026,21 @@ fn replica_error(error: anlg_db_app::E2eeReplicaError) -> io::Error {
     }
 }
 
+fn is_retryable_transport_error(error: &reqwest::Error, idempotent: bool) -> bool {
+    !error.is_timeout() && (error.is_connect() || (idempotent && error.is_request()))
+}
+
 fn transport_error(error: reqwest::Error) -> io::Error {
-    io::Error::other(format!("E2EE witness request failed: {error}"))
+    use std::fmt::Write;
+
+    let error = error.without_url();
+    let mut message = format!("E2EE witness request failed: {error}");
+    let mut source = std::error::Error::source(&error);
+    while let Some(cause) = source {
+        let _ = write!(message, ": {cause}");
+        source = cause.source();
+    }
+    io::Error::other(message)
 }
 
 fn invalid_data(message: &'static str) -> io::Error {
