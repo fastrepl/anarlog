@@ -1,5 +1,5 @@
 use anlg_api_nango::{NangoConnection, Slack};
-use anlg_slack_web::{PostMessageRequest, SlackWebClient};
+use anlg_slack_web::{PostMessageRequest, SlackWebClient, UpdateMessageRequest};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +9,14 @@ use crate::error::{MessengerError, Result};
 #[serde(deny_unknown_fields)]
 pub struct SlackSendRequest {
     pub channel: String,
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SlackUpdateRequest {
+    pub channel: String,
+    pub message_id: String,
     pub text: String,
 }
 
@@ -94,6 +102,40 @@ pub async fn send_slack_message(
             username: None,
             icon_url: None,
             icon_emoji: None,
+        })
+        .await?;
+
+    Ok(Json(SendMessageResponse {
+        message_id: response.ts,
+        channel: response.channel,
+    }))
+}
+
+#[utoipa::path(
+    post,
+    path = "/slack/messages/update",
+    operation_id = "update_slack_message",
+    request_body = SlackUpdateRequest,
+    responses(
+        (status = 200, description = "Slack message updated", body = SendMessageResponse),
+        (status = 400, description = "Invalid Slack message"),
+        (status = 401, description = "Authentication required"),
+        (status = 500, description = "Slack message could not be updated"),
+    ),
+    tag = "messenger",
+)]
+pub async fn update_slack_message(
+    nango: NangoConnection<Slack>,
+    Json(payload): Json<SlackUpdateRequest>,
+) -> Result<Json<SendMessageResponse>> {
+    let channel = required_text(&payload.channel, 80, "channel")?;
+    let message_id = required_text(&payload.message_id, 40, "message_id")?;
+    let text = required_text(&payload.text, 40_000, "message")?;
+    let response = SlackWebClient::new(nango.into_http())
+        .update_message(UpdateMessageRequest {
+            channel: channel.to_string(),
+            ts: message_id.to_string(),
+            text: text.to_string(),
         })
         .await?;
 

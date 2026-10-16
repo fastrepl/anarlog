@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   getSession: vi.fn(),
   sendSlackRecap: vi.fn(),
+  updateSlackRecap: vi.fn(),
   listConnections: vi.fn(),
   linearCreateIssue: vi.fn(),
   notionAppendUpdate: vi.fn(),
@@ -44,6 +45,7 @@ vi.mock("~/env", () => ({
 vi.mock("~/session-sharing/delivery-client", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   sendSlackRecap: mocks.sendSlackRecap,
+  updateSlackRecap: mocks.updateSlackRecap,
 }));
 
 vi.mock("~/session-sharing/invitation-management", () => ({
@@ -199,6 +201,47 @@ describe("runMeetingCompletedAutomations (markdown export)", () => {
 });
 
 describe("runNoteEnhancedAutomations (slack recap)", () => {
+  it("keeps other automations' message refs when storing a new one", async () => {
+    const others = Array.from({ length: 250 }, (_, index) => ({
+      key: `wf-${index}:step-slack:session-${index}`,
+      target: "C999",
+      channel: "C999",
+      messageId: `1600.${index}`,
+    }));
+    storedSettings({
+      automation_slack_recap_enabled: true,
+      automation_slack_recap_channel: JSON.stringify({
+        id: "C123",
+        name: "general",
+      }),
+      automation_slack_recap_messages: JSON.stringify(others),
+    });
+    mockDbRows();
+    signedInSession();
+    mocks.sendSlackRecap.mockResolvedValue({
+      channel: "C123",
+      messageId: "1700.1",
+    });
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(
+      JSON.parse(
+        mocks.setSettingValue.mock.calls.find(
+          (entry) => entry[0] === "automation_slack_recap_messages",
+        )?.[1] as string,
+      ),
+    ).toEqual([
+      ...others,
+      {
+        key: "legacy:session-1",
+        target: "C123",
+        channel: "C123",
+        messageId: "1700.1",
+      },
+    ]);
+  });
+
   it("posts the summary to the configured channel", async () => {
     storedSettings({
       automation_slack_recap_enabled: true,
@@ -209,10 +252,27 @@ describe("runNoteEnhancedAutomations (slack recap)", () => {
     });
     mockDbRows();
     signedInSession();
-    mocks.sendSlackRecap.mockResolvedValue(undefined);
+    mocks.sendSlackRecap.mockResolvedValue({
+      channel: "C123",
+      messageId: "1700.1",
+    });
 
     await runNoteEnhancedAutomations("session-1");
 
+    expect(
+      JSON.parse(
+        mocks.setSettingValue.mock.calls.find(
+          (entry) => entry[0] === "automation_slack_recap_messages",
+        )?.[1] as string,
+      ),
+    ).toEqual([
+      {
+        key: "legacy:session-1",
+        target: "C123",
+        channel: "C123",
+        messageId: "1700.1",
+      },
+    ]);
     expect(mocks.sendSlackRecap).toHaveBeenCalledWith(
       expect.objectContaining({
         apiBaseUrl: "https://api.test",
@@ -225,6 +285,39 @@ describe("runNoteEnhancedAutomations (slack recap)", () => {
       status: "success",
       detail: "#general",
     });
+  });
+
+  it("edits the earlier message after a regenerated summary instead of posting again", async () => {
+    storedSettings({
+      automation_slack_recap_enabled: true,
+      automation_slack_recap_channel: JSON.stringify({
+        id: "C123",
+        name: "general",
+      }),
+      automation_slack_recap_processed: JSON.stringify(["session-1"]),
+      automation_slack_recap_messages: JSON.stringify([
+        {
+          key: "legacy:session-1",
+          target: "C123",
+          channel: "C123",
+          messageId: "1700.1",
+        },
+      ]),
+    });
+    mockDbRows();
+    signedInSession();
+    mocks.updateSlackRecap.mockResolvedValue(undefined);
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+    expect(mocks.updateSlackRecap).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C123",
+        messageId: "1700.1",
+        text: expect.stringContaining("Decisions were made."),
+      }),
+    );
   });
 
   it("records an error when no summary exists yet", async () => {
@@ -702,6 +795,44 @@ describe("custom workflows", () => {
     await runNoteEnhancedAutomations("session-1");
 
     expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
+  });
+
+  it("edits the earlier Slack message when a processed workflow reruns", async () => {
+    storedSettings({
+      automation_workflows: JSON.stringify([
+        {
+          id: "wf-1",
+          enabled: true,
+          trigger: "note_enhanced",
+          steps: [
+            {
+              id: "step-1",
+              type: "slack_recap",
+              target: { id: "C123", name: "general" },
+            },
+          ],
+          processedSessionIds: ["session-1"],
+        },
+      ]),
+      automation_slack_recap_messages: JSON.stringify([
+        {
+          key: "wf-1:step-1:session-1",
+          target: "C123",
+          channel: "C123",
+          messageId: "1700.1",
+        },
+      ]),
+    });
+    mockDbRows();
+    signedInSession();
+    mocks.updateSlackRecap.mockResolvedValue(undefined);
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+    expect(mocks.updateSlackRecap).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: "C123", messageId: "1700.1" }),
+    );
   });
 
   it("skips disabled or already processed workflows", async () => {

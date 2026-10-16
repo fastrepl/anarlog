@@ -9,4 +9,8 @@ pub fn router() -> Router {
     Router::new()
         .route("/slack/channels", get(messenger::list_slack_channels))
         .route("/slack/messages", post(messenger::send_slack_message))
+        .route(
+            "/slack/messages/update",
+            post(messenger::update_slack_message),
+        )
 }

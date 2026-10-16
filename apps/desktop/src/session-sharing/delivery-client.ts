@@ -123,6 +123,8 @@ export async function listSlackChannels({
   });
 }
 
+export type SlackMessageRef = { channel: string; messageId: string };
+
 export async function sendSlackRecap({
   apiBaseUrl,
   accessToken,
@@ -137,7 +139,7 @@ export async function sendSlackRecap({
   text: string;
   signal?: AbortSignal;
   fetcher?: typeof fetch;
-}) {
+}): Promise<SlackMessageRef | null> {
   const response = await fetcher(
     apiUrl(apiBaseUrl, "/messenger/slack/messages"),
     {
@@ -156,6 +158,61 @@ export async function sendSlackRecap({
     },
   );
   if (!response.ok) throw new ShareDeliveryError();
+  // The message is already posted, so a malformed response only means it
+  // cannot be edited later.
+  try {
+    return parseSlackMessageRef(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+export async function updateSlackRecap({
+  apiBaseUrl,
+  accessToken,
+  channel,
+  messageId,
+  text,
+  signal,
+  fetcher = fetch,
+}: {
+  apiBaseUrl: string;
+  accessToken: string;
+  channel: string;
+  messageId: string;
+  text: string;
+  signal?: AbortSignal;
+  fetcher?: typeof fetch;
+}) {
+  const response = await fetcher(
+    apiUrl(apiBaseUrl, "/messenger/slack/messages/update"),
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ channel, message_id: messageId, text }),
+      cache: "no-store",
+      credentials: "omit",
+      redirect: "error",
+      referrerPolicy: "no-referrer",
+      signal,
+    },
+  );
+  if (!response.ok) throw new ShareDeliveryError();
+}
+
+function parseSlackMessageRef(value: unknown): SlackMessageRef | null {
+  if (
+    !isRecord(value) ||
+    typeof value.message_id !== "string" ||
+    typeof value.channel !== "string"
+  ) {
+    return null;
+  }
+  return { channel: value.channel, messageId: value.message_id };
 }
 
 export function buildSlackRecap({

@@ -745,6 +745,45 @@
         }
       }
     },
+    "/messenger/slack/messages/update": {
+      "post": {
+        "tags": [
+          "messenger"
+        ],
+        "operationId": "update_slack_message",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlackUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Slack message updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendMessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Slack message"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Slack message could not be updated"
+          }
+        }
+      }
+    },
     "/microsoft-teams/import-meetings": {
       "post": {
         "tags": [
@@ -12285,6 +12324,26 @@
         ],
         "properties": {
           "channel": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SlackUpdateRequest": {
+        "type": "object",
+        "required": [
+          "channel",
+          "message_id",
+          "text"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "message_id": {
             "type": "string"
           },
           "text": {

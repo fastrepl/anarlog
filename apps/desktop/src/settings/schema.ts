@@ -406,6 +406,11 @@ export const SETTING_DEFINITIONS = {
     path: ["automations", "slack_recap_processed"],
     default: "" as string,
   },
+  automation_slack_recap_messages: {
+    type: "string",
+    path: ["automations", "slack_recap_messages"],
+    default: "" as string,
+  },
   automation_linear_issues_enabled: {
     type: "boolean",
     path: ["automations", "linear_issues_enabled"],

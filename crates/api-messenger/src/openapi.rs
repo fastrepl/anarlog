@@ -5,9 +5,11 @@ use utoipa::OpenApi;
     paths(
         crate::routes::messenger::list_slack_channels,
         crate::routes::messenger::send_slack_message,
+        crate::routes::messenger::update_slack_message,
     ),
     components(schemas(
         crate::routes::messenger::SlackSendRequest,
+        crate::routes::messenger::SlackUpdateRequest,
         crate::routes::messenger::SlackChannel,
         crate::routes::messenger::SlackChannelsResponse,
         crate::routes::messenger::SendMessageResponse,

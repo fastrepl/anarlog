@@ -60,6 +60,19 @@ pub struct PostMessageResponse {
     pub message: Message,
 }
 
+#[derive(Debug, Serialize)]
+pub struct UpdateMessageRequest {
+    pub channel: String,
+    pub ts: String,
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateMessageResponse {
+    pub channel: String,
+    pub ts: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Message {
     #[serde(default)]

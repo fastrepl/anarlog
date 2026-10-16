@@ -1765,6 +1765,12 @@ export type SlackSendRequest = {
     text: string;
 };
 
+export type SlackUpdateRequest = {
+    channel: string;
+    message_id: string;
+    text: string;
+};
+
 export type SnapshotReceipt = {
     published_at: string;
     revision: number;
@@ -2847,6 +2853,37 @@ export type SendSlackMessageResponses = {
 };
 
 export type SendSlackMessageResponse = SendSlackMessageResponses[keyof SendSlackMessageResponses];
+
+export type UpdateSlackMessageData = {
+    body: SlackUpdateRequest;
+    path?: never;
+    query?: never;
+    url: '/messenger/slack/messages/update';
+};
+
+export type UpdateSlackMessageErrors = {
+    /**
+     * Invalid Slack message
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Slack message could not be updated
+     */
+    500: unknown;
+};
+
+export type UpdateSlackMessageResponses = {
+    /**
+     * Slack message updated
+     */
+    200: SendMessageResponse;
+};
+
+export type UpdateSlackMessageResponse = UpdateSlackMessageResponses[keyof UpdateSlackMessageResponses];
 
 export type MicrosoftTeamsImportMeetingsData = {
     body: ImportMeetingsRequest;

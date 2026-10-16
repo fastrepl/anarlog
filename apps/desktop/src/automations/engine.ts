@@ -37,6 +37,7 @@ import { env } from "~/env";
 import {
   buildSlackRecap,
   sendSlackRecap,
+  updateSlackRecap,
 } from "~/session-sharing/delivery-client";
 import { getSessionShareSenderName } from "~/session-sharing/invitation-management";
 import { getStoredSettingValues, setSettingValue } from "~/settings/queries";
@@ -110,7 +111,7 @@ async function runCustomWorkflowsNow(
     if (workflow.steps.some((step) => step.type === "google_drive_export")) {
       if (trigger === "note_enhanced") {
         try {
-          await runWorkflowWithFileExports(sessionId, workflow);
+          await runWorkflowWithRepeatableSteps(sessionId, workflow);
         } catch (error) {
           console.error("[automations] Drive workflow run failed", error);
         }
@@ -119,10 +120,13 @@ async function runCustomWorkflowsNow(
     }
     if (
       trigger === "note_enhanced" &&
-      workflow.steps.some((step) => step.type === "markdown_export")
+      (await hasRepeatableStep(sessionId, workflow).catch((error) => {
+        console.error("[automations] workflow rerun check failed", error);
+        return false;
+      }))
     ) {
       try {
-        await runWorkflowWithFileExports(sessionId, workflow);
+        await runWorkflowWithRepeatableSteps(sessionId, workflow);
       } catch (error) {
         console.error("[automations] workflow run failed", error);
       }
@@ -241,7 +245,7 @@ async function executeWorkflowStep(
     throw new Error(`choose a ${stepLabel(step.type)} first`);
   }
   if (step.type === "slack_recap") {
-    return await executeSlackRecap(sessionId, step.target);
+    return await executeSlackRecap(sessionId, step.target, options.stepKey);
   }
   if (step.type === "linear_issues") {
     return await executeLinearIssues(
@@ -311,7 +315,9 @@ async function runSlackRecap(sessionId: string): Promise<void> {
   const processed = parseProcessedSessions(
     values.automation_slack_recap_processed,
   );
-  if (processed.includes(sessionId)) {
+  const alreadyPosted = processed.includes(sessionId);
+  const messageKey = `legacy:${sessionId}`;
+  if (alreadyPosted && !(await findSlackMessage(messageKey, channel.id))) {
     return;
   }
 
@@ -321,12 +327,14 @@ async function runSlackRecap(sessionId: string): Promise<void> {
     detail: "",
   };
   try {
-    record.detail = await executeSlackRecap(sessionId, channel);
-    await recordProcessedSession(
-      "automation_slack_recap_processed",
-      processed,
-      sessionId,
-    );
+    record.detail = await executeSlackRecap(sessionId, channel, messageKey);
+    if (!alreadyPosted) {
+      await recordProcessedSession(
+        "automation_slack_recap_processed",
+        processed,
+        sessionId,
+      );
+    }
   } catch (error) {
     record.status = "error";
     record.detail = error instanceof Error ? error.message : String(error);
@@ -530,23 +538,144 @@ function parseMarkdownExportFiles(
 async function executeSlackRecap(
   sessionId: string,
   channel: AutomationTargetRef,
+  messageKey: string,
 ): Promise<string> {
   const recap = await loadMeetingRecap(sessionId);
   if (!recap) {
     throw new Error("no meeting summary is available yet");
   }
   const session = await requireSupabaseSession();
-  await sendSlackRecap({
+  const text = buildSlackRecap({
+    senderName: getSessionShareSenderName(session.user),
+    noteTitle: recap.title,
+    noteBody: recap.body,
+  });
+  const previous = await findSlackMessage(messageKey, channel.id);
+  if (previous) {
+    try {
+      await updateSlackRecap({
+        apiBaseUrl: env.VITE_API_URL,
+        accessToken: session.access_token,
+        channel: previous.channel,
+        messageId: previous.messageId,
+        text,
+      });
+    } catch {
+      throw new Error("could not update the earlier Slack message");
+    }
+    return `#${channel.name} (updated)`;
+  }
+  const sent = await sendSlackRecap({
     apiBaseUrl: env.VITE_API_URL,
     accessToken: session.access_token,
     channel: channel.id,
-    text: buildSlackRecap({
-      senderName: getSessionShareSenderName(session.user),
-      noteTitle: recap.title,
-      noteBody: recap.body,
-    }),
+    text,
   });
+  if (sent) {
+    await saveSlackMessage({ key: messageKey, target: channel.id, ...sent });
+  }
   return `#${channel.name}`;
+}
+
+type StoredSlackMessage = {
+  key: string;
+  target: string;
+  channel: string;
+  messageId: string;
+};
+
+// Each automation keeps its last MAX_PROCESSED_SESSIONS sessions. Keeping
+// twice that many refs per automation covers every still-processed session
+// even after later updates reorder the list.
+const MAX_SLACK_MESSAGES_PER_AUTOMATION = MAX_PROCESSED_SESSIONS * 2;
+
+function parseSlackMessages(value: string | undefined): StoredSlackMessage[] {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (entry): entry is StoredSlackMessage =>
+            typeof entry === "object" &&
+            entry !== null &&
+            ["key", "target", "channel", "messageId"].every(
+              (field) =>
+                typeof (entry as Record<string, unknown>)[field] === "string",
+            ),
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+async function findSlackMessage(
+  key: string,
+  target: string,
+): Promise<StoredSlackMessage | null> {
+  const { values } = await getStoredSettingValues();
+  return (
+    parseSlackMessages(values.automation_slack_recap_messages).find(
+      (message) => message.key === key && message.target === target,
+    ) ?? null
+  );
+}
+
+async function saveSlackMessage(message: StoredSlackMessage): Promise<void> {
+  await serializeSettingsUpdate(async () => {
+    const { values } = await getStoredSettingValues();
+    const owner = slackMessageOwner(message.key);
+    const stored = parseSlackMessages(
+      values.automation_slack_recap_messages,
+    ).filter((entry) => entry.key !== message.key);
+    const sameOwner = stored.filter(
+      (entry) => slackMessageOwner(entry.key) === owner,
+    );
+    const evicted = new Set(
+      sameOwner.slice(
+        0,
+        Math.max(0, sameOwner.length + 1 - MAX_SLACK_MESSAGES_PER_AUTOMATION),
+      ),
+    );
+    const next = [...stored.filter((entry) => !evicted.has(entry)), message];
+    await setSettingValue(
+      "automation_slack_recap_messages",
+      JSON.stringify(next),
+    );
+  });
+}
+
+function slackMessageOwner(key: string): string {
+  return key.slice(0, key.lastIndexOf(":"));
+}
+
+async function hasRepeatableStep(
+  sessionId: string,
+  workflow: AutomationWorkflow,
+): Promise<boolean> {
+  for (const step of workflow.steps) {
+    if (await rerunsForRegeneratedSummary(sessionId, workflow, step)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function rerunsForRegeneratedSummary(
+  sessionId: string,
+  workflow: AutomationWorkflow,
+  step: WorkflowStep,
+): Promise<boolean> {
+  if (step.type === "markdown_export") {
+    return true;
+  }
+  if (step.type !== "slack_recap" || !step.target) {
+    return false;
+  }
+  const key = workflowStepKey(workflow, step, sessionId);
+  return (await findSlackMessage(key, step.target.id)) !== null;
 }
 
 async function executeLinearIssues(
@@ -923,9 +1052,10 @@ async function executeDriveStep(
   return run;
 }
 
-// File exports overwrite the same file, so they rerun on every regenerated
-// summary. Steps that post or create something run once per session.
-async function runWorkflowWithFileExports(
+// File exports overwrite the same file and Slack recaps edit the earlier
+// message, so they rerun on every regenerated summary. Steps that create
+// something new run once per session.
+async function runWorkflowWithRepeatableSteps(
   sessionId: string,
   workflow: AutomationWorkflow,
 ): Promise<void> {
@@ -941,7 +1071,10 @@ async function runWorkflowWithFileExports(
       const run = await executeDriveStep(sessionId, workflow, step);
       if (run.status === "error") record.status = "error";
       details.push(run.detail);
-    } else if (!skipOtherSteps || step.type === "markdown_export") {
+    } else if (
+      !skipOtherSteps ||
+      (await rerunsForRegeneratedSummary(sessionId, workflow, step))
+    ) {
       try {
         details.push(
           await executeWorkflowStep(sessionId, step, {
