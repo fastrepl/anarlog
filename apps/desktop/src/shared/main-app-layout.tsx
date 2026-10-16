@@ -20,6 +20,7 @@ import { MeetingImportSync } from "~/services/meeting-import-sync";
 import { getOrCreateSessionForEventId } from "~/session/queries";
 import { WorkspaceInvitationToasts } from "~/settings/team/invitation-toast";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
+import { openFoldersFromNavigation } from "~/shared/folders-navigation";
 import { leaveAllOverlayTabs } from "~/shared/leave-overlay-tab";
 import { useZoomShortcuts } from "~/shared/zoom";
 import { useSidebarNotes } from "~/sidebar/note-filter";
@@ -135,7 +136,7 @@ const useNavigationEvents = () => {
         } else if (payload.path === "/app/settings") {
           const tab = (payload.search?.tab as string) ?? "app";
           openNew({ type: "settings", state: { tab } });
-        } else {
+        } else if (!openFoldersFromNavigation(payload, openNew)) {
           void navigate({
             to: payload.path,
             search: payload.search ?? undefined,
