@@ -32,7 +32,7 @@ LATENCY_LOG_ENV = "ANARLOG_CLOUDSYNC_LATENCY_LOG"
 # tenant history, which deployments cannot change. Report it instead of failing on it;
 # the tests themselves only fail when a bootstrap never completes.
 FRESH_DEVICE_LATENCY_TARGET_SECONDS = 90
-# Per-test subprocess budgets. Fresh-site waits stop at 300s inside the tests: the sync
+# Per-test subprocess budgets. Fresh-site waits stop at 180s inside the tests: the sync
 # test waits for one bootstrap, the policy test for one and then two concurrent ones
 # plus bounded attack syncs, and cleanup never waits for a snapshot. Their 40-minute
 # total leaves the 60-minute deploy job room for the build and remote cleanup.

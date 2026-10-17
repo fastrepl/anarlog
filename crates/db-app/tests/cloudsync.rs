@@ -25,7 +25,7 @@ const REPLICA_VISIBILITY_POLL_INTERVAL: Duration = Duration::from_secs(2);
 // whole tenant history, so it grows with every account's data (sqliteai/sqlite-sync#80,
 // #81). This deadline only catches a stuck bootstrap; the latency itself is reported
 // through ANARLOG_CLOUDSYNC_LATENCY_LOG and judged by the deployment verifier.
-const FRESH_SITE_BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(300);
+const FRESH_SITE_BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(180);
 const LATENCY_LOG_ENV: &str = "ANARLOG_CLOUDSYNC_LATENCY_LOG";
 
 fn cloudsync_config(auth: CloudsyncAuth, wait_ms: i64, max_retries: i64) -> CloudsyncRuntimeConfig {

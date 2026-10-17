@@ -80,7 +80,7 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
             log.write_text(
                 '{"check": "fast", "seconds": 12.0, "completed": true}\n'
                 '{"check": "slow", "seconds": 63.0, "completed": true}\n'
-                '{"check": "stuck", "seconds": 300.0, "completed": false}\n'
+                '{"check": "stuck", "seconds": 180.0, "completed": false}\n'
             )
             output = io.StringIO()
             with (
@@ -102,7 +102,7 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
         def failing_verification(_values, _database, latency_log):
             logs.append(latency_log)
             pathlib.Path(latency_log).write_text(
-                '{"check": "stuck", "seconds": 300.0, "completed": false}\n'
+                '{"check": "stuck", "seconds": 180.0, "completed": false}\n'
             )
             raise failure
 
