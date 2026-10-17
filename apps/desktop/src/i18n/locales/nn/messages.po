@@ -3445,6 +3445,7 @@ msgid "macOS cannot access your login Keychain. Repairing briefly locks it and a
 msgstr ""
 
 #: src/auth/cloudsync-keychain-repair.tsx
+#: src/settings/sync/index.tsx
 msgid "macOS could not access your recovery key. Repair Keychain access, then resume sync."
 msgstr ""
 
@@ -4803,6 +4804,7 @@ msgstr ""
 
 #: src/auth/cloudsync-keychain-repair.tsx
 #: src/settings/ai/shared/index.tsx
+#: src/settings/sync/index.tsx
 msgid "Repair Keychain Access"
 msgstr ""
 
