@@ -8,6 +8,7 @@ vi.mock("@anlg/plugin-calendar", () => ({
   commands: calendarCommands,
 }));
 
+import { parseAttendanceSnapshot } from "../attendance";
 import type { Ctx } from "../ctx";
 import { fetchIncomingEvents } from "./incoming";
 
@@ -160,14 +161,18 @@ describe("fetchIncomingEvents", () => {
     const result = await fetchIncomingEvents(ctx);
 
     expect(result.events).toHaveLength(2);
-    expect(result.events[0]?.attendance).toMatchObject({
+    const firstAttendance = parseAttendanceSnapshot(
+      result.events[0]?.attendance_json,
+    );
+    const secondAttendance = parseAttendanceSnapshot(
+      result.events[1]?.attendance_json,
+    );
+    expect(firstAttendance).toMatchObject({
       version: 1,
       self_status: "accepted",
       others: { accepted: 1, declined: 2 },
     });
-    expect(result.events[0]?.attendance?.observed_at).toBe(
-      result.events[1]?.attendance?.observed_at,
-    );
+    expect(firstAttendance?.observed_at).toBe(secondAttendance?.observed_at);
   });
 
   test("omits self-declined events using normalized provider attendance", async () => {
@@ -237,6 +242,9 @@ describe("fetchIncomingEvents", () => {
     const result = await fetchIncomingEvents(ctx);
 
     expect(result.events).toHaveLength(1);
-    expect(result.events[0]?.attendance?.others.declined).toBe(2);
+    expect(
+      parseAttendanceSnapshot(result.events[0]?.attendance_json)?.others
+        .declined,
+    ).toBe(2);
   });
 });

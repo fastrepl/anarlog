@@ -1,7 +1,11 @@
 import { commands as calendarCommands } from "@anlg/plugin-calendar";
 import type { CalendarEvent } from "@anlg/plugin-calendar";
 
-import { createAttendanceSnapshot } from "../attendance";
+import {
+  createAttendanceSnapshot,
+  encodeAttendanceSnapshot,
+  type EventAttendanceSnapshotV1,
+} from "../attendance";
 import type { Ctx } from "../ctx";
 import type {
   EventParticipant,
@@ -75,7 +79,7 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
 // conversion, so no per-event parse IPC happens here.
 function normalizeCalendarEvent(
   calendarEvent: CalendarEvent,
-  attendance: IncomingEvent["attendance"],
+  attendance: EventAttendanceSnapshotV1 | null,
 ): {
   event: IncomingEvent;
   eventParticipants: EventParticipant[];
@@ -114,13 +118,13 @@ function normalizeCalendarEvent(
       title: calendarEvent.title,
       started_at: calendarEvent.started_at,
       ended_at: calendarEvent.ended_at,
-      location: calendarEvent.location ?? undefined,
-      meeting_link: calendarEvent.meeting_link ?? undefined,
-      description: calendarEvent.description ?? undefined,
-      recurrence_series_id: calendarEvent.recurring_event_id ?? undefined,
+      location: calendarEvent.location ?? null,
+      meeting_link: calendarEvent.meeting_link ?? null,
+      description: calendarEvent.description ?? null,
+      recurrence_series_id: calendarEvent.recurring_event_id ?? null,
       has_recurrence_rules: calendarEvent.has_recurrence_rules,
       is_all_day: calendarEvent.is_all_day,
-      attendance,
+      attendance_json: encodeAttendanceSnapshot(attendance),
     },
     eventParticipants,
   };

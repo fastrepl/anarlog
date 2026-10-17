@@ -423,16 +423,14 @@ fn normalized_identity(value: Option<&str>) -> Option<String> {
 }
 
 fn convert_google_attendance(event: &GoogleEvent) -> EventAttendance {
+    let attendees = event.attendees.as_deref().unwrap_or_default();
     let self_status = if event
         .organizer
         .as_ref()
         .is_some_and(|organizer| organizer.is_self == Some(true))
     {
         SelfAttendanceStatus::Organizer
-    } else if let Some(attendee) = event
-        .attendees
-        .as_deref()
-        .unwrap_or_default()
+    } else if let Some(attendee) = attendees
         .iter()
         .find(|attendee| attendee.is_self == Some(true))
     {
@@ -457,30 +455,25 @@ fn convert_google_attendance(event: &GoogleEvent) -> EventAttendance {
 
     let mut others = AttendanceResponseCounts::default();
     let mut seen = SeenAttendees::default();
-    let has_external_organizer = event
-        .organizer
-        .as_ref()
-        .is_some_and(|organizer| organizer.is_self != Some(true));
-    if let Some(organizer) = event.organizer.as_ref().filter(|_| has_external_organizer) {
-        seen.insert(organizer.id.as_deref(), organizer.email.as_deref());
-        AttendanceResponse::Accepted.add_to(&mut others);
+    for attendee in attendees {
+        if attendee.is_self == Some(true)
+            || attendee.resource == Some(true)
+            || !seen.insert(attendee.id.as_deref(), attendee.email.as_deref())
+        {
+            continue;
+        }
+        google_attendance_response(attendee.response_status.as_ref()).add_to(&mut others);
     }
 
-    for attendee in event.attendees.as_deref().unwrap_or_default() {
-        if attendee.is_self == Some(true) || attendee.resource == Some(true) {
-            continue;
-        }
-        if attendee.organizer == Some(true) && has_external_organizer {
-            continue;
-        }
-        if !seen.insert(attendee.id.as_deref(), attendee.email.as_deref()) {
-            continue;
-        }
-        if attendee.organizer == Some(true) {
-            AttendanceResponse::Accepted.add_to(&mut others);
-        } else {
-            google_attendance_response(attendee.response_status.as_ref()).add_to(&mut others);
-        }
+    // Organizer metadata has no RSVP; use it only when the roster has no organizer.
+    if let Some(organizer) = event.organizer.as_ref()
+        && organizer.is_self != Some(true)
+        && !attendees
+            .iter()
+            .any(|attendee| attendee.organizer == Some(true))
+        && seen.insert(organizer.id.as_deref(), organizer.email.as_deref())
+    {
+        AttendanceResponse::Accepted.add_to(&mut others);
     }
 
     EventAttendance {
@@ -1251,7 +1244,7 @@ mod attendance_tests {
     }
 
     #[test]
-    fn google_uses_self_response_and_deduplicates_external_organizer() {
+    fn google_preserves_a_declined_external_organizer_response() {
         let event = google_event(serde_json::json!({
             "id": "event",
             "organizer": { "id": "organizer-id", "email": "HOST@example.com" },
@@ -1265,10 +1258,10 @@ mod attendance_tests {
 
         let attendance = attendance(&event);
         assert_eq!(attendance.self_status, SelfAttendanceStatus::Accepted);
-        assert_eq!(attendance.others.accepted, 1);
+        assert_eq!(attendance.others.accepted, 0);
         assert_eq!(attendance.others.pending, 1);
         assert_eq!(attendance.others.unknown, 1);
-        assert_eq!(attendance.others.declined, 0);
+        assert_eq!(attendance.others.declined, 1);
     }
 
     #[test]

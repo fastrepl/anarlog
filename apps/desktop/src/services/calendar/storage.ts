@@ -2,10 +2,8 @@ import {
   commands as calendarCommands,
   type CalendarListItem,
   type CalendarProviderType,
-  type IncomingCalendarEvent,
 } from "@anlg/plugin-calendar";
 
-import { encodeAttendanceSnapshot } from "./attendance";
 import type { Ctx } from "./ctx";
 import type { IncomingEvent, IncomingParticipants } from "./fetch/types";
 
@@ -113,7 +111,7 @@ export async function syncConnectionEvents({
     from: ctx.from.toISOString(),
     to: ctx.to.toISOString(),
     calendars: ctx.calendars,
-    events: incoming.map(toIncomingCalendarEvent),
+    events: incoming,
     participants: Array.from(incomingParticipants, ([key, participants]) => ({
       tracking_id_event: key,
       participants,
@@ -126,23 +124,4 @@ export async function syncConnectionEvents({
 
 function normalizeCalendar(row: CalendarSqlRow): StoredCalendar {
   return { ...row, enabled: Boolean(row.enabled) };
-}
-
-function toIncomingCalendarEvent(event: IncomingEvent): IncomingCalendarEvent {
-  return {
-    tracking_id_event: event.tracking_id_event,
-    tracking_id_calendar: event.tracking_id_calendar,
-    legacy_tracking_ids: event.legacy_tracking_ids,
-    is_cancelled: event.is_cancelled,
-    title: event.title ?? null,
-    started_at: event.started_at ?? null,
-    ended_at: event.ended_at ?? null,
-    location: event.location ?? null,
-    meeting_link: event.meeting_link ?? null,
-    description: event.description ?? null,
-    recurrence_series_id: event.recurrence_series_id ?? null,
-    has_recurrence_rules: event.has_recurrence_rules,
-    is_all_day: event.is_all_day,
-    attendance_json: encodeAttendanceSnapshot(event.attendance),
-  };
 }

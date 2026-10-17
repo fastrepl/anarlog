@@ -84,6 +84,20 @@ describe("decideAutomaticMeetingAttendance", () => {
     });
   });
 
+  test("blocks an accepted attendee when every other human declined", () => {
+    expect(
+      decide(
+        attendance({
+          accepted: 0,
+          declined: 1,
+        }),
+      ),
+    ).toEqual({
+      eligible: false,
+      reasons: ["all_others_declined"],
+    });
+  });
+
   test("allows an accepted non-organizer when the organizer remains", () => {
     expect(decide(attendance({ accepted: 1, declined: 3 }))).toEqual({
       eligible: true,
