@@ -1,11 +1,11 @@
 ---
 name: anarlog
-description: Query Anarlog meetings, notes, summaries, transcripts, participants, action items, and recurring history. Use when a user asks about their Anarlog meeting data or needs meeting context for another task.
+description: Query Anarlog meetings, notes, summaries, transcripts, participants, action items, and recurring history, or import a local recording. Use when a user asks about their Anarlog meeting data or needs meeting context for another task.
 ---
 
 # Anarlog
 
-Prefer local Anarlog data when the agent can access it. Use OAuth-connected Cloud MCP when running remotely or when local data is unavailable. Meeting reads are safe. Writes are limited to staging proposals on the local CLI.
+Prefer local Anarlog data when the agent can access it. Use OAuth-connected Cloud MCP when running remotely or when local data is unavailable. Meeting reads are safe. Use local proposal tools to stage edits, or local import tools to create a meeting from an explicitly requested recording.
 
 ## Choose a source
 
@@ -56,3 +56,5 @@ See [CLI commands](https://docs.anarlog.so/reference/cli) and [MCP tools](https:
 - If search results are ambiguous, ask the user to choose a meeting.
 
 For setup and failures, see [setup](https://docs.anarlog.so/agents/overview) and [errors](https://docs.anarlog.so/reference/errors).
+
+For an explicitly requested recording import, use the local CLI or local MCP import tools described in the references. The updated desktop app must be open. Imports create meetings and may use paid providers; save the returned job ID and check both processing and summary status before claiming completion. Hosted MCP does not import local files.

@@ -132,6 +132,74 @@ expression: canonicalize_json(contract)
       ],
       "subcommands": [
         {
+          "about": "Import a local recording using the running desktop app",
+          "arguments": [
+            {
+              "name": "FILE",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings import",
+          "options": [
+            {
+              "flags": "--title",
+              "is_flag": false,
+              "required": false,
+              "value_name": "TITLE"
+            },
+            {
+              "flags": "--folder",
+              "is_flag": false,
+              "required": false,
+              "value_name": "FOLDER"
+            },
+            {
+              "flags": "--request-key",
+              "is_flag": false,
+              "required": false,
+              "value_name": "REQUEST_KEY"
+            },
+            {
+              "flags": "--wait",
+              "is_flag": true,
+              "required": false
+            },
+            {
+              "default": "3600",
+              "flags": "--timeout",
+              "is_flag": false,
+              "required": false,
+              "value_name": "TIMEOUT"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings import [--title] [--folder] [--request-key] [--wait] [--timeout] [-h] <file>"
+        },
+        {
+          "about": "Read durable status for a recording import",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog meetings import-status",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog meetings import-status [-h] <id>"
+        },
+        {
           "about": "Read local capture intervals without meeting content or identifiers",
           "name": "anarlog meetings pilot-usage",
           "options": [

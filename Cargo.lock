@@ -229,6 +229,7 @@ dependencies = [
  "serde_json",
  "specta",
  "sqlx",
+ "tempfile",
  "thiserror 2.0.18",
  "tiptap",
  "tokio",

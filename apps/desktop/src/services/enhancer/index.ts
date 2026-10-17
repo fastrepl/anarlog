@@ -604,6 +604,28 @@ export class EnhancerService {
     return { type: "started", noteId: note.id };
   }
 
+  async enhanceAndWait(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    signal?.throwIfAborted();
+    const result = await this.enhance(sessionId);
+    if (result.type === "no_model") return "skipped_no_model";
+    if (result.type === "too_short") return "skipped_too_short";
+    const taskId = createTaskId(result.noteId, "enhance");
+    const deadline = Date.now() + 30 * 60 * 1000;
+    while (Date.now() < deadline) {
+      signal?.throwIfAborted();
+      const task = this.deps.aiTaskStore.getState().getState(taskId);
+      if (task?.status === "success") return "done";
+      if (!task || task.status === "error" || task.status === "idle") {
+        throw new Error("Summary generation failed or was stopped");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    throw new Error("Summary generation timed out");
+  }
+
   async ensureNote(sessionId: string, templateId?: string): Promise<string> {
     return (await this.ensureNoteRecord(sessionId, templateId)).id;
   }

@@ -93,6 +93,9 @@ impl DataSource {
 
 pub async fn run(source: &DataSource, command: MeetingCommand, json: bool) -> Result<()> {
     match command {
+        MeetingCommand::Import { .. } | MeetingCommand::ImportStatus { .. } => {
+            unreachable!("handled before opening read-only source")
+        }
         MeetingCommand::PilotUsage { from_ms, until_ms } => match source {
             DataSource::Local(db) if json => super::meeting_pilot::run(db, from_ms, until_ms).await,
             _ => Err(local_only("JSON meetings pilot-usage")),
@@ -167,7 +170,14 @@ pub async fn run(source: &DataSource, command: MeetingCommand, json: bool) -> Re
                 .get_meeting(GetMeetingInput { meeting_id: id })
                 .await?;
             let rendered = if json {
-                output::json("meetings.get", &meeting, None)?
+                match &source {
+                    DataSource::Local(db) => output::json(
+                        "meetings.get",
+                        &anlg_agent_access::local_meeting(db.pool(), meeting).await?,
+                        None,
+                    )?,
+                    DataSource::Cloud(_) => output::json("meetings.get", &meeting, None)?,
+                }
             } else {
                 meeting.to_markdown()
             };

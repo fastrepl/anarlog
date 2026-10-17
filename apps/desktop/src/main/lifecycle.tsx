@@ -26,6 +26,7 @@ import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { useTabs } from "~/store/zustand/tabs";
 import { BatchTranscriptionRecovery } from "~/stt/batch-transcription-recovery";
 import { LiveCaptureRecovery } from "~/stt/live-capture-recovery";
+import { RecordingImportWorker } from "~/stt/recording-import";
 import { ScheduledMeetingAutoStart } from "~/stt/scheduled-auto-start";
 import { MainListenerControlBridge } from "~/stt/window-control";
 
@@ -63,6 +64,7 @@ export function ClassicMainServices() {
       <SharedNotePreviewAuthLifecycle />
       <LiveCaptureRecovery />
       <BatchTranscriptionRecovery />
+      <RecordingImportWorker />
       <ScheduledMeetingAutoStart />
       <MainListenerControlBridge />
       <DictationLifecycle />

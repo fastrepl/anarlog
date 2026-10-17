@@ -153,6 +153,27 @@ describe("EnhancerService", () => {
   let listener: ((state: any) => void) | undefined;
   let unsubscribe: ReturnType<typeof vi.fn>;
 
+  it("import waits for summary completion and exposes missing models as skipped", async () => {
+    vi.useFakeTimers();
+    snapshot = createSnapshot({ wordCount: 100 });
+    let status = "generating";
+    const ai = createMockAITaskStore(() => ({ status }));
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+    const completion = service.enhanceAndWait(
+      "session-1",
+      new AbortController().signal,
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    status = "success";
+    await vi.advanceTimersByTimeAsync(500);
+    await expect(completion).resolves.toBe("done");
+    const noModel = new EnhancerService(createDeps({ getModel: () => null }));
+    await expect(
+      noModel.enhanceAndWait("session-1", new AbortController().signal),
+    ).resolves.toBe("skipped_no_model");
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     snapshot = createSnapshot();

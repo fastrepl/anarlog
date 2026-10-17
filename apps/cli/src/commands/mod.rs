@@ -2,6 +2,7 @@ pub mod auth;
 pub mod doctor;
 pub mod meetings;
 pub mod proposals;
+pub mod recording_import;
 
 pub mod meeting_delete;
 pub mod meeting_hold;

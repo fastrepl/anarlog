@@ -29,3 +29,9 @@ Available resources:
 - `anarlog://series/{series_id}`
 
 Prefer tools when the workflow needs structured JSON. Use resources when the client needs concise Markdown or plain-text context. Transcript resources default to 200 words (cap 500) and return plain text only.
+
+## Local recording import
+
+For an explicitly requested audio import, use local `import_recording` with `file_path`, optional `title`, an existing `folder_path`, and a stable `request_key` for submission retries. The updated desktop app must be open on the same machine and database. It creates a real meeting and runs configured transcription and summary providers, which may incur charges and receive audio. Hosted MCP cannot read a local file path or import it.
+
+Persist `meeting_id` and `job_id`, then poll `get_recording_import` with `job_id`. Do not equate submission with completion. Check both `processing_status` and `summary_status`; `skipped_no_model` and `skipped_too_short` mean no summary was generated. Failure preserves completed meeting data. Reusing a request key returns the existing job, even after failure; do not silently resubmit with a new key. Local `get_meeting` includes the same status in `recording_import`.

@@ -98,3 +98,15 @@ Accepts required string `proposal_id`. Marks a pending proposal declined without
 | `anarlog://series/{series_id}` | `text/markdown` | Up to 100 meetings in a recurring series. |
 
 Resource listing returns recent meeting resources in pages of 20. Its cursor is a numeric result offset.
+
+### `import_recording` (local only)
+
+Create a meeting from a recording on the MCP server's computer. The updated desktop app must be open on the same database. This writes a meeting and may send audio to the configured transcription provider and incur charges. It uses the desktop's current speech-to-text, Intelligence and retention settings. Hosted MCP does not expose this tool.
+
+Parameters: required `file_path`; optional `title`, `folder_path` (an existing folder) and `request_key` (1–200 bytes). Reuse a request key only to retry the same logical submission; it returns the original job, including after failure. Supported files: WAV, MP3, OGG, MP4, M4A, FLAC, WebM, AAC. SRT/VTT import is not included.
+
+Returns `meeting_id`, `job_id`, `processing_status`, `summary_status` and nullable `error`. The source is copied before returning; the desktop cleans up that temporary copy after a terminal result. Poll `get_recording_import` until `done` or `failed`. Preserve the returned IDs if the client disconnects. Interrupted jobs retain their meeting and any completed transcript; they are not automatically resubmitted.
+
+### `get_recording_import` (local only)
+
+Required parameter: `job_id`. Read the durable result without starting work. Processing states: `queued`, `importing`, `transcribing`, `summarizing`, `done`, `failed`. Summary states: `pending`, `done`, `skipped_no_model`, `skipped_too_short`, `failed`. A successful import can have a skipped summary. Local `get_meeting` also includes nullable `processing_status` and `recording_import`; hosted meeting snapshots do not include this machine-local execution state.

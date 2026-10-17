@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
 mod proposals;
+mod recording_import;
+pub use recording_import::*;
 mod transcript_render;
 
 use schemars::JsonSchema;

@@ -178,6 +178,8 @@ async fn migrations_apply_cleanly() {
             "local_library_attachment_state",
             "local_library_connections",
             "local_meeting_purges",
+            "local_recording_import_jobs",
+            "local_recording_import_worker",
             "managed_app_settings",
             "migration_import_items",
             "migration_import_runs",

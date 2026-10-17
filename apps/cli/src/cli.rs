@@ -52,6 +52,8 @@ impl Args {
                 MeetingCommand::HoldList { .. } => "meetings_hold_list",
                 MeetingCommand::HoldExport { .. } => "meetings_hold_export",
                 MeetingCommand::PilotUsage { .. } => "meetings_pilot_usage",
+                MeetingCommand::Import { .. } => "meetings_import",
+                MeetingCommand::ImportStatus { .. } => "meetings_import_status",
                 MeetingCommand::List { .. } => "meetings_list",
                 MeetingCommand::Folders { .. } => "meetings_folders",
                 MeetingCommand::Get { .. } => "meetings_get",
@@ -75,6 +77,9 @@ impl Args {
             self.command,
             Command::Proposals {
                 command: ProposalCommand::Create { .. } | ProposalCommand::Decline { .. },
+            } | Command::Meetings {
+                command: MeetingCommand::Import { .. },
+                ..
             } | Command::Mcp
         )
     }
@@ -173,6 +178,22 @@ pub enum MeetingSource {
 
 #[derive(Debug, Subcommand)]
 pub enum MeetingCommand {
+    /// Import a local recording using the running desktop app
+    Import {
+        file: PathBuf,
+        #[arg(long)]
+        title: Option<String>,
+        #[arg(long)]
+        folder: Option<String>,
+        #[arg(long)]
+        request_key: Option<String>,
+        #[arg(long)]
+        wait: bool,
+        #[arg(long, default_value_t = 3600, value_parser = clap::value_parser!(u64).range(1..=86400))]
+        timeout: u64,
+    },
+    /// Read durable status for a recording import
+    ImportStatus { id: String },
     /// Read local capture intervals without meeting content or identifiers
     PilotUsage {
         #[arg(long)]

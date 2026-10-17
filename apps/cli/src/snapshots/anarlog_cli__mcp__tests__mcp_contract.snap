@@ -556,9 +556,39 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
               "organization_name"
             ],
             "type": "object"
+          },
+          "RecordingImport": {
+            "properties": {
+              "error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "job_id": {
+                "type": "string"
+              },
+              "meeting_id": {
+                "type": "string"
+              },
+              "processing_status": {
+                "type": "string"
+              },
+              "summary_status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "job_id",
+              "meeting_id",
+              "processing_status",
+              "summary_status"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Local-only execution metadata is not part of hosted meeting snapshots.",
         "properties": {
           "action_items": {
             "items": {
@@ -605,6 +635,22 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
             },
             "type": "array"
           },
+          "processing_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recording_import": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RecordingImport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "series_id": {
             "type": "string"
           },
@@ -646,7 +692,7 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
           "participants",
           "action_items"
         ],
-        "title": "Meeting",
+        "title": "LocalMeeting",
         "type": "object"
       },
       "title": "Get meeting"
@@ -851,6 +897,60 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "openWorldHint": false,
         "readOnlyHint": true
       },
+      "description": "Get durable recording import processing_status, summary_status and error. A failed summary preserves the meeting and transcript. queued requires the desktop app to run.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "name": "get_recording_import",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "meeting_id": {
+            "type": "string"
+          },
+          "processing_status": {
+            "type": "string"
+          },
+          "summary_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "meeting_id",
+          "processing_status",
+          "summary_status"
+        ],
+        "title": "RecordingImport",
+        "type": "object"
+      },
+      "title": "Get recording import"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
       "description": "List meetings in the same recurring series as the supplied meeting, newest first, with pagination metadata.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1000,6 +1100,79 @@ expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": in
         "type": "object"
       },
       "title": "Get recurring meeting history"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Create a meeting from a local audio file using the running Anarlog desktop app and its configured providers. May send audio to the configured transcription provider and use paid quota. file_path is on this computer, not a remote host. Returns durable job and meeting IDs. Reuse request_key on retries; poll get_recording_import until done or failed.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "file_path": {
+            "type": "string"
+          },
+          "folder_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request_key": {
+            "description": "Reuse this key when retrying submission. A different request needs a new key.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "file_path"
+        ],
+        "type": "object"
+      },
+      "name": "import_recording",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "meeting_id": {
+            "type": "string"
+          },
+          "processing_status": {
+            "type": "string"
+          },
+          "summary_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "meeting_id",
+          "processing_status",
+          "summary_status"
+        ],
+        "title": "RecordingImport",
+        "type": "object"
+      },
+      "title": "Import recording"
     },
     {
       "annotations": {

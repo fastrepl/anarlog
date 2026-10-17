@@ -75,6 +75,18 @@ pub async fn run(mut args: Args) -> Result<u8> {
                 )?);
                 return Ok(0);
             }
+            if matches!(
+                &command,
+                cli::MeetingCommand::Import { .. } | cli::MeetingCommand::ImportStatus { .. }
+            ) {
+                if !matches!(source, cli::MeetingSource::Local) {
+                    return Err(Error::operation(
+                        "import recording",
+                        "local source required",
+                    ));
+                }
+                return commands::recording_import::run(&args, command, json).await;
+            }
             let source = commands::meetings::DataSource::open(&args, source).await?;
             commands::meetings::run(&source, command, json).await?
         }
@@ -94,6 +106,62 @@ pub async fn run(mut args: Args) -> Result<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn import_wait_timeout_keeps_the_durable_job_for_status_polling() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = anlg_db_core::Db::connect_local_plain(&db_path)
+            .await
+            .unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query("INSERT INTO local_recording_import_worker (id, vault_path, updated_at) VALUES ('desktop', ?, unixepoch())")
+            .bind(dir.path().to_string_lossy().as_ref())
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let file = dir.path().join("meeting.wav");
+        std::fs::write(&file, b"audio").unwrap();
+        let status = run(Args {
+            base: None,
+            db_path: Some(db_path.clone()),
+            json: true,
+            command: cli::Command::Meetings {
+                source: cli::MeetingSource::Local,
+                command: cli::MeetingCommand::Import {
+                    file,
+                    title: None,
+                    folder: None,
+                    request_key: Some("request".into()),
+                    wait: true,
+                    timeout: 1,
+                },
+            },
+        })
+        .await
+        .unwrap();
+        assert_eq!(status, 2);
+        let job_id: String = sqlx::query_scalar(
+            "SELECT id FROM local_recording_import_jobs WHERE processing_status = 'queued'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        sqlx::query("UPDATE local_recording_import_jobs SET processing_status = 'done', summary_status = 'skipped_no_model'").execute(db.pool()).await.unwrap();
+        let status = run(Args {
+            base: None,
+            db_path: Some(db_path),
+            json: true,
+            command: cli::Command::Meetings {
+                source: cli::MeetingSource::Local,
+                command: cli::MeetingCommand::ImportStatus { id: job_id },
+            },
+        })
+        .await
+        .unwrap();
+        assert_eq!(status, 0);
+        db.pool().close().await;
+    }
 
     #[tokio::test]
     async fn doctor_returns_nonzero_status_when_database_is_not_ready() {

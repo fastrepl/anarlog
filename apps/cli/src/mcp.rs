@@ -40,6 +40,40 @@ impl AnarlogMcpServer {
 #[tool_router]
 impl AnarlogMcpServer {
     #[tool(
+        title = "Import recording",
+        description = "Create a meeting from a local audio file using the running Anarlog desktop app and its configured providers. May send audio to the configured transcription provider and use paid quota. file_path is on this computer, not a remote host. Returns durable job and meeting IDs. Reuse request_key on retries; poll get_recording_import until done or failed.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::RecordingImport>(),
+        annotations(read_only_hint = false, destructive_hint = false, idempotent_hint = false, open_world_hint = true)
+    )]
+    async fn import_recording(
+        &self,
+        Parameters(input): Parameters<access::ImportRecordingInput>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        structured(
+            &access::import_recording(self.db.pool(), input)
+                .await
+                .map_err(command_error)?,
+        )
+    }
+
+    #[tool(
+        title = "Get recording import",
+        description = "Get durable recording import processing_status, summary_status and error. A failed summary preserves the meeting and transcript. queued requires the desktop app to run.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::RecordingImport>(),
+        annotations(read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn get_recording_import(
+        &self,
+        Parameters(input): Parameters<access::GetRecordingImportInput>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        structured(
+            &access::get_recording_import(self.db.pool(), &input.job_id)
+                .await
+                .map_err(command_error)?,
+        )
+    }
+
+    #[tool(
         title = "List meetings",
         description = "List recent Anarlog meetings with pagination metadata. Use query to narrow by title or meeting id and folder_path to scope to a folder and its subfolders, then pass next_offset as offset to continue.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingPage>(),
@@ -84,7 +118,7 @@ impl AnarlogMcpServer {
     #[tool(
         title = "Get meeting",
         description = "Get one Anarlog meeting with its canonical note, summaries, participants, and action items. Use get_meeting_transcript separately for transcript words.",
-        output_schema = rmcp::handler::server::tool::schema_for_type::<access::Meeting>(),
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::LocalMeeting>(),
         annotations(
             read_only_hint = true,
             destructive_hint = false,
@@ -97,6 +131,9 @@ impl AnarlogMcpServer {
         Parameters(input): Parameters<access::GetMeetingInput>,
     ) -> std::result::Result<CallToolResult, McpError> {
         let meeting = access::get_meeting(self.db.pool(), input)
+            .await
+            .map_err(command_error)?;
+        let meeting = access::local_meeting(self.db.pool(), meeting)
             .await
             .map_err(command_error)?;
         structured(&meeting)
@@ -680,7 +717,9 @@ mod tests {
                 "get_meeting",
                 "get_meeting_transcript",
                 "get_proposal",
+                "get_recording_import",
                 "get_recurring_meeting_history",
+                "import_recording",
                 "list_folders",
                 "list_meetings",
                 "list_proposals",
@@ -722,12 +761,18 @@ mod tests {
             let annotations = tool.annotations.expect("tool annotations");
             let write_tool = matches!(
                 tool.name.as_ref(),
-                "propose_summary_edit" | "propose_memo_edit" | "decline_proposal"
+                "propose_summary_edit"
+                    | "propose_memo_edit"
+                    | "decline_proposal"
+                    | "import_recording"
             );
             assert_eq!(annotations.read_only_hint, Some(!write_tool));
             assert_eq!(annotations.destructive_hint, Some(false));
             assert_eq!(annotations.idempotent_hint, Some(!write_tool));
-            assert_eq!(annotations.open_world_hint, Some(false));
+            assert_eq!(
+                annotations.open_world_hint,
+                Some(tool.name == "import_recording")
+            );
         }
 
         let mut template_contract = templates
@@ -820,7 +865,7 @@ mod tests {
         let tools = client.receive().await.unwrap();
         let tools = serde_json::to_value(tools).unwrap();
         assert_eq!(tools["result"]["resultType"], "complete");
-        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 11);
+        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 13);
 
         drop(client);
         server_task.await.unwrap().cancel().await.unwrap();
