@@ -435,3 +435,52 @@ async fn confirmed_prefix_retry_sends_the_tail_without_recording_a_sync_failure(
     );
     server.await.unwrap();
 }
+
+#[test]
+fn logged_failure_keeps_only_safe_scalar_fields() {
+    let failure = serde_json::json!({
+        "jobId": "job-1",
+        "code": "apply_conflict",
+        "stage": "apply",
+        "message": "row with secret contents conflicts",
+        "retryable": true,
+        "failedAt": "2026-10-17T18:34:32Z",
+    });
+    assert_eq!(
+        logged_failure(Some(&failure)),
+        LoggedFailure {
+            code: Some("apply_conflict".to_string()),
+            stage: Some("apply".to_string()),
+            retryable: Some(true),
+            failed_at: Some("2026-10-17T18:34:32Z".to_string()),
+        }
+    );
+
+    let failure = serde_json::json!({
+        "code": 409,
+        "stage": {"message": "nested server text"},
+        "retryable": "yes",
+        "failedAt": 1_792_262_072,
+    });
+    assert_eq!(
+        logged_failure(Some(&failure)),
+        LoggedFailure {
+            code: Some("409".to_string()),
+            stage: None,
+            retryable: None,
+            failed_at: Some("1792262072".to_string()),
+        }
+    );
+
+    let failure = serde_json::json!({"code": "x".repeat(100)});
+    assert_eq!(
+        logged_failure(Some(&failure)).code.map(|code| code.len()),
+        Some(64)
+    );
+
+    assert_eq!(logged_failure(None), LoggedFailure::default());
+    assert_eq!(
+        logged_failure(Some(&serde_json::json!("previous apply failed"))),
+        LoggedFailure::default()
+    );
+}

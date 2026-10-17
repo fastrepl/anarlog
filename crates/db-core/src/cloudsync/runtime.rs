@@ -13,9 +13,9 @@ mod background;
 pub(super) use background::cloudsync_activity_paused;
 #[cfg(test)]
 use background::{
-    CLOUDSYNC_PROGRESS_INTERVAL, CloudsyncWake, SyncLogLevel, cloudsync_busy_delay,
+    CLOUDSYNC_PROGRESS_INTERVAL, CloudsyncWake, LoggedFailure, SyncLogLevel, cloudsync_busy_delay,
     cloudsync_next_delay, cloudsync_request_pending, cloudsync_wake_deadline,
-    drain_pending_changes, merge_bounded_sync_results, next_synced_change,
+    drain_pending_changes, logged_failure, merge_bounded_sync_results, next_synced_change,
     pending_cloudsync_payload_exists, sync_result_log_level, sync_result_needs_receive_progress,
     wait_for_retry_request_or_shutdown,
 };

@@ -4424,6 +4424,7 @@ dependencies = [
  "db-change",
  "libsqlite3-sys",
  "serde",
+ "serde_json",
  "sqlx",
  "tempfile",
  "thiserror 2.0.18",

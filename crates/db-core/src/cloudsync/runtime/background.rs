@@ -20,6 +20,42 @@ struct SyncActivity {
     error: Option<String>,
 }
 
+const LOGGED_FAILURE_FIELD_MAX_CHARS: usize = 64;
+
+/// Fields of a server-reported `lastFailure` that are safe to log. The full
+/// failure, and the error string built from it, can carry server messages.
+#[derive(Debug, Default, Eq, PartialEq)]
+pub(super) struct LoggedFailure {
+    pub(super) code: Option<String>,
+    pub(super) stage: Option<String>,
+    pub(super) retryable: Option<bool>,
+    pub(super) failed_at: Option<String>,
+}
+
+pub(super) fn logged_failure(failure: Option<&serde_json::Value>) -> LoggedFailure {
+    let Some(failure) = failure else {
+        return LoggedFailure::default();
+    };
+    LoggedFailure {
+        code: logged_failure_scalar(failure.get("code")),
+        stage: logged_failure_scalar(failure.get("stage")),
+        retryable: failure
+            .get("retryable")
+            .and_then(serde_json::Value::as_bool),
+        failed_at: logged_failure_scalar(failure.get("failedAt")),
+    }
+}
+
+fn logged_failure_scalar(value: Option<&serde_json::Value>) -> Option<String> {
+    match value? {
+        serde_json::Value::String(value) => {
+            Some(value.chars().take(LOGGED_FAILURE_FIELD_MAX_CHARS).collect())
+        }
+        serde_json::Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum SyncLogLevel {
     Info,
@@ -154,6 +190,18 @@ fn log_sync_result(
     failures: u32,
 ) {
     if activity.status == CloudsyncActivityStatus::Failed {
+        let send_failure = logged_failure(
+            result
+                .send
+                .as_ref()
+                .and_then(|send| send.last_failure.as_ref()),
+        );
+        let receive_failure = logged_failure(
+            result
+                .receive
+                .as_ref()
+                .and_then(|receive| receive.last_failure.as_ref()),
+        );
         tracing::warn!(
             trigger = ?activity.trigger,
             send_failed = result.send.as_ref().is_some_and(|send| {
@@ -167,6 +215,14 @@ fn log_sync_result(
             error_kind = ?activity.error.as_deref().map(|error| {
                 anlg_cloudsync::Error::Io(std::io::Error::other(error)).kind()
             }),
+            send_failure_code = ?send_failure.code,
+            send_failure_stage = ?send_failure.stage,
+            send_failure_retryable = ?send_failure.retryable,
+            send_failure_failed_at = ?send_failure.failed_at,
+            receive_failure_code = ?receive_failure.code,
+            receive_failure_stage = ?receive_failure.stage,
+            receive_failure_retryable = ?receive_failure.retryable,
+            receive_failure_failed_at = ?receive_failure.failed_at,
             failures,
             sent_bytes = activity.sent_bytes,
             received_bytes = activity.received_bytes,
