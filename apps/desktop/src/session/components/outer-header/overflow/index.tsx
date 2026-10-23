@@ -1,6 +1,9 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import { useState } from "react";
 
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
+import { commands as openerCommands } from "@anlg/plugin-opener2";
 import {
   AppWindow,
   ArrowsClockwise,
@@ -9,6 +12,7 @@ import {
   DotsThree,
   FileArrowDown,
   FileText,
+  FolderOpen,
   PictureInPicture,
   Waveform,
 } from "@anlg/ui/components/icons";
@@ -26,6 +30,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
+import { toast } from "@anlg/ui/components/ui/toast";
 
 import { MetadataPanelContent } from "../metadata";
 import { AlwaysOnTop } from "./always-on-top";
@@ -35,6 +40,9 @@ import { Listening } from "./listening";
 import { LockNote } from "./lock-note";
 
 import { useAudioPlayer } from "~/audio-player";
+import { DEVICE_AUTH_REASON } from "~/lock/auth";
+import { isLockedFlag } from "~/lock/flag";
+import { useAppLock } from "~/lock/store";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
 import { isFloatingBarSupported } from "~/meeting-float/support";
 import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
@@ -43,6 +51,7 @@ import {
   useHasTranscript,
 } from "~/session/components/shared";
 import { VersionHistoryDialog } from "~/session/components/version-history-dialog";
+import { useSession } from "~/session/queries";
 import { openStandaloneNoteWindow } from "~/session/window";
 import { useConfigValue } from "~/shared/config";
 import type { EditorView } from "~/store/zustand/tabs/schema";
@@ -60,6 +69,7 @@ export function OverflowButton({
   sessionId: string;
   currentView: EditorView;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [hasOpenedExportModal, setHasOpenedExportModal] = useState(false);
@@ -71,6 +81,8 @@ export function OverflowButton({
     sessionId,
     currentView,
   );
+  const session = useSession(sessionId);
+  const noteLocked = session == null || isLockedFlag(session.locked);
   const { audioExists, audioExistsResolved } = useAudioPlayer();
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
   const regenerateTranscript = useRegenerateTranscript(sessionId);
@@ -88,13 +100,23 @@ export function OverflowButton({
     !hasTranscript &&
     !currentNoteHasContent &&
     !isMeetingInProgress;
+  const showAudioInFolder = audioExistsResolved && audioExists;
+  const showAudioLabel =
+    platform() === "macos"
+      ? t`Show Audio in Finder`
+      : platform() === "windows"
+        ? t`Show Audio in Explorer`
+        : t`Show Audio in Folder`;
   const canOpenFloatingPanel =
     floatingBarSupported &&
     allowListening &&
     floatingBarEnabled &&
     sessionMode === "active";
   const hasRecordingActions =
-    showListeningAction || showRetranscribeAction || showUploadActions;
+    showListeningAction ||
+    showRetranscribeAction ||
+    showUploadActions ||
+    showAudioInFolder;
   const openExportModal = () => {
     setOpen(false);
     setHasOpenedExportModal(true);
@@ -117,6 +139,26 @@ export function OverflowButton({
   const handleRetranscribe = () => {
     setOpen(false);
     void regenerateTranscript();
+  };
+  const handleShowAudioInFolder = async () => {
+    setOpen(false);
+    if (noteLocked) {
+      const ok = await useAppLock
+        .getState()
+        .authenticate(DEVICE_AUTH_REASON.openApp);
+      if (!ok) return;
+    }
+    const exists = await fsSyncCommands.audioExist(sessionId);
+    if (exists.status !== "ok" || !exists.data) {
+      toast.error(t`Recording not found. It may have been deleted.`, {
+        id: `show-audio-missing-${sessionId}`,
+      });
+      return;
+    }
+    const dir = await fsSyncCommands.sessionDir(sessionId);
+    if (dir.status === "ok") {
+      await openerCommands.openPath(dir.data, null);
+    }
   };
   const handleOpenFloatingPanel = () => {
     setOpen(false);
@@ -208,6 +250,15 @@ export function OverflowButton({
                   </span>
                 </DropdownMenuItem>
               </>
+            )}
+            {showAudioInFolder && (
+              <DropdownMenuItem
+                onClick={handleShowAudioInFolder}
+                className="cursor-pointer"
+              >
+                <FolderOpen />
+                <span>{showAudioLabel}</span>
+              </DropdownMenuItem>
             )}
             {hasRecordingActions && <DropdownMenuSeparator />}
             <DropdownMenuItem

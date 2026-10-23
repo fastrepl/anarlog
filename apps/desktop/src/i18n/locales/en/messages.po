@@ -4652,6 +4652,7 @@ msgid "Record your voice in meetings and calls."
 msgstr "Record your voice in meetings and calls."
 
 #: src/session/components/note-input/transcript/actions.ts
+#: src/session/components/outer-header/overflow/index.tsx
 msgid "Recording not found. It may have been deleted."
 msgstr "Recording not found. It may have been deleted."
 
@@ -5437,6 +5438,18 @@ msgstr "Show app in Dock"
 #: src/settings/general/permissions.tsx
 msgid "Show Apple Calendar events in Anarlog."
 msgstr "Show Apple Calendar events in Anarlog."
+
+#: src/session/components/outer-header/overflow/index.tsx
+msgid "Show Audio in Explorer"
+msgstr "Show Audio in Explorer"
+
+#: src/session/components/outer-header/overflow/index.tsx
+msgid "Show Audio in Finder"
+msgstr "Show Audio in Finder"
+
+#: src/session/components/outer-header/overflow/index.tsx
+msgid "Show Audio in Folder"
+msgstr "Show Audio in Folder"
 
 #: src/sidebar/timeline/index.tsx
 msgid "Show Deleted Events"
