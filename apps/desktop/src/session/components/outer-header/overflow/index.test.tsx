@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OverflowButton } from "./index";
@@ -13,6 +19,7 @@ const {
   audioExists,
   audioExistsResolved,
   currentNoteContent,
+  exportModalMounts,
   exportModalMock,
   useHasTranscriptMock,
   useListenerMock,
@@ -26,6 +33,7 @@ const {
   audioExists: { value: false },
   audioExistsResolved: { value: true },
   currentNoteContent: { value: "" },
+  exportModalMounts: { value: 0 },
   exportModalMock: vi.fn(
     (_props: { open: boolean; onOpenChange: (open: boolean) => void }) => null,
   ),
@@ -100,9 +108,21 @@ vi.mock("./delete", () => ({
   DeleteNote: () => <button type="button">Delete note</button>,
 }));
 
-vi.mock("./export-modal", () => ({
-  ExportModal: exportModalMock,
-}));
+vi.mock("./export-modal", async () => {
+  const React = await import("react");
+  return {
+    ExportModal: (props: {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+    }) => {
+      React.useEffect(() => {
+        exportModalMounts.value += 1;
+      }, []);
+      exportModalMock(props);
+      return null;
+    },
+  };
+});
 
 vi.mock("./listening", () => ({
   Listening: ({ resume }: { resume: boolean }) => (
@@ -228,6 +248,7 @@ describe("OverflowButton", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    exportModalMounts.value = 0;
     arrange({});
   });
 
@@ -382,7 +403,26 @@ describe("OverflowButton", () => {
 
     expect(exportModalMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ open: true }),
-      undefined,
     );
+  });
+
+  it("remounts the export modal on every open", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
+    renderOverflow();
+
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    expect(exportModalMounts.value).toBe(1);
+
+    const calls = exportModalMock.mock.calls;
+    const lastProps = calls[calls.length - 1]?.[0];
+    act(() => {
+      lastProps?.onOpenChange(false);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    expect(exportModalMounts.value).toBe(2);
   });
 });

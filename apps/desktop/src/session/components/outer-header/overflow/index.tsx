@@ -63,6 +63,7 @@ export function OverflowButton({
   const [open, setOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [hasOpenedExportModal, setHasOpenedExportModal] = useState(false);
+  const [exportOpenCount, setExportOpenCount] = useState(0);
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
   const [hasOpenedVersionHistory, setHasOpenedVersionHistory] = useState(false);
   const hasTranscript = useHasTranscript(sessionId);
@@ -97,6 +98,7 @@ export function OverflowButton({
   const openExportModal = () => {
     setOpen(false);
     setHasOpenedExportModal(true);
+    setExportOpenCount((count) => count + 1);
     requestAnimationFrame(() => setIsExportModalOpen(true));
   };
   const openVersionHistory = () => {
@@ -249,6 +251,7 @@ export function OverflowButton({
       </DropdownMenu>
       {hasOpenedExportModal && (
         <ExportModal
+          key={exportOpenCount}
           sessionId={sessionId}
           currentView={currentView}
           open={isExportModalOpen}

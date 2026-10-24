@@ -29,6 +29,26 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "export_directory"],
     default: "" as string,
   },
+  export_format: {
+    type: "string",
+    path: ["general", "export_format"],
+    default: "pdf" as string,
+  },
+  export_include_memo: {
+    type: "boolean",
+    path: ["general", "export_include_memo"],
+    default: false as boolean,
+  },
+  export_include_summary: {
+    type: "boolean",
+    path: ["general", "export_include_summary"],
+    default: true as boolean,
+  },
+  export_include_transcript: {
+    type: "boolean",
+    path: ["general", "export_include_transcript"],
+    default: false as boolean,
+  },
   autostart: {
     type: "boolean",
     path: ["general", "autostart"],

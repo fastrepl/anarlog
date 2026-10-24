@@ -31,13 +31,23 @@ import {
   useSessionParticipants,
 } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
-import { getStoredSettingValues } from "~/settings/queries";
+import {
+  getStoredSettingValues,
+  useSetSettingValues,
+  useStoredSettingValuesQuery,
+} from "~/settings/queries";
 import { useDurableSharedNote } from "~/shared-notes/cache";
 import { isAppStoreBuild } from "~/shared/app-store";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 import { useSessionTranscriptMetadata } from "~/stt/queries";
 
 type FileFormat = "pdf" | "txt" | "md" | "org";
+
+function parseExportFormat(value: string | undefined): FileFormat {
+  return value === "pdf" || value === "txt" || value === "md" || value === "org"
+    ? value
+    : "pdf";
+}
 
 function markdownToText(content: string): string {
   return content
@@ -66,22 +76,67 @@ function markdownToOrg(content: string): string {
     .trim();
 }
 
-export function ExportModal({
-  sessionId,
-  currentView,
-  open,
-  onOpenChange,
-}: {
+type ExportModalProps = {
   sessionId: string;
   currentView: EditorView;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+};
+
+type ExportConfig = {
+  format: FileFormat;
+  includeMemo: boolean;
+  includeSummary: boolean;
+  includeTranscript: boolean;
+};
+
+function readExportConfig(values: {
+  export_format?: string;
+  export_include_memo?: boolean;
+  export_include_summary?: boolean;
+  export_include_transcript?: boolean;
+}): ExportConfig {
+  return {
+    format: parseExportFormat(values.export_format),
+    includeMemo: values.export_include_memo ?? false,
+    includeSummary: values.export_include_summary ?? true,
+    includeTranscript: values.export_include_transcript ?? false,
+  };
+}
+
+export function ExportModal(props: ExportModalProps) {
+  const settingsQuery = useStoredSettingValuesQuery();
+  if (settingsQuery.isLoading) {
+    return null;
+  }
+  // Read here, not in the content: a fresh live-query handle reports empty
+  // on its first render, so the content must receive settled values as props
+  // or its draft state freezes the empty first read.
+  return (
+    <ExportModalContent
+      initialConfig={readExportConfig(settingsQuery.data?.values ?? {})}
+      {...props}
+    />
+  );
+}
+
+function ExportModalContent({
+  sessionId,
+  currentView,
+  open,
+  onOpenChange,
+  initialConfig,
+}: ExportModalProps & { initialConfig: ExportConfig }) {
   const { t } = useLingui();
-  const [format, setFormat] = useState<FileFormat>("pdf");
-  const [includeMemo, setIncludeMemo] = useState(false);
-  const [includeSummary, setIncludeSummary] = useState(true);
-  const [includeTranscript, setIncludeTranscript] = useState(false);
+  const persistExportConfig = useSetSettingValues();
+  const [format, setFormat] = useState<FileFormat>(initialConfig.format);
+  const [includeMemo, setIncludeMemo] = useState(initialConfig.includeMemo);
+  const [includeSummary, setIncludeSummary] = useState(
+    initialConfig.includeSummary,
+  );
+  const [includeTranscript, setIncludeTranscript] = useState(
+    initialConfig.includeTranscript,
+  );
 
   const session = useSession(sessionId);
   const sessionTitle = session?.title;
@@ -401,6 +456,12 @@ export function ExportModal({
     },
     onSuccess: (path) => {
       if (!path) return;
+      persistExportConfig({
+        export_format: format,
+        export_include_memo: includeMemo,
+        export_include_summary: includeSummary,
+        export_include_transcript: includeTranscript,
+      });
       void analyticsCommands.event({
         event: "session_exported",
         format,

@@ -10,6 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   settings: vi.fn(),
+  storedValues: {} as Record<string, string | boolean | undefined>,
+  settingsValues: {} as Record<string, string | boolean | undefined>,
+  settingsLoading: false,
+  persistSettings: vi.fn(),
   downloadDir: vi.fn(),
   exportPdf: vi.fn(),
   writeTextFile: vi.fn(),
@@ -36,6 +40,16 @@ vi.mock("@anlg/plugin-opener2", () => ({
 }));
 vi.mock("~/settings/queries", () => ({
   getStoredSettingValues: mocks.settings,
+  useStoredSettingValues: () => ({
+    values: mocks.settingsValues,
+    hasValues: new Set(),
+  }),
+  useStoredSettingValuesQuery: () => ({
+    data: { values: mocks.storedValues, hasValues: new Set() },
+    isLoading: mocks.settingsLoading,
+    error: null,
+  }),
+  useSetSettingValues: () => mocks.persistSettings,
 }));
 vi.mock("~/shared/app-store", () => ({
   isAppStoreBuild: mocks.isAppStoreBuild,
@@ -69,7 +83,7 @@ function renderModal(
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
-  return render(
+  const renderElement = () => (
     <QueryClientProvider client={client}>
       <ExportModal
         sessionId="session-1"
@@ -77,14 +91,19 @@ function renderModal(
         open
         onOpenChange={mocks.onOpenChange}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const view = render(renderElement());
+  return { ...view, reload: () => view.rerender(renderElement()) };
 }
 
-describe("ExportModal destination", () => {
+describe("ExportModal", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.settings.mockResolvedValue({ values: {} });
+    mocks.storedValues = {};
+    mocks.settingsValues = {};
+    mocks.settingsLoading = false;
     mocks.downloadDir.mockResolvedValue("/Users/test/Downloads");
     mocks.exportPdf.mockResolvedValue({ status: "ok", data: null });
     mocks.writeTextFile.mockResolvedValue({ status: "ok", data: null });
@@ -211,5 +230,102 @@ describe("ExportModal destination", () => {
     expect(mocks.exportPdf).not.toHaveBeenCalled();
     expect(mocks.onOpenChange).not.toHaveBeenCalled();
     expect(mocks.revealItemInDir).not.toHaveBeenCalled();
+  });
+
+  it("opens with the last used format and sections", () => {
+    // settingsValues stays empty: a fresh live-query handle reports empty on
+    // its first render, so the form must initialize from the settled query
+    // values, not from its own handle read.
+    mocks.storedValues = {
+      export_format: "md",
+      export_include_memo: true,
+      export_include_summary: false,
+      export_include_transcript: true,
+    };
+    renderModal();
+    expect(
+      (screen.getByRole("radio", { name: "Markdown" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("checkbox", { name: "Memo" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("checkbox", { name: "Summary" }) as HTMLInputElement)
+        .checked,
+    ).toBe(false);
+    expect(
+      (screen.getByRole("checkbox", { name: "Transcript" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+  });
+
+  it("falls back to PDF summary defaults for unknown stored values", () => {
+    mocks.storedValues = { export_format: "docx" };
+    renderModal();
+    expect(
+      (screen.getByRole("radio", { name: "PDF" }) as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("checkbox", { name: "Memo" }) as HTMLInputElement)
+        .checked,
+    ).toBe(false);
+    expect(
+      (screen.getByRole("checkbox", { name: "Summary" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("checkbox", { name: "Transcript" }) as HTMLInputElement)
+        .checked,
+    ).toBe(false);
+  });
+
+  it("persists the used config on successful export", async () => {
+    renderModal();
+    fireEvent.click(screen.getByRole("radio", { name: "TXT" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Memo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(mocks.onOpenChange).toHaveBeenCalledWith(false));
+    expect(mocks.persistSettings).toHaveBeenCalledWith({
+      export_format: "txt",
+      export_include_memo: true,
+      export_include_summary: true,
+      export_include_transcript: false,
+    });
+  });
+
+  it("does not persist the config when the export fails", async () => {
+    mocks.writeTextFile.mockResolvedValue({
+      status: "error",
+      error: "Permission denied",
+    });
+    renderModal();
+    fireEvent.click(screen.getByRole("radio", { name: "Markdown" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await screen.findByRole("alert");
+    expect(mocks.persistSettings).not.toHaveBeenCalled();
+  });
+
+  it("waits for settings to load before initializing the form", () => {
+    mocks.settingsLoading = true;
+    mocks.storedValues = {
+      export_format: "md",
+      export_include_memo: true,
+      export_include_summary: false,
+      export_include_transcript: true,
+    };
+    const view = renderModal();
+    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
+    mocks.settingsLoading = false;
+    view.reload();
+    expect(
+      (screen.getByRole("radio", { name: "Markdown" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("checkbox", { name: "Memo" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
   });
 });
