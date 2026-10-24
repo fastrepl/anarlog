@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OverflowButton } from "./index";
@@ -19,6 +25,12 @@ const {
   useConfigValueMock,
   platformMock,
   windowShowMock,
+  audioExistMock,
+  sessionDirMock,
+  openPathMock,
+  toastErrorMock,
+  sessionRecord,
+  authenticateMock,
 } = vi.hoisted(() => ({
   uploadAudioMock: vi.fn(),
   uploadTranscriptMock: vi.fn(),
@@ -34,6 +46,12 @@ const {
   useConfigValueMock: vi.fn(),
   platformMock: vi.fn(() => "macos"),
   windowShowMock: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
+  audioExistMock: vi.fn(),
+  sessionDirMock: vi.fn(),
+  openPathMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+  sessionRecord: { value: null as { locked?: boolean } | null },
+  authenticateMock: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -143,6 +161,35 @@ vi.mock("@anlg/plugin-windows", () => ({
   },
 }));
 
+vi.mock("@anlg/plugin-fs-sync", () => ({
+  commands: {
+    audioExist: audioExistMock,
+    sessionDir: sessionDirMock,
+  },
+}));
+
+vi.mock("@anlg/plugin-opener2", () => ({
+  commands: {
+    openPath: openPathMock,
+  },
+}));
+
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  toast: {
+    error: toastErrorMock,
+  },
+}));
+
+vi.mock("~/session/queries", () => ({
+  useSession: () => sessionRecord.value,
+}));
+
+vi.mock("~/lock/store", () => ({
+  useAppLock: {
+    getState: () => ({ authenticate: authenticateMock }),
+  },
+}));
+
 vi.mock("~/session/components/shared", () => ({
   useCurrentNoteHasContent: () => currentNoteContent.value.trim().length > 0,
   useHasTranscript: useHasTranscriptMock,
@@ -179,6 +226,9 @@ const ACTIONS = [
   "Start listening",
   "Resume listening",
   "Re-transcribe",
+  "Show Audio in Finder",
+  "Show Audio in Explorer",
+  "Show Audio in Folder",
   "Open floating panel",
   "Open in New Window",
   "Delete recording",
@@ -203,6 +253,14 @@ function arrange({
   useListenerMock.mockImplementation((selector) =>
     selector({ getSessionMode: () => mode, stop: vi.fn() }),
   );
+  sessionRecord.value = { locked: false };
+  audioExistMock.mockResolvedValue({ status: "ok", data: true });
+  sessionDirMock.mockResolvedValue({
+    status: "ok",
+    data: "/sessions/session-1",
+  });
+  openPathMock.mockResolvedValue({ status: "ok", data: null });
+  authenticateMock.mockResolvedValue(true);
 }
 
 function renderOverflow(
@@ -276,6 +334,31 @@ describe("OverflowButton", () => {
       [
         "Resume listening",
         "Re-transcribe",
+        "Show Audio in Finder",
+        "Open in New Window",
+        "Delete note",
+      ],
+    ],
+    [
+      "recorded audio on Windows",
+      { transcript: false, audio: true, platform: "windows" },
+      {},
+      [
+        "Resume listening",
+        "Re-transcribe",
+        "Show Audio in Explorer",
+        "Open in New Window",
+        "Delete note",
+      ],
+    ],
+    [
+      "recorded audio on Linux",
+      { transcript: false, audio: true, platform: "linux" },
+      {},
+      [
+        "Resume listening",
+        "Re-transcribe",
+        "Show Audio in Folder",
         "Open in New Window",
         "Delete note",
       ],
@@ -295,13 +378,23 @@ describe("OverflowButton", () => {
       "finalizing",
       { audio: true, mode: "finalizing", floatingPanel: true },
       {},
-      ["Resume listening", "Open in New Window", "Delete note"],
+      [
+        "Resume listening",
+        "Show Audio in Finder",
+        "Open in New Window",
+        "Delete note",
+      ],
     ],
     [
       "batch transcription",
       { audio: true, mode: "running_batch" },
       {},
-      ["Resume listening", "Open in New Window", "Delete note"],
+      [
+        "Resume listening",
+        "Show Audio in Finder",
+        "Open in New Window",
+        "Delete note",
+      ],
     ],
     [
       "listening disabled",
@@ -367,6 +460,76 @@ describe("OverflowButton", () => {
       type: "note",
       value: "session-1",
     });
+  });
+
+  it("opens the session folder for recorded audio", async () => {
+    arrange({ transcript: false, audio: true });
+    renderOverflow();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Audio in Finder" }),
+    );
+
+    await waitFor(() => {
+      expect(openPathMock).toHaveBeenCalledWith("/sessions/session-1", null);
+    });
+  });
+
+  it("reports a recording deleted after the menu opened", async () => {
+    arrange({ transcript: false, audio: true });
+    audioExistMock.mockResolvedValue({ status: "ok", data: false });
+    renderOverflow();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Audio in Finder" }),
+    );
+
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalled();
+    });
+    expect(openPathMock).not.toHaveBeenCalled();
+  });
+
+  it("separates Show Audio from Export when it is the only recording action", () => {
+    arrange({ transcript: false, audio: true, mode: "active" });
+    const { container } = renderOverflow({ allowListening: false });
+
+    expect(
+      screen.getByRole("button", { name: "Show Audio in Finder" }),
+    ).toBeTruthy();
+    expect(container.querySelectorAll("hr")).toHaveLength(4);
+  });
+
+  it("requires authentication while the session record is still loading", async () => {
+    arrange({ transcript: false, audio: true });
+    sessionRecord.value = null;
+    authenticateMock.mockResolvedValue(false);
+    renderOverflow();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Audio in Finder" }),
+    );
+
+    await waitFor(() => {
+      expect(authenticateMock).toHaveBeenCalled();
+    });
+    expect(openPathMock).not.toHaveBeenCalled();
+  });
+
+  it("requires authentication for a locked note before opening the folder", async () => {
+    arrange({ transcript: false, audio: true });
+    sessionRecord.value = { locked: true };
+    authenticateMock.mockResolvedValue(false);
+    renderOverflow();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show Audio in Finder" }),
+    );
+
+    await waitFor(() => {
+      expect(authenticateMock).toHaveBeenCalled();
+    });
+    expect(openPathMock).not.toHaveBeenCalled();
   });
 
   it("opens the export modal when export is selected", () => {
