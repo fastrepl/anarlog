@@ -415,25 +415,34 @@ function ExportModalContent({
   };
 
   const { mutate, isPending, error } = useMutation({
-    mutationFn: async () => {
+    // The submitted options travel as mutation variables: React Query runs
+    // the latest render's callbacks, so reading state in onSuccess (or even
+    // in a late-starting mutationFn) would see selections changed while the
+    // write is pending.
+    mutationFn: async (submitted: ExportConfig) => {
       const { values } = await getStoredSettingValues();
       const directory = values.export_directory || (await downloadDir());
       const sanitizedTitle = (
         (sessionTitle ?? t`Untitled`).trim() || t`Untitled`
       ).replace(/[<>:"/\\|?*]/g, "_");
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const filename = `${sanitizedTitle}_${timestamp}.${format}`;
+      const filename = `${sanitizedTitle}_${timestamp}.${submitted.format}`;
       const defaultPath = await join(directory, filename);
       // App Store sandbox grants must be reacquired after relaunch.
       const path = isAppStoreBuild()
         ? await save({
             defaultPath,
-            filters: [{ name: format.toUpperCase(), extensions: [format] }],
+            filters: [
+              {
+                name: submitted.format.toUpperCase(),
+                extensions: [submitted.format],
+              },
+            ],
           })
         : defaultPath;
       if (!path) return null;
 
-      if (format === "pdf") {
+      if (submitted.format === "pdf") {
         const exportContent = buildPdfContent();
         const result = await exportCommands.export(path, exportContent);
         if (result.status === "error") {
@@ -441,9 +450,9 @@ function ExportModalContent({
         }
       } else {
         const textContent =
-          format === "md"
+          submitted.format === "md"
             ? buildMdContent()
-            : format === "org"
+            : submitted.format === "org"
               ? buildOrgContent()
               : buildTxtContent();
         const result = await fs2Commands.writeTextFile(path, textContent);
@@ -454,19 +463,19 @@ function ExportModalContent({
 
       return path;
     },
-    onSuccess: (path) => {
+    onSuccess: (path, submitted) => {
       if (!path) return;
       persistExportConfig({
-        export_format: format,
-        export_include_memo: includeMemo,
-        export_include_summary: includeSummary,
-        export_include_transcript: includeTranscript,
+        export_format: submitted.format,
+        export_include_memo: submitted.includeMemo,
+        export_include_summary: submitted.includeSummary,
+        export_include_transcript: submitted.includeTranscript,
       });
       void analyticsCommands.event({
         event: "session_exported",
-        format,
-        include_summary: includeSummary,
-        include_transcript: includeTranscript,
+        format: submitted.format,
+        include_summary: submitted.includeSummary,
+        include_transcript: submitted.includeTranscript,
       });
       void openerCommands.revealItemInDir(path);
       onOpenChange(false);
@@ -582,7 +591,9 @@ function ExportModalContent({
             </p>
           )}
           <button
-            onClick={() => mutate(null)}
+            onClick={() =>
+              mutate({ format, includeMemo, includeSummary, includeTranscript })
+            }
             disabled={
               isPending || isTranscriptPending || !hasAnyContentSelected
             }

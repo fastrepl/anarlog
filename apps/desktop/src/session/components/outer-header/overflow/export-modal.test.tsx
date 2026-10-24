@@ -295,6 +295,55 @@ describe("ExportModal", () => {
     });
   });
 
+  it("persists the submitted options when selections change during export", async () => {
+    let resolveWrite: (value: unknown) => void = () => {};
+    mocks.writeTextFile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+    renderModal();
+    fireEvent.click(screen.getByRole("radio", { name: "TXT" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Memo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(mocks.writeTextFile).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("radio", { name: "PDF" }));
+    resolveWrite({ status: "ok", data: null });
+    await waitFor(() => expect(mocks.onOpenChange).toHaveBeenCalledWith(false));
+    expect(mocks.persistSettings).toHaveBeenCalledWith({
+      export_format: "txt",
+      export_include_memo: true,
+      export_include_summary: true,
+      export_include_transcript: false,
+    });
+  });
+
+  it("restores the last used config when reopened after export", async () => {
+    mocks.persistSettings.mockImplementation((values: unknown) => {
+      Object.assign(mocks.storedValues, values);
+    });
+    const first = renderModal();
+    fireEvent.click(screen.getByRole("radio", { name: "TXT" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Memo" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Summary" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(mocks.onOpenChange).toHaveBeenCalledWith(false));
+    first.unmount();
+    renderModal();
+    expect(
+      (screen.getByRole("radio", { name: "TXT" }) as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("checkbox", { name: "Memo" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("checkbox", { name: "Summary" }) as HTMLInputElement)
+        .checked,
+    ).toBe(false);
+  });
+
   it("does not persist the config when the export fails", async () => {
     mocks.writeTextFile.mockResolvedValue({
       status: "error",
