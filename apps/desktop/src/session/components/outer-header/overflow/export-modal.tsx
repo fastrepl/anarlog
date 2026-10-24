@@ -224,7 +224,8 @@ function ExportModalContent({
       .join("\n\n");
   };
 
-  const buildMdContent = (): string => {
+  const buildMdContent = (config: ExportConfig): string => {
+    const { includeMemo, includeSummary, includeTranscript } = config;
     const sections: string[] = [];
     const title = sessionTitle || t`Untitled`;
     sections.push(`# ${title}`);
@@ -271,7 +272,8 @@ function ExportModalContent({
     return sections.join("\n");
   };
 
-  const buildTxtContent = (): string => {
+  const buildTxtContent = (config: ExportConfig): string => {
+    const { includeMemo, includeSummary, includeTranscript } = config;
     const sections: string[] = [];
     const title = sessionTitle || t`Untitled`;
     sections.push(title);
@@ -322,7 +324,8 @@ function ExportModalContent({
     return sections.join("\n");
   };
 
-  const buildOrgContent = (): string => {
+  const buildOrgContent = (config: ExportConfig): string => {
+    const { includeMemo, includeSummary, includeTranscript } = config;
     const sections: string[] = [];
     const title = sessionTitle || t`Untitled`;
     sections.push(`#+TITLE: ${title}`);
@@ -376,12 +379,15 @@ function ExportModalContent({
     return sections.join("\n");
   };
 
-  const buildPdfContent = (): {
+  const buildPdfContent = (
+    config: ExportConfig,
+  ): {
     enhancedMd: string;
     memoMd: string | null;
     transcript: { items: TranscriptItem[] } | null;
     metadata: ExportMetadata | null;
   } => {
+    const { includeMemo, includeSummary, includeTranscript } = config;
     const metadata: ExportMetadata = {
       title: sessionTitle || t`Untitled`,
       createdAt: sessionCreatedAt ? formatDate(sessionCreatedAt) : "",
@@ -443,7 +449,7 @@ function ExportModalContent({
       if (!path) return null;
 
       if (submitted.format === "pdf") {
-        const exportContent = buildPdfContent();
+        const exportContent = buildPdfContent(submitted);
         const result = await exportCommands.export(path, exportContent);
         if (result.status === "error") {
           throw new Error(result.error);
@@ -451,10 +457,10 @@ function ExportModalContent({
       } else {
         const textContent =
           submitted.format === "md"
-            ? buildMdContent()
+            ? buildMdContent(submitted)
             : submitted.format === "org"
-              ? buildOrgContent()
-              : buildTxtContent();
+              ? buildOrgContent(submitted)
+              : buildTxtContent(submitted);
         const result = await fs2Commands.writeTextFile(path, textContent);
         if (result.status === "error") {
           throw new Error(result.error);

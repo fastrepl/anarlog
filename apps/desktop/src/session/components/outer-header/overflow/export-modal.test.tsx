@@ -319,6 +319,32 @@ describe("ExportModal", () => {
     });
   });
 
+  it("builds the file from the submitted sections when selections change", async () => {
+    mocks.sharedNote = {
+      body: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Shared decisions" }],
+          },
+        ],
+      },
+    };
+    renderModal({ type: "shared", id: "share-1" });
+    fireEvent.click(screen.getByRole("radio", { name: "TXT" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Summary" }));
+    await waitFor(() => expect(mocks.onOpenChange).toHaveBeenCalledWith(false));
+    expect(mocks.writeTextFile.mock.calls[0][1]).toContain("Shared decisions");
+    expect(mocks.persistSettings).toHaveBeenCalledWith({
+      export_format: "txt",
+      export_include_memo: false,
+      export_include_summary: true,
+      export_include_transcript: false,
+    });
+  });
+
   it("restores the last used config when reopened after export", async () => {
     mocks.persistSettings.mockImplementation((values: unknown) => {
       Object.assign(mocks.storedValues, values);
