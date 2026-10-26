@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from "react";
 
-import { Waveform } from "@anlg/ui/components/icons";
+import { FileText, Waveform } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 import { AUDIO_EXTENSIONS } from "~/stt/useUploadFile";
@@ -19,6 +19,66 @@ export function AudioDropTarget({
   targetProps: HTMLAttributes<HTMLDivElement>;
 }) {
   return (
+    <FileDropTarget
+      targetProps={targetProps}
+      className={className}
+      isActive={isActive}
+      icon={<Waveform className="text-muted-foreground size-5 shrink-0" />}
+      title="Drop to upload and transcribe audio"
+      subtitle={`${supportedAudioFormats} audio`}
+    >
+      {children}
+    </FileDropTarget>
+  );
+}
+
+export function MarkdownDropTarget({
+  children,
+  className,
+  isActive,
+  title,
+  subtitle,
+  targetProps,
+}: {
+  children: ReactNode;
+  className?: string;
+  isActive: boolean;
+  title: string;
+  subtitle: string;
+  targetProps: HTMLAttributes<HTMLDivElement>;
+}) {
+  return (
+    <FileDropTarget
+      targetProps={targetProps}
+      className={className}
+      isActive={isActive}
+      icon={<FileText className="text-muted-foreground size-5 shrink-0" />}
+      title={title}
+      subtitle={subtitle}
+    >
+      {children}
+    </FileDropTarget>
+  );
+}
+
+function FileDropTarget({
+  children,
+  className,
+  isActive,
+  icon,
+  title,
+  subtitle,
+  targetProps,
+}: {
+  children: ReactNode;
+  className?: string;
+  isActive: boolean;
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  targetProps: HTMLAttributes<HTMLDivElement>;
+}) {
+  return (
     <div {...targetProps} className={cn(["relative min-h-full", className])}>
       {isActive && (
         <div
@@ -31,14 +91,10 @@ export function AudioDropTarget({
           ])}
         >
           <div className="border-border/70 bg-card/95 text-foreground flex items-center gap-3 rounded-md border px-4 py-3 shadow-sm">
-            <Waveform className="text-muted-foreground size-5 shrink-0" />
+            {icon}
             <div className="flex min-w-0 flex-col gap-0.5">
-              <p className="text-sm font-medium">
-                Drop to upload and transcribe audio
-              </p>
-              <p className="text-muted-foreground text-xs">
-                {supportedAudioFormats} audio
-              </p>
+              <p className="text-sm font-medium">{title}</p>
+              <p className="text-muted-foreground text-xs">{subtitle}</p>
             </div>
           </div>
         </div>
