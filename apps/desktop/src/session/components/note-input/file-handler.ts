@@ -166,11 +166,11 @@ export function useMarkdownDropTarget() {
 
   const matchMarkdownHover = useCallback(
     (dataTransfer: DataTransfer): DropTargetMatch => {
-      if (!isFileDrag(dataTransfer)) {
-        return { active: false };
-      }
       if (hoverPaths) {
         return markdownDragOverlayForPaths(hoverPaths);
+      }
+      if (!isFileDrag(dataTransfer)) {
+        return { active: false };
       }
       return matchMarkdownDrag(dataTransfer);
     },
