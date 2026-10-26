@@ -5,8 +5,7 @@ import { useCallback } from "react";
 import { Kbd } from "@anlg/ui/components/ui/kbd";
 import { cn } from "@anlg/utils";
 
-import { MarkdownDropTarget } from "~/session/components/note-input/file-drop-target";
-import { useMarkdownDropTarget } from "~/session/components/note-input/file-handler";
+import { useMarkdownImportDrop } from "~/session/components/note-input/markdown-import";
 import { FloatingChatCTA } from "~/shared/chat-cta";
 import { StandardContentWrapper } from "~/shared/main";
 import { useNewNote, useNewNoteAndListen } from "~/shared/useNewNote";
@@ -29,12 +28,7 @@ function EmptyView() {
   const newNoteAndListen = useNewNoteAndListen({ behavior: "current" });
   const openCurrent = useTabs((state) => state.openCurrent);
   const primaryModifier = platform() === "macos" ? "⌘" : "Ctrl";
-  const {
-    isMarkdownDragActive,
-    markdownDragSubtitle,
-    markdownDragTitle,
-    markdownDropTargetProps,
-  } = useMarkdownDropTarget();
+  const { markdownImportDropProps } = useMarkdownImportDrop();
 
   const openSettings = useCallback(
     () => openCurrent({ type: "settings" }),
@@ -42,36 +36,30 @@ function EmptyView() {
   );
 
   return (
-    <MarkdownDropTarget
-      targetProps={markdownDropTargetProps}
-      isActive={isMarkdownDragActive}
-      title={markdownDragTitle}
-      subtitle={markdownDragSubtitle}
+    <div
+      data-tauri-drag-region
+      className="flex h-full flex-col items-center justify-center gap-6"
+      {...markdownImportDropProps}
     >
-      <div
-        data-tauri-drag-region
-        className="flex h-full flex-col items-center justify-center gap-6"
-      >
-        <div className="flex min-w-[280px] flex-col gap-1 text-center">
-          <ActionItem
-            label={<Trans>New Note</Trans>}
-            shortcut={[primaryModifier, "N"]}
-            onClick={newNote}
-          />
-          <ActionItem
-            label={<Trans>Start Recording</Trans>}
-            shortcut={[primaryModifier, "⇧", "N"]}
-            onClick={newNoteAndListen}
-          />
-          <div className="bg-accent my-1 h-px" />
-          <ActionItem
-            label={<Trans>Settings</Trans>}
-            shortcut={[primaryModifier, ","]}
-            onClick={openSettings}
-          />
-        </div>
+      <div className="flex min-w-[280px] flex-col gap-1 text-center">
+        <ActionItem
+          label={<Trans>New Note</Trans>}
+          shortcut={[primaryModifier, "N"]}
+          onClick={newNote}
+        />
+        <ActionItem
+          label={<Trans>Start Recording</Trans>}
+          shortcut={[primaryModifier, "⇧", "N"]}
+          onClick={newNoteAndListen}
+        />
+        <div className="bg-accent my-1 h-px" />
+        <ActionItem
+          label={<Trans>Settings</Trans>}
+          shortcut={[primaryModifier, ","]}
+          onClick={openSettings}
+        />
       </div>
-    </MarkdownDropTarget>
+    </div>
   );
 }
 

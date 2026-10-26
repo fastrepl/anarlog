@@ -11,30 +11,15 @@ import {
 
 import type { FileHandlerConfig } from "@anlg/editor/note";
 import { toast } from "@anlg/ui/components/ui/toast";
-import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
-
-import {
-  importMarkdownFilesAsNotes,
-  isFileDrag,
-  markdownDragOverlayForPaths,
-  matchMarkdownDrag,
-  matchMarkdownDrop,
-} from "./markdown-import";
 
 import { useFileUpload } from "~/shared/hooks/useFileUpload";
 import { isAudioUploadFile, useUploadFile } from "~/stt/useUploadFile";
 
-type DropTargetMatch = {
-  active: boolean;
-  title?: string;
-  subtitle?: string;
-};
-
-type DropOutcome = "handled" | "reset" | "ignored";
-
 export function useNoteFileHandlerConfig(sessionId: string) {
   const onFileUpload = useFileUpload(sessionId);
   const { processAudioFile } = useUploadFile(sessionId);
+  const [isAudioDragActive, setIsAudioDragActive] = useState(false);
+  const audioDragDepthRef = useRef(0);
 
   const processAudioDrop = useCallback(
     (files: File[], items?: DataTransferItemList) => {
@@ -79,19 +64,85 @@ export function useNoteFileHandlerConfig(sessionId: string) {
     );
   }, []);
 
-  const dropAudioFiles = useCallback(
-    (files: File[], items?: DataTransferItemList): DropOutcome => {
-      if (files.length !== 1) {
-        return "ignored";
+  const resetAudioDrag = useCallback(() => {
+    audioDragDepthRef.current = 0;
+    setIsAudioDragActive(false);
+  }, []);
+
+  const prepareAudioDragEvent = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = "copy";
+      setIsAudioDragActive(true);
+    },
+    [],
+  );
+
+  const handleDragEnterCapture = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (!hasSingleAudioUploadDrag(event.dataTransfer)) {
+        return;
       }
 
-      const audioDrop = getAudioDrop(files, items);
+      if (audioDragDepthRef.current === 0) {
+        focusCurrentWindowForAudioDrop();
+      }
+
+      audioDragDepthRef.current += 1;
+      prepareAudioDragEvent(event);
+    },
+    [prepareAudioDragEvent],
+  );
+
+  const handleDragOverCapture = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (
+        audioDragDepthRef.current === 0 &&
+        !hasSingleAudioUploadDrag(event.dataTransfer)
+      ) {
+        return;
+      }
+
+      prepareAudioDragEvent(event);
+    },
+    [prepareAudioDragEvent],
+  );
+
+  const handleDragLeaveCapture = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (
+        audioDragDepthRef.current === 0 &&
+        !hasSingleAudioUploadDrag(event.dataTransfer)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      audioDragDepthRef.current = Math.max(0, audioDragDepthRef.current - 1);
+      if (audioDragDepthRef.current === 0) {
+        setIsAudioDragActive(false);
+      }
+    },
+    [],
+  );
+
+  const handleDropCapture = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      const files = Array.from(event.dataTransfer.files ?? []);
+      if (files.length !== 1) {
+        return;
+      }
+
+      const audioDrop = getAudioDrop(files, event.dataTransfer.items);
       if (!audioDrop) {
-        return "ignored";
+        return;
       }
 
       if (audioDrop.remainingFiles.length > 0) {
-        return "reset";
+        resetAudioDrag();
+        return;
       }
 
       if (audioDrop.allowUnknownAudio) {
@@ -102,16 +153,12 @@ export function useNoteFileHandlerConfig(sessionId: string) {
       } else {
         processAudioFile(audioDrop.audioFile);
       }
-      return "handled";
+      event.preventDefault();
+      event.stopPropagation();
+      resetAudioDrag();
     },
-    [processAudioFile],
+    [processAudioFile, resetAudioDrag],
   );
-
-  const { isDragActive: isAudioDragActive, targetProps: audioDropTargetProps } =
-    useFileDropTarget({
-      dropFiles: dropAudioFiles,
-      matchDrag: matchAudioDrag,
-    });
 
   const fileHandlerConfig = useMemo<FileHandlerConfig>(
     () => ({
@@ -123,6 +170,23 @@ export function useNoteFileHandlerConfig(sessionId: string) {
     [handleDrop, handleFileUploadError, handlePaste, onFileUpload],
   );
 
+  const audioDropTargetProps = useMemo<HTMLAttributes<HTMLDivElement>>(
+    () => ({
+      onDragEnterCapture: handleDragEnterCapture,
+      onDragOverCapture: handleDragOverCapture,
+      onDragLeaveCapture: handleDragLeaveCapture,
+      onDropCapture: handleDropCapture,
+      onDragEndCapture: resetAudioDrag,
+    }),
+    [
+      handleDragEnterCapture,
+      handleDragLeaveCapture,
+      handleDragOverCapture,
+      handleDropCapture,
+      resetAudioDrag,
+    ],
+  );
+
   return useMemo(
     () => ({
       audioDropTargetProps,
@@ -131,216 +195,6 @@ export function useNoteFileHandlerConfig(sessionId: string) {
     }),
     [audioDropTargetProps, fileHandlerConfig, isAudioDragActive],
   );
-}
-
-export function useMarkdownDropTarget() {
-  const [hoverPaths, setHoverPaths] = useState<string[] | null>(null);
-
-  useMountEffect(() => {
-    if (!isTauri()) {
-      return;
-    }
-    let unlisten: (() => void) | undefined;
-    let cancelled = false;
-    void getCurrentWindow()
-      .onDragDropEvent((event) => {
-        const payload = event.payload;
-        if (payload.type === "enter") {
-          setHoverPaths(payload.paths);
-        } else if (payload.type === "leave" || payload.type === "drop") {
-          setHoverPaths(null);
-        }
-      })
-      .then((stop) => {
-        if (cancelled) {
-          stop();
-        } else {
-          unlisten = stop;
-        }
-      });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  });
-
-  const matchMarkdownHover = useCallback(
-    (dataTransfer: DataTransfer): DropTargetMatch => {
-      if (hoverPaths) {
-        return markdownDragOverlayForPaths(hoverPaths);
-      }
-      if (!isFileDrag(dataTransfer)) {
-        return { active: false };
-      }
-      return matchMarkdownDrag(dataTransfer);
-    },
-    [hoverPaths],
-  );
-
-  const dropMarkdownFiles = useCallback((files: File[]): DropOutcome => {
-    const matched = matchMarkdownDrop(files);
-    if (!matched) {
-      return "ignored";
-    }
-
-    void importMarkdownFilesAsNotes(matched);
-    return "handled";
-  }, []);
-
-  const {
-    dragSubtitle,
-    dragTitle,
-    isDragActive: isMarkdownDragActive,
-    targetProps: markdownDropTargetProps,
-  } = useFileDropTarget({
-    dropFiles: dropMarkdownFiles,
-    matchDrag: matchMarkdownHover,
-  });
-
-  return useMemo(
-    () => ({
-      isMarkdownDragActive,
-      markdownDragSubtitle: dragSubtitle ?? "",
-      markdownDragTitle: dragTitle ?? "",
-      markdownDropTargetProps,
-    }),
-    [dragSubtitle, dragTitle, isMarkdownDragActive, markdownDropTargetProps],
-  );
-}
-
-function useFileDropTarget({
-  matchDrag,
-  dropFiles,
-}: {
-  matchDrag: (dataTransfer: DataTransfer) => DropTargetMatch;
-  dropFiles: (files: File[], items?: DataTransferItemList) => DropOutcome;
-}) {
-  const [isDragActive, setIsDragActive] = useState(false);
-  const [dragTitle, setDragTitle] = useState<string | null>(null);
-  const [dragSubtitle, setDragSubtitle] = useState<string | null>(null);
-  const dragDepthRef = useRef(0);
-
-  const resetDrag = useCallback(() => {
-    dragDepthRef.current = 0;
-    setIsDragActive(false);
-    setDragTitle(null);
-    setDragSubtitle(null);
-  }, []);
-
-  const prepareDragEvent = useCallback((event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = "copy";
-  }, []);
-
-  const showDragMatch = useCallback((match: DropTargetMatch) => {
-    setDragTitle(match.title ?? null);
-    setDragSubtitle(match.subtitle ?? null);
-    setIsDragActive(true);
-  }, []);
-
-  const handleDragEnterCapture = useCallback(
-    (event: DragEvent<HTMLDivElement>) => {
-      const match = matchDrag(event.dataTransfer);
-      if (!match.active) {
-        return;
-      }
-
-      if (dragDepthRef.current === 0) {
-        focusCurrentWindowForFileDrop();
-      }
-
-      dragDepthRef.current += 1;
-      prepareDragEvent(event);
-      showDragMatch(match);
-    },
-    [matchDrag, prepareDragEvent, showDragMatch],
-  );
-
-  const handleDragOverCapture = useCallback(
-    (event: DragEvent<HTMLDivElement>) => {
-      if (dragDepthRef.current === 0) {
-        const match = matchDrag(event.dataTransfer);
-        if (!match.active) {
-          return;
-        }
-        showDragMatch(match);
-      } else {
-        setIsDragActive(true);
-      }
-
-      prepareDragEvent(event);
-    },
-    [matchDrag, prepareDragEvent, showDragMatch],
-  );
-
-  const handleDragLeaveCapture = useCallback(
-    (event: DragEvent<HTMLDivElement>) => {
-      if (dragDepthRef.current === 0 && !matchDrag(event.dataTransfer).active) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-      if (dragDepthRef.current === 0) {
-        setIsDragActive(false);
-        setDragTitle(null);
-        setDragSubtitle(null);
-      }
-    },
-    [matchDrag],
-  );
-
-  const handleDropCapture = useCallback(
-    (event: DragEvent<HTMLDivElement>) => {
-      const outcome = dropFiles(
-        Array.from(event.dataTransfer.files ?? []),
-        event.dataTransfer.items,
-      );
-      if (outcome === "ignored") {
-        return;
-      }
-
-      if (outcome === "handled") {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      resetDrag();
-    },
-    [dropFiles, resetDrag],
-  );
-
-  const targetProps = useMemo<HTMLAttributes<HTMLDivElement>>(
-    () => ({
-      onDragEnterCapture: handleDragEnterCapture,
-      onDragOverCapture: handleDragOverCapture,
-      onDragLeaveCapture: handleDragLeaveCapture,
-      onDropCapture: handleDropCapture,
-      onDragEndCapture: resetDrag,
-    }),
-    [
-      handleDragEnterCapture,
-      handleDragLeaveCapture,
-      handleDragOverCapture,
-      handleDropCapture,
-      resetDrag,
-    ],
-  );
-
-  return useMemo(
-    () => ({
-      dragSubtitle,
-      dragTitle,
-      isDragActive,
-      targetProps,
-    }),
-    [dragSubtitle, dragTitle, isDragActive, targetProps],
-  );
-}
-
-function matchAudioDrag(dataTransfer: DataTransfer): DropTargetMatch {
-  return { active: hasSingleAudioUploadDrag(dataTransfer) };
 }
 
 function hasSingleAudioUploadDrag(dataTransfer: DataTransfer) {
@@ -392,7 +246,7 @@ function isAudioDropFile(file: File, item?: DataTransferItem) {
   return isAudioUploadFile(file) || item?.type.startsWith("audio/") === true;
 }
 
-function focusCurrentWindowForFileDrop() {
+function focusCurrentWindowForAudioDrop() {
   if (!isTauri()) {
     return;
   }
@@ -407,6 +261,6 @@ async function bringCurrentWindowToFront() {
     await currentWindow.unminimize();
     await currentWindow.setFocus();
   } catch (error) {
-    console.error("Failed to focus window for file drop", error);
+    console.error("Failed to focus window for audio drop", error);
   }
 }

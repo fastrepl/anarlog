@@ -20,9 +20,6 @@ const hoisted = vi.hoisted(() => ({
   showWindow: vi.fn(),
   unminimizeWindow: vi.fn(),
   focusWindow: vi.fn(),
-  dragDropHandler: null as
-    | null
-    | ((event: { payload: { type: string; paths?: string[] } }) => void),
   meetingChatRecords: [] as unknown[],
   eventParticipants: [] as Array<Record<string, unknown>>,
   userTemplates: [] as Array<Record<string, unknown>>,
@@ -47,12 +44,6 @@ vi.mock("@tauri-apps/api/window", () => ({
     show: hoisted.showWindow,
     unminimize: hoisted.unminimizeWindow,
     setFocus: hoisted.focusWindow,
-    onDragDropEvent: (
-      handler: (event: { payload: { type: string; paths?: string[] } }) => void,
-    ) => {
-      hoisted.dragDropHandler = handler;
-      return Promise.resolve(() => {});
-    },
   }),
 }));
 
@@ -258,7 +249,6 @@ describe("RawEditor", () => {
     hoisted.showWindow.mockReset();
     hoisted.unminimizeWindow.mockReset();
     hoisted.focusWindow.mockReset();
-    hoisted.dragDropHandler = null;
     hoisted.showWindow.mockResolvedValue(undefined);
     hoisted.unminimizeWindow.mockResolvedValue(undefined);
     hoisted.focusWindow.mockResolvedValue(undefined);
@@ -838,41 +828,6 @@ describe("RawEditor", () => {
     ).toBeNull();
   });
 
-  it("shows the markdown import overlay on a blind file hover with native markdown paths", () => {
-    render(<RawEditor sessionId="session-1" />);
-    act(() => {
-      hoisted.dragDropHandler?.({
-        payload: { type: "enter", paths: ["/Users/tony/notes.md"] },
-      });
-    });
-
-    const dropTarget = screen.getByText("Note editor").parentElement;
-    expect(dropTarget).not.toBeNull();
-    fireEvent.dragEnter(dropTarget!, {
-      dataTransfer: blindFileDataTransfer(),
-    });
-
-    expect(screen.getByText('Import "notes.md"')).not.toBeNull();
-    expect(screen.getByText("Will be added as a new note")).not.toBeNull();
-  });
-
-  it("hides the markdown import overlay on a blind file hover with native non-markdown paths", () => {
-    render(<RawEditor sessionId="session-1" />);
-    act(() => {
-      hoisted.dragDropHandler?.({
-        payload: { type: "enter", paths: ["/Users/tony/photo.png"] },
-      });
-    });
-
-    const dropTarget = screen.getByText("Note editor").parentElement;
-    expect(dropTarget).not.toBeNull();
-    fireEvent.dragEnter(dropTarget!, {
-      dataTransfer: blindFileDataTransfer(),
-    });
-
-    expect(screen.queryByText("Will be added as a new note")).toBeNull();
-  });
-
   it("does not capture mixed audio and attachment drops on the wrapper", () => {
     render(<RawEditor sessionId="session-1" />);
 
@@ -911,15 +866,6 @@ describe("RawEditor", () => {
     });
   });
 });
-
-function blindFileDataTransfer() {
-  return {
-    files: [],
-    items: [{ kind: "file", type: "", getAsFile: () => null }],
-    types: ["Files"],
-    dropEffect: "none",
-  } as unknown as DataTransfer;
-}
 
 function audioDataTransfer(input: File | File[], itemType?: string | string[]) {
   const files = Array.isArray(input) ? input : [input];

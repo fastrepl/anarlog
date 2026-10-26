@@ -13,12 +13,9 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { Plus } from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
+import { AudioDropTarget } from "./audio-drop-target";
 import { CreateBriefSuggestion } from "./create-brief-suggestion";
-import { AudioDropTarget, MarkdownDropTarget } from "./file-drop-target";
-import {
-  useMarkdownDropTarget,
-  useNoteFileHandlerConfig,
-} from "./file-handler";
+import { useNoteFileHandlerConfig } from "./file-handler";
 import { MeetingChatHighlights } from "./meeting-chat-highlights";
 import { MeetingScreenGallery } from "./meeting-screen-gallery";
 
@@ -122,12 +119,6 @@ export const RawEditor = forwardRef<
     const resolveAttachment = useAttachmentResolver(sessionId);
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);
-    const {
-      isMarkdownDragActive,
-      markdownDragSubtitle,
-      markdownDragTitle,
-      markdownDropTargetProps,
-    } = useMarkdownDropTarget();
     const initialContent = useMemo<JSONContent>(
       () => removeDocumentTitle(parseJsonContent(rawMd), sessionTitle),
       [rawMd, sessionTitle],
@@ -311,69 +302,62 @@ export const RawEditor = forwardRef<
       [isGenerating, t],
     );
     return (
-      <MarkdownDropTarget
-        targetProps={markdownDropTargetProps}
-        isActive={isMarkdownDragActive}
-        title={markdownDragTitle}
-        subtitle={markdownDragSubtitle}
+      <AudioDropTarget
+        targetProps={audioDropTargetProps}
+        isActive={isAudioDragActive}
       >
-        <AudioDropTarget
-          targetProps={audioDropTargetProps}
-          isActive={isAudioDragActive}
-        >
-          <>
-            <div className="relative min-h-full">
-              <NoteEditor
-                ref={setEditorRef}
-                className={cn(["session-note-editor", className])}
-                key={`session-${sessionId}-raw`}
-                initialContent={initialContent}
-                resolveAttachment={resolveAttachment}
-                handleChange={handleChange}
-                onDocumentChange={handleDocumentChange}
-                placeholderComponent={placeholderComponent}
-                readOnly={isGenerating}
-                scrollBottomInset={80}
-                mentionConfig={mentionConfig}
-                sessionMentionDropConfig={sessionMentionDropConfig}
-                onNavigateToTitle={onNavigateToTitle}
-                onLinkOpen={openEditorLink}
-                fileHandlerConfig={fileHandlerConfig}
-                taskSource={taskSource}
-                extraNodeViews={extraNodeViews}
-                showFormatToolbar={showFormatToolbar}
-                enforceTitleHeading={false}
-                commentAnchorsEnabled
-                onViewReady={(view) => {
-                  commentAnchors.onViewReady(view);
-                  onViewReady?.(view);
-                }}
-                onViewDisposed={(view) => {
-                  commentAnchors.onViewDisposed(view);
-                  onViewDisposed?.(view);
-                }}
-              />
-              {isMemoEmpty && !isGenerating ? (
-                <div className="pointer-events-none absolute inset-x-0 top-8 z-10 flex flex-col">
-                  {briefVisible && audioExistsResolved && !canShowTranscript ? (
-                    <CreateBriefSuggestion onCreate={createBrief} />
-                  ) : null}
-                  {audioExistsResolved && !canShowTranscript ? (
-                    <TemplateEmptyState
-                      sessionId={sessionId}
-                      eventTitle={eventTitle ?? sessionTitle}
-                      eventDescription={eventDescription}
-                      onApply={handleApplyTemplate}
-                    />
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            <MeetingScreenGallery sessionId={sessionId} />
-            <MeetingChatHighlights sessionId={sessionId} />
-          </>
-        </AudioDropTarget>
-      </MarkdownDropTarget>
+        <>
+          <div className="relative min-h-full">
+            <NoteEditor
+              ref={setEditorRef}
+              className={cn(["session-note-editor", className])}
+              key={`session-${sessionId}-raw`}
+              initialContent={initialContent}
+              resolveAttachment={resolveAttachment}
+              handleChange={handleChange}
+              onDocumentChange={handleDocumentChange}
+              placeholderComponent={placeholderComponent}
+              readOnly={isGenerating}
+              scrollBottomInset={80}
+              mentionConfig={mentionConfig}
+              sessionMentionDropConfig={sessionMentionDropConfig}
+              onNavigateToTitle={onNavigateToTitle}
+              onLinkOpen={openEditorLink}
+              fileHandlerConfig={fileHandlerConfig}
+              taskSource={taskSource}
+              extraNodeViews={extraNodeViews}
+              showFormatToolbar={showFormatToolbar}
+              enforceTitleHeading={false}
+              commentAnchorsEnabled
+              onViewReady={(view) => {
+                commentAnchors.onViewReady(view);
+                onViewReady?.(view);
+              }}
+              onViewDisposed={(view) => {
+                commentAnchors.onViewDisposed(view);
+                onViewDisposed?.(view);
+              }}
+            />
+            {isMemoEmpty && !isGenerating ? (
+              <div className="pointer-events-none absolute inset-x-0 top-8 z-10 flex flex-col">
+                {briefVisible && audioExistsResolved && !canShowTranscript ? (
+                  <CreateBriefSuggestion onCreate={createBrief} />
+                ) : null}
+                {audioExistsResolved && !canShowTranscript ? (
+                  <TemplateEmptyState
+                    sessionId={sessionId}
+                    eventTitle={eventTitle ?? sessionTitle}
+                    eventDescription={eventDescription}
+                    onApply={handleApplyTemplate}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <MeetingScreenGallery sessionId={sessionId} />
+          <MeetingChatHighlights sessionId={sessionId} />
+        </>
+      </AudioDropTarget>
     );
   },
 );

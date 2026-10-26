@@ -9,11 +9,8 @@ import {
   normalizePortableAttachmentUrls,
 } from "@anlg/editor/note";
 
-import { AudioDropTarget, MarkdownDropTarget } from "../file-drop-target";
-import {
-  useMarkdownDropTarget,
-  useNoteFileHandlerConfig,
-} from "../file-handler";
+import { AudioDropTarget } from "../audio-drop-target";
+import { useNoteFileHandlerConfig } from "../file-handler";
 
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
@@ -92,12 +89,6 @@ const EnhancedEditorInner = forwardRef<
   ) => {
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);
-    const {
-      isMarkdownDragActive,
-      markdownDragSubtitle,
-      markdownDragTitle,
-      markdownDropTargetProps,
-    } = useMarkdownDropTarget();
     const resolveAttachment = useAttachmentResolver(sessionId);
     const updateContent = useUpdateEnhancedNoteContent(
       enhancedNoteId,
@@ -152,65 +143,57 @@ const EnhancedEditorInner = forwardRef<
     );
 
     return (
-      <MarkdownDropTarget
-        targetProps={markdownDropTargetProps}
-        isActive={isMarkdownDragActive}
-        title={markdownDragTitle}
-        subtitle={markdownDragSubtitle}
+      <AudioDropTarget
+        targetProps={audioDropTargetProps}
+        isActive={isAudioDragActive}
       >
-        <AudioDropTarget
-          targetProps={audioDropTargetProps}
-          isActive={isAudioDragActive}
-        >
-          <div ref={comments.containerRef} className="relative min-h-full">
-            <NoteEditor
-              ref={ref}
-              className="session-note-editor enhanced-summary-editor"
-              key={editorKey}
-              initialContent={initialContent}
-              scrollBottomInset={80}
-              resolveAttachment={resolveAttachment}
-              handleChange={persistChanges ? handleChange : undefined}
-              placeholderComponent={documentTitlePlaceholder}
-              mentionConfig={mentionConfig}
-              sessionMentionDropConfig={sessionMentionDropConfig}
-              onNavigateToTitle={onNavigateToTitle}
-              onLinkOpen={openEditorLink}
-              fileHandlerConfig={fileHandlerConfig}
-              taskSource={taskSource}
-              extraNodeViews={extraNodeViews}
-              commentAnchorsEnabled
-              onCommentAnchorsEvent={comments.onCommentAnchorsEvent}
-              onCommentSelection={
-                comments.selection && !comments.draft
-                  ? comments.startDraft
-                  : undefined
-              }
-              onViewReady={(view) => {
-                comments.onViewReady(view);
-                onViewReady?.(view);
-                if (persistChanges && !sessionTitle.trim()) {
-                  void repairMissingSessionTitle(
-                    sessionId,
-                    enhancedNoteId,
-                  ).catch((error) => {
+        <div ref={comments.containerRef} className="relative min-h-full">
+          <NoteEditor
+            ref={ref}
+            className="session-note-editor enhanced-summary-editor"
+            key={editorKey}
+            initialContent={initialContent}
+            scrollBottomInset={80}
+            resolveAttachment={resolveAttachment}
+            handleChange={persistChanges ? handleChange : undefined}
+            placeholderComponent={documentTitlePlaceholder}
+            mentionConfig={mentionConfig}
+            sessionMentionDropConfig={sessionMentionDropConfig}
+            onNavigateToTitle={onNavigateToTitle}
+            onLinkOpen={openEditorLink}
+            fileHandlerConfig={fileHandlerConfig}
+            taskSource={taskSource}
+            extraNodeViews={extraNodeViews}
+            commentAnchorsEnabled
+            onCommentAnchorsEvent={comments.onCommentAnchorsEvent}
+            onCommentSelection={
+              comments.selection && !comments.draft
+                ? comments.startDraft
+                : undefined
+            }
+            onViewReady={(view) => {
+              comments.onViewReady(view);
+              onViewReady?.(view);
+              if (persistChanges && !sessionTitle.trim()) {
+                void repairMissingSessionTitle(sessionId, enhancedNoteId).catch(
+                  (error) => {
                     console.error(
                       "[enhanced-editor] failed to repair title",
                       error,
                     );
-                  });
-                }
-              }}
-              onViewDisposed={(view) => {
-                comments.onViewDisposed(view);
-                onViewDisposed?.(view);
-              }}
-              syncContentWhenFocused={!persistChanges}
-            />
-            <SessionCommentsLayer controller={comments} />
-          </div>
-        </AudioDropTarget>
-      </MarkdownDropTarget>
+                  },
+                );
+              }
+            }}
+            onViewDisposed={(view) => {
+              comments.onViewDisposed(view);
+              onViewDisposed?.(view);
+            }}
+            syncContentWhenFocused={!persistChanges}
+          />
+          <SessionCommentsLayer controller={comments} />
+        </div>
+      </AudioDropTarget>
     );
   },
 );

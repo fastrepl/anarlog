@@ -1,3 +1,10 @@
+import {
+  type DragEvent,
+  type HTMLAttributes,
+  useCallback,
+  useMemo,
+} from "react";
+
 import { md2json } from "@anlg/editor/markdown";
 import { toast } from "@anlg/ui/components/ui/toast";
 
@@ -6,8 +13,41 @@ import { useTabs } from "~/store/zustand/tabs";
 
 const MARKDOWN_EXTENSION_PATTERN = /\.(md|markdown|mdown)$/i;
 
+export function useMarkdownImportDrop() {
+  const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
+    if (!isFileDrag(event.dataTransfer)) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const handleDrop = useCallback((event: DragEvent<HTMLDivElement>) => {
+    const files = Array.from(event.dataTransfer.files ?? []);
+    if (files.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const matched = matchMarkdownDrop(files);
+    if (matched) {
+      void importMarkdownFilesAsNotes(matched);
+    }
+  }, []);
+
+  return useMemo(
+    () => ({
+      markdownImportDropProps: {
+        onDragOver: handleDragOver,
+        onDrop: handleDrop,
+      } satisfies HTMLAttributes<HTMLDivElement>,
+    }),
+    [handleDragOver, handleDrop],
+  );
+}
+
 export function isMarkdownFile(file: Pick<File, "name">): boolean {
-  return isMarkdownFileName(file.name);
+  return MARKDOWN_EXTENSION_PATTERN.test(file.name);
 }
 
 export function isFileDrag(dataTransfer: DataTransfer): boolean {
@@ -25,54 +65,6 @@ export function isFileDrag(dataTransfer: DataTransfer): boolean {
 export function markdownTitleFromFileName(fileName: string): string {
   const stripped = fileName.replace(/\.[^./\\]+$/, "");
   return stripped || fileName;
-}
-
-export type MarkdownDragMatch =
-  | { active: false }
-  | { active: true; title: string; subtitle: string };
-
-export function matchMarkdownDrag(
-  dataTransfer: DataTransfer,
-): MarkdownDragMatch {
-  const items = Array.from(dataTransfer.items ?? []);
-  const names =
-    items.length > 0
-      ? allMarkdownItemNames(items)
-      : allMarkdownFileNames(Array.from(dataTransfer.files ?? []));
-  if (!names) {
-    return { active: false };
-  }
-  return { active: true, ...overlayCopyForNames(names) };
-}
-
-export function markdownDragOverlayForPaths(
-  paths: string[],
-): MarkdownDragMatch {
-  const names = paths.map((path) => path.split(/[\\/]/).pop() ?? path);
-  if (names.length === 0 || !names.every(isMarkdownFileName)) {
-    return { active: false };
-  }
-  return { active: true, ...overlayCopyForNames(names) };
-}
-
-function overlayCopyForNames(names: string[]): {
-  title: string;
-  subtitle: string;
-} {
-  return {
-    subtitle:
-      names.length === 1
-        ? "Will be added as a new note"
-        : `Will be added as ${names.length} new notes`,
-    title:
-      names.length === 1
-        ? `Import "${names[0]}"`
-        : `Import ${names.length} files`,
-  };
-}
-
-function isMarkdownFileName(fileName: string): boolean {
-  return MARKDOWN_EXTENSION_PATTERN.test(fileName);
 }
 
 export function matchMarkdownDrop(files: File[]): File[] | null {
@@ -111,29 +103,4 @@ export async function importMarkdownFilesAsNotes(
     }
   }
   return imported;
-}
-
-function allMarkdownItemNames(items: DataTransferItem[]): string[] | null {
-  if (items.length === 0) {
-    return null;
-  }
-  const names: string[] = [];
-  for (const item of items) {
-    if (item.kind !== "file") {
-      return null;
-    }
-    const file = item.getAsFile();
-    if (!file || !isMarkdownFile(file)) {
-      return null;
-    }
-    names.push(file.name);
-  }
-  return names;
-}
-
-function allMarkdownFileNames(files: File[]): string[] | null {
-  if (files.length === 0 || !files.every(isMarkdownFile)) {
-    return null;
-  }
-  return files.map((file) => file.name);
 }
