@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     (_title: string, _userId?: unknown, _initial?: { raw_md: string }) =>
       Promise.resolve("session-new"),
   ),
+  folderIdForNewSession: vi.fn((): string | undefined => undefined),
   openNew: vi.fn(),
 }));
 
@@ -39,6 +40,7 @@ vi.mock("~/shared/main", () => ({
 vi.mock("~/shared/useNewNote", () => ({
   useNewNote: () => vi.fn(),
   useNewNoteAndListen: () => vi.fn(),
+  folderIdForNewSession: mocks.folderIdForNewSession,
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -119,6 +121,31 @@ describe("TabContentEmpty", () => {
     expect(mocks.openNew).toHaveBeenCalledWith({
       type: "sessions",
       id: "session-new",
+    });
+  });
+
+  it("imports into the selected folder", async () => {
+    mocks.folderIdForNewSession.mockReturnValueOnce("Projects");
+    render(
+      <TabContentEmpty
+        tab={{
+          active: true,
+          pinned: false,
+          slotId: "slot-home",
+          type: "empty",
+        }}
+      />,
+    );
+
+    const file = new File(["# Hello"], "notes.md", { type: "text/markdown" });
+    file.text = () => Promise.resolve("# Hello");
+    fireEvent.drop(screen.getByRole("button", { name: /New Note/ }), {
+      dataTransfer: { files: [file], items: [], types: ["Files"] },
+    });
+
+    await waitFor(() => expect(mocks.createSession).toHaveBeenCalledTimes(1));
+    expect(mocks.createSession.mock.calls[0]![2]).toMatchObject({
+      folder_id: "Projects",
     });
   });
 

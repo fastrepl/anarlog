@@ -9,6 +9,7 @@ import { md2json } from "@anlg/editor/markdown";
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { createSession } from "~/session/queries";
+import { folderIdForNewSession } from "~/shared/useNewNote";
 import { useTabs } from "~/store/zustand/tabs";
 
 const MARKDOWN_EXTENSION_PATTERN = /\.(md|markdown|mdown)$/i;
@@ -78,6 +79,7 @@ export async function importMarkdownFilesAsNotes(
   files: File[],
 ): Promise<string[]> {
   const imported: string[] = [];
+  const folderId = folderIdForNewSession();
   for (const file of files) {
     try {
       const text = await file.text();
@@ -85,10 +87,11 @@ export async function importMarkdownFilesAsNotes(
         toast.error(`"${file.name}" is empty, skipped.`);
         continue;
       }
+      const raw_md = JSON.stringify(md2json(text));
       const sessionId = await createSession(
         markdownTitleFromFileName(file.name),
         undefined,
-        { raw_md: JSON.stringify(md2json(text)) },
+        folderId === undefined ? { raw_md } : { raw_md, folder_id: folderId },
       );
       imported.push(sessionId);
     } catch (error) {
