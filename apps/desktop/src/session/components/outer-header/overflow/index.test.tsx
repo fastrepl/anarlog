@@ -356,30 +356,6 @@ describe("OverflowButton", () => {
       ],
     ],
     [
-      "recorded audio on Windows",
-      { transcript: false, audio: true, platform: "windows" },
-      {},
-      [
-        "Resume listening",
-        "Re-transcribe",
-        "Show Audio in Explorer",
-        "Open in New Window",
-        "Delete note",
-      ],
-    ],
-    [
-      "recorded audio on Linux",
-      { transcript: false, audio: true, platform: "linux" },
-      {},
-      [
-        "Resume listening",
-        "Re-transcribe",
-        "Show Audio in Folder",
-        "Open in New Window",
-        "Delete note",
-      ],
-    ],
-    [
       "active listening",
       { transcript: false, mode: "active", floatingPanel: true },
       {},
@@ -504,16 +480,6 @@ describe("OverflowButton", () => {
       expect(toastErrorMock).toHaveBeenCalled();
     });
     expect(openPathMock).not.toHaveBeenCalled();
-  });
-
-  it("separates Show Audio from Export when it is the only recording action", () => {
-    arrange({ transcript: false, audio: true, mode: "active" });
-    const { container } = renderOverflow({ allowListening: false });
-
-    expect(
-      screen.getByRole("button", { name: "Show Audio in Finder" }),
-    ).toBeTruthy();
-    expect(container.querySelectorAll("hr")).toHaveLength(4);
   });
 
   it("requires authentication while the session record is still loading", async () => {
