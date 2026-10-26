@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isFileDrag,
   isMarkdownFile,
+  markdownDragOverlayForPaths,
   markdownTitleFromFileName,
   matchMarkdownDrag,
   matchMarkdownDrop,
@@ -78,6 +80,52 @@ describe("matchMarkdownDrag", () => {
       title: 'Import "notes.md"',
     });
   });
+});
+
+describe("isFileDrag", () => {
+  it("detects file drags from types, items, or files", () => {
+    expect(isFileDrag({ types: ["Files"] } as unknown as DataTransfer)).toBe(
+      true,
+    );
+    expect(isFileDrag(dataTransferWithItems([{ kind: "file" }]))).toBe(true);
+    expect(
+      isFileDrag(dataTransferWithItems([], [{ name: "a.md" } as File])),
+    ).toBe(true);
+  });
+
+  it("rejects text drags", () => {
+    expect(isFileDrag(dataTransferWithItems([{ kind: "string" }]))).toBe(false);
+    expect(
+      isFileDrag({ types: ["text/plain"] } as unknown as DataTransfer),
+    ).toBe(false);
+  });
+});
+
+describe("markdownDragOverlayForPaths", () => {
+  it("shows the file name for a single markdown hover path", () => {
+    expect(markdownDragOverlayForPaths(["/Users/tony/notes.md"])).toEqual({
+      active: true,
+      subtitle: "Will be added as a new note",
+      title: 'Import "notes.md"',
+    });
+  });
+
+  it("shows a count for multiple markdown hover paths", () => {
+    expect(
+      markdownDragOverlayForPaths(["C:\\a.md", "/tmp/b.markdown"]),
+    ).toEqual({
+      active: true,
+      subtitle: "Will be added as 2 new notes",
+      title: "Import 2 files",
+    });
+  });
+
+  it.each([[[]], [["/tmp/a.md", "/tmp/b.txt"]], [["/tmp/photo.png"]]])(
+    "stays inactive for %s",
+    (paths) => {
+      expect(markdownDragOverlayForPaths(paths)).toEqual({ active: false });
+    },
+  );
 });
 
 describe("matchMarkdownDrop", () => {

@@ -7,7 +7,19 @@ import { useTabs } from "~/store/zustand/tabs";
 const MARKDOWN_EXTENSION_PATTERN = /\.(md|markdown|mdown)$/i;
 
 export function isMarkdownFile(file: Pick<File, "name">): boolean {
-  return MARKDOWN_EXTENSION_PATTERN.test(file.name);
+  return isMarkdownFileName(file.name);
+}
+
+export function isFileDrag(dataTransfer: DataTransfer): boolean {
+  if (Array.from(dataTransfer.types ?? []).includes("Files")) {
+    return true;
+  }
+  if (
+    Array.from(dataTransfer.items ?? []).some((item) => item.kind === "file")
+  ) {
+    return true;
+  }
+  return Array.from(dataTransfer.files ?? []).length > 0;
 }
 
 export function markdownTitleFromFileName(fileName: string): string {
@@ -30,8 +42,24 @@ export function matchMarkdownDrag(
   if (!names) {
     return { active: false };
   }
+  return { active: true, ...overlayCopyForNames(names) };
+}
+
+export function markdownDragOverlayForPaths(
+  paths: string[],
+): MarkdownDragMatch {
+  const names = paths.map((path) => path.split(/[\\/]/).pop() ?? path);
+  if (names.length === 0 || !names.every(isMarkdownFileName)) {
+    return { active: false };
+  }
+  return { active: true, ...overlayCopyForNames(names) };
+}
+
+function overlayCopyForNames(names: string[]): {
+  title: string;
+  subtitle: string;
+} {
   return {
-    active: true,
     subtitle:
       names.length === 1
         ? "Will be added as a new note"
@@ -41,6 +69,10 @@ export function matchMarkdownDrag(
         ? `Import "${names[0]}"`
         : `Import ${names.length} files`,
   };
+}
+
+function isMarkdownFileName(fileName: string): boolean {
+  return MARKDOWN_EXTENSION_PATTERN.test(fileName);
 }
 
 export function matchMarkdownDrop(files: File[]): File[] | null {

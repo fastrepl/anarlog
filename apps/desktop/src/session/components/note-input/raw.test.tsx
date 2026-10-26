@@ -44,6 +44,7 @@ vi.mock("@tauri-apps/api/window", () => ({
     show: hoisted.showWindow,
     unminimize: hoisted.unminimizeWindow,
     setFocus: hoisted.focusWindow,
+    onDragDropEvent: () => Promise.resolve(() => {}),
   }),
 }));
 

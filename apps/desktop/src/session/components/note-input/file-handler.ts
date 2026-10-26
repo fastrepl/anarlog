@@ -11,9 +11,12 @@ import {
 
 import type { FileHandlerConfig } from "@anlg/editor/note";
 import { toast } from "@anlg/ui/components/ui/toast";
+import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
 import {
   importMarkdownFilesAsNotes,
+  isFileDrag,
+  markdownDragOverlayForPaths,
   matchMarkdownDrag,
   matchMarkdownDrop,
 } from "./markdown-import";
@@ -131,6 +134,49 @@ export function useNoteFileHandlerConfig(sessionId: string) {
 }
 
 export function useMarkdownDropTarget() {
+  const [hoverPaths, setHoverPaths] = useState<string[] | null>(null);
+
+  useMountEffect(() => {
+    if (!isTauri()) {
+      return;
+    }
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    void getCurrentWindow()
+      .onDragDropEvent((event) => {
+        const payload = event.payload;
+        if (payload.type === "enter") {
+          setHoverPaths(payload.paths);
+        } else if (payload.type === "leave" || payload.type === "drop") {
+          setHoverPaths(null);
+        }
+      })
+      .then((stop) => {
+        if (cancelled) {
+          stop();
+        } else {
+          unlisten = stop;
+        }
+      });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  });
+
+  const matchMarkdownHover = useCallback(
+    (dataTransfer: DataTransfer): DropTargetMatch => {
+      if (!isFileDrag(dataTransfer)) {
+        return { active: false };
+      }
+      if (hoverPaths) {
+        return markdownDragOverlayForPaths(hoverPaths);
+      }
+      return matchMarkdownDrag(dataTransfer);
+    },
+    [hoverPaths],
+  );
+
   const dropMarkdownFiles = useCallback((files: File[]): DropOutcome => {
     const matched = matchMarkdownDrop(files);
     if (!matched) {
@@ -148,7 +194,7 @@ export function useMarkdownDropTarget() {
     targetProps: markdownDropTargetProps,
   } = useFileDropTarget({
     dropFiles: dropMarkdownFiles,
-    matchDrag: matchMarkdownDrag,
+    matchDrag: matchMarkdownHover,
   });
 
   return useMemo(
