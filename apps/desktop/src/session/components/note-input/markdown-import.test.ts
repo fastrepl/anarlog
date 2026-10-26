@@ -61,12 +61,15 @@ describe("markdownTitleFromFileName", () => {
 });
 
 describe("matchMarkdownDrop", () => {
-  it("accepts only all-markdown drops", () => {
-    const files = [{ name: "a.md" } as File, { name: "b.md" } as File];
-    expect(matchMarkdownDrop(files)).toBe(files);
+  it("returns only the markdown subset of a mixed drop", () => {
+    const markdown = { name: "a.md" } as File;
+    expect(matchMarkdownDrop([markdown, { name: "b.txt" } as File])).toEqual([
+      markdown,
+    ]);
+  });
+
+  it("returns null when nothing dropped is markdown", () => {
     expect(matchMarkdownDrop([])).toBeNull();
-    expect(
-      matchMarkdownDrop([{ name: "a.md" } as File, { name: "b.txt" } as File]),
-    ).toBeNull();
+    expect(matchMarkdownDrop([{ name: "b.txt" } as File])).toBeNull();
   });
 });

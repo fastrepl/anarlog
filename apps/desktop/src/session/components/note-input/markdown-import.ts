@@ -69,10 +69,8 @@ export function markdownTitleFromFileName(fileName: string): string {
 }
 
 export function matchMarkdownDrop(files: File[]): File[] | null {
-  if (files.length === 0 || !files.every(isMarkdownFile)) {
-    return null;
-  }
-  return files;
+  const matched = files.filter(isMarkdownFile);
+  return matched.length > 0 ? matched : null;
 }
 
 export async function importMarkdownFilesAsNotes(
