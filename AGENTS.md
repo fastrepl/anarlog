@@ -1,5 +1,7 @@
 # Overview
 
+For commits and PRs, read and follow [.agents/skills/review-intent/SKILL.md](.agents/skills/review-intent/SKILL.md). PRs explain context, intention, and direction; commits record concrete actions. Use it when creating, amending, rewording, or updating either, on any branch.
+
 For Anarlog work, read and follow [.agents/skills/anarlog-workflow/SKILL.md](.agents/skills/anarlog-workflow/SKILL.md). Start requested work immediately; record useful decisions and non-obvious lessons in Linear, not routine execution logs.
 
 Anarlog is a pnpm and Rust workspace. Read the nearest `AGENTS.md` before changing a component.

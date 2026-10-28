@@ -147,7 +147,7 @@ jobs:
           const summaryLines = summaryIndex === -1
             ? []
             : visibleLines.slice(summaryIndex + 1, summaryEndIndex === -1 ? visibleLines.length : summaryEndIndex);
-          const intentLabel = /^\*\*Intent:\*\*\s*/i;
+          const intentLabel = /^\*\*Intent(?:ion)?:\*\*\s*/i;
           const intentIndex = summaryLines.findIndex(
             (line) => !line.isCode && intentLabel.test(line.text),
           );
@@ -157,13 +157,13 @@ jobs:
 
           if (intent.length < 20) {
             errors.push(
-              "Write at least 20 characters after **Intent:** what problem did you see, and what should this change do instead?",
+              "Write at least 20 characters after **Intention:** why was the previous behavior off, and what outcome should this change achieve? Legacy **Intent:** is also accepted.",
             );
           }
 
           if (intent.length > 400) {
             errors.push(
-              "Keep **Intent:** to one or two short sentences (400 characters max). Cubic already summarizes the code diff; do not paste a long write-up.",
+              "Keep **Intention:** (or legacy **Intent:**) to one or two short sentences (400 characters max). Cubic already summarizes the code diff; do not paste a long write-up.",
             );
           }
 
