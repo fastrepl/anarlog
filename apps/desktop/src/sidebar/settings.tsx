@@ -42,18 +42,18 @@ export function SettingsNav() {
   );
 
   const query = search.trim().toLowerCase();
+  const terms = query.split(/\s+/);
   const visibleGroups = query
     ? groups
-        .map((group) =>
-          group.label.toLowerCase().includes(query)
-            ? group
-            : {
-                ...group,
-                items: group.items.filter((item) =>
-                  item.label.toLowerCase().includes(query),
-                ),
-              },
-        )
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => {
+            const text = [group.label, item.label, ...(item.searchTerms ?? [])]
+              .join(" ")
+              .toLowerCase();
+            return terms.every((term) => text.includes(term));
+          }),
+        }))
         .filter((group) => group.items.length > 0)
     : groups;
 
