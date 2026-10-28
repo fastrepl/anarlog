@@ -15,10 +15,18 @@ use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 use time::OffsetDateTime;
 use url::Url;
 
+mod download;
+
 const UPDATER_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Task(#[from] tokio::task::JoinError),
+    #[error("invalid update download response")]
+    InvalidDownloadResponse,
     #[error("no update endpoints configured")]
     EmptyEndpoints,
     #[error("unsupported operating system")]
