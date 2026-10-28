@@ -42,8 +42,8 @@ Summary, write these three distinct parts, normally one or two sentences each:
 
 Keep Demo and Verification sections required by the template. Report actual
 checks and meaningful gaps; distinguish local checks, CI, hosted behavior, and
-release status. Link the active ANLG issue, and label completed predecessors as
-related history rather than using closing keywords for them.
+release status. Link the active ANLG issue when one exists. Label completed
+predecessors as related history rather than using closing keywords for them.
 
 Do not paste a commit log, file inventory, or conversation transcript. Scale the
 writing to the change. Preserve useful reviewer notes and GitButler stack
