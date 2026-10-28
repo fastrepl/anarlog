@@ -10,6 +10,7 @@ reqwest = { workspace = true, features = ["json", "stream"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "rt"] }
 url = { workspace = true, features = ["serde"] }
 
 http = "1"
@@ -17,3 +18,7 @@ minisign-verify = "0.2"
 percent-encoding = "2"
 semver = "1"
 time = { version = "0.3", features = ["parsing", "serde"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "process", "time"] }

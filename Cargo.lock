@@ -17762,6 +17762,7 @@ version = "0.1.0"
 dependencies = [
  "semver",
  "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
  "strum 0.28.0",
@@ -17774,6 +17775,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "updater-core",
 ]
 
 [[package]]
@@ -19968,8 +19970,10 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "time",
+ "tokio",
  "url",
 ]
 
