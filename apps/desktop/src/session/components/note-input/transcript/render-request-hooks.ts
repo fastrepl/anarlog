@@ -33,6 +33,8 @@ export function toTranscriptRows(
   return transcripts.map((transcript) => ({
     transcriptId: transcript.id,
     row: {
+      ...(transcript.source ? { source: transcript.source } : {}),
+      ...(transcript.provider ? { provider: transcript.provider } : {}),
       started_at: transcript.startedAt,
       words: transcript.words,
       speaker_hints: transcript.speakerHints,

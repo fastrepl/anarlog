@@ -549,6 +549,7 @@ fn restore_refined_source_hints(
             }
             if let Value::Object(object) = &mut value {
                 object.insert("channel".to_string(), json_number(channel));
+                object.insert("source_channel_restored".to_string(), Value::Bool(true));
                 hint.value = Value::String(value.to_string());
             }
             hint
@@ -1951,6 +1952,7 @@ mod tests {
         let restored = restore_refined_source_hints(&[word("a", 0.0, 500.0, 0.0)], hints.clone());
         assert_eq!(speaker_value(&restored[0])["channel"], 0);
         assert_eq!(speaker_value(&restored[0])["speaker_index"], 7);
+        assert_eq!(speaker_value(&restored[0])["source_channel_restored"], true);
         assert_eq!(
             restore_refined_source_hints(&[word("a", 0.0, 500.0, 2.0)], hints.clone()),
             hints

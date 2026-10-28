@@ -138,6 +138,77 @@ function createRequest(
 }
 
 describe("buildRenderTranscriptRequestFromRows", () => {
+  it("recovers saved Gemini batch speaker turns without reassigning live microphone audio", () => {
+    const row: TranscriptRow = {
+      source: "batch_transcription",
+      provider: "google_generative_ai",
+      words: [
+        { id: "first", text: "Hello.", start_ms: 0, end_ms: 100, channel: 0 },
+        { id: "second", text: "Hi.", start_ms: 200, end_ms: 300, channel: 0 },
+      ],
+      speaker_hints: [
+        {
+          word_id: "first",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 0 }),
+        },
+        {
+          word_id: "second",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 1 }),
+        },
+        {
+          word_id: "second",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            scope: "speaker",
+            channel: 0,
+            speaker_index: 1,
+            human_id: "guest",
+          }),
+        },
+      ],
+    };
+    const input = buildRenderTranscriptRequestFromRows([row])!.transcripts[0]!;
+    expect(
+      input.words.map(({ channel, speaker_index }) => [channel, speaker_index]),
+    ).toEqual([
+      [2, 0],
+      [2, 1],
+    ]);
+    expect(input.assignments).toEqual([
+      {
+        human_id: "guest",
+        scope: {
+          kind: "channel_speaker",
+          channel: "MixedCapture",
+          speaker_index: 1,
+        },
+      },
+    ]);
+    expect(row.words!.map((word) => word.channel)).toEqual([0, 0]);
+    const restored = {
+      ...row,
+      speaker_hints: row.speaker_hints!.map((hint) => ({
+        ...hint,
+        value: JSON.stringify({
+          ...JSON.parse(hint.value as string),
+          source_channel_restored: true,
+        }),
+      })),
+    };
+    expect(
+      buildRenderTranscriptRequestFromRows([
+        restored,
+      ])!.transcripts[0]!.words.map((word) => word.channel),
+    ).toEqual([0, 0]);
+    expect(
+      buildRenderTranscriptRequestFromRows([
+        { ...row, source: "live_capture" },
+      ])!.transcripts[0]!.words.map((word) => word.channel),
+    ).toEqual([0, 0]);
+  });
+
   beforeEach(() => {
     renderTranscriptSegmentsCommand.mockReset();
   });

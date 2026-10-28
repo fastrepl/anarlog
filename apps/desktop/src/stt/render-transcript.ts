@@ -20,6 +20,8 @@ export type RenderedTranscriptSegmentWithWordMetadata = Omit<
 };
 
 export type TranscriptRow = {
+  source?: string;
+  provider?: string;
   started_at?: number | null;
   words?: Array<{
     id?: string | null;
@@ -275,10 +277,38 @@ function buildRenderTranscriptRequest(
       normalizeSpeakerHint(hint, words, wordIndexById);
     }
 
+    // Older Gemini batch responses put the entire recording on the personal-mic
+    // channel. Repair the render input without changing saved words or labels.
+    const legacyGeminiMix =
+      transcript.source === "batch_transcription" &&
+      transcript.provider === "google_generative_ai" &&
+      words.length > 0 &&
+      words.every((word) => word.channel === 0) &&
+      !(transcript.speaker_hints ?? []).some((hint) => {
+        const value = parseHintValue(hint.value);
+        return (
+          hint.type === "provider_speaker_index" &&
+          value != null &&
+          typeof value === "object" &&
+          (value as { source_channel_restored?: unknown })
+            .source_channel_restored === true
+        );
+      });
+    if (legacyGeminiMix) {
+      for (const word of words) word.channel = 2;
+    }
+
     for (const hint of transcript.speaker_hints ?? []) {
       if (hint.type === "automatic_speaker_assignment") {
         const normalized = normalizeSpeakerHint(hint, words, wordIndexById);
         if (normalized) {
+          if (
+            legacyGeminiMix &&
+            "channel" in normalized.scope &&
+            normalized.scope.channel === "DirectMic"
+          ) {
+            normalized.scope.channel = "MixedCapture";
+          }
           assignments.push(normalized);
         }
       }
@@ -288,6 +318,13 @@ function buildRenderTranscriptRequest(
       if (hint.type === "user_speaker_assignment") {
         const normalized = normalizeSpeakerHint(hint, words, wordIndexById);
         if (normalized) {
+          if (
+            legacyGeminiMix &&
+            "channel" in normalized.scope &&
+            normalized.scope.channel === "DirectMic"
+          ) {
+            normalized.scope.channel = "MixedCapture";
+          }
           assignments.push(normalized);
         }
       }

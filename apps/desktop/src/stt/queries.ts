@@ -29,6 +29,8 @@ import {
 } from "~/stt/utils";
 
 type TranscriptSqlRow = {
+  source?: string;
+  provider?: string;
   id: string;
   owner_user_id: string;
   session_id: string;
@@ -77,6 +79,8 @@ type TranscriptInsert = {
 };
 
 export type TranscriptRecord = {
+  source?: string;
+  provider?: string;
   id: string;
   ownerUserId: string;
   sessionId: string;
@@ -100,6 +104,8 @@ const EMPTY_IDS: string[] = [];
 const EMPTY_HUMANS: RenderTranscriptHuman[] = [];
 
 const TRANSCRIPT_COLUMNS = `
+  transcript.source,
+  transcript.provider,
   transcript.id,
   transcript.owner_user_id,
   transcript.session_id,
@@ -120,6 +126,8 @@ const TRANSCRIPT_COLUMNS = `
 `;
 
 const TRANSCRIPT_BASE_COLUMNS = `
+  transcript.source,
+  transcript.provider,
   transcript.id,
   transcript.owner_user_id,
   transcript.session_id,
@@ -944,6 +952,8 @@ function mapTranscriptRow(row: TranscriptSqlRow): TranscriptRecord {
     row.pending_deltas_json,
   );
   return {
+    ...(row.source ? { source: row.source } : {}),
+    ...(row.provider ? { provider: row.provider } : {}),
     id: row.id,
     ownerUserId: row.owner_user_id,
     sessionId: row.session_id,

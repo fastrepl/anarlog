@@ -181,7 +181,46 @@ fn materialize_source_row(row: BatchTranscriptRow) -> BatchRefinementSource {
         .iter()
         .filter_map(|delta_json| serde_json::from_str(delta_json).ok())
         .collect();
-    let (words, speaker_hints) = materialize_live_transcript(words, hints, &deltas);
+    let (mut words, mut speaker_hints) = materialize_live_transcript(words, hints, &deltas);
+    let source_restored = speaker_hints.iter().any(|hint| {
+        hint.hint_type == "provider_speaker_index"
+            && hint
+                .value
+                .as_str()
+                .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+                .is_some_and(|value| value["source_channel_restored"] == true)
+    });
+    if row.source == "batch_transcription"
+        && row.provider == "google_generative_ai"
+        && !words.is_empty()
+        && words.iter().all(|word| word.channel == Some(0.0))
+        && !source_restored
+    {
+        // These legacy channels describe the provider's combined recording,
+        // not microphone evidence that can be restored into a new transcript.
+        for word in &mut words {
+            word.channel = Some(2.0);
+        }
+        for hint in &mut speaker_hints {
+            if !matches!(
+                hint.hint_type.as_str(),
+                "provider_speaker_index"
+                    | "user_speaker_assignment"
+                    | "automatic_speaker_assignment"
+            ) {
+                continue;
+            }
+            if let Some(mut value) = hint
+                .value
+                .as_str()
+                .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+                && value.get("channel").and_then(serde_json::Value::as_f64) == Some(0.0)
+            {
+                value["channel"] = serde_json::json!(2);
+                hint.value = serde_json::Value::String(value.to_string());
+            }
+        }
+    }
 
     BatchRefinementSource {
         id: row.id,
@@ -300,6 +339,40 @@ mod tests {
         .fetch_one(db.pool())
         .await
         .unwrap()
+    }
+
+    #[tokio::test]
+    async fn retranscribing_legacy_gemini_audio_does_not_restore_it_as_personal_mic() {
+        let db = test_db().await;
+        let old = vec![
+            stored_word("old-a", "Hello.".into(), 0.0, 100.0),
+            stored_word("old-b", "Hi.".into(), 200.0, 300.0),
+        ];
+        insert_transcript(&db, "old", "session-1", 0, &old).await;
+        sqlx::query("UPDATE transcripts SET source = 'batch_transcription', provider = 'google_generative_ai' WHERE id = 'old'")
+            .execute(db.pool()).await.unwrap();
+        let mut request = request(BatchTranscriptPromotion::WholeSession);
+        request.provider = "google_generative_ai".into();
+        request.words = old
+            .into_iter()
+            .enumerate()
+            .map(|(index, mut word)| {
+                word.id = format!("new-{index}");
+                word.channel = Some(2.0);
+                word
+            })
+            .collect();
+        save_batch_transcript(db.pool(), request).await.unwrap();
+        let json: String =
+            sqlx::query_scalar("SELECT words_json FROM transcripts WHERE id = 'transcript-new'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert!(
+            parse_stored_transcript_words(&json)
+                .iter()
+                .all(|word| word.channel == Some(2.0))
+        );
     }
 
     #[tokio::test]

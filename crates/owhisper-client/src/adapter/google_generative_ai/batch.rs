@@ -182,7 +182,7 @@ fn convert_response(payload: &serde_json::Value) -> Response {
                 start,
                 end,
                 confidence: 1.0,
-                channel: 0,
+                channel: 2,
                 speaker,
             });
         }
@@ -204,7 +204,7 @@ fn convert_response(payload: &serde_json::Value) -> Response {
                 start: 0.0,
                 end: 0.0,
                 confidence: 1.0,
-                channel: 0,
+                channel: 2,
                 speaker,
             });
         }
@@ -323,6 +323,7 @@ mod tests {
 
         assert_eq!(alternative.transcript, "Hello there. Hi.");
         assert_eq!(alternative.words[0].speaker, Some(2));
+        assert!(alternative.words.iter().all(|word| word.channel == 2));
         assert_eq!(alternative.words[0].start, 0.1);
         assert_eq!(alternative.words[2].speaker, Some(1));
         assert_eq!(response.metadata["provider"], "google_generative_ai");

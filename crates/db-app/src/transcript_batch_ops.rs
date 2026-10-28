@@ -2,6 +2,8 @@ use sqlx::{Row, SqliteConnection};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchTranscriptRow {
+    pub source: String,
+    pub provider: String,
     pub id: String,
     pub started_at_ms: i64,
     pub words_json: String,
@@ -34,7 +36,7 @@ pub async fn load_batch_transcript_by_id(
     transcript_id: &str,
 ) -> Result<Option<BatchTranscriptRow>, sqlx::Error> {
     let row = sqlx::query(
-        "SELECT id, started_at_ms, words_json, speaker_hints_json
+        "SELECT id, source, provider, started_at_ms, words_json, speaker_hints_json
          FROM transcripts
          WHERE id = ? AND deleted_at IS NULL
          LIMIT 1",
@@ -51,6 +53,8 @@ pub async fn load_batch_transcript_by_id(
 
     Ok(Some(BatchTranscriptRow {
         id,
+        source: row.try_get("source")?,
+        provider: row.try_get("provider")?,
         started_at_ms: row.try_get("started_at_ms")?,
         words_json: row.try_get("words_json")?,
         speaker_hints_json: row.try_get("speaker_hints_json")?,
@@ -63,7 +67,7 @@ pub async fn load_session_batch_transcripts(
     session_id: &str,
 ) -> Result<Vec<BatchTranscriptRow>, sqlx::Error> {
     let rows = sqlx::query(
-        "SELECT id, started_at_ms, words_json, speaker_hints_json
+        "SELECT id, source, provider, started_at_ms, words_json, speaker_hints_json
          FROM transcripts
          WHERE session_id = ? AND deleted_at IS NULL
          ORDER BY started_at_ms, created_at, id",
@@ -78,6 +82,8 @@ pub async fn load_session_batch_transcripts(
         let pending_delta_jsons = load_pending_delta_jsons(conn, &id).await?;
         transcripts.push(BatchTranscriptRow {
             id,
+            source: row.try_get("source")?,
+            provider: row.try_get("provider")?,
             started_at_ms: row.try_get("started_at_ms")?,
             words_json: row.try_get("words_json")?,
             speaker_hints_json: row.try_get("speaker_hints_json")?,
