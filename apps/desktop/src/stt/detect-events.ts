@@ -463,7 +463,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
                 displayIgnorableApps.length > 0
                   ? {
                       text: getIgnoreAppsFooterText(displayIgnorableApps),
-                      actionLabel: "Yes",
+                      actionLabel: "Ignore it",
                       icon: footerIcon,
                     }
                   : null;
