@@ -39,7 +39,11 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
             let sample_rate = params.sample_rate.to_string();
             query_pairs.append_pair("sample_rate", &sample_rate);
             query_pairs.append_pair("encoding", "pcm_s16le");
-            query_pairs.append_pair("speech_model", LIVE_SPEECH_MODEL);
+            let speech_model = match params.model.as_deref() {
+                Some("universal-3-6-pro-realtime") => "universal-3-6-pro",
+                _ => LIVE_SPEECH_MODEL,
+            };
+            query_pairs.append_pair("speech_model", speech_model);
             if params.languages.len() > 1 {
                 query_pairs.append_pair("language_detection", "true");
             }
@@ -343,6 +347,13 @@ mod tests {
                     languages: &[ISO639::Es],
                     contains: &["speech_model=universal-3-5-pro"],
                     not_contains: &["format_turns", "language=", "speech_model=whisper-rt"],
+                },
+                UrlTestCase {
+                    name: "explicit_u36_model_routes_to_u36",
+                    model: Some("universal-3-6-pro-realtime"),
+                    languages: &[ISO639::En],
+                    contains: &["speech_model=universal-3-6-pro"],
+                    not_contains: &["format_turns", "speech_model=universal-3-5-pro"],
                 },
                 UrlTestCase {
                     name: "retired_u3_model_routes_to_u35",

@@ -145,7 +145,9 @@ impl AssemblyAIAdapter {
                 "u3-rt-pro"
                 | "universal-3-pro"
                 | "universal-3-5-pro"
-                | "universal-3-5-pro-realtime",
+                | "universal-3-5-pro-realtime"
+                // AssemblyAI's direct API serves 3.6 Pro only for streaming.
+                | "universal-3-6-pro-realtime",
             ) => {
                 vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
             }
@@ -424,7 +426,7 @@ mod tests {
 
     #[test]
     fn batch_speech_models_resolve_to_current_stack() {
-        let cases: [(Option<&str>, Vec<&str>); 6] = [
+        let cases: [(Option<&str>, Vec<&str>); 7] = [
             (None, vec!["universal-3-5-pro", "universal-2"]),
             (Some("u3-rt-pro"), vec!["universal-3-5-pro", "universal-2"]),
             (
@@ -437,6 +439,10 @@ mod tests {
             ),
             (
                 Some("universal-3-5-pro-realtime"),
+                vec!["universal-3-5-pro", "universal-2"],
+            ),
+            (
+                Some("universal-3-6-pro-realtime"),
                 vec!["universal-3-5-pro", "universal-2"],
             ),
             (Some("universal-2"), vec!["universal-2"]),
