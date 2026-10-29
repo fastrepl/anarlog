@@ -1,0 +1,14 @@
+{
+  "version": "0.1.9",
+  "sourceSha": "e35e79d14c8f7e41ddf3bd57b0251ab885f75f5a",
+  "channel": "beta",
+  "availability": [
+    {
+      "platform": "ios",
+      "destination": "testflight",
+      "build": "21",
+      "publishedAt": "2026-10-29T03:22:12+00:00",
+      "evidenceUrl": "https://appstoreconnect.apple.com/teams/7bec4019-d244-48f6-8b2f-cb4a1fbe6023/apps/6807350358/testflight/ios/b8c2d24f-ef19-4906-82d4-278b60aba25d"
+    }
+  ]
+}
