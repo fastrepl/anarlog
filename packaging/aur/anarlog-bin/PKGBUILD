@@ -1,6 +1,6 @@
 # Maintainer: Anarlog <support@anarlog.so>
 pkgname=anarlog-bin
-pkgver=1.4.33
+pkgver=1.4.34
 pkgrel=1
 pkgdesc="AI notepad for meetings — local-first, E2EE desktop note-taking app"
 arch=('x86_64' 'aarch64')
@@ -31,8 +31,8 @@ source=("LICENSE-${pkgver}::https://raw.githubusercontent.com/fastrepl/anarlog/$
 source_x86_64=("anarlog-${pkgver}-x86_64.deb::https://github.com/fastrepl/anarlog/releases/download/${_release}/anarlog-linux-x86_64.deb")
 source_aarch64=("anarlog-${pkgver}-aarch64.deb::https://github.com/fastrepl/anarlog/releases/download/${_release}/anarlog-linux-aarch64.deb")
 sha256sums=('ba9cc3a7e074c5cfe3985d6956f24c9f7575592a0483e314c9fcb4f72ee1b615')
-sha256sums_x86_64=('ea846497cae7eb1d662fbab182ec1972fd45ca1456c99eee2fbae8e47c568631')
-sha256sums_aarch64=('3129d5f03c3a21ca96b366bd2ec7cf3787ff0f7b1c202b5409bef20ae3867c77')
+sha256sums_x86_64=('5902537bb66c14d83af509b0c1c11bce3d4c69b8e0577e4849da881025e56326')
+sha256sums_aarch64=('a604b074f1cf77f6f90000c90eaa04ae0e36d9823a7308b4748c89121c7a1e5c')
 
 package() {
   tar -xzf data.tar.gz -C "$pkgdir"
