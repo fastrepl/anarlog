@@ -19,6 +19,7 @@ import {
   getCurrentSessionIdFromMessages,
   orderPromptContextRefs,
 } from "../context/refs";
+import { expandChatPromptParts } from "../prompt-parts";
 import { CONTEXT_TEXT_FIELD } from "../tools/context-text";
 import type { ChatToolContext } from "../tools/current-session";
 import type { AnlgUIMessage } from "../types";
@@ -261,12 +262,15 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
 
     for (const [index, msg] of options.messages.entries()) {
       if (msg.role === "user") {
+        const parts = expandChatPromptParts(msg.parts);
         if (
           !effectiveContextBlock ||
           lastUserMessageIndex === -1 ||
           index !== lastUserMessageIndex
         ) {
-          messagesWithContext.push(msg);
+          messagesWithContext.push(
+            parts === msg.parts ? msg : { ...msg, parts },
+          );
           continue;
         }
 
@@ -274,7 +278,7 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
           ...msg,
           parts: [
             { type: "text" as const, text: `${effectiveContextBlock}\n\n` },
-            ...msg.parts,
+            ...parts,
           ],
         });
       } else if (msg.role === "assistant") {

@@ -3,7 +3,13 @@ import { Facehash, stringHash } from "facehash";
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback } from "react";
 
-import { Buildings, Folder, Note, User } from "@anlg/ui/components/icons";
+import {
+  Buildings,
+  ChatCenteredDots,
+  Folder,
+  Note,
+  User,
+} from "@anlg/ui/components/icons";
 import { cn } from "@anlg/utils";
 
 export const mentionNodeSpec: NodeSpec = {
@@ -97,7 +103,9 @@ function MentionAvatar({
         ? Buildings
         : type === "folder"
           ? Folder
-          : User;
+          : type === "chat_prompt"
+            ? ChatCenteredDots
+            : User;
 
   return (
     <span className="mention-avatar mention-avatar-icon">
@@ -123,10 +131,11 @@ export const MentionNodeView = forwardRef<HTMLElement, NodeViewComponentProps>(
     const handleClick = useCallback(
       (e: React.MouseEvent) => {
         e.preventDefault();
-        const navigate = (window as any)[GLOBAL_NAVIGATE_FUNCTION];
-        if (navigate) navigate(path);
+        if (mentionType === "chat_prompt") return;
+        const navigate: unknown = Reflect.get(window, GLOBAL_NAVIGATE_FUNCTION);
+        if (typeof navigate === "function") navigate(path);
       },
-      [path],
+      [mentionType, path],
     );
 
     return (

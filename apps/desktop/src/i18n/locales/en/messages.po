@@ -5071,8 +5071,8 @@ msgid "Save policies"
 msgstr "Save policies"
 
 #: src/settings/prompts/index.tsx
-msgid "Save prompts you use often. They appear as suggestions when you start a new chat."
-msgstr "Save prompts you use often. They appear as suggestions when you start a new chat."
+msgid "Save prompts you use often. Pick one from the suggestions in a new chat, or type / in the chat box to add it to your message."
+msgstr "Save prompts you use often. Pick one from the suggestions in a new chat, or type / in the chat box to add it to your message."
 
 #: src/settings/team/index.tsx
 msgid "Save SCIM token"

@@ -1,13 +1,16 @@
 import { useMemo } from "react";
 import { z } from "zod";
 
+import type { MentionConfig } from "@anlg/editor/widgets";
+
+import {
+  CHAT_PROMPT_MENTION_TYPE,
+  chatPromptSnapshotSchema,
+} from "~/chat/prompt-parts";
 import { updateSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 
-const customChatPromptSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().trim().min(1),
-  prompt: z.string().trim().min(1),
+const customChatPromptSchema = chatPromptSnapshotSchema.extend({
   availability: z
     .enum(["always", "recording", "not_recording"])
     .catch("always"),
@@ -39,6 +42,32 @@ export function parseCustomChatPrompts(
 export function useCustomChatPrompts(): CustomChatPrompt[] {
   const stored = useConfigValue("chat_custom_prompts");
   return useMemo(() => parseCustomChatPrompts(stored), [stored]);
+}
+
+export function useChatPromptSlashConfig(
+  prompts: CustomChatPrompt[],
+): MentionConfig | undefined {
+  return useMemo(
+    () =>
+      prompts.length === 0
+        ? undefined
+        : {
+            trigger: "/",
+            handleSearch: async (query: string) => {
+              const needle = query.toLocaleLowerCase();
+              return prompts
+                .filter((prompt) =>
+                  prompt.title.toLocaleLowerCase().includes(needle),
+                )
+                .map((prompt) => ({
+                  id: prompt.id,
+                  type: CHAT_PROMPT_MENTION_TYPE,
+                  label: prompt.title,
+                }));
+            },
+          },
+    [prompts],
+  );
 }
 
 export async function saveCustomChatPrompt(

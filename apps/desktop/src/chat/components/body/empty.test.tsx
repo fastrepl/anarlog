@@ -70,7 +70,7 @@ describe("ChatBodyEmpty", () => {
     expect(screen.queryByText("Make the summary shorter.")).toBeNull();
   });
 
-  it("shows saved prompts only where they apply and sends their full text instead of the name", () => {
+  it("shows saved prompts only where they apply and sends them by name with the prompt kept out of the visible text", () => {
     config.customPrompts = JSON.stringify([
       {
         id: "live",
@@ -98,8 +98,15 @@ describe("ChatBodyEmpty", () => {
     expect(screen.queryByText("Write a PRD")).toBeNull();
     expect(screen.getByText("List risks")).toBeTruthy();
     fireEvent.click(screen.getByText("What should I say?"));
-    expect(onSendMessage).toHaveBeenCalledWith("Suggest my next line.", [
-      { type: "text", text: "Suggest my next line." },
+    expect(onSendMessage).toHaveBeenCalledWith("What should I say?", [
+      {
+        type: "data-chat-prompt",
+        data: {
+          id: "live",
+          title: "What should I say?",
+          prompt: "Suggest my next line.",
+        },
+      },
     ]);
     live.unmount();
 

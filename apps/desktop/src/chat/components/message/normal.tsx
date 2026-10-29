@@ -5,6 +5,7 @@ import { Streamdown } from "streamdown";
 import {
   ArrowCounterClockwise,
   Brain,
+  ChatCenteredDots,
   Check,
   CircleNotch,
   Copy,
@@ -25,6 +26,7 @@ import { Tool } from "./tool";
 import type { Part } from "./types";
 
 import { hasRenderableContent } from "~/chat/message-content";
+import { readChatPromptPart } from "~/chat/prompt-parts";
 import type { AnlgUIMessage } from "~/chat/types";
 
 function getMessageText(message: AnlgUIMessage): string {
@@ -114,9 +116,14 @@ export function NormalMessage({
               </FlatDisclosureGroup>
             </Disclosure>
           )}
-          {visibleParts.map((part, i) => (
-            <Part key={i} part={part as Part} />
-          ))}
+          {visibleParts.map((part, i) => {
+            const prompt = readChatPromptPart(part);
+            return prompt ? (
+              <ChatPromptChip key={i} title={prompt.title} />
+            ) : (
+              <Part key={i} part={part as Part} />
+            );
+          })}
         </MessageBubble>
         <div className="mt-1 flex min-h-6 items-center gap-1 opacity-0 transition-opacity group-focus-within/message:opacity-100 group-hover/message:opacity-100">
           {!isUser && (
@@ -156,6 +163,15 @@ function isActivityPart(part: AnlgUIMessage["parts"][number]) {
     part.type !== "tool-edit_memo" &&
     part.type !== "tool-edit_summary" &&
     part.type !== "tool-update_prompt_template"
+  );
+}
+
+function ChatPromptChip({ title }: { title: string }) {
+  return (
+    <span className="my-0.5 inline-flex max-w-full items-center gap-1 rounded-md bg-blue-200/70 px-1.5 py-0.5 font-medium text-neutral-900">
+      <ChatCenteredDots size={14} className="shrink-0" />
+      <span className="truncate">{title}</span>
+    </span>
   );
 }
 

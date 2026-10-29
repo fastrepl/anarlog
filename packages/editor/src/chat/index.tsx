@@ -78,6 +78,7 @@ interface ChatEditorProps {
   className?: string;
   initialContent?: JSONContent;
   mentionConfig?: MentionConfig;
+  slashConfig?: MentionConfig;
   placeholder?: PlaceholderFunction;
   submitShortcut?: "mod-enter" | "enter";
   onUpdate?: (json: JSONContent) => void;
@@ -232,6 +233,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
       className,
       initialContent,
       mentionConfig,
+      slashConfig,
       placeholder,
       submitShortcut = "mod-enter",
       onUpdate,
@@ -392,10 +394,10 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
         }),
         history(),
         placeholderPlugin(placeholder),
-        ...(mentionConfig ? [mentionSkipPlugin()] : []),
+        ...(mentionConfig || slashConfig ? [mentionSkipPlugin()] : []),
         fileHandlerPlugin((message) => onAttachmentErrorRef.current?.(message)),
       ];
-    }, [mentionConfig, placeholder, submitShortcut]);
+    }, [mentionConfig, slashConfig, placeholder, submitShortcut]);
 
     const defaultState = useMemo(() => {
       let doc: PMNode;
@@ -427,6 +429,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           <ProseMirrorDoc />
           <ViewCapture viewRef={viewRef} />
           {mentionConfig && <MentionSuggestion config={mentionConfig} />}
+          {slashConfig && <MentionSuggestion config={slashConfig} />}
         </ProseMirror>
       </EditorErrorBoundary>
     );

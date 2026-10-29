@@ -53,8 +53,8 @@ export function SettingsChatPrompts() {
         <SettingsPageTitle title={<Trans>Chat prompts</Trans>} />
         <p className="text-muted-foreground text-sm">
           <Trans>
-            Save prompts you use often. They appear as suggestions when you
-            start a new chat.
+            Save prompts you use often. Pick one from the suggestions in a new
+            chat, or type / in the chat box to add it to your message.
           </Trans>
         </p>
       </div>
