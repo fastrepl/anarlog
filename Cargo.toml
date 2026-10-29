@@ -9,7 +9,7 @@ debug = false
 
 [workspace]
 resolver = "2"
-exclude = ["crates/tiptap/vendor/mdast_util_to_markdown"]
+exclude = ["apps/desktop-gpui", "crates/tiptap/vendor/mdast_util_to_markdown"]
 members = [
   "apps/api",
   "apps/cli",

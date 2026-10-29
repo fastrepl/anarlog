@@ -1,0 +1,41 @@
+[package]
+name = "desktop-gpui"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[profile.dev]
+debug = false
+# Rust 1.94's debug-info stripping can produce dylibs rejected by macOS 27.
+# https://github.com/rust-lang/rust/issues/157750
+strip = "none"
+
+[profile.release]
+strip = "none"
+
+[profile.dev.build-override]
+debug = true
+
+[profile.release.build-override]
+debug = true
+
+[profile.dev.package."*"]
+opt-level = 1
+
+[[bin]]
+name = "anarlog-gpui"
+path = "src/main.rs"
+
+[dependencies]
+anlg-tiptap = { path = "../../crates/tiptap", package = "tiptap" }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+gpui = "=0.2.2"
+serde_json = "1"
+sqlx = { version = "=0.9.0-alpha.1", default-features = false, features = ["runtime-tokio", "sqlite"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+
+[dev-dependencies]
+tempfile = "3"
