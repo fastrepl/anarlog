@@ -458,6 +458,10 @@ msgstr "Add payment method"
 msgid "Add person"
 msgstr "Add person"
 
+#: src/settings/prompts/index.tsx
+msgid "Add prompt"
+msgstr "Add prompt"
+
 #: src/settings/todo/github.tsx
 msgid "Add repository"
 msgstr "Add repository"
@@ -551,6 +555,10 @@ msgstr "Allow public indexing"
 #: src/settings/team/index.tsx
 msgid "Already taken"
 msgstr "Already taken"
+
+#: src/settings/prompts/index.tsx
+msgid "Always"
+msgstr "Always"
 
 #: src/session/components/outer-header/overflow/always-on-top.tsx
 msgid "Always on Top"
@@ -974,6 +982,7 @@ msgstr "Can view"
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
+#: src/settings/prompts/index.tsx
 #: src/settings/sync/index.tsx
 #: src/settings/team/index.tsx
 #: src/settings/todo/github.tsx
@@ -1081,6 +1090,11 @@ msgstr "Changes stay on this device until you resume sync."
 #: src/chat/components/toolbar-controls.tsx
 msgid "Chat history"
 msgstr "Chat history"
+
+#: src/settings/prompts/index.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Chat prompts"
+msgstr "Chat prompts"
 
 #: src/chat/components/input/use-dictation.ts
 msgid "Check microphone permission and the selected input device, then try again."
@@ -1912,6 +1926,10 @@ msgstr "Couldn’t check availability. You can still try Save."
 msgid "Couldn't copy the invite link. Try again."
 msgstr "Couldn't copy the invite link. Try again."
 
+#: src/settings/prompts/index.tsx
+msgid "Couldn't delete this prompt. Try again."
+msgstr "Couldn't delete this prompt. Try again."
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't load your badges. Reopen this page to try again."
 msgstr "Couldn't load your badges. Reopen this page to try again."
@@ -1936,6 +1954,10 @@ msgstr "Couldn't open device add-ons. Try again."
 #: src/settings/referrals.tsx
 msgid "Couldn't open sign-in. Try again."
 msgstr "Couldn't open sign-in. Try again."
+
+#: src/settings/prompts/index.tsx
+msgid "Couldn't save this prompt. Try again."
+msgstr "Couldn't save this prompt. Try again."
 
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't save your new badges."
@@ -2115,6 +2137,10 @@ msgstr "Delete"
 #: src/sidebar/timeline/index.tsx
 msgid "Delete {pendingDeleteCount} selected notes?"
 msgstr "Delete {pendingDeleteCount} selected notes?"
+
+#: src/settings/prompts/index.tsx
+msgid "Delete {title}"
+msgstr "Delete {title}"
 
 #: src/settings/team/index.tsx
 msgid "Delete {workspaceName} for everyone?"
@@ -2315,6 +2341,10 @@ msgstr "Draft a follow-up email to the participants"
 msgid "Draft follow-up email."
 msgstr "Draft follow-up email."
 
+#: src/settings/prompts/index.tsx
+msgid "Draft talking points"
+msgstr "Draft talking points"
+
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx
 msgid "Duplicate"
@@ -2338,6 +2368,10 @@ msgstr "Earlier versions of this note, newest first."
 #: src/sidebar/automations.tsx
 msgid "Edit"
 msgstr "Edit"
+
+#: src/settings/prompts/index.tsx
+msgid "Edit {title}"
+msgstr "Edit {title}"
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
@@ -3740,6 +3774,7 @@ msgstr "name"
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/settings/general/account-profile.tsx
+#: src/settings/prompts/index.tsx
 #: src/settings/team/index.tsx
 msgid "Name"
 msgstr "Name"
@@ -3840,6 +3875,10 @@ msgstr "No changelog available for this version."
 #: src/settings/automations/starter-config.tsx
 msgid "No channel selected yet."
 msgstr "No channel selected yet."
+
+#: src/settings/prompts/index.tsx
+msgid "No chat prompts yet"
+msgstr "No chat prompts yet"
 
 #: src/templates/details.tsx
 msgid "No community templates available"
@@ -4532,6 +4571,10 @@ msgstr "Pro trial started"
 msgid "Production"
 msgstr "Production"
 
+#: src/settings/prompts/index.tsx
+msgid "Prompt"
+msgstr "Prompt"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Protect cloud sync"
 msgstr "Protect cloud sync"
@@ -4989,6 +5032,7 @@ msgid "Runs once the AI summary for the meeting is ready."
 msgstr "Runs once the AI summary for the meeting is ready."
 
 #: src/settings/dictionary/index.tsx
+#: src/settings/prompts/index.tsx
 #: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
@@ -5025,6 +5069,10 @@ msgstr "Save PDF, text, Markdown, and Org exports to this folder."
 #: src/settings/team/index.tsx
 msgid "Save policies"
 msgstr "Save policies"
+
+#: src/settings/prompts/index.tsx
+msgid "Save prompts you use often. They appear as suggestions when you start a new chat."
+msgstr "Save prompts you use often. They appear as suggestions when you start a new chat."
 
 #: src/settings/team/index.tsx
 msgid "Save SCIM token"
@@ -6072,6 +6120,10 @@ msgstr "teammate@company.com"
 msgid "Teams"
 msgstr "Teams"
 
+#: src/settings/prompts/index.tsx
+msgid "Tell Chat what to do with the meeting."
+msgstr "Tell Chat what to do with the meeting."
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."
 msgstr "Tell participants when listening starts; this does not confirm consent."
@@ -6212,6 +6264,10 @@ msgstr "Ticket"
 #: src/settings/general/timezone.tsx
 msgid "Timezone"
 msgstr "Timezone"
+
+#: src/settings/prompts/index.tsx
+msgid "Tip: Add a prompt you ask in every meeting, like drafting talking points while you record."
+msgstr "Tip: Add a prompt you ask in every meeting, like drafting talking points while you record."
 
 #: src/settings/dictionary/index.tsx
 msgid "Tip: Add teammate names, acronyms, company jargon, and product terms."
@@ -6695,6 +6751,10 @@ msgstr "What were the key decisions that have been made?"
 msgid "What's new in {version}?"
 msgstr "What's new in {version}?"
 
+#: src/settings/prompts/index.tsx
+msgid "When not recording"
+msgstr "When not recording"
+
 #: src/settings/general/index.tsx
 msgid "When off, summaries follow the detected meeting language."
 msgstr "When off, summaries follow the detected meeting language."
@@ -6706,6 +6766,14 @@ msgstr "When they start their free trial, yours gets one more month. Up to 3 fri
 #: src/settings/automations/workflow-builder.tsx
 msgid "When this happens"
 msgstr "When this happens"
+
+#: src/settings/prompts/index.tsx
+msgid "When to show"
+msgstr "When to show"
+
+#: src/settings/prompts/index.tsx
+msgid "While recording"
+msgstr "While recording"
 
 #: src/settings/ai/stt/local-file-model.tsx
 msgid "whisper.cpp models"

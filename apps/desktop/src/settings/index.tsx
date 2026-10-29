@@ -20,6 +20,7 @@ import { SettingsBilling } from "~/settings/general/billing";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsImports } from "~/settings/imports";
 import { SettingsPrivacy } from "~/settings/privacy";
+import { SettingsChatPrompts } from "~/settings/prompts";
 import { SettingsReferrals } from "~/settings/referrals";
 import { SettingsInsights } from "~/settings/stats";
 import { SettingsSync } from "~/settings/sync";
@@ -93,6 +94,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <STT />;
       case "intelligence":
         return <LLM />;
+      case "prompts":
+        return <SettingsChatPrompts />;
       case "todo":
         return <SettingsTodo />;
       default:

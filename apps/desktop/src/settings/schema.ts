@@ -306,6 +306,11 @@ export const SETTING_DEFINITIONS = {
     path: ["ai", "auto_summary_prompt"],
     default: "" as string,
   },
+  chat_custom_prompts: {
+    type: "string",
+    path: ["ai", "chat_custom_prompts"],
+    default: "[]" as string,
+  },
   ignored_platforms: {
     type: "string",
     path: ["notification", "ignored_platforms"],

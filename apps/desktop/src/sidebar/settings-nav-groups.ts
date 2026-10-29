@@ -7,6 +7,7 @@ import {
   Buildings,
   CalendarDots,
   ChartLineUp,
+  ChatCenteredDots,
   Code,
   CreditCard,
   DownloadSimple,
@@ -89,6 +90,7 @@ export function useSettingsNavGroups(): SettingsNavGroup[] {
           requiresPro: true,
         },
         { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
+        { id: "prompts", label: t`Chat prompts`, icon: ChatCenteredDots },
         {
           id: "dictionary",
           label: t`Dictionary`,

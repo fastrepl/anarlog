@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import {
   ArrowsInSimple,
   ArrowsOutSimple,
+  ChatCenteredDots,
   ClockCounterClockwise,
   Envelope,
   Lightbulb,
@@ -14,6 +15,7 @@ import {
 import { cn } from "@anlg/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
+import { useCustomChatPrompts } from "~/chat/custom-prompts";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -36,6 +38,7 @@ export function ChatBodyEmpty({
 }) {
   const { isDarkAppearance } = useChatAppearance();
   const openNew = useTabs((state) => state.openNew);
+  const customPrompts = useCustomChatPrompts();
   const liveMeetingSuggestions = [
     {
       label: t`Recap the last 5 minutes.`,
@@ -91,9 +94,27 @@ export function ChatBodyEmpty({
         : t`What key decisions were made in my recent meetings?`,
     },
   ];
-  const suggestions = isLiveMeeting
-    ? liveMeetingSuggestions
-    : meetingSuggestions;
+  const customSuggestions = customPrompts
+    .filter(
+      ({ availability }) =>
+        availability === "always" ||
+        availability === (isLiveMeeting ? "recording" : "not_recording"),
+    )
+    .map((customPrompt) => ({
+      key: customPrompt.id,
+      label: customPrompt.title,
+      icon: ChatCenteredDots,
+      prompt: customPrompt.prompt,
+    }));
+  const suggestions: Array<{
+    key?: string;
+    label: string;
+    icon: typeof ChatCenteredDots;
+    prompt: string;
+  }> = [
+    ...customSuggestions,
+    ...(isLiveMeeting ? liveMeetingSuggestions : meetingSuggestions),
+  ];
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });
@@ -152,9 +173,9 @@ export function ChatBodyEmpty({
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
         <div className="flex flex-col gap-0.5">
-          {suggestions.map(({ label, icon: Icon, prompt }) => (
+          {suggestions.map(({ key, label, icon: Icon, prompt }) => (
             <button
-              key={label}
+              key={key ?? label}
               onClick={() => handleSuggestionClick(prompt)}
               className={cn([
                 "group grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg py-2 pr-3 pl-0 text-left text-sm",

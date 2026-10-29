@@ -458,6 +458,10 @@ msgstr ""
 msgid "Add person"
 msgstr ""
 
+#: src/settings/prompts/index.tsx
+msgid "Add prompt"
+msgstr ""
+
 #: src/settings/todo/github.tsx
 msgid "Add repository"
 msgstr ""
@@ -550,6 +554,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Already taken"
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "Always"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/always-on-top.tsx
@@ -974,6 +982,7 @@ msgstr ""
 #: src/settings/dictionary/index.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
+#: src/settings/prompts/index.tsx
 #: src/settings/sync/index.tsx
 #: src/settings/team/index.tsx
 #: src/settings/todo/github.tsx
@@ -1080,6 +1089,11 @@ msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
 msgid "Chat history"
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+#: src/sidebar/settings-nav-groups.ts
+msgid "Chat prompts"
 msgstr ""
 
 #: src/chat/components/input/use-dictation.ts
@@ -1912,6 +1926,10 @@ msgstr ""
 msgid "Couldn't copy the invite link. Try again."
 msgstr ""
 
+#: src/settings/prompts/index.tsx
+msgid "Couldn't delete this prompt. Try again."
+msgstr ""
+
 #: src/settings/stats/badge-collection.tsx
 msgid "Couldn't load your badges. Reopen this page to try again."
 msgstr ""
@@ -1935,6 +1953,10 @@ msgstr ""
 #: src/auth/context.tsx
 #: src/settings/referrals.tsx
 msgid "Couldn't open sign-in. Try again."
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "Couldn't save this prompt. Try again."
 msgstr ""
 
 #: src/settings/stats/badge-collection.tsx
@@ -2114,6 +2136,10 @@ msgstr ""
 
 #: src/sidebar/timeline/index.tsx
 msgid "Delete {pendingDeleteCount} selected notes?"
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "Delete {title}"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -2315,6 +2341,10 @@ msgstr ""
 msgid "Draft follow-up email."
 msgstr ""
 
+#: src/settings/prompts/index.tsx
+msgid "Draft talking points"
+msgstr ""
+
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx
 msgid "Duplicate"
@@ -2337,6 +2367,10 @@ msgstr ""
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "Edit {title}"
 msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
@@ -3740,6 +3774,7 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 #: src/settings/general/account-profile.tsx
+#: src/settings/prompts/index.tsx
 #: src/settings/team/index.tsx
 msgid "Name"
 msgstr ""
@@ -3839,6 +3874,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "No channel selected yet."
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "No chat prompts yet"
 msgstr ""
 
 #: src/templates/details.tsx
@@ -4532,6 +4571,10 @@ msgstr ""
 msgid "Production"
 msgstr ""
 
+#: src/settings/prompts/index.tsx
+msgid "Prompt"
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Protect cloud sync"
 msgstr ""
@@ -4989,6 +5032,7 @@ msgid "Runs once the AI summary for the meeting is ready."
 msgstr ""
 
 #: src/settings/dictionary/index.tsx
+#: src/settings/prompts/index.tsx
 #: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
@@ -5024,6 +5068,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Save policies"
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "Save prompts you use often. They appear as suggestions when you start a new chat."
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -6072,6 +6120,10 @@ msgstr ""
 msgid "Teams"
 msgstr ""
 
+#: src/settings/prompts/index.tsx
+msgid "Tell Chat what to do with the meeting."
+msgstr ""
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."
 msgstr ""
@@ -6211,6 +6263,10 @@ msgstr ""
 
 #: src/settings/general/timezone.tsx
 msgid "Timezone"
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "Tip: Add a prompt you ask in every meeting, like drafting talking points while you record."
 msgstr ""
 
 #: src/settings/dictionary/index.tsx
@@ -6695,6 +6751,10 @@ msgstr ""
 msgid "What's new in {version}?"
 msgstr ""
 
+#: src/settings/prompts/index.tsx
+msgid "When not recording"
+msgstr ""
+
 #: src/settings/general/index.tsx
 msgid "When off, summaries follow the detected meeting language."
 msgstr ""
@@ -6705,6 +6765,14 @@ msgstr ""
 
 #: src/settings/automations/workflow-builder.tsx
 msgid "When this happens"
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "When to show"
+msgstr ""
+
+#: src/settings/prompts/index.tsx
+msgid "While recording"
 msgstr ""
 
 #: src/settings/ai/stt/local-file-model.tsx

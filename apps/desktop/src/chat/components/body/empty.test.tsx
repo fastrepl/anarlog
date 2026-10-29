@@ -11,11 +11,23 @@ vi.mock("~/store/zustand/tabs", () => ({
   useTabs: () => vi.fn(),
 }));
 
+const config = vi.hoisted(() => ({ customPrompts: "[]" }));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: (key: string) =>
+    key === "chat_custom_prompts" ? config.customPrompts : undefined,
+}));
+
+vi.mock("~/settings/queries", () => ({
+  updateSettingValue: vi.fn(),
+}));
+
 import { ChatBodyEmpty } from "./empty";
 
 describe("ChatBodyEmpty", () => {
   beforeEach(() => {
     cleanup();
+    config.customPrompts = "[]";
   });
 
   it("offers different quick actions for notes, live meetings, and no context", () => {
@@ -56,5 +68,44 @@ describe("ChatBodyEmpty", () => {
 
     render(<ChatBodyEmpty hasContext onSendMessage={vi.fn()} />);
     expect(screen.queryByText("Make the summary shorter.")).toBeNull();
+  });
+
+  it("shows saved prompts only where they apply and sends their full text instead of the name", () => {
+    config.customPrompts = JSON.stringify([
+      {
+        id: "live",
+        title: "What should I say?",
+        prompt: "Suggest my next line.",
+        availability: "recording",
+      },
+      {
+        id: "after",
+        title: "Write a PRD",
+        prompt: "Draft a PRD from this meeting.",
+        availability: "not_recording",
+      },
+      {
+        id: "any",
+        title: "List risks",
+        prompt: "List the risks raised so far.",
+        availability: "always",
+      },
+    ]);
+    const onSendMessage = vi.fn();
+    const live = render(
+      <ChatBodyEmpty hasContext isLiveMeeting onSendMessage={onSendMessage} />,
+    );
+    expect(screen.queryByText("Write a PRD")).toBeNull();
+    expect(screen.getByText("List risks")).toBeTruthy();
+    fireEvent.click(screen.getByText("What should I say?"));
+    expect(onSendMessage).toHaveBeenCalledWith("Suggest my next line.", [
+      { type: "text", text: "Suggest my next line." },
+    ]);
+    live.unmount();
+
+    render(<ChatBodyEmpty hasContext onSendMessage={vi.fn()} />);
+    expect(screen.queryByText("What should I say?")).toBeNull();
+    expect(screen.getByText("Write a PRD")).toBeTruthy();
+    expect(screen.getByText("List risks")).toBeTruthy();
   });
 });
