@@ -247,7 +247,11 @@ export function getSttModelTranscriptionMode(
     if (model === "universal-3-pro" || model === "universal-3-5-pro") {
       return "batch";
     }
-    if (model === "u3-rt-pro" || model === "universal-3-5-pro-realtime") {
+    if (
+      model === "u3-rt-pro" ||
+      model === "universal-3-5-pro-realtime" ||
+      model === "universal-3-6-pro-realtime"
+    ) {
       return "live";
     }
   }

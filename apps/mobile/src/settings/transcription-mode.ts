@@ -57,7 +57,11 @@ export function batchTranscriptionModel(provider: string, model: string) {
     return "nova-3-general";
   if (
     provider === "assemblyai" &&
-    ["u3-rt-pro", "universal-3-5-pro-realtime"].includes(model)
+    [
+      "u3-rt-pro",
+      "universal-3-5-pro-realtime",
+      "universal-3-6-pro-realtime",
+    ].includes(model)
   )
     return "universal-3-5-pro";
   if (provider === "google_generative_ai" && model.includes("transcribe-live"))
