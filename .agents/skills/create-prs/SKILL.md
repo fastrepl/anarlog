@@ -5,6 +5,9 @@ description: Use only in the Anarlog repository when the active checkout branch 
 
 # Create missing GitButler PRs
 
+Read [review-intent](../review-intent/SKILL.md) before writing the PR title or
+body. Use its Context, Intention, and Direction structure and Linear issue rules.
+
 ## Applicability
 
 Use only in the Anarlog repository or its checkouts/worktrees when the active
