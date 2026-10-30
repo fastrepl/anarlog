@@ -1,11 +1,17 @@
 use std::time::Duration;
 
-use anlg_ws_client::client::{IntoClientRequest, Message};
+use anlg_ws_client::client::{IntoClientRequest, Message, WebSocketIO};
 use bytes::Bytes;
 
-use super::{ListenClientDualInput, TransformedInput, forward_dual_to_single, mic_stream_params};
+use super::{
+    ListenClientDualIO, ListenClientDualInput, ListenClientIO, TransformedInput,
+    forward_dual_to_single, mic_stream_params,
+};
 use crate::test_utils::{run_dual_test, run_single_test};
-use crate::{AssemblyAIAdapter, DeepgramAdapter, ListenClient, RealtimeSttAdapter, SonioxAdapter};
+use crate::{
+    AssemblyAIAdapter, DeepgramAdapter, GoogleGenerativeAiAdapter, ListenClient,
+    RealtimeSttAdapter, SonioxAdapter,
+};
 
 #[derive(Clone, Default)]
 struct TestAdapter;
@@ -245,6 +251,24 @@ fn mic_stream_params_without_mic_count_keeps_shared_expectation() {
 
     assert_eq!(mic_params.num_speakers, Some(4));
     assert_eq!(mic_params.mic_num_speakers, None);
+}
+
+#[test]
+fn binary_provider_frames_reach_the_adapter_parser() {
+    let frame = br#"{"serverContent":{"interimInputTranscription":{"text":"Ahi esta"}}}"#;
+
+    for payload in [
+        ListenClientIO::from_message(Message::Binary(Bytes::from_static(frame))),
+        ListenClientDualIO::from_message(Message::Binary(Bytes::from_static(frame))),
+    ] {
+        let payload = payload.unwrap().expect("binary frame was dropped");
+        let responses = GoogleGenerativeAiAdapter.parse_response(&payload);
+        assert_eq!(
+            responses.first().and_then(|response| response.text()),
+            Some("Ahi esta"),
+            "unexpected responses: {responses:?}"
+        );
+    }
 }
 
 #[tokio::test]
