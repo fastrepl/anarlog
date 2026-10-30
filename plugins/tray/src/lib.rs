@@ -1,5 +1,6 @@
 mod commands;
 mod ext;
+mod language;
 mod macos_position;
 mod menu_items;
 mod schedule;
@@ -8,7 +9,11 @@ mod tray_icon;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub use ext::*;
-pub use menu_items::{AnlgMenuItem, UpdateMenuState, handle_agenda_menu_event, quit_completely};
+pub use language::{TrayLanguageOption, TrayLanguageSelected};
+pub use menu_items::{
+    AnlgMenuItem, UpdateMenuState, handle_agenda_menu_event, handle_language_menu_event,
+    quit_completely,
+};
 
 const PLUGIN_NAME: &str = "anlg-tray";
 static UPDATES_ENABLED: AtomicBool = AtomicBool::new(true);
@@ -19,7 +24,8 @@ pub fn init(enable_updates: bool) -> tauri::plugin::TauriPlugin<tauri::Wry> {
 
     tauri::plugin::Builder::<tauri::Wry>::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
-        .setup(|app, _api| {
+        .setup(move |app, _api| {
+            specta_builder.mount_events(app);
             if updates_enabled() {
                 setup_update_listeners(app);
             }
@@ -76,6 +82,10 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::set_tray_icon_visible,
             commands::set_tray_schedule,
             commands::set_tray_recording_title,
+            commands::set_tray_languages,
+        ])
+        .events(tauri_specta::collect_events![
+            language::TrayLanguageSelected
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

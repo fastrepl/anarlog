@@ -1,4 +1,4 @@
-use crate::{TrayPluginExt, schedule::TrayScheduleEvent};
+use crate::{TrayLanguageOption, TrayPluginExt, schedule::TrayScheduleEvent};
 
 #[tauri::command]
 #[specta::specta]
@@ -29,5 +29,16 @@ pub async fn set_tray_recording_title(
 ) -> Result<(), String> {
     app.tray()
         .set_recording_title(title)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_tray_languages(
+    app: tauri::AppHandle<tauri::Wry>,
+    options: Vec<TrayLanguageOption>,
+) -> Result<(), String> {
+    app.tray()
+        .set_languages(options)
         .map_err(|error| error.to_string())
 }

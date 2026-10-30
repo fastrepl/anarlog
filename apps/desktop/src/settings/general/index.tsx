@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
@@ -52,33 +53,47 @@ const SETTINGS_FORM_KEYS = [
   "current_stt_provider",
 ] as const;
 
+function isSameValue(a: unknown, b: unknown) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 function useSettingsForm(storedSettings: StoredSettingValues) {
   const settingsValue = resolveConfigValues(SETTINGS_FORM_KEYS, storedSettings);
 
   const setSettingValues = useSetSettingValues();
 
+  const formValues = {
+    autostart: settingsValue.autostart,
+    automatic_updates: settingsValue.automatic_updates,
+    auto_join_scheduled_meetings: settingsValue.auto_join_scheduled_meetings,
+    auto_start_scheduled_meetings: settingsValue.auto_start_scheduled_meetings,
+    auto_stop_meetings: settingsValue.auto_stop_meetings,
+    floating_bar_enabled: settingsValue.floating_bar_enabled,
+    show_app_in_dock: settingsValue.show_app_in_dock,
+    show_tray_icon: settingsValue.show_tray_icon,
+    notification_detect: settingsValue.notification_detect,
+    consent_auto_send_chat: settingsValue.consent_auto_send_chat,
+    capture_meeting_chat: settingsValue.capture_meeting_chat,
+    capture_shared_screens: settingsValue.capture_shared_screens,
+    ai_language: settingsValue.ai_language,
+    summary_use_main_language: settingsValue.summary_use_main_language,
+    spoken_languages: getAdditionalSpokenLanguages(
+      settingsValue.ai_language,
+      settingsValue.spoken_languages,
+    ),
+  };
+
+  // Once touched, the form ignores new default values, and every submission
+  // writes all fields. The effect below copies in changes made elsewhere,
+  // such as the tray language menu, so a submission does not restore stale
+  // values. Fields with a write from this form still on its way are skipped
+  // until it lands, so a late write cannot replace a newer edit.
+  type FormKey = keyof typeof formValues;
+  const syncedValues = useRef(formValues);
+  const pendingWrites = useRef(new Map<FormKey, unknown>());
+
   const form = useForm({
-    defaultValues: {
-      autostart: settingsValue.autostart,
-      automatic_updates: settingsValue.automatic_updates,
-      auto_join_scheduled_meetings: settingsValue.auto_join_scheduled_meetings,
-      auto_start_scheduled_meetings:
-        settingsValue.auto_start_scheduled_meetings,
-      auto_stop_meetings: settingsValue.auto_stop_meetings,
-      floating_bar_enabled: settingsValue.floating_bar_enabled,
-      show_app_in_dock: settingsValue.show_app_in_dock,
-      show_tray_icon: settingsValue.show_tray_icon,
-      notification_detect: settingsValue.notification_detect,
-      consent_auto_send_chat: settingsValue.consent_auto_send_chat,
-      capture_meeting_chat: settingsValue.capture_meeting_chat,
-      capture_shared_screens: settingsValue.capture_shared_screens,
-      ai_language: settingsValue.ai_language,
-      summary_use_main_language: settingsValue.summary_use_main_language,
-      spoken_languages: getAdditionalSpokenLanguages(
-        settingsValue.ai_language,
-        settingsValue.spoken_languages,
-      ),
-    },
+    defaultValues: formValues,
     listeners: {
       onChange: ({ formApi }) => {
         const {
@@ -98,6 +113,15 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
           value.spoken_languages,
         ),
       };
+
+      for (const key of Object.keys(normalizedValue) as FormKey[]) {
+        if (
+          pendingWrites.current.has(key) ||
+          !isSameValue(normalizedValue[key], syncedValues.current[key])
+        ) {
+          pendingWrites.current.set(key, normalizedValue[key]);
+        }
+      }
 
       setSettingValues({
         autostart: normalizedValue.autostart,
@@ -137,6 +161,23 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         capture_shared_screens: normalizedValue.capture_shared_screens,
       });
     },
+  });
+
+  useEffect(() => {
+    const previous = syncedValues.current;
+    syncedValues.current = formValues;
+    for (const key of Object.keys(formValues) as FormKey[]) {
+      if (pendingWrites.current.has(key)) {
+        if (isSameValue(formValues[key], pendingWrites.current.get(key))) {
+          pendingWrites.current.delete(key);
+        }
+      } else if (!isSameValue(previous[key], formValues[key])) {
+        form.setFieldValue(key, formValues[key] as never, {
+          dontRunListeners: true,
+          dontUpdateMeta: true,
+        });
+      }
+    }
   });
 
   // form.setFieldValue never reaches the form-level onChange listener when
