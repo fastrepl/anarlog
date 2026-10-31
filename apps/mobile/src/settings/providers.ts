@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { fetch } from "expo/fetch";
+import { Platform } from "react-native";
 
 import { verifyProviderCredentials } from "@anlg/provider-validation";
 
@@ -9,8 +10,10 @@ import {
   ProRequiredError,
 } from "@/auth/billing";
 import { supabase } from "@/auth/client";
+import { checkLocalSpeechStatus } from "@/data/local-speech";
 import { execute, executeTransaction } from "@/db";
 
+import { readPreferences } from "./preferences";
 import {
   defaultProviderConfig,
   isOAuthSubscriptionProvider,
@@ -32,6 +35,38 @@ const secureOptions: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
 
+export async function readLocalSpeechModel(
+  language?: string,
+  model = "mlkit-advanced",
+) {
+  if (!language) {
+    const preferences = await readPreferences();
+    language = preferences.spoken_languages[0] ?? preferences.ai_language;
+  }
+  return {
+    language,
+    model,
+    status: await checkLocalSpeechStatus(language, model),
+  };
+}
+
+async function requireLocalSpeechSupport(
+  model = "mlkit-advanced",
+  requireReady = false,
+) {
+  if (Platform.OS !== "android")
+    throw new Error("Google on-device transcription requires Android.");
+  const { status } = await readLocalSpeechModel(undefined, model);
+  if (status === "unavailable")
+    throw new Error(
+      "Google on-device transcription is unavailable on this phone. Choose another transcription provider.",
+    );
+  if (requireReady && status !== "available")
+    throw new Error(
+      "Download the speech model before selecting it for recording.",
+    );
+}
+
 export async function readProviderConfig(
   accountId: string | null,
   kind: ProviderKind,
@@ -50,7 +85,7 @@ export async function readProviderKey(
   kind: ProviderKind,
   provider: string,
 ): Promise<string | null> {
-  if (provider === "anarlog") return null;
+  if (provider === "anarlog" || provider === "google_on_device") return null;
   return SecureStore.getItemAsync(
     providerStorageKey(accountId, kind, provider),
     secureOptions,
@@ -86,6 +121,16 @@ export async function readProviderStatus(
   kind: ProviderKind,
   provider: string,
 ) {
+  if (provider === "google_on_device") {
+    const config = await readProviderSetup(accountId, kind, provider);
+    return {
+      config,
+      hasKey: false,
+      isConfigured:
+        (await readLocalSpeechModel(undefined, config.model)).status !==
+        "unavailable",
+    };
+  }
   if (isOAuthSubscriptionProvider(provider)) {
     const config = await readProviderSetup(accountId, kind, provider);
     let hasKey = false;
@@ -185,7 +230,9 @@ async function persistProviderConfig(
   const normalized = connectionOnly
     ? { ...config, ...validateProviderConnection(kind, config) }
     : validateProviderConfig(kind, config);
-  if (isOAuthSubscriptionProvider(normalized.provider)) {
+  if (normalized.provider === "google_on_device") {
+    await requireLocalSpeechSupport(normalized.model, activate);
+  } else if (isOAuthSubscriptionProvider(normalized.provider)) {
     await resolveSubscriptionCredential(accountId, normalized.provider);
   } else if (normalized.provider !== "anarlog") {
     const key = validateProviderApiKey(
@@ -257,6 +304,10 @@ export async function resolveProvider(kind: ProviderKind) {
   if (auth?.error) throw new Error("Sign in again to continue.");
   const session = auth?.data.session;
   const config = await readProviderConfig(session?.user.id ?? null, kind);
+  if (config.provider === "google_on_device") {
+    await requireLocalSpeechSupport(config.model);
+    return { ...config, apiKey: "" };
+  }
   if (isOAuthSubscriptionProvider(config.provider)) {
     const credential = await resolveSubscriptionCredential(
       session?.user.id ?? null,

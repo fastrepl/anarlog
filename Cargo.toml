@@ -6,6 +6,9 @@ debug = true
 [profile.dev.package."*"]
 opt-level = 1
 debug = false
+# Stripping proc-macro dylibs can produce a misaligned LINKEDIT section on macOS.
+# https://github.com/rust-lang/rust/issues/157750
+strip = "none"
 
 [workspace]
 resolver = "2"

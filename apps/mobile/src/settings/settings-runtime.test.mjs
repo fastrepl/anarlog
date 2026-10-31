@@ -1,3 +1,4 @@
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
@@ -22,6 +23,7 @@ import {
 } from "./providers-model.ts";
 
 const sourceRoot = new URL("../", import.meta.url);
+globalThis.__DEV__ = false;
 const providerValidationUrl = new URL(
   "../../../../packages/provider-validation/src/index.ts",
   import.meta.url,
@@ -96,7 +98,29 @@ const modules = {
   };`,
   "expo-constants": `export default {expoConfig: {version: 'test'}};`,
   "expo-crypto": `export { randomUUID } from 'node:crypto';`,
-  "react-native": `export const Platform = {OS: 'ios'}; export const AppState = { currentState: 'active', addEventListener: () => ({ remove() {} }) };`,
+  expo: `export class NativeModule {};
+    export function requireOptionalNativeModule() { return {
+      checkStatus: async (locale, model) => {
+        const f = globalThis.mobileSettingsFixture;
+        f.localStatusLocale = locale;
+        f.localStatusModel = model;
+        return f.localSpeechStatus;
+      },
+      transcribeFile: async (uri, locale, model) => {
+        const fixture = globalThis.mobileSettingsFixture;
+        fixture.localSpeechInput = {uri, locale, model};
+        if (fixture.localSpeechError) throw fixture.localSpeechError;
+        return fixture.localSpeechText;
+      }
+    }; }`,
+  "expo-file-system": `export const Paths = {document: 'file:///documents'};
+    export class File {
+      constructor(...parts) { this.uri = parts.join('/'); }
+      exists = true;
+      size = 32044;
+      async upload() { throw new Error('Local audio must not be uploaded'); }
+    }`,
+  "react-native": `export const Platform = {OS: 'ios', Version: 35}; export const AppState = { currentState: 'active', addEventListener: () => ({ remove() {} }) };`,
   "@sentry/react-native": `const state = globalThis.mobileSettingsFixture.sentry;
     export function init(options) { state.starts++; state.nativeEnabled = true; state.client = { getOptions: () => options }; }
     export function getClient() { return state.client; }
@@ -111,6 +135,12 @@ registerHooks({
     if (modules[specifier])
       return {
         url: `data:text/javascript,${encodeURIComponent(modules[specifier])}`,
+        shortCircuit: true,
+      };
+    if (specifier === "../../modules/local-speech")
+      return {
+        url: new URL("../../modules/local-speech/index.ts", context.parentURL)
+          .href,
         shortCircuit: true,
       };
     if (specifier.startsWith("@/"))
@@ -130,6 +160,7 @@ registerHooks({
   },
 });
 
+const { localSpeechModelOptions } = await import("./local-speech-model.ts");
 const { setPreference, readPreferences } = await import("./preferences.ts");
 const { createProviderAutosave } = await import("./provider-autosave.ts");
 const {
@@ -155,6 +186,7 @@ const { queryClient } = await import("../lib/query-client.ts");
 const { dismissToast, getToast } = await import("../lib/toast.ts");
 const { loadSessionTranscripts } = await import("../data/transcripts.ts");
 const { Platform } = await import("react-native");
+const { transcribeSession } = await import("../data/transcribe.ts");
 const {
   readSubscriptionCredential,
   saveSubscriptionCredential,
@@ -171,14 +203,19 @@ function signedInWith(claims) {
 beforeEach(() => {
   queryClient.clear();
   Platform.OS = "ios";
+  Platform.Version = 35;
+  fixture.localSpeechStatus = "available";
   fixture.nativeRequest = null;
   fixture.nativeError = null;
+  fixture.localSpeechError = null;
+  fixture.localSpeechText = "Planning the next meeting.";
   fixture.renderedSegments = null;
   fixture.renderRequest = null;
   fixture.db?.close();
   fixture.db = new DatabaseSync(":memory:");
   for (const migration of [
     "20260710223922_canonical_data_model.sql",
+    "20260717140000_attachment_local_state.sql",
     "20260810120000_synced_preferences.sql",
     "20260815100000_transcript_content_revision.sql",
     "20260815100100_transcript_live_deltas.sql",
@@ -1333,6 +1370,171 @@ function createNote() {
     .run();
 }
 
+test("changing engine and spoken language replaces cached availability before a download can use it", async () => {
+  Platform.OS = "android";
+  const client = new QueryClient({
+    defaultOptions: { queries: { gcTime: 0 } },
+  });
+  let options = localSpeechModelOptions(await readPreferences());
+  const observer = new QueryObserver(client, options);
+  const unsubscribe = observer.subscribe(() => {});
+  try {
+    await client.fetchQuery(options);
+    assert.deepEqual(observer.getCurrentResult().data, {
+      language: "en",
+      model: "mlkit-advanced",
+      status: "available",
+    });
+    for (const language of ["en", "ko"]) {
+      await setPreference("spoken_languages", [language]);
+      let ready;
+      fixture.localSpeechStatus = new Promise((resolve) => {
+        ready = resolve;
+      });
+      options = localSpeechModelOptions(await readPreferences(), "mlkit-basic");
+      observer.setOptions(options);
+      assert.equal(observer.getCurrentResult().data, undefined);
+      assert.equal(
+        fixture.localStatusLocale,
+        language === "en" ? "en-US" : "ko-KR",
+      );
+      assert.equal(fixture.localStatusModel, "mlkit-basic");
+      ready("downloadable");
+      await client.fetchQuery(options);
+      assert.deepEqual(observer.getCurrentResult().data, {
+        language,
+        model: "mlkit-basic",
+        status: "downloadable",
+      });
+    }
+  } finally {
+    unsubscribe();
+    client.clear();
+  }
+});
+
+test("unsupported phones keep their provider and cannot activate local transcription", async () => {
+  Platform.OS = "android";
+  signedInWith({});
+  const local = defaultProviderConfig("stt", "google_on_device");
+  const previous = await readProviderConfig("account-a", "stt");
+  for (const sdk of [24, 30]) {
+    Platform.Version = sdk;
+    assert.equal(
+      (await readProviderStatus("account-a", "stt", local.provider))
+        .isConfigured,
+      false,
+    );
+    await assert.rejects(
+      saveProviderConfig("account-a", "stt", local),
+      /unavailable on this phone/,
+    );
+    assert.deepEqual(await readProviderConfig("account-a", "stt"), previous);
+  }
+  Platform.Version = 35;
+  fixture.localSpeechStatus = "unavailable";
+  assert.equal(
+    (await readProviderStatus("account-a", "stt", local.provider)).isConfigured,
+    false,
+  );
+  await assert.rejects(
+    saveProviderConfig("account-a", "stt", local),
+    /unavailable on this phone/,
+  );
+  assert.deepEqual(await readProviderConfig("account-a", "stt"), previous);
+  for (const status of ["downloadable", "downloading"]) {
+    fixture.localSpeechStatus = status;
+    await assert.rejects(
+      saveProviderConfig("account-a", "stt", local),
+      /Download the speech model/,
+    );
+    assert.deepEqual(await readProviderConfig("account-a", "stt"), previous);
+  }
+  fixture.localSpeechStatus = "available";
+  await saveProviderConfig("account-a", "stt", local);
+  assert.equal(
+    (await readProviderStatus("account-a", "stt", local.provider)).isConfigured,
+    true,
+  );
+  fixture.localSpeechStatus = "unavailable";
+  await assert.rejects(resolveProvider("stt"), /unavailable on this phone/);
+});
+
+test("Android local transcription saves a free account's transcript without credentials or uploads and preserves audio on interruption", async () => {
+  Platform.OS = "android";
+  signedInWith({});
+  fixture.verify = async () => {
+    throw new Error("Local speech must not validate remote credentials");
+  };
+  const config = {
+    ...defaultProviderConfig("stt", "google_on_device"),
+    model: "android-on-device",
+  };
+  await saveProviderConfig("account-a", "stt", config);
+  assert.deepEqual(await resolveProvider("stt"), { ...config, apiKey: "" });
+  assert.equal(
+    (await readProviderStatus("account-a", "stt", config.provider))
+      .isConfigured,
+    true,
+  );
+  createNote();
+  fixture.db
+    .prepare(`INSERT INTO session_attachments
+    (id, session_id, source_type, source_id, content_type, size_bytes, metadata_json)
+    VALUES ('session-audio:note-1', 'note-1', 'session_audio', 'primary', 'audio/wav', 32044, '{"transcript_status":"processing"}')`)
+    .run();
+  fixture.db
+    .prepare(`INSERT INTO attachment_local_state (attachment_id, relative_path, availability)
+    VALUES ('session-audio:note-1', 'audio.wav', 'present')`)
+    .run();
+  fixture.localSpeechError = { code: "ERR_MLKIT_INTERRUPTED" };
+  await transcribeSession("note-1");
+  assert.equal(
+    fixture.db.prepare("SELECT count(*) AS n FROM transcripts").get().n,
+    0,
+  );
+  assert.equal(
+    JSON.parse(
+      fixture.db.prepare("SELECT metadata_json FROM session_attachments").get()
+        .metadata_json,
+    ).transcript_status,
+    "processing",
+  );
+  assert.equal(
+    fixture.db.prepare("SELECT availability FROM attachment_local_state").get()
+      .availability,
+    "present",
+  );
+  fixture.localSpeechError = null;
+  await transcribeSession("note-1");
+  const transcript = fixture.db
+    .prepare("SELECT * FROM transcripts WHERE deleted_at IS NULL")
+    .get();
+  assert.equal(transcript.provider, "google_on_device");
+  assert.equal(transcript.model, "android-on-device");
+  assert.equal(transcript.source, "batch_transcription");
+  assert.equal(
+    JSON.parse(transcript.words_json)
+      .map((word) => word.text)
+      .join(" "),
+    fixture.localSpeechText,
+  );
+  assert.equal(
+    JSON.parse(
+      fixture.db.prepare("SELECT metadata_json FROM session_attachments").get()
+        .metadata_json,
+    ).transcript_status,
+    "complete",
+  );
+  assert.equal(fixture.localSpeechInput.locale, "en-US");
+  assert.equal(fixture.localSpeechInput.model, "android-on-device");
+  assert.equal(fixture.keys.size, 0);
+  assert.equal(fixture.requests.length, 0);
+  assert.equal(fixture.nativeRequest, null);
+  Platform.OS = "ios";
+  await assert.rejects(resolveProvider("stt"), /requires Android/);
+});
+
 test("summary generation uses the selected provider and persists a canonical summary without changing notes", async () => {
   createNote();
   await setPreference("ai_language", "ko");
@@ -1541,7 +1743,10 @@ test("analytics opt-out aborts in-flight requests and prevents subsequent events
 test("every provider keeps its key on this device and restores its own setup", async () => {
   for (const kind of ["stt", "llm"]) {
     for (const definition of providersFor(kind).filter(
-      ({ id }) => id !== "anarlog" && !isSubscriptionProvider(id),
+      ({ id }) =>
+        id !== "anarlog" &&
+        id !== "google_on_device" &&
+        !isSubscriptionProvider(id),
     )) {
       const tag = `${kind}/${definition.id}`;
       fixture.db.exec("DELETE FROM app_settings");

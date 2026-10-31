@@ -3,6 +3,7 @@ export function supportsLiveTranscription(provider: string, model: string) {
   if (!model) return false;
   switch (provider) {
     case "anarlog":
+    case "google_on_device":
       return true;
     case "deepgram":
     case "cloudflare_workers_ai":

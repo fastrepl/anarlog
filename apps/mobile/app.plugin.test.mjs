@@ -15,6 +15,7 @@ test("packages only Android architectures with a bundled CloudSync library", asy
   const preserved = [
     { type: "comment", value: "Keep project settings" },
     { type: "property", key: "newArchEnabled", value: "true" },
+    { type: "property", key: "android.minSdkVersion", value: "24" },
   ];
   const config = withAnarlogAndroidArchitectures({
     name: "Anarlog",
