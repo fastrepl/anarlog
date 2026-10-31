@@ -12,6 +12,7 @@ import { fetch } from "expo/fetch";
 import { useCallback, useRef } from "react";
 import { Linking } from "react-native";
 
+import { throwIfAborted } from "../lib/abort.ts";
 import { Button, Text, TextInput } from "./fields";
 import {
   readProviderSetup,
@@ -105,7 +106,7 @@ export function SubscriptionConnect({
                 .replace(/=+$/, ""),
             }
           : undefined;
-      current.signal.throwIfAborted();
+      throwIfAborted(current.signal);
       return startSubscriptionConnect(provider, fetch, current.signal, pkce);
     },
     onSettled: () => {
@@ -128,22 +129,22 @@ export function SubscriptionConnect({
     if (!models.length)
       throw new Error("No models are available for this account.");
     const saved = await readProviderSetup(account, "llm", provider);
-    current.signal.throwIfAborted();
-    signal.throwIfAborted();
+    throwIfAborted(current.signal);
+    throwIfAborted(signal);
     await saveSubscriptionCredential(
       account,
       provider,
       credential,
       current.signal,
     );
-    current.signal.throwIfAborted();
-    signal.throwIfAborted();
+    throwIfAborted(current.signal);
+    throwIfAborted(signal);
     await saveProviderSetup(account, "llm", {
       ...saved,
       model: models.includes(saved.model) ? saved.model : models[0],
     });
-    current.signal.throwIfAborted();
-    signal.throwIfAborted();
+    throwIfAborted(current.signal);
+    throwIfAborted(signal);
     await invalidate();
     onSaved();
     return true;
@@ -161,8 +162,6 @@ export function SubscriptionConnect({
         current.signal,
       );
       await finish(credential, current.signal);
-      form.reset();
-      code.value = "";
     },
     onSettled: () => {
       completing.current = false;
@@ -185,7 +184,7 @@ export function SubscriptionConnect({
       const current = controller.current;
       if (session?.kind !== "device" || !current)
         throw new Error("Start sign-in again.");
-      current.signal.throwIfAborted();
+      throwIfAborted(current.signal);
       const credential = await pollSubscriptionConnect(
         provider,
         session,
@@ -209,16 +208,13 @@ export function SubscriptionConnect({
   const resetStart = start.reset;
   const resetComplete = complete.reset;
   useFocusEffect(
-    useCallback(
-      () => () => {
-        cancel();
-        resetStart();
-        resetComplete();
-        form.reset();
-        code.value = "";
-      },
-      [cancel, resetStart, resetComplete, form, code],
-    ),
+    useCallback(() => {
+      resetStart();
+      resetComplete();
+      form.reset();
+      code.value = "";
+      return cancel;
+    }, [cancel, resetStart, resetComplete, form, code]),
   );
   const browser = useMutation({
     mutationFn: () => {
