@@ -1082,6 +1082,10 @@ msgstr "Changes stay on this device until you resume sync."
 msgid "Chat history"
 msgstr "Chat history"
 
+#: src/chat/components/model-selector.tsx
+msgid "Chat model: {label}"
+msgstr "Chat model: {label}"
+
 #: src/chat/components/input/use-dictation.ts
 msgid "Check microphone permission and the selected input device, then try again."
 msgstr "Check microphone permission and the selected input device, then try again."
@@ -1534,6 +1538,10 @@ msgstr "Connect a CRM in Settings › CRM to enrich contacts."
 msgid "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
 msgstr "Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."
 
+#: src/chat/components/model-selector.tsx
+msgid "Connect a provider in Intelligence settings to choose a model."
+msgstr "Connect a provider in Intelligence settings to choose a model."
+
 #: src/onboarding/calendar.tsx
 #: src/onboarding/index.tsx
 msgid "Connect calendar"
@@ -1789,6 +1797,10 @@ msgstr "Could not generate meeting insights. Try again."
 msgid "Could not identify this device. Try again."
 msgstr "Could not identify this device. Try again."
 
+#: src/chat/components/model-selector.tsx
+msgid "Could not load models. Retry"
+msgstr "Could not load models. Retry"
+
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr "Could not load Slack channels. Reconnect Slack and try again."
@@ -1845,6 +1857,10 @@ msgstr "Could not save the automation draft"
 #: src/settings/automations/starter-config.tsx
 msgid "Could not save the automation setting"
 msgstr "Could not save the automation setting"
+
+#: src/chat/components/model-selector.tsx
+msgid "Could not save the chat model. Try again."
+msgstr "Could not save the chat model. Try again."
 
 #: src/sidebar/folder-name-dialog.tsx
 msgid "Could not save the folder."
@@ -3371,9 +3387,14 @@ msgstr "Loading devices"
 msgid "Loading edit…"
 msgstr "Loading edit…"
 
+#: src/chat/components/model-selector.tsx
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Loading models..."
 msgstr "Loading models..."
+
+#: src/chat/components/model-selector.tsx
+msgid "Loading providers..."
+msgstr "Loading providers..."
 
 #: src/settings/team/index.tsx
 msgid "Loading scheduled captures…"
@@ -3930,9 +3951,14 @@ msgstr "No matching languages found"
 msgid "No matching people"
 msgstr "No matching people"
 
+#: src/chat/components/model-selector.tsx
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "No models available."
 msgstr "No models available."
+
+#: src/chat/components/model-selector.tsx
+msgid "No models found."
+msgstr "No models found."
 
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "No models ready to use."
@@ -5112,6 +5138,10 @@ msgstr "Search installed apps..."
 msgid "Search language..."
 msgstr "Search language..."
 
+#: src/chat/components/model-selector.tsx
+msgid "Search models"
+msgstr "Search models"
+
 #: src/shared/open-note-dialog.tsx
 msgid "Search notes and pages..."
 msgstr "Search notes and pages..."
@@ -5179,6 +5209,7 @@ msgstr "See all folders"
 msgid "See all templates"
 msgstr "See all templates"
 
+#: src/chat/components/model-selector.tsx
 #: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Select a model"
@@ -5477,6 +5508,10 @@ msgstr "Show in folder"
 #: src/settings/appearance/time-format.tsx
 msgid "Show meeting times as 14:00 instead of 2:00 PM."
 msgstr "Show meeting times as 14:00 instead of 2:00 PM."
+
+#: src/chat/components/model-selector.tsx
+msgid "Show more models"
+msgstr "Show more models"
 
 #: src/settings/general/app-settings.tsx
 msgid "Show release notes"
@@ -6326,6 +6361,7 @@ msgstr "Typewriter Key"
 msgid "Typical conversation length"
 msgstr "Typical conversation length"
 
+#: src/chat/components/model-selector.tsx
 #: src/settings/developers/cli.tsx
 msgid "Unavailable"
 msgstr "Unavailable"

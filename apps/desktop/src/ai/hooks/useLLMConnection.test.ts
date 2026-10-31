@@ -3,9 +3,19 @@ import { renderHook } from "@testing-library/react";
 import { generateText, streamText } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { normalizeLLMProviderId, useLanguageModel } from "./useLLMConnection";
+import {
+  normalizeLLMProviderId,
+  useLanguageModel,
+  useLLMConnection,
+} from "./useLLMConnection";
 
-const mocks = vi.hoisted(() => ({ provider: "custom" as string }));
+const mocks = vi.hoisted(() => ({
+  provider: "custom" as string,
+  model: "mtplx",
+  chatProvider: undefined as string | undefined,
+  chatModel: undefined as string | undefined,
+  chatConnected: true,
+}));
 const managed = vi.hoisted(() => ({ ready: true, disabled: false }));
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: vi.fn() }));
 vi.mock("~/settings/queries", () => ({
@@ -16,23 +26,93 @@ vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({ isPaid: false }),
 }));
 vi.mock("~/settings/providers", () => ({
-  useAiProvider: () => ({
-    type: "llm",
-    base_url: "http://127.0.0.1:8000/v1",
-    api_key: "local-key",
-  }),
+  useAiProvider: (_type: string, provider: string) =>
+    provider === "openai"
+      ? {
+          type: "llm",
+          base_url: "http://127.0.0.1:9000/v1",
+          api_key: mocks.chatConnected ? "chat-key" : "",
+        }
+      : {
+          type: "llm",
+          base_url: "http://127.0.0.1:8000/v1",
+          api_key: "local-key",
+        },
 }));
 vi.mock("~/shared/config", () => ({
   useConfigValues: () => ({
     intelligence_disabled: managed.disabled,
     current_llm_provider: mocks.provider,
-    current_llm_model: "mtplx",
-    current_llm_reasoning_effort: "default",
+    current_llm_model: mocks.model,
+    current_llm_reasoning_effort: "high",
+    chat_llm_provider: mocks.chatProvider,
+    chat_llm_model: mocks.chatModel,
   }),
 }));
 
 afterEach(() => {
   mocks.provider = "custom";
+  mocks.model = "mtplx";
+  mocks.chatProvider = undefined;
+  mocks.chatModel = undefined;
+  mocks.chatConnected = true;
+});
+
+it("follows Intelligence until chat is selected, then keeps chat separate from summaries without a silent fallback", () => {
+  const useModels = () => ({
+    chat: useLLMConnection("chat"),
+    chatModel: useLanguageModel("chat"),
+    summary: useLLMConnection("enhance"),
+  });
+  const { result, rerender, unmount } = renderHook(useModels);
+  expect(result.current.chat.conn?.modelId).toBe("mtplx");
+  mocks.model = "summary-v2";
+  rerender();
+  expect(result.current.chatModel?.modelId).toBe("summary-v2");
+
+  mocks.chatProvider = "openai";
+  mocks.chatModel = "chat-only";
+  rerender();
+  expect(result.current.chat.conn).toMatchObject({
+    providerId: "openai",
+    modelId: "chat-only",
+    apiKey: "chat-key",
+    baseUrl: "http://127.0.0.1:9000/v1",
+    reasoningEffort: "default",
+  });
+  expect(result.current.chatModel?.modelId).toBe("chat-only");
+  expect(result.current.summary.conn).toMatchObject({
+    providerId: "custom",
+    modelId: "summary-v2",
+    apiKey: "local-key",
+    reasoningEffort: "high",
+  });
+
+  mocks.model = "summary-v3";
+  rerender();
+  expect(result.current.chatModel?.modelId).toBe("chat-only");
+  expect(result.current.summary.conn?.modelId).toBe("summary-v3");
+  unmount();
+
+  const reopened = renderHook(useModels);
+  expect(reopened.result.current.chatModel?.modelId).toBe("chat-only");
+  mocks.chatConnected = false;
+  reopened.rerender();
+  expect(reopened.result.current.chatModel).toBeNull();
+  expect(reopened.result.current.chat.status).toMatchObject({
+    status: "error",
+    reason: "missing_config",
+    providerId: "openai",
+  });
+  expect(reopened.result.current.summary.conn?.modelId).toBe("summary-v3");
+  mocks.chatProvider = undefined;
+  reopened.rerender();
+  expect(reopened.result.current.chatModel).toBeNull();
+  expect(reopened.result.current.chat.status).toEqual({
+    status: "pending",
+    reason: "missing_provider",
+  });
+  reopened.unmount();
 });
 
 it.each([false, true])(

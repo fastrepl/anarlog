@@ -37,10 +37,10 @@ it("uses Venice's text catalog and preserves provider model IDs and vision capab
   );
   expect(providerFetch).toHaveBeenCalledWith(
     "https://api.venice.ai/api/v1/models?type=text",
-    {
+    expect.objectContaining({
       method: "GET",
       headers: { Authorization: "Bearer test-key" },
-    },
+    }),
   );
   expect(result.models).toEqual(
     expect.arrayContaining(["venice-uncensored", "vision-model"]),
