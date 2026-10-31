@@ -125,16 +125,7 @@
     }
   ],
   "free-transcription-software-windows": [],
-  "google-gemini-data-retention-policy": [
-    {
-      "filename": "gemini-retention-by-tier.png",
-      "content": "Title: Gemini Data Retention by Tier\nConsumer Gemini: 18 month default retention, human review up to 3 years, training on by default with opt out\nGemini API: 55 day abuse monitoring retention only, no human review, no training\nWorkspace Enterprise: admin defined retention, no human review by default, no training",
-      "context": "Three-column reference figure comparing how Google handles Gemini data across the consumer app, the API, and Workspace Enterprise. Each column is one tier with its data-handling facts. Do not frame as pros versus cons.",
-      "visualQuery": "three column comparison",
-      "orientation": "horizontal",
-      "width": 1200
-    }
-  ],
+  "google-gemini-data-retention-policy": [],
   "google-gemini-meeting-notes": [
     {
       "filename": "gemini-meeting-note-paths.png",

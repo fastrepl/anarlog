@@ -1,6 +1,6 @@
 ---
 meta_title: "Everything You Should Know About Google Gemini Data Retention Policy"
-meta_description: "Gemini can connect your AI conversations to Gmail, Calendar, and location history. Here's exactly what Google keeps and how to control it."
+meta_description: "Compare Gemini app, unpaid and paid API, Workspace, and Google Cloud retention rules, including training, human review, and deletion controls."
 author:
   - "John Jeong"
 featured: false
@@ -8,102 +8,76 @@ category: "Guides"
 date: "2026-03-13"
 ---
 
-Every AI provider in this series stores your conversations to some degree. Google Gemini does that too. But Gemini sits inside an ecosystem that already holds your email, your calendar, your location history, and your search activity. That changes the risk profile entirely.
+How long Google keeps Gemini data depends on the product, account, billing status, settings, and features you use. A personal Gemini chat, an API request, and a Workspace conversation do not share one retention policy.
 
-When you evaluate [OpenAI](/blog/chatgpt-data-retention-policy/) or Anthropic, you're asking what they do with your AI conversations. When you evaluate Google, you're asking what they do with your AI conversations and everything else they already know about you.
-
-Here is the full picture.
+Policy details reviewed October 31, 2026. Start with the surface handling your data, then check its training, review, and storage rules separately.
 
 ## Quick Reference: Gemini Data Retention by Tier
 
 
-| Feature           | Consumer Gemini    | Gemini API                      | Workspace Enterprise |
-| ----------------- | ------------------ | ------------------------------- | -------------------- |
-| Default Retention | 18 months          | 55 days (abuse monitoring only) | Admin-defined        |
-| Human Review      | Yes, up to 3 years | No                              | No (by default)      |
-| Model Training    | Yes (opt-out)      | No                              | No                   |
-| Gmail Access      | Default ON in US   | No                              | Admin-controlled     |
+| Surface | Retention to check | Training and human review |
+| --- | --- | --- |
+| Personal Gemini app | Usually 18-month auto-delete; 72 hours with Keep Activity off or temporary chats | Settings and feedback matter; safety review can still involve humans |
+| Unpaid Gemini API / AI Studio | Abuse logs and feature storage; not a single deletion timer | Content can improve products and be human reviewed; regional exceptions apply |
+| Paid Gemini API | 55-day abuse logs, plus feature-specific storage | No product-improvement use of prompts/responses; authorized abuse review remains possible |
+| Qualifying Workspace account | Admin controls differ between the Gemini app and Workspace side panels | No human review or generative-model training outside your domain without permission |
+| Google Cloud deployment | Model, logging, caching, grounding, and stateful-feature rules | Cloud terms apply; zero retention requires specific configuration |
 
-<Image src="anarlog/blog/articles/google-gemini-data-retention-policy/gemini-retention-by-tier.png" alt="Gemini data retention differences across the consumer app, API, and Workspace Enterprise" />
+The sections below explain these boundaries and link to Google's current policies.
 
 ## What Gemini Stores by Default?
 
-For consumer accounts, Google stores your Gemini conversations in your Google Account with a default retention period of 18 months. You can change this to 3 months or 36 months in your settings, but 18 months is what you get if you never touch it.
-
-There is a floor on this. Even if you turn off Gemini Apps Activity entirely, Google still retains your conversations for up to 72 hours to operate the service. There is no configuration that gives you zero retention on the Google consumer product.
-
-Here is the part that catches most people off guard: if Google's human reviewers look at one of your conversations, that conversation is retained for up to 3 years, disconnected from your Google Account. Deleting your Gemini activity does not remove those reviewed conversations. They persist regardless.
-
-Google says it tries to anonymize or disconnect reviewed chats before humans see them. But if you typed personal information directly into the conversation, that information is part of the message and visible to the reviewer.
+For personal accounts, **Keep Activity** controls saved chats and improvement use. When on, chats can improve Google's AI models. Auto-delete defaults to 18 months; alternatives include 3 months, 36 months, or no auto-delete. With activity off, future chats are not used to improve AI models unless you send feedback. Temporary chats are not used for model training. Both still have 72-hour operational retention. See the [Gemini Apps Privacy Hub](https://support.google.com/gemini/answer/13594961?hl=en).
 
 ## The Gmail Access Story
 
-In late 2025, Google enabled Gemini access to Gmail, Google Chat, and Google Meet by default for US users. By early 2026, Google rebranded this cross-app data flow under the name "Personal Intelligence," which now manages how Gemini connects to Gmail, Drive, Maps, and other Google services. When enabled, Gemini can read your entire email history to power features like email summarization, draft suggestions, and surfacing relevant information across your inbox.
+Gmail smart features, Gemini Connected Apps, and Personal Intelligence are different controls. Do not infer Gmail access from a Gemini subscription or from a setting in another Google product.
 
-In the US, this was opt-out. You had to actively turn it off. In Europe, the same feature required an opt-in before Gemini could access your Gmail, because GDPR places stricter requirements on default data sharing.
+Google's [Connected Apps guide](https://support.google.com/gemini/answer/13695044?hl=en) explains how to connect or disconnect apps and inspect their supported actions. Availability varies by account, device, and region. Access to personal content requires permission; automatic use of public Search or Maps information is a separate capability.
 
-Malwarebytes reported that the integration was enabled without prominent notification, and Snopes documented the subsequent confusion around what Gemini could actually access. The case Thele v. Google LLC, filed in the Northern District of California, alleges a violation of the California Invasion of Privacy Act (CIPA). The argument is that Google used the existing "Smart Features" toggle as a backdoor to enable Gemini's deeper data access without a clear second consent prompt. As of March 2026, the case is in the discovery phase.
-
-Google's position is that this data is used only to power features for individual users, not to train its public AI models. That is a meaningful distinction. But for anyone evaluating Gemini as a provider for sensitive work, the default-on access to your full email history is worth knowing about upfront.
+On the Gemini website, open **Customize → Connectors**; if Customize is absent, look under More. Review the apps connected to the account you actually use.
 
 ## How to Control Your Data?
 
-To turn off training and human review: myaccount.google.com → Data and Privacy → Gemini Apps Activity → Turn off.
-
-With activity off, future conversations will not be sent for human review and will not be used to train Google's AI models. The 72-hour operational retention still applies.
-
-To control Gmail and cross-app access: as of early 2026, Google groups these permissions under a Personal Intelligence dashboard inside the Gemini interface. This is the central place to control which Google services Gemini can read across Gmail, Drive, Maps, and Calendar. You can also disable Gmail access specifically via Gmail Settings → See all settings → General → Gemini for Gmail without affecting the rest of your account.
-
-To adjust the default 18-month retention: open Gemini Apps Activity in your Google Account, select "Auto-delete," and choose your preferred window.
+Open [Gemini Apps Activity](https://myactivity.google.com/product/gemini) to change Keep Activity, auto-delete, or delete saved activity. Review Connected Apps separately. Deleting Gemini activity does not automatically delete data held by other Google services.
 
 ## Human Review in Plain Terms
 
-Google's [Gemini Apps Privacy Hub](https://support.google.com/gemini/answer/13594961?hl=en) states that trained human reviewers check conversations to evaluate whether responses are low quality, inaccurate, or harmful. This is standard practice across AI providers, but Google's retention policy for reviewed conversations is notably long at 3 years.
-
-This means that in practice, a conversation you have today could be read by a human reviewer and retained until 2029, even if you delete it tomorrow.
-
-One area that often gets overlooked: if you use Gems, which are custom versions of Gemini configured with specific instructions and uploaded knowledge files, that configuration data carries the same 3-year human review risk as your regular conversations, as long as Gemini Apps Activity is turned on.
-
-Google advises users not to enter confidential information they would not want a reviewer to see. That is practical advice, but it places the compliance burden squarely on users rather than on the product design.
+Turning Keep Activity off stops improvement review of future chats, subject to feedback exceptions. It does **not** eliminate human safety review, including for temporary chats. Reviewed chats can remain for up to three years, disconnected from your account; deleting activity does not delete previously reviewed copies. Feedback can include recent chat context and uploads, so review what you submit.
 
 ## How the API Is Different?
 
-If you use the Gemini API directly rather than the consumer product, the data policy is different. Google retains API inputs and outputs for up to 55 days for abuse monitoring. This data is not used for model training.
+An API key alone does not establish paid-service protection. Under the [Gemini API terms](https://ai.google.dev/gemini-api/terms):
 
-Two newer API features add nuance here. The first is Context Caching: users can store large amounts of data on Google's servers to reduce token costs when making repeated calls against the same content. This cached data has its own TTL (Time-to-Live) setting that you control, and it sits outside the standard 55-day abuse monitoring window. It is a flexible feature, but it means you may have data on Google's servers for longer than the default if you use it.
+- **Unpaid services:** prompts and responses can improve Google products and machine-learning technologies, with human quality review. Google says not to submit confidential, sensitive, or personal information.
+- **Paid API:** the request must use a Cloud project with an active billing account. Prompts and responses are not used to improve Google's products.
+- **Regional exception:** in the EEA, Switzerland, and UK, the paid-services data-use terms also apply to AI Studio and unpaid API quota.
+- **AI Studio:** paid data handling can apply even when Studio is free, if the account has access to an actively billed Cloud project or is a Workspace enterprise account.
 
-The second is Session Resumption for the Gemini Live API. If you use this to keep a voice session active across interruptions, Google caches that session data in memory for up to 24 hours. That is a separate and shorter window from the 55-day abuse logs, but it is worth knowing if you are using the voice API for sensitive conversations.
+Separately, Google's [abuse-monitoring policy](https://ai.google.dev/gemini-api/docs/usage-policies) retains text prompts, context, and output for 55 days. Authorized employees can review flagged content. Abuse logs are not used to train models except those specifically used for policy enforcement. That window does not describe every storage feature or unpaid-service improvement use.
 
-For Vertex AI on Google Cloud, Google offers a Zero Data Retention option on certain endpoints. Under ZDR, prompts and responses are not logged or stored beyond what is needed to return the result.
+Check the features your integration enables. [Context caching](https://ai.google.dev/gemini-api/docs/caching) includes implicit caching and, where supported, explicit caches with expiration controls. A cache setting is not a universal deletion setting for the API.
 
-The API does not carry the same Gmail integration or Gemini Apps Activity settings as the consumer product. If you access Gemini through an API key, your data stays within the API policy.
+For Google Cloud, the [zero-data-retention guide](https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/zero-data-retention) has separate requirements for abuse logging, caching, grounding, and stored conversation state. For example, Interactions defaults to `store=true`; achieving zero retention requires `store=false`. Search and Maps grounding retain data under their own rules, and some Advanced AI features may prevent zero retention. Do not transfer a Cloud commitment to the developer API or consumer app.
 
 ## How Retention Works for Workspace and Enterprise Plans
 
-For Google Workspace Enterprise customers, the rules are more protective. Prompt content is not used to train Google's public AI models without explicit permission. Human review of your conversations does not happen without your organization's consent. Workspace admins can shorten or fully disable prompt storage for their domain.
+The [Workspace privacy hub](https://knowledge.workspace.google.com/admin/generative-ai/generative-ai-in-google-workspace-privacy-hub?hl=en) applies to qualifying editions. It commits to no human review or generative-model training outside your domain without permission. Check whether Gemini is covered by your organization's Workspace agreement rather than assuming every work-email login qualifies.
 
-On HIPAA: as of September 30, 2025, [Gemini for Workspace is included](https://workspace.google.com/terms/user_features.html) under Google's HIPAA Business Associate Addendum. As of Q1 2026, this is fully stable and has been widely adopted by healthcare organizations. You need a signed BAA and the appropriate project flags enabled through the Admin Console. The free consumer version is not covered and should not be used with protected health information.
+Retention differs within Workspace. The Gemini app offers admin-controlled history, with 3-, 18-, or 36-month auto-delete and up to 72 hours when history is off. Workspace side-panel conversations have separate controls, ranging from 90 days to indefinite retention. Content inserted into a document or email follows that service's retention controls.
 
-On GDPR: Google offers a Data Processing Addendum for Workspace customers. Consumer accounts are subject to Google's standard privacy policy. EU consumer users have GDPR rights including access and deletion, but those rights do not remove reviewed conversations from Google's systems during the 3-year retention window.
+For HIPAA workloads, Google's [current supported-services list](https://docs.cloud.google.com/docs/security/compliance/hipaa) includes Gemini in Workspace and the Gemini app, excluding Gemini in Chrome. Its [implementation guide](https://services.google.com/fh/files/misc/gsuite_cloud_identity_hipaa_implementation_guide.pdf) distinguishes Workspace Core Service access from Additional Product access. Verify an applicable BAA, included functionality, and configuration before handling PHI. A paid subscription or API key is not proof of coverage or compliance.
 
 ## The Broader Context
 
-OpenAI and [Anthropic](/blog/anthropic-data-retention-policy/) each had a single data retention policy story to tell. Google's story is more layered because of how deeply Gemini integrates with the rest of their products.
-
-The consumer product connects to Gmail, Calendar, Drive, and location data. The retention periods are longer by default than either OpenAI or Anthropic. The human review window is the longest of the three. And in the US, the Gmail integration was enabled without asking users first.
-
-For personal productivity use, most of this will not matter day to day. For professionals handling sensitive conversations, client data, or regulated information, the picture is more complicated.
+Compare equivalent services when choosing a provider: consumer apps against consumer apps, and organizational API contracts against API contracts. Our [ChatGPT](/blog/chatgpt-data-retention-policy/) and [Anthropic](/blog/anthropic-data-retention-policy/) guides cover their own settings and exceptions. A no-training promise does not, by itself, establish zero retention or exclude every form of human access.
 
 ## Use Gemini's API for Meeting Notes Through Anarlog
 
 ![Anarlog Settings → Intelligence with the list of configurable AI providers](anarlog/blog/library/products/anarlog/desktop/2026-09-23-settings-intelligence-providers.png)
 
-If you want to use Gemini without routing data through the consumer product, connecting your own Google AI API key through [Anarlog](https://anarlog.so) gives you API-level data handling: 55-day retention, no model training, no Gmail integration.
+Anarlog is an open-source meeting notetaker that stores canonical meeting data in local SQLite and lets you choose the AI provider. Connecting Gemini sends the content needed for the request to that provider; your project's applicable API terms still govern it. Anarlog does not turn unpaid API usage into paid-service protection.
 
-Anarlog is an open-source AI notepad for meetings that lets you bring your own API key for Gemini, OpenAI, Anthropic, Mistral, or others. Your meeting notes are stored on your device. You choose which AI provider processes your data, and you can change that decision without rebuilding your workflow.
+Configure [Intelligence and Transcription separately](https://docs.anarlog.so/models-and-providers). Choosing Ollama for summaries does not make hosted transcription local. For an on-device workflow, configure both local model paths, download the models first, and review optional network features such as web search. The [offline guide](https://docs.anarlog.so/offline) explains the setup.
 
-For teams that need to go further, Anarlog supports fully local models via Ollama. Your conversations never leave your device at all.
-
-That is the practical difference between using a consumer AI product and choosing your own stack. The first gives you a privacy policy. The second gives you control.
-
-[Download Anarlog](https://anarlog.so/download) and use the AI provider your security team actually trusts.
+[Download Anarlog](/download/) to choose the capture and processing workflow that fits your requirements.
