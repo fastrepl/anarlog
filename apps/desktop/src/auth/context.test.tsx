@@ -1,5 +1,6 @@
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   act,
   cleanup,
@@ -181,8 +182,13 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   version: vi.fn(() => "1.0.0"),
 }));
 
+vi.mock("@tauri-apps/api/app", () => ({
+  getVersion: vi.fn(() => Promise.resolve("1.4.33")),
+}));
+
 vi.mock("~/shared/utils", () => ({
   buildWebAppUrl: vi.fn(),
+  CLIENT_VERSION_HEADER: "x-anarlog-client-version",
   DEVICE_FINGERPRINT_HEADER: "x-device-fingerprint",
   id: vi.fn(() => "request-id"),
   REQUEST_ID_HEADER: "x-request-id",
@@ -214,15 +220,25 @@ function makeSession(userId: string): Session {
 }
 
 function SessionProbe() {
-  const { getHeaders, getSessionForRequest, refreshSession, session, signOut } =
-    useAuth();
+  const {
+    getHeaders,
+    getSessionForRequest,
+    isFingerprintSettled,
+    refreshSession,
+    session,
+    signOut,
+  } = useAuth();
   const [requestAccessToken, setRequestAccessToken] = useState("none");
   return (
     <>
+      <div data-testid="headers-settled">{String(isFingerprintSettled)}</div>
       <div data-testid="session">{session?.user.id ?? "none"}</div>
       <div data-testid="access-token">{session?.access_token ?? "none"}</div>
       <div data-testid="authorization">
         {getHeaders()?.Authorization ?? "none"}
+      </div>
+      <div data-testid="client-version">
+        {getHeaders()?.["x-anarlog-client-version"] ?? "none"}
       </div>
       <div data-testid="request-access-token">{requestAccessToken}</div>
       <button onClick={() => void refreshSession().catch(() => {})}>
@@ -774,6 +790,54 @@ describe("AuthProvider", () => {
     expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(mocks.clearAuthStorage).toHaveBeenCalledTimes(1);
     expect(mocks.emitTo).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the desktop app version with API request headers", async () => {
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", makeSession("bound-account"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("client-version").textContent).toBe(
+        "desktop@1.4.33",
+      );
+    });
+  });
+
+  it("holds trial requests until the app version is in the headers", async () => {
+    const version = deferred<string>();
+    vi.mocked(getVersion).mockImplementationOnce(() => version.promise);
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(mocks.authCallback).not.toBeNull();
+    });
+    act(() => {
+      mocks.authCallback?.("SIGNED_IN", makeSession("bound-account"));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("session").textContent).toBe("bound-account");
+    });
+    expect(screen.getByTestId("headers-settled").textContent).toBe("false");
+
+    await act(async () => {
+      version.resolve("1.4.33");
+      await version.promise;
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("headers-settled").textContent).toBe("true");
+    });
+    expect(screen.getByTestId("client-version").textContent).toBe(
+      "desktop@1.4.33",
+    );
   });
 
   it("preserves a secondary-window session after an unsolicited SDK sign-out", async () => {

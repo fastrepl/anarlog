@@ -2703,10 +2703,6 @@ msgstr ""
 msgid "Free months earned"
 msgstr "받은 무료 개월 수"
 
-#: src/onboarding/account/before-login.tsx
-msgid "Free Pro with a work email"
-msgstr ""
-
 #: src/templates/template-icon-picker.tsx
 msgid "Frequently used"
 msgstr ""

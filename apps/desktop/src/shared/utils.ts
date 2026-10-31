@@ -75,4 +75,6 @@ export const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 export const DEVICE_FINGERPRINT_HEADER = "x-device-fingerprint";
 export const REQUEST_ID_HEADER = "x-request-id";
+// "<app>@<version>", so the API can tell which client build sent a request.
+export const CLIENT_VERSION_HEADER = "x-anarlog-client-version";
 export const CHAR_TASK_HEADER = "x-char-task";

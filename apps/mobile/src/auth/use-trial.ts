@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import Constants from "expo-constants";
 import { fetch } from "expo/fetch";
 
 import { supabase } from "@/auth/client";
@@ -28,6 +29,7 @@ export function useTrial() {
         const started = await enrollInTrial({
           apiUrl: env.apiUrl,
           accessToken: session.access_token,
+          appVersion: Constants.expoConfig?.version,
           signal: timeout.signal,
           request: fetch,
         });
