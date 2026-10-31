@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { registerHooks } from "node:module";
+import { createRequire, registerHooks } from "node:module";
 import { beforeEach, test } from "node:test";
+
+const rnRequire = createRequire(
+  createRequire(import.meta.url).resolve("react-native/package.json"),
+);
+globalThis.AbortController = rnRequire(
+  "abort-controller/dist/abort-controller",
+).AbortController;
 
 const root = new URL("../", import.meta.url);
 const fixture = (globalThis.liveAccessFixture = {
@@ -26,7 +33,22 @@ const mocks = {
     if (f.connectWait) await f.connectWait;
     return native;
   }`,
-  "react-native": `export const Platform = { OS: "ios" };`,
+  "react-native": `export const Platform = { OS: "ios", Version: 35 }; export const AppState = {currentState: 'active'};`,
+  expo: `export class NativeModule {};
+    export function requireOptionalNativeModule() {
+      const f = globalThis.liveAccessFixture;
+      return {
+        addListener(name, listener) { f.localListener = listener; return {remove() { f.localListener = null; }}; },
+        async startLive(sessionId, locale, model) { f.local = {sessionId, locale, model, sent: [], cancelled: false}; if (f.connectWait) await f.connectWait; },
+        sendAudio(sessionId, data) { if (data.byteLength > 320000) return false; f.local.sent.push(data); return true; },
+        async finishLive(sessionId) {
+          f.localListener?.({sessionId, type: 'final', text: 'Final words', startMs: 1000, endMs: 2000});
+          f.localListener?.({sessionId, type: 'completed'});
+          return true;
+        },
+        cancelLive() { if (f.local) f.local.cancelled = true; }
+      };
+    }`,
   "@/auth/client": `const f = globalThis.liveAccessFixture; export const supabase = { auth: {
     getSession: async () => ({ data: { session: f.session } }),
     onAuthStateChange: listener => { f.listeners.add(listener); return { data: { subscription: { unsubscribe: () => f.listeners.delete(listener) } } }; }
@@ -52,6 +74,12 @@ registerHooks({
         url: new URL(`${specifier.slice(2)}.ts`, root).href,
         shortCircuit: true,
       };
+    if (specifier === "../../modules/local-speech")
+      return {
+        url: new URL("../../modules/local-speech/index.ts", context.parentURL)
+          .href,
+        shortCircuit: true,
+      };
     if (specifier.startsWith(".") && context.parentURL?.startsWith(root.href)) {
       const url = new URL(`${specifier}.ts`, context.parentURL);
       if (existsSync(url)) return { url: url.href, shortCircuit: true };
@@ -61,6 +89,7 @@ registerHooks({
 });
 
 const { SessionLiveTranscription } = await import("./live-transcription.ts");
+const { AppState, Platform } = await import("react-native");
 
 function session(claims) {
   return {
@@ -75,6 +104,10 @@ function emitAuth(next) {
 const settle = () => new Promise(setImmediate);
 
 beforeEach(() => {
+  Platform.OS = "ios";
+  AppState.currentState = "active";
+  fixture.local = null;
+  fixture.localListener = null;
   fixture.session = null;
   fixture.listeners.clear();
   fixture.sockets = [];
@@ -108,6 +141,71 @@ beforeEach(() => {
       this.onclose?.();
     }
   };
+});
+
+test("Advanced can start and finalize in the background and an SDK rejection leaves audio for recovery", async () => {
+  Platform.OS = "android";
+  fixture.session = session({});
+  fixture.apiKey = "";
+  fixture.provider = {
+    provider: "google_on_device",
+    model: "mlkit-advanced",
+    baseUrl: "",
+  };
+  const updates = [];
+  AppState.currentState = "background";
+  const live = new SessionLiveTranscription("local-note", 16000, 1, (update) =>
+    updates.push(update),
+  );
+  live.sendAudio(new Uint8Array([1, 2, 3, 4]).buffer);
+  await settle();
+  await settle();
+  assert.equal(updates.at(-1).status, "live");
+  assert.equal(fixture.local.locale, "ko-KR");
+  assert.equal(fixture.local.model, "mlkit-advanced");
+  assert.deepEqual([...fixture.local.sent[0]], [1, 2, 3, 4]);
+  const sessionId = fixture.local.sessionId;
+  fixture.localListener({ sessionId, type: "partial", text: "First" });
+  assert.equal(updates.at(-1).text, "First");
+  fixture.localListener({
+    sessionId,
+    type: "final",
+    text: "First words",
+    startMs: 0,
+    endMs: 1000,
+  });
+  await settle();
+  assert.equal(await live.stop(), true);
+  assert.equal(fixture.transactions[0][1].params[1], "google_on_device");
+  assert.deepEqual(
+    JSON.parse(fixture.transactions.at(-1)[0].params[0]).map(
+      (word) => word.text,
+    ),
+    ["First", "words", "Final", "words"],
+  );
+  assert.equal(fixture.localListener, null);
+
+  const interrupted = new SessionLiveTranscription(
+    "interrupted-note",
+    16000,
+    1,
+    (update) => updates.push(update),
+  );
+  await settle();
+  fixture.localListener({
+    sessionId: fixture.local.sessionId,
+    type: "error",
+    code: "ERR_MLKIT_BACKGROUND_USE_BLOCKED",
+  });
+  assert.equal(updates.at(-1).status, "fallback");
+  assert.equal(await interrupted.stop(), false);
+  assert.equal(fixture.local.cancelled, true);
+  assert.match(
+    fixture.failures.at(-1).message,
+    /Google blocked background transcription/,
+  );
+  assert.equal(fixture.native.length, 0);
+  assert.equal(fixture.sockets.length, 0);
 });
 
 test("free and expired accounts record locally without opening a hosted socket or reporting a failure", async () => {
@@ -375,4 +473,37 @@ test("an account change during settings reads cannot start a connection with the
   assert.equal(fixture.native.length, 0);
   assert.equal(await live.stop(), false);
   assert.equal(fixture.listeners.size, 0);
+});
+
+test("local model startup preserves more than ten seconds of PCM and displays results before stop", async () => {
+  Platform.OS = "android";
+  fixture.provider = { provider: "google_on_device", model: "mlkit-basic" };
+  let ready;
+  fixture.connectWait = new Promise((resolve) => {
+    ready = resolve;
+  });
+  const updates = [];
+  const live = new SessionLiveTranscription("note-a", 16000, 1, (update) =>
+    updates.push(update),
+  );
+  await settle();
+  const pcm = Uint8Array.from({ length: 480_000 }, (_, i) => i % 251);
+  for (let offset = 0; offset < pcm.length; offset += 3200)
+    live.sendAudio(pcm.slice(offset, offset + 3200).buffer);
+  ready();
+  await settle();
+  assert.equal(updates.at(-1).status, "live");
+  assert.deepEqual(
+    Buffer.concat(fixture.local.sent.map((chunk) => Buffer.from(chunk))),
+    Buffer.from(pcm),
+  );
+  fixture.localListener({
+    sessionId: fixture.local.sessionId,
+    type: "partial",
+    text: "Live before stopping",
+  });
+  assert.equal(updates.at(-1).text, "Live before stopping");
+  assert.equal(fixture.local.model, "mlkit-basic");
+  assert.equal(await live.stop(), true);
+  assert.equal(fixture.failures.length, 0);
 });

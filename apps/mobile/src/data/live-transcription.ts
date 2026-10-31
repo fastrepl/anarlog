@@ -4,7 +4,7 @@ import type { ProviderLiveTranscriptionLike } from "@anlg/mobile-bridge";
 
 import { decodeJwtPayload, deriveBillingInfo } from "@/auth/billing";
 import { supabase } from "@/auth/client";
-import { execute, executeTransaction } from "@/db";
+import { executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -28,6 +28,7 @@ import { sharedMicrophoneContextStatement } from "./transcript-model";
 export type LiveTranscriptionStatus = "connecting" | "live" | "fallback";
 
 const MAX_QUEUED_AUDIO_BYTES = 320_000;
+const MAX_LOCAL_QUEUED_AUDIO_BYTES = 1_920_000;
 const MAX_SOCKET_BUFFERED_BYTES = 1_000_000;
 const FINALIZE_TIMEOUT_MS = 3_000;
 const KEEP_ALIVE_INTERVAL_MS = 5_000;
@@ -202,6 +203,36 @@ export class SessionLiveTranscription {
         return;
       }
       if (this.stopping || this.connectAbort.signal.aborted) return;
+      if (provider.provider === "google_on_device") {
+        const { startLocalLiveTranscription } = await import("./local-speech");
+        const native = await startLocalLiveTranscription({
+          sessionId: this.transcriptId,
+          model: provider.model,
+          language: preferences.spoken_languages[0] ?? preferences.ai_language,
+          sampleRate,
+          channels,
+          onMessage: (message) => this.handleMessage(message),
+          onError: (error) => this.fail(error, "recognize"),
+          signal: this.connectAbort.signal,
+        });
+        if (this.stopping || this.connectAbort.signal.aborted) {
+          native.cancel();
+          return;
+        }
+        this.native = native;
+        this.setStatus("live");
+        const queued = new Uint8Array(this.queuedAudioBytes);
+        let offset = 0;
+        for (const buffer of this.queuedAudio) {
+          queued.set(new Uint8Array(buffer), offset);
+          offset += buffer.byteLength;
+        }
+        this.queuedAudio = [];
+        this.queuedAudioBytes = 0;
+        for (let start = 0; start < queued.byteLength; start += 320_000)
+          this.sendAudio(queued.slice(start, start + 320_000).buffer);
+        return;
+      }
       if (provider.provider !== "anarlog") {
         if (
           Platform.OS === "web" ||
@@ -317,9 +348,14 @@ export class SessionLiveTranscription {
         }
       };
       this.socket = socket;
-    } catch {
+    } catch (error) {
       if (this.stopping || this.connectAbort.signal.aborted) return;
-      this.fail(new Error("Live transcription could not connect"), "connect");
+      this.fail(
+        this.provider === "google_on_device"
+          ? error
+          : new Error("Live transcription could not connect"),
+        "connect",
+      );
     }
   }
 
@@ -350,7 +386,11 @@ export class SessionLiveTranscription {
       return;
     }
 
-    if (this.queuedAudioBytes + buffer.byteLength > MAX_QUEUED_AUDIO_BYTES) {
+    const maxQueuedBytes =
+      this.provider === "google_on_device"
+        ? MAX_LOCAL_QUEUED_AUDIO_BYTES
+        : MAX_QUEUED_AUDIO_BYTES;
+    if (this.queuedAudioBytes + buffer.byteLength > maxQueuedBytes) {
       this.fail(new Error("Live transcription connection timed out"), "queue");
       return;
     }
@@ -486,9 +526,9 @@ export class SessionLiveTranscription {
           );
   }
 
-  private fallBack() {
+  private fallBack(message = "") {
     if (this.status === "fallback") return;
-    this.setStatus("fallback");
+    this.setStatus("fallback", message);
     this.clearKeepAlive();
     this.queuedAudio = [];
     this.queuedAudioBytes = 0;
@@ -500,7 +540,11 @@ export class SessionLiveTranscription {
 
   private fail(error: unknown, stage: string) {
     if (this.status === "fallback") return;
-    this.fallBack();
+    this.fallBack(
+      this.provider === "google_on_device" && error instanceof Error
+        ? error.message
+        : "",
+    );
     captureOperationalError(error, {
       operation: "transcription_live",
       tags: { mode: "live", stage },

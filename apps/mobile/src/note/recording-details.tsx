@@ -5,7 +5,11 @@ import { AudioChip } from "@/components/audio-chip";
 import { RecordingSyncCard } from "@/components/recording-sync-card";
 import { RemoteAudioCard } from "@/components/remote-audio-card";
 import { Spacing, Typography } from "@/constants/theme";
-import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
+import {
+  transcribeSession,
+  useTranscriptionState,
+  useLocalTranscriptionError,
+} from "@/data/transcribe";
 import { createStyleHook } from "@/settings/theme-provider";
 import { useProviderAccess } from "@/settings/use-provider-access";
 
@@ -24,6 +28,7 @@ export function RecordingDetails({
   const router = useRouter();
   const canTranscribe = useProviderAccess("stt");
   const transcription = useTranscriptionState(sessionId);
+  const localError = useLocalTranscriptionError(sessionId);
   return (
     <>
       {audio.data && audio.availableLocally && audio.file && (
@@ -39,10 +44,15 @@ export function RecordingDetails({
       {audio.data && !audio.availableLocally && (
         <RemoteAudioCard {...audio.restore} />
       )}
+      {localError && (
+        <Text accessibilityRole="alert" style={styles.transcribeStatus}>
+          {localError}
+        </Text>
+      )}
       {audio.data &&
         audio.availableLocally &&
         audio.data.transcriptStatus !== "complete" &&
-        hasTranscript === false &&
+        (hasTranscript === false || Boolean(localError)) &&
         (transcription === "running" ? (
           <Text style={styles.transcribeStatus}>Transcribing…</Text>
         ) : (

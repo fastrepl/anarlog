@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- These SDKs are loaded only behind the native API 31 guard. Keep the app's API 24 minimum. -->
+    <queries>
+        <intent><action android:name="android.speech.RecognitionService" /></intent>
+    </queries>
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.common,com.google.mlkit.genai.speechrecognition" />
+</manifest>

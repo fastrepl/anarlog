@@ -52,15 +52,15 @@ export function SessionTranscript({
         </View>
       )}
       ListEmptyComponent={
-        !live?.text ? (
+        !live?.text && live?.status !== "fallback" ? (
           <Text style={styles.hint}>
             {isLoading
               ? "Loading transcript…"
               : error
                 ? "Couldn't load the transcript. Reopen the transcript to retry."
                 : live
-                  ? live.status === "fallback"
-                    ? "Your recording will be transcribed after you stop listening."
+                  ? live.status === "connecting"
+                    ? "Preparing live transcription…"
                     : "Your transcript will appear here as you speak."
                   : "No transcript yet."}
           </Text>
@@ -68,7 +68,16 @@ export function SessionTranscript({
       }
       ListFooterComponent={
         <View>
-          {Boolean(live?.text) && (
+          {live?.status === "fallback" && (
+            <View style={styles.turn}>
+              <Text style={styles.speaker}>Live transcription interrupted</Text>
+              <Text style={styles.hint}>
+                {live.text ||
+                  "Your recording will be transcribed after you stop listening."}
+              </Text>
+            </View>
+          )}
+          {live?.status !== "fallback" && Boolean(live?.text) && (
             <View style={styles.turn}>
               <Text style={styles.speaker}>Speaking…</Text>
               <Text style={styles.hint}>{live?.text}</Text>

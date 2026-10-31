@@ -47,6 +47,10 @@ const PROVIDER_ICONS: Record<string, { light: number; dark: number }> = {
     light: require("../../assets/providers/gemini-light.png"),
     dark: require("../../assets/providers/gemini-light.png"),
   },
+  google_on_device: {
+    light: require("../../assets/providers/gemini-light.png"),
+    dark: require("../../assets/providers/gemini-light.png"),
+  },
   google_cloud: {
     light: require("../../assets/providers/googlecloud-light.png"),
     dark: require("../../assets/providers/googlecloud-light.png"),

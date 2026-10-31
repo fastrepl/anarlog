@@ -6,7 +6,8 @@ import { providersFor, validateProviderConfig } from "./providers-model.ts";
 test("incomplete custom endpoints show actionable validation instead of a URL exception", () => {
   for (const kind of ["stt", "llm"]) {
     for (const provider of providersFor(kind).filter(
-      ({ id, baseUrl }) => id !== "anarlog" && !baseUrl,
+      ({ id, baseUrl }) =>
+        id !== "anarlog" && id !== "google_on_device" && !baseUrl,
     )) {
       for (const baseUrl of ["", "   ", "not-a-url", "https://"]) {
         assert.throws(
