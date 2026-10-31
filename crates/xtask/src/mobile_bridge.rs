@@ -89,10 +89,16 @@ pub(crate) fn mobile_bridge_rn() -> Result<()> {
 fn repair_generated_native_projects() -> Result<()> {
     let android_path = crate::repo_root().join("packages/mobile-bridge-rn/android");
     let gradle_path = android_path.join("build.gradle");
-    let contents = fs::read_to_string(&gradle_path)?;
+    let contents = fs::read_to_string(&gradle_path)?.replace(
+        r#"return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]"#,
+        r#"def supported = ["arm64-v8a", "armeabi-v7a", "x86_64"]
+  return value ? value.split(",").findAll { it in supported } : supported"#,
+    );
     let tls_script = "apply from: \"rustls-platform-verifier.gradle\"";
     if !contents.contains(tls_script) {
-        fs::write(gradle_path, format!("{contents}\n{tls_script}\n"))?;
+        fs::write(&gradle_path, format!("{contents}\n{tls_script}\n"))?;
+    } else {
+        fs::write(&gradle_path, contents)?;
     }
 
     let module_path =

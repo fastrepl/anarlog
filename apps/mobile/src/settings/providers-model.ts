@@ -1,3 +1,5 @@
+import { localSpeechModel } from "./local-speech-models.ts";
+
 export type ProviderKind = "stt" | "llm";
 
 export const TRANSCRIPTION_PROVIDERS = [
@@ -6,6 +8,12 @@ export const TRANSCRIPTION_PROVIDERS = [
     name: "Anarlog Pro",
     baseUrl: "",
     model: "cloud",
+  },
+  {
+    id: "google_on_device",
+    name: "Google on-device",
+    baseUrl: "",
+    model: "mlkit-advanced",
   },
   {
     id: "deepgram",
@@ -426,7 +434,13 @@ export function validateProviderConfig(
   config: ProviderConfig,
 ): ProviderConfig {
   const connection = validateProviderConnection(kind, config);
-  if (config.provider === "anarlog") return defaultProviderConfig(kind);
+  if (config.provider === "anarlog")
+    return defaultProviderConfig(kind, config.provider);
+  if (config.provider === "google_on_device")
+    return {
+      ...connection,
+      model: localSpeechModel(config.model || "mlkit-advanced"),
+    };
   let model = config.model.trim();
   // Nari retired its :free beta IDs on 2026-09-16 in favor of the GA models.
   if (config.provider === "nari" && /^qwen3-asr(?:-fast)?:free$/.test(model))
@@ -441,7 +455,8 @@ export function validateProviderConnection(
   config: { provider: string; baseUrl: string },
 ) {
   const definition = defaultProviderConfig(kind, config.provider);
-  if (config.provider === "anarlog") return definition;
+  if (config.provider === "anarlog" || config.provider === "google_on_device")
+    return definition;
   let url: URL;
   try {
     url = new URL(definition.baseUrl || config.baseUrl.trim());

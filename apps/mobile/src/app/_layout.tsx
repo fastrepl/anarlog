@@ -20,6 +20,7 @@ import { BrandLoadingView } from "@/components/brand-loading-view";
 import { ToastHost } from "@/components/toast-host";
 import { Button } from "@/components/ui/button";
 import { Spacing, Typography } from "@/constants/theme";
+import { LocalTranscriptionLifecycle } from "@/data/local-transcription-lifecycle";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
 import {
   addNavigationBreadcrumb,
@@ -87,6 +88,10 @@ function Screens({ accountUserId }: { accountUserId: string | null }) {
   return (
     <>
       <QuickActionLifecycle accountUserId={accountUserId} />
+      <LocalTranscriptionLifecycle
+        key={accountUserId ?? "local"}
+        accountUserId={accountUserId}
+      />
       <Stack
         screenOptions={{
           headerShown: false,
