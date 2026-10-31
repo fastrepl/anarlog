@@ -10,6 +10,12 @@ import { DraftCache, type DraftRetentionFailure } from "./draft-cache";
 import { pushSentMessage, sentMessageAt, sentMessageCount } from "./history";
 
 import type { ContextRef } from "~/chat/context/entities";
+import type { CustomChatPrompt } from "~/chat/custom-prompts";
+import {
+  CHAT_PROMPT_MENTION_TYPE,
+  toChatPromptPart,
+} from "~/chat/prompt-parts";
+import type { AnlgUIMessage } from "~/chat/types";
 
 const draftCache = new DraftCache();
 
@@ -83,6 +89,7 @@ export function useSubmit({
   draftKey,
   editorRef,
   disabled,
+  prompts,
   onSendMessage,
   onDraftContentChange,
   onContextRefsChange,
@@ -92,9 +99,10 @@ export function useSubmit({
   editorRef: React.RefObject<ChatEditorHandle | null>;
   disabled?: boolean;
   isStreaming?: boolean;
+  prompts: CustomChatPrompt[];
   onSendMessage: (
     content: string,
-    parts: Array<{ type: "text"; text: string }>,
+    parts: AnlgUIMessage["parts"],
     contextRefs?: ContextRef[],
   ) => void;
   onDraftContentChange?: (hasDraftContent: boolean) => void;
@@ -103,15 +111,35 @@ export function useSubmit({
 }) {
   return useCallback(() => {
     const json = editorRef.current?.getJSON();
-    const text = proseMirrorJsonToText(json).trim();
     const mentionRefs = extractContextRefsFromTiptapJson(json);
+    const chips = collectChatPromptChips(json);
+    const usedPrompts = chips.flatMap((chip) => {
+      const prompt = prompts.find((item) => item.id === chip.id);
+      return prompt ? [prompt] : [];
+    });
+    // A chip whose saved prompt was deleted after it was inserted is sent as
+    // its visible label rather than silently disappearing.
+    const unresolvedChips = chips
+      .filter((chip) => !usedPrompts.some((prompt) => prompt.id === chip.id))
+      .map((chip) => `/${chip.label}`);
+    const text = [...unresolvedChips, proseMirrorJsonToText(json, false).trim()]
+      .filter(Boolean)
+      .join(" ");
 
-    if (!text || disabled) {
+    if ((!text && usedPrompts.length === 0) || disabled) {
       return;
     }
 
+    const parts: AnlgUIMessage["parts"] = [
+      ...usedPrompts.map(toChatPromptPart),
+      ...(text ? [{ type: "text" as const, text }] : []),
+    ];
+    const content = [...usedPrompts.map((prompt) => prompt.title), text]
+      .filter(Boolean)
+      .join(" ");
+
     void analyticsCommands.event({ event: "message_sent" });
-    onSendMessage(text, [{ type: "text", text }], mentionRefs);
+    onSendMessage(content, parts, mentionRefs);
     editorRef.current?.clearContent();
     draftCache.delete(draftKey);
     onDraftContentChange?.(false);
@@ -121,6 +149,7 @@ export function useSubmit({
     draftKey,
     editorRef,
     disabled,
+    prompts,
     onSendMessage,
     onDraftContentChange,
     onContextRefsChange,
@@ -250,8 +279,11 @@ export function useAutoFocusEditor({
   }, [editorRef, disabled, shouldFocus]);
 }
 
-function proseMirrorJsonToText(json: any): string {
-  if (!json || typeof json !== "object") {
+function proseMirrorJsonToText(
+  json: JSONContent | undefined,
+  includeChatPrompts = true,
+): string {
+  if (!json) {
     return "";
   }
 
@@ -259,15 +291,38 @@ function proseMirrorJsonToText(json: any): string {
     return json.text || "";
   }
 
-  if (typeof json.type === "string" && json.type.startsWith("mention-")) {
+  if (json.type?.startsWith("mention-")) {
+    if (json.attrs?.type === CHAT_PROMPT_MENTION_TYPE) {
+      return includeChatPrompts ? `/${json.attrs.label ?? ""}` : "";
+    }
     return `@${json.attrs?.label || json.attrs?.id || ""}`;
   }
 
-  if (json.content && Array.isArray(json.content)) {
-    return json.content.map(proseMirrorJsonToText).join("");
+  return (json.content ?? [])
+    .map((child) => proseMirrorJsonToText(child, includeChatPrompts))
+    .join("");
+}
+
+function collectChatPromptChips(
+  json: JSONContent | undefined,
+): Array<{ id: string; label: string }> {
+  if (!json) {
+    return [];
   }
 
-  return "";
+  if (
+    json.type?.startsWith("mention-") &&
+    json.attrs?.type === CHAT_PROMPT_MENTION_TYPE
+  ) {
+    return [
+      {
+        id: String(json.attrs.id ?? ""),
+        label: String(json.attrs.label ?? ""),
+      },
+    ];
+  }
+
+  return (json.content ?? []).flatMap((child) => collectChatPromptChips(child));
 }
 
 function hasTextContent(json: JSONContent | undefined): boolean {
