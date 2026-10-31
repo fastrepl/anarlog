@@ -37,6 +37,7 @@ export function ChatMessageInput({
   onStop,
   onDraftContentChange,
   onContextRefsChange,
+  modelSelector,
 }: {
   draftKey: string;
   layout?: "floating" | "right-panel";
@@ -50,6 +51,7 @@ export function ChatMessageInput({
   onStop?: () => void;
   onDraftContentChange?: (hasDraftContent: boolean) => void;
   onContextRefsChange?: (refs: ContextRef[]) => void;
+  modelSelector?: React.ReactNode;
 }) {
   const { t } = useLingui();
   const { chat } = useShell();
@@ -137,11 +139,6 @@ export function ChatMessageInput({
                 ? "max-h-36 min-h-5 w-full min-w-0 overflow-y-auto overscroll-contain"
                 : "overflow-y-auto overscroll-contain",
               !isFloating && (isRightPanel ? "max-h-[40vh]" : "max-h-48"),
-              isFloating && hasVoiceStatus && "chat-input-editor-voice-active",
-              isFloating &&
-                hasContent &&
-                !hasVoiceStatus &&
-                "chat-input-editor-two-actions",
             ])}
             initialContent={initialContent}
             mentionConfig={mentionConfig}
@@ -169,9 +166,10 @@ export function ChatMessageInput({
           <div
             className={cn([
               "flex shrink-0 items-center gap-1",
-              isFloating ? "absolute right-0 bottom-0.5" : "justify-end",
+              isFloating ? "self-end" : "justify-end",
             ])}
           >
+            {modelSelector}
             {!isStreaming && (
               <button
                 type="button"

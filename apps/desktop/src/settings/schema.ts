@@ -334,6 +334,14 @@ export const SETTING_DEFINITIONS = {
     path: ["ai", "current_llm_reasoning_effort"],
     default: "default" as string,
   },
+  chat_llm_provider: {
+    type: "string",
+    path: ["ai", "chat_llm_provider"],
+  },
+  chat_llm_model: {
+    type: "string",
+    path: ["ai", "chat_llm_model"],
+  },
   current_stt_provider: {
     type: "string",
     path: ["ai", "current_stt_provider"],

@@ -14,18 +14,7 @@
 }
 
 [data-chat-input-surface="floating"] .chat-input-editor.prosemirror-editor {
-  padding-right: 42px !important;
   scrollbar-color: hsl(var(--muted-foreground) / 0.22) transparent;
-}
-
-[data-chat-input-surface="floating"]
-  .chat-input-editor.chat-input-editor-two-actions.prosemirror-editor {
-  padding-right: 74px !important;
-}
-
-[data-chat-input-surface="floating"]
-  .chat-input-editor.chat-input-editor-voice-active.prosemirror-editor {
-  padding-right: 0 !important;
 }
 
 @keyframes chat-input-waveform {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { getLlmProviderStatus } from "./select";
+import { getLlmProviderStatus } from "./configured-providers";
 import { PROVIDERS } from "./shared";
 
 function provider(id: string) {

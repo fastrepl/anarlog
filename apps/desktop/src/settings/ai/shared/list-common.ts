@@ -104,8 +104,8 @@ const modelPriorityPatterns = [
 
 export const fetchJson = (url: string, headers: Record<string, string>) =>
   Effect.tryPromise({
-    try: async () => {
-      const r = await providerFetch(url, { method: "GET", headers });
+    try: async (signal) => {
+      const r = await providerFetch(url, { method: "GET", headers, signal });
       if (!r.ok) {
         const errorBody = await readResponseTextWithLimit(
           r,

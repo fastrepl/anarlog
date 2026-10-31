@@ -79,6 +79,7 @@ export function ModelCombobox({
   value,
   onChange,
   listModels,
+  modelScope,
   disabled = false,
   placeholder,
   suffix,
@@ -88,6 +89,7 @@ export function ModelCombobox({
   value: string;
   onChange: (value: string) => void;
   listModels?: () => Promise<ListModelsResult> | ListModelsResult;
+  modelScope?: string;
   disabled?: boolean;
   placeholder?: string;
   suffix?: React.ReactNode;
@@ -103,7 +105,10 @@ export function ModelCombobox({
     isLoading: isLoadingModels,
     refetch,
     isFetching,
-  } = useModelMetadata(providerId, listModels, { enabled: !disabled });
+  } = useModelMetadata(providerId, listModels, {
+    enabled: !disabled,
+    scope: modelScope,
+  });
 
   const options: string[] = useMemo(
     () => fetchedResult?.models ?? [],

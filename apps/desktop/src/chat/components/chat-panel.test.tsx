@@ -30,6 +30,10 @@ vi.mock("./toolbar-controls", () => ({
   },
 }));
 
+vi.mock("./model-selector", () => ({
+  ChatModelSelector: () => <button>Chat model</button>,
+}));
+
 vi.mock("./body", () => ({
   ChatBody: () => <div data-testid="chat-body" />,
 }));

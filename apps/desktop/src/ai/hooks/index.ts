@@ -4,6 +4,7 @@ export {
   useLanguageModel,
   useLLMConnection,
   useLLMConnectionStatus,
+  useLLMSelection,
 } from "./useLLMConnection";
 export { useModelMetadata } from "./useModelMetadata";
 export { useTitleGenerating } from "./useTitleGenerating";
