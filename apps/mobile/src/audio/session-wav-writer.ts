@@ -6,7 +6,8 @@ import {
   type FileHandle,
 } from "expo-file-system";
 
-import { WAV_HEADER_BYTES, wavHeader } from "@/audio/pcm-wav";
+import { recoverableWav, WAV_HEADER_BYTES, wavHeader } from "@/audio/pcm-wav";
+import { id } from "@/lib/ids";
 
 export class SessionWavWriter {
   readonly file: File;
@@ -18,16 +19,56 @@ export class SessionWavWriter {
   private initialized = false;
   private finalized = false;
   private checkpointDataBytes = 0;
+  readonly previousDurationMs: number;
+  private initialDataBytes = 0;
 
-  constructor(sessionId: string) {
+  constructor(sessionId: string, previousFilename?: string) {
     const directory = new Directory(Paths.document, "sessions", sessionId);
     directory.create({ intermediates: true, idempotent: true });
-    this.file = new File(directory, "audio.wav");
+    this.file = new File(
+      directory,
+      previousFilename ? `audio-resume-${id()}.wav` : "audio.wav",
+    );
+    if (previousFilename) {
+      const previous = new File(directory, previousFilename);
+      const reader = previous.open(FileMode.ReadOnly);
+      let format;
+      try {
+        format = recoverableWav(
+          reader.readBytes(WAV_HEADER_BYTES),
+          previous.size,
+        );
+        if (
+          !format ||
+          format.sampleRate !== 16_000 ||
+          format.channels !== 1 ||
+          format.dataBytes + WAV_HEADER_BYTES !== previous.size
+        ) {
+          throw new Error(
+            "Resume requires a 16 kHz mono WAV recording from mobile.",
+          );
+        }
+      } finally {
+        reader.close();
+      }
+      // Keep the cataloged file immutable while uploads or playback may read it.
+      previous.copy(this.file);
+      this.dataBytes =
+        this.initialDataBytes =
+        this.checkpointDataBytes =
+          format.dataBytes;
+      this.sampleRate = format.sampleRate;
+      this.channels = format.channels;
+      this.initialized = true;
+    }
     if (this.file.exists && this.file.size <= WAV_HEADER_BYTES) {
       this.file.delete();
     }
-    this.file.create();
+    if (!previousFilename) this.file.create();
     this.handle = this.file.open(FileMode.ReadWrite);
+    if (previousFilename)
+      this.handle.offset = WAV_HEADER_BYTES + this.dataBytes;
+    this.previousDurationMs = this.durationMs;
   }
 
   append(buffer: ArrayBuffer, sampleRate: number, channels: number) {
@@ -57,6 +98,12 @@ export class SessionWavWriter {
     return (this.dataBytes * 1_000) / (this.sampleRate * this.channels * 2);
   }
 
+  get previousSizeBytes(): number {
+    return this.initialDataBytes > 0
+      ? WAV_HEADER_BYTES + this.initialDataBytes
+      : 0;
+  }
+
   finalize(): File {
     if (this.finalized) return this.file;
     if (!this.handle) throw new Error("Recording file is unavailable");
@@ -79,7 +126,8 @@ export class SessionWavWriter {
 
   closeAndDiscardEmpty() {
     this.close();
-    if (this.dataBytes === 0 && this.file.exists) this.file.delete();
+    if (this.dataBytes === this.initialDataBytes && this.file.exists)
+      this.file.delete();
   }
 
   private writeHeader() {

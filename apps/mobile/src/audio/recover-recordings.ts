@@ -1,7 +1,8 @@
 import { File, FileMode, Paths } from "expo-file-system";
 
+import { isMobileSessionCaptureActive } from "@/audio/capture-lifecycle";
 import { recoverableWav, WAV_HEADER_BYTES, wavHeader } from "@/audio/pcm-wav";
-import { catalogSessionAudio } from "@/data/audio-catalog";
+import { catalogSessionAudio, clearPendingCapture } from "@/data/audio-catalog";
 import { transcribeSession } from "@/data/transcribe";
 import { execute } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
@@ -9,8 +10,10 @@ import { captureOperationalError } from "@/lib/error-reporting";
 import { clearStaleMeetingRecordingActivities } from "@/live-activity/meeting-recording-activity";
 
 const RECOVERY_CANDIDATES_SQL = `
-SELECT session.id
+SELECT session.id, json_extract(pending.value_json, '$.filename') AS pending_filename,
+  json_extract(pending.value_json, '$.previousSizeBytes') AS previous_size_bytes
 FROM sessions AS session
+LEFT JOIN app_settings AS pending ON pending.id = 'mobile_capture_pending:' || session.id
 WHERE session.deleted_at IS NULL
   AND (
     ? IS NULL
@@ -23,14 +26,14 @@ WHERE session.deleted_at IS NULL
     OR session.owner_user_id IS NULL
     OR session.owner_user_id = '00000000-0000-0000-0000-000000000000'
   )
-  AND NOT EXISTS (
+  AND (pending.id IS NOT NULL OR NOT EXISTS (
     SELECT 1
     FROM session_attachments AS attachment
     WHERE attachment.session_id = session.id
       AND attachment.source_type = 'session_audio'
       AND attachment.source_id = 'primary'
       AND attachment.deleted_at IS NULL
-  )
+  ))
 `;
 
 void clearStaleMeetingRecordingActivities().catch((error) => {
@@ -64,20 +67,47 @@ function repairInterruptedWav(file: File): number | null {
 export async function recoverInterruptedRecordings(
   accountUserId: string | null,
 ): Promise<number> {
-  const sessions = await execute<{ id: string }>(RECOVERY_CANDIDATES_SQL, [
-    accountUserId,
-    accountUserId,
-  ]);
+  const sessions = await execute<{
+    id: string;
+    pending_filename: string | null;
+    previous_size_bytes: number | null;
+  }>(RECOVERY_CANDIDATES_SQL, [accountUserId, accountUserId]);
   const recoveredSessionIds: string[] = [];
 
   for (const session of sessions) {
-    const file = new File(Paths.document, "sessions", session.id, "audio.wav");
+    if (isMobileSessionCaptureActive(session.id)) continue;
+    const filename = session.pending_filename ?? "audio.wav";
+    if (
+      filename !== "audio.wav" &&
+      !/^audio-resume-[0-9a-f-]+\.wav$/.test(filename)
+    )
+      continue;
+    const file = new File(Paths.document, "sessions", session.id, filename);
     try {
+      if (
+        session.pending_filename &&
+        session.previous_size_bytes &&
+        file.exists &&
+        file.size <= session.previous_size_bytes
+      ) {
+        file.delete();
+        await clearPendingCapture(session.id);
+        continue;
+      }
       const sizeBytes = repairInterruptedWav(file);
-      if (sizeBytes === null) continue;
+      if (sizeBytes === null) {
+        if (
+          session.pending_filename &&
+          (!file.exists || file.size <= WAV_HEADER_BYTES)
+        ) {
+          if (file.exists) file.delete();
+          await clearPendingCapture(session.id);
+        }
+        continue;
+      }
       await catalogSessionAudio(session.id, {
         source: "recording",
-        filename: "audio.wav",
+        filename,
         contentType: "audio/wav",
       });
       recoveredSessionIds.push(session.id);

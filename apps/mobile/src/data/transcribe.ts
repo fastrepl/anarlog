@@ -3,6 +3,7 @@ import { fetch } from "expo/fetch";
 import { useSyncExternalStore } from "react";
 import { Platform } from "react-native";
 
+import { isMobileSessionCaptureActive } from "@/audio/capture-lifecycle";
 import { ProRequiredError } from "@/auth/billing";
 import { execute, executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
@@ -45,6 +46,10 @@ const automaticRetryBlocked = new Set<string>();
 const listeners = new Set<() => void>();
 const MAX_RETAINED_FAILED_STATES = 100;
 const transcriptionAdmission = new TranscriptionAdmission(2, 32);
+
+export function isSessionTranscribing(sessionId: string): boolean {
+  return inflight.has(sessionId);
+}
 
 function setState(sessionId: string, state: TranscriptionState) {
   states.delete(sessionId);
@@ -539,6 +544,7 @@ async function runTranscription(sessionId: string): Promise<void> {
 export function transcribeSession(sessionId: string): Promise<void> {
   const existing = inflight.get(sessionId);
   if (existing) return existing;
+  if (isMobileSessionCaptureActive(sessionId)) return Promise.resolve();
 
   const admitted = transcriptionAdmission.schedule(() =>
     runTranscription(sessionId)
