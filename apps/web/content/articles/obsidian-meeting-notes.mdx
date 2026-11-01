@@ -14,10 +14,12 @@ You're already in Obsidian. You have a vault with projects, people notes, maybe 
 
 By the end of this guide you'll have:
 
-- A meeting note template that auto-fills the date and drops your cursor where you start typing
-- A person note for each colleague that automatically shows every meeting they appeared in
+- A meeting note template that fills in the date and title, with sections for decisions and action items
+- A person note that links back to meeting notes where you linked that colleague
 - Action items you can find across your entire vault in one search
-- A way to get full meeting transcripts and AI summaries into your vault without any copy-pasting — and without your data leaving your machine
+- A Markdown handoff from Anarlog to your vault through manual export or an enabled Pro automation
+
+The [Anarlog setup below](#step-8-add-anarlog-for-real-time-transcription-and-ai-notes) explains the export choices and separate transcription and summary providers. Keeping both AI steps on-device requires supported local models; choosing a cloud provider sends the required audio or text to that service.
 
 ## Sources and credit
 
@@ -94,9 +96,9 @@ tags:
 - [ ]
 ```
 
-Now go to Settings > Core Plugins > Templates and set your template folder to Templates/.
+Enable Obsidian's [Templates core plugin](https://obsidian.md/help/plugins/templates), then set **Settings → Core plugins → Templates → Template folder location** to `Templates/`.
 
-When you want to start a meeting note: create a new note in `Meetings/`, name it something like `2026-04-06 Product Sync`, then hit Cmd+P and type "Insert template" and select your Meeting template. The date fills itself. Your cursor is ready.
+When you want to start a meeting note: create a new note in `Meetings/`, name it something like `2026-04-06 Product Sync`, place your cursor where you want the template, then use the command palette's **Insert template** command and select `Meeting`. The core plugin inserts the template at that position and replaces the date and title variables. Move to the Notes section to start typing.
 
 ### Step 4: Fill in a real meeting note
 
@@ -264,7 +266,7 @@ Monday morning. You open Obsidian.
 1. You check your calendar and see three meetings today. From your daily note, you create a meeting note for the first one: `2026-04-07 Sprint Planning`.
 2. With participants informed, you start recording in Anarlog. You take notes in Obsidian: quick bullets, [[wikilinks]] for people and topics as they come up.
 3. The meeting ends. You stop Anarlog, generate and review the summary, then export Markdown to your vault or check the file from your enabled summary-ready automation. You pull the verified decisions and action items to the top of your meeting note.
-4. Before your 1:1 with Sarah that afternoon, you open [[Sarah Chen]] and glance at backlinks. You can see every meeting she's been in this month, what she committed to, what's still open. You search task-todo:"Sarah Chen" and it shows rwo open items from last week.
-5. In the 1:1, you reference the specific thing she said in the sprint planning meeting. You know the exact phrasing because it's in the transcript. You're not guessing. You're not paraphrasing from memory. You're reading her words back from a file in your vault.
+4. Before your 1:1 with Sarah that afternoon, you open [[Sarah Chen]] and glance at backlinks to the meeting notes where you linked her. Search `task-todo:"Sarah Chen"` to find her incomplete tasks; in this example, there are two from last week.
+5. In the 1:1, you return to the sprint planning note and check the relevant transcript passage. Verify important wording against the authorized recording when available; transcription can contain errors.
 
 That's the system. Templates give you structure. Links connect everything. Backlinks surface history. Search finds anything. Anarlog fills the gap between what you typed and what was actually said. [Download Anarlog now](https://anarlog.so/download/apple-silicon) and try it on your next meeting.
