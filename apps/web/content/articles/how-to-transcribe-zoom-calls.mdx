@@ -1,70 +1,67 @@
 ---
 meta_title: "How to Transcribe Zoom Calls Automatically?"
-meta_description: "Learn how to automatically transcribe Zoom calls using Zoom's built-in feature or powerful third-party AI tools. Step-by-step guide with accuracy comparisons."
+meta_description: "Transcribe Zoom calls with Meeting transcript, cloud recording, My Notes, or Anarlog. Check permissions, save TXT or VTT, and choose local or cloud processing."
 author: "John Jeong"
 category: "Guides"
 date: "2025-09-16"
 ---
 
-Transcribing Zoom calls manually is time-consuming and error-prone. You can automate this process using either Zoom's built-in transcription feature or third-party AI tools.
+To keep a Zoom transcript, first choose the record you need. Live captions help you follow the call; they are not the same as a saved transcript. Zoom's Meeting transcript can retain text without requiring a cloud recording. Cloud-recording audio transcription is a separate workflow.
 
-This article covers both approaches and helps you decide which works for your workflow.
+We make Anarlog. This guide follows current product documentation, checked November 1, 2026; it is not a comparative accuracy test. The older Zoom screenshots below show historical interfaces.
 
 ## Method 1: Transcribing Zoom calls using Zoom's built-in transcription
 
-Zoom provides audio transcription that automatically transcribes the audio of meetings or webinars recorded to the cloud.
+| What you need | Start with | What to check |
+| --- | --- | --- |
+| Live text for accessibility | Automated captions | Available during the call; captions alone are not a downloadable meeting record |
+| A saved meeting transcript | Meeting transcript | Host settings, participant access, and permission to save |
+| A transcript alongside a cloud recording | Cloud-recording audio transcription | Eligible account, cloud recording, audio transcription enabled |
+| Personal notes enhanced by a transcript | My Notes | Account entitlement, supported client, and host controls |
+
+Zoom's [caption and transcript FAQ](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0085668) explains the distinction. The old **Full transcript** and **Save captions** settings were replaced by **Meeting transcript** controls. Do not rely on an older caption-saving tutorial to preserve a meeting record.
 
 ### What you need to get started
 
-- **Zoom account type:** Pro, Business, Education, or Enterprise account (basic free plan doesn't include transcription)
-- **Cloud recording enabled:** Transcription only works with cloud recordings
-- **Admin permissions:** Depending on your organization's setup
+- **Meeting transcript:** Zoom's [enablement guide](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0085675) lists Pro, Business, or Enterprise. A host or admin must enable it; an administrator can lock settings.
+- **Cloud-recording audio transcript:** Zoom lists Pro, Business, Education, or Enterprise, with cloud recording and audio transcription enabled. This requirement applies to that recording workflow.
+- **Client and permissions:** Use a supported Zoom client. Being able to see text does not necessarily give a participant permission to download it.
 
-If you're interested in Zoom's meeting summaries feature, see our [Zoom AI Companion Review](/blog/zoom-ai-companion-review).
+For My Notes, summaries, and current plan boundaries, see our [Zoom AI Companion Review](/blog/zoom-ai-companion-review/). Verify the feature in your account before upgrading: Zoom's pricing and help pages do not always describe Basic entitlements consistently.
 
 ### Setting up Zoom's built-in transcription
 
-<Image src="anarlog/blog/articles/how-to-transcribe-zoom-calls/auto-1.webp" alt="How to set up Zoom's built-in transcription" />
+<Image src="anarlog/blog/articles/how-to-transcribe-zoom-calls/auto-1.webp" alt="Older Zoom web portal showing the cloud recording setting" />
 
-*Zoom's native transcription setup. Source: [Zoom](https://www.zoom.com/en/products/ai-assistant/features/ai-note-taking/).*
+*Historical cloud-recording interface. It does not show the current Meeting transcript controls. Follow Zoom's current [transcript settings guide](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0085675).*
 
-1. Log into your Zoom web portal
-2. Navigate to Settings → Recording
-3. Toggle on "Cloud Recording"
-4. Under Cloud Recording section, check "Audio transcript" box
-5. Go to Settings → Meeting → In Meeting (Advanced)
-6. Find "Automated captions" and toggle it on
-7. Enable "Full transcript" for running transcript alongside captions
-8. Save all changes
+For a retained **Meeting transcript**, sign in to the Zoom web portal and open **Settings → Meeting → In Meeting (Advanced) → Meeting transcript**. Enable it if your account permits, review automatic generation and participant viewing/saving permissions, then save. If locked, ask your admin. Account-level retention rules also affect what remains available afterward.
+
+For a **cloud-recording transcript**, use the separate cloud-recording settings and enable audio transcription. See Zoom's [cloud-recording transcription guide](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=0064927). Turning on captions alone does not configure this output.
 
 ### Enabling transcription during a meeting
 
-<Image src="anarlog/blog/articles/how-to-transcribe-zoom-calls/auto-2.webp" alt="How to Turn On Zoom's Native Transcription Feature During a Meeting" />
+<Image src="anarlog/blog/articles/how-to-transcribe-zoom-calls/auto-2.webp" alt="Older Zoom meeting toolbar with Record to the Cloud selected" />
 
-*Zoom's native transcription setup. Source: [Zoom](https://www.zoom.com/en/products/ai-assistant/features/ai-note-taking/).*
+*Historical cloud-recording toolbar. Current controls depend on the client and account.*
 
-1. Start your Zoom meeting
-2. Click "Record" and select "Record to the Cloud"
-3. For live transcription, click "Live Transcript" in the toolbar and select "Enable"
-4. Zoom automatically generates a transcript after the meeting ends
-5. You receive an email with links to the recording and transcript (VTT format)
+**Meeting transcript:** The host opens **More → Transcript** to start it. Participants can use that menu to request transcription from the host. If saving is permitted, open the Transcript panel and choose **Save transcript** to save a **TXT** file. See Zoom's [usage instructions](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0085682). Run a short meeting first and reopen the saved file.
 
-If you need to find those files later, use our guide to [Zoom meeting history, recordings, and chat](/blog/see-zoom-meeting-history).
+**Cloud-recording transcript:** Start **Record to the Cloud**. After the meeting, allow time for recording and transcript processing. In the portal, open **Recordings & Transcripts → Cloud recordings**, select the meeting, and review or download its **VTT** transcript. Transcript processing can finish later than the recording; an immediate missing file is not proof that it failed.
+
+**My Notes:** In a supported Zoom meeting, open **My Notes → Start taking notes**. Transcription starts when supported and permitted; complete the note when finished. These are personal notes, not an automatically shared meeting record. Consult the [My Notes guide](https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0083849) for client, account, and host restrictions.
+
+If you need to find those files later, use our guide to [Zoom meeting history, recordings, and chat](/blog/see-zoom-meeting-history/).
 
 ## Method 2: Using third-party tools to transcribe Zoom calls
 
-Many excellent options exist for Zoom transcription. See our comprehensive guide on the [best AI notetakers for Zoom](/blog/best-ai-notetaker-for-zoom) for a detailed comparison. Anarlog is a complete AI notetaking solution that goes beyond simple transcription.
+If you want a separate meeting-notes workspace, compare capture method, processing, exports, and sharing. Our [Zoom notetaker comparison](/blog/best-ai-notetaker-for-zoom/) covers those choices. A separate recorder does not bypass your organization's recording policy.
 
 ### What is Anarlog?
 
-Anarlog is an open-source AI notepad for meetings that gives you complete control over your data and AI stack. Meeting data is stored locally in SQLite, with Markdown available as an export. This matters for:
+Anarlog is the open-source meeting notetaker we build. Canonical sessions, notes, and transcripts live in local SQLite; attachments are separate files and Markdown is an export format. It captures device audio without joining as a meeting participant.
 
-- **Privacy-sensitive conversations** -- Healthcare professionals, lawyers, counselors, and anyone handling confidential information
-- **Compliance-heavy industries** -- Organizations meeting HIPAA, GDPR, SOX, or CCPA requirements
-- **Offline functionality** -- Works without internet connectivity
-- **Universal compatibility** -- Works with all meeting platforms without requiring bots
-
-Anarlog transcribes your meeting in real-time and generates actionable summaries automatically, without bots joining your call.
+Transcription and Intelligence are separate provider choices. Local models can support an on-device workflow; hosted or bring-your-own-key services receive the audio or text needed for their requests. Optional sync, sharing, and Chat web search have additional data paths. Local storage alone does not establish an offline configuration or compliance with a particular regulation.
 
 ### How to transcribe Zoom meetings with Anarlog
 
@@ -73,39 +70,38 @@ Anarlog transcribes your meeting in real-time and generates actionable summaries
 <Image src="anarlog/blog/library/products/anarlog/desktop/2026-08-27-new-note.png" alt="Current Anarlog new-note screen after installation" />
 
 1. Visit [anarlog.so](/) and click "Download"
-2. Choose the macOS, Windows, or Linux build for your computer
+2. Choose a compatible build using the [installation and platform notes](https://docs.anarlog.so/desktop-installation). Windows and Linux support are in beta; built-in on-device transcription paths require supported Apple Silicon hardware.
 3. Install the downloaded package
-4. Launch Anarlog
+4. Launch Anarlog and configure **Settings → Transcription** and **Settings → Intelligence**. Download any local models before the meeting.
 
 #### Step 2: Start recording your meeting
 
 <Image src="anarlog/blog/library/products/anarlog/desktop/2026-08-27-new-note.png" alt="Current Anarlog new-note screen with the Record button" />
 
 1. Open Anarlog before or during your Zoom call
-2. Press the red recording button to start listening
-3. Anarlog captures both system audio (speakers/headphones) and your microphone
-4. Real-time transcript appears in the right panel as people speak
+2. Open a meeting note and select **Record**. Grant microphone and system-audio permissions when prompted.
+3. Check that both your microphone and the other speakers are captured in a short sample.
+4. Open **Transcript**. A model marked **Live** produces text during capture; one marked **After recording** processes audio after you stop. Follow the [recording guide](https://docs.anarlog.so/meetings).
 
-**Important:** Always ask for consent, especially in all-party consent states like California.
+Tell participants about recording and transcription and obtain any required permission. Follow your organization's policy and the rules applicable to everyone involved; a bot-free interface is not a consent exemption.
 
 #### Step 3: Let AI create your notes
 
 <Image src="anarlog/blog/library/products/anarlog/desktop/2026-08-20-meeting-summary.jpg" alt="Current Anarlog meeting summary view" />
 
-1. After your meeting ends, press the stop button
-2. Choose managed AI, your own provider key, or a local model for the summary
-3. AI generates a personalized summary with key points, action items, and insights
+1. After your meeting ends, select **Stop listening**.
+2. Let the selected transcription model finish. With an Intelligence model configured, Anarlog can generate a summary using the conversation and your memos.
+3. Check decisions and action items against the transcript; a summary is not a verbatim record.
 4. Review and edit the enhanced notes as needed
 5. Export Markdown when you need a portable copy
 
-### Why Anarlog outperforms Zoom's native transcription
+<h3 id="why-anarlog-outperforms-zooms-native-transcription">How to choose between Anarlog and Zoom transcription</h3>
 
 #### 1. Accuracy and reliability
 
-<Image src="anarlog/blog/articles/how-to-transcribe-zoom-calls/auto-6.webp" alt="Zoom native transcription review" />
+<Image src="anarlog/blog/articles/how-to-transcribe-zoom-calls/auto-6.webp" alt="Historical Zoom Community complaint by EmilieK dated July 22, 2023" />
 
-*Zoom's native transcription output. Source: [Zoom](https://www.zoom.com/en/products/ai-assistant/features/ai-note-taking/).*
-*Source*
+*Historical community complaint, not a product-output screenshot or a current accuracy benchmark. An individual report does not establish typical performance.*
 
 Transcription quality depends on audio, language, accents, and the model you choose. Anarlog lets you choose local or cloud transcription instead of tying the workflow to Zoom's built-in transcript.
 
@@ -115,21 +111,21 @@ Zoom's native transcription is a cloud workflow. Anarlog can keep capture, trans
 
 #### 3. Structured notes vs. raw text
 
-Zoom delivers raw transcript files that require manual organization. Anarlog extracts key points, decisions, and action items automatically.
+Both products can produce summaries as well as transcripts, subject to their settings and entitlements. Choose based on the record you need to retain and export. Review any generated decisions, names, and owners before sharing.
 
 #### 4. Long-term value
 
-Zoom transcripts sit in isolation. Anarlog builds a searchable knowledge base where you can find patterns, track decisions, and understand how projects evolved.
+Zoom offers transcript search and AI workflows for retained records. Anarlog offers a local meeting library and portable exports. Decide where your team will look for the authoritative record and how it will be backed up.
 
 #### 5. Interactive intelligence
 
-Anarlog lets you ask questions about your meeting notes through AI chat—"What are my action items?" or "What exactly did Sarah say about the budget?"—without scrolling through pages of text. Zoom gives you static files.
+Anarlog's meeting chat uses your chosen Intelligence provider. Zoom also supports AI questions using eligible retained transcripts. Test the question you need answered in either workflow and verify the answer against the source.
 
 #### 6. Flexibility
 
-Anarlog works with any meeting platform, offers custom templates, and supports local processing alongside optional managed AI, CloudSync, and sharing. Compare each enabled service against your data-handling requirements.
+Anarlog's device-audio capture can work alongside Zoom and other supported desktop calls. Test your operating system, audio permissions, and provider before relying on it. Zoom's native workflow may be simpler when your organization already manages its transcript permissions and retention.
 
-Anarlog offers unlimited AI summaries and transcription free forever.
+Anarlog's [Free plan](/pricing/) includes local/BYOK workflows without an app minute cap; external provider charges can apply. Hosted AI, sync, and collaboration are Pro features. Do not interpret free local software as unlimited free cloud processing.
 
 [Download Anarlog](/download)
 
@@ -161,34 +157,34 @@ Regardless of which method you choose, follow these practices to get the best re
 
 ### 1. How to get Zoom transcript without recording?
 
-Zoom's native transcription feature only works with cloud recordings. You cannot generate transcripts without recording the meeting first.
+Use **Meeting transcript** if your host's account and settings permit. Cloud-recording audio transcription requires a recording, but that is not Zoom's only transcript path. My Notes is another option with its own account and permission requirements.
 
 Third-party tools like Anarlog can capture and transcribe Zoom audio in real-time without requiring cloud recording to Zoom's servers.
 
 ### 2. Where are Zoom transcripts stored?
 
-Zoom transcripts are stored in Zoom's cloud servers alongside your recorded meetings. You can access them through the Zoom web portal under "Recordings."
+Cloud-recording transcripts appear with their recordings in **Recordings & Transcripts → Cloud recordings**. Meeting transcripts and My Notes have separate access and retention controls.
 
-The transcripts are saved in VTT format, which you can download and convert to other formats like Word documents or PDFs. This cloud storage raises privacy concerns for sensitive meetings.
+A permitted in-meeting **Save transcript** creates a local TXT copy. Cloud-recording transcripts use VTT. A downloaded copy is separate from the hosted record: check who can access each and how long each is retained.
 
 ### 3. What's the best alternative to Zoom's transcription?
 
-For users who want complete control, Anarlog offers the best alternative with zero lock-in—local SQLite storage, portable exports, and control over your AI stack.
+Consider Anarlog if local meeting storage and choosing separate transcription and summary providers fit your workflow. First test capture, output, and exports on your computer.
 
-For those comfortable with cloud processing, other popular alternatives include Otter AI, Fathom, and Tactiq. See our comprehensive guide on the [best AI notetakers for Zoom](/blog/best-ai-notetaker-for-zoom) for a detailed comparison.
+Otter, Fathom, and Tactiq offer other capture and workspace choices. Use the [Zoom notetaker comparison](/blog/best-ai-notetaker-for-zoom/) to check their supported clients, allowances, and processing paths.
 
 ### 4. How accurate is Zoom's native transcription?
 
-Accuracy depends on audio quality, language, speaker overlap, and terminology. Zoom's [2025 AI Quality Report](https://www.zoom.com/en/resources/ai-quality-report-2025) found low word-error rates in its commissioned tests, but you should still test native transcription against your own meetings before relying on it.
+Accuracy depends on audio, language, speaker overlap, and terminology. Compare a short authorized recording with a known reference and check names, numbers, negation, and speaker attribution. This guide does not establish a comparative accuracy ranking.
 
 ### 5. Can I transcribe Zoom calls offline?
 
-Zoom's native transcription requires an internet connection and cloud processing, so offline transcription isn't possible.
+An active Zoom call needs a network connection. A local transcription engine does not make the call itself work offline.
 
-Anarlog can transcribe Zoom calls completely offline using local AI models, making it ideal for situations with unreliable internet.
+You can process an authorized recording locally in Anarlog on supported hardware after downloading the required models. Configure transcription and summaries independently, and test while disconnected before relying on an offline path. See the [offline setup guide](https://docs.anarlog.so/offline).
 
 ### 6. Do I need a paid Zoom account for transcription?
 
-Yes, Zoom's transcription feature requires a Pro, Business, Education, or Enterprise account. The basic free Zoom plan does not include transcription.
+It depends on the feature. Zoom's cloud-recording transcript guide lists Pro, Business, Education, or Enterprise; its Meeting transcript enablement guide lists Pro, Business, or Enterprise. My Notes and summaries have separate entitlements. Check your actual account controls and current plan terms instead of treating all speech-to-text features as one paid add-on.
 
-Anarlog offers unlimited transcription and AI summaries free forever, regardless of your Zoom account type.
+Anarlog does not require a paid Zoom account for device-audio capture. Its own model, platform, and plan requirements still apply, including charges from any external provider you select.
