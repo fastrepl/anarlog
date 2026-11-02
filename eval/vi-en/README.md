@@ -15,6 +15,7 @@ critical terms for every candidate evaluated on that meeting:
   "meeting_id": "meeting-001",
   "split": "test",
   "speaker_group": "speaker-set-a",
+  "device": "iphone17-pro-max",
   "candidate": "whisper-small-q8",
   "reference": "Chưa duyệt deploy lên staging vào thứ Sáu.",
   "hypothesis": "Chưa duyệt deploy lên staging vào thứ Sáu.",
@@ -28,8 +29,10 @@ critical terms for every candidate evaluated on that meeting:
 `split` must be `dev` or `test`. Split by whole meeting and speaker group;
 never put clips from one meeting or speaker in both splits. Use `dev` while
 choosing language settings, chunk size, or model options. Reserve `test` for the
-final comparison. `speaker_group` is an opaque identifier; do not put names in
-the manifest.
+final comparison. `speaker_group` and `device` are opaque IDs; do not put
+participant names, serial numbers, or other personal details in the manifest.
+For each split and device, every candidate must use the same meeting set. The
+scorer rejects incomplete candidate sets and reports each device separately.
 
 `critical_terms` is an explicitly annotated list of names, product terms,
 numbers, dates, negations, or other spans whose recognition affects meeting
@@ -40,8 +43,9 @@ those cases by listening to the source audio.
 All durations and resource measurements are numeric and optional. Record
 `inference_seconds` and `peak_rss_mb` from the same device and build being
 evaluated. The scorer reports aggregate real-time factor (RTF), where lower is
-faster and `1.0` is real time, plus the maximum reported peak RSS. Do not compare
-resource figures across different hardware as if they were model-only results.
+faster and `1.0` is real time, plus the maximum reported peak RSS. Results are
+kept separate for each `device`; do not compare resource figures across
+different hardware as if they were model-only results.
 
 For an apples-to-apples run, use the same audio file, language option, thread
 count, and decoder settings for `ggml-small-q8_0.bin`,

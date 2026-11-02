@@ -69,6 +69,7 @@ def validate_record(record: Any, line_number: int) -> dict[str, Any]:
         "meeting_id",
         "split",
         "speaker_group",
+        "device",
         "candidate",
         "reference",
         "hypothesis",
@@ -97,7 +98,7 @@ def validate_record(record: Any, line_number: int) -> dict[str, Any]:
 
 def load_records(path: Path) -> list[dict[str, Any]]:
     records = []
-    identities: set[tuple[str, str, str]] = set()
+    identities: set[tuple[str, str, str, str]] = set()
     references: dict[str, tuple[str, str, str, tuple[str, ...]]] = {}
     speaker_splits: dict[str, str] = {}
     for line_number, line in enumerate(
@@ -111,10 +112,15 @@ def load_records(path: Path) -> list[dict[str, Any]]:
             raise ValueError(
                 f"line {line_number}: invalid JSON: {error.msg}"
             ) from error
-        identity = (record["meeting_id"], record["split"], record["candidate"])
+        identity = (
+            record["meeting_id"],
+            record["split"],
+            record["device"],
+            record["candidate"],
+        )
         if identity in identities:
             raise ValueError(
-                f"line {line_number}: duplicate meeting/candidate {identity[0]!r}/{identity[2]!r}"
+                f"line {line_number}: duplicate meeting/device/candidate {identity[0]!r}/{identity[2]!r}/{identity[3]!r}"
             )
         identities.add(identity)
         reference = (
@@ -138,6 +144,23 @@ def load_records(path: Path) -> list[dict[str, Any]]:
         records.append(record)
     if not records:
         raise ValueError("input contains no evaluation records")
+    candidate_meetings: dict[tuple[str, str], dict[str, set[str]]] = defaultdict(
+        lambda: defaultdict(set)
+    )
+    for record in records:
+        device_split = (record["split"], record["device"])
+        candidate_meetings[device_split][record["candidate"]].add(
+            record["meeting_id"]
+        )
+    for (record_split, device), candidates in candidate_meetings.items():
+        reference_candidate, reference_meetings = next(iter(candidates.items()))
+        for candidate, meeting_ids in candidates.items():
+            if meeting_ids != reference_meetings:
+                missing = sorted(reference_meetings - meeting_ids)
+                extra = sorted(meeting_ids - reference_meetings)
+                raise ValueError(
+                    f"split {record_split!r}, device {device!r}: candidate {candidate!r} must use the same meetings as {reference_candidate!r} (missing={missing}, extra={extra})"
+                )
     return records
 
 
@@ -147,12 +170,12 @@ def score_records(
     selected = [record for record in records if record["split"] == split]
     if not selected:
         raise ValueError(f"input contains no records for split {split!r}")
-    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for record in selected:
-        grouped[record["candidate"]].append(record)
+        grouped[(record["candidate"], record["device"])].append(record)
 
     scores = {}
-    for candidate, rows in sorted(grouped.items()):
+    for (candidate, device), rows in sorted(grouped.items()):
         word_errors = word_count = char_errors = char_count = 0
         critical_hits = critical_total = 0
         audio_seconds = inference_seconds = 0.0
@@ -185,7 +208,7 @@ def score_records(
                 peak_rss_mb = max(peak_rss_mb, record["peak_rss_mb"])
             else:
                 has_peak_rss = False
-        scores[candidate] = {
+        scores[f"{candidate} [{device}]"] = {
             "meetings": len(rows),
             "wer": word_errors / word_count,
             "cer": char_errors / char_count,

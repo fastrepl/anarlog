@@ -30,6 +30,7 @@ class ScoreTest(unittest.TestCase):
                 "meeting_id": "m1",
                 "split": split,
                 "speaker_group": "group-a",
+                "device": "iphone17",
                 "candidate": "whisper",
                 "reference": "Chưa duyệt deploy.",
                 "hypothesis": hypothesis,
@@ -43,7 +44,7 @@ class ScoreTest(unittest.TestCase):
                 ("test", "Chưa duyệt deploy.", 5),
             )
         ]
-        report = score.score_records(rows, "test")["whisper"]
+        report = score.score_records(rows, "test")["whisper [iphone17]"]
         self.assertEqual(report["meetings"], 1)
         self.assertEqual(report["wer"], 0)
         self.assertEqual(report["critical_accuracy"], 1)
@@ -54,6 +55,7 @@ class ScoreTest(unittest.TestCase):
             "meeting_id": "m1",
             "split": "test",
             "speaker_group": "group-a",
+            "device": "iphone17",
             "reference": "Chưa duyệt.",
             "hypothesis": "Chưa duyệt.",
             "critical_terms": [],
@@ -73,6 +75,48 @@ class ScoreTest(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "must share split"):
                 score.load_records(manifest)
+
+    def test_candidates_must_use_the_same_meetings_on_each_device(self):
+        base = {
+            "split": "test",
+            "speaker_group": "group-a",
+            "device": "iphone17",
+            "reference": "Chưa duyệt.",
+            "hypothesis": "Chưa duyệt.",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "results.jsonl"
+            manifest.write_text(
+                "\n".join(
+                    json.dumps({**base, "meeting_id": meeting, "candidate": candidate})
+                    for meeting, candidate in (("m1", "a"), ("m1", "b"), ("m2", "a"))
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "must use the same meetings"):
+                score.load_records(manifest)
+
+    def test_quality_and_resource_scores_are_reported_per_device(self):
+        rows = []
+        for device, inference in (("iphone17", 8), ("macbook16", 4)):
+            rows.append(
+                {
+                    "meeting_id": "m1",
+                    "split": "test",
+                    "speaker_group": "group-a",
+                    "device": device,
+                    "candidate": "whisper",
+                    "reference": "Chưa duyệt deploy.",
+                    "hypothesis": "Chưa duyệt deploy.",
+                    "critical_terms": [],
+                    "audio_seconds": 10,
+                    "inference_seconds": inference,
+                    "peak_rss_mb": 100,
+                }
+            )
+        reports = score.score_records(rows, "test")
+        self.assertEqual(reports["whisper [iphone17]"]["rtf"], 0.8)
+        self.assertEqual(reports["whisper [macbook16]"]["rtf"], 0.4)
 
 
 if __name__ == "__main__":
