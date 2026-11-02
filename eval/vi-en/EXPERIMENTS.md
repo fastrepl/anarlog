@@ -46,3 +46,33 @@ and desktop targets. After regenerating the native bridge with the pinned Rust
 persisted. The simulator run did not capture a reliable inference duration or
 peak memory. It does not establish performance or stability on an actual
 iPhone, nor quality on Vietnamese-English speech.
+
+# Same-file laptop comparison on an English fixture
+
+Date: 2026-11-03
+
+This resource and conversion smoke run used the repository's 30-second
+`crates/data/src/english_2/audio.wav` fixture on an Apple M1 Pro laptop with
+16 GiB RAM. The Whisper Small multilingual Q8 file matched the expected size
+and CRC32. PhoWhisper Small FP16/Q8 were generated from the checksum-pinned
+checkpoint by `prepare-phowhisper.sh`. All three models used the same
+whisper.cpp commit, audio file, `-l en`, default thread/backend settings, and
+one inference. Figures are single-run observations from `/usr/bin/time -l`;
+WER/CER and critical-term presence were scored with `score.py` and its fixed
+normalization.
+
+| Model | WER | CER | Critical terms | Wall time | RTF | Max RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Whisper Small multilingual Q8_0 | 0.218 | 0.210 | 100% | 1.60 s | 0.053 | 569.9 MB |
+| PhoWhisper Small FP16 | 1.000 | 1.000 | 0% | 2.11 s | 0.070 | 826.7 MB |
+| PhoWhisper Small Q8_0 | 1.000 | 0.815 | 0% | 1.10 s | 0.037 | 589.4 MB |
+
+On this English-only fixture, both PhoWhisper conversions loaded, but neither
+produced usable English text. Q8 was faster and smaller than FP16 in this one
+run, but its quality result does not support selecting it for English or
+Vietnamese-English meetings. The Whisper baseline also omitted a substantial
+part of the reference, so these scores are not a release-quality result. This
+single 30-second English fixture is only a conversion/resource smoke check; it
+does not evaluate Vietnamese or code-switching quality, CPU-only behavior,
+long-meeting thermals, or iPhone performance. Keep the PhoWhisper artifacts in
+the temporary evaluation directory and do not ship them.
