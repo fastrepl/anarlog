@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-export const MEETING_SCHEMA_VERSION = "1";
-export const MEETING_PROMPT_VERSION = "2";
+export const MEETING_SCHEMA_VERSION = "2";
+export const MEETING_PROMPT_VERSION = "3";
 export const CLOUDFLARE_MEETING_MODELS = [
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   "@cf/qwen/qwen3-30b-a3b-fp8",
@@ -48,13 +48,43 @@ export const MeetingMinutesRequestSchema = z
     }
   });
 
-const EvidenceIdsSchema = z.array(z.string().min(1).max(128)).min(1).max(20);
+const EvidenceIdsSchema = z
+  .array(z.string().min(1).max(128))
+  .min(1)
+  .max(20)
+  .superRefine((ids, context) => {
+    if (new Set(ids).size !== ids.length)
+      context.addIssue({
+        code: "custom",
+        message: "Evidence segment IDs must be unique.",
+      });
+  });
+const EvidenceQuotesSchema = z
+  .array(
+    z
+      .object({
+        segment_id: z.string().min(1).max(128),
+        quote: z.string().min(1).max(1_000),
+      })
+      .strict(),
+  )
+  .min(1)
+  .max(20)
+  .superRefine((quotes, context) => {
+    const ids = quotes.map(({ segment_id }) => segment_id);
+    if (new Set(ids).size !== ids.length)
+      context.addIssue({
+        code: "custom",
+        message: "Evidence quotes must reference unique segments.",
+      });
+  });
 
 export const DecisionSchema = z
   .object({
     id: z.string().min(1).max(64),
     text: z.string().min(1).max(2_000),
     evidence_segment_ids: EvidenceIdsSchema,
+    evidence_quotes: EvidenceQuotesSchema,
   })
   .strict();
 
@@ -68,6 +98,7 @@ export const ActionItemSchema = z
     deadline_iso: z.string().date().nullable(),
     status: z.enum(["confirmed", "needs_confirmation", "suggested"]),
     evidence_segment_ids: EvidenceIdsSchema,
+    evidence_quotes: EvidenceQuotesSchema,
   })
   .strict();
 
@@ -84,6 +115,7 @@ export const MeetingMinutesSchema = z
             id: z.string().min(1).max(64),
             text: z.string().min(1).max(2_000),
             evidence_segment_ids: EvidenceIdsSchema,
+            evidence_quotes: EvidenceQuotesSchema,
           })
           .strict(),
       )
@@ -138,7 +170,7 @@ export const MEETING_MINUTES_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "text", "evidence_segment_ids"],
+        required: ["id", "text", "evidence_segment_ids", "evidence_quotes"],
         properties: {
           id: { type: "string" },
           text: { type: "string" },
@@ -146,6 +178,19 @@ export const MEETING_MINUTES_JSON_SCHEMA = {
             type: "array",
             minItems: 1,
             items: { type: "string" },
+          },
+          evidence_quotes: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["segment_id", "quote"],
+              properties: {
+                segment_id: { type: "string" },
+                quote: { type: "string" },
+              },
+            },
           },
         },
       },
@@ -164,6 +209,7 @@ export const MEETING_MINUTES_JSON_SCHEMA = {
           "deadline_iso",
           "status",
           "evidence_segment_ids",
+          "evidence_quotes",
         ],
         properties: {
           id: { type: "string" },
@@ -181,6 +227,19 @@ export const MEETING_MINUTES_JSON_SCHEMA = {
             minItems: 1,
             items: { type: "string" },
           },
+          evidence_quotes: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["segment_id", "quote"],
+              properties: {
+                segment_id: { type: "string" },
+                quote: { type: "string" },
+              },
+            },
+          },
         },
       },
     },
@@ -189,7 +248,7 @@ export const MEETING_MINUTES_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "text", "evidence_segment_ids"],
+        required: ["id", "text", "evidence_segment_ids", "evidence_quotes"],
         properties: {
           id: { type: "string" },
           text: { type: "string" },
@@ -197,6 +256,19 @@ export const MEETING_MINUTES_JSON_SCHEMA = {
             type: "array",
             minItems: 1,
             items: { type: "string" },
+          },
+          evidence_quotes: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["segment_id", "quote"],
+              properties: {
+                segment_id: { type: "string" },
+                quote: { type: "string" },
+              },
+            },
           },
         },
       },
@@ -218,23 +290,35 @@ export type MeetingMinutes = z.infer<typeof MeetingMinutesSchema>;
 
 export function validateEvidenceReferences(
   minutes: MeetingMinutes,
-  segments: readonly { id: string }[],
+  segments: readonly { id: string; text: string }[],
 ): MeetingMinutes {
-  const ids = new Set(segments.map(({ id }) => id));
-  const references = [
-    ...minutes.decisions.flatMap(
-      ({ evidence_segment_ids }) => evidence_segment_ids,
-    ),
-    ...minutes.action_items.flatMap(
-      ({ evidence_segment_ids }) => evidence_segment_ids,
-    ),
-    ...minutes.open_questions.flatMap(
-      ({ evidence_segment_ids }) => evidence_segment_ids,
-    ),
+  const sourceById = new Map(
+    segments.map((segment) => [segment.id, segment.text]),
+  );
+  const items = [
+    ...minutes.decisions,
+    ...minutes.action_items,
+    ...minutes.open_questions,
   ];
-  if (references.some((id) => !ids.has(id)))
-    throw new Error(
-      "The generated minutes referenced a segment outside this transcript revision.",
-    );
+  for (const item of items) {
+    const ids = new Set(item.evidence_segment_ids);
+    const quoteIds = new Set<string>();
+    for (const evidence of item.evidence_quotes) {
+      const source = sourceById.get(evidence.segment_id);
+      if (!source)
+        throw new Error(
+          "The generated minutes referenced a segment outside this transcript revision.",
+        );
+      if (!evidence.quote.trim() || !source.includes(evidence.quote))
+        throw new Error(
+          "The generated minutes included a quote that does not match its source segment.",
+        );
+      quoteIds.add(evidence.segment_id);
+    }
+    if (ids.size !== quoteIds.size || [...ids].some((id) => !quoteIds.has(id)))
+      throw new Error(
+        "Every evidence segment must have a matching verbatim quote.",
+      );
+  }
   return minutes;
 }

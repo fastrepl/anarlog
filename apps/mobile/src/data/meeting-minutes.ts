@@ -65,12 +65,22 @@ export function renderMeetingMinutes(
         suggested: "Suggested",
       };
   const { minutes } = response;
-  const evidence = (ids: string[]) =>
-    `  ${labels.evidence}: ${ids.map((id) => `[${id}](anarlog-evidence://${encodeURIComponent(id)})`).join(", ")}`;
+  const inlineCode = (source: string) => {
+    const runs = source.match(/`+/gu) ?? [];
+    const fence = "`".repeat(Math.max(1, ...runs.map((run) => run.length + 1)));
+    return `${fence}${source.replace(/\s+/gu, " ")}${fence}`;
+  };
+  const evidence = (quotes: { segment_id: string; quote: string }[]) =>
+    `  ${labels.evidence}: ${quotes
+      .map(
+        ({ segment_id, quote }) =>
+          `${inlineCode(quote)} [${segment_id}](anarlog-evidence://${encodeURIComponent(segment_id)})`,
+      )
+      .join(", ")}`;
   const sections = [`## ${labels.summary}\n\n${minutes.summary}`];
   if (minutes.decisions.length)
     sections.push(
-      `## ${labels.decisions}\n\n${minutes.decisions.map((item) => `- ${item.text}\n${evidence(item.evidence_segment_ids)}`).join("\n")}`,
+      `## ${labels.decisions}\n\n${minutes.decisions.map((item) => `- ${item.text}\n${evidence(item.evidence_quotes)}`).join("\n")}`,
     );
   if (minutes.action_items.length)
     sections.push(
@@ -89,13 +99,13 @@ export function renderMeetingMinutes(
               : null,
             `${labels.status}: ${status}`,
           ].filter(Boolean);
-          return `- ${item.task}${details.length ? `\n  ${details.join(" · ")}` : ""}\n${evidence(item.evidence_segment_ids)}`;
+          return `- ${item.task}${details.length ? `\n  ${details.join(" · ")}` : ""}\n${evidence(item.evidence_quotes)}`;
         })
         .join("\n")}`,
     );
   if (minutes.open_questions.length)
     sections.push(
-      `## ${labels.questions}\n\n${minutes.open_questions.map((item) => `- ${item.text}\n${evidence(item.evidence_segment_ids)}`).join("\n")}`,
+      `## ${labels.questions}\n\n${minutes.open_questions.map((item) => `- ${item.text}\n${evidence(item.evidence_quotes)}`).join("\n")}`,
     );
   if (minutes.suggestions.length)
     sections.push(

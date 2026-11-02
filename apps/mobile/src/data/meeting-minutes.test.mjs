@@ -40,6 +40,12 @@ function response(evidenceId = segment.id) {
           deadline_iso: null,
           status: "needs_confirmation",
           evidence_segment_ids: [evidenceId],
+          evidence_quotes: [
+            {
+              segment_id: evidenceId,
+              quote: "Nam will review the staging deployment",
+            },
+          ],
         },
       ],
       open_questions: [],
@@ -47,8 +53,8 @@ function response(evidenceId = segment.id) {
     },
     metadata: {
       model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-      prompt_version: "2",
-      schema_version: "1",
+      prompt_version: "3",
+      schema_version: "2",
       transcript_revision: "revision-1",
       input_tokens: 400,
       output_tokens: 120,
@@ -83,6 +89,7 @@ test("structured minutes preserve review state and separate AI suggestions", () 
   const markdown = renderMeetingMinutes(minutes, "Vietnamese");
   assert.match(markdown, /Cần xác nhận/u);
   assert.match(markdown, /Dẫn chứng/u);
+  assert.match(markdown, /Nam will review the staging deployment/u);
   assert.match(
     markdown,
     /\[transcript-a:segment-1\]\(anarlog-evidence:\/\/transcript-a%3Asegment-1\)/u,

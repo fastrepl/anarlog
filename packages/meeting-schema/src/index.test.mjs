@@ -14,6 +14,9 @@ const segment = {
   start_ms: 1_000,
   end_ms: 2_000,
 };
+const evidenceQuotes = [
+  { segment_id: segment.id, quote: "Nam will review the staging deployment" },
+];
 
 test("meeting input rejects duplicate evidence segment IDs", () => {
   const parsed = MeetingMinutesRequestSchema.safeParse({
@@ -71,6 +74,7 @@ test("action items keep ambiguous ownership and dates reviewable", () => {
         deadline_iso: null,
         status: "needs_confirmation",
         evidence_segment_ids: [segment.id],
+        evidence_quotes: evidenceQuotes,
       },
     ],
     open_questions: [],
@@ -90,6 +94,9 @@ test("evidence validation rejects IDs outside the transcript revision", () => {
         id: "decision-1",
         text: "Use staging for validation.",
         evidence_segment_ids: ["foreign-segment"],
+        evidence_quotes: [
+          { segment_id: "foreign-segment", quote: "Use staging" },
+        ],
       },
     ],
     action_items: [],
@@ -97,4 +104,25 @@ test("evidence validation rejects IDs outside the transcript revision", () => {
     suggestions: [],
   });
   assert.throws(() => validateEvidenceReferences(minutes, [segment]));
+});
+
+test("evidence validation rejects a fabricated quote even when its segment ID is valid", () => {
+  const minutes = MeetingMinutesSchema.parse({
+    title: "Staging review",
+    summary: "The team discussed staging.",
+    decisions: [
+      {
+        id: "decision-1",
+        text: "The deployment was approved.",
+        evidence_segment_ids: [segment.id],
+        evidence_quotes: [
+          { segment_id: segment.id, quote: "The deployment was approved." },
+        ],
+      },
+    ],
+    action_items: [],
+    open_questions: [],
+    suggestions: [],
+  });
+  assert.throws(() => validateEvidenceReferences(minutes, [segment]), /quote/u);
 });
