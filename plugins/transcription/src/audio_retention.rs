@@ -282,7 +282,7 @@ pub(crate) fn spawn<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
     tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(SWEEP_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        let mut last_voiceprint_cleanup: Option<Instant> = None;
+        let mut voiceprint_cleanup_schedule = VoiceprintCleanupSchedule::default();
         loop {
             interval.tick().await;
             let Some(pool) = db_pool(&app) else {
@@ -291,17 +291,35 @@ pub(crate) fn spawn<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
             if let Err(error) = sweep(&app, &pool).await {
                 tracing::warn!(%error, "audio_retention_sweep_failed");
             }
-            if last_voiceprint_cleanup.is_none_or(|at| at.elapsed() >= VOICEPRINT_CLEANUP_INTERVAL)
-            {
-                last_voiceprint_cleanup = Some(Instant::now());
-                if let Err(error) =
-                    crate::voiceprint::cleanup_expired_voiceprint_candidates(&app, &pool).await
-                {
+            let attempt_at = Instant::now();
+            if voiceprint_cleanup_schedule.is_due(attempt_at) {
+                let result =
+                    crate::voiceprint::cleanup_expired_voiceprint_candidates(&app, &pool).await;
+                voiceprint_cleanup_schedule.complete_attempt(attempt_at, &result);
+                if let Err(error) = result {
                     tracing::warn!(%error, "voiceprint_candidate_cleanup_failed");
                 }
             }
         }
     });
+}
+
+#[derive(Default)]
+struct VoiceprintCleanupSchedule {
+    last_success: Option<Instant>,
+}
+
+impl VoiceprintCleanupSchedule {
+    fn is_due(&self, now: Instant) -> bool {
+        self.last_success
+            .is_none_or(|last| now.duration_since(last) >= VOICEPRINT_CLEANUP_INTERVAL)
+    }
+
+    fn complete_attempt<T, E>(&mut self, attempted_at: Instant, result: &Result<T, E>) {
+        if result.is_ok() {
+            self.last_success = Some(attempted_at);
+        }
+    }
 }
 
 /// Deletes local audio right after processing when the retention policy is `none`.
@@ -395,5 +413,21 @@ mod tests {
         assert!(batch_session_belongs_to("s1", "s1"));
         assert!(batch_session_belongs_to("s1:recovery", "s1"));
         assert!(!batch_session_belongs_to("s10", "s1"));
+    }
+
+    #[test]
+    fn failed_voiceprint_cleanup_is_retried_on_the_next_sweep() {
+        let first_attempt = Instant::now();
+        let mut schedule = VoiceprintCleanupSchedule::default();
+        assert!(schedule.is_due(first_attempt));
+
+        schedule.complete_attempt(first_attempt, &Err::<(), _>("database not ready"));
+
+        let next_sweep = first_attempt + SWEEP_INTERVAL;
+        assert!(schedule.is_due(next_sweep));
+
+        schedule.complete_attempt(next_sweep, &Ok::<(), &str>(()));
+        assert!(!schedule.is_due(next_sweep + SWEEP_INTERVAL));
+        assert!(schedule.is_due(next_sweep + VOICEPRINT_CLEANUP_INTERVAL));
     }
 }
