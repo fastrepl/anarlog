@@ -83,6 +83,12 @@ export function NoteSummary({
     >
       {summary && (
         <View>
+          {summary.outdated && (
+            <Text accessibilityRole="alert" style={styles.summaryOutdated}>
+              Transcript edited since this summary was generated. Regenerate it
+              to include the latest changes.
+            </Text>
+          )}
           {summary.title !== "Summary" && (
             <Text style={styles.summaryTitle}>{summary.title}</Text>
           )}
@@ -197,5 +203,10 @@ const useStyles = createStyleHook((Colors) => ({
     ...Typography.caption,
     color: Colors.accent,
     marginTop: Spacing.sm,
+  },
+  summaryOutdated: {
+    ...Typography.caption,
+    color: Colors.destructive,
+    marginBottom: Spacing.sm,
   },
 }));

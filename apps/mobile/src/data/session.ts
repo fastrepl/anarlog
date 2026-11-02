@@ -162,6 +162,7 @@ SELECT
     SELECT json_group_array(json_object(
       'id', document.id, 'title', document.title,
       'body', document.body, 'body_format', document.body_format,
+      'generation_metadata_json', document.generation_metadata_json,
       'kind', document.kind, 'template_id', document.template_id,
       'sort_order', document.sort_order
     )) FROM session_documents AS document

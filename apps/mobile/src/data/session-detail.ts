@@ -16,7 +16,7 @@ export type SessionDetail = {
   noteText: string;
   bodyFormat: "prosemirror_json" | "markdown";
   plainEditable: boolean;
-  summary: { title: string; text: string } | null;
+  summary: { title: string; text: string; outdated: boolean } | null;
 };
 
 export type SessionDetailRow = {
@@ -54,6 +54,7 @@ export function mapSessionDetailRows(
       title: string;
       body: string;
       body_format: string;
+      generation_metadata_json?: string;
       kind: string;
       template_id: string;
       sort_order: number;
@@ -71,6 +72,20 @@ export function mapSessionDetailRows(
     (summaryDocument.title.trim() !== summaryTitle
       ? summaryDocument.title.trim()
       : "");
+  let summaryOutdated = false;
+  if (summary?.generation_metadata_json) {
+    try {
+      const metadata: unknown = JSON.parse(summary.generation_metadata_json);
+      summaryOutdated = Boolean(
+        metadata &&
+        typeof metadata === "object" &&
+        "transcript_stale" in metadata &&
+        metadata.transcript_stale === true,
+      );
+    } catch {
+      summaryOutdated = false;
+    }
+  }
 
   return {
     document:
@@ -96,6 +111,7 @@ export function mapSessionDetailRows(
         : {
             title: summaryTitle,
             text: summaryText,
+            outdated: summaryOutdated,
           },
   };
 }

@@ -66,6 +66,7 @@ test("maps a canonical summary alongside the editable note", () => {
     summary: {
       title: "Key decisions",
       text: "Ship the mobile timeline.",
+      outdated: false,
     },
   });
 });
@@ -117,7 +118,29 @@ test("uses the body heading when a synced summary has no stored title", () => {
   assert.deepEqual(detail?.summary, {
     title: "Decisions",
     text: "Use hosted live transcription.",
+    outdated: false,
   });
+});
+
+test("marks a saved summary outdated after transcript edits", () => {
+  const detail = mapSessionDetailRows([
+    {
+      ...baseRow,
+      summary_documents: [
+        {
+          id: "summary-1",
+          title: "Key decisions",
+          body: "# Generated summary\n\nShip the mobile timeline.",
+          body_format: "markdown",
+          generation_metadata_json: JSON.stringify({ transcript_stale: true }),
+          kind: "summary",
+          template_id: "",
+          sort_order: 0,
+        },
+      ],
+    },
+  ]);
+  assert.equal(detail?.summary?.outdated, true);
 });
 
 test("a named desktop placeholder with only the meeting title is not a finished summary", () => {
@@ -176,5 +199,6 @@ test("a named desktop placeholder with only the meeting title is not a finished 
   assert.deepEqual(populatedTemplate.summary, {
     title: "Decisions",
     text: "Ship the release.",
+    outdated: false,
   });
 });

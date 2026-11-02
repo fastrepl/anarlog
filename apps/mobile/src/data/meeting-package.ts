@@ -32,6 +32,7 @@ type PackageTranscript = {
   memo: string;
   words_json: string;
   speaker_hints_json: string;
+  metadata_json?: string;
 };
 
 type MeetingPackage = {
@@ -77,7 +78,7 @@ export async function exportMeetingPackage(
     ),
     execute<PackageTranscript>(
       `SELECT id, source, provider, model, language, started_at_ms,
-         ended_at_ms, memo, words_json, speaker_hints_json
+         ended_at_ms, memo, words_json, speaker_hints_json, metadata_json
        FROM transcripts WHERE session_id = ? AND deleted_at IS NULL
        ORDER BY started_at_ms, created_at, id`,
       [sessionId],
@@ -270,7 +271,7 @@ export async function importMeetingPackage(
           memo, words_json, speaker_hints_json, metadata_json, created_at,
           updated_at, deleted_at
         ) SELECT ?, workspace_id, owner_user_id, id, ?, ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, '{}', ?, ?, NULL FROM sessions
+          ?, ?, ?, ?, ?, ?, NULL FROM sessions
           WHERE id = ? AND deleted_at IS NULL`,
         params: [
           transcriptIdMap.get(transcript.id)!,
@@ -284,6 +285,7 @@ export async function importMeetingPackage(
           transcript.memo,
           transcript.words_json,
           transcript.speaker_hints_json,
+          transcript.metadata_json ?? "{}",
           now,
           now,
           sessionId,
@@ -423,6 +425,8 @@ function parseMeetingPackage(raw: string): MeetingPackage {
       typeof transcript.memo !== "string" ||
       typeof transcript.words_json !== "string" ||
       typeof transcript.speaker_hints_json !== "string" ||
+      (transcript.metadata_json !== undefined &&
+        typeof transcript.metadata_json !== "string") ||
       !Number.isSafeInteger(transcript.started_at_ms) ||
       (transcript.ended_at_ms !== null &&
         !Number.isSafeInteger(transcript.ended_at_ms))
@@ -432,7 +436,11 @@ function parseMeetingPackage(raw: string): MeetingPackage {
     try {
       if (
         !Array.isArray(JSON.parse(transcript.words_json)) ||
-        !Array.isArray(JSON.parse(transcript.speaker_hints_json))
+        !Array.isArray(JSON.parse(transcript.speaker_hints_json)) ||
+        (transcript.metadata_json !== undefined &&
+          (!JSON.parse(transcript.metadata_json) ||
+            typeof JSON.parse(transcript.metadata_json) !== "object" ||
+            Array.isArray(JSON.parse(transcript.metadata_json))))
       )
         throw invalidPackage();
     } catch {
