@@ -50,6 +50,27 @@ class ScoreTest(unittest.TestCase):
         self.assertEqual(report["critical_accuracy"], 1)
         self.assertEqual(report["rtf"], 0.5)
 
+    def test_empty_hypothesis_scores_as_deletions(self):
+        row = {
+            "meeting_id": "m1",
+            "split": "test",
+            "speaker_group": "group-a",
+            "device": "macbook16",
+            "candidate": "whisper",
+            "reference": "chưa duyệt",
+            "hypothesis": "",
+            "critical_terms": ["chưa duyệt"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "results.jsonl"
+            manifest.write_text(json.dumps(row), encoding="utf-8")
+            records = score.load_records(manifest)
+
+        report = score.score_records(records, "test")["whisper [macbook16]"]
+        self.assertEqual(report["wer"], 1)
+        self.assertEqual(report["cer"], 1)
+        self.assertEqual(report["critical_accuracy"], 0)
+
     def test_candidates_must_have_identical_meeting_references(self):
         base = {
             "meeting_id": "m1",

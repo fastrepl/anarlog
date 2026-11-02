@@ -1,3 +1,41 @@
+## Supplemental ViMedCSS model comparison
+
+Date: 2026-11-03
+
+A local-only smoke comparison scored 24 short ViMedCSS clips (228 seconds total)
+from three medical topics. The clips were selected from the first 100 rows
+returned by the dataset service; this is a convenience sample, not a random or
+meeting-representative sample. The same references were transcribed by
+whisper.cpp using Whisper Small multilingual Q8_0 and PhoWhisper Small FP16 and
+Q8_0, each with forced Vietnamese and automatic language detection (144 outputs
+total). The dataset card describes a CC-BY-4.0 dataset while also warning that
+source YouTube videos and its medical dictionary have separate rights
+considerations. These local artifacts are not redistributed or committed; this
+small evaluation does not resolve commercial-use rights.
+
+| Candidate | WER | CER | Critical-term accuracy | RTF |
+| --- | ---: | ---: | ---: | ---: |
+| PhoWhisper Small FP16, auto | 0.284 | 0.245 | 25.9% | 0.157 |
+| PhoWhisper Small FP16, Vietnamese | 0.310 | 0.256 | 18.5% | 0.149 |
+| PhoWhisper Small Q8_0, auto | 0.313 | 0.271 | 25.9% | 0.146 |
+| PhoWhisper Small Q8_0, Vietnamese | 0.333 | 0.256 | 18.5% | 0.141 |
+| Whisper Small multilingual Q8_0, auto | 0.974 | 0.814 | 3.7% | 0.098 |
+| Whisper Small multilingual Q8_0, Vietnamese | 0.597 | 0.473 | 7.4% | 0.171 |
+
+This narrow medical sample favors PhoWhisper over the bundled Whisper baseline,
+with automatic detection scoring better than forced Vietnamese for both
+PhoWhisper variants. The baseline's automatic-detection result is especially
+poor, so inspect decoding and language-detection behavior before interpreting
+this as a general model ranking. A separate single-clip resource smoke on the
+longest 15-second sample measured 558.6 MB peak RSS for Whisper Q8_0, 720.8 MB
+for PhoWhisper FP16, and 562.4 MB for PhoWhisper Q8_0; startup is included.
+These results do not establish quality on natural meetings, validate references
+independently, satisfy the held-out consented-meeting gate, or measure iPhone
+performance. Keep the real-meeting and physical-device gates open.
+
+Sources: [ViMedCSS dataset card](https://huggingface.co/datasets/tensorxt/ViMedCSS)
+and [ViMedCSS paper](https://arxiv.org/abs/2602.12911).
+
 ## Public Vietnamese-English corpus access review
 
 Date: 2026-11-03

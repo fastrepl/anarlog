@@ -75,7 +75,9 @@ def validate_record(record: Any, line_number: int) -> dict[str, Any]:
         "hypothesis",
     )
     for key in required_strings:
-        if not isinstance(record.get(key), str) or not record[key].strip():
+        if not isinstance(record.get(key), str) or (
+            key != "hypothesis" and not record[key].strip()
+        ):
             raise ValueError(f"line {line_number}: {key} must be a non-empty string")
     if record["split"] not in {"dev", "test"}:
         raise ValueError(f"line {line_number}: split must be 'dev' or 'test'")
