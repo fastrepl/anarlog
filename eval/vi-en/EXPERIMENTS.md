@@ -1,3 +1,16 @@
+## Desktop microphone and system-audio failure isolation
+
+Date: 2026-11-03
+
+`cargo test -p listener-core microphone_failure_still_saves_and_transcribes_system_audio`
+passed. The test uses a fake audio provider to force microphone capture failure
+while providing system-audio samples; it verifies that the speaker/system
+channel is still saved and transcribed. The platform capture implementations
+remain separate from the microphone path (Core Audio process tap on macOS and
+WASAPI loopback on Windows). This is a pipeline resilience test, not an
+acoustic end-to-end test of Zoom/Meet playback, routing changes, or loopback
+quality on a physical laptop.
+
 ## Supplemental ViMedCSS model comparison
 
 Date: 2026-11-03
