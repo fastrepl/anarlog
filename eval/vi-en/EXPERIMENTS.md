@@ -76,3 +76,16 @@ single 30-second English fixture is only a conversion/resource smoke check; it
 does not evaluate Vietnamese or code-switching quality, CPU-only behavior,
 long-meeting thermals, or iPhone performance. Keep the PhoWhisper artifacts in
 the temporary evaluation directory and do not ship them.
+
+# iPhone 17 Pro Max simulator build and launch smoke check
+
+Date: 2026-11-03
+
+`xcodebuild` built the `Anarlog` Debug scheme for the booted iPhone 17 Pro Max
+simulator on iOS 26.5 (`CODE_SIGNING_ALLOWED=NO`), and `simctl` installed and
+launched bundle `so.anarlog.mobile`. The app reached its meeting list and
+recording controls. This verifies native compilation, installation, and startup
+on the simulator only. It does not verify recording, transcription, background
+audio, device resource use, or behavior on physical hardware. `devicectl` found
+an iPhone 13 and iPhone 15 Pro, both unavailable; no physical iPhone 17 Pro Max
+was connected for this check.
