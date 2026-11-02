@@ -10,6 +10,7 @@ import { useSessionRecorder } from "@/audio/use-session-recorder";
 import { FolderPickerSheet } from "@/components/folder-picker-sheet";
 import { ListeningSheet } from "@/components/listening-sheet";
 import { NoteActionsSheet } from "@/components/note-actions-sheet";
+import { MeetingGlossarySheet } from "@/components/meeting-glossary-sheet";
 import { NoteConflictBanner } from "@/components/note-conflict-banner";
 import { SessionTranscript } from "@/components/session-transcript";
 import { StartListeningButton } from "@/components/start-listening-button";
@@ -70,9 +71,9 @@ export function NoteScreen({
   const evidenceRequestId = useRef(0);
   const [listening, setListening] = useState(autoListen);
   const [editorFocused, setEditorFocused] = useState(false);
-  const [sheet, setSheet] = useState<"actions" | "folders" | "versions" | null>(
-    null,
-  );
+  const [sheet, setSheet] = useState<
+    "actions" | "folders" | "glossary" | "versions" | null
+  >(null);
   const closeSheet = (name: typeof sheet) =>
     setSheet((current) => (current === name ? null : current));
   const keyboardVisible = useKeyboardVisible();
@@ -415,6 +416,7 @@ export function NoteScreen({
         listening={active}
         onClose={() => closeSheet("actions")}
         onDelete={() => void handleDelete()}
+        onEditGlossary={() => setSheet("glossary")}
         onExport={() => void handleExport()}
         onSelectFolder={() => setSheet("folders")}
         onImportRecording={audio.importRecording}
@@ -427,6 +429,12 @@ export function NoteScreen({
         sessionId={id}
         visible={sheet === "folders"}
         onClose={() => closeSheet("folders")}
+      />
+
+      <MeetingGlossarySheet
+        sessionId={id}
+        visible={sheet === "glossary"}
+        onClose={() => closeSheet("glossary")}
       />
 
       <VersionHistorySheet

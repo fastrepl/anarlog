@@ -112,6 +112,7 @@ export function serializePreference<K extends PreferenceKey>(
 export function applyTranscriptionPreferences(
   url: URL,
   preferences: Preferences,
+  additionalKeywords: readonly string[] = [],
 ): URL {
   for (const language of new Set([
     preferences.ai_language,
@@ -119,7 +120,10 @@ export function applyTranscriptionPreferences(
   ])) {
     url.searchParams.append("language", language);
   }
-  for (const term of preferences.personalization_dictionary_terms) {
+  for (const term of new Set([
+    ...additionalKeywords,
+    ...preferences.personalization_dictionary_terms,
+  ])) {
     url.searchParams.append("keywords", term);
   }
   return url;

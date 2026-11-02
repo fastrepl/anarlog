@@ -30,6 +30,7 @@ export function NoteActionsSheet({
   listening,
   onClose,
   onDelete,
+  onEditGlossary,
   onExport,
   onImportRecording,
   onSelectFolder,
@@ -47,6 +48,11 @@ export function NoteActionsSheet({
       label: "Version history",
       icon: "clock.arrow.circlepath",
       onPress: onVersionHistory,
+    },
+    {
+      label: "Meeting glossary",
+      icon: "text.book.closed",
+      onPress: onEditGlossary,
     },
     ...(!listening && !hasRecordingHistory
       ? [

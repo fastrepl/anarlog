@@ -4,6 +4,10 @@ import { useSyncExternalStore } from "react";
 import { Platform } from "react-native";
 
 import { ProRequiredError } from "@/auth/billing";
+import {
+  mergeTranscriptionKeywords,
+  readMeetingGlossary,
+} from "@/data/meeting-glossary";
 import { execute, executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
@@ -367,12 +371,14 @@ async function requestTranscription(
   timeoutMs: number,
   provider: ProviderConfig & { apiKey: string },
   preferences: Preferences,
+  keywords: readonly string[],
 ): Promise<{ status: number; body: string }> {
   const url = applyTranscriptionPreferences(
     new URL(
       `${env.apiUrl}/stt/listen?provider=anarlog&max_response_bytes=${MAX_TRANSCRIPTION_RESPONSE_BYTES}`,
     ),
     preferences,
+    keywords,
   ).toString();
   const headers = {
     "Content-Type": contentType,
@@ -391,6 +397,7 @@ async function requestTranscription(
         provider,
         preferences,
         controller.signal,
+        keywords,
       );
     if (Platform.OS === "web") {
       const response = await fetch(url, {
@@ -453,6 +460,11 @@ async function runTranscription(sessionId: string): Promise<void> {
   }
 
   const preferences = await readPreferences();
+  const meetingGlossary = await readMeetingGlossary(sessionId);
+  const keywords = mergeTranscriptionKeywords(
+    meetingGlossary,
+    preferences.personalization_dictionary_terms,
+  );
   const startedAtMs = audio.capture_started_at_ms ?? Date.now();
   const selected = await resolveProvider("stt");
   let provider: { provider: string; model: string };
@@ -462,7 +474,7 @@ async function runTranscription(sessionId: string): Promise<void> {
     provider = { provider: "local_whisper", model: selected.model };
     const localWords = await transcribeLocally(file.uri, {
       languages: preferences.spoken_languages,
-      keywords: preferences.personalization_dictionary_terms,
+      keywords,
     }).catch((error) => {
       throw withTranscriptionStage(error, "request");
     });
@@ -508,6 +520,7 @@ async function runTranscription(sessionId: string): Promise<void> {
       requestTimeoutMs(sizeBytes),
       remoteProvider,
       preferences,
+      keywords,
     ).catch((error) => {
       throw withTranscriptionStage(error, "request");
     });

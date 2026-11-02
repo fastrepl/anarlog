@@ -10,6 +10,7 @@ export type NoteActionsSheetProps = {
   listening: boolean;
   onClose: () => void;
   onDelete: () => void;
+  onEditGlossary: () => void;
   onExport: () => void;
   onImportRecording: () => void;
   onSelectFolder: () => void;
@@ -23,6 +24,7 @@ export function NoteActionsSheet({
   listening,
   onClose,
   onDelete,
+  onEditGlossary,
   onExport,
   onImportRecording,
   onSelectFolder,
@@ -104,6 +106,17 @@ export function NoteActionsSheet({
           >
             <Ionicons name="time-outline" size={20} color={Colors.ink} />
             <Text style={styles.actionLabel}>Version history</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => select(onEditGlossary)}
+            style={({ pressed }) => [
+              styles.action,
+              pressed && styles.actionPressed,
+            ]}
+          >
+            <Ionicons name="text-outline" size={20} color={Colors.ink} />
+            <Text style={styles.actionLabel}>Meeting glossary</Text>
           </Pressable>
           {!listening && !hasRecordingHistory && (
             <Pressable

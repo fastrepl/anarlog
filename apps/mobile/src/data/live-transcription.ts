@@ -4,6 +4,10 @@ import type { ProviderLiveTranscriptionLike } from "@anlg/mobile-bridge";
 
 import { decodeJwtPayload, deriveBillingInfo } from "@/auth/billing";
 import { supabase } from "@/auth/client";
+import {
+  mergeTranscriptionKeywords,
+  readMeetingGlossary,
+} from "@/data/meeting-glossary";
 import { execute, executeTransaction } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
@@ -112,6 +116,7 @@ function liveUrl(
   sampleRate: number,
   channels: number,
   preferences: Preferences,
+  keywords: readonly string[],
 ): string {
   const url = new URL(`${env.apiUrl}/stt/listen`);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
@@ -120,7 +125,7 @@ function liveUrl(
   url.searchParams.set("encoding", "linear16");
   url.searchParams.set("sample_rate", String(sampleRate));
   url.searchParams.set("channels", String(channels));
-  return applyTranscriptionPreferences(url, preferences).toString();
+  return applyTranscriptionPreferences(url, preferences, keywords).toString();
 }
 
 export class SessionLiveTranscription {
@@ -184,6 +189,10 @@ export class SessionLiveTranscription {
       this.provider = provider.provider;
       this.model = provider.model;
       const preferences = await readPreferences();
+      const keywords = mergeTranscriptionKeywords(
+        await readMeetingGlossary(this.sessionId),
+        preferences.personalization_dictionary_terms,
+      );
       const accountId = auth?.data.session?.user.id ?? null;
       if (this.stopping || this.status === "fallback") return;
       const subscription = supabase?.auth.onAuthStateChange(
@@ -236,7 +245,7 @@ export class SessionLiveTranscription {
                   ...preferences.spoken_languages,
                 ]),
               ],
-              keywords: preferences.personalization_dictionary_terms,
+              keywords,
             },
           }),
           {
@@ -277,7 +286,7 @@ export class SessionLiveTranscription {
 
       const Socket = WebSocket as unknown as NativeWebSocketConstructor;
       const socket = new Socket(
-        liveUrl(sampleRate, channels, preferences),
+        liveUrl(sampleRate, channels, preferences, keywords),
         null,
         {
           headers: { Authorization: `Bearer ${token}` },

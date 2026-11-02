@@ -12,6 +12,7 @@ export async function requestProviderTranscription(
   provider: ProviderConfig & { apiKey: string },
   preferences: Preferences,
   signal: AbortSignal,
+  keywords: readonly string[] = preferences.personalization_dictionary_terms,
 ) {
   if (Platform.OS !== "web" && provider.provider !== "custom") {
     const { transcribeProviderAudio, ProviderTranscriptionError } =
@@ -29,7 +30,7 @@ export async function requestProviderTranscription(
               languages: preferences.spoken_languages.length
                 ? preferences.spoken_languages
                 : [preferences.ai_language],
-              keywords: preferences.personalization_dictionary_terms,
+              keywords,
             },
           }),
           { signal },
@@ -95,7 +96,7 @@ export async function requestProviderTranscription(
       "language",
       preferences.spoken_languages.length ? "multi" : preferences.ai_language,
     );
-    for (const term of preferences.personalization_dictionary_terms)
+    for (const term of keywords)
       url.searchParams.append(
         provider.model.startsWith("nova-3") ? "keyterm" : "keywords",
         term,
@@ -106,11 +107,7 @@ export async function requestProviderTranscription(
     form.append("model", provider.model);
     form.append("language", preferences.ai_language.split("-")[0]!);
     form.append("response_format", "json");
-    if (preferences.personalization_dictionary_terms.length)
-      form.append(
-        "prompt",
-        preferences.personalization_dictionary_terms.join(", "),
-      );
+    if (keywords.length) form.append("prompt", keywords.join(", "));
     body = form;
   }
   const response = await fetch(url.toString(), {

@@ -19,6 +19,8 @@ const fixture = (globalThis.transcriptionRetryFixture = {
   failures: [],
   summaries: [],
   localCalls: [],
+  providerCalls: [],
+  meetingGlossary: [],
   checkpointsDeleted: [],
   localError: null,
   transactionError: null,
@@ -27,6 +29,7 @@ const fixture = (globalThis.transcriptionRetryFixture = {
 const mocks = {
   "./summarize": `export function generateSummaryAfterTranscription(sessionId) { globalThis.transcriptionRetryFixture.summaries.push(sessionId); }`,
   "./local-whisper": `export async function transcribeLocally(uri, params) { const f = globalThis.transcriptionRetryFixture; f.localCalls.push({uri, params}); if (f.localError) throw f.localError; return [{text: 'Chào team.', start_ms: 0, end_ms: 500, speaker: null, confidence: null}]; } export function discardLocalWhisperCheckpoint(uri) { globalThis.transcriptionRetryFixture.checkpointsDeleted.push(uri); }`,
+  "@/data/meeting-glossary": `const f = globalThis.transcriptionRetryFixture; export async function readMeetingGlossary() { return f.meetingGlossary; } export function mergeTranscriptionKeywords(...groups) { return [...new Set(groups.flat())]; }`,
   "expo-file-system": `export const Paths = {document: '/synthetic'}; export class Directory {} export class File { exists = true; size = 1024; }`,
   "expo/fetch": `export function fetch() { throw new Error('Unexpected hosted request'); }`,
   "react-native": `export const Platform = {OS: 'ios'};`,
@@ -46,8 +49,9 @@ const mocks = {
   "@/lib/env": `export const env = {apiUrl: 'https://api.anarlog.test'};`,
   "@/lib/analytics": `export function captureAnalytics() {}`,
   "@/lib/error-reporting": `export function captureOperationalError(error) { globalThis.transcriptionRetryFixture.failures.push(error); }`,
-  "./provider-transcription": `export async function requestProviderTranscription() {
+  "./provider-transcription": `export async function requestProviderTranscription(...args) {
     const f = globalThis.transcriptionRetryFixture; f.requests++;
+    f.providerCalls.push(args);
     if (f.requestError) throw f.requestError;
     return {status: 200, body: JSON.stringify({text: 'Recovered recording'})};
   }`,
@@ -93,10 +97,12 @@ test("live-only recordings stop automatic retries but can be recovered manually 
     model: "whisper-1",
     apiKey: "synthetic-key",
   };
+  fixture.meetingGlossary = ["Project X"];
   await transcribeSession(fixture.sessionId);
   assert.equal(fixture.requests, 1);
   assert.equal(fixture.transactions.length, 1);
   assert.equal(fixture.pending, false);
+  assert.deepEqual(fixture.providerCalls.at(-1)[5], ["Project X", "Cloudflare"]);
   const persistedTranscript = fixture.transactions
     .at(-1)
     .find(({ sql }) => sql.includes("INSERT INTO transcripts"));
@@ -133,6 +139,7 @@ test("local Whisper auto-detects speech unless spoken languages are selected", a
   };
   fixture.pending = true;
   fixture.localCalls.length = 0;
+  fixture.meetingGlossary = ["Project X"];
   fixture.requests = 0;
   fixture.summaries.length = 0;
 
@@ -140,7 +147,7 @@ test("local Whisper auto-detects speech unless spoken languages are selected", a
 
   assert.deepEqual(fixture.localCalls[0].params, {
     languages: ["vi"],
-    keywords: ["Cloudflare"],
+    keywords: ["Project X", "Cloudflare"],
   });
   assert.equal(fixture.requests, 0);
   assert.equal(fixture.pending, false);
@@ -155,6 +162,7 @@ test("local Whisper auto-detects speech unless spoken languages are selected", a
     spoken_languages: [],
     personalization_dictionary_terms: [],
   };
+  fixture.meetingGlossary = [];
   await transcribeSession(fixture.sessionId);
   assert.deepEqual(fixture.localCalls[0].params.languages, []);
   assert.equal(fixture.pending, false);
