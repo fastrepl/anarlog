@@ -85,3 +85,12 @@ export async function transcribeLocally(
     ),
   ) as LocalWhisperWord[];
 }
+
+export function discardLocalWhisperCheckpoint(audioUri: string): void {
+  const audioFile = new File(audioUri);
+  const checkpoint = new File(
+    audioFile.parentDirectory,
+    `${audioFile.name}.anlg-transcription-checkpoint.jsonl`,
+  );
+  if (checkpoint.exists) checkpoint.delete();
+}

@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufRead, BufReader, BufWriter, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::{
     Arc,
@@ -23,6 +23,7 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::batch;
 use owhisper_interface::batch_sse::BatchSseMessage;
 use rodio::Source;
+use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
@@ -36,6 +37,173 @@ const MAX_REJECTED_BATCH_DRAIN_BYTES: usize = 64 * 1024;
 const MAX_REJECTED_BATCH_DRAIN_CHUNKS: usize = 64;
 const REJECTED_BATCH_DRAIN_TIMEOUT: Duration = Duration::from_millis(100);
 const CHANNEL_WINDOW_SAMPLES: usize = TARGET_SAMPLE_RATE as usize * 2 * 60;
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct RecordedChannelCheckpoint {
+    pub(crate) completed_sample_end: usize,
+    words: Vec<batch::Word>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum CheckpointRecord {
+    Header {
+        version: u8,
+        audio_fingerprint: String,
+        model_fingerprint: String,
+        params_fingerprint: String,
+    },
+    Chunk {
+        channel_index: usize,
+        completed_sample_end: usize,
+        words: Vec<batch::Word>,
+    },
+}
+
+pub(crate) struct RecordedCheckpointJournal {
+    file: File,
+    channels: Vec<RecordedChannelCheckpoint>,
+}
+
+impl RecordedCheckpointJournal {
+    pub(crate) fn open(
+        path: &Path,
+        audio_fingerprint: &str,
+        model_fingerprint: &str,
+        params_fingerprint: &str,
+        channel_count: usize,
+    ) -> std::io::Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(path)?;
+        let mut channels = vec![RecordedChannelCheckpoint::default(); channel_count];
+        let mut reader = BufReader::new(file.try_clone()?);
+        let mut line = Vec::new();
+        let header_length = reader.read_until(b'\n', &mut line)?;
+        let header_complete = line.last() == Some(&b'\n');
+        if header_complete {
+            line.pop();
+        }
+        let header = (header_length > 0 && !line.is_empty()).then(|| line.clone());
+        let expected = CheckpointRecord::Header {
+            version: 1,
+            audio_fingerprint: audio_fingerprint.to_string(),
+            model_fingerprint: model_fingerprint.to_string(),
+            params_fingerprint: params_fingerprint.to_string(),
+        };
+        let valid = header_complete
+            && header
+                .as_deref()
+                .and_then(|line| serde_json::from_slice::<CheckpointRecord>(line).ok())
+                .is_some_and(|record| match (record, &expected) {
+                    (
+                        CheckpointRecord::Header {
+                            version,
+                            audio_fingerprint,
+                            model_fingerprint,
+                            params_fingerprint,
+                        },
+                        CheckpointRecord::Header {
+                            version: expected_version,
+                            audio_fingerprint: expected_audio,
+                            model_fingerprint: expected_model,
+                            params_fingerprint: expected_params,
+                        },
+                    ) => {
+                        version == *expected_version
+                            && audio_fingerprint == *expected_audio
+                            && model_fingerprint == *expected_model
+                            && params_fingerprint == *expected_params
+                    }
+                    _ => false,
+                });
+
+        if valid {
+            let mut valid_length = header_length as u64;
+            loop {
+                line.clear();
+                let bytes_read = reader.read_until(b'\n', &mut line)?;
+                if bytes_read == 0 || line.last() != Some(&b'\n') {
+                    break;
+                }
+                line.pop();
+                if line.is_empty() {
+                    valid_length += bytes_read as u64;
+                    continue;
+                }
+                let record = match serde_json::from_slice::<CheckpointRecord>(&line) {
+                    Ok(record) => record,
+                    Err(_) => break,
+                };
+                let CheckpointRecord::Chunk {
+                    channel_index,
+                    completed_sample_end,
+                    words,
+                } = record
+                else {
+                    break;
+                };
+                let Some(channel) = channels.get_mut(channel_index) else {
+                    break;
+                };
+                if completed_sample_end < channel.completed_sample_end {
+                    break;
+                }
+                channel.completed_sample_end = completed_sample_end;
+                channel.words.extend(words);
+                valid_length += bytes_read as u64;
+            }
+            let file_length = file.metadata()?.len();
+            if valid_length < file_length {
+                file.set_len(valid_length)?;
+                file.sync_data()?;
+            }
+        } else {
+            file.set_len(0)?;
+            file.seek(SeekFrom::Start(0))?;
+            write_checkpoint_record(&mut file, &expected)?;
+            file.sync_data()?;
+        }
+        file.seek(SeekFrom::End(0))?;
+        Ok(Self { file, channels })
+    }
+
+    fn channel(&self, index: usize) -> RecordedChannelCheckpoint {
+        self.channels.get(index).cloned().unwrap_or_default()
+    }
+
+    fn append_chunk(
+        &mut self,
+        channel_index: usize,
+        completed_sample_end: usize,
+        words: Vec<batch::Word>,
+    ) -> std::io::Result<()> {
+        write_checkpoint_record(
+            &mut self.file,
+            &CheckpointRecord::Chunk {
+                channel_index,
+                completed_sample_end,
+                words: words.clone(),
+            },
+        )?;
+        self.file.sync_data()?;
+        if let Some(channel) = self.channels.get_mut(channel_index) {
+            channel.completed_sample_end = completed_sample_end;
+            channel.words.extend(words);
+        }
+        Ok(())
+    }
+}
+
+fn write_checkpoint_record(file: &mut File, record: &CheckpointRecord) -> std::io::Result<()> {
+    serde_json::to_writer(&mut *file, record).map_err(std::io::Error::other)?;
+    file.write_all(b"\n")
+}
 
 #[derive(Clone, Default)]
 struct BatchCancellation {
@@ -329,6 +497,7 @@ fn transcribe_batch(
         model_path,
         event_tx,
         cancellation,
+        None,
     )
 }
 
@@ -337,6 +506,7 @@ pub(super) fn transcribe_recorded_file_with_params(
     model_path: &Path,
     audio_path: &Path,
     params: &ListenParams,
+    checkpoint: Option<&mut RecordedCheckpointJournal>,
 ) -> Result<Vec<owhisper_interface::Word2>, crate::Error> {
     let source = anlg_audio_utils::source_from_path(audio_path)?;
     let cancellation = BatchCancellation::default();
@@ -347,6 +517,7 @@ pub(super) fn transcribe_recorded_file_with_params(
         model_path,
         None,
         &cancellation,
+        checkpoint,
     )?;
     let words = response
         .results
@@ -376,6 +547,7 @@ fn transcribe_source<S>(
     model_path: &Path,
     event_tx: Option<BatchEventSender>,
     cancellation: &BatchCancellation,
+    mut checkpoint: Option<&mut RecordedCheckpointJournal>,
 ) -> Result<batch::Response, crate::Error>
 where
     S: Source<Item = f32>,
@@ -404,6 +576,10 @@ where
             progress: &mut progress,
             cancellation,
         };
+        let channel_checkpoint = checkpoint
+            .as_deref()
+            .map(|journal| journal.channel(channel_idx))
+            .unwrap_or_default();
 
         let (words, transcript, avg_confidence) = transcribe_channel_chunks(
             channel_idx,
@@ -413,6 +589,8 @@ where
             &mut work,
             &metadata,
             &channel_index,
+            channel_checkpoint,
+            checkpoint.as_deref_mut(),
         )?;
 
         response_channels.push(batch::Channel {
@@ -610,24 +788,41 @@ fn transcribe_channel_chunks(
     work: &mut BatchWorkContext<'_>,
     metadata: &owhisper_interface::stream::Metadata,
     channel_index: &[i32],
+    checkpoint: RecordedChannelCheckpoint,
+    mut journal: Option<&mut RecordedCheckpointJournal>,
 ) -> Result<(Vec<batch::Word>, String, f64), crate::Error> {
-    let mut all_words = Vec::new();
-    let mut transcript = String::new();
-    let mut cumulative_confidence = 0.0;
-    let mut segment_count = 0usize;
+    let resume_after = checkpoint.completed_sample_end;
+    let mut all_words = checkpoint.words;
+    let mut transcript = all_words
+        .iter()
+        .map(|word| word.punctuated_word.as_deref().unwrap_or(&word.word))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut cumulative_confidence: f64 = all_words.iter().map(|word| word.confidence).sum();
+    let mut segment_count = all_words.len();
 
     for chunk in chunks {
         ensure_batch_active(work.progress, work.cancellation)?;
         let chunk = chunk?;
+        if chunk.sample_end <= resume_after {
+            work.progress.update_channel(
+                channel_idx,
+                chunk.sample_end as f64 / TARGET_SAMPLE_RATE as f64,
+            );
+            continue;
+        }
         let chunk_start_sec = chunk.sample_start as f64 / TARGET_SAMPLE_RATE as f64;
         work.progress.update_channel(channel_idx, chunk_start_sec);
 
         let segments = transcribe_chunk(model, &chunk.samples, chunk_start_sec)?;
         ensure_batch_active(work.progress, work.cancellation)?;
+        let mut chunk_words = Vec::new();
         for segment in segments {
             cumulative_confidence += segment.confidence;
             segment_count += 1;
-            all_words.extend(build_batch_words(&segment, channel_idx as i32));
+            let words = build_batch_words(&segment, channel_idx as i32);
+            chunk_words.extend(words.iter().cloned());
+            all_words.extend(words);
 
             if let Some(tx) = work.progress.event_tx()
                 && !tx.send_blocking(BatchSseMessage::Segment {
@@ -643,6 +838,12 @@ fn transcribe_channel_chunks(
             }
 
             append_transcript(&mut transcript, &segment.text);
+        }
+
+        if let Some(journal) = journal.as_deref_mut() {
+            journal
+                .append_chunk(channel_idx, chunk.sample_end, chunk_words)
+                .map_err(crate::Error::from)?;
         }
 
         work.progress.update_channel(
@@ -698,6 +899,7 @@ fn batch_request_cancelled() -> crate::Error {
 #[cfg(test)]
 mod tests {
     use std::convert::Infallible;
+    use std::io::Write;
     use std::sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -707,13 +909,15 @@ mod tests {
     use anlg_transcribe_core::{ProgressTracker, batch_event_channel};
     use axum::body::{Body, Bytes};
     use axum::http::StatusCode;
+    use owhisper_interface::batch;
     use tokio::sync::Semaphore;
 
     use super::{
         BatchAudioWriteError, BatchCancellation, CancelBatchOnDrop, ChannelChunkIterator,
-        MAX_REJECTED_BATCH_DRAIN_BYTES, ResampledChannelFile, batch_busy_response,
-        drain_rejected_batch_audio, ensure_batch_active, resample_to_channel_files,
-        spawn_batch_job, spool_batch_audio_with_limit, try_acquire_http_batch_permit,
+        CheckpointRecord, MAX_REJECTED_BATCH_DRAIN_BYTES, RecordedCheckpointJournal,
+        ResampledChannelFile, batch_busy_response, drain_rejected_batch_audio, ensure_batch_active,
+        resample_to_channel_files, spawn_batch_job, spool_batch_audio_with_limit,
+        try_acquire_http_batch_permit,
     };
 
     #[test]
@@ -838,6 +1042,73 @@ mod tests {
 
         assert!(error.to_string().contains("at most 8 audio channels"));
         assert!(error.to_string().contains("declares 9"));
+    }
+
+    #[test]
+    fn recorded_checkpoint_resumes_valid_chunks_and_discards_a_partial_tail() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("checkpoint.jsonl");
+        let word = batch::Word {
+            word: "hello".to_string(),
+            start: 0.0,
+            end: 0.5,
+            confidence: 0.9,
+            channel: 0,
+            speaker: None,
+            punctuated_word: Some("Hello.".to_string()),
+        };
+        let mut journal =
+            RecordedCheckpointJournal::open(&path, "audio-a", "model-a", "params-a", 1).unwrap();
+        journal
+            .append_chunk(0, 16_000 * 25, vec![word.clone()])
+            .unwrap();
+        drop(journal);
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap()
+            .write_all(br#"{"type":"chunk","channel_index":0"#)
+            .unwrap();
+
+        let journal =
+            RecordedCheckpointJournal::open(&path, "audio-a", "model-a", "params-a", 1).unwrap();
+        let channel = journal.channel(0);
+        assert_eq!(channel.completed_sample_end, 16_000 * 25);
+        assert_eq!(channel.words, vec![word]);
+        let final_line = std::fs::read(&path).unwrap();
+        assert!(final_line.ends_with(b"\n"));
+        assert!(
+            serde_json::from_slice::<CheckpointRecord>(
+                final_line.rsplit(|byte| *byte == b'\n').nth(1).unwrap()
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn recorded_checkpoint_is_reset_when_audio_model_or_settings_change() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("checkpoint.jsonl");
+        let mut journal =
+            RecordedCheckpointJournal::open(&path, "audio-a", "model-a", "params-a", 1).unwrap();
+        journal.append_chunk(0, 16_000 * 25, Vec::new()).unwrap();
+        drop(journal);
+
+        for identity in [
+            ("audio-b", "model-a", "params-a"),
+            ("audio-a", "model-b", "params-a"),
+            ("audio-a", "model-a", "params-b"),
+        ] {
+            let journal =
+                RecordedCheckpointJournal::open(&path, identity.0, identity.1, identity.2, 1)
+                    .unwrap();
+            assert_eq!(journal.channel(0).completed_sample_end, 0);
+            drop(journal);
+            let mut journal =
+                RecordedCheckpointJournal::open(&path, "audio-a", "model-a", "params-a", 1)
+                    .unwrap();
+            journal.append_chunk(0, 16_000 * 25, Vec::new()).unwrap();
+        }
     }
 
     #[test]

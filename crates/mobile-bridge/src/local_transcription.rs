@@ -139,7 +139,7 @@ pub async fn transcribe_local_whisper(request_json: String) -> Result<String, Lo
         if !model_file_is_valid(&model_path) {
             return Err(LocalWhisperError::ModelIntegrityFailed);
         }
-        anlg_transcribe_whisper_local::process_recorded_with_params(model_path, audio_path, &params)
+        anlg_transcribe_whisper_local::process_recorded_resumable(model_path, audio_path, &params)
             .map_err(|_| LocalWhisperError::InferenceFailed)
     })
     .await

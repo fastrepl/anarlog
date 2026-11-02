@@ -21,7 +21,10 @@ import {
 } from "@/settings/providers-model";
 import { batchTranscriptionModel } from "@/settings/transcription-mode";
 
-import { transcribeLocally } from "./local-whisper";
+import {
+  discardLocalWhisperCheckpoint,
+  transcribeLocally,
+} from "./local-whisper";
 import { requestProviderTranscription } from "./provider-transcription";
 import { generateSummaryAfterTranscription } from "./summarize";
 import {
@@ -577,6 +580,16 @@ async function runTranscription(sessionId: string): Promise<void> {
   await executeTransaction(statements).catch((error) => {
     throw withTranscriptionStage(error, "persist");
   });
+  if (provider.provider === "local_whisper") {
+    try {
+      discardLocalWhisperCheckpoint(file.uri);
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "transcription_checkpoint_cleanup",
+        level: "warning",
+      });
+    }
+  }
   if (provider.provider !== "local_whisper")
     generateSummaryAfterTranscription(sessionId);
 }

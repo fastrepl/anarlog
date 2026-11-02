@@ -19,11 +19,14 @@ const fixture = (globalThis.transcriptionRetryFixture = {
   failures: [],
   summaries: [],
   localCalls: [],
+  checkpointsDeleted: [],
+  localError: null,
+  transactionError: null,
   requestError: null,
 });
 const mocks = {
   "./summarize": `export function generateSummaryAfterTranscription(sessionId) { globalThis.transcriptionRetryFixture.summaries.push(sessionId); }`,
-  "./local-whisper": `export async function transcribeLocally(uri, params) { globalThis.transcriptionRetryFixture.localCalls.push({uri, params}); return [{text: 'Chào team.', start_ms: 0, end_ms: 500, speaker: null, confidence: null}]; }`,
+  "./local-whisper": `export async function transcribeLocally(uri, params) { const f = globalThis.transcriptionRetryFixture; f.localCalls.push({uri, params}); if (f.localError) throw f.localError; return [{text: 'Chào team.', start_ms: 0, end_ms: 500, speaker: null, confidence: null}]; } export function discardLocalWhisperCheckpoint(uri) { globalThis.transcriptionRetryFixture.checkpointsDeleted.push(uri); }`,
   "expo-file-system": `export const Paths = {document: '/synthetic'}; export class Directory {} export class File { exists = true; size = 1024; }`,
   "expo/fetch": `export function fetch() { throw new Error('Unexpected hosted request'); }`,
   "react-native": `export const Platform = {OS: 'ios'};`,
@@ -35,7 +38,7 @@ const mocks = {
       if (sql.includes('SELECT attachment.session_id')) return [{session_id: f.sessionId}];
       return [{content_type: 'audio/wav', size_bytes: 1024, local_relative_path: 'audio.wav', capture_started_at_ms: f.captureStartedAt}];
     }
-    export async function executeTransaction(statements) { f.transactions.push(statements); f.pending = false; }
+    export async function executeTransaction(statements) { if (f.transactionError) throw f.transactionError; f.transactions.push(statements); f.pending = false; }
   `,
   "@/settings/providers": `export async function resolveProvider() { const f = globalThis.transcriptionRetryFixture; f.resolutions++; return f.provider; }`,
   "@/settings/preferences": `export async function readPreferences() { return globalThis.transcriptionRetryFixture.preferences ?? {ai_language: 'en', spoken_languages: ['vi'], personalization_dictionary_terms: ['Cloudflare']}; }`,
@@ -142,6 +145,7 @@ test("local Whisper auto-detects speech unless spoken languages are selected", a
   assert.equal(fixture.requests, 0);
   assert.equal(fixture.pending, false);
   assert.deepEqual(fixture.summaries, []);
+  assert.equal(fixture.checkpointsDeleted.length, 1);
 
   fixture.sessionId = "offline-autodetect-recording";
   fixture.pending = true;
@@ -154,4 +158,31 @@ test("local Whisper auto-detects speech unless spoken languages are selected", a
   await transcribeSession(fixture.sessionId);
   assert.deepEqual(fixture.localCalls[0].params.languages, []);
   assert.equal(fixture.pending, false);
+  assert.equal(fixture.checkpointsDeleted.length, 2);
+});
+
+test("local transcription checkpoint survives inference and database failures", async () => {
+  fixture.provider = {
+    provider: "local_whisper",
+    model: "whisper-small-q8_0",
+  };
+  for (const failure of ["inference", "database"]) {
+    fixture.sessionId = `local-checkpoint-${failure}-retry`;
+    fixture.pending = true;
+    fixture.localError =
+      failure === "inference" ? new Error("Interrupted local inference") : null;
+    fixture.transactionError =
+      failure === "database" ? new Error("Temporary database failure") : null;
+    const deletedBeforeFailure = fixture.checkpointsDeleted.length;
+
+    await transcribeSession(fixture.sessionId);
+    assert.equal(fixture.pending, true);
+    assert.equal(fixture.checkpointsDeleted.length, deletedBeforeFailure);
+
+    fixture.localError = null;
+    fixture.transactionError = null;
+    await retryPendingTranscriptions();
+    assert.equal(fixture.pending, false);
+    assert.equal(fixture.checkpointsDeleted.length, deletedBeforeFailure + 1);
+  }
 });
