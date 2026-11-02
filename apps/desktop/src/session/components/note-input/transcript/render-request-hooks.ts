@@ -24,6 +24,7 @@ import {
 
 export type TranscriptRowWithId = {
   transcriptId: string;
+  metadataJson: string;
   row: TranscriptRow;
 };
 
@@ -32,6 +33,7 @@ export function toTranscriptRows(
 ): TranscriptRowWithId[] {
   return transcripts.map((transcript) => ({
     transcriptId: transcript.id,
+    metadataJson: transcript.metadataJson ?? "{}",
     row: {
       ...(transcript.source ? { source: transcript.source } : {}),
       ...(transcript.provider ? { provider: transcript.provider } : {}),

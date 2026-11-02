@@ -18,6 +18,7 @@ import {
   getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
+import { applyStoredTranscriptEdits } from "~/stt/transcript-edits";
 
 export function useRenderedTranscriptData(
   transcriptId: string,
@@ -28,7 +29,10 @@ export function useRenderedTranscriptData(
   request: RenderTranscriptRequest | null;
   segments: Segment[];
 } {
-  const { request } = useTranscriptRenderData(transcriptId, !currentActive);
+  const { request, transcriptRows } = useTranscriptRenderData(
+    transcriptId,
+    !currentActive,
+  );
   // Recovery needs the persisted prefix. The active key stays stable across
   // word and assignment writes so tab remounts reuse the same native render.
   const activeBaselineRef = useRef<{
@@ -67,13 +71,24 @@ export function useRenderedTranscriptData(
       transcriptId,
       currentActive ? "volatile" : "settled",
       requestKey,
+      transcriptRows.map(({ transcriptId: id, metadataJson }) => [
+        id,
+        metadataJson,
+      ]),
     ],
     queryFn: async () => {
       if (!activeBaselineRequest) {
         return [];
       }
 
-      return renderTranscriptSegments(activeBaselineRequest);
+      const segments = await renderTranscriptSegments(activeBaselineRequest);
+      return applyStoredTranscriptEdits(
+        segments,
+        transcriptRows.map(({ transcriptId: id, metadataJson }) => ({
+          transcriptId: id,
+          metadataJson,
+        })),
+      );
     },
     enabled: !!activeBaselineRequest,
     placeholderData: keepPreviousData,

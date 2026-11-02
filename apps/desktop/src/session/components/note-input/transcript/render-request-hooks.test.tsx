@@ -88,6 +88,7 @@ describe("SQLite transcript render data", () => {
     expect(result.current.transcriptRows).toEqual([
       {
         transcriptId: "transcript-1",
+        metadataJson: "{}",
         row: {
           started_at: 1000,
           words: mocks.transcript.words,

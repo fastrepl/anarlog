@@ -33,6 +33,7 @@ import {
   formatMeetingChatContext,
   loadMeetingChatRecords,
 } from "~/stt/meeting-chat-records";
+import { applyStoredTranscriptEdits } from "~/stt/transcript-edits";
 import { getTemplateById } from "~/templates/queries";
 
 type TranscriptMeta = {
@@ -754,7 +755,14 @@ async function getTranscriptSegments(
     return [];
   }
 
-  return result.data.segments.reduce<SegmentPayload[]>((result, segment) => {
+  const segments = applyStoredTranscriptEdits(
+    result.data.segments,
+    snapshot.transcripts.map((transcript) => ({
+      transcriptId: transcript.id,
+      metadataJson: transcript.metadataJson,
+    })),
+  );
+  return segments.reduce<SegmentPayload[]>((result, segment) => {
     if (segment.words.length > 0) {
       result.push(toSegmentPayload(segment));
     }

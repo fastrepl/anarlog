@@ -11,6 +11,7 @@ import {
   getRenderTranscriptRequestKey,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
+import { applyStoredTranscriptEdits } from "~/stt/transcript-edits";
 
 export type TranscriptExportSegment = TranscriptItem & {
   start_ms: number;
@@ -19,8 +20,10 @@ export type TranscriptExportSegment = TranscriptItem & {
 
 export async function buildTranscriptExportSegments(
   request: RenderTranscriptRequest,
+  transcriptRows: Array<{ transcriptId: string; metadataJson: string }> = [],
 ): Promise<TranscriptExportSegment[]> {
-  const segments = await renderTranscriptSegments(request);
+  const rendered = await renderTranscriptSegments(request);
+  const segments = applyStoredTranscriptEdits(rendered, transcriptRows);
 
   return segments.map((segment) => ({
     text: segment.text,
@@ -34,20 +37,28 @@ export function useTranscriptExportSegments(sessionId: string): {
   data: TranscriptExportSegment[];
   isLoading: boolean;
 } {
-  const { request } = useSessionTranscriptRenderData(sessionId);
+  const { request, transcriptRows } = useSessionTranscriptRenderData(sessionId);
   const requestKey = useMemo(
     () => getRenderTranscriptRequestKey(request),
     [request],
   );
 
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- requestKey is the canonical hash of the complete render request.
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the query key includes the request hash and transcript edit metadata.
   const { data = [], isLoading } = useQuery({
-    queryKey: ["transcript-export-segments", sessionId, requestKey],
+    queryKey: [
+      "transcript-export-segments",
+      sessionId,
+      requestKey,
+      transcriptRows.map(({ transcriptId, metadataJson }) => [
+        transcriptId,
+        metadataJson,
+      ]),
+    ],
     queryFn: async () => {
       if (!request) {
         return [];
       }
-      return buildTranscriptExportSegments(request);
+      return buildTranscriptExportSegments(request, transcriptRows);
     },
     enabled: !!request,
     staleTime: Number.POSITIVE_INFINITY,

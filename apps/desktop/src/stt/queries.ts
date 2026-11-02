@@ -38,6 +38,7 @@ type TranscriptSqlRow = {
   ended_at_ms: number | null;
   words_json: string;
   speaker_hints_json: string;
+  metadata_json?: string;
   content_revision: number;
   pending_deltas_json: string;
 };
@@ -88,6 +89,7 @@ export type TranscriptRecord = {
   endedAt?: number;
   words: WordWithId[];
   speakerHints: SpeakerHintWithId[];
+  metadataJson?: string;
 };
 
 export type TranscriptMetadata = {
@@ -113,6 +115,7 @@ const TRANSCRIPT_COLUMNS = `
   transcript.ended_at_ms,
   transcript.words_json,
   transcript.speaker_hints_json,
+  transcript.metadata_json,
   transcript.content_revision,
   COALESCE((
     SELECT json_group_array(json(ordered_delta.delta_json))
@@ -135,6 +138,7 @@ const TRANSCRIPT_BASE_COLUMNS = `
   transcript.ended_at_ms,
   transcript.words_json,
   transcript.speaker_hints_json,
+  transcript.metadata_json,
   transcript.content_revision,
   '[]' AS pending_deltas_json
 `;
@@ -961,6 +965,7 @@ function mapTranscriptRow(row: TranscriptSqlRow): TranscriptRecord {
     endedAt: row.ended_at_ms === null ? undefined : Number(row.ended_at_ms),
     words: parseJsonArray(snapshot.wordsJson, row.id, "words"),
     speakerHints: parseJsonArray(snapshot.hintsJson, row.id, "speaker hints"),
+    metadataJson: row.metadata_json ?? "{}",
   };
 }
 

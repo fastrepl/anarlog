@@ -47,6 +47,7 @@ type TranscriptJson = {
   memo: string;
   words_json: string;
   speaker_hints_json: string;
+  metadata_json: string;
 };
 
 type ParticipantJson = {
@@ -89,6 +90,7 @@ export type SessionContentSnapshot = {
     memo: string;
     wordsJson: string;
     speakerHintsJson: string;
+    metadataJson: string;
     words: WordWithId[];
     speaker_hints: SpeakerHintWithId[];
   }>;
@@ -142,7 +144,8 @@ const SESSION_CONTENT_SQL = `
         'ended_at_ms', transcript.ended_at_ms,
         'memo', transcript.memo,
         'words_json', CASE WHEN ? THEN transcript.words_json ELSE '[]' END,
-        'speaker_hints_json', CASE WHEN ? THEN transcript.speaker_hints_json ELSE '[]' END
+        'speaker_hints_json', CASE WHEN ? THEN transcript.speaker_hints_json ELSE '[]' END,
+        'metadata_json', transcript.metadata_json
       ))
       FROM transcripts AS transcript
       WHERE transcript.session_id = session.id
@@ -274,6 +277,7 @@ function mapSessionContentRow(
       memo: transcript.memo,
       wordsJson: transcript.words_json,
       speakerHintsJson: transcript.speaker_hints_json,
+      metadataJson: transcript.metadata_json ?? "{}",
       words: parseJsonArray<WordWithId>(transcript.words_json),
       speaker_hints: parseJsonArray<SpeakerHintWithId>(
         transcript.speaker_hints_json,
