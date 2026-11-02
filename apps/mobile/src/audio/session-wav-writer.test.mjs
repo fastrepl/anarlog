@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import { test } from "node:test";
 
 const files = (globalThis.wavWriterFiles = new Map());
+globalThis.wavWriterDiskSpace = 500_000_000;
 registerHooks({
   resolve(specifier, context, next) {
     if (specifier === "@/audio/pcm-wav")
@@ -20,7 +21,10 @@ registerHooks({
       format: "module",
       shortCircuit: true,
       source: `
-      export const Paths = { document: "/test" };
+      export const Paths = {
+        document: "/test",
+        get availableDiskSpace() { return globalThis.wavWriterDiskSpace; }
+      };
       export const FileMode = { ReadWrite: "rw" };
       export class Directory { constructor(...parts) { this.path = parts.join("/"); } create() {} }
       export class File {
@@ -81,6 +85,22 @@ test("failed audio writes do not advance the recording duration", () => {
   );
   assert.equal(writer.durationMs, 100);
   assert.equal(files.get("/test/sessions/failed-write/audio.wav").size, 3244);
+});
+
+test("low storage stops capture before consuming the final reserve", () => {
+  const writer = new SessionWavWriter("low-storage");
+  writer.append(new ArrayBuffer(16000 * 2 * 5), 16000, 1);
+  globalThis.wavWriterDiskSpace = 16 * 1024 * 1024;
+  try {
+    assert.throws(
+      () => writer.append(new ArrayBuffer(16000 * 2), 16000, 1),
+      /Not enough free storage/u,
+    );
+    assert.equal(writer.durationMs, 5_000);
+    assert.equal(writer.finalize().size, 44 + 16000 * 2 * 5);
+  } finally {
+    globalThis.wavWriterDiskSpace = 500_000_000;
+  }
 });
 
 test("an interruption checkpoint repairs the WAV header without closing the writer", () => {

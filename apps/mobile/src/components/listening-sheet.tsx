@@ -21,7 +21,11 @@ function formatDuration(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function statusLabel(phase: RecorderPhase, durationMs: number): string {
+function statusLabel(
+  phase: RecorderPhase,
+  failure: RecorderFailure | null,
+  durationMs: number,
+): string {
   switch (phase) {
     case "recording":
       return `Listening · ${formatDuration(durationMs)}`;
@@ -32,7 +36,9 @@ function statusLabel(phase: RecorderPhase, durationMs: number): string {
     case "interrupted":
       return "Recording interrupted";
     case "save_error":
-      return "Recording needs to be saved";
+      return failure === "save_failed"
+        ? "Free storage, then retry saving"
+        : "Recording needs to be saved";
     case "error":
       return "Recorder unavailable";
     case "saved":
@@ -71,7 +77,7 @@ export function ListeningSheet({
     : recoverable
       ? onRetry
       : onStop;
-  const label = statusLabel(phase, durationMs);
+  const label = statusLabel(phase, failure, durationMs);
   const actionLabel = permissionDenied
     ? "Settings"
     : recoverable

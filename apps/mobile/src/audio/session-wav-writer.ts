@@ -8,6 +8,8 @@ import {
 
 import { WAV_HEADER_BYTES, wavHeader } from "@/audio/pcm-wav";
 
+const MINIMUM_FREE_STORAGE_BYTES = 32 * 1024 * 1024;
+
 export class SessionWavWriter {
   readonly file: File;
 
@@ -18,6 +20,7 @@ export class SessionWavWriter {
   private initialized = false;
   private finalized = false;
   private checkpointDataBytes = 0;
+  private lastStorageCheckBytes = 0;
 
   constructor(sessionId: string) {
     const directory = new Directory(Paths.document, "sessions", sessionId);
@@ -49,10 +52,21 @@ export class SessionWavWriter {
       throw new Error("Audio stream format changed during recording");
     }
     const bytes = new Uint8Array(buffer);
+    const storageCheckIntervalBytes = this.sampleRate * this.channels * 2 * 5;
+    if (
+      this.dataBytes + bytes.byteLength - this.lastStorageCheckBytes >=
+      storageCheckIntervalBytes
+    ) {
+      if (Paths.availableDiskSpace < MINIMUM_FREE_STORAGE_BYTES) {
+        throw new Error(
+          "Not enough free storage to keep recording safely. Free storage and retry saving.",
+        );
+      }
+      this.lastStorageCheckBytes = this.dataBytes;
+    }
     this.handle.writeBytes(bytes);
     this.dataBytes += bytes.byteLength;
-    const checkpointIntervalBytes = this.sampleRate * this.channels * 2 * 5;
-    if (this.dataBytes - this.checkpointDataBytes >= checkpointIntervalBytes) {
+    if (this.dataBytes - this.checkpointDataBytes >= storageCheckIntervalBytes) {
       this.writeHeader();
       this.checkpointDataBytes = this.dataBytes;
     }
