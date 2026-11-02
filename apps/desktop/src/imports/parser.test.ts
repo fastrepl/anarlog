@@ -71,6 +71,13 @@ describe("meeting export parser", () => {
               { id: "word-1", text: "Hello", start_ms: 0, end_ms: 1200 },
             ]),
             speaker_hints_json: "[]",
+            metadata_json: JSON.stringify({
+              transcript_edits: {
+                "original-transcript:stable-segment": {
+                  text: "Hello there",
+                },
+              },
+            }),
           },
         ],
         audio: null,
@@ -81,7 +88,11 @@ describe("meeting export parser", () => {
       title: "Weekly",
       speakerContext: { Alex: "Product" },
       packageTranscripts: [
-        { id: "original-transcript", provider: "local-whisper" },
+        {
+          id: "original-transcript",
+          provider: "local-whisper",
+          metadata_json: expect.stringContaining("transcript_edits"),
+        },
       ],
       summaryDocuments: [{ title: "Minutes", body: "Decision" }],
     });

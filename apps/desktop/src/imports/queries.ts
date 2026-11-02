@@ -454,18 +454,14 @@ export function buildMeetingStatements({
           transcript.ended_at_ms,
           meeting.meetingAudio ? `session-audio:${sessionId}` : "",
           transcript.memo,
-          JSON.stringify(
-            words.map((word) => {
-              if (!word || typeof word !== "object") return word;
-              const record = word as Record<string, unknown>;
-              return {
-                ...record,
-                id: `${transcriptId}:${String(record.id ?? "word")}`,
-              };
-            }),
-          ),
+          JSON.stringify(words),
           transcript.speaker_hints_json,
-          metadata,
+          importedTranscriptMetadataJson(
+            metadata,
+            transcript.metadata_json,
+            transcript.id,
+            transcriptId,
+          ),
           createdAt,
           now,
           sessionId,
@@ -555,6 +551,50 @@ export function buildMeetingStatements({
   }
 
   return statements;
+}
+
+function importedTranscriptMetadataJson(
+  importMetadataJson: string,
+  transcriptMetadataJson: string | undefined,
+  sourceTranscriptId: string,
+  importedTranscriptId: string,
+): string {
+  let importMetadata: Record<string, unknown> = {};
+  let transcriptMetadata: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(importMetadataJson);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+      importMetadata = parsed as Record<string, unknown>;
+  } catch {
+    // Import metadata is generated in this function and is expected to be valid.
+  }
+  try {
+    const parsed: unknown = JSON.parse(transcriptMetadataJson || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+      transcriptMetadata = parsed as Record<string, unknown>;
+  } catch {
+    // Parser validation rejects invalid package metadata before this point.
+  }
+
+  const sourceEdits = transcriptMetadata.transcript_edits;
+  if (
+    sourceEdits &&
+    typeof sourceEdits === "object" &&
+    !Array.isArray(sourceEdits)
+  ) {
+    const remappedEdits: Record<string, unknown> = {};
+    for (const [segmentId, edit] of Object.entries(sourceEdits)) {
+      const prefix = `${sourceTranscriptId}:`;
+      remappedEdits[
+        segmentId.startsWith(prefix)
+          ? `${importedTranscriptId}:${segmentId.slice(prefix.length)}`
+          : segmentId
+      ] = edit;
+    }
+    transcriptMetadata.transcript_edits = remappedEdits;
+  }
+
+  return JSON.stringify({ ...transcriptMetadata, ...importMetadata });
 }
 
 async function findPriorImport(

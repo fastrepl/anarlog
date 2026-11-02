@@ -37,6 +37,7 @@ type PackageTranscript = {
   memo: string;
   words_json: string;
   speaker_hints_json: string;
+  metadata_json?: string;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -142,7 +143,9 @@ function parseAnarlogMeetingPackage(
       (transcript.ended_at_ms !== null &&
         !Number.isSafeInteger(transcript.ended_at_ms)) ||
       typeof transcript.memo !== "string" ||
-      typeof transcript.speaker_hints_json !== "string"
+      typeof transcript.speaker_hints_json !== "string" ||
+      (transcript.metadata_json !== undefined &&
+        typeof transcript.metadata_json !== "string")
     ) {
       throw new Error(
         "The Anarlog meeting package contains an invalid transcript",
@@ -153,6 +156,19 @@ function parseAnarlogMeetingPackage(
       if (!Array.isArray(words)) throw new Error("invalid");
     } catch {
       throw new Error("The Anarlog transcript contains invalid word data");
+    }
+    if (transcript.metadata_json !== undefined) {
+      try {
+        const metadata: unknown = JSON.parse(transcript.metadata_json);
+        if (
+          !metadata ||
+          typeof metadata !== "object" ||
+          Array.isArray(metadata)
+        )
+          throw new Error("invalid");
+      } catch {
+        throw new Error("The Anarlog transcript contains invalid metadata");
+      }
     }
     return transcript as PackageTranscript;
   });

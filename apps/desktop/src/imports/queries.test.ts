@@ -76,6 +76,15 @@ describe("meeting import statements", () => {
               { id: "old-word", text: "Xin chào", start_ms: 0, end_ms: 1_000 },
             ]),
             speaker_hints_json: "[]",
+            metadata_json: JSON.stringify({
+              transcript_edits: {
+                "old-transcript:stable-segment": {
+                  text: "Xin chào mọi người",
+                  revisions: [{ text: "Xin chào", edited_at: "2026-08-06" }],
+                },
+              },
+              custom_metadata: "preserved",
+            }),
           },
         ],
         summaryDocuments: [
@@ -104,6 +113,22 @@ describe("meeting import statements", () => {
     const summary = statements.find(({ sql }) => sql.includes("'summary'"));
     expect(transcript?.sql).toContain("audio_attachment_id");
     expect(transcript?.params).toContain("session-audio:meeting-import:two");
+    expect(JSON.parse(String(transcript?.params[9]))).toEqual([
+      { id: "old-word", text: "Xin chào", start_ms: 0, end_ms: 1_000 },
+    ]);
+    expect(JSON.parse(String(transcript?.params[11]))).toEqual({
+      transcript_edits: {
+        "meeting-import:two:transcript:0:stable-segment": {
+          text: "Xin chào mọi người",
+          revisions: [{ text: "Xin chào", edited_at: "2026-08-06" }],
+        },
+      },
+      custom_metadata: "preserved",
+      importedFrom: "anarlog",
+      sourcePath: "/exports/meeting.anlgmeeting",
+      sourceUrl: "",
+      externalId: "source-id",
+    });
     expect(summary?.params).toContain(
       "[source](anarlog-evidence://meeting-import%3Atwo%3Atranscript%3A0%3Aold-word)",
     );
