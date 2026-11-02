@@ -89,3 +89,18 @@ on the simulator only. It does not verify recording, transcription, background
 audio, device resource use, or behavior on physical hardware. `devicectl` found
 an iPhone 13 and iPhone 15 Pro, both unavailable; no physical iPhone 17 Pro Max
 was connected for this check.
+
+# macOS desktop build smoke check
+
+Date: 2026-11-03
+
+`cargo check -p desktop --features dev` completed successfully on the Apple M1
+Pro laptop with 16 GiB RAM. The first clean build took 7m28s, including the
+Soniqo/MLX Metal shader build. Desktop TypeScript checking also passed. The
+first Vite production build exposed that the workspace UI package had not yet
+generated `packages/ui/dist/globals.css`; after running the package's Tailwind
+build, Vite transformed 21,680 modules and completed the production build.
+Warnings remain for the non-module relay shim script, tolerated dependency
+transforms, and existing dynamic imports. This verifies native compilation and
+frontend bundling, not a signed desktop installer or an interactive desktop
+recording session.
