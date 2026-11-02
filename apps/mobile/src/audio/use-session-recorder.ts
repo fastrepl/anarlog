@@ -91,6 +91,7 @@ export function useSessionRecorder(
   const reportedFailureRef = useRef<string | null>(null);
   const durationRef = useRef(0);
   const captureRegisteredRef = useRef(false);
+  const interruptionPersistRef = useRef<Promise<void> | null>(null);
   const stopRef = useRef<
     (reason?: RecordingCompletionReason) => Promise<StopResult>
   >(async () => "noop");
@@ -188,6 +189,7 @@ export function useSessionRecorder(
 
   const performStart = useCallback(async () => {
     const generation = ++startGenerationRef.current;
+    interruptionPersistRef.current = null;
     const isCurrent = () =>
       activeRef.current && generation === startGenerationRef.current;
     completionTrackedRef.current = false;
@@ -365,11 +367,14 @@ export function useSessionRecorder(
         }
 
         startGenerationRef.current += 1;
-        void recordSessionCaptureInterruption(sessionId).catch((error) =>
-          captureOperationalError(error, {
-            operation: "recording_interruption_persist",
-            level: "warning",
-          }),
+        interruptionPersistRef.current = recordSessionCaptureInterruption(
+          sessionId,
+        ).catch(
+          (error) =>
+            void captureOperationalError(error, {
+              operation: "recording_interruption_persist",
+              level: "warning",
+            }),
         );
         void liveRef.current?.stop();
         void endMeetingRecordingActivity(sessionId).catch((error) =>
@@ -440,6 +445,7 @@ export function useSessionRecorder(
           operation: "recording_live_activity_end",
         });
       });
+      await interruptionPersistRef.current;
       const writer = writerRef.current;
       if (!writer) throw new Error("Recording file is unavailable");
       const live = liveRef.current;
