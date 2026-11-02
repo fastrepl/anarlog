@@ -2,18 +2,22 @@ mod batch;
 mod message;
 mod recorded;
 mod response;
+#[cfg(feature = "streaming")]
 mod streaming;
 
 pub use recorded::*;
+#[cfg(feature = "streaming")]
 pub use streaming::*;
 
 use std::path::Path;
+#[cfg(feature = "streaming")]
 use std::time::Duration;
 
 use anlg_transcribe_core::TARGET_SAMPLE_RATE;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Extra, Metadata, ModelInfo};
 
+#[cfg(feature = "streaming")]
 pub(crate) const DEFAULT_REDEMPTION_TIME: Duration = Duration::from_millis(400);
 
 #[derive(Debug, Clone)]
@@ -25,6 +29,7 @@ pub(crate) struct Segment {
     pub language: Option<String>,
 }
 
+#[cfg(feature = "streaming")]
 pub(crate) fn parse_listen_params(query: &str) -> Result<ListenParams, serde_html_form::de::Error> {
     serde_html_form::from_str(query)
 }
@@ -47,6 +52,7 @@ pub(crate) fn build_metadata(model_path: &Path) -> Metadata {
     }
 }
 
+#[cfg(feature = "streaming")]
 pub(crate) fn redemption_time(params: &ListenParams) -> Duration {
     params
         .custom_query
@@ -61,14 +67,18 @@ pub(crate) fn build_model(
     loaded_model: &anlg_whisper_local::LoadedWhisper,
     params: &ListenParams,
 ) -> Result<anlg_whisper_local::Whisper, crate::Error> {
-    build_model_with_languages(
+    let mut model = build_model_with_languages(
         loaded_model,
         params
             .languages
             .iter()
             .filter_map(|lang| lang.clone().try_into().ok())
             .collect(),
-    )
+    )?;
+    if !params.keywords.is_empty() {
+        model.set_initial_prompt(params.keywords.join(", "));
+    }
+    Ok(model)
 }
 
 pub(crate) fn load_model(
@@ -233,7 +243,7 @@ fn synthetic_segment_timings(
         .collect()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "streaming"))]
 mod tests {
     use super::*;
 

@@ -12,6 +12,7 @@ export function SessionTranscript({
   sessionId,
   live,
   recordingDetails,
+  focusSegmentId,
 }: {
   sessionId: string;
   live?: {
@@ -19,11 +20,13 @@ export function SessionTranscript({
     text: string;
   };
   recordingDetails?: ReactNode;
+  focusSegmentId?: string | null;
 }) {
   const styles = useStyles();
   const { segments, isLoading, error } = useSessionTranscripts(sessionId, true);
   const listRef = useRef<FlatList<TranscriptSegment>>(null);
   const following = useRef(Boolean(live));
+  const focusedSegment = useRef<string | null>(null);
 
   return (
     <FlatList
@@ -40,11 +43,35 @@ export function SessionTranscript({
       }}
       scrollEventThrottle={100}
       onContentSizeChange={() => {
+        if (focusSegmentId && focusedSegment.current !== focusSegmentId) {
+          const index = segments.findIndex(
+            (segment) => segment.id === focusSegmentId,
+          );
+          if (index >= 0) {
+            focusedSegment.current = focusSegmentId;
+            listRef.current?.scrollToIndex({
+              index,
+              animated: true,
+              viewPosition: 0.35,
+            });
+          }
+        }
         if (live && following.current)
           listRef.current?.scrollToEnd({ animated: true });
       }}
+      onScrollToIndexFailed={({ index }) => {
+        setTimeout(
+          () =>
+            listRef.current?.scrollToIndex({
+              index,
+              animated: true,
+              viewPosition: 0.35,
+            }),
+          100,
+        );
+      }}
       renderItem={({ item }) => (
-        <View style={styles.turn}>
+        <View style={[styles.turn, item.id === focusSegmentId && styles.focus]}>
           <Text style={styles.speaker}>{item.speaker}</Text>
           <Text selectable style={styles.transcriptText}>
             {item.text}
@@ -91,4 +118,5 @@ const useStyles = createStyleHook((Colors) => ({
   speaker: { ...Typography.captionStrong, color: Colors.muted },
   transcriptText: { ...Typography.body, color: Colors.ink },
   hint: { ...Typography.caption, color: Colors.muted },
+  focus: { backgroundColor: Colors.mutedSurface },
 }));

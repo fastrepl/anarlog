@@ -8,7 +8,13 @@ import {
 } from "@/lib/markdown-blocks";
 import { createStyleHook } from "@/settings/theme-provider";
 
-export function MarkdownView({ markdown }: { markdown: string }) {
+export function MarkdownView({
+  markdown,
+  onLinkPress,
+}: {
+  markdown: string;
+  onLinkPress?: (href: string) => void;
+}) {
   const styles = useStyles();
   const blocks = parseMarkdownBlocks(markdown);
 
@@ -16,10 +22,14 @@ export function MarkdownView({ markdown }: { markdown: string }) {
     spans.map((span, index) => (
       <Text
         key={index}
+        onPress={
+          span.href && onLinkPress ? () => onLinkPress(span.href!) : undefined
+        }
         style={[
           span.bold && styles.bold,
           span.italic && styles.italic,
           span.code && styles.code,
+          span.href && styles.link,
         ]}
       >
         {span.text}
@@ -100,5 +110,9 @@ const useStyles = createStyleHook((Colors) => ({
   code: {
     fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
     backgroundColor: Colors.mutedSurface,
+  } satisfies TextStyle,
+  link: {
+    color: Colors.accent,
+    textDecorationLine: "underline",
   } satisfies TextStyle,
 }));

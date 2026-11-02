@@ -163,6 +163,19 @@ export async function importRecordingIntoSession(
   return true;
 }
 
+export async function importRecordingAsSession(
+  ownerUserId?: string,
+): Promise<string | null> {
+  const result = await getDocumentAsync({
+    type: ["audio/*"],
+    multiple: false,
+    copyToCacheDirectory: true,
+  });
+  if (result.canceled) return null;
+
+  return importAsset(result.assets[0], "voice_memo_import", { ownerUserId });
+}
+
 export async function importWatchRecording(
   recording: {
     id: string;

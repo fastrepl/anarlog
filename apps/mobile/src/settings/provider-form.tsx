@@ -14,6 +14,7 @@ import { ProRequiredError } from "@/auth/billing";
 import { useAuth } from "@/auth/context";
 import { FieldGroup } from "@/settings/field-group";
 import { Button, ListItem, Text, TextInput } from "@/settings/fields";
+import { LocalWhisperSetup } from "@/settings/local-whisper-setup";
 
 import { SettingsPage } from "./components";
 import { createProviderAutosave } from "./provider-autosave";
@@ -79,7 +80,9 @@ function ProviderForm({
   const auth = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const definitions = providersFor(kind).filter(({ id }) => id !== "anarlog");
+  const definitions = providersFor(kind).filter(
+    ({ id }) => id !== "anarlog" && id !== "local_whisper",
+  );
   const setups = useQueries({
     queries: definitions.map(({ id }) => ({
       queryKey: ["provider-setup", account, kind, id],
@@ -98,7 +101,10 @@ function ProviderForm({
     ),
   );
   const providerOptions = providersFor(kind).filter(
-    ({ id }) => id === "anarlog" || configuredIds.has(id),
+    ({ id }) =>
+      id === "anarlog" ||
+      (kind === "stt" && id === "local_whisper") ||
+      configuredIds.has(id),
   );
   const visibleProvider = providerOptions.some(
     ({ id }) => id === selectedProvider,
@@ -114,7 +120,11 @@ function ProviderForm({
       provider: string;
       model?: string;
     }) => {
-      if (provider === "anarlog" && !auth.billing.isPro && !auth.bypass)
+      if (
+        (provider === "anarlog" || provider === "cloudflare_worker") &&
+        !auth.billing.isPro &&
+        !auth.bypass
+      )
         throw new ProRequiredError();
       const setup = await readProviderSetup(account, kind, provider);
       const save =
@@ -171,6 +181,35 @@ function ProviderForm({
             <Spacer flexible />
             <Text>Automatic</Text>
           </Row>
+        ) : selectedProvider === "local_whisper" ? (
+          <LocalWhisperSetup />
+        ) : selectedProvider === "cloudflare_worker" && selectedSetup?.data ? (
+          <Column spacing={8}>
+            <Text>
+              Structured meeting minutes with decisions, action items, and
+              transcript evidence. Each generation sends your Anarlog session
+              token, notes, and transcript text to this URL. Audio is never
+              sent. Use only a Worker you trust; the app asks before every
+              request.
+            </Text>
+            <ProviderModelPicker
+              key={selectedProvider}
+              account={account}
+              kind={kind}
+              config={selectedSetup.data.config}
+              model={
+                modelDrafts.current[selectedProvider] ??
+                selectedSetup.data.config.model
+              }
+              hasKey={false}
+              onChange={(model) => {
+                modelDrafts.current[selectedProvider] = model;
+              }}
+              onSave={(model) =>
+                select.mutate({ provider: selectedProvider, model })
+              }
+            />
+          </Column>
         ) : selectedSetup?.data ? (
           <ProviderModelPicker
             key={selectedProvider}
@@ -293,7 +332,10 @@ function ProviderForm({
         })}
         <FieldGroup.SectionFooter>
           <Text>
-            Valid settings save automatically. Credentials stay on this device.
+            Valid settings save automatically. API keys are stored locally and
+            sent to their provider when used. A selected Cloudflare Worker
+            receives your Anarlog session token and meeting text only after you
+            confirm generation.
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>
@@ -374,6 +416,7 @@ function ProviderFields({
   const form = useForm({
     defaultValues: { baseUrl: config.baseUrl },
   });
+  const workerProvider = config.provider === "cloudflare_worker";
   const scheduleSave = () => {
     if (remove.isPending) return;
     autosave.schedule(
@@ -401,32 +444,36 @@ function ProviderFields({
           />
         </Column>
       )}
-      <Row alignment="center" spacing={8}>
-        <Icon
-          name={Icon.select({
-            ios: "key",
-            android: import("@expo/material-symbols/key.xml"),
-          })}
-          size={18}
-          color={Colors.muted}
-          style={{ width: 20 }}
-        />
-        <TextInput
-          value={key}
-          placeholder={hasKey ? "API key saved · enter to replace" : "API key"}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          editable={!remove.isPending}
-          onBlur={autosave.flush}
-          onSubmitEditing={autosave.flush}
-          onChangeText={(value) => {
-            key.value = value;
-            apiKey.current = value;
-            scheduleSave();
-          }}
-        />
-      </Row>
+      {!workerProvider && (
+        <Row alignment="center" spacing={8}>
+          <Icon
+            name={Icon.select({
+              ios: "key",
+              android: import("@expo/material-symbols/key.xml"),
+            })}
+            size={18}
+            color={Colors.muted}
+            style={{ width: 20 }}
+          />
+          <TextInput
+            value={key}
+            placeholder={
+              hasKey ? "API key saved · enter to replace" : "API key"
+            }
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!remove.isPending}
+            onBlur={autosave.flush}
+            onSubmitEditing={autosave.flush}
+            onChangeText={(value) => {
+              key.value = value;
+              apiKey.current = value;
+              scheduleSave();
+            }}
+          />
+        </Row>
+      )}
       {!defaultProviderConfig(kind, config.provider).baseUrl && (
         <Row alignment="center" spacing={8}>
           <Icon
@@ -469,7 +516,9 @@ function ProviderFields({
           />
         </Row>
       )}
-      {save.isPending && <Text>Verifying key…</Text>}
+      {save.isPending && (
+        <Text>{workerProvider ? "Saving Worker URL…" : "Verifying key…"}</Text>
+      )}
       {(save.error || remove.error || browser.error) && (
         <Text textStyle={{ color: Colors.destructive }}>
           {(save.error || remove.error || browser.error)?.message}

@@ -10054,8 +10054,10 @@ dependencies = [
  "db-reactive",
  "db-sync",
  "e2ee",
+ "file",
  "futures-util",
  "jni",
+ "local-model",
  "owhisper-client",
  "owhisper-interface",
  "reqwest 0.13.2",
@@ -10071,10 +10073,12 @@ dependencies = [
  "tokio-stream",
  "tokio-tungstenite 0.29.0",
  "tokio-util",
+ "transcribe-whisper-local",
  "transcript",
  "uniffi 0.31.1",
  "url",
  "uuid",
+ "whisper-local-model",
 ]
 
 [[package]]
@@ -17042,14 +17046,18 @@ dependencies = [
  "rmcp",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "specta",
  "specta-typescript",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
+ "tempfile",
  "tokio",
  "tokio-util",
  "url",
+ "uuid",
+ "zip 4.6.1",
 ]
 
 [[package]]

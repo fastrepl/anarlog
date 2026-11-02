@@ -30,6 +30,7 @@ struct Segment {
     text: String,
     speaker: String,
     start_ms: i64,
+    end_ms: i64,
     word_count: usize,
 }
 
@@ -90,6 +91,7 @@ pub fn render_stored_transcript(request_json: String) -> Result<String, BridgeEr
         text: segment.text,
         speaker: segment.speaker_label,
         start_ms: request.started_at_ms.saturating_add(segment.start_ms),
+        end_ms: request.started_at_ms.saturating_add(segment.end_ms),
         word_count: segment.words.len(),
     })
     .collect::<Vec<_>>();

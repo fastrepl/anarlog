@@ -60,6 +60,8 @@ impl WhisperBuilder {
 }
 
 impl Whisper {
+    pub fn set_initial_prompt(&mut self, _prompt: impl Into<String>) {}
+
     pub fn builder() -> WhisperBuilder {
         WhisperBuilder::default()
     }

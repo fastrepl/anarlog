@@ -22,10 +22,12 @@ export function AudioChip({
   uri,
   filename,
   sizeBytes,
+  seekRequest,
 }: {
   uri: string;
   filename: string;
   sizeBytes: number;
+  seekRequest?: { id: number; seconds: number } | null;
 }) {
   const styles = useStyles();
   const Colors = useColors();
@@ -34,9 +36,21 @@ export function AudioChip({
 
   useMountEffect(() => {
     let lastError: string | null = null;
+    let seekHandled = false;
     const subscription = player.addListener(
       "playbackStatusUpdate",
       (nextStatus) => {
+        if (seekRequest && !seekHandled && nextStatus.isLoaded) {
+          seekHandled = true;
+          void player
+            .seekTo(Math.max(0, seekRequest.seconds))
+            .then(() => player.play())
+            .catch((error) =>
+              captureOperationalError(error, {
+                operation: "audio_evidence_seek",
+              }),
+            );
+        }
         const errorKey = nextStatus.error
           ? nextStatus.error
           : nextStatus.mediaServicesDidReset

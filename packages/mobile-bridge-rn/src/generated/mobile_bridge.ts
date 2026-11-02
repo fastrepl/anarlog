@@ -55,6 +55,34 @@ const uniffiIsDebug =
 
 // Public interface members begin here.
 
+export function localWhisperModelInfo(
+  modelsBaseUri: string,
+): string /*throws*/ {
+  return ((__rb: Uint8Array) => {
+    try {
+      return FfiConverterString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  })(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeLocalWhisperError.lift.bind(
+        FfiConverterTypeLocalWhisperError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_mobile_bridge_fn_func_local_whisper_model_info(
+          FfiConverterString.lower(
+            modelsBaseUri,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    ),
+  );
+}
+
 export function renderStoredTranscript(requestJson: string): string /*throws*/ {
   return ((__rb: Uint8Array) => {
     try {
@@ -130,6 +158,50 @@ export async function startProviderLiveTranscription(
   }
 }
 
+export async function transcribeLocalWhisper(
+  requestJson: string,
+  asyncOpts_?: { signal: AbortSignal },
+): Promise<string> /*throws*/ {
+  const __stack = uniffiIsDebug ? new Error().stack : undefined;
+  try {
+    return await uniffiRustCallAsync(
+      /*rustCaller:*/ uniffiCaller,
+      /*rustFutureFunc:*/ () => {
+        return nativeModule().ubrn_uniffi_mobile_bridge_fn_func_transcribe_local_whisper(
+          FfiConverterString.lower(
+            requestJson,
+            nativeModule().rustbuffer_alloc,
+          ),
+        );
+      },
+      /*pollFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_poll_rust_buffer,
+      /*cancelFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_cancel_rust_buffer,
+      /*completeFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_complete_rust_buffer,
+      /*freeFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_free_rust_buffer,
+      // Async returns always go through the JS-side converter: the
+      // FFI symbol returns the future handle (u64), and the user-level
+      // RustBuffer comes back via the shared `rust_future_complete_*`
+      // export. The bytes the runtime hands back must be deserialized
+      // here using the per-callable return-type converter.
+      /*liftFunc:*/ FfiConverterString.lift.bind(FfiConverterString),
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      /*asyncOpts:*/ asyncOpts_,
+      /*errorHandler:*/ FfiConverterTypeLocalWhisperError.lift.bind(
+        FfiConverterTypeLocalWhisperError,
+      ),
+    );
+  } catch (__error: any) {
+    if (uniffiIsDebug && __error instanceof Error) {
+      __error.stack = __stack;
+    }
+    throw __error;
+  }
+}
+
 export async function transcribeProviderAudio(
   requestJson: string,
   asyncOpts_?: { signal: AbortSignal },
@@ -164,6 +236,45 @@ export async function transcribeProviderAudio(
       /*asyncOpts:*/ asyncOpts_,
       /*errorHandler:*/ FfiConverterTypeProviderTranscriptionError.lift.bind(
         FfiConverterTypeProviderTranscriptionError,
+      ),
+    );
+  } catch (__error: any) {
+    if (uniffiIsDebug && __error instanceof Error) {
+      __error.stack = __stack;
+    }
+    throw __error;
+  }
+}
+
+export async function verifyLocalWhisperModel(
+  modelUri: string,
+  asyncOpts_?: { signal: AbortSignal },
+): Promise<boolean> /*throws*/ {
+  const __stack = uniffiIsDebug ? new Error().stack : undefined;
+  try {
+    return await uniffiRustCallAsync(
+      /*rustCaller:*/ uniffiCaller,
+      /*rustFutureFunc:*/ () => {
+        return nativeModule().ubrn_uniffi_mobile_bridge_fn_func_verify_local_whisper_model(
+          FfiConverterString.lower(modelUri, nativeModule().rustbuffer_alloc),
+        );
+      },
+      /*pollFunc:*/ nativeModule().ubrn_ffi_mobile_bridge_rust_future_poll_i8,
+      /*cancelFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_cancel_i8,
+      /*completeFunc:*/ nativeModule()
+        .ubrn_ffi_mobile_bridge_rust_future_complete_i8,
+      /*freeFunc:*/ nativeModule().ubrn_ffi_mobile_bridge_rust_future_free_i8,
+      // Async returns always go through the JS-side converter: the
+      // FFI symbol returns the future handle (u64), and the user-level
+      // RustBuffer comes back via the shared `rust_future_complete_*`
+      // export. The bytes the runtime hands back must be deserialized
+      // here using the per-callable return-type converter.
+      /*liftFunc:*/ FfiConverterBool.lift.bind(FfiConverterBool),
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      /*asyncOpts:*/ asyncOpts_,
+      /*errorHandler:*/ FfiConverterTypeLocalWhisperError.lift.bind(
+        FfiConverterTypeLocalWhisperError,
       ),
     );
   } catch (__error: any) {
@@ -847,6 +958,328 @@ const FfiConverterTypeBridgeError = (() => {
           let size = ordinalConverter.allocationSize(11);
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
+})();
+
+// Error type: LocalWhisperError
+export enum LocalWhisperError_Tags {
+  InvalidSettings = "InvalidSettings",
+  AudioMissing = "AudioMissing",
+  AudioTooLarge = "AudioTooLarge",
+  ModelMissing = "ModelMissing",
+  ModelIntegrityFailed = "ModelIntegrityFailed",
+  InferenceFailed = "InferenceFailed",
+  SerializationFailed = "SerializationFailed",
+}
+export const LocalWhisperError = (() => {
+  type InvalidSettings__interface = {
+    tag: LocalWhisperError_Tags.InvalidSettings;
+  };
+  class InvalidSettings_
+    extends UniffiError
+    implements InvalidSettings__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "LocalWhisperError";
+    readonly tag = LocalWhisperError_Tags.InvalidSettings;
+    constructor() {
+      super("LocalWhisperError", "InvalidSettings");
+    }
+
+    static new(): InvalidSettings_ {
+      return new InvalidSettings_();
+    }
+
+    static instanceOf(obj: any): obj is InvalidSettings_ {
+      return obj.tag === LocalWhisperError_Tags.InvalidSettings;
+    }
+    static hasInner(obj: any): obj is InvalidSettings_ {
+      return false;
+    }
+  }
+
+  type AudioMissing__interface = {
+    tag: LocalWhisperError_Tags.AudioMissing;
+  };
+  class AudioMissing_ extends UniffiError implements AudioMissing__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "LocalWhisperError";
+    readonly tag = LocalWhisperError_Tags.AudioMissing;
+    constructor() {
+      super("LocalWhisperError", "AudioMissing");
+    }
+
+    static new(): AudioMissing_ {
+      return new AudioMissing_();
+    }
+
+    static instanceOf(obj: any): obj is AudioMissing_ {
+      return obj.tag === LocalWhisperError_Tags.AudioMissing;
+    }
+    static hasInner(obj: any): obj is AudioMissing_ {
+      return false;
+    }
+  }
+
+  type AudioTooLarge__interface = {
+    tag: LocalWhisperError_Tags.AudioTooLarge;
+  };
+  class AudioTooLarge_ extends UniffiError implements AudioTooLarge__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "LocalWhisperError";
+    readonly tag = LocalWhisperError_Tags.AudioTooLarge;
+    constructor() {
+      super("LocalWhisperError", "AudioTooLarge");
+    }
+
+    static new(): AudioTooLarge_ {
+      return new AudioTooLarge_();
+    }
+
+    static instanceOf(obj: any): obj is AudioTooLarge_ {
+      return obj.tag === LocalWhisperError_Tags.AudioTooLarge;
+    }
+    static hasInner(obj: any): obj is AudioTooLarge_ {
+      return false;
+    }
+  }
+
+  type ModelMissing__interface = {
+    tag: LocalWhisperError_Tags.ModelMissing;
+  };
+  class ModelMissing_ extends UniffiError implements ModelMissing__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "LocalWhisperError";
+    readonly tag = LocalWhisperError_Tags.ModelMissing;
+    constructor() {
+      super("LocalWhisperError", "ModelMissing");
+    }
+
+    static new(): ModelMissing_ {
+      return new ModelMissing_();
+    }
+
+    static instanceOf(obj: any): obj is ModelMissing_ {
+      return obj.tag === LocalWhisperError_Tags.ModelMissing;
+    }
+    static hasInner(obj: any): obj is ModelMissing_ {
+      return false;
+    }
+  }
+
+  type ModelIntegrityFailed__interface = {
+    tag: LocalWhisperError_Tags.ModelIntegrityFailed;
+  };
+  class ModelIntegrityFailed_
+    extends UniffiError
+    implements ModelIntegrityFailed__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "LocalWhisperError";
+    readonly tag = LocalWhisperError_Tags.ModelIntegrityFailed;
+    constructor() {
+      super("LocalWhisperError", "ModelIntegrityFailed");
+    }
+
+    static new(): ModelIntegrityFailed_ {
+      return new ModelIntegrityFailed_();
+    }
+
+    static instanceOf(obj: any): obj is ModelIntegrityFailed_ {
+      return obj.tag === LocalWhisperError_Tags.ModelIntegrityFailed;
+    }
+    static hasInner(obj: any): obj is ModelIntegrityFailed_ {
+      return false;
+    }
+  }
+
+  type InferenceFailed__interface = {
+    tag: LocalWhisperError_Tags.InferenceFailed;
+  };
+  class InferenceFailed_
+    extends UniffiError
+    implements InferenceFailed__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "LocalWhisperError";
+    readonly tag = LocalWhisperError_Tags.InferenceFailed;
+    constructor() {
+      super("LocalWhisperError", "InferenceFailed");
+    }
+
+    static new(): InferenceFailed_ {
+      return new InferenceFailed_();
+    }
+
+    static instanceOf(obj: any): obj is InferenceFailed_ {
+      return obj.tag === LocalWhisperError_Tags.InferenceFailed;
+    }
+    static hasInner(obj: any): obj is InferenceFailed_ {
+      return false;
+    }
+  }
+
+  type SerializationFailed__interface = {
+    tag: LocalWhisperError_Tags.SerializationFailed;
+  };
+  class SerializationFailed_
+    extends UniffiError
+    implements SerializationFailed__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "LocalWhisperError";
+    readonly tag = LocalWhisperError_Tags.SerializationFailed;
+    constructor() {
+      super("LocalWhisperError", "SerializationFailed");
+    }
+
+    static new(): SerializationFailed_ {
+      return new SerializationFailed_();
+    }
+
+    static instanceOf(obj: any): obj is SerializationFailed_ {
+      return obj.tag === LocalWhisperError_Tags.SerializationFailed;
+    }
+    static hasInner(obj: any): obj is SerializationFailed_ {
+      return false;
+    }
+  }
+
+  function instanceOf(obj: any): obj is LocalWhisperError {
+    return obj[uniffiTypeNameSymbol] === "LocalWhisperError";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    InvalidSettings: InvalidSettings_,
+    AudioMissing: AudioMissing_,
+    AudioTooLarge: AudioTooLarge_,
+    ModelMissing: ModelMissing_,
+    ModelIntegrityFailed: ModelIntegrityFailed_,
+    InferenceFailed: InferenceFailed_,
+    SerializationFailed: SerializationFailed_,
+  });
+})();
+export type LocalWhisperError = InstanceType<
+  (typeof LocalWhisperError)[
+    | "InvalidSettings"
+    | "AudioMissing"
+    | "AudioTooLarge"
+    | "ModelMissing"
+    | "ModelIntegrityFailed"
+    | "InferenceFailed"
+    | "SerializationFailed"]
+>;
+
+// FfiConverter for enum LocalWhisperError
+const FfiConverterTypeLocalWhisperError = (() => {
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = LocalWhisperError;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return new LocalWhisperError.InvalidSettings();
+        case 2:
+          return new LocalWhisperError.AudioMissing();
+        case 3:
+          return new LocalWhisperError.AudioTooLarge();
+        case 4:
+          return new LocalWhisperError.ModelMissing();
+        case 5:
+          return new LocalWhisperError.ModelIntegrityFailed();
+        case 6:
+          return new LocalWhisperError.InferenceFailed();
+        case 7:
+          return new LocalWhisperError.SerializationFailed();
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value.tag) {
+        case LocalWhisperError_Tags.InvalidSettings: {
+          ordinalConverter.write(1, into);
+          return;
+        }
+        case LocalWhisperError_Tags.AudioMissing: {
+          ordinalConverter.write(2, into);
+          return;
+        }
+        case LocalWhisperError_Tags.AudioTooLarge: {
+          ordinalConverter.write(3, into);
+          return;
+        }
+        case LocalWhisperError_Tags.ModelMissing: {
+          ordinalConverter.write(4, into);
+          return;
+        }
+        case LocalWhisperError_Tags.ModelIntegrityFailed: {
+          ordinalConverter.write(5, into);
+          return;
+        }
+        case LocalWhisperError_Tags.InferenceFailed: {
+          ordinalConverter.write(6, into);
+          return;
+        }
+        case LocalWhisperError_Tags.SerializationFailed: {
+          ordinalConverter.write(7, into);
+          return;
+        }
+        default:
+          // Throwing from here means that LocalWhisperError_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case LocalWhisperError_Tags.InvalidSettings: {
+          return ordinalConverter.allocationSize(1);
+        }
+        case LocalWhisperError_Tags.AudioMissing: {
+          return ordinalConverter.allocationSize(2);
+        }
+        case LocalWhisperError_Tags.AudioTooLarge: {
+          return ordinalConverter.allocationSize(3);
+        }
+        case LocalWhisperError_Tags.ModelMissing: {
+          return ordinalConverter.allocationSize(4);
+        }
+        case LocalWhisperError_Tags.ModelIntegrityFailed: {
+          return ordinalConverter.allocationSize(5);
+        }
+        case LocalWhisperError_Tags.InferenceFailed: {
+          return ordinalConverter.allocationSize(6);
+        }
+        case LocalWhisperError_Tags.SerializationFailed: {
+          return ordinalConverter.allocationSize(7);
         }
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -2882,6 +3315,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_func_local_whisper_model_info() !==
+    45711
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_func_local_whisper_model_info",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_func_render_stored_transcript() !==
     41007
   ) {
@@ -2898,11 +3339,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_func_transcribe_local_whisper() !==
+    12076
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_func_transcribe_local_whisper",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio() !==
     33064
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_mobile_bridge_checksum_func_transcribe_provider_audio",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_func_verify_local_whisper_model() !==
+    46029
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_func_verify_local_whisper_model",
     );
   }
   if (
@@ -3226,6 +3683,7 @@ export default Object.freeze({
   initialize: uniffiEnsureInitialized,
   converters: {
     FfiConverterTypeBridgeError,
+    FfiConverterTypeLocalWhisperError,
     FfiConverterTypeMobileDbBridge,
     FfiConverterTypeProviderLiveTranscription,
     FfiConverterTypeProviderTranscriptionError,

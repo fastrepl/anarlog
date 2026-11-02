@@ -36,6 +36,77 @@ describe("meeting export parser", () => {
     });
   });
 
+  it("preserves Anarlog package transcripts and summary evidence metadata", () => {
+    const [meeting] = parseMeetingExport({
+      path: "/tmp/Weekly.anlgmeeting",
+      name: "Weekly.anlgmeeting",
+      content: JSON.stringify({
+        format: "anarlog.meeting",
+        version: 1,
+        meeting: {
+          title: "Weekly",
+          created_at: "2026-10-01T09:00:00.000Z",
+          note: "Notes",
+          speaker_context: { Alex: "Product" },
+          summaries: [
+            {
+              title: "Minutes",
+              body: "Decision",
+              body_format: "markdown",
+              generation_metadata_json: "{}",
+            },
+          ],
+        },
+        transcripts: [
+          {
+            id: "original-transcript",
+            source: "microphone",
+            provider: "local-whisper",
+            model: "small",
+            language: "en",
+            started_at_ms: 0,
+            ended_at_ms: 1200,
+            memo: "",
+            words_json: JSON.stringify([
+              { id: "word-1", text: "Hello", start_ms: 0, end_ms: 1200 },
+            ]),
+            speaker_hints_json: "[]",
+          },
+        ],
+        audio: null,
+      }),
+    });
+
+    expect(meeting).toMatchObject({
+      title: "Weekly",
+      speakerContext: { Alex: "Product" },
+      packageTranscripts: [
+        { id: "original-transcript", provider: "local-whisper" },
+      ],
+      summaryDocuments: [{ title: "Minutes", body: "Decision" }],
+    });
+  });
+
+  it("rejects an invalid Anarlog transcript instead of silently dropping it", () => {
+    expect(() =>
+      parseMeetingExport({
+        path: "/tmp/bad.anlgmeeting",
+        name: "bad.anlgmeeting",
+        content: JSON.stringify({
+          format: "anarlog.meeting",
+          version: 1,
+          meeting: {
+            title: "Bad",
+            created_at: "2026-10-01T09:00:00.000Z",
+            summaries: [],
+          },
+          transcripts: [{ id: "t", words_json: "{}" }],
+          audio: null,
+        }),
+      }),
+    ).toThrow("invalid transcript");
+  });
+
   it("parses captions and preserves speaker labels", () => {
     const [meeting] = parseMeetingExport({
       path: "/tmp/meeting.vtt",

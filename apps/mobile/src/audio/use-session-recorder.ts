@@ -20,6 +20,7 @@ import {
 import { SessionWavWriter } from "@/audio/session-wav-writer";
 import {
   catalogSessionAudio,
+  recordSessionCaptureInterruption,
   recordSessionCaptureStart,
 } from "@/data/audio-catalog";
 import {
@@ -48,7 +49,13 @@ export type RecorderFailure =
   | "start_failed"
   | "media_services_reset"
   | "native_error"
+  | "interrupted"
   | "save_failed";
+
+type RecordingCompletionReason =
+  | "user_stopped"
+  | "notification_stop"
+  | "audio_interruption";
 
 export type StopResult = "saved" | "failed" | "noop";
 
@@ -84,7 +91,9 @@ export function useSessionRecorder(
   const reportedFailureRef = useRef<string | null>(null);
   const durationRef = useRef(0);
   const captureRegisteredRef = useRef(false);
-  const stopRef = useRef<() => Promise<StopResult>>(async () => "noop");
+  const stopRef = useRef<
+    (reason?: RecordingCompletionReason) => Promise<StopResult>
+  >(async () => "noop");
 
   const registerCapture = useCallback(() => {
     if (captureRegisteredRef.current) return;
@@ -247,10 +256,22 @@ export function useSessionRecorder(
       if (!isCurrent()) return;
       writerRef.current = new SessionWavWriter(sessionId);
       await recordSessionCaptureStart(sessionId);
-      if (!isCurrent()) return;
+      if (!isCurrent()) {
+        const writer = writerRef.current;
+        writerRef.current = null;
+        try {
+          writer?.closeAndDiscardEmpty();
+        } catch (cleanupError) {
+          captureOperationalError(cleanupError, {
+            operation: "recording_cancelled_start_cleanup",
+          });
+        }
+        unregisterCapture();
+        return;
+      }
       await stream.start();
       if (!isCurrent()) {
-        phaseRef.current = "recording";
+        if (phaseRef.current === "starting") phaseRef.current = "recording";
         return;
       }
       await startMeetingRecordingActivity(sessionId).catch((activityError) => {
@@ -334,13 +355,46 @@ export function useSessionRecorder(
   useMountEffect(() => {
     const subscription = stream.addListener(
       "audioStreamStatus",
-      ({ isStreaming }) => {
-        if (
-          !isStreaming &&
-          (phaseRef.current === "starting" || phaseRef.current === "recording")
-        ) {
-          void stopRef.current();
+      ({ isStreaming, stopReason }) => {
+        if (isStreaming) return;
+        const currentPhase = phaseRef.current;
+        if (currentPhase !== "starting" && currentPhase !== "recording") return;
+        if (stopReason === "notification" && currentPhase === "recording") {
+          void stopRef.current("notification_stop");
+          return;
         }
+
+        startGenerationRef.current += 1;
+        void recordSessionCaptureInterruption(sessionId).catch((error) =>
+          captureOperationalError(error, {
+            operation: "recording_interruption_persist",
+            level: "warning",
+          }),
+        );
+        void liveRef.current?.stop();
+        void endMeetingRecordingActivity(sessionId).catch((error) =>
+          captureOperationalError(error, {
+            operation: "recording_live_activity_end",
+          }),
+        );
+        try {
+          writerRef.current?.checkpoint();
+        } catch (error) {
+          reportFailure(
+            "save_failed",
+            error,
+            "recording_interruption_checkpoint",
+          );
+          setPhase("save_error");
+          return;
+        }
+        setAmplitude(0);
+        reportFailure(
+          "interrupted",
+          new Error("Microphone capture stopped unexpectedly"),
+          "recording_interrupted",
+        );
+        setPhase("interrupted");
       },
     );
     return () => subscription.remove();
@@ -359,7 +413,9 @@ export function useSessionRecorder(
     return () => subscription.remove();
   });
 
-  const performStop = async (): Promise<StopResult> => {
+  const performStop = async (
+    completionReason: RecordingCompletionReason,
+  ): Promise<StopResult> => {
     await startRef.current?.catch(() => {});
     if (
       !["recording", "save_error", "error", "interrupted"].includes(
@@ -415,7 +471,7 @@ export function useSessionRecorder(
         completionTrackedRef.current = true;
         const properties = {
           duration_seconds: Math.round(durationRef.current / 1_000),
-          completion_reason: "user_stopped",
+          completion_reason: completionReason,
           transcription_requested: true,
           transcription_mode: transcriptionMode,
         };
@@ -435,10 +491,17 @@ export function useSessionRecorder(
     }
   };
 
-  const stop = (): Promise<StopResult> => {
+  const stop = (
+    requestedReason?: RecordingCompletionReason,
+  ): Promise<StopResult> => {
     const currentOperation = stopOperationRef.current;
     if (currentOperation) return currentOperation;
-    const operation = performStop();
+    const completionReason =
+      requestedReason ??
+      (phaseRef.current === "interrupted"
+        ? "audio_interruption"
+        : "user_stopped");
+    const operation = performStop(completionReason);
     stopOperationRef.current = operation;
     const clearOperation = () => {
       if (stopOperationRef.current === operation) {

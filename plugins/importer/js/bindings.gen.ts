@@ -45,6 +45,14 @@ async readTextFiles(paths: string[]) : Promise<Result<ImportTextFile[], string>>
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async cleanupMeetingAudio(path: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|cleanup_meeting_audio", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -61,7 +69,8 @@ async readTextFiles(paths: string[]) : Promise<Result<ImportTextFile[], string>>
 export type ConnectedImportAuthorization = { providerId: string; authorizationUrl: string }
 export type ConnectedImportCredentials = { providerId: string; clientId: string; clientSecret: string | null; tokenJson: string; tokenReceivedAt: number | null }
 export type ConnectedImportSyncResult = { files: ImportTextFile[]; credentials: ConnectedImportCredentials; warnings: string[] }
-export type ImportTextFile = { path: string; name: string; content: string }
+export type ImportTextFile = { path: string; name: string; content: string; meetingAudio?: MeetingPackageAudio | null }
+export type MeetingPackageAudio = { path: string; filename: string; contentType: string; sizeBytes: number; sha256: string }
 
 /** tauri-specta globals **/
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Spacing, Typography } from "@/constants/theme";
 import {
+  enableSessionAudioBackup,
   retrySessionAudioUpload,
   type SessionAudio,
 } from "@/data/audio-catalog";
@@ -14,6 +15,10 @@ import { captureOperationalError } from "@/lib/error-reporting";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 const presentation = {
+  local: {
+    icon: "phone-portrait-outline" as const,
+    text: "Saved on this device. Audio is not backed up.",
+  },
   queued: {
     icon: "time-outline" as const,
     text: "Saved locally · waiting to back up",
@@ -40,21 +45,29 @@ export function RecordingSyncCard({ audio }: { audio: SessionAudio }) {
   const [retryError, setRetryError] = useState(false);
   const status =
     !billing.isPro && audio.deliveryState !== "synced"
-      ? {
-          icon: "phone-portrait-outline" as const,
-          text: "Saved on this device",
-        }
+      ? presentation.local
       : presentation[audio.deliveryState];
   const waitingToRetry = billing.isPro && audio.uploadPhase === "retry_wait";
   const canRetry =
-    billing.isPro && (audio.deliveryState === "failed" || waitingToRetry);
+    billing.isPro &&
+    audio.cloudSyncEnabled &&
+    (audio.deliveryState === "failed" || waitingToRetry);
+  const canBackUp =
+    billing.isPro &&
+    Boolean(audio.workspaceId) &&
+    !audio.cloudSyncEnabled &&
+    audio.availableLocally;
 
   const handleRetry = async () => {
     if (retrying) return;
     setRetrying(true);
     setRetryError(false);
     try {
-      await retrySessionAudioUpload(audio.attachmentId);
+      if (audio.cloudSyncEnabled) {
+        await retrySessionAudioUpload(audio.attachmentId);
+      } else {
+        await enableSessionAudioBackup(audio.attachmentId);
+      }
     } catch (error) {
       setRetryError(true);
       captureOperationalError(error, {
@@ -85,6 +98,16 @@ export function RecordingSyncCard({ audio }: { audio: SessionAudio }) {
       {canRetry && (
         <Button
           label="Retry now"
+          loading={retrying}
+          onPress={() => void handleRetry()}
+          size="small"
+          style={styles.button}
+          variant="outline"
+        />
+      )}
+      {canBackUp && (
+        <Button
+          label={retrying ? "Preparing backup…" : "Back up encrypted audio"}
           loading={retrying}
           onPress={() => void handleRetry()}
           size="small"

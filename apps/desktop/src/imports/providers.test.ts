@@ -12,6 +12,7 @@ describe("meeting import providers", () => {
     ]);
 
     expect(providers.map((provider) => provider.id)).toEqual([
+      "anarlog",
       "granola",
       "plaud",
       "pocket",
@@ -19,6 +20,7 @@ describe("meeting import providers", () => {
       "google-meet",
     ]);
     expect(providers.map((provider) => provider.installedAppId)).toEqual([
+      "anarlog",
       "com.granola.app",
       "ai.plaud.desktop.plaud",
       "com.openvisionengineering.pocket-desktop-app",
@@ -34,6 +36,7 @@ describe("meeting import providers", () => {
     ]);
 
     expect(providers.map((provider) => provider.id)).toEqual([
+      "anarlog",
       "plaud",
       "pocket",
       "google-meet",
@@ -45,7 +48,7 @@ describe("meeting import providers", () => {
       detectMeetingImportProviders([
         { id: "com.electron.pocket-casts", name: "Pocket Casts" },
       ]).map((provider) => provider.id),
-    ).toEqual(["google-meet"]);
+    ).toEqual(["anarlog", "google-meet"]);
   });
 
   it("does not accept bundle identifier prefixes", () => {
@@ -53,7 +56,7 @@ describe("meeting import providers", () => {
       detectMeetingImportProviders([
         { id: "com.granola.app.helper", name: "Something Else" },
       ]).map((provider) => provider.id),
-    ).toEqual(["google-meet"]);
+    ).toEqual(["anarlog", "google-meet"]);
   });
 
   it("does not infer extension-only products from a browser", () => {
@@ -61,6 +64,6 @@ describe("meeting import providers", () => {
       detectMeetingImportProviders([
         { id: "com.google.Chrome", name: "Google Chrome" },
       ]).map((provider) => provider.id),
-    ).toEqual(["google-meet"]);
+    ).toEqual(["anarlog", "google-meet"]);
   });
 });

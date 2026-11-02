@@ -1,9 +1,14 @@
 import { md2json } from "@anlg/editor/markdown";
+import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import type { ImportTextFile } from "@anlg/plugin-importer";
 
 import { parseMeetingExport, type ImportedMeeting } from "./parser";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
+import {
+  catalogLocalSessionAudio,
+  markSessionAudioTranscriptionComplete,
+} from "~/session/attachments";
 import { DEFAULT_USER_ID, id } from "~/shared/utils";
 
 const IMPORTER_VERSION = 2;
@@ -167,8 +172,19 @@ async function runMeetingImport(
       const existingIds = await findExistingSessionIds(
         targets.map((target) => target.sessionId),
       );
+      const recoverableAudioIds = await findRecoverableAudioSessionIds(
+        file.path,
+        sourceKind,
+        sourceSha256,
+      );
       const importedTargets = targets.filter(
         (target) => !existingIds.has(target.sessionId),
+      );
+      const repairTargets = targets.filter(
+        (target) =>
+          existingIds.has(target.sessionId) &&
+          recoverableAudioIds.has(target.sessionId) &&
+          Boolean(target.meeting.meetingAudio),
       );
 
       const statements: Array<{ sql: string; params: unknown[] }> = [];
@@ -184,8 +200,10 @@ async function runMeetingImport(
       }
 
       const existingCount = targets.length - importedTargets.length;
-      const matchedCount = mode === "connection" ? existingCount : 0;
-      const conflictCount = mode === "export" ? existingCount : 0;
+      const matchedCount =
+        (mode === "connection" ? existingCount : 0) + repairTargets.length;
+      const conflictCount =
+        mode === "export" ? existingCount - repairTargets.length : 0;
       statements.push({
         sql: `
           INSERT INTO migration_import_items (
@@ -223,15 +241,43 @@ async function runMeetingImport(
             file.path,
             sourceKind,
             target.sessionId,
-            existingIds.has(target.sessionId)
-              ? mode === "connection"
-                ? "matched"
-                : "conflict"
-              : "inserted",
+            repairTargets.some(
+              ({ sessionId }) => sessionId === target.sessionId,
+            )
+              ? "matched"
+              : existingIds.has(target.sessionId)
+                ? mode === "connection"
+                  ? "matched"
+                  : "conflict"
+                : "inserted",
           ],
         });
       }
       await executeTransaction(statements);
+
+      for (const target of [...importedTargets, ...repairTargets]) {
+        const audio = target.meeting.meetingAudio;
+        if (!audio) continue;
+        try {
+          const importedAudio = await fsSyncCommands.audioImport(
+            target.sessionId,
+            audio.path,
+          );
+          if (importedAudio.status === "error") {
+            throw new Error(importedAudio.error);
+          }
+          await catalogLocalSessionAudio(target.sessionId);
+          if (
+            target.meeting.transcript.length > 0 ||
+            (target.meeting.packageTranscripts?.length ?? 0) > 0
+          ) {
+            await markSessionAudioTranscriptionComplete(target.sessionId);
+          }
+        } catch (error) {
+          await fsSyncCommands.audioDelete(target.sessionId).catch(() => {});
+          throw error;
+        }
+      }
 
       totals.discovered += targets.length;
       totals.imported += importedTargets.length;
@@ -301,6 +347,9 @@ export function buildMeetingStatements({
     sourcePath,
     sourceUrl: meeting.sourceUrl,
     externalId: meeting.externalId,
+    ...(meeting.speakerContext
+      ? { speaker_context: meeting.speakerContext }
+      : {}),
   });
   const statements: Array<{ sql: string; params: unknown[] }> = [
     {
@@ -350,7 +399,80 @@ export function buildMeetingStatements({
     },
   ];
 
-  if (meeting.transcript.length > 0) {
+  for (const [index, summary] of (meeting.summaryDocuments ?? []).entries()) {
+    let body = summary.body;
+    for (const [transcriptIndex, transcript] of (
+      meeting.packageTranscripts ?? []
+    ).entries()) {
+      body = body
+        .split(`anarlog-evidence://${encodeURIComponent(transcript.id)}%3A`)
+        .join(
+          `anarlog-evidence://${encodeURIComponent(`${sessionId}:transcript:${transcriptIndex}`)}%3A`,
+        );
+    }
+    statements.push({
+      sql: `
+        INSERT INTO session_documents (
+          id, workspace_id, session_id, kind, title, body_format, body,
+          generation_metadata_json, created_by, updated_by, created_at,
+          updated_at, deleted_at
+        ) SELECT ?, workspace_id, id, 'summary', ?, ?, ?, ?, owner_user_id,
+          owner_user_id, ?, ?, NULL
+        FROM sessions WHERE id = ? AND deleted_at IS NULL
+      `,
+      params: [
+        `${sessionId}:summary:${index}`,
+        summary.title,
+        summary.bodyFormat,
+        body,
+        summary.generationMetadataJson,
+        createdAt,
+        now,
+        sessionId,
+      ],
+    });
+  }
+
+  if (meeting.packageTranscripts?.length) {
+    for (const [index, transcript] of meeting.packageTranscripts.entries()) {
+      const transcriptId = `${sessionId}:transcript:${index}`;
+      const words = JSON.parse(transcript.words_json) as unknown[];
+      statements.push({
+        sql: `INSERT INTO transcripts (
+          id, workspace_id, owner_user_id, session_id, source, provider, model,
+          language, started_at_ms, ended_at_ms, audio_attachment_id, memo, words_json,
+          speaker_hints_json, metadata_json, created_at, updated_at, deleted_at
+        ) SELECT ?, workspace_id, owner_user_id, id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, NULL FROM sessions WHERE id = ? AND deleted_at IS NULL`,
+        params: [
+          transcriptId,
+          transcript.source,
+          transcript.provider,
+          transcript.model,
+          transcript.language,
+          transcript.started_at_ms,
+          transcript.ended_at_ms,
+          meeting.meetingAudio ? `session-audio:${sessionId}` : "",
+          transcript.memo,
+          JSON.stringify(
+            words.map((word) => {
+              if (!word || typeof word !== "object") return word;
+              const record = word as Record<string, unknown>;
+              return {
+                ...record,
+                id: `${transcriptId}:${String(record.id ?? "word")}`,
+              };
+            }),
+          ),
+          transcript.speaker_hints_json,
+          metadata,
+          createdAt,
+          now,
+          sessionId,
+        ],
+      });
+    }
+  } else if (meeting.transcript.length > 0) {
     const words = meeting.transcript.map((segment, index) => ({
       id: `${sessionId}:word:${index}`,
       text: segment.text,
@@ -466,6 +588,24 @@ async function findExistingSessionIds(sessionIds: string[]) {
   return new Set(rows.map((row) => row.id));
 }
 
+async function findRecoverableAudioSessionIds(
+  sourcePath: string,
+  sourceKind: string,
+  sourceSha256: string,
+) {
+  const rows = await liveQueryClient.execute<SessionIdRow>(
+    `SELECT target.target_id AS id
+     FROM migration_import_targets AS target
+     JOIN migration_import_items AS item ON item.id = target.item_id
+     WHERE item.source_path = ? AND item.source_kind = ?
+       AND item.source_sha256 = ? AND item.status = 'error'
+       AND target.table_name = 'sessions'
+       AND target.status IN ('inserted', 'matched')`,
+    [sourcePath, sourceKind, sourceSha256],
+  );
+  return new Set(rows.map((row) => row.id));
+}
+
 async function recordUnchangedItem({
   itemId,
   runId,
@@ -525,6 +665,10 @@ async function recordImportError({
           id, run_id, source_path, source_kind, source_sha256, status,
           discovered_count, skipped_count, error, completed_at
         ) VALUES (?, ?, ?, ?, ?, 'error', 1, 1, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          status = 'error', error = excluded.error,
+          skipped_count = max(migration_import_items.skipped_count, 1),
+          completed_at = excluded.completed_at
       `,
       params: [
         itemId,

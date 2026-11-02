@@ -202,6 +202,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_mobile_bridge_fn_init_callback_vtable_transcriptioneventlistener(
     vtable: UniffiVTableCallbackInterfaceMobileBridgeTranscriptionEventListener,
   ): void;
+  ubrn_uniffi_mobile_bridge_fn_func_local_whisper_model_info(
+    modelsBaseUri: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_mobile_bridge_fn_func_render_stored_transcript(
     requestJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
@@ -210,8 +214,14 @@ interface NativeModuleInterface {
     requestJson: Uint8Array,
     listener: bigint,
   ): bigint;
+  ubrn_uniffi_mobile_bridge_fn_func_transcribe_local_whisper(
+    requestJson: Uint8Array,
+  ): bigint;
   ubrn_uniffi_mobile_bridge_fn_func_transcribe_provider_audio(
     requestJson: Uint8Array,
+  ): bigint;
+  ubrn_uniffi_mobile_bridge_fn_func_verify_local_whisper_model(
+    modelUri: Uint8Array,
   ): bigint;
   ubrn_uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(
     dbPath: Uint8Array,
@@ -421,9 +431,12 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_ffi_mobile_bridge_uniffi_contract_version(): number;
+  ubrn_uniffi_mobile_bridge_checksum_func_local_whisper_model_info(): number;
   ubrn_uniffi_mobile_bridge_checksum_func_render_stored_transcript(): number;
   ubrn_uniffi_mobile_bridge_checksum_func_start_provider_live_transcription(): number;
+  ubrn_uniffi_mobile_bridge_checksum_func_transcribe_local_whisper(): number;
   ubrn_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio(): number;
+  ubrn_uniffi_mobile_bridge_checksum_func_verify_local_whisper_model(): number;
   ubrn_uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(): number;

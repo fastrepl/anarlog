@@ -1170,6 +1170,7 @@ fn meeting_files(provider: McpProvider, meetings: Vec<(String, Value)>) -> Vec<I
                 path: format!("mcp://{}/{safe_id}.json", provider.id),
                 name: format!("{safe_id}.json"),
                 content,
+                meeting_audio: None,
             })
         })
         .collect()

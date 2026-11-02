@@ -1,6 +1,7 @@
 #[cfg(test)]
 use std::path::Path;
 
+#[cfg(feature = "streaming")]
 pub(super) use anlg_transcribe_core::{format_timestamp_now, send_ws, send_ws_best_effort};
 use owhisper_interface::{batch, stream};
 

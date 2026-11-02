@@ -9,6 +9,7 @@ Default permissions for the plugin
 - `allow-complete-connected-import`
 - `allow-sync-connected-import`
 - `allow-read-text-files`
+- `allow-cleanup-meeting-audio`
 
 ## Permission Table
 
@@ -67,6 +68,32 @@ Enables the cancel_connected_import command without any pre-configured scope.
 <td>
 
 Denies the cancel_connected_import command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:allow-cleanup-meeting-audio`
+
+</td>
+<td>
+
+Enables the cleanup_meeting_audio command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-cleanup-meeting-audio`
+
+</td>
+<td>
+
+Denies the cleanup_meeting_audio command without any pre-configured scope.
 
 </td>
 </tr>

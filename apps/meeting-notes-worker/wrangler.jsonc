@@ -1,0 +1,24 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "anarlog-meeting-notes",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-02",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1,
+    "logs": { "enabled": true, "head_sampling_rate": 0.1, "persist": false },
+    "traces": { "enabled": false },
+  },
+  "ai": { "binding": "AI" },
+  "secrets": {
+    "required": ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
+  },
+  "ratelimits": [
+    {
+      "name": "MINUTES_LIMITER",
+      "namespace_id": "4810926031",
+      "simple": { "limit": 5, "period": 60 },
+    },
+  ],
+}

@@ -1,9 +1,12 @@
+use anlg_audio_chunking::AudioChunk;
+#[cfg(feature = "vad")]
+use anlg_audio_chunking::Chunker;
+#[cfg(feature = "vad")]
 use std::time::Duration;
-
-use anlg_audio_chunking::{AudioChunk, Chunker, SpeechChunker, SpeechChunkingConfig};
 
 pub const TARGET_SAMPLE_RATE: u32 = 16_000;
 
+#[cfg(feature = "vad")]
 const DEFAULT_SPEECH_REDEMPTION_TIME: Duration = Duration::from_millis(150);
 const MAX_CHUNK_SAMPLES: usize = TARGET_SAMPLE_RATE as usize * 25;
 
@@ -11,11 +14,32 @@ pub fn chunk_channel_audio<E>(samples: &[f32]) -> Result<Vec<AudioChunk>, E>
 where
     E: From<anlg_audio_chunking::Error>,
 {
-    let mut chunker =
-        SpeechChunker::new(SpeechChunkingConfig::speech(DEFAULT_SPEECH_REDEMPTION_TIME))?;
-    Ok(chunk_channel_audio_with(samples, &mut chunker)?)
+    #[cfg(feature = "vad")]
+    {
+        use anlg_audio_chunking::{SpeechChunker, SpeechChunkingConfig};
+
+        let mut chunker =
+            SpeechChunker::new(SpeechChunkingConfig::speech(DEFAULT_SPEECH_REDEMPTION_TIME))?;
+        Ok(chunk_channel_audio_with(samples, &mut chunker)?)
+    }
+    #[cfg(not(feature = "vad"))]
+    {
+        Ok(samples
+            .chunks(MAX_CHUNK_SAMPLES)
+            .enumerate()
+            .map(|(index, window)| {
+                let sample_start = index * MAX_CHUNK_SAMPLES;
+                AudioChunk {
+                    samples: window.to_vec(),
+                    sample_start,
+                    sample_end: sample_start + window.len(),
+                }
+            })
+            .collect())
+    }
 }
 
+#[cfg(feature = "vad")]
 fn chunk_channel_audio_with<C>(
     samples: &[f32],
     chunker: &mut C,

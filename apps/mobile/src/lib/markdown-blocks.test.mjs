@@ -127,3 +127,10 @@ test("parses inline emphasis and code", () => {
   ]);
   assert.deepEqual(parseInline("plain text"), [{ text: "plain text" }]);
 });
+
+test("parses links with opaque URL schemes", () => {
+  assert.deepEqual(parseInline("Evidence: [segment](anarlog-evidence://id%3A1)"), [
+    { text: "Evidence: " },
+    { text: "segment", href: "anarlog-evidence://id%3A1" },
+  ]);
+});

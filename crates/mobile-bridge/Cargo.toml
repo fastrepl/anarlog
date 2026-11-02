@@ -16,7 +16,11 @@ anlg-db-migrate = { workspace = true }
 anlg-db-reactive = { workspace = true }
 anlg-db-sync = { workspace = true }
 anlg-e2ee = { workspace = true }
+anlg-file = { workspace = true }
+anlg-local-model = { workspace = true }
 anlg-transcript = { workspace = true }
+anlg-transcribe-whisper-local = { path = "../transcribe-whisper-local", package = "transcribe-whisper-local", default-features = false }
+anlg-whisper-local-model = { workspace = true }
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
 
@@ -38,6 +42,9 @@ uuid = { workspace = true }
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 rustls-platform-verifier = "0.6"
+
+[target.'cfg(target_os = "ios")'.dependencies]
+anlg-transcribe-whisper-local = { path = "../transcribe-whisper-local", package = "transcribe-whisper-local", default-features = false, features = ["metal"] }
 
 [dev-dependencies]
 sha2 = { workspace = true }

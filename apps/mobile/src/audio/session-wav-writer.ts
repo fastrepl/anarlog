@@ -23,7 +23,12 @@ export class SessionWavWriter {
     const directory = new Directory(Paths.document, "sessions", sessionId);
     directory.create({ intermediates: true, idempotent: true });
     this.file = new File(directory, "audio.wav");
-    if (this.file.exists && this.file.size <= WAV_HEADER_BYTES) {
+    if (this.file.exists) {
+      if (this.file.size > WAV_HEADER_BYTES) {
+        throw new Error(
+          "An unfinished recording already exists and must be recovered first.",
+        );
+      }
       this.file.delete();
     }
     this.file.create();
@@ -69,6 +74,12 @@ export class SessionWavWriter {
     this.handle = null;
     this.finalized = true;
     return this.file;
+  }
+
+  checkpoint() {
+    if (!this.handle || !this.initialized || this.finalized) return;
+    this.writeHeader();
+    this.checkpointDataBytes = this.dataBytes;
   }
 
   close() {

@@ -30,6 +30,7 @@ export type TranscriptSegment = {
   text: string;
   speaker: string;
   startMs: number;
+  endMs: number;
   wordCount: number;
 };
 

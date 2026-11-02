@@ -4,9 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = []
+default = ["streaming"]
+streaming = [
+  "anlg-audio-chunking/vad",
+  "anlg-transcribe-core/vad",
+  "dep:anlg-audio-interface",
+  "dep:anlg-ws-utils",
+  "dep:tower",
+]
 coreml = ["anlg-whisper-local/coreml"]
-directml = ["anlg-pyannote-local/directml"]
+directml = ["dep:anlg-pyannote-local", "anlg-pyannote-local/directml"]
 cuda = ["anlg-whisper-local/cuda"]
 hipblas = ["anlg-whisper-local/hipblas"]
 openblas = ["anlg-whisper-local/openblas"]
@@ -23,15 +30,15 @@ reqwest = { workspace = true, features = ["json", "stream"] }
 tokio-tungstenite = { workspace = true }
 
 [dependencies]
-anlg-audio-chunking = { workspace = true }
-anlg-audio-interface = { workspace = true }
+anlg-audio-chunking = { path = "../audio-chunking", package = "audio-chunking", default-features = false }
+anlg-audio-interface = { workspace = true, optional = true }
 anlg-audio-utils = { workspace = true }
 anlg-model-manager = { workspace = true, features = ["whisper-local"] }
-anlg-pyannote-local = { workspace = true }
-anlg-transcribe-core = { workspace = true }
+anlg-pyannote-local = { workspace = true, optional = true }
+anlg-transcribe-core = { path = "../transcribe-core", package = "transcribe-core", default-features = false }
 anlg-whisper = { workspace = true }
 anlg-whisper-local = { workspace = true }
-anlg-ws-utils = { workspace = true }
+anlg-ws-utils = { workspace = true, optional = true }
 owhisper-interface = { workspace = true }
 
 bytes = { workspace = true }
@@ -44,7 +51,7 @@ axum = { workspace = true, features = ["ws"] }
 futures-util = { workspace = true }
 hound = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-util"] }
-tower = { workspace = true }
+tower = { workspace = true, optional = true }
 tracing = { workspace = true }
 
 rodio = { workspace = true }

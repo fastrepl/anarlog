@@ -332,16 +332,17 @@ fn transcribe_batch(
     )
 }
 
-pub(super) fn transcribe_recorded_file(
+pub(super) fn transcribe_recorded_file_with_params(
     loaded_model: &anlg_whisper_local::LoadedWhisper,
     model_path: &Path,
     audio_path: &Path,
+    params: &ListenParams,
 ) -> Result<Vec<owhisper_interface::Word2>, crate::Error> {
     let source = anlg_audio_utils::source_from_path(audio_path)?;
     let cancellation = BatchCancellation::default();
     let response = transcribe_source(
         source,
-        &ListenParams::default(),
+        params,
         loaded_model,
         model_path,
         None,

@@ -2,8 +2,8 @@ import SegmentedControl from "@expo/ui/community/segmented-control";
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Alert, Keyboard, Share, Text, TextInput, View } from "react-native";
+import { useRef, useState } from "react";
+import { Alert, Keyboard, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSessionRecorder } from "@/audio/use-session-recorder";
@@ -16,6 +16,7 @@ import { StartListeningButton } from "@/components/start-listening-button";
 import { IconButton } from "@/components/ui/icon-button";
 import { VersionHistorySheet } from "@/components/version-history-sheet";
 import { Spacing, Typography } from "@/constants/theme";
+import { exportMeetingPackage } from "@/data/meeting-package";
 import { useNoteAttachments } from "@/data/note-attachment-catalog";
 import { pickAndCatalogNoteAttachment } from "@/data/note-attachments";
 import { deleteSession, useSessionDetail } from "@/data/session";
@@ -56,12 +57,17 @@ export function NoteScreen({
     edit: onEdit,
     flush,
     remove,
-    snapshot,
     restored,
     bodyDraft,
     onRestored: handleRestored,
   } = useNoteDraft(id, data);
   const [selection, setSelection] = useState<SessionViewSelection | null>(null);
+  const [evidenceSeek, setEvidenceSeek] = useState<{
+    id: number;
+    segmentId: string;
+    seconds: number;
+  } | null>(null);
+  const evidenceRequestId = useRef(0);
   const [listening, setListening] = useState(autoListen);
   const [editorFocused, setEditorFocused] = useState(false);
   const [sheet, setSheet] = useState<"actions" | "folders" | "versions" | null>(
@@ -83,6 +89,28 @@ export function NoteScreen({
     selection,
   });
   const showMemos = current.type === "raw";
+  const openEvidence = async (segmentId: string) => {
+    const segments = await loadSessionTranscripts(id);
+    const segment = segments.find((item) => item.id === segmentId);
+    if (!segment) {
+      Alert.alert(
+        "Evidence unavailable",
+        "This transcript segment is no longer available.",
+      );
+      return;
+    }
+    setSelection({ sessionId: id, active, view: { type: "transcript" } });
+    const captureStart = audio.data?.captureStartedAtMs;
+    const baseTime =
+      captureStart ?? Math.min(...segments.map((item) => item.startMs));
+    setEvidenceSeek({
+      id: ++evidenceRequestId.current,
+      segmentId,
+      seconds: Number.isFinite(baseTime)
+        ? Math.max(0, (segment.startMs - baseTime) / 1000)
+        : 0,
+    });
+  };
   const showEmptyNoteCta =
     !active &&
     !editorFocused &&
@@ -174,38 +202,46 @@ export function NoteScreen({
   };
 
   const handleExport = async () => {
-    const current = data;
-    if (!current) return;
-    const draft = snapshot();
-    flush();
-
-    const title = (draft.title ?? current.title).trim() || "Untitled";
-    const note = (draft.body ?? current.noteText).trim();
+    if (!data) return;
     try {
-      const transcripts = await loadSessionTranscripts(id);
-      const transcript = transcripts
-        .map((segment) => `${segment.speaker}: ${segment.text}`)
-        .join("\n\n")
-        .trim();
-      const sections = [`# ${title}`];
-      if (current.summary) {
-        sections.push(
-          `## ${current.summary.title}\n\n${current.summary.text}`.trim(),
-        );
-      }
-      if (note) sections.push(`## Notes\n\n${note}`);
-      if (transcript) sections.push(`## Transcript\n\n${transcript}`);
-
-      await Share.share({
-        title,
-        message: sections.join("\n\n"),
-      });
+      await flush(true);
     } catch (error) {
       captureOperationalError(error, {
         operation: "session_export",
         tags: { entry_point: "mobile_note" },
       });
+      Alert.alert(
+        "Couldn’t export meeting",
+        error instanceof Error ? error.message : "Try again.",
+      );
+      return;
     }
+    const canIncludeAudio = audio.availableLocally && Boolean(audio.file);
+    const runExport = (includeAudio: boolean) => {
+      void exportMeetingPackage(id, includeAudio).catch((error: unknown) => {
+        captureOperationalError(error, {
+          operation: "session_export",
+          tags: { entry_point: "mobile_note" },
+        });
+        Alert.alert(
+          "Couldn’t export meeting",
+          error instanceof Error ? error.message : "Try again.",
+        );
+      });
+    };
+    Alert.alert(
+      "Export meeting",
+      canIncludeAudio
+        ? "Choose whether to include the recording. Audio stays on this device unless you share the exported package."
+        : "The recording is not available on this device. The package will contain meeting text only.",
+      [
+        { text: "Without audio", onPress: () => runExport(false) },
+        ...(canIncludeAudio
+          ? [{ text: "Include audio", onPress: () => runExport(true) }]
+          : []),
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
   };
 
   const handleListeningAction = () => {
@@ -298,10 +334,12 @@ export function NoteScreen({
             hasTranscript={transcriptState.data === true}
             audio={audio}
             onBeforeGenerate={() => flush(true)}
+            onOpenEvidence={(segmentId) => void openEvidence(segmentId)}
           />
           {current.type === "transcript" && (
             <SessionTranscript
               sessionId={id}
+              focusSegmentId={evidenceSeek?.segmentId}
               live={
                 active
                   ? {
@@ -316,6 +354,11 @@ export function NoteScreen({
                     sessionId={id}
                     audio={audio}
                     hasTranscript={transcriptState.data}
+                    seekRequest={
+                      evidenceSeek
+                        ? { id: evidenceSeek.id, seconds: evidenceSeek.seconds }
+                        : null
+                    }
                   />
                 )
               }

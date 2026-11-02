@@ -68,6 +68,7 @@ import { useConnections } from "~/auth/useConnections";
 import { ConnectButtonGroup } from "~/shared/connect-button-group";
 
 const IMPORT_EXTENSIONS = [
+  "anlgmeeting",
   "csv",
   "json",
   "md",
@@ -198,7 +199,7 @@ export function MeetingImportScreen({
     mutationFn: async (provider: MeetingImportProvider) => {
       const selection = await selectFiles({
         title: t`Choose ${provider.name} export files`,
-        multiple: true,
+        multiple: provider.id !== "anarlog",
         directory: false,
         filters: [
           {
@@ -216,8 +217,18 @@ export function MeetingImportScreen({
 
       const filesResult = await importerCommands.readTextFiles(paths);
       if (filesResult.status === "error") throw new Error(filesResult.error);
-      const result = await importMeetingFiles(provider.id, filesResult.data);
-      return { ...result, completedAt: Date.now() };
+      try {
+        const result = await importMeetingFiles(provider.id, filesResult.data);
+        return { ...result, completedAt: Date.now() };
+      } finally {
+        await Promise.allSettled(
+          filesResult.data.flatMap((file) =>
+            file.meetingAudio
+              ? [importerCommands.cleanupMeetingAudio(file.meetingAudio.path)]
+              : [],
+          ),
+        );
+      }
     },
   });
 

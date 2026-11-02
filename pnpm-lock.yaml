@@ -67,7 +67,7 @@ packageExtensionsChecksum: sha256-oiDI3QlSZCcWj8/SC36JZqshvUsALZQJ46ilxkTLKHc=
 patchedDependencies:
   braces@3.0.3: ab5323f4bdd02335125374c4299f8052d9973075d0c3bf341074eee55be4551d
   decode-uri-component@0.2.2: 1533799b0dd9d819610a20f051a615d52c96f3455da87240dbad53c21dd21296
-  expo-audio@57.0.4: 2078fa7370e683d88d1dea0b3f3d90c1d85cf5330552896ded43b507e07ba4a8
+  expo-audio@57.0.4: bd36f77faaa522418ab9ec5d24598241eddcaa98680fdecb1ac7f9fe47b49365
   extract-zip@2.0.1: 766700b575058de0d9fbbdd2a37b6f42d67cd9cad46bb12198db520a1eb3b060
   node-forge@1.4.0: bdd899a91341b1ea09eeafb852ed49366b7319675a1d0b5c6d1f3c598b1c368a
   react-scan@0.5.7: 040b19ffe77a486ebd4ebf4ad8292c3e4b0f8266b6ae4f97c6459efd8058a365
@@ -517,6 +517,22 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0(@opentelemetry/api@1.10.0)(@types/node@24.12.2)(jsdom@27.4.0(@noble/hashes@1.8.0))(vite@8.1.6(@types/node@24.12.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
 
+  apps/meeting-notes-worker:
+    dependencies:
+      '@anlg/meeting-schema':
+        specifier: workspace:*
+        version: link:../../packages/meeting-schema
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.6
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      wrangler:
+        specifier: ^4.156.2
+        version: 4.156.2
+
   apps/mobile:
     dependencies:
       '@anlg/db-react':
@@ -528,6 +544,9 @@ importers:
       '@anlg/design-system':
         specifier: workspace:^
         version: link:../../packages/design-system
+      '@anlg/meeting-schema':
+        specifier: workspace:*
+        version: link:../../packages/meeting-schema
       '@anlg/mobile-bridge':
         specifier: workspace:*
         version: link:../../packages/mobile-bridge-rn
@@ -581,7 +600,7 @@ importers:
         version: 57.0.15(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
       expo-audio:
         specifier: ~57.0.4
-        version: 57.0.4(patch_hash=2078fa7370e683d88d1dea0b3f3d90c1d85cf5330552896ded43b507e07ba4a8)(expo-asset@57.0.15(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+        version: 57.0.4(patch_hash=bd36f77faaa522418ab9ec5d24598241eddcaa98680fdecb1ac7f9fe47b49365)(expo-asset@57.0.15(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       expo-constants:
         specifier: ~57.0.16
         version: 57.0.16(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))
@@ -1195,6 +1214,12 @@ importers:
       vitest:
         specifier: ^5.0.0
         version: 5.0.0(@opentelemetry/api@1.10.0)(@types/node@22.19.17)(jsdom@26.1.0)(vite@8.1.6(@types/node@22.19.17)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
+
+  packages/meeting-schema:
+    dependencies:
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/mobile-bridge-rn:
     dependencies:
@@ -2307,8 +2332,23 @@ packages:
       workerd:
         optional: true
 
+  '@cloudflare/unenv-preset@2.16.2':
+    resolution: {integrity: sha512-JBP1+Z7ZSNG/d4mRP+y8VC5dka3tZVMLEZRvS+rzQ4DGV1EoxRFQckcJTTkXbHSQiTj0DtNI01Zwb/V2fX0mvQ==}
+    peerDependencies:
+      unenv: 2.0.0-rc.24
+      workerd: '>1.20260305.0 <2.0.0-0'
+    peerDependenciesMeta:
+      workerd:
+        optional: true
+
   '@cloudflare/workerd-darwin-64@1.20260903.1':
     resolution: {integrity: sha512-FG+4mGxAXhKiL/1temH42alevIkumtYXNidhTa//3yULpzux6APw5UNVocI/vCQ1yG1YOEZRfbVy8lyuipM9MQ==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@cloudflare/workerd-darwin-64@1.20261102.1':
+    resolution: {integrity: sha512-5vxE27qqftDMv9H0mCZt0B1cr+EvszT/lhpoFmdKqtS2Uu+Jo2PMIUYGepLe6yxbdV1hPKkgLBD2scnW3lXe/Q==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [darwin]
@@ -2319,8 +2359,20 @@ packages:
     cpu: [arm64]
     os: [darwin]
 
+  '@cloudflare/workerd-darwin-arm64@1.20261102.1':
+    resolution: {integrity: sha512-VanKNl3pLP2k8j9nEvETp/l3+dvfGvdWKI6bNJByKVz5szVVIMnGvDvrr+JmotreUZHWTDqfLh2RzPGRq1cZzg==}
+    engines: {node: '>=16'}
+    cpu: [arm64]
+    os: [darwin]
+
   '@cloudflare/workerd-linux-64@1.20260903.1':
     resolution: {integrity: sha512-/VEvvtQ/XKf6HlBbg6FbvpwcpfYUcx6Fv6RkASY8DyEmUyuJ8rc7Qxil83ClRFoBzz/GY0BV94UZ6F+wers/hg==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [linux]
+
+  '@cloudflare/workerd-linux-64@1.20261102.1':
+    resolution: {integrity: sha512-hQdSdaHLS4UFGZRoue9TFVOO9UPnOAGWw3ZTZnUtXoUGWf4THwatq0l55F7IbOQYcOJfeKpHoFcMoGEH/88GCA==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [linux]
@@ -2331,8 +2383,20 @@ packages:
     cpu: [arm64]
     os: [linux]
 
+  '@cloudflare/workerd-linux-arm64@1.20261102.1':
+    resolution: {integrity: sha512-cqMnRpvDT6v6K80YClFs7XnZMq2RC5H6aHawlrVsIHrmVdSEXUm7OEVMQ9lY5nx3EI4JftiTeFpkLHFZqTSNVg==}
+    engines: {node: '>=16'}
+    cpu: [arm64]
+    os: [linux]
+
   '@cloudflare/workerd-windows-64@1.20260903.1':
     resolution: {integrity: sha512-soPMF9/aMHlHKK7M0vq5HrRRicPbnZO1F6ZZ7JWN8EltxWJU5L7CEq7CxjO878DzyPx7gYvqBFy3SVgdZKZjMQ==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [win32]
+
+  '@cloudflare/workerd-windows-64@1.20261102.1':
+    resolution: {integrity: sha512-s9iKBbAdNIdVjpMUHh48zbCfCHw5wbLl8I2aIW74H3OtxpWZP/cHeEwZZMq3xAz5kt4MmvwwO4hDbNYoAD4yhw==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
@@ -12332,6 +12396,10 @@ packages:
     resolution: {integrity: sha512-VCZIFxOqFXeibRBJWwTlppqbv2lkeO10IX3QBRGK9j1QiMAfH/OSsCvbjp1MslBMhVZmy2VTRlVaVnsKnbDp6A==}
     engines: {node: '>=22.0.0'}
 
+  miniflare@5.20261102.0-beta:
+    resolution: {integrity: sha512-FGqoi2BF7Vq6v8aSraq9Tmhg8ORpUBC5RkNGhfa11J597cWlLJ5QP9vJwDMOzwJx+W4U+IuHWSidVceBK6VRZQ==}
+    engines: {node: '>=22.0.0'}
+
   minimatch@10.2.6:
     resolution: {integrity: sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==}
     engines: {node: 18 || 20 || >=22}
@@ -12677,8 +12745,8 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
-  oxlint-plugin-react-doctor@0.9.18:
-    resolution: {integrity: sha512-1mfeb/jzXnduWOZJxrvdJjvKT0pFNKrNFYcPO4ncpFAnfW41M0mLz/23lAFzHb0knNLYayEgIQ5DjI4ZfFe+DQ==}
+  oxlint-plugin-react-doctor@0.9.21:
+    resolution: {integrity: sha512-6uezGzM98w3qS3q89NpfFm5melOhCoIsixc+C5bNQx7p4IZvfK/lkSrud3xmjNCu14N3WCSnPOXz0fRjmJWipQ==}
     engines: {node: ^20.19.0 || >=22.13.0}
 
   oxlint-tsgolint@0.21.1:
@@ -13259,8 +13327,8 @@ packages:
   react-devtools-core@6.1.5:
     resolution: {integrity: sha512-ePrwPfxAnB+7hgnEr8vpKxL9cmnp7F322t8oqcPshbIQQhDKgFDW4tjhF2wjVbdXF9O/nyuy3sQWd9JGpiLPvA==}
 
-  react-doctor@0.9.18:
-    resolution: {integrity: sha512-4Ach00KtfnfjTBGgr2PyPgHua85vT/UfPY5sR0bHgRAc/QSu0JInA0GHCL6a7WFGMeGUrxtGnI8oqZinG44BOA==}
+  react-doctor@0.9.21:
+    resolution: {integrity: sha512-ahV3umcswkGThtDng2tBpJSwRLz+B9t2H9iAXglgwsbRa++g7sJGKy46sYIf56eGQpAJAKUy0ak4dfzz638+5Q==}
     engines: {node: ^20.19.0 || >=22.13.0}
     hasBin: true
 
@@ -14582,6 +14650,10 @@ packages:
     resolution: {integrity: sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q==}
     engines: {node: '>=20.18.1'}
 
+  undici@7.30.1:
+    resolution: {integrity: sha512-03KrMbjIFDWQR5RNPrSw3bd1r12JpyFQl9/yxjUbJtqkjmllqC5lFjZh6ujeuJCKr8EOQvRW872Oy/az+nLYxg==}
+    engines: {node: '>=20.18.1'}
+
   unenv@2.0.0-rc.24:
     resolution: {integrity: sha512-i7qRCmY42zmCwnYlh9H2SvLEypEFGye5iRmEMKjcGi7zk9UquigRjFtTLz0TYqr0ZGLZhaMHl/foy1bZR+Cwlw==}
 
@@ -15065,6 +15137,11 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
+  workerd@1.20261102.1:
+    resolution: {integrity: sha512-5A+/vm0M5oc98pB3aR+DZ5cIOvRMhVWVS9tg+CrjUap7PIo8tqAnvNdvuiHBIE47/wkxtNM3jToAaU38dBsZTw==}
+    engines: {node: '>=16'}
+    hasBin: true
+
   workerpool@6.5.1:
     resolution: {integrity: sha512-Fs4dNYcsdpYSAfVxhnl1L5zTksjvOJxtC5hzMNl+1t9B8hTJTdKDyZ5ju7ztgPy+ft9tBFXoOlDNiOT9WUXZlA==}
 
@@ -15074,6 +15151,16 @@ packages:
     hasBin: true
     peerDependencies:
       '@cloudflare/workers-types': ^5.20260903.1
+    peerDependenciesMeta:
+      '@cloudflare/workers-types':
+        optional: true
+
+  wrangler@4.156.2:
+    resolution: {integrity: sha512-3RKI10rRqDHlqLFeCgCOmuPzoXw8npyGZbixYB5Vj5RW9jWPoSrupo8CzxCSkw1nVdvpzlFaRrHFjh4+AMt8Cw==}
+    engines: {node: '>=22.0.0'}
+    hasBin: true
+    peerDependencies:
+      '@cloudflare/workers-types': ^5.20261102.1
     peerDependenciesMeta:
       '@cloudflare/workers-types':
         optional: true
@@ -16103,19 +16190,40 @@ snapshots:
     optionalDependencies:
       workerd: 1.20260903.1
 
+  '@cloudflare/unenv-preset@2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261102.1)':
+    dependencies:
+      unenv: 2.0.0-rc.24
+    optionalDependencies:
+      workerd: 1.20261102.1
+
   '@cloudflare/workerd-darwin-64@1.20260903.1':
+    optional: true
+
+  '@cloudflare/workerd-darwin-64@1.20261102.1':
     optional: true
 
   '@cloudflare/workerd-darwin-arm64@1.20260903.1':
     optional: true
 
+  '@cloudflare/workerd-darwin-arm64@1.20261102.1':
+    optional: true
+
   '@cloudflare/workerd-linux-64@1.20260903.1':
+    optional: true
+
+  '@cloudflare/workerd-linux-64@1.20261102.1':
     optional: true
 
   '@cloudflare/workerd-linux-arm64@1.20260903.1':
     optional: true
 
+  '@cloudflare/workerd-linux-arm64@1.20261102.1':
+    optional: true
+
   '@cloudflare/workerd-windows-64@1.20260903.1':
+    optional: true
+
+  '@cloudflare/workerd-windows-64@1.20261102.1':
     optional: true
 
   '@colors/colors@1.5.0':
@@ -24748,7 +24856,7 @@ snapshots:
       - supports-color
       - typescript
 
-  expo-audio@57.0.4(patch_hash=2078fa7370e683d88d1dea0b3f3d90c1d85cf5330552896ded43b507e07ba4a8)(expo-asset@57.0.15(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
+  expo-audio@57.0.4(patch_hash=bd36f77faaa522418ab9ec5d24598241eddcaa98680fdecb1ac7f9fe47b49365)(expo-asset@57.0.15(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
     dependencies:
       expo: 57.0.18(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.14)(expo-router@57.0.17)(expo-widgets@57.0.15)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.1(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
       expo-asset: 57.0.15(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
@@ -27844,6 +27952,19 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  miniflare@5.20261102.0-beta:
+    dependencies:
+      '@cspotcode/source-map-support': 0.8.1
+      sharp: 0.35.5(@types/node@22.19.17)
+      undici: 7.30.1
+      workerd: 1.20261102.1
+      ws: 8.21.0
+      youch: 4.1.0-beta.10
+    transitivePeerDependencies:
+      - '@types/node'
+      - bufferutil
+      - utf-8-validate
+
   minimatch@10.2.6:
     dependencies:
       brace-expansion: 5.0.12
@@ -28241,7 +28362,7 @@ snapshots:
       '@oxfmt/binding-win32-ia32-msvc': 0.45.0
       '@oxfmt/binding-win32-x64-msvc': 0.45.0
 
-  oxlint-plugin-react-doctor@0.9.18:
+  oxlint-plugin-react-doctor@0.9.21:
     dependencies:
       '@shaderfrog/glsl-parser': 7.0.1
       '@typescript-eslint/types': 8.72.0
@@ -28977,7 +29098,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  react-doctor@0.9.18(@opentelemetry/core@2.8.0(@opentelemetry/api@1.10.0))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.10.0))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react@19.2.5):
+  react-doctor@0.9.21(@opentelemetry/core@2.8.0(@opentelemetry/api@1.10.0))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.10.0))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react@19.2.5):
     dependencies:
       '@astrojs/compiler': 4.0.0
       '@sentry/node': 10.76.2(@opentelemetry/core@2.8.0(@opentelemetry/api@1.10.0))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.10.0))
@@ -28992,7 +29113,7 @@ snapshots:
       oxc-parser: 0.148.0
       oxc-resolver: 11.24.2
       oxlint: 1.81.0(oxlint-tsgolint@0.21.1)
-      oxlint-plugin-react-doctor: 0.9.18
+      oxlint-plugin-react-doctor: 0.9.21
       playwright-core: 1.64.1
       prompts: 2.4.2
       typescript: 5.9.3
@@ -29296,7 +29417,7 @@ snapshots:
       preact: 10.29.1
       prompts: 2.4.2
       react: 19.2.5
-      react-doctor: 0.9.18(@opentelemetry/core@2.8.0(@opentelemetry/api@1.10.0))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.10.0))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react@19.2.5)
+      react-doctor: 0.9.21(@opentelemetry/core@2.8.0(@opentelemetry/api@1.10.0))(@opentelemetry/exporter-trace-otlp-http@0.203.0(@opentelemetry/api@1.10.0))(eslint@9.39.5(jiti@2.7.0))(oxlint-tsgolint@0.21.1)(react@19.2.5)
       react-dom: 19.2.5(react@19.2.5)
       react-grab: 0.2.0(react@19.2.5)
     optionalDependencies:
@@ -30559,6 +30680,8 @@ snapshots:
 
   undici@7.29.1: {}
 
+  undici@7.30.1: {}
+
   unenv@2.0.0-rc.24:
     dependencies:
       pathe: 2.0.3
@@ -31205,6 +31328,14 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20260903.1
       '@cloudflare/workerd-windows-64': 1.20260903.1
 
+  workerd@1.20261102.1:
+    optionalDependencies:
+      '@cloudflare/workerd-darwin-64': 1.20261102.1
+      '@cloudflare/workerd-darwin-arm64': 1.20261102.1
+      '@cloudflare/workerd-linux-64': 1.20261102.1
+      '@cloudflare/workerd-linux-arm64': 1.20261102.1
+      '@cloudflare/workerd-windows-64': 1.20261102.1
+
   workerpool@6.5.1: {}
 
   wrangler@4.129.0(@types/node@22.19.17):
@@ -31217,6 +31348,24 @@ snapshots:
       path-to-regexp: 6.3.0
       unenv: 2.0.0-rc.24
       workerd: 1.20260903.1
+    optionalDependencies:
+      fsevents: 2.3.3
+    transitivePeerDependencies:
+      - '@types/node'
+      - bufferutil
+      - utf-8-validate
+
+  wrangler@4.156.2:
+    dependencies:
+      '@cloudflare/kv-asset-handler': 0.5.0
+      '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261102.1)
+      '@cspotcode/source-map-support': 0.8.1
+      blake3-wasm: 2.1.5
+      esbuild: 0.28.2
+      miniflare: 5.20261102.0-beta
+      path-to-regexp: 6.3.0
+      unenv: 2.0.0-rc.24
+      workerd: 1.20261102.1
     optionalDependencies:
       fsevents: 2.3.3
     transitivePeerDependencies:

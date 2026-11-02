@@ -1,6 +1,11 @@
 import { queryOptions, useMutationState } from "@tanstack/react-query";
+import * as Crypto from "expo-crypto";
 import { fetch } from "expo/fetch";
 
+import {
+  CLOUDFLARE_MEETING_MODELS,
+  type MeetingMinutesRequest,
+} from "@anlg/meeting-schema";
 import {
   defaultSummaryDocumentId,
   hasSummaryContent,
@@ -8,6 +13,7 @@ import {
 } from "@anlg/utils/session";
 import { getSummaryEligibility } from "@anlg/utils/summary-eligibility";
 
+import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -15,10 +21,15 @@ import { nowIso } from "@/lib/ids";
 import { queryClient } from "@/lib/query-client";
 import { showToast } from "@/lib/toast";
 import { readPreferences } from "@/settings/preferences";
-import { resolveProvider } from "@/settings/providers";
+import { readProviderConfig, resolveProvider } from "@/settings/providers";
 import { isSubscriptionProvider } from "@/settings/providers-model";
 
 import { readChatgptSummary } from "./chatgpt-summary";
+import {
+  cloudflareMeetingMinutesRequest,
+  readCloudflareMeetingMinutes,
+  renderMeetingMinutes,
+} from "./meeting-minutes";
 import { docToPlainText, stripMarkdownTitle } from "./note-doc";
 import { summaryRequest } from "./provider-summary";
 import { PENDING_SUMMARY_PREFIX } from "./summary-job";
@@ -59,8 +70,17 @@ async function runSummary(
   sessionId: string,
   automatic: boolean,
 ): Promise<void> {
-  const [session] = await execute<{ title: string }>(
-    "SELECT title FROM sessions WHERE id = ? AND deleted_at IS NULL",
+  if (automatic) {
+    const auth = await supabase?.auth.getSession();
+    if (auth?.error) throw new Error("Sign in again to continue.");
+    const providerConfig = await readProviderConfig(
+      auth?.data.session?.user.id ?? null,
+      "llm",
+    );
+    if (providerConfig.provider === "cloudflare_worker") return;
+  }
+  const [session] = await execute<{ title: string; started_at: string }>(
+    "SELECT title, started_at FROM sessions WHERE id = ? AND deleted_at IS NULL",
     [sessionId],
   );
   if (!session) throw new Error("This note no longer exists.");
@@ -138,6 +158,10 @@ async function runSummary(
     throw new Error(
       "This meeting is too long to summarize on mobile. Open it on desktop.",
     );
+  if (provider.provider === "cloudflare_worker" && segments.length === 0)
+    throw new Error(
+      "Cloudflare meeting minutes require a transcript so decisions and tasks can cite exact evidence.",
+    );
   async function generate(
     system: string,
     source: string,
@@ -180,13 +204,161 @@ async function runSummary(
       clearTimeout(timeout);
     }
   }
-  const summary = await generate(
-    buildSummaryPrompt(preferences),
-    source,
-    "enhance",
-  );
+  let summary: string;
+  let generatedTitle: string | null = null;
+  let generationMetadata: Record<string, string> = {
+    provider: provider.provider,
+    model: provider.model,
+    language: preferences.ai_language,
+  };
+  if (provider.provider === "cloudflare_worker") {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const dateValue = session.started_at ? new Date(session.started_at) : null;
+    const formattedDate =
+      dateValue && !Number.isNaN(dateValue.getTime())
+        ? new Intl.DateTimeFormat("en-CA", {
+            timeZone,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(dateValue)
+        : "";
+    const requestSegments: MeetingMinutesRequest["segments"] = segments.map(
+      (segment) => ({
+        id: segment.id,
+        speaker: segment.speaker || null,
+        text: segment.text,
+        start_ms: segment.startMs,
+        end_ms: segment.endMs,
+      }),
+    );
+    const transcriptRevision = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      JSON.stringify({ notes: text, segments: requestSegments }),
+    );
+    const model = CLOUDFLARE_MEETING_MODELS.find(
+      (candidate) => candidate === provider.model,
+    );
+    if (!model)
+      throw new Error("Choose a supported Cloudflare meeting-minutes model.");
+    const payload: MeetingMinutesRequest = {
+      model,
+      meeting_date: /^\d{4}-\d{2}-\d{2}$/u.test(formattedDate)
+        ? formattedDate
+        : null,
+      timezone: timeZone,
+      language: preferences.ai_language,
+      transcript_revision: transcriptRevision,
+      notes: text,
+      segments: requestSegments,
+    };
+    const request = cloudflareMeetingMinutesRequest(
+      provider.baseUrl,
+      provider.apiKey,
+      payload,
+    );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120_000);
+    try {
+      const response = await fetch(request.url, {
+        method: "POST",
+        signal: controller.signal,
+        redirect: "error",
+        headers: request.headers,
+        body: request.body,
+      });
+      if (!response.ok) {
+        await response.body?.cancel();
+        throw new Error(
+          response.status === 401
+            ? "Sign in again to use this Cloudflare Worker."
+            : response.status === 403
+              ? "Cloudflare meeting minutes require an active Pro trial or subscription."
+              : response.status === 429
+                ? "The Cloudflare Worker rate limit was reached. Try again later."
+                : `The meeting-notes Worker could not complete the request (${response.status}).`,
+        );
+      }
+      const body = JSON.parse(
+        await readBoundedTranscriptionResponse(response, 1024 * 1024),
+      );
+      const result = readCloudflareMeetingMinutes(body, requestSegments);
+      if (result.metadata.transcript_revision !== payload.transcript_revision)
+        throw new Error(
+          "The Worker returned minutes for a different transcript revision.",
+        );
+      const [latestNotesRows, latestTranscriptRows, latestHumans] =
+        await Promise.all([
+          execute<{ body: string; body_format: string }>(
+            "SELECT body, body_format FROM session_documents WHERE session_id = ? AND kind = 'note' AND deleted_at IS NULL ORDER BY CASE WHEN id = session_id THEN 0 ELSE 1 END, sort_order, id LIMIT 1",
+            [sessionId],
+          ),
+          execute<TranscriptRow>(SESSION_TRANSCRIPTS_SQL, [sessionId]),
+          execute<{ id: string; name: string }>(SESSION_SPEAKERS_SQL, [
+            sessionId,
+          ]),
+        ]);
+      const latestNote = latestNotesRows[0];
+      const latestNotesText = latestNote
+        ? (latestNote.body_format === "markdown"
+            ? stripMarkdownTitle(latestNote.body)
+            : docToPlainText(latestNote.body)
+          ).text
+        : "";
+      const latestSegments = latestTranscriptRows.flatMap((row) =>
+        renderTranscript(row, latestHumans),
+      );
+      const latestRevision = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        JSON.stringify({
+          notes: latestNotesText,
+          segments: latestSegments.map((segment) => ({
+            id: segment.id,
+            speaker: segment.speaker || null,
+            text: segment.text,
+            start_ms: segment.startMs,
+            end_ms: segment.endMs,
+          })),
+        }),
+      );
+      if (latestRevision !== payload.transcript_revision)
+        throw new Error(
+          "The meeting changed while the minutes were being generated. Review the latest transcript and try again.",
+        );
+      summary = renderMeetingMinutes(result, preferences.ai_language);
+      if (!session.title.trim()) {
+        try {
+          generatedTitle = readGeneratedTitle(result.minutes.title);
+        } catch {
+          generatedTitle = null;
+        }
+      }
+      generationMetadata = {
+        provider: provider.provider,
+        model: result.metadata.model,
+        language: preferences.ai_language,
+        prompt_version: result.metadata.prompt_version,
+        schema_version: result.metadata.schema_version,
+        transcript_revision: result.metadata.transcript_revision,
+        input_tokens: String(result.metadata.input_tokens ?? "unknown"),
+        output_tokens: String(result.metadata.output_tokens ?? "unknown"),
+        total_tokens: String(result.metadata.total_tokens ?? "unknown"),
+        duration_ms: String(result.metadata.duration_ms),
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  } else {
+    summary = await generate(
+      buildSummaryPrompt(preferences),
+      source,
+      "enhance",
+    );
+  }
   let title: string | null = null;
-  if (!session.title.trim()) {
+  if (!session.title.trim() && generatedTitle) {
+    title = generatedTitle;
+  } else if (!session.title.trim()) {
     try {
       title = readGeneratedTitle(
         await generate(buildTitlePrompt(preferences), summary, "title"),
@@ -196,11 +368,7 @@ async function runSummary(
     }
   }
   const now = nowIso();
-  const metadata = JSON.stringify({
-    provider: provider.provider,
-    model: provider.model,
-    language: preferences.ai_language,
-  });
+  const metadata = JSON.stringify(generationMetadata);
   const [changed] = await executeTransaction([
     target
       ? {

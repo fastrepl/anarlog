@@ -7,6 +7,7 @@ mod db;
 mod error;
 mod listener;
 mod live_transcription;
+mod local_transcription;
 mod transcript;
 mod transcription;
 

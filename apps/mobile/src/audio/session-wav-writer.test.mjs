@@ -26,7 +26,12 @@ registerHooks({
       export class File {
         exists = false;
         bytes = new Uint8Array(0);
-        constructor(directory, filename) { this.path = directory.path + "/" + filename; globalThis.wavWriterFiles.set(this.path, this); }
+        constructor(directory, filename) {
+          this.path = directory.path + "/" + filename;
+          const existing = globalThis.wavWriterFiles.get(this.path);
+          if (existing) return existing;
+          globalThis.wavWriterFiles.set(this.path, this);
+        }
         get size() { return this.bytes.length; }
         create() { this.exists = true; }
         delete() { this.exists = false; }
@@ -76,4 +81,31 @@ test("failed audio writes do not advance the recording duration", () => {
   );
   assert.equal(writer.durationMs, 100);
   assert.equal(files.get("/test/sessions/failed-write/audio.wav").size, 3244);
+});
+
+test("an interruption checkpoint repairs the WAV header without closing the writer", () => {
+  const writer = new SessionWavWriter("interruption-checkpoint");
+  writer.append(new ArrayBuffer(3200), 16000, 1);
+  writer.checkpoint();
+
+  const header = new DataView(writer.file.bytes.buffer);
+  assert.equal(header.getUint32(40, true), 3_200);
+  assert.equal(writer.file.size, 3_244);
+
+  writer.append(new ArrayBuffer(3200), 16000, 1);
+  assert.equal(writer.durationMs, 200);
+  assert.equal(writer.finalize().size, 6_444);
+});
+
+test("starting a second capture cannot overwrite an existing recording", () => {
+  const writer = new SessionWavWriter("existing-capture");
+  writer.append(new ArrayBuffer(3200), 16000, 1);
+  const saved = writer.finalize();
+  const original = new Uint8Array(saved.bytes);
+
+  assert.throws(
+    () => new SessionWavWriter("existing-capture"),
+    /must be recovered first/u,
+  );
+  assert.deepEqual(saved.bytes, original);
 });

@@ -6,6 +6,7 @@ import { after, test } from "node:test";
 
 const db = new DatabaseSync(":memory:");
 globalThis.audioCatalogPersistence = db;
+globalThis.audioCatalogUploadRequests = 0;
 const mocks = {
   "@/db": `export function useLiveQuery() {} export async function executeTransaction(statements) {
     const db = globalThis.audioCatalogPersistence; db.exec('BEGIN');
@@ -14,7 +15,7 @@ const mocks = {
   }`,
   "expo-file-system": `export const Paths = {document: '/fixture'}; export const FileMode = {ReadOnly: 0}; export class File {}`,
   "./file-sha256": `export async function hashFileSha256() { return {sha256: 'a'.repeat(64), sizeBytes: 44}; }`,
-  "@/attachment-sync/upload-runner": `export function requestMobileAttachmentUploads() {}`,
+  "@/attachment-sync/upload-runner": `export function requestMobileAttachmentUploads() { globalThis.audioCatalogUploadRequests++; }`,
   "@/attachment-sync/upload-store": `export function requeueMobileAttachmentUpload() {}`,
   "@/lib/ids": `export {randomUUID as id} from 'node:crypto'; export const nowIso = () => new Date().toISOString();`,
 };
@@ -33,8 +34,12 @@ const hooks = registerHooks({
     return next(specifier, context);
   },
 });
-const { recordSessionCaptureStart, catalogSessionAudio } =
-  await import("./audio-catalog.ts");
+const {
+  recordSessionCaptureStart,
+  recordSessionCaptureInterruption,
+  catalogSessionAudio,
+  enableSessionAudioBackup,
+} = await import("./audio-catalog.ts");
 for (const name of [
   "20260710223922_canonical_data_model.sql",
   "20260717140000_attachment_local_state.sql",
@@ -52,9 +57,10 @@ after(() => {
   hooks.deregister();
   db.close();
   delete globalThis.audioCatalogPersistence;
+  delete globalThis.audioCatalogUploadRequests;
 });
 
-test("recording recovery preserves the durable capture time while imports ignore stale recording metadata", async () => {
+test("recording catalog preserves capture and interruption state while imports ignore stale metadata", async () => {
   db.exec("INSERT INTO sessions (id) VALUES ('recorded'), ('imported')");
   for (const sessionId of ["recorded", "imported"])
     await recordSessionCaptureStart(sessionId);
@@ -64,6 +70,13 @@ test("recording recovery preserves the durable capture time while imports ignore
     )
     .get().time;
   assert.ok(Number.isFinite(capture));
+  await recordSessionCaptureInterruption("recorded");
+  const interruptedAt = db
+    .prepare(
+      "SELECT json_extract(metadata_json, '$.mobile_capture_interrupted_at_ms') AS time FROM sessions WHERE id = 'recorded'",
+    )
+    .get().time;
+  assert.ok(Number.isFinite(interruptedAt));
   await catalogSessionAudio("recorded", {
     source: "recording",
     filename: "audio.wav",
@@ -83,7 +96,21 @@ test("recording recovery preserves the durable capture time while imports ignore
         .get(sessionId).metadata_json,
     );
   assert.equal(metadata("recorded").capture_started_at_ms, capture);
+  assert.equal(metadata("recorded").capture_interrupted_at_ms, interruptedAt);
   assert.equal(metadata("imported").capture_started_at_ms, null);
+  assert.equal(
+    db
+      .prepare(
+        "SELECT cloud_sync_enabled FROM session_attachments WHERE session_id = 'recorded'",
+      )
+      .get().cloud_sync_enabled,
+    0,
+  );
+  assert.equal(
+    db.prepare("SELECT COUNT(*) AS count FROM attachment_transfer_jobs").get()
+      .count,
+    0,
+  );
   // Recovery re-catalogs from durable session state without starting a new capture.
   await catalogSessionAudio("recorded", {
     source: "recording",
@@ -91,4 +118,45 @@ test("recording recovery preserves the durable capture time while imports ignore
     contentType: "audio/wav",
   });
   assert.equal(metadata("recorded").capture_started_at_ms, capture);
+  assert.equal(metadata("recorded").capture_interrupted_at_ms, interruptedAt);
+
+  await recordSessionCaptureStart("recorded");
+  assert.equal(
+    db
+      .prepare(
+        "SELECT json_extract(metadata_json, '$.mobile_capture_interrupted_at_ms') AS time FROM sessions WHERE id = 'recorded'",
+      )
+      .get().time,
+    null,
+  );
+});
+
+test("audio backup starts only after the user enables it", async () => {
+  db.exec(
+    "INSERT INTO sessions (id, workspace_id) VALUES ('opt-in', 'workspace-a')",
+  );
+  await recordSessionCaptureStart("opt-in");
+  await catalogSessionAudio("opt-in", {
+    source: "recording",
+    filename: "audio.wav",
+    contentType: "audio/wav",
+  });
+  await enableSessionAudioBackup("session-audio:opt-in");
+  assert.equal(
+    db
+      .prepare(
+        "SELECT cloud_sync_enabled FROM session_attachments WHERE session_id = 'opt-in'",
+      )
+      .get().cloud_sync_enabled,
+    1,
+  );
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM attachment_transfer_jobs WHERE attachment_id = 'session-audio:opt-in'",
+      )
+      .get().count,
+    1,
+  );
+  assert.equal(globalThis.audioCatalogUploadRequests, 1);
 });

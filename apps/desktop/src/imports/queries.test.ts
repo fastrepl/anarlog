@@ -48,4 +48,69 @@ describe("meeting import statements", () => {
       );
     }
   });
+
+  it("preserves package transcript rows and remaps summary evidence links", () => {
+    const statements = buildMeetingStatements({
+      providerId: "anarlog",
+      sourcePath: "/exports/meeting.anlgmeeting",
+      sessionId: "meeting-import:two",
+      meeting: {
+        externalId: "source-id",
+        title: "Weekly",
+        startedAt: "2026-08-06T01:00:00.000Z",
+        endedAt: "",
+        sourceUrl: "",
+        noteMarkdown: "Notes",
+        transcript: [],
+        packageTranscripts: [
+          {
+            id: "old-transcript",
+            source: "microphone",
+            provider: "whisper.cpp",
+            model: "small",
+            language: "vi",
+            started_at_ms: 0,
+            ended_at_ms: 1_000,
+            memo: "",
+            words_json: JSON.stringify([
+              { id: "old-word", text: "Xin chào", start_ms: 0, end_ms: 1_000 },
+            ]),
+            speaker_hints_json: "[]",
+          },
+        ],
+        summaryDocuments: [
+          {
+            title: "Minutes",
+            body: "[source](anarlog-evidence://old-transcript%3Aold-word)",
+            bodyFormat: "markdown",
+            generationMetadataJson: "{}",
+          },
+        ],
+        meetingAudio: {
+          path: "/tmp/audio.m4a",
+          filename: "audio.m4a",
+          contentType: "audio/mp4",
+          sizeBytes: 128,
+          sha256: "a".repeat(64),
+        },
+        attendees: [],
+        actionItems: [],
+      },
+    });
+
+    const transcript = statements.find(({ sql }) =>
+      sql.includes("INSERT INTO transcripts"),
+    );
+    const summary = statements.find(({ sql }) => sql.includes("'summary'"));
+    expect(transcript?.sql).toContain("audio_attachment_id");
+    expect(transcript?.params).toContain("session-audio:meeting-import:two");
+    expect(summary?.params).toContain(
+      "[source](anarlog-evidence://meeting-import%3Atwo%3Atranscript%3A0%3Aold-word)",
+    );
+    for (const statement of statements) {
+      expect(statement.sql.match(/\?/gu)?.length ?? 0).toBe(
+        statement.params.length,
+      );
+    }
+  });
 });

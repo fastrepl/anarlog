@@ -1,7 +1,10 @@
 import { File, FileMode, Paths } from "expo-file-system";
 
 import { recoverableWav, WAV_HEADER_BYTES, wavHeader } from "@/audio/pcm-wav";
-import { catalogSessionAudio } from "@/data/audio-catalog";
+import {
+  catalogSessionAudio,
+  recordSessionCaptureInterruption,
+} from "@/data/audio-catalog";
 import { transcribeSession } from "@/data/transcribe";
 import { execute } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
@@ -75,6 +78,7 @@ export async function recoverInterruptedRecordings(
     try {
       const sizeBytes = repairInterruptedWav(file);
       if (sizeBytes === null) continue;
+      await recordSessionCaptureInterruption(session.id);
       await catalogSessionAudio(session.id, {
         source: "recording",
         filename: "audio.wav",

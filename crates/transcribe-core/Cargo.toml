@@ -3,8 +3,12 @@ name = "transcribe-core"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["vad"]
+vad = ["anlg-audio-chunking/vad"]
+
 [dependencies]
-anlg-audio-chunking = { workspace = true }
+anlg-audio-chunking = { path = "../audio-chunking", package = "audio-chunking", default-features = false }
 anlg-audio-utils = { workspace = true }
 owhisper-interface = { workspace = true }
 

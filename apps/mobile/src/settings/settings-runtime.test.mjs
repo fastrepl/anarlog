@@ -271,7 +271,11 @@ test("provider availability follows saved device keys for transcription and summ
   for (const kind of ["stt", "llm"]) {
     for (const { id } of providersFor(kind)) {
       const status = await readProviderStatus("account-a", kind, id);
-      assert.equal(status.isConfigured, id === "anarlog", `${kind}/${id}`);
+      assert.equal(
+        status.isConfigured || false,
+        id === "anarlog" || (kind === "stt" && id === "local_whisper"),
+        `${kind}/${id}`,
+      );
     }
     const config = defaultProviderConfig(kind, "openai");
     await saveProviderConnection("account-a", kind, config, "synthetic-key");
@@ -1541,7 +1545,11 @@ test("analytics opt-out aborts in-flight requests and prevents subsequent events
 test("every provider keeps its key on this device and restores its own setup", async () => {
   for (const kind of ["stt", "llm"]) {
     for (const definition of providersFor(kind).filter(
-      ({ id }) => id !== "anarlog" && !isSubscriptionProvider(id),
+      ({ id }) =>
+        id !== "anarlog" &&
+        id !== "local_whisper" &&
+        id !== "cloudflare_worker" &&
+        !isSubscriptionProvider(id),
     )) {
       const tag = `${kind}/${definition.id}`;
       fixture.db.exec("DELETE FROM app_settings");

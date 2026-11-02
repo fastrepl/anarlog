@@ -18,6 +18,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::complete_connected_import,
             commands::sync_connected_import,
             commands::read_text_files,
+            commands::cleanup_meeting_audio,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

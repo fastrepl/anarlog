@@ -1,7 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { RefreshControl, Text, View } from "react-native";
+import { Alert, RefreshControl, Text, View } from "react-native";
 import Animated, {
   Easing,
   ReduceMotion,
@@ -32,6 +33,8 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { importRecordingAsSession } from "@/data/import-voice-memo";
+import { importMeetingPackage } from "@/data/meeting-package";
 import { createSession, deleteSession } from "@/data/session";
 import { useSidebarItemPreferences } from "@/data/sidebar-preferences";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
@@ -58,6 +61,44 @@ export default function HomeScreen() {
   const reducedMotion = useReducedMotion();
   const [searching, setSearching] = useState(false);
   const refresh = useMutation({ mutationFn: syncMobileNow });
+  const importRecording = useMutation({
+    mutationFn: () => importRecordingAsSession(auth.session?.user.id),
+    onSuccess: (sessionId) => {
+      if (!sessionId) return;
+      router.push({ pathname: "/note/[id]", params: { id: sessionId } });
+    },
+    onError: (error) => {
+      captureOperationalError(error, {
+        operation: "voice_memo_import",
+        tags: { entry_point: "mobile_home" },
+      });
+      Alert.alert(
+        "Couldn’t import recording",
+        error instanceof Error
+          ? error.message
+          : "Choose another audio file and try again.",
+      );
+    },
+  });
+  const importMeeting = useMutation({
+    mutationFn: () => importMeetingPackage(auth.session?.user.id),
+    onSuccess: (sessionId) => {
+      if (sessionId)
+        router.push({ pathname: "/note/[id]", params: { id: sessionId } });
+    },
+    onError: (error) => {
+      captureOperationalError(error, {
+        operation: "meeting_package_import",
+        tags: { entry_point: "mobile_home" },
+      });
+      Alert.alert(
+        "Couldn’t import meeting",
+        error instanceof Error
+          ? error.message
+          : "Choose a valid meeting package.",
+      );
+    },
+  });
   const actionButtonSetup = useActionButtonSetup();
   const showActionButtonCard =
     deviceHasActionButton &&
@@ -234,7 +275,7 @@ export default function HomeScreen() {
               </Text>
               {!isLoading && !error && (
                 <Text style={styles.emptyBody}>
-                  Start listening or create a new note.
+                  Start listening, import a recording, or create a note.
                 </Text>
               )}
             </View>
@@ -272,7 +313,7 @@ export default function HomeScreen() {
         />
 
         <Animated.View
-          style={[styles.listeningButton, buttonStyle]}
+          style={[styles.actionDock, buttonStyle]}
           onLayout={(event) => setButtonHeight(event.nativeEvent.layout.height)}
           pointerEvents={buttonHidden ? "none" : "box-none"}
           accessibilityElementsHidden={buttonHidden}
@@ -280,6 +321,36 @@ export default function HomeScreen() {
             buttonHidden ? "no-hide-descendants" : "auto"
           }
         >
+          <Button
+            label="Import recording"
+            leading={
+              <Ionicons
+                name="document-attach-outline"
+                size={20}
+                color={Colors.ink}
+              />
+            }
+            loading={importRecording.isPending}
+            disabled={importRecording.isPending}
+            onPress={() => importRecording.mutate()}
+            variant="outline"
+            style={styles.importButton}
+          />
+          <Button
+            label="Import meeting"
+            leading={
+              <Ionicons
+                name="document-text-outline"
+                size={20}
+                color={Colors.ink}
+              />
+            }
+            loading={importMeeting.isPending}
+            disabled={importMeeting.isPending}
+            onPress={() => importMeeting.mutate()}
+            variant="outline"
+            style={styles.importButton}
+          />
           <StartListeningButton onPress={() => void createAndOpen(true)} />
         </Animated.View>
       </View>
@@ -325,11 +396,15 @@ const useStyles = createStyleHook((Colors) => ({
   timeline: {
     flex: 1,
   },
-  listeningButton: {
+  actionDock: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
+    gap: Spacing.xs,
+  },
+  importButton: {
+    marginHorizontal: Spacing.md,
   },
   listContent: {
     flexGrow: 1,

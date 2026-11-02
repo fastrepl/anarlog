@@ -50,7 +50,7 @@ export async function readProviderKey(
   kind: ProviderKind,
   provider: string,
 ): Promise<string | null> {
-  if (provider === "anarlog") return null;
+  if (provider === "anarlog" || provider === "cloudflare_worker") return null;
   return SecureStore.getItemAsync(
     providerStorageKey(accountId, kind, provider),
     secureOptions,
@@ -86,6 +86,14 @@ export async function readProviderStatus(
   kind: ProviderKind,
   provider: string,
 ) {
+  if (provider === "local_whisper" && kind === "stt") {
+    const config = await readProviderSetup(accountId, kind, provider);
+    return { config, hasKey: false, isConfigured: true };
+  }
+  if (provider === "cloudflare_worker" && kind === "llm") {
+    const config = await readProviderSetup(accountId, kind, provider);
+    return { config, hasKey: false, isConfigured: Boolean(config.baseUrl) };
+  }
   if (isOAuthSubscriptionProvider(provider)) {
     const config = await readProviderSetup(accountId, kind, provider);
     let hasKey = false;
@@ -185,9 +193,14 @@ async function persistProviderConfig(
   const normalized = connectionOnly
     ? { ...config, ...validateProviderConnection(kind, config) }
     : validateProviderConfig(kind, config);
-  if (isOAuthSubscriptionProvider(normalized.provider)) {
+  if (normalized.provider === "local_whisper" && kind === "stt") {
+    // A local model has no credential or remote connection to validate.
+  } else if (isOAuthSubscriptionProvider(normalized.provider)) {
     await resolveSubscriptionCredential(accountId, normalized.provider);
-  } else if (normalized.provider !== "anarlog") {
+  } else if (
+    normalized.provider !== "anarlog" &&
+    normalized.provider !== "cloudflare_worker"
+  ) {
     const key = validateProviderApiKey(
       apiKey?.trim() ||
         (await readProviderKey(accountId, kind, normalized.provider)) ||
@@ -257,6 +270,14 @@ export async function resolveProvider(kind: ProviderKind) {
   if (auth?.error) throw new Error("Sign in again to continue.");
   const session = auth?.data.session;
   const config = await readProviderConfig(session?.user.id ?? null, kind);
+  if (config.provider === "local_whisper" && kind === "stt")
+    return { ...config, apiKey: "" };
+  if (config.provider === "cloudflare_worker" && kind === "llm") {
+    if (!session?.access_token) throw new Error("Sign in to use this Worker.");
+    if (!deriveBillingInfo(decodeJwtPayload(session.access_token)).isPro)
+      throw new ProRequiredError();
+    return { ...config, apiKey: session.access_token };
+  }
   if (isOAuthSubscriptionProvider(config.provider)) {
     const credential = await resolveSubscriptionCredential(
       session?.user.id ?? null,

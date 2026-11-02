@@ -319,6 +319,18 @@
           "markdownDescription": "Denies the cancel_connected_import command without any pre-configured scope."
         },
         {
+          "description": "Enables the cleanup_meeting_audio command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cleanup-meeting-audio",
+          "markdownDescription": "Enables the cleanup_meeting_audio command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cleanup_meeting_audio command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cleanup-meeting-audio",
+          "markdownDescription": "Denies the cleanup_meeting_audio command without any pre-configured scope."
+        },
+        {
           "description": "Enables the complete_connected_import command without any pre-configured scope.",
           "type": "string",
           "const": "allow-complete-connected-import",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the sync_connected_import command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`\n- `allow-cleanup-meeting-audio`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-cancel-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-read-text-files`\n- `allow-cleanup-meeting-audio`"
         }
       ]
     }

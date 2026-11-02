@@ -63,7 +63,7 @@ index 9a7683666fe0838b21ed4b8502b91d151f76d601..35026446b76b3a632367b9fa267f883a
      val url = currentFileUrl()
      var durationMillis: Long
 diff --git a/android/src/main/java/expo/modules/audio/AudioStream.kt b/android/src/main/java/expo/modules/audio/AudioStream.kt
-index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..771612dad7c6fdcc97657d229a15dd2b2e5125f1 100644
+index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..456bbbd1cefa62b3bc0fba1d6c2ae502d674642b 100644
 --- a/android/src/main/java/expo/modules/audio/AudioStream.kt
 +++ b/android/src/main/java/expo/modules/audio/AudioStream.kt
 @@ -1,10 +1,17 @@
@@ -203,11 +203,12 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..771612dad7c6fdcc97657d229a15dd2b
 +    }
    }
  
+-  fun stop() {
 +  @Synchronized
-   fun stop() {
++  fun stop(stopReason: String? = null) {
 +    if (isStarting) {
 +      stopRequested = true
-+      emitStatus()
++      emitStatus(stopReason)
 +      return
 +    }
      if (!isStreaming) return
@@ -224,12 +225,12 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..771612dad7c6fdcc97657d229a15dd2b
 +      audioRecord?.release()
 +      audioRecord = null
 +      releaseBackgroundService()
-+      emitStatus()
++      emitStatus(stopReason)
 +    }
 +  }
 +
 +  override fun stopFromNotification() {
-+    stop()
++    stop("notification")
 +  }
 +
 +  private fun releaseBackgroundService() {
@@ -246,17 +247,18 @@ index 8ecdcc126876853204ba8b92ec4ccfaef6faadb0..771612dad7c6fdcc97657d229a15dd2b
        byteBuffer.limit(bytesRead)
        emitBufferEvent(NativeArrayBuffer(byteBuffer), channels, sampleRate)
 +    } else if (bytesRead < 0) {
-+      stop()
++      stop("unknown")
      }
    }
  
-   private fun emitStatus() {
+-  private fun emitStatus() {
++  private fun emitStatus(stopReason: String? = null) {
 +    val streaming = isStreaming
      appContext?.mainQueue?.launch {
        emit(
          AUDIO_STREAM_STATUS,
 -        mapOf("isStreaming" to isStreaming)
-+        mapOf("isStreaming" to streaming)
++        mapOf("isStreaming" to streaming, "stopReason" to stopReason)
        )
      }
    }
@@ -388,3 +390,101 @@ index 28be72f2207e55ff24604f03a573660fb303d7d9..9c6b15fcdb080368e11428d2cc17f390
    }
  
    override fun onServiceDisconnected(componentName: ComponentName) {
+diff --git a/build/AudioStream.types.d.ts b/build/AudioStream.types.d.ts
+index da91d060bbf66fe6e5a8c890d12609ef20d1ea93..9387c9999febe7022214de296d805416cd85f174 100644
+--- a/build/AudioStream.types.d.ts
++++ b/build/AudioStream.types.d.ts
+@@ -40,6 +40,7 @@ export type AudioStreamBuffer = {
+ };
+ export type AudioStreamStatus = {
+     isStreaming: boolean;
++    stopReason?: 'interrupted' | 'notification' | 'unknown';
+ };
+ export type AudioStreamEvents = {
+     audioStreamBuffer(buffer: AudioStreamBuffer): void;
+diff --git a/ios/AudioStream.swift b/ios/AudioStream.swift
+index f938eff05ed5f2f21692fc686e36877b120281fa..91a0702a651bec3197de3ff16bed460041d34966 100644
+--- a/ios/AudioStream.swift
++++ b/ios/AudioStream.swift
+@@ -13,6 +13,7 @@ class AudioStream: SharedObject {
+ 
+   private var audioEngine: AVAudioEngine?
+   private var converter: AVAudioConverter?
++  private var interruptionObserver: NSObjectProtocol?
+ 
+   private(set) var sampleRate: Double = 0
+   private(set) var channels: Int = 0
+@@ -24,6 +25,18 @@ class AudioStream: SharedObject {
+     self.requestedChannels = options.channels
+     self.encoding = options.encoding
+     super.init()
++    interruptionObserver = NotificationCenter.default.addObserver(
++      forName: AVAudioSession.interruptionNotification,
++      object: AVAudioSession.sharedInstance(),
++      queue: .main
++    ) { [weak self] notification in
++      guard
++        let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
++        let type = AVAudioSession.InterruptionType(rawValue: rawType),
++        type == .began
++      else { return }
++      self?.stop(stopReason: "interrupted")
++    }
+   }
+ 
+   func start() throws {
+@@ -99,7 +112,7 @@ class AudioStream: SharedObject {
+     emitStatus()
+   }
+ 
+-  func stop() {
++  func stop(stopReason: String? = nil) {
+     guard isStreaming else { return }
+     audioEngine?.inputNode.removeTap(onBus: 0)
+     audioEngine?.stop()
+@@ -107,7 +120,7 @@ class AudioStream: SharedObject {
+     converter = nil
+     isStreaming = false
+     startTimestamp = nil
+-    emitStatus()
++    emitStatus(stopReason: stopReason)
+ 
+     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+   }
+@@ -154,10 +167,10 @@ class AudioStream: SharedObject {
+     }
+   }
+ 
+-  private func emitStatus() {
+-    emit(event: AUDIO_STREAM_STATUS, payload: [
+-      "isStreaming": isStreaming
+-    ])
++  private func emitStatus(stopReason: String? = nil) {
++    var payload: [String: Any] = ["isStreaming": isStreaming]
++    if let stopReason { payload["stopReason"] = stopReason }
++    emit(event: AUDIO_STREAM_STATUS, payload: payload)
+   }
+ 
+   private func emitBuffer(buffer: AVAudioPCMBuffer, when: AVAudioTime) {
+@@ -195,6 +208,9 @@ class AudioStream: SharedObject {
+   }
+ 
+   deinit {
++    if let interruptionObserver {
++      NotificationCenter.default.removeObserver(interruptionObserver)
++    }
+     stop()
+   }
+ }
+diff --git a/src/AudioStream.types.ts b/src/AudioStream.types.ts
+index 1f4bc46b849eca460723284c5c48ac95308b21bf..70919156e7fbb1d3d1e52c5851f4472f527b330b 100644
+--- a/src/AudioStream.types.ts
++++ b/src/AudioStream.types.ts
+@@ -50,6 +50,7 @@ export type AudioStreamBuffer = {
+ 
+ export type AudioStreamStatus = {
+   isStreaming: boolean;
++  stopReason?: 'interrupted' | 'notification' | 'unknown';
+ };
+ 
+ export type AudioStreamEvents = {

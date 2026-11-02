@@ -1,3 +1,5 @@
+import { CLOUDFLARE_MEETING_MODELS } from "@anlg/meeting-schema";
+
 import type { ProviderKind } from "./providers-model";
 
 // Desktop's remote model catalog, including live transcription models.
@@ -81,6 +83,7 @@ const TRANSCRIPTION_MODELS: Record<string, readonly string[]> = {
 };
 
 const SUMMARY_MODELS: Record<string, readonly string[]> = {
+  cloudflare_worker: CLOUDFLARE_MEETING_MODELS,
   google_vertex_ai: [
     "google/gemini-3.8-flash",
     "google/gemini-3.7-flash",

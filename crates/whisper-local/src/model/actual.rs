@@ -33,7 +33,11 @@ impl LoadedWhisperBuilder {
         let context_param = {
             let mut p = WhisperContextParameters {
                 gpu_device: 0,
-                use_gpu: true,
+                // Apple's Metal implementation in iOS Simulator cannot
+                // create the shared-memory buffers whisper.cpp uses for its
+                // model weights. Keep Metal enabled on physical iOS devices
+                // and desktop platforms, but run CPU inference in Simulator.
+                use_gpu: !cfg!(all(target_os = "ios", target_env = "sim")),
                 flash_attn: false, // crash on macos
                 ..Default::default()
             };
@@ -103,6 +107,7 @@ impl LoadedWhisper {
             id: uuid::Uuid::new_v4().to_string(),
             index: 0,
             languages,
+            initial_prompt: String::new(),
             dynamic_prompt: String::new(),
             state: self.ctx.create_state()?,
             token_beg: self.token_beg,
@@ -116,6 +121,7 @@ pub struct Whisper {
     #[allow(dead_code)]
     index: usize,
     languages: Vec<Language>,
+    initial_prompt: String,
     dynamic_prompt: String,
     state: WhisperState,
     token_beg: WhisperTokenId,
@@ -124,6 +130,10 @@ pub struct Whisper {
 impl Whisper {
     pub fn builder() -> WhisperBuilder {
         WhisperBuilder::default()
+    }
+
+    pub fn set_initial_prompt(&mut self, prompt: impl Into<String>) {
+        self.initial_prompt = prompt.into();
     }
 
     pub fn transcribe(&mut self, audio: &[f32]) -> Result<Vec<Segment>, crate::Error> {
@@ -142,7 +152,7 @@ impl Whisper {
         let params = {
             let mut p = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
 
-            let parts = [self.dynamic_prompt.trim()];
+            let parts = [self.initial_prompt.trim(), self.dynamic_prompt.trim()];
             let joined = parts.join("\n");
             let initial_prompt = joined.trim();
 

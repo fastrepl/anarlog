@@ -21,9 +21,13 @@ import {
 } from "@/settings/providers-model";
 import { batchTranscriptionModel } from "@/settings/transcription-mode";
 
+import { transcribeLocally } from "./local-whisper";
 import { requestProviderTranscription } from "./provider-transcription";
 import { generateSummaryAfterTranscription } from "./summarize";
-import { pendingSummaryStatement } from "./summary-job";
+import {
+  clearPendingSummaryStatement,
+  pendingSummaryStatement,
+} from "./summary-job";
 import { TranscriptionAdmission } from "./transcription-admission";
 import {
   assertBoundedTranscriptionResponse,
@@ -332,6 +336,7 @@ function isPermanentTranscriptionFailure(error: unknown): boolean {
   return [
     "audio_missing",
     "audio_too_large",
+    "local_model_missing",
     "stt_response_too_large",
     "stt_live_only",
   ].includes(String(code));
@@ -444,54 +449,90 @@ async function runTranscription(sessionId: string): Promise<void> {
     });
   }
 
-  const selected = await resolveProvider("stt");
-  const model = batchTranscriptionModel(selected.provider, selected.model);
-  if (!model)
-    throw transcriptionFailure(
-      "This provider only transcribes live. Choose another provider to transcribe this saved recording.",
-      "request",
-      { code: "stt_live_only" },
-    );
-  const provider = { ...selected, model };
   const preferences = await readPreferences();
-  const token = provider.provider === "anarlog" ? provider.apiKey : undefined;
   const startedAtMs = audio.capture_started_at_ms ?? Date.now();
-
-  const response = await requestTranscription(
-    file,
-    audio.content_type || "application/octet-stream",
-    token,
-    requestTimeoutMs(sizeBytes),
-    provider,
-    preferences,
-  ).catch((error) => {
-    throw withTranscriptionStage(error, "request");
-  });
-  if (response.status < 200 || response.status >= 300) {
-    if (response.status === 413) {
-      throw transcriptionFailure("STT response is too large", "response", {
-        code: "stt_response_too_large",
+  const selected = await resolveProvider("stt");
+  let provider: { provider: string; model: string };
+  let words: WordRecord[];
+  let hints: HintRecord[];
+  if (selected.provider === "local_whisper") {
+    provider = { provider: "local_whisper", model: selected.model };
+    const localWords = await transcribeLocally(file.uri, {
+      languages: preferences.spoken_languages,
+      keywords: preferences.personalization_dictionary_terms,
+    }).catch((error) => {
+      throw withTranscriptionStage(error, "request");
+    });
+    if (localWords.length > MAX_TRANSCRIPTION_WORDS)
+      throw transcriptionFailure(
+        "STT response has too many words",
+        "response",
+        { code: "stt_response_too_large" },
+      );
+    words = localWords.flatMap((word) =>
+      word.text
+        ? [
+            {
+              id: id(),
+              text: word.text,
+              start_ms: word.start_ms ?? 0,
+              end_ms: word.end_ms ?? word.start_ms ?? 0,
+              channel: 0,
+            },
+          ]
+        : [],
+    );
+    hints = [];
+  } else {
+    const model = batchTranscriptionModel(selected.provider, selected.model);
+    if (!model)
+      throw transcriptionFailure(
+        "This provider only transcribes live. Choose another provider to transcribe this saved recording.",
+        "request",
+        { code: "stt_live_only" },
+      );
+    const remoteProvider = { ...selected, model };
+    provider = {
+      provider: remoteProvider.provider,
+      model: remoteProvider.model,
+    };
+    const token =
+      remoteProvider.provider === "anarlog" ? selected.apiKey : undefined;
+    const response = await requestTranscription(
+      file,
+      audio.content_type || "application/octet-stream",
+      token,
+      requestTimeoutMs(sizeBytes),
+      remoteProvider,
+      preferences,
+    ).catch((error) => {
+      throw withTranscriptionStage(error, "request");
+    });
+    if (response.status < 200 || response.status >= 300) {
+      if (response.status === 413) {
+        throw transcriptionFailure("STT response is too large", "response", {
+          code: "stt_response_too_large",
+          status: response.status,
+        });
+      }
+      throw transcriptionFailure("STT request failed", "response", {
+        code: "stt_http_error",
         status: response.status,
       });
     }
-    throw transcriptionFailure("STT request failed", "response", {
-      code: "stt_http_error",
-      status: response.status,
-    });
-  }
 
-  let payload: unknown;
-  try {
-    payload = normalizeTranscriptionResponse(
-      provider.provider,
-      JSON.parse(response.body),
-    );
-  } catch (error) {
-    throw withTranscriptionStage(error, "response");
+    let payload: unknown;
+    try {
+      payload = normalizeTranscriptionResponse(
+        remoteProvider.provider,
+        JSON.parse(response.body),
+      );
+    } catch (error) {
+      throw withTranscriptionStage(error, "response");
+    }
+    response.body = "";
+    ({ words, hints } = mapBatchResponse(payload, provider.provider));
   }
-  response.body = "";
-  const { words, hints } = mapBatchResponse(payload, provider.provider);
-  payload = null;
   if (words.length === 0) {
     // Never mark complete on an empty result — transcript_status stays
     // 'processing' so the tap-to-retry affordance remains reachable.
@@ -505,7 +546,7 @@ async function runTranscription(sessionId: string): Promise<void> {
   words.length = 0;
   const hintsJson = JSON.stringify(hints);
   hints.length = 0;
-  await executeTransaction([
+  const statements = [
     {
       sql: TRANSCRIPT_TOMBSTONE_SQL,
       params: [now, now, sessionId] as unknown[],
@@ -529,11 +570,15 @@ async function runTranscription(sessionId: string): Promise<void> {
       sql: MARK_COMPLETE_SQL,
       params: [now, attachmentId, sessionId] as unknown[],
     },
-    pendingSummaryStatement(sessionId),
-  ]).catch((error) => {
+    ...(provider.provider === "local_whisper"
+      ? [clearPendingSummaryStatement(sessionId)]
+      : [pendingSummaryStatement(sessionId)]),
+  ];
+  await executeTransaction(statements).catch((error) => {
     throw withTranscriptionStage(error, "persist");
   });
-  generateSummaryAfterTranscription(sessionId);
+  if (provider.provider !== "local_whisper")
+    generateSummaryAfterTranscription(sessionId);
 }
 
 export function transcribeSession(sessionId: string): Promise<void> {

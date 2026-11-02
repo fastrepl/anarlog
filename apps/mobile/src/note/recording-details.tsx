@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
 import { AudioChip } from "@/components/audio-chip";
+import { RecordingInterruptionNotice } from "@/components/recording-interruption-notice";
 import { RecordingSyncCard } from "@/components/recording-sync-card";
 import { RemoteAudioCard } from "@/components/remote-audio-card";
 import { Spacing, Typography } from "@/constants/theme";
@@ -15,10 +16,12 @@ export function RecordingDetails({
   sessionId,
   audio,
   hasTranscript,
+  seekRequest,
 }: {
   sessionId: string;
   audio: ReturnType<typeof useNoteAudio>;
   hasTranscript: boolean | undefined;
+  seekRequest?: { id: number; seconds: number } | null;
 }) {
   const styles = useStyles();
   const router = useRouter();
@@ -28,10 +31,15 @@ export function RecordingDetails({
     <>
       {audio.data && audio.availableLocally && audio.file && (
         <View key={`${audio.data.filename}:${audio.data.createdAt}`}>
+          {audio.data.captureInterruptedAtMs !== null && (
+            <RecordingInterruptionNotice />
+          )}
           <AudioChip
+            key={`${audio.data.filename}:${seekRequest?.id ?? "initial"}`}
             uri={audio.file.uri}
             filename={audio.data.filename}
             sizeBytes={audio.data.sizeBytes}
+            seekRequest={seekRequest}
           />
           <RecordingSyncCard audio={audio.data} />
         </View>

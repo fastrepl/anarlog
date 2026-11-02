@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { ScrollView, Text, View } from "react-native";
+import { Alert, ScrollView, Text, View } from "react-native";
 
+import { useAuth } from "@/auth/context";
 import { MarkdownView } from "@/components/markdown-view";
+import { RecordingInterruptionNotice } from "@/components/recording-interruption-notice";
 import { RemoteAudioCard } from "@/components/remote-audio-card";
 import { Button } from "@/components/ui/button";
 import { Spacing, Typography } from "@/constants/theme";
@@ -15,6 +17,7 @@ import {
   useSessionSummaryState,
 } from "@/data/summarize";
 import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
+import { readProviderConfig } from "@/settings/providers";
 import { createStyleHook } from "@/settings/theme-provider";
 import { useProviderAccess } from "@/settings/use-provider-access";
 
@@ -28,6 +31,7 @@ export function NoteSummary({
   hasTranscript,
   audio,
   onBeforeGenerate,
+  onOpenEvidence,
 }: {
   sessionId: string;
   active: boolean;
@@ -36,11 +40,18 @@ export function NoteSummary({
   hasTranscript: boolean;
   audio: ReturnType<typeof useNoteAudio>;
   onBeforeGenerate: () => Promise<void> | void;
+  onOpenEvidence?: (segmentId: string) => void;
 }) {
   const styles = useStyles();
   const router = useRouter();
+  const auth = useAuth();
+  const account = auth.session?.user.id ?? null;
   const canTranscribe = useProviderAccess("stt");
   const canSummarize = useProviderAccess("llm");
+  const summaryProvider = useQuery({
+    queryKey: ["provider", account, "llm"],
+    queryFn: () => readProviderConfig(account, "llm"),
+  });
   const summaryState = useSessionSummaryState(sessionId);
   const transcription = useTranscriptionState(sessionId);
   useQuery(
@@ -59,6 +70,10 @@ export function NoteSummary({
   const summarySkipped = summaryError instanceof SummarySkippedError;
   const needsTranscription =
     Boolean(audio.data) && audio.data?.transcriptStatus !== "complete";
+  const generate = () =>
+    void summarizeSession(sessionId, {
+      beforeGenerate: onBeforeGenerate,
+    }).catch((error) => notifySummarySkipped(sessionId, error));
 
   if (!visible) return null;
   return (
@@ -71,9 +86,24 @@ export function NoteSummary({
           {summary.title !== "Summary" && (
             <Text style={styles.summaryTitle}>{summary.title}</Text>
           )}
-          <MarkdownView markdown={summary.text} />
+          <MarkdownView
+            markdown={summary.text}
+            onLinkPress={(href) => {
+              const match = /^anarlog-evidence:\/\/(.+)$/u.exec(href);
+              if (!match) return;
+              try {
+                onOpenEvidence?.(decodeURIComponent(match[1]));
+              } catch {
+                /* malformed link */
+              }
+            }}
+          />
         </View>
       )}
+      {audio.data?.captureInterruptedAtMs !== null &&
+        audio.data?.captureInterruptedAtMs !== undefined && (
+          <RecordingInterruptionNotice />
+        )}
       {!summary && (
         <Text style={styles.summaryText}>
           {active
@@ -130,13 +160,24 @@ export function NoteSummary({
             disabled={transcription === "running"}
             variant="ghost"
             size="small"
-            onPress={() =>
-              canSummarize
-                ? void summarizeSession(sessionId, {
-                    beforeGenerate: onBeforeGenerate,
-                  }).catch((error) => notifySummarySkipped(sessionId, error))
-                : router.push("/settings/summary-provider")
-            }
+            onPress={() => {
+              if (!canSummarize) {
+                router.push("/settings/summary-provider");
+                return;
+              }
+              if (summaryProvider.data?.provider === "cloudflare_worker") {
+                Alert.alert(
+                  "Send meeting text to Cloudflare?",
+                  `Your notes and transcript text will be sent to ${summaryProvider.data.baseUrl} for this request. Your Anarlog session token will be sent there to verify your account. Audio is not sent. Continue only if you trust this Worker URL.`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Send and generate", onPress: generate },
+                  ],
+                );
+                return;
+              }
+              generate();
+            }}
           />
         )}
     </ScrollView>

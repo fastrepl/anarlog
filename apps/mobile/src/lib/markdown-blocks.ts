@@ -3,6 +3,7 @@ export type InlineSpan = {
   bold?: boolean;
   italic?: boolean;
   code?: boolean;
+  href?: string;
 };
 
 export type MarkdownBlock =
@@ -25,13 +26,19 @@ const CHECKBOX = /^\[([ xX])\]\s+(.*)$/;
 const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
 
 const INLINE =
-  /(\*\*[^*\n]+?\*\*|__[^_\n]+?__|`[^`\n]+`|\*[^*\n]+?\*|_[^_\n]+?_)/;
+  /(\[[^\]\n]+\]\([^\s)]+\)|\*\*[^*\n]+?\*\*|__[^_\n]+?__|`[^`\n]+`|\*[^*\n]+?\*|_[^_\n]+?_)/;
 
 export function parseInline(text: string): InlineSpan[] {
   const spans: InlineSpan[] = [];
   for (const part of text.split(INLINE)) {
     if (!part) continue;
-    if (part.length >= 4 && (part.startsWith("**") || part.startsWith("__"))) {
+    const link = /^\[([^\]]+)\]\(([^)]+)\)$/u.exec(part);
+    if (link) {
+      spans.push({ text: link[1], href: link[2] });
+    } else if (
+      part.length >= 4 &&
+      (part.startsWith("**") || part.startsWith("__"))
+    ) {
       spans.push({ text: part.slice(2, -2), bold: true });
     } else if (part.length >= 3 && part.startsWith("`")) {
       spans.push({ text: part.slice(1, -1), code: true });

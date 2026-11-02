@@ -36,13 +36,17 @@ describe("import source detection", () => {
 
     expect(listInstalledApplications).toHaveBeenCalledOnce();
     expect(getInstalledApplicationIcons).toHaveBeenCalledWith([
+      "anarlog",
       "com.granola.app",
       "google-meet",
     ]);
     expect(result.map((provider) => provider.id)).toEqual([
+      "anarlog",
       "granola",
       "google-meet",
     ]);
-    expect(result[0]?.iconUrl).toBe("data:image/png;base64,granola");
+    expect(result.find((provider) => provider.id === "granola")?.iconUrl).toBe(
+      "data:image/png;base64,granola",
+    );
   });
 });

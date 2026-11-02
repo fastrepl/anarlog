@@ -217,6 +217,59 @@ async fn migrations_apply_cleanly() {
 }
 
 #[tokio::test]
+async fn session_audio_backup_becomes_opt_in_without_rewriting_other_attachments() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20261102120000_session_audio_backup_opt_in"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+    sqlx::raw_sql(
+        "INSERT INTO sessions (id, workspace_id) VALUES ('meeting', 'workspace-a');
+         INSERT INTO session_attachments (
+           id, session_id, source_type, source_id, cloud_sync_enabled, cloud_object_key
+         ) VALUES
+           ('audio', 'meeting', 'session_audio', 'primary', 1, ''),
+           ('note-file', 'meeting', 'note_upload', 'file-1', 1, 'existing-object');
+         INSERT INTO attachment_transfer_jobs (
+           id, attachment_id, session_id, workspace_id, direction, expected_sha256
+         ) VALUES (
+           'audio-upload', 'audio', 'meeting', 'workspace-a', 'upload',
+           'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+         );",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    anlg_db_migrate::migrate(&db, schema()).await.unwrap();
+
+    let audio_sync: i64 =
+        sqlx::query_scalar("SELECT cloud_sync_enabled FROM session_attachments WHERE id = 'audio'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    let note_sync: i64 = sqlx::query_scalar(
+        "SELECT cloud_sync_enabled FROM session_attachments WHERE id = 'note-file'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    let pending_job: String =
+        sqlx::query_scalar("SELECT phase FROM attachment_transfer_jobs WHERE id = 'audio-upload'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(audio_sync, 0);
+    assert_eq!(note_sync, 1);
+    assert_eq!(pending_job, "queued");
+}
+
+#[tokio::test]
 async fn event_attendance_migration_is_plain_and_downgrade_safe() {
     let migration = APP_MIGRATION_STEPS
         .iter()

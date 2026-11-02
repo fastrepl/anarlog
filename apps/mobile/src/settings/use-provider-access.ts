@@ -15,6 +15,10 @@ export function useProviderAccess(kind: ProviderKind) {
   return (
     auth.bypass ||
     auth.billing.isPro ||
-    Boolean(config.data && config.data.provider !== "anarlog")
+    Boolean(
+      config.data &&
+      config.data.provider !== "anarlog" &&
+      config.data.provider !== "cloudflare_worker",
+    )
   );
 }

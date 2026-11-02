@@ -13,8 +13,30 @@ export type ImportedMeeting = {
     startMs: number;
     endMs: number;
   }>;
+  packageTranscripts?: PackageTranscript[];
   attendees: Array<{ name: string; email: string }>;
   actionItems: string[];
+  summaryDocuments?: Array<{
+    title: string;
+    body: string;
+    bodyFormat: string;
+    generationMetadataJson: string;
+  }>;
+  speakerContext?: Record<string, unknown>;
+  meetingAudio?: ImportTextFile["meetingAudio"];
+};
+
+type PackageTranscript = {
+  id: string;
+  source: string;
+  provider: string;
+  model: string;
+  language: string;
+  started_at_ms: number;
+  ended_at_ms: number | null;
+  memo: string;
+  words_json: string;
+  speaker_hints_json: string;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -37,6 +59,9 @@ export function parseMeetingExport(file: ImportTextFile): ImportedMeeting[] {
   if (extension === "json") {
     return parseJsonExport(file.content, fallbackTitle);
   }
+  if (extension === "anlgmeeting") {
+    return [parseAnarlogMeetingPackage(file, fallbackTitle)];
+  }
   if (extension === "csv") {
     return parseCsvExport(file.content, fallbackTitle);
   }
@@ -56,6 +81,127 @@ export function parseMeetingExport(file: ImportTextFile): ImportedMeeting[] {
   }
 
   return [emptyMeeting(fallbackTitle, { noteMarkdown: file.content.trim() })];
+}
+
+function parseAnarlogMeetingPackage(
+  file: ImportTextFile,
+  fallbackTitle: string,
+): ImportedMeeting {
+  let value: unknown;
+  try {
+    value = JSON.parse(file.content);
+  } catch {
+    throw new Error("This Anarlog meeting package has an invalid manifest");
+  }
+  const packageValue = asRecord(value);
+  const meeting = asRecord(packageValue?.meeting);
+  if (
+    packageValue?.format !== "anarlog.meeting" ||
+    packageValue.version !== 1 ||
+    !meeting ||
+    typeof meeting.title !== "string" ||
+    typeof meeting.created_at !== "string" ||
+    !Array.isArray(packageValue.transcripts) ||
+    !Array.isArray(meeting.summaries)
+  ) {
+    throw new Error("This file is not a supported Anarlog meeting package");
+  }
+  const audio = asRecord(packageValue.audio);
+  if (
+    !Object.prototype.hasOwnProperty.call(packageValue, "audio") ||
+    (packageValue.audio !== null && !audio)
+  ) {
+    throw new Error(
+      "The Anarlog meeting package contains invalid audio metadata",
+    );
+  }
+  if (audio && file.meetingAudio) {
+    if (
+      audio.filename !== file.meetingAudio.filename ||
+      audio.content_type !== file.meetingAudio.contentType ||
+      audio.sha256 !== file.meetingAudio.sha256 ||
+      audio.size_bytes !== file.meetingAudio.sizeBytes
+    ) {
+      throw new Error("The Anarlog meeting package audio failed validation");
+    }
+  } else if (audio || file.meetingAudio) {
+    throw new Error("The Anarlog meeting package audio is missing");
+  }
+  const packageTranscripts = packageValue.transcripts.map((value) => {
+    const transcript = asRecord(value);
+    if (
+      !transcript ||
+      typeof transcript.id !== "string" ||
+      !transcript.id ||
+      typeof transcript.words_json !== "string" ||
+      typeof transcript.source !== "string" ||
+      typeof transcript.provider !== "string" ||
+      typeof transcript.model !== "string" ||
+      typeof transcript.language !== "string" ||
+      !Number.isSafeInteger(transcript.started_at_ms) ||
+      (transcript.ended_at_ms !== null &&
+        !Number.isSafeInteger(transcript.ended_at_ms)) ||
+      typeof transcript.memo !== "string" ||
+      typeof transcript.speaker_hints_json !== "string"
+    ) {
+      throw new Error(
+        "The Anarlog meeting package contains an invalid transcript",
+      );
+    }
+    try {
+      const words: unknown = JSON.parse(transcript.words_json);
+      if (!Array.isArray(words)) throw new Error("invalid");
+    } catch {
+      throw new Error("The Anarlog transcript contains invalid word data");
+    }
+    return transcript as PackageTranscript;
+  });
+  if (
+    new Set(packageTranscripts.map(({ id }) => id)).size !==
+    packageTranscripts.length
+  ) {
+    throw new Error(
+      "The Anarlog meeting package contains duplicate transcripts",
+    );
+  }
+  const transcripts = packageTranscripts.flatMap((transcript) =>
+    parseTranscriptValue(JSON.parse(transcript.words_json)),
+  );
+  const summaries = meeting.summaries.map((value) => {
+    const summary = asRecord(value);
+    if (
+      !summary ||
+      typeof summary.title !== "string" ||
+      typeof summary.body !== "string" ||
+      (summary.body_format !== "markdown" &&
+        summary.body_format !== "prosemirror_json") ||
+      typeof summary.generation_metadata_json !== "string"
+    ) {
+      throw new Error(
+        "The Anarlog meeting package contains an invalid summary",
+      );
+    }
+    return {
+      title: summary.title,
+      body: summary.body,
+      bodyFormat: summary.body_format,
+      generationMetadataJson: summary.generation_metadata_json,
+    };
+  });
+  const speakerContext = asRecord(meeting.speaker_context);
+  const createdAt = Date.parse(meeting.created_at);
+  if (!Number.isFinite(createdAt)) {
+    throw new Error("The Anarlog meeting package contains an invalid date");
+  }
+  return emptyMeeting(meeting.title || fallbackTitle, {
+    startedAt: toIsoDate(meeting.created_at),
+    noteMarkdown: typeof meeting.note === "string" ? meeting.note : "",
+    transcript: transcripts,
+    packageTranscripts,
+    summaryDocuments: summaries,
+    ...(speakerContext ? { speakerContext } : {}),
+    ...(file.meetingAudio ? { meetingAudio: file.meetingAudio } : {}),
+  });
 }
 
 function parseJsonExport(content: string, fallbackTitle: string) {

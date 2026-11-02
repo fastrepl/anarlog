@@ -6,7 +6,11 @@ import { providersFor, validateProviderConfig } from "./providers-model.ts";
 test("incomplete custom endpoints show actionable validation instead of a URL exception", () => {
   for (const kind of ["stt", "llm"]) {
     for (const provider of providersFor(kind).filter(
-      ({ id, baseUrl }) => id !== "anarlog" && !baseUrl,
+      ({ id, baseUrl }) =>
+        id !== "anarlog" &&
+        id !== "local_whisper" &&
+        id !== "cloudflare_worker" &&
+        !baseUrl,
     )) {
       for (const baseUrl of ["", "   ", "not-a-url", "https://"]) {
         assert.throws(
@@ -34,6 +38,28 @@ test("incomplete custom endpoints show actionable validation instead of a URL ex
       );
     }
   }
+  const worker = providersFor("llm").find(
+    ({ id }) => id === "cloudflare_worker",
+  );
+  for (const baseUrl of ["", "not-a-url", "http://worker.example"]) {
+    assert.throws(
+      () =>
+        validateProviderConfig("llm", {
+          provider: worker.id,
+          baseUrl,
+          model: worker.model,
+        }),
+      { message: "Enter an HTTPS base URL without credentials or query parameters." },
+    );
+  }
+  assert.equal(
+    validateProviderConfig("llm", {
+      provider: worker.id,
+      baseUrl: "https://minutes.example/",
+      model: worker.model,
+    }).baseUrl,
+    "https://minutes.example",
+  );
 });
 
 test("saved Nari beta models move to their GA equivalents", () => {

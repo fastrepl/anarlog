@@ -1,6 +1,14 @@
+import { CLOUDFLARE_MEETING_MODELS } from "@anlg/meeting-schema";
+
 export type ProviderKind = "stt" | "llm";
 
 export const TRANSCRIPTION_PROVIDERS = [
+  {
+    id: "local_whisper",
+    name: "On-device Whisper",
+    baseUrl: "",
+    model: "whisper-small-q8_0",
+  },
   {
     id: "anarlog",
     name: "Anarlog Pro",
@@ -221,6 +229,12 @@ export const TRANSCRIPTION_PROVIDERS = [
 
 export const SUMMARY_PROVIDERS = [
   {
+    id: "cloudflare_worker",
+    name: "Cloudflare Worker",
+    baseUrl: "",
+    model: CLOUDFLARE_MEETING_MODELS[0],
+  },
+  {
     id: "anarlog",
     name: "Anarlog Pro",
     baseUrl: "",
@@ -427,6 +441,17 @@ export function validateProviderConfig(
 ): ProviderConfig {
   const connection = validateProviderConnection(kind, config);
   if (config.provider === "anarlog") return defaultProviderConfig(kind);
+  if (config.provider === "cloudflare_worker") {
+    if (kind !== "llm") throw new Error("Unsupported provider");
+    const model = config.model.trim();
+    if (!CLOUDFLARE_MEETING_MODELS.some((candidate) => candidate === model))
+      throw new Error("Choose a supported Cloudflare meeting-minutes model.");
+    return { ...connection, model };
+  }
+  if (config.provider === "local_whisper") {
+    if (kind !== "stt") throw new Error("Unsupported provider");
+    return defaultProviderConfig(kind, config.provider);
+  }
   let model = config.model.trim();
   // Nari retired its :free beta IDs on 2026-09-16 in favor of the GA models.
   if (config.provider === "nari" && /^qwen3-asr(?:-fast)?:free$/.test(model))
@@ -442,6 +467,13 @@ export function validateProviderConnection(
 ) {
   const definition = defaultProviderConfig(kind, config.provider);
   if (config.provider === "anarlog") return definition;
+  if (config.provider === "cloudflare_worker") {
+    if (kind !== "llm") throw new Error("Unsupported provider");
+  }
+  if (config.provider === "local_whisper") {
+    if (kind !== "stt") throw new Error("Unsupported provider");
+    return definition;
+  }
   let url: URL;
   try {
     url = new URL(definition.baseUrl || config.baseUrl.trim());

@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anlg/meeting-schema": "workspace:*",
     "@anlg/provider-validation": "workspace:*",
     "@anlg/db-react": "workspace:*",
     "@anlg/db-runtime": "workspace:*",

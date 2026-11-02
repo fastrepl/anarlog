@@ -21,7 +21,7 @@ INSERT INTO session_attachments (
   source_id, metadata_json, cloud_sync_enabled, created_at, updated_at, deleted_at
 )
 SELECT ?, workspace_id, id, ?, ?, ?, ?, ?, 'local_file', '',
-  'session_audio', 'primary', json_object('transcript_status', 'processing', 'capture_started_at_ms', CASE WHEN ? THEN json_extract(metadata_json, '$.mobile_capture_started_at_ms') ELSE NULL END), 1, ?, ?, NULL
+  'session_audio', 'primary', json_object('transcript_status', 'processing', 'capture_started_at_ms', CASE WHEN ? THEN json_extract(metadata_json, '$.mobile_capture_started_at_ms') ELSE NULL END, 'capture_interrupted_at_ms', CASE WHEN ? THEN json_extract(metadata_json, '$.mobile_capture_interrupted_at_ms') ELSE NULL END), 0, ?, ?, NULL
 FROM sessions
 WHERE id = ? AND deleted_at IS NULL
 ON CONFLICT(id) DO UPDATE SET
@@ -32,7 +32,7 @@ ON CONFLICT(id) DO UPDATE SET
   sha256 = excluded.sha256,
   storage_kind = 'local_file',
   cloud_object_key = '',
-  cloud_sync_enabled = 1,
+  cloud_sync_enabled = excluded.cloud_sync_enabled,
   metadata_json = excluded.metadata_json,
   updated_at = excluded.updated_at,
   deleted_at = NULL
@@ -58,7 +58,16 @@ ON CONFLICT(attachment_id) DO UPDATE SET
 export async function recordSessionCaptureStart(sessionId: string) {
   await executeTransaction([
     {
-      sql: "UPDATE sessions SET metadata_json = json_set(metadata_json, '$.mobile_capture_started_at_ms', ?), updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+      sql: "UPDATE sessions SET metadata_json = json_remove(json_set(metadata_json, '$.mobile_capture_started_at_ms', ?), '$.mobile_capture_interrupted_at_ms'), updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+      params: [Date.now(), nowIso(), sessionId],
+    },
+  ]);
+}
+
+export async function recordSessionCaptureInterruption(sessionId: string) {
+  await executeTransaction([
+    {
+      sql: "UPDATE sessions SET metadata_json = json_set(metadata_json, '$.mobile_capture_interrupted_at_ms', ?), updated_at = ? WHERE id = ? AND deleted_at IS NULL",
       params: [Date.now(), nowIso(), sessionId],
     },
   ]);
@@ -74,7 +83,6 @@ export async function catalogSessionAudio(
   },
 ): Promise<void> {
   const attachmentId = `session-audio:${sessionId}`;
-  const transferJobId = id();
   const now = nowIso();
   const localFile = new File(
     Paths.document,
@@ -100,6 +108,7 @@ export async function catalogSessionAudio(
         verified.sizeBytes,
         verified.sha256,
         file.source === "recording" ? 1 : 0,
+        file.source === "recording" ? 1 : 0,
         now,
         now,
         sessionId,
@@ -108,6 +117,29 @@ export async function catalogSessionAudio(
     {
       sql: LOCAL_STATE_UPSERT_SQL,
       params: [attachmentId, sessionId, file.filename, now, attachmentId],
+    },
+  ]);
+}
+
+export async function enableSessionAudioBackup(
+  attachmentId: string,
+): Promise<void> {
+  const now = nowIso();
+  const transferJobId = id();
+  await executeTransaction([
+    {
+      sql: `
+        UPDATE session_attachments
+        SET cloud_sync_enabled = 1, updated_at = ?
+        WHERE id = ? AND source_type = 'session_audio' AND deleted_at IS NULL
+          AND workspace_id <> ''
+          AND EXISTS (
+            SELECT 1 FROM attachment_local_state
+            WHERE attachment_id = ? AND availability = 'present'
+          )
+      `,
+      params: [now, attachmentId, attachmentId],
+      expectedRowsAffected: 1,
     },
     {
       sql: `
@@ -118,6 +150,7 @@ export async function catalogSessionAudio(
         SELECT ?, id, session_id, workspace_id, 'upload', sha256, size_bytes
         FROM session_attachments
         WHERE id = ? AND deleted_at IS NULL AND cloud_sync_enabled = 1
+          AND cloud_object_key = ''
           AND EXISTS (
             SELECT 1 FROM attachment_local_state
             WHERE attachment_id = ? AND availability = 'present'
@@ -126,21 +159,26 @@ export async function catalogSessionAudio(
       params: [transferJobId, attachmentId, attachmentId],
     },
   ]);
+  await requeueMobileAttachmentUpload(attachmentId);
   requestMobileAttachmentUploads();
 }
 
 const SESSION_AUDIO_SQL = `
 SELECT
   attachment.id,
+  attachment.workspace_id,
   attachment.filename,
   attachment.content_type,
   attachment.size_bytes,
   attachment.sha256,
   COALESCE(json_extract(attachment.metadata_json, '$.transcript_status'), '') AS transcript_status,
+  CAST(json_extract(attachment.metadata_json, '$.capture_started_at_ms') AS INTEGER) AS capture_started_at_ms,
+  CAST(json_extract(attachment.metadata_json, '$.capture_interrupted_at_ms') AS INTEGER) AS capture_interrupted_at_ms,
   attachment.created_at,
   CASE WHEN local_state.availability = 'present' THEN 1 ELSE 0 END AS available_locally,
   COALESCE(local_state.relative_path, '') AS local_relative_path,
   attachment.cloud_object_key,
+  attachment.cloud_sync_enabled,
   upload.phase AS upload_phase,
   COALESCE(upload.last_error, '') AS upload_error
 FROM session_attachments AS attachment

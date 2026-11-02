@@ -4,7 +4,7 @@ mod service;
 pub use error::*;
 pub use service::*;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "streaming"))]
 mod tests {
     use super::*;
     use axum::http::StatusCode;

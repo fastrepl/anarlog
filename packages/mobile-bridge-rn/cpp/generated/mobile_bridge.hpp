@@ -72,6 +72,9 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_transcriptioneventlistener_on_message(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_transcriptioneventlistener_on_error(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_func_start_provider_live_transcription(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_func_local_whisper_model_info(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_func_transcribe_local_whisper(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_func_verify_local_whisper_model(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_func_render_stored_transcript(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_func_transcribe_provider_audio(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_rust_future_poll_u8(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
@@ -123,6 +126,9 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_ffi_mobile_bridge_rust_future_free_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_rust_future_complete_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_func_start_provider_live_transcription(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_func_local_whisper_model_info(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_func_transcribe_local_whisper(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_func_verify_local_whisper_model(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_func_render_stored_transcript(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_func_transcribe_provider_audio(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);

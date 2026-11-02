@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import ts from "typescript";
 
+import { CLOUDFLARE_MEETING_MODELS } from "@anlg/meeting-schema";
+
 import {
   modelOptions,
   presetProviderModels,
@@ -87,7 +89,10 @@ test("mobile catalogs include the desktop's remote API-key providers supported b
     const desktop = desktopProviders(kind);
     const mobile = providersFor(kind).filter(
       (provider) =>
-        provider.id !== "anarlog" && !isSubscriptionProvider(provider.id),
+        provider.id !== "anarlog" &&
+        provider.id !== "cloudflare_worker" &&
+        provider.id !== "local_whisper" &&
+        !isSubscriptionProvider(provider.id),
     );
     assert.deepEqual(
       mobile.map((provider) => provider.id).sort(),
@@ -100,4 +105,20 @@ test("mobile catalogs include the desktop's remote API-key providers supported b
         assert.equal(match.baseUrl, provider.baseUrl.text);
     }
   }
+});
+
+test("the Cloudflare meeting-minutes Worker is an LLM-only structured provider", () => {
+  const worker = providersFor("llm").find(
+    ({ id }) => id === "cloudflare_worker",
+  );
+  assert.deepEqual(worker, {
+    id: "cloudflare_worker",
+    name: "Cloudflare Worker",
+    baseUrl: "",
+    model: CLOUDFLARE_MEETING_MODELS[0],
+  });
+  assert.equal(
+    providersFor("stt").some(({ id }) => id === "cloudflare_worker"),
+    false,
+  );
 });

@@ -136,6 +136,7 @@ pub async fn sync(
                 path: file.path,
                 name: file.name,
                 content: file.content,
+                meeting_audio: None,
             })
             .collect(),
         credentials: credentials_for(&binary, &account.display_name()),

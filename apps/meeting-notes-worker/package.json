@@ -1,0 +1,20 @@
+{
+  "name": "@anlg/meeting-notes-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/*.test.mjs"
+  },
+  "dependencies": {
+    "@anlg/meeting-schema": "workspace:*",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "wrangler": "^4.156.2"
+  }
+}

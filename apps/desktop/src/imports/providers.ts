@@ -19,6 +19,13 @@ export type DetectedMeetingImportProvider = MeetingImportProvider & {
 
 export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
   {
+    id: "anarlog",
+    name: "Anarlog meeting package",
+    access: "Export",
+    helpUrl: "https://anarlog.so",
+    alwaysAvailable: true,
+  },
+  {
     id: "granola",
     name: "Granola",
     access: "MCP",
