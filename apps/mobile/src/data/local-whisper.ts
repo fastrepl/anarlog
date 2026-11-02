@@ -48,9 +48,12 @@ export async function downloadLocalWhisperModel(
   const modelDirectory = new Directory(Paths.document, "models", "stt");
   modelDirectory.create({ intermediates: true, idempotent: true });
   const destination = new File(info.uri);
-  if (destination.exists) destination.delete();
+  const downloadsDirectory = new Directory(modelDirectory, ".downloads");
+  downloadsDirectory.create({ intermediates: true, idempotent: true });
+  const temporary = new File(downloadsDirectory, destination.name);
+  if (temporary.exists) temporary.delete();
 
-  const task = File.createDownloadTask(info.url, destination, {
+  const task = File.createDownloadTask(info.url, temporary, {
     onProgress: ({ bytesWritten, totalBytes }) => {
       onProgress(totalBytes > 0 ? Math.min(bytesWritten / totalBytes, 1) : 0);
     },
@@ -59,12 +62,13 @@ export async function downloadLocalWhisperModel(
   try {
     const downloaded = await task.downloadAsync();
     if (!downloaded) throw new Error("The model download did not finish.");
-    if (!(await verifyLocalWhisperModel(info.uri))) {
-      destination.delete();
+    if (!(await verifyLocalWhisperModel(temporary.uri))) {
       throw new Error("The downloaded model failed its integrity check.");
     }
+    await temporary.move(destination, { overwrite: true });
   } finally {
     task.release();
+    if (temporary.exists) temporary.delete();
   }
 }
 
