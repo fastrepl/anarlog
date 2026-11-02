@@ -82,6 +82,13 @@ async fn do_transcribe_file(
         .await?;
     let payload: serde_json::Value = ensure_success(response).await?.json().await?;
 
+    if payload.get("status").and_then(serde_json::Value::as_str) != Some("completed") {
+        return Err(Error::provider_failure(
+            "Gemini did not complete this transcription. Please retry the recording.",
+            false,
+        ));
+    }
+
     Ok(convert_response(&payload))
 }
 
@@ -252,6 +259,56 @@ fn content_blocks(payload: &serde_json::Value) -> Vec<serde_json::Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn rejects_incomplete_transcriptions_even_when_they_contain_words() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let client = crate::BatchClient::<GoogleGenerativeAiAdapter>::builder()
+            .api_base(server.uri())
+            .api_key("test-key")
+            .build();
+
+        for status in ["completed", "incomplete"] {
+            let response = serde_json::json!({
+                "id": "test-interaction",
+                "status": status,
+                "outputs": [{
+                    "type": "text",
+                    "text": "Hello.",
+                    "annotations": [{
+                        "type": "word_info",
+                        "text": "Hello.",
+                        "speaker": "spk_1",
+                        "start_offset": "0.1s",
+                        "end_offset": "0.4s"
+                    }]
+                }]
+            });
+            let _mock = Mock::given(method("POST"))
+                .and(path("/interactions"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response))
+                .mount_as_scoped(&server)
+                .await;
+
+            let result = client
+                .transcribe_file(anlg_data::english_1::AUDIO_PATH)
+                .await;
+            if status == "completed" {
+                let response = result.unwrap();
+                let alternative = &response.results.channels[0].alternatives[0];
+                assert_eq!(alternative.transcript, "Hello.");
+                assert_eq!(alternative.words.len(), 1);
+            } else {
+                assert!(
+                    matches!(result, Err(Error::ProviderFailure { .. })),
+                    "incomplete output must not be accepted as a transcript: {result:?}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn omits_language_hints_when_none_are_selected() {
