@@ -5,7 +5,6 @@ import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { toast } from "@anlg/ui/components/ui/toast";
 
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
-import { getEnhancerService } from "~/services/enhancer";
 import { useListener } from "~/stt/contexts";
 import { isStoppedTranscriptionError, useRunBatch } from "~/stt/useRunBatch";
 
@@ -32,7 +31,6 @@ export function useRegenerateTranscript(sessionId: string) {
           await runBatch(audioPath, {
             promotion: { scope: "whole_session" },
           });
-          await getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
         },
       );
     } catch (error) {

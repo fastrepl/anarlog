@@ -10,6 +10,16 @@ This Worker accepts transcript text only. The mobile app must show its first-sen
 4. Before deployment, set both runtime values as Worker secrets with `wrangler secret put SUPABASE_URL` and `wrangler secret put SUPABASE_ANON_KEY`. The URL and key are intentionally absent from the checked-in config.
 5. Run `pnpm typecheck`, then deploy with `pnpm deploy` after checking the Cloudflare account and Worker name.
 
+## Deployment readiness check
+
+On 2026-11-03, `wrangler deploy --dry-run` completed with the pinned Wrangler
+4.156.2 and resolved the AI and rate-limit bindings. This validates the bundle
+and local configuration only. The currently selected Cloudflare account does
+not contain `anarlog-meeting-notes` (`wrangler secret list` returned Worker
+not found), so no production Worker or secrets were created. Before a real
+deployment, verify the target account and provision `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` as Worker secrets.
+
 The model selector includes the plan's two Qwen candidates plus an active Llama 3.3 JSON Mode control. Cloudflare's listed context windows and prices were checked on 2026-11-03:
 
 | Model | Purpose | Context | Input / output per million tokens |

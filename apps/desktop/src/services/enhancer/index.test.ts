@@ -529,7 +529,7 @@ describe("EnhancerService", () => {
     });
   });
 
-  it("resumes a durable regeneration job after restart", async () => {
+  it("clears legacy automatic summary jobs after restart without inference", async () => {
     snapshot = createSnapshot({
       notes: [createNote({ content: "Previous summary" })],
       wordCount: 40,
@@ -543,18 +543,13 @@ describe("EnhancerService", () => {
     service.start();
     service.start();
 
-    await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
-    expect(mocks.loadPendingAutoEnhanceJobs).toHaveBeenCalledOnce();
-    expect(ai.generate).toHaveBeenCalledWith(
-      "note-1-enhance",
-      expect.objectContaining({
-        args: expect.objectContaining({
-          pendingAutoEnhance: expect.objectContaining({
-            expectedBody: "Previous summary",
-          }),
-        }),
-      }),
+    await vi.waitFor(() =>
+      expect(mocks.discardPendingAutoEnhanceJob).toHaveBeenCalledWith(
+        expect.objectContaining({ expectedBody: "Previous summary" }),
+      ),
     );
+    expect(mocks.loadPendingAutoEnhanceJobs).toHaveBeenCalledOnce();
+    expect(ai.generate).not.toHaveBeenCalled();
     expect(mocks.listenerSubscribe).toHaveBeenCalledOnce();
     service.dispose();
   });
@@ -582,73 +577,6 @@ describe("EnhancerService", () => {
         pendingJob,
       );
     });
-    service.dispose();
-  });
-
-  it("backs off a durable job after a retryable generation failure", async () => {
-    vi.useFakeTimers();
-    snapshot = createSnapshot({
-      notes: [createNote()],
-      wordCount: 40,
-    });
-    const pendingJob = createPendingJob();
-    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([pendingJob]);
-    const ai = createMockAITaskStore(() => ({
-      status: "error",
-      error: new Error("Request timed out"),
-    }));
-    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
-
-    service.start();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(ai.generate).toHaveBeenCalledOnce();
-
-    await vi.advanceTimersByTimeAsync(15_000);
-    expect(ai.generate).toHaveBeenCalledOnce();
-    expect(mocks.discardPendingAutoEnhanceJob).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(ai.generate).toHaveBeenCalledTimes(2);
-    vi.useRealTimers();
-    service.dispose();
-  });
-
-  it("retires a durable job after exhausting retryable failures", async () => {
-    vi.useFakeTimers();
-    snapshot = createSnapshot({
-      notes: [createNote()],
-      wordCount: 40,
-    });
-    const pendingJob = createPendingJob();
-    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([pendingJob]);
-    mocks.discardPendingAutoEnhanceJob.mockImplementation(async () => {
-      mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([]);
-    });
-    const ai = createMockAITaskStore(() => ({
-      status: "error",
-      error: new Error("Request timed out"),
-    }));
-    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
-    const events: any[] = [];
-    service.on((event) => events.push(event));
-
-    service.start();
-
-    for (let i = 0; i < 200; i += 1) {
-      await vi.advanceTimersByTimeAsync(60_000);
-      if (mocks.discardPendingAutoEnhanceJob.mock.calls.length > 0) break;
-    }
-
-    expect(mocks.discardPendingAutoEnhanceJob).toHaveBeenCalledWith(pendingJob);
-    expect(ai.generate).toHaveBeenCalledTimes(8);
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        type: "auto-enhance-skipped",
-        sessionId: "session-1",
-        reasonCode: "error",
-      }),
-    );
-    vi.useRealTimers();
     service.dispose();
   });
 
@@ -772,77 +700,6 @@ describe("EnhancerService", () => {
     await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledOnce());
 
     expect(ai.reset).not.toHaveBeenCalled();
-  });
-
-  it("retries a startup recovery scan after database contention", async () => {
-    vi.useFakeTimers();
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-    snapshot = createSnapshot({ notes: [createNote()], wordCount: 40 });
-    mocks.loadPendingAutoEnhanceJobs
-      .mockRejectedValueOnce(new Error("database is locked"))
-      .mockRejectedValueOnce(new Error("database is locked"))
-      .mockRejectedValueOnce(new Error("database is locked"))
-      .mockRejectedValueOnce(new Error("database is locked"))
-      .mockRejectedValueOnce(new Error("database is locked"))
-      .mockResolvedValue([createPendingJob()]);
-    const ai = createMockAITaskStore();
-    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
-
-    service.start();
-    await vi.advanceTimersByTimeAsync(11_100);
-
-    expect(ai.generate).toHaveBeenCalledOnce();
-    service.dispose();
-    consoleError.mockRestore();
-  });
-
-  it("retries a durable job when the model becomes ready", async () => {
-    vi.useFakeTimers();
-    snapshot = createSnapshot({ notes: [createNote()], wordCount: 40 });
-    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([createPendingJob()]);
-    let model: LanguageModel | null = null;
-    const ai = createMockAITaskStore();
-    const service = new EnhancerService(
-      createDeps({
-        aiTaskStore: ai.store,
-        getModel: () => model,
-      }),
-    );
-
-    service.start();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(ai.generate).not.toHaveBeenCalled();
-
-    model = {} as LanguageModel;
-    await vi.advanceTimersByTimeAsync(5_000);
-
-    expect(ai.generate).toHaveBeenCalledOnce();
-    service.dispose();
-  });
-
-  it("defers durable recovery while the session is recording", async () => {
-    vi.useFakeTimers();
-    snapshot = createSnapshot({ notes: [createNote()], wordCount: 40 });
-    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([createPendingJob()]);
-    mocks.listenerGetState.mockReturnValue({
-      live: { status: "active", sessionId: "session-1" },
-    });
-    const ai = createMockAITaskStore();
-    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
-
-    service.start();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(ai.generate).not.toHaveBeenCalled();
-
-    mocks.listenerGetState.mockReturnValue({
-      live: { status: "inactive", sessionId: null },
-    });
-    await vi.advanceTimersByTimeAsync(5_000);
-
-    expect(ai.generate).toHaveBeenCalledOnce();
-    service.dispose();
   });
 
   it("emits no-model and started auto-enhance outcomes", async () => {

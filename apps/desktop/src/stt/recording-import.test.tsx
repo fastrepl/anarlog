@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   transaction: vi.fn(),
   transcribe: vi.fn(),
-  summarize: vi.fn(),
   billingReady: true,
   authSession: {} as object | null,
 }));
@@ -48,9 +47,6 @@ vi.mock("~/session/attachments", () => ({
 }));
 vi.mock("~/session/queries", () => ({ useSession: () => ({ id: "meeting" }) }));
 vi.mock("~/stt/useRunBatch", () => ({ useRunBatch: () => mocks.transcribe }));
-vi.mock("~/services/enhancer", () => ({
-  getEnhancerService: () => ({ enhanceAndWait: mocks.summarize }),
-}));
 
 afterEach(() => {
   cleanup();
@@ -58,20 +54,11 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
-function setupJob(fails: boolean) {
+function setupJob() {
   let status = "queued";
   let summaryStatus = "pending";
   let error: string | null = null;
-  let finish: (() => void) | undefined;
-  const summary = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
   mocks.transcribe.mockResolvedValue(undefined);
-  mocks.summarize.mockImplementation(async () => {
-    await summary;
-    if (fails) throw new Error("provider-secret-must-not-leak");
-    return "done";
-  });
   mocks.execute.mockImplementation(async (sql: string) => {
     if (sql.includes("RETURNING id")) {
       if (status !== "queued") return [];
@@ -111,51 +98,39 @@ function setupJob(fails: boolean) {
   return {
     client,
     view,
-    finishSummary: () => finish?.(),
     state: () => ({ status, summaryStatus, error }),
   };
 }
 
-it.each([false, true])(
-  "survives StrictMode and waits for the summary outcome (failure: %s)",
-  async (fails) => {
-    vi.useFakeTimers();
-    mocks.billingReady = true;
-    mocks.authSession = {};
-    const job = setupJob(fails);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
-    expect(job.state().status).toBe("summarizing");
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(12000);
-    });
-    expect(job.state().status).toBe("summarizing");
-    await act(async () => {
-      job.finishSummary();
-      await vi.advanceTimersByTimeAsync(100);
-    });
-    expect(job.state().status).toBe(fails ? "failed" : "done");
-    expect(job.state().summaryStatus).toBe(fails ? "failed" : "done");
-    expect(job.state().error ?? "").not.toContain("provider-secret");
-    job.client.clear();
-  },
-);
+it("transcribes imported recordings and leaves summary creation for review", async () => {
+  vi.useFakeTimers();
+  mocks.billingReady = true;
+  mocks.authSession = {};
+  const job = setupJob();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(100);
+  });
+  expect(job.state().status).toBe("done");
+  expect(job.state().summaryStatus).toBe("pending");
+  expect(mocks.transcribe).toHaveBeenCalledWith("/audio.wav", {
+    promotion: { scope: "whole_session" },
+  });
+  job.client.clear();
+});
 
 it("runs signed-out imports and finishes them after the worker unmounts", async () => {
   vi.useFakeTimers();
   mocks.billingReady = false;
   mocks.authSession = null;
-  const job = setupJob(false);
+  const job = setupJob();
   await act(async () => {
     await vi.advanceTimersByTimeAsync(100);
   });
-  expect(job.state().status).toBe("summarizing");
   job.view.unmount();
   await act(async () => {
-    job.finishSummary();
     await vi.advanceTimersByTimeAsync(100);
   });
   expect(job.state().status).toBe("done");
+  expect(job.state().summaryStatus).toBe("pending");
   job.client.clear();
 });

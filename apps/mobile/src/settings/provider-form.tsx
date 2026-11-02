@@ -333,9 +333,11 @@ function ProviderForm({
         <FieldGroup.SectionFooter>
           <Text>
             Valid settings save automatically. API keys are stored locally and
-            sent to their provider when used. A selected Cloudflare Worker
-            receives your Anarlog session token and meeting text only after you
-            confirm generation.
+            sent to their provider when used. Meeting text is not sent
+            automatically after transcription; Generate summary asks you to
+            confirm the selected destination first. Anarlog Pro and a Cloudflare
+            Worker also receive your Anarlog session token to verify your
+            account.
           </Text>
         </FieldGroup.SectionFooter>
       </FieldGroup.Section>

@@ -1,10 +1,18 @@
 import { Trans } from "@lingui/react/macro";
 import { useMutation } from "@tanstack/react-query";
 import type { EditorView } from "prosemirror-view";
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 
 import type { NoteEditorRef } from "@anlg/editor/note";
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import { defaultSummaryDocumentId } from "@anlg/utils/session";
 
 import { ConfigError } from "./config-error";
@@ -118,6 +126,7 @@ export const Enhanced = forwardRef<
 );
 
 function EmptySummary({ sessionId }: { sessionId: string }) {
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
   const generate = useMutation({
     mutationFn: async () => {
       if (!isMainAITaskHostWindow()) {
@@ -135,10 +144,45 @@ function EmptySummary({ sessionId }: { sessionId: string }) {
   });
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6">
-      <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
+      <Button
+        onClick={() => setConfirmationOpen(true)}
+        disabled={generate.isPending}
+      >
         <Trans>Generate summary</Trans>
       </Button>
       {generate.error && <p role="alert">{generate.error.message}</p>}
+      <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              <Trans>Send meeting text to your selected AI provider?</Trans>
+            </DialogTitle>
+            <DialogDescription>
+              <Trans>
+                Your transcript and meeting notes will be sent to the provider
+                selected in Settings to create this summary. Audio is not sent.
+              </Trans>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmationOpen(false)}
+            >
+              <Trans>Cancel</Trans>
+            </Button>
+            <Button
+              disabled={generate.isPending}
+              onClick={() => {
+                setConfirmationOpen(false);
+                generate.mutate();
+              }}
+            >
+              <Trans>Send and generate</Trans>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

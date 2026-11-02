@@ -150,7 +150,7 @@ export class EnhancerService {
         this.clearRetry(sessionId);
       }
     });
-    this.schedulePendingAutoEnhanceResume(0);
+    void this.discardPendingAutoEnhanceJobs();
   }
 
   dispose() {
@@ -278,6 +278,20 @@ export class EnhancerService {
       this.pendingResumeTimer = null;
       void this.resumePendingAutoEnhance();
     }, delayMs);
+  }
+
+  private async discardPendingAutoEnhanceJobs() {
+    try {
+      const jobs = await retryDatabaseLock(loadPendingAutoEnhanceJobs);
+      for (const job of jobs) {
+        await retryDatabaseLock(() => discardPendingAutoEnhanceJob(job));
+      }
+    } catch (error) {
+      console.error(
+        "[enhancer] failed to clear legacy automatic summary jobs",
+        error,
+      );
+    }
   }
 
   private async resumePendingAutoEnhance() {

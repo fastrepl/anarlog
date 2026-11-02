@@ -8,12 +8,10 @@ import {
 } from "@anlg/meeting-schema";
 import {
   defaultSummaryDocumentId,
-  hasSummaryContent,
   resolveSummaryDocument,
 } from "@anlg/utils/session";
 import { getSummaryEligibility } from "@anlg/utils/summary-eligibility";
 
-import { supabase } from "@/auth/client";
 import { execute, executeTransaction } from "@/db";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -21,7 +19,7 @@ import { nowIso } from "@/lib/ids";
 import { queryClient } from "@/lib/query-client";
 import { showToast } from "@/lib/toast";
 import { readPreferences } from "@/settings/preferences";
-import { readProviderConfig, resolveProvider } from "@/settings/providers";
+import { resolveProvider } from "@/settings/providers";
 import { isSubscriptionProvider } from "@/settings/providers-model";
 
 import { readChatgptSummary } from "./chatgpt-summary";
@@ -32,7 +30,10 @@ import {
 } from "./meeting-minutes";
 import { docToPlainText, stripMarkdownTitle } from "./note-doc";
 import { summaryRequest } from "./provider-summary";
-import { PENDING_SUMMARY_PREFIX } from "./summary-job";
+import {
+  clearPendingSummaryStatement,
+  PENDING_SUMMARY_PREFIX,
+} from "./summary-job";
 import {
   buildSummaryPrompt,
   buildTitlePrompt,
@@ -60,25 +61,13 @@ export class SummarySkippedError extends Error {
 export function notifySummarySkipped(sessionId: string, error: unknown) {
   if (!(error instanceof SummarySkippedError)) return;
   showToast({
-    id: `auto-summary-too-short-${sessionId}`,
+    id: `summary-too-short-${sessionId}`,
     title: "Summary wasn't generated",
     description: error.reason,
   });
 }
 
-async function runSummary(
-  sessionId: string,
-  automatic: boolean,
-): Promise<void> {
-  if (automatic) {
-    const auth = await supabase?.auth.getSession();
-    if (auth?.error) throw new Error("Sign in again to continue.");
-    const providerConfig = await readProviderConfig(
-      auth?.data.session?.user.id ?? null,
-      "llm",
-    );
-    if (providerConfig.provider === "cloudflare_worker") return;
-  }
+async function runSummary(sessionId: string): Promise<void> {
   const [session] = await execute<{ title: string; started_at: string }>(
     "SELECT title, started_at FROM sessions WHERE id = ? AND deleted_at IS NULL",
     [sessionId],
@@ -110,8 +99,6 @@ async function runSummary(
     existing.find(
       (document) => document.id === defaultSummaryDocumentId(sessionId),
     );
-  if (automatic && prior && hasSummaryContent(prior.body, prior.session_title))
-    return;
   const [notes, transcripts, humans, preferences, provider] = await Promise.all(
     [
       execute<{ body: string; body_format: string }>(
@@ -431,6 +418,9 @@ export function summarizeSession(
     beforeGenerate?: () => void | Promise<void>;
   } = {},
 ): Promise<void> {
+  // Keep accepting legacy recovery calls, but never send meeting text without
+  // the user's explicit Generate summary action and provider disclosure.
+  if (automatic) return Promise.resolve();
   const pending = inflight.get(sessionId);
   if (pending) return pending;
   const mutation = queryClient.getMutationCache().build(queryClient, {
@@ -451,7 +441,7 @@ export function summarizeSession(
         ]);
       };
       try {
-        await runSummary(sessionId, automatic);
+        await runSummary(sessionId);
         await finish();
       } catch (error) {
         if (error instanceof SummarySkippedError) await finish();
@@ -471,19 +461,12 @@ export function summarizeSession(
   return promise;
 }
 
-export function generateSummaryAfterTranscription(sessionId: string): void {
-  // Summary failures are visible in the note; they must never fail audio persistence.
-  void summarizeSession(sessionId, { automatic: true }).catch((error) =>
-    notifySummarySkipped(sessionId, error),
-  );
-}
-
 export function summaryRecoveryOptions(sessionId: string, enabled = true) {
   return queryOptions({
     queryKey: ["session-summary-recovery", sessionId],
     enabled,
     queryFn: async () => {
-      // Only a local transcription transaction can authorize crash recovery.
+      // Discard legacy automatic-summary jobs without sending meeting text.
       const jobs = await execute<{ value_json: string }>(
         `SELECT setting.value_json FROM app_settings AS setting
          WHERE setting.id = ? AND EXISTS (
@@ -502,7 +485,8 @@ export function summaryRecoveryOptions(sessionId: string, enabled = true) {
           sessionId,
         ],
       );
-      if (jobs.length) await summarizeSession(sessionId, { automatic: true });
+      if (jobs.length)
+        await executeTransaction([clearPendingSummaryStatement(sessionId)]);
       return null;
     },
     retry: false,

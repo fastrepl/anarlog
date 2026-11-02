@@ -1,3 +1,58 @@
+## Public Vietnamese-English corpus access review
+
+Date: 2026-11-03
+
+This review identifies possible supplemental code-switch benchmarks. It does
+not replace the plan's consented 3–5 hour meeting corpus or authorize adding
+third-party recordings to this repository.
+
+- **CanVEC** is the closest identified public research corpus for natural
+  Vietnamese-English speech: its paper describes 10 hours across 45 bilingual
+  speakers and says the corpus is available for research. The maintainers'
+  repository currently asks researchers to request access through a form while
+  recordings are being anonymized; it only publishes a sample transcript, not
+  the audio. Therefore no CanVEC audio was downloaded or scored. Revisit only
+  after access and terms are confirmed, and keep it as a separately reported
+  research benchmark because its Canberra heritage-community conversations
+  are not Vietnamese product meetings.
+- **ViMedCSS** has useful annotated Vietnamese speech with embedded English
+  medical terms (32.64 hours in the Hugging Face card's listed splits; the
+  paper reports 34.57 hours). The card says source videos are public YouTube
+  content and that a medical dictionary resource has institutional IP
+  licensing, and explicitly asks users to verify rights before redistribution
+  or commercial use. No clear dataset reuse license was established in this
+  review, so no audio was downloaded or scored. It is also medical-domain, not
+  meeting-domain data.
+- **SEA Code-Switching** lists 45.3 hours and 10,306 clips for the English-
+  Vietnamese pair, but Hugging Face gates file access behind agreement to its
+  conditions and labels the license `other`. Its transcripts are machine-
+  generated and not verified against human references. It may be a useful
+  supplemental smoke corpus after reviewing those conditions, but it cannot
+  satisfy the held-out meeting gate.
+
+Sources checked: [CanVEC maintainer access instructions](https://github.com/Bak3rLi/CanVEC),
+[CanVEC paper record](https://aclanthology.org/2020.lrec-1.507/), and
+[ViMedCSS dataset card](https://huggingface.co/datasets/tensorxt/ViMedCSS),
+and [SEA Code-Switching dataset card](https://huggingface.co/datasets/gijs/sea_speech).
+The next valid corpus step remains obtaining the required consented meeting
+recordings and manually corrected references, or separately securing explicit
+research access and terms for CanVEC. Do not use either public corpus to claim
+the plan's held-out real-meeting gate has passed.
+
+## Offline Whisper chunk-boundary review
+
+Date: 2026-11-03
+
+The local Whisper batch path uses VAD speech chunks with a 150 ms speech
+redemption interval and caps chunks at 25 seconds. If a VAD chunk exceeds that
+cap, `crates/transcribe-core/src/audio.rs` splits it at exact 25-second sample
+boundaries without overlap. The repository contains English and Korean audio
+fixtures, but no Vietnamese or Vietnamese-English fixture, so this review did
+not validate recognition or deduplication at those hard boundaries. The plan's
+short-overlap strategy therefore remains an unverified quality improvement,
+especially for continuous speech at the 25-second cap. Do not treat the
+existing English-only smoke checks as evidence that boundary errors are absent.
+
 # Local model conversion smoke check
 
 Date: 2026-11-02

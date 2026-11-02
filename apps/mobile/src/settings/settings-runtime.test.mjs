@@ -144,15 +144,10 @@ const {
 } = await import("./providers.ts");
 const { requestProviderTranscription } =
   await import("../data/provider-transcription.ts");
-const {
-  summarizeSession,
-  generateSummaryAfterTranscription,
-  summaryRecoveryOptions,
-} = await import("../data/summarize.ts");
-const { pendingSummaryStatement, PENDING_SUMMARY_PREFIX } =
-  await import("../data/summary-job.ts");
+const { summarizeSession, summaryRecoveryOptions } =
+  await import("../data/summarize.ts");
+const { PENDING_SUMMARY_PREFIX } = await import("../data/summary-job.ts");
 const { queryClient } = await import("../lib/query-client.ts");
-const { dismissToast, getToast } = await import("../lib/toast.ts");
 const { loadSessionTranscripts } = await import("../data/transcripts.ts");
 const { Platform } = await import("react-native");
 const {
@@ -253,7 +248,10 @@ test("failed verification never creates a provider or exposes it in selection", 
     (await readProviderStatus(null, "stt", "deepgram")).isConfigured,
     false,
   );
-  assert.equal((await readProviderConfig(null, "stt")).provider, "local_whisper");
+  assert.equal(
+    (await readProviderConfig(null, "stt")).provider,
+    "local_whisper",
+  );
 });
 
 test("custom STT save and availability skip model-list verification", async () => {
@@ -1190,7 +1188,10 @@ test("missing keys cannot activate a provider and selecting Pro uses only the ac
     saveProviderConfig(null, "stt", defaultProviderConfig("stt", "openai")),
     /Enter an API key/,
   );
-  assert.equal((await readProviderConfig(null, "stt")).provider, "local_whisper");
+  assert.equal(
+    (await readProviderConfig(null, "stt")).provider,
+    "local_whisper",
+  );
   signedInWith({
     subscription_status: "active",
     entitlements: ["hyprnote_pro"],
@@ -2078,13 +2079,12 @@ test("Azure model discovery normalizes the configured endpoint", async () => {
   }
 });
 
-test("mobile summaries persist generated titles without overwriting concurrent renames or partially saving", async () => {
+test("explicit mobile summaries persist generated titles without overwriting concurrent renames or partially saving", async () => {
   signedInWith({
     subscription_status: "active",
     entitlements: ["hyprnote_pro"],
   });
   for (const scenario of [
-    "automatic",
     "manual",
     "renamed",
     "failed-title",
@@ -2126,9 +2126,7 @@ test("mobile summaries persist generated titles without overwriting concurrent r
         ],
       });
     };
-    const result = summarizeSession("note-1", {
-      automatic: scenario !== "manual",
-    });
+    const result = summarizeSession("note-1");
     if (["stale-summary", "failed-save"].includes(scenario)) {
       await assert.rejects(result);
       assert.equal(
@@ -2169,39 +2167,22 @@ test("mobile summaries persist generated titles without overwriting concurrent r
   }
 });
 
-test("automatic summaries preserve memos and never overwrite an existing summary", async () => {
+test("automatic summary recovery never sends meeting text before explicit generation", async () => {
   createNote();
   signedInWith({
     subscription_status: "active",
     entitlements: ["hyprnote_pro"],
   });
-  const memo = fixture.db
-    .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
-    .get().body;
   await summarizeSession("note-1", { automatic: true });
+  assert.equal(fixture.requests.length, 0);
+  assert.equal(summaryCount(), 0);
+
+  await summarizeSession("note-1");
   assert.equal(fixture.requests.length, 1);
-  assert.equal(
-    fixture.db
-      .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
-      .get().body,
-    memo,
-  );
-  fixture.db
-    .prepare(
-      "UPDATE session_documents SET body = 'My edited summary' WHERE kind = 'summary'",
-    )
-    .run();
-  await summarizeSession("note-1", { automatic: true });
-  assert.equal(fixture.requests.length, 1);
-  assert.equal(
-    fixture.db
-      .prepare("SELECT body FROM session_documents WHERE kind = 'summary'")
-      .get().body,
-    "My edited summary",
-  );
+  assert.equal(summaryCount(), 1);
 });
 
-test("summary recovery resumes persisted local work after restart but ignores a synced transcript alone", async () => {
+test("legacy summary recovery clears its job without sending meeting text", async () => {
   createNote();
   signedInWith({
     subscription_status: "active",
@@ -2218,15 +2199,15 @@ test("summary recovery resumes persisted local work after restart but ignores a 
   assert.equal(fixture.requests.length, 0);
   assert.equal(summaryCount(), 0);
 
-  const job = pendingSummaryStatement("note-1");
-  fixture.db.prepare(job.sql).run(...job.params);
-  fixture.respond = () => {
-    throw new Error("Interrupted summary request");
-  };
-  await assert.rejects(
-    summarizeSession("note-1", { automatic: true }),
-    /Interrupted/,
-  );
+  fixture.db
+    .prepare(
+      "INSERT INTO app_settings (id, value_json, updated_at) VALUES (?, ?, ?)",
+    )
+    .run(
+      `${PENDING_SUMMARY_PREFIX}note-1`,
+      '{"generation":"legacy"}',
+      new Date().toISOString(),
+    );
   const pending = () =>
     fixture.db
       .prepare("SELECT value_json FROM app_settings WHERE id = ?")
@@ -2234,24 +2215,21 @@ test("summary recovery resumes persisted local work after restart but ignores a 
   assert.ok(pending());
 
   queryClient.clear();
-  fixture.respond = () =>
-    Response.json({ choices: [{ message: { content: "Recovered summary" } }] });
   await queryClient.fetchQuery(summaryRecoveryOptions("note-1"));
-  assert.equal(
-    fixture.db
-      .prepare("SELECT body FROM session_documents WHERE id = 'summary:note-1'")
-      .get().body,
-    "Recovered summary",
-  );
-  assert.equal(summaryCount(), 1);
+  assert.equal(fixture.requests.length, 0);
+  assert.equal(summaryCount(), 0);
   assert.equal(pending(), undefined);
+
+  await summarizeSession("note-1");
+  assert.equal(fixture.requests.length, 1);
+  assert.equal(summaryCount(), 1);
   const requests = fixture.requests.length;
   queryClient.clear();
   await queryClient.fetchQuery(summaryRecoveryOptions("note-1"));
   assert.equal(fixture.requests.length, requests);
 });
 
-test("automatic and manual summary requests share an in-flight generation", async () => {
+test("manual generation still starts after an automatic recovery no-op", async () => {
   createNote();
   signedInWith({
     subscription_status: "active",
@@ -2263,8 +2241,10 @@ test("automatic and manual summary requests share an in-flight generation", asyn
       release = resolve;
     });
   const automatic = summarizeSession("note-1", { automatic: true });
+  await automatic;
+  assert.equal(fixture.requests.length, 0);
   const manual = summarizeSession("note-1");
-  assert.equal(automatic, manual);
+  assert.equal(manual, summarizeSession("note-1"));
   while (!release) await new Promise((resolve) => setImmediate(resolve));
   release(
     Response.json({ choices: [{ message: { content: "Finished summary" } }] }),
@@ -2281,7 +2261,7 @@ test("automatic and manual summary requests share an in-flight generation", asyn
   );
 });
 
-test("completed transcription fills an empty desktop summary without creating a duplicate", async () => {
+test("only explicit generation fills a desktop summary and automatic recovery leaves edits alone", async () => {
   createNote();
   signedInWith({
     subscription_status: "active",
@@ -2306,9 +2286,8 @@ test("completed transcription fills an empty desktop summary without creating a 
       "INSERT INTO session_documents (id, session_id, kind, title, body_format, body) VALUES ('desktop-summary', 'note-1', ?, 'Key decisions', 'prosemirror_json', ?)",
     )
     .run("template_output", placeholder);
-  generateSummaryAfterTranscription("note-1");
   await summarizeSession("note-1", { automatic: true });
-  assert.equal(fixture.requests.length, 1);
+  assert.equal(fixture.requests.length, 0);
   const documents = fixture.db
     .prepare(
       "SELECT id, title, body, body_format FROM session_documents WHERE kind IN ('summary', 'template_output')",
@@ -2317,14 +2296,27 @@ test("completed transcription fills an empty desktop summary without creating a 
   assert.equal(documents.length, 1);
   assert.equal(documents[0].id, "desktop-summary");
   assert.equal(documents[0].title, "Key decisions");
-  assert.equal(documents[0].body, "## Decisions\nShip the mobile app.");
-  assert.equal(documents[0].body_format, "markdown");
+  assert.equal(documents[0].body, placeholder);
+
+  await summarizeSession("note-1");
+  assert.equal(fixture.requests.length, 1);
+  const generated = fixture.db
+    .prepare(
+      "SELECT id, title, body, body_format FROM session_documents WHERE kind IN ('summary', 'template_output')",
+    )
+    .all();
+  assert.equal(generated.length, 1);
+  assert.equal(generated[0].id, "desktop-summary");
+  assert.equal(generated[0].title, "Key decisions");
+  assert.equal(generated[0].body, "## Decisions\nShip the mobile app.");
+  assert.equal(generated[0].body_format, "markdown");
   fixture.db
     .prepare(
       "UPDATE session_documents SET body = 'Edited template summary' WHERE id = 'desktop-summary'",
     )
     .run();
   await summarizeSession("note-1", { automatic: true });
+  assert.equal(fixture.requests.length, 1);
   assert.equal(
     fixture.db
       .prepare(
@@ -2333,7 +2325,6 @@ test("completed transcription fills an empty desktop summary without creating a 
       .get().body,
     "Edited template summary",
   );
-  await summarizeSession("note-1");
   assert.equal(
     fixture.db
       .prepare(
@@ -2341,77 +2332,6 @@ test("completed transcription fills an empty desktop summary without creating a 
       )
       .get().count,
     1,
-  );
-});
-
-test("automatic generation preserves a summary edited during generation even when its timestamp is unchanged", async () => {
-  createNote();
-  signedInWith({
-    subscription_status: "active",
-    entitlements: ["hyprnote_pro"],
-  });
-  fixture.db
-    .prepare(
-      "INSERT INTO session_documents (id, session_id, kind, body, updated_at) VALUES ('summary-1', 'note-1', 'summary', '', 'same-time')",
-    )
-    .run();
-  fixture.respond = () => {
-    fixture.db
-      .prepare(
-        "UPDATE session_documents SET body = 'Edited on desktop' WHERE id = 'summary-1'",
-      )
-      .run();
-    return Response.json({
-      choices: [{ message: { content: "Generated summary" } }],
-    });
-  };
-  await assert.rejects(
-    summarizeSession("note-1", { automatic: true }),
-    /note changed/,
-  );
-  assert.equal(
-    fixture.db
-      .prepare("SELECT body FROM session_documents WHERE id = 'summary-1'")
-      .get().body,
-    "Edited on desktop",
-  );
-});
-
-test("automatic summary failure is observable and can be retried without changing memos", async () => {
-  const { queryClient } = await import("../lib/query-client.ts");
-  createNote();
-  signedInWith({
-    subscription_status: "active",
-    entitlements: ["hyprnote_pro"],
-  });
-  const memo = fixture.db
-    .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
-    .get().body;
-  fixture.respond = () => new Response("Rejected", { status: 401 });
-  await assert.rejects(
-    summarizeSession("note-1", { automatic: true }),
-    /API key or sign in/,
-  );
-  const mutation = queryClient
-    .getMutationCache()
-    .findAll({ mutationKey: ["session-summary", "note-1"] })
-    .at(-1);
-  assert.equal(mutation.state.status, "error");
-  assert.match(mutation.state.error.message, /API key or sign in/);
-  assert.equal(
-    fixture.db
-      .prepare("SELECT body FROM session_documents WHERE id = 'note-1'")
-      .get().body,
-    memo,
-  );
-  fixture.respond = () =>
-    Response.json({ choices: [{ message: { content: "Recovered summary" } }] });
-  await summarizeSession("note-1");
-  assert.equal(
-    fixture.db
-      .prepare("SELECT body FROM session_documents WHERE kind = 'summary'")
-      .get().body,
-    "Recovered summary",
   );
 });
 
@@ -2546,27 +2466,17 @@ function summaryCount() {
     .get().count;
 }
 
-test("short transcripts skip summaries without a provider request and show a warning", async () => {
+test("short transcripts reject explicit summary generation before a provider request", async () => {
   createNote();
   signedInWith({
     subscription_status: "active",
     entitlements: ["hyprnote_pro"],
   });
   insertTranscript(["Cool."]);
-  dismissToast();
-
-  await assert.rejects(summarizeSession("note-1", { automatic: true }), {
+  await assert.rejects(summarizeSession("note-1"), {
     name: "SummarySkippedError",
     reason: "Not enough words recorded (1/5 minimum)",
   });
-  generateSummaryAfterTranscription("note-1");
-  while (!getToast()) await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(getToast(), {
-    id: "auto-summary-too-short-note-1",
-    title: "Summary wasn't generated",
-    description: "Not enough words recorded (1/5 minimum)",
-  });
-  dismissToast();
 
   fixture.db.prepare("DELETE FROM transcripts").run();
   insertTranscript(["Sounds", "good", "to", "me", "then."]);
@@ -2578,7 +2488,7 @@ test("short transcripts skip summaries without a provider request and show a war
   assert.equal(summaryCount(), 0);
 });
 
-test("a preparation error is replaced by the next successful automatic summary state", async () => {
+test("a preparation error can be retried with an explicit summary action", async () => {
   const { queryClient } = await import("../lib/query-client.ts");
   createNote();
   signedInWith({
@@ -2600,7 +2510,7 @@ test("a preparation error is replaced by the next successful automatic summary s
   );
   assert.equal(fixture.requests.length, 0);
   assert.equal(latestState().status, "error");
-  await summarizeSession("note-1", { automatic: true });
+  await summarizeSession("note-1");
   assert.equal(latestState().status, "success");
   assert.equal(latestState().error, null);
 });

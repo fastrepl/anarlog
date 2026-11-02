@@ -17,7 +17,6 @@ const fixture = (globalThis.transcriptionRetryFixture = {
   requests: 0,
   transactions: [],
   failures: [],
-  summaries: [],
   localCalls: [],
   providerCalls: [],
   meetingGlossary: [],
@@ -27,7 +26,6 @@ const fixture = (globalThis.transcriptionRetryFixture = {
   requestError: null,
 });
 const mocks = {
-  "./summarize": `export function generateSummaryAfterTranscription(sessionId) { globalThis.transcriptionRetryFixture.summaries.push(sessionId); }`,
   "./local-whisper": `export async function transcribeLocally(uri, params) { const f = globalThis.transcriptionRetryFixture; f.localCalls.push({uri, params}); if (f.localError) throw f.localError; return [{text: 'Chào team.', start_ms: 0, end_ms: 500, speaker: null, confidence: null}]; } export function discardLocalWhisperCheckpoint(uri) { globalThis.transcriptionRetryFixture.checkpointsDeleted.push(uri); }`,
   "@/data/meeting-glossary": `const f = globalThis.transcriptionRetryFixture; export async function readMeetingGlossary() { return f.meetingGlossary; } export function mergeTranscriptionKeywords(...groups) { return [...new Set(groups.flat())]; }`,
   "expo-file-system": `export const Paths = {document: '/synthetic'}; export class Directory {} export class File { exists = true; size = 1024; }`,
@@ -84,7 +82,6 @@ test("live-only recordings stop automatic retries but can be recovered manually 
   assert.equal(fixture.failures.at(-1).code, "stt_live_only");
   assert.equal(fixture.pending, true);
   assert.equal(fixture.requests, 0);
-  assert.deepEqual(fixture.summaries, []);
   assert.equal(fixture.resolutions, 1);
 
   await retryPendingTranscriptions();
@@ -102,12 +99,14 @@ test("live-only recordings stop automatic retries but can be recovered manually 
   assert.equal(fixture.requests, 1);
   assert.equal(fixture.transactions.length, 1);
   assert.equal(fixture.pending, false);
-  assert.deepEqual(fixture.providerCalls.at(-1)[5], ["Project X", "Cloudflare"]);
+  assert.deepEqual(fixture.providerCalls.at(-1)[5], [
+    "Project X",
+    "Cloudflare",
+  ]);
   const persistedTranscript = fixture.transactions
     .at(-1)
     .find(({ sql }) => sql.includes("INSERT INTO transcripts"));
   assert.equal(persistedTranscript.params[4], fixture.captureStartedAt);
-  assert.ok(fixture.summaries.includes(fixture.sessionId));
 });
 
 test("temporary request failures remain eligible for automatic retry", async () => {
@@ -128,7 +127,6 @@ test("temporary request failures remain eligible for automatic retry", async () 
   await retryPendingTranscriptions();
   assert.equal(fixture.requests, requests + 2);
   assert.equal(fixture.pending, false);
-  assert.ok(fixture.summaries.includes(fixture.sessionId));
 });
 
 test("local Whisper auto-detects speech unless spoken languages are selected", async () => {
@@ -141,7 +139,6 @@ test("local Whisper auto-detects speech unless spoken languages are selected", a
   fixture.localCalls.length = 0;
   fixture.meetingGlossary = ["Project X"];
   fixture.requests = 0;
-  fixture.summaries.length = 0;
 
   await transcribeSession(fixture.sessionId);
 
@@ -151,7 +148,6 @@ test("local Whisper auto-detects speech unless spoken languages are selected", a
   });
   assert.equal(fixture.requests, 0);
   assert.equal(fixture.pending, false);
-  assert.deepEqual(fixture.summaries, []);
   assert.equal(fixture.checkpointsDeleted.length, 1);
 
   fixture.sessionId = "offline-autodetect-recording";

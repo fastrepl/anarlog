@@ -18,6 +18,7 @@ import {
 } from "@/data/summarize";
 import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
 import { readProviderConfig } from "@/settings/providers";
+import { providersFor } from "@/settings/providers-model";
 import { createStyleHook } from "@/settings/theme-provider";
 import { useProviderAccess } from "@/settings/use-provider-access";
 
@@ -68,6 +69,13 @@ export function NoteSummary({
   const summaryPending = summaryState?.status === "pending";
   const summaryError = summaryState?.error;
   const summarySkipped = summaryError instanceof SummarySkippedError;
+  const usesCloudflareWorker =
+    summaryProvider.data?.provider === "cloudflare_worker";
+  const summaryProviderName = summaryProvider.data
+    ? (providersFor("llm").find(
+        (provider) => provider.id === summaryProvider.data?.provider,
+      )?.name ?? summaryProvider.data.provider)
+    : null;
   const needsTranscription =
     Boolean(audio.data) && audio.data?.transcriptStatus !== "complete";
   const generate = () =>
@@ -113,11 +121,11 @@ export function NoteSummary({
       {!summary && (
         <Text style={styles.summaryText}>
           {active
-            ? "Your summary will be generated after the meeting."
+            ? "After the meeting, review the transcript and tap Generate summary. Anarlog will ask before sending meeting text to your selected provider."
             : summaryPending
               ? "Generating summary…"
               : transcription === "running"
-                ? "Finishing transcription. Your summary will follow automatically."
+                ? "Finishing transcription. When it completes, review the transcript and tap Generate summary to continue."
                 : needsTranscription
                   ? "Your recording is saved. Finish transcription to get your summary."
                   : "Your meeting summary will appear here. Your memos are in the Memos tab."}
@@ -163,7 +171,7 @@ export function NoteSummary({
                     : "Generate summary"
             }
             loading={summaryPending}
-            disabled={transcription === "running"}
+            disabled={transcription === "running" || !summaryProvider.data}
             variant="ghost"
             size="small"
             onPress={() => {
@@ -171,18 +179,21 @@ export function NoteSummary({
                 router.push("/settings/summary-provider");
                 return;
               }
-              if (summaryProvider.data?.provider === "cloudflare_worker") {
-                Alert.alert(
-                  "Send meeting text to Cloudflare?",
-                  `Your notes and transcript text will be sent to ${summaryProvider.data.baseUrl} for this request. Your Anarlog session token will be sent there to verify your account. Audio is not sent. Continue only if you trust this Worker URL.`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Send and generate", onPress: generate },
-                  ],
-                );
-                return;
-              }
-              generate();
+              const config = summaryProvider.data;
+              if (!config || !summaryProviderName) return;
+              const destination = config.baseUrl.trim() || summaryProviderName;
+              const authenticationNotice =
+                usesCloudflareWorker || config.provider === "anarlog"
+                  ? " Your Anarlog session token will also be sent there to verify your account."
+                  : "";
+              Alert.alert(
+                `Send meeting text to ${summaryProviderName}?`,
+                `Your notes and transcript text will be sent to ${destination} for this request. Audio is not sent.${authenticationNotice} Continue only if you trust this destination.`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Send and generate", onPress: generate },
+                ],
+              );
             }}
           />
         )}

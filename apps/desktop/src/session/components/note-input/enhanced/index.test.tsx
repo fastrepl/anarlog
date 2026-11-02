@@ -451,6 +451,10 @@ describe("Enhanced", () => {
     );
     const view = render(element());
     fireEvent.click(screen.getByRole("button", { name: "Generate summary" }));
+    expect(
+      screen.getByText(/transcript and meeting notes will be sent/u),
+    ).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Send and generate" }));
     await waitFor(() => expect(hoisted.content).toBe("Generated summary"));
     view.rerender(element());
     expect(screen.getByText("Generated summary")).not.toBeNull();

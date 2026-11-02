@@ -30,11 +30,7 @@ import {
   transcribeLocally,
 } from "./local-whisper";
 import { requestProviderTranscription } from "./provider-transcription";
-import { generateSummaryAfterTranscription } from "./summarize";
-import {
-  clearPendingSummaryStatement,
-  pendingSummaryStatement,
-} from "./summary-job";
+import { clearPendingSummaryStatement } from "./summary-job";
 import { TranscriptionAdmission } from "./transcription-admission";
 import {
   assertBoundedTranscriptionResponse,
@@ -586,9 +582,7 @@ async function runTranscription(sessionId: string): Promise<void> {
       sql: MARK_COMPLETE_SQL,
       params: [now, attachmentId, sessionId] as unknown[],
     },
-    ...(provider.provider === "local_whisper"
-      ? [clearPendingSummaryStatement(sessionId)]
-      : [pendingSummaryStatement(sessionId)]),
+    clearPendingSummaryStatement(sessionId),
   ];
   await executeTransaction(statements).catch((error) => {
     throw withTranscriptionStage(error, "persist");
@@ -603,8 +597,6 @@ async function runTranscription(sessionId: string): Promise<void> {
       });
     }
   }
-  if (provider.provider !== "local_whisper")
-    generateSummaryAfterTranscription(sessionId);
 }
 
 export function transcribeSession(sessionId: string): Promise<void> {

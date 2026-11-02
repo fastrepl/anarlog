@@ -38,7 +38,6 @@ import {
 } from "./useRunBatch";
 import { useSTTConnection } from "./useSTTConnection";
 
-import { requestMainAutoEnhance } from "~/ai/task-window-sync";
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
 import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
@@ -46,7 +45,6 @@ import {
   deleteProcessedAudioForRetention,
   normalizeAudioRetention,
 } from "~/services/audio-retention";
-import { getEnhancerService } from "~/services/enhancer";
 import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
 import { flushCanonicalSessionEditorChanges } from "~/session-sharing/editor-activity";
 import {
@@ -1162,65 +1160,10 @@ export function useCaptureLifecycle(sessionId: string) {
             }
           }
         }
-        const shouldEnhance =
-          hasTranscriptEvidence &&
-          (transcriptIsComplete ||
-            (postCaptureAction === "none" &&
-              preserveExistingTranscript &&
-              !transcriptWriteError));
-
-        let summaryScheduled = true;
-        if (shouldEnhance) {
-          const summaryMode =
-            pendingSummaryMode ??
-            (refreshSummaryAfterRepair ||
-            (preserveExistingTranscript &&
-              (transcriptTouched || batchCompleted))
-              ? "regenerate"
-              : batchCompleted
-                ? "refresh"
-                : "if_empty");
-          if (!pendingSummaryMode) {
-            pendingSummaryMode = summaryMode;
-            try {
-              await persistTranscriptWrite(async () => {
-                await saveCaptureLifecycleMarker(await marker());
-              });
-            } catch (error) {
-              pendingSummaryMode = undefined;
-              console.error(
-                "[listener] failed to persist summary recovery state",
-                error,
-              );
-              await notifyFailure(
-                "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
-                "post-capture-summary-failed",
-              );
-              await requestRecovery();
-              return;
-            }
-          }
-          try {
-            const service = getEnhancerService();
-            if (!service) {
-              await requestMainAutoEnhance(sessionId, summaryMode);
-            } else {
-              await service.requestAutoEnhance(sessionId, summaryMode);
-            }
-          } catch (error) {
-            summaryScheduled = false;
-            console.error("[listener] failed to schedule summary", error);
-            await notifyFailure(
-              "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
-              "post-capture-summary-failed",
-            );
-          }
-        }
-
         const recoveryComplete =
           !retainAudio ||
           (!details.audioPath && !transcriptWriteError) ||
-          (transcriptIsComplete && summaryScheduled);
+          transcriptIsComplete;
         if (!recoveryComplete) {
           await requestRecovery();
           return;
@@ -1415,9 +1358,6 @@ export function useCaptureLifecycle(sessionId: string) {
           await clearIncompleteCapture(sessionId, transcriptId);
           await clearInheritedIncomplete();
           toast.dismiss(`capture-incomplete-${sessionId}`);
-          const service = getEnhancerService();
-          if (!service) await requestMainAutoEnhance(sessionId, "regenerate");
-          else await service.requestAutoEnhance(sessionId, "regenerate");
           await clearCaptureLifecycleMarker(sessionId, transcriptId);
           await releaseCloudsyncLease();
           return;

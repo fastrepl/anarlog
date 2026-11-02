@@ -290,13 +290,7 @@ describe("useUploadFile", () => {
     consoleError.mockRestore();
   });
 
-  test("keeps CloudSync deferred until imported-audio summary scheduling settles", async () => {
-    let finishSummaryScheduling: (() => void) | undefined;
-    queueAutoEnhanceIfSummaryEmptyMock.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishSummaryScheduling = resolve;
-      }),
-    );
+  test("finishes imported-audio transcription without generating a summary", async () => {
     const { result } = renderHook(() => useUploadFile("session-1"), {
       wrapper: createWrapper(),
     });
@@ -311,24 +305,16 @@ describe("useUploadFile", () => {
       result.current.processAudioFile(file);
     });
 
-    await waitFor(() => {
-      expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
-        "session-1",
-      );
-    });
+    await waitFor(() => expect(endCloudsyncActivity).toHaveBeenCalledOnce());
+    expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(beginCloudsyncActivity).toHaveBeenCalledWith(
       "transcription",
       expect.stringMatching(/^session-1:audio-import:/),
     );
-    expect(endCloudsyncActivity).not.toHaveBeenCalled();
-
-    finishSummaryScheduling?.();
-    await waitFor(() => {
-      expect(endCloudsyncActivity).toHaveBeenCalledWith(
-        "transcription",
-        vi.mocked(beginCloudsyncActivity).mock.calls[0]?.[1],
-      );
-    });
+    expect(endCloudsyncActivity).toHaveBeenCalledWith(
+      "transcription",
+      vi.mocked(beginCloudsyncActivity).mock.calls[0]?.[1],
+    );
   });
 
   test.each([
@@ -399,7 +385,7 @@ describe("useUploadFile", () => {
     consoleError.mockRestore();
   });
 
-  test("persists imported subtitles before enhancing", async () => {
+  test("persists imported subtitles without automatically enhancing", async () => {
     let resolveWrite: (() => void) | undefined;
     createTranscriptMock.mockImplementationOnce(
       () =>
@@ -429,9 +415,7 @@ describe("useUploadFile", () => {
     await act(async () => {
       resolveWrite?.();
     });
-    await waitFor(() => {
-      expect(enhanceMock).toHaveBeenCalledWith("session-1");
-    });
+    expect(enhanceMock).not.toHaveBeenCalled();
     expect(createTranscriptMock).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: "session-1",
@@ -445,9 +429,6 @@ describe("useUploadFile", () => {
           }),
         ],
       }),
-    );
-    expect(createTranscriptMock.mock.invocationCallOrder[0]).toBeLessThan(
-      enhanceMock.mock.invocationCallOrder[0],
     );
   });
 });

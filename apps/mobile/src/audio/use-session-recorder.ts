@@ -28,16 +28,15 @@ import {
   markSessionAudioTranscribed,
   type LiveTranscriptionStatus,
 } from "@/data/live-transcription";
-import { generateSummaryAfterTranscription } from "@/data/summarize";
 import { transcribeSession } from "@/data/transcribe";
 import { captureAnalytics } from "@/lib/analytics";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
-import { readPreferences } from "@/settings/preferences";
 import {
   endMeetingRecordingActivity,
   startMeetingRecordingActivity,
 } from "@/live-activity/meeting-recording-activity";
+import { readPreferences } from "@/settings/preferences";
 
 const STREAM_SAMPLE_RATE = 16_000;
 const STREAM_CHANNELS = 1;
@@ -482,18 +481,14 @@ export function useSessionRecorder(
       const liveComplete = await (live?.stop() ?? Promise.resolve(false));
       let transcriptionMode = liveComplete ? "live" : "batch_fallback";
       if (liveComplete) {
-        await markSessionAudioTranscribed(sessionId)
-          .then(() => {
-            generateSummaryAfterTranscription(sessionId);
-          })
-          .catch((error) => {
-            transcriptionMode = "batch_fallback";
-            captureOperationalError(error, {
-              operation: "transcription_live_mark_complete",
-              tags: { mode: "live" },
-            });
-            void transcribeSession(sessionId);
+        await markSessionAudioTranscribed(sessionId).catch((error) => {
+          transcriptionMode = "batch_fallback";
+          captureOperationalError(error, {
+            operation: "transcription_live_mark_complete",
+            tags: { mode: "live" },
           });
+          void transcribeSession(sessionId);
+        });
       } else {
         void transcribeSession(sessionId);
       }

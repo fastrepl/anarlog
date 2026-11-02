@@ -26,7 +26,7 @@ import {
   type LiveSpeakerHint,
   type LiveTranscriptWord,
 } from "./live-transcription-model";
-import { pendingSummaryStatement } from "./summary-job";
+import { clearPendingSummaryStatement } from "./summary-job";
 import { sharedMicrophoneContextStatement } from "./transcript-model";
 
 export type LiveTranscriptionStatus = "connecting" | "live" | "fallback";
@@ -637,6 +637,6 @@ export async function markSessionAudioTranscribed(
       sql: MARK_AUDIO_COMPLETE_SQL,
       params: [nowIso(), `session-audio:${sessionId}`, sessionId],
     },
-    pendingSummaryStatement(sessionId),
+    clearPendingSummaryStatement(sessionId),
   ]);
 }

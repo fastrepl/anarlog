@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { beginCloudsyncActivity, endCloudsyncActivity } from "@anlg/plugin-db";
@@ -68,33 +68,17 @@ describe("useRegenerateTranscript", () => {
     });
   });
 
-  it("keeps CloudSync deferred until summary scheduling settles", async () => {
-    let finishSummaryScheduling: (() => void) | undefined;
+  it("finishes retranscription without generating a summary", async () => {
     mocks.runBatch.mockResolvedValue(undefined);
-    mocks.queueAutoEnhanceIfSummaryEmpty.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishSummaryScheduling = resolve;
-      }),
-    );
     const { result } = renderHook(() => useRegenerateTranscript("session-1"));
 
-    const regeneration = result.current();
-    await waitFor(() => {
-      expect(mocks.queueAutoEnhanceIfSummaryEmpty).toHaveBeenCalledWith(
-        "session-1",
-      );
-    });
+    await act(async () => await result.current());
+    expect(mocks.queueAutoEnhanceIfSummaryEmpty).not.toHaveBeenCalled();
 
     expect(beginCloudsyncActivity).toHaveBeenCalledWith(
       "transcription",
       expect.stringMatching(/^session-1:retranscription:/),
     );
-    expect(endCloudsyncActivity).not.toHaveBeenCalled();
-
-    finishSummaryScheduling?.();
-    await act(async () => {
-      await regeneration;
-    });
     expect(endCloudsyncActivity).toHaveBeenCalledWith(
       "transcription",
       vi.mocked(beginCloudsyncActivity).mock.calls[0]?.[1],

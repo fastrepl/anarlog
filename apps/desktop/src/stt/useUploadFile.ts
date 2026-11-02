@@ -18,11 +18,9 @@ import { ChannelProfile } from "./segment";
 import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
 
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
-import { getEnhancerService } from "~/services/enhancer";
 import { catalogLocalSessionAudio } from "~/session/attachments";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
 import { useSession, useUpdateSession } from "~/session/queries";
-import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { createTranscript } from "~/stt/queries";
 
 export const AUDIO_EXTENSIONS = [
@@ -65,39 +63,6 @@ export function useUploadFile(sessionId: string) {
 
   const session = useSession(sessionId);
   const updateSession = useUpdateSession(sessionId);
-
-  const triggerEnhance = useCallback(async () => {
-    const service = getEnhancerService();
-    if (!service) return;
-
-    try {
-      const result = await service.enhance(sessionId);
-      if (result.type !== "started" && result.type !== "already_active") {
-        return;
-      }
-      const tabsState = useTabs.getState();
-      const sessionTab = tabsState.tabs.find(
-        (tab): tab is Extract<Tab, { type: "sessions" }> =>
-          tab.type === "sessions" && tab.id === sessionId,
-      );
-      if (sessionTab && sessionTab.state.view?.type !== "transcript") {
-        tabsState.updateSessionTabState(sessionTab, {
-          ...sessionTab.state,
-          view: { type: "enhanced", id: result.noteId },
-        });
-      }
-    } catch (error) {
-      console.error("[enhancer] failed to enhance uploaded file", error);
-    }
-  }, [sessionId]);
-
-  const triggerEnhanceIfSummaryEmpty = useCallback(async () => {
-    try {
-      await getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId);
-    } catch (error) {
-      console.error("[enhancer] failed to queue uploaded file", error);
-    }
-  }, [sessionId]);
 
   const applyEstimatedAudioNoteDate = useCallback(
     async (filePath: string) => {
@@ -228,7 +193,6 @@ export function useUploadFile(sessionId: string) {
             catch: (error) => error,
           }),
         ),
-        Effect.tap(() => Effect.promise(triggerEnhanceIfSummaryEmpty)),
         Effect.catchAll((error: unknown) =>
           Effect.sync(() => {
             if (isStoppedTranscriptionError(error)) {
@@ -255,7 +219,6 @@ export function useUploadFile(sessionId: string) {
       queryClient,
       runBatch,
       sessionId,
-      triggerEnhanceIfSummaryEmpty,
     ],
   );
 
@@ -316,7 +279,6 @@ export function useUploadFile(sessionId: string) {
                   });
                 }),
               ),
-              Effect.tap(() => Effect.promise(triggerEnhance)),
             );
           }),
         );
@@ -345,7 +307,6 @@ export function useUploadFile(sessionId: string) {
     [
       sessionId,
       session,
-      triggerEnhance,
       applyEstimatedAudioNoteDate,
       importWithProgress,
       runAudioImport,

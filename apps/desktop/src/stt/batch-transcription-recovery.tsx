@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import type { TranscriptionSession } from "@anlg/plugin-transcription";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
-import { getEnhancerService } from "~/services/enhancer";
 import { useSession } from "~/session/queries";
 import { recoverRunningBatchSessions } from "~/store/zustand/listener/general-batch";
 import { listenerStore } from "~/store/zustand/listener/instance";
@@ -65,19 +64,15 @@ function ResumeBatchTranscription({
     void runBatch(session.file_path, {
       promotion: { scope: context.promotion },
       resume: { provider: session.provider, model: session.model },
-    })
-      .then(() =>
-        getEnhancerService()?.queueAutoEnhanceIfSummaryEmpty(sessionId),
-      )
-      .catch((error) => {
-        if (isStoppedTranscriptionError(error)) return;
-        const message = error instanceof Error ? error.message : String(error);
-        console.error("[listener] failed to resume batch transcription", {
-          sessionId,
-          error: message,
-        });
-        listenerStore.getState().handleBatchFailed(sessionId, message);
+    }).catch((error) => {
+      if (isStoppedTranscriptionError(error)) return;
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[listener] failed to resume batch transcription", {
+        sessionId,
+        error: message,
       });
+      listenerStore.getState().handleBatchFailed(sessionId, message);
+    });
   }, [record, runBatch, session, sessionId]);
 
   return null;

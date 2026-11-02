@@ -10,7 +10,6 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { executeTransaction, liveQueryClient } from "~/db";
 import { withCloudsyncActivity } from "~/db/cloudsync-activity";
-import { getEnhancerService } from "~/services/enhancer";
 import { catalogLocalSessionAudio } from "~/session/attachments";
 import { useSession } from "~/session/queries";
 import { useAiProvidersState } from "~/settings/providers";
@@ -33,7 +32,13 @@ async function heartbeat() {
       sql: `UPDATE local_recording_import_jobs SET processing_status = 'failed',
         error = 'Desktop processing was interrupted. The meeting and any completed transcript were preserved.',
         updated_at = unixepoch()
-        WHERE processing_status IN ('importing', 'transcribing', 'summarizing') AND updated_at < unixepoch() - 120`,
+        WHERE processing_status IN ('importing', 'transcribing') AND updated_at < unixepoch() - 120`,
+      params: [],
+    },
+    {
+      sql: `UPDATE local_recording_import_jobs SET processing_status = 'done', summary_status = 'pending', error = NULL,
+        updated_at = unixepoch()
+        WHERE processing_status = 'summarizing' AND updated_at < unixepoch() - 120`,
       params: [],
     },
     {
@@ -78,7 +83,7 @@ export function RecordingImportWorker() {
     queryFn: () =>
       liveQueryClient.execute<ImportJob>(
         `SELECT id, meeting_id, file_path FROM local_recording_import_jobs
-       WHERE processing_status = 'queued' OR (worker_id = ? AND processing_status IN ('importing', 'transcribing', 'summarizing'))
+       WHERE processing_status = 'queued' OR (worker_id = ? AND processing_status IN ('importing', 'transcribing'))
        ORDER BY CASE WHEN processing_status = 'queued' THEN 1 ELSE 0 END, updated_at, id LIMIT 1`,
         [workerId],
       ),
@@ -183,22 +188,14 @@ async function processImport(
         await runBatch(imported.data, {
           promotion: { scope: "whole_session" },
         });
-        phase = "summarizing";
-        await update(phase);
-        const enhancer = getEnhancerService();
-        if (!enhancer)
-          throw new Error(
-            "Intelligence service is not ready. Transcript was preserved.",
-          );
-        const summary = await enhancer.enhanceAndWait(job.meeting_id);
-        await update("done", summary);
+        await update("done", "pending");
       },
     );
   } catch {
     // Provider errors may contain credentials; keep externally readable job errors bounded and generic.
     await update(
       "failed",
-      phase === "summarizing" ? "failed" : "pending",
+      "pending",
       `${phase} failed or was interrupted. Check the desktop app; completed meeting data was preserved.`,
     );
   } finally {
