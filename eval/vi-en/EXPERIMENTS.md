@@ -2,7 +2,7 @@
 
 Date: 2026-11-03
 
-A local-only smoke comparison scored 24 short ViMedCSS clips (228 seconds total)
+A local-only smoke comparison scored 24 short ViMedCSS clips (184 seconds total)
 from three medical topics. The clips were selected from the first 100 rows
 returned by the dataset service; this is a convenience sample, not a random or
 meeting-representative sample. The same references were transcribed by
