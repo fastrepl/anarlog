@@ -428,7 +428,7 @@ export function providersFor(kind: ProviderKind) {
 
 export function defaultProviderConfig(
   kind: ProviderKind,
-  provider = "anarlog",
+  provider = kind === "stt" ? "local_whisper" : "anarlog",
 ): ProviderConfig {
   const definition = providersFor(kind).find((entry) => entry.id === provider);
   if (!definition) throw new Error("Unsupported provider");
@@ -440,7 +440,8 @@ export function validateProviderConfig(
   config: ProviderConfig,
 ): ProviderConfig {
   const connection = validateProviderConnection(kind, config);
-  if (config.provider === "anarlog") return defaultProviderConfig(kind);
+  if (config.provider === "anarlog")
+    return defaultProviderConfig(kind, "anarlog");
   if (config.provider === "cloudflare_worker") {
     if (kind !== "llm") throw new Error("Unsupported provider");
     const model = config.model.trim();

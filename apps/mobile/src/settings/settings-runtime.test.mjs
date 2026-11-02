@@ -205,6 +205,11 @@ beforeEach(() => {
     });
 });
 
+test("new mobile users default to local transcription and Anarlog summaries", () => {
+  assert.equal(defaultProviderConfig("stt").provider, "local_whisper");
+  assert.equal(defaultProviderConfig("llm").provider, "anarlog");
+});
+
 test("rejected provider keys never replace working credentials or settings", async () => {
   for (const kind of ["stt", "llm"]) {
     const config = defaultProviderConfig(kind, "openai");
@@ -248,7 +253,7 @@ test("failed verification never creates a provider or exposes it in selection", 
     (await readProviderStatus(null, "stt", "deepgram")).isConfigured,
     false,
   );
-  assert.equal((await readProviderConfig(null, "stt")).provider, "anarlog");
+  assert.equal((await readProviderConfig(null, "stt")).provider, "local_whisper");
 });
 
 test("custom STT save and availability skip model-list verification", async () => {
@@ -462,7 +467,7 @@ test("provider keys stay in device-only secure storage, separated by account and
   );
   assert.equal(
     (await readProviderConfig("account-a", "stt")).provider,
-    "anarlog",
+    "local_whisper",
   );
   fixture.session = {
     user: { id: "account-a" },
@@ -476,6 +481,11 @@ test("provider keys stay in device-only secure storage, separated by account and
 
 test("hosted Anarlog Pro requires a session token", async () => {
   fixture.session = null;
+  await saveProviderConfig(
+    null,
+    "stt",
+    defaultProviderConfig("stt", "anarlog"),
+  );
   await assert.rejects(resolveProvider("stt"), /Sign in to use Anarlog Pro/);
 });
 
@@ -816,7 +826,7 @@ test("saving provider credentials leaves the active selection unchanged", async 
   );
   assert.equal(
     (await readProviderConfig("account-a", "stt")).provider,
-    "anarlog",
+    "local_whisper",
   );
   assert.equal(fixture.requests.length, 0);
 });
@@ -1018,7 +1028,7 @@ test("invalid setup or a removed key cannot replace the current provider", async
   );
   assert.equal(
     (await readProviderConfig("account-a", "stt")).provider,
-    "anarlog",
+    "local_whisper",
   );
   assert.deepEqual(
     await readProviderSetup("account-a", "stt", "deepgram"),
@@ -1180,11 +1190,16 @@ test("missing keys cannot activate a provider and selecting Pro uses only the ac
     saveProviderConfig(null, "stt", defaultProviderConfig("stt", "openai")),
     /Enter an API key/,
   );
-  assert.equal((await readProviderConfig(null, "stt")).provider, "anarlog");
+  assert.equal((await readProviderConfig(null, "stt")).provider, "local_whisper");
   signedInWith({
     subscription_status: "active",
     entitlements: ["hyprnote_pro"],
   });
+  await saveProviderConfig(
+    "account-a",
+    "stt",
+    defaultProviderConfig("stt", "anarlog"),
+  );
   assert.equal(
     (await resolveProvider("stt")).apiKey,
     fixture.session.access_token,
@@ -1199,6 +1214,11 @@ test("active trials use hosted models; expired trials cannot send STT or summary
     entitlements: ["hyprnote_pro"],
   };
   signedInWith(trial);
+  await saveProviderConfig(
+    "account-a",
+    "stt",
+    defaultProviderConfig("stt", "anarlog"),
+  );
   assert.equal(
     (await resolveProvider("stt")).apiKey,
     fixture.session.access_token,
@@ -1577,7 +1597,7 @@ test("every provider keeps its key on this device and restores its own setup", a
       );
       assert.equal(
         (await readProviderConfig("account-a", kind)).provider,
-        "anarlog",
+        defaultProviderConfig(kind).provider,
         tag,
       );
       await saveProviderConfig("account-a", kind, config);
