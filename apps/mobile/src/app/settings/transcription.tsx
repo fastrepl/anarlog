@@ -7,7 +7,7 @@ import {
   SettingsRow,
 } from "@/settings/components";
 import { FieldGroup } from "@/settings/field-group";
-import { Picker, Text } from "@/settings/fields";
+import { Picker, Switch, Text } from "@/settings/fields";
 import { LANGUAGE_CODES, languageName } from "@/settings/languages";
 import { usePreferenceMutation, usePreferences } from "@/settings/preferences";
 
@@ -15,6 +15,7 @@ export default function TranscriptionSettings() {
   const router = useRouter();
   const preferences = usePreferences();
   const language = usePreferenceMutation("ai_language");
+  const liveTranscription = usePreferenceMutation("live_transcription_enabled");
   const languages = [
     ...new Set([preferences.ai_language, ...LANGUAGE_CODES]),
   ].sort((a, b) => languageName(a).localeCompare(languageName(b)));
@@ -69,6 +70,22 @@ export default function TranscriptionSettings() {
           </Text>
         </FieldGroup.SectionFooter>
         <SettingsError error={language.error} />
+      </FieldGroup.Section>
+      <FieldGroup.Section title="Recording">
+        <Switch
+          label="Transcribe live while recording"
+          value={preferences.live_transcription_enabled}
+          disabled={liveTranscription.isPending}
+          onValueChange={(value) => liveTranscription.mutate(value)}
+        />
+        <FieldGroup.SectionFooter>
+          <Text>
+            Off by default. Recordings are saved on this device and transcribed
+            after you stop. Turn this on to stream audio to the selected live
+            transcription provider while recording.
+          </Text>
+        </FieldGroup.SectionFooter>
+        <SettingsError error={liveTranscription.error} />
       </FieldGroup.Section>
     </SettingsPage>
   );

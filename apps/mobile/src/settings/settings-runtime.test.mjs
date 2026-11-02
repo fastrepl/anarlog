@@ -377,6 +377,17 @@ test("desktop list encoding and malformed preferences preserve usable defaults",
   assert.equal(preferences.theme, "light");
   assert.deepEqual(preferences.spoken_languages, ["ko", "en"]);
   assert.equal(preferences.sidebar_show_tags, false);
+  assert.equal(preferences.live_transcription_enabled, false);
+  assert.equal(
+    parsePreferences([
+      {
+        id: "live_transcription_enabled",
+        value_json: "true",
+        source_rank: 0,
+      },
+    ]).live_transcription_enabled,
+    true,
+  );
   assert.deepEqual(
     normalizeDictionary([
       " Anarlog ",

@@ -33,6 +33,7 @@ import { transcribeSession } from "@/data/transcribe";
 import { captureAnalytics } from "@/lib/analytics";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { readPreferences } from "@/settings/preferences";
 import {
   endMeetingRecordingActivity,
   startMeetingRecordingActivity,
@@ -84,6 +85,7 @@ export function useSessionRecorder(
   const activeRef = useRef(true);
   const writerRef = useRef<SessionWavWriter | null>(null);
   const liveRef = useRef<SessionLiveTranscription | null>(null);
+  const liveTranscriptionEnabledRef = useRef(false);
   const startGenerationRef = useRef(0);
   const startRef = useRef<Promise<void> | null>(null);
   const stopOperationRef = useRef<Promise<StopResult> | null>(null);
@@ -156,18 +158,23 @@ export function useSessionRecorder(
         return;
       }
       const generation = startGenerationRef.current;
-      liveRef.current ??= new SessionLiveTranscription(
-        sessionId,
-        buffer.sampleRate,
-        buffer.channels,
-        ({ status, text }) => {
-          if (!activeRef.current || generation !== startGenerationRef.current) {
-            return;
-          }
-          setLiveStatus(status);
-          setLiveTranscript(text);
-        },
-      );
+      if (liveTranscriptionEnabledRef.current) {
+        liveRef.current ??= new SessionLiveTranscription(
+          sessionId,
+          buffer.sampleRate,
+          buffer.channels,
+          ({ status, text }) => {
+            if (
+              !activeRef.current ||
+              generation !== startGenerationRef.current
+            ) {
+              return;
+            }
+            setLiveStatus(status);
+            setLiveTranscript(text);
+          },
+        );
+      }
       liveRef.current?.sendAudio(buffer.data);
       durationRef.current = Math.round(writer.durationMs);
       if (activeRef.current) {
@@ -198,6 +205,7 @@ export function useSessionRecorder(
     setAmplitude(0);
     setLiveStatus("connecting");
     setLiveTranscript("");
+    liveTranscriptionEnabledRef.current = false;
     setFailure(null);
     reportedFailureRef.current = null;
     setPhase("starting");
@@ -231,6 +239,18 @@ export function useSessionRecorder(
         setPhase("unavailable");
         return;
       }
+
+      try {
+        liveTranscriptionEnabledRef.current = (
+          await readPreferences()
+        ).live_transcription_enabled;
+      } catch (error) {
+        captureOperationalError(error, {
+          operation: "recording_live_transcription_preference",
+          level: "warning",
+        });
+      }
+      if (!isCurrent()) return;
 
       if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
         const notificationPermission = await PermissionsAndroid.request(
@@ -283,11 +303,15 @@ export function useSessionRecorder(
       });
       captureAnalytics("recording_started", {
         entry_point: "mobile_recorder",
-        transcription_mode: "live_with_batch_fallback",
+        transcription_mode: liveTranscriptionEnabledRef.current
+          ? "live_with_batch_fallback"
+          : "record_then_batch",
       });
       captureAnalytics("session_started", {
         entry_point: "mobile_recorder",
-        transcription_mode: "live_with_batch_fallback",
+        transcription_mode: liveTranscriptionEnabledRef.current
+          ? "live_with_batch_fallback"
+          : "record_then_batch",
       });
       setPhase("recording");
     } catch (error) {

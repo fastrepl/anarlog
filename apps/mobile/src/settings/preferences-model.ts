@@ -8,6 +8,7 @@ export const DEFAULT_PREFERENCES = {
   ai_language: "en",
   spoken_languages: [] as string[],
   personalization_dictionary_terms: [] as string[],
+  live_transcription_enabled: false,
   theme: "system" as "system" | "light" | "dark",
   sidebar_show_folder: true,
   sidebar_show_tags: false,
@@ -50,6 +51,9 @@ export function parsePreferences(rows: PreferenceRow[]): Preferences {
       case "sidebar_show_folder":
       case "sidebar_show_tags":
         if (typeof value === "boolean") result[row.id] = value;
+        break;
+      case "live_transcription_enabled":
+        if (typeof value === "boolean") result.live_transcription_enabled = value;
         break;
       case "theme":
         if (value === "system" || value === "light" || value === "dark")
