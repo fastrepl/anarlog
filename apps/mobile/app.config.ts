@@ -49,6 +49,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const appVariant = resolveAppVariant();
   const variant = variants[appVariant];
   const isDev = appVariant === "dev";
+  const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
+  const googleIosScheme = googleIosClientId
+    ? `com.googleusercontent.apps.${googleIosClientId.split(".")[0]}`
+    : "";
 
   return {
     ...config,
@@ -65,6 +69,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       infoPlist: {
         ...config.ios?.infoPlist,
         ITSAppUsesNonExemptEncryption: false,
+        ...(googleIosScheme
+          ? {
+              CFBundleURLTypes: [
+                ...((config.ios?.infoPlist?.CFBundleURLTypes as
+                  | Array<Record<string, unknown>>
+                  | undefined) ?? []),
+                { CFBundleURLSchemes: [googleIosScheme] },
+              ],
+            }
+          : {}),
       },
     },
     android: {
@@ -122,6 +136,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
       sentryDsn:
         process.env.EXPO_PUBLIC_SENTRY_DSN ?? process.env.SENTRY_DSN ?? "",
+      googleIosClientId,
+      googleIosScheme,
     },
   };
 };

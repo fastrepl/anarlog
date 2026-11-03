@@ -32,8 +32,7 @@ function getBridge(): MobileDbBridgeLike {
   if (!bridge) {
     try {
       const backup = applyPendingLocalDatabaseReset();
-      if (backup)
-        console.warn(`[db] started fresh; previous database kept as ${backup}`);
+      if (backup) console.warn(`[db] previous database archived as ${backup}`);
     } catch (error) {
       captureOperationalError(error, {
         operation: "database_reset",
@@ -270,6 +269,34 @@ async function executeTransaction(
     captureOperationalError(error, { operation: "database_transaction" });
     throw error;
   }
+}
+
+export async function executeCommand(
+  sql: string,
+  params: unknown[] = [],
+): Promise<void> {
+  try {
+    getBridge().executeProxy(sql, JSON.stringify(params), "run");
+  } catch (error) {
+    captureOperationalError(error, { operation: "database_command" });
+    throw error;
+  }
+}
+
+export function encryptBackupFile(
+  sourcePath: string,
+  destinationPath: string,
+  keyHex: string,
+): void {
+  getBridge().encryptBackupFile(sourcePath, destinationPath, keyHex);
+}
+
+export function decryptBackupFile(
+  sourcePath: string,
+  destinationPath: string,
+  keyHex: string,
+): void {
+  getBridge().decryptBackupFile(sourcePath, destinationPath, keyHex);
 }
 
 async function subscribe<T = Row>(

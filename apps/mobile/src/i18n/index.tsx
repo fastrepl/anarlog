@@ -300,6 +300,51 @@ Object.assign(vi, {
 });
 
 Object.assign(vi, {
+  "Google Drive backup": "Sao lưu Google Drive",
+  "Google Drive backup is currently available on iPhone only.":
+    "Hiện có thể dùng tính năng sao lưu Google Drive trên iPhone.",
+  "Connected Google account": "Tài khoản Google đã kết nối",
+  "Google Drive not connected": "Chưa kết nối Google Drive",
+  "Back up now": "Sao lưu ngay",
+  "Creating backup…": "Đang tạo bản sao lưu…",
+  "Restore latest backup": "Khôi phục bản sao lưu mới nhất",
+  "Preparing restore…": "Đang chuẩn bị khôi phục…",
+  "Disconnect Google Drive": "Ngắt kết nối Google Drive",
+  "Disconnecting…": "Đang ngắt kết nối…",
+  "Backup downloaded. Force close and reopen Anarlog to apply it.":
+    "Đã tải bản sao lưu. Hãy buộc đóng rồi mở lại Anarlog để áp dụng.",
+  "Backup saved to Google Drive.": "Đã lưu bản sao lưu vào Google Drive.",
+  "Connect Google Drive": "Kết nối Google Drive",
+  "Google Drive is not configured yet. Add the iOS OAuth Client ID and rebuild the app.":
+    "Google Drive chưa được cấu hình. Hãy thêm OAuth Client ID cho iOS rồi dựng lại ứng dụng.",
+  "Google sign-in was cancelled.": "Đã hủy đăng nhập Google.",
+  "Google sign-in returned an invalid response.":
+    "Google trả về phản hồi đăng nhập không hợp lệ.",
+  "Google sign-in did not return an authorization code.":
+    "Google không trả về mã cấp quyền.",
+  "Google could not finish connecting this account.":
+    "Không thể hoàn tất kết nối tài khoản Google.",
+  "Google did not return the account email.":
+    "Google không trả về địa chỉ email tài khoản.",
+  "Could not upload the backup to Google Drive.":
+    "Không thể tải bản sao lưu lên Google Drive.",
+  "No Anarlog backup was found in this Google account.":
+    "Không tìm thấy bản sao lưu Anarlog trong tài khoản Google này.",
+  "Could not download the Google Drive backup.":
+    "Không thể tải bản sao lưu từ Google Drive.",
+  "Could not access Anarlog backups in Google Drive.":
+    "Không thể truy cập bản sao lưu Anarlog trên Google Drive.",
+  "Connect Google Drive first.": "Hãy kết nối Google Drive trước.",
+  "Google Drive access expired. Disconnect and connect it again.":
+    "Quyền truy cập Google Drive đã hết hạn. Hãy ngắt kết nối rồi kết nối lại.",
+  "Restore will replace the data on this iPhone when Anarlog next starts. Continue?":
+    "Bản sao lưu sẽ thay thế dữ liệu trên iPhone này khi Anarlog khởi động lại. Tiếp tục?",
+  "Restore backup": "Khôi phục bản sao lưu",
+  "Backups are encrypted and include notes, transcripts, and app data. Recordings are not included; the encryption key stays in this iPhone’s Keychain, so this backup can only be restored on this device.":
+    "Bản sao lưu được mã hóa, gồm ghi chú, bản chép lời và dữ liệu ứng dụng. Bản ghi âm không được sao lưu; khóa mã hóa chỉ lưu trong Keychain của iPhone này nên chỉ có thể khôi phục trên thiết bị này.",
+});
+
+Object.assign(vi, {
   Memos: "Ghi chú",
   Transcript: "Bản chép lời",
   Summary: "Tóm tắt",

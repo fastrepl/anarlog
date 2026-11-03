@@ -23,6 +23,12 @@ use listener::{ListenerDelivery, ListenerSink, QueryEventListener};
 
 uniffi::setup_scaffolding!();
 
+fn backup_file_error(error: impl std::fmt::Display) -> BridgeError {
+    BridgeError::BackupTransferFailed {
+        reason: error.to_string(),
+    }
+}
+
 fn block_on<F: Future>(runtime: &tokio::runtime::Runtime, future: F) -> F::Output {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
@@ -140,6 +146,30 @@ impl MobileDbBridge {
         let rows_affected =
             block_on(&runtime, executor.execute_transaction(statements)).map_err(execute_error)?;
         serde_json::to_string(&rows_affected).map_err(serialization_error)
+    }
+
+    pub fn encrypt_backup_file(
+        &self,
+        source_path: String,
+        destination_path: String,
+        key_hex: String,
+    ) -> Result<(), BridgeError> {
+        let plaintext = std::fs::read(source_path).map_err(backup_file_error)?;
+        let ciphertext =
+            anlg_e2ee::encrypt_backup_bytes(&plaintext, &key_hex).map_err(backup_file_error)?;
+        std::fs::write(destination_path, ciphertext).map_err(backup_file_error)
+    }
+
+    pub fn decrypt_backup_file(
+        &self,
+        source_path: String,
+        destination_path: String,
+        key_hex: String,
+    ) -> Result<(), BridgeError> {
+        let ciphertext = std::fs::read(source_path).map_err(backup_file_error)?;
+        let plaintext =
+            anlg_e2ee::decrypt_backup_bytes(&ciphertext, &key_hex).map_err(backup_file_error)?;
+        std::fs::write(destination_path, plaintext).map_err(backup_file_error)
     }
 
     pub fn configure_attachment_storage(

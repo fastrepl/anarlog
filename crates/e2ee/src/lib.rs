@@ -32,6 +32,7 @@ const PAYLOAD_AAD_DOMAIN: &[u8] = b"anarlog-e2ee-payload-v1";
 const DEVICE_ENROLLMENT_KEY_PREFIX: &str = "anarlog-device-key-v1:";
 const DEVICE_ENROLLMENT_KDF_SALT: &[u8] = b"anarlog-device-enrollment-kdf-v1";
 const DEVICE_ENROLLMENT_AAD_DOMAIN: &[u8] = b"anarlog-device-enrollment-v1";
+const BACKUP_AAD_DOMAIN: &[u8] = b"anarlog-drive-backup-v1";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -60,6 +61,60 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub fn encrypt_backup_bytes(plaintext: &[u8], key_hex: &str) -> Result<Vec<u8>> {
+    let key = decode_backup_key(key_hex)?;
+    let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|_| Error::InvalidPayload)?;
+    let mut nonce = [0_u8; 24];
+    getrandom::fill(&mut nonce).map_err(|_| Error::RandomnessUnavailable)?;
+    let nonce = XNonce::from(nonce);
+    let ciphertext = cipher
+        .encrypt(
+            &nonce,
+            Payload {
+                msg: plaintext,
+                aad: BACKUP_AAD_DOMAIN,
+            },
+        )
+        .map_err(|_| Error::AuthenticationFailed)?;
+    let mut result = b"ANARLOG-BACKUP-1".to_vec();
+    result.extend_from_slice(&nonce);
+    result.extend_from_slice(&ciphertext);
+    Ok(result)
+}
+
+pub fn decrypt_backup_bytes(ciphertext: &[u8], key_hex: &str) -> Result<Vec<u8>> {
+    let header = b"ANARLOG-BACKUP-1";
+    if ciphertext.len() < header.len() + 24 || !ciphertext.starts_with(header) {
+        return Err(Error::InvalidPayload);
+    }
+    let key = decode_backup_key(key_hex)?;
+    let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|_| Error::InvalidPayload)?;
+    let nonce: [u8; 24] = ciphertext[header.len()..header.len() + 24]
+        .try_into()
+        .map_err(|_| Error::InvalidPayload)?;
+    cipher
+        .decrypt(
+            &XNonce::from(nonce),
+            Payload {
+                msg: &ciphertext[header.len() + 24..],
+                aad: BACKUP_AAD_DOMAIN,
+            },
+        )
+        .map_err(|_| Error::AuthenticationFailed)
+}
+
+fn decode_backup_key(value: &str) -> Result<[u8; 32]> {
+    if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(Error::InvalidPayload);
+    }
+    let mut key = [0_u8; 32];
+    for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
+        let hex = std::str::from_utf8(pair).map_err(|_| Error::InvalidPayload)?;
+        key[index] = u8::from_str_radix(hex, 16).map_err(|_| Error::InvalidPayload)?;
+    }
+    Ok(key)
+}
 
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct DeviceEnrollmentKey([u8; 32]);

@@ -303,11 +303,25 @@ interface NativeModuleInterface {
     expectedLibraryWorkspaceId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_decrypt_backup_file(
+    uniffiSelf: bigint,
+    sourcePath: Uint8Array,
+    destinationPath: Uint8Array,
+    keyHex: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(
     uniffiSelf: bigint,
     jobId: Uint8Array,
     attemptCount: number,
   ): bigint;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_encrypt_backup_file(
+    uniffiSelf: bigint,
+    sourcePath: Uint8Array,
+    destinationPath: Uint8Array,
+    keyHex: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(
     uniffiSelf: bigint,
     sql: Uint8Array,
@@ -452,7 +466,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_connect_local_library(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_decrypt_backup_file(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_encrypt_backup_file(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_transaction(): number;

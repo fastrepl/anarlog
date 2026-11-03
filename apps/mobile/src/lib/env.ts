@@ -17,6 +17,8 @@ export const env = {
   posthogApiKey: read("posthogApiKey"),
   posthogHost: read("posthogHost", "https://us.i.posthog.com"),
   sentryDsn: read("sentryDsn"),
+  googleIosClientId: read("googleIosClientId"),
+  googleIosScheme: read("googleIosScheme"),
 };
 
 export const hasSupabaseEnv = Boolean(env.supabaseUrl && env.supabaseAnonKey);

@@ -20,6 +20,8 @@ pub enum BridgeError {
     CloudsyncFailed { reason: String },
     #[error("attachment transfer failed: {reason}")]
     AttachmentTransferFailed { reason: String },
+    #[error("backup transfer failed: {reason}")]
+    BackupTransferFailed { reason: String },
     #[error("failed to serialize payload: {reason}")]
     SerializationFailed { reason: String },
 }

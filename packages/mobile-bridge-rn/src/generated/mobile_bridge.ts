@@ -359,6 +359,7 @@ export enum BridgeError_Tags {
   QueryFailed = "QueryFailed",
   CloudsyncFailed = "CloudsyncFailed",
   AttachmentTransferFailed = "AttachmentTransferFailed",
+  BackupTransferFailed = "BackupTransferFailed",
   SerializationFailed = "SerializationFailed",
 }
 export const BridgeError = (() => {
@@ -707,6 +708,42 @@ export const BridgeError = (() => {
     }
   }
 
+  type BackupTransferFailed__interface = {
+    tag: BridgeError_Tags.BackupTransferFailed;
+    inner: Readonly<{ reason: string }>;
+  };
+  class BackupTransferFailed_
+    extends UniffiError
+    implements BackupTransferFailed__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.BackupTransferFailed;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "BackupTransferFailed");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { reason: string }): BackupTransferFailed_ {
+      return new BackupTransferFailed_(inner);
+    }
+
+    static instanceOf(obj: any): obj is BackupTransferFailed_ {
+      return obj.tag === BridgeError_Tags.BackupTransferFailed;
+    }
+    static hasInner(obj: any): obj is BackupTransferFailed_ {
+      return BackupTransferFailed_.instanceOf(obj);
+    }
+
+    static getInner(obj: BackupTransferFailed_): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
   type SerializationFailed__interface = {
     tag: BridgeError_Tags.SerializationFailed;
     inner: Readonly<{ reason: string }>;
@@ -759,6 +796,7 @@ export const BridgeError = (() => {
     QueryFailed: QueryFailed_,
     CloudsyncFailed: CloudsyncFailed_,
     AttachmentTransferFailed: AttachmentTransferFailed_,
+    BackupTransferFailed: BackupTransferFailed_,
     SerializationFailed: SerializationFailed_,
   });
 })();
@@ -774,6 +812,7 @@ export type BridgeError = InstanceType<
     | "QueryFailed"
     | "CloudsyncFailed"
     | "AttachmentTransferFailed"
+    | "BackupTransferFailed"
     | "SerializationFailed"]
 >;
 
@@ -821,6 +860,10 @@ const FfiConverterTypeBridgeError = (() => {
             reason: FfiConverterString.read(from),
           });
         case 11:
+          return new BridgeError.BackupTransferFailed({
+            reason: FfiConverterString.read(from),
+          });
+        case 12:
           return new BridgeError.SerializationFailed({
             reason: FfiConverterString.read(from),
           });
@@ -886,8 +929,14 @@ const FfiConverterTypeBridgeError = (() => {
           FfiConverterString.write(inner.reason, into);
           return;
         }
-        case BridgeError_Tags.SerializationFailed: {
+        case BridgeError_Tags.BackupTransferFailed: {
           ordinalConverter.write(11, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        case BridgeError_Tags.SerializationFailed: {
+          ordinalConverter.write(12, into);
           const inner = value.inner;
           FfiConverterString.write(inner.reason, into);
           return;
@@ -953,9 +1002,15 @@ const FfiConverterTypeBridgeError = (() => {
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
         }
-        case BridgeError_Tags.SerializationFailed: {
+        case BridgeError_Tags.BackupTransferFailed: {
           const inner = value.inner;
           let size = ordinalConverter.allocationSize(11);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case BridgeError_Tags.SerializationFailed: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(12);
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
         }
@@ -1814,11 +1869,21 @@ export interface MobileDbBridgeLike {
     accountUserId: string,
     expectedLibraryWorkspaceId: string,
   ) /*throws*/ : void;
+  decryptBackupFile(
+    sourcePath: string,
+    destinationPath: string,
+    keyHex: string,
+  ) /*throws*/ : void;
   describeAttachmentUpload(
     jobId: string,
     attemptCount: number,
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<string>;
+  encryptBackupFile(
+    sourcePath: string,
+    destinationPath: string,
+    keyHex: string,
+  ) /*throws*/ : void;
   execute(sql: string, paramsJson: string) /*throws*/ : string;
   executeProxy(
     sql: string,
@@ -2267,6 +2332,31 @@ export class MobileDbBridge
     );
   }
 
+  decryptBackupFile(
+    sourcePath: string,
+    destinationPath: string,
+    keyHex: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_decrypt_backup_file(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sourcePath, nativeModule().rustbuffer_alloc),
+          FfiConverterString.lower(
+            destinationPath,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterString.lower(keyHex, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
   async describeAttachmentUpload(
     jobId: string,
     attemptCount: number,
@@ -2312,6 +2402,31 @@ export class MobileDbBridge
       }
       throw __error;
     }
+  }
+
+  encryptBackupFile(
+    sourcePath: string,
+    destinationPath: string,
+    keyHex: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_encrypt_backup_file(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sourcePath, nativeModule().rustbuffer_alloc),
+          FfiConverterString.lower(
+            destinationPath,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterString.lower(keyHex, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
   }
 
   execute(sql: string, paramsJson: string): string /*throws*/ {
@@ -3483,11 +3598,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_decrypt_backup_file() !==
+    43626
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_decrypt_backup_file",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload() !==
     11264
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_encrypt_backup_file() !==
+    6821
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_encrypt_backup_file",
     );
   }
   if (
