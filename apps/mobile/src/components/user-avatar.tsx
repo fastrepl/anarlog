@@ -1,7 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { Image } from "expo-image";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text as NativeText, View } from "react-native";
 
 import {
   getProviderProfileImageUrl,
@@ -15,6 +15,8 @@ import {
   Radius,
   Typography,
 } from "@/constants/theme";
+import { Text } from "@/i18n";
+import { translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 function profileInitials(name: string | null): string {
@@ -87,9 +89,10 @@ export function UserAvatarButton({
   user: User | null;
 }) {
   const styles = useStyles();
+  const { language } = useLanguage();
   return (
     <Pressable
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={translate(accessibilityLabel, language)}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}

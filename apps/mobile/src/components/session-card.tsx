@@ -1,23 +1,15 @@
-import MenuView, { type MenuAction } from "@expo/ui/community/menu";
+import MenuView from "@expo/ui/community/menu";
 import { Ionicons } from "@expo/vector-icons";
 import { useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text as NativeText, View } from "react-native";
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
 import { relativeLabel, type TimelineSession } from "@/data/timeline";
+import { Text, translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
-
-const DELETE_ACTIONS: MenuAction[] = [
-  {
-    id: "delete",
-    title: "Delete",
-    image: "trash",
-    attributes: { destructive: true },
-  },
-];
 
 const SWIPE_ACTION_WIDTH = 88;
 
@@ -38,6 +30,7 @@ export function SessionCard({
 }) {
   const styles = useStyles();
   const Colors = useColors();
+  const { language } = useLanguage();
   const [width, setWidth] = useState<number>();
   const swipeableRef = useRef<SwipeableMethods>(null);
   const title = session.title || "Untitled";
@@ -45,7 +38,7 @@ export function SessionCard({
   const tags = showTags ? session.tags.map((tag) => `#${tag}`).join(" ") : "";
   const accessibilityLabel = [
     title,
-    folder ? `Folder ${folder}` : "",
+    folder ? translate(`Folder ${folder}`, language) : "",
     relativeLabel(session.startedAt),
     tags,
   ]
@@ -55,9 +48,11 @@ export function SessionCard({
   const content = (
     <Pressable
       accessibilityHint={
-        onDelete ? "Long press or swipe left for actions" : undefined
+        onDelete
+          ? translate("Long press or swipe left for actions", language)
+          : undefined
       }
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={translate(accessibilityLabel, language)}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
@@ -103,7 +98,14 @@ export function SessionCard({
       {onDelete && width != null ? (
         <MenuView
           key={width}
-          actions={DELETE_ACTIONS}
+          actions={[
+            {
+              id: "delete",
+              title: translate("Delete", language),
+              image: "trash",
+              attributes: { destructive: true },
+            },
+          ]}
           onPressAction={({ nativeEvent }) => {
             if (nativeEvent.event === "delete") onDelete();
           }}
@@ -127,7 +129,7 @@ export function SessionCard({
       rightThreshold={SWIPE_ACTION_WIDTH / 2}
       renderRightActions={() => (
         <Pressable
-          accessibilityLabel={`Delete ${title}`}
+          accessibilityLabel={translate(`Delete ${title}`, language)}
           accessibilityRole="button"
           onPress={() => {
             swipeableRef.current?.close();

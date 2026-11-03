@@ -1,6 +1,7 @@
 import { Row, Spacer } from "@expo/ui";
 import { useRouter } from "expo-router";
 
+import { useLanguage } from "@/i18n";
 import {
   SettingsError,
   SettingsPage,
@@ -12,13 +13,16 @@ import { LANGUAGE_CODES, languageName } from "@/settings/languages";
 import { usePreferenceMutation, usePreferences } from "@/settings/preferences";
 
 export default function TranscriptionSettings() {
+  const { language: locale } = useLanguage();
   const router = useRouter();
   const preferences = usePreferences();
   const language = usePreferenceMutation("ai_language");
   const liveTranscription = usePreferenceMutation("live_transcription_enabled");
   const languages = [
     ...new Set([preferences.ai_language, ...LANGUAGE_CODES]),
-  ].sort((a, b) => languageName(a).localeCompare(languageName(b)));
+  ].sort((a, b) =>
+    languageName(a, locale).localeCompare(languageName(b, locale)),
+  );
   return (
     <SettingsPage title="Transcription & summaries">
       <FieldGroup.Section>
@@ -41,7 +45,11 @@ export default function TranscriptionSettings() {
             enabled={!language.isPending}
           >
             {languages.map((code) => (
-              <Picker.Item key={code} value={code} label={languageName(code)} />
+              <Picker.Item
+                key={code}
+                value={code}
+                label={languageName(code, locale)}
+              />
             ))}
           </Picker>
         </Row>
@@ -50,7 +58,7 @@ export default function TranscriptionSettings() {
           value={
             preferences.spoken_languages
               .filter((code) => code !== preferences.ai_language)
-              .map(languageName)
+              .map((code) => languageName(code, locale))
               .join(", ") || undefined
           }
           onPress={() => router.push("/settings/languages")}

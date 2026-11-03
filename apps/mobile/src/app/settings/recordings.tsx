@@ -1,5 +1,11 @@
 import { useRouter } from "expo-router";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text as NativeText,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconButton } from "@/components/ui/icon-button";
@@ -11,6 +17,7 @@ import {
   Typography,
 } from "@/constants/theme";
 import { useLiveQuery } from "@/db";
+import { Text } from "@/i18n";
 import { formatStorageBytes } from "@/settings/storage";
 import { createStyleHook } from "@/settings/theme-provider";
 

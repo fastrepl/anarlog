@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { useLiveQuery } from "@/db";
+import { useLanguage } from "@/i18n";
 
 import {
   buildSessionList,
@@ -50,6 +51,7 @@ function createTimelineClock(sessions: TimelineSession[]) {
 }
 
 export function useTimelineSessions() {
+  const { language } = useLanguage();
   const [limit, setLimit] = useState(TIMELINE_PAGE_SIZE);
   const [orderedAt, setOrderedAt] = useState(Date.now);
   const previousData = useRef<TimelineSession[]>([]);
@@ -71,7 +73,11 @@ export function useTimelineSessions() {
     clock.getSnapshot,
     clock.getSnapshot,
   );
-  const items = useMemo(() => buildSessionList(sessions, now), [sessions, now]);
+  const locale = language === "vi" ? "vi-VN" : "en-US";
+  const items = useMemo(
+    () => buildSessionList(sessions, now, locale),
+    [sessions, now, locale],
+  );
   const hasMore = rows.length > limit;
 
   // A meeting crossing into the past can change which rows belong in the window.

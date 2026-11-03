@@ -3,14 +3,14 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Alert, Keyboard, Text, TextInput, View } from "react-native";
+import { Keyboard, Text as NativeText, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSessionRecorder } from "@/audio/use-session-recorder";
 import { FolderPickerSheet } from "@/components/folder-picker-sheet";
 import { ListeningSheet } from "@/components/listening-sheet";
-import { NoteActionsSheet } from "@/components/note-actions-sheet";
 import { MeetingGlossarySheet } from "@/components/meeting-glossary-sheet";
+import { NoteActionsSheet } from "@/components/note-actions-sheet";
 import { NoteConflictBanner } from "@/components/note-conflict-banner";
 import { SessionTranscript } from "@/components/session-transcript";
 import { StartListeningButton } from "@/components/start-listening-button";
@@ -26,6 +26,7 @@ import {
   loadSessionTranscripts,
   useSessionHasTranscript,
 } from "@/data/transcripts";
+import { Text, localizedAlert, translate, useLanguage } from "@/i18n";
 import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -47,6 +48,7 @@ export function NoteScreen({
   id: string;
   autoListen: boolean;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   const router = useRouter();
@@ -94,7 +96,7 @@ export function NoteScreen({
     const segments = await loadSessionTranscripts(id);
     const segment = segments.find((item) => item.id === segmentId);
     if (!segment) {
-      Alert.alert(
+      localizedAlert(
         "Evidence unavailable",
         "This transcript segment is no longer available.",
       );
@@ -173,7 +175,7 @@ export function NoteScreen({
       captureOperationalError(error, {
         operation: "note_attachment_import",
       });
-      Alert.alert(
+      localizedAlert(
         "Couldn’t attach file",
         error instanceof Error
           ? error.message
@@ -211,7 +213,7 @@ export function NoteScreen({
         operation: "session_export",
         tags: { entry_point: "mobile_note" },
       });
-      Alert.alert(
+      localizedAlert(
         "Couldn’t export meeting",
         error instanceof Error ? error.message : "Try again.",
       );
@@ -224,13 +226,13 @@ export function NoteScreen({
           operation: "session_export",
           tags: { entry_point: "mobile_note" },
         });
-        Alert.alert(
+        localizedAlert(
           "Couldn’t export meeting",
           error instanceof Error ? error.message : "Try again.",
         );
       });
     };
-    Alert.alert(
+    localizedAlert(
       "Export meeting",
       canIncludeAudio
         ? "Choose whether to include the recording. Audio stays on this device unless you share the exported package."
@@ -277,10 +279,10 @@ export function NoteScreen({
         {!isLoading && data ? (
           <TextInput
             key={`${data.id}:${restored?.titleToken ?? 0}`}
-            accessibilityLabel="Note title"
+            accessibilityLabel={translate("Note title", language)}
             style={styles.title}
             defaultValue={restored?.title ?? data.title}
-            placeholder="Untitled"
+            placeholder={translate("Untitled", language)}
             placeholderTextColor={Colors.muted}
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
@@ -310,11 +312,14 @@ export function NoteScreen({
             <View style={styles.tabs}>
               <SegmentedControl
                 values={tabs.map((tab) =>
-                  tab.type === "enhanced"
-                    ? "Summary"
-                    : tab.type === "raw"
-                      ? "Memos"
-                      : "Transcript",
+                  translate(
+                    tab.type === "enhanced"
+                      ? "Summary"
+                      : tab.type === "raw"
+                        ? "Memos"
+                        : "Transcript",
+                    language,
+                  ),
                 )}
                 selectedIndex={selectedIndex}
                 onChange={(event) => {

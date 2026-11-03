@@ -6,6 +6,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Platform } from "react-native";
 
+import { translate, useLanguage } from "@/i18n";
 import { Button, Picker, Text, TextInput } from "@/settings/fields";
 
 import { createProviderAutosave } from "./provider-autosave";
@@ -33,6 +34,7 @@ export function ProviderModelPicker({
   onSave: (model: string) => void;
 }) {
   const Colors = useColors();
+  const { language } = useLanguage();
   const input = useNativeState(initialModel);
   const [manual, setManual] = useState(false);
   const form = useForm({ defaultValues: { model: initialModel } });
@@ -97,14 +99,22 @@ export function ProviderModelPicker({
                 }}
                 testID="provider-model"
               >
-                {!model && <Picker.Item value="empty" label="Select model" />}
+                {!model && (
+                  <Picker.Item
+                    value="empty"
+                    label={translate("Select model", language)}
+                  />
+                )}
                 {modelOptions(
                   presets ?? (hasKey ? (models.data ?? []) : []),
                   model,
                 ).map((id) => (
                   <Picker.Item key={id} value={`model:${id}`} label={id} />
                 ))}
-                <Picker.Item value="manual" label="Enter model ID…" />
+                <Picker.Item
+                  value="manual"
+                  label={translate("Enter model ID…", language)}
+                />
               </Picker>
             )}
           </form.Subscribe>

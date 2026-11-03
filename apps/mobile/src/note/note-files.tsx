@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { File, Paths } from "expo-file-system";
 import { useRef } from "react";
-import { Text, View } from "react-native";
+import { Text as NativeText, View } from "react-native";
 
 import { useAuth } from "@/auth/context";
 import { NoteAttachmentCard } from "@/components/note-attachment-card";
@@ -11,6 +11,7 @@ import {
   restoreNoteAttachmentFromCloud,
   shareNoteAttachment,
 } from "@/data/restore-note-attachment";
+import { Text } from "@/i18n";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";

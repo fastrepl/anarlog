@@ -1,6 +1,11 @@
 import { BottomSheet, Host, RNHostView } from "@expo/ui";
 import { useMutation } from "@tanstack/react-query";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Text as NativeText,
+  View,
+} from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -12,6 +17,7 @@ import {
   type VersionHistoryEntry,
 } from "@/data/conflicts";
 import { relativeLabel } from "@/data/timeline-model";
+import { Text } from "@/i18n";
 import {
   createStyleHook,
   useAppColorScheme,

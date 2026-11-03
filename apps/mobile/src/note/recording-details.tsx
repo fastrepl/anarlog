@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text as NativeText, View } from "react-native";
 
 import { AudioChip } from "@/components/audio-chip";
 import { RecordingInterruptionNotice } from "@/components/recording-interruption-notice";
@@ -7,6 +7,7 @@ import { RecordingSyncCard } from "@/components/recording-sync-card";
 import { RemoteAudioCard } from "@/components/remote-audio-card";
 import { Spacing, Typography } from "@/constants/theme";
 import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
+import { Text } from "@/i18n";
 import { createStyleHook } from "@/settings/theme-provider";
 import { useProviderAccess } from "@/settings/use-provider-access";
 

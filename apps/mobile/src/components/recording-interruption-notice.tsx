@@ -1,6 +1,7 @@
-import { Text } from "react-native";
+import { Text as NativeText } from "react-native";
 
 import { Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
 import { createStyleHook } from "@/settings/theme-provider";
 
 export function RecordingInterruptionNotice() {

@@ -7,17 +7,18 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
+  Text as NativeText,
   TextInput,
   View,
 } from "react-native";
 
+import { Radius, Spacing, Typography } from "@/constants/theme";
 import {
   parseMeetingGlossaryText,
   readMeetingGlossary,
   saveMeetingGlossary,
 } from "@/data/meeting-glossary";
-import { Radius, Spacing, Typography } from "@/constants/theme";
+import { Text, translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 export function MeetingGlossarySheet({
@@ -55,15 +56,18 @@ export function MeetingGlossarySheet({
           <Pressable
             accessibilityRole="button"
             onPress={onClose}
-            style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.headerButton,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.headerButtonText}>Close</Text>
           </Pressable>
         </View>
         <Text style={styles.description}>
           Add names, products, and technical terms for this meeting, one per
-          line. Transcription uses these as recognition hints; it does not replace
-          words in the transcript.
+          line. Transcription uses these as recognition hints; it does not
+          replace words in the transcript.
         </Text>
         {glossary.isLoading ? (
           <ActivityIndicator color={Colors.muted} />
@@ -93,6 +97,7 @@ function GlossaryEditor({
   initialTerms: string[];
   onClose: () => void;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   const queryClient = useQueryClient();
@@ -111,7 +116,7 @@ function GlossaryEditor({
   return (
     <>
       <TextInput
-        accessibilityLabel="Meeting glossary terms"
+        accessibilityLabel={translate("Meeting glossary terms", language)}
         autoCapitalize="sentences"
         autoCorrect={false}
         multiline

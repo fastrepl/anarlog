@@ -5,7 +5,7 @@ import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Text, View } from "react-native";
+import { Text as NativeText, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import {
@@ -20,6 +20,8 @@ import { BrandLoadingView } from "@/components/brand-loading-view";
 import { ToastHost } from "@/components/toast-host";
 import { Button } from "@/components/ui/button";
 import { Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
+import { LanguageProvider } from "@/i18n";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
 import {
   addNavigationBreadcrumb,
@@ -210,15 +212,17 @@ function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AuthProvider>
-            <AnalyticsLifecycle />
-            <Gate />
-            <ToastHost />
-            <AppLock />
-            <AppStatusBar />
-          </AuthProvider>
-        </ThemeProvider>
+        <LanguageProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <AnalyticsLifecycle />
+              <Gate />
+              <ToastHost />
+              <AppLock />
+              <AppStatusBar />
+            </AuthProvider>
+          </ThemeProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );

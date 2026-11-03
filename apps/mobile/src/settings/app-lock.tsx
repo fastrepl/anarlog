@@ -1,10 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useSyncExternalStore } from "react";
-import { AppState, Modal, Text, View } from "react-native";
+import { AppState, Modal, Text as NativeText, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import { createStyleHook } from "@/settings/theme-provider";
 

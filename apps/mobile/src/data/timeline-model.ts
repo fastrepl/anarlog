@@ -28,7 +28,11 @@ function startOfDay(timestamp: number): number {
   return date.getTime();
 }
 
-export function dayLabel(iso: string, now = Date.now()): string {
+export function dayLabel(
+  iso: string,
+  now = Date.now(),
+  locale?: string,
+): string {
   const timestamp = new Date(iso).getTime();
   if (!Number.isFinite(timestamp)) return "Date unavailable";
   const today = new Date(startOfDay(now));
@@ -42,7 +46,7 @@ export function dayLabel(iso: string, now = Date.now()): string {
   if (dayOffset === 1) return "Tomorrow";
   if (dayOffset === -1) return "Yesterday";
   const sameYear = day.getFullYear() === today.getFullYear();
-  return day.toLocaleDateString(undefined, {
+  return day.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     ...(sameYear ? {} : { year: "numeric" }),
@@ -72,12 +76,13 @@ export function relativeLabel(iso: string, now = Date.now()): string {
 export function buildSessionList(
   sessions: TimelineSession[],
   now = Date.now(),
+  locale?: string,
 ): SessionListItem[] {
   const items: SessionListItem[] = [];
   const appendSessions = (keyPrefix: string, group: TimelineSession[]) => {
     let currentLabel: string | null = null;
     for (const session of group) {
-      const sessionDayLabel = dayLabel(session.startedAt, now);
+      const sessionDayLabel = dayLabel(session.startedAt, now, locale);
       if (sessionDayLabel !== currentLabel) {
         items.push({
           type: "header",

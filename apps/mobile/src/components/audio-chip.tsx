@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text as NativeText } from "react-native";
 
 import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import { createStyleHook, useColors } from "@/settings/theme-provider";

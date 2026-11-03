@@ -50,8 +50,66 @@ const LANGUAGE_NAMES: Record<string, string> = {
   zh: "Chinese",
 };
 
+const VIETNAMESE_LANGUAGE_NAMES: Record<string, string> = {
+  ar: "Tiếng Ả Rập",
+  be: "Tiếng Belarus",
+  bg: "Tiếng Bulgaria",
+  bn: "Tiếng Bengal",
+  bs: "Tiếng Bosnia",
+  ca: "Tiếng Catalan",
+  cs: "Tiếng Séc",
+  da: "Tiếng Đan Mạch",
+  de: "Tiếng Đức",
+  el: "Tiếng Hy Lạp",
+  en: "Tiếng Anh",
+  es: "Tiếng Tây Ban Nha",
+  et: "Tiếng Estonia",
+  fa: "Tiếng Ba Tư",
+  fi: "Tiếng Phần Lan",
+  fr: "Tiếng Pháp",
+  he: "Tiếng Hebrew",
+  hi: "Tiếng Hindi",
+  hr: "Tiếng Croatia",
+  hu: "Tiếng Hungary",
+  id: "Tiếng Indonesia",
+  it: "Tiếng Ý",
+  ja: "Tiếng Nhật",
+  kn: "Tiếng Kannada",
+  ko: "Tiếng Hàn",
+  lt: "Tiếng Litva",
+  lv: "Tiếng Latvia",
+  mk: "Tiếng Macedonia",
+  mr: "Tiếng Marathi",
+  ms: "Tiếng Mã Lai",
+  nl: "Tiếng Hà Lan",
+  no: "Tiếng Na Uy",
+  pl: "Tiếng Ba Lan",
+  pt: "Tiếng Bồ Đào Nha",
+  ro: "Tiếng Romania",
+  ru: "Tiếng Nga",
+  sk: "Tiếng Slovakia",
+  sl: "Tiếng Slovenia",
+  sr: "Tiếng Serbia",
+  sv: "Tiếng Thụy Điển",
+  ta: "Tiếng Tamil",
+  te: "Tiếng Telugu",
+  th: "Tiếng Thái",
+  tl: "Tiếng Filipino",
+  tr: "Tiếng Thổ Nhĩ Kỳ",
+  uk: "Tiếng Ukraina",
+  ur: "Tiếng Urdu",
+  vi: "Tiếng Việt",
+  zh: "Tiếng Trung",
+};
+
 export const LANGUAGE_CODES = Object.keys(LANGUAGE_NAMES);
 
-export function languageName(code: string): string {
-  return LANGUAGE_NAMES[code] ?? LANGUAGE_NAMES[code.split("-")[0]!] ?? code;
+export function languageName(
+  code: string,
+  language: "vi" | "en" = "en",
+): string {
+  const normalizedCode = code.split("-")[0]!;
+  if (language === "vi")
+    return VIETNAMESE_LANGUAGE_NAMES[normalizedCode] ?? code;
+  return LANGUAGE_NAMES[code] ?? LANGUAGE_NAMES[normalizedCode] ?? code;
 }

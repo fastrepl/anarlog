@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text as NativeText, View } from "react-native";
 
 import { useAuth } from "@/auth/context";
 import { MarkdownView } from "@/components/markdown-view";
@@ -17,6 +17,8 @@ import {
   useSessionSummaryState,
 } from "@/data/summarize";
 import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
+import { Text } from "@/i18n";
+import { localizedAlert } from "@/i18n";
 import { readProviderConfig } from "@/settings/providers";
 import { providersFor } from "@/settings/providers-model";
 import { createStyleHook } from "@/settings/theme-provider";
@@ -186,7 +188,7 @@ export function NoteSummary({
                 usesCloudflareWorker || config.provider === "anarlog"
                   ? " Your Anarlog session token will also be sent there to verify your account."
                   : "";
-              Alert.alert(
+              localizedAlert(
                 `Send meeting text to ${summaryProviderName}?`,
                 `Your notes and transcript text will be sent to ${destination} for this request. Audio is not sent.${authenticationNotice} Continue only if you trust this destination.`,
                 [

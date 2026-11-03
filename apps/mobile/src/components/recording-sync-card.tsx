@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { Text as NativeText, View } from "react-native";
 
 import { useAuth } from "@/auth/context";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   retrySessionAudioUpload,
   type SessionAudio,
 } from "@/data/audio-catalog";
+import { Text } from "@/i18n";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 

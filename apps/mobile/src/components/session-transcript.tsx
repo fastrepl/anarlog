@@ -8,7 +8,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
+  Text as NativeText,
   TextInput,
   View,
 } from "react-native";
@@ -19,6 +19,7 @@ import {
   useSessionTranscripts,
   type TranscriptSegment,
 } from "@/data/transcripts";
+import { Text, translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 export function SessionTranscript({
@@ -35,6 +36,7 @@ export function SessionTranscript({
   recordingDetails?: ReactNode;
   focusSegmentId?: string | null;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const { segments, isLoading, error } = useSessionTranscripts(sessionId, true);
   const listRef = useRef<FlatList<TranscriptSegment>>(null);
@@ -96,7 +98,10 @@ export function SessionTranscript({
             </Text>
             {!live && (
               <Pressable
-                accessibilityLabel={`Edit transcript segment, ${item.speaker}`}
+                accessibilityLabel={translate(
+                  `Edit transcript segment, ${item.speaker}`,
+                  language,
+                )}
                 accessibilityRole="button"
                 onPress={() => setEditing(item)}
                 style={({ pressed }) => [
@@ -159,6 +164,7 @@ function TranscriptSegmentEditor({
   segment: TranscriptSegment;
   onClose: () => void;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   const [draft, setDraft] = useState(segment.text);
@@ -190,7 +196,7 @@ function TranscriptSegmentEditor({
           transcript history.
         </Text>
         <TextInput
-          accessibilityLabel="Transcript segment text"
+          accessibilityLabel={translate("Transcript segment text", language)}
           autoCapitalize="sentences"
           multiline
           onChangeText={setDraft}

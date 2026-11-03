@@ -1,5 +1,7 @@
 import { Picker } from "@expo/ui";
 
+import { translate, useLanguage } from "@/i18n";
+
 export function ProviderPicker({
   providers,
   selectedValue,
@@ -11,6 +13,7 @@ export function ProviderPicker({
   enabled: boolean;
   onValueChange: (provider: string) => void;
 }) {
+  const { language } = useLanguage();
   return (
     <Picker
       selectedValue={selectedValue}
@@ -18,7 +21,9 @@ export function ProviderPicker({
       onValueChange={onValueChange}
       testID="active-provider"
     >
-      {!selectedValue && <Picker.Item value="" label="Select provider" />}
+      {!selectedValue && (
+        <Picker.Item value="" label={translate("Select provider", language)} />
+      )}
       {providers.map((provider) => (
         <Picker.Item
           key={provider.id}

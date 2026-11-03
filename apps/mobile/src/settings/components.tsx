@@ -7,11 +7,12 @@ import {
 } from "@expo/ui/swift-ui/modifiers";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { Platform, ScrollView, Text, View } from "react-native";
+import { Platform, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconButton } from "@/components/ui/icon-button";
 import { ControlSize, Spacing, Typography } from "@/constants/theme";
+import { Text, translate, useLanguage } from "@/i18n";
 import { FieldGroup } from "@/settings/field-group";
 import { ListItem, Text as NativeText } from "@/settings/fields";
 import {
@@ -90,13 +91,16 @@ export function SettingsRow({
   onPress?: () => void;
 }) {
   const Colors = useColors();
+  const { language } = useLanguage();
   return (
     <ListItem
       onPress={onPress}
       leading={
         icon ? <Icon name={icon} size={20} color={Colors.muted} /> : undefined
       }
-      supportingText={description ?? (onPress ? value : undefined)}
+      supportingText={
+        description ?? (onPress ? translate(value ?? "", language) : undefined)
+      }
       trailing={
         onPress ? (
           <Icon
@@ -108,22 +112,28 @@ export function SettingsRow({
             color={Colors.muted}
           />
         ) : value ? (
-          <NativeText textStyle={{ color: Colors.muted }}>{value}</NativeText>
+          <NativeText textStyle={{ color: Colors.muted }}>
+            {translate(value, language)}
+          </NativeText>
         ) : undefined
       }
     >
-      <NativeText>{title}</NativeText>
+      <NativeText>{translate(title, language)}</NativeText>
     </ListItem>
   );
 }
 
 export function SettingsError({ error }: { error: unknown }) {
   const Colors = useColors();
+  const { language } = useLanguage();
   if (!error) return null;
   return (
     <FieldGroup.SectionFooter>
       <NativeText textStyle={{ color: Colors.destructive }}>
-        Could not complete this change. Please try again.
+        {translate(
+          "Could not complete this change. Please try again.",
+          language,
+        )}
       </NativeText>
     </FieldGroup.SectionFooter>
   );

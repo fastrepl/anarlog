@@ -1,7 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { File, Paths } from "expo-file-system";
 import { useRef } from "react";
-import { Alert } from "react-native";
 
 import { useAuth } from "@/auth/context";
 import { useSessionAudio } from "@/data/audio-catalog";
@@ -10,6 +9,7 @@ import {
   restoreSessionAudioFromCloud,
   restoreSessionAudioFromPicker,
 } from "@/data/restore-session-audio";
+import { localizedAlert } from "@/i18n";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -83,7 +83,7 @@ export function useNoteAudio(sessionId: string, hasTranscript: boolean) {
                 ? "The recording could not be downloaded to this phone."
                 : "The recording could not be added to this phone.";
         if (action === "import")
-          Alert.alert("Couldn’t import recording", message);
+          localizedAlert("Couldn’t import recording", message);
         throw new Error(message);
       } finally {
         if (controllerRef.current === controller) controllerRef.current = null;

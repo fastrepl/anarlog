@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Text, useWindowDimensions, View } from "react-native";
+import { Text as NativeText, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -17,6 +17,8 @@ import { IPhoneDeviceFrame } from "@/components/iphone-device-frame";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Spacing, Typography } from "@/constants/theme";
+import { translate, useLanguage } from "@/i18n";
+import { Text } from "@/i18n";
 import { createStyleHook } from "@/settings/theme-provider";
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
@@ -34,6 +36,7 @@ export function ActionButtonCard({
   onDismiss: () => void;
 }) {
   const styles = useStyles();
+  const { language } = useLanguage();
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const translateX = useSharedValue(0);
@@ -96,8 +99,13 @@ export function ActionButtonCard({
         <Card style={styles.card}>
           <View
             accessible
-            accessibilityActions={[{ name: "dismiss", label: "Dismiss" }]}
-            accessibilityLabel="Listen with the Action Button"
+            accessibilityActions={[
+              { name: "dismiss", label: translate("Dismiss", language) },
+            ]}
+            accessibilityLabel={translate(
+              "Listen with the Action Button",
+              language,
+            )}
             onAccessibilityAction={(event) => {
               if (event.nativeEvent.actionName === "dismiss") onDismiss();
             }}

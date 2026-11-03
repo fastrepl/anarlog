@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet } from "react-native";
 
 import { ControlSize, CornerCurve, Radius } from "@/constants/theme";
+import { translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 import { NativeIcon, type NativeIconName } from "./native-icon";
@@ -24,6 +25,7 @@ export function IconButton({
 }) {
   const styles = useStyles();
   const Colors = useColors();
+  const { language } = useLanguage();
   const color =
     tone === "destructive"
       ? Colors.destructive
@@ -33,7 +35,7 @@ export function IconButton({
 
   return (
     <Pressable
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={translate(accessibilityLabel, language)}
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}

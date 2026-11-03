@@ -1,9 +1,10 @@
 import { Host, Icon, type IconName } from "@expo/ui";
 import { Children, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text as NativeText, View } from "react-native";
 
 import { Card } from "@/components/ui/card";
 import { Spacing, Typography } from "@/constants/theme";
+import { Text, translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 export function SettingsMenuGroup({ children }: { children: ReactNode }) {
@@ -31,10 +32,11 @@ export function SettingsMenuLink({
 }) {
   const styles = useStyles();
   const Colors = useColors();
+  const { language } = useLanguage();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={translate(title, language)}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >

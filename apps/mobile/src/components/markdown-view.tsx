@@ -1,6 +1,12 @@
-import { Platform, Text, View, type TextStyle } from "react-native";
+import {
+  Platform,
+  Text as NativeText,
+  View,
+  type TextStyle,
+} from "react-native";
 
 import { Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
 import {
   parseMarkdownBlocks,
   type InlineSpan,

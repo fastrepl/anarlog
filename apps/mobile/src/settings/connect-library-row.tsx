@@ -1,9 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { Alert } from "react-native";
 
 import { supabase } from "@/auth/client";
 import { useAuth } from "@/auth/context";
 import { connectLocalLibrary, execute } from "@/db";
+import { localizedAlert } from "@/i18n";
 import { SettingsError } from "@/settings/components";
 import { Button } from "@/settings/fields";
 import type { MobileSyncPhase } from "@/sync/controller";
@@ -34,7 +34,7 @@ export function ConnectLibraryRow({ phase }: { phase: MobileSyncPhase }) {
         label={connect.isPending ? "Connecting…" : "Connect this local library"}
         disabled={connect.isPending}
         onPress={() =>
-          Alert.alert(
+          localizedAlert(
             `Sync this local library with ${auth.session?.user.email ?? "this account"}?`,
             "Your personal notes and recordings stay on this device. Sync will connect them to this account and bring in its existing notes. Copies in your previous account remain there. Team and shared notes stay with their workspace. Reconnect integrations for this account. After connecting, this library requires an app version that supports account switching.",
             [

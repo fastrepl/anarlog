@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text as NativeText, View } from "react-native";
 
 import {
   CornerCurve,
@@ -7,6 +7,7 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { Text } from "@/i18n";
 import { createStyleHook } from "@/settings/theme-provider";
 
 export function StartListeningButton({ onPress }: { onPress: () => void }) {

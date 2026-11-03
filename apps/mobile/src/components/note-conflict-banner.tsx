@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { Text, View } from "react-native";
+import { Text as NativeText, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import {
   type RestoredNote,
   type SessionConflict,
 } from "@/data/conflicts";
+import { Text } from "@/i18n";
 import { createStyleHook } from "@/settings/theme-provider";
 
 export function NoteConflictBanner({

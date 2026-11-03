@@ -7,7 +7,7 @@ import {
   FlatList,
   Keyboard,
   Pressable,
-  Text,
+  Text as NativeText,
   TextInput,
   View,
 } from "react-native";
@@ -21,6 +21,7 @@ import {
   useFolderPaths,
   useSessionFolder,
 } from "@/data/folders";
+import { Text, translate, useLanguage } from "@/i18n";
 import {
   createStyleHook,
   useColors,
@@ -71,6 +72,7 @@ function FolderPicker({
   sessionId: string;
   onClose: () => void;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   const [query, setQuery] = useState("");
@@ -112,8 +114,8 @@ function FolderPicker({
         />
       </View>
       <TextInput
-        accessibilityLabel="Search or create folder"
-        placeholder="Search or create folder"
+        accessibilityLabel={translate("Search or create folder", language)}
+        placeholder={translate("Search or create folder", language)}
         placeholderTextColor={Colors.muted}
         value={query}
         onChangeText={setQuery}

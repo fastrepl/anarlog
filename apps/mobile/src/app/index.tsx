@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Alert, RefreshControl, Text, View } from "react-native";
+import { RefreshControl, Text as NativeText, View } from "react-native";
 import Animated, {
   Easing,
   ReduceMotion,
@@ -38,6 +38,8 @@ import { importMeetingPackage } from "@/data/meeting-package";
 import { createSession, deleteSession } from "@/data/session";
 import { useSidebarItemPreferences } from "@/data/sidebar-preferences";
 import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
+import { Text } from "@/i18n";
+import { localizedAlert } from "@/i18n";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { scrollVisibility } from "@/lib/scroll-visibility";
@@ -72,7 +74,7 @@ export default function HomeScreen() {
         operation: "voice_memo_import",
         tags: { entry_point: "mobile_home" },
       });
-      Alert.alert(
+      localizedAlert(
         "Couldn’t import recording",
         error instanceof Error
           ? error.message
@@ -91,7 +93,7 @@ export default function HomeScreen() {
         operation: "meeting_package_import",
         tags: { entry_point: "mobile_home" },
       });
-      Alert.alert(
+      localizedAlert(
         "Couldn’t import meeting",
         error instanceof Error
           ? error.message

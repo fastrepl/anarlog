@@ -2,7 +2,7 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
+  Text as NativeText,
   View,
 } from "react-native";
 
@@ -12,6 +12,8 @@ import type {
 } from "@/audio/use-session-recorder";
 import { DancingSticks } from "@/components/dancing-sticks";
 import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
+import { translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 function formatDuration(ms: number): string {
@@ -65,6 +67,7 @@ export function ListeningSheet({
   onRetry: () => void;
   onOpenSettings: () => void;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   const permissionDenied =
@@ -103,13 +106,14 @@ export function ListeningSheet({
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={
+        accessibilityLabel={translate(
           permissionDenied
             ? "Open recording settings"
             : recoverable
               ? "Recover recording"
-              : "Stop listening"
-        }
+              : "Stop listening",
+          language,
+        )}
         accessibilityState={{ disabled: phase === "saving" }}
         onPress={handlePanelPress}
         disabled={phase === "saving"}

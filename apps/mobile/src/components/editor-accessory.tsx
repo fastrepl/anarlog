@@ -1,9 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { SymbolView } from "expo-symbols";
 import type { ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text as NativeText,
+  View,
+} from "react-native";
 
 import { ControlSize, CornerCurve, Radius, Spacing } from "@/constants/theme";
+import { Text, translate, useLanguage } from "@/i18n";
 import type { EditorFormat } from "@/lib/editor-format";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
@@ -21,9 +28,10 @@ function FormatButton({
   children: ReactNode;
 }) {
   const styles = useStyles();
+  const { language } = useLanguage();
   return (
     <Pressable
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={translate(accessibilityLabel, language)}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
@@ -53,6 +61,7 @@ export function EditorAccessory({
 }) {
   const styles = useStyles();
   const Colors = useColors();
+  const { language } = useLanguage();
   return (
     <View style={styles.toolbar}>
       <View style={[styles.formatting, styles.floatingControl]}>
@@ -64,7 +73,7 @@ export function EditorAccessory({
           showsHorizontalScrollIndicator={false}
         >
           <Pressable
-            accessibilityLabel="Attach file"
+            accessibilityLabel={translate("Attach file", language)}
             accessibilityRole="button"
             disabled={attaching}
             hitSlop={2}
@@ -120,7 +129,7 @@ export function EditorAccessory({
         </ScrollView>
       </View>
       <Pressable
-        accessibilityLabel="Hide keyboard"
+        accessibilityLabel={translate("Hide keyboard", language)}
         accessibilityRole="button"
         hitSlop={2}
         onPress={onDismiss}

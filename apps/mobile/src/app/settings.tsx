@@ -56,6 +56,16 @@ export default function SettingsScreen() {
       </SettingsMenuGroup>
       <SettingsMenuGroup>
         <SettingsMenuLink
+          title="Language"
+          icon={Icon.select({
+            ios: "globe",
+            android: import("@expo/material-symbols/language.xml"),
+          })}
+          onPress={() => router.push("/settings/language")}
+        />
+      </SettingsMenuGroup>
+      <SettingsMenuGroup>
+        <SettingsMenuLink
           title="Privacy"
           icon={Icon.select({
             ios: "hand.raised",

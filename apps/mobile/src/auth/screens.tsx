@@ -4,7 +4,12 @@ import { useMutation } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import { Platform, Text, useWindowDimensions, View } from "react-native";
+import {
+  Platform,
+  Text as NativeText,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
@@ -22,6 +27,7 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { Text } from "@/i18n";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";

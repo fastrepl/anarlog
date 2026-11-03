@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text as NativeText, View } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { ControlSize, Radius, Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
+import { translate, useLanguage } from "@/i18n";
 import {
   dismissActionButtonCard,
   useActionButtonSetup,
@@ -173,11 +175,14 @@ function SetupStep({
   number: number;
   title: string;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   return (
     <View
-      accessibilityLabel={done ? `${title}, done` : undefined}
+      accessibilityLabel={
+        done ? translate(`${title}, done`, language) : undefined
+      }
       style={styles.step}
     >
       <View style={[styles.stepNumber, done && styles.stepNumberDone]}>

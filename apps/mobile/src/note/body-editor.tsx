@@ -10,6 +10,7 @@ import {
 import { EditorAccessory } from "@/components/editor-accessory";
 import { Spacing, Typography } from "@/constants/theme";
 import { insertCapturedNoteAttachmentMarkdown } from "@/data/note-attachment-model";
+import { translate, useLanguage } from "@/i18n";
 import { applyEditorFormat, type EditorFormat } from "@/lib/editor-format";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
@@ -36,6 +37,7 @@ export function BodyEditor({
   onCommit: () => void;
   onFocusChange: (focused: boolean) => void;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   const inputRef = useRef<TextInput>(null);
@@ -149,7 +151,7 @@ export function BodyEditor({
         inputAccessoryViewID={Platform.OS === "ios" ? accessoryId : undefined}
         value={value}
         selection={selection}
-        placeholder="Start typing…"
+        placeholder={translate("Start typing…", language)}
         placeholderTextColor={Colors.muted}
         textAlignVertical="top"
         onChangeText={handleChangeText}

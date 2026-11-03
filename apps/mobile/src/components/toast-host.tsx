@@ -1,13 +1,16 @@
 import { useSyncExternalStore } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text as NativeText } from "react-native";
 import Animated, { FadeInUp, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
+import { translate, useLanguage } from "@/i18n";
 import { dismissToast, getToast, subscribeToast } from "@/lib/toast";
 import { createStyleHook } from "@/settings/theme-provider";
 
 export function ToastHost() {
+  const { language } = useLanguage();
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const toast = useSyncExternalStore(subscribeToast, getToast, getToast);
@@ -22,7 +25,7 @@ export function ToastHost() {
       style={[styles.container, { top: insets.top + Spacing.sm }]}
     >
       <Pressable
-        accessibilityHint="Dismisses the notification"
+        accessibilityHint={translate("Dismisses the notification", language)}
         accessibilityLiveRegion="polite"
         accessibilityRole="alert"
         onPress={() => dismissToast(toast.id)}

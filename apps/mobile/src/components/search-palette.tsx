@@ -11,7 +11,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
+  Text as NativeText,
   TextInput,
   View,
 } from "react-native";
@@ -25,6 +25,7 @@ import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
 import { useSessionSearch } from "@/data/search";
 import { useSidebarItemPreferences } from "@/data/sidebar-preferences";
 import type { TimelineSession } from "@/data/timeline";
+import { Text, translate, useLanguage } from "@/i18n";
 import { captureAnalytics } from "@/lib/analytics";
 import { useMountEffect } from "@/lib/use-mount-effect";
 import {
@@ -53,6 +54,7 @@ export function SearchPalette({
   onOpenSession: (session: TimelineSession) => void;
   onDeleteSession: (session: TimelineSession) => void;
 }) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   const colorScheme = useAppColorScheme();
@@ -133,11 +135,11 @@ export function SearchPalette({
                 <NativeIcon name="search" size={16} color={Colors.muted} />
                 <TextInput
                   ref={inputRef}
-                  accessibilityLabel="Search meetings"
+                  accessibilityLabel={translate("Search meetings", language)}
                   autoCapitalize="none"
                   autoCorrect={false}
                   onChangeText={handleSearchChange}
-                  placeholder="Search meetings"
+                  placeholder={translate("Search meetings", language)}
                   placeholderTextColor={Colors.muted}
                   returnKeyType="search"
                   style={styles.input}

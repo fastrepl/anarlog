@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Text, View } from "react-native";
+import { Text as NativeText, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Spacing, Typography } from "@/constants/theme";
+import { Text } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 function formatBytes(bytes: number): string {

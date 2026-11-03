@@ -3,7 +3,7 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
+  Text as NativeText,
   View,
   type StyleProp,
   type ViewStyle,
@@ -16,6 +16,8 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
+import { Text } from "@/i18n";
+import { translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 export function Button({
@@ -39,6 +41,7 @@ export function Button({
 }) {
   const styles = useStyles();
   const Colors = useColors();
+  const { language } = useLanguage();
   const foreground =
     variant === "primary"
       ? Colors.primaryForeground
@@ -81,7 +84,9 @@ export function Button({
       ) : (
         <View style={styles.content}>
           {leading}
-          <Text style={[styles.label, { color: foreground }]}>{label}</Text>
+          <Text style={[styles.label, { color: foreground }]}>
+            {translate(label, language)}
+          </Text>
         </View>
       )}
     </Pressable>

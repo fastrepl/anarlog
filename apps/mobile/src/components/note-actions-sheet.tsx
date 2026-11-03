@@ -1,8 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text as NativeText,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CornerCurve, Radius, Spacing, Typography } from "@/constants/theme";
+import { Text, translate, useLanguage } from "@/i18n";
 import { createStyleHook, useColors } from "@/settings/theme-provider";
 
 export type NoteActionsSheetProps = {
@@ -32,6 +39,7 @@ export function NoteActionsSheet({
   onVersionHistory,
   visible,
 }: NoteActionsSheetProps) {
+  const { language } = useLanguage();
   const styles = useStyles();
   const Colors = useColors();
   const insets = useSafeAreaInsets();
@@ -53,7 +61,7 @@ export function NoteActionsSheet({
     >
       <View accessibilityViewIsModal style={styles.container}>
         <Pressable
-          accessibilityLabel="Dismiss note actions"
+          accessibilityLabel={translate("Dismiss note actions", language)}
           accessibilityRole="button"
           onPress={onClose}
           style={styles.scrim}
@@ -65,7 +73,7 @@ export function NoteActionsSheet({
           ]}
         >
           <Pressable
-            accessibilityLabel="Close note actions"
+            accessibilityLabel={translate("Close note actions", language)}
             accessibilityRole="button"
             hitSlop={8}
             onPress={onClose}
