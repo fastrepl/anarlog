@@ -24,7 +24,7 @@ const variants = {
     icon: "./assets/images/icon.png",
     iconBackgroundColor: "#F7E7B0",
     scheme: "anarlog",
-    bundleIdentifier: "so.anarlog.mobile",
+    bundleIdentifier: "com.pagee.voice.note",
   },
 } as const satisfies Record<
   AppVariant,
@@ -125,6 +125,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       apiUrl:
         process.env.EXPO_PUBLIC_API_URL ??
         (isDev ? "http://localhost:3001" : "https://api.anarlog.so"),
+      r2BackupWorkerUrl:
+        process.env.EXPO_PUBLIC_R2_BACKUP_WORKER_URL ??
+        "https://anarlog-r2-backup.doantrang3129393.workers.dev",
       appUrl:
         process.env.EXPO_PUBLIC_APP_URL ??
         (isDev ? "http://localhost:3000" : "https://anarlog.so"),

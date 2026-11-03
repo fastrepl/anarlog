@@ -43,6 +43,18 @@ type JobRow = {
 
 const ACTIVE_PHASES = "'preparing', 'ready', 'transferring', 'finalizing'";
 
+export async function enableAllPrivateAttachmentBackups(): Promise<void> {
+  const now = nowIso();
+  await execute(
+    `UPDATE session_attachments
+     SET cloud_sync_enabled = 1, updated_at = ?
+     WHERE source_type IN ('session_audio', 'note_upload')
+       AND deleted_at IS NULL
+       AND cloud_sync_enabled = 0`,
+    [now],
+  );
+}
+
 export async function reconcileMobileAttachmentUploads(): Promise<number> {
   const rows = await execute<ReconcileRow>(`
     SELECT

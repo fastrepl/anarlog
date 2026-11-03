@@ -7,6 +7,7 @@ edition = "2024"
 anlg-analytics = { workspace = true }
 anlg-api-auth = { workspace = true }
 anlg-api-env = { workspace = true }
+anlg-s3 = { workspace = true }
 anlg-api-error = { workspace = true }
 anlg-loops = { workspace = true }
 anlg-observability = { workspace = true }

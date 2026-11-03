@@ -120,6 +120,7 @@ pub struct AppState {
     pub(crate) replica: ReplicaState,
     pub client: reqwest::Client,
     pub storage: anlg_supabase_storage::SupabaseStorage,
+    pub(crate) r2_backup: Option<anlg_s3::Client>,
     pub attachment_verification_slots: Arc<Semaphore>,
     pub(crate) live_docs: LiveDocs,
 }
@@ -133,12 +134,20 @@ impl AppState {
             &config.supabase_url,
             &config.supabase_service_role_key,
         );
+        let r2_backup = config.r2_backup.as_ref().map(|r2| {
+            anlg_s3::Client::builder()
+                .endpoint_url(&r2.endpoint)
+                .bucket(&r2.bucket)
+                .credentials(&r2.access_key_id, &r2.secret_access_key)
+                .build_sync()
+        });
 
         Self {
             config,
             replica,
             client,
             storage,
+            r2_backup,
             attachment_verification_slots: Arc::new(Semaphore::new(
                 ATTACHMENT_VERIFICATION_CONCURRENCY,
             )),

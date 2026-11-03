@@ -99,6 +99,22 @@ class ServiceSecretsTests(unittest.TestCase):
                     ),
                 )
 
+    def test_r2_backup_credentials_reach_only_storage_owning_roles(self):
+        keys = {
+            "ANARLOG_R2_ACCOUNT_ID",
+            "ANARLOG_R2_BACKUP_ACCESS_KEY_ID",
+            "ANARLOG_R2_BACKUP_SECRET_ACCESS_KEY",
+            "ANARLOG_R2_BACKUP_BUCKET",
+        }
+        for role in ["sync", "core", "all", "gateway", "legacy"]:
+            with self.subTest(role=role):
+                self.assertTrue(keys <= select(role, self.api, []).keys())
+        for role in ["ai", "billing"]:
+            with self.subTest(role=role):
+                self.assertFalse(
+                    keys & select(role, self.api, [], self.webhooks).keys()
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

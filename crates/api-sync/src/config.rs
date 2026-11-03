@@ -20,6 +20,35 @@ pub struct SyncEnv {
     pub anarlog_cloudsync_token_ttl_seconds: Option<u64>,
     #[serde(default)]
     pub anarlog_cloudsync_desktop_transport: Option<String>,
+    #[serde(default)]
+    #[serde(rename = "anarlog_r2_account_id")]
+    pub anarlog_r2_account_id: Option<String>,
+    #[serde(default)]
+    #[serde(rename = "anarlog_r2_backup_access_key_id")]
+    pub anarlog_r2_backup_access_key_id: Option<String>,
+    #[serde(default)]
+    #[serde(rename = "anarlog_r2_backup_secret_access_key")]
+    pub anarlog_r2_backup_secret_access_key: Option<String>,
+    #[serde(default)]
+    #[serde(rename = "anarlog_r2_backup_bucket")]
+    pub anarlog_r2_backup_bucket: Option<String>,
+}
+
+impl SyncEnv {
+    pub fn r2_backup_client(&self) -> Option<anlg_s3::Client> {
+        let account_id = nonempty(self.anarlog_r2_account_id.as_deref())?;
+        let access_key_id = nonempty(self.anarlog_r2_backup_access_key_id.as_deref())?;
+        let secret_access_key = nonempty(self.anarlog_r2_backup_secret_access_key.as_deref())?;
+        let bucket = nonempty(self.anarlog_r2_backup_bucket.as_deref())
+            .unwrap_or_else(|| "anarlog-backups".to_string());
+        Some(
+            anlg_s3::Client::builder()
+                .endpoint_url(format!("https://{account_id}.r2.cloudflarestorage.com"))
+                .bucket(bucket)
+                .credentials(access_key_id, secret_access_key)
+                .build_sync(),
+        )
+    }
 }
 
 /// Which transport `/sync/token` hands to desktop clients that can accept
@@ -86,6 +115,15 @@ pub struct SyncConfig {
     pub(crate) supabase_url: String,
     pub(crate) supabase_anon_key: String,
     pub(crate) supabase_service_role_key: String,
+    pub(crate) r2_backup: Option<R2BackupConfig>,
+}
+
+#[derive(Clone)]
+pub(crate) struct R2BackupConfig {
+    pub(crate) endpoint: String,
+    pub(crate) access_key_id: String,
+    pub(crate) secret_access_key: String,
+    pub(crate) bucket: String,
 }
 
 #[derive(Clone)]
@@ -216,6 +254,7 @@ impl SyncConfig {
             supabase_url: validate_supabase_url(supabase_url.into())?,
             supabase_anon_key,
             supabase_service_role_key,
+            r2_backup: None,
         })
     }
 
@@ -257,6 +296,38 @@ impl SyncConfig {
         let legacy_database_id = nonempty(env.anarlog_cloudsync_database_id.as_deref());
         let protocol_mode_value = nonempty(env.anarlog_cloudsync_protocol_mode.as_deref());
         let desktop_transport_value = nonempty(env.anarlog_cloudsync_desktop_transport.as_deref());
+        let backup_bucket = nonempty(env.anarlog_r2_backup_bucket.as_deref());
+        let r2_backup = match (
+            nonempty(env.anarlog_r2_account_id.as_deref()),
+            nonempty(env.anarlog_r2_backup_access_key_id.as_deref()),
+            nonempty(env.anarlog_r2_backup_secret_access_key.as_deref()),
+        ) {
+            (None, None, None) if backup_bucket.is_none() => None,
+            (Some(account_id), Some(access_key_id), Some(secret_access_key)) => {
+                if account_id.len() != 32
+                    || !account_id.bytes().all(|byte| byte.is_ascii_hexdigit())
+                {
+                    return Err("ANARLOG_R2_ACCOUNT_ID must be a 32-character hexadecimal Cloudflare account ID".into());
+                }
+                let bucket = backup_bucket.unwrap_or_else(|| "anarlog-backups".to_string());
+                if bucket.len() > 63
+                    || !bucket
+                        .bytes()
+                        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+                    || bucket.starts_with('-')
+                    || bucket.ends_with('-')
+                {
+                    return Err("ANARLOG_R2_BACKUP_BUCKET must be a valid lowercase R2 bucket name".into());
+                }
+                Some(R2BackupConfig {
+                    endpoint: format!("https://{account_id}.r2.cloudflarestorage.com"),
+                    access_key_id,
+                    secret_access_key,
+                    bucket,
+                })
+            }
+            _ => return Err("ANARLOG_R2_ACCOUNT_ID, ANARLOG_R2_BACKUP_ACCESS_KEY_ID, and ANARLOG_R2_BACKUP_SECRET_ACCESS_KEY must be configured together".into()),
+        };
 
         if project_url.is_none()
             && token_issuer_api_key.is_none()
@@ -297,8 +368,14 @@ impl SyncConfig {
             )?
             .with_protocol_mode(protocol_mode, legacy_database_id)?
             .with_token_ttl_seconds(token_ttl_seconds)?
-            .with_desktop_transport(desktop_transport),
+            .with_desktop_transport(desktop_transport)
+            .with_r2_backup(r2_backup),
         ))
+    }
+
+    fn with_r2_backup(mut self, r2_backup: Option<R2BackupConfig>) -> Self {
+        self.r2_backup = r2_backup;
+        self
     }
 
     pub(crate) fn replica_config(&self) -> ReplicaConfig {
@@ -433,6 +510,10 @@ mod tests {
             anarlog_cloudsync_protocol_mode: None,
             anarlog_cloudsync_token_ttl_seconds: token_ttl_seconds,
             anarlog_cloudsync_desktop_transport: None,
+            anarlog_r2_account_id: None,
+            anarlog_r2_backup_access_key_id: None,
+            anarlog_r2_backup_secret_access_key: None,
+            anarlog_r2_backup_bucket: None,
         }
     }
 

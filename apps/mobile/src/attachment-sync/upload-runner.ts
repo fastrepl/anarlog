@@ -1,3 +1,5 @@
+import { File, Paths } from "expo-file-system";
+
 import {
   AttachmentBackupGatewayError,
   createAttachmentBackupClient,
@@ -270,6 +272,37 @@ async function runMobileAttachmentUpload(
       } finally {
         signal?.removeEventListener("abort", abortUpload);
       }
+    } else if (grant.signedUrl) {
+      await dependencies.store.markPhase(job, "transferring");
+      const url = new URL(grant.signedUrl);
+      const encryptedFile = new File(
+        Paths.cache,
+        "attachment-sync",
+        "private",
+        `${prepared.cacheId}.anb1`,
+      );
+      if (
+        url.protocol !== "https:" ||
+        !url.hostname.endsWith(".r2.cloudflarestorage.com") ||
+        !encryptedFile.exists
+      ) {
+        throw new PermanentAttachmentUploadError(
+          "R2 upload URL or encrypted attachment cache was invalid",
+        );
+      }
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: encryptedFile as unknown as Blob,
+        signal,
+      });
+      if (!response.ok) {
+        throw new Error(`R2 attachment upload failed (${response.status})`);
+      }
+    } else {
+      throw new PermanentAttachmentUploadError(
+        "Upload grant did not contain a supported upload method",
+      );
     }
 
     await requireCurrentVersion(dependencies.store, job);

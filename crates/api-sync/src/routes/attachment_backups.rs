@@ -45,6 +45,10 @@ const UPLOAD_CLEANUP_GRACE_SECONDS: i64 = 24 * 60 * 60 + 5 * 60;
 const DOWNLOAD_URL_TTL_SECONDS: i64 = 15 * 60;
 const DOWNLOAD_CLEANUP_GRACE_SECONDS: i64 = 5 * 60;
 
+pub(super) fn require_backup_access(auth: &AuthContext) -> Result<()> {
+    require_pro(auth)
+}
+
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct ReserveAttachmentBackupRequest {
@@ -91,6 +95,7 @@ pub(super) struct AttachmentBackupUploadGrant {
     format_version: i16,
     upload_expires_at: Option<String>,
     upload_token: Option<String>,
+    signed_url: Option<String>,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -350,6 +355,7 @@ async fn grant_attachment_backup_upload(
             format_version: object.format_version,
             upload_expires_at: None,
             upload_token: None,
+            signed_url: None,
         }));
     }
 
@@ -373,14 +379,23 @@ async fn grant_attachment_backup_upload(
         &upload_expires_at,
     )?;
 
-    let signed_upload = state
-        .storage
-        .create_signed_upload(ATTACHMENT_BACKUP_BUCKET, &object_key)
-        .await
-        .map_err(|_| {
-            tracing::warn!("Supabase Storage upload signing failed");
+    let (upload_token, signed_url) = if let Some(r2) = &state.r2_backup {
+        let signed_url = r2.presigned_put_object(&object_key).await.map_err(|_| {
+            tracing::warn!("R2 attachment backup upload signing failed");
             SyncError::AttachmentBackupServiceUnavailable
         })?;
+        (None, Some(signed_url))
+    } else {
+        let signed_upload = state
+            .storage
+            .create_signed_upload(ATTACHMENT_BACKUP_BUCKET, &object_key)
+            .await
+            .map_err(|_| {
+                tracing::warn!("Supabase Storage upload signing failed");
+                SyncError::AttachmentBackupServiceUnavailable
+            })?;
+        (Some(signed_upload.token), None)
+    };
 
     Ok(Json(AttachmentBackupUploadGrant {
         object_id: object.object_id,
@@ -390,7 +405,8 @@ async fn grant_attachment_backup_upload(
         ciphertext_sha256: marked.ciphertext_sha256,
         format_version: object.format_version,
         upload_expires_at: Some(marked.upload_expires_at),
-        upload_token: Some(signed_upload.token),
+        upload_token,
+        signed_url,
     }))
 }
 
@@ -439,25 +455,51 @@ async fn finalize_attachment_backup(
         .as_deref()
         .ok_or(SyncError::AttachmentBackupConflict)?;
 
-    let object_info = state
-        .storage
-        .object_info(ATTACHMENT_BACKUP_BUCKET, &object_key)
-        .await
-        .map_err(|_| {
-            tracing::warn!("Supabase Storage object verification failed");
+    let r2_info = if let Some(r2) = &state.r2_backup {
+        r2.object_info(&object_key).await.map_err(|_| {
+            tracing::warn!("R2 attachment backup object verification failed");
             SyncError::AttachmentBackupServiceUnavailable
-        })?;
+        })?
+    } else {
+        None
+    };
+    let (observed_size, content_type, stored_in_r2, stored_sha256) = if let Some(info) = r2_info {
+        (
+            info.size_bytes,
+            info.content_type.unwrap_or_default(),
+            true,
+            None,
+        )
+    } else {
+        let info = state
+            .storage
+            .object_info(ATTACHMENT_BACKUP_BUCKET, &object_key)
+            .await
+            .map_err(|_| {
+                tracing::warn!("Supabase Storage object verification failed");
+                SyncError::AttachmentBackupServiceUnavailable
+            })?;
+        (
+            info.size_bytes,
+            info.content_type,
+            false,
+            Some(info.ciphertext_sha256),
+        )
+    };
     let expected_size = valid_size(object.ciphertext_size_bytes)?;
-    if object_info.size_bytes != expected_size
-        || object_info.content_type != "application/octet-stream"
-        || object_info.ciphertext_sha256 != expected_ciphertext_sha256
-        || i16::from(object_info.format_version) != object.format_version
-    {
+    if observed_size != expected_size || content_type != "application/octet-stream" {
         tracing::warn!(
             expected_size,
-            observed_size = object_info.size_bytes,
+            observed_size,
             "Attachment backup object metadata did not match the reservation"
         );
+        return Err(SyncError::AttachmentBackupConflict);
+    }
+    if stored_sha256
+        .as_deref()
+        .is_some_and(|sha256| sha256 != expected_ciphertext_sha256)
+    {
+        tracing::warn!("Attachment backup storage checksum did not match the reservation");
         return Err(SyncError::AttachmentBackupConflict);
     }
     let _verification_slot = state
@@ -465,14 +507,27 @@ async fn finalize_attachment_backup(
         .clone()
         .try_acquire_owned()
         .map_err(|_| SyncError::AttachmentBackupVerificationBusy)?;
-    let observed_ciphertext_sha256 = state
-        .storage
-        .object_sha256(ATTACHMENT_BACKUP_BUCKET, &object_key, expected_size)
-        .await
-        .map_err(|_| {
-            tracing::warn!("Supabase Storage object checksum verification failed");
-            SyncError::AttachmentBackupServiceUnavailable
-        })?;
+    let observed_ciphertext_sha256 = if stored_in_r2 {
+        state
+            .r2_backup
+            .as_ref()
+            .expect("R2 object exists only when R2 is configured")
+            .object_sha256(&object_key)
+            .await
+            .map_err(|_| {
+                tracing::warn!("R2 attachment backup checksum verification failed");
+                SyncError::AttachmentBackupServiceUnavailable
+            })?
+    } else {
+        state
+            .storage
+            .object_sha256(ATTACHMENT_BACKUP_BUCKET, &object_key, expected_size)
+            .await
+            .map_err(|_| {
+                tracing::warn!("Supabase Storage object checksum verification failed");
+                SyncError::AttachmentBackupServiceUnavailable
+            })?
+    };
     if observed_ciphertext_sha256 != expected_ciphertext_sha256 {
         tracing::warn!("Attachment backup object checksum did not match the reservation");
         return Err(SyncError::AttachmentBackupConflict);
@@ -655,18 +710,39 @@ async fn download_attachment_backup(
     .map_err(map_backup_error)?;
     validate_prepared_download(&row, &owner_user_id, &object_key, &expires_at)?;
 
-    let signed_url = state
-        .storage
-        .create_signed_url(
-            ATTACHMENT_BACKUP_BUCKET,
-            &object_key,
-            DOWNLOAD_URL_TTL_SECONDS as u64,
-        )
-        .await
-        .map_err(|_| {
-            tracing::warn!("Supabase Storage download signing failed");
+    let r2_has_object = if let Some(r2) = &state.r2_backup {
+        r2.head_object(&object_key).await.map_err(|_| {
+            tracing::warn!("R2 attachment backup lookup failed");
             SyncError::AttachmentBackupServiceUnavailable
-        })?;
+        })?
+    } else {
+        false
+    };
+    let signed_url = if r2_has_object {
+        state
+            .r2_backup
+            .as_ref()
+            .expect("R2 object exists only when R2 is configured")
+            .presigned_get_object(&object_key)
+            .await
+            .map_err(|_| {
+                tracing::warn!("R2 attachment backup download signing failed");
+                SyncError::AttachmentBackupServiceUnavailable
+            })?
+    } else {
+        state
+            .storage
+            .create_signed_url(
+                ATTACHMENT_BACKUP_BUCKET,
+                &object_key,
+                DOWNLOAD_URL_TTL_SECONDS as u64,
+            )
+            .await
+            .map_err(|_| {
+                tracing::warn!("Supabase Storage download signing failed");
+                SyncError::AttachmentBackupServiceUnavailable
+            })?
+    };
 
     Ok(Json(AttachmentBackupDownload {
         object_id: row.object_id,

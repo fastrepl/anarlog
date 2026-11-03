@@ -4,6 +4,7 @@ use crate::state::{AppState, ReplicaState};
 
 mod attachment_backups;
 mod cloudsync_credentials;
+mod database_backups;
 mod e2ee_witness;
 mod live_docs;
 mod session_shares;
@@ -23,6 +24,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut openapi = cloudsync_credentials::openapi();
     openapi.merge(session_shares::openapi());
     openapi.merge(attachment_backups::openapi());
+    openapi.merge(database_backups::openapi());
     openapi.merge(e2ee_witness::openapi());
     openapi.merge(shared_attachments::openapi());
     openapi.merge(live_docs::openapi());
@@ -32,6 +34,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
 pub fn cloudsync_router(state: AppState) -> Router {
     cloudsync_credentials::router()
         .merge(attachment_backups::router())
+        .merge(database_backups::router())
         .with_state(state)
 }
 

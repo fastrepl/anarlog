@@ -28,7 +28,7 @@ const expectedVariants = {
     name: "Anarlog",
     icon: "./assets/images/icon.png",
     scheme: "anarlog",
-    bundleIdentifier: "so.anarlog.mobile",
+    bundleIdentifier: "com.pagee.voice.note",
   },
 };
 

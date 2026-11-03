@@ -307,6 +307,13 @@ Object.assign(vi, {
   "Google Drive not connected": "Chưa kết nối Google Drive",
   "Back up now": "Sao lưu ngay",
   "Creating backup…": "Đang tạo bản sao lưu…",
+  "R2 backup": "Sao lưu R2",
+  "Automatic backup": "Sao lưu tự động",
+  "Sign in required": "Cần đăng nhập",
+  "Anarlog Pro required": "Cần gói Anarlog Pro",
+  "Enabled for this account": "Đã bật cho tài khoản này",
+  "Encrypted notes, transcripts, app data, and audio recordings are backed up to your private R2 bucket while Anarlog is open.":
+    "Ghi chú, bản chép lời, dữ liệu ứng dụng và bản ghi âm được sao lưu mã hóa vào vùng lưu trữ R2 riêng tư khi Anarlog đang mở.",
   "Restore latest backup": "Khôi phục bản sao lưu mới nhất",
   "Preparing restore…": "Đang chuẩn bị khôi phục…",
   "Disconnect Google Drive": "Ngắt kết nối Google Drive",
@@ -337,11 +344,20 @@ Object.assign(vi, {
   "Connect Google Drive first.": "Hãy kết nối Google Drive trước.",
   "Google Drive access expired. Disconnect and connect it again.":
     "Quyền truy cập Google Drive đã hết hạn. Hãy ngắt kết nối rồi kết nối lại.",
-  "Restore will replace the data on this iPhone when Anarlog next starts. Continue?":
-    "Bản sao lưu sẽ thay thế dữ liệu trên iPhone này khi Anarlog khởi động lại. Tiếp tục?",
+  "Restore will replace this iPhone’s local database when Anarlog next starts. Continue?":
+    "Bản sao lưu sẽ thay thế cơ sở dữ liệu cục bộ trên iPhone này khi Anarlog khởi động lại. Tiếp tục?",
+  "Database backups are encrypted on this device. The encryption key is kept in this iPhone’s Keychain, so database restore currently requires this same device. Audio files use Anarlog’s end-to-end encrypted attachment backup.":
+    "Cơ sở dữ liệu được mã hóa ngay trên thiết bị. Khóa mã hóa được giữ trong Keychain của iPhone này nên hiện chỉ có thể khôi phục cơ sở dữ liệu trên chính thiết bị này. Tệp ghi âm dùng cơ chế sao lưu tệp đính kèm mã hóa đầu cuối của Anarlog.",
+  "Could not upload the encrypted R2 backup.":
+    "Không thể tải bản sao lưu R2 đã mã hóa lên.",
+  "Could not download the R2 backup.": "Không thể tải bản sao lưu R2 xuống.",
+  "No R2 backup was found.": "Không tìm thấy bản sao lưu R2.",
+  "R2 backup service is unavailable.":
+    "Dịch vụ sao lưu R2 hiện không khả dụng.",
+  "R2 backup service returned an invalid upload URL.":
+    "Dịch vụ sao lưu R2 trả về URL tải lên không hợp lệ.",
+  "Sign in to restore your backup.": "Đăng nhập để khôi phục bản sao lưu.",
   "Restore backup": "Khôi phục bản sao lưu",
-  "Backups are encrypted and include notes, transcripts, and app data. Recordings are not included; the encryption key stays in this iPhone’s Keychain, so this backup can only be restored on this device.":
-    "Bản sao lưu được mã hóa, gồm ghi chú, bản chép lời và dữ liệu ứng dụng. Bản ghi âm không được sao lưu; khóa mã hóa chỉ lưu trong Keychain của iPhone này nên chỉ có thể khôi phục trên thiết bị này.",
 });
 
 Object.assign(vi, {

@@ -1,8 +1,11 @@
 import { AppState } from "react-native";
 
 import { activateMobileAttachmentUploads } from "@/attachment-sync/upload-runner";
+import { enableAllPrivateAttachmentBackups } from "@/attachment-sync/upload-store";
 import { retryPendingTranscriptions } from "@/data/transcribe";
+import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { activateR2DatabaseBackup } from "@/settings/r2-database-backup";
 import { shouldSyncAfterAppStateChange } from "@/sync/app-state";
 import { activateMobileBackgroundSync } from "@/sync/background-sync";
 import {
@@ -32,6 +35,15 @@ export function MobileSyncLifecycle({
       accessToken,
       onActivity: background.refresh,
     });
+    const databaseBackup = activateR2DatabaseBackup(accessToken);
+    void enableAllPrivateAttachmentBackups()
+      .then(() => uploads.resume())
+      .catch((error) =>
+        captureOperationalError(error, {
+          operation: "enable_private_attachment_backups",
+          level: "warning",
+        }),
+      );
     let transcriptionRetryTimer: ReturnType<typeof setInterval> | undefined;
     let syncWasReady = false;
     const retryPending = () => {
@@ -45,11 +57,9 @@ export function MobileSyncLifecycle({
     const updateUploads = () => {
       const sync = getMobileSyncSnapshot();
       const syncReady = sync.phase === "ready" && sync.running;
-      if (syncReady) {
-        uploads.resume();
-      } else {
-        uploads.pause();
-      }
+      uploads.resume();
+      if (AppState.currentState === "active") databaseBackup.resume();
+      else databaseBackup.pause();
       if (syncReady && !syncWasReady) retryPending();
       syncWasReady = syncReady;
       background.refresh();
@@ -60,6 +70,11 @@ export function MobileSyncLifecycle({
       if (shouldSyncAfterAppStateChange(previousState, nextState)) {
         void syncMobileNow();
         retryPending();
+      }
+      if (nextState === "active") {
+        databaseBackup.resume();
+      } else {
+        databaseBackup.pause();
       }
       previousState = nextState;
     });
@@ -72,6 +87,7 @@ export function MobileSyncLifecycle({
       subscription.remove();
       unsubscribeSync();
       uploads.stop();
+      databaseBackup.stop();
       background.stop();
       deactivate();
     };

@@ -68,6 +68,7 @@ export type AttachmentBackupUploadGrant = {
     objectId: string;
     objectKey: string;
     objectState: string;
+    signedUrl?: string | null;
     uploadExpiresAt?: string | null;
     uploadToken?: string | null;
 };
@@ -398,6 +399,10 @@ export type CurrentAttachmentBackup = {
 
 export type CustomLocation = {
     label?: string | null;
+};
+
+export type DatabaseBackupObjectKey = {
+    key: string;
 };
 
 export type DateTimeTimeZone = {
@@ -1748,6 +1753,11 @@ export type SharedNoteSnapshot = {
     schemaVersion: number;
     shareId: string;
     title: string;
+};
+
+export type SignedDatabaseBackupUrl = {
+    expiresInSeconds: number;
+    signedUrl: string;
 };
 
 export type SlackChannel = {
@@ -4531,6 +4541,91 @@ export type GrantAttachmentBackupUploadResponses = {
 };
 
 export type GrantAttachmentBackupUploadResponse = GrantAttachmentBackupUploadResponses[keyof GrantAttachmentBackupUploadResponses];
+
+export type DownloadUrlData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/sync/database-backups/download-url';
+};
+
+export type DownloadUrlErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * No database backup exists
+     */
+    404: unknown;
+    /**
+     * R2 backup storage is unavailable
+     */
+    502: unknown;
+};
+
+export type DownloadUrlResponses = {
+    /**
+     * Short-lived private R2 download URL
+     */
+    200: SignedDatabaseBackupUrl;
+};
+
+export type DownloadUrlResponse = DownloadUrlResponses[keyof DownloadUrlResponses];
+
+export type UploadUrlData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/sync/database-backups/upload-url';
+};
+
+export type UploadUrlErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * R2 backup storage is unavailable
+     */
+    502: unknown;
+};
+
+export type UploadUrlResponses = {
+    /**
+     * Short-lived private R2 upload URL
+     */
+    200: SignedDatabaseBackupUrl;
+};
+
+export type UploadUrlResponse = UploadUrlResponses[keyof UploadUrlResponses];
+
+export type WorkerObjectKeyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/sync/database-backups/worker-object-key';
+};
+
+export type WorkerObjectKeyErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Backup access required
+     */
+    403: unknown;
+};
+
+export type WorkerObjectKeyResponses = {
+    /**
+     * User-scoped private R2 object key for the backup Worker
+     */
+    200: DatabaseBackupObjectKey;
+};
+
+export type WorkerObjectKeyResponse = WorkerObjectKeyResponses[keyof WorkerObjectKeyResponses];
 
 export type GetDevicesData = {
     body?: never;

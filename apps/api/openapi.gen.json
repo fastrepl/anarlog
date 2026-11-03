@@ -3135,6 +3135,102 @@
         ]
       }
     },
+    "/sync/database-backups/download-url": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "download_url",
+        "responses": {
+          "200": {
+            "description": "Short-lived private R2 download URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedDatabaseBackupUrl"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "No database backup exists"
+          },
+          "502": {
+            "description": "R2 backup storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/database-backups/upload-url": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "upload_url",
+        "responses": {
+          "200": {
+            "description": "Short-lived private R2 upload URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedDatabaseBackupUrl"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "502": {
+            "description": "R2 backup storage is unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/database-backups/worker-object-key": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "worker_object_key",
+        "responses": {
+          "200": {
+            "description": "User-scoped private R2 object key for the backup Worker",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseBackupObjectKey"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Backup access required"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/devices": {
       "get": {
         "tags": [
@@ -5818,6 +5914,12 @@
           "objectState": {
             "type": "string"
           },
+          "signedUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "uploadExpiresAt": {
             "type": [
               "string",
@@ -7251,6 +7353,17 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "DatabaseBackupObjectKey": {
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
           }
         }
       },
@@ -12240,6 +12353,23 @@
             "type": "string"
           },
           "title": {
+            "type": "string"
+          }
+        }
+      },
+      "SignedDatabaseBackupUrl": {
+        "type": "object",
+        "required": [
+          "signedUrl",
+          "expiresInSeconds"
+        ],
+        "properties": {
+          "expiresInSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "signedUrl": {
             "type": "string"
           }
         }

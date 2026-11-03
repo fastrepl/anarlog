@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "anarlog-r2-backup",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-03",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "vars": { "API_ORIGIN": "https://api.anarlog.so" },
+  "r2_buckets": [
+    { "binding": "BACKUPS", "bucket_name": "anarlog-backups" }
+  ]
+}

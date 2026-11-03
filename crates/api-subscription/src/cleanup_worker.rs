@@ -39,6 +39,7 @@ fn full_batch_poll_delay(full_batch: bool) -> Option<Duration> {
 pub struct CleanupWorker {
     supabase: SupabaseClient,
     storage: anlg_supabase_storage::SupabaseStorage,
+    r2_backup: Option<anlg_s3::Client>,
     stripe: stripe::Client,
     cloudsync: Option<CloudsyncCleanupClient>,
 }
@@ -139,6 +140,7 @@ impl CleanupWorker {
         Self {
             supabase,
             storage,
+            r2_backup: config.r2_backup.clone(),
             stripe,
             cloudsync,
         }
@@ -246,10 +248,26 @@ impl CleanupWorker {
     }
 
     async fn delete_attachment(&self, row: AttachmentLeaseRow) -> Result<()> {
-        self.storage
-            .delete_file(ATTACHMENT_BACKUP_BUCKET, &row.object_key)
-            .await
-            .map_err(storage_error)?;
+        let in_r2 = if let Some(r2) = &self.r2_backup {
+            r2.head_object(&row.object_key)
+                .await
+                .map_err(r2_storage_error)?
+        } else {
+            false
+        };
+        if in_r2 {
+            self.r2_backup
+                .as_ref()
+                .expect("R2 object exists only when R2 is configured")
+                .delete_object(&row.object_key)
+                .await
+                .map_err(r2_storage_error)?;
+        } else {
+            self.storage
+                .delete_file(ATTACHMENT_BACKUP_BUCKET, &row.object_key)
+                .await
+                .map_err(storage_error)?;
+        }
         let finished: bool = self
             .supabase
             .admin_rpc(
@@ -476,6 +494,23 @@ impl CleanupWorker {
             if cancellation.is_cancelled() {
                 return Ok(());
             }
+            if let Some(r2) = &self.r2_backup {
+                r2.delete_prefix(&prefix, MAX_ACCOUNT_PREFIX_OBJECTS)
+                    .await
+                    .map_err(r2_storage_error)?;
+                if cancellation.is_cancelled() {
+                    return Ok(());
+                }
+                r2.delete_object(&format!(
+                    "database-backups/{}/latest.anarlogdb.enc",
+                    row.owner_user_id
+                ))
+                .await
+                .map_err(r2_storage_error)?;
+            }
+            if cancellation.is_cancelled() {
+                return Ok(());
+            }
             let marked: bool = self
                 .supabase
                 .admin_rpc(
@@ -596,6 +631,10 @@ impl CleanupWorker {
             Err(error) => Err(SubscriptionError::Stripe(error.to_string())),
         }
     }
+}
+
+fn r2_storage_error(error: anlg_s3::ApiError) -> SubscriptionError {
+    SubscriptionError::Internal(format!("R2 backup cleanup failed: {error}"))
 }
 
 fn validate_attachment_lease(row: &AttachmentLeaseRow, expected_lease_id: &str) -> Result<()> {

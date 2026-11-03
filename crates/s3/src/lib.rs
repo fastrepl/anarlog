@@ -5,11 +5,15 @@ use aws_sdk_s3::operation::complete_multipart_upload::CompleteMultipartUploadErr
 use aws_sdk_s3::operation::create_bucket::CreateBucketError;
 use aws_sdk_s3::operation::create_multipart_upload::CreateMultipartUploadError;
 use aws_sdk_s3::operation::delete_object::DeleteObjectError;
+use aws_sdk_s3::operation::delete_objects::DeleteObjectsError;
 use aws_sdk_s3::operation::get_object::GetObjectError;
+use aws_sdk_s3::operation::head_object::HeadObjectError;
+use aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error;
 use aws_sdk_s3::operation::put_object::PutObjectError;
 use aws_sdk_s3::operation::upload_part::UploadPartError;
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::{AggregatedBytes, ByteStreamError};
+use sha2::{Digest, Sha256};
 
 #[derive(Default)]
 pub struct ClientBuilder {
@@ -37,12 +41,28 @@ pub struct Config {
     pub secret_access_key: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectInfo {
+    pub size_bytes: u64,
+    pub content_type: Option<String>,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("Error while deleting object: {0}")]
     DeleteObjectError(#[from] SdkError<DeleteObjectError>),
+    #[error("Error while deleting objects: {0}")]
+    DeleteObjectsError(#[from] SdkError<DeleteObjectsError>),
     #[error("Error while getting object: {0}")]
     GetObjectError(#[from] SdkError<GetObjectError>),
+    #[error("Error while inspecting object: {0}")]
+    HeadObjectError(#[from] SdkError<HeadObjectError>),
+    #[error("Error while listing objects: {0}")]
+    ListObjectsError(#[from] SdkError<ListObjectsV2Error>),
+    #[error("R2 object prefix exceeded the deletion limit")]
+    PrefixDeleteLimitExceeded,
+    #[error("R2 object prefix deletion returned errors")]
+    PrefixDeleteFailed,
     #[error("Error while putting object: {0}")]
     PutObjectError(#[from] SdkError<PutObjectError>),
     #[error("Error while creating bucket: {0}")]
@@ -100,6 +120,26 @@ impl ClientBuilder {
             bucket: self.bucket.unwrap(),
         }
     }
+
+    pub fn build_sync(self) -> Client {
+        let creds = aws_credential_types::Credentials::from_keys(
+            self.access_key_id.expect("S3 access key ID is configured"),
+            self.secret_access_key
+                .expect("S3 secret access key is configured"),
+            None,
+        );
+        let config = aws_sdk_s3::Config::builder()
+            .behavior_version_latest()
+            .endpoint_url(self.endpoint_url.expect("S3 endpoint is configured"))
+            .region(aws_config::Region::new("auto"))
+            .credentials_provider(creds)
+            .force_path_style(true)
+            .build();
+        Client {
+            s3: aws_sdk_s3::Client::from_conf(config),
+            bucket: self.bucket.expect("S3 bucket is configured"),
+        }
+    }
 }
 
 impl Client {
@@ -126,6 +166,154 @@ impl Client {
     pub async fn create_bucket(&self) -> Result<(), ApiError> {
         let _ = self.s3.create_bucket().bucket(&self.bucket).send().await?;
         Ok(())
+    }
+
+    pub async fn presigned_put_object(&self, key: &str) -> Result<String, ApiError> {
+        let config = PresigningConfig::builder()
+            .expires_in(std::time::Duration::from_secs(60 * 60))
+            .build()
+            .unwrap();
+        let url = self
+            .s3
+            .put_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .content_type("application/octet-stream")
+            .presigned(config)
+            .await?
+            .uri()
+            .to_string();
+        Ok(url)
+    }
+
+    pub async fn presigned_get_object(&self, key: &str) -> Result<String, ApiError> {
+        let config = PresigningConfig::builder()
+            .expires_in(std::time::Duration::from_secs(15 * 60))
+            .build()
+            .unwrap();
+        let url = self
+            .s3
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .presigned(config)
+            .await?
+            .uri()
+            .to_string();
+        Ok(url)
+    }
+
+    pub async fn head_object(&self, key: &str) -> Result<bool, ApiError> {
+        match self
+            .s3
+            .head_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await
+        {
+            Ok(_) => Ok(true),
+            Err(error) if error.as_service_error().is_some_and(|e| e.is_not_found()) => Ok(false),
+            Err(error) => Err(ApiError::HeadObjectError(error)),
+        }
+    }
+
+    pub async fn object_info(&self, key: &str) -> Result<Option<ObjectInfo>, ApiError> {
+        match self
+            .s3
+            .head_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await
+        {
+            Ok(response) => Ok(Some(ObjectInfo {
+                size_bytes: response.content_length().unwrap_or_default().max(0) as u64,
+                content_type: response.content_type().map(ToString::to_string),
+            })),
+            Err(error) if error.as_service_error().is_some_and(|e| e.is_not_found()) => Ok(None),
+            Err(error) => Err(ApiError::HeadObjectError(error)),
+        }
+    }
+
+    pub async fn object_sha256(&self, key: &str) -> Result<String, ApiError> {
+        let response = self
+            .s3
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await?;
+        let bytes = response.body.collect().await?;
+        Ok(Sha256::digest(bytes.into_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect())
+    }
+
+    pub async fn delete_object(&self, key: &str) -> Result<(), ApiError> {
+        self.s3
+            .delete_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await?;
+        Ok(())
+    }
+
+    pub async fn delete_prefix(&self, prefix: &str, max_objects: usize) -> Result<usize, ApiError> {
+        let mut continuation_token = None;
+        let mut deleted = 0usize;
+        loop {
+            let response = self
+                .s3
+                .list_objects_v2()
+                .bucket(&self.bucket)
+                .prefix(prefix)
+                .max_keys(1000)
+                .set_continuation_token(continuation_token)
+                .send()
+                .await?;
+            let objects = response.contents();
+            deleted = deleted.saturating_add(objects.len());
+            if deleted > max_objects {
+                return Err(ApiError::PrefixDeleteLimitExceeded);
+            }
+            if !objects.is_empty() {
+                let identifiers = objects
+                    .iter()
+                    .filter_map(|object| object.key())
+                    .map(|key| {
+                        aws_sdk_s3::types::ObjectIdentifier::builder()
+                            .key(key)
+                            .build()
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .expect("object keys are present in an S3 listing");
+                let deletion = aws_sdk_s3::types::Delete::builder()
+                    .set_objects(Some(identifiers))
+                    .quiet(true)
+                    .build()
+                    .expect("delete request has object identifiers");
+                let result = self
+                    .s3
+                    .delete_objects()
+                    .bucket(&self.bucket)
+                    .delete(deletion)
+                    .send()
+                    .await?;
+                if !result.errors().is_empty() {
+                    return Err(ApiError::PrefixDeleteFailed);
+                }
+            }
+            if !response.is_truncated().unwrap_or(false) {
+                return Ok(deleted);
+            }
+            continuation_token = response.next_continuation_token().map(ToString::to_string);
+            if continuation_token.is_none() {
+                return Err(ApiError::PrefixDeleteFailed);
+            }
+        }
     }
 }
 

@@ -13,6 +13,10 @@ export const env = {
   supabaseUrl: read("supabaseUrl"),
   supabaseAnonKey: read("supabaseAnonKey"),
   apiUrl: read("apiUrl", "https://api.anarlog.so"),
+  r2BackupWorkerUrl: read(
+    "r2BackupWorkerUrl",
+    "https://anarlog-r2-backup.doantrang3129393.workers.dev",
+  ),
   appUrl: read("appUrl", "https://anarlog.so"),
   posthogApiKey: read("posthogApiKey"),
   posthogHost: read("posthogHost", "https://us.i.posthog.com"),

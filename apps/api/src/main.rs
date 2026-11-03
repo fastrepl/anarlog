@@ -436,7 +436,8 @@ fn main() -> std::io::Result<()> {
                 .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
                 let config =
                     anlg_api_subscription::SubscriptionConfig::new(&env.supabase, stripe, loops)
-                        .with_cloudsync_cleanup(cloudsync_cleanup);
+                        .with_cloudsync_cleanup(cloudsync_cleanup)
+                        .with_r2_backup(env.sync.r2_backup_client());
                 let worker = anlg_api_subscription::CleanupWorker::new(&config);
                 let worker_cancellation = cancellation.clone();
                 tokio::spawn(worker.run(worker_cancellation))

@@ -25,6 +25,7 @@ fn live_test_state(server: &MockServer) -> AppState {
         supabase_url: server.uri(),
         supabase_anon_key: "anon-key".to_string(),
         supabase_service_role_key: "service-role-key".to_string(),
+        r2_backup: None,
     })
 }
 

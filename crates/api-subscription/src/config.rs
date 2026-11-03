@@ -13,6 +13,7 @@ pub struct SubscriptionConfig {
     pub analytics: Option<Arc<AnalyticsClient>>,
     pub durable_cleanup_enabled: bool,
     pub cloudsync_cleanup: Option<CloudsyncCleanupConfig>,
+    pub r2_backup: Option<anlg_s3::Client>,
 }
 
 #[derive(Clone)]
@@ -34,6 +35,7 @@ impl SubscriptionConfig {
             analytics: None,
             durable_cleanup_enabled: false,
             cloudsync_cleanup: None,
+            r2_backup: None,
         }
     }
 
@@ -49,6 +51,11 @@ impl SubscriptionConfig {
 
     pub fn with_cloudsync_cleanup(mut self, cloudsync_cleanup: CloudsyncCleanupConfig) -> Self {
         self.cloudsync_cleanup = Some(cloudsync_cleanup);
+        self
+    }
+
+    pub fn with_r2_backup(mut self, r2_backup: Option<anlg_s3::Client>) -> Self {
+        self.r2_backup = r2_backup;
         self
     }
 }

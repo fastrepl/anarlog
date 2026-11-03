@@ -28,12 +28,12 @@ export default function SettingsScreen() {
           onPress={() => router.push("/settings/sync")}
         />
         <SettingsMenuLink
-          title="Google Drive backup"
+          title="R2 backup"
           icon={Icon.select({
             ios: "externaldrive.badge.icloud",
             android: import("@expo/material-symbols/backup.xml"),
           })}
-          onPress={() => router.push("/settings/google-drive")}
+          onPress={() => router.push("/settings/cloud-backup")}
         />
       </SettingsMenuGroup>
       <SettingsMenuGroup>

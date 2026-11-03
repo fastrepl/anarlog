@@ -533,6 +533,15 @@ importers:
         specifier: ^4.156.2
         version: 4.156.2
 
+  apps/r2-backup-worker:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      wrangler:
+        specifier: ^4.156.2
+        version: 4.156.2
+
   apps/mobile:
     dependencies:
       '@anlg/db-react':

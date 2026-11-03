@@ -65,6 +65,7 @@ fn test_router_with_transport(
         supabase_url: server.uri(),
         supabase_anon_key: "anon-key".to_string(),
         supabase_service_role_key: "service-role-key".to_string(),
+        r2_backup: None,
     });
     cloudsync_router(state.clone())
         .merge(replica_router(state.replica.clone()))

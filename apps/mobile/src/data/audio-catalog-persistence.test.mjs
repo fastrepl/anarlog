@@ -98,14 +98,16 @@ test("recording catalog preserves capture and interruption state while imports i
   assert.equal(metadata("recorded").capture_started_at_ms, capture);
   assert.equal(metadata("recorded").capture_interrupted_at_ms, interruptedAt);
   assert.equal(metadata("imported").capture_started_at_ms, null);
-  assert.equal(
-    db
-      .prepare(
-        "SELECT cloud_sync_enabled FROM session_attachments WHERE session_id = 'recorded'",
-      )
-      .get().cloud_sync_enabled,
-    0,
-  );
+  for (const sessionId of ["recorded", "imported"]) {
+    assert.equal(
+      db
+        .prepare(
+          "SELECT cloud_sync_enabled FROM session_attachments WHERE session_id = ?",
+        )
+        .get(sessionId).cloud_sync_enabled,
+      1,
+    );
+  }
   assert.equal(
     db.prepare("SELECT COUNT(*) AS count FROM attachment_transfer_jobs").get()
       .count,

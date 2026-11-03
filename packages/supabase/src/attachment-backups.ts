@@ -20,6 +20,7 @@ export type AttachmentBackupUploadGrant = {
   formatVersion: number;
   uploadExpiresAt: string | null;
   uploadToken: string | null;
+  signedUrl: string | null;
 };
 
 export type CurrentAttachmentBackup = {

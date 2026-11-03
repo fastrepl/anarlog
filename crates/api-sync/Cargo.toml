@@ -8,6 +8,7 @@ anlg-api-auth = { workspace = true }
 anlg-api-error = { workspace = true }
 anlg-loops = { workspace = true }
 anlg-supabase-storage = { workspace = true }
+anlg-s3 = { workspace = true }
 
 utoipa = { workspace = true }
 
