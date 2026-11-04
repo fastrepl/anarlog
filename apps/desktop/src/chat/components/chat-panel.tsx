@@ -4,6 +4,7 @@ import { cn } from "@anlg/utils";
 
 import { ChatBody } from "./body";
 import { ChatContent } from "./content";
+import { ChatModelSelector } from "./model-selector";
 import { ChatSession, type ChatSessionRenderProps } from "./session-provider";
 import { ChatToolbarControls } from "./toolbar-controls";
 import { useSessionTab } from "./use-session-tab";
@@ -179,6 +180,14 @@ export function ChatPanelFrame({
           layout={layout}
           onDraftContentChange={onDraftContentChange}
           model={model}
+          modelSelector={
+            <ChatModelSelector
+              disabled={
+                sessionProps.status === "submitted" ||
+                sessionProps.status === "streaming"
+              }
+            />
+          }
           handleSendMessage={handleSendMessage}
         >
           <ChatBody

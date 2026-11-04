@@ -221,6 +221,33 @@ describe("SQLite settings", () => {
     },
   );
 
+  it("reloads the chat selection without changing the Intelligence model", async () => {
+    const rows = new Map<string, string>();
+    mocks.execute.mockImplementation(async () =>
+      Array.from(rows, ([id, value_json]) => ({ id, value_json })),
+    );
+    mocks.executeTransaction.mockImplementation(async (statements) => {
+      for (const { params } of statements) {
+        rows.set(String(params[0]), String(params[1]));
+      }
+      return [1];
+    });
+    await setSettingValues({
+      current_llm_provider: "custom",
+      current_llm_model: "summary-model",
+    });
+    await setSettingValues({
+      chat_llm_provider: "openai",
+      chat_llm_model: "chat-model",
+    });
+    expect((await getStoredSettingValues()).values).toMatchObject({
+      current_llm_provider: "custom",
+      current_llm_model: "summary-model",
+      chat_llm_provider: "openai",
+      chat_llm_model: "chat-model",
+    });
+  });
+
   it("maps the imported settings document into typed values", () => {
     const result = parseSettingRows([
       {

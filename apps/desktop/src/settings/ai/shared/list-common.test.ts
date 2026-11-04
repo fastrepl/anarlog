@@ -1,6 +1,10 @@
-import { describe, expect, test } from "vitest";
+import { Effect } from "effect";
+import { describe, expect, test, vi } from "vitest";
+
+vi.mock("~/ai/provider-fetch", () => ({ providerFetch: vi.fn() }));
 
 import {
+  fetchJson,
   isDateSnapshot,
   isNonStreamingModel,
   isOldModel,
@@ -8,6 +12,28 @@ import {
   removeNonStreamingModels,
   sortModelsByRecency,
 } from "./list-common";
+
+import { providerFetch } from "~/ai/provider-fetch";
+
+test("aborts the model request when its discovery timeout expires", async () => {
+  let requestSignal: AbortSignal | null | undefined;
+  vi.mocked(providerFetch).mockImplementationOnce((_url, init) => {
+    requestSignal = init?.signal;
+    return new Promise<Response>((_resolve, reject) => {
+      requestSignal?.addEventListener(
+        "abort",
+        () => reject(new DOMException("Aborted", "AbortError")),
+        { once: true },
+      );
+    });
+  });
+  await Effect.runPromiseExit(
+    fetchJson("https://example.com/models", {}).pipe(
+      Effect.timeout("10 millis"),
+    ),
+  );
+  expect(requestSignal?.aborted).toBe(true);
+});
 
 describe("readResponseTextWithLimit", () => {
   test("reads a response within the byte limit", async () => {
