@@ -336,7 +336,7 @@ describe("transcript SQLite queries", () => {
     );
   });
 
-  it("runs the remote participant query against SQLite", async () => {
+  it("keeps the remote participant query valid SQLite so speaker context and participant lookups do not fail with a syntax error", async () => {
     const db = new DatabaseSync(":memory:");
     try {
       db.exec(`
