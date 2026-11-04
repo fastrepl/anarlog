@@ -66,6 +66,7 @@ export type SettingsTab =
   | "dictation"
   | "transcription"
   | "intelligence"
+  | "prompts"
   | "todo";
 
 const normalizeSettingsTab = (
@@ -91,6 +92,7 @@ const normalizeSettingsTab = (
     case "dictation":
     case "transcription":
     case "intelligence":
+    case "prompts":
     case "todo":
       return tab;
     case "audio":

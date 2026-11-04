@@ -24,7 +24,12 @@ import {
 import { useDictation } from "./use-dictation";
 
 import type { ContextRef } from "~/chat/context/entities";
+import {
+  useChatPromptSlashConfig,
+  useCustomChatPrompts,
+} from "~/chat/custom-prompts";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
+import type { AnlgUIMessage } from "~/chat/types";
 import { useShell } from "~/contexts/shell";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
 
@@ -42,7 +47,7 @@ export function ChatMessageInput({
   layout?: "floating" | "right-panel";
   onSendMessage: (
     content: string,
-    parts: Array<{ type: "text"; text: string }>,
+    parts: AnlgUIMessage["parts"],
     contextRefs?: ContextRef[],
   ) => void;
   disabled?: boolean | { disabled: boolean; message?: string };
@@ -67,10 +72,12 @@ export function ChatMessageInput({
     onUserEdit: history.handleUserEdit,
     shouldPersistUpdate: history.shouldPersistUpdate,
   });
+  const prompts = useCustomChatPrompts();
   const handleSubmit = useSubmit({
     draftKey,
     editorRef,
     disabled,
+    prompts,
     onSendMessage,
     onDraftContentChange,
     onContextRefsChange,
@@ -82,6 +89,7 @@ export function ChatMessageInput({
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
   const mentionConfig = useMentionConfig();
+  const slashConfig = useChatPromptSlashConfig(prompts);
   const isSendDisabled = Boolean(disabled) || !hasContent;
   const isRightPanel = layout === "right-panel";
   const isFloating = layout === "floating";
@@ -145,6 +153,7 @@ export function ChatMessageInput({
             ])}
             initialContent={initialContent}
             mentionConfig={mentionConfig}
+            slashConfig={slashConfig}
             placeholder={placeholder}
             submitShortcut="enter"
             onAttachmentError={(message) => toast.error(message)}

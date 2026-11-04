@@ -23,7 +23,13 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { Buildings, Folder, Note, User } from "@anlg/ui/components/icons";
+import {
+  Buildings,
+  ChatCenteredDots,
+  Folder,
+  Note,
+  User,
+} from "@anlg/ui/components/icons";
 
 export interface MentionItem {
   id: string;
@@ -253,6 +259,8 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
             <Buildings className="mention-type-icon mention-type-organization" />
           ) : item.type === "folder" ? (
             <Folder className="mention-type-icon mention-type-folder" />
+          ) : item.type === "chat_prompt" ? (
+            <ChatCenteredDots className="mention-type-icon mention-type-chat-prompt" />
           ) : null}
           <span className="mention-label">{item.label}</span>
         </button>

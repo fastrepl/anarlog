@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import {
   ArrowsInSimple,
   ArrowsOutSimple,
+  ChatCenteredDots,
   ClockCounterClockwise,
   Envelope,
   Lightbulb,
@@ -14,7 +15,10 @@ import {
 import { cn } from "@anlg/utils";
 
 import type { ContextRef } from "~/chat/context/entities";
+import { useCustomChatPrompts } from "~/chat/custom-prompts";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
+import { toChatPromptPart } from "~/chat/prompt-parts";
+import type { AnlgUIMessage } from "~/chat/types";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function ChatBodyEmpty({
@@ -30,12 +34,13 @@ export function ChatBodyEmpty({
   hasSummary?: boolean;
   onSendMessage?: (
     content: string,
-    parts: Array<{ type: "text"; text: string }>,
+    parts: AnlgUIMessage["parts"],
     contextRefs?: ContextRef[],
   ) => void;
 }) {
   const { isDarkAppearance } = useChatAppearance();
   const openNew = useTabs((state) => state.openNew);
+  const customPrompts = useCustomChatPrompts();
   const liveMeetingSuggestions = [
     {
       label: t`Recap the last 5 minutes.`,
@@ -91,20 +96,38 @@ export function ChatBodyEmpty({
         : t`What key decisions were made in my recent meetings?`,
     },
   ];
-  const suggestions = isLiveMeeting
-    ? liveMeetingSuggestions
-    : meetingSuggestions;
+  const customSuggestions = customPrompts
+    .filter(
+      ({ availability }) =>
+        availability === "always" ||
+        availability === (isLiveMeeting ? "recording" : "not_recording"),
+    )
+    .map((customPrompt) => ({
+      key: customPrompt.id,
+      label: customPrompt.title,
+      icon: ChatCenteredDots,
+      content: customPrompt.title,
+      parts: [toChatPromptPart(customPrompt)],
+    }));
+  const builtInSuggestions = (
+    isLiveMeeting ? liveMeetingSuggestions : meetingSuggestions
+  ).map(({ label, icon, prompt }) => ({
+    label,
+    icon,
+    content: prompt,
+    parts: [{ type: "text" as const, text: prompt }],
+  }));
+  const suggestions: Array<{
+    key?: string;
+    label: string;
+    icon: typeof ChatCenteredDots;
+    content: string;
+    parts: AnlgUIMessage["parts"];
+  }> = [...customSuggestions, ...builtInSuggestions];
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });
   }, [openNew]);
-
-  const handleSuggestionClick = useCallback(
-    (prompt: string) => {
-      onSendMessage?.(prompt, [{ type: "text", text: prompt }]);
-    },
-    [onSendMessage],
-  );
 
   if (!isModelConfigured) {
     return (
@@ -152,10 +175,10 @@ export function ChatBodyEmpty({
     <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
         <div className="flex flex-col gap-0.5">
-          {suggestions.map(({ label, icon: Icon, prompt }) => (
+          {suggestions.map(({ key, label, icon: Icon, content, parts }) => (
             <button
-              key={label}
-              onClick={() => handleSuggestionClick(prompt)}
+              key={key ?? label}
+              onClick={() => onSendMessage?.(content, parts)}
               className={cn([
                 "group grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 rounded-lg py-2 pr-3 pl-0 text-left text-sm",
                 isDarkAppearance
