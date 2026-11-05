@@ -99,6 +99,7 @@ pub(super) struct SharedContext {
     pub(super) polling_active: Arc<AtomicBool>,
     polling_fallback_active: Arc<AtomicBool>,
     polling_fallback_required: Arc<AtomicBool>,
+    device_list_stale: Arc<AtomicBool>,
     device_listener_context_retention_required: Arc<AtomicBool>,
     device_listener_context_leaked: Arc<AtomicBool>,
     listener_callbacks_active: Arc<AtomicBool>,
@@ -131,6 +132,7 @@ impl SharedContext {
             polling_active: Arc::new(AtomicBool::new(false)),
             polling_fallback_active: Arc::new(AtomicBool::new(false)),
             polling_fallback_required: Arc::new(AtomicBool::new(false)),
+            device_list_stale: Arc::new(AtomicBool::new(false)),
             device_listener_context_retention_required: Arc::new(AtomicBool::new(false)),
             device_listener_context_leaked: Arc::new(AtomicBool::new(false)),
             listener_callbacks_active: Arc::new(AtomicBool::new(true)),
@@ -148,6 +150,7 @@ impl SharedContext {
             polling_active: self.polling_active.clone(),
             polling_fallback_active: self.polling_fallback_active.clone(),
             polling_fallback_required: self.polling_fallback_required.clone(),
+            device_list_stale: self.device_list_stale.clone(),
             device_listener_context_retention_required: self
                 .device_listener_context_retention_required
                 .clone(),
@@ -189,6 +192,7 @@ impl SharedContext {
         self.polling_fallback_active.store(false, Ordering::SeqCst);
         self.polling_fallback_required
             .store(false, Ordering::SeqCst);
+        self.device_list_stale.store(false, Ordering::SeqCst);
     }
 
     pub(super) fn listener_callbacks_active(&self) -> bool {
@@ -205,8 +209,19 @@ impl SharedContext {
         self.enable_polling_fallback();
     }
 
+    pub(super) fn set_device_list_stale(&self, stale: bool) {
+        self.device_list_stale.store(stale, Ordering::SeqCst);
+        if stale {
+            self.enable_polling_fallback();
+        }
+    }
+
+    pub(super) fn device_list_stale(&self) -> bool {
+        self.device_list_stale.load(Ordering::SeqCst)
+    }
+
     pub(super) fn disable_polling_fallback(&self) {
-        if !self.polling_fallback_required.load(Ordering::SeqCst) {
+        if !self.polling_fallback_required.load(Ordering::SeqCst) && !self.device_list_stale() {
             self.polling_fallback_active.store(false, Ordering::SeqCst);
             self.wake_worker();
         }
@@ -596,6 +611,19 @@ mod tests {
         ctx.disable_polling_fallback();
 
         assert!(ctx.polling_fallback_active());
+    }
+
+    #[test]
+    fn stale_device_list_keeps_polling_until_the_next_successful_sync() {
+        let (ctx, _) = test_context();
+
+        ctx.set_device_list_stale(true);
+        ctx.disable_polling_fallback();
+        assert!(ctx.polling_fallback_active());
+
+        ctx.set_device_list_stale(false);
+        ctx.disable_polling_fallback();
+        assert!(!ctx.polling_fallback_active());
     }
 
     #[test]

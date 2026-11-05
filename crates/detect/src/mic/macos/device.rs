@@ -84,6 +84,9 @@ pub(super) fn any_input_device_running() -> Option<bool> {
 }
 
 pub(super) fn registered_devices_running(ctx: &SharedContext) -> Option<bool> {
+    if ctx.device_list_stale() {
+        return None;
+    }
     let devices = ctx.input_devices_snapshot();
     if devices.is_empty() {
         return any_input_device_running();
@@ -134,7 +137,7 @@ pub(super) fn sync_input_devices(ctx: &SharedContext, device_listener_ptr: *mut 
     let listed = match list_devices_with_input() {
         Ok(listed) => listed,
         Err(error) => {
-            ctx.require_polling_fallback();
+            ctx.set_device_list_stale(true);
             tracing::warn!(
                 ?error,
                 tags.error.code = error.status().0,
@@ -186,6 +189,7 @@ pub(super) fn sync_input_devices(ctx: &SharedContext, device_listener_ptr: *mut 
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     devices.retain(|device| !forgotten.contains(device));
     devices.extend(registered_now);
+    ctx.set_device_list_stale(false);
 }
 
 pub(super) fn refresh_mic_state(ctx: &SharedContext) {
