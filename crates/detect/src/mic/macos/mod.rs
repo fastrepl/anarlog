@@ -9,7 +9,10 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use app::poll_apps;
-use device::{ListenerData, device_listener, system_listener};
+use device::{
+    ListenerData, RemovalOutcome, remove_device_listener, seed_mic_state, sync_input_devices,
+    system_listener,
+};
 use state::SharedContext;
 
 const DEVICE_IS_RUNNING_SOMEWHERE: ca::PropAddr = ca::PropAddr {
@@ -17,6 +20,11 @@ const DEVICE_IS_RUNNING_SOMEWHERE: ca::PropAddr = ca::PropAddr {
     scope: ca::PropScope::GLOBAL,
     element: ca::PropElement::MAIN,
 };
+
+const SYSTEM_SELECTORS: [ca::PropSelector; 2] = [
+    ca::PropSelector::HW_DEFAULT_INPUT_DEVICE,
+    ca::PropSelector::HW_DEVICES,
+];
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 const LISTENER_GENERATION_IDLE: u8 = 0;
@@ -107,7 +115,7 @@ struct CoreAudioListeners {
     ctx: SharedContext,
     device_listener_data: Option<Box<ListenerData>>,
     system_listener_data: Option<Box<ListenerData>>,
-    system_listener_registered: bool,
+    system_listeners_registered: Vec<ca::PropSelector>,
     generation: ListenerGeneration,
 }
 
@@ -127,7 +135,7 @@ impl CoreAudioListeners {
             ctx,
             device_listener_data: Some(device_listener_data),
             system_listener_data: Some(system_listener_data),
-            system_listener_registered: false,
+            system_listeners_registered: Vec::new(),
             generation,
         };
         listeners.register();
@@ -150,58 +158,32 @@ impl CoreAudioListeners {
 
     fn register(&mut self) {
         let system_listener_ptr = self.system_listener_ptr();
-        self.system_listener_registered = ca::System::OBJ
-            .add_prop_listener(
-                &ca::PropSelector::HW_DEFAULT_INPUT_DEVICE.global_addr(),
+        for selector in SYSTEM_SELECTORS {
+            match ca::System::OBJ.add_prop_listener(
+                &selector.global_addr(),
                 system_listener,
                 system_listener_ptr,
-            )
-            .is_ok();
-
-        if self.system_listener_registered {
-            tracing::info!("adding_system_listener_success");
-        } else {
-            self.ctx.require_polling_fallback();
-            tracing::error!("adding_system_listener_failed");
-        }
-
-        match ca::System::default_input_device() {
-            Ok(device) => {
-                let mic_in_use = device::is_mic_running(&device);
-                let device_listener_ptr = self.device_listener_ptr();
-                match device.add_prop_listener(
-                    &DEVICE_IS_RUNNING_SOMEWHERE,
-                    device_listener,
-                    device_listener_ptr,
-                ) {
-                    Ok(()) => {
-                        tracing::info!("adding_device_listener_success");
-
-                        let mut device_guard = self
-                            .ctx
-                            .current_device
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner);
-                        *device_guard = Some(device);
-                        drop(device_guard);
-                        if let Some(mic_in_use) = mic_in_use {
-                            self.ctx.seed_running_state(mic_in_use);
-                        } else {
-                            self.ctx.enable_polling_fallback();
-                        }
-                    }
-                    Err(error) => {
-                        self.ctx.enable_polling_fallback();
-                        tracing::error!(
-                            ?error,
-                            tags.error.code = error.status().0,
-                            "adding_device_listener_failed"
-                        );
-                    }
+            ) {
+                Ok(()) => {
+                    self.system_listeners_registered.push(selector);
+                    tracing::info!(?selector, "adding_system_listener_success");
+                }
+                Err(error) => {
+                    self.ctx.require_polling_fallback();
+                    tracing::error!(
+                        ?error,
+                        tags.error.code = error.status().0,
+                        ?selector,
+                        "adding_system_listener_failed"
+                    );
                 }
             }
-            Err(_) => tracing::warn!("no_default_input_device_found"),
         }
+
+        let device_listener_ptr = self.device_listener_ptr();
+        sync_input_devices(&self.ctx, device_listener_ptr);
+
+        seed_mic_state(&self.ctx);
     }
 }
 
@@ -209,45 +191,37 @@ impl Drop for CoreAudioListeners {
     fn drop(&mut self) {
         self.ctx.deactivate_listener_callbacks();
 
-        let system_unregister_failed = if self.system_listener_registered {
+        let mut system_unregister_failed = false;
+        for selector in std::mem::take(&mut self.system_listeners_registered) {
             let system_listener_ptr = self.system_listener_ptr();
-            match ca::System::OBJ.remove_prop_listener(
-                &ca::PropSelector::HW_DEFAULT_INPUT_DEVICE.global_addr(),
+            if let Err(error) = ca::System::OBJ.remove_prop_listener(
+                &selector.global_addr(),
                 system_listener,
                 system_listener_ptr,
             ) {
-                Ok(()) => false,
-                Err(error) => {
-                    tracing::error!(?error, "removing_system_listener_failed_retaining_context");
-                    true
-                }
+                tracing::error!(?error, "removing_system_listener_failed_retaining_context");
+                system_unregister_failed = true;
             }
-        } else {
-            false
-        };
+        }
 
-        let registered_device = self
-            .ctx
-            .current_device
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take();
-        let device_unregister_failed = if let Some(device) = registered_device {
-            let device_listener_ptr = self.device_listener_ptr();
-            match device.remove_prop_listener(
-                &DEVICE_IS_RUNNING_SOMEWHERE,
-                device_listener,
-                device_listener_ptr,
-            ) {
-                Ok(()) => false,
-                Err(error) => {
-                    tracing::error!(?error, "removing_device_listener_failed_retaining_context");
-                    true
-                }
+        // Callbacks are deactivated, so no sync can register a listener after this.
+        let ctx = self.ctx.clone_shared();
+        let device_listener_ptr = self.device_listener_ptr();
+        let _sync = ctx.lock_sync();
+        let registered_devices = std::mem::take(
+            &mut *ctx
+                .input_devices
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
+        let mut device_unregister_failed = false;
+        for device in registered_devices {
+            match remove_device_listener(&device, device_listener_ptr) {
+                RemovalOutcome::Released => {}
+                RemovalOutcome::Gone => ctx.leak_device_listener_context(),
+                _ => device_unregister_failed = true,
             }
-        } else {
-            false
-        };
+        }
 
         let retention = listener_retention(
             system_unregister_failed,
@@ -257,7 +231,7 @@ impl Drop for CoreAudioListeners {
         if retention.system {
             retain_callback_context(&mut self.system_listener_data);
         }
-        if retention.device {
+        if retention.device || self.ctx.device_listener_context_leaked() {
             retain_callback_context(&mut self.device_listener_data);
         }
         if retention.system || retention.device {
