@@ -11,6 +11,8 @@ anlg-resampler = { workspace = true }
 audioadapter-buffers = "2.0"
 
 rodio = { workspace = true, features = ["symphonia-all"] }
+symphonia = { version = "0.5.5", default-features = false, features = ["mkv", "ogg"] }
+symphonia-adapter-libopus = "0.2.3"
 thiserror = { workspace = true }
 
 [dev-dependencies]

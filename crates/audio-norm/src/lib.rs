@@ -1,6 +1,7 @@
 mod encode;
 mod error;
 mod file_move;
+mod opus;
 
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -100,8 +101,13 @@ fn decode_with_rodio<W: Write>(
     on_progress: Option<&mut dyn FnMut(f64)>,
 ) -> Result<usize> {
     let file = File::open(path)?;
-    let decoder = rodio::Decoder::try_from(file)?;
-    encode::encode_source_to_mp3(decoder, max_duration, output, on_progress)
+    match rodio::Decoder::try_from(file) {
+        Ok(decoder) => encode::encode_source_to_mp3(decoder, max_duration, output, on_progress),
+        Err(error) => match opus::OpusSource::open(path) {
+            Some(source) => encode::encode_source_to_mp3(source, max_duration, output, on_progress),
+            None => Err(error.into()),
+        },
+    }
 }
 
 #[cfg(test)]
@@ -121,6 +127,8 @@ mod tests {
             ("mp4", anlg_data::english_1::AUDIO_MP4_PATH),
             ("m4a", anlg_data::english_1::AUDIO_M4A_PATH),
             ("ogg", anlg_data::english_1::AUDIO_OGG_PATH),
+            ("opus", anlg_data::english_1::AUDIO_OPUS_PATH),
+            ("webm", anlg_data::english_1::AUDIO_WEBM_PATH),
             ("flac", anlg_data::english_1::AUDIO_FLAC_PATH),
             ("aac", anlg_data::english_1::AUDIO_AAC_PATH),
             ("aiff", anlg_data::english_1::AUDIO_AIFF_PATH),
