@@ -39,3 +39,15 @@ updates:
         update-types:
           - version-update:semver-minor
           - version-update:semver-major
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -9,7 +9,7 @@ jobs:
   e2e-linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
       - uses: ./.github/actions/install_desktop_deps
@@ -33,7 +33,7 @@ jobs:
   e2e-macos:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
       - uses: ./.github/actions/install_desktop_deps
@@ -49,7 +49,7 @@ jobs:
           CI: false
           POSTHOG_API_KEY: phc_e2e
           VITE_API_URL: https://api.anarlog.so
-      - uses: FedericoCarboni/setup-ffmpeg@v3
+      - uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d # v3
         with:
           ffmpeg-version: release
       - run: |
@@ -66,7 +66,7 @@ jobs:
           CN_API_KEY_WEBDRIVER: ${{ secrets.CN_API_KEY_WEBDRIVER }}
         continue-on-error: true
       - if: steps.e2e-test.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e2e-blackbox-artifacts-macos
           path: |

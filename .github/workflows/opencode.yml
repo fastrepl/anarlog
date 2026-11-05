@@ -8,11 +8,13 @@ on:
 
 jobs:
   opencode:
+    # This job can mint an OIDC token, so never start it for outside commenters.
     if: |
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) && (
       contains(github.event.comment.body, ' /oc') ||
       startsWith(github.event.comment.body, '/oc') ||
       contains(github.event.comment.body, ' /opencode') ||
-      startsWith(github.event.comment.body, '/opencode')
+      startsWith(github.event.comment.body, '/opencode'))
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -20,8 +22,8 @@ jobs:
       pull-requests: read
       issues: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: anomalyco/opencode/github@latest
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: anomalyco/opencode/github@77fc88c8ade8e5a620ebbe1197f3a572d29ae91a # latest
         env:
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
         with:

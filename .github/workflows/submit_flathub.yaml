@@ -5,7 +5,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/setup_flathub
 
       - name: Generate offline dependency sources
@@ -30,7 +30,7 @@ jobs:
             anarlog.flatpak \
             so.anarlog.Anarlog
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: anarlog-flatpak-${{ github.sha }}
           path: anarlog.flatpak
