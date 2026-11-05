@@ -2,6 +2,7 @@ import { randomUUID } from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import { fetch } from "expo/fetch";
 
+import { throwIfAborted } from "../lib/abort.ts";
 import { providerStorageKey } from "./providers-model";
 import {
   parseSubscriptionCredential,
@@ -100,14 +101,14 @@ async function write(
     throw new Error("Subscription connection is too large to save.");
   try {
     for (let index = 0; index < next.count; index++) {
-      signal?.throwIfAborted();
+      throwIfAborted(signal);
       await SecureStore.setItemAsync(
         `${key}.${next.version}.${index}`,
         value.slice(index * 1500, (index + 1) * 1500),
         options,
       );
     }
-    signal?.throwIfAborted();
+    throwIfAborted(signal);
     await SecureStore.setItemAsync(key, JSON.stringify(next), options);
   } catch (error) {
     await cleanup(key, next);
