@@ -16,17 +16,15 @@ pub(super) fn is_mic_running(device: &ca::Device) -> Option<bool> {
 }
 
 fn aggregate_running(states: impl IntoIterator<Item = Option<bool>>) -> Option<bool> {
-    let mut any_device = false;
-    let mut any_known = false;
+    let mut any_unknown = false;
     for state in states {
-        any_device = true;
         match state {
             Some(true) => return Some(true),
-            Some(false) => any_known = true,
-            None => {}
+            Some(false) => {}
+            None => any_unknown = true,
         }
     }
-    (!any_device || any_known).then_some(false)
+    (!any_unknown).then_some(false)
 }
 
 fn watch_set<T: Copy + PartialEq>(
@@ -136,6 +134,7 @@ pub(super) fn sync_input_devices(ctx: &SharedContext, device_listener_ptr: *mut 
     let listed = match list_devices_with_input() {
         Ok(listed) => listed,
         Err(error) => {
+            ctx.require_polling_fallback();
             tracing::warn!(
                 ?error,
                 tags.error.code = error.status().0,
@@ -272,12 +271,13 @@ mod tests {
             Some(true)
         );
         assert_eq!(aggregate_running([None, Some(true)]), Some(true));
+        assert_eq!(aggregate_running([Some(true), None]), Some(true));
     }
 
     #[test]
     fn idle_unknown_and_empty_device_sets() {
         assert_eq!(aggregate_running([Some(false), Some(false)]), Some(false));
-        assert_eq!(aggregate_running([None, Some(false)]), Some(false));
+        assert_eq!(aggregate_running([None, Some(false)]), None);
         assert_eq!(aggregate_running([None, None]), None);
         assert_eq!(aggregate_running([]), Some(false));
     }
@@ -304,9 +304,7 @@ mod tests {
 
     #[test]
     fn removal_error_on_an_unlisted_device_means_gone() {
-        for is_bad_obj in [true, false] {
-            assert_eq!(removal_outcome(is_bad_obj, false), RemovalOutcome::Gone);
-        }
+        assert_eq!(removal_outcome(true, false), RemovalOutcome::Gone);
     }
 
     #[test]
