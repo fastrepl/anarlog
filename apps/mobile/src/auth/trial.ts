@@ -1,15 +1,20 @@
 export async function enrollInTrial({
   apiUrl,
   accessToken,
+  appVersion,
   signal,
   request = fetch,
 }: {
   apiUrl: string;
   accessToken: string;
+  appVersion?: string;
   signal: AbortSignal;
   request?: typeof fetch;
 }): Promise<boolean> {
-  const headers = { Authorization: `Bearer ${accessToken}` };
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+  if (appVersion) headers["x-anarlog-client-version"] = `mobile@${appVersion}`;
   const base = apiUrl.replace(/\/+$/, "");
   const eligibility = await request(`${base}/subscription/can-start-trial`, {
     headers,
