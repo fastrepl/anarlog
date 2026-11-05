@@ -12,7 +12,7 @@ jobs:
   sync:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: Homebrew/actions/setup-homebrew@1e34f2e2acaa766b7efacb8c26352e6abbb023f9
       - run: brew install openstatusHQ/cli/openstatus --cask
       - run: openstatus monitors apply --access-token ${{ secrets.OPENSTATUS_API_KEY }} -y

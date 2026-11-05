@@ -90,7 +90,7 @@ jobs:
     needs: parse
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ needs.parse.outputs.candidate_sha }}
           fetch-depth: 0
@@ -121,7 +121,7 @@ jobs:
     needs: [parse, verify-candidate]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ needs.parse.outputs.candidate_sha }}
       - uses: ./.github/actions/cn_download
@@ -162,7 +162,7 @@ jobs:
       actions: read
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ needs.parse.outputs.candidate_sha }}
           fetch-depth: 0
@@ -324,7 +324,7 @@ jobs:
       actions: read
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ needs.parse.outputs.candidate_sha }}
           fetch-depth: 0
@@ -541,7 +541,7 @@ jobs:
           RELEASE_VERSION: ${{ needs.parse.outputs.version }}
         run: |
           echo "value=https://anarlog.so/changelog/desktop/$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-      - uses: ncipollo/release-action@v1
+      - uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
         with:
           tag: desktop_v${{ needs.parse.outputs.version }}
           name: desktop_v${{ needs.parse.outputs.version }}
@@ -592,7 +592,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
           persist-credentials: false

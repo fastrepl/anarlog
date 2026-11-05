@@ -20,31 +20,31 @@ runs:
         fi
       shell: bash
     - if: inputs.platform == 'macos'
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         targets: aarch64-apple-darwin,x86_64-apple-darwin
         components: ${{ steps.toolchain.outputs.components }}
     - if: inputs.platform == 'ios'
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
         components: ${{ steps.toolchain.outputs.components }}
     - if: inputs.platform == 'android'
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
         components: ${{ steps.toolchain.outputs.components }}
     - if: inputs.platform == 'windows'
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         targets: x86_64-pc-windows-msvc
         components: ${{ steps.toolchain.outputs.components }}
     - if: inputs.platform == 'linux'
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         components: ${{ steps.toolchain.outputs.components }}
@@ -59,23 +59,23 @@ runs:
         sudo apt-get -o Acquire::Retries=5 install -y libasound2-dev
       shell: bash
     - if: inputs.platform == 'linux-x86_64'
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         targets: x86_64-unknown-linux-gnu
         components: ${{ steps.toolchain.outputs.components }}
     - if: inputs.platform == 'linux-aarch64'
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         targets: aarch64-unknown-linux-gnu
         components: ${{ steps.toolchain.outputs.components }}
     - if: inputs.platform == ''
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
         components: ${{ steps.toolchain.outputs.components }}
-    - uses: Swatinem/rust-cache@v2
+    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       with:
         cache-targets: "true"
         prefix-key: v0-rust${{ steps.cache-key.outputs.suffix }}

@@ -14,7 +14,7 @@ jobs:
     outputs:
       allowed: ${{ steps.permission.outputs.allowed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - id: permission
         uses: ./.github/actions/check-permission
         with:

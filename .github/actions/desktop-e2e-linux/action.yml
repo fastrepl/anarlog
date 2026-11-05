@@ -11,7 +11,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: FedericoCarboni/setup-ffmpeg@v3
+    - uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d # v3
       with:
         ffmpeg-version: release
     - shell: bash
@@ -45,7 +45,7 @@ runs:
       continue-on-error: true
     - name: Upload E2E logs and videos on failure
       if: steps.e2e-test.outcome == 'failure'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: e2e-blackbox-artifacts
         path: |

@@ -63,7 +63,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
           lfs: true
@@ -111,7 +111,7 @@ jobs:
     needs: compute-version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "$APP_VERSION"
@@ -169,7 +169,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
           lfs: true
@@ -362,7 +362,7 @@ jobs:
           framework: tauri
           working-directory: ./apps/desktop
       - if: ${{ inputs.channel == 'staging' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: hyprnote-staging-macos-${{ matrix.artifact_name }}
           path: apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
@@ -394,7 +394,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
           lfs: true
@@ -572,7 +572,7 @@ jobs:
           find target/${{ matrix.target }}/release/bundle/appimage target/${{ matrix.target }}/release/bundle/deb \
             -maxdepth 1 -type f -exec cp {} target/release/ \;
         working-directory: ./apps/desktop/src-tauri
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: anarlog-${{ inputs.channel }}-linux-${{ matrix.artifact_name }}
           path: |
@@ -598,7 +598,7 @@ jobs:
       id-token: write
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
           lfs: true
@@ -702,14 +702,14 @@ jobs:
             "${pdbs[@]}"
       - if: ${{ inputs.channel != 'staging' }}
         name: Sign in to Azure
-        uses: azure/login@v3
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - if: ${{ inputs.channel != 'staging' }}
         name: Sign Windows binaries
-        uses: azure/artifact-signing-action@v2
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
         with:
           endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
           signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
@@ -748,7 +748,7 @@ jobs:
             Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
       - if: ${{ inputs.channel != 'staging' }}
         name: Sign Windows installer
-        uses: azure/artifact-signing-action@v2
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
         with:
           endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
           signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
@@ -876,7 +876,7 @@ jobs:
           $destination = "apps/desktop/src-tauri/target/release"
           New-Item -ItemType Directory -Force -Path $destination | Out-Null
           Copy-Item "$source/*" $destination
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: anarlog-${{ inputs.channel }}-windows-x64
           path: apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*
@@ -899,7 +899,7 @@ jobs:
     needs: [compute-version, build-macos, build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
       - id: release
@@ -996,7 +996,7 @@ jobs:
             --cn-version "$CN_VERSION" \
             --cn-asset-id "$CN_ASSET_ID" \
             --cn-sha256 "$CN_SHA256"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: inputs.channel == 'stable'
         with:
           name: desktop-release-provenance-${{ needs.compute-version.outputs.version }}-${{ github.sha }}

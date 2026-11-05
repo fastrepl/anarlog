@@ -12,7 +12,7 @@ runs:
   using: "composite"
   steps:
     # https://docs.warpbuild.com/tools/action-debugger
-    - uses: Warpbuilds/action-debugger@v1.3
+    - uses: Warpbuilds/action-debugger@4f5fd557c0ec91cdf9395b2853a3387b6cfd0738 # v1.3
       if: inputs.enabled
       with:
         detached: ${{ inputs.detached }}
