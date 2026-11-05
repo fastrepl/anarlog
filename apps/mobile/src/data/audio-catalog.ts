@@ -21,7 +21,7 @@ INSERT INTO session_attachments (
   source_id, metadata_json, cloud_sync_enabled, created_at, updated_at, deleted_at
 )
 SELECT ?, workspace_id, id, ?, ?, ?, ?, ?, 'local_file', '',
-  'session_audio', 'primary', json_object('transcript_status', 'processing', 'capture_started_at_ms', CASE WHEN ? THEN json_extract(metadata_json, '$.mobile_capture_started_at_ms') ELSE NULL END), 1, ?, ?, NULL
+  'session_audio', 'primary', json_object('transcript_status', 'processing', 'capture_started_at_ms', CASE WHEN ? THEN COALESCE((SELECT json_extract(value_json, '$.startedAtMs') FROM app_settings WHERE id = 'mobile_capture_pending:' || sessions.id), json_extract(metadata_json, '$.mobile_capture_started_at_ms')) ELSE NULL END), 1, ?, ?, NULL
 FROM sessions
 WHERE id = ? AND deleted_at IS NULL
 ON CONFLICT(id) DO UPDATE SET
@@ -32,8 +32,11 @@ ON CONFLICT(id) DO UPDATE SET
   sha256 = excluded.sha256,
   storage_kind = 'local_file',
   cloud_object_key = '',
-  cloud_sync_enabled = 1,
-  metadata_json = excluded.metadata_json,
+  metadata_json = json_set(
+    CASE WHEN json_valid(session_attachments.metadata_json) THEN session_attachments.metadata_json ELSE '{}' END,
+    '$.transcript_status', 'processing',
+    '$.capture_started_at_ms', json_extract(excluded.metadata_json, '$.capture_started_at_ms')
+  ),
   updated_at = excluded.updated_at,
   deleted_at = NULL
 `;
@@ -55,13 +58,40 @@ ON CONFLICT(attachment_id) DO UPDATE SET
   updated_at = excluded.updated_at
 `;
 
-export async function recordSessionCaptureStart(sessionId: string) {
+export async function recordSessionCaptureStart(
+  sessionId: string,
+  capture: {
+    filename: string;
+    startedAtMs: number;
+    previousSizeBytes?: number;
+  } = { filename: "audio.wav", startedAtMs: Date.now() },
+) {
   await executeTransaction([
     {
       sql: "UPDATE sessions SET metadata_json = json_set(metadata_json, '$.mobile_capture_started_at_ms', ?), updated_at = ? WHERE id = ? AND deleted_at IS NULL",
-      params: [Date.now(), nowIso(), sessionId],
+      params: [capture.startedAtMs, nowIso(), sessionId],
+    },
+    {
+      // Recovery filenames belong to this device, not the synced session metadata.
+      sql: "INSERT INTO app_settings (id, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+      params: [
+        `mobile_capture_pending:${sessionId}`,
+        JSON.stringify(capture),
+        nowIso(),
+      ],
     },
   ]);
+}
+
+export async function clearPendingCapture(sessionId: string) {
+  await executeTransaction([pendingCaptureClearStatement(sessionId)]);
+}
+
+function pendingCaptureClearStatement(sessionId: string) {
+  return {
+    sql: "DELETE FROM app_settings WHERE id = ?",
+    params: [`mobile_capture_pending:${sessionId}`],
+  };
 }
 
 export async function catalogSessionAudio(
@@ -125,6 +155,9 @@ export async function catalogSessionAudio(
       `,
       params: [transferJobId, attachmentId, attachmentId],
     },
+    ...(file.source === "recording"
+      ? [pendingCaptureClearStatement(sessionId)]
+      : []),
   ]);
   requestMobileAttachmentUploads();
 }

@@ -33,7 +33,11 @@ export function NoteActionsSheet({
   const styles = useStyles();
   const Colors = useColors();
   const insets = useSafeAreaInsets();
-  const listeningLabel = listening ? "Stop listening" : "Start listening";
+  const listeningLabel = listening
+    ? "Stop listening"
+    : hasRecordingHistory
+      ? "Resume listening"
+      : "Start listening";
 
   const select = (action: () => void) => {
     onClose();
@@ -122,23 +126,21 @@ export function NoteActionsSheet({
               <Text style={styles.actionLabel}>Import recording</Text>
             </Pressable>
           )}
-          {(listening || !hasRecordingHistory) && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => select(onToggleListening)}
-              style={({ pressed }) => [
-                styles.action,
-                pressed && styles.actionPressed,
-              ]}
-            >
-              <Ionicons
-                name={listening ? "mic-off-outline" : "mic-outline"}
-                size={20}
-                color={Colors.ink}
-              />
-              <Text style={styles.actionLabel}>{listeningLabel}</Text>
-            </Pressable>
-          )}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => select(onToggleListening)}
+            style={({ pressed }) => [
+              styles.action,
+              pressed && styles.actionPressed,
+            ]}
+          >
+            <Ionicons
+              name={listening ? "mic-off-outline" : "mic-outline"}
+              size={20}
+              color={Colors.ink}
+            />
+            <Text style={styles.actionLabel}>{listeningLabel}</Text>
+          </Pressable>
           <View style={styles.separator} />
           <Pressable
             accessibilityRole="button"

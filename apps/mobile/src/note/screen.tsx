@@ -213,8 +213,7 @@ export function NoteScreen({
     else if (
       !audio.isLoading &&
       !transcriptState.isLoading &&
-      !transcriptState.error &&
-      !hasRecordingHistory
+      !transcriptState.error
     ) {
       setListening(true);
       void recorder.start();
