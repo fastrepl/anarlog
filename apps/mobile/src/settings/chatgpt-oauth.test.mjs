@@ -3,9 +3,30 @@ import { test } from "node:test";
 
 import { parseChatgptSummary } from "../data/chatgpt-summary.ts";
 import {
+  listChatgptModels,
   pollChatgptDeviceCode,
   requestChatgptDeviceCode,
 } from "./chatgpt-oauth.ts";
+
+test("ChatGPT discovery includes newer models from the current catalog and omits hidden models", async () => {
+  const models = await listChatgptModels(
+    "access",
+    "account",
+    async (url, init) => {
+      assert.equal(init.headers["ChatGPT-Account-ID"], "account");
+      const current =
+        new URL(url).searchParams.get("client_version") === "0.165.0";
+      return Response.json({
+        models: [
+          ...(current ? [{ slug: "new-model", visibility: "list" }] : []),
+          { slug: "existing-model", visibility: "list" },
+          { slug: "hidden-model", visibility: "hide" },
+        ],
+      });
+    },
+  );
+  assert.deepEqual(models, ["new-model", "existing-model"]);
+});
 
 test("mobile ChatGPT sign-in exchanges an approved device code without a localhost callback", async () => {
   const token = `test.${Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: "workspace-1" } })).toString("base64url")}.signature`;

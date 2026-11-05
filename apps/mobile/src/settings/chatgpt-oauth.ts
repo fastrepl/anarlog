@@ -8,6 +8,8 @@ export const CHATGPT_BASE_URL = "https://chatgpt.com/backend-api/codex";
 export const CHATGPT_DEVICE_URL = "https://auth.openai.com/codex/device";
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const AUTH_URL = "https://auth.openai.com";
+// OpenAI filters newer models out of catalogs requested by older clients.
+const CODEX_CLIENT_VERSION = "0.165.0";
 
 export type ChatgptCredential = {
   type: "oauth";
@@ -238,7 +240,7 @@ export async function listChatgptModels(
   signal?: AbortSignal,
 ): Promise<string[]> {
   const { status, json } = await chatgptJson(
-    `${CHATGPT_BASE_URL}/models?client_version=0.145.0`,
+    `${CHATGPT_BASE_URL}/models?client_version=${CODEX_CLIENT_VERSION}`,
     {
       headers: chatgptHeaders(access, savedAccountId),
       signal,
