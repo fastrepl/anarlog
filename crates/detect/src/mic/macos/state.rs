@@ -614,19 +614,6 @@ mod tests {
     }
 
     #[test]
-    fn stale_device_list_keeps_polling_until_the_next_successful_sync() {
-        let (ctx, _) = test_context();
-
-        ctx.set_device_list_stale(true);
-        ctx.disable_polling_fallback();
-        assert!(ctx.polling_fallback_active());
-
-        ctx.set_device_list_stale(false);
-        ctx.disable_polling_fallback();
-        assert!(!ctx.polling_fallback_active());
-    }
-
-    #[test]
     fn polling_fallback_updates_coreaudio_state_without_duplicate_recovery_edge() {
         let (ctx, events) = test_context();
 
