@@ -19,6 +19,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { setActiveAccountId } from "@/auth/active-account";
 import {
   consumeAuthCallback,
   pendingAuthStorageKey,
@@ -185,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setSession = useCallback((next: Session | null) => {
     if (sessionRef.current?.user.id !== next?.user.id)
       billingRefreshRef.current = null;
+    setActiveAccountId(next?.user.id ?? null);
     sessionRef.current = next;
     setSessionState(next);
     const userId = next?.user.id ?? null;

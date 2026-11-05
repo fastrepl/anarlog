@@ -40,14 +40,17 @@ import {
 export type TranscriptionState = "idle" | "running" | "failed";
 
 const states = new Map<string, TranscriptionState>();
+const localErrors = new Map<string, string>();
 const inflight = new Map<string, Promise<void>>();
 const automaticRetryBlocked = new Set<string>();
 const listeners = new Set<() => void>();
+const completionListeners = new Set<() => void>();
 const MAX_RETAINED_FAILED_STATES = 100;
 const transcriptionAdmission = new TranscriptionAdmission(2, 32);
 
 function setState(sessionId: string, state: TranscriptionState) {
   states.delete(sessionId);
+  if (state !== "failed") localErrors.delete(sessionId);
   if (state !== "idle") {
     states.set(sessionId, state);
   }
@@ -61,6 +64,7 @@ function setState(sessionId: string, state: TranscriptionState) {
       }
       if (retainedState === "failed") {
         states.delete(retainedSessionId);
+        localErrors.delete(retainedSessionId);
         retainedFailures -= 1;
       }
     }
@@ -73,6 +77,17 @@ function setState(sessionId: string, state: TranscriptionState) {
 // transcribe" flash between the idle notification and the query refresh.
 function clearStateSilently(sessionId: string) {
   states.delete(sessionId);
+  localErrors.delete(sessionId);
+}
+
+export function useLocalTranscriptionError(sessionId: string) {
+  return useSyncExternalStore(
+    (onChange) => {
+      listeners.add(onChange);
+      return () => listeners.delete(onChange);
+    },
+    () => localErrors.get(sessionId),
+  );
 }
 
 export function useTranscriptionState(sessionId: string): TranscriptionState {
@@ -114,9 +129,8 @@ WHERE attachment.source_type = 'session_audio'
   AND attachment.deleted_at IS NULL
   AND attachment.size_bytes > 0
   AND attachment.size_bytes <= ?
+  AND attachment.session_id NOT IN (SELECT value FROM json_each(?))
   AND COALESCE(json_extract(attachment.metadata_json, '$.transcript_status'), '') <> 'complete'
-ORDER BY attachment.updated_at, attachment.id
-LIMIT 8
 `;
 
 const TRANSCRIPT_TOMBSTONE_SQL = `
@@ -334,6 +348,10 @@ function isPermanentTranscriptionFailure(error: unknown): boolean {
     "audio_too_large",
     "stt_response_too_large",
     "stt_live_only",
+    "ERR_MLKIT_AUDIO_FORMAT",
+    "ERR_MLKIT_AUDIO_MISSING",
+    "ERR_MLKIT_RESPONSE_TOO_LARGE",
+    "ERR_MLKIT_EMPTY",
   ].includes(String(code));
 }
 
@@ -360,6 +378,17 @@ async function requestTranscription(
   provider: ProviderConfig & { apiKey: string },
   preferences: Preferences,
 ): Promise<{ status: number; body: string }> {
+  if (provider.provider === "google_on_device") {
+    const { transcribeLocalFile } = await import("./local-speech");
+    const text = await transcribeLocalFile(
+      file.uri,
+      preferences.spoken_languages[0] ?? preferences.ai_language,
+      provider.model,
+    );
+    const body = JSON.stringify({ text });
+    assertBoundedTranscriptionResponse(body, null);
+    return { status: 200, body };
+  }
   const url = applyTranscriptionPreferences(
     new URL(
       `${env.apiUrl}/stt/listen?provider=anarlog&max_response_bytes=${MAX_TRANSCRIPTION_RESPONSE_BYTES}`,
@@ -416,7 +445,11 @@ async function requestTranscription(
   }
 }
 
-async function runTranscription(sessionId: string): Promise<void> {
+async function runTranscription(
+  sessionId: string,
+  canStart?: () => Promise<boolean>,
+): Promise<boolean> {
+  if (canStart && !(await canStart())) return false;
   const rows = await execute<{
     content_type: string;
     size_bytes: number;
@@ -424,7 +457,7 @@ async function runTranscription(sessionId: string): Promise<void> {
     capture_started_at_ms: number | null;
   }>(PENDING_AUDIO_SQL, [sessionId]);
   const audio = rows[0];
-  if (!audio) return;
+  if (!audio) return false;
 
   const file = new File(
     Paths.document,
@@ -445,6 +478,11 @@ async function runTranscription(sessionId: string): Promise<void> {
   }
 
   const selected = await resolveProvider("stt");
+  if (
+    canStart &&
+    (selected.provider !== "google_on_device" || !(await canStart()))
+  )
+    return false;
   const model = batchTranscriptionModel(selected.provider, selected.model);
   if (!model)
     throw transcriptionFailure(
@@ -534,15 +572,30 @@ async function runTranscription(sessionId: string): Promise<void> {
     throw withTranscriptionStage(error, "persist");
   });
   generateSummaryAfterTranscription(sessionId);
+  return true;
 }
 
-export function transcribeSession(sessionId: string): Promise<void> {
+export function subscribeTranscriptionCompletion(
+  listener: () => void,
+): () => void {
+  completionListeners.add(listener);
+  return () => completionListeners.delete(listener);
+}
+
+export function transcribeSession(
+  sessionId: string,
+  canStart?: () => Promise<boolean>,
+): Promise<void> {
   const existing = inflight.get(sessionId);
   if (existing) return existing;
 
   const admitted = transcriptionAdmission.schedule(() =>
-    runTranscription(sessionId)
-      .then(() => {
+    runTranscription(sessionId, canStart)
+      .then((completed) => {
+        if (!completed) {
+          setState(sessionId, "idle");
+          return;
+        }
         captureAnalytics("transcription_completed", {
           mode: "batch",
           entry_point: "mobile_audio",
@@ -554,6 +607,13 @@ export function transcribeSession(sessionId: string): Promise<void> {
         if (error instanceof ProRequiredError) {
           setState(sessionId, "idle");
           return;
+        }
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          String(error.code).startsWith("ERR_MLKIT_")
+        ) {
+          localErrors.set(sessionId, error.message);
         }
         captureOperationalError(error, {
           operation: "transcription_batch",
@@ -590,6 +650,8 @@ export function transcribeSession(sessionId: string): Promise<void> {
   setState(sessionId, "running");
   const task = admitted.finally(() => {
     inflight.delete(sessionId);
+    // Recovery attempts must not trigger another pass and retry themselves forever.
+    if (!canStart) for (const listener of completionListeners) listener();
   });
   inflight.set(sessionId, task);
   return task;
@@ -601,8 +663,12 @@ export function retryPendingTranscriptions(): Promise<void> {
   if (pendingRetryPass) return pendingRetryPass;
 
   const pass = execute<{ session_id: string }>(
-    PENDING_TRANSCRIPTION_RETRY_SQL,
-    [MAX_TRANSCRIPTION_AUDIO_BYTES],
+    `${PENDING_TRANSCRIPTION_RETRY_SQL}
+ORDER BY attachment.updated_at, attachment.id LIMIT 8`,
+    [
+      MAX_TRANSCRIPTION_AUDIO_BYTES,
+      JSON.stringify([...automaticRetryBlocked, ...inflight.keys()]),
+    ],
   )
     .then((rows) =>
       Promise.all(
@@ -626,4 +692,61 @@ export function retryPendingTranscriptions(): Promise<void> {
     pendingRetryPass = null;
   });
   return pendingRetryPass;
+}
+
+export async function retryLocalTranscriptions(
+  accountUserId: string | null,
+  canContinue: () => Promise<boolean>,
+): Promise<void> {
+  const attempted = new Set<string>();
+  while (await canContinue()) {
+    const rows = await execute<{ session_id: string }>(
+      `${PENDING_TRANSCRIPTION_RETRY_SQL}
+  AND EXISTS (
+    SELECT 1 FROM sessions AS session
+    WHERE session.id = attachment.session_id AND session.deleted_at IS NULL
+      AND (session.owner_user_id = ?
+        OR session.owner_user_id IN (
+          SELECT library_workspace_id FROM local_library_connections
+          WHERE account_user_id = ? AND active = 1
+        )
+        OR session.owner_user_id = (
+          SELECT json_extract(binding.value_json, '$.workspace_id')
+          FROM app_settings AS binding
+          WHERE binding.id = 'cloudsync_workspace_binding'
+            AND (json_extract(binding.value_json, '$.account_user_id') IS NULL
+              OR json_extract(binding.value_json, '$.account_user_id') = ?)
+            AND NOT EXISTS (
+              SELECT 1 FROM local_library_connections
+              WHERE library_workspace_id = json_extract(binding.value_json, '$.workspace_id')
+            )
+        )
+        OR session.owner_user_id IS NULL
+        OR session.owner_user_id = '00000000-0000-0000-0000-000000000000')
+  )
+ORDER BY attachment.updated_at, attachment.id LIMIT 8`,
+      [
+        MAX_TRANSCRIPTION_AUDIO_BYTES,
+        JSON.stringify([
+          ...automaticRetryBlocked,
+          ...inflight.keys(),
+          ...attempted,
+        ]),
+        accountUserId,
+        accountUserId,
+        accountUserId,
+      ],
+    );
+    if (!rows.length) return;
+    for (const { session_id } of rows) {
+      if (!(await canContinue())) return;
+      // Wait only when admission is full; unrelated uploads may still be running.
+      while (!transcriptionAdmission.hasCapacity) {
+        await Promise.race(inflight.values());
+        if (!(await canContinue())) return;
+      }
+      attempted.add(session_id);
+      await transcribeSession(session_id, canContinue);
+    }
+  }
 }

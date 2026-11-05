@@ -12,11 +12,14 @@ export class TranscriptionAdmission {
     this.maxQueued = maxQueued;
   }
 
+  get hasCapacity(): boolean {
+    return (
+      this.active < this.maxConcurrent || this.pending.length < this.maxQueued
+    );
+  }
+
   schedule(run: () => Promise<void>): Promise<void> | null {
-    if (
-      this.active >= this.maxConcurrent &&
-      this.pending.length >= this.maxQueued
-    ) {
+    if (!this.hasCapacity) {
       return null;
     }
 

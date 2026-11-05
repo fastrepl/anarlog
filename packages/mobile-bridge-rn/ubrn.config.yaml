@@ -8,6 +8,10 @@ bindings:
 
 android:
   directory: android
+  targets:
+    - arm64-v8a
+    - armeabi-v7a
+    - x86_64
   apiLevel: 24
   jniLibs: src/main/jniLibs
   packageName: so.anarlog.mobilebridge
