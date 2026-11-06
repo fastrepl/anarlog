@@ -9,6 +9,12 @@ pub enum Error {
     #[error(transparent)]
     Updater(#[from] tauri_plugin_updater::Error),
     #[error(transparent)]
+    Download(#[from] updater_core::Error),
+    #[error(transparent)]
+    Config(#[from] serde_json::Error),
+    #[error(transparent)]
+    Version(#[from] semver::Error),
+    #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("cache path unavailable")]
     CachePathUnavailable,

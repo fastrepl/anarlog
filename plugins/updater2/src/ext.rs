@@ -94,19 +94,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         }
     }
 
-    fn cache_update_bytes(&self, version: &str, bytes: &[u8]) -> Result<(), crate::Error> {
-        let cache_path =
-            get_cache_path(self.manager, version).ok_or(crate::Error::CachePathUnavailable)?;
-
-        if let Some(parent) = cache_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        std::fs::write(&cache_path, bytes)?;
-        tracing::debug!("cached_update_bytes: {:?}", cache_path);
-        Ok(())
-    }
-
     fn get_cached_update_bytes(&self, version: &str) -> Result<Vec<u8>, crate::Error> {
         let cache_path =
             get_cache_path(self.manager, version).ok_or(crate::Error::CachePathUnavailable)?;
@@ -126,7 +113,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
 
         // install_and_relaunch never returns, so this periodic check is the
         // only place stale cached bins can be cleaned up.
-        prune_cached_updates(self.manager, version.as_deref());
+        if let Ok(_download_guard) = DOWNLOAD_MUTEX.try_lock() {
+            prune_cached_updates(self.manager, version.as_deref());
+        }
 
         if let Some(version) = &version {
             if self.has_cached_update(version) {
@@ -183,20 +172,47 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         let app_handle = self.manager.app_handle().clone();
         let version_string = version.to_string();
         let result: Result<(), crate::Error> = async {
-            let bytes = update
-                .download(
-                    |chunk_length, content_length| {
-                        let _ = UpdateDownloadProgressEvent {
-                            version: version_string.clone(),
-                            chunk_length: chunk_length as u64,
-                            content_length,
-                        }
-                        .emit(&app_handle);
-                    },
-                    || {},
-                )
+            let config: tauri_plugin_updater::Config = serde_json::from_value(
+                self.manager
+                    .config()
+                    .plugins
+                    .0
+                    .get("updater")
+                    .cloned()
+                    .unwrap_or_default(),
+            )?;
+            let mut download_config = updater_core::UpdateConfig::new(
+                config.endpoints,
+                update.current_version.parse()?,
+                update.target.clone(),
+                config.pubkey,
+            );
+            download_config.headers = update.headers.clone();
+            download_config.timeout = update.timeout;
+            download_config.proxy = update.proxy.clone();
+            download_config.no_proxy = update.no_proxy;
+            let checker = updater_core::UpdateChecker::new(download_config)?;
+            let release = updater_core::ResolvedRelease {
+                version: update.version.parse()?,
+                notes: update.body.clone(),
+                pub_date: update.date,
+                target: update.target.clone(),
+                download_url: update.download_url.clone(),
+                signature: update.signature.clone(),
+                raw_json: update.raw_json.clone(),
+            };
+            let cache_path =
+                get_cache_path(self.manager, version).ok_or(crate::Error::CachePathUnavailable)?;
+            checker
+                .download_to_path(&release, &cache_path, |chunk_length, content_length| {
+                    let _ = UpdateDownloadProgressEvent {
+                        version: version_string.clone(),
+                        chunk_length,
+                        content_length,
+                    }
+                    .emit(&app_handle);
+                })
                 .await?;
-            self.cache_update_bytes(version, &bytes)?;
             Ok(())
         }
         .await;
@@ -308,7 +324,10 @@ fn prune_updates_dir(dir: &Path, keep: Option<&str>) {
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("bin") {
+        if !matches!(
+            path.extension().and_then(|e| e.to_str()),
+            Some("bin" | "part" | "signature")
+        ) {
             continue;
         }
         if keep.is_some() && path.file_stem().and_then(|s| s.to_str()) == keep {
@@ -336,11 +355,17 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_bins(dir.path(), &["1.4.1", "1.4.2", "1.4.8"]);
         std::fs::write(dir.path().join("notes.txt"), b"keep").unwrap();
+        std::fs::write(dir.path().join("1.4.8.part"), b"partial").unwrap();
+        std::fs::write(dir.path().join("1.4.1.part"), b"partial").unwrap();
+        std::fs::write(dir.path().join("1.4.1.signature"), b"signature").unwrap();
 
         prune_updates_dir(dir.path(), Some("1.4.8"));
 
         assert!(dir.path().join("1.4.8.bin").exists());
         assert!(dir.path().join("notes.txt").exists());
+        assert!(dir.path().join("1.4.8.part").exists());
+        assert!(!dir.path().join("1.4.1.part").exists());
+        assert!(!dir.path().join("1.4.1.signature").exists());
         assert!(!dir.path().join("1.4.1.bin").exists());
         assert!(!dir.path().join("1.4.2.bin").exists());
     }

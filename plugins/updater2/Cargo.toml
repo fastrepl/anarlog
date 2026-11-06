@@ -15,9 +15,11 @@ specta-typescript = { workspace = true }
 tempfile = { workspace = true }
 
 [dependencies]
+serde_json = { workspace = true }
 tauri-plugin-store2 = { workspace = true }
 tauri-plugin-updater = { workspace = true }
 tokio = { workspace = true, features = ["macros", "time", "sync"] }
+updater-core = { path = "../../crates/updater-core" }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
