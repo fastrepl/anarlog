@@ -16,6 +16,7 @@ use tauri::{
 };
 
 use crate::{
+    TrayLanguageOption,
     schedule::{
         TrayAgendaSection, TrayScheduleEvent, agenda_sections, menu_bar_title,
         next_schedule_refresh_ms,
@@ -27,7 +28,7 @@ use crate::{
 use crate::menu_items::{AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, TrayQuit};
 use crate::menu_items::{
     MenuItemHandler, TrayCheckUpdate, TrayHide, TrayOpen, TrayQuitCompletely, TraySettings,
-    TrayShowEvents, TrayStart, TrayVersion, build_agenda_item,
+    TrayShowEvents, TrayStart, TrayVersion, build_agenda_item, build_language_submenu,
 };
 use tauri_plugin_store2::Store2PluginExt;
 
@@ -44,9 +45,11 @@ static SCHEDULE_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 static MENU_BAR_TITLE: Mutex<Option<String>> = Mutex::new(None);
 static RECORDING_TITLE: Mutex<Option<String>> = Mutex::new(None);
 static AGENDA_SECTIONS: Mutex<Vec<TrayAgendaSection>> = Mutex::new(Vec::new());
+static LANGUAGES: Mutex<Vec<TrayLanguageOption>> = Mutex::new(Vec::new());
 // muda 0.17 stores a raw MenuChild pointer on each NSMenuItem. Replacing the
 // tray menu while it is still visible frees those items and crashes on click
-// (HYPRNOTE2-2MTS). Defer set_menu until the next tray mouse-down instead.
+// (HYPRNOTE2-2MTS). Defer set_menu until the pointer next enters the tray icon
+// instead; macOS does not deliver mouse-down while the status item owns a menu.
 #[cfg(target_os = "macos")]
 static MENU_DIRTY: AtomicBool = AtomicBool::new(false);
 
@@ -210,11 +213,14 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         let builder = {
             let app = app.clone();
             builder.on_tray_icon_event(move |_tray, event| {
-                if let TrayIconEvent::Click {
-                    button_state: MouseButtonState::Down,
-                    ..
-                } = event
-                {
+                if matches!(
+                    event,
+                    TrayIconEvent::Enter { .. }
+                        | TrayIconEvent::Click {
+                            button_state: MouseButtonState::Down,
+                            ..
+                        }
+                ) {
                     let _ = Self::apply_pending_menu(&app);
                 }
             })
@@ -291,6 +297,18 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         Self::restart_schedule_task(app);
 
         Ok(())
+    }
+
+    pub fn set_languages(&self, options: Vec<TrayLanguageOption>) -> Result<()> {
+        {
+            let mut languages = LANGUAGES.lock().unwrap();
+            if *languages == options {
+                return Ok(());
+            }
+            *languages = options;
+        }
+
+        Self::rebuild_menu(self.manager.app_handle())
     }
 
     pub fn shows_events(&self) -> bool {
@@ -408,6 +426,9 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             app,
             START_DISABLED.load(Ordering::SeqCst),
         )?)?;
+        if let Some(languages) = build_language_submenu(app, &LANGUAGES.lock().unwrap())? {
+            menu.append(&languages)?;
+        }
         menu.append(&TraySettings::build(app)?)?;
         menu.append(&PredefinedMenuItem::separator(app)?)?;
         menu.append(&TrayVersion::build(app)?)?;

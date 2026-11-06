@@ -29,12 +29,25 @@ async setTrayRecordingTitle(title: string | null) : Promise<Result<null, string>
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async setTrayLanguages(options: TrayLanguageOption[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:anlg-tray|set_tray_languages", { options }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+trayLanguageSelected: TrayLanguageSelected
+}>({
+trayLanguageSelected: "plugin:anlg-tray:tray-language-selected"
+})
 
 /** user-defined constants **/
 
@@ -42,6 +55,8 @@ async setTrayRecordingTitle(title: string | null) : Promise<Result<null, string>
 
 /** user-defined types **/
 
+export type TrayLanguageOption = { code: string; label: string; selected: boolean }
+export type TrayLanguageSelected = { code: string }
 export type TrayScheduleEvent = { id: string; title: string; meetingLink: string | null; startsAtMs: number; endsAtMs: number | null; dayStartMs: number; previousDayStartMs: number; timeLabel: string }
 
 /** tauri-specta globals **/
