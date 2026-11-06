@@ -79,7 +79,7 @@ jobs:
   mobile_checks:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F @anlg/mobile typecheck
       - run: pnpm -F @anlg/mobile test
@@ -91,7 +91,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: |
           xcodebuild \
             -project apps/watch/apple/AnarlogWatch.xcodeproj \
@@ -107,7 +107,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/pnpm_install
@@ -118,7 +118,7 @@ jobs:
         run: crates/cloudsync/scripts/rebuild-ios.sh
       - run: crates/cloudsync/scripts/test-ios.sh
       - if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cloudsync-ios-${{ github.sha }}
           path: crates/cloudsync/vendor/cloudsync/apple/CloudSync.xcframework
@@ -146,7 +146,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - run: |
@@ -156,12 +156,12 @@ jobs:
       - uses: ./.github/actions/rust_install
         with:
           platform: android
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: "17"
       - run: cargo install cargo-ndk --version 4.1.2 --locked
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           log-accepted-android-sdk-licenses: false
           packages: platform-tools
@@ -172,7 +172,7 @@ jobs:
       - if: github.event_name == 'workflow_dispatch'
         run: crates/cloudsync/scripts/rebuild-android.sh
       - if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cloudsync-android-${{ github.sha }}
           path: crates/cloudsync/vendor/cloudsync/android
