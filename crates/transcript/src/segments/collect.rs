@@ -22,11 +22,14 @@ pub(super) fn collect_segments(
             .filter(|&index| {
                 let last = &segments[index];
                 let last_end = last.words.last().map_or(0, |word| word.word.end_ms);
-                // An overlapping channel must not split an ongoing speaker into word-sized blocks.
-                let continuous = segments.get(index + 1).is_none_or(|next| {
-                    next.words
-                        .first()
-                        .is_some_and(|word| word.word.start_ms < last_end)
+                // A complete intervening word inside this pause marks a separate turn.
+                let continuous = segments[index + 1..].iter().all(|segment| {
+                    let start = segment
+                        .words
+                        .partition_point(|word| word.word.start_ms < last_end);
+                    segment.words[start..]
+                        .iter()
+                        .all(|word| word.word.end_ms > frame.word.start_ms)
                 });
                 last.key == key && frame.word.start_ms - last_end <= max_gap_ms && continuous
             });

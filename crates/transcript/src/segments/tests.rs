@@ -375,6 +375,43 @@ fn overlapping_channels_keep_each_speakers_words_together() {
 }
 
 #[test]
+fn completed_intervening_turns_do_not_join_separate_speech() {
+    for (remote_speaker, expected) in [
+        (
+            0,
+            vec![
+                vec!["mic-first"],
+                vec!["remote-first", "remote-last"],
+                vec!["mic-return"],
+            ],
+        ),
+        (
+            1,
+            vec![
+                vec!["mic-first"],
+                vec!["remote-first"],
+                vec!["remote-last"],
+                vec!["mic-return"],
+            ],
+        ),
+    ] {
+        let words = vec![
+            fw_si("mic-first", 0, 100, 0, 0),
+            fw_si("remote-first", 50, 150, 1, 0),
+            fw_si("remote-last", 200, 300, 1, remote_speaker),
+            fw_si("mic-return", 350, 450, 0, 0),
+        ];
+        let result = build_segments(&words, &[], &[], None);
+        assert_eq!(
+            result.iter().map(texts).collect::<Vec<_>>(),
+            expected,
+            "remote speaker {remote_speaker}"
+        );
+        assert_eq!(result.last().unwrap().key, key_speaker(0, 0));
+    }
+}
+
+#[test]
 fn auto_assign_based_on_provider_speaker_index() {
     let finals = vec![
         fw_si("0", 0, 100, 0, 0),
