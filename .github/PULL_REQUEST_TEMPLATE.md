@@ -1,23 +1,23 @@
 <!--
-Write this description yourself. Do not paste a generated commit log or a file-by-file recap.
-Cubic already summarizes the code diff, so this description is about intent, not implementation detail.
-
-Title: state the intended outcome with a specific action. For example, use
-"Prevent duplicate notes after reconnect" instead of "Update session store" or "Fix #123".
+Title: state the intended outcome with a concrete action.
+Explain the change for a reviewer who has not seen the conversation.
+Do not paste a commit log or file-by-file recap; each commit records its actions.
 -->
 
 ## Summary
 
-**Intent:** <!-- One or two sentences: what problem did you see, and what should this change do instead? -->
+**Context:** <!-- What happened before? Include the behavior, trigger, or constraint. -->
+
+**Intention:** <!-- Why was that off? State the mismatch and intended outcome in one or two short sentences. -->
+
+**Direction:** <!-- How should it change? Explain the chosen approach and resulting behavior. -->
+
+<!-- Link the active Linear issue. Label completed predecessors as related history. -->
 
 ## Demo
 
-<!--
-Attach a short screen recording or GIF (drag the file into this box, or paste a Loom/YouTube link) showing the problem and the fix in action.
-
-Docs-only or non-functional changes (formatting, comments, CI/config with no behavior change) can skip the video: write "N/A" plus one line on why nothing user-facing changed.
--->
+<!-- Attach a short recording/GIF showing the problem and fix. For non-functional changes, write N/A plus a one-line reason. -->
 
 ## Verification
 
-<!-- List the commands and manual checks you ran. -->
+<!-- List checks actually run and meaningful gaps. Distinguish local checks, CI, hosted behavior, and release status. -->
