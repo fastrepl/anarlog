@@ -11,6 +11,7 @@ pub(super) fn collect_segments(
 ) -> Vec<ProtoSegment> {
     let max_gap_ms = options.and_then(|opts| opts.max_gap_ms).unwrap_or(3000);
     let mut segments: Vec<ProtoSegment> = Vec::new();
+    let mut segment_end_ms: Vec<i64> = Vec::new();
     let mut last_segment_by_channel: HashMap<ChannelProfile, usize> = HashMap::new();
 
     for frame in frames {
@@ -21,7 +22,7 @@ pub(super) fn collect_segments(
             .copied()
             .filter(|&index| {
                 let last = &segments[index];
-                let last_end = last.words.last().map_or(0, |word| word.word.end_ms);
+                let last_end = segment_end_ms[index];
                 // Continue only past overlapping turns with no complete word inside this pause.
                 let continuous = segments[index + 1..].iter().all(|segment| {
                     let began_during_speech = segment
@@ -40,11 +41,13 @@ pub(super) fn collect_segments(
             });
 
         if let Some(index) = merge_index {
+            segment_end_ms[index] = segment_end_ms[index].max(frame.word.end_ms);
             segments[index].words.push(frame);
             continue;
         }
 
         let channel = key.channel;
+        segment_end_ms.push(frame.word.end_ms);
         segments.push(ProtoSegment {
             key,
             words: vec![frame],

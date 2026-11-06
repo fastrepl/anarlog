@@ -375,6 +375,21 @@ fn overlapping_channels_keep_each_speakers_words_together() {
 }
 
 #[test]
+fn overlapping_same_channel_words_use_the_furthest_end() {
+    let words = vec![
+        fw_si("mic-long", 0, 400, 0, 0),
+        fw_si("mic-short", 100, 150, 0, 0),
+        fw_si("remote", 200, 500, 1, 0),
+        fw_si("mic-return", 350, 450, 0, 0),
+    ];
+    let result = build_segments(&words, &[], &[], None);
+    assert_eq!(
+        result.iter().map(texts).collect::<Vec<_>>(),
+        vec![vec!["mic-long", "mic-short", "mic-return"], vec!["remote"]]
+    );
+}
+
+#[test]
 fn completed_intervening_turns_do_not_join_separate_speech() {
     for (remote_speaker, expected) in [
         (
