@@ -16,14 +16,23 @@ pub(super) fn collect_segments(
     for frame in frames {
         let key = determine_key(&frame, &segments, &last_segment_by_channel);
 
-        let should_merge = segments.last().is_some_and(|last| {
-            last.key == key
-                && (frame.word.start_ms - last.words.last().map_or(0, |word| word.word.end_ms))
-                    <= max_gap_ms
-        });
+        let merge_index = last_segment_by_channel
+            .get(&key.channel)
+            .copied()
+            .filter(|&index| {
+                let last = &segments[index];
+                let last_end = last.words.last().map_or(0, |word| word.word.end_ms);
+                // An overlapping channel must not split an ongoing speaker into word-sized blocks.
+                let continuous = segments.get(index + 1).is_none_or(|next| {
+                    next.words
+                        .first()
+                        .is_some_and(|word| word.word.start_ms < last_end)
+                });
+                last.key == key && frame.word.start_ms - last_end <= max_gap_ms && continuous
+            });
 
-        if should_merge {
-            segments.last_mut().unwrap().words.push(frame);
+        if let Some(index) = merge_index {
+            segments[index].words.push(frame);
             continue;
         }
 

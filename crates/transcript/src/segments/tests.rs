@@ -345,19 +345,33 @@ fn partial_words_inherit_speaker_index_across_channels() {
 }
 
 #[test]
-fn overlapping_channels_produce_interleaved_segments() {
+fn overlapping_channels_keep_each_speakers_words_together() {
     let finals = vec![
-        fw("0", 0, 100, 0),
-        fw("1", 50, 150, 1),
-        fw("2", 200, 300, 0),
-        fw("3", 250, 350, 1),
+        fw_si("I", 0, 100, 0, 0),
+        fw_si("That", 50, 150, 1, 0),
+        fw_si("agree", 200, 300, 0, 0),
+        fw_si("works", 250, 350, 1, 0),
     ];
-    let result = build_segments(&finals, &[], &[], None);
-    assert_eq!(result.len(), 4);
-    assert_eq!(result[0].key, key(0));
-    assert_eq!(result[1].key, key(1));
-    assert_eq!(result[2].key, key(0));
-    assert_eq!(result[3].key, key(1));
+    let partials = vec![pw_si("too", 400, 500, 0, 0), pw_si("well", 450, 550, 1, 0)];
+    let result = build_segments(&finals, &partials, &[], None);
+    assert_eq!(result.len(), 2);
+    assert_eq!(result[0].key, key_speaker(0, 0));
+    assert_eq!(result[1].key, key_speaker(1, 0));
+    assert_eq!(texts(&result[0]), vec!["I", "agree", "too"]);
+    assert_eq!(texts(&result[1]), vec!["That", "works", "well"]);
+    assert_eq!(is_finals(&result[0]), vec![true, true, false]);
+    assert_eq!(is_finals(&result[1]), vec![true, true, false]);
+    for word in &finals {
+        let rendered = result
+            .iter()
+            .flat_map(|segment| &segment.words)
+            .find(|rendered| rendered.id.as_deref() == Some(word.id.as_str()))
+            .unwrap();
+        assert_eq!(
+            (rendered.start_ms, rendered.end_ms),
+            (word.start_ms, word.end_ms)
+        );
+    }
 }
 
 #[test]
