@@ -412,6 +412,27 @@ fn completed_intervening_turns_do_not_join_separate_speech() {
 }
 
 #[test]
+fn speech_starting_in_a_pause_keeps_the_returning_turn_separate() {
+    for leading_overlap in [false, true] {
+        let mut words = vec![fw_si("mic-first", 0, 100, 0, 0)];
+        if leading_overlap {
+            words.push(fw_si("remote-first", 50, 150, 1, 0));
+        }
+        words.extend([
+            fw_si("remote", 150, 400, 1, 1),
+            fw_si("mic-return", 200, 300, 0, 0),
+        ]);
+        let result = build_segments(&words, &[], &[], None);
+        let expected: Vec<_> = words.iter().map(|word| vec![word.text.as_str()]).collect();
+        assert_eq!(
+            result.iter().map(texts).collect::<Vec<_>>(),
+            expected,
+            "leading overlap {leading_overlap}"
+        );
+    }
+}
+
+#[test]
 fn auto_assign_based_on_provider_speaker_index() {
     let finals = vec![
         fw_si("0", 0, 100, 0, 0),
