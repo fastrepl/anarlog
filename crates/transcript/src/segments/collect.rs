@@ -11,23 +11,43 @@ pub(super) fn collect_segments(
 ) -> Vec<ProtoSegment> {
     let max_gap_ms = options.and_then(|opts| opts.max_gap_ms).unwrap_or(3000);
     let mut segments: Vec<ProtoSegment> = Vec::new();
+    let mut segment_end_ms: Vec<i64> = Vec::new();
     let mut last_segment_by_channel: HashMap<ChannelProfile, usize> = HashMap::new();
 
     for frame in frames {
         let key = determine_key(&frame, &segments, &last_segment_by_channel);
 
-        let should_merge = segments.last().is_some_and(|last| {
-            last.key == key
-                && (frame.word.start_ms - last.words.last().map_or(0, |word| word.word.end_ms))
-                    <= max_gap_ms
-        });
+        let merge_index = last_segment_by_channel
+            .get(&key.channel)
+            .copied()
+            .filter(|&index| {
+                let last = &segments[index];
+                let last_end = segment_end_ms[index];
+                // Continue only past overlapping turns with no complete word inside this pause.
+                let continuous = segments[index + 1..].iter().all(|segment| {
+                    let began_during_speech = segment
+                        .words
+                        .first()
+                        .is_some_and(|word| word.word.start_ms < last_end);
+                    let start = segment
+                        .words
+                        .partition_point(|word| word.word.start_ms < last_end);
+                    began_during_speech
+                        && segment.words[start..]
+                            .iter()
+                            .all(|word| word.word.end_ms > frame.word.start_ms)
+                });
+                last.key == key && frame.word.start_ms - last_end <= max_gap_ms && continuous
+            });
 
-        if should_merge {
-            segments.last_mut().unwrap().words.push(frame);
+        if let Some(index) = merge_index {
+            segment_end_ms[index] = segment_end_ms[index].max(frame.word.end_ms);
+            segments[index].words.push(frame);
             continue;
         }
 
         let channel = key.channel;
+        segment_end_ms.push(frame.word.end_ms);
         segments.push(ProtoSegment {
             key,
             words: vec![frame],
