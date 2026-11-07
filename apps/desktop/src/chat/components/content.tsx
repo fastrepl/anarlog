@@ -34,6 +34,7 @@ export function ChatContent({
   status,
   error,
   model,
+  modelSelector,
   handleSendMessage,
   pendingRefs,
   onAddContextEntity,
@@ -51,6 +52,7 @@ export function ChatContent({
   status: ChatStatus;
   error?: Error;
   model: ReturnType<typeof useLanguageModel>;
+  modelSelector?: React.ReactNode;
   handleSendMessage: (
     content: string,
     parts: AnlgUIMessage["parts"],
@@ -230,6 +232,7 @@ export function ChatContent({
             draftKey={sessionId}
             layout={layout}
             disabled={disabled}
+            modelSelector={modelSelector}
             onSendMessage={submitOrQueueMessage}
             onDraftContentChange={onDraftContentChange}
             onContextRefsChange={onDraftContextRefsChange}
@@ -237,6 +240,9 @@ export function ChatContent({
             onStop={stop}
           />
         </>
+      )}
+      {!isModelConfigured && modelSelector && (
+        <div className="min-w-0 shrink-0 px-3 pb-2">{modelSelector}</div>
       )}
     </div>
   );

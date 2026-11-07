@@ -85,7 +85,7 @@ export const normalizeLLMProviderId = (providerId: string): string =>
   providerId === "hyprnote" ? "anarlog" : providerId;
 
 export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
-  const { conn } = useLLMConnection();
+  const { conn } = useLLMConnection(task);
   const auth = useAuth();
 
   // Auth is resolved at fetch time (not model construction) so token
@@ -111,7 +111,34 @@ export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
   }, [conn, task]);
 };
 
-export const useLLMConnection = (): LLMConnectionResult => {
+export function useLLMSelection(task?: CharTask) {
+  const settings = useConfigValues([
+    "current_llm_provider",
+    "current_llm_model",
+    "current_llm_reasoning_effort",
+    "chat_llm_provider",
+    "chat_llm_model",
+  ] as const);
+  const hasChatSelection =
+    task === "chat" &&
+    (settings.chat_llm_provider !== undefined ||
+      settings.chat_llm_model !== undefined);
+  const providerId = hasChatSelection
+    ? settings.chat_llm_provider
+    : settings.current_llm_provider;
+
+  return {
+    providerId: providerId ? normalizeLLMProviderId(providerId) : undefined,
+    modelId: hasChatSelection
+      ? settings.chat_llm_model
+      : settings.current_llm_model,
+    reasoningEffort: hasChatSelection
+      ? ("default" as const)
+      : normalizeReasoningEffort(settings.current_llm_reasoning_effort),
+  };
+}
+
+export const useLLMConnection = (task?: CharTask): LLMConnectionResult => {
   const settingsReady = useSettingsReady();
   const auth = useAuth();
   // Only the session feeds the connection; the auth object itself changes
@@ -119,18 +146,11 @@ export const useLLMConnection = (): LLMConnectionResult => {
   const session = auth?.session;
   const billing = useBillingAccess();
 
-  const {
-    intelligence_disabled,
-    current_llm_provider,
-    current_llm_model,
-    current_llm_reasoning_effort,
-  } = useConfigValues([
+  const { intelligence_disabled } = useConfigValues([
     "intelligence_disabled",
-    "current_llm_provider",
-    "current_llm_model",
-    "current_llm_reasoning_effort",
   ] as const);
-  const providerConfig = useAiProvider("llm", current_llm_provider) as
+  const { providerId, modelId, reasoningEffort } = useLLMSelection(task);
+  const providerConfig = useAiProvider("llm", providerId) as
     | AIProviderStorage
     | undefined;
 
@@ -147,11 +167,9 @@ export const useLLMConnection = (): LLMConnectionResult => {
             },
           }
         : resolveLLMConnection({
-            providerId: current_llm_provider,
-            modelId: current_llm_model,
-            reasoningEffort: normalizeReasoningEffort(
-              current_llm_reasoning_effort,
-            ),
+            providerId,
+            modelId,
+            reasoningEffort,
             providerConfig,
             session,
             isPaid: billing.isPaid,
@@ -161,9 +179,9 @@ export const useLLMConnection = (): LLMConnectionResult => {
       intelligence_disabled,
       session,
       billing.isPaid,
-      current_llm_model,
-      current_llm_provider,
-      current_llm_reasoning_effort,
+      modelId,
+      providerId,
+      reasoningEffort,
       providerConfig,
     ],
   );
