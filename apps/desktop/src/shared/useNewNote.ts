@@ -6,9 +6,13 @@ import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 
-function createNoteSession() {
+export function folderIdForNewSession(): string | undefined {
   const { noteFilter, folderFilter } = useSidebarNotes.getState();
-  const folderId = folderIdForNewNote(noteFilter, folderFilter);
+  return folderIdForNewNote(noteFilter, folderFilter);
+}
+
+function createNoteSession() {
+  const folderId = folderIdForNewSession();
   return folderId === undefined
     ? createSession()
     : createSession("", undefined, { folder_id: folderId });
