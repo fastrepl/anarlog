@@ -35,7 +35,7 @@ export function ChatBody({
   hasSummary?: boolean;
   onSendMessage?: (
     content: string,
-    parts: Array<{ type: "text"; text: string }>,
+    parts: AnlgUIMessage["parts"],
     contextRefs?: ContextRef[],
   ) => void;
 }) {

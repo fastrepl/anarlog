@@ -215,4 +215,66 @@ describe("CustomChatTransport", () => {
       }),
     );
   });
+
+  it("sends every saved-prompt turn to the model with its full text while the chat keeps the compact part", async () => {
+    const transport = new CustomChatTransport({} as never, {});
+    const promptPart = {
+      type: "data-chat-prompt" as const,
+      data: {
+        id: "prompt-1",
+        title: "What should I say?",
+        prompt: "Suggest my next line.",
+      },
+    };
+    const latestParts = [
+      promptPart,
+      { type: "text" as const, text: " focus on the API question" },
+    ];
+
+    await transport.sendMessages({
+      chatId: "chat-1",
+      abortSignal: undefined,
+      messageId: undefined,
+      messages: [
+        { id: "user-1", role: "user", parts: [promptPart] },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          parts: [{ type: "text", text: "Ask about the rollout." }],
+        },
+        { id: "user-2", role: "user", parts: latestParts },
+      ],
+      trigger: "submit-message",
+    });
+
+    expect(mocks.agentStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          expect.objectContaining({
+            role: "user",
+            content: [
+              expect.objectContaining({
+                type: "text",
+                text: 'Saved prompt "What should I say?":\nSuggest my next line.',
+              }),
+            ],
+          }),
+          expect.objectContaining({ role: "assistant" }),
+          expect.objectContaining({
+            role: "user",
+            content: [
+              expect.objectContaining({
+                type: "text",
+                text: 'Saved prompt "What should I say?":\nSuggest my next line.\n\nAdditional instructions from the user:\nfocus on the API question',
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(latestParts).toEqual([
+      promptPart,
+      { type: "text", text: " focus on the API question" },
+    ]);
+  });
 });
