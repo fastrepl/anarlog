@@ -26,6 +26,7 @@ describe("STT model deprecation", () => {
 
     expect(assemblyai?.models).toEqual([
       "universal-3-5-pro",
+      "universal-3-6-pro-realtime",
       "universal-3-5-pro-realtime",
     ]);
 
