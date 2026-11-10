@@ -55,6 +55,7 @@ export function TemplatePickerPopover({
   const resultRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const userTemplates = useUserTemplates();
   const createTemplate = useCreateTemplate("session_note");
+  const createCommunityTemplate = useCreateTemplate("community");
   const { data: rawWebTemplates = [] } =
     useWebResources<Record<string, unknown>>("templates");
   const webTemplates = useMemo(
@@ -93,7 +94,7 @@ export function TemplatePickerPopover({
       resultRefs.current = [];
 
       void (async () => {
-        const templateId = await createTemplate({
+        const templateId = await createCommunityTemplate({
           title: template.title,
           description: template.description,
           category: template.category,
@@ -111,7 +112,7 @@ export function TemplatePickerPopover({
         });
       })();
     },
-    [createTemplate, onSelectTemplate],
+    [createCommunityTemplate, onSelectTemplate],
   );
 
   const handleCreateTemplate = useCallback(

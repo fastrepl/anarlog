@@ -9,6 +9,7 @@ import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 import { parseEventInstant } from "@anlg/utils";
 
+import { useBillingAccess } from "~/auth/billing-context";
 import { getIgnoredEventSets } from "~/calendar/ignored-events";
 import { liveQueryClient } from "~/db";
 import { getOrCreateSessionForEventId } from "~/session/queries";
@@ -286,7 +287,9 @@ function isIgnoredScheduledMeeting(
 export async function startScheduledMeeting(
   row: ScheduledMeetingRow,
   autoJoin: boolean,
+  canAutoStart: () => boolean,
 ): Promise<"started" | "ignored" | "blocked" | "ineligible"> {
+  if (!canAutoStart()) return "blocked";
   if (listenerStore.getState().live.status === "active") {
     return "ignored";
   }
@@ -335,6 +338,7 @@ export async function startScheduledMeeting(
   // Joining and listening are independent: the link opens as soon as the
   // meeting is due, while listening still has to wait for the session tab,
   // the STT connection, and capture readiness (and may be abandoned).
+  if (!canAutoStart()) return "blocked";
   if (autoJoin) {
     void openerCommands.openUrl(currentRow.meeting_link, null);
   }
@@ -349,6 +353,13 @@ export async function startScheduledMeeting(
 }
 
 export function ScheduledMeetingAutoStart() {
+  const billing = useBillingAccess();
+  return billing.isReady && billing.isPro ? (
+    <ProScheduledMeetingAutoStart />
+  ) : null;
+}
+
+function ProScheduledMeetingAutoStart() {
   const {
     auto_start_scheduled_meetings: autoStart,
     auto_join_scheduled_meetings: autoJoin,
@@ -531,7 +542,11 @@ export function ScheduledMeetingAutoStart() {
 
       const startEventRevision = eventRevisions.get(next.id) ?? 0;
       starting = true;
-      void startScheduledMeeting(next, Boolean(autoJoinRef.current))
+      void startScheduledMeeting(
+        next,
+        Boolean(autoJoinRef.current),
+        () => !cancelled && Boolean(autoStartRef.current),
+      )
         .then((outcome) => {
           // A blocked start is transient (another session finalizing, a start
           // already in flight), so leave it eligible for the next tick.

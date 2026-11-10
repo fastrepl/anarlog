@@ -11,11 +11,18 @@ import { executeProxy, subscribe } from "@anlg/plugin-db";
 import {
   getTemplateById,
   useCreateTemplate,
+  useSaveTemplate,
   useToggleTemplateFavorite,
   useUserTemplate,
   useUserTemplates,
 } from "./queries";
 import { DEFAULT_TEMPLATE_ICON } from "./template-icon";
+
+const billing = vi.hoisted(() => ({ isPro: true, isReady: true }));
+vi.mock("~/auth/billing-context", () => ({ useBillingAccess: () => billing }));
+vi.mock("~/settings/plan-gate", () => ({
+  useNotifyPlanRequired: () => vi.fn(),
+}));
 
 type SubscribeOptions<T> = {
   onData: (rows: T[]) => void;
@@ -46,6 +53,8 @@ describe("template queries", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
+    billing.isPro = true;
+    billing.isReady = true;
     vi.clearAllMocks();
     executeProxyMock.mockResolvedValue({ rows: [] });
     subscribeMock.mockResolvedValue(async () => {});
@@ -271,6 +280,43 @@ describe("template queries", () => {
     } finally {
       database.close();
     }
+  });
+
+  it("blocks custom authoring on Free but preserves community template installation", async () => {
+    billing.isPro = false;
+    const draft = { title: "Standup", description: "", sections: [] };
+    const { result } = renderHook(
+      () => ({
+        create: useCreateTemplate(),
+        save: useSaveTemplate(),
+        install: useCreateTemplate("community"),
+      }),
+      { wrapper: createWrapper() },
+    );
+
+    await act(async () => {
+      await expect(result.current.create(draft)).resolves.toBeUndefined();
+      await expect(
+        result.current.save({
+          ...draft,
+          id: "existing",
+          pinned: false,
+          icon: DEFAULT_TEMPLATE_ICON,
+        }),
+      ).resolves.toBeUndefined();
+    });
+    expect(executeProxyMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await expect(result.current.install(draft)).resolves.toEqual(
+        expect.any(String),
+      );
+    });
+    expect(executeProxyMock).toHaveBeenCalledWith(
+      expect.stringContaining('insert into "templates"'),
+      expect.any(Array),
+      "run",
+    );
   });
 
   it("creates a template row through the SQLite proxy", async () => {

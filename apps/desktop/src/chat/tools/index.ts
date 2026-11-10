@@ -45,6 +45,29 @@ import type { SearchFilters } from "~/search/contexts/engine/types";
 
 export type { ToolDependencies };
 
+type ProToolAccess = {
+  canUsePro: () => boolean;
+  onProRequired: () => void;
+};
+
+function withProAccess<T extends { execute?: (...args: any[]) => any }>(
+  toolDef: T,
+  access: ProToolAccess,
+): T {
+  return {
+    ...toolDef,
+    execute: async (...args: Parameters<NonNullable<T["execute"]>>) => {
+      if (!access.canUsePro()) {
+        access.onProRequired();
+        throw new Error(
+          "This requires Anarlog Pro. Explain that an upgrade is required; do not claim the action succeeded.",
+        );
+      }
+      return toolDef.execute!(...args);
+    },
+  } as T;
+}
+
 function withToolLogging<T extends { execute?: (...args: any[]) => any }>(
   name: string,
   toolDef: T,
@@ -76,7 +99,10 @@ function withToolLogging<T extends { execute?: (...args: any[]) => any }>(
   } as T;
 }
 
-export const buildChatTools = (deps: ToolDependencies) => ({
+export const buildChatTools = (
+  deps: ToolDependencies,
+  access: ProToolAccess,
+) => ({
   list_folders: withToolLogging("list_folders", buildListFoldersTool()),
   create_folder: withToolLogging("create_folder", buildCreateFolderTool()),
   move_meetings_to_folder: withToolLogging(
@@ -91,7 +117,7 @@ export const buildChatTools = (deps: ToolDependencies) => ({
   ),
   get_recurring_meeting_history: withToolLogging(
     "get_recurring_meeting_history",
-    buildGetRecurringMeetingHistoryTool(),
+    withProAccess(buildGetRecurringMeetingHistoryTool(), access),
   ),
   search_meeting_content: withToolLogging(
     "search_meeting_content",
@@ -99,11 +125,11 @@ export const buildChatTools = (deps: ToolDependencies) => ({
   ),
   read_folder_material: withToolLogging(
     "read_folder_material",
-    buildReadFolderMaterialTool(deps),
+    withProAccess(buildReadFolderMaterialTool(deps), access),
   ),
   find_related_meetings: withToolLogging(
     "find_related_meetings",
-    buildFindRelatedMeetingsTool(deps),
+    withProAccess(buildFindRelatedMeetingsTool(deps), access),
   ),
   search_meetings: withToolLogging(
     "search_meetings",
@@ -117,7 +143,10 @@ export const buildChatTools = (deps: ToolDependencies) => ({
     "search_calendar_events",
     buildSearchCalendarEventsTool(deps),
   ),
-  web_search: withToolLogging("web_search", buildWebSearchTool(deps)),
+  web_search: withToolLogging(
+    "web_search",
+    withProAccess(buildWebSearchTool(deps), access),
+  ),
   edit_memo: withToolLogging("edit_memo", buildEditMemoTool(deps)),
   edit_summary: withToolLogging("edit_summary", buildEditSummaryTool(deps)),
   apply_session_correction: withToolLogging(

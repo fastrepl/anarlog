@@ -2,6 +2,7 @@ import { useRef } from "react";
 
 import { useMountEffect } from "@anlg/ui/hooks/use-mount-effect";
 
+import { useBillingAccess } from "~/auth/billing-context";
 import { isLockedFlag } from "~/lock/flag";
 import { useAppLock } from "~/lock/store";
 import { useSession } from "~/session/queries";
@@ -23,6 +24,7 @@ export function ScheduledSessionAutoStart({
   requiresCalendarEligibility?: boolean;
   sessionId: string;
 }) {
+  const billing = useBillingAccess();
   const canStartLiveSession = useListener((state) =>
     state.canStartLiveSession(sessionId),
   );
@@ -35,11 +37,17 @@ export function ScheduledSessionAutoStart({
   );
   const locked = isLockedFlag(session?.locked) && !revealed;
 
-  if (recordingActive || (session && locked)) {
+  if (
+    recordingActive ||
+    (session && locked) ||
+    (requiresCalendarEligibility && billing.isReady && !billing.isPro)
+  ) {
     return <AbandonedScheduledSessionAutoStart sessionId={sessionId} />;
   }
 
-  return canStartLiveSession && session ? (
+  return canStartLiveSession &&
+    session &&
+    (!requiresCalendarEligibility || (billing.isReady && billing.isPro)) ? (
     <ReadyScheduledSessionAutoStart
       key={`${sessionId}:${requiresCalendarEligibility ? "scheduled" : "manual"}`}
       requiresCalendarEligibility={requiresCalendarEligibility}

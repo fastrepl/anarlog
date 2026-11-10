@@ -10,12 +10,14 @@ import {
   type ScheduledMeetingRow,
   ScheduledMeetingAutoStart,
   selectDueMeetings,
-  startScheduledMeeting,
+  startScheduledMeeting as startScheduledMeetingWithAccess,
 } from "./scheduled-auto-start";
 
 import type { Tab } from "~/store/zustand/tabs";
 
 const mocks = vi.hoisted(() => ({
+  isPro: true,
+  isReady: true,
   canStart: true,
   liveStatus: "inactive",
   getIgnoredEventSets: vi.fn(),
@@ -30,6 +32,17 @@ const mocks = vi.hoisted(() => ({
   listenDetectEvent: vi.fn(),
   tabs: [] as Tab[],
 }));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => ({ isPro: mocks.isPro, isReady: mocks.isReady }),
+}));
+
+const startScheduledMeeting = (row: ScheduledMeetingRow, autoJoin: boolean) =>
+  startScheduledMeetingWithAccess(
+    row,
+    autoJoin,
+    () => mocks.isReady && mocks.isPro,
+  );
 
 vi.mock("@anlg/plugin-detect", () => ({
   commands: { listMicUsingApplications: mocks.listMicUsingApplications },
@@ -285,6 +298,8 @@ describe("hasPendingAutoStart", () => {
 
 describe("startScheduledMeeting", () => {
   beforeEach(() => {
+    mocks.isPro = true;
+    mocks.isReady = true;
     mocks.canStart = true;
     mocks.liveStatus = "inactive";
     mocks.getIgnoredEventSets.mockReset().mockResolvedValue({
@@ -309,6 +324,25 @@ describe("startScheduledMeeting", () => {
       .mockResolvedValue({ status: "ok", data: [] });
     mocks.listenDetectEvent.mockReset().mockResolvedValue(() => {});
     mocks.tabs = [];
+  });
+
+  test("blocks automatic actions for Free and after Pro expires during session creation", async () => {
+    mocks.isPro = false;
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "blocked",
+    );
+    expect(mocks.getOrCreateSessionForEventId).not.toHaveBeenCalled();
+
+    mocks.isPro = true;
+    mocks.getOrCreateSessionForEventId.mockImplementation(async () => {
+      mocks.isPro = false;
+      return "session-a";
+    });
+    await expect(startScheduledMeeting(meeting("a", 0), true)).resolves.toBe(
+      "blocked",
+    );
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.openNew).not.toHaveBeenCalled();
   });
 
   test("opens the meeting link and arms the session when the meeting is due", async () => {
