@@ -25,7 +25,9 @@ import {
 import { SectionsList } from "./sections-editor";
 import { TemplateIconPicker } from "./template-icon-picker";
 
+import { useBillingAccess } from "~/auth/billing-context";
 import { ResourceShareButton, sharedTemplatePayload } from "~/resource-sharing";
+import { PlanGate } from "~/settings/plan-gate";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 
@@ -154,6 +156,8 @@ export function TemplateForm({
 }) {
   const { t } = useLingui();
   const { id } = template;
+  const { isPro, isReady } = useBillingAccess();
+  const canEdit = isReady && isPro;
   const saveTemplate = useSaveTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -197,35 +201,37 @@ export function TemplateForm({
   return (
     <div className="flex h-full flex-1 flex-col">
       <div className="flex h-12 items-center justify-between gap-3 pr-1 pl-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <form.Field name="icon">
-            {(field) => (
-              <TemplateIconPicker
-                size="sm"
-                value={field.state.value}
-                onChange={field.handleChange}
-              />
-            )}
-          </form.Field>
-          <form.Field name="title">
-            {(field) => (
-              <div className="relative max-w-full min-w-0">
-                <span
-                  aria-hidden="true"
-                  className="invisible block px-0 py-0 text-sm font-semibold whitespace-pre"
-                >
-                  {(field.state.value || t`Enter template title`) + " "}
-                </span>
-                <Input
+        <PlanGate plan="pro" allowed={canEdit} className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <form.Field name="icon">
+              {(field) => (
+                <TemplateIconPicker
+                  size="sm"
                   value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder={t`Enter template title`}
-                  className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-sm font-semibold shadow-none focus-visible:ring-0 md:text-sm"
+                  onChange={field.handleChange}
                 />
-              </div>
-            )}
-          </form.Field>
-        </div>
+              )}
+            </form.Field>
+            <form.Field name="title">
+              {(field) => (
+                <div className="relative max-w-full min-w-0">
+                  <span
+                    aria-hidden="true"
+                    className="invisible block px-0 py-0 text-sm font-semibold whitespace-pre"
+                  >
+                    {(field.state.value || t`Enter template title`) + " "}
+                  </span>
+                  <Input
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    placeholder={t`Enter template title`}
+                    className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-sm font-semibold shadow-none focus-visible:ring-0 md:text-sm"
+                  />
+                </div>
+              )}
+            </form.Field>
+          </div>
+        </PlanGate>
         <div className="flex items-center gap-0">
           <ResourceShareButton
             resourceType="template"
@@ -316,39 +322,41 @@ export function TemplateForm({
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="scroll-fade-y h-full overflow-y-auto px-6 pt-3 pb-6">
-          <div className="min-w-0">
-            <form.Field name="description">
-              {(field) => (
-                <Textarea
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder={t`Describe the template purpose...`}
-                  className="text-muted-foreground min-h-[24px] resize-none border-0 px-0 py-0 text-sm shadow-none focus-visible:ring-0"
-                  rows={1}
-                />
-              )}
-            </form.Field>
-            <form.Field name="targets">
-              {(field) => (
-                <TemplateTargetsInput
-                  value={field.state.value}
-                  onChange={field.handleChange}
-                />
-              )}
-            </form.Field>
-          </div>
+          <PlanGate plan="pro" allowed={canEdit}>
+            <div className="min-w-0">
+              <form.Field name="description">
+                {(field) => (
+                  <Textarea
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    placeholder={t`Describe the template purpose...`}
+                    className="text-muted-foreground min-h-[24px] resize-none border-0 px-0 py-0 text-sm shadow-none focus-visible:ring-0"
+                    rows={1}
+                  />
+                )}
+              </form.Field>
+              <form.Field name="targets">
+                {(field) => (
+                  <TemplateTargetsInput
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                  />
+                )}
+              </form.Field>
+            </div>
 
-          <form.Field name="sections">
-            {(field) => (
-              <div className="mt-6">
-                <SectionsList
-                  disabled={false}
-                  items={field.state.value}
-                  onChange={(items) => field.handleChange(items)}
-                />
-              </div>
-            )}
-          </form.Field>
+            <form.Field name="sections">
+              {(field) => (
+                <div className="mt-6">
+                  <SectionsList
+                    disabled={!canEdit}
+                    items={field.state.value}
+                    onChange={(items) => field.handleChange(items)}
+                  />
+                </div>
+              )}
+            </form.Field>
+          </PlanGate>
         </div>
       </div>
     </div>

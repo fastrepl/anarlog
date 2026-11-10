@@ -1,7 +1,11 @@
 import { useCallback } from "react";
 
 import { TemplateDetailsColumn } from "./details";
-import { getTemplateCopyTitle, type UserTemplateDraft } from "./queries";
+import {
+  getTemplateCopyTitle,
+  useCreateTemplate,
+  type UserTemplateDraft,
+} from "./queries";
 import { AUTO_TEMPLATE_ID, useTemplateTab } from "./utils";
 
 import { setSettingValue } from "~/settings/queries";
@@ -12,6 +16,7 @@ export function TemplateView({
 }: {
   tab: Extract<Tab, { type: "templates" }>;
 }) {
+  const createCommunityTemplate = useCreateTemplate("community");
   const {
     userTemplates,
     isWebMode,
@@ -32,13 +37,9 @@ export function TemplateView({
   );
 
   const cloneAsMine = useCallback(
-    async (
-      draft: UserTemplateDraft,
-      onCreate?: (id: string) => void | Promise<void>,
-    ) => {
+    async (draft: UserTemplateDraft) => {
       const id = await createTemplate(draft);
       if (!id) return null;
-      await onCreate?.(id);
       setSelectedMineId(id);
       return id;
     },
@@ -57,17 +58,24 @@ export function TemplateView({
 
   const handleFavoriteTemplate = useCallback(
     async (draft: UserTemplateDraft) => {
-      await cloneAsMine(draft, (id) => toggleTemplateFavorite(id));
+      const id = await createCommunityTemplate(draft);
+      if (id) {
+        await toggleTemplateFavorite(id);
+        setSelectedMineId(id);
+      }
     },
-    [cloneAsMine, toggleTemplateFavorite],
+    [createCommunityTemplate, toggleTemplateFavorite, setSelectedMineId],
   );
 
   const handleSetDefaultTemplate = useCallback(
     async (draft: UserTemplateDraft) => {
-      const id = await cloneAsMine(draft);
-      if (id) await setSettingValue("selected_template_id", id);
+      const id = await createCommunityTemplate(draft);
+      if (id) {
+        await setSettingValue("selected_template_id", id);
+        setSelectedMineId(id);
+      }
     },
-    [cloneAsMine],
+    [createCommunityTemplate, setSelectedMineId],
   );
 
   const handleDuplicateTemplate = useCallback(
