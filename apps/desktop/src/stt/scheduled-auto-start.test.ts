@@ -534,6 +534,25 @@ describe("startScheduledMeeting", () => {
     expect(mocks.openNew).not.toHaveBeenCalled();
   });
 
+  test("does not start the same scheduled meeting again when Pro access returns", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const view = render(createElement(ScheduledMeetingAutoStart));
+    mocks.subscribeMeetings.mock.calls[0][2].onData([meeting("a", 0)]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
+
+    mocks.isPro = false;
+    view.rerender(createElement(ScheduledMeetingAutoStart));
+    mocks.isPro = true;
+    view.rerender(createElement(ScheduledMeetingAutoStart));
+    mocks.subscribeMeetings.mock.calls[1][2].onData([meeting("a", 0)]);
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(mocks.openNew).toHaveBeenCalledTimes(1);
+    expect(mocks.openUrl).toHaveBeenCalledTimes(1);
+  });
+
   test("an overlapping meeting stays skipped after a pending tab and the active recording clear", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);

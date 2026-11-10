@@ -354,12 +354,17 @@ export async function startScheduledMeeting(
 
 export function ScheduledMeetingAutoStart() {
   const billing = useBillingAccess();
+  const firedEventIdsRef = useRef(new Set<string>());
   return billing.isReady && billing.isPro ? (
-    <ProScheduledMeetingAutoStart />
+    <ProScheduledMeetingAutoStart firedEventIdsRef={firedEventIdsRef} />
   ) : null;
 }
 
-function ProScheduledMeetingAutoStart() {
+function ProScheduledMeetingAutoStart({
+  firedEventIdsRef,
+}: {
+  firedEventIdsRef: { current: Set<string> };
+}) {
   const {
     auto_start_scheduled_meetings: autoStart,
     auto_join_scheduled_meetings: autoJoin,
@@ -387,7 +392,7 @@ function ProScheduledMeetingAutoStart() {
     let unsubscribe: (() => Promise<void>) | null = null;
     let starting = false;
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    const firedEventIds = new Set<string>();
+    const firedEventIds = firedEventIdsRef.current;
     const eventRevisions = new Map<string, number>();
     const ineligibleEventRevisions = new Map<string, number>();
     const micHolds = new Map<string, number>();
