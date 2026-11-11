@@ -2,10 +2,10 @@ mod direct;
 mod google_cloud;
 mod local;
 
-pub(super) use direct::run_direct_batch_for_adapter_kind;
+pub(super) use direct::{CHANNEL_SPLIT_METADATA_KEY, run_direct_batch_for_adapter_kind};
 pub(super) use local::{
-    ResampledChannelFile, resample_audio_to_channel_files_until, run_apple_speech_batch,
-    run_soniqo_batch,
+    ChannelCollapse, ResampledChannelFile, resample_audio_to_channel_files_until,
+    resample_audio_to_channel_files_with, run_apple_speech_batch, run_soniqo_batch,
 };
 
 #[cfg(test)]
@@ -13,9 +13,10 @@ use super::upload::segment_plan;
 #[cfg(test)]
 use direct::{
     DIRECT_BATCH_TIMEOUT_CEILING, DIRECT_BATCH_TIMEOUT_FLOOR, RATE_LIMIT_BASE_DELAY,
-    RATE_LIMIT_MAX_DELAY, direct_batch_timeout_for_audio, merge_segment_responses,
-    prepare_anarlog_batch_upload, rate_limit_retry_delay, run_direct_batch,
-    run_direct_batch_with_timeout,
+    RATE_LIMIT_MAX_DELAY, direct_batch_timeout_for_audio, merge_channel_responses,
+    merge_segment_responses, prepare_anarlog_batch_upload, rate_limit_retry_delay,
+    run_channel_split_batch, run_direct_batch, run_direct_batch_with_timeout,
+    uploads_channels_separately,
 };
 #[cfg(test)]
 use local::{
