@@ -53,10 +53,11 @@ pub(in crate::batch) enum ChannelCollapse {
     /// silent mic with sparse remote speech also qualifies, so the remote
     /// channel is lost. Fine for local models that score the mix anyway.
     MeanDifference,
-    /// Collapse only when the channels are copies of each other: their
-    /// difference is under 1% of the signal itself. Hosted uploads use this so
-    /// sparse speech on one channel is never dropped.
-    Duplicate,
+    /// Collapse only when the channels are sample-for-sample identical (a mono
+    /// capture stored as stereo). Any distinct audio on either channel, however
+    /// short or quiet next to shared audio, keeps both. Used for hosted
+    /// channel-split uploads and their diarization.
+    Identical,
 }
 
 pub(in crate::batch) fn resample_audio_to_channel_files_until<S, F>(
@@ -118,7 +119,6 @@ where
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e: anlg_audio_utils::Error| e.to_string())?;
     let mut stereo_difference = 0.0f64;
-    let mut stereo_magnitude = 0.0f64;
     let mut stereo_samples = 0usize;
 
     let info = anlg_audio_utils::for_each_resampled_channel_block::<_, anlg_audio_utils::Error>(
@@ -139,11 +139,6 @@ where
                     .zip(channels[1])
                     .map(|(left, right)| f64::from((left - right).abs()))
                     .sum::<f64>();
-                stereo_magnitude += channels[0]
-                    .iter()
-                    .zip(channels[1])
-                    .map(|(left, right)| f64::from(left.abs().max(right.abs())))
-                    .sum::<f64>();
                 stereo_samples += channels[0].len().min(channels[1].len());
             }
             Ok(())
@@ -163,8 +158,10 @@ where
         ChannelCollapse::MeanDifference => {
             stereo_samples > 0 && stereo_difference / (stereo_samples as f64) < 0.0005
         }
-        ChannelCollapse::Duplicate => {
-            stereo_samples > 0 && stereo_difference <= 0.01 * stereo_magnitude
+        // Resampling identical channels yields identical samples; allow only
+        // float rounding.
+        ChannelCollapse::Identical => {
+            stereo_samples > 0 && stereo_difference <= 1e-6 * (stereo_samples as f64)
         }
     };
     if files.len() == 2 && collapsible {

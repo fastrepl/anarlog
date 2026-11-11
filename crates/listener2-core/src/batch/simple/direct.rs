@@ -273,7 +273,7 @@ pub(super) async fn run_channel_split_batch<A: BatchSttAdapter>(
             &source_path,
             source,
             || false,
-            super::ChannelCollapse::Duplicate,
+            super::ChannelCollapse::Identical,
         )
     })
     .await;

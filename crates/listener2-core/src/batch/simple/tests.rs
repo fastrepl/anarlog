@@ -1001,10 +1001,6 @@ fn only_downmixing_providers_upload_channels_separately() {
         // May answer with text but no word timings to diarize.
         AdapterKind::SiliconFlow,
         AdapterKind::Zai,
-        AdapterKind::Deepgram,
-        AdapterKind::AssemblyAI,
-        AdapterKind::Soniox,
-        AdapterKind::OpenAI,
     ] {
         assert!(
             !uploads_channels_separately(kind, 2),
@@ -1056,10 +1052,43 @@ fn hosted_split_keeps_sparse_remote_channel() {
         path,
         anlg_audio_utils::source_from_path(path).unwrap(),
         || false,
-        ChannelCollapse::Duplicate,
+        ChannelCollapse::Identical,
     )
     .unwrap();
     assert_eq!(hosted.len(), 2, "remote speech must not be dropped");
+}
+
+#[test]
+fn hosted_split_keeps_distinct_speech_under_shared_audio() {
+    // Both channels carry the same loud audio (speaker bleed into the mic);
+    // only channel 1 adds a short quiet burst of its own.
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(source.path(), spec).unwrap();
+    let total = TARGET_SAMPLE_RATE as usize * 10;
+    let burst = TARGET_SAMPLE_RATE as usize / 5;
+    for index in 0..total {
+        let shared = if index % 2 == 0 { 0.5 } else { -0.5 };
+        let extra = if index < burst { 0.005 } else { 0.0 };
+        writer.write_sample(shared).unwrap();
+        writer.write_sample(shared + extra).unwrap();
+    }
+    writer.finalize().unwrap();
+    let path = source.path().to_str().unwrap();
+
+    let files = resample_audio_to_channel_files_with(
+        path,
+        anlg_audio_utils::source_from_path(path).unwrap(),
+        || false,
+        ChannelCollapse::Identical,
+    )
+    .unwrap();
+    assert_eq!(files.len(), 2, "distinct remote speech must not be dropped");
 }
 
 #[test]
@@ -1072,7 +1101,7 @@ fn hosted_split_collapses_duplicated_channels() {
         path,
         anlg_audio_utils::source_from_path(path).unwrap(),
         || false,
-        ChannelCollapse::Duplicate,
+        ChannelCollapse::Identical,
     )
     .unwrap();
     assert_eq!(
