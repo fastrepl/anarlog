@@ -46,6 +46,29 @@ impl PreparedBatchUpload {
     }
 }
 
+/// Marks a response whose channels were transcribed one upload at a time, so
+/// unlabeled channels get the same on-device diarization as local providers.
+pub(in crate::batch) const CHANNEL_SPLIT_METADATA_KEY: &str = "channel_split";
+
+/// OpenAI-compatible `/audio/transcriptions` providers downmix a multichannel
+/// upload to mono and return one undiarized transcript, which collapses the
+/// direct mic and every remote participant into a single speaker. Uploading
+/// each recorded channel on its own keeps them apart.
+pub(in crate::batch) fn uploads_channels_separately(
+    adapter_kind: AdapterKind,
+    channels: u8,
+) -> bool {
+    channels > 1
+        && matches!(
+            adapter_kind,
+            AdapterKind::Groq
+                | AdapterKind::Together
+                | AdapterKind::SiliconFlow
+                | AdapterKind::Zai
+                | AdapterKind::OpenRouter
+        )
+}
+
 macro_rules! dispatch_batch {
     ($ak:expr, $params:expr, $lp:expr, $limit:expr,
      { $($var:ident => $adapter:ty),+ $(,)? },
@@ -53,8 +76,12 @@ macro_rules! dispatch_batch {
     ) => {
         match $ak {
             $(AdapterKind::$var => {
-                run_direct_batch::<$adapter>(&AdapterKind::$var.to_string(), $params, $lp, $limit)
-                    .await
+                let provider = AdapterKind::$var.to_string();
+                if uploads_channels_separately($ak, $lp.channels) {
+                    run_channel_split_batch::<$adapter>(&provider, $params, $lp, $limit).await
+                } else {
+                    run_direct_batch::<$adapter>(&provider, $params, $lp, $limit).await
+                }
             })+
             $(AdapterKind::$unsup => {
                 Err(crate::BatchFailure::DirectBatchUnsupported {
@@ -231,6 +258,107 @@ pub(super) async fn run_direct_batch<A: BatchSttAdapter>(
                 .await
         }
         None => run_direct_batch_with_timeout::<A>(provider, params, listen_params, timeout).await,
+    }
+}
+
+/// Splits a multichannel recording into one mono file per channel, transcribes
+/// each through the normal direct path (segmenting oversized channels as
+/// usual), and returns a response with one transcript channel per recorded
+/// channel.
+pub(super) async fn run_channel_split_batch<A: BatchSttAdapter>(
+    provider: &str,
+    params: BatchParams,
+    mut listen_params: owhisper_interface::ListenParams,
+    limit: Option<BatchUploadLimit>,
+) -> crate::Result<BatchRunOutput> {
+    let source_path = params.file_path.clone();
+    let split = tokio::task::spawn_blocking(move || {
+        let source = anlg_audio_utils::source_from_path(&source_path).map_err(|e| e.to_string())?;
+        super::resample_audio_to_channel_files_until(&source_path, source, || false)
+    })
+    .await;
+    let channel_files = match split {
+        Ok(Ok(files)) => files,
+        Ok(Err(message)) => {
+            log_batch_failure("channel_split", &message);
+            return Err(crate::BatchFailure::DirectRequestFailed {
+                provider: provider.to_string(),
+                message: format_user_friendly_error(&message),
+            }
+            .into());
+        }
+        Err(_) => {
+            tracing::error!(error.type = "channel_split_task_join_failed", "channel_split_task_join_failed");
+            return Err(crate::BatchFailure::DirectRequestFailed {
+                provider: provider.to_string(),
+                message: "Could not split the recording into channels.".to_string(),
+            }
+            .into());
+        }
+    };
+
+    listen_params.channels = 1;
+    let mut responses = Vec::with_capacity(channel_files.len());
+    for channel_file in &channel_files {
+        let mut channel_params = params.clone();
+        channel_params.file_path = channel_file.file.path().to_string_lossy().into_owned();
+        let output =
+            run_direct_batch::<A>(provider, channel_params, listen_params.clone(), limit).await?;
+        responses.push(output.response);
+    }
+
+    Ok(BatchRunOutput {
+        session_id: params.session_id,
+        mode: BatchRunMode::Direct,
+        response: merge_channel_responses(responses),
+    })
+}
+
+/// Combines per-channel responses into one multichannel response. Every word
+/// is moved onto its recorded channel; providers report channel 0 (or the
+/// mixed-capture channel for diarized words) because each upload was mono.
+pub(super) fn merge_channel_responses(responses: Vec<Response>) -> Response {
+    let mut metadata = serde_json::Value::Null;
+    let mut channels = Vec::with_capacity(responses.len());
+
+    for (index, response) in responses.into_iter().enumerate() {
+        if metadata.is_null() {
+            metadata = response.metadata;
+        }
+        let channel_index = i32::try_from(index).unwrap_or(i32::MAX);
+        let mut transcripts = Vec::new();
+        let mut words = Vec::new();
+        let mut confidence = None;
+        for channel in response.results.channels {
+            for alternative in channel.alternatives.into_iter().take(1) {
+                if !alternative.transcript.trim().is_empty() {
+                    transcripts.push(alternative.transcript.trim().to_string());
+                }
+                confidence.get_or_insert(alternative.confidence);
+                words.extend(alternative.words.into_iter().map(|mut word| {
+                    word.channel = channel_index;
+                    word
+                }));
+            }
+        }
+        words.sort_by(|a, b| a.start.total_cmp(&b.start));
+        channels.push(Channel {
+            alternatives: vec![Alternatives {
+                transcript: transcripts.join(" "),
+                confidence: confidence.unwrap_or(1.0),
+                words,
+            }],
+        });
+    }
+
+    if !metadata.is_object() {
+        metadata = serde_json::json!({});
+    }
+    metadata[CHANNEL_SPLIT_METADATA_KEY] = serde_json::Value::Bool(true);
+
+    Response {
+        metadata,
+        results: Results { channels },
     }
 }
 

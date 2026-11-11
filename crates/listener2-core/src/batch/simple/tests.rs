@@ -900,3 +900,224 @@ fn collect_soniqo_channel_transcripts_errors_when_all_channels_fail() {
 
     assert_eq!(error, "Soniqo failed to transcribe all 2 audio channel(s).");
 }
+
+static CHANNEL_UPLOADS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// Answers with the level of the uploaded mono file, so a test can tell which
+/// recorded channel each upload carried.
+#[derive(Clone, Default)]
+struct ChannelLevelAdapter;
+
+impl BatchSttAdapter for ChannelLevelAdapter {
+    fn provider_name(&self) -> &'static str {
+        "channel-level"
+    }
+
+    fn is_supported_languages(
+        &self,
+        _languages: &[anlg_language::Language],
+        _model: Option<&str>,
+    ) -> bool {
+        true
+    }
+
+    fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(
+        &'a self,
+        _client: &'a reqwest_middleware::ClientWithMiddleware,
+        _api_base: &'a str,
+        _api_key: &'a str,
+        params: &'a owhisper_interface::ListenParams,
+        file_path: P,
+    ) -> Pin<
+        Box<dyn Future<Output = std::result::Result<Response, owhisper_client::Error>> + Send + 'a>,
+    > {
+        let path = file_path.as_ref().to_path_buf();
+        let channels = params.channels;
+        Box::pin(async move {
+            let mut reader = hound::WavReader::open(&path).unwrap();
+            assert_eq!(reader.spec().channels, 1, "each upload must be mono");
+            assert_eq!(channels, 1, "listen params must describe a mono upload");
+            let samples: Vec<f32> = reader.samples::<f32>().map(Result::unwrap).collect();
+            let level = samples.iter().sum::<f32>() / samples.len().max(1) as f32;
+            let label = if level > 0.0 { "mic" } else { "system" };
+            CHANNEL_UPLOADS
+                .lock()
+                .unwrap()
+                .push(path.to_string_lossy().into_owned());
+
+            Ok(Response {
+                metadata: serde_json::json!({ "provider": "channel-level" }),
+                results: owhisper_interface::batch::Results {
+                    channels: vec![owhisper_interface::batch::Channel {
+                        alternatives: vec![owhisper_interface::batch::Alternatives {
+                            transcript: label.to_string(),
+                            confidence: 1.0,
+                            words: vec![owhisper_interface::batch::Word {
+                                word: label.to_string(),
+                                start: 0.25,
+                                end: 0.75,
+                                confidence: 1.0,
+                                channel: 0,
+                                speaker: None,
+                                punctuated_word: None,
+                            }],
+                        }],
+                    }],
+                },
+            })
+        })
+    }
+}
+
+fn write_stereo_test_wav(path: &Path, samples: usize, mic: f32, system: f32) {
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).unwrap();
+    for _ in 0..samples {
+        writer.write_sample(mic).unwrap();
+        writer.write_sample(system).unwrap();
+    }
+    writer.finalize().unwrap();
+}
+
+#[test]
+fn only_downmixing_providers_upload_channels_separately() {
+    use owhisper_client::AdapterKind;
+
+    for kind in [
+        AdapterKind::Groq,
+        AdapterKind::Together,
+        AdapterKind::SiliconFlow,
+        AdapterKind::Zai,
+        AdapterKind::OpenRouter,
+    ] {
+        assert!(uploads_channels_separately(kind, 2), "{kind} should split");
+        assert!(
+            !uploads_channels_separately(kind, 1),
+            "{kind} mono must not split"
+        );
+    }
+    for kind in [
+        AdapterKind::Deepgram,
+        AdapterKind::AssemblyAI,
+        AdapterKind::Soniox,
+        AdapterKind::OpenAI,
+    ] {
+        assert!(
+            !uploads_channels_separately(kind, 2),
+            "{kind} handles channels itself"
+        );
+    }
+}
+
+#[test]
+fn merges_channel_responses_onto_their_recorded_channels() {
+    let response = |text: &str, speaker: Option<usize>, channel: i32| Response {
+        metadata: serde_json::json!({ "provider": "groq" }),
+        results: owhisper_interface::batch::Results {
+            channels: vec![owhisper_interface::batch::Channel {
+                alternatives: vec![owhisper_interface::batch::Alternatives {
+                    transcript: text.to_string(),
+                    confidence: 0.9,
+                    words: vec![
+                        owhisper_interface::batch::Word {
+                            word: format!("{text}-late"),
+                            start: 2.0,
+                            end: 2.5,
+                            confidence: 1.0,
+                            channel,
+                            speaker,
+                            punctuated_word: None,
+                        },
+                        owhisper_interface::batch::Word {
+                            word: format!("{text}-early"),
+                            start: 1.0,
+                            end: 1.5,
+                            confidence: 1.0,
+                            channel,
+                            speaker,
+                            punctuated_word: None,
+                        },
+                    ],
+                }],
+            }],
+        },
+    };
+
+    let merged = merge_channel_responses(vec![
+        response("mic", None, 0),
+        // A diarizing provider reports the mixed-capture channel.
+        response("system", Some(1), 2),
+    ]);
+
+    assert_eq!(merged.results.channels.len(), 2);
+    assert_eq!(merged.metadata["provider"], "groq");
+    assert_eq!(merged.metadata[CHANNEL_SPLIT_METADATA_KEY], true);
+    for (index, expected) in ["mic", "system"].into_iter().enumerate() {
+        let alternative = &merged.results.channels[index].alternatives[0];
+        assert_eq!(alternative.transcript, expected);
+        assert_eq!(alternative.words[0].word, format!("{expected}-early"));
+        assert!(
+            alternative
+                .words
+                .iter()
+                .all(|word| word.channel == index as i32)
+        );
+    }
+    assert_eq!(
+        merged.results.channels[1].alternatives[0].words[0].speaker,
+        Some(1)
+    );
+}
+
+#[tokio::test]
+async fn stereo_recording_is_uploaded_one_channel_at_a_time() {
+    CHANNEL_UPLOADS.lock().unwrap().clear();
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_stereo_test_wav(source.path(), TARGET_SAMPLE_RATE as usize, 0.25, -0.5);
+
+    let params = BatchParams {
+        session_id: "channel-split-test".to_string(),
+        provider: super::super::BatchProvider::Groq,
+        file_path: source.path().to_string_lossy().into_owned(),
+        model: None,
+        base_url: "https://api.groq.com/openai/v1".to_string(),
+        api_key: "test".to_string(),
+        languages: vec![anlg_language::ISO639::En.into()],
+        keywords: vec![],
+        num_speakers: None,
+        min_speakers: None,
+        max_speakers: None,
+        known_speakers: vec![],
+    };
+    let listen_params = owhisper_interface::ListenParams {
+        channels: 2,
+        ..Default::default()
+    };
+
+    let output = run_channel_split_batch::<ChannelLevelAdapter>(
+        "channel-level",
+        params,
+        listen_params,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let uploads = CHANNEL_UPLOADS.lock().unwrap().clone();
+    assert_eq!(uploads.len(), 2, "one upload per recorded channel");
+    for upload in &uploads {
+        assert!(!Path::new(upload).exists(), "channel file leaked");
+    }
+
+    let channels = &output.response.results.channels;
+    assert_eq!(channels.len(), 2);
+    assert_eq!(channels[0].alternatives[0].transcript, "mic");
+    assert_eq!(channels[1].alternatives[0].transcript, "system");
+    assert_eq!(channels[1].alternatives[0].words[0].channel, 1);
+    assert!(source.path().exists());
+}

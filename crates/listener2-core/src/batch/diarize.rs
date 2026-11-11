@@ -228,6 +228,17 @@ fn channel_speaker_bounds(
     })
 }
 
+/// Whether a hosted provider's channels were uploaded one at a time. Those
+/// providers return no speaker labels, so the remote channel is diarized on
+/// device exactly like a local transcript.
+pub(super) fn is_channel_split_response(response: &batch::Response) -> bool {
+    response
+        .metadata
+        .get(super::simple::CHANNEL_SPLIT_METADATA_KEY)
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
 pub(super) fn channel_needs_diarization(channel: &batch::Channel) -> bool {
     let mut words = channel
         .alternatives
@@ -243,7 +254,7 @@ pub(super) async fn apply_local_diarization(
     listen_params: &owhisper_interface::ListenParams,
     output: &mut BatchRunOutput,
 ) {
-    if !is_local_batch(params) {
+    if !is_local_batch(params) && !is_channel_split_response(&output.response) {
         return;
     }
     let transcript_channels = output.response.results.channels.len();
@@ -898,6 +909,23 @@ mod tests {
             word(Some(1))
         ])));
         assert!(!channel_needs_diarization(&channel(vec![])));
+    }
+
+    #[test]
+    fn channel_split_responses_are_diarized_on_device() {
+        let response = |metadata| batch::Response {
+            metadata,
+            results: batch::Results { channels: vec![] },
+        };
+        assert!(is_channel_split_response(&response(
+            serde_json::json!({ "provider": "groq", "channel_split": true })
+        )));
+        assert!(!is_channel_split_response(&response(
+            serde_json::json!({ "provider": "groq" })
+        )));
+        assert!(!is_channel_split_response(&response(
+            serde_json::Value::Null
+        )));
     }
 
     use super::super::test_fixtures::{NeverCancelled, in_person_fixture, params, stereo_fixture};
