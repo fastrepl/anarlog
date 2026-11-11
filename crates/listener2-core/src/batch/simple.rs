@@ -4,8 +4,8 @@ mod local;
 
 pub(super) use direct::{CHANNEL_SPLIT_METADATA_KEY, run_direct_batch_for_adapter_kind};
 pub(super) use local::{
-    ResampledChannelFile, resample_audio_to_channel_files_until, run_apple_speech_batch,
-    run_soniqo_batch,
+    ChannelCollapse, ResampledChannelFile, resample_audio_to_channel_files_until,
+    resample_audio_to_channel_files_with, run_apple_speech_batch, run_soniqo_batch,
 };
 
 #[cfg(test)]

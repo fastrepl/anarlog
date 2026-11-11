@@ -988,13 +988,7 @@ fn write_stereo_test_wav(path: &Path, samples: usize, mic: f32, system: f32) {
 fn only_downmixing_providers_upload_channels_separately() {
     use owhisper_client::AdapterKind;
 
-    for kind in [
-        AdapterKind::Groq,
-        AdapterKind::Together,
-        AdapterKind::SiliconFlow,
-        AdapterKind::Zai,
-        AdapterKind::OpenRouter,
-    ] {
+    for kind in [AdapterKind::Groq, AdapterKind::Together] {
         assert!(uploads_channels_separately(kind, 2), "{kind} should split");
         assert!(
             !uploads_channels_separately(kind, 1),
@@ -1002,6 +996,11 @@ fn only_downmixing_providers_upload_channels_separately() {
         );
     }
     for kind in [
+        // May diarize itself, so its labels must keep the hosted post-pass.
+        AdapterKind::OpenRouter,
+        // May answer with text but no word timings to diarize.
+        AdapterKind::SiliconFlow,
+        AdapterKind::Zai,
         AdapterKind::Deepgram,
         AdapterKind::AssemblyAI,
         AdapterKind::Soniox,
@@ -1009,9 +1008,78 @@ fn only_downmixing_providers_upload_channels_separately() {
     ] {
         assert!(
             !uploads_channels_separately(kind, 2),
-            "{kind} handles channels itself"
+            "{kind} keeps the mixed upload"
         );
     }
+}
+
+/// 10 s stereo: a silent mic, and remote speech only in a short burst. The
+/// mean channel difference stays under the local collapse threshold.
+fn write_sparse_remote_speech_wav(path: &Path) {
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).unwrap();
+    let total = TARGET_SAMPLE_RATE as usize * 10;
+    let burst = TARGET_SAMPLE_RATE as usize / 5;
+    for index in 0..total {
+        let remote = if index < burst {
+            if index % 2 == 0 { 0.02 } else { -0.02 }
+        } else {
+            0.0
+        };
+        writer.write_sample(0.0f32).unwrap();
+        writer.write_sample(remote).unwrap();
+    }
+    writer.finalize().unwrap();
+}
+
+#[test]
+fn hosted_split_keeps_sparse_remote_channel() {
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_sparse_remote_speech_wav(source.path());
+    let path = source.path().to_str().unwrap();
+
+    let local = resample_audio_to_channel_files_with(
+        path,
+        anlg_audio_utils::source_from_path(path).unwrap(),
+        || false,
+        ChannelCollapse::MeanDifference,
+    )
+    .unwrap();
+    assert_eq!(local.len(), 1, "local heuristic collapses this recording");
+
+    let hosted = resample_audio_to_channel_files_with(
+        path,
+        anlg_audio_utils::source_from_path(path).unwrap(),
+        || false,
+        ChannelCollapse::Duplicate,
+    )
+    .unwrap();
+    assert_eq!(hosted.len(), 2, "remote speech must not be dropped");
+}
+
+#[test]
+fn hosted_split_collapses_duplicated_channels() {
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_stereo_test_wav(source.path(), TARGET_SAMPLE_RATE as usize, 0.25, 0.25);
+    let path = source.path().to_str().unwrap();
+
+    let files = resample_audio_to_channel_files_with(
+        path,
+        anlg_audio_utils::source_from_path(path).unwrap(),
+        || false,
+        ChannelCollapse::Duplicate,
+    )
+    .unwrap();
+    assert_eq!(
+        files.len(),
+        1,
+        "a mono capture stored as stereo uploads once"
+    );
 }
 
 #[test]

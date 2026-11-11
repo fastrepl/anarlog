@@ -50,23 +50,18 @@ impl PreparedBatchUpload {
 /// unlabeled channels get the same on-device diarization as local providers.
 pub(in crate::batch) const CHANNEL_SPLIT_METADATA_KEY: &str = "channel_split";
 
-/// OpenAI-compatible `/audio/transcriptions` providers downmix a multichannel
-/// upload to mono and return one undiarized transcript, which collapses the
+/// Whisper-based OpenAI-compatible providers downmix a multichannel upload to
+/// mono and return word timestamps without speaker labels, which collapses the
 /// direct mic and every remote participant into a single speaker. Uploading
-/// each recorded channel on its own keeps them apart.
+/// each recorded channel on its own keeps them apart. Providers that can
+/// diarize (OpenRouter models) or that may return text without word timings
+/// (SiliconFlow, Z.AI) keep the mixed upload: a split would gain nothing or
+/// bypass their speaker handling.
 pub(in crate::batch) fn uploads_channels_separately(
     adapter_kind: AdapterKind,
     channels: u8,
 ) -> bool {
-    channels > 1
-        && matches!(
-            adapter_kind,
-            AdapterKind::Groq
-                | AdapterKind::Together
-                | AdapterKind::SiliconFlow
-                | AdapterKind::Zai
-                | AdapterKind::OpenRouter
-        )
+    channels > 1 && matches!(adapter_kind, AdapterKind::Groq | AdapterKind::Together)
 }
 
 macro_rules! dispatch_batch {
@@ -274,7 +269,12 @@ pub(super) async fn run_channel_split_batch<A: BatchSttAdapter>(
     let source_path = params.file_path.clone();
     let split = tokio::task::spawn_blocking(move || {
         let source = anlg_audio_utils::source_from_path(&source_path).map_err(|e| e.to_string())?;
-        super::resample_audio_to_channel_files_until(&source_path, source, || false)
+        super::resample_audio_to_channel_files_with(
+            &source_path,
+            source,
+            || false,
+            super::ChannelCollapse::Duplicate,
+        )
     })
     .await;
     let channel_files = match split {

@@ -46,10 +46,41 @@ where
     resample_audio_to_channel_files_until(source_path, source, || false)
 }
 
+/// How a two-channel recording may be reduced to one channel file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::batch) enum ChannelCollapse {
+    /// Collapse when the average sample difference is tiny. Cheap, but a
+    /// silent mic with sparse remote speech also qualifies, so the remote
+    /// channel is lost. Fine for local models that score the mix anyway.
+    MeanDifference,
+    /// Collapse only when the channels are copies of each other: their
+    /// difference is under 1% of the signal itself. Hosted uploads use this so
+    /// sparse speech on one channel is never dropped.
+    Duplicate,
+}
+
 pub(in crate::batch) fn resample_audio_to_channel_files_until<S, F>(
     source_path: &str,
     source: S,
+    is_cancelled: F,
+) -> std::result::Result<Vec<ResampledChannelFile>, String>
+where
+    S: Source,
+    F: FnMut() -> bool,
+{
+    resample_audio_to_channel_files_with(
+        source_path,
+        source,
+        is_cancelled,
+        ChannelCollapse::MeanDifference,
+    )
+}
+
+pub(in crate::batch) fn resample_audio_to_channel_files_with<S, F>(
+    source_path: &str,
+    source: S,
     mut is_cancelled: F,
+    collapse: ChannelCollapse,
 ) -> std::result::Result<Vec<ResampledChannelFile>, String>
 where
     S: Source,
@@ -87,6 +118,7 @@ where
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e: anlg_audio_utils::Error| e.to_string())?;
     let mut stereo_difference = 0.0f64;
+    let mut stereo_magnitude = 0.0f64;
     let mut stereo_samples = 0usize;
 
     let info = anlg_audio_utils::for_each_resampled_channel_block::<_, anlg_audio_utils::Error>(
@@ -107,6 +139,11 @@ where
                     .zip(channels[1])
                     .map(|(left, right)| f64::from((left - right).abs()))
                     .sum::<f64>();
+                stereo_magnitude += channels[0]
+                    .iter()
+                    .zip(channels[1])
+                    .map(|(left, right)| f64::from(left.abs().max(right.abs())))
+                    .sum::<f64>();
                 stereo_samples += channels[0].len().min(channels[1].len());
             }
             Ok(())
@@ -122,10 +159,15 @@ where
         return Err(LOCAL_BATCH_CANCELLED.to_string());
     }
 
-    if files.len() == 2
-        && stereo_samples > 0
-        && stereo_difference / (stereo_samples as f64) < 0.0005
-    {
+    let collapsible = match collapse {
+        ChannelCollapse::MeanDifference => {
+            stereo_samples > 0 && stereo_difference / (stereo_samples as f64) < 0.0005
+        }
+        ChannelCollapse::Duplicate => {
+            stereo_samples > 0 && stereo_difference <= 0.01 * stereo_magnitude
+        }
+    };
+    if files.len() == 2 && collapsible {
         files.truncate(1);
     }
 
