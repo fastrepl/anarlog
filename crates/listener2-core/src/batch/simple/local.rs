@@ -158,11 +158,10 @@ where
         ChannelCollapse::MeanDifference => {
             stereo_samples > 0 && stereo_difference / (stereo_samples as f64) < 0.0005
         }
-        // Resampling identical channels yields identical samples; allow only
-        // float rounding.
-        ChannelCollapse::Identical => {
-            stereo_samples > 0 && stereo_difference <= 1e-6 * (stereo_samples as f64)
-        }
+        // Resampling identical channels yields identical samples, so any
+        // difference at all is distinct audio. An averaged threshold would let
+        // a long silence dilute quiet, sparse speech below it.
+        ChannelCollapse::Identical => stereo_samples > 0 && stereo_difference == 0.0,
     };
     if files.len() == 2 && collapsible {
         files.truncate(1);

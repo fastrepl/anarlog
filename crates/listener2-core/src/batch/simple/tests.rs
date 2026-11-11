@@ -1092,6 +1092,42 @@ fn hosted_split_keeps_distinct_speech_under_shared_audio() {
 }
 
 #[test]
+fn hosted_split_keeps_quiet_sparse_remote_channel() {
+    // Silent mic; remote speech is both quiet and short, so its difference
+    // averaged over the recording is tiny, yet it is distinct audio.
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(source.path(), spec).unwrap();
+    let total = TARGET_SAMPLE_RATE as usize * 10;
+    let burst = TARGET_SAMPLE_RATE as usize / 10;
+    for index in 0..total {
+        let remote = if index < burst {
+            if index % 2 == 0 { 0.00005 } else { -0.00005 }
+        } else {
+            0.0
+        };
+        writer.write_sample(0.0f32).unwrap();
+        writer.write_sample(remote).unwrap();
+    }
+    writer.finalize().unwrap();
+    let path = source.path().to_str().unwrap();
+
+    let files = resample_audio_to_channel_files_with(
+        path,
+        anlg_audio_utils::source_from_path(path).unwrap(),
+        || false,
+        ChannelCollapse::Identical,
+    )
+    .unwrap();
+    assert_eq!(files.len(), 2, "quiet remote speech must not be dropped");
+}
+
+#[test]
 fn hosted_split_collapses_duplicated_channels() {
     let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
     write_stereo_test_wav(source.path(), TARGET_SAMPLE_RATE as usize, 0.25, 0.25);
