@@ -334,7 +334,7 @@ fn audio_import_source_extension(filename: &str, content_type: Option<&str>) -> 
         .map(str::to_ascii_lowercase);
 
     match extension.as_deref() {
-        Some("wav" | "mp3" | "ogg" | "mp4" | "m4a" | "flac" | "webm" | "aac") => {
+        Some("wav" | "mp3" | "ogg" | "opus" | "mp4" | "m4a" | "flac" | "webm" | "aac") => {
             return extension.unwrap();
         }
         Some("qta") => return "m4a".to_string(),
@@ -765,6 +765,7 @@ mod tests {
         for (filename, content_type, expected) in [
             ("recording.WEBM", Some("audio/mp4"), "webm"),
             ("recording.aac", None, "aac"),
+            ("voice-note.opus", Some("audio/opus"), "opus"),
             ("Brian Shin.qta", None, "m4a"),
             ("Brian Shin", Some("audio/mp4; codecs=alac"), "m4a"),
             ("Brian Shin", Some("audio/quicktime"), "m4a"),
