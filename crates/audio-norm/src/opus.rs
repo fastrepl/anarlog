@@ -41,7 +41,11 @@ impl OpusSource {
             .format(
                 &hint,
                 stream,
-                &FormatOptions::default(),
+                // Gapless mode makes the Ogg demuxer mark the encoder's end padding for trimming.
+                &FormatOptions {
+                    enable_gapless: true,
+                    ..Default::default()
+                },
                 &MetadataOptions::default(),
             )
             .ok()?
@@ -138,5 +142,38 @@ impl Source for OpusSource {
 
     fn total_duration(&self) -> Option<Duration> {
         self.total_duration
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use symphonia::core::codecs::CodecParameters;
+    use symphonia::core::formats::Packet;
+
+    use super::*;
+
+    #[test]
+    fn ogg_opus_decodes_without_pre_skip_or_end_padding() {
+        let source = OpusSource::open(Path::new(anlg_data::english_1::AUDIO_OPUS_PATH)).unwrap();
+
+        // ffmpeg decodes this mono fixture to 8,375,313 samples at 48 kHz.
+        assert_eq!(source.count(), 8_375_313);
+    }
+
+    #[test]
+    fn decoder_accepts_120_ms_packets() {
+        let mut params = CodecParameters::new();
+        params
+            .for_codec(CODEC_TYPE_OPUS)
+            .with_sample_rate(OPUS_SAMPLE_RATE_HZ)
+            .with_channels(symphonia::core::audio::Channels::FRONT_LEFT);
+        let mut decoder = OpusDecoder::try_new(&params, &DecoderOptions::default()).unwrap();
+
+        // TOC 0xFB: CELT fullband 20 ms, mono, code 3. Frame count byte 0x06: six empty CBR
+        // frames, which libopus conceals, so the packet decodes to 6 x 20 ms = 120 ms.
+        let packet = Packet::new_from_slice(0, 0, 5_760, &[0xFB, 0x06]);
+        let decoded = decoder.decode(&packet).unwrap();
+
+        assert_eq!(decoded.frames(), 5_760);
     }
 }
