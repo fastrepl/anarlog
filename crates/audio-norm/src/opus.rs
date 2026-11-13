@@ -147,9 +147,6 @@ impl Source for OpusSource {
 
 #[cfg(test)]
 mod tests {
-    use symphonia::core::codecs::CodecParameters;
-    use symphonia::core::formats::Packet;
-
     use super::*;
 
     #[test]
@@ -161,19 +158,16 @@ mod tests {
     }
 
     #[test]
-    fn decoder_accepts_120_ms_packets() {
-        let mut params = CodecParameters::new();
-        params
-            .for_codec(CODEC_TYPE_OPUS)
-            .with_sample_rate(OPUS_SAMPLE_RATE_HZ)
-            .with_channels(symphonia::core::audio::Channels::FRONT_LEFT);
-        let mut decoder = OpusDecoder::try_new(&params, &DecoderOptions::default()).unwrap();
+    fn ogg_opus_with_120_ms_packets_decodes_every_packet() {
+        // Three seconds of a 440 Hz tone, encoded by ffmpeg with `-frame_duration 120`. It spans
+        // several Ogg pages, which the demuxer needs to find the end padding.
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/data/opus-120ms-packets.ogg"
+        );
+        let source = OpusSource::open(Path::new(path)).unwrap();
 
-        // TOC 0xFB: CELT fullband 20 ms, mono, code 3. Frame count byte 0x06: six empty CBR
-        // frames, which libopus conceals, so the packet decodes to 6 x 20 ms = 120 ms.
-        let packet = Packet::new_from_slice(0, 0, 5_760, &[0xFB, 0x06]);
-        let decoded = decoder.decode(&packet).unwrap();
-
-        assert_eq!(decoded.frames(), 5_760);
+        // ffmpeg decodes this fixture to 144,000 samples at 48 kHz.
+        assert_eq!(source.count(), 144_000);
     }
 }
