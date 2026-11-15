@@ -2,12 +2,12 @@
 
 ## Status and use
 
-- **Revision:** 1, November 15, 2026, Asia/Seoul.
-- **Status:** Comprehensive proposal ready for review. Implementation and migration have not started.
+- **Revision:** 2, November 15, 2026, Asia/Seoul.
+- **Status:** Execution started November 15 at John's direction. P0 inventory is partly refreshed and P1 server, deployment, and desktop changes are committed locally; nothing is pushed or deployed and no production setting has changed. See the execution ledger.
 - **Owner:** John Jeong. The engineer executing the migration maintains this file.
 - **Tracking:** [ANLG-554](https://linear.app/fastrepl-inc/issue/ANLG-554/retire-sqlite-cloud-using-supabase-encrypted-replica-sync).
 - **Canonical plan:** This file. Update it in place as decisions or evidence change; do not create competing plans in subsequent chats.
-- **Current authorization:** Prepare and commit the plan locally. Production configuration changes, data writes, deployments, releases, resource deletion, and cancellation are future execution steps.
+- **Current authorization:** Read-only production inventory and local P1 implementation commits. Pushing, PRs, production configuration changes, data writes, deployments, releases, resource deletion, and cancellation still need explicit authorization.
 
 Before continuing in another session, read this file, the execution ledger, the linked issues, and the current component instructions. Confirm the actual checkout, deployed versions, and environment. A checked box requires evidence tied to a version, environment, and time. Code existence, merged PRs, and earlier observations do not establish current production readiness.
 
@@ -52,6 +52,17 @@ These observations came from the November 14 investigation and November 15 sourc
 
 The source supports per-account transport selection and replica credentials on desktop; mobile requests replica credentials directly. The default desktop transport in source is still `sqlite_sync`. Canonical configuration inspection returned `e2ee_enforced`; the deployed transport default was not conclusively established.
 
+### Refreshed November 15 (read-only)
+
+| Observation                                                                                                                                                                                                                                             | Meaning and limit                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase migration list --linked` on `ijoptyyjrfqwaqhyxkxj`: every local migration through `20261021045443` is applied and none is pending                                                                                                              | Hosted schema matches `main`. P1 so far adds no hosted migration.                                                                                                                                                               |
+| Last successful `api_cd` runs by service: sync `7a58e6ba9c` (October 28, run 40664354707), core and billing `acdf190bde` (October 25), ai `2afba01e93` from a branch (October 19), gateway `36715ccb21` (October 5). Health reports 0.0.101 and 0.0.100 | Sync and core contain #7997, #8050, and #8061. The gateway image predates #8050/#8061; that it forwards sync and core traffic to the standalone services is not yet verified. Only gateway deploys tag, so no tag names the sync image. |
+| No commit on `main` after `7a58e6ba9c` touches `crates/api-sync`, `crates/api-subscription`, `apps/api`, or `supabase/migrations` (checked at `0a97fcd408`)                                                                                           | Deployed sync code equals `main` for these paths until P1 merges.                                                                                                                                                               |
+| Infisical prod `/anarlog/cloudsync`: protocol mode `e2ee_enforced`, token TTL 3600 seconds, desktop transport unset, lifecycle mode unset                                                                                                               | Effective transport default is `sqlite_sync` if Fly matches Infisical. Fly machine images and staged secrets were not inspected because the local Fly session had expired.                                                      |
+| `replica` capability header first shipped in desktop 1.4.24 (#7503); accepted-state outbox and update-required handling in 1.4.29 (#7997); contention fixes in 1.4.30. Latest stable tag is 1.4.34                                                      | Builds 1.4.24 through 1.4.28 advertise `replica` without the outbox or any handling of a fenced workspace. Existing identifiers cannot separate them from later builds, so capability negotiation was extended (section 4).     |
+| Desktop sends no app version on credential requests; mobile calls `/sync/replica/credentials` with no capability header                                                                                                                                 | Mobile is unaffected by the lifecycle gate. Its accepted-state coverage per build still needs P2 qualification.                                                                                                                 |
+
 ### Relevant history
 
 - [ANLG-219](https://linear.app/fastrepl-inc/issue/ANLG-219/make-cloudsync-backend-portable-for-self-hosted-deployments): completed portability work, [PR #6798](https://github.com/fastrepl/anarlog/pull/6798). Keep it closed; this migration is new scope.
@@ -85,7 +96,7 @@ The source supports per-account transport selection and replica credentials on d
 
 ### Provider lifecycle and compatibility
 
-Add one explicit server setting, **planned, not currently implemented**: `ANARLOG_SQLITECLOUD_MODE=enabled|draining|retired`. Default to `enabled` for existing deployments. Keep `ANARLOG_CLOUDSYNC_DESKTOP_TRANSPORT` as the transport preference during overlap; it is not a provider retirement switch.
+One explicit server setting, implemented locally on `refactor/supabase-sync-migration` and not deployed: `ANARLOG_SQLITECLOUD_MODE=enabled|draining|retired`. Unset resolves to `enabled` when any provider variable is present, which covers existing deployments, and to `retired` when none is, which preserves today's replica-only behavior for self-hosted and local APIs. The cleanup owner does not accept that inference and needs an explicit `retired`. `/health/sync` reports the resolved mode. Keep `ANARLOG_CLOUDSYNC_DESKTOP_TRANSPORT` as the transport preference during overlap; it is not a provider retirement switch.
 
 | Mode       | Credentials                                                                                                                          | Provider access and cleanup                                                                                                    |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -98,6 +109,8 @@ Lifecycle mode takes precedence over stale per-account overrides. In `draining`/
 Keep existing URL paths and successful credential/payload shapes. Make `/sync/token` a stable compatibility endpoint with the same auth, entitlement, device, and key checks as `/sync/replica/credentials`. Do not make supported clients depend on a 404 fallback. Preserve accepted-event APIs and limits. Regenerate OpenAPI/client output only where the actual contract changes.
 
 Inventory exact packaged client versions/builds. A `replica` capability header alone does not prove safe outbox/authority support. Establish the minimum supported version per release channel from executable tests; extend capability negotiation only if existing identifiers cannot distinguish qualified builds. Add explicit update-required UI and stop retry storms on 426. Reuse current updating/sign-in mechanisms; do not force logout, clear storage, or block local editing.
+
+**Decision recorded November 15, open to review before Gate P2:** existing identifiers cannot distinguish qualified builds (section 2), so desktop now also advertises `accepted_replica`, and in `draining`/`retired` `/sync/token` issues replica credentials only to clients that send it. The first release carrying this change becomes the minimum desktop build for draining; stable 1.4.29 through 1.4.34 would have to update even though they have the outbox, because nothing they send separates them from 1.4.24 through 1.4.28. Accepting plain `replica` instead would admit those five builds. `enabled` mode is unchanged, and `/sync/replica/credentials` stays ungated because its callers already chose the replica and the workspace authority fence governs them.
 
 Transport and authority are separate transitions. Audit both. For a legacy workspace, the first accepted write can fence old witness clients. Do not activate it without a tested old-client upgrade path and a known complete baseline. Where eligibility cannot be gated reliably, add the smallest workspace-scoped server gate before exposing the transition.
 
@@ -288,9 +301,9 @@ Update this table with concise evidence links and exact versions. Keep raw test 
 
 | Gate                             | State           | Evidence required before marking complete                                                                              |
 | -------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Plan review                      | Awaiting review | Finalized defaults and execution scope recorded by John.                                                               |
-| P0 inventory/commercial/baseline | Not started     | Resource inventory, mode/versions, snapshot/fence proof, license/cancellation terms, 72-hour baseline, cost model.     |
-| P1 implementation                | Not started     | Scoped commits/PRs, contracts, audit tool, provider-independent staging checks.                                        |
+| Plan review                      | Execution directed | John asked to start the migration on November 15. The capability decision in section 4 and the section 8 thresholds still await his explicit review. |
+| P0 inventory/commercial/baseline | In progress     | Resource inventory, mode/versions, snapshot/fence proof, license/cancellation terms, 72-hour baseline, cost model.     |
+| P1 implementation                | In progress     | Scoped commits/PRs, contracts, audit tool, provider-independent staging checks.                                        |
 | P2 qualification                 | Not started     | Candidate SHAs/artifacts, scenario outcomes, restore/load results, minimum supported client list.                      |
 | P3 pilot                         | Not started     | Account-group evidence, 48-hour metrics, reconciliation and recovery results.                                          |
 | P3 10%                           | Not started     | Group list, 48-hour metrics, gate decision.                                                                            |
@@ -302,5 +315,35 @@ Update this table with concise evidence links and exact versions. Keep raw test 
 | P5 financial/archive close       | Not started     | Next invoice, net spend comparison, archive expiry and deletion evidence.                                              |
 
 For every rollout change record: operator, UTC timestamp, environment, exact cohort manifest reference, old/new settings, serving image/SHA, related database migration versions, metric window, result, and rollback image. Do not mark an entire phase complete because one command succeeded.
+
+### Progress as of November 15
+
+**P0, done read-only:** the refreshed observations in section 2.
+
+**P0, still open:**
+
+- Fly machine images, digests, and staged secret names for sync, core, and gateway; whether the gateway forwards sync and core traffic. Needs a fresh `fly auth login`.
+- Snapshot/export and write-fence capabilities of SQLite Cloud, cancellation notice and renewal terms, and local-extension licensing. Needs the provider account and contract.
+- 72-hour baseline for sync, auth, database, billing/account reads, egress, and storage growth; provisioned disk and quota; the cost forecast.
+- Supabase backup restoration into an isolated target.
+- ANLG-469 resistance reproduced against the serving images, beyond confirming the fixes are deployed.
+
+**P1, committed locally on `refactor/supabase-sync-migration` (not pushed):**
+
+- Lifecycle mode, Supabase-only sync state, and always-mounted `/sync/token` with the three-mode behavior and the `accepted_replica` gate. Sharing, web editing, live documents, and attachment backups no longer depend on provider configuration.
+- Account deletion by mode: provider purge while enabled or draining, Supabase cascade once retired, never a purge inferred from a missing client. The hosted test asserts the cascade removes the encrypted log and receipts.
+- Deployment secret selection and provider verification for the three modes, with operator documentation in `apps/api/AGENTS.md`.
+- Desktop: advertises `accepted_replica`, treats 426 as update-required without retrying, and shows that state in sync settings.
+
+Checks run locally at these commits: `cargo test --locked -p api-sync -p api-subscription -p api`, the four deployment Python suites, `supabase test db` on an isolated local stack (68 files, 1,511 tests), and desktop typecheck, lint, and tests. Native desktop and mobile builds, the remaining `api_ci.yaml` crates, and CI itself have not run.
+
+**P1, still open:**
+
+- Replacement deploy verification for the encrypted replica after retirement (isolation, recovery, deletion). The retired path currently skips provider checks and warns that it verified nothing. It needs dedicated production test accounts, which is a production write.
+- The resumable audit and reconciliation command (section 5).
+- Telemetry in section 8: transport, lifecycle mode, 426 counts, and provider issuance as counters rather than log lines.
+- Workspace-scoped gate for authority activation if qualification shows the existing fence is not enough, and any retry or pool isolation fixes qualification exposes.
+- Gate P1 itself: isolated staging with provider credentials absent and provider network access blocked.
+- Mobile and CLI/MCP inventory for shared-runtime impact; no change was needed so far.
 
 **Next action after plan finalization:** start P0 with read-only inventory and capacity/commercial verification, then implement P1. Do not begin with a production transport flip.
