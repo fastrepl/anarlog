@@ -8,6 +8,15 @@ store. There is deliberately no repair mode: a value missing from the log may
 only be reconciled by an authorized client through conditional acceptance, so
 this tool archives the ciphertext for that client instead of publishing it.
 
+Supported clients apply a provider record only when it matches the value the
+log selects for that record, and the log carries that value's ciphertext. So
+`current` and `covered_historical` are values the log already holds (the newest
+one, or an earlier one), while `diverged` and `missing` were never witnessed:
+clients refuse them today and they still live only on the device that wrote
+them. A workspace with provider records and no log at all is counted as
+`uninitialized`. Against a live provider, records written during the
+comparison show up as `diverged`; only a fenced source gives final numbers.
+
 Evidence (summaries, unresolved record ids, optional ciphertext archive) goes
 to a directory outside any Git work tree. Reruns resume after the last
 completed workspace.
@@ -260,6 +269,7 @@ def audit_workspace(provider, replica, workspace: str, archive) -> dict[str, obj
                 archive(workspace, record_id, source_hash, payload)
     return summary | {
         "through_sequence": through,
+        "replica_initialized": through > 0,
         "source_records": seen,
         "replica_records": len(hashes),
         "classes": counts,
@@ -297,7 +307,7 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
     still fails on what an earlier run found. A `--workspace` run reports only
     itself and leaves the full pass untouched.
     """
-    empty = dict.fromkeys((*CLASSES, "workspaces", "unmapped"), 0)
+    empty = dict.fromkeys((*CLASSES, "workspaces", "unmapped", "uninitialized"), 0)
     progress_path = evidence / "progress.json"
     progress = {"cursor": "", "source": arguments.source, "totals": dict(empty)}
     if progress_path.exists():
@@ -306,6 +316,13 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
         if progress.get("source") != arguments.source:
             raise ValueError(
                 "this evidence directory belongs to a different source snapshot"
+            )
+        if progress.get("totals", {}).keys() != empty.keys():
+            # Defaulting a total this version added would report zero for work
+            # an older version already finished.
+            raise ValueError(
+                "this evidence was written by another version of the audit;"
+                " start a new evidence directory"
             )
     else:
         write_progress(progress_path, progress)
@@ -357,6 +374,10 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
         audited += 1
         totals["workspaces"] += 1
         totals["unmapped"] += bool(summary.get("unmapped"))
+        totals["uninitialized"] += (
+            summary.get("replica_initialized") is False
+            and summary.get("source_records", 0) > 0
+        )
         for name, count in summary.get("classes", {}).items():
             totals[name] += count
         if not arguments.workspace:

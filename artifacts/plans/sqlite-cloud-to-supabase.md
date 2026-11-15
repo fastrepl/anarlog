@@ -3,11 +3,11 @@
 ## Status and use
 
 - **Revision:** 2, November 15, 2026, Asia/Seoul.
-- **Status:** Execution started November 15 at John's direction. P0 inventory is partly refreshed. P1 server, deployment, desktop, verification, and audit changes are in draft [PR #8194](https://github.com/fastrepl/anarlog/pull/8194); nothing is merged or deployed and no production setting has changed. See the execution ledger.
+- **Status:** Execution started November 15 at John's direction. P1 is merged to `main` ([#8194](https://github.com/fastrepl/anarlog/pull/8194), `aedf4ad0f3`) along with the calendar churn fix ([#8195](https://github.com/fastrepl/anarlog/pull/8195), `39567cbc60`). Nothing is deployed, no client release has been cut, and no production setting has changed. P0 and P2 are partly evidenced; see the execution ledger for what each gate still needs.
 - **Owner:** John Jeong. The engineer executing the migration maintains this file.
 - **Tracking:** [ANLG-554](https://linear.app/fastrepl-inc/issue/ANLG-554/retire-sqlite-cloud-using-supabase-encrypted-replica-sync).
 - **Canonical plan:** This file. Update it in place as decisions or evidence change; do not create competing plans in subsequent chats.
-- **Current authorization:** On November 15 John directed the work to continue until the migration is complete. Pushing and the draft PR proceeded on that basis. Each gate below still needs its evidence before the step it guards: that direction does not waive a gate, and irreversible steps (provider resource deletion, cancellation) are taken only after their gate is recorded as passed.
+- **Current authorization:** On November 15 John directed the work to continue until the migration is complete. Pushing, the PRs, and merging #8194 and #8195 proceeded on that basis. Each gate below still needs its evidence before the step it guards: that direction does not waive a gate, and irreversible steps (provider resource deletion, cancellation) are taken only after their gate is recorded as passed.
 
 Before continuing in another session, read this file, the execution ledger, the linked issues, and the current component instructions. Confirm the actual checkout, deployed versions, and environment. A checked box requires evidence tied to a version, environment, and time. Code existence, merged PRs, and earlier observations do not establish current production readiness.
 
@@ -102,6 +102,24 @@ Sources: the SQLite Cloud dashboard (read through the signed-in browser; nothing
 In four bounded samples of 100,000 consecutive events (October 17, October 28, November 8, November 15), 95–99% of events were the same 494–666 records being republished: median 63–79 seconds apart, identical payload size, a single writing account, about nine records per active workspace. The cause is desktop calendar sync, which set `updated_at` on every event-linked note on every pass and so republished two encrypted records per linked note each time. [PR #8195](https://github.com/fastrepl/anarlog/pull/8195) stops the rewrite; it reaches users with a desktop release and does not compact existing history.
 
 Consequences for this plan: the measured peak is mostly churn, so P2's "twice the measured peak" should be recorded against both the current rate and the expected rate after the fix; fresh-device bootstrap and the audit both pay for the accumulated history; and the minimum client build for draining should include the fix.
+
+### What the provider still holds (audit pilot, November 15)
+
+Read-only runs of `audit_cloudsync_replica.py` against the live provider, with evidence kept outside Git under `~/Library/Application Support/anarlog-migration-evidence/`. A live source is preliminary by rule 1 of section 5.
+
+- First 35 provider workspaces in id order, mostly dormant accounts: 99,570 records `current`, 54 `covered_historical`, 78 `missing`, 0 `diverged`. 8 workspaces have at least one unresolved record and 3 hold provider records but have no Supabase log at all. The 74 missing records checked were written on single days in August and October. The sample stopped itself when the provider answered 502.
+- Four of the most active workspaces: 15,646 `current`, 0 `missing`, 96 `diverged`. Those are the churning calendar records, rewritten at the provider between the two reads. A fenced source removes that race.
+- Active workspaces write to the provider and to Supabase within the same minute, so the provider is still a live write target and the churn in section 2 lands in both stores.
+
+**What this means for recoverability.** Every sync path in the desktop, mobile bridge, and sync library applies received provider records through the witness-checked variant: a record is applied only when its hash equals the value the device's witness state selects for that record (`replica_apply.rs`, `e2ee_witness_records`), and unwitnessed values are dropped from the apply queue until a witness event for them arrives. The encrypted replica and the witness shipped in the same local migration set (July 17, 2026). Three consequences, as read from the code and not yet demonstrated on a packaged client:
+
+1. The Supabase log already carries the ciphertext of every value a supported client would accept from the provider. `current` and `covered_historical` confirm that; they are not data to migrate.
+2. `missing` and `diverged` provider values are ones clients refuse today. They are uploads whose witness event never arrived, and the plaintext still lives on the device that wrote them, which publishes it through acceptance when it next syncs. Retiring the provider does not change what a fresh device can recover for these.
+3. A workspace with provider records and no log is not recoverable by a fresh supported device today either. Its devices initialize the log from their local state when they next run a supported build.
+
+If John accepts that reading, the retirement gate for data becomes: a fenced full pass shows no `unmapped` workspace, the unresolved ciphertext is archived for the retention period, and the list of `uninitialized` and unresolved workspaces is recorded as dormant-device dispositions under rule 7. Until he does, the audit keeps failing on any unresolved record.
+
+A full pass downloads all 62.76 GB of provider ciphertext to hash it. The Enterprise plan includes 100 GB of traffic a month, so run it once, against the fenced source.
 
 ### Relevant history
 
@@ -288,6 +306,25 @@ Prefer strengthening existing tests; add focused regressions only for actual gap
 | Contended sync under multi-instance load                        | CAS remains correct; receipts replay safely; unrelated account/billing reads do not starve.                                 |
 | Server rollback with new accepted data                          | Pending edits and monotonic authority survive; no fallback to legacy ordering.                                              |
 
+**Evidence index, November 15.** Automated coverage that exists on `main` for each scenario, and what is still unqualified. A named test proves the library or server behavior it exercises, not a packaged client.
+
+| Scenario                                    | Automated coverage on `main`                                                                                                                                                                        | Still unqualified                                           |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Offline edit, crash before first upload     | `pending_local_state_is_retryable_after_a_failed_publish`, `initialization_publishes_local_edits_before_hydrating_conflicting_history` (db-sync)                                                    | Packaged desktop and mobile                                 |
+| Lost acknowledgement, duplicate, old backup | `accepted_sync_recovers_a_lost_receipt_without_losing_a_newer_offline_edit` (db-sync), `replaying_cloud_history_retires_an_edit_from_a_backup_taken_before_batch_creation` (db-app), the load run   | Restore of a real backup                                    |
+| Concurrent edit, delete/edit, clock skew    | `cloud_acceptance_preserves_offline_notes_and_speaker_conflicts_in_either_reconnect_order`, `accepting_an_offline_title_edit_does_not_resurrect_a_cloud_tombstone`, `cloud_winners_do_not_get_republished_by_a_clean_replica_with_a_faster_clock` | None known                                                  |
+| Interrupted pull, protocol transition       | `accepted_refresh_resumes_after_restart_without_exposing_partial_rows`, `running_legacy_clients_reprobe_after_cloud_cutover` (db-sync)                                                              | None known                                                  |
+| Fresh device, large history, missing chunk  | `fresh_device_parks_new_rows_until_the_snapshot_download_completes`, `fresh_device_waits_for_every_row_record_to_be_witnessed`, the live replica check                                              | Production-size history and its recovery time               |
+| Old client returning, old database upgrade  | `upgrade_preserves_existing_content_and_legacy_deletions` (db-app), `requires_an_upgrade_for_legacy_clients_after_dual_mode` (api-sync), the desktop update-required test                           | An actual old build updating in place                       |
+| Mixed desktop/mobile, shared workspace      | `shared_replicas_collaborate_then_fail_closed_after_member_revocation` (db-app), the live check's second-account refusal                                                                            | Real mobile build; shared workspace on the live check       |
+| Recording active during switch              | `initial_transcript_chunks_must_hydrate_before_local_edits_are_encrypted` (db-app)                                                                                                                  | A live recording across a transport change                  |
+| Token expiry, 429, 426, outage              | `retries_rate_limited_and_busy_witness_reads`, `stops_retrying_a_persistently_rate_limited_read` (db-sync), `token_route_stops_issuing_sqlitecloud_tokens_once_the_provider_drains` (api-sync)       | None known                                                  |
+| Export/import, CLI and MCP                  | Inventory only: no sync-transport dependency                                                                                                                                                        | Not exercised                                               |
+| Attachments, sharing, web edit, live socket | api-sync sharing and attachment suites, `rejects_socket_upgrades_without_a_valid_ticket`, the provider-free staging run                                                                             | Live socket session and attachment download without provider |
+| Account deletion                            | `retired_sqlitecloud_finishes_deletion_without_contacting_the_provider`, `a_missing_cloudsync_choice_never_counts_as_a_purge`, hosted test 018, the staging run                                     | Deletion while `draining` against the real provider         |
+| Contended sync, multiple instances          | The load run in section 11                                                                                                                                                                          | Production-like capacity                                    |
+| Server rollback with new accepted data      | `running_legacy_clients_reprobe_after_cloud_cutover` (db-sync)                                                                                                                                      | Rolling the image back under traffic                        |
+
 Use current workflows and manifests as the command source when implementation starts. Minimum affected coverage:
 
 - `cargo test --locked -p db-sync -p db-app -p db-core -p db-migrate -p mobile-bridge`, plus the API/auth/subscription suites and deployment Python checks in [api_ci.yaml](../../.github/workflows/api_ci.yaml).
@@ -325,7 +362,8 @@ The roughly 87 GB append-only event relation makes growth and bootstrap cost mat
 2. Keep local editing/recording available. Rate-limit or temporarily pause sync publication when needed to protect the shared database, with durable client retries and accurate pending state.
 3. Roll back API/client behavior only to the designated image/build tested against the same schema and accepted-state protocol. Keep additive hosted migrations in place. Test forward recovery before restoring traffic.
 4. After accepted writes, Supabase remains authoritative. Do not set an override back to SQLite Cloud as a generic rollback, remove the fence, or replay stale provider rows. A reverse migration would require its own reconciled design and is out of scope.
-5. Database disaster recovery is separate from deployment rollback. Restore to an isolated target, reconcile accepted sequence/receipt state and deletion obligations, and verify clients reject regressed heads. Never present an older backup as current production state without a reviewed recovery procedure.
+5. A deploy of the #8194 image is the rollback boundary for the provider exit: images before it mount sync routes only when provider variables are present, so once the mode is `draining` or `retired` the rollback target must be a #8194-or-later image.
+6. Database disaster recovery is separate from deployment rollback. Restore to an isolated target, reconcile accepted sequence/receipt state and deletion obligations, and verify clients reject regressed heads. Never present an older backup as current production state without a reviewed recovery procedure. One hazard to test in the restore drill, not yet verified: a restored database also restores the event identity sequence, so new acceptances would reuse sequence numbers that clients have already seen with different content. Clients reject a head below their own, but once the head passes it they read on from their cursor. The procedure probably has to advance the sequence past any value issued before the restore before accepting writes. A second gap: an edit acknowledged after the backup is no longer pending on its device, so nothing republishes it once the server has lost it. Supabase currently keeps daily backups only (point-in-time recovery is off), which makes the loss window up to a day. Once Supabase is the only server copy, enabling point-in-time recovery is the cheap way to shrink that window; it is about $100 a month for seven days on the current compute size and still leaves the forecast in section 10 far ahead. Recommended before `draining`, John's call.
 
 Changing a client's transport and activating cloud authority are different events. The first accepted write may be an irreversible protocol boundary for that workspace even while SQLite Cloud still exists. Preserve that distinction in the cohort ledger.
 
@@ -347,8 +385,8 @@ Update this table with concise evidence links and exact versions. Keep raw test 
 | -------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Plan review                      | Execution directed | John asked to start the migration on November 15. The capability decision in section 4 and the section 8 thresholds still await his explicit review. |
 | P0 inventory/commercial/baseline | In progress     | Resource inventory, mode/versions, snapshot/fence proof, license/cancellation terms, 72-hour baseline, cost model.     |
-| P1 implementation                | In progress     | Scoped commits/PRs, contracts, audit tool, provider-independent staging checks. Draft PR #8194; server-only staging run recorded below. |
-| P2 qualification                 | Not started     | Candidate SHAs/artifacts, scenario outcomes, restore/load results, minimum supported client list.                      |
+| P1 implementation                | Server merged   | #8194 and #8195 merged November 15; server-only staging run recorded below. Packaged-client staging and verification accounts are open.   |
+| P2 qualification                 | In progress     | Candidate SHAs/artifacts, scenario outcomes, restore/load results, minimum supported client list. Local integrity load run and audit pilot recorded below. |
 | P3 pilot                         | Not started     | Account-group evidence, 48-hour metrics, reconciliation and recovery results.                                          |
 | P3 10%                           | Not started     | Group list, 48-hour metrics, gate decision.                                                                            |
 | P3 50%                           | Not started     | Group list, 48-hour metrics, capacity/cost check.                                                                      |
@@ -362,42 +400,27 @@ For every rollout change record: operator, UTC timestamp, environment, exact coh
 
 ### Progress as of November 15
 
-**P0, done read-only:** the refreshed observations in section 2, including the gateway forwarding check, the provider account and export/fence capabilities, the license finding, and the sync write baseline with its churn diagnosis.
+**Merged to `main`:** #8194 (`aedf4ad0f3`: lifecycle mode, Supabase-only sync, deletion by mode, deploy verification before and after a sync deploy, coverage audit, token telemetry, desktop update-required state) and #8195 (`39567cbc60`: calendar sync no longer rewrites unchanged notes). CI passed on both heads; native desktop and mobile lanes do not run on PRs. Review found two audit bugs (a resumed pass forgot earlier failures; a pilot run could mix source snapshots), both fixed before merge.
 
-**P0, still open:**
+**Open PR:** draft [#8196](https://github.com/fastrepl/anarlog/pull/8196) vendors sqlite-sync 1.2.2 (Apache 2.0). Local database suites pass on macOS; a database written by 1.2.0 opened in 0.1 s. Native lanes: run 43679782626, Linux x86_64, Linux arm64, and Windows passed, macOS passed its CloudSync rebuild and tests and then failed on an unrelated speech-to-text test that received a 502 from an external provider; that job was rerun. It changes one behavior worth review: a busy provider now returns a normal result with `retryAfter` instead of an SQL error.
 
-- Fly machine images, digests, and staged secret names for sync, core, and gateway. The Fly CLI and dashboard sessions are both signed out; needs John to sign in.
-- A decision on the local extension license (section 2): ship sqlite-sync 1.2.1 or later in the minimum client build, or obtain written confirmation from SQLite Cloud. Draft [PR #8196](https://github.com/fastrepl/anarlog/pull/8196) vendors 1.2.2 and passes the local database suites; native lanes were dispatched as run 43679782626. Any contract terms beyond what the dashboard shows.
-- A demonstrated provider write fence and a confirmed production restore point; capabilities are listed in section 2 but none was exercised.
-- The rest of the baseline: auth and billing/account-read latency, API request rates, and a labelled CPU peak. Sync write rate, storage growth, disk, egress, and the cost forecast (section 10) are recorded.
-- Supabase backup restoration into an isolated target.
-- ANLG-469 resistance reproduced against the serving images, beyond confirming the fixes are deployed.
+**P0**
 
-**P1, in draft PR #8194 on `refactor/supabase-sync-migration`:**
+- Done read-only: section 2, including gateway forwarding, the provider account and its export and fence controls, the license finding, the 77-hour write baseline and churn diagnosis, Supabase capacity and spend, the cost forecast, and the audit pilot.
+- Open: Fly machine images, digests, and staged secret names (the CLI and dashboard are signed out, and a token request on November 15 went unanswered). John's decision on the license route and on the recoverability reading in section 2. Any contract terms beyond the dashboard. A demonstrated provider write fence and a confirmed production restore point. Auth and billing-read latency, API request rates, and a labelled CPU peak.
 
-- Lifecycle mode, Supabase-only sync state, and always-mounted `/sync/token` with the three-mode behavior and the `accepted_replica` gate. Sharing, web editing, live documents, and attachment backups no longer depend on provider configuration.
-- Account deletion by mode: provider purge while enabled or draining, Supabase cascade once retired, never a purge inferred from a missing client. The hosted test asserts the cascade removes the encrypted log and receipts.
-- Deployment secret selection and provider verification for the three modes, with operator documentation in `apps/api/AGENTS.md`.
-- Desktop: advertises `accepted_replica`, treats 426 as update-required without retrying, and shows that state in sync settings.
-- Replica deploy verification (`crates/db-sync/tests/replica.rs`, run by `verify_cloudsync_e2ee.py`) and the coverage audit command (section 5).
-- One structured `cloudsync_token_request` event per `/sync/token` decision with lifecycle mode, advertised capability, and outcome. Clients send no version, so the capability stands in for it; the remaining section 8 measurements come from existing request spans and database metrics and have no dashboard yet.
+**P1**
 
-Checks at head `6cce1627eb`: CI on the first push passed (`api_ci`, `db_ci`, desktop JS and i18n, fmt, lint, zizmor; native desktop and mobile jobs do not run on PRs). Locally: `cargo test --locked -p api-sync -p api-subscription -p api -p db-sync`, the five deployment Python suites, `supabase test db` on an isolated stack (68 files, 1,511 tests), and desktop typecheck, lint, and tests.
+- Gate P1 staging run, local, November 15: debug build of the API at `097ca84db9` with `ANARLOG_SERVICE=all`, `ANARLOG_SQLITECLOUD_MODE=retired`, every provider variable empty, an isolated local Supabase stack, and all outbound HTTP(S) refused by a proxy. `/health/sync` reported `retired`; deploy verification passed five consecutive runs; a share published a snapshot and minted a live ticket; an account deletion removed the user, workspace, 168 encrypted events, and 7 receipts after the 24-hour sweep delay was advanced in the scratch database. The proxy saw four outbound attempts, all to `app.loops.so`. Limits: local stack, Rust sync library rather than a packaged client, live sockets only as far as ticket issuance, and the Stripe client does not use the proxy.
+- Inventory: mobile requests `/sync/replica/credentials` only and never calls the provider network functions its bridge still exports. The CLI, agent access, MCP, and cloud API crates have no sync-transport dependency. Web uses only the shared-note live routes, which no longer depend on the provider.
+- Open: two dedicated Pro verification accounts and their eight `ANARLOG_REPLICA_VERIFY_*` values (until then every deploy warns, and a `retired` deploy fails). Packaged desktop and mobile clients against a provider-free stack. A workspace-scoped authority gate only if qualification shows the existing fence is not enough.
 
-**Gate P1 staging run, November 15, local:** debug build of the API at `097ca84db9` with `ANARLOG_SERVICE=all`, `ANARLOG_SQLITECLOUD_MODE=retired`, every provider variable empty, an isolated local Supabase stack, and all outbound HTTP(S) routed to a proxy that refuses every host.
+**P2**
 
-- `/health/sync` reported `retired`. Deploy verification passed five consecutive runs: `/sync/token` answered 426 without `accepted_replica` and replica credentials with it, a fresh device joined existing accepted history with a pending edit, a second fresh device recovered it, and a second Pro account got 403 on the first account's workspace.
-- Sharing: a share created through Supabase published a snapshot and minted a live ticket; the attachment-backup route answered 422 to an empty body rather than 404.
-- Deletion: `DELETE /subscription/delete-account` returned 202. After the job's 24-hour sweep delay was advanced in the scratch database, the worker removed the auth user, its workspace, 168 encrypted events, and 7 receipts without any provider request.
-- The proxy recorded four outbound attempts, all to `app.loops.so`. Nothing tried to reach SQLite Cloud.
+- Synthetic load, local, November 15, run `242bb4`: 3604 seconds across two API instances, 16 workspaces plus one contended by five writers, 49.0 accepted events per second (2.4 times the measured production peak of 20.3). 176,482 events in 39,248 batches were acknowledged and the database held exactly 176,482 events and 39,248 receipts, with 0 deadlocks. 2,201 base conflicts and 15,570 busy responses were retried; 1,467 deliberate replays returned identical receipts; 1,119 simulated lost acknowledgements were re-sent without duplication; 36 token refreshes happened during the run. 695 full log re-reads found every acknowledged event in order. Account-read probes: 7,030 requests, p95 19.2 ms overall and 56-69 ms in the last five minutes as the re-read logs grew, 0 failures. Accept latency p95 40.9 ms. Integrity failures: 0. Host suspensions during the run: 0. An earlier attempt was discarded because the laptop slept ten minutes in.
+- What that does and does not show: exactly-once acceptance, ordering, replay, and conflict handling hold under contention across instances. It says nothing about production capacity; the payloads were synthetic envelopes on a laptop database with no history.
+- Open: capacity at twice peak on production-like hardware with history; a backup restore drill (creates a billable Supabase project; needs John's go-ahead); packaged-client scenarios in section 7; the fenced audit pass; minimum client builds chosen from executable tests.
 
-Limits of that run: it is a local stack, not hosted staging; the client was the Rust sync library, not a packaged desktop or mobile build; web editing and live sockets were exercised only as far as ticket issuance; the Stripe client does not use the proxy, and the deleted account had no Stripe customer. Gate P1 is therefore met for the server in isolation and remains open for packaged clients.
+**P3 onward:** not started. The first production step is deploying the #8194 image to sync and core in `enabled` mode, which should change nothing users see. It has not been dispatched: Gate P2 is not met, and production deploys have needed John's hands before.
 
-**P1, still open:**
-
-- Two dedicated Pro verification accounts in production and their eight `ANARLOG_REPLICA_VERIFY_*` values. Until they exist every deploy warns that the replica was not verified, and a `retired` deploy fails.
-- Workspace-scoped gate for authority activation if qualification shows the existing fence is not enough, and any retry or pool isolation fixes qualification exposes.
-- Packaged desktop and mobile clients against a provider-free stack.
-- Mobile and CLI/MCP inventory for shared-runtime impact; no change was needed so far.
-
-**Next action:** review and merge PR #8194, then close the open P0 items (Fly inventory, provider snapshot and fence capabilities, contract terms, 72-hour baseline) and provision the verification accounts before P2. Do not begin with a production transport flip.
+**Next action:** John decides the license route (#8196 or written confirmation) and the recoverability reading in section 2, signs in to Fly, and provisions the verification accounts. Then: restore drill, packaged-client scenarios, and the `enabled`-mode deploy of the #8194 image. Do not begin with a production transport flip.

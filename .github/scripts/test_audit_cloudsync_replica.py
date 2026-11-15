@@ -123,6 +123,7 @@ class AuditCloudsyncReplicaTests(unittest.TestCase):
             {"missing": 1, "diverged": 1, "covered_historical": 1, "current": 1},
         )
         self.assertEqual(totals["unmapped"], 1)
+        self.assertEqual(totals["uninitialized"], 0)
         self.assertEqual(
             {(record["record_id"], record["class"]) for record in unresolved},
             {(record_id("diverged"), "diverged"), (record_id("missing"), "missing")},
@@ -173,8 +174,10 @@ class AuditCloudsyncReplicaTests(unittest.TestCase):
         stores.source(WORKSPACE_A, "missing", "never accepted")
 
         with tempfile.TemporaryDirectory() as evidence:
-            # A pilot run binds a fresh directory too.
-            stores.run(evidence, workspace=[WORKSPACE_A])
+            # A pilot run binds a fresh directory too. This workspace has no log at all.
+            self.assertEqual(
+                stores.run(evidence, workspace=[WORKSPACE_A])["uninitialized"], 1
+            )
             for selection in (None, [WORKSPACE_A]):
                 with self.assertRaisesRegex(ValueError, "different source snapshot"):
                     stores.run(evidence, source="fenced", workspace=selection)
@@ -186,6 +189,20 @@ class AuditCloudsyncReplicaTests(unittest.TestCase):
             ]
 
         self.assertEqual({record["source"] for record in records}, {"live"})
+
+    def test_evidence_from_another_version_is_not_resumed(self) -> None:
+        stores = Stores()
+        stores.source(WORKSPACE_A, "missing", "never accepted")
+
+        with tempfile.TemporaryDirectory() as evidence:
+            stores.run(evidence)
+            progress = pathlib.Path(evidence, "progress.json")
+            saved = json.loads(progress.read_text())
+            del saved["totals"]["uninitialized"]
+            progress.write_text(json.dumps(saved))
+            # A defaulted total would report zero for the finished workspace.
+            with self.assertRaisesRegex(ValueError, "another version"):
+                stores.run(evidence)
 
     def test_downloads_ciphertext_in_bounded_batches(self) -> None:
         stores = Stores()
