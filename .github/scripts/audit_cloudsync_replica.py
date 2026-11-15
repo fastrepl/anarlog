@@ -317,7 +317,13 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
             raise ValueError(
                 "this evidence directory belongs to a different source snapshot"
             )
-        progress["totals"] = empty | progress.get("totals", {})
+        if progress.get("totals", {}).keys() != empty.keys():
+            # Defaulting a total this version added would report zero for work
+            # an older version already finished.
+            raise ValueError(
+                "this evidence was written by another version of the audit;"
+                " start a new evidence directory"
+            )
     else:
         write_progress(progress_path, progress)
 

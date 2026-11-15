@@ -190,6 +190,20 @@ class AuditCloudsyncReplicaTests(unittest.TestCase):
 
         self.assertEqual({record["source"] for record in records}, {"live"})
 
+    def test_evidence_from_another_version_is_not_resumed(self) -> None:
+        stores = Stores()
+        stores.source(WORKSPACE_A, "missing", "never accepted")
+
+        with tempfile.TemporaryDirectory() as evidence:
+            stores.run(evidence)
+            progress = pathlib.Path(evidence, "progress.json")
+            saved = json.loads(progress.read_text())
+            del saved["totals"]["uninitialized"]
+            progress.write_text(json.dumps(saved))
+            # A defaulted total would report zero for the finished workspace.
+            with self.assertRaisesRegex(ValueError, "another version"):
+                stores.run(evidence)
+
     def test_downloads_ciphertext_in_bounded_batches(self) -> None:
         stores = Stores()
         for index in range(5):
