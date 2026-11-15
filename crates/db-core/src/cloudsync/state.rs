@@ -13,6 +13,12 @@ pub(crate) struct CloudsyncRuntimeState {
     pub(crate) last_sync: Option<CloudsyncNetworkResult>,
     pub(crate) last_sync_at_ms: Option<u64>,
     pub(crate) outbound_work_state: Option<bool>,
+    /// False until the provider confirms the send checkpoint. It can accept an
+    /// upload before applying it, and only another send reads the status that
+    /// rolls the checkpoint back when that apply fails, so an unconfirmed
+    /// checkpoint must be sent again even with nothing new to upload. Starts
+    /// false because the previous session may have stopped in that window.
+    pub(crate) send_confirmed: bool,
     pub(crate) last_error: Option<String>,
     pub(crate) last_error_kind: Option<anlg_cloudsync::ErrorKind>,
     pub(crate) consecutive_failures: u32,

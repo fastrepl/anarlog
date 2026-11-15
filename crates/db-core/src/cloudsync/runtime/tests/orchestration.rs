@@ -658,3 +658,110 @@ fn post_sync_drain_ignores_unrelated_changes_and_reports_lag() {
         "a lagged drain did not request a follow-up round"
     );
 }
+
+#[tokio::test]
+async fn a_deferred_upload_that_fails_is_sent_again_without_a_new_edit() {
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+
+    let db = db_with_cloudsync_items_table(
+        "CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL DEFAULT '')",
+    )
+    .await;
+    sqlx::query("INSERT INTO items VALUES ('item', 'accepted before it was applied')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    sqlx::query("SELECT cloudsync_network_init_custom(?, 'deferred-apply-test')")
+        .bind(format!("http://{}", listener.local_addr().unwrap()))
+        .execute(db.pool())
+        .await
+        .unwrap();
+    let applies = Arc::new(AtomicUsize::new(0));
+    let provider = tokio::spawn({
+        let applies = applies.clone();
+        async move {
+            loop {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                let path = line
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap_or_default()
+                    .to_string();
+                let mut length = 0;
+                loop {
+                    line.clear();
+                    assert!(reader.read_line(&mut line).await.unwrap() > 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some((name, value)) = line.split_once(':')
+                        && name.eq_ignore_ascii_case("content-length")
+                    {
+                        length = value.trim().parse::<usize>().unwrap();
+                    }
+                }
+                let mut body = vec![0; length];
+                reader.read_exact(&mut body).await.unwrap();
+                // The first upload is accepted without being applied, the provider
+                // then reports it rolled back, and the second upload is applied.
+                let body = String::from_utf8(body).unwrap().replace(' ', "");
+                let sent = body
+                    .split_once("\"dbVersionMax\":")
+                    .and_then(|(_, rest)| rest.split([',', '}']).next()?.parse::<i64>().ok())
+                    .unwrap_or(0);
+                let (status, optimistic, confirmed) = match path.rsplit('/').next() {
+                    Some("apply") if applies.fetch_add(1, Ordering::SeqCst) == 0 => {
+                        ("202 Accepted", sent, 0)
+                    }
+                    Some("apply") => ("200 OK", sent, sent),
+                    Some("status") => ("200 OK", 0, 0),
+                    _ => ("202 Accepted", 0, 0),
+                };
+                let body = format!(
+                    "{{\"lastOptimisticVersion\":{optimistic},\"lastConfirmedVersion\":{confirmed},\"gaps\":[]}}"
+                );
+                reader
+                    .get_mut()
+                    .write_all(
+                        format!(
+                            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            body.len(),
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+            }
+        }
+    });
+    let hook = Mutex::new(None);
+
+    for _ in 0..3 {
+        sync_cloudsync_connection(
+            db.pool(),
+            &db.cloudsync_connection,
+            &db.cloudsync_interrupt,
+            &db.cloudsync_sync_operation,
+            &db.cloudsync_runtime,
+            &hook,
+        )
+        .await
+        .unwrap();
+    }
+    provider.abort();
+
+    assert_eq!(
+        applies.load(Ordering::SeqCst),
+        2,
+        "the rolled-back upload was not sent again"
+    );
+    assert!(
+        !crate::cloudsync::ops::cloudsync_has_local_unsent_changes_on(db.pool())
+            .await
+            .unwrap()
+    );
+}

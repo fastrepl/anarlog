@@ -669,12 +669,16 @@ pub(super) async fn sync_cloudsync_connection(
             unreachable!("deferred before native sync")
         }
     };
-    runtime_state.lock().unwrap().outbound_work_state = Some(has_outbound_work);
+    let confirm_send = {
+        let mut runtime = runtime_state.lock().unwrap();
+        runtime.outbound_work_state = Some(has_outbound_work);
+        !runtime.send_confirmed && directive == super::super::CloudsyncSyncDirective::SendAndReceive
+    };
     if cloudsync_activity_paused(sync_hook) {
         super::super::pinned::release_pinned_connection(connection);
         return Ok(CloudsyncStepOutcome::Deferred);
     }
-    let send = match (directive, has_outbound_work) {
+    let send = match (directive, has_outbound_work || confirm_send) {
         (super::super::CloudsyncSyncDirective::SendAndReceive, true) => {
             super::super::ops::guarded_interruptible_network_send_changes(
                 &mut connection,
@@ -702,8 +706,14 @@ pub(super) async fn sync_cloudsync_connection(
         }
         result => result?,
     };
-    if sync_send_settled(&send) {
-        runtime_state.lock().unwrap().outbound_work_state = Some(false);
+    {
+        let mut runtime = runtime_state.lock().unwrap();
+        if sync_send_settled(&send) {
+            runtime.outbound_work_state = Some(false);
+        }
+        if send.send.is_some() {
+            runtime.send_confirmed = sync_send_settled(&send);
+        }
     }
     if cloudsync_activity_paused(sync_hook) {
         super::super::pinned::release_pinned_connection(connection);
