@@ -68,6 +68,15 @@ only choose a transport while the provider is `enabled`. `/health/sync`
 reports the resolved mode. Deploys never unset secrets, so a retired machine
 can still hold provider values; only the explicit mode keeps them unread.
 
+Deploy verification also checks the encrypted replica when the eight
+`ANARLOG_REPLICA_VERIFY_*` values in `/anarlog/cloudsync` name two dedicated Pro
+accounts: two fresh devices converge through the serving API and the second
+account is refused the first one's workspace. It is optional while the provider
+exists and required once `retired`, when nothing else verifies sync. Point
+`ANARLOG_REPLICA_VERIFY_API_URL` at the sync service so `/health/sync` reports
+the mode that service runs. Keep account A's recovery key unchanged: the
+account is bound to its first key and each run appends one note to its history.
+
 Role selection does not change Fly routing or provision applications. Keep
 existing URLs working while clients and webhook providers migrate.
 
