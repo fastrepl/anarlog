@@ -4439,7 +4439,7 @@
           {
             "name": "x-anarlog-cloudsync-transports",
             "in": "header",
-            "description": "Comma-separated transports the client accepts; include `replica` to allow witness-only credentials",
+            "description": "Comma-separated transports the client accepts; `replica` allows witness-only credentials and `accepted_replica` is required once SQLite Cloud stops issuing tokens",
             "required": false,
             "schema": {
               "type": [
@@ -4467,7 +4467,7 @@
             "description": "Anarlog Pro subscription required"
           },
           "426": {
-            "description": "Desktop upgrade required"
+            "description": "Client update required"
           },
           "502": {
             "description": "Credential issuer unavailable"

@@ -150,24 +150,16 @@ fn test_sync_rate_limit(burst: u32) -> rate_limit::RateLimitState {
 }
 
 fn test_sync_state(server: &MockServer) -> anlg_api_sync::AppState {
-    let config = anlg_api_sync::SyncConfig::new(
-        "https://test.sqlite.cloud",
-        "issuer-key",
-        "database-id",
-        server.uri(),
-        "anon-key",
-        "service-role-key",
-    )
-    .unwrap()
-    .with_token_ttl_seconds(60)
-    .unwrap();
+    let config = anlg_api_sync::SyncConfig::new(server.uri(), "anon-key", "service-role-key")
+        .unwrap()
+        .with_sqlitecloud(
+            anlg_api_sync::SqliteCloudMode::Enabled,
+            "https://test.sqlite.cloud",
+            "issuer-key",
+            "database-id",
+        )
+        .unwrap();
     anlg_api_sync::AppState::new(config)
-}
-
-fn test_replica_state(server: &MockServer) -> anlg_api_sync::ReplicaState {
-    anlg_api_sync::ReplicaState::new(
-        anlg_api_sync::ReplicaConfig::new(server.uri(), "anon-key", "service-role-key").unwrap(),
-    )
 }
 
 async fn response_bytes(response: axum::response::Response) -> Vec<u8> {
@@ -265,7 +257,7 @@ async fn request_json(app: &Router, path: &str) -> (StatusCode, Value) {
 }
 
 fn subsystem_health_app(
-    cloudsync_configured: bool,
+    sync_configured: bool,
     transcription_configured: bool,
     llm_configured: bool,
     session_gate: anlg_transcribe_proxy::SessionGate,
@@ -279,7 +271,7 @@ fn subsystem_health_app(
             integrations_configured: false,
             billing_configured: false,
             billing_webhooks: false,
-            cloudsync_configured,
+            sqlitecloud_mode: sync_configured.then_some(anlg_api_sync::SqliteCloudMode::Retired),
             transcription_configured,
             llm_configured,
             session_gate,
@@ -308,10 +300,29 @@ async fn boots_with_minimal_self_hosted_configuration() {
             "core encrypted replica route should be mounted: {path}"
         );
     }
+    for (method, path) in [
+        (Method::POST, "/sync/token"),
+        (Method::POST, "/sync/attachment-backups/reserve"),
+        (
+            Method::PUT,
+            "/sync/shares/11111111-1111-4111-8111-111111111111/snapshot",
+        ),
+        (
+            Method::POST,
+            "/sync/shares/11111111-1111-4111-8111-111111111111/live/ticket",
+        ),
+    ] {
+        assert_eq!(
+            request_status(&app, method, path).await,
+            StatusCode::UNAUTHORIZED,
+            "sync route should not depend on SQLite Cloud: {path}"
+        );
+    }
+    let (sync_status, sync_body) = request_json(&app, "/health/sync").await;
+    assert_eq!(sync_status, StatusCode::OK);
     assert_eq!(
-        request_status(&app, Method::POST, "/sync/token").await,
-        StatusCode::NOT_FOUND,
-        "SQLiteCloud credential route should remain optional"
+        sync_body,
+        json!({"status": "ok", "configured": true, "sqlitecloud_mode": "retired"})
     );
     for (method, path) in [
         (Method::POST, "/research/search"),
@@ -335,7 +346,10 @@ async fn subsystem_health_routes_are_mounted_unauthenticated_and_secret_free() {
 
     let (sync_status, sync_body) = request_json(&app, "/health/sync").await;
     assert_eq!(sync_status, StatusCode::OK);
-    assert_eq!(sync_body, json!({"status": "ok", "configured": true}));
+    assert_eq!(
+        sync_body,
+        json!({"status": "ok", "configured": true, "sqlitecloud_mode": "enabled"})
+    );
 
     let (transcription_status, transcription_body) =
         request_json(&app, "/health/transcription").await;
@@ -371,7 +385,10 @@ async fn subsystem_health_handlers_report_unavailable_states() {
 
     let (sync_status, sync_body) = request_json(&app, "/health/sync").await;
     assert_eq!(sync_status, StatusCode::OK);
-    assert_eq!(sync_body, json!({"status": "ok", "configured": true}));
+    assert_eq!(
+        sync_body,
+        json!({"status": "ok", "configured": true, "sqlitecloud_mode": "retired"})
+    );
 
     let (transcription_status, transcription_body) =
         request_json(&app, "/health/transcription").await;
@@ -565,12 +582,10 @@ async fn sync_composition_allows_non_pro_web_edits_but_keeps_other_routes_pro_on
         .await;
 
     let sync_state = test_sync_state(&server);
-    let replica_state = test_replica_state(&server);
     let app = Router::new().nest(
         "/sync",
         build_sync_routes(
-            Some(sync_state),
-            replica_state,
+            sync_state,
             test_sync_rate_limit(10),
             test_sync_rate_limit(10),
             test_sync_rate_limit(10),
@@ -712,7 +727,6 @@ async fn sync_composition_keeps_devices_and_sharing_available_when_credentials_a
         .await;
 
     let sync_state = test_sync_state(&server);
-    let replica_state = test_replica_state(&server);
     for route in [
         "/rest/v1/sync_devices",
         "/rest/v1/e2ee_device_enrollment_requests",
@@ -727,8 +741,7 @@ async fn sync_composition_keeps_devices_and_sharing_available_when_credentials_a
     let app = Router::new().nest(
         "/sync",
         build_sync_routes(
-            Some(sync_state),
-            replica_state,
+            sync_state,
             test_sync_rate_limit(1),
             test_sync_rate_limit(1),
             test_sync_rate_limit(1),
@@ -816,7 +829,7 @@ async fn readiness_requires_the_expected_role_configuration_and_accepting_state(
             integrations_configured: true,
             billing_configured: true,
             billing_webhooks: false,
-            cloudsync_configured: true,
+            sqlitecloud_mode: Some(anlg_api_sync::SqliteCloudMode::Enabled),
             transcription_configured: true,
             llm_configured: true,
             session_gate: gate.clone(),
@@ -843,7 +856,7 @@ async fn readiness_requires_the_expected_role_configuration_and_accepting_state(
         let mut incomplete = state;
         match service {
             Service::Ai | Service::All => incomplete.transcription_configured = false,
-            Service::Sync => incomplete.cloudsync_configured = false,
+            Service::Sync => incomplete.sqlitecloud_mode = None,
             Service::Core => incomplete.integrations_configured = false,
             Service::Billing => incomplete.billing_configured = false,
         }

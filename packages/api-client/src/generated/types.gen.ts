@@ -5485,7 +5485,7 @@ export type CreateCredentialsData = {
          */
         'x-anarlog-e2ee-member-public-key'?: string | null;
         /**
-         * Comma-separated transports the client accepts; include `replica` to allow witness-only credentials
+         * Comma-separated transports the client accepts; `replica` allows witness-only credentials and `accepted_replica` is required once SQLite Cloud stops issuing tokens
          */
         'x-anarlog-cloudsync-transports'?: string | null;
     };
@@ -5504,7 +5504,7 @@ export type CreateCredentialsErrors = {
      */
     403: unknown;
     /**
-     * Desktop upgrade required
+     * Client update required
      */
     426: unknown;
     /**

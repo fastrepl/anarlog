@@ -6,7 +6,7 @@ mod shared_notes;
 mod snapshot;
 mod state;
 
-pub use config::{ReplicaConfig, SharedNotesConfig, SyncConfig, SyncEnv};
+pub use config::{ReplicaConfig, SharedNotesConfig, SqliteCloudMode, SyncConfig, SyncEnv};
 pub use error::{Result, SyncError};
 pub use routes::{
     cloudsync_router, device_router, e2ee_witness_router, live_socket_router, openapi,

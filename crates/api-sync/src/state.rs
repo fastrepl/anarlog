@@ -145,4 +145,10 @@ impl AppState {
             live_docs: LiveDocs::default(),
         }
     }
+
+    /// The Supabase-backed half of sync, shared with the credential routes so
+    /// witness wakes and write admission stay per process.
+    pub fn replica_state(&self) -> ReplicaState {
+        self.replica.clone()
+    }
 }

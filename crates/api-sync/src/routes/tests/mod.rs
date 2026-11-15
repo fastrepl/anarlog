@@ -14,7 +14,7 @@ use wiremock::{
 use super::*;
 use crate::{
     SyncConfig, SyncError,
-    config::{CloudsyncProtocolMode, CloudsyncTransport},
+    config::{CloudsyncProtocolMode, CloudsyncTransport, SqliteCloudConfig, SqliteCloudMode},
 };
 
 const TEST_KEY_ID: &str = "abcdefghijklmnopqrstuv";
@@ -54,14 +54,37 @@ fn test_router_with_transport(
     legacy_database_id: Option<&str>,
     desktop_transport: CloudsyncTransport,
 ) -> Router {
+    test_router_with_sqlitecloud_mode(
+        server,
+        api_key,
+        entitlements,
+        protocol_mode,
+        legacy_database_id,
+        desktop_transport,
+        SqliteCloudMode::Enabled,
+    )
+}
+
+fn test_router_with_sqlitecloud_mode(
+    server: &MockServer,
+    api_key: &str,
+    entitlements: &[&str],
+    protocol_mode: CloudsyncProtocolMode,
+    legacy_database_id: Option<&str>,
+    desktop_transport: CloudsyncTransport,
+    sqlitecloud_mode: SqliteCloudMode,
+) -> Router {
     let state = AppState::new(SyncConfig {
-        project_url: server.uri(),
-        token_issuer_api_key: api_key.to_string(),
-        database_id: "database-id".to_string(),
-        legacy_database_id: legacy_database_id.map(ToString::to_string),
+        sqlitecloud_mode,
+        sqlitecloud: (sqlitecloud_mode != SqliteCloudMode::Retired).then(|| SqliteCloudConfig {
+            project_url: server.uri(),
+            token_issuer_api_key: api_key.to_string(),
+            database_id: "database-id".to_string(),
+            legacy_database_id: legacy_database_id.map(ToString::to_string),
+            token_ttl_seconds: 60,
+        }),
         protocol_mode,
         desktop_transport,
-        token_ttl_seconds: 60,
         supabase_url: server.uri(),
         supabase_anon_key: "anon-key".to_string(),
         supabase_service_role_key: "service-role-key".to_string(),
@@ -196,6 +219,17 @@ fn replica_capable_token_request() -> Request<Body> {
     Request::post("/token")
         .header(E2EE_KEY_ID_HEADER, TEST_KEY_ID)
         .header(CLOUDSYNC_TRANSPORTS_HEADER, "replica")
+        .body(Body::empty())
+        .unwrap()
+}
+
+fn accepted_replica_token_request() -> Request<Body> {
+    Request::post("/token")
+        .header(E2EE_KEY_ID_HEADER, TEST_KEY_ID)
+        .header(
+            CLOUDSYNC_TRANSPORTS_HEADER,
+            format!("replica, {ACCEPTED_REPLICA_TRANSPORT}"),
+        )
         .body(Body::empty())
         .unwrap()
 }
