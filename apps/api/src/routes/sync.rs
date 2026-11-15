@@ -7,14 +7,14 @@ use axum::{Router, middleware};
 use std::{num::NonZeroU32, time::Duration};
 
 pub(crate) fn build_sync_routes(
-    state: Option<anlg_api_sync::AppState>,
-    replica_state: anlg_api_sync::ReplicaState,
+    state: anlg_api_sync::AppState,
     cloudsync_rate_limit_state: rate_limit::RateLimitState,
     device_rate_limit_state: rate_limit::RateLimitState,
     session_share_rate_limit_state: rate_limit::RateLimitState,
     witness_rate_limit_state: rate_limit::RateLimitState,
     auth_state: AuthState,
 ) -> Router {
+    let replica_state = state.replica_state();
     let replica_routes = anlg_api_sync::replica_router(replica_state.clone())
         .route_layer(middleware::from_fn_with_state(
             cloudsync_rate_limit_state.clone(),
@@ -46,10 +46,6 @@ pub(crate) fn build_sync_routes(
             auth::require_auth,
         ));
     let replica_routes = replica_routes.merge(device_routes).merge(witness_routes);
-
-    let Some(state) = state else {
-        return replica_routes;
-    };
 
     let cloudsync_routes = anlg_api_sync::cloudsync_router(state.clone())
         .route_layer(middleware::from_fn_with_state(
@@ -173,18 +169,12 @@ pub(crate) fn router(env: &RuntimeConfig) -> Router {
         .unwrap_or_else(|error| panic!("Failed to load environment: {error}")),
     );
 
-    let replica_state = anlg_api_sync::ReplicaState::new(
-        anlg_api_sync::ReplicaConfig::new(
-            &env.supabase.supabase_url,
-            &env.supabase.supabase_anon_key,
-            &env.supabase.supabase_service_role_key,
-        )
-        .unwrap_or_else(|error| panic!("Failed to load environment: {error}")),
+    tracing::info!(
+        sqlitecloud_mode = sync_config.sqlitecloud_mode().as_str(),
+        "sync_configured"
     );
-    let sync_state = sync_config.map(anlg_api_sync::AppState::new);
     let sync_routes = build_sync_routes(
-        sync_state,
-        replica_state,
+        anlg_api_sync::AppState::new(sync_config),
         cloudsync_rate_limit,
         device_rate_limit,
         session_share_rate_limit,

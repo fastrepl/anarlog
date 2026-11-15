@@ -28,6 +28,20 @@ REQUIRED_SECRETS = (
     "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
 )
 PROTOCOL_MODES = {"dual", "e2ee_only", "e2ee_enforced"}
+SQLITECLOUD_MODES = {"enabled", "draining", "retired"}
+# Two dedicated Pro accounts. The recovery key must stay the same between runs:
+# an account is bound to its first key and every run reads the earlier history.
+REPLICA_SECRETS = (
+    "ANARLOG_REPLICA_VERIFY_API_URL",
+    "ANARLOG_REPLICA_VERIFY_SUPABASE_URL",
+    "ANARLOG_REPLICA_VERIFY_SUPABASE_ANON_KEY",
+    "ANARLOG_REPLICA_VERIFY_EMAIL_A",
+    "ANARLOG_REPLICA_VERIFY_PASSWORD_A",
+    "ANARLOG_REPLICA_VERIFY_RECOVERY_KEY_A",
+    "ANARLOG_REPLICA_VERIFY_EMAIL_B",
+    "ANARLOG_REPLICA_VERIFY_PASSWORD_B",
+)
+REPLICA_TEST = "fresh_devices_converge_through_the_replica_and_other_accounts_stay_out"
 LATENCY_LOG_ENV = "ANARLOG_CLOUDSYNC_LATENCY_LOG"
 # A fresh device's first download waits on provider snapshot preparation over the whole
 # tenant history, which deployments cannot change. Report it instead of failing on it;
@@ -74,15 +88,37 @@ class ResourceNotFound(RuntimeError):
     pass
 
 
+def sqlitecloud_mode(values: dict[str, str]) -> str:
+    mode = values.get("ANARLOG_SQLITECLOUD_MODE", "").strip() or "enabled"
+    if mode not in SQLITECLOUD_MODES:
+        raise ValueError(
+            "ANARLOG_SQLITECLOUD_MODE must be enabled, draining, or retired"
+        )
+    return mode
+
+
 def load_secrets(path: str) -> dict[str, str]:
     with open(path) as source:
         exported = json.load(source)
 
     values = {secret["key"]: secret.get("value", "") for secret in exported}
+    if sqlitecloud_mode(values) == "retired":
+        return values
     missing = [key for key in REQUIRED_SECRETS if not values.get(key)]
     if missing:
         raise ValueError("Missing required CloudSync secrets: " + ", ".join(missing))
     return values
+
+
+def replica_verification_configured(values: dict[str, str], mode: str) -> bool:
+    missing = [key for key in REPLICA_SECRETS if not values.get(key)]
+    if not missing:
+        return True
+    # Once the provider is retired nothing else verifies sync, so the replica
+    # check is required. A partial set is a mistake in every mode.
+    if mode == "retired" or len(missing) < len(REPLICA_SECRETS):
+        raise ValueError("Missing replica verification secrets: " + ", ".join(missing))
+    return False
 
 
 def protocol_mode(values: dict[str, str]) -> str:
@@ -113,20 +149,32 @@ def validate_https_origin(url: str, label: str) -> None:
         raise ValueError(f"{label} must be an HTTPS origin")
 
 
+def validate_service_origin(url: str, label: str) -> None:
+    parsed = urllib.parse.urlsplit(url)
+    # Isolated staging runs the API and Supabase on this machine.
+    if parsed.scheme == "http" and parsed.hostname in ("127.0.0.1", "localhost"):
+        if parsed.path in ("", "/") and not parsed.query and not parsed.username:
+            return
+    validate_https_origin(url, label)
+
+
 def request_json(
     url: str,
     bearer: str,
     label: str,
     body: dict[str, object] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> dict[str, object]:
-    validate_https_url(url, label)
+    if headers is None:
+        validate_https_url(url, label)
+        headers = {"Authorization": f"Bearer {bearer}"}
     encoded_body = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(
         url,
         data=encoded_body,
         headers={
             "Accept": "application/json",
-            "Authorization": f"Bearer {bearer}",
+            **headers,
             **({"Content-Type": "application/json"} if body is not None else {}),
         },
         method="POST" if body is not None else "GET",
@@ -668,12 +716,84 @@ def run_test_with_cleanup(
         raise cleanup_error
 
 
-def main() -> None:
-    if len(sys.argv) != 2:
-        raise ValueError("usage: verify_cloudsync_e2ee.py <infisical-export.json>")
+def sign_in(supabase_url: str, anon_key: str, email: str, password: str) -> str:
+    session = request_json(
+        supabase_url.rstrip("/") + "/auth/v1/token?grant_type=password",
+        "",
+        "replica verification sign-in",
+        {"email": email, "password": password},
+        {"apikey": anon_key},
+    )
+    token = session.get("access_token")
+    if not isinstance(token, str) or not token:
+        raise ValueError("replica verification sign-in returned no access token")
+    return token
 
-    values = load_secrets(sys.argv[1])
+
+def serving_sqlitecloud_mode(api_url: str) -> str:
+    # The deployment being verified may be the one that changes the mode, so the
+    # credential gate is checked against what the serving API reports. Images
+    # from before the lifecycle setting report nothing and always issue tokens.
+    health = request_json(api_url + "/health/sync", "", "sync health", headers={})
+    return sqlitecloud_mode(
+        {"ANARLOG_SQLITECLOUD_MODE": str(health.get("sqlitecloud_mode") or "")}
+    )
+
+
+def verify_replica(values: dict[str, str]) -> None:
+    api_url = values["ANARLOG_REPLICA_VERIFY_API_URL"].rstrip("/")
+    supabase_url = values["ANARLOG_REPLICA_VERIFY_SUPABASE_URL"]
+    validate_service_origin(api_url, "ANARLOG_REPLICA_VERIFY_API_URL")
+    validate_service_origin(supabase_url, "ANARLOG_REPLICA_VERIFY_SUPABASE_URL")
+    anon_key = values["ANARLOG_REPLICA_VERIFY_SUPABASE_ANON_KEY"]
+    environment = (
+        sanitized_cargo_env()
+        | {
+            "ANARLOG_REPLICA_API_URL": api_url,
+            "ANARLOG_REPLICA_SQLITECLOUD_MODE": serving_sqlitecloud_mode(api_url),
+            "ANARLOG_REPLICA_RECOVERY_KEY_A": values[
+                "ANARLOG_REPLICA_VERIFY_RECOVERY_KEY_A"
+            ],
+        }
+        | {
+            f"ANARLOG_REPLICA_ACCESS_TOKEN_{account}": sign_in(
+                supabase_url,
+                anon_key,
+                values[f"ANARLOG_REPLICA_VERIFY_EMAIL_{account}"],
+                values[f"ANARLOG_REPLICA_VERIFY_PASSWORD_{account}"],
+            )
+            for account in ("A", "B")
+        }
+    )
+    subprocess.run(
+        [
+            "cargo",
+            "test",
+            "-p",
+            "db-sync",
+            "--test",
+            "replica",
+            REPLICA_TEST,
+            "--",
+            "--ignored",
+            "--exact",
+        ],
+        check=True,
+        env=environment,
+        timeout=20 * 60,
+    )
+
+
+def verify_provider(values: dict[str, str], mode: str) -> None:
     database_name = verify_remote_database(values)
+    if mode == "draining":
+        # The sync tests mint provider tokens and write fixture rows, which
+        # would move the write boundary the final reconciliation compares against.
+        print(
+            "::notice title=SQLite Cloud draining::"
+            "Verified the provider registration and schema read-only; skipped sync tests"
+        )
+        return
 
     latency_log_fd, latency_log = tempfile.mkstemp(
         prefix="cloudsync-latency-", suffix=".jsonl"
@@ -684,6 +804,32 @@ def main() -> None:
     finally:
         report_fresh_device_latency(latency_log)
         os.remove(latency_log)
+
+
+def main() -> None:
+    arguments = sys.argv[1:]
+    # Before a deploy this checks the serving API. `--replica-only` repeats the
+    # replica check afterwards, against the candidate and the mode it now runs.
+    replica_only = "--replica-only" in arguments
+    paths = [argument for argument in arguments if argument != "--replica-only"]
+    if len(paths) != 1:
+        raise ValueError(
+            "usage: verify_cloudsync_e2ee.py [--replica-only] <infisical-export.json>"
+        )
+
+    values = load_secrets(paths[0])
+    mode = sqlitecloud_mode(values)
+    verifies_replica = replica_verification_configured(values, mode)
+    # Retired means no provider request may be made at all.
+    if mode != "retired" and not replica_only:
+        verify_provider(values, mode)
+    if verifies_replica:
+        verify_replica(values)
+    else:
+        print(
+            "::warning title=Encrypted replica not verified::"
+            "Replica verification accounts are not configured"
+        )
 
 
 def run_verification(

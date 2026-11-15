@@ -20,10 +20,65 @@ pub struct SyncEnv {
     pub anarlog_cloudsync_token_ttl_seconds: Option<u64>,
     #[serde(default)]
     pub anarlog_cloudsync_desktop_transport: Option<String>,
+    #[serde(default)]
+    pub anarlog_sqlitecloud_mode: Option<String>,
+}
+
+/// Lifecycle of the SQLite Cloud provider. It decides whether `/sync/token`
+/// may still mint provider tokens, so it wins over the transport default and
+/// over per-account overrides, which only choose among transports it allows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SqliteCloudMode {
+    /// Provider tokens are issued to accounts not yet moved to the replica.
+    Enabled,
+    /// No new provider tokens; clients that cannot run the accepted replica
+    /// are told to update. Provider access remains for audit and deletion.
+    Draining,
+    /// The provider is gone: no provider secret is read and no request is sent.
+    Retired,
+}
+
+impl SqliteCloudMode {
+    /// Unset keeps the behavior from before the lifecycle existed: provider
+    /// variables enable it, and a deployment without any is replica-only.
+    pub fn from_env(env: &SyncEnv) -> Result<Self, String> {
+        match nonempty(env.anarlog_sqlitecloud_mode.as_deref()).as_deref() {
+            Some("enabled") => Ok(Self::Enabled),
+            Some("draining") => Ok(Self::Draining),
+            Some("retired") => Ok(Self::Retired),
+            Some(_) => {
+                Err("ANARLOG_SQLITECLOUD_MODE must be enabled, draining, or retired".to_string())
+            }
+            None if env.has_sqlitecloud_variables() => Ok(Self::Enabled),
+            None => Ok(Self::Retired),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Enabled => "enabled",
+            Self::Draining => "draining",
+            Self::Retired => "retired",
+        }
+    }
+}
+
+impl SyncEnv {
+    fn has_sqlitecloud_variables(&self) -> bool {
+        [
+            &self.sqlitecloud_project_url,
+            &self.sqlitecloud_token_issuer_api_key,
+            &self.anarlog_cloudsync_e2ee_database_id,
+            &self.anarlog_cloudsync_database_id,
+        ]
+        .into_iter()
+        .any(|value| nonempty(value.as_deref()).is_some())
+    }
 }
 
 /// Which transport `/sync/token` hands to desktop clients that can accept
-/// either. Per-account rows in `sync_transport_overrides` win over this default.
+/// either while SQLite Cloud is enabled. Per-account rows in
+/// `sync_transport_overrides` win over this default.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum CloudsyncTransport {
     #[default]
@@ -76,16 +131,23 @@ where
 
 #[derive(Clone)]
 pub struct SyncConfig {
+    pub(crate) sqlitecloud_mode: SqliteCloudMode,
+    /// Present exactly when the provider is not retired.
+    pub(crate) sqlitecloud: Option<SqliteCloudConfig>,
+    pub(crate) protocol_mode: CloudsyncProtocolMode,
+    pub(crate) desktop_transport: CloudsyncTransport,
+    pub(crate) supabase_url: String,
+    pub(crate) supabase_anon_key: String,
+    pub(crate) supabase_service_role_key: String,
+}
+
+#[derive(Clone)]
+pub(crate) struct SqliteCloudConfig {
     pub(crate) project_url: String,
     pub(crate) token_issuer_api_key: String,
     pub(crate) database_id: String,
     pub(crate) legacy_database_id: Option<String>,
-    pub(crate) protocol_mode: CloudsyncProtocolMode,
-    pub(crate) desktop_transport: CloudsyncTransport,
     pub(crate) token_ttl_seconds: u64,
-    pub(crate) supabase_url: String,
-    pub(crate) supabase_anon_key: String,
-    pub(crate) supabase_service_role_key: String,
 }
 
 #[derive(Clone)]
@@ -184,10 +246,8 @@ fn is_email_address(value: &str) -> bool {
 }
 
 impl SyncConfig {
+    /// Sync backed only by Supabase; SQLite Cloud is retired.
     pub fn new(
-        project_url: impl Into<String>,
-        token_issuer_api_key: impl Into<String>,
-        database_id: impl Into<String>,
         supabase_url: impl Into<String>,
         supabase_anon_key: impl Into<String>,
         supabase_service_role_key: impl Into<String>,
@@ -206,43 +266,40 @@ impl SyncConfig {
         }
 
         Ok(Self {
-            project_url: validate_project_url(project_url.into())?,
-            token_issuer_api_key: token_issuer_api_key.into(),
-            database_id: database_id.into(),
-            legacy_database_id: None,
+            sqlitecloud_mode: SqliteCloudMode::Retired,
+            sqlitecloud: None,
             protocol_mode: CloudsyncProtocolMode::E2eeEnforced,
             desktop_transport: CloudsyncTransport::SqliteSync,
-            token_ttl_seconds: DEFAULT_TOKEN_TTL_SECONDS,
             supabase_url: validate_supabase_url(supabase_url.into())?,
             supabase_anon_key,
             supabase_service_role_key,
         })
     }
 
-    pub fn with_token_ttl_seconds(mut self, token_ttl_seconds: u64) -> Result<Self, String> {
-        validate_token_ttl(token_ttl_seconds)?;
-        self.token_ttl_seconds = token_ttl_seconds;
-        Ok(self)
-    }
-
-    pub(crate) fn with_desktop_transport(mut self, transport: CloudsyncTransport) -> Self {
-        self.desktop_transport = transport;
-        self
-    }
-
-    pub(crate) fn with_protocol_mode(
+    /// Keeps SQLite Cloud reachable in `enabled` or `draining` mode.
+    pub fn with_sqlitecloud(
         mut self,
-        protocol_mode: CloudsyncProtocolMode,
-        legacy_database_id: Option<String>,
+        mode: SqliteCloudMode,
+        project_url: impl Into<String>,
+        token_issuer_api_key: impl Into<String>,
+        database_id: impl Into<String>,
     ) -> Result<Self, String> {
-        validate_protocol_databases(
-            &self.database_id,
-            legacy_database_id.as_deref(),
-            protocol_mode,
-        )?;
-        self.legacy_database_id = legacy_database_id;
-        self.protocol_mode = protocol_mode;
+        if mode == SqliteCloudMode::Retired {
+            return Err("A retired SQLite Cloud provider cannot be configured".to_string());
+        }
+        self.sqlitecloud_mode = mode;
+        self.sqlitecloud = Some(SqliteCloudConfig {
+            project_url: validate_project_url(project_url.into())?,
+            token_issuer_api_key: token_issuer_api_key.into(),
+            database_id: database_id.into(),
+            legacy_database_id: None,
+            token_ttl_seconds: DEFAULT_TOKEN_TTL_SECONDS,
+        });
         Ok(self)
+    }
+
+    pub fn sqlitecloud_mode(&self) -> SqliteCloudMode {
+        self.sqlitecloud_mode
     }
 
     pub fn from_env(
@@ -250,55 +307,55 @@ impl SyncConfig {
         supabase_url: &str,
         supabase_anon_key: &str,
         supabase_service_role_key: &str,
-    ) -> Result<Option<Self>, String> {
-        let project_url = nonempty(env.sqlitecloud_project_url.as_deref());
-        let token_issuer_api_key = nonempty(env.sqlitecloud_token_issuer_api_key.as_deref());
-        let database_id = nonempty(env.anarlog_cloudsync_e2ee_database_id.as_deref());
-        let legacy_database_id = nonempty(env.anarlog_cloudsync_database_id.as_deref());
-        let protocol_mode_value = nonempty(env.anarlog_cloudsync_protocol_mode.as_deref());
-        let desktop_transport_value = nonempty(env.anarlog_cloudsync_desktop_transport.as_deref());
-
-        if project_url.is_none()
-            && token_issuer_api_key.is_none()
-            && database_id.is_none()
-            && legacy_database_id.is_none()
-            && protocol_mode_value.is_none()
-            && desktop_transport_value.is_none()
-        {
-            return Ok(None);
-        }
-        let project_url = project_url.ok_or_else(|| {
-            "SQLITECLOUD_PROJECT_URL is required when CloudSync token exchange is configured"
-                .to_string()
-        })?;
-        let token_issuer_api_key = token_issuer_api_key.ok_or_else(|| {
-            "SQLITECLOUD_TOKEN_ISSUER_API_KEY is required when CloudSync token exchange is configured"
-                .to_string()
-        })?;
-        let database_id = database_id.ok_or_else(|| {
-            "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID is required when CloudSync token exchange is configured"
-                .to_string()
-        })?;
-        let protocol_mode = CloudsyncProtocolMode::parse(protocol_mode_value.as_deref())?;
-        let desktop_transport = CloudsyncTransport::parse(desktop_transport_value.as_deref())?;
+    ) -> Result<Self, String> {
+        let mode = SqliteCloudMode::from_env(env)?;
+        let protocol_mode = CloudsyncProtocolMode::parse(
+            nonempty(env.anarlog_cloudsync_protocol_mode.as_deref()).as_deref(),
+        )?;
+        let desktop_transport = CloudsyncTransport::parse(
+            nonempty(env.anarlog_cloudsync_desktop_transport.as_deref()).as_deref(),
+        )?;
         let token_ttl_seconds = env
             .anarlog_cloudsync_token_ttl_seconds
             .unwrap_or(DEFAULT_TOKEN_TTL_SECONDS);
         validate_token_ttl(token_ttl_seconds)?;
 
-        Ok(Some(
-            Self::new(
-                project_url,
-                token_issuer_api_key,
-                database_id,
-                supabase_url,
-                supabase_anon_key,
-                supabase_service_role_key,
-            )?
-            .with_protocol_mode(protocol_mode, legacy_database_id)?
-            .with_token_ttl_seconds(token_ttl_seconds)?
-            .with_desktop_transport(desktop_transport),
-        ))
+        let mut config = Self::new(supabase_url, supabase_anon_key, supabase_service_role_key)?;
+        config.desktop_transport = desktop_transport;
+        // Retired deployments may still carry stale provider secrets, because
+        // deploys import secrets without unsetting them. They are never read.
+        if mode == SqliteCloudMode::Retired {
+            return Ok(config);
+        }
+
+        let required = |value: &Option<String>, name: &str| {
+            nonempty(value.as_deref()).ok_or_else(|| {
+                format!(
+                    "{name} is required while ANARLOG_SQLITECLOUD_MODE is {}",
+                    mode.as_str()
+                )
+            })
+        };
+        let project_url = required(&env.sqlitecloud_project_url, "SQLITECLOUD_PROJECT_URL")?;
+        let token_issuer_api_key = required(
+            &env.sqlitecloud_token_issuer_api_key,
+            "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
+        )?;
+        let database_id = required(
+            &env.anarlog_cloudsync_e2ee_database_id,
+            "ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID",
+        )?;
+        let legacy_database_id = nonempty(env.anarlog_cloudsync_database_id.as_deref());
+        validate_protocol_databases(&database_id, legacy_database_id.as_deref(), protocol_mode)?;
+
+        let mut config =
+            config.with_sqlitecloud(mode, project_url, token_issuer_api_key, database_id)?;
+        config.protocol_mode = protocol_mode;
+        if let Some(sqlitecloud) = config.sqlitecloud.as_mut() {
+            sqlitecloud.legacy_database_id = legacy_database_id;
+            sqlitecloud.token_ttl_seconds = token_ttl_seconds;
+        }
+        Ok(config)
     }
 
     pub(crate) fn replica_config(&self) -> ReplicaConfig {
@@ -433,34 +490,114 @@ mod tests {
             anarlog_cloudsync_protocol_mode: None,
             anarlog_cloudsync_token_ttl_seconds: token_ttl_seconds,
             anarlog_cloudsync_desktop_transport: None,
+            anarlog_sqlitecloud_mode: None,
         }
+    }
+
+    fn sqlitecloud(config: &SyncConfig) -> &SqliteCloudConfig {
+        config.sqlitecloud.as_ref().unwrap()
     }
 
     #[test]
     fn default_config_is_enforced_e2ee_over_sqlite_sync() {
-        let config = config(&env("https://project.region.gateway.sqlite.cloud/", None))
-            .unwrap()
-            .unwrap();
+        let config = config(&env("https://project.region.gateway.sqlite.cloud/", None)).unwrap();
 
+        assert_eq!(config.sqlitecloud_mode, SqliteCloudMode::Enabled);
         assert_eq!(config.protocol_mode, CloudsyncProtocolMode::E2eeEnforced);
         assert_eq!(config.desktop_transport, CloudsyncTransport::SqliteSync);
-        assert!(config.legacy_database_id.is_none());
+        assert!(sqlitecloud(&config).legacy_database_id.is_none());
         assert_eq!(
-            config.project_url,
+            sqlitecloud(&config).project_url,
             "https://project.region.gateway.sqlite.cloud"
         );
-        assert_eq!(config.token_ttl_seconds, DEFAULT_TOKEN_TTL_SECONDS);
+        assert_eq!(
+            sqlitecloud(&config).token_ttl_seconds,
+            DEFAULT_TOKEN_TTL_SECONDS
+        );
+    }
+
+    #[test]
+    fn sqlitecloud_mode_decides_whether_provider_configuration_is_read() {
+        let provider = || env("https://project.region.gateway.sqlite.cloud/", None);
+        let no_provider = || SyncEnv {
+            sqlitecloud_project_url: None,
+            sqlitecloud_token_issuer_api_key: None,
+            anarlog_cloudsync_e2ee_database_id: None,
+            ..provider()
+        };
+
+        for (case, mut sync_env, mode, expected) in [
+            (
+                "unset mode without provider variables is replica-only",
+                no_provider(),
+                None,
+                Ok((SqliteCloudMode::Retired, false)),
+            ),
+            (
+                "draining keeps provider access",
+                provider(),
+                Some("draining"),
+                Ok((SqliteCloudMode::Draining, true)),
+            ),
+            (
+                "retired ignores stale provider secrets",
+                provider(),
+                Some(" retired "),
+                Ok((SqliteCloudMode::Retired, false)),
+            ),
+            (
+                "retired needs no provider variables",
+                no_provider(),
+                Some("retired"),
+                Ok((SqliteCloudMode::Retired, false)),
+            ),
+            (
+                "enabled does not fall back when the provider is missing",
+                no_provider(),
+                Some("enabled"),
+                Err("SQLITECLOUD_PROJECT_URL"),
+            ),
+            (
+                "draining does not fall back when the provider is missing",
+                no_provider(),
+                Some("draining"),
+                Err("SQLITECLOUD_PROJECT_URL"),
+            ),
+            (
+                "an incomplete provider is rejected",
+                SyncEnv {
+                    sqlitecloud_token_issuer_api_key: None,
+                    ..provider()
+                },
+                None,
+                Err("SQLITECLOUD_TOKEN_ISSUER_API_KEY"),
+            ),
+            (
+                "unknown modes are rejected",
+                provider(),
+                Some("disabled"),
+                Err("ANARLOG_SQLITECLOUD_MODE"),
+            ),
+        ] {
+            sync_env.anarlog_sqlitecloud_mode = mode.map(ToString::to_string);
+            let result = config(&sync_env)
+                .map(|config| (config.sqlitecloud_mode, config.sqlitecloud.is_some()));
+            match expected {
+                Ok(expected) => assert_eq!(result, Ok(expected), "{case}"),
+                Err(variable) => assert!(result.unwrap_err().contains(variable), "{case}"),
+            }
+        }
     }
 
     #[test]
     fn accepts_only_known_desktop_transports() {
         let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
         sync_env.anarlog_cloudsync_desktop_transport = Some("replica".to_string());
-        let replica = config(&sync_env).unwrap().unwrap();
+        let replica = config(&sync_env).unwrap();
         assert_eq!(replica.desktop_transport, CloudsyncTransport::Replica);
 
         sync_env.anarlog_cloudsync_desktop_transport = Some(" sqlite_sync ".to_string());
-        let sqlite_sync = config(&sync_env).unwrap().unwrap();
+        let sqlite_sync = config(&sync_env).unwrap();
         assert_eq!(
             sqlite_sync.desktop_transport,
             CloudsyncTransport::SqliteSync
@@ -506,15 +643,15 @@ mod tests {
         let mut sync_env = env("https://project.region.gateway.sqlite.cloud/", None);
         sync_env.anarlog_cloudsync_protocol_mode = Some("dual".to_string());
         sync_env.anarlog_cloudsync_database_id = Some("legacy-database-id".to_string());
-        let config = config(&sync_env).unwrap().unwrap();
+        let config = config(&sync_env).unwrap();
         assert_eq!(config.protocol_mode, CloudsyncProtocolMode::Dual);
         assert_eq!(
-            config.legacy_database_id.as_deref(),
+            sqlitecloud(&config).legacy_database_id.as_deref(),
             Some("legacy-database-id")
         );
     }
 
-    fn config(env: &SyncEnv) -> Result<Option<SyncConfig>, String> {
+    fn config(env: &SyncEnv) -> Result<SyncConfig, String> {
         SyncConfig::from_env(
             env,
             "https://project.supabase.co",

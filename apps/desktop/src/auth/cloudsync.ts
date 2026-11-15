@@ -1198,6 +1198,17 @@ async function activateCloudsync(
       return "ok";
     }
 
+    if (response.status === 426) {
+      // Retrying cannot succeed until the app is updated, and the next launch
+      // starts a fresh exchange.
+      setCredentialBlock("update_required");
+      if (!shouldSuspendBeforeExchange) {
+        await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+      }
+      console.warn("[cloudsync] this build is too old for cloud sync");
+      return "ok";
+    }
+
     console.warn("[cloudsync] credential exchange unavailable; retrying");
     scheduleActivationRetry(session, activeGeneration, onAccountMismatch);
     return "ok";

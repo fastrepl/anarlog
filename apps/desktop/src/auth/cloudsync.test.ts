@@ -657,7 +657,7 @@ describe("CloudSync auth lifecycle", () => {
           Authorization: "Bearer supabase-token",
           "X-Anarlog-E2EE-Key-Id": E2EE_KEY_ID,
           "x-anarlog-e2ee-member-public-key": E2EE_MEMBER_PUBLIC_KEY,
-          "x-anarlog-cloudsync-transports": "replica",
+          "x-anarlog-cloudsync-transports": "replica, accepted_replica",
         },
       }),
     );
@@ -720,7 +720,7 @@ describe("CloudSync auth lifecycle", () => {
       new URL("https://api.test/sync/token"),
       expect.objectContaining({
         headers: expect.objectContaining({
-          "x-anarlog-cloudsync-transports": "replica",
+          "x-anarlog-cloudsync-transports": "replica, accepted_replica",
         }),
       }),
     );
@@ -1230,6 +1230,22 @@ describe("CloudSync auth lifecycle", () => {
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
     expect(getCloudsyncCredentialBlock()).toBe("reauth_required");
+  });
+
+  test("stops instead of retrying when the server requires an update", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(null, { status: 426 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await handleCloudsyncAuthChange("INITIAL_SESSION", session());
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+    expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(getCloudsyncCredentialBlock()).toBe("update_required");
   });
 
   test("suspends active sync when the account loses Pro", async () => {

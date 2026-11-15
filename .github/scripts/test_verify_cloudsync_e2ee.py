@@ -168,6 +168,112 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
         )
         self.assertFalse(pathlib.Path(logs[0]).exists())
 
+    def run_main_with_mode(
+        self,
+        mode: str | None,
+        replica_secrets: tuple[str, ...] = (),
+        flags: tuple[str, ...] = (),
+    ) -> tuple[mock.Mock, mock.Mock, mock.Mock]:
+        secrets = (
+            [] if mode is None else [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": mode}]
+        )
+        if mode != "retired":
+            secrets += [{"key": key, "value": "set"} for key in verify.REQUIRED_SECRETS]
+        secrets += [{"key": key, "value": "set"} for key in replica_secrets]
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory, "secrets.json")
+            path.write_text(verify.json.dumps(secrets))
+            with (
+                mock.patch.object(sys, "argv", ["verify", *flags, str(path)]),
+                mock.patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": ""}),
+                mock.patch.object(
+                    verify, "verify_remote_database", return_value="db"
+                ) as remote,
+                mock.patch.object(verify, "run_verification") as sync_tests,
+                mock.patch.object(verify, "verify_replica") as replica,
+                mock.patch.object(
+                    verify, "request_json", side_effect=AssertionError("provider call")
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                verify.main()
+        return remote, sync_tests, replica
+
+    def test_sqlitecloud_mode_limits_what_verification_touches(self) -> None:
+        for mode, checks_registration, runs_sync_tests in [
+            (None, True, True),
+            ("enabled", True, True),
+            # Minting tokens or writing fixtures would move the fenced boundary.
+            ("draining", True, False),
+            ("retired", False, False),
+        ]:
+            with self.subTest(mode=mode):
+                remote, sync_tests, replica = self.run_main_with_mode(
+                    mode, verify.REPLICA_SECRETS
+                )
+                self.assertEqual(remote.called, checks_registration)
+                self.assertEqual(sync_tests.called, runs_sync_tests)
+                self.assertTrue(replica.called)
+
+        with self.assertRaisesRegex(ValueError, "ANARLOG_SQLITECLOUD_MODE"):
+            self.run_main_with_mode("disabled")
+
+    def test_the_check_after_a_deploy_touches_only_the_replica(self) -> None:
+        remote, sync_tests, replica = self.run_main_with_mode(
+            "enabled", verify.REPLICA_SECRETS, ("--replica-only",)
+        )
+        self.assertFalse(remote.called or sync_tests.called)
+        self.assertTrue(replica.called)
+
+    def test_replica_verification_is_optional_only_while_the_provider_exists(
+        self,
+    ) -> None:
+        for mode in (None, "enabled", "draining"):
+            with self.subTest(mode=mode):
+                self.assertFalse(self.run_main_with_mode(mode)[2].called)
+
+        # After retirement nothing else would verify sync.
+        with self.assertRaisesRegex(ValueError, "ANARLOG_REPLICA_VERIFY_API_URL"):
+            self.run_main_with_mode("retired")
+        with self.assertRaisesRegex(ValueError, "ANARLOG_REPLICA_VERIFY_PASSWORD_B"):
+            self.run_main_with_mode("enabled", verify.REPLICA_SECRETS[:-1])
+
+    def test_replica_verification_checks_the_gate_the_serving_api_reports(
+        self,
+    ) -> None:
+        values = {key: "set" for key in verify.REPLICA_SECRETS} | {
+            "ANARLOG_REPLICA_VERIFY_API_URL": "https://sync.example/",
+            "ANARLOG_REPLICA_VERIFY_SUPABASE_URL": "http://127.0.0.1:54321",
+        }
+
+        def respond(url, _bearer, _label, body=None, headers=None):
+            if url == "https://sync.example/health/sync":
+                return {"status": "ok", "sqlitecloud_mode": "draining"}
+            self.assertEqual(
+                url, "http://127.0.0.1:54321/auth/v1/token?grant_type=password"
+            )
+            self.assertEqual(headers, {"apikey": "set"})
+            return {"access_token": "token-for-" + body["email"]}
+
+        with (
+            mock.patch.object(verify, "request_json", side_effect=respond),
+            mock.patch.object(verify.subprocess, "run") as cargo,
+            mock.patch.dict(os.environ, {"FLY_API_TOKEN": "deploy-token"}),
+        ):
+            verify.verify_replica(values)
+
+        environment = cargo.call_args.kwargs["env"]
+        self.assertEqual(environment["ANARLOG_REPLICA_API_URL"], "https://sync.example")
+        self.assertEqual(environment["ANARLOG_REPLICA_SQLITECLOUD_MODE"], "draining")
+        self.assertEqual(environment["ANARLOG_REPLICA_ACCESS_TOKEN_A"], "token-for-set")
+        self.assertNotIn("FLY_API_TOKEN", environment)
+        self.assertIn(verify.REPLICA_TEST, cargo.call_args.args[0])
+
+        with self.assertRaisesRegex(ValueError, "HTTPS"):
+            verify.verify_replica(
+                values | {"ANARLOG_REPLICA_VERIFY_API_URL": "http://sync.example"}
+            )
+
     def e2ee_record_columns(self) -> list[dict[str, object]]:
         timestamp_default = "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
         return [

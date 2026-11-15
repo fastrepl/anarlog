@@ -6199,6 +6199,10 @@ msgstr ""
 msgid "This requires Anarlog Pro"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "This version can no longer sync. Your notes stay on this device, and changes made here will sync after you update."
+msgstr ""
+
 #. placeholder {0}: status.fileCount
 #. placeholder {1}: formatBytes(status.totalBytes)
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -6431,6 +6435,10 @@ msgstr ""
 
 #: src/resource-sharing/share-dialog.tsx
 msgid "Update"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Update Anarlog to keep syncing"
 msgstr ""
 
 #: src/automations/starters.tsx

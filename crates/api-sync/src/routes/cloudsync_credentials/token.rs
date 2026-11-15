@@ -2,8 +2,8 @@ use chrono::{SecondsFormat, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    config::SqliteCloudConfig,
     error::{Result, SyncError},
-    state::AppState,
 };
 
 #[derive(Serialize)]
@@ -45,13 +45,13 @@ pub(super) fn token_expiry(token_ttl_seconds: u64) -> Result<String> {
 }
 
 pub(super) async fn mint_cloudsync_token(
-    state: &AppState,
+    client: &reqwest::Client,
+    sqlitecloud: &SqliteCloudConfig,
     request: &impl Serialize,
 ) -> Result<String> {
-    let response = state
-        .client
-        .post(format!("{}/v2/tokens", state.config.project_url))
-        .bearer_auth(&state.config.token_issuer_api_key)
+    let response = client
+        .post(format!("{}/v2/tokens", sqlitecloud.project_url))
+        .bearer_auth(&sqlitecloud.token_issuer_api_key)
         .json(request)
         .send()
         .await

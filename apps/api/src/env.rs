@@ -118,6 +118,13 @@ impl std::ops::Deref for RuntimeConfig {
 }
 
 impl RuntimeConfig {
+    /// How the durable cleanup worker clears encrypted data from SQLite Cloud.
+    pub(crate) fn cloudsync_cleanup(
+        &self,
+    ) -> Result<anlg_api_subscription::CloudsyncCleanup, String> {
+        cloudsync_cleanup(&self.env)
+    }
+
     pub(crate) fn resolve(mut env: Env) -> Result<Self, String> {
         validate_supabase_env(&env.supabase)?;
         let service = env.anarlog_service;
@@ -184,6 +191,9 @@ impl RuntimeConfig {
                     .to_string(),
             );
         }
+        if env.anarlog_attachment_backup_gc_enabled {
+            cloudsync_cleanup(&env)?;
+        }
 
         Ok(Self {
             env,
@@ -194,6 +204,42 @@ impl RuntimeConfig {
             llm,
             stt,
         })
+    }
+}
+
+fn cloudsync_cleanup(env: &Env) -> Result<anlg_api_subscription::CloudsyncCleanup, String> {
+    use anlg_api_sync::SqliteCloudMode;
+
+    let explicit_mode = env
+        .sync
+        .anarlog_sqlitecloud_mode
+        .as_deref()
+        .is_some_and(|mode| !mode.trim().is_empty());
+    match SqliteCloudMode::from_env(&env.sync)? {
+        // Without provider variables an unset mode also resolves to retired.
+        // Account deletion must not skip the provider purge on that inference.
+        SqliteCloudMode::Retired if !explicit_mode => Err(
+            "ANARLOG_SQLITECLOUD_MODE=retired must be set to run account cleanup without SQLite Cloud"
+                .to_string(),
+        ),
+        SqliteCloudMode::Retired => Ok(anlg_api_subscription::CloudsyncCleanup::Retired),
+        SqliteCloudMode::Enabled | SqliteCloudMode::Draining => {
+            anlg_api_subscription::CloudsyncCleanupConfig::new(
+                env.sync.sqlitecloud_project_url.as_deref().unwrap_or_default(),
+                env.sync
+                    .sqlitecloud_token_issuer_api_key
+                    .as_deref()
+                    .unwrap_or_default(),
+                env.sync
+                    .anarlog_cloudsync_e2ee_database_id
+                    .as_deref()
+                    .unwrap_or_default(),
+                env.sqlitecloud_cloudsync_management_api_key
+                    .as_deref()
+                    .unwrap_or_default(),
+            )
+            .map(anlg_api_subscription::CloudsyncCleanup::Provider)
+        }
     }
 }
 
@@ -460,6 +506,59 @@ mod tests {
             .err()
             .unwrap();
             assert!(error.contains("only supported by core or all"));
+        }
+    }
+
+    #[test]
+    fn cleanup_owner_chooses_its_sqlitecloud_purge_explicitly() {
+        let cleanup = [
+            ("ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED", "true"),
+            ("NANGO_API_KEY", "nango"),
+            ("NANGO_WEBHOOK_SIGNING_KEY", "signing"),
+            ("STRIPE_SECRET_KEY", "sk_test_cleanup"),
+            ("STRIPE_MONTHLY_PRICE_ID", "price_monthly"),
+            ("STRIPE_YEARLY_PRICE_ID", "price_yearly"),
+            ("LOOPS_KEY", "loops"),
+        ];
+        let provider = [
+            ("SQLITECLOUD_PROJECT_URL", "https://project.sqlite.cloud"),
+            ("SQLITECLOUD_TOKEN_ISSUER_API_KEY", "issuer"),
+            ("ANARLOG_CLOUDSYNC_E2EE_DATABASE_ID", "managed-e2ee"),
+            ("SQLITECLOUD_CLOUDSYNC_MANAGEMENT_API_KEY", "management"),
+        ];
+        let resolve = |extra: &[(&str, &str)]| {
+            role_config("core", &[&cleanup[..], extra].concat())
+                .and_then(|config| config.cloudsync_cleanup())
+        };
+        use anlg_api_subscription::CloudsyncCleanup;
+
+        assert!(
+            resolve(&[])
+                .err()
+                .unwrap()
+                .contains("ANARLOG_SQLITECLOUD_MODE=retired must be set")
+        );
+        assert!(matches!(
+            resolve(&[("ANARLOG_SQLITECLOUD_MODE", "retired")]),
+            Ok(CloudsyncCleanup::Retired)
+        ));
+        // Stale provider secrets stay behind after retirement and are ignored.
+        assert!(matches!(
+            resolve(&[&provider[..], &[("ANARLOG_SQLITECLOUD_MODE", "retired")]].concat()),
+            Ok(CloudsyncCleanup::Retired)
+        ));
+        for mode in [None, Some("enabled"), Some("draining")] {
+            let mode = mode.map(|mode| ("ANARLOG_SQLITECLOUD_MODE", mode));
+            assert!(matches!(
+                resolve(&[&provider[..], mode.as_slice()].concat()),
+                Ok(CloudsyncCleanup::Provider(_))
+            ));
+            assert!(
+                resolve(&[&provider[..3], mode.as_slice()].concat())
+                    .err()
+                    .unwrap()
+                    .contains("SQLITECLOUD_CLOUDSYNC_MANAGEMENT_API_KEY")
+            );
         }
     }
 

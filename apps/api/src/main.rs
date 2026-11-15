@@ -135,15 +135,10 @@ async fn app_with_session_gate(
         integrations_configured: env.nango.is_some(),
         billing_configured: env.subscription.is_some(),
         billing_webhooks: env.anarlog_billing_webhooks,
-        cloudsync_configured: service.includes(Service::Sync)
-            && anlg_api_sync::SyncConfig::from_env(
-                &env.sync,
-                &env.supabase.supabase_url,
-                &env.supabase.supabase_anon_key,
-                &env.supabase.supabase_service_role_key,
-            )
-            .expect("sync configuration validated")
-            .is_some(),
+        sqlitecloud_mode: service.includes(Service::Sync).then(|| {
+            anlg_api_sync::SqliteCloudMode::from_env(&env.sync)
+                .expect("sync configuration validated")
+        }),
         transcription_configured: env
             .stt
             .as_ref()
@@ -416,24 +411,9 @@ fn main() -> std::io::Result<()> {
                     .subscription
                     .as_ref()
                     .expect("cleanup requires Stripe and Loops configuration");
-                let cloudsync_cleanup = anlg_api_subscription::CloudsyncCleanupConfig::new(
-                    env.sync
-                        .sqlitecloud_project_url
-                        .as_deref()
-                        .unwrap_or_default(),
-                    env.sync
-                        .sqlitecloud_token_issuer_api_key
-                        .as_deref()
-                        .unwrap_or_default(),
-                    env.sync
-                        .anarlog_cloudsync_e2ee_database_id
-                        .as_deref()
-                        .unwrap_or_default(),
-                    env.sqlitecloud_cloudsync_management_api_key
-                        .as_deref()
-                        .unwrap_or_default(),
-                )
-                .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+                let cloudsync_cleanup = env
+                    .cloudsync_cleanup()
+                    .expect("cleanup configuration validated");
                 let config =
                     anlg_api_subscription::SubscriptionConfig::new(&env.supabase, stripe, loops)
                         .with_cloudsync_cleanup(cloudsync_cleanup);
@@ -478,7 +458,8 @@ struct SubsystemHealthState {
     integrations_configured: bool,
     billing_configured: bool,
     billing_webhooks: bool,
-    cloudsync_configured: bool,
+    /// Present when this runtime serves sync, which needs only Supabase.
+    sqlitecloud_mode: Option<anlg_api_sync::SqliteCloudMode>,
     transcription_configured: bool,
     llm_configured: bool,
     session_gate: anlg_transcribe_proxy::SessionGate,
@@ -490,13 +471,13 @@ async fn service_readiness(
 ) -> (StatusCode, Json<serde_json::Value>) {
     let configured = match state.service {
         Service::Ai => state.transcription_configured && state.llm_configured,
-        Service::Sync => state.cloudsync_configured,
+        Service::Sync => state.sqlitecloud_mode.is_some(),
         Service::Core => state.integrations_configured && state.billing_configured,
         Service::Billing => state.billing_configured,
         Service::All => {
             state.transcription_configured
                 && state.llm_configured
-                && state.cloudsync_configured
+                && state.sqlitecloud_mode.is_some()
                 && state.integrations_configured
                 && state.billing_configured
         }
@@ -535,11 +516,13 @@ fn subsystem_health_response(
 async fn sync_health(
     axum::extract::State(state): axum::extract::State<SubsystemHealthState>,
 ) -> (StatusCode, Json<serde_json::Value>) {
+    let configured = state.sqlitecloud_mode.is_some();
     subsystem_health_response(
-        state.cloudsync_configured,
+        configured,
         serde_json::json!({
-            "status": if state.cloudsync_configured { "ok" } else { "not_configured" },
-            "configured": state.cloudsync_configured,
+            "status": if configured { "ok" } else { "not_configured" },
+            "configured": configured,
+            "sqlitecloud_mode": state.sqlitecloud_mode.map(|mode| mode.as_str()),
         }),
     )
 }

@@ -14,18 +14,8 @@ use crate::live_docs::{decode_hex, encode_hex};
 const SHARE_ID: &str = "11111111-1111-4111-8111-111111111111";
 
 fn live_test_state(server: &MockServer) -> AppState {
-    AppState::new(SyncConfig {
-        project_url: server.uri(),
-        token_issuer_api_key: "issuer-key".to_string(),
-        database_id: "database-id".to_string(),
-        legacy_database_id: None,
-        protocol_mode: CloudsyncProtocolMode::E2eeEnforced,
-        desktop_transport: CloudsyncTransport::SqliteSync,
-        token_ttl_seconds: 60,
-        supabase_url: server.uri(),
-        supabase_anon_key: "anon-key".to_string(),
-        supabase_service_role_key: "service-role-key".to_string(),
-    })
+    // Live documents run entirely on Supabase, with SQLite Cloud retired.
+    AppState::new(SyncConfig::new(server.uri(), "anon-key", "service-role-key").unwrap())
 }
 
 async fn mock_access(server: &MockServer, user_id: &str, capability: &str) {

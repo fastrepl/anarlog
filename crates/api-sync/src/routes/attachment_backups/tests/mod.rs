@@ -37,18 +37,8 @@ fn timestamp_after(seconds: i64) -> String {
 }
 
 fn test_state(server: &MockServer) -> AppState {
-    AppState::new(SyncConfig {
-        project_url: server.uri(),
-        token_issuer_api_key: "issuer-key".to_string(),
-        database_id: "database-id".to_string(),
-        legacy_database_id: None,
-        protocol_mode: crate::config::CloudsyncProtocolMode::E2eeEnforced,
-        desktop_transport: crate::config::CloudsyncTransport::SqliteSync,
-        token_ttl_seconds: 60,
-        supabase_url: server.uri(),
-        supabase_anon_key: "anon-key".to_string(),
-        supabase_service_role_key: "service-role-key".to_string(),
-    })
+    // Attachment backups run entirely on Supabase, with SQLite Cloud retired.
+    AppState::new(SyncConfig::new(server.uri(), "anon-key", "service-role-key").unwrap())
 }
 
 fn test_router_with_state(state: AppState, is_pro: bool) -> axum::Router {
