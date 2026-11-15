@@ -527,6 +527,7 @@ async fn create_credentials(
         let Some(sqlitecloud) =
             sqlitecloud.filter(|_| state.config.protocol_mode == CloudsyncProtocolMode::Dual)
         else {
+            record_token_outcome(&state, &headers, "upgrade_required");
             return Err(SyncError::CloudsyncUpgradeRequired);
         };
 
@@ -545,7 +546,7 @@ async fn create_credentials(
             },
         )
         .await?;
-        tracing::info!(protocol_version = 1, "issued legacy CloudSync credentials");
+        record_token_outcome(&state, &headers, "sqlite_sync_legacy");
 
         return Ok((
             [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
@@ -562,14 +563,10 @@ async fn create_credentials(
 
     let Some(sqlitecloud) = sqlitecloud else {
         if !client_runs_accepted_replica(&headers) {
-            tracing::info!(
-                sqlitecloud_mode = state.config.sqlitecloud_mode.as_str(),
-                advertises_replica = client_accepts_replica_transport(&headers),
-                "refused CloudSync credentials for a client without the accepted replica"
-            );
+            record_token_outcome(&state, &headers, "upgrade_required");
             return Err(SyncError::CloudsyncUpgradeRequired);
         }
-        return replica_credential_response(&state.replica, auth, requested_key_id, &headers).await;
+        return replica_credential_response(&state, auth, requested_key_id, &headers).await;
     };
 
     if client_accepts_replica_transport(&headers)
@@ -581,7 +578,7 @@ async fn create_credentials(
         .await?
             == CloudsyncTransport::Replica
     {
-        return replica_credential_response(&state.replica, auth, requested_key_id, &headers).await;
+        return replica_credential_response(&state, auth, requested_key_id, &headers).await;
     }
 
     let workspace_rows = fetch_workspace_projection(&state.replica, &auth).await?;
@@ -606,10 +603,7 @@ async fn create_credentials(
         },
     )
     .await?;
-    tracing::info!(
-        transport = "sqlite_sync",
-        "issued SQLite Cloud CloudSync credentials"
-    );
+    record_token_outcome(&state, &headers, "sqlite_sync");
 
     Ok((
         [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
@@ -628,8 +622,26 @@ async fn create_credentials(
     ))
 }
 
+/// One countable event per `/sync/token` decision. It carries no account or
+/// workspace identity; the request span already scopes it.
+fn record_token_outcome(state: &AppState, headers: &HeaderMap, outcome: &'static str) {
+    let capability = if client_runs_accepted_replica(headers) {
+        "accepted_replica"
+    } else if client_accepts_replica_transport(headers) {
+        "replica"
+    } else {
+        "none"
+    };
+    tracing::info!(
+        sqlitecloud_mode = state.config.sqlitecloud_mode.as_str(),
+        capability,
+        outcome,
+        "cloudsync_token_request"
+    );
+}
+
 async fn replica_credential_response(
-    state: &ReplicaState,
+    state: &AppState,
     auth: AuthContext,
     requested_key_id: &str,
     headers: &HeaderMap,
@@ -637,11 +649,9 @@ async fn replica_credential_response(
     [(header::HeaderName, HeaderValue); 1],
     Json<CloudsyncCredentialResponse>,
 )> {
-    let credentials = issue_replica_credentials(state, auth, requested_key_id, headers).await?;
-    tracing::info!(
-        transport = "replica",
-        "issued replica CloudSync credentials"
-    );
+    let credentials =
+        issue_replica_credentials(&state.replica, auth, requested_key_id, headers).await?;
+    record_token_outcome(state, headers, "replica");
     Ok((
         [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
         Json(CloudsyncCredentialResponse::Replica(credentials)),
