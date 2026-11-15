@@ -18,10 +18,12 @@
 extern "C" {
 #endif
 
-#define CLOUDSYNC_VERSION                       "1.2.0"
+#define CLOUDSYNC_VERSION                       "1.2.2"
 // LZ4's block format cannot expand input by more than 255:1, so a compressed payload
 // declaring a larger expansion is forged or corrupt (see cloudsync_payload_apply).
 #define CLOUDSYNC_PAYLOAD_LZ4_MAX_RATIO         255
+// largest value or decompressed payload accepted from a peer: SQLite's own default blob limit
+#define CLOUDSYNC_PAYLOAD_MAX_EXPANDED_SIZE     1000000000U
 #define CLOUDSYNC_MAX_TABLENAME_LEN             512
 
 #define CLOUDSYNC_VALUE_NOTSET                  -1
@@ -166,6 +168,7 @@ int    cloudsync_payload_apply (cloudsync_context *data, const char *payload, in
 int    cloudsync_payload_encode_step (cloudsync_payload_context *payload, cloudsync_context *data, int argc, dbvalue_t **argv);
 int    cloudsync_payload_encode_final (cloudsync_payload_context *payload, cloudsync_context *data);
 char  *cloudsync_payload_blob (cloudsync_payload_context *payload, int64_t *blob_size, int64_t *nrows);
+char  *cloudsync_payload_empty_blob (cloudsync_context *data, int64_t *blob_size);
 size_t cloudsync_payload_context_size (size_t *header_size);
 void   cloudsync_payload_context_free (cloudsync_payload_context *payload);
 uint64_t cloudsync_payload_context_nrows (cloudsync_payload_context *payload);
@@ -207,6 +210,7 @@ bool table_enabled (cloudsync_table_context *table);
 void table_set_enabled (cloudsync_table_context *table, bool value);
 bool table_add_to_context (cloudsync_context *data, table_algo algo, const char *table_name);
 bool table_pk_exists (cloudsync_table_context *table, const char *value, size_t len);
+dbvm_t *table_row_lookup_stmt (cloudsync_table_context *table);
 int table_count_cols (cloudsync_table_context *table);
 int table_count_pks (cloudsync_table_context *table);
 const char *table_colname (cloudsync_table_context *table, int index);

@@ -32,7 +32,7 @@ pub use network::{
     pending_payload_batch, reconcile_confirmed_pending_payload,
 };
 
-pub const CLOUDSYNC_VERSION: &str = "1.2.0";
+pub const CLOUDSYNC_VERSION: &str = "1.2.2";
 
 pub fn apply(options: SqliteConnectOptions) -> Result<(SqliteConnectOptions, PathBuf), Error> {
     close::install_terminate_on_close()?;

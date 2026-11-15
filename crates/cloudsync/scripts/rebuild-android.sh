@@ -12,7 +12,7 @@ export ANDROID_NDK="$ANDROID_NDK_ROOT"
 test -f "$ANDROID_NDK/source.properties"
 
 git clone --quiet https://github.com/sqliteai/sqlite-sync.git "$source_dir"
-git -C "$source_dir" checkout --quiet 285a1390c92fce3a1dc6f98daef213f882a5b23b
+git -C "$source_dir" checkout --quiet cc07d35861e961d97e4554aa05abd406a5151553
 git -C "$source_dir" submodule update --init --recursive --quiet
 
 for architecture in arm64-v8a armeabi-v7a x86_64; do

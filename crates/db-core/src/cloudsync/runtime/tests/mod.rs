@@ -10,7 +10,7 @@ mod status;
 
 pub(super) fn test_cloudsync_config() -> CloudsyncRuntimeConfig {
     CloudsyncRuntimeConfig {
-        connection_string: "sqlitecloud://demo.invalid/app.db?apikey=demo".to_string(),
+        connection_string: "db_demo_app".to_string(),
         auth: CloudsyncAuth::None,
         tables: Vec::new(),
         sync_interval_ms: 30_000,
