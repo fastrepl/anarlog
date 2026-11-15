@@ -123,6 +123,7 @@ class AuditCloudsyncReplicaTests(unittest.TestCase):
             {"missing": 1, "diverged": 1, "covered_historical": 1, "current": 1},
         )
         self.assertEqual(totals["unmapped"], 1)
+        self.assertEqual(totals["uninitialized"], 0)
         self.assertEqual(
             {(record["record_id"], record["class"]) for record in unresolved},
             {(record_id("diverged"), "diverged"), (record_id("missing"), "missing")},
@@ -173,8 +174,10 @@ class AuditCloudsyncReplicaTests(unittest.TestCase):
         stores.source(WORKSPACE_A, "missing", "never accepted")
 
         with tempfile.TemporaryDirectory() as evidence:
-            # A pilot run binds a fresh directory too.
-            stores.run(evidence, workspace=[WORKSPACE_A])
+            # A pilot run binds a fresh directory too. This workspace has no log at all.
+            self.assertEqual(
+                stores.run(evidence, workspace=[WORKSPACE_A])["uninitialized"], 1
+            )
             for selection in (None, [WORKSPACE_A]):
                 with self.assertRaisesRegex(ValueError, "different source snapshot"):
                     stores.run(evidence, source="fenced", workspace=selection)
