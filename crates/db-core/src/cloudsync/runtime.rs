@@ -362,6 +362,7 @@ impl Db {
         runtime.last_sync = None;
         runtime.last_sync_at_ms = None;
         runtime.outbound_work_state = None;
+        runtime.send_confirmed = false;
         runtime.last_error = None;
         runtime.last_error_kind = None;
         runtime.consecutive_failures = 0;
@@ -454,6 +455,7 @@ impl Db {
             runtime.config = None;
             runtime.last_sync = None;
             runtime.last_sync_at_ms = None;
+            runtime.send_confirmed = false;
             runtime.last_error = None;
             runtime.last_error_kind = None;
             runtime.consecutive_failures = 0;

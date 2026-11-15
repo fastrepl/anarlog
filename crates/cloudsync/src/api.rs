@@ -577,7 +577,7 @@ mod tests {
             "failed to load sqlite-sync (sqlite error 5): database is locked".to_string(),
         )));
         assert!(!is_busy_error(&Error::ExtensionInitialization(
-            "expected sqlite-sync 1.2.0, loaded 1.0.0".to_string(),
+            "expected sqlite-sync 1.2.2, loaded 1.0.0".to_string(),
         )));
     }
 }

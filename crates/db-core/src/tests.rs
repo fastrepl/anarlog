@@ -6,7 +6,7 @@ use tokio::sync::oneshot;
 
 fn test_cloudsync_config() -> CloudsyncRuntimeConfig {
     CloudsyncRuntimeConfig {
-        connection_string: "sqlitecloud://demo.invalid/app.db?apikey=demo".to_string(),
+        connection_string: "db_demo_app".to_string(),
         auth: CloudsyncAuth::None,
         tables: vec![CloudsyncTableSpec {
             table_name: "test_sync".to_string(),
@@ -646,7 +646,7 @@ async fn configure_rejects_live_runtime_changes() {
 
     let error = db
         .cloudsync_configure(CloudsyncRuntimeConfig {
-            connection_string: "sqlitecloud://demo.invalid/other.db?apikey=demo".to_string(),
+            connection_string: "db_demo_other".to_string(),
             ..test_cloudsync_config()
         })
         .await
@@ -661,7 +661,7 @@ async fn configure_rejects_live_runtime_changes() {
             .as_ref()
             .unwrap()
             .connection_string,
-        "sqlitecloud://demo.invalid/app.db?apikey=demo"
+        "db_demo_app"
     );
 }
 
@@ -686,7 +686,7 @@ async fn reconfigure_preserves_stopped_state_when_runtime_is_inert() {
     }
 
     let next_config = CloudsyncRuntimeConfig {
-        connection_string: "sqlitecloud://demo.invalid/reconfigured.db?apikey=demo".to_string(),
+        connection_string: "db_demo_reconfigured".to_string(),
         sync_interval_ms: 2_000,
         ..test_cloudsync_config()
     };

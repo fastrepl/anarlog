@@ -948,7 +948,7 @@ mod tests {
 
     fn cloudsync_config_json() -> String {
         r#"{
-            "connection_string":"sqlitecloud://demo.invalid/app.db?apikey=demo",
+            "connection_string":"db_demo_app",
             "auth":{"type":"none"},
             "tables":[{"table_name":"templates","crdt_algo":null,"init_flags":null,"enabled":false}],
             "sync_interval_ms":30000,

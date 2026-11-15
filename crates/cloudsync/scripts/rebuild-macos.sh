@@ -8,7 +8,7 @@ source_dir=$(mktemp -d "${TMPDIR:-/tmp}/anarlog-sqlite-sync.XXXXXX")
 trap 'rm -rf "$source_dir"' EXIT
 
 git clone --quiet https://github.com/sqliteai/sqlite-sync.git "$source_dir"
-git -C "$source_dir" checkout --quiet 285a1390c92fce3a1dc6f98daef213f882a5b23b
+git -C "$source_dir" checkout --quiet cc07d35861e961d97e4554aa05abd406a5151553
 git -C "$source_dir" submodule update --init --recursive --quiet
 make -C "$source_dir" CPUS="${CLOUDSYNC_BUILD_CPUS:-4}" extension
 

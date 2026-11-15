@@ -10,7 +10,7 @@ source_dir="$build_dir/source"
 destination="$crate_dir/vendor/cloudsync/apple/CloudSync.xcframework"
 
 git clone --quiet https://github.com/sqliteai/sqlite-sync.git "$source_dir"
-git -C "$source_dir" checkout --quiet 285a1390c92fce3a1dc6f98daef213f882a5b23b
+git -C "$source_dir" checkout --quiet cc07d35861e961d97e4554aa05abd406a5151553
 git -C "$source_dir" submodule update --init --recursive --quiet
 
 for platform in ios ios-sim; do

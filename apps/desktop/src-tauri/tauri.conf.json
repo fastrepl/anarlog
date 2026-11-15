@@ -57,6 +57,7 @@
     "resources": {
       "../../../plugins/windows/swift-lib/src/Resources/CabinSketch-Regular.ttf": "CabinSketch-Regular.ttf",
       "../../../plugins/windows/swift-lib/src/Resources/OFL.txt": "CabinSketch-OFL.txt",
+      "../../../crates/cloudsync/vendor/cloudsync/LICENSE": "sqlite-sync-LICENSE.txt",
       "resources/anagram/AppIcon.icns": "icons/anagram.icns",
       "resources/anagram-dark/AppIcon.icns": "icons/anagram-dark.icns",
       "resources/dev/AppIcon.icns": "icons/dev.icns",
