@@ -1,9 +1,17 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { fetch } from "@tauri-apps/plugin-http";
 
 import { commands as localApiCommands } from "@anlg/plugin-local-api";
 
 import { supabase } from "~/auth/client";
 import { env } from "~/env";
+import { CLIENT_VERSION_HEADER } from "~/shared/utils";
+
+let appVersion: Promise<string | null> | null = null;
+function loadAppVersion() {
+  appVersion ??= getVersion().catch(() => null);
+  return appVersion;
+}
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const SCHEDULED_INVALID_REQUEST_RETRY_DELAYS_MS = [5_000, 15_000] as const;
@@ -104,6 +112,10 @@ async function request(
   }
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${current.access_token}`);
+  const version = await loadAppVersion();
+  if (version) {
+    headers.set(CLIENT_VERSION_HEADER, `desktop@${version}`);
+  }
   if (init.body) {
     headers.set("Content-Type", "application/json");
   }

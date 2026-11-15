@@ -6,6 +6,7 @@ import {
   type Session,
 } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
+import { getVersion } from "@tauri-apps/api/app";
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -57,6 +58,7 @@ import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import {
   buildWebAppUrl,
   getScheme,
+  CLIENT_VERSION_HEADER,
   DEVICE_FINGERPRINT_HEADER,
   REQUEST_ID_HEADER,
   id,
@@ -94,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
   const [isFingerprintSettled, setIsFingerprintSettled] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
   const [connectLibraryOpen, setConnectLibraryOpen] = useState(false);
   const promptedAccountRef = useRef<string | null>(null);
   const currentWindowLabel = getCurrentWebviewWindow().label;
@@ -161,16 +164,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return request;
   }, [currentWindowLabel]);
 
+  // Trial requests wait for this, so settle only once both request headers
+  // (fingerprint and app version) have been resolved.
   useMountEffect(() => {
-    void miscCommands
-      .getFingerprint()
-      .then((result) => {
+    void Promise.allSettled([
+      miscCommands.getFingerprint().then((result) => {
         if (result.status === "ok") {
           setFingerprint(result.data);
         }
-      })
-      .catch(() => {})
-      .finally(() => setIsFingerprintSettled(true));
+      }),
+      getVersion().then(setAppVersion),
+    ]).then(() => setIsFingerprintSettled(true));
   });
 
   const setSessionFromTokens = useCallback(
@@ -1165,8 +1169,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       headers[DEVICE_FINGERPRINT_HEADER] = fingerprint;
     }
 
+    if (appVersion) {
+      headers[CLIENT_VERSION_HEADER] = `desktop@${appVersion}`;
+    }
+
     return headers;
-  }, [session, fingerprint]);
+  }, [session, fingerprint, appVersion]);
 
   const getAvatarUrl = useCallback(async () => {
     const providerImageUrl = getProviderProfileImageUrl(session?.user);

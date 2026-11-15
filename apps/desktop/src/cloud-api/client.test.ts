@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   listCloudSnapshotIds: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/api/app", () => ({
+  getVersion: vi.fn(() => Promise.resolve("1.4.33")),
+}));
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: mocks.fetch }));
 vi.mock("@anlg/plugin-local-api", () => ({
   commands: {
@@ -134,6 +137,17 @@ describe("cloud API client", () => {
     expect(consoleError).toHaveBeenCalledWith(
       "[cloud-api] background sync failed",
       "CloudApiClientError [invalid_request]: Snapshot too large",
+    );
+  });
+
+  it("sends the desktop app version with Cloud API requests", async () => {
+    mocks.getSession.mockResolvedValue(authSession("user-client-version"));
+
+    await getCloudApiSettings();
+
+    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).get("x-anarlog-client-version")).toBe(
+      "desktop@1.4.33",
     );
   });
 

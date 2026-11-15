@@ -44,6 +44,17 @@ test("eligible mobile accounts start the shared server trial without supplying a
   }
 });
 
+test("trial requests tell the API which mobile build sent them", async () => {
+  const { options, requests } = fixture([
+    Response.json({ canStartTrial: true, reason: "eligible" }),
+    Response.json({ started: true, reason: "started" }),
+  ]);
+  assert.equal(await enrollInTrial({ ...options, appVersion: "0.1.9" }), true);
+  for (const request of requests) {
+    assert.equal(request.headers["x-anarlog-client-version"], "mobile@0.1.9");
+  }
+});
+
 test("previously used trials never send a start request", async () => {
   const { options, requests } = fixture([
     Response.json({ canStartTrial: false, reason: "not_eligible" }),
