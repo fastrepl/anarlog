@@ -252,7 +252,8 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
             self.assertEqual(
                 url, "http://127.0.0.1:54321/auth/v1/token?grant_type=password"
             )
-            self.assertEqual(headers, {"apikey": "set"})
+            # Service credentials are what let an unattended job past the captcha.
+            self.assertEqual(headers, {"apikey": "set", "Authorization": "Bearer set"})
             return {"access_token": "token-for-" + body["email"]}
 
         with (

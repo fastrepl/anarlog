@@ -78,6 +78,11 @@ against the candidate and the mode it now runs. Point
 `ANARLOG_REPLICA_VERIFY_API_URL` at the sync service so `/health/sync` reports
 the mode that service runs. Keep account A's recovery key unchanged: the
 account is bound to its first key and each run appends one note to its history.
+The accounts sign in with their passwords under the service role key, because
+production sign-in requires a captcha that Supabase Auth waives only for
+service credentials. Use addresses outside any domain with workspace auto-join,
+or have the accounts leave that workspace: a new account on such a domain takes
+a team seat and inherits the team's plan.
 
 Role selection does not change Fly routing or provision applications. Keep
 existing URLs working while clients and webhook providers migrate.
