@@ -681,18 +681,27 @@ pub async fn update_session_for_synced_event(
     event_json: &str,
     now: &str,
 ) -> Result<u64, sqlx::Error> {
+    // Calendar sync offers every linked note on each pass. An unchanged event
+    // must leave the row alone: touching `updated_at` re-publishes the note to
+    // encrypted sync and re-indexes it every time the calendar is polled.
     let result = sqlx::query(
         "UPDATE sessions
         SET
-          event_id = CASE WHEN ? = '' THEN event_id ELSE ? END,
-          external_event_id = ?,
-          external_provider = ?,
-          series_id = ?,
-          event_json = ?,
-          updated_at = ?
-        WHERE id = ? AND deleted_at IS NULL",
+          event_id = CASE WHEN ?1 = '' THEN event_id ELSE ?1 END,
+          external_event_id = ?2,
+          external_provider = ?3,
+          series_id = ?4,
+          event_json = ?5,
+          updated_at = ?6
+        WHERE id = ?7 AND deleted_at IS NULL
+          AND (
+            (?1 <> '' AND event_id <> ?1)
+            OR external_event_id <> ?2
+            OR external_provider <> ?3
+            OR series_id <> ?4
+            OR event_json <> ?5
+          )",
     )
-    .bind(event_id)
     .bind(event_id)
     .bind(tracking_id)
     .bind(provider)

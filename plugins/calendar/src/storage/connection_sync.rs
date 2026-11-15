@@ -1430,6 +1430,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn an_unchanged_event_does_not_touch_its_linked_notes() {
+        let db = seed_apple_db().await;
+        let events = vec![apple_occurrence()];
+        sync_calendar_connection_events(db.pool(), apple_request(events.clone()))
+            .await
+            .unwrap();
+        sqlx::query("UPDATE sessions SET updated_at = 'settled'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM e2ee_dirty_rows")
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        sync_calendar_connection_events(db.pool(), apple_request(events))
+            .await
+            .unwrap();
+
+        let touched: Vec<String> =
+            sqlx::query_scalar("SELECT id FROM sessions WHERE updated_at <> 'settled'")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        assert!(touched.is_empty(), "rewrote unchanged notes: {touched:?}");
+        let queued: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM e2ee_dirty_rows WHERE table_name = 'sessions'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(queued, 0, "queued unchanged notes for encrypted sync");
+
+        let mut renamed = apple_occurrence();
+        renamed.title = Some("Renamed meeting".to_string());
+        sync_calendar_connection_events(db.pool(), apple_request(vec![renamed]))
+            .await
+            .unwrap();
+        let rewritten: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM sessions WHERE updated_at <> 'settled'")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(rewritten, 2);
+    }
+
+    #[tokio::test]
     async fn deduplicates_ignored_aliases_and_keeps_the_newest_last_seen() {
         let db = seed_apple_db().await;
         sqlx::query("UPDATE app_settings SET value_json = ? WHERE id = 'ignored_events'")
