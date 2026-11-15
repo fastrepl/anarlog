@@ -34,7 +34,7 @@ SQLITECLOUD_MODES = {"enabled", "draining", "retired"}
 REPLICA_SECRETS = (
     "ANARLOG_REPLICA_VERIFY_API_URL",
     "ANARLOG_REPLICA_VERIFY_SUPABASE_URL",
-    "ANARLOG_REPLICA_VERIFY_SUPABASE_ANON_KEY",
+    "ANARLOG_REPLICA_VERIFY_SUPABASE_SERVICE_ROLE_KEY",
     "ANARLOG_REPLICA_VERIFY_EMAIL_A",
     "ANARLOG_REPLICA_VERIFY_PASSWORD_A",
     "ANARLOG_REPLICA_VERIFY_RECOVERY_KEY_A",
@@ -716,13 +716,16 @@ def run_test_with_cleanup(
         raise cleanup_error
 
 
-def sign_in(supabase_url: str, anon_key: str, email: str, password: str) -> str:
+def sign_in(supabase_url: str, service_role_key: str, email: str, password: str) -> str:
+    # Production sign-in sits behind a captcha that an unattended job cannot
+    # solve. Supabase Auth skips it for requests carrying service credentials;
+    # the session returned is still the account's own.
     session = request_json(
         supabase_url.rstrip("/") + "/auth/v1/token?grant_type=password",
         "",
         "replica verification sign-in",
         {"email": email, "password": password},
-        {"apikey": anon_key},
+        {"apikey": service_role_key, "Authorization": f"Bearer {service_role_key}"},
     )
     token = session.get("access_token")
     if not isinstance(token, str) or not token:
@@ -745,7 +748,7 @@ def verify_replica(values: dict[str, str]) -> None:
     supabase_url = values["ANARLOG_REPLICA_VERIFY_SUPABASE_URL"]
     validate_service_origin(api_url, "ANARLOG_REPLICA_VERIFY_API_URL")
     validate_service_origin(supabase_url, "ANARLOG_REPLICA_VERIFY_SUPABASE_URL")
-    anon_key = values["ANARLOG_REPLICA_VERIFY_SUPABASE_ANON_KEY"]
+    service_role_key = values["ANARLOG_REPLICA_VERIFY_SUPABASE_SERVICE_ROLE_KEY"]
     environment = (
         sanitized_cargo_env()
         | {
@@ -758,7 +761,7 @@ def verify_replica(values: dict[str, str]) -> None:
         | {
             f"ANARLOG_REPLICA_ACCESS_TOKEN_{account}": sign_in(
                 supabase_url,
-                anon_key,
+                service_role_key,
                 values[f"ANARLOG_REPLICA_VERIFY_EMAIL_{account}"],
                 values[f"ANARLOG_REPLICA_VERIFY_PASSWORD_{account}"],
             )
