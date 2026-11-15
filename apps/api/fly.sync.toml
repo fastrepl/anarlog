@@ -41,6 +41,6 @@ timeout = "4s"
 
 [[vm]]
 processes = ['app']
-memory = '1gb'
-cpu_kind = 'shared'
+memory = '2gb'
+cpu_kind = 'performance'
 cpus = 1
