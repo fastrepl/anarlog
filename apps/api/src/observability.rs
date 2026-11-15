@@ -723,6 +723,33 @@ mod tests {
     }
 
     #[test]
+    fn stdout_events_keep_the_sync_token_decision() {
+        let buffer = LogBuffer::default();
+        let subscriber = tracing_subscriber::fmt()
+            .event_format(SafeEventFormatter)
+            .with_writer(buffer.clone())
+            .finish();
+
+        // The shape `/sync/token` emits; its longest value must not read as an
+        // opaque identifier.
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!(
+                anarlog.operation = %format_args!(
+                    "cloudsync_token.{}.{}.{}",
+                    "draining", "accepted_replica", "sqlite_sync_legacy"
+                ),
+                "cloudsync_token_request"
+            );
+        });
+
+        let output = String::from_utf8(buffer.0.lock().expect("log buffer lock").clone())
+            .expect("utf-8 log output");
+        assert!(output.contains(
+            "anarlog.operation=cloudsync_token.draining.accepted_replica.sqlite_sync_legacy"
+        ));
+    }
+
+    #[test]
     fn stdout_events_keep_safe_matched_route_and_drop_private_span_fields() {
         let buffer = LogBuffer::default();
         let subscriber = tracing_subscriber::fmt()

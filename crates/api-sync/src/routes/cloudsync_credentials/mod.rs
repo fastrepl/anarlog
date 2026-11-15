@@ -623,7 +623,9 @@ async fn create_credentials(
 }
 
 /// One countable event per `/sync/token` decision. It carries no account or
-/// workspace identity; the request span already scopes it.
+/// workspace identity; the request span already scopes it. The decision goes
+/// out as one `anarlog.operation` token because the API's log sanitizer drops
+/// string fields under any key it does not list.
 fn record_token_outcome(state: &AppState, headers: &HeaderMap, outcome: &'static str) {
     let capability = if client_runs_accepted_replica(headers) {
         "accepted_replica"
@@ -633,9 +635,10 @@ fn record_token_outcome(state: &AppState, headers: &HeaderMap, outcome: &'static
         "none"
     };
     tracing::info!(
-        sqlitecloud_mode = state.config.sqlitecloud_mode.as_str(),
-        capability,
-        outcome,
+        anarlog.operation = %format_args!(
+            "cloudsync_token.{}.{capability}.{outcome}",
+            state.config.sqlitecloud_mode.as_str()
+        ),
         "cloudsync_token_request"
     );
 }
