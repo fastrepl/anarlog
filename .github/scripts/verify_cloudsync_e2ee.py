@@ -28,6 +28,7 @@ REQUIRED_SECRETS = (
     "SQLITECLOUD_TOKEN_ISSUER_API_KEY",
 )
 PROTOCOL_MODES = {"dual", "e2ee_only", "e2ee_enforced"}
+SQLITECLOUD_MODES = {"enabled", "draining", "retired"}
 LATENCY_LOG_ENV = "ANARLOG_CLOUDSYNC_LATENCY_LOG"
 # A fresh device's first download waits on provider snapshot preparation over the whole
 # tenant history, which deployments cannot change. Report it instead of failing on it;
@@ -74,11 +75,22 @@ class ResourceNotFound(RuntimeError):
     pass
 
 
+def sqlitecloud_mode(values: dict[str, str]) -> str:
+    mode = values.get("ANARLOG_SQLITECLOUD_MODE", "").strip() or "enabled"
+    if mode not in SQLITECLOUD_MODES:
+        raise ValueError(
+            "ANARLOG_SQLITECLOUD_MODE must be enabled, draining, or retired"
+        )
+    return mode
+
+
 def load_secrets(path: str) -> dict[str, str]:
     with open(path) as source:
         exported = json.load(source)
 
     values = {secret["key"]: secret.get("value", "") for secret in exported}
+    if sqlitecloud_mode(values) == "retired":
+        return values
     missing = [key for key in REQUIRED_SECRETS if not values.get(key)]
     if missing:
         raise ValueError("Missing required CloudSync secrets: " + ", ".join(missing))
@@ -673,7 +685,25 @@ def main() -> None:
         raise ValueError("usage: verify_cloudsync_e2ee.py <infisical-export.json>")
 
     values = load_secrets(sys.argv[1])
+    mode = sqlitecloud_mode(values)
+    if mode == "retired":
+        # No provider request may be made. The replica, isolation, recovery,
+        # and deletion checks that replace this one run separately.
+        print(
+            "::warning title=SQLite Cloud retired::"
+            "Provider verification skipped; this script did not verify the encrypted replica"
+        )
+        return
+
     database_name = verify_remote_database(values)
+    if mode == "draining":
+        # The sync tests mint provider tokens and write fixture rows, which
+        # would move the write boundary the final reconciliation compares against.
+        print(
+            "::notice title=SQLite Cloud draining::"
+            "Verified the provider registration and schema read-only; skipped sync tests"
+        )
+        return
 
     latency_log_fd, latency_log = tempfile.mkstemp(
         prefix="cloudsync-latency-", suffix=".jsonl"

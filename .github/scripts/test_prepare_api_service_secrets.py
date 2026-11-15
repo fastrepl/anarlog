@@ -1,12 +1,21 @@
 import unittest
 
-from prepare_api_service_secrets import AI, BILLING, CORE, SHARED, SYNC, select
+from prepare_api_service_secrets import (
+    AI,
+    BILLING,
+    CORE,
+    SHARED,
+    SQLITECLOUD,
+    SYNC,
+    select,
+)
 
 
 class ServiceSecretsTests(unittest.TestCase):
     def setUp(self):
         self.api = [
-            {"key": key, "value": "test-value"} for key in SHARED | AI | CORE | SYNC
+            {"key": key, "value": "test-value"}
+            for key in (SHARED | AI | CORE | SYNC) - {"ANARLOG_SQLITECLOUD_MODE"}
         ]
         self.webhooks = [
             {"key": key, "value": "webhook-value"}
@@ -74,6 +83,47 @@ class ServiceSecretsTests(unittest.TestCase):
             result = select(role, self.api, [], self.webhooks + slack)
             self.assertNotIn("SLACK_ALERT_ANARLOG_WEBHOOK_URL", result)
             self.assertNotIn("SLACK_ALERT_CHAR_WEBHOOK_URL", result)
+
+    def test_sqlitecloud_mode_decides_which_provider_secrets_are_staged(self):
+        def with_mode(mode):
+            return self.api + [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": mode}]
+
+        supabase_only = [s for s in self.api if s["key"] not in SQLITECLOUD]
+        for role in ["sync", "core", "gateway"]:
+            with self.subTest(role=role):
+                self.assertNotIn("ANARLOG_SQLITECLOUD_MODE", select(role, self.api, []))
+                self.assertTrue(SQLITECLOUD <= select(role, self.api, []).keys())
+                with self.assertRaisesRegex(ValueError, "SQLITECLOUD_PROJECT_URL"):
+                    select(role, supabase_only, [])
+
+                draining = select(role, with_mode("draining"), [])
+                self.assertEqual(draining["ANARLOG_SQLITECLOUD_MODE"], "draining")
+                self.assertTrue(SQLITECLOUD <= draining.keys())
+                with self.assertRaisesRegex(ValueError, "SQLITECLOUD_PROJECT_URL"):
+                    select(
+                        role,
+                        supabase_only
+                        + [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": "draining"}],
+                        [],
+                    )
+
+                for secrets in [with_mode("retired"), with_mode(" retired ")]:
+                    retired = select(role, secrets, [])
+                    self.assertFalse(retired.keys() & SQLITECLOUD)
+                    self.assertEqual(
+                        retired["ANARLOG_SQLITECLOUD_MODE"].strip(), "retired"
+                    )
+                    self.assertIn("RESEND_API_KEY", retired)
+                retired = select(
+                    role,
+                    supabase_only
+                    + [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": "retired"}],
+                    [],
+                )
+                self.assertFalse(retired.keys() & SQLITECLOUD)
+
+                with self.assertRaisesRegex(ValueError, "ANARLOG_SQLITECLOUD_MODE"):
+                    select(role, with_mode("disabled"), [])
 
     def test_unknown_role_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "Unknown"):

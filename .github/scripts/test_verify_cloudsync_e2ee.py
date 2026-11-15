@@ -168,6 +168,46 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
         )
         self.assertFalse(pathlib.Path(logs[0]).exists())
 
+    def run_main_with_mode(self, mode: str | None) -> tuple[mock.Mock, mock.Mock]:
+        secrets = (
+            [] if mode is None else [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": mode}]
+        )
+        if mode != "retired":
+            secrets += [{"key": key, "value": "set"} for key in verify.REQUIRED_SECRETS]
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory, "secrets.json")
+            path.write_text(verify.json.dumps(secrets))
+            with (
+                mock.patch.object(sys, "argv", ["verify", str(path)]),
+                mock.patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": ""}),
+                mock.patch.object(
+                    verify, "verify_remote_database", return_value="db"
+                ) as remote,
+                mock.patch.object(verify, "run_verification") as sync_tests,
+                mock.patch.object(
+                    verify, "request_json", side_effect=AssertionError("provider call")
+                ),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                verify.main()
+        return remote, sync_tests
+
+    def test_sqlitecloud_mode_limits_what_verification_touches(self) -> None:
+        for mode, checks_registration, runs_sync_tests in [
+            (None, True, True),
+            ("enabled", True, True),
+            # Minting tokens or writing fixtures would move the fenced boundary.
+            ("draining", True, False),
+            ("retired", False, False),
+        ]:
+            with self.subTest(mode=mode):
+                remote, sync_tests = self.run_main_with_mode(mode)
+                self.assertEqual(remote.called, checks_registration)
+                self.assertEqual(sync_tests.called, runs_sync_tests)
+
+        with self.assertRaisesRegex(ValueError, "ANARLOG_SQLITECLOUD_MODE"):
+            self.run_main_with_mode("disabled")
+
     def e2ee_record_columns(self) -> list[dict[str, object]]:
         timestamp_default = "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
         return [

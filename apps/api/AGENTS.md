@@ -47,6 +47,27 @@ email configuration. Optional integration groups are validated only in their
 owning roles. `ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED` is accepted only by `core`
 and `all`. Assign cleanup to one deployment during migration.
 
+## SQLite Cloud lifecycle
+
+Sync routes need only Supabase. `ANARLOG_SQLITECLOUD_MODE` decides what the
+provider may still do; it lives in `/anarlog/cloudsync` so deploy verification
+and secret selection read the same value.
+
+| Value | `/sync/token` | Provider secrets and account cleanup |
+| --- | --- | --- |
+| `enabled` | Provider tokens, or replica credentials by default/override | Required; cleanup purges the provider |
+| `draining` | Replica credentials for `accepted_replica` clients, 426 `cloudsync_upgrade_required` otherwise | Required; cleanup still purges the provider; deploy verification is read-only |
+| `retired` | Same as `draining` | Not staged and never read; cleanup relies on Supabase cascades |
+
+Unset means `enabled` when any provider variable is present and `retired`
+otherwise, which keeps a self-hosted API without SQLite Cloud replica-only.
+The cleanup owner does not accept that inference: without provider variables
+it requires an explicit `retired`. The mode wins over
+`ANARLOG_CLOUDSYNC_DESKTOP_TRANSPORT` and `sync_transport_overrides`, which
+only choose a transport while the provider is `enabled`. `/health/sync`
+reports the resolved mode. Deploys never unset secrets, so a retired machine
+can still hold provider values; only the explicit mode keeps them unread.
+
 Role selection does not change Fly routing or provision applications. Keep
 existing URLs working while clients and webhook providers migrate.
 
