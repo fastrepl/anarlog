@@ -143,29 +143,49 @@ class AuditCloudsyncReplicaTests(unittest.TestCase):
             )
         )
 
-    def test_resumes_after_the_last_completed_workspace(self) -> None:
+    def test_a_resumed_pass_still_fails_on_what_an_earlier_run_found(self) -> None:
         stores = Stores()
-        for workspace in (WORKSPACE_A, WORKSPACE_B):
-            stores.source(workspace, "note" + workspace[-1], "v1")
-            stores.accepted(workspace, "note" + workspace[-1], "v1")
+        stores.source(WORKSPACE_A, "missing", "never accepted")
+        stores.source(WORKSPACE_B, "note", "v1")
+        stores.accepted(WORKSPACE_B, "note", "v1")
 
         with tempfile.TemporaryDirectory() as evidence:
-            self.assertEqual(stores.run(evidence, limit=1)["workspaces"], 1)
-            self.assertEqual(stores.run(evidence)["workspaces"], 1)
-            self.assertEqual(stores.run(evidence)["workspaces"], 0)
+            self.assertEqual(stores.run(evidence, limit=1)["missing"], 1)
+            resumed = stores.run(evidence)
+            finished = stores.run(evidence)
             audited = [
                 row["workspace"]
                 for row in read_lines(pathlib.Path(evidence, "workspaces.jsonl"))
             ]
-            # A pilot run does not move the cursor of the full pass.
-            self.assertEqual(
-                stores.run(evidence, workspace=[WORKSPACE_A])["current"], 1
-            )
-            self.assertEqual(stores.run(evidence)["workspaces"], 0)
-            with self.assertRaisesRegex(ValueError, "different source snapshot"):
-                stores.run(evidence, source="fenced")
+            # A pilot run reports only itself and does not move the full pass.
+            pilot = stores.run(evidence, workspace=[WORKSPACE_B])
+            after_pilot = stores.run(evidence)
 
         self.assertEqual(audited, [WORKSPACE_A, WORKSPACE_B])
+        for totals in (resumed, finished, after_pilot):
+            self.assertEqual(
+                (totals["workspaces"], totals["missing"], totals["current"]), (2, 1, 1)
+            )
+        self.assertEqual((pilot["workspaces"], pilot["missing"]), (1, 0))
+
+    def test_one_evidence_directory_holds_one_source_snapshot(self) -> None:
+        stores = Stores()
+        stores.source(WORKSPACE_A, "missing", "never accepted")
+
+        with tempfile.TemporaryDirectory() as evidence:
+            # A pilot run binds a fresh directory too.
+            stores.run(evidence, workspace=[WORKSPACE_A])
+            for selection in (None, [WORKSPACE_A]):
+                with self.assertRaisesRegex(ValueError, "different source snapshot"):
+                    stores.run(evidence, source="fenced", workspace=selection)
+            directory = pathlib.Path(evidence)
+            records = read_lines(directory / "unresolved.jsonl") + [
+                line
+                for path in (directory / "archive").iterdir()
+                for line in read_lines(path)
+            ]
+
+        self.assertEqual({record["source"] for record in records}, {"live"})
 
     def test_downloads_ciphertext_in_bounded_batches(self) -> None:
         stores = Stores()

@@ -291,14 +291,24 @@ def write_progress(path: pathlib.Path, progress: dict[str, object]) -> None:
 
 
 def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
+    """Audits the selected workspaces, or continues the full pass, and returns totals.
+
+    The full pass accumulates its totals in `progress.json`, so a resumed run
+    still fails on what an earlier run found. A `--workspace` run reports only
+    itself and leaves the full pass untouched.
+    """
+    empty = dict.fromkeys((*CLASSES, "workspaces", "unmapped"), 0)
     progress_path = evidence / "progress.json"
-    progress = {"cursor": "", "source": arguments.source}
-    if progress_path.exists() and not arguments.workspace:
+    progress = {"cursor": "", "source": arguments.source, "totals": dict(empty)}
+    if progress_path.exists():
         progress = json.loads(progress_path.read_text())
+        # One directory holds one provider state: mixed evidence proves nothing.
         if progress.get("source") != arguments.source:
             raise ValueError(
                 "this evidence directory belongs to a different source snapshot"
             )
+    else:
+        write_progress(progress_path, progress)
 
     archive = None
     if arguments.archive:
@@ -310,6 +320,7 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
                 / "archive"
                 / f"{hashlib.sha256(workspace.encode()).hexdigest()}.jsonl",
                 {
+                    "source": arguments.source,
                     "workspace": workspace,
                     "record_id": record_id,
                     "payload_hash": source_hash,
@@ -317,9 +328,10 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
                 },
             )
 
-    totals = dict.fromkeys((*CLASSES, "workspaces", "unmapped"), 0)
+    totals = dict(empty) if arguments.workspace else progress["totals"]
     selected = iter(arguments.workspace or [])
-    while arguments.limit is None or totals["workspaces"] < arguments.limit:
+    audited = 0
+    while arguments.limit is None or audited < arguments.limit:
         workspace = (
             next(selected, None)
             if arguments.workspace
@@ -329,7 +341,9 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
             break
         summary = audit_workspace(provider, replica, workspace, archive)
         for record in summary.pop("unresolved", []):
-            append_json(evidence / "unresolved.jsonl", record)
+            append_json(
+                evidence / "unresolved.jsonl", record | {"source": arguments.source}
+            )
         append_json(
             evidence / "workspaces.jsonl",
             summary
@@ -340,6 +354,7 @@ def run(arguments, provider, replica, evidence: pathlib.Path) -> dict[str, int]:
                 ),
             },
         )
+        audited += 1
         totals["workspaces"] += 1
         totals["unmapped"] += bool(summary.get("unmapped"))
         for name, count in summary.get("classes", {}).items():
