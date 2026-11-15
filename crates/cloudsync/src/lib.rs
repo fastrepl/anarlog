@@ -1700,6 +1700,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn opens_a_database_written_by_the_previous_extension_release() {
+        // Written by sqlite-sync 1.2.0: one synced table holding two local
+        // changes that were never sent.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cloudsync.db");
+        std::fs::write(&path, include_bytes!("fixtures/sqlite-sync-1.2.0.db")).unwrap();
+        let (options, _) = apply(SqliteConnectOptions::new().filename(&path)).unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+
+        assert_eq!(version(&pool).await.unwrap(), CLOUDSYNC_VERSION);
+        assert!(is_enabled(&pool, "items").await.unwrap());
+        let site_id: String = sqlx::query_scalar("SELECT hex(cloudsync_siteid())")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(site_id, "01A1DFCC8E6273F6ABAD72DE0EAD316E");
+        let pending = "SELECT count(*) FROM cloudsync_changes
+             WHERE site_id = (SELECT site_id FROM cloudsync_site_id WHERE rowid = 0)";
+        let unsent: i64 = sqlx::query_scalar(pending).fetch_one(&pool).await.unwrap();
+        assert_eq!(unsent, 2);
+
+        sqlx::query("INSERT INTO items VALUES ('third', 'written after the upgrade')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let unsent: i64 = sqlx::query_scalar(pending).fetch_one(&pool).await.unwrap();
+        assert_eq!(unsent, 3);
+        pool.close().await;
+    }
+
+    #[tokio::test]
     async fn terminates_each_pool_connection_before_close() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("cloudsync.db");
