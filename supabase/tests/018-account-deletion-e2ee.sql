@@ -1,5 +1,5 @@
 begin;
-select plan(36);
+select plan(37);
 
 select tests.create_supabase_user(
   'cloudsync_delete_owner',
@@ -490,12 +490,55 @@ select ok(
 select tests.clear_authentication();
 reset role;
 
+insert into public.e2ee_freshness_events (
+  workspace_id,
+  record_id,
+  payload_hash,
+  payload,
+  created_by
+)
+select
+  workspace_id,
+  repeat('r', 43),
+  repeat('h', 43),
+  'ciphertext',
+  state.owner_user_id
+from account_deletion_e2ee_state as state, unnest(state.workspace_ids) as workspace_id;
+
+insert into public.e2ee_replica_receipts (
+  workspace_id,
+  mutation_id,
+  request_hash,
+  accepted_head,
+  events
+)
+select workspace_id, gen_random_uuid(), repeat('h', 43), 1, '[]'::jsonb
+from account_deletion_e2ee_state as state, unnest(state.workspace_ids) as workspace_id;
+
 select lives_ok(
   format(
     'delete from auth.users where id = %L::uuid',
     (select owner_user_id from account_deletion_e2ee_state)
   ),
   'Auth deletion can proceed after E2EE cleanup is confirmed'
+);
+
+select is(
+  (
+    select count(*)
+    from public.e2ee_freshness_events as event
+    where event.workspace_id = any (
+      (select workspace_ids from account_deletion_e2ee_state)::uuid[]
+    )
+  ) + (
+    select count(*)
+    from public.e2ee_replica_receipts as receipt
+    where receipt.workspace_id = any (
+      (select workspace_ids from account_deletion_e2ee_state)::uuid[]
+    )
+  ),
+  0::bigint,
+  'Auth deletion removes the encrypted log and receipts of every owned workspace'
 );
 
 select tests.authenticate_as_service_role();

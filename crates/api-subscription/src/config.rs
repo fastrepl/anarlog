@@ -12,7 +12,21 @@ pub struct SubscriptionConfig {
     pub loops: LoopsEnv,
     pub analytics: Option<Arc<AnalyticsClient>>,
     pub durable_cleanup_enabled: bool,
-    pub cloudsync_cleanup: Option<CloudsyncCleanupConfig>,
+    pub cloudsync_cleanup: CloudsyncCleanup,
+}
+
+/// How account deletion clears the encrypted workspace data held by SQLite Cloud.
+#[derive(Clone, Default)]
+pub enum CloudsyncCleanup {
+    /// The E2EE step of account deletion fails until a variant below is chosen,
+    /// so a missing provider client never counts as a completed purge.
+    #[default]
+    Unconfigured,
+    /// Delete the account's workspaces from SQLite Cloud and confirm none remain.
+    Provider(CloudsyncCleanupConfig),
+    /// SQLite Cloud is retired and holds no Anarlog data. The encrypted log
+    /// lives only in Supabase, which removes it with the account's workspaces.
+    Retired,
 }
 
 #[derive(Clone)]
@@ -33,7 +47,7 @@ impl SubscriptionConfig {
             loops: loops.clone(),
             analytics: None,
             durable_cleanup_enabled: false,
-            cloudsync_cleanup: None,
+            cloudsync_cleanup: CloudsyncCleanup::Unconfigured,
         }
     }
 
@@ -47,8 +61,8 @@ impl SubscriptionConfig {
         self
     }
 
-    pub fn with_cloudsync_cleanup(mut self, cloudsync_cleanup: CloudsyncCleanupConfig) -> Self {
-        self.cloudsync_cleanup = Some(cloudsync_cleanup);
+    pub fn with_cloudsync_cleanup(mut self, cloudsync_cleanup: CloudsyncCleanup) -> Self {
+        self.cloudsync_cleanup = cloudsync_cleanup;
         self
     }
 }

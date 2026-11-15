@@ -411,24 +411,9 @@ fn main() -> std::io::Result<()> {
                     .subscription
                     .as_ref()
                     .expect("cleanup requires Stripe and Loops configuration");
-                let cloudsync_cleanup = anlg_api_subscription::CloudsyncCleanupConfig::new(
-                    env.sync
-                        .sqlitecloud_project_url
-                        .as_deref()
-                        .unwrap_or_default(),
-                    env.sync
-                        .sqlitecloud_token_issuer_api_key
-                        .as_deref()
-                        .unwrap_or_default(),
-                    env.sync
-                        .anarlog_cloudsync_e2ee_database_id
-                        .as_deref()
-                        .unwrap_or_default(),
-                    env.sqlitecloud_cloudsync_management_api_key
-                        .as_deref()
-                        .unwrap_or_default(),
-                )
-                .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+                let cloudsync_cleanup = env
+                    .cloudsync_cleanup()
+                    .expect("cleanup configuration validated");
                 let config =
                     anlg_api_subscription::SubscriptionConfig::new(&env.supabase, stripe, loops)
                         .with_cloudsync_cleanup(cloudsync_cleanup);
