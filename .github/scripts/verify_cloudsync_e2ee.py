@@ -807,14 +807,21 @@ def verify_provider(values: dict[str, str], mode: str) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        raise ValueError("usage: verify_cloudsync_e2ee.py <infisical-export.json>")
+    arguments = sys.argv[1:]
+    # Before a deploy this checks the serving API. `--replica-only` repeats the
+    # replica check afterwards, against the candidate and the mode it now runs.
+    replica_only = "--replica-only" in arguments
+    paths = [argument for argument in arguments if argument != "--replica-only"]
+    if len(paths) != 1:
+        raise ValueError(
+            "usage: verify_cloudsync_e2ee.py [--replica-only] <infisical-export.json>"
+        )
 
-    values = load_secrets(sys.argv[1])
+    values = load_secrets(paths[0])
     mode = sqlitecloud_mode(values)
     verifies_replica = replica_verification_configured(values, mode)
     # Retired means no provider request may be made at all.
-    if mode != "retired":
+    if mode != "retired" and not replica_only:
         verify_provider(values, mode)
     if verifies_replica:
         verify_replica(values)

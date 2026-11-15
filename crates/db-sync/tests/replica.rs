@@ -23,7 +23,7 @@ async fn status_of(request: reqwest::RequestBuilder) -> u16 {
 }
 
 #[tokio::test]
-#[ignore = "live replica verification only; requires ANARLOG_REPLICA_API_URL, ANARLOG_REPLICA_ACCESS_TOKEN_A/B, and ANARLOG_REPLICA_RECOVERY_KEY_A"]
+#[ignore = "live replica verification run by deploys (ANLG-554); requires ANARLOG_REPLICA_API_URL, ANARLOG_REPLICA_ACCESS_TOKEN_A/B, and ANARLOG_REPLICA_RECOVERY_KEY_A"]
 async fn fresh_devices_converge_through_the_replica_and_other_accounts_stay_out() {
     let api = required_env("ANARLOG_REPLICA_API_URL");
     let api = api.trim_end_matches('/');

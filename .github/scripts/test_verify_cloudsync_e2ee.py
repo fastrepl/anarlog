@@ -169,7 +169,10 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
         self.assertFalse(pathlib.Path(logs[0]).exists())
 
     def run_main_with_mode(
-        self, mode: str | None, replica_secrets: tuple[str, ...] = ()
+        self,
+        mode: str | None,
+        replica_secrets: tuple[str, ...] = (),
+        flags: tuple[str, ...] = (),
     ) -> tuple[mock.Mock, mock.Mock, mock.Mock]:
         secrets = (
             [] if mode is None else [{"key": "ANARLOG_SQLITECLOUD_MODE", "value": mode}]
@@ -181,7 +184,7 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
             path = pathlib.Path(directory, "secrets.json")
             path.write_text(verify.json.dumps(secrets))
             with (
-                mock.patch.object(sys, "argv", ["verify", str(path)]),
+                mock.patch.object(sys, "argv", ["verify", *flags, str(path)]),
                 mock.patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": ""}),
                 mock.patch.object(
                     verify, "verify_remote_database", return_value="db"
@@ -214,6 +217,13 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "ANARLOG_SQLITECLOUD_MODE"):
             self.run_main_with_mode("disabled")
+
+    def test_the_check_after_a_deploy_touches_only_the_replica(self) -> None:
+        remote, sync_tests, replica = self.run_main_with_mode(
+            "enabled", verify.REPLICA_SECRETS, ("--replica-only",)
+        )
+        self.assertFalse(remote.called or sync_tests.called)
+        self.assertTrue(replica.called)
 
     def test_replica_verification_is_optional_only_while_the_provider_exists(
         self,

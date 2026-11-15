@@ -72,7 +72,9 @@ Deploy verification also checks the encrypted replica when the eight
 `ANARLOG_REPLICA_VERIFY_*` values in `/anarlog/cloudsync` name two dedicated Pro
 accounts: two fresh devices converge through the serving API and the second
 account is refused the first one's workspace. It is optional while the provider
-exists and required once `retired`, when nothing else verifies sync. Point
+exists and required once `retired`, when nothing else verifies sync. It runs
+against the serving API before every deploy and again after a `sync` deploy,
+against the candidate and the mode it now runs. Point
 `ANARLOG_REPLICA_VERIFY_API_URL` at the sync service so `/health/sync` reports
 the mode that service runs. Keep account A's recovery key unchanged: the
 account is bound to its first key and each run appends one note to its history.

@@ -224,6 +224,26 @@ jobs:
           flyctl machine list --app "$FLY_APP" --json | jq '[.[] | {id, state, region, image: .config.image, image_ref}]'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      # The check before the deploy saw the previous image. Repeat the replica
+      # check against the candidate, which may have changed the lifecycle mode.
+      - if: inputs.service == 'sync'
+        run: |
+          set -euo pipefail
+
+          cloudsync_secrets_json="$(mktemp)"
+          trap 'rm -f "$cloudsync_secrets_json"' EXIT
+
+          infisical export \
+            --token="$INFISICAL_TOKEN" \
+            --env="$INFISICAL_ENV" \
+            --projectId="$INFISICAL_PROJECT_ID" \
+            --path="/anarlog/cloudsync" \
+            --format=json \
+            --output-file="$cloudsync_secrets_json"
+
+          python3 .github/scripts/verify_cloudsync_e2ee.py --replica-only "$cloudsync_secrets_json"
+        env:
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
       - if: always() && inputs.continuity_user != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
