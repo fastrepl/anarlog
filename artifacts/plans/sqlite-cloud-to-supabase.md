@@ -31,7 +31,7 @@ Included: personal/shared workspaces, enrollment and recovery, sharing/web editi
 
 Excluded from this migration: a new sync vendor, plaintext cloud storage of private notes, changed document conflict policy, a new collaboration engine, another database host/region, relocating existing object storage, and Char's separately billed resources. Keep the current Supabase project initially. A capacity blocker stops rollout rather than silently creating a second project.
 
-Retain the local CloudSync extension for the first migration. Existing SQLite triggers and schema initialization can require it even with replica networking. Removing it is a separate local-schema migration, with old-database upgrade and downgrade tests. Verify that retaining the local extension is compatible with the subscription/license exit before scheduling cancellation.
+Retain the local CloudSync extension for the first migration. Existing SQLite triggers and schema initialization can require it even with replica networking. Removing it is a separate local-schema migration, with old-database upgrade and downgrade tests. Verify that retaining the local extension is compatible with the subscription/license exit before scheduling cancellation. As of November 15 it is not clearly compatible for the vendored 1.2.0 release; see the license finding in section 2.
 
 ## 2. Evidence and remaining facts
 
@@ -63,6 +63,45 @@ The source supports per-account transport selection and replica credentials on d
 | `replica` capability header first shipped in desktop 1.4.24 (#7503); accepted-state outbox and update-required handling in 1.4.29 (#7997); contention fixes in 1.4.30. Latest stable tag is 1.4.34                                                      | Builds 1.4.24 through 1.4.28 advertise `replica` without the outbox or any handling of a fenced workspace. Existing identifiers cannot separate them from later builds, so capability negotiation was extended (section 4).     |
 | Desktop sends no app version on credential requests; mobile calls `/sync/replica/credentials` with no capability header                                                                                                                                 | Mobile is unaffected by the lifecycle gate. Its accepted-state coverage per build still needs P2 qualification.                                                                                                                 |
 | `POST https://api.anarlog.so/sync/token` answers 401 with `via: 1.1 fly.io, 2 fly.io, 2 fly.io`; the same request to `anarlog-sync.fly.dev` and `/health` on the gateway carry only `2 fly.io, 2 fly.io`. `fly.gateway.toml` sets `ANARLOG_SYNC_ORIGIN`    | The gateway forwards sync requests one more proxy hop, consistent with the checked-in profile. Header evidence only; machine configuration was not read because both the Fly CLI and dashboard sessions are signed out.         |
+
+### Provider, licensing, and baseline (November 15, read-only)
+
+Sources: the SQLite Cloud dashboard (read through the signed-in browser; nothing was changed), the `sqliteai/sqlite-sync` repository, and bounded read-only queries against production Supabase (keyed index probes and fixed 100,000–200,000-row sequence ranges with a statement timeout; no table scans).
+
+**SQLite Cloud account**
+
+- Organization Fastrepl has three projects: `anarlog` (Hosting Pro, CloudSync Enterprise, production, us-west-2), `char` (Hosting Pro, CloudSync Free), and `char-dev` (Free). Do not touch the Char projects.
+- The subscription is monthly through Stripe: CloudSync Enterprise for anarlog $4,300, Pro Project × 2 (anarlog and char) $158, Extra Storage 30 GB (anarlog) $15, Dev Project $0. Next billing date December 14, 2026. The dashboard offers Cancel Subscription and per-project Downgrade and states no notice period or effective-date terms. Whether a separate order form or contract adds terms is still unknown.
+- `anarlog` databases: `anarlog-e2ee-prod.sqlite` 62.76 GB (backups enabled), `auth.sqlitecloud` 245.75 MB, `anarlog-dev.sqlite`, and `edge.sqlitecloud`. The project shows 63 GB used of 60 GB. CloudSync is registered for `anarlog-e2ee-prod.sqlite` (table `e2ee_records`) and `anarlog-dev.sqlite`.
+- Export and snapshot: each database has a Download action and Weblite documents a download endpoint; backups are continuous with three-day retention on Pro. The production backup list did not load, so no restore point was confirmed. There is no separate snapshot-download option.
+- Write fence: there is no database-wide read-only switch. Available controls are deleting or regenerating API keys, disabling a user or scoping it to READ roles, disabling CloudSync per database or table, and `DELETE /v2/tokens`, which needs the token itself. None was exercised, so a fence is possible but unproven. Step P4.3 must demonstrate it on a test database first.
+
+**Local extension license: a blocker for the plan's assumption**
+
+- The app vendors sqlite-sync 1.2.0 (September 28, 2026). That release is under a modified Elastic License 2.0. Its open-source grant excludes replacing or bypassing the extension's network layer or using "an alternative ... synchronization mechanism ... in connection with the software", which needs a commercial license, as does commercial production use. Using the bundled extension with the Supabase replica transport after the Enterprise subscription ends is therefore not clearly licensed.
+- Upstream relicensed to Apache 2.0 on October 19, 2026. Releases 1.2.1 and 1.2.2 (November 6) carry the Apache license and publish binaries for every platform the app ships.
+- Consequence for section 1: "retain the local CloudSync extension" is only safe if the minimum supported client build bundles 1.2.1 or later, or SQLite Cloud confirms in writing that existing 1.2.0 distributions stay licensed after cancellation. The upgrade changes `CLOUDSYNC_VERSION`, which existing databases store and validate, so it needs old-database upgrade tests and the native CloudSync CI lanes. This is a legal reading by an engineer, not legal advice; John decides.
+
+**Supabase baseline, November 11 23:40 to November 15 04:50 UTC (77 hours)**
+
+- Database 92 GB (`pg_database_size`); encrypted log 81 GB including indexes with head sequence 29,464,861; receipts 5.9 GB; `max_connections` 160; no long-running or blocked queries at the time of reading.
+- 1,756 workspaces with cloud authority of 12,942; 2,798 devices, 512 seen in three days; no transport overrides; no pending account-deletion jobs.
+- Accepted-event rate from 20,000-event spans: median 9.8 events/s, peak 20.3 events/s (November 12 about 21:30 UTC), minimum 6.3 events/s. About 850,000 events per day; the last 10 million events, a third of the log, arrived in 15 days.
+- Recent events average 427 bytes of ciphertext, so the log grows roughly 0.6 GB a day at this rate.
+
+**Supabase capacity and spend (dashboard, November 15)**
+
+- Organization Fastrepl is on Pro with the spend cap off. Anarlog runs Large compute (2 dedicated vCPU, 8 GB), about $110.74 a month. Other projects: `char` (Medium) and `char-staging` (Micro).
+- Disk: 135 GB gp3 provisioned (3,000 IOPS, 125 MB/s), 92.78 GB used, so 31% is free against the 30% floor in section 8. Autoscaling adds 67 GB at 90% usage.
+- Billing cycle October 25 to November 25, organization-wide at day 21: egress 367 GB of 250 GB included ($10.54 so far), disk overage $8.53, compute $71.57 after credit, plan $25. Projected cycle cost $68.06 after prepaid credits. Log ingestion shows $129.03 that is not billed until 2027.
+- Backups: daily physical backups, seven listed, latest November 14 08:10 UTC. Point-in-time recovery is off. Restoring one into an isolated project has not been tried; it creates a billable project and needs John's go-ahead.
+- Last seven days: the dashboard shows CPU at 34% in one view and 89% in another without saying which is the peak, memory 65–75%, and a peak of 66 of 160 connections. The IOPS and per-pooler connection charts did not load. Treat CPU headroom as unmeasured.
+
+**Most of that write rate is one client bug**
+
+In four bounded samples of 100,000 consecutive events (October 17, October 28, November 8, November 15), 95–99% of events were the same 494–666 records being republished: median 63–79 seconds apart, identical payload size, a single writing account, about nine records per active workspace. The cause is desktop calendar sync, which set `updated_at` on every event-linked note on every pass and so republished two encrypted records per linked note each time. [PR #8195](https://github.com/fastrepl/anarlog/pull/8195) stops the rewrite; it reaches users with a desktop release and does not compact existing history.
+
+Consequences for this plan: the measured peak is mostly churn, so P2's "twice the measured peak" should be recorded against both the current rate and the expected rate after the fix; fresh-device bootstrap and the audit both pay for the accumulated history; and the minimum client build for draining should include the fix.
 
 ### Relevant history
 
@@ -294,6 +333,8 @@ Changing a client's transport and activating cloud authority are different event
 
 The receipt's next service boundary is December 14, 2026. Verify actual renewal/cancellation terms and notice deadlines in P0; the receipt alone does not guarantee a cancellation window or refund. Resolve license terms for continued distribution/use of the local extension at the same time.
 
+**Forecast as of November 15.** Removed: $4,300 a month for CloudSync Enterprise, plus $94 (the anarlog Pro project and its 30 GB of extra storage) if the whole anarlog SQLite Cloud project is retired; Char's $79 project stays. Added on Supabase: the encrypted log already lives there and is already written by every syncing client, so the migration adds reads rather than a new dataset. Bounding each line generously: egress doubling to about 1 TB a month costs about $70; log growth of 19 GB a month at today's churned rate adds about $2.40 a month, cumulatively; one compute step up to XL adds about $100. That is under $200 a month against $4,300 removed, so the cost rule in section 8 passes with wide margin even if every bound is hit. The forecast does not include the one-time cost of a restore drill or any SQLite Cloud charge for the final billing period.
+
 Gross annualized CloudSync Enterprise spend is $51,600 at the shown monthly rate. The final report uses actual removed charges minus incremental Supabase/API/storage/backup/log costs. It must not claim the entire $4,473 invoice is eliminated: two Pro projects include Char, and ownership must be checked before changing them. Recheck [Supabase pricing](https://supabase.com/pricing) against the organization's actual plan/discounts when modeling cost.
 
 Planning estimate: 2–3 weeks if the existing replica path qualifies and no data-recovery, licensing, capacity, or client-distribution blocker appears. The minimum observation windows alone total 13 days; engineering, release propagation, and final reconciliation can extend the schedule. The billing date does not waive an integrity gate. Financial close and 30-day archive expiry may occur after the technical cutover.
@@ -321,13 +362,14 @@ For every rollout change record: operator, UTC timestamp, environment, exact coh
 
 ### Progress as of November 15
 
-**P0, done read-only:** the refreshed observations in section 2, including the gateway forwarding check.
+**P0, done read-only:** the refreshed observations in section 2, including the gateway forwarding check, the provider account and export/fence capabilities, the license finding, and the sync write baseline with its churn diagnosis.
 
 **P0, still open:**
 
 - Fly machine images, digests, and staged secret names for sync, core, and gateway. The Fly CLI and dashboard sessions are both signed out; needs John to sign in.
-- Snapshot/export and write-fence capabilities of SQLite Cloud, cancellation notice and renewal terms, and local-extension licensing.
-- 72-hour baseline for sync, auth, database, billing/account reads, egress, and storage growth; provisioned disk and quota; the cost forecast.
+- A decision on the local extension license (section 2): ship sqlite-sync 1.2.1 or later in the minimum client build, or obtain written confirmation from SQLite Cloud. Draft [PR #8196](https://github.com/fastrepl/anarlog/pull/8196) vendors 1.2.2 and passes the local database suites; native lanes were dispatched as run 43679782626. Any contract terms beyond what the dashboard shows.
+- A demonstrated provider write fence and a confirmed production restore point; capabilities are listed in section 2 but none was exercised.
+- The rest of the baseline: auth and billing/account-read latency, API request rates, and a labelled CPU peak. Sync write rate, storage growth, disk, egress, and the cost forecast (section 10) are recorded.
 - Supabase backup restoration into an isolated target.
 - ANLG-469 resistance reproduced against the serving images, beyond confirming the fixes are deployed.
 
