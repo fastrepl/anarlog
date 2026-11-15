@@ -693,6 +693,13 @@ export function SettingsSync() {
           description: t`Choose a device below to replace, or add more device slots to your plan. This device will continue automatically.`,
         };
       }
+      if (credentialBlock === "update_required") {
+        return {
+          kind: "error" as const,
+          label: t`Update Anarlog to keep syncing`,
+          description: t`This version can no longer sync. Your notes stay on this device, and changes made here will sync after you update.`,
+        };
+      }
       if (credentialBlock === "clock_skew") {
         return {
           kind: "error" as const,
