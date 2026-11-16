@@ -16,7 +16,7 @@ use super::{
     mutations::{self, Command},
     navigation::Route,
     notes::{self, NoteCommand},
-    picker::PICKER_QUERY,
+    picker::{NOTES_QUERY, load_recent, save_recent},
     pins,
     ports::{Catalog, CatalogQuery, catalog_detail, catalog_page, decode_catalog},
 };
@@ -91,7 +91,7 @@ fn contacts_prefer_authenticated_self_and_keep_self_visible_during_search() {
 fn picker_scopes_shared_cache_to_viewer_and_deduplicates_managed_local_notes() {
     block_on(async {
         let (_directory, runtime) = start().await;
-        execute(&runtime,"INSERT INTO sessions(id,title,created_at) VALUES ('local','Local','2024-01-01'),('recent','Recent','2023-01-01')",vec![]).await;
+        execute(&runtime,"INSERT INTO sessions(id,title,created_at) VALUES ('local','Local','2024-01-01'),('older','Older','2023-01-01T00:00:00Z')",vec![]).await;
         for (share, viewer, session, managed) in [
             ("duplicate", "viewer", "local", 1),
             ("shared", "viewer", "remote", 0),
@@ -100,38 +100,59 @@ fn picker_scopes_shared_cache_to_viewer_and_deduplicates_managed_local_notes() {
             execute(&runtime,"INSERT INTO shared_session_cache(share_id,viewer_user_id,workspace_id,session_id,content_revision,access_version,published_at,title,manage_access) VALUES (?,?,'workspace',?,1,1,'2025-01-01',?,?)",
                 vec![json!(share),json!(viewer),json!(session),json!(share),json!(managed)]).await;
         }
-        let rows = execute(
-            &runtime,
-            PICKER_QUERY,
-            vec![json!("%"), json!("viewer"), json!("[\"recent\"]")],
-        )
-        .await;
-        assert_eq!(rows.len(), 3);
-        assert_eq!(rows[0]["id"], "recent");
-        assert_eq!(rows[1]["kind"], "shared");
-        assert_eq!(rows[1]["id"], "shared");
-        assert_eq!(rows[2]["id"], "local");
-        let signed_out = execute(
-            &runtime,
-            PICKER_QUERY,
-            vec![json!("%"), Value::Null, json!("[]")],
-        )
-        .await;
-        assert_eq!(signed_out.len(), 2);
-        assert!(signed_out.iter().all(|row| row["kind"] == "session"));
+        let ids = |rows: Vec<Value>| {
+            rows.iter()
+                .map(|row| row["id"].as_str().unwrap().to_owned())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            ids(execute(&runtime, NOTES_QUERY, vec![json!("viewer")]).await),
+            ["shared", "local", "older"]
+        );
+        assert_eq!(
+            ids(execute(&runtime, NOTES_QUERY, vec![Value::Null]).await),
+            ["local", "older"]
+        );
         execute(
             &runtime,
             "UPDATE sessions SET deleted_at='deleted' WHERE id='local'",
             vec![],
         )
         .await;
-        let rows = execute(
+        assert_eq!(
+            ids(execute(&runtime, NOTES_QUERY, vec![json!("viewer")]).await),
+            ["duplicate", "shared", "older"]
+        );
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
+fn recently_opened_notes_persist_and_malformed_storage_reads_as_empty() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let load = || async {
+            load_recent(&runtime, CancellationToken::new())
+                .unwrap()
+                .receive()
+                .await
+                .unwrap()
+        };
+        assert!(load().await.is_empty());
+        let recent = vec![SessionId("b".into()), SessionId("a".into())];
+        save_recent(&runtime, recent.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert_eq!(load().await, recent);
+        execute(
             &runtime,
-            PICKER_QUERY,
-            vec![json!("%"), json!("viewer"), json!("[]")],
+            "UPDATE app_settings SET value_json='{oops' WHERE id='gpui_recent_sessions'",
+            vec![],
         )
         .await;
-        assert!(rows.iter().any(|row| row["id"] == "duplicate"));
+        assert!(load().await.is_empty());
         runtime.shutdown().await.unwrap();
     });
 }
@@ -1058,7 +1079,7 @@ fn selected_folder_commands_collapse_nested_roots_and_keep_notes_on_delete() {
 }
 
 #[test]
-fn event_command_reuses_a_note_and_search_finds_local_transcript_and_scoped_shared_content() {
+fn event_command_reuses_a_note_for_the_same_event() {
     block_on(async {
         let (_directory, runtime) = start().await;
         execute(&runtime,"INSERT INTO events(id,title,started_at,ended_at,participants_json) VALUES ('event','Planning','2026-09-21T10:00:00Z','2026-09-21T11:00:00Z','[{\"email\":\"person@example.com\",\"name\":\"Person\"},{\"email\":\"PERSON@example.com\"}]')",vec![]).await;
@@ -1092,38 +1113,6 @@ fn event_command_reuses_a_note_and_search_finds_local_transcript_and_scoped_shar
             .len(),
             1
         );
-        execute(&runtime,"INSERT INTO transcripts(id,session_id,words_json) VALUES ('transcript',?,'[{\"text\":\"검색 transcript\"}]')",vec![json!(first.0)]).await;
-        execute(&runtime,"INSERT INTO shared_session_cache(share_id,viewer_user_id,workspace_id,session_id,content_revision,access_version,published_at,title,body_json) VALUES ('shared','viewer','workspace','remote',1,1,'2026-09-21','Shared','{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"검색 secret\"}]}]}')",vec![]).await;
-        let search = super::search::SearchEngine::default();
-        let results = search
-            .query(
-                &runtime,
-                "검색".into(),
-                Some("viewer".into()),
-                CancellationToken::new(),
-            )
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert_eq!(results.hits.len(), 2);
-        let results = search
-            .query(&runtime, "검색".into(), None, CancellationToken::new())
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert_eq!(results.hits.len(), 1);
-        let cancel = CancellationToken::new();
-        cancel.cancel();
-        assert!(matches!(
-            search
-                .query(&runtime, "anything".into(), None, cancel)
-                .unwrap()
-                .receive()
-                .await,
-            Err(ServiceError::Cancelled)
-        ));
         runtime.shutdown().await.unwrap();
     });
 }

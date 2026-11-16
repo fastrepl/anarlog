@@ -5,7 +5,7 @@ pub mod cloud;
 mod controls;
 pub mod local;
 mod locale;
-mod navigation;
+pub(crate) mod navigation;
 pub mod onboarding;
 mod pages;
 mod preferences_view;

@@ -83,6 +83,14 @@ fn main() {
     settle(&mut cx);
 
     capture(&mut cx, window, &out, "main");
+    // The open-note dialog before any note was opened: fresh, filtered, and without a match.
+    type_text(&mut cx, window, &["cmd-k"]);
+    capture(&mut cx, window, &out, "search");
+    type_text(&mut cx, window, &["s", "y", "n", "c"]);
+    capture(&mut cx, window, &out, "search-query");
+    type_text(&mut cx, window, &["x"]);
+    capture(&mut cx, window, &out, "search-none");
+    type_text(&mut cx, window, &["escape"]);
     // Sidebar chrome, by window position: sort menu, its Grouping submenu, then the toggle.
     click(&mut cx, window, 178., 23.);
     pointer(&mut cx, window, 260., 67.);
@@ -146,6 +154,16 @@ fn main() {
     click(&mut cx, window, 850., 70.);
     type_text(&mut cx, window, &["space", "/"]);
     capture(&mut cx, window, &out, "note-slash");
+    // Recently opened notes lead the dialog, opened from the sidebar's search button; the
+    // arrows move the selection.
+    for id in ["s-hiring", "s-pricing", "s-offsite", "s-customer", "s-sync"] {
+        open(&mut cx, window, Route::Session(SessionId(id.into())));
+    }
+    click(&mut cx, window, 122., 23.);
+    capture(&mut cx, window, &out, "search-recent");
+    type_text(&mut cx, window, &["down", "down"]);
+    capture(&mut cx, window, &out, "search-keyboard");
+    type_text(&mut cx, window, &["escape"]);
     meeting(&mut cx, window, profile.path(), &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),

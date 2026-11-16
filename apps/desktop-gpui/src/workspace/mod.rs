@@ -17,7 +17,7 @@ mod persistence_tests;
 mod picker;
 pub mod pins;
 pub mod ports;
-pub mod search;
+mod search;
 mod shell;
 mod sidebar;
 pub mod templates;

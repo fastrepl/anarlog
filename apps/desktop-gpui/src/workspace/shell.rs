@@ -242,8 +242,9 @@ impl WorkspaceView {
                 if let Some(intent) = this.pending.take() {
                     this.apply_navigation(intent, cx);
                 }
-                this.picker
-                    .update(cx, |picker, _| picker.remember(session.summary.id.clone()));
+                this.picker.update(cx, |picker, cx| {
+                    picker.remember(session.summary.id.clone(), cx)
+                });
                 if this.auto_start.as_ref() == Some(&session.summary.id) {
                     this.auto_start = None;
                     cx.emit(WorkspaceEvent::Meeting(MeetingIntent::Start {
@@ -275,12 +276,11 @@ impl WorkspaceView {
             window,
             |this, _, event: &PickerEvent, window, cx| {
                 this.picker_open = false;
-                this.picker.update(cx, |picker, _| picker.close());
                 if let Some(focus) = this.return_focus.take() {
                     focus.focus(window, cx);
                 }
-                if let PickerEvent::Open(route) = event {
-                    this.navigate(Navigate::Open(route.clone(), false), cx);
+                if let PickerEvent::Open(route, new_tab) = event {
+                    this.navigate(Navigate::Open(route.clone(), *new_tab), cx);
                 }
                 cx.notify();
             },
@@ -308,6 +308,7 @@ impl WorkspaceView {
             let _ = this.update(cx, |this, cx| match result {
                 Ok(()) => {
                     this.ready = true;
+                    this.picker.update(cx, |picker, cx| picker.load(cx));
                     this.reload(cx);
                     this.watch(cx);
                     this.watch_events(cx);
@@ -1170,11 +1171,16 @@ impl WorkspaceView {
     }
 
     pub(super) fn show_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.picker_open {
-            self.return_focus = window.focused(cx);
+        if self.picker_open {
+            return;
         }
+        self.return_focus = window.focused(cx);
         self.picker_open = true;
-        self.picker.update(cx, |picker, cx| picker.open(window, cx));
+        // Shipping centers it on the app shell's first panel, which starts after the 4px left
+        // padding the shell has while the sidebar is open.
+        let offset = gpui::px(if self.sidebar.expanded { 2. } else { 0. });
+        self.picker
+            .update(cx, |picker, cx| picker.open(offset, window, cx));
         cx.notify();
     }
 

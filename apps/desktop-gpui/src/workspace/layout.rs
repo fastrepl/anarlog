@@ -358,23 +358,9 @@ impl Render for WorkspaceView {
                         )
                 )
             ))
+            // Deferred so the dialog's backdrop also covers application toasts, like shipping's.
             .when(self.picker_open, |view| {
-                view.child(
-                    div()
-                        .absolute()
-                        .inset_0()
-                        .occlude()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .pl(px(if self.sidebar.expanded {
-                            self.sidebar.width()
-                        } else {
-                            0.
-                        }))
-                        .bg(gpui::rgba(0x00000033))
-                        .child(self.picker.clone()),
-                )
+                view.child(gpui::deferred(self.picker.clone()))
             })
     }
 }

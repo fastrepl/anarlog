@@ -1,59 +1,67 @@
+//! Shipping's open-note dialog (`apps/desktop/src/shared/open-note-dialog.tsx`), opened by the
+//! sidebar search button and Mod+K. `search` decides what it lists; this view draws it and owns
+//! the notes snapshot, the persisted recently opened notes and the cmdk-style selection.
+
 use std::{collections::VecDeque, sync::Arc};
 
-use desktop_runtime::{CancellationToken, Generation, RuntimeHandle, ServiceError, SessionId};
+use desktop_runtime::{
+    CancellationToken, Generation, Reply, RuntimeHandle, ServiceError, SessionId,
+};
 use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, Render, SharedString,
-    Subscription, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
+    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, Font, FontWeight,
+    KeyDownEvent, ListAlignment, ListState, MouseButton, Pixels, Render, SharedString,
+    Subscription, TextRun, Window, div, list, prelude::*, px, svg,
 };
 use serde_json::json;
 
-use super::{navigation::Route, ports::escape_like};
+use super::{
+    mutations::failure,
+    navigation::Route,
+    search::{self, MAX_RECENT, Move, Note, Row},
+};
 use crate::ui::{
     input::{InputEvent, TextInput},
-    theme::theme,
+    theme::{system_font, theme},
 };
 
-pub(super) const PICKER_QUERY: &str = "WITH recent AS (
-    SELECT value AS id, key AS rank FROM json_each(?3)
-), notes AS (
-    SELECT 'session' AS kind, s.id, substr(s.title,1,4096) AS title, s.created_at AS date,
-        COALESCE(recent.rank, 999) AS rank
-    FROM sessions s LEFT JOIN recent ON s.id = recent.id WHERE s.deleted_at IS NULL
+/// Local notes newest first (ties keep shipping's `created_at DESC, id`), then the viewer's
+/// shared notes that are not already a managed local note.
+pub(super) const NOTES_QUERY: &str = "SELECT kind, id, title FROM (
+    SELECT 'session' AS kind, id, substr(title,1,4096) AS title, created_at AS date, 0 AS source
+    FROM sessions WHERE deleted_at IS NULL
     UNION ALL
-    SELECT 'shared' AS kind, c.share_id AS id, substr(c.title,1,4096) AS title, c.published_at AS date, 999 AS rank
-    FROM shared_session_cache c WHERE c.viewer_user_id = ?2
+    SELECT 'shared', c.share_id, substr(c.title,1,4096), c.published_at, 1
+    FROM shared_session_cache c WHERE c.viewer_user_id = ?1
         AND NOT (c.manage_access = 1 AND EXISTS(
             SELECT 1 FROM sessions s WHERE s.id = c.session_id AND s.deleted_at IS NULL))
-) SELECT kind, id, title, rank FROM notes
-WHERE title LIKE ?1 ESCAPE '\\'
-ORDER BY rank, date DESC, kind, id LIMIT 201";
+) ORDER BY julianday(date) DESC, source, date DESC, id";
+
+/// Shipping keeps this list in its app store; the native preview keeps it with its other
+/// profile-local UI state.
+const RECENT_KEY: &str = "gpui_recent_sessions";
 
 #[derive(Clone)]
 pub enum PickerEvent {
-    Open(Route),
+    /// The destination, and whether it opens in a new tab.
+    Open(Route, bool),
     Dismiss,
-}
-
-#[derive(Clone)]
-pub struct PickerRow {
-    pub route: Route,
-    pub title: Arc<str>,
-    pub recent: bool,
 }
 
 pub struct NotePicker {
     runtime: RuntimeHandle,
-    engine: super::search::SearchEngine,
     input: Entity<TextInput>,
-    rows: Arc<[PickerRow]>,
-    selected: usize,
+    notes: Arc<[Note]>,
     recent: VecDeque<SessionId>,
+    /// Until the stored list is read, opened notes are kept in memory and not written back.
+    restored: bool,
     viewer: Option<Arc<str>>,
+    rows: Vec<Row>,
+    selected: Option<usize>,
+    list: ListState,
+    /// Horizontal offset that centers the dialog over the main content instead of the window.
+    offset: Pixels,
     generation: Generation,
     cancel: CancellationToken,
-    scroll: UniformListScrollHandle,
-    message: String,
-    loading: bool,
     _subscription: Subscription,
 }
 
@@ -67,173 +75,192 @@ impl Focusable for NotePicker {
 
 impl NotePicker {
     pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
-        let input = cx.new(|cx| TextInput::new("Open a note…", cx));
-        let subscription = cx.subscribe(&input, |this, _, event, cx| match event {
-            InputEvent::Changed if this.input.read(cx).buffer.marked.is_none() => this.load(cx),
-            InputEvent::Submitted => this.choose(cx),
-            _ => {}
+        let input = cx.new(|cx| TextInput::new("Search notes and pages...", cx).inline());
+        let subscription = cx.subscribe(&input, |this, _, event, cx| {
+            if let InputEvent::Changed = event {
+                this.refilter(false, cx);
+            }
         });
-        Self {
+        let mut picker = Self {
             runtime,
-            engine: super::search::SearchEngine::default(),
             input,
-            rows: Arc::from([]),
-            selected: 0,
+            notes: Arc::from([]),
             recent: VecDeque::new(),
+            restored: false,
             viewer: None,
+            rows: Vec::new(),
+            selected: None,
+            list: ListState::new(0, ListAlignment::Top, px(320.)),
+            offset: px(0.),
             generation: Generation::default(),
             cancel: CancellationToken::new(),
-            scroll: UniformListScrollHandle::new(),
-            message: String::new(),
-            loading: false,
             _subscription: subscription,
-        }
+        };
+        picker.refilter(false, cx);
+        picker
     }
 
     pub fn set_viewer(&mut self, viewer: Option<Arc<str>>, cx: &mut Context<Self>) {
         self.cancel.cancel();
         self.generation.advance();
         self.viewer = viewer;
-        self.rows = Arc::from([]);
-        self.selected = 0;
-        self.loading = false;
-        self.message = "Account changed. Type to search.".into();
-        cx.notify();
+        self.notes = Arc::from([]);
+        self.refilter(true, cx);
     }
 
-    pub fn remember(&mut self, id: SessionId) {
+    /// Records an opened note, like shipping's `addRecentlyOpened`.
+    pub fn remember(&mut self, id: SessionId, cx: &mut Context<Self>) {
+        if self.recent.front() == Some(&id) {
+            return;
+        }
         self.recent.retain(|existing| existing != &id);
         self.recent.push_front(id);
-        self.recent.truncate(50);
+        self.recent.truncate(MAX_RECENT);
+        if self.restored {
+            self.save_recent(cx);
+        }
     }
 
-    pub fn open(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn open(&mut self, offset: Pixels, window: &mut Window, cx: &mut Context<Self>) {
+        self.offset = offset;
         self.input
             .update(cx, |input, cx| input.set_text(String::new(), cx));
         self.input.focus_handle(cx).focus(window, cx);
+        self.refilter(false, cx);
         self.load(cx);
     }
 
-    pub fn close(&mut self) {
-        self.cancel.cancel();
-        self.generation.advance();
-    }
-
-    fn load(&mut self, cx: &mut Context<Self>) {
+    /// Reads the notes and, the first time, the stored recently opened notes.
+    pub fn load(&mut self, cx: &mut Context<Self>) {
         self.cancel.cancel();
         self.cancel = CancellationToken::new();
         let generation = self.generation.advance();
-        let query: Arc<str> = self.input.read(cx).buffer.text.as_str().into();
         let viewer = self.viewer.clone();
-        let recent = self.recent.iter().take(5).cloned().collect::<Vec<_>>();
-        if !query.trim().is_empty() {
-            let reply = self
-                .engine
-                .query(&self.runtime, query, viewer, self.cancel.clone());
-            self.loading = true;
-            self.message = "Searching notes and transcripts…".into();
-            cx.notify();
-            cx.spawn(async move |this, cx| {
-                let result = match reply { Ok(reply) => reply.receive().await, Err(error) => Err(error) };
-                let _ = this.update(cx, |this, cx| {
-                    if generation != this.generation { return; }
-                    this.loading = false;
-                    match result {
-                        Ok(results) => {
-                            this.rows = results.hits.iter().map(|hit| PickerRow { route: hit.route.clone(), title: hit.title.clone(), recent: false }).collect();
-                            this.selected = 0;
-                            this.message = if results.limited { "Bounded search: some content or results were omitted; refine the query." } else if this.rows.is_empty() { "No matching notes." } else { "↑ ↓ to select · Enter to open · Esc to close" }.into();
-                        }
-                        Err(error) => { this.rows = Arc::from([]); this.message = format!("Search failed: {error}"); }
-                    }
-                    cx.notify();
-                });
-            }).detach();
-            return;
-        }
-        let reply = self
+        let notes = self
             .runtime
             .read(self.cancel.clone(), move |services| async move {
                 let rows = services
                     .executor
-                    .execute(
-                        PICKER_QUERY.into(),
-                        vec![
-                            json!(format!("%{}%", escape_like(query.trim()))),
-                            json!(viewer),
-                            json!(serde_json::to_string(&recent).map_err(|error| {
-                                ServiceError::Failed(error.to_string().into())
-                            })?),
-                        ],
-                    )
+                    .execute(NOTES_QUERY.into(), vec![json!(viewer)])
                     .await
-                    .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-                let more = rows.len() > 200;
-                let rows = rows
+                    .map_err(failure)?;
+                Ok(rows
                     .iter()
-                    .take(200)
                     .map(|row| {
-                        let id: Arc<str> = row["id"].as_str().unwrap_or_default().into();
-                        PickerRow {
+                        let id = row["id"].as_str().unwrap_or_default();
+                        Note {
                             route: if row["kind"] == "shared" {
-                                Route::SharedSession(id)
+                                Route::SharedSession(id.into())
                             } else {
-                                Route::Session(SessionId(id))
+                                Route::Session(SessionId(id.into()))
                             },
                             title: row["title"]
                                 .as_str()
                                 .filter(|title| !title.is_empty())
-                                .unwrap_or("Untitled note")
+                                .unwrap_or("Untitled")
                                 .into(),
-                            recent: row["rank"].as_u64().is_some_and(|rank| rank < 5),
                         }
                     })
-                    .collect::<Vec<_>>();
-                Ok((Arc::<[PickerRow]>::from(rows), more))
+                    .collect::<Arc<[Note]>>())
             });
-        self.loading = true;
-        self.message = "Searching titles…".into();
-        cx.notify();
+        let stored = (!self.restored).then(|| load_recent(&self.runtime, self.cancel.clone()));
         cx.spawn(async move |this, cx| {
-            let result = match reply {
+            let notes = match notes {
                 Ok(reply) => reply.receive().await,
                 Err(error) => Err(error),
+            };
+            let stored = match stored {
+                Some(Ok(reply)) => Some(reply.receive().await),
+                Some(Err(error)) => Some(Err(error)),
+                None => None,
             };
             let _ = this.update(cx, |this, cx| {
                 if generation != this.generation {
                     return;
                 }
-                this.loading = false;
-                match result {
-                    Ok((rows, more)) => {
-                        this.rows = rows;
-                        this.selected = 0;
-                        this.scroll.scroll_to_item(0, gpui::ScrollStrategy::Top);
-                        this.message = if more {
-                            "Showing 200 results. Refine the title to find more."
-                        } else if this.rows.is_empty() {
-                            "No matching notes."
-                        } else {
-                            "↑ ↓ to select · Enter to open · Esc to close"
+                match stored {
+                    Some(Ok(stored)) if !this.restored => {
+                        let opened = this.recent.len();
+                        this.recent.extend(stored);
+                        let mut seen = std::collections::HashSet::new();
+                        this.recent.retain(|id| seen.insert(id.clone()));
+                        this.recent.truncate(MAX_RECENT);
+                        this.restored = true;
+                        if opened > 0 {
+                            this.save_recent(cx);
                         }
-                        .into();
                     }
-                    Err(error) => {
-                        this.rows = Arc::from([]);
-                        this.message = format!("Search failed: {error}");
+                    Some(Err(ServiceError::Cancelled)) | Some(Ok(_)) | None => {}
+                    Some(Err(error)) => {
+                        tracing::warn!(%error, "recently opened notes could not be read")
                     }
                 }
-                cx.notify();
+                match notes {
+                    Ok(notes) => this.notes = notes,
+                    Err(ServiceError::Cancelled) => return,
+                    Err(error) => tracing::warn!(%error, "open-note dialog could not read notes"),
+                }
+                this.refilter(true, cx);
             });
         })
         .detach();
     }
 
+    fn save_recent(&self, cx: &mut Context<Self>) {
+        let reply = save_recent(&self.runtime, self.recent.iter().cloned().collect());
+        cx.background_spawn(async move {
+            let result = match reply {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
+            if let Err(error) = result {
+                tracing::warn!(%error, "recently opened notes were not saved");
+            }
+        })
+        .detach();
+    }
+
+    /// Rebuilds the rows. A new query selects the first item, as cmdk does; a reload keeps the
+    /// selected item when it is still listed.
+    fn refilter(&mut self, keep: bool, cx: &mut Context<Self>) {
+        let recent = self.recent.iter().cloned().collect::<Vec<_>>();
+        let rows = search::rows(&self.notes, &recent, &self.input.read(cx).buffer.text);
+        let key = self
+            .selected
+            .filter(|_| keep)
+            .and_then(|index| self.rows.get(index))
+            .and_then(Row::key);
+        let kept = key.and_then(|key| rows.iter().position(|row| row.key().as_ref() == Some(&key)));
+        let old = self.rows.len();
+        self.rows = rows;
+        self.selected = kept.or_else(|| search::step(&self.rows, None, Move::Next));
+        if keep {
+            self.list.splice(0..old, self.rows.len());
+        } else {
+            self.list.reset(self.rows.len());
+        }
+        cx.notify();
+    }
+
+    fn select(&mut self, movement: Move) {
+        self.selected = search::step(&self.rows, self.selected, movement);
+        let Some(selected) = self.selected else {
+            return;
+        };
+        // cmdk also reveals the group heading above a group's first item.
+        if let Some(Row::Heading { .. }) = selected.checked_sub(1).map(|index| &self.rows[index]) {
+            self.list.scroll_to_reveal_item(selected - 1);
+        }
+        self.list.scroll_to_reveal_item(selected);
+    }
+
     fn choose(&mut self, cx: &mut Context<Self>) {
-        if !self.loading
-            && let Some(row) = self.rows.get(self.selected)
+        if let Some((route, new_tab)) = self
+            .selected
+            .and_then(|index| self.rows.get(index))
+            .and_then(Row::destination)
         {
-            cx.emit(PickerEvent::Open(row.route.clone()));
+            cx.emit(PickerEvent::Open(route, new_tab));
         }
     }
 
@@ -241,17 +268,217 @@ impl NotePicker {
         if self.input.read(cx).buffer.marked.is_some() {
             return;
         }
+        let modifiers = event.keystroke.modifiers;
+        let (down, up) = if modifiers.platform {
+            (Move::Last, Move::First)
+        } else if modifiers.alt {
+            (Move::NextGroup, Move::PreviousGroup)
+        } else {
+            (Move::Next, Move::Previous)
+        };
         match event.keystroke.key.as_str() {
             "escape" => cx.emit(PickerEvent::Dismiss),
-            "up" => self.selected = self.selected.saturating_sub(1),
-            "down" => self.selected = (self.selected + 1).min(self.rows.len().saturating_sub(1)),
+            "enter" => self.choose(cx),
+            "down" => self.select(down),
+            "up" => self.select(up),
+            "n" | "j" if modifiers.control => self.select(Move::Next),
+            "p" | "k" if modifiers.control => self.select(Move::Previous),
+            "home" => self.select(Move::First),
+            "end" => self.select(Move::Last),
             _ => return,
         }
-        self.scroll
-            .scroll_to_item(self.selected, gpui::ScrollStrategy::Center);
         cx.stop_propagation();
         cx.notify();
     }
+
+    fn render_row(
+        &mut self,
+        index: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let colors = theme(window);
+        let muted = colors.muted_foreground;
+        let (icon, title, hint, locked): (&'static str, SharedString, _, _) =
+            match &self.rows[index] {
+                Row::Heading { label, separator } => {
+                    return div()
+                        .w_full()
+                        .flex()
+                        .flex_col()
+                        .gap_3()
+                        .when(*separator, |view| {
+                            view.child(div().mx_2().h(px(1.)).bg(colors.accent))
+                        })
+                        .child(
+                            div()
+                                .px_2()
+                                .py(px(6.))
+                                .flex()
+                                .text_size(px(12.))
+                                .line_height(px(16.))
+                                .font_weight(FontWeight::MEDIUM)
+                                .text_color(muted)
+                                .children(tracked(&label.to_uppercase(), 12., window, cx)),
+                        )
+                        .into_any_element();
+                }
+                Row::Gap => return div().h(px(6.)).into_any_element(),
+                Row::Page(page) => (
+                    page.icon,
+                    page.label.into(),
+                    search::hint(*page),
+                    page.requires_pro,
+                ),
+                Row::Note { note, .. } => (
+                    if matches!(note.route, Route::SharedSession(_)) {
+                        "workspace/UsersIcon.svg"
+                    } else {
+                        "workspace/FileTextIcon.svg"
+                    },
+                    note.title.clone().into(),
+                    None,
+                    false,
+                ),
+            };
+        div()
+            .id(index)
+            .w_full()
+            .flex()
+            .items_center()
+            .gap_3()
+            .rounded(px(8.))
+            .px_3()
+            .py(px(10.))
+            .text_size(px(14.))
+            .line_height(px(20.))
+            .text_color(muted)
+            .cursor_pointer()
+            .when(self.selected == Some(index), |view| {
+                view.bg(colors.accent.opacity(0.6))
+            })
+            .on_mouse_move(cx.listener(move |this, _, _, cx| {
+                if this.selected != Some(index) {
+                    this.selected = Some(index);
+                    cx.notify();
+                }
+            }))
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.selected = Some(index);
+                this.choose(cx);
+            }))
+            .child(
+                svg()
+                    .path(icon)
+                    .size(px(16.))
+                    .flex_shrink_0()
+                    .text_color(muted),
+            )
+            .child(div().min_w_0().truncate().child(title))
+            .when_some(hint, |view, hint| {
+                view.child(
+                    div()
+                        .ml_auto()
+                        .flex_shrink_0()
+                        .text_size(px(12.))
+                        .line_height(px(16.))
+                        .child(hint),
+                )
+            })
+            .when(locked, |view| {
+                view.child(
+                    svg()
+                        .path("product/LockPasswordIcon.svg")
+                        .size(px(14.))
+                        .flex_shrink_0()
+                        .text_color(muted),
+                )
+            })
+            .into_any_element()
+    }
+}
+
+/// `tracking-wider` (0.05em): GPUI text runs have no letter spacing, so each letter is laid
+/// out at its own advance plus the tracking.
+fn tracked(text: &str, size: f32, window: &Window, cx: &App) -> Vec<gpui::Div> {
+    let font = Font {
+        weight: FontWeight::MEDIUM,
+        ..gpui::font(system_font(cx))
+    };
+    text.chars()
+        .map(|letter| {
+            let letter = SharedString::from(letter.to_string());
+            let run = TextRun {
+                len: letter.len(),
+                font: font.clone(),
+                color: gpui::black(),
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            let advance = window
+                .text_system()
+                .shape_line(letter.clone(), px(size), &[run], None)
+                .width;
+            div().flex_none().w(advance + px(size * 0.05)).child(letter)
+        })
+        .collect()
+}
+
+/// Shipping's row heights: `py-1.5` 16px headings (plus the separator's 1px and `gap-3`),
+/// `py-2.5` 20px items and the `pb-1.5` group gap.
+fn row_height(row: &Row) -> f32 {
+    match row {
+        Row::Heading { separator, .. } => 28. + if *separator { 13. } else { 0. },
+        Row::Page(_) | Row::Note { .. } => 40.,
+        Row::Gap => 6.,
+    }
+}
+
+/// The stored recently opened notes, newest first. Like shipping, malformed storage reads as
+/// empty and is replaced by the next save.
+pub(super) fn load_recent(
+    runtime: &RuntimeHandle,
+    cancel: CancellationToken,
+) -> desktop_runtime::Result<Reply<Vec<SessionId>>> {
+    runtime.read(cancel, |services| async move {
+        let rows = services
+            .executor
+            .execute(
+                "SELECT value_json FROM app_settings WHERE id = ?".into(),
+                vec![json!(RECENT_KEY)],
+            )
+            .await
+            .map_err(failure)?;
+        Ok(rows
+            .first()
+            .and_then(|row| row["value_json"].as_str())
+            .and_then(|raw| serde_json::from_str::<Vec<String>>(raw).ok())
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|id| !id.is_empty())
+            .take(MAX_RECENT)
+            .map(|id| SessionId(id.into()))
+            .collect())
+    })
+}
+
+pub(super) fn save_recent(
+    runtime: &RuntimeHandle,
+    recent: Vec<SessionId>,
+) -> desktop_runtime::Result<Reply<()>> {
+    let value = json!(recent.iter().map(|id| id.0.as_ref()).collect::<Vec<_>>()).to_string();
+    runtime.submit(move |services| async move {
+        services
+            .executor
+            .execute(
+                "INSERT INTO app_settings (id, value_json, updated_at) VALUES (?1, ?2, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at".into(),
+                vec![json!(RECENT_KEY), json!(value)],
+            )
+            .await
+            .map(|_| ())
+            .map_err(failure)
+    })
 }
 
 impl Drop for NotePicker {
@@ -263,80 +490,123 @@ impl Drop for NotePicker {
 impl Render for NotePicker {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
-        div()
-            .id("open-note-picker")
-            .w_full()
-            .max_w(px(520.))
-            .h(px(420.))
+        let muted = colors.muted_foreground;
+        let viewport = window.viewport_size();
+        let width = viewport.width.min(px(512.));
+        let top = viewport.height * 0.15;
+        let header = div()
             .flex()
-            .flex_col()
-            .gap_2()
-            .p_3()
-            .bg(colors.popover)
-            .border_1()
-            .border_color(colors.border)
-            .rounded(px(8.))
-            .shadow_lg()
-            .on_key_down(cx.listener(Self::key))
-            .child(self.input.clone())
+            .items_center()
+            .gap_3()
+            .border_b_1()
+            .border_color(colors.border.opacity(0.6))
+            .px_4()
+            .py_3()
             .child(
-                div().flex_1().min_h_0().child(
-                    uniform_list(
-                        "picker-rows",
-                        self.rows.len(),
-                        cx.processor(move |this, range: std::ops::Range<usize>, _, cx| {
-                            range
-                                .map(|index| {
-                                    let row = this.rows[index].clone();
-                                    div()
-                                        .id(index)
-                                        .h(px(44.))
-                                        .px_2()
-                                        .rounded(px(8.))
-                                        .bg(if index == this.selected {
-                                            colors.accent
-                                        } else {
-                                            colors.popover
-                                        })
-                                        .cursor_pointer()
-                                        .on_click(cx.listener(move |this, _, _, cx| {
-                                            this.selected = index;
-                                            this.choose(cx);
-                                        }))
-                                        .child(
-                                            div()
-                                                .text_sm()
-                                                .truncate()
-                                                .child(SharedString::from(row.title)),
-                                        )
-                                        .child(
-                                            div()
-                                                .text_xs()
-                                                .text_color(colors.muted_foreground)
-                                                .child(if row.recent {
-                                                    "Recent"
-                                                } else if matches!(
-                                                    row.route,
-                                                    Route::SharedSession(_)
-                                                ) {
-                                                    "Shared note"
-                                                } else {
-                                                    "Note"
-                                                }),
-                                        )
-                                })
-                                .collect()
-                        }),
-                    )
-                    .track_scroll(&self.scroll)
-                    .size_full(),
-                ),
+                svg()
+                    .path("Search01Icon.svg")
+                    .size(px(16.))
+                    .flex_shrink_0()
+                    .text_color(muted),
+            )
+            // The shared input is 24px tall; shipping's line is 20px.
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .h(px(20.))
+                    .flex()
+                    .items_center()
+                    .child(self.input.clone()),
             )
             .child(
                 div()
-                    .text_xs()
-                    .text_color(colors.muted_foreground)
-                    .child(self.message.clone()),
+                    .id("close-open-note-dialog")
+                    .size(px(20.))
+                    .flex_shrink_0()
+                    .rounded(px(8.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .bg(colors.accent.opacity(0.8))
+                    .child(
+                        svg()
+                            .path("product/XIcon.svg")
+                            .size(px(12.))
+                            .text_color(muted),
+                    )
+                    .on_click(cx.listener(|_, _, _, cx| cx.emit(PickerEvent::Dismiss))),
+            );
+        let results = if self.rows.is_empty() {
+            div()
+                .p_2()
+                .child(
+                    div()
+                        .py_6()
+                        .text_center()
+                        .text_size(px(14.))
+                        .line_height(px(20.))
+                        .text_color(muted)
+                        .child("No results found."),
+                )
+                .into_any_element()
+        } else {
+            // `max-h-80` around the `p-2` list.
+            let height = self.rows.iter().map(row_height).sum::<f32>() + 16.;
+            list(
+                self.list.clone(),
+                cx.processor(|this, index: usize, window, cx| this.render_row(index, window, cx)),
+            )
+            .w_full()
+            .h(px(height.min(320.)))
+            .p_2()
+            .into_any_element()
+        };
+        div()
+            .id("open-note-dialog")
+            .absolute()
+            .inset_0()
+            .occlude()
+            .bg(gpui::black().opacity(0.2))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|_, _, _, cx| cx.emit(PickerEvent::Dismiss)),
+            )
+            .capture_key_down(cx.listener(Self::key))
+            // Shipping keeps the top of the overlay as a window drag region that does not close.
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .h(top)
+                    .on_mouse_down(MouseButton::Left, |_, window, cx| {
+                        cx.stop_propagation();
+                        window.start_window_move();
+                    }),
+            )
+            .child(
+                div()
+                    .absolute()
+                    .top(top)
+                    .left((viewport.width - width) / 2. + self.offset)
+                    .w(width)
+                    .px_4()
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .overflow_hidden()
+                            .rounded(px(16.))
+                            .border_1()
+                            .border_color(colors.border.opacity(0.8))
+                            .bg(colors.background)
+                            .shadow_2xl()
+                            .child(header)
+                            .child(results),
+                    ),
             )
     }
 }
