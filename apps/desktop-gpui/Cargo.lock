@@ -3007,6 +3007,7 @@ dependencies = [
  "db-execute",
  "db-sync",
  "desktop-runtime",
+ "dictation-ui-macos",
  "e2ee",
  "export-core",
  "flate2",
@@ -3016,6 +3017,7 @@ dependencies = [
  "gpui",
  "gpui_platform",
  "gtk",
+ "hound",
  "html5ever",
  "image",
  "keyring",
@@ -3038,7 +3040,9 @@ dependencies = [
  "objc2-av-foundation",
  "open",
  "owhisper-client",
+ "owhisper-interface",
  "ractor",
+ "raw-window-handle",
  "regex",
  "reqwest 0.13.2",
  "rfd",
@@ -3046,6 +3050,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "shortcut-macos",
  "sqlx",
  "storage",
  "supabase-auth",
@@ -3111,6 +3116,15 @@ dependencies = [
  "cidre",
  "libpulse-binding",
  "tracing",
+]
+
+[[package]]
+name = "dictation-ui-macos"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "swift-rs",
 ]
 
 [[package]]
@@ -10669,6 +10683,15 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "shortcut-macos"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "specta",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "signal-hook-registry"

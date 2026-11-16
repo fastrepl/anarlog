@@ -165,6 +165,7 @@ fn main() {
     capture(&mut cx, window, &out, "search-keyboard");
     type_text(&mut cx, window, &["escape"]);
     meeting(&mut cx, window, profile.path(), &out);
+    dictation(&mut cx, &out);
     contacts(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
@@ -426,6 +427,119 @@ fn floating(
     println!("{}", path.display());
     cx.update_window(window, |_, window, _| window.remove_window())
         .unwrap();
+}
+
+/// The dictation panel (shipping's floating bar in dictation mode) in each of its states,
+/// rendered from the same panel state the dictation host publishes; nothing records.
+fn dictation(cx: &mut HeadlessAppContext, out: &std::path::Path) {
+    use desktop_gpui::dictation::{
+        controller::Phase,
+        overlay::{self, DictationBar, Panel},
+    };
+    let listening = Panel {
+        owner: "system-dictation:screens".into(),
+        phase: Phase::Recording,
+        amplitude: 0.45,
+        microphone: "Default microphone".into(),
+        preview_enabled: true,
+        ..Panel::default()
+    };
+    let words = Panel {
+        text: "Let's move the launch review to Thursday so design can join, and".into(),
+        partial: "send the agenda to".into(),
+        expanded: true,
+        ..listening.clone()
+    };
+    let states = [
+        (
+            "dictation-starting",
+            Panel {
+                phase: Phase::Starting,
+                ..listening.clone()
+            },
+            false,
+        ),
+        ("dictation-listening", listening.clone(), false),
+        ("dictation-hover", listening.clone(), true),
+        (
+            "dictation-finishing",
+            Panel {
+                phase: Phase::Transcribing,
+                ..listening.clone()
+            },
+            false,
+        ),
+        (
+            "dictation-preview-listening",
+            Panel {
+                expanded: true,
+                ..listening.clone()
+            },
+            false,
+        ),
+        ("dictation-preview-words", words.clone(), false),
+        (
+            "dictation-preview-off",
+            Panel {
+                preview_enabled: false,
+                expanded: true,
+                ..listening.clone()
+            },
+            false,
+        ),
+        (
+            "dictation-preview-unavailable",
+            Panel {
+                preview_unavailable: true,
+                expanded: true,
+                ..listening.clone()
+            },
+            false,
+        ),
+        (
+            "dictation-preview-finishing",
+            Panel {
+                phase: Phase::Transcribing,
+                ..words
+            },
+            false,
+        ),
+    ];
+    for (name, panel, hover) in states {
+        let size = overlay::size(panel.expanded);
+        let bar = cx
+            .open_window(size, move |_, cx| cx.new(|_| DictationBar::new(panel)))
+            .unwrap();
+        settle(cx);
+        let window: AnyWindowHandle = bar.into();
+        // The Done control's center when hovered, otherwise outside the panel.
+        let position = if hover {
+            point(px(39.), size.height - px(23.))
+        } else {
+            point(px(-20.), px(-20.))
+        };
+        cx.update_window(window, |_, window, cx| {
+            window.draw(cx).clear(cx);
+            window.dispatch_event(
+                PlatformInput::MouseMove(MouseMoveEvent {
+                    position,
+                    pressed_button: None,
+                    modifiers: Modifiers::default(),
+                }),
+                cx,
+            );
+        })
+        .unwrap();
+        settle(cx);
+        cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))
+            .unwrap();
+        let image = cx.capture_screenshot(window).unwrap();
+        let path = out.join(format!("{name}.png"));
+        image.save(&path).unwrap();
+        println!("{}", path.display());
+        cx.update_window(window, |_, window, _| window.remove_window())
+            .unwrap();
+    }
 }
 
 fn segment(

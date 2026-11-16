@@ -19,16 +19,16 @@ use crate::ui::theme::theme;
 
 pub const INSET: f32 = 4.;
 pub const COMPACT_HEIGHT: f32 = 38.;
-const CONTROL_RADIUS: f32 = 10.;
-const COMPACT_RADIUS: f32 = 14.;
-const EXPANDED_RADIUS: f32 = 21.;
-const STOP_WIDTH: f32 = 62.;
+pub(crate) const CONTROL_RADIUS: f32 = 10.;
+pub(crate) const COMPACT_RADIUS: f32 = 14.;
+pub(crate) const EXPANDED_RADIUS: f32 = 21.;
+pub(crate) const STOP_WIDTH: f32 = 62.;
 const SOLO_STOP_WIDTH: f32 = 68.;
-const ICON_SIZE: f32 = 30.;
+pub(crate) const ICON_SIZE: f32 = 30.;
 const HORIZONTAL_PADDING: f32 = 4.;
 const EXPANDED_WIDTH: f32 = 360.;
 const EXPANDED_HEIGHT: f32 = 430.;
-const EXPANDED_PADDING: f32 = 12.;
+pub(crate) const EXPANDED_PADDING: f32 = 12.;
 const HANDLE_TOP_PADDING: f32 = 7.;
 const HANDLE_HEIGHT: f32 = 12.;
 pub const HANDLE_RESERVED: f32 = HANDLE_TOP_PADDING + HANDLE_HEIGHT + 2.;
@@ -42,7 +42,7 @@ pub enum FloatingEvent {
     Stop,
 }
 
-fn controls_width(shows_expand: bool) -> f32 {
+pub(crate) fn controls_width(shows_expand: bool) -> f32 {
     if shows_expand {
         STOP_WIDTH + ICON_SIZE
     } else {
@@ -372,29 +372,34 @@ impl FloatingBar {
     }
 }
 
-struct Palette {
-    content: Hsla,
-    surface: Hsla,
-    envelope: Hsla,
-    control: Hsla,
-    outer: Hsla,
-    inner: Hsla,
-    dots: Hsla,
-    chip: Hsla,
-    chip_stroke: Hsla,
+pub(crate) struct Palette {
+    pub content: Hsla,
+    pub surface: Hsla,
+    pub envelope: Hsla,
+    pub control: Hsla,
+    pub outer: Hsla,
+    pub inner: Hsla,
+    pub dots: Hsla,
+    pub chip: Hsla,
+    pub chip_stroke: Hsla,
     bubble_self: Hsla,
     bubble_other: Hsla,
     overlap: Hsla,
 }
 
 fn palette(dark: bool) -> Palette {
+    palette_with(dark, OPACITY)
+}
+
+/// The bar's colors at a `floating_bar_opacity`; dictation draws at its 0.95 maximum.
+pub(crate) fn palette_with(dark: bool, opacity: f32) -> Palette {
     let content: Hsla = if dark { rgb(0xffffff) } else { rgb(0x1f1c1a) }.into();
     let surface: Hsla = if dark { rgb(0x6e7066) } else { rgb(0xdbd9d1) }.into();
     let pick = |dark_value: f32, light_value: f32| if dark { dark_value } else { light_value };
     Palette {
         content,
-        surface: surface.opacity(OPACITY * 0.82),
-        envelope: surface.opacity((OPACITY * 1.08).min(0.95)),
+        surface: surface.opacity(opacity * 0.82),
+        envelope: surface.opacity((opacity * 1.08).min(0.95)),
         control: content.opacity(pick(0.08, 0.07)),
         outer: content.opacity(pick(0.14, 0.12)),
         inner: content.opacity(pick(0.28, 0.18)),
@@ -407,10 +412,10 @@ fn palette(dark: bool) -> Palette {
     }
 }
 
-const ACCENT: u32 = 0xff334d;
+pub(crate) const ACCENT: u32 = 0xff334d;
 const ERROR_ACCENT: u32 = 0xff403d;
 
-fn icon(path: &'static str, size: f32, color: Hsla) -> gpui::Svg {
+pub(crate) fn icon(path: &'static str, size: f32, color: Hsla) -> gpui::Svg {
     svg()
         .path(path)
         .size(px(size))
@@ -488,7 +493,7 @@ fn bubble_row(bubble: &Bubble, label: bool, palette: &Palette) -> impl IntoEleme
         })
 }
 
-fn hover_handle(color: Hsla) -> impl IntoElement {
+pub(crate) fn hover_handle(color: Hsla) -> impl IntoElement {
     canvas(
         |_, _, _| {},
         move |bounds, _, window, _| {

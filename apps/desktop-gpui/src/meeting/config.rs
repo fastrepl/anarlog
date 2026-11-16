@@ -364,7 +364,7 @@ impl ProviderServices {
     }
 }
 
-fn normalize_keywords(values: &mut Vec<String>) {
+pub(crate) fn normalize_keywords(values: &mut Vec<String>) {
     let mut seen = std::collections::HashSet::new();
     values.retain_mut(|value| {
         *value = value.trim().to_owned();
@@ -373,7 +373,7 @@ fn normalize_keywords(values: &mut Vec<String>) {
     values.truncate(50);
 }
 
-fn is_local(provider: &str, model: &str) -> bool {
+pub(crate) fn is_local(provider: &str, model: &str) -> bool {
     matches!(
         provider,
         "local_file" | "soniqo" | "apple_speech" | "apple-speech"
@@ -384,7 +384,7 @@ fn is_local(provider: &str, model: &str) -> bool {
             || model == "local-file"))
 }
 
-fn batch_provider(provider: &str, model: &str) -> Result<BatchProvider> {
+pub(crate) fn batch_provider(provider: &str, model: &str) -> Result<BatchProvider> {
     if provider == "local_file" || model == "local-file" {
         return Ok(BatchProvider::WhisperLocal);
     }

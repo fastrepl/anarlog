@@ -25,6 +25,7 @@ anlg-db-core = { path = "../../crates/db-core", package = "db-core" }
 anlg-db-execute = { path = "../../crates/db-execute", package = "db-execute" }
 anlg-db-reactive = { path = "../../crates/db-reactive", package = "db-reactive" }
 anlg-db-sync = { path = "../../crates/db-sync", package = "db-sync" }
+anlg-dictation-ui-macos = { path = "../../crates/dictation-ui-macos", package = "dictation-ui-macos" }
 anlg-e2ee = { path = "../../crates/e2ee", package = "e2ee" }
 anlg-export-core = { path = "../../crates/export-core", package = "export-core" }
 anlg-fs-sync-core = { path = "../../crates/fs-sync-core", package = "fs-sync-core" }
@@ -37,6 +38,7 @@ anlg-local-stt-core = { path = "../../crates/local-stt-core", package = "local-s
 anlg-meeting-import = { path = "../../crates/meeting-import", package = "meeting-import" }
 anlg-model-downloader = { path = "../../crates/model-downloader", package = "model-downloader" }
 anlg-notification-interface = { path = "../../crates/notification-interface", package = "notification-interface" }
+anlg-shortcut-macos = { path = "../../crates/shortcut-macos", package = "shortcut-macos" }
 anlg-storage = { path = "../../crates/storage", package = "storage" }
 anlg-supabase-auth = { path = "../../crates/supabase-auth", package = "supabase-auth" }
 anlg-template-app = { path = "../../crates/template-app", package = "template-app" }
@@ -49,11 +51,13 @@ base64 = "0.22.1"
 block2 = "0.6"
 chrono = "0.4"
 chrono-tz = "0.10"
+hound = "3.5.1"
 image = { version = "0.25.10", default-features = false, features = ["webp"] }
 keyring = "4.1.4"
 objc2 = "0.6"
 objc2-av-foundation = "0.3.2"
 owhisper-client = { path = "../../crates/owhisper-client", package = "owhisper-client" }
+owhisper-interface = { path = "../../crates/owhisper-interface", package = "owhisper-interface" }
 ractor = "0.15.10"
 regex = "1.12"
 reqwest = "0.13"
@@ -93,6 +97,9 @@ debug = "line-tables-only"
 debug = "line-tables-only"
 
 [profile.dev.package.tcc]
+debug = "line-tables-only"
+
+[profile.dev.package.dictation-ui-macos]
 debug = "line-tables-only"
 
 [dependencies]
@@ -141,6 +148,7 @@ global-hotkey = "=0.8.0"
 gpui = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af" }
 # Without `font-kit` the macOS backend installs a no-op text system and draws no glyphs.
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["font-kit"] }
+hound = { workspace = true }
 html5ever = "=0.38.0"
 image = { workspace = true, features = ["png"] }
 keyring = { workspace = true }
@@ -148,6 +156,7 @@ markup5ever_rcdom = "=0.38.0"
 mime_guess = "=2.0.5"
 open = "=5.3.3"
 owhisper-client = { workspace = true }
+owhisper-interface = { workspace = true }
 ractor = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["json", "stream", "form"] }
@@ -191,7 +200,10 @@ block2 = { workspace = true }
 objc2 = { workspace = true }
 objc2-av-foundation = { workspace = true }
 anlg-apple-calendar = { workspace = true }
+anlg-dictation-ui-macos = { workspace = true }
+anlg-shortcut-macos = { workspace = true }
 macos-accessibility-client = "=0.0.1"
+raw-window-handle = "0.6"
 anlg-notification-macos = { path = "../../crates/notification-macos", package = "notification-macos" }
 anlg-tcc = { path = "../../crates/tcc", package = "tcc" }
 swift-rs = { workspace = true }

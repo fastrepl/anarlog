@@ -1,4 +1,8 @@
-use std::sync::{Arc, Mutex, mpsc};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Mutex, mpsc},
+};
 
 use desktop_runtime::{Result, ServiceError};
 use gpui::{App, Application, Menu, MenuItem, WindowHandle};
@@ -29,7 +33,7 @@ pub struct NativeEvents {
 
 pub struct NativeHandles {
     pub tray: Option<NativeTray>,
-    _shortcuts: Option<NativeShortcuts>,
+    _shortcuts: Option<Rc<RefCell<NativeShortcuts>>>,
 }
 
 impl NativeEvents {
@@ -90,7 +94,24 @@ impl NativeEvents {
             }
         };
         let sender = self.sender.clone();
+        let (dictation, dictation_events) = crate::dictation::shortcut::channel();
+        let dictation_route = crate::dictation::shortcut::router(dictation.clone());
+        let base = vec![
+            Shortcut {
+                id: "show".into(),
+                accelerator: "CommandOrControl+Shift+KeyH".into(),
+                active_during_capture_only: false,
+            },
+            Shortcut {
+                id: "record".into(),
+                accelerator: "CommandOrControl+Shift+KeyR".into(),
+                active_during_capture_only: false,
+            },
+        ];
         let shortcuts: Result<NativeShortcuts> = NativeShortcuts::new(move |id, pressed| {
+            if dictation_route(&id, pressed) {
+                return;
+            }
             if pressed {
                 let action = match id.as_ref() {
                     "show" => NativeEvent::Action(TrayAction::Open),
@@ -101,22 +122,21 @@ impl NativeEvents {
             }
         })
         .and_then(|mut shortcuts| {
-            shortcuts.replace(&[
-                Shortcut {
-                    id: "show".into(),
-                    accelerator: "CommandOrControl+Shift+KeyH".into(),
-                    active_during_capture_only: false,
-                },
-                Shortcut {
-                    id: "record".into(),
-                    accelerator: "CommandOrControl+Shift+KeyR".into(),
-                    active_during_capture_only: false,
-                },
-            ])?;
+            shortcuts.replace(&base)?;
             Ok(shortcuts)
         });
         let shortcuts = match shortcuts {
-            Ok(shortcuts) => Some(shortcuts),
+            Ok(shortcuts) => {
+                // Dictation adds its own keys to the same registration and event handler.
+                let shortcuts = Rc::new(RefCell::new(shortcuts));
+                cx.set_global(crate::dictation::shortcut::NativeHotkeys {
+                    shortcuts: shortcuts.clone(),
+                    base,
+                    sender: dictation,
+                    events: dictation_events,
+                });
+                Some(shortcuts)
+            }
             Err(error) => {
                 errors.push(format!("Global shortcuts: {error}"));
                 None

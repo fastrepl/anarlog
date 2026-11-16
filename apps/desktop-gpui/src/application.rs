@@ -55,6 +55,7 @@ pub struct ApplicationView {
     editor: Option<Entity<EditorPane>>,
     meeting: Option<Entity<MeetingPane>>,
     meeting_host: MeetingHost,
+    _dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
     services: Option<MeetingServices>,
     native: Option<NativeServices>,
@@ -112,7 +113,7 @@ impl ApplicationView {
                 cx,
             )
         });
-        let subscriptions = vec![
+        let mut subscriptions = vec![
             cx.observe(&live, |this, _, cx| this.live_changed(cx)),
             cx.on_focus_lost(window, |this, window, cx| {
                 if this.product.is_none() && !this.closing && !this.writers_paused {
@@ -133,6 +134,19 @@ impl ApplicationView {
             // Plan-gated surfaces read the account while rendering.
             cx.observe_global::<crate::product::account::Account>(|_, cx| cx.notify()),
         ];
+        let dictation = match crate::dictation::Dictation::install(runtime.clone(), cx) {
+            Ok(dictation) => {
+                subscriptions.push(cx.subscribe(&dictation, |this, _, failed, cx| {
+                    let crate::dictation::DictationFailed(message) = failed;
+                    this.status(message, cx)
+                }));
+                Some(dictation)
+            }
+            Err(error) => {
+                tracing::warn!(%error, "dictation is unavailable");
+                None
+            }
+        };
         crate::product::settings::apply_stored_theme(&runtime, cx);
         let pins_runtime = runtime.clone();
         cx.spawn(async move |this, cx| {
@@ -304,6 +318,7 @@ impl ApplicationView {
             editor: None,
             meeting: None,
             meeting_host,
+            _dictation: dictation,
             product: None,
             services: None,
             native: None,
