@@ -167,8 +167,9 @@ impl LiveState {
                 _ => CaptureMode::Live,
             },
             warning: capture_warning(&update.health, update.audio_interrupted).map(Into::into),
-            paused: interrupted
-                .then(|| paused_message(update.degraded.as_ref(), &update.provider).into()),
+            paused: interrupted.then(|| {
+                paused_message(update.degraded.as_ref(), &update.provider, online()).into()
+            }),
             segments,
         })
     }
@@ -201,10 +202,18 @@ pub fn capture_warning(health: &Health, interrupted: bool) -> Option<&'static st
 
 const LOCAL_PROVIDERS: [&str; 3] = ["soniqo", "apple_speech", "local_file"];
 
-/// Shipping's `getLiveTranscriptPausedMessage`. The native app has no offline signal, so the
-/// "you're offline" cause is never chosen.
-pub fn paused_message(degraded: Option<&DegradedError>, provider: &str) -> String {
+/// Whether the system has a network route, like the webview's `navigator.onLine`. A UDP
+/// `connect` only consults the routing table; nothing is sent.
+pub fn online() -> bool {
+    std::net::UdpSocket::bind("0.0.0.0:0")
+        .and_then(|socket| socket.connect("1.1.1.1:53"))
+        .is_ok()
+}
+
+/// Shipping's `getLiveTranscriptPausedMessage`.
+pub fn paused_message(degraded: Option<&DegradedError>, provider: &str, online: bool) -> String {
     let cloud = provider == "anarlog";
+    let local = LOCAL_PROVIDERS.contains(&provider);
     let name = crate::product::provider_catalog::STT
         .iter()
         .find(|info| info.id == provider)
@@ -222,6 +231,7 @@ pub fn paused_message(degraded: Option<&DegradedError>, provider: &str) -> Strin
             })
     };
     let cause = match degraded {
+        _ if !online && !local => "you're offline".to_owned(),
         Some(DegradedError::AuthenticationFailed { .. }) if cloud => {
             "Anarlog couldn't verify your account".to_owned()
         }
@@ -240,9 +250,7 @@ pub fn paused_message(degraded: Option<&DegradedError>, provider: &str) -> Strin
             }
         }
         Some(_) if cloud => "Anarlog's transcription server is having issues".to_owned(),
-        Some(_) if LOCAL_PROVIDERS.contains(&provider) => {
-            "the local transcription model stopped responding".to_owned()
-        }
+        Some(_) if local => "the local transcription model stopped responding".to_owned(),
         Some(_) => format!("Anarlog can't reach {name}"),
         None if cloud => "Anarlog's transcription server stopped sending words".to_owned(),
         None => format!("{name} stopped sending words"),
@@ -355,19 +363,27 @@ mod tests {
             message: "deepgram: overloaded".into(),
         };
         assert!(
-            paused_message(Some(&outage), "deepgram")
+            paused_message(Some(&outage), "deepgram", true)
                 .contains("because Deepgram is having an outage.")
         );
         let auth = DegradedError::AuthenticationFailed {
             provider: "anarlog".into(),
         };
         assert!(
-            paused_message(Some(&auth), "anarlog")
+            paused_message(Some(&auth), "anarlog", true)
                 .contains("because Anarlog couldn't verify your account.")
         );
         assert!(
-            paused_message(Some(&DegradedError::ConnectionTimeout), "soniqo")
+            paused_message(Some(&DegradedError::ConnectionTimeout), "soniqo", true)
                 .contains("the local transcription model stopped responding")
         );
+        // Offline names the cause for cloud providers; a local model needs no network.
+        assert!(
+            paused_message(Some(&outage), "deepgram", false)
+                .starts_with("Live transcript paused because you're offline.")
+        );
+        assert!(paused_message(None, "soniqo", false).ends_with(
+            "stopped sending words. Your audio is still being saved, and the missing part will be filled in from the recording."
+        ));
     }
 }
