@@ -71,6 +71,7 @@ vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({
     _: lingui.t,
     t: lingui.t,
+    i18n: { _: lingui.t },
   }),
 }));
 
@@ -236,6 +237,22 @@ describe("SettingsNav", () => {
     expect(screen.getByText("Meetings")).toBeTruthy();
     expect(screen.getByText("Templates")).toBeTruthy();
     expect(screen.queryByText("Appearance")).toBeNull();
+  });
+
+  it("finds audio retention inside Meetings before that page is opened", () => {
+    render(<SettingsNav />);
+    const input = screen.getByPlaceholderText("Search settings...");
+
+    fireEvent.change(input, { target: { value: "retention" } });
+    expect(screen.queryByText("No results found.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Meetings" }));
+    expect(openedSettingsTab()).toEqual({ tab: "meetings" });
+    expect(screen.queryByRole("button", { name: "Appearance" })).toBeNull();
+
+    fireEvent.change(input, {
+      target: { value: "  Meetings   AUDIO retention  " },
+    });
+    expect(screen.getByRole("button", { name: "Meetings" })).toBeTruthy();
   });
 
   it("shows an empty state when no settings match", () => {
