@@ -3052,6 +3052,7 @@ dependencies = [
  "swift-rs",
  "sys-locale",
  "tar",
+ "tcc",
  "tempfile",
  "template-app",
  "tiptap",
@@ -11775,6 +11776,13 @@ dependencies = [
  "thiserror 2.0.18",
  "windows 0.62.2",
  "windows-version",
+]
+
+[[package]]
+name = "tcc"
+version = "0.1.0"
+dependencies = [
+ "swift-rs",
 ]
 
 [[package]]

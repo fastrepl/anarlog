@@ -17,6 +17,16 @@ pub enum Status {
     NotRequired,
 }
 
+const NOT_REQUESTED: &str = "Not requested yet";
+
+#[cfg(not(target_os = "macos"))]
+fn probed(result: std::result::Result<(), impl std::fmt::Display>) -> Status {
+    match result {
+        Ok(()) => Status::Granted,
+        Err(error) => Status::Denied(error.to_string()),
+    }
+}
+
 #[derive(Clone)]
 pub struct NativePermissions {
     audio: Arc<dyn anlg_audio::AudioProvider>,
@@ -27,17 +37,47 @@ impl NativePermissions {
         Self { audio }
     }
 
+    /// Reads the current permission without prompting. On macOS this queries the
+    /// authorization status like shipping; opening a device here would trigger the OS prompt.
     pub fn check(&self, permission: Permission) -> Status {
-        let result = match permission {
-            Permission::Microphone => self.audio.probe_mic(None).map_err(|e| e.to_string()),
-            Permission::SystemAudio => self.audio.probe_speaker().map_err(|e| e.to_string()),
-            Permission::Accessibility => return accessibility(false),
-            Permission::Calendar => return calendar(false),
-        };
-        match result {
-            Ok(()) => Status::Granted,
-            Err(error) => Status::Denied(error),
+        match permission {
+            Permission::Microphone => self.microphone(),
+            Permission::SystemAudio => self.system_audio(),
+            Permission::Accessibility => accessibility(false),
+            Permission::Calendar => calendar(false),
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn microphone(&self) -> Status {
+        use objc2_av_foundation::{AVAuthorizationStatus, AVCaptureDevice, AVMediaTypeAudio};
+        let Some(media_type) = (unsafe { AVMediaTypeAudio }) else {
+            return Status::Denied("Audio media type unavailable".into());
+        };
+        match unsafe { AVCaptureDevice::authorizationStatusForMediaType(media_type) } {
+            AVAuthorizationStatus::Authorized => Status::Granted,
+            AVAuthorizationStatus::NotDetermined => Status::Denied(NOT_REQUESTED.into()),
+            _ => Status::Denied("Microphone access denied in System Settings".into()),
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn system_audio(&self) -> Status {
+        match anlg_tcc::audio_capture_permission_status() {
+            0 => Status::Granted,
+            2 => Status::Denied(NOT_REQUESTED.into()),
+            _ => Status::Denied("System audio recording denied in System Settings".into()),
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn microphone(&self) -> Status {
+        probed(self.audio.probe_mic(None))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn system_audio(&self) -> Status {
+        probed(self.audio.probe_speaker())
     }
 
     pub fn request(&self, permission: Permission) -> Status {

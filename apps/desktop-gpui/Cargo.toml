@@ -92,6 +92,9 @@ debug = "line-tables-only"
 [profile.dev.package.transcribe-speechanalyzer]
 debug = "line-tables-only"
 
+[profile.dev.package.tcc]
+debug = "line-tables-only"
+
 [dependencies]
 anlg-agent-access = { workspace = true }
 anlg-am = { workspace = true }
@@ -190,6 +193,7 @@ objc2-av-foundation = { workspace = true }
 anlg-apple-calendar = { workspace = true }
 macos-accessibility-client = "=0.0.1"
 anlg-notification-macos = { path = "../../crates/notification-macos", package = "notification-macos" }
+anlg-tcc = { path = "../../crates/tcc", package = "tcc" }
 swift-rs = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
