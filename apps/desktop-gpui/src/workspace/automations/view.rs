@@ -17,14 +17,23 @@ use super::{
 };
 use crate::{
     contracts::ProductRoute,
-    product::account,
+    product::{
+        account,
+        cloud::resources::ResourceKind,
+        sharing::{
+            resource_dialog::{ResourceDialogEvent, ResourceShareDialog},
+            shared_library::SharedLibrary,
+        },
+    },
     ui::{
         input::{InputEvent, TextInput},
         theme::{Theme, is_dark, theme},
     },
     workspace::{
         automation_runner::{AutomationClient, Choice, Connection, TargetList},
-        catalog_icons, resource_list as list,
+        catalog_icons,
+        navigation::Route,
+        resource_list as list,
     },
 };
 
@@ -35,6 +44,7 @@ pub enum AutomationsEvent {
     Back,
     /// Sign in, upgrade, or manage integrations.
     Product(ProductRoute),
+    Navigate(Route),
 }
 
 impl EventEmitter<AutomationsEvent> for AutomationsView {}
@@ -98,7 +108,8 @@ pub struct AutomationsView {
     targets: HashMap<TargetList, Load<Vec<Choice>>>,
     notion_queries: HashMap<Arc<str>, (Entity<TextInput>, Subscription)>,
     filenames: HashMap<Arc<str>, (Entity<TextInput>, Subscription)>,
-    sharing: bool,
+    sharing: Option<(Entity<ResourceShareDialog>, Subscription)>,
+    shared_library: Entity<SharedLibrary>,
     notice: Option<(u64, Notice)>,
     notices: u64,
     cancel: CancellationToken,
@@ -114,6 +125,14 @@ impl AutomationsView {
                 this.context = None;
                 cx.notify();
             }
+        });
+        let shared_library = cx.new(|cx| {
+            SharedLibrary::new(
+                runtime.clone(),
+                ResourceKind::Automation,
+                search.clone(),
+                cx,
+            )
         });
         Self {
             runtime,
@@ -131,13 +150,30 @@ impl AutomationsView {
             targets: HashMap::new(),
             notion_queries: HashMap::new(),
             filenames: HashMap::new(),
-            sharing: false,
+            sharing: None,
+            shared_library,
             notice: None,
             notices: 0,
             cancel: CancellationToken::new(),
             focus: cx.focus_handle(),
             _subscriptions: vec![subscription],
         }
+    }
+
+    /// Shipping's `ResourceShareButton` dialog for the selected workflow.
+    fn share(&mut self, id: Arc<str>, title: Arc<str>, cx: &mut Context<Self>) {
+        let runtime = self.runtime.clone();
+        let dialog =
+            cx.new(|cx| ResourceShareDialog::new(runtime, ResourceKind::Automation, id, title, cx));
+        let subscription = cx.subscribe(&dialog, |this, _, event, cx| {
+            this.sharing = None;
+            if let ResourceDialogEvent::Navigate(route) = event {
+                cx.emit(AutomationsEvent::Navigate(route.clone()));
+            }
+            cx.notify();
+        });
+        self.sharing = Some((dialog, subscription));
+        cx.notify();
     }
 
     pub fn set_client(&mut self, client: Option<AutomationClient>, cx: &mut Context<Self>) {
@@ -816,6 +852,7 @@ impl AutomationsView {
                                     }),
                                 ))
                             })
+                            .child(self.shared_library.clone())
                         }
                     }),
             )
@@ -1184,14 +1221,11 @@ impl AutomationsView {
             .flex()
             .items_center()
             .gap_2()
-            .child(
-                list::share_button("automation-share", colors).on_click(cx.listener(
-                    |this, _, _, cx| {
-                        this.sharing = true;
-                        cx.notify();
-                    },
-                )),
-            )
+            .child(list::share_button("automation-share", colors).on_click({
+                let (id, title): (Arc<str>, Arc<str>) =
+                    (workflow.id.clone(), workflow.display_title().into());
+                cx.listener(move |this, _, _, cx| this.share(id.clone(), title.clone(), cx))
+            }))
             .child(if enabled {
                 button(
                     "automation-disable",
@@ -2844,13 +2878,6 @@ impl Render for AutomationsView {
             Some(selection) => self.render_workflow(selection, window, cx),
         };
         let notice = self.render_notice(window, colors, cx);
-        let share_title = match &current {
-            Some(selection) => self
-                .selected_workflow(selection)
-                .map(|workflow| workflow.display_title().to_owned())
-                .unwrap_or_default(),
-            None => String::new(),
-        };
         div()
             .id("automations")
             .relative()
@@ -2870,25 +2897,8 @@ impl Render for AutomationsView {
             )
             .child(content)
             .children(notice)
-            .when(self.sharing, |view| {
-                view.child(list::modal(
-                    window,
-                    list::share_dialog(
-                        &share_title,
-                        self.signed_in,
-                        colors,
-                        cx.listener(|this, _, _, cx| {
-                            this.sharing = false;
-                            cx.emit(AutomationsEvent::Product(ProductRoute::Account));
-                            cx.notify();
-                        }),
-                    )
-                    .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                        this.sharing = false;
-                        cx.notify();
-                    }))
-                    .into_any_element(),
-                ))
+            .when_some(self.sharing.as_ref(), |view, (dialog, _)| {
+                view.child(list::modal(window, dialog.clone().into_any_element()))
             })
     }
 }

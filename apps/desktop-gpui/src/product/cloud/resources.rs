@@ -21,6 +21,7 @@ const MAX_PAYLOAD_BYTES: usize = 1_900_000;
 pub enum ResourceKind {
     Folder,
     Template,
+    Automation,
 }
 
 impl ResourceKind {
@@ -28,6 +29,7 @@ impl ResourceKind {
         match self {
             Self::Folder => "folder",
             Self::Template => "template",
+            Self::Automation => "automation",
         }
     }
 }
@@ -133,6 +135,9 @@ impl CloudServices {
                                 ResourceKind::Folder => folder_payload(&services, &source).await?,
                                 ResourceKind::Template => {
                                     template_payload(&services, &source).await?
+                                }
+                                ResourceKind::Automation => {
+                                    automation_payload(&services, &source).await?
                                 }
                             };
                             let rows = this
@@ -350,4 +355,13 @@ pub(super) async fn template_payload(services: &Services, id: &str) -> Result<Va
             "sections": parse(column("sections_json")),
         },
     }))
+}
+
+/// `sharedAutomationPayload`: the stored workflow as shipping shares it.
+pub(super) async fn automation_payload(services: &Services, id: &str) -> Result<Value> {
+    let mut workflow = crate::workspace::automations::stored_workflow(&services.executor, id)
+        .await?
+        .ok_or_else(|| failure("This automation no longer exists"))?;
+    crate::workspace::automations::clear_shared_state(&mut workflow);
+    checked(json!({"version": 1, "workflow": workflow}))
 }

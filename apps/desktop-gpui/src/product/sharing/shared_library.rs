@@ -93,6 +93,7 @@ impl SharedLibrary {
             let result = match kind {
                 ResourceKind::Folder => import_folder(&runtime, &resource.payload).await,
                 ResourceKind::Template => import_template(&runtime, &resource.payload).await,
+                ResourceKind::Automation => import_automation(&runtime, &resource.payload).await,
             };
             let _ = this.update(cx, |this, cx| {
                 this.importing = false;
@@ -125,6 +126,7 @@ pub fn describe(kind: ResourceKind, resource: &SharedResource) -> String {
             .filter(|description| !description.is_empty())
             .map(Into::into)
             .unwrap_or_else(|| format!("Shared by {}", resource.owner_email)),
+        ResourceKind::Automation => count(&resource.payload["workflow"]["steps"], "step", "steps"),
     }
 }
 
@@ -230,6 +232,20 @@ async fn import_folder(runtime: &RuntimeHandle, payload: &Value) -> desktop_runt
 }
 
 /// `createTemplate(parseSharedTemplatePayload(...))`.
+async fn import_automation(
+    runtime: &RuntimeHandle,
+    payload: &Value,
+) -> desktop_runtime::Result<()> {
+    let workflow = payload["workflow"].clone();
+    runtime
+        .submit(move |services| async move {
+            crate::workspace::automations::import_shared(&services.executor, &workflow).await
+        })?
+        .receive()
+        .await?;
+    Ok(())
+}
+
 async fn import_template(runtime: &RuntimeHandle, payload: &Value) -> desktop_runtime::Result<()> {
     let template = payload["template"].clone();
     if !template.is_object() {
@@ -280,6 +296,7 @@ impl Render for SharedLibrary {
         let glyph = match self.kind {
             ResourceKind::Folder => "sharing/Folder01Icon.svg",
             ResourceKind::Template => "sharing/FileTextIcon.svg",
+            ResourceKind::Automation => "sharing/ZapIcon.svg",
         };
         div()
             .mt_3()

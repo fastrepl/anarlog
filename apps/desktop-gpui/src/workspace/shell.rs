@@ -248,6 +248,9 @@ impl WorkspaceView {
             cx.subscribe(&automations, |this, _, event, cx| match event {
                 AutomationsEvent::Back => this.leave_overlay(cx),
                 AutomationsEvent::Product(route) => cx.emit(WorkspaceEvent::Product(route.clone())),
+                AutomationsEvent::Navigate(route) => {
+                    this.navigate(Navigate::Open(route.clone(), false), cx)
+                }
             });
         let folders_subscription = cx.subscribe(&folders, |this, _, event, cx| match event {
             FoldersEvent::Back => this.leave_overlay(cx),

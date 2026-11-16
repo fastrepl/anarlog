@@ -817,6 +817,49 @@ impl Settings {
     }
 }
 
+/// One stored workflow's raw item.
+pub async fn stored_workflow(executor: &DbExecutor, id: &str) -> Result<Option<Value>> {
+    let (_, list) = stored_workflows(executor).await?;
+    Ok(list.into_iter().find(|workflow| workflow["id"] == id))
+}
+
+/// Shipping's shared copy of a workflow: disabled, without its run history or any destination
+/// that points into the sharer's own accounts and folders.
+pub fn clear_shared_state(workflow: &mut Value) {
+    for step in workflow["steps"].as_array_mut().into_iter().flatten() {
+        match step["type"].as_str() {
+            Some("google_drive_export") => {
+                step["connectionId"] = json!("");
+                step["target"] = Value::Null;
+            }
+            Some("markdown_export") => step["directory"] = json!(""),
+            _ => step["target"] = Value::Null,
+        }
+    }
+    workflow["enabled"] = json!(false);
+    workflow["lastRun"] = Value::Null;
+    workflow["processedSessionIds"] = json!([]);
+    workflow["driveExports"] = json!([]);
+    workflow["chatGroupId"] = Value::Null;
+}
+
+/// `importSharedAutomation`: a cleared copy under a new id, first in the list.
+pub async fn import_shared(executor: &DbExecutor, workflow: &Value) -> Result<Arc<str>> {
+    if Workflow::parse(workflow).is_none() {
+        return Err(failure("This shared automation is invalid"));
+    }
+    let id: Arc<str> = Uuid::new_v4().to_string().into();
+    let mut copy = workflow.clone();
+    copy["id"] = json!(id);
+    clear_shared_state(&mut copy);
+    mutate_workflows(executor, |list| {
+        list.insert(0, copy.clone());
+        Ok(())
+    })
+    .await?;
+    Ok(id)
+}
+
 /// Reads the stored list's raw items. Unreadable storage is an error, so a write never
 /// replaces it.
 async fn stored_workflows(executor: &DbExecutor) -> Result<(Option<String>, Vec<Value>)> {
