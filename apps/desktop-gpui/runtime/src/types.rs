@@ -162,6 +162,26 @@ pub struct DocumentSnapshot {
     pub updated_at: Arc<str>,
 }
 
+impl DocumentSnapshot {
+    /// The memo of a session that has none yet, as shipping's empty editor shows it. The first
+    /// save creates the document (id = session id, as shipping's memo upsert does); it never
+    /// replaces a memo that exists by then.
+    pub fn unsaved_note(session: SessionId) -> Self {
+        Self {
+            id: DocumentId(session.0.clone()),
+            session_id: session,
+            body_format: "prosemirror_json".into(),
+            body: r#"{"type":"doc","content":[{"type":"paragraph"}]}"#.into(),
+            updated_at: "".into(),
+        }
+    }
+
+    /// Not stored yet: see [`Self::unsaved_note`].
+    pub fn is_unsaved(&self) -> bool {
+        self.updated_at.is_empty()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct OpenSession {
     pub summary: SessionSummary,

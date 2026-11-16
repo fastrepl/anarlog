@@ -4,8 +4,8 @@ use std::sync::{
 };
 
 use desktop_runtime::{
-    CancellationToken, Generation, LibraryQuery, Profile, QUEUE_CAPACITY, RenameSession,
-    RuntimeHandle, SaveDocument, ServiceError,
+    CancellationToken, DocumentSnapshot, Generation, LibraryQuery, Profile, QUEUE_CAPACITY,
+    RenameSession, RuntimeHandle, SaveDocument, ServiceError, SessionId,
 };
 use serde_json::json;
 use sqlx::{Connection, sqlite::SqliteConnectOptions};
@@ -859,5 +859,79 @@ async fn whole_library_orders_by_event_start_in_either_direction() {
         .await
         .unwrap();
     assert_eq!(opened.summary.starts_at(), "2026-08-01T09:00:00Z");
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_missing_memo_is_created_by_its_first_save_and_never_overwritten() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile = Profile {
+        database: directory.path().join("memo.sqlite"),
+    };
+    let runtime = start(&profile).await;
+    let execute = |sql: &'static str, params: Vec<serde_json::Value>| {
+        runtime
+            .submit(move |services| async move {
+                services
+                    .executor
+                    .execute(sql.into(), params)
+                    .await
+                    .map_err(|e| ServiceError::Failed(e.to_string().into()))
+            })
+            .unwrap()
+            .receive()
+    };
+    execute(
+        "INSERT INTO sessions (id, title) VALUES ('bare', 'Bare'), ('gone', 'Gone')",
+        vec![],
+    )
+    .await
+    .unwrap();
+    let open = |id: &str| {
+        runtime
+            .open_session(SessionId(id.into()), CancellationToken::new())
+            .unwrap()
+            .receive()
+    };
+    assert!(open("bare").await.unwrap().note.is_none());
+    let unsaved = DocumentSnapshot::unsaved_note(SessionId("bare".into()));
+    let save = |base: DocumentSnapshot, text: &str| {
+        let body = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":text}]}]});
+        runtime
+            .save_document(SaveDocument {
+                base,
+                body: body.to_string().into(),
+            })
+            .unwrap()
+            .receive()
+    };
+    let created = save(unsaved.clone(), "first").await.unwrap();
+    assert_eq!(created.id.0.as_ref(), "bare");
+    assert!(!created.is_unsaved());
+    assert_eq!(open("bare").await.unwrap().note.unwrap().body, created.body);
+    // A second "first save" (another window, a stale draft) cannot replace the memo.
+    assert!(matches!(
+        save(unsaved, "stale").await,
+        Err(ServiceError::Conflict)
+    ));
+    assert_eq!(open("bare").await.unwrap().note.unwrap().body, created.body);
+    // Later saves CAS against the created document.
+    let next = save(created, "second").await.unwrap();
+    assert!(next.body.contains("second"));
+    // A deleted session gets no memo.
+    execute(
+        "UPDATE sessions SET deleted_at = '2026-01-01T00:00:00Z' WHERE id = 'gone'",
+        vec![],
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        save(
+            DocumentSnapshot::unsaved_note(SessionId("gone".into())),
+            "x"
+        )
+        .await,
+        Err(ServiceError::Conflict)
+    ));
     runtime.shutdown().await.unwrap();
 }
