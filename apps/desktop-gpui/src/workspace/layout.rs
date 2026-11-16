@@ -171,11 +171,11 @@ impl Render for WorkspaceView {
             .bg(colors.card)
             .map(|surface| {
                 if self.sidebar.expanded {
+                    // Shipping's "left" surface chrome: left border only, both left corners round.
                     surface
                         .border_l_1()
-                        .border_t_1()
                         .border_color(colors.border)
-                        .rounded_tl(px(12.))
+                        .rounded_l(px(12.))
                 } else {
                     surface.rounded_t(px(12.))
                 }

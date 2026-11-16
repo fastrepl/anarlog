@@ -119,6 +119,13 @@ pub fn overlay(
 ) -> Option<AnyElement> {
     let colors = theme(window);
     let mode = chat.read(cx).mode;
+    // On the empty tab shipping's inline CTA wrapper adds a ~6px line-box gap below its
+    // `bottom-3` offset; note pages use a block wrapper without it.
+    let lift = if matches!(route, Route::Empty) {
+        px(6.)
+    } else {
+        px(0.)
+    };
     match mode {
         ChatMode::FloatingClosed if state::shows_cta(route) => {
             let open = chat.clone();
@@ -131,7 +138,7 @@ pub fn overlay(
                     .justify_end()
                     .items_center()
                     .px_4()
-                    .pb_3()
+                    .pb(px(12.) + lift)
                     .child(
                         div()
                             .id("chat-cta")
@@ -176,7 +183,7 @@ pub fn overlay(
                     .items_center()
                     .px(px(11.))
                     .pt(px(46.))
-                    .pb(px(7.))
+                    .pb(px(7.) + lift)
                     .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                         close.update(cx, |chat, cx| {
                             if chat.draft_empty(cx) {
