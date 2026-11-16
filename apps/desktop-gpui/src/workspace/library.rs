@@ -30,6 +30,8 @@ pub struct LibraryView {
     selection: Selection,
     active: Option<SessionId>,
     recording: HashSet<SessionId>,
+    /// The calendar event whose note is being created or found.
+    opening: Option<Arc<str>>,
     scroll: ListState,
     focus: FocusHandle,
     menu: Option<NoteMenu>,
@@ -173,6 +175,7 @@ impl LibraryView {
             selection: Selection::default(),
             active: None,
             recording: HashSet::new(),
+            opening: None,
             scroll,
             focus: cx.focus_handle(),
             menu: None,
@@ -290,6 +293,17 @@ impl LibraryView {
     pub fn set_active(&mut self, active: Option<SessionId>, cx: &mut Context<Self>) {
         if self.active != active {
             self.active = active;
+            cx.notify();
+        }
+    }
+
+    pub fn opening(&self) -> bool {
+        self.opening.is_some()
+    }
+
+    pub fn set_opening(&mut self, event: Option<Arc<str>>, cx: &mut Context<Self>) {
+        if self.opening != event {
+            self.opening = event;
             cx.notify();
         }
     }
@@ -513,6 +527,10 @@ impl LibraryView {
             .upcoming
             .clone()
             .filter(|upcoming| upcoming.item == item);
+        let event_opening = match entry.source {
+            Source::Event(index) => self.opening.as_ref() == Some(&self.events.events[index].id),
+            Source::Session(_) => false,
+        };
         let (id, title, folder, tags, session) = match entry.source {
             Source::Session(index) => {
                 let session = &self.page.items[index];
@@ -563,7 +581,7 @@ impl LibraryView {
         let selected = session
             .as_ref()
             .is_some_and(|id| self.selection.ids.contains(id) || self.active.as_ref() == Some(id));
-        let spinner = !selected && !live && mode == SessionMode::Finalizing;
+        let spinner = event_opening || !selected && !live && mode == SessionMode::Finalizing;
         let extra_rows = usize::from(!folder.is_empty()) + usize::from(!tags.is_empty());
         // Shipping's stylesheet never generates the item's `bg-destructive/8`, `bg-destructive/20`
         // and `text-destructive-foreground/65` classes, so upcoming items have no tint or gauge

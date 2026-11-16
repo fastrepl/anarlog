@@ -412,19 +412,29 @@ impl WorkspaceView {
             OpenNote::Calendar => self.navigate(Navigate::Open(Route::Calendar, true), cx),
             OpenNote::StopListening => cx.emit(WorkspaceEvent::Meeting(MeetingIntent::Stop)),
             OpenNote::Event(event) => {
-                if !self.can_navigate(cx) {
+                if !self.can_navigate(cx) || self.library.read(cx).opening() {
                     return;
                 }
                 let reply =
                     super::calendar::open_event(&self.runtime, event.clone(), self.viewer.clone());
+                // Like shipping, the event shows a spinner until its note opens.
+                self.library.update(cx, |library, cx| {
+                    library.set_opening(Some(event.clone()), cx)
+                });
                 cx.spawn(async move |this, cx| {
                     let result = match reply {
                         Ok(reply) => reply.receive().await,
                         Err(error) => Err(error),
                     };
-                    let _ = this.update(cx, |this, cx| match result {
-                        Ok(id) => this.open_session(id, cx),
-                        Err(error) => this.set_status(format!("Could not open event: {error}"), cx),
+                    let _ = this.update(cx, |this, cx| {
+                        this.library
+                            .update(cx, |library, cx| library.set_opening(None, cx));
+                        match result {
+                            Ok(id) => this.open_session(id, cx),
+                            Err(error) => {
+                                this.set_status(format!("Could not open event: {error}"), cx)
+                            }
+                        }
                     });
                 })
                 .detach();

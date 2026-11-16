@@ -1,4 +1,4 @@
-use gpui::{Context, MouseButton, Render, Window, canvas, div, prelude::*, px};
+use gpui::{Context, MouseButton, Render, SharedString, Window, canvas, div, prelude::*, px};
 
 use super::{
     navigation::Route,
@@ -20,8 +20,25 @@ impl WorkspaceView {
         } else {
             "Ctrl"
         };
+        // Shipping's `--kbd-shadow-*` tokens, light and dark.
+        let (outer, inset, outer_hover) = if crate::ui::theme::is_dark(window) {
+            (0.35, 0.08, 0.5)
+        } else {
+            (0.1, 0.8, 0.15)
+        };
+        let kbd_shadow = |offset: f32, outer: f32| {
+            vec![
+                gpui::BoxShadow::new(px(0.), px(offset), gpui::black().opacity(outer)),
+                gpui::BoxShadow {
+                    inset: true,
+                    ..gpui::BoxShadow::new(px(0.), px(1.), gpui::white().opacity(inset))
+                },
+            ]
+        };
+        let group = SharedString::from(format!("empty-action:{label}"));
         div()
             .id(label)
+            .group(group.clone())
             .flex()
             .items_center()
             .justify_between()
@@ -38,6 +55,8 @@ impl WorkspaceView {
             .child(label)
             .child(
                 div()
+                    .id("keys")
+                    .relative()
                     .h(px(20.))
                     .min_w(px(20.))
                     .px_1()
@@ -53,6 +72,12 @@ impl WorkspaceView {
                     .text_xs()
                     .line_height(px(12.))
                     .font_weight(gpui::FontWeight::MEDIUM)
+                    .shadow(kbd_shadow(1., outer))
+                    // The key lifts while its row is hovered and presses in while clicked.
+                    .group_hover(group.clone(), move |style| {
+                        style.top(px(-2.)).shadow(kbd_shadow(2., outer_hover))
+                    })
+                    .group_active(group, |style| style.top(px(2.)).shadow(vec![]))
                     .child(format!("{modifier} {keys}")),
             )
     }
