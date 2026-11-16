@@ -63,11 +63,15 @@ pub struct PreferencesView {
     pub(super) recording_shortcut: bool,
     pub(super) shortcut_error: Option<String>,
     pub(super) shortcut_focus: gpui::FocusHandle,
+    pub(super) dictation_try: Entity<TextInput>,
+    /// The transcript last copied from "Last dictation", for its Copied label.
+    pub(super) dictation_copied: Option<SharedString>,
     _subscriptions: Vec<Subscription>,
 }
 
 impl EventEmitter<ServiceError> for PreferencesView {}
 impl EventEmitter<super::PlanRequired> for PreferencesView {}
+impl EventEmitter<super::OpenSettingsPage> for PreferencesView {}
 
 impl PreferencesView {
     pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
@@ -89,6 +93,16 @@ impl PreferencesView {
                 cx.notify();
             }
         });
+        let dictation_try = cx.new(|cx| {
+            TextInput::new("Click here, then use your dictation shortcut.", cx)
+                .inline()
+                .multiline()
+                .rows(2, None)
+        });
+        let mut subscriptions = vec![subscription, dictionary_subscription, spoken_subscription];
+        if let Some(status) = crate::dictation::DictationStatus::global(cx) {
+            subscriptions.push(cx.observe(&status, |_, _, cx| cx.notify()));
+        }
         let mut this = Self {
             runtime,
             section: "app",
@@ -109,7 +123,9 @@ impl PreferencesView {
             recording_shortcut: false,
             shortcut_error: None,
             shortcut_focus: cx.focus_handle(),
-            _subscriptions: vec![subscription, dictionary_subscription, spoken_subscription],
+            dictation_try,
+            dictation_copied: None,
+            _subscriptions: subscriptions,
         };
         this.watch(cx);
         this
@@ -295,6 +311,7 @@ impl PreferencesView {
         }
         if self.section != section {
             self.menu = None;
+            self.set_recording_shortcut(false, cx);
         }
         if section == "privacy" {
             self.lock_available = crate::platform::device_auth::available(cx);
@@ -364,10 +381,21 @@ impl PreferencesView {
         cx.notify();
     }
 
-    pub fn suspend(&mut self) {
+    pub fn suspend(&mut self, cx: &mut gpui::App) {
         self.active = false;
         self.menu = None;
         self.cancellation.cancel();
+        self.set_recording_shortcut(false, cx);
+    }
+
+    /// Dictation's own shortcut pauses while the recorder listens for a new one.
+    pub(super) fn set_recording_shortcut(&mut self, recording: bool, cx: &mut gpui::App) {
+        self.recording_shortcut = recording;
+        if let Some(status) = crate::dictation::DictationStatus::global(cx) {
+            status.update(cx, |status, cx| {
+                status.set_capturing_shortcut(recording, cx)
+            });
+        }
     }
 
     pub fn has_unsaved(&self, _: &gpui::App) -> bool {

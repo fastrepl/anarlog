@@ -55,7 +55,7 @@ pub struct ApplicationView {
     editor: Option<Entity<EditorPane>>,
     meeting: Option<Entity<MeetingPane>>,
     meeting_host: MeetingHost,
-    _dictation: Option<Entity<crate::dictation::Dictation>>,
+    dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
     trial_dialogs: Entity<crate::product::trial::TrialDialogs>,
     services: Option<MeetingServices>,
@@ -288,6 +288,10 @@ impl ApplicationView {
                     cx.set_global(services.clone());
                     cx.set_global(ai);
                     cx.set_global(native.providers.clone());
+                    if let Some(dictation) = &this.dictation {
+                        let voice = dictation.read(cx).voice(native.providers.clone());
+                        cx.set_global(voice);
+                    }
                     this.services = Some(services);
                     let calendar = crate::workspace::calendar_accounts::HostCalendarAccounts::new(
                         this.runtime.clone(),
@@ -329,7 +333,7 @@ impl ApplicationView {
             editor: None,
             meeting: None,
             meeting_host,
-            _dictation: dictation,
+            dictation,
             product: None,
             trial_dialogs,
             services: None,

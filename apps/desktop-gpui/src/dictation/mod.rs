@@ -763,6 +763,78 @@ impl Dictation {
     }
 }
 
+impl Dictation {
+    /// The chat composer's voice input over this recorder.
+    pub fn voice(&self, providers: ProviderServices) -> crate::chat::voice::Voice {
+        crate::chat::voice::Voice(Arc::new(ChatVoice {
+            services: self.services.clone(),
+            providers,
+        }))
+    }
+}
+
+const CHAT_OWNER: &str = "chat";
+
+/// Shipping's chat `useDictation`: the dictation recorder under the composer's own owner,
+/// transcribed in one batch by the selected provider when it stops.
+struct ChatVoice {
+    services: Arc<Services>,
+    providers: ProviderServices,
+}
+
+impl crate::chat::voice::VoiceInput for ChatVoice {
+    fn start(&self) -> futures::future::BoxFuture<'static, Result<()>> {
+        let services = self.services.clone();
+        let runtime = self.providers.runtime.clone();
+        let task = self.services.runtime.spawn(async move {
+            microphone_authorized()?;
+            let preferences = crate::meeting::config::preferences(&runtime).await?;
+            let microphone =
+                Some(preferences.text("microphone_device")).filter(|name| !name.is_empty());
+            let recorder = services.recorder.clone();
+            let audio = services.audio.clone();
+            tokio::task::spawn_blocking(move || {
+                recorder.start(audio, microphone, CHAT_OWNER.into(), None, None)
+            })
+            .await
+            .map_err(|error| failed(error.to_string()))?
+        });
+        Box::pin(async move { task.await.map_err(|error| failed(error.to_string()))? })
+    }
+
+    fn stop(&self) -> futures::future::BoxFuture<'static, Result<String>> {
+        let services = self.services.clone();
+        let providers = self.providers.clone();
+        let task = self.services.runtime.spawn(async move {
+            let recorded = services.recorder.stop(CHAT_OWNER).await?;
+            let result = async {
+                let request = transcribe::Request {
+                    preferences: crate::meeting::config::preferences(&providers.runtime).await?,
+                };
+                transcribe::transcribe(
+                    &providers,
+                    &request,
+                    CHAT_OWNER,
+                    &recorded.path,
+                    CancellationToken::new(),
+                )
+                .await
+            }
+            .await;
+            let _ = services.recorder.discard(&recorded.path);
+            result
+        });
+        Box::pin(async move { task.await.map_err(|error| failed(error.to_string()))? })
+    }
+
+    fn cancel(&self) {
+        let services = self.services.clone();
+        self.services.runtime.spawn(async move {
+            let _ = services.recorder.cancel(CHAT_OWNER).await;
+        });
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn microphone_authorized() -> Result<()> {
     use crate::platform::permissions::{NativePermissions, Permission, Status};

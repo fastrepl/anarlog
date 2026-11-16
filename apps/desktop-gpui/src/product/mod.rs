@@ -47,6 +47,9 @@ pub struct OpenWorkspaceSection(pub &'static str);
 /// A press on Pro-gated content, answered with `useNotifyPlanRequired`'s toast.
 pub struct PlanRequired;
 
+/// A settings page's link to another settings page.
+pub struct OpenSettingsPage(pub &'static str);
+
 type ProNotice = (u64, crate::workspace::resource_list::WarningToast);
 type ReferralState = Result<cloud::Referrals, String>;
 
@@ -77,6 +80,7 @@ pub struct ProductPane {
     service_subscription: Option<Subscription>,
     settings_subscription: Option<Subscription>,
     plan_subscription: Option<Subscription>,
+    open_page_subscription: Option<Subscription>,
     scope_subscription: Option<Subscription>,
     _account_subscriptions: [Subscription; 2],
 }
@@ -149,6 +153,7 @@ impl ProductPane {
             service_subscription: None,
             settings_subscription: None,
             plan_subscription: None,
+            open_page_subscription: None,
             scope_subscription: None,
             _account_subscriptions: account_subscriptions,
         };
@@ -253,7 +258,7 @@ impl ProductPane {
         self.scope_subscription = None;
         if let Some(surface) = surface {
             if let Some(preferences) = &self.preferences {
-                preferences.update(cx, |view, _| view.suspend());
+                preferences.update(cx, |view, cx| view.suspend(cx));
             }
             let view = cx.new(|cx| {
                 SurfaceView::new(
@@ -299,6 +304,12 @@ impl ProductPane {
                     Some(cx.subscribe(&view, |this, _, _: &PlanRequired, cx| {
                         this.notify_plan_required(cx)
                     }));
+                self.open_page_subscription = Some(cx.subscribe(
+                    &view,
+                    |this, _, OpenSettingsPage(id): &OpenSettingsPage, cx| {
+                        this.select_page(navigation::page(id), cx)
+                    },
+                ));
                 self.preferences = Some(view);
             }
             if let Some(view) = &self.preferences {

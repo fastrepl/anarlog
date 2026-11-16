@@ -1609,12 +1609,158 @@ impl PreferencesView {
                         &colors,
                     ))
                     .child(div().flex().flex_wrap().gap_2().children(
-                        ["Permissions", "Language & transcription", "Dictionary"].map(|label| {
-                            controls::outline_button(label, label, true, &colors, None)
+                        [
+                            ("Permissions", "permissions"),
+                            ("Language & transcription", "transcription"),
+                            ("Dictionary", "dictionary"),
+                        ]
+                        .map(|(label, page)| {
+                            let open = cx.listener(move |_, _: &gpui::ClickEvent, _, cx| {
+                                cx.emit(super::OpenSettingsPage(page))
+                            });
+                            controls::outline_button(label, label, true, &colors, Some(Box::new(open)))
                         }),
-                    )),
+                    ))
+                    .when(self.flag("dictation_enabled"), |view| {
+                        view.child(self.dictation_status(&colors, cx))
+                    })
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .text_sm()
+                            .child("Try dictation")
+                            .child(
+                                div()
+                                    .min_h(px(64.))
+                                    .px_3()
+                                    .py_2()
+                                    .rounded(px(6.))
+                                    .border_1()
+                                    .border_color(colors.input)
+                                    .shadow_xs()
+                                    .child(self.dictation_try.clone()),
+                            ),
+                    )
+                    .child(controls::description(
+                        "Dictation uses your microphone, transcription provider, languages, and dictionary. Temporary audio is deleted after transcription. Your last transcript stays in memory until dictation is disabled or Anarlog closes.",
+                        &colors,
+                    ))
+                    .children(self.last_dictation(&colors, cx)),
             cx))
             .into_any_element()
+    }
+
+    /// The `role="status"` card: the dictation phase, setup errors with Retry, and Cancel.
+    fn dictation_status(&self, colors: &Theme, cx: &mut Context<Self>) -> AnyElement {
+        use crate::dictation::{DictationStatus, controller::Phase};
+        let Some(status) = DictationStatus::global(cx) else {
+            return div().into_any_element();
+        };
+        let current = status.read(cx);
+        let label = match current.phase {
+            Phase::Recording => "Listening…",
+            Phase::Transcribing => "Transcribing…",
+            Phase::Starting => "Starting microphone…",
+            Phase::Idle if current.ready => "Ready to dictate",
+            Phase::Idle => "Setting up dictation…",
+        };
+        let error = current.error.clone();
+        let active = current.phase != Phase::Idle;
+        let retry = status.clone();
+        let cancel = status.clone();
+        div()
+            .p_4()
+            .rounded(px(8.))
+            .border_1()
+            .border_color(colors.border)
+            .text_sm()
+            .child(label)
+            .when_some(error, |view, error| {
+                view.child(div().mt_2().text_color(colors.destructive).child(error))
+                    .child(
+                        controls::outline_button(
+                            "dictation-retry",
+                            "Retry setup",
+                            true,
+                            colors,
+                            Some(Box::new(move |_, _, cx| {
+                                retry.update(cx, |status, cx| status.retry(cx))
+                            })),
+                        )
+                        .mt_2(),
+                    )
+            })
+            .when(active, |view| {
+                view.child(
+                    controls::outline_button(
+                        "dictation-cancel",
+                        "Cancel dictation",
+                        true,
+                        colors,
+                        Some(Box::new(move |_, _, cx| {
+                            cancel.update(cx, |status, cx| status.cancel(cx))
+                        })),
+                    )
+                    .mt_2(),
+                )
+            })
+            .into_any_element()
+    }
+
+    /// "Last dictation" with its copy button, while a transcript is kept in memory.
+    fn last_dictation(&self, colors: &Theme, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let transcript = crate::dictation::DictationStatus::global(cx)?
+            .read(cx)
+            .last_transcript
+            .clone();
+        if transcript.is_empty() {
+            return None;
+        }
+        let copied = self.dictation_copied.as_ref() == Some(&transcript);
+        let copy = transcript.clone();
+        Some(
+            div()
+                .flex()
+                .flex_col()
+                .gap_3()
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(crate::ui::theme::MEDIUM)
+                        .child("Last dictation"),
+                )
+                .child(
+                    div()
+                        .p_4()
+                        .rounded(px(8.))
+                        .border_1()
+                        .border_color(colors.border)
+                        .text_sm()
+                        .child(transcript),
+                )
+                .child(div().flex().child(controls::outline_button(
+                    "dictation-copy",
+                    if copied {
+                        "Copied"
+                    } else {
+                        "Copy last dictation"
+                    },
+                    true,
+                    colors,
+                    Some(Box::new(cx.listener(
+                        move |this, _: &gpui::ClickEvent, _, cx| {
+                            cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+                                copy.to_string(),
+                            ));
+                            this.dictation_copied = Some(copy.clone());
+                            cx.notify();
+                        },
+                    ))),
+                )))
+                .into_any_element(),
+        )
     }
 
     /// `settings/dictionary/index.tsx`.
@@ -1752,7 +1898,7 @@ impl PreferencesView {
     }
 
     fn toggle_shortcut_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.recording_shortcut = !self.recording_shortcut;
+        self.set_recording_shortcut(!self.recording_shortcut, cx);
         if self.recording_shortcut {
             self.shortcut_error = None;
             self.shortcut_focus.focus(window, cx);
@@ -1771,7 +1917,7 @@ impl PreferencesView {
         }
         match record(&event.keystroke) {
             Recorded::Cancel => {
-                self.recording_shortcut = false;
+                self.set_recording_shortcut(false, cx);
                 cx.notify();
             }
             Recorded::Ignore => {}
@@ -1781,13 +1927,13 @@ impl PreferencesView {
 
     /// Validates before saving, like the shortcut plugin; an invalid choice keeps the old one.
     fn save_shortcut(&mut self, shortcut: String, cx: &mut Context<Self>) {
-        self.recording_shortcut = false;
-        match super::dictation_shortcut::validate(&shortcut) {
+        self.set_recording_shortcut(false, cx);
+        match crate::dictation::shortcut::validate(&shortcut) {
             Ok(()) => {
                 self.shortcut_error = None;
                 self.set("dictation_shortcut", json!(shortcut), cx);
             }
-            Err(error) => self.shortcut_error = Some(error),
+            Err(error) => self.shortcut_error = Some(error.to_string()),
         }
         cx.notify();
     }

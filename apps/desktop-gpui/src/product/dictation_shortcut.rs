@@ -1,9 +1,6 @@
 //! `settings/dictation-shortcut.tsx`: recording a dictation shortcut stores modifiers plus the
 //! DOM `KeyboardEvent.code` ("Control+Alt+KeyD"), the format the shortcut plugin parses.
 
-use std::str::FromStr;
-
-use global_hotkey::hotkey::{Code, HotKey};
 use gpui::Keystroke;
 
 /// What a key press does while recording.
@@ -87,22 +84,6 @@ fn code(key: &str) -> Option<String> {
     Some(named.into())
 }
 
-/// The shortcut plugin's `validate_shortcut`.
-pub fn validate(shortcut: &str) -> Result<(), String> {
-    if cfg!(target_os = "macos") && matches!(shortcut, "Fn" | "RightCommand") {
-        return Ok(());
-    }
-    let hotkey = HotKey::from_str(shortcut)
-        .map_err(|error| format!("Invalid dictation shortcut: {error}"))?;
-    if hotkey.mods.is_empty() {
-        return Err("Choose a shortcut with Control, Alt, Shift, or Command.".into());
-    }
-    if hotkey.key == Code::Escape {
-        return Err("Escape is reserved for cancelling dictation. Choose another key.".into());
-    }
-    Ok(())
-}
-
 /// The key caps shown for a stored shortcut.
 pub fn labels(shortcut: &str) -> Vec<String> {
     let mac = cfg!(target_os = "macos");
@@ -180,10 +161,10 @@ mod tests {
         let Recorded::Shortcut(plain) = press("d") else {
             panic!("a letter records");
         };
-        assert!(validate(&plain).is_err());
-        assert!(validate("Control+Alt+KeyD").is_ok());
-        assert!(validate("Shift+Super+Space").is_ok());
-        assert!(validate("not-a-shortcut").is_err());
+        assert!(crate::dictation::shortcut::validate(&plain).is_err());
+        assert!(crate::dictation::shortcut::validate("Control+Alt+KeyD").is_ok());
+        assert!(crate::dictation::shortcut::validate("Shift+Super+Space").is_ok());
+        assert!(crate::dictation::shortcut::validate("not-a-shortcut").is_err());
         assert_eq!(labels("Control+Alt+KeyD")[2], "D");
     }
 }
