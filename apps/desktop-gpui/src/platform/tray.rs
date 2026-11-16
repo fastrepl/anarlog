@@ -1,4 +1,16 @@
+use std::{
+    cell::Cell,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
 use desktop_runtime::{Result, ServiceError};
+
+/// The `show_tray_icon` setting; the tray owner applies it on its next poll.
+static VISIBLE: AtomicBool = AtomicBool::new(true);
+
+pub fn set_visible(visible: bool) {
+    VISIBLE.store(visible, Ordering::Relaxed);
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayAction {
@@ -36,6 +48,7 @@ pub trait TrayAdapter {
 pub struct NativeTray {
     icon: tray_icon::TrayIcon,
     items: Vec<(tray_icon::menu::MenuItem, TrayAction)>,
+    visible: Cell<bool>,
 }
 
 impl NativeTray {
@@ -67,7 +80,11 @@ impl NativeTray {
             .with_tooltip("Anarlog")
             .build()
             .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-        let mut tray = Self { icon, items };
+        let mut tray = Self {
+            icon,
+            items,
+            visible: Cell::new(true),
+        };
         tray.update(&TrayState {
             recording: false,
             update_ready: false,
@@ -76,6 +93,10 @@ impl NativeTray {
     }
 
     pub fn poll(&self, state: &TrayState) -> Vec<TrayAction> {
+        let visible = VISIBLE.load(Ordering::Relaxed);
+        if self.visible.get() != visible && self.icon.set_visible(visible).is_ok() {
+            self.visible.set(visible);
+        }
         pump_native_events();
         let mut actions = Vec::new();
         for event in tray_icon::menu::MenuEvent::receiver().try_iter().take(64) {

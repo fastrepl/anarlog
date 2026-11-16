@@ -56,17 +56,6 @@ pub fn definition(key: &str) -> Result<&'static Definition> {
 
 pub fn write_gate(key: &str) -> Option<&'static str> {
     match key {
-        "autostart"
-        | "automatic_updates"
-        | "respect_dnd"
-        | "ignored_platforms"
-        | "included_platforms"
-        | "mic_active_threshold"
-        | "telemetry_consent"
-        | "crash_reporting_consent"
-        | "show_app_in_dock"
-        | "show_tray_icon" => Some("Requires the native settings side-effect service."),
-        "lock_app" => Some("Requires native authentication before changing device lock."),
         "app_icon" => Some("Requires the application icon service."),
         // Only macOS lets the app override its window appearance.
         "theme" if !cfg!(target_os = "macos") => {
@@ -76,8 +65,8 @@ pub fn write_gate(key: &str) -> Option<&'static str> {
         "current_stt_provider" | "current_stt_model" | "local_stt_model_path" => {
             Some("Requires model inspection and successful engine startup before persistence.")
         }
-        "current_llm_provider" | "current_llm_model" | "spoken_languages" => {
-            Some("Requires provider validation and the consent-aware analytics service.")
+        "current_llm_provider" | "current_llm_model" => {
+            Some("Requires provider validation before persistence.")
         }
         _ => None,
     }
@@ -92,8 +81,9 @@ pub fn apply_theme(theme: &str, cx: &mut gpui::App) {
     });
 }
 
-/// Applies the saved `theme` once the library is readable, like shipping does at startup.
-pub fn apply_stored_theme(runtime: &RuntimeHandle, cx: &mut gpui::App) {
+/// Applies the saved theme and the native side effects of stored settings once the library
+/// is readable, like shipping's `initializeApplicationSettings`.
+pub fn apply_stored_preferences(runtime: &RuntimeHandle, cx: &mut gpui::App) {
     let Ok(reply) = watch(runtime) else {
         return;
     };
@@ -101,13 +91,24 @@ pub fn apply_stored_theme(runtime: &RuntimeHandle, cx: &mut gpui::App) {
         let Ok(watch) = reply.receive().await else {
             return;
         };
-        let theme = decode(&watch.snapshots.borrow().rows)
-            .ok()
-            .and_then(|snapshot| snapshot.get("theme")?.value.as_str().map(str::to_owned));
+        let snapshot = decode(&watch.snapshots.borrow().rows).ok();
         let _ = watch.unsubscribe().await;
-        if let Some(theme) = theme {
-            cx.update(|cx| apply_theme(&theme, cx));
-        }
+        let Some(snapshot) = snapshot else {
+            return;
+        };
+        cx.update(|cx| {
+            if let Some(theme) = snapshot.get("theme").and_then(|s| s.value.as_str()) {
+                apply_theme(theme, cx);
+            }
+            for key in crate::platform::system_settings::KEYS {
+                if let Some(setting) = snapshot.get(key)
+                    && let Err(error) =
+                        crate::platform::system_settings::apply(key, &setting.value, cx)
+                {
+                    tracing::warn!(key, %error, "stored setting side effect failed");
+                }
+            }
+        });
     })
     .detach();
 }

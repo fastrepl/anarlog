@@ -121,6 +121,25 @@ pub fn additional_spoken(main: &str, stored: &str) -> Vec<String> {
     languages
 }
 
+/// Languages offered while typing in the spoken-language field: names containing `query`,
+/// without the main language or ones already chosen.
+pub fn spoken_matches(query: &str, main: &str, selected: &[String]) -> Vec<&'static str> {
+    let query = query.trim().to_lowercase();
+    if query.is_empty() {
+        return Vec::new();
+    }
+    let main = base_code(main);
+    LANGUAGES
+        .iter()
+        .filter(|(code, name)| {
+            *code != main
+                && !selected.iter().any(|chosen| chosen == code)
+                && name.to_lowercase().contains(&query)
+        })
+        .map(|(code, _)| *code)
+        .collect()
+}
+
 /// The IANA zone the OS uses, read from the `/etc/localtime` link on macOS and Linux.
 pub fn system_timezone() -> String {
     if let Ok(zone) = std::env::var("TZ")
@@ -173,6 +192,10 @@ mod tests {
             ["ko", "tl"]
         );
         assert!(additional_spoken("en", "not json").is_empty());
+        assert_eq!(spoken_matches(" KOR ", "en-US", &[]), ["ko"]);
+        assert!(spoken_matches("kor", "en", &["ko".into()]).is_empty());
+        assert!(spoken_matches("eng", "en-US", &[]).is_empty());
+        assert!(spoken_matches("  ", "en", &[]).is_empty());
         assert_eq!(language_name("ko-KR"), "Korean");
         assert_eq!(language_name("xx"), "xx");
     }

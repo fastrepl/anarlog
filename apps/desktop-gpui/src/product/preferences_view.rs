@@ -52,9 +52,13 @@ pub struct PreferencesView {
     pub(super) menu: Option<&'static str>,
     pub(super) menu_search: Entity<TextInput>,
     pub(super) dictionary_input: Entity<TextInput>,
+    pub(super) spoken_input: Entity<TextInput>,
+    pub(super) spoken_index: Option<usize>,
     cancellation: CancellationToken,
     status: Option<String>,
     active: bool,
+    pub(super) lock_available: bool,
+    pub(super) authenticating: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -72,6 +76,14 @@ impl PreferencesView {
                     this.add_dictionary_terms(cx);
                 }
             });
+        let spoken_input = cx.new(|cx| TextInput::new("", cx).inline());
+        let spoken_subscription = cx.subscribe(&spoken_input, |this, _, event, cx| match event {
+            InputEvent::Submitted => this.add_spoken_language(cx),
+            _ => {
+                this.spoken_index = None;
+                cx.notify();
+            }
+        });
         let mut this = Self {
             runtime,
             section: "app",
@@ -81,10 +93,14 @@ impl PreferencesView {
             menu: None,
             menu_search,
             dictionary_input,
+            spoken_input,
+            spoken_index: None,
             cancellation: CancellationToken::new(),
             status: None,
             active: true,
-            _subscriptions: vec![subscription, dictionary_subscription],
+            lock_available: false,
+            authenticating: false,
+            _subscriptions: vec![subscription, dictionary_subscription, spoken_subscription],
         };
         this.watch(cx);
         this
@@ -235,6 +251,11 @@ impl PreferencesView {
                 this.saving.remove(&key);
                 match result {
                     Ok(setting) => {
+                        if let Err(error) =
+                            crate::platform::system_settings::apply(&key, &setting.value, cx)
+                        {
+                            this.fail(error, cx);
+                        }
                         if let Some(snapshot) = &mut this.snapshot {
                             Arc::make_mut(snapshot).insert(key.clone(), setting);
                         }
@@ -263,7 +284,34 @@ impl PreferencesView {
         if self.section != section {
             self.menu = None;
         }
+        if section == "privacy" {
+            self.lock_available = crate::platform::device_auth::available(cx);
+        }
         self.section = section;
+        cx.notify();
+    }
+
+    /// `SettingsPrivacy`: changing the app lock needs device authentication first.
+    pub(super) fn toggle_lock(&mut self, next: bool, cx: &mut Context<Self>) {
+        use crate::platform::device_auth;
+        self.lock_available = device_auth::available(cx);
+        if !self.lock_available || self.authenticating {
+            cx.notify();
+            return;
+        }
+        self.authenticating = true;
+        let reply = device_auth::authenticate(device_auth::CHANGE_LOCK_SETTINGS, cx);
+        cx.spawn(async move |this, cx| {
+            let authenticated = reply.await.unwrap_or(false);
+            let _ = this.update(cx, |this, cx| {
+                this.authenticating = false;
+                if authenticated {
+                    this.set("lock_app", Value::Bool(next), cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
         cx.notify();
     }
 
@@ -558,6 +606,48 @@ mod tests {
         });
         assert_eq!(stored["use_24_hour_time"].value, Value::Bool(true));
         assert_eq!(stored["use_24_hour_time"].source, "Synced");
+        drop(view);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    struct FakeAuth(bool);
+
+    impl crate::platform::device_auth::DeviceAuth for FakeAuth {
+        fn available(&self) -> bool {
+            true
+        }
+
+        fn authenticate(&self, _: &str) -> futures::channel::oneshot::Receiver<bool> {
+            let (sender, receiver) = futures::channel::oneshot::channel();
+            let _ = sender.send(self.0);
+            receiver
+        }
+    }
+
+    #[gpui::test]
+    fn app_lock_changes_only_after_device_authentication(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), cx));
+        settle(cx, |cx| view.read_with(cx, |view, _| view.loaded()));
+
+        for (approved, expected) in [(false, false), (true, true)] {
+            cx.update(|cx| {
+                cx.set_global(crate::platform::device_auth::Installed(Arc::new(FakeAuth(
+                    approved,
+                ))))
+            });
+            view.update(cx, |view, cx| view.toggle_lock(true, cx));
+            settle(cx, |cx| {
+                view.read_with(cx, |view, cx| !view.authenticating && !view.has_unsaved(cx))
+            });
+            view.read_with(cx, |view, _| assert_eq!(view.flag("lock_app"), expected));
+        }
         drop(view);
         futures::executor::block_on(runtime.shutdown()).unwrap();
     }

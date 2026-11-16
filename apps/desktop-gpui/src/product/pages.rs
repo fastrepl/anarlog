@@ -2,7 +2,8 @@
 //! shipping components named on each method.
 
 use gpui::{
-    AnyElement, Context, Div, FontWeight, Hsla, SharedString, Window, div, hsla, prelude::*, px,
+    AnyElement, Context, Div, Focusable, FontWeight, Hsla, KeyDownEvent, SharedString, Window,
+    deferred, div, hsla, prelude::*, px,
 };
 use serde_json::json;
 
@@ -150,7 +151,7 @@ impl PreferencesView {
                                                 &colors,
                                                 cx,
                                             ))
-                                            .child(self.spoken_languages(&colors, cx)),
+                                            .child(self.spoken_languages(&colors, window, cx)),
                                     ),
                             )
                             .child(setting_row(
@@ -216,12 +217,145 @@ impl PreferencesView {
             .into_any_element()
     }
 
-    /// `settings/general/spoken-languages.tsx`. Removing a chip writes immediately; adding
-    /// languages needs the language search field that the native input does not offer yet.
-    fn spoken_languages(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+    /// `settings/general/spoken-languages.tsx`: chips plus a search field that suggests
+    /// languages as you type; Backspace on an empty field removes the last chip.
+    fn spoken_languages(&self, colors: &Theme, window: &Window, cx: &mut Context<Self>) -> Div {
         let main = self.text("ai_language");
         let selected = locale::additional_spoken(&main, &self.text("spoken_languages"));
         let writable = self.writable("spoken_languages");
+        let query = self.spoken_input.read(cx).buffer.text.clone();
+        let focused = self.spoken_input.focus_handle(cx).is_focused(window);
+        let matches = locale::spoken_matches(&query, &main, &selected);
+        let open = focused && !query.trim().is_empty();
+        let field = div()
+            .id("spoken-languages")
+            .min_h(px(38.))
+            .w_full()
+            .px_2()
+            .py(px(6.))
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(px(6.))
+            .rounded(px(16.))
+            .border_1()
+            .border_color(colors.border)
+            .bg(colors.card)
+            .text_sm()
+            .cursor_text()
+            .on_click(cx.listener(|this, _, window, cx| {
+                this.spoken_input
+                    .update(cx, |input, cx| input.focus_handle(cx).focus(window, cx))
+            }))
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                this.spoken_key(event.keystroke.key.as_str(), cx)
+            }))
+            .children(selected.iter().map(|code| {
+                let remaining = selected
+                    .iter()
+                    .filter(|other| *other != code)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                div()
+                    .px_2()
+                    .py(px(2.))
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .rounded(px(8.))
+                    .bg(colors.muted)
+                    .text_xs()
+                    .child(locale::language_name(code))
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("remove-language-{code}")))
+                            .ml(px(2.))
+                            .when(writable, |view| {
+                                view.cursor_pointer().on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        cx.stop_propagation();
+                                        this.set_spoken(remaining.clone(), cx)
+                                    },
+                                ))
+                            })
+                            .child(controls::icon("product/XIcon.svg", 10., colors.foreground)),
+                    )
+            }))
+            .when(selected.is_empty(), |view| {
+                view.child(controls::icon(
+                    "Search01Icon.svg",
+                    16.,
+                    colors.muted_foreground,
+                ))
+            })
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_w(px(120.))
+                    .h(px(20.))
+                    .line_height(px(20.))
+                    .when(selected.is_empty() && query.is_empty(), |view| {
+                        view.child(
+                            div()
+                                .absolute()
+                                .inset_0()
+                                .text_color(colors.muted_foreground)
+                                .child("Add language"),
+                        )
+                    })
+                    .child(self.spoken_input.clone()),
+            );
+        let options = open.then(|| {
+            deferred(
+                div()
+                    .id("language-options")
+                    .absolute()
+                    .top_full()
+                    .left_0()
+                    .right_0()
+                    .mt_1()
+                    .max_h(px(240.))
+                    .overflow_y_scroll()
+                    .flex()
+                    .flex_col()
+                    .rounded(px(16.))
+                    .border_1()
+                    .border_color(colors.border)
+                    .bg(colors.card)
+                    .shadow_md()
+                    .occlude()
+                    .when(matches.is_empty(), |view| {
+                        view.child(
+                            div()
+                                .px_3()
+                                .py_2()
+                                .text_center()
+                                .text_sm()
+                                .text_color(colors.muted_foreground)
+                                .child("No matching languages found"),
+                        )
+                    })
+                    .children(matches.iter().enumerate().map(|(index, code)| {
+                        let code = *code;
+                        let hover = colors.accent;
+                        div()
+                            .id(SharedString::from(format!("language-option-{code}")))
+                            .w_full()
+                            .px_3()
+                            .py_2()
+                            .text_sm()
+                            .font_weight(FontWeight::MEDIUM)
+                            .truncate()
+                            .cursor_pointer()
+                            .when(self.spoken_index == Some(index), |view| view.bg(hover))
+                            .hover(move |style| style.bg(hover))
+                            .on_click(cx.listener(move |this, _, _, cx| this.push_spoken(code, cx)))
+                            .child(locale::language_name(code))
+                    })),
+            )
+            .with_priority(1)
+        });
         div()
             .child(
                 div()
@@ -238,72 +372,62 @@ impl PreferencesView {
                 )
                 .mb_3(),
             )
-            .child(
-                div()
-                    .min_h(px(38.))
-                    .w_full()
-                    .px_2()
-                    .py(px(6.))
-                    .flex()
-                    .flex_wrap()
-                    .items_center()
-                    .gap(px(6.))
-                    .rounded(px(16.))
-                    .border_1()
-                    .border_color(colors.border)
-                    .bg(colors.card)
-                    .text_sm()
-                    .when(selected.is_empty(), |view| {
-                        view.child(controls::icon(
-                            "Search01Icon.svg",
-                            16.,
-                            colors.muted_foreground,
-                        ))
-                        .child(
-                            div()
-                                .text_color(colors.muted_foreground)
-                                .child("Add language"),
-                        )
-                    })
-                    .children(selected.iter().map(|code| {
-                        let remaining = selected
-                            .iter()
-                            .filter(|other| *other != code)
-                            .cloned()
-                            .collect::<Vec<_>>();
-                        div()
-                            .px_2()
-                            .py(px(2.))
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .rounded(px(8.))
-                            .bg(colors.muted)
-                            .text_xs()
-                            .child(locale::language_name(code))
-                            .child(
-                                div()
-                                    .id(SharedString::from(format!("remove-language-{code}")))
-                                    .ml(px(2.))
-                                    .when(writable, |view| {
-                                        view.cursor_pointer().on_click(cx.listener(
-                                            move |this, _, _, cx| {
-                                                this.set(
-                                                    "spoken_languages",
-                                                    json!(json!(remaining).to_string()),
-                                                    cx,
-                                                )
-                                            },
-                                        ))
-                                    })
-                                    .child(controls::icon(
-                                        "product/XIcon.svg",
-                                        10.,
-                                        colors.foreground,
-                                    )),
-                            )
-                    })),
-            )
+            .child(div().relative().child(field).children(options))
+    }
+
+    fn spoken_key(&mut self, key: &str, cx: &mut Context<Self>) {
+        let main = self.text("ai_language");
+        let selected = locale::additional_spoken(&main, &self.text("spoken_languages"));
+        let query = self.spoken_input.read(cx).buffer.text.clone();
+        let matches = locale::spoken_matches(&query, &main, &selected);
+        match key {
+            "backspace" if query.is_empty() && !selected.is_empty() => {
+                self.set_spoken(selected[..selected.len() - 1].to_vec(), cx);
+            }
+            "down" if !matches.is_empty() => {
+                self.spoken_index = Some(
+                    self.spoken_index
+                        .map_or(0, |index| (index + 1).min(matches.len() - 1)),
+                );
+            }
+            "up" if !matches.is_empty() => {
+                self.spoken_index =
+                    Some(self.spoken_index.map_or(0, |index| index.saturating_sub(1)));
+            }
+            "escape" if !query.is_empty() => {
+                self.spoken_input
+                    .update(cx, |input, cx| input.set_text(String::new(), cx));
+            }
+            _ => return,
+        }
+        cx.stop_propagation();
+        cx.notify();
+    }
+
+    pub(super) fn add_spoken_language(&mut self, cx: &mut Context<Self>) {
+        let main = self.text("ai_language");
+        let selected = locale::additional_spoken(&main, &self.text("spoken_languages"));
+        let query = self.spoken_input.read(cx).buffer.text.clone();
+        let matches = locale::spoken_matches(&query, &main, &selected);
+        if let Some(code) = self.spoken_index.and_then(|index| matches.get(index)) {
+            self.push_spoken(code, cx);
+        }
+    }
+
+    fn push_spoken(&mut self, code: &str, cx: &mut Context<Self>) {
+        let main = self.text("ai_language");
+        let mut selected = locale::additional_spoken(&main, &self.text("spoken_languages"));
+        selected.push(code.to_owned());
+        self.set_spoken(selected, cx);
+        self.spoken_index = None;
+        self.spoken_input
+            .update(cx, |input, cx| input.set_text(String::new(), cx));
+    }
+
+    fn set_spoken(&mut self, codes: Vec<String>, cx: &mut Context<Self>) {
+        if self.writable("spoken_languages") {
+            self.set("spoken_languages", json!(json!(codes).to_string()), cx);
+        }
     }
 
     /// `settings/general/storage/export-location.tsx`.
@@ -682,6 +806,7 @@ impl PreferencesView {
                                                 false,
                                                 controls::CONTROL_WIDTH - 72.,
                                                 |this, value, cx| {
+                                                    preview_sound(&value);
                                                     this.set(
                                                         "notification_completion_sound_name",
                                                         json!(value),
@@ -692,14 +817,13 @@ impl PreferencesView {
                                                 cx,
                                             ),
                                         ))
-                                        // Sound playback is not wired into the native app yet.
                                         .child(
                                             controls::outline_button(
                                                 "preview-sound",
                                                 "Preview",
-                                                false,
+                                                enabled,
                                                 &colors,
-                                                None,
+                                                Some(Box::new(move |_, _, _| preview_sound(&sound))),
                                             )
                                             .h(px(28.))
                                             .px_2()
@@ -719,7 +843,7 @@ impl PreferencesView {
                             cx,
                         ))
                     })
-                    .when(cfg!(target_os = "macos"), |view| {
+                    .when(!cfg!(target_os = "windows"), |view| {
                         view.child(
                             div()
                                 .flex()
@@ -738,14 +862,41 @@ impl PreferencesView {
                                 }),
                         )
                     })
-                    .child(self.switch_row(
-                        "respect_dnd",
-                        "Respect Do-Not-Disturb mode",
-                        Some("Don't show notifications when Do-Not-Disturb is enabled."),
-                        enabled,
-                        &colors,
-                        cx,
-                    )),
+                    .when(cfg!(target_os = "macos"), |view| {
+                        view.child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_6()
+                                .child(
+                                    div()
+                                        .pt_4()
+                                        .pb_2()
+                                        .flex()
+                                        .items_center()
+                                        .gap_4()
+                                        .child(div().flex_1().min_w_0().border_t_1().border_color(colors.muted))
+                                        .child(
+                                            div()
+                                                .flex_shrink_0()
+                                                .text_xs()
+                                                .font_weight(FontWeight::MEDIUM)
+                                                .text_color(colors.muted_foreground)
+                                                .child("For enabled notifications"),
+                                        )
+                                        .child(div().flex_1().min_w_0().border_t_1().border_color(colors.muted)),
+                                )
+                                .child(self.switch_row(
+                                    "respect_dnd",
+                                    "Respect Do-Not-Disturb mode",
+                                    Some("Pause alerts while Do Not Disturb is on."),
+                                    enabled
+                                        && (self.flag("notification_event") || detect),
+                                    &colors,
+                                    cx,
+                                )),
+                        )
+                    }),
             )
             .into_any_element()
     }
@@ -1038,15 +1189,32 @@ impl PreferencesView {
                     .flex()
                     .flex_col()
                     .gap_4()
-                    // Native device authentication is not wired into the native app yet.
-                    .child(self.switch_row(
-                        "lock_app",
-                        "Lock app",
-                        Some("Device authentication is not available on this computer."),
-                        false,
-                        &colors,
-                        cx,
-                    ))
+                    .child({
+                        let available = self.lock_available;
+                        let checked = self.flag("lock_app") && available;
+                        setting_row(
+                            "Lock app",
+                            Some(
+                                if !available {
+                                    "Device authentication is not available on this computer."
+                                } else if cfg!(target_os = "windows") {
+                                    "Require Windows Hello face, PIN, or password when opening Anarlog."
+                                } else {
+                                    "Require Touch ID or your password when opening Anarlog."
+                                }
+                                .into(),
+                            ),
+                            false,
+                            controls::switch(
+                                "switch-lock_app",
+                                checked,
+                                available && !self.authenticating && self.writable("lock_app"),
+                                &colors,
+                                cx.listener(move |this, _, _, cx| this.toggle_lock(!checked, cx)),
+                            ),
+                            &colors,
+                        )
+                    })
                     .child(self.switch_row(
                         "telemetry_consent",
                         "Share usage data",
@@ -1359,6 +1527,15 @@ impl PreferencesView {
         }
         self.dictionary_input
             .update(cx, |input, cx| input.set_text(String::new(), cx));
+    }
+}
+
+fn preview_sound(name: &str) {
+    if let Some(name) = crate::platform::sounds::COMPLETION_SOUNDS
+        .into_iter()
+        .find(|sound| *sound == name)
+    {
+        crate::platform::sounds::play_completion(name);
     }
 }
 

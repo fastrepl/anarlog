@@ -147,7 +147,7 @@ impl ApplicationView {
                 None
             }
         };
-        crate::product::settings::apply_stored_theme(&runtime, cx);
+        crate::product::settings::apply_stored_preferences(&runtime, cx);
         let pins_runtime = runtime.clone();
         cx.spawn(async move |this, cx| {
             let mut state = pins_runtime.state();
