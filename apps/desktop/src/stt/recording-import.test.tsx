@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   transaction: vi.fn(),
   transcribe: vi.fn(),
+  unconfiguredTranscribe: vi.fn(),
+  audioImport: vi.fn(),
+  connectionLoadsLate: false,
   summarize: vi.fn(),
   billingReady: true,
   authSession: {} as object | null,
@@ -34,7 +37,7 @@ vi.mock("~/db", () => ({
   executeTransaction: mocks.transaction,
 }));
 vi.mock("@anlg/plugin-fs-sync", () => ({
-  commands: { audioImport: async () => ({ status: "ok", data: "/audio.wav" }) },
+  commands: { audioImport: mocks.audioImport },
 }));
 vi.mock("@anlg/plugin-fs2", () => ({
   commands: { remove: async () => ({ status: "ok" }) },
@@ -47,13 +50,25 @@ vi.mock("~/session/attachments", () => ({
   catalogLocalSessionAudio: async () => {},
 }));
 vi.mock("~/session/queries", () => ({ useSession: () => ({ id: "meeting" }) }));
-vi.mock("~/stt/useRunBatch", () => ({ useRunBatch: () => mocks.transcribe }));
+vi.mock("~/stt/useRunBatch", async () => {
+  const { useEffect, useState } = await import("react");
+  return {
+    // The real hook reads provider rows through a live query, so a freshly
+    // mounted worker sees no STT connection until that query resolves.
+    useRunBatch: () => {
+      const [loaded, setLoaded] = useState(!mocks.connectionLoadsLate);
+      useEffect(() => setLoaded(true), []);
+      return loaded ? mocks.transcribe : mocks.unconfiguredTranscribe;
+    },
+  };
+});
 vi.mock("~/services/enhancer", () => ({
   getEnhancerService: () => ({ enhanceAndWait: mocks.summarize }),
 }));
 
 afterEach(() => {
   cleanup();
+  mocks.connectionLoadsLate = false;
   vi.useRealTimers();
   vi.resetAllMocks();
 });
@@ -67,6 +82,7 @@ function setupJob(fails: boolean) {
     finish = resolve;
   });
   mocks.transcribe.mockResolvedValue(undefined);
+  mocks.audioImport.mockResolvedValue({ status: "ok", data: "/audio.wav" });
   mocks.summarize.mockImplementation(async () => {
     await summary;
     if (fails) throw new Error("provider-secret-must-not-leak");
@@ -152,6 +168,43 @@ it("runs signed-out imports and finishes them after the worker unmounts", async 
   });
   expect(job.state().status).toBe("summarizing");
   job.view.unmount();
+  await act(async () => {
+    job.finishSummary();
+    await vi.advanceTimersByTimeAsync(100);
+  });
+  expect(job.state().status).toBe("done");
+  job.client.clear();
+});
+
+it("transcribes with the STT connection that loads after the worker mounts", async () => {
+  vi.useFakeTimers();
+  mocks.billingReady = true;
+  mocks.authSession = {};
+  mocks.connectionLoadsLate = true;
+  mocks.unconfiguredTranscribe.mockRejectedValue(
+    new Error("not available for batch transcription"),
+  );
+  const job = setupJob(false);
+  // Copying the recording takes longer than loading the provider settings.
+  let finishImport: (() => void) | undefined;
+  mocks.audioImport.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishImport = () => resolve({ status: "ok", data: "/audio.wav" });
+      }),
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(100);
+  });
+  await act(async () => {
+    finishImport?.();
+    await vi.advanceTimersByTimeAsync(100);
+  });
+  expect(mocks.unconfiguredTranscribe).not.toHaveBeenCalled();
+  expect(mocks.transcribe).toHaveBeenCalledWith("/audio.wav", {
+    promotion: { scope: "whole_session" },
+  });
+  expect(job.state().status).toBe("summarizing");
   await act(async () => {
     job.finishSummary();
     await vi.advanceTimersByTimeAsync(100);
