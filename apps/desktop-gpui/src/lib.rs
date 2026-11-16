@@ -1,5 +1,6 @@
 pub mod application;
 mod application_services;
+pub mod chat;
 pub mod contracts;
 pub mod editor;
 pub mod meeting;

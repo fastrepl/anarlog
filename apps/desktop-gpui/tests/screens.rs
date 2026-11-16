@@ -13,6 +13,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use desktop_gpui::{
     application::ApplicationView,
+    chat::{ChatView, state::ChatEvent},
     ui::theme::UiFonts,
     workspace::{assets::Assets, navigation::Route},
 };
@@ -63,6 +64,14 @@ fn main() {
         .unwrap()
     };
     settle(&mut cx);
+    // Before seeding there is no language model, so chat shows its setup prompt.
+    chat(&mut cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    capture(&mut cx, window, &out, "chat-setup");
+    chat(&mut cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Close, window, cx)
+    });
     seed(&runtime, &out);
     settle(&mut cx);
 
@@ -83,6 +92,27 @@ fn main() {
     scroll(&mut cx, window, -260.);
     capture(&mut cx, window, &out, "timeline-scrolled");
     scroll(&mut cx, window, 1000.);
+    chat(&mut cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    capture(&mut cx, window, &out, "chat-empty");
+    chat(&mut cx, window, |chat, _, cx| chat.toggle_history(cx));
+    capture(&mut cx, window, &out, "chat-history");
+    chat(&mut cx, window, |chat, _, cx| {
+        chat.select_group("g-launch".into(), cx)
+    });
+    capture(&mut cx, window, &out, "chat-thread");
+    chat(&mut cx, window, |chat, _, cx| {
+        chat.select_group("g-hiring".into(), cx)
+    });
+    capture(&mut cx, window, &out, "chat-activity");
+    chat(&mut cx, window, |chat, _, cx| {
+        chat.select_group("g-launch".into(), cx)
+    });
+    chat(&mut cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::OpenRightPanel, window, cx)
+    });
+    capture(&mut cx, window, &out, "chat-right");
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -121,6 +151,22 @@ fn main() {
         open(&mut cx, window, Route::Settings(page.into()));
         capture(&mut cx, window, &out, &format!("settings-{page}"));
     }
+}
+
+fn chat(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    action: impl FnOnce(&mut ChatView, &mut gpui::Window, &mut gpui::Context<ChatView>),
+) {
+    cx.update(|cx| {
+        window
+            .update(cx, |root, window, cx| {
+                let chat = root.workspace().read(cx).chat().clone();
+                chat.update(cx, |chat, cx| action(chat, window, cx))
+            })
+            .unwrap()
+    });
+    settle(cx);
 }
 
 fn seed(runtime: &RuntimeHandle, out: &std::path::Path) {

@@ -68,6 +68,7 @@ impl Render for WorkspaceView {
             .unwrap_or(Route::Empty);
         let layout_route = route.clone();
         let layout_sidebar = self.sidebar.clone();
+        let chat_width = crate::chat::reserved_width(&self.chat, window, cx);
         let entity = cx.entity().downgrade();
         let catalog = self
             .catalogs
@@ -246,6 +247,7 @@ impl Render for WorkspaceView {
                         ))),
                     }),
             )
+            .children(crate::chat::overlay(&self.chat, &route, window, cx))
             .when(!self.message.is_empty(), |view| {
                 view.child(
                     div()
@@ -305,13 +307,15 @@ impl Render for WorkspaceView {
                 ))
             })
             .child(surface)
+            .children(crate::chat::right_panel(&self.chat, window, cx))
             .when(!self.sidebar.expanded, |view| {
                 view.child(self.collapsed_sidebar_chrome(window, cx))
             })
             .child(
                 canvas(
                     move |bounds, window, cx| {
-                        let width = f32::from(bounds.size.width);
+                        // The chat right panel takes its width from the note surface.
+                        let width = f32::from(bounds.size.width) - chat_width;
                         let mut sidebar = layout_sidebar.clone();
                         sidebar.layout(width, &layout_route);
                         if sidebar != layout_sidebar {

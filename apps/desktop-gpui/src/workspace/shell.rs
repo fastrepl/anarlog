@@ -26,6 +26,7 @@ use super::{
     ports::Catalog,
 };
 use crate::{
+    chat::{ChatView, state::ChatEvent},
     contracts::{LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent},
     ui::input::TextInput,
 };
@@ -55,6 +56,7 @@ pub struct WorkspaceView {
     pub(super) catalogs: Vec<(Catalog, Entity<CatalogView>)>,
     pub(super) calendar: Entity<CalendarView>,
     pub(super) calendar_sidebar: Entity<CalendarSidebar>,
+    pub(super) chat: Entity<ChatView>,
     pub(super) active_catalog: Option<Catalog>,
     pub(super) navigation: Navigation,
     pub(super) sidebar: SidebarState,
@@ -207,6 +209,8 @@ impl WorkspaceView {
         let picker = cx.new(|cx| NotePicker::new(context.runtime.clone(), cx));
         let calendar = cx.new(|cx| CalendarView::new(context.runtime.clone(), cx));
         let calendar_sidebar = cx.new(|_| CalendarSidebar::new(context.runtime.clone()));
+        let workspace = cx.weak_entity();
+        let chat = cx.new(|cx| ChatView::new(context.runtime.clone(), workspace, cx));
         let focus = cx.focus_handle();
         focus.focus(window, cx);
         let open_subscription = cx.subscribe(&library, |this, _, event: &OpenNote, cx| {
@@ -329,6 +333,7 @@ impl WorkspaceView {
             catalogs: vec![],
             calendar,
             calendar_sidebar,
+            chat,
             active_catalog: None,
             navigation,
             sidebar: SidebarState::default(),
@@ -525,6 +530,10 @@ impl WorkspaceView {
             });
         })
         .detach();
+    }
+
+    pub fn chat(&self) -> &Entity<ChatView> {
+        &self.chat
     }
 
     pub fn current_route(&self) -> Route {
@@ -786,6 +795,8 @@ impl WorkspaceView {
             .map(|tab| tab.route.clone())
             .unwrap_or(Route::Empty);
         self.sidebar.set_route(&route);
+        self.chat
+            .update(cx, |chat, cx| chat.set_route(route.clone(), cx));
         self.library.update(cx, |library, cx| {
             library.set_active(
                 match &route {
@@ -1205,6 +1216,9 @@ impl WorkspaceView {
         }
         match event.keystroke.key.as_str() {
             "k" => self.show_picker(window, cx),
+            "j" => self
+                .chat
+                .update(cx, |chat, cx| chat.event(ChatEvent::Toggle, window, cx)),
             "n" => self.create(modifiers.shift, cx),
             "," => self.navigate(Navigate::Open(Route::settings("app"), false), cx),
             "\\" => self.toggle_sidebar(cx),
@@ -1218,7 +1232,7 @@ impl WorkspaceView {
     pub(super) fn dismiss_overlay(
         &mut self,
         event: &KeyDownEvent,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let modifiers = event.keystroke.modifiers;
@@ -1227,7 +1241,12 @@ impl WorkspaceView {
             && !modifiers.alt
             && !modifiers.shift
         {
-            self.leave_overlay(cx);
+            if self.chat.read(cx).is_open() {
+                self.chat
+                    .update(cx, |chat, cx| chat.event(ChatEvent::Close, window, cx));
+            } else {
+                self.leave_overlay(cx);
+            }
             cx.stop_propagation();
         }
     }

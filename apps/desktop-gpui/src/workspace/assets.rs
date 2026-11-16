@@ -92,6 +92,9 @@ impl AssetSource for Assets {
         {
             return Ok(Some(Cow::Borrowed(bytes)));
         }
+        if let Some(bytes) = crate::chat::assets::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
         crate::ui::assets::Assets.load(path)
     }
 
@@ -106,6 +109,11 @@ impl AssetSource for Assets {
             IMAGES
                 .iter()
                 .map(|(name, _)| format!("workspace/{name}").into()),
+        );
+        paths.extend(
+            crate::chat::assets::ICONS
+                .iter()
+                .map(|(name, _)| format!("chat/{name}.svg").into()),
         );
         Ok(paths)
     }
