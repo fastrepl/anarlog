@@ -1495,3 +1495,21 @@ fn measured_editor_workload() {
         }
     }
 }
+
+#[test]
+fn toolbar_marks_are_active_when_any_selected_text_has_them() {
+    let mut model = fixture(
+        json!({"type":"doc","content":[{"type":"paragraph","content":[
+            {"type":"text","text":"plain "},
+            {"type":"text","marks":[{"type":"bold"}],"text":"bold"}
+        ]}]}),
+    );
+    model.select(Selection { anchor: 1, head: 4 });
+    assert!(!model.mark_active("bold"));
+    model.select(Selection {
+        anchor: 1,
+        head: 11,
+    });
+    assert!(model.mark_active("bold"));
+    assert!(!model.mark_active("italic"));
+}

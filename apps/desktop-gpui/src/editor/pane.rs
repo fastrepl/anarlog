@@ -42,6 +42,7 @@ pub struct EditorPane {
     projecting: HashSet<u64>,
     pub(super) layouts: HashMap<u64, VisibleLayout>,
     pub(super) slash: Option<SlashMenu>,
+    pub(super) slash_dismissed: Option<usize>,
     pub(super) mention: Option<MentionMenu>,
     mention_results: MentionResults,
     mention_enabled: bool,
@@ -204,6 +205,7 @@ impl EditorPane {
             projecting: HashSet::new(),
             layouts: HashMap::new(),
             slash: None,
+            slash_dismissed: None,
             mention: None,
             mention_results: MentionResults::default(),
             mention_enabled: true,
@@ -339,41 +341,39 @@ impl EditorPane {
         self.edited(before, result, cx);
     }
 
+    /// Escape dismisses the open "/" until it is gone, as in shipping.
     pub(super) fn update_slash(&mut self) {
-        let Some(model) = &self.model else {
-            return;
-        };
+        self.slash = self.find_slash();
+        if self.slash.is_none() {
+            self.slash_dismissed = None;
+        } else if self.slash.as_ref().map(|menu| menu.start) == self.slash_dismissed {
+            self.slash = None;
+        }
+    }
+
+    fn find_slash(&self) -> Option<SlashMenu> {
+        let model = self.model.as_ref()?;
         if model.composing() || !model.selection.is_empty() {
-            self.slash = None;
-            return;
+            return None;
         }
-        let Ok(resolved) = model.document.resolve(model.selection.head) else {
-            self.slash = None;
-            return;
-        };
-        if resolved.offset > 64 || resolved.node.kind() == "codeBlock" {
-            self.slash = None;
-            return;
+        let resolved = model.document.resolve(model.selection.head).ok()?;
+        if resolved.node.kind() == "codeBlock" {
+            return None;
         }
-        let Ok(text) =
-            clipboard::text_for_range(&model.document, resolved.start..model.selection.head)
-        else {
-            return;
-        };
-        if let Some(query) = text.strip_prefix('/') {
-            let selected = self
-                .slash
-                .as_ref()
-                .filter(|menu| menu.query == query)
-                .map_or(0, |menu| menu.selected);
-            self.slash = Some(SlashMenu {
-                start: resolved.start,
-                query: query.into(),
-                selected,
-            });
-        } else {
-            self.slash = None;
-        }
+        let text = clipboard::text_for_range(&model.document, resolved.start..model.selection.head)
+            .ok()?;
+        let (slash, query) = super::menu::slash_query(&text)?;
+        let start = resolved.start + text[..slash].encode_utf16().count();
+        let selected = self
+            .slash
+            .as_ref()
+            .filter(|menu| menu.query == query && menu.start == start)
+            .map_or(0, |menu| menu.selected);
+        Some(SlashMenu {
+            start,
+            query: query.into(),
+            selected,
+        })
     }
 
     pub fn enable_mentions(&mut self, enabled: bool) {
@@ -1440,13 +1440,22 @@ impl Render for EditorPane {
                 .values()
                 .find_map(|layout| layout.bounds_for(model.selection.head..model.selection.head))
         });
-        let popup_position = |width: f32, height: f32, below: bool| {
-            if let (Some(caret), Some(viewport)) = (caret, self.viewport) {
-                let left = (caret.left() - viewport.left())
+        let anchor_at = |position: usize| {
+            self.layouts
+                .values()
+                .find_map(|layout| layout.bounds_for(position..position))
+        };
+        let popup_position = |anchor: Option<gpui::Bounds<Pixels>>,
+                              width: f32,
+                              height: f32,
+                              below: bool,
+                              gap: f32| {
+            if let (Some(anchor), Some(viewport)) = (anchor, self.viewport) {
+                let left = (anchor.left() - viewport.left())
                     .max(px(8.))
                     .min((viewport.size.width - px(width + 8.)).max(px(8.)));
-                let under = caret.bottom() - viewport.top() + px(8.);
-                let above = caret.top() - viewport.top() - px(height + 8.);
+                let under = anchor.bottom() - viewport.top() + px(gap);
+                let above = anchor.top() - viewport.top() - px(height + gap);
                 let top = if below && under + px(height) < viewport.size.height {
                     under
                 } else if above >= px(8.) {
@@ -1459,78 +1468,140 @@ impl Render for EditorPane {
                 gpui::point(px(12.), px(40.))
             }
         };
-        let menu_position = popup_position(280., 320., true);
-        let toolbar_position = popup_position(360., 40., false);
+        let trigger = self
+            .slash
+            .as_ref()
+            .map(|menu| menu.start)
+            .or(self.mention.as_ref().map(|menu| menu.start));
+        let menu_position =
+            popup_position(trigger.and_then(anchor_at).or(caret), 280., 256., true, 4.);
+        let toolbar_position = popup_position(caret, 186., 36., false, 8.);
         self.layouts.clear();
         let colors = theme(window);
         let entity = cx.entity();
         let handler = entity.clone();
         let viewport_entity = entity.clone();
         let menu =
-            self.slash.as_ref().map(|menu| {
-                div()
-                    .id("slash-menu")
-                    .absolute()
-                    .left(menu_position.x)
-                    .top(menu_position.y)
-                    .w(px(280.))
-                    .max_h(px(320.))
-                    .overflow_y_scroll()
-                    .rounded_xl()
-                    .shadow_lg()
-                    .border_1()
-                    .border_color(colors.border)
-                    .bg(colors.card)
-                    .p_2()
-                    .children(menu.items().into_iter().enumerate().map(
-                        |(index, (command, label))| {
-                            div()
-                                .id(("slash-option", index))
-                                .cursor_pointer()
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener(move |this, _, _, cx| {
-                                        if let Some(menu) = &mut this.slash {
+            self.slash.as_ref().and_then(|menu| {
+                let items = menu.items();
+                if items.is_empty() {
+                    return None;
+                }
+                Some(
+                    div()
+                        .id("slash-menu")
+                        .absolute()
+                        .left(menu_position.x)
+                        .top(menu_position.y)
+                        .w(px(224.))
+                        .max_h(px(256.))
+                        .overflow_y_scroll()
+                        .p_1()
+                        .rounded(px(16.))
+                        .border_1()
+                        .border_color(colors.border)
+                        .bg(colors.popover)
+                        .text_color(colors.popover_foreground)
+                        .shadow_lg()
+                        .when(!items.is_empty(), |view| {
+                            view.child(
+                                div()
+                                    .px_2()
+                                    .pb(px(2.))
+                                    .text_size(px(10.))
+                                    .line_height(px(15.))
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(colors.muted_foreground)
+                                    .child("COMMANDS"),
+                            )
+                        })
+                        .children(items.into_iter().enumerate().map(
+                            |(index, (command, label))| {
+                                div()
+                                    .id(("slash-option", index))
+                                    .h(px(32.))
+                                    .px_2()
+                                    .flex()
+                                    .items_center()
+                                    .gap(px(6.))
+                                    .rounded(px(12.))
+                                    .cursor_pointer()
+                                    .when(index == menu.selected, |view| view.bg(colors.muted))
+                                    .on_mouse_move(cx.listener(move |this, _, _, cx| {
+                                        if let Some(menu) = &mut this.slash
+                                            && menu.selected != index
+                                        {
                                             menu.selected = index;
+                                            cx.notify();
                                         }
-                                        this.slash_commit(cx);
-                                        cx.stop_propagation();
-                                    }),
-                                )
-                                .px_2()
-                                .py_1()
-                                .when(index == menu.selected, |div| div.bg(colors.accent))
-                                .child(div().child(label))
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(colors.muted_foreground)
-                                        .child(command.description()),
-                                )
-                        },
-                    ))
+                                    }))
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(move |this, _, _, cx| {
+                                            if let Some(menu) = &mut this.slash {
+                                                menu.selected = index;
+                                            }
+                                            this.slash_commit(cx);
+                                            cx.stop_propagation();
+                                        }),
+                                    )
+                                    .child(
+                                        gpui::svg()
+                                            .path(command.icon())
+                                            .size(px(16.))
+                                            .flex_shrink_0()
+                                            .text_color(colors.muted_foreground),
+                                    )
+                                    .child(
+                                        div()
+                                            .min_w_0()
+                                            .flex_1()
+                                            .truncate()
+                                            .text_sm()
+                                            .line_height(px(16.))
+                                            .child(label),
+                                    )
+                            },
+                        )),
+                )
             });
-        let mentions =
-            self.mention.as_ref().map(|menu| {
+        let mentions = self
+            .mention
+            .as_ref()
+            .filter(|menu| !menu.results.candidates.is_empty() || menu.results.error.is_some())
+            .map(|menu| {
                 div()
                     .id("mention-menu")
                     .absolute()
                     .left(menu_position.x)
                     .top(menu_position.y)
-                    .w(px(280.))
-                    .max_h(px(320.))
-                    .overflow_y_scroll()
-                    .rounded_xl()
-                    .shadow_lg()
+                    .max_w(px(280.))
+                    .min_w(px(160.))
+                    .p_1()
+                    .rounded(px(16.))
                     .border_1()
                     .border_color(colors.border)
-                    .bg(colors.card)
-                    .p_2()
+                    .bg(colors.popover)
+                    .text_color(colors.popover_foreground)
+                    .shadow_lg()
                     .children(menu.results.candidates.iter().enumerate().map(
                         |(index, candidate)| {
+                            let icon = match candidate.target {
+                                MentionTarget::Human(_) => "editor/UserIcon.svg",
+                                MentionTarget::Session(_) => "editor/NoteIcon.svg",
+                                MentionTarget::Organization(_) => "editor/Building03Icon.svg",
+                            };
                             div()
                                 .id(("mention-option", index))
+                                .h(px(32.))
+                                .px_2()
+                                .flex()
+                                .items_center()
+                                .gap(px(6.))
+                                .rounded(px(12.))
                                 .cursor_pointer()
+                                .when(index == menu.selected, |view| view.bg(colors.muted))
+                                .hover(|view| view.bg(colors.muted))
                                 .on_mouse_down(
                                     MouseButton::Left,
                                     cx.listener(move |this, _, _, cx| {
@@ -1541,20 +1612,31 @@ impl Render for EditorPane {
                                         cx.stop_propagation();
                                     }),
                                 )
-                                .px_2()
-                                .py_1()
-                                .when(index == menu.selected, |div| div.bg(colors.accent))
-                                .child(candidate.label.clone())
+                                .child(
+                                    gpui::svg()
+                                        .path(icon)
+                                        .size(px(16.))
+                                        .flex_shrink_0()
+                                        .text_color(colors.muted_foreground),
+                                )
+                                .child(
+                                    div()
+                                        .min_w_0()
+                                        .truncate()
+                                        .text_sm()
+                                        .line_height(px(16.))
+                                        .child(candidate.label.clone()),
+                                )
                         },
                     ))
-                    .children(menu.results.error.clone())
-                    .when(menu.results.loading, |view| view.child("Searching…"))
-                    .when(
-                        !menu.results.loading
-                            && menu.results.candidates.is_empty()
-                            && menu.results.error.is_none(),
-                        |view| view.child("No matching results"),
-                    )
+                    .children(menu.results.error.clone().map(|error| {
+                        div()
+                            .px_2()
+                            .py_1()
+                            .text_sm()
+                            .text_color(colors.muted_foreground)
+                            .child(error)
+                    }))
             });
         div()
             .id("native-note-editor")
@@ -1643,36 +1725,51 @@ impl Render for EditorPane {
                         .as_ref()
                         .is_some_and(|model| !model.selection.is_empty()),
                 |view| {
+                    let active = |kind: &str| {
+                        self.model
+                            .as_ref()
+                            .is_some_and(|model| model.mark_active(kind))
+                    };
                     view.child(gpui::deferred(
                         div()
                             .absolute()
                             .left(toolbar_position.x)
                             .top(toolbar_position.y)
-                            .shadow_lg()
                             .flex()
-                            .gap_1()
+                            .items_center()
+                            .gap(px(2.))
                             .p_1()
+                            .rounded(px(12.))
                             .border_1()
-                            .rounded_md()
                             .border_color(colors.border)
-                            .bg(colors.card)
+                            .bg(colors.popover)
+                            .shadow_lg()
                             .children(
                                 [
-                                    ("bold", "B"),
-                                    ("italic", "I"),
-                                    ("underline", "U"),
-                                    ("strike", "S"),
-                                    ("code", "Code"),
-                                    ("highlight", "Highlight"),
+                                    ("bold", "editor/TextBoldIcon.svg"),
+                                    ("italic", "editor/TextItalicIcon.svg"),
+                                    ("underline", "editor/TextUnderlineIcon.svg"),
+                                    ("strike", "editor/TextStrikethroughIcon.svg"),
+                                    ("code", "editor/CodeIcon.svg"),
+                                    ("highlight", "editor/HighlighterIcon.svg"),
                                 ]
                                 .into_iter()
-                                .map(|(kind, label)| {
+                                .map(|(kind, icon)| {
+                                    let on = active(kind);
                                     div()
                                         .id(kind)
-                                        .px_2()
-                                        .py_1()
+                                        .group(kind)
+                                        .size(px(28.))
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .rounded(px(6.))
                                         .cursor_pointer()
-                                        .hover(|style| style.bg(colors.accent))
+                                        .when_else(
+                                            on,
+                                            |view| view.bg(colors.primary),
+                                            |view| view.hover(|style| style.bg(colors.accent)),
+                                        )
                                         .on_mouse_down(
                                             MouseButton::Left,
                                             cx.listener(move |this, _, _, cx| {
@@ -1684,24 +1781,22 @@ impl Render for EditorPane {
                                                 cx.stop_propagation();
                                             }),
                                         )
-                                        .child(label)
+                                        .child(
+                                            gpui::svg()
+                                                .path(icon)
+                                                .size(px(16.))
+                                                .text_color(if on {
+                                                    colors.primary_foreground
+                                                } else {
+                                                    colors.muted_foreground
+                                                })
+                                                .when(!on, |svg| {
+                                                    svg.group_hover(kind, |style| {
+                                                        style.text_color(colors.accent_foreground)
+                                                    })
+                                                }),
+                                        )
                                 }),
-                            )
-                            .child(
-                                div()
-                                    .id("edit-link")
-                                    .px_2()
-                                    .py_1()
-                                    .cursor_pointer()
-                                    .on_mouse_down(
-                                        MouseButton::Left,
-                                        cx.listener(|this, _, _, cx| {
-                                            this.link_input = Some(String::new());
-                                            cx.stop_propagation();
-                                            cx.notify();
-                                        }),
-                                    )
-                                    .child("Link"),
                             ),
                     ))
                 },

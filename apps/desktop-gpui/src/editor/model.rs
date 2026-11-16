@@ -595,6 +595,33 @@ impl EditorModel {
         self.apply_mark(kind, None)
     }
 
+    /// Shipping's toolbar state (`rangeHasMark`): on when any selected text carries the mark.
+    pub fn mark_active(&self, kind: &str) -> bool {
+        let range = self.selection.range();
+        let Ok(blocks) = super::transform::selected_blocks(&self.document, range.clone()) else {
+            return false;
+        };
+        blocks.iter().any(|block| {
+            let end = range
+                .end
+                .saturating_sub(block.start)
+                .min(block.node.children.units());
+            let start = range.start.saturating_sub(block.start);
+            let Ok(selected) = split_inline(&block.node.children, end)
+                .and_then(|(head, _)| split_inline(&head, start))
+                .map(|(_, selected)| selected)
+            else {
+                return false;
+            };
+            let mut found = false;
+            selected.visit(&mut |node| {
+                found |=
+                    node.text.is_some() && node.marks().iter().any(|mark| mark["type"] == kind);
+            });
+            found
+        })
+    }
+
     fn apply_mark(&mut self, kind: &str, enable: Option<bool>) -> EditResult<()> {
         self.ensure_editable()?;
         let range = self.selection.range();

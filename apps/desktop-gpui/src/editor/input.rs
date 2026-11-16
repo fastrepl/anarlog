@@ -82,7 +82,9 @@ impl EditorPane {
                 _ => {}
             }
         }
-        if let Some(menu) = &mut self.slash {
+        if let Some(menu) = &mut self.slash
+            && !menu.items().is_empty()
+        {
             match key {
                 "up" | "down" => {
                     menu.step(key == "down");
@@ -91,6 +93,7 @@ impl EditorPane {
                     return;
                 }
                 "escape" => {
+                    self.slash_dismissed = Some(menu.start);
                     self.slash = None;
                     cx.notify();
                     cx.stop_propagation();

@@ -12,51 +12,65 @@ pub enum BlockCommand {
 }
 
 impl BlockCommand {
-    pub const ALL: [(Self, &'static str); 11] = [
+    /// Shipping's slash commands, in its order. Tables stay insertable through paste and
+    /// existing documents, but shipping's slash menu does not offer them.
+    pub const ALL: [(Self, &'static str); 10] = [
         (Self::Paragraph, "Text"),
         (Self::Heading(1), "Heading 1"),
         (Self::Heading(2), "Heading 2"),
         (Self::Heading(3), "Heading 3"),
         (Self::BulletList, "Bullet List"),
         (Self::OrderedList, "Numbered List"),
+        (Self::TaskList, "Task List"),
         (Self::Quote, "Quote"),
         (Self::Code, "Code Block"),
         (Self::Divider, "Divider"),
-        (Self::TaskList, "Task List"),
-        (Self::Table, "Table"),
     ];
 
-    pub fn description(self) -> &'static str {
+    pub fn icon(self) -> &'static str {
         match self {
-            Self::Paragraph => "Plain text",
-            Self::Heading(1) => "Large heading",
-            Self::Heading(2) => "Medium heading",
-            Self::Heading(_) => "Small heading",
-            Self::BulletList => "Unordered list",
-            Self::OrderedList => "Ordered list",
-            Self::TaskList => "Track a task",
-            Self::Quote => "Capture a quote",
-            Self::Code => "Monospace code",
-            Self::Divider => "Horizontal rule",
-            Self::Table => "Three-column grid",
+            Self::Paragraph => "editor/TextIcon.svg",
+            Self::Heading(1) => "editor/Heading01Icon.svg",
+            Self::Heading(2) => "editor/Heading02Icon.svg",
+            Self::Heading(_) => "editor/Heading03Icon.svg",
+            Self::BulletList => "editor/LeftToRightListBulletIcon.svg",
+            Self::OrderedList => "editor/LeftToRightListNumberIcon.svg",
+            Self::TaskList => "editor/ListChecksIcon.svg",
+            Self::Quote => "editor/QuotesIcon.svg",
+            Self::Code => "editor/CodeIcon.svg",
+            Self::Divider => "editor/MinusIcon.svg",
+            Self::Table => "editor/TextIcon.svg",
         }
     }
 
-    fn keywords(self) -> &'static str {
+    fn keywords(self) -> &'static [&'static str] {
         match self {
-            Self::Paragraph => "text paragraph plain",
-            Self::Heading(1) => "heading h1 title large",
-            Self::Heading(2) => "heading h2 subtitle medium",
-            Self::Heading(_) => "heading h3 small",
-            Self::BulletList => "bullet list unordered ul",
-            Self::OrderedList => "numbered list ordered ol",
-            Self::TaskList => "task todo checkbox checklist",
-            Self::Quote => "quote blockquote",
-            Self::Code => "code pre codeblock",
-            Self::Divider => "divider rule horizontal hr",
-            Self::Table => "table grid",
+            Self::Paragraph => &["text", "paragraph", "plain"],
+            Self::Heading(1) => &["heading", "h1", "title", "large"],
+            Self::Heading(2) => &["heading", "h2", "subtitle", "medium"],
+            Self::Heading(_) => &["heading", "h3", "small"],
+            Self::BulletList => &["bullet", "list", "unordered", "ul"],
+            Self::OrderedList => &["numbered", "list", "ordered", "ol"],
+            Self::TaskList => &["task", "todo", "checkbox", "check"],
+            Self::Quote => &["quote", "blockquote", "callout"],
+            Self::Code => &["code", "pre", "block", "snippet"],
+            Self::Divider => &["divider", "horizontal", "rule", "line", "hr"],
+            Self::Table => &["table", "grid"],
         }
     }
+}
+
+/// Shipping's `findSlashCommand` over the text from the block start to the caret: the last "/"
+/// opens the menu when it starts the block or follows whitespace, and the query after it has
+/// no whitespace. Returns the byte offset of the "/" and the query.
+pub fn slash_query(text: &str) -> Option<(usize, &str)> {
+    let slash = text.rfind('/')?;
+    let query = &text[slash + 1..];
+    let after_space = text[..slash]
+        .chars()
+        .next_back()
+        .is_none_or(char::is_whitespace);
+    (after_space && !query.chars().any(char::is_whitespace)).then_some((slash, query))
 }
 
 pub struct SlashMenu {
@@ -71,7 +85,11 @@ impl SlashMenu {
         BlockCommand::ALL
             .into_iter()
             .filter(|(command, label)| {
-                label.to_ascii_lowercase().contains(&query) || command.keywords().contains(&query)
+                label.to_ascii_lowercase().contains(&query)
+                    || command
+                        .keywords()
+                        .iter()
+                        .any(|keyword| keyword.contains(&query))
             })
             .collect()
     }
@@ -158,5 +176,26 @@ impl MentionResults {
             }
         }
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slash_opens_after_whitespace_like_shipping() {
+        assert_eq!(slash_query("/"), Some((0, "")));
+        assert_eq!(slash_query("wiki. /hea"), Some((6, "hea")));
+        assert_eq!(slash_query("and/or"), None);
+        assert_eq!(slash_query("/heading two"), None);
+        assert_eq!(slash_query("plain text"), None);
+        let menu = SlashMenu {
+            query: "list".into(),
+            selected: 0,
+            start: 0,
+        };
+        let labels: Vec<_> = menu.items().into_iter().map(|(_, label)| label).collect();
+        assert_eq!(labels, ["Bullet List", "Numbered List", "Task List"]);
     }
 }

@@ -130,6 +130,15 @@ fn main() {
     capture(&mut cx, window, &out, "note-memos");
     click(&mut cx, window, 362., 23.);
     capture(&mut cx, window, &out, "note-transcript");
+    // Typing "/" after the customer note's first line opens the slash menu.
+    open(
+        &mut cx,
+        window,
+        Route::Session(SessionId("s-customer".into())),
+    );
+    click(&mut cx, window, 850., 70.);
+    type_text(&mut cx, window, &["space", "/"]);
+    capture(&mut cx, window, &out, "note-slash");
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -310,6 +319,24 @@ fn click(cx: &mut HeadlessAppContext, window: WindowHandle<ApplicationView>, x: 
 }
 
 /// Dispatches pointer input against the last drawn frame's hitboxes.
+/// Types keystrokes (`Keystroke::parse` syntax) through the focused view's input handler.
+fn type_text(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    keys: &[&'static str],
+) {
+    let window: AnyWindowHandle = window.into();
+    for key in keys {
+        cx.update_window(window, |_, window, cx| {
+            window.draw(cx).clear(cx);
+            window.dispatch_keystroke(gpui::Keystroke::parse(key).unwrap(), cx);
+        })
+        .unwrap();
+        cx.run_until_parked();
+    }
+    settle(cx);
+}
+
 fn input<const N: usize>(
     cx: &mut HeadlessAppContext,
     window: WindowHandle<ApplicationView>,
