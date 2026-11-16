@@ -1,5 +1,7 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use chrono::{DateTime, Datelike, Days, Local, Months, NaiveDate, NaiveDateTime, Utc};
+use chrono_tz::Tz;
 use desktop_runtime::{
     CancellationToken, Generation, Reply, Result, RuntimeHandle, ServiceError, SessionId,
 };
@@ -8,13 +10,26 @@ use futures::{
     future::{Either, select},
 };
 use gpui::{
-    Context, EventEmitter, Render, SharedString, UniformListScrollHandle, Window, canvas, div,
-    prelude::*, px, uniform_list,
+    Animation, AnimationExt, App, Context, EventEmitter, FontWeight, Hsla, Render, ScrollHandle,
+    SharedString, Transformation, Window, anchored, canvas, deferred, div, percentage, point,
+    prelude::*, px, rgb, svg,
 };
 use serde_json::{Value, json};
 
 use super::mutations::{failure, statement, transaction};
-use crate::ui::theme::theme;
+use crate::ui::theme::{Theme, monospace_font, theme};
+
+const COMPACT_PAST_DAYS: u64 = 42;
+const COMPACT_FUTURE_DAYS: u64 = 42;
+const MAX_ITEMS: usize = 1000;
+const HEADER_HEIGHT: f32 = 48.;
+const WEEKDAY_HEIGHT: f32 = 33.;
+// Cell border (1) + vertical padding (2 × 6) + day badge (28) + its bottom margin (4).
+const CELL_CHROME: f32 = 45.;
+const CHIP_HEIGHT: f32 = 15.;
+const ALL_DAY_CHIP_HEIGHT: f32 = 19.;
+const CHIP_GAP: f32 = 2.;
+const WEEKDAYS: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 pub fn visible_columns(width: f32) -> usize {
     if width >= 700. {
@@ -28,46 +43,197 @@ pub fn visible_columns(width: f32) -> usize {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct CalendarRequest {
-    pub anchor: Arc<str>,
-    pub columns: usize,
-    pub week_start: u8,
-    pub step: i32,
+/// The days shown for `month`: whole weeks from the one containing the 1st to the one
+/// containing the last day.
+pub fn month_days(month: NaiveDate, week_start: u8) -> Vec<NaiveDate> {
+    let week_start = u32::from(week_start.min(6));
+    let first = month.with_day(1).unwrap_or(month);
+    let last = first
+        .checked_add_months(Months::new(1))
+        .and_then(|next| next.pred_opt())
+        .unwrap_or(first);
+    let lead = (first.weekday().num_days_from_sunday() + 7 - week_start) % 7;
+    let trail = (week_start + 6 - last.weekday().num_days_from_sunday()) % 7;
+    let start = first - Days::new(lead.into());
+    let end = last + Days::new(trail.into());
+    start.iter_days().take_while(|day| *day <= end).collect()
 }
 
-impl Default for CalendarRequest {
-    fn default() -> Self {
-        Self {
-            anchor: "".into(),
-            columns: 7,
-            week_start: 0,
-            step: 0,
+/// The scrollable strip shown when the calendar is too narrow for a month grid.
+pub fn compact_days(start: NaiveDate) -> Vec<NaiveDate> {
+    let first = start - Days::new(COMPACT_PAST_DAYS);
+    first
+        .iter_days()
+        .take((COMPACT_PAST_DAYS + COMPACT_FUTURE_DAYS) as usize)
+        .collect()
+}
+
+fn weekend(day: NaiveDate) -> bool {
+    matches!(day.weekday(), chrono::Weekday::Sat | chrono::Weekday::Sun)
+}
+
+/// How many chips fit in a day cell, reserving a row for "+N more" when some are hidden.
+pub fn visible_count(total: usize, chip: f32, available: Option<f32>) -> usize {
+    let Some(available) = available else {
+        return total;
+    };
+    let all = total as f32 * chip + total.saturating_sub(1) as f32 * CHIP_GAP;
+    if all <= available {
+        return total;
+    }
+    let (mut count, mut used) = (0, 0.);
+    while count < total {
+        let next = chip + if count > 0 { CHIP_GAP } else { 0. };
+        let more = if total - count - 1 > 0 {
+            chip + CHIP_GAP
+        } else {
+            0.
+        };
+        if used + next + more > available {
+            break;
+        }
+        used += next;
+        count += 1;
+    }
+    count.max(1).min(total)
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Clock {
+    pub use_24_hour_time: bool,
+    pub timezone: Option<Tz>,
+}
+
+impl Clock {
+    fn local(&self, instant: DateTime<Utc>) -> NaiveDateTime {
+        match self.timezone {
+            Some(timezone) => instant.with_timezone(&timezone).naive_local(),
+            None => instant.with_timezone(&Local).naive_local(),
+        }
+    }
+
+    fn today(&self) -> NaiveDate {
+        self.local(Utc::now()).date()
+    }
+
+    fn time(&self, at: NaiveDateTime) -> String {
+        at.format(if self.use_24_hour_time {
+            "%H:%M"
+        } else {
+            "%-I:%M %p"
+        })
+        .to_string()
+    }
+
+    fn date_time(&self, at: NaiveDateTime) -> String {
+        format!("{} {}", at.format("%b %-d, %Y"), self.time(at))
+    }
+}
+
+/// Stored timestamps are RFC 3339; zone-less values are UTC, as in the shipping app.
+fn parse_instant(value: &str) -> Option<DateTime<Utc>> {
+    let value = value.trim();
+    DateTime::parse_from_rfc3339(value)
+        .map(|date| date.to_utc())
+        .ok()
+        .or_else(|| {
+            ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%d %H:%M:%S%.f"]
+                .iter()
+                .find_map(|format| NaiveDateTime::parse_from_str(value, format).ok())
+                .map(|date| date.and_utc())
+        })
+        .or_else(|| {
+            NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                .ok()
+                .and_then(|date| date.and_hms_opt(0, 0, 0))
+                .map(|date| date.and_utc())
+        })
+}
+
+pub(super) fn parse_color(value: &str) -> Option<Hsla> {
+    let hex = value.trim().strip_prefix('#')?;
+    let expanded = match hex.len() {
+        3 => hex.chars().flat_map(|c| [c, c]).collect::<String>(),
+        6 | 8 => hex[..6].to_owned(),
+        _ => return None,
+    };
+    u32::from_str_radix(&expanded, 16)
+        .ok()
+        .map(|value| rgb(value).into())
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CalendarItem {
+    pub id: Arc<str>,
+    /// A note without a calendar event, shown with an outlined marker.
+    pub note: bool,
+    pub title: Arc<str>,
+    pub start: Arc<str>,
+    pub end: Arc<str>,
+    pub all_day: bool,
+    pub color: Arc<str>,
+    pub location: Arc<str>,
+    pub meeting_link: Arc<str>,
+    pub description: Arc<str>,
+    pub session: Option<SessionId>,
+}
+
+impl CalendarItem {
+    fn day(&self, clock: &Clock) -> Option<NaiveDate> {
+        if self.all_day {
+            NaiveDate::parse_from_str(self.start.trim().get(..10)?, "%Y-%m-%d").ok()
+        } else {
+            parse_instant(&self.start).map(|at| clock.local(at).date())
+        }
+    }
+
+    fn title(&self) -> SharedString {
+        if self.title.trim().is_empty() {
+            "Busy".into()
+        } else {
+            SharedString::from(self.title.clone())
+        }
+    }
+
+    fn chip_height(&self) -> f32 {
+        if self.all_day && !self.note {
+            ALL_DAY_CHIP_HEIGHT
+        } else {
+            CHIP_HEIGHT
         }
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CalendarItem {
-    pub id: Arc<str>,
-    pub title: Arc<str>,
-    pub time: Arc<str>,
-    pub location: Arc<str>,
-    pub session: Option<SessionId>,
-    pub all_day: bool,
+/// Places items on their start day and orders each day like the shipping calendar:
+/// events (all-day first, then by start), then notes by creation time.
+pub fn by_day(items: &[CalendarItem], clock: &Clock) -> HashMap<NaiveDate, Vec<CalendarItem>> {
+    let mut days = HashMap::<NaiveDate, Vec<CalendarItem>>::new();
+    for item in items {
+        if let Some(day) = item.day(clock) {
+            days.entry(day).or_default().push(item.clone());
+        }
+    }
+    for items in days.values_mut() {
+        items.sort_by_cached_key(|item| {
+            let start = parse_instant(&item.start);
+            (
+                item.note,
+                !item.all_day,
+                start.is_none(),
+                start,
+                item.title.clone(),
+                item.id.clone(),
+            )
+        });
+    }
+    days
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CalendarDay {
-    pub date: Arc<str>,
-    pub today: bool,
-    pub items: Arc<[CalendarItem]>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CalendarPage {
-    pub anchor: Arc<str>,
-    pub days: Arc<[CalendarDay]>,
+    pub from: NaiveDate,
+    pub to: NaiveDate,
+    pub items: Arc<[CalendarItem]>,
     pub overflow: bool,
 }
 
@@ -78,14 +244,13 @@ fn field(row: &Value, key: &str) -> Arc<str> {
         .into()
 }
 
-const ITEM_QUERY: &str = "WITH candidates AS (
-    SELECT e.id, substr(e.title,1,4096) AS title, e.started_at AS time,
-        substr(e.location,1,4096) AS location, e.is_all_day AS all_day,
-        CASE WHEN e.is_all_day THEN substr(e.started_at,1,10) ELSE date(e.started_at,'localtime') END AS start_day,
-        CASE WHEN e.is_all_day THEN substr(e.ended_at,1,10) ELSE date(e.ended_at,'localtime') END AS end_day,
+const ITEM_QUERY: &str = "SELECT 0 AS note, e.id, substr(e.title,1,4096) AS title, e.started_at AS start,
+        e.ended_at AS end, e.is_all_day AS all_day, COALESCE(c.color,'') AS color,
+        substr(e.location,1,4096) AS location, substr(e.meeting_link,1,4096) AS meeting_link,
+        substr(e.description,1,16384) AS description,
         (SELECT s.id FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1) AS session_id
-    FROM events e JOIN calendars c ON c.id = e.calendar_id
-    WHERE e.deleted_at IS NULL AND c.deleted_at IS NULL AND c.enabled = 1
+    FROM events e LEFT JOIN calendars c ON c.id = e.calendar_id AND c.deleted_at IS NULL
+    WHERE e.deleted_at IS NULL AND e.started_at >= ?1 AND e.started_at < ?2
         AND NOT EXISTS(
             SELECT 1 FROM app_settings a,
                 json_each(CASE WHEN json_valid(a.value_json) AND json_type(a.value_json) = 'array' THEN a.value_json ELSE '[]' END) ignored
@@ -93,74 +258,61 @@ const ITEM_QUERY: &str = "WITH candidates AS (
                 OR (a.id = 'ignored_recurring_series' AND json_extract(ignored.value,'$.id') = e.recurrence_series_id)
         )
     UNION ALL
-    SELECT s.id, substr(s.title,1,4096), s.created_at, '', 0,
-        date(s.created_at,'localtime'), date(s.created_at,'localtime'), s.id
-    FROM sessions s WHERE s.deleted_at IS NULL AND (s.event_id IS NULL OR s.event_id = '')
-    ) SELECT * FROM candidates WHERE start_day <= ?2 AND end_day >= ?1
-    ORDER BY time,id LIMIT 1001";
+    SELECT 1, s.id, substr(s.title,1,4096), s.created_at, '', 0, '', '', '', '', s.id
+    FROM sessions s
+    WHERE s.deleted_at IS NULL AND s.title <> '' AND s.event_json = ''
+        AND NOT EXISTS(SELECT 1 FROM events e WHERE e.id = s.event_id AND e.deleted_at IS NULL)
+        AND s.created_at >= ?1 AND s.created_at < ?2
+    ORDER BY start, id LIMIT 1001";
+
+/// Stored timestamps are UTC, so the query is padded by a day on each side and the
+/// exact local day is decided in `by_day`.
+fn query_bounds(from: NaiveDate, to: NaiveDate) -> [Value; 2] {
+    [
+        json!((from - Days::new(1)).to_string()),
+        json!((to + Days::new(2)).to_string()),
+    ]
+}
 
 pub fn load_calendar(
     runtime: &RuntimeHandle,
-    request: CalendarRequest,
+    from: NaiveDate,
+    to: NaiveDate,
     cancel: CancellationToken,
 ) -> Result<Reply<CalendarPage>> {
     runtime.read(cancel, move |services| async move {
-        let grid = services.executor.execute(
-            "WITH RECURSIVE base AS (
-                SELECT CASE WHEN ?2 = 7 AND ?4 != 0
-                    THEN date(COALESCE(NULLIF(?1,''),date('now','localtime')), 'start of month', printf('%+d months',?4))
-                    ELSE date(COALESCE(NULLIF(?1,''),date('now','localtime')), printf('%+d days',?4)) END AS anchor
-                ), boundaries AS (
-                    SELECT anchor,
-                        CASE WHEN ?2 = 7 THEN date(anchor,'start of month',
-                            printf('-%d days',(CAST(strftime('%w',date(anchor,'start of month')) AS INT) - ?3 + 7) % 7))
-                            ELSE date(anchor,'-42 days') END AS first,
-                        CASE WHEN ?2 = 7 THEN date(anchor,'start of month','+1 month','-1 day',
-                            printf('+%d days',(6 - CAST(strftime('%w',date(anchor,'start of month','+1 month','-1 day')) AS INT) + ?3 + 7) % 7))
-                            ELSE date(anchor,'+42 days') END AS last FROM base
-                ), days(day, last, anchor) AS (
-                    SELECT first,last,anchor FROM boundaries UNION ALL
-                    SELECT date(day,'+1 day'),last,anchor FROM days WHERE day < last
-                ) SELECT day,anchor, day = date('now','localtime') AS today FROM days LIMIT 85".into(),
-            vec![json!(request.anchor),json!(request.columns),json!(request.week_start.min(6)),json!(request.step)],
-        ).await.map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-        let first = grid.first().ok_or_else(|| ServiceError::Failed("Calendar range is empty.".into()))?;
-        let from = field(first,"day");
-        let to = field(grid.last().unwrap(),"day");
-        let anchor = field(first,"anchor");
-        let events = services.executor.execute(
-            ITEM_QUERY.into(),
-            vec![json!(from),json!(to)],
-        ).await.map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-        let mut by_day = BTreeMap::<Arc<str>, Vec<CalendarItem>>::new();
-        for day in &grid {
-            let date = field(day,"day");
-            let items = by_day.entry(date.clone()).or_default();
-            for event in events.iter().take(1000) {
-                let start = field(event,"start_day");
-                let end = field(event,"end_day");
-                let all_day = event["all_day"] == 1;
-                if date < start || date > end || (all_day && end != start && date == end) {
-                    continue;
-                }
-                items.push(CalendarItem {
-                    id: field(event,"id"), title: field(event,"title"), time: field(event,"time"),
-                    location: field(event,"location"), all_day,
-                    session: event["session_id"].as_str().map(|id| SessionId(id.into())),
-                });
-            }
-        }
-        let days = grid.iter().map(|day| {
-            let date = field(day,"day");
-            CalendarDay { items: by_day.remove(&date).unwrap_or_default().into(), date, today: day["today"] == 1 }
-        }).collect::<Vec<_>>();
-        Ok(CalendarPage { anchor, days: days.into(), overflow: events.len() > 1000 })
+        let rows = services
+            .executor
+            .execute(ITEM_QUERY.into(), query_bounds(from, to).to_vec())
+            .await
+            .map_err(failure)?;
+        let items = rows
+            .iter()
+            .take(MAX_ITEMS)
+            .map(|row| CalendarItem {
+                id: field(row, "id"),
+                note: row["note"] == 1,
+                title: field(row, "title"),
+                start: field(row, "start"),
+                end: field(row, "end"),
+                all_day: row["all_day"] == 1,
+                color: field(row, "color"),
+                location: field(row, "location"),
+                meeting_link: field(row, "meeting_link"),
+                description: field(row, "description"),
+                session: row["session_id"].as_str().map(|id| SessionId(id.into())),
+            })
+            .collect();
+        Ok(CalendarPage {
+            from,
+            to,
+            items,
+            overflow: rows.len() > MAX_ITEMS,
+        })
     })
 }
 
 pub struct CalendarOpen(pub SessionId);
-
-pub struct CalendarConnections;
 
 pub fn open_event(
     runtime: &RuntimeHandle,
@@ -214,48 +366,99 @@ pub fn open_event(
     })
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum Popover {
+    Item(NaiveDate, Arc<str>),
+    More(NaiveDate),
+}
+
+impl Popover {
+    fn day(&self) -> NaiveDate {
+        match self {
+            Self::Item(day, _) | Self::More(day) => *day,
+        }
+    }
+}
+
 pub struct CalendarView {
     runtime: RuntimeHandle,
-    request: CalendarRequest,
+    clock: Clock,
+    today: NaiveDate,
+    week_start: u8,
+    columns: usize,
+    /// First day of the month shown in the month grid.
+    month: NaiveDate,
+    /// The day the compact strip is centred on; the strip spans six weeks either side.
+    compact_start: NaiveDate,
+    compact_scroll: ScrollHandle,
+    compact_recentre: bool,
+    width: f32,
+    body_height: Option<f32>,
     page: Option<Arc<CalendarPage>>,
+    days: Arc<HashMap<NaiveDate, Vec<CalendarItem>>>,
     cancel: CancellationToken,
     generation: Generation,
-    scroll: UniformListScrollHandle,
-    message: String,
-    selected: Option<CalendarItem>,
     watch_cancel: CancellationToken,
-    watch_range: Option<(Arc<str>, Arc<str>)>,
+    watch_range: Option<(NaiveDate, NaiveDate)>,
+    popover: Option<Popover>,
+    dismissed: Option<Popover>,
     opening: bool,
+    refreshing: Generation,
+    showing_refresh: bool,
+    message: String,
     pub(super) viewer: Option<Arc<str>>,
 }
 
 impl EventEmitter<CalendarOpen> for CalendarView {}
-impl EventEmitter<CalendarConnections> for CalendarView {}
 
 impl CalendarView {
     pub fn new(runtime: RuntimeHandle) -> Self {
+        let clock = Clock::default();
+        let today = clock.today();
         Self {
-            opening: false,
-            viewer: None,
             runtime,
-            request: CalendarRequest::default(),
+            clock,
+            today,
+            week_start: 0,
+            columns: 7,
+            month: today.with_day(1).unwrap_or(today),
+            compact_start: today,
+            compact_scroll: ScrollHandle::new(),
+            compact_recentre: true,
+            width: 0.,
+            body_height: None,
             page: None,
+            days: Arc::default(),
             cancel: CancellationToken::new(),
             generation: Generation::default(),
-            scroll: UniformListScrollHandle::new(),
-            message: String::new(),
-            selected: None,
             watch_cancel: CancellationToken::new(),
             watch_range: None,
+            popover: None,
+            dismissed: None,
+            opening: false,
+            refreshing: Generation::default(),
+            showing_refresh: false,
+            message: String::new(),
+            viewer: None,
         }
     }
 
     pub fn set_week_start(&mut self, week_start: u8, cx: &mut Context<Self>) {
-        if self.request.week_start != week_start.min(6) {
-            self.request.week_start = week_start.min(6);
+        if self.week_start != week_start.min(6) {
+            self.week_start = week_start.min(6);
             if self.watch_range.is_some() {
                 self.load(cx);
             }
+        }
+    }
+
+    pub fn set_clock(&mut self, clock: Clock, cx: &mut Context<Self>) {
+        if self.clock != clock {
+            self.clock = clock;
+            if let Some(page) = &self.page {
+                self.days = Arc::new(by_day(&page.items, &self.clock));
+            }
+            cx.notify();
         }
     }
 
@@ -264,23 +467,32 @@ impl CalendarView {
         self.generation.advance();
         self.watch_cancel.cancel();
         self.watch_range = None;
+        self.popover = None;
     }
 
     pub fn activate(&mut self, cx: &mut Context<Self>) {
         self.load(cx);
     }
 
-    fn watch_range(&mut self, from: Arc<str>, to: Arc<str>, cx: &mut Context<Self>) {
-        if self.watch_range.as_ref() == Some(&(from.clone(), to.clone())) {
+    fn visible_days(&self) -> Vec<NaiveDate> {
+        if self.columns == 7 {
+            month_days(self.month, self.week_start)
+        } else {
+            compact_days(self.compact_start)
+        }
+    }
+
+    fn watch_range(&mut self, from: NaiveDate, to: NaiveDate, cx: &mut Context<Self>) {
+        if self.watch_range == Some((from, to)) {
             return;
         }
-        self.watch_range = Some((from.clone(), to.clone()));
+        self.watch_range = Some((from, to));
         self.watch_cancel.cancel();
         self.watch_cancel = CancellationToken::new();
         let cancel = self.watch_cancel.clone();
         let reply = self
             .runtime
-            .watch_query(ITEM_QUERY.into(), vec![json!(from), json!(to)]);
+            .watch_query(ITEM_QUERY.into(), query_bounds(from, to).to_vec());
         cx.spawn(async move |this, cx| {
             let result = match reply {
                 Ok(reply) => reply.receive().await,
@@ -292,7 +504,7 @@ impl CalendarView {
                     let _ = this.update(cx, |this, cx| {
                         if !cancel.is_cancelled() {
                             this.message = format!(
-                                "Calendar watch failed: {error}. Use Reload for stored changes."
+                                "Calendar watch failed: {error}. Use refresh for stored changes."
                             );
                             this.watch_range = None;
                             cx.notify();
@@ -319,7 +531,7 @@ impl CalendarView {
                                 format!("Calendar watch failed: {error}. Previous dates retained.");
                             cx.notify();
                         } else {
-                            this.refresh(false, cx);
+                            this.refresh(cx);
                         }
                     })
                     .is_err()
@@ -343,18 +555,18 @@ impl CalendarView {
     }
 
     pub fn load(&mut self, cx: &mut Context<Self>) {
-        self.refresh(true, cx);
+        self.refresh(cx);
     }
 
-    fn refresh(&mut self, feedback: bool, cx: &mut Context<Self>) {
+    fn refresh(&mut self, cx: &mut Context<Self>) {
+        let days = self.visible_days();
+        let (Some(&from), Some(&to)) = (days.first(), days.last()) else {
+            return;
+        };
         self.cancel.cancel();
         self.cancel = CancellationToken::new();
         let generation = self.generation.advance();
-        let reply = load_calendar(&self.runtime, self.request.clone(), self.cancel.clone());
-        if feedback {
-            self.message = "Loading stored calendar…".into();
-            cx.notify();
-        }
+        let reply = load_calendar(&self.runtime, from, to, self.cancel.clone());
         cx.spawn(async move |this, cx| {
             let result = match reply {
                 Ok(reply) => reply.receive().await,
@@ -366,26 +578,15 @@ impl CalendarView {
                 }
                 match result {
                     Ok(page) => {
-                        if this.page.as_deref() == Some(&page) && this.message.is_empty() {
-                            return;
-                        }
-                        if let (Some(first), Some(last)) = (page.days.first(), page.days.last()) {
-                            this.watch_range(first.date.clone(), last.date.clone(), cx);
-                        }
-                        this.request.anchor = page.anchor.clone();
-                        this.request.step = 0;
+                        this.watch_range(page.from, page.to, cx);
                         this.message = if page.overflow {
-                            "Only the first 1,000 items in this range are shown."
+                            "Only the first 1,000 items in this range are shown.".into()
                         } else {
-                            ""
-                        }
-                        .into();
-                        this.page = Some(Arc::new(page));
-                        if feedback && this.request.columns != 7 {
-                            this.scroll.scroll_to_item(
-                                42 / this.request.columns,
-                                gpui::ScrollStrategy::Top,
-                            );
+                            String::new()
+                        };
+                        if this.page.as_deref() != Some(&page) {
+                            this.days = Arc::new(by_day(&page.items, &this.clock));
+                            this.page = Some(Arc::new(page));
                         }
                     }
                     Err(error) => {
@@ -399,13 +600,131 @@ impl CalendarView {
         .detach();
     }
 
+    fn compact_day_width(&self) -> f32 {
+        self.width / self.columns.max(1) as f32
+    }
+
+    /// Left edge of the `index`th compact column. Edges are whole pixels so that rounding
+    /// fractional widths over six weeks of columns cannot drift the strip off a day boundary.
+    fn compact_left(&self, index: usize) -> f32 {
+        (index as f32 * self.compact_day_width()).round()
+    }
+
+    /// The first fully visible day of the compact strip, from its scroll position.
+    fn compact_visible_start(&self) -> NaiveDate {
+        let width = self.compact_day_width();
+        if self.compact_recentre || width <= 0. {
+            return self.compact_start;
+        }
+        let total = (COMPACT_PAST_DAYS + COMPACT_FUTURE_DAYS) as usize;
+        let index = (-f32::from(self.compact_scroll.offset().x) / width)
+            .round()
+            .max(0.) as usize;
+        compact_days(self.compact_start)[index.min(total.saturating_sub(self.columns))]
+    }
+
+    /// Scrolls the compact strip so `start` is its first visible day.
+    fn scroll_compact_to(&self, start: NaiveDate) {
+        let first = self.compact_start - Days::new(COMPACT_PAST_DAYS);
+        let index = (start - first).num_days().max(0) as usize;
+        self.compact_scroll
+            .set_offset(point(px(-self.compact_left(index)), px(0.)));
+    }
+
     fn step(&mut self, direction: i32, cx: &mut Context<Self>) {
-        self.request.step += if self.request.columns == 7 {
-            direction
+        self.popover = None;
+        if self.columns == 7 {
+            self.month = if direction < 0 {
+                self.month - Months::new(1)
+            } else {
+                self.month + Months::new(1)
+            };
         } else {
-            direction * self.request.columns as i32
-        };
+            let shift = Days::new(self.columns as u64);
+            let start = self.compact_visible_start();
+            self.compact_start = if direction < 0 {
+                start - shift
+            } else {
+                start + shift
+            };
+            self.compact_recentre = true;
+        }
         self.load(cx);
+    }
+
+    fn go_to_today(&mut self, cx: &mut Context<Self>) {
+        let today = self.clock.today();
+        self.today = today;
+        self.popover = None;
+        self.month = today.with_day(1).unwrap_or(today);
+        self.compact_start = today;
+        self.compact_recentre = true;
+        self.load(cx);
+    }
+
+    fn manual_refresh(&mut self, cx: &mut Context<Self>) {
+        let generation = self.refreshing.advance();
+        self.showing_refresh = true;
+        self.load(cx);
+        cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(1500))
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                if this.refreshing == generation {
+                    this.showing_refresh = false;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn toggle_popover(&mut self, popover: Popover, cx: &mut Context<Self>) {
+        // Clicking the open popover's trigger first dismisses it via mouse-down-out; keep it closed.
+        if self.dismissed.as_ref() == Some(&popover) {
+            return;
+        }
+        self.popover = Some(popover);
+        cx.notify();
+    }
+
+    fn dismiss_popover(&mut self, cx: &mut Context<Self>) {
+        self.dismissed = self.popover.take();
+        cx.notify();
+    }
+
+    fn open_item(&mut self, item: &CalendarItem, cx: &mut Context<Self>) {
+        if let Some(session) = item.session.clone() {
+            self.popover = None;
+            cx.emit(CalendarOpen(session));
+            return;
+        }
+        if self.opening {
+            return;
+        }
+        let reply = open_event(&self.runtime, item.id.clone(), self.viewer.clone());
+        self.opening = true;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let result = match reply {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
+            let _ = this.update(cx, |this, cx| {
+                this.opening = false;
+                match result {
+                    Ok(id) => {
+                        this.popover = None;
+                        cx.emit(CalendarOpen(id));
+                        this.load(cx);
+                    }
+                    Err(error) => this.message = format!("Could not open event: {error}"),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 }
 
@@ -416,264 +735,760 @@ impl Drop for CalendarView {
     }
 }
 
+fn icon(path: &'static str, size: f32, color: Hsla) -> gpui::Svg {
+    svg()
+        .path(path)
+        .size(px(size))
+        .flex_shrink_0()
+        .text_color(color)
+}
+
+fn primary_button(
+    id: &'static str,
+    label: &'static str,
+    busy: bool,
+    colors: Theme,
+) -> gpui::Stateful<gpui::Div> {
+    div()
+        .id(id)
+        .w_full()
+        .min_h(px(32.))
+        .px_2()
+        .flex()
+        .items_center()
+        .justify_center()
+        .gap_2()
+        .rounded(px(8.))
+        .bg(colors.primary)
+        .text_color(colors.primary_foreground)
+        .text_xs()
+        .font_weight(FontWeight::MEDIUM)
+        .cursor_pointer()
+        .hover(move |style| style.bg(colors.primary.opacity(0.9)))
+        .when(busy, |button| button.opacity(0.5))
+        .child(label)
+}
+
+fn separator(colors: Theme) -> gpui::Div {
+    div().h(px(1.)).flex_shrink_0().bg(colors.accent)
+}
+
+/// The shipping app's "app" popover: a chrome ring around a rounded panel.
+fn floating(width: f32, colors: Theme, content: impl IntoElement) -> gpui::Div {
+    div()
+        .w(px(width))
+        .p(px(2.))
+        .rounded(px(22.))
+        .border_1()
+        .border_color(colors.app_floating_border)
+        .bg(colors.app_floating_chrome)
+        .text_color(colors.popover_foreground)
+        .shadow_lg()
+        .child(
+            div()
+                .rounded(px(20.))
+                .border_1()
+                .border_color(colors.app_floating_border)
+                .bg(colors.app_floating_panel)
+                .overflow_hidden()
+                .child(content),
+        )
+}
+
+fn meeting_domain(link: &str) -> Option<String> {
+    let url = url::Url::parse(link).ok()?;
+    url.host_str()
+        .map(|host| host.strip_prefix("www.").unwrap_or(host).to_owned())
+}
+
+impl CalendarView {
+    fn chip(
+        &self,
+        day: NaiveDate,
+        item: &CalendarItem,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let color = parse_color(&item.color).unwrap_or_else(|| rgb(0x888888).into());
+        let popover = Popover::Item(day, item.id.clone());
+        let selected = self.popover.as_ref() == Some(&popover);
+        let start = parse_instant(&item.start).map(|at| self.clock.time(self.clock.local(at)));
+        let chip = div()
+            .id(SharedString::from(format!(
+                "calendar-item:{day}:{}",
+                item.id
+            )))
+            .relative()
+            .w_full()
+            .flex_shrink_0()
+            .text_xs()
+            .line_height(px(CHIP_HEIGHT))
+            .rounded(px(4.))
+            .cursor_pointer()
+            .hover(|style| style.opacity(0.8))
+            .on_click(cx.listener(move |this, _, _, cx| this.toggle_popover(popover.clone(), cx)));
+        let chip = if item.all_day && !item.note {
+            chip.px(px(6.))
+                .py(px(2.))
+                .truncate()
+                .bg(color)
+                .text_color(colors.primary_foreground)
+                .child(item.title())
+        } else {
+            let marker = div()
+                .w(px(if item.note { 4. } else { 2.5 }))
+                .flex_shrink_0()
+                .self_stretch()
+                .rounded(px(8.));
+            chip.flex()
+                .items_center()
+                .gap_1()
+                .pl(px(2.))
+                .child(if item.note {
+                    marker.border_1().border_color(colors.border)
+                } else {
+                    marker.bg(color)
+                })
+                .child(div().min_w_0().truncate().child(item.title()))
+                .when_some(start, |chip, start| {
+                    chip.child(
+                        div()
+                            .ml_auto()
+                            .flex_shrink_0()
+                            .font_family(monospace_font(cx))
+                            .text_color(colors.muted_foreground)
+                            .child(start),
+                    )
+                })
+        };
+        chip.when(selected, |chip| {
+            chip.child(self.anchor(item.chip_height(), self.item_popover(item, colors, cx)))
+        })
+    }
+
+    fn anchor(&self, below: f32, content: impl IntoElement) -> gpui::Div {
+        div()
+            .absolute()
+            .left_0()
+            .top(px(below + 4.))
+            .child(deferred(
+                anchored()
+                    .snap_to_window_with_margin(px(16.))
+                    .child(content),
+            ))
+    }
+
+    fn item_popover(
+        &self,
+        item: &CalendarItem,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let open = {
+            let item = item.clone();
+            cx.listener(move |this, _, _, cx| this.open_item(&item, cx))
+        };
+        let content = if item.note {
+            let created =
+                parse_instant(&item.start).map(|at| self.clock.date_time(self.clock.local(at)));
+            div()
+                .flex()
+                .flex_col()
+                .gap_3()
+                .p_4()
+                .child(
+                    div()
+                        .text_base()
+                        .line_height(px(24.))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(colors.foreground)
+                        .child(item.title()),
+                )
+                .child(separator(colors))
+                .when_some(created, |view, created| {
+                    view.child(
+                        div()
+                            .text_sm()
+                            .line_height(px(20.))
+                            .text_color(colors.muted_foreground)
+                            .child(created),
+                    )
+                })
+                .child(
+                    primary_button("calendar-open-note", "Open note", false, colors).on_click(open),
+                )
+        } else {
+            let when = parse_instant(&item.start).map(|start| {
+                let start = self.clock.local(start);
+                let mut text = self.clock.date_time(start);
+                if let Some(end) = parse_instant(&item.end).map(|end| self.clock.local(end)) {
+                    text.push_str(" to ");
+                    text.push_str(&if end.date() == start.date() {
+                        self.clock.time(end)
+                    } else {
+                        self.clock.date_time(end)
+                    });
+                }
+                text
+            });
+            let location = (!item.location.trim().is_empty()
+                && url::Url::parse(&item.location).is_err())
+            .then(|| item.location.clone());
+            let link = (!item.meeting_link.trim().is_empty()).then(|| item.meeting_link.clone());
+            let muted_row = |icon_path: &'static str| {
+                div()
+                    .flex()
+                    .min_w_0()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .line_height(px(20.))
+                    .text_color(colors.muted_foreground)
+                    .child(icon(icon_path, 16., colors.muted_foreground))
+            };
+            div()
+                .flex()
+                .flex_col()
+                .gap_3()
+                .p_4()
+                .child(
+                    div()
+                        .min_w_0()
+                        .text_base()
+                        .line_height(px(24.))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(colors.foreground)
+                        .child(if item.title.trim().is_empty() {
+                            SharedString::from("Busy")
+                        } else {
+                            SharedString::from(item.title.clone())
+                        }),
+                )
+                .child(separator(colors))
+                .when_some(location, |view, location| {
+                    view.child(
+                        muted_row("workspace/MapPinIcon.svg")
+                            .child(div().min_w_0().child(SharedString::from(location))),
+                    )
+                })
+                .when_some(link, |view, link| {
+                    let target = link.to_string();
+                    view.child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .gap_2()
+                            .child(muted_row("workspace/Video01Icon.svg").child(
+                                div().min_w_0().truncate().child(
+                                    meeting_domain(&link).unwrap_or_else(|| "Meeting link".into()),
+                                ),
+                            ))
+                            .child(
+                                div()
+                                    .id("calendar-join")
+                                    .h(px(28.))
+                                    .px_2()
+                                    .flex()
+                                    .flex_shrink_0()
+                                    .items_center()
+                                    .rounded(px(8.))
+                                    .bg(colors.primary)
+                                    .text_color(colors.primary_foreground)
+                                    .text_xs()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .cursor_pointer()
+                                    .hover(move |style| style.bg(colors.primary.opacity(0.9)))
+                                    .child("Join")
+                                    .on_click(move |_, _, cx: &mut App| cx.open_url(&target)),
+                            ),
+                    )
+                })
+                .when_some(when, |view, when| {
+                    view.child(
+                        div()
+                            .text_sm()
+                            .line_height(px(20.))
+                            .text_color(colors.muted_foreground)
+                            .child(when),
+                    )
+                })
+                .when(!item.description.trim().is_empty(), |view| {
+                    view.child(separator(colors)).child(
+                        div()
+                            .text_sm()
+                            .line_height(px(20.))
+                            .text_color(colors.muted_foreground)
+                            .child(SharedString::from(item.description.clone())),
+                    )
+                })
+                .child(
+                    primary_button("calendar-open-note", "Open note", self.opening, colors)
+                        .on_click(open),
+                )
+        };
+        div()
+            .id("calendar-popover")
+            .occlude()
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| this.dismiss_popover(cx)))
+            .child(floating(
+                if item.note { 280. } else { 320. },
+                colors,
+                content,
+            ))
+    }
+
+    /// Choosing an item here swaps the list for its details, anchored at the same "+N more".
+    fn more_popover(
+        &self,
+        day: NaiveDate,
+        items: &[CalendarItem],
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let rows = items
+            .iter()
+            .map(|item| self.chip(day, item, colors, cx))
+            .collect::<Vec<_>>();
+        div()
+            .id("calendar-more-popover")
+            .occlude()
+            .on_mouse_down_out(cx.listener(|this, _, _, cx| this.dismiss_popover(cx)))
+            .child(floating(
+                220.,
+                colors,
+                div()
+                    .id("calendar-more-list")
+                    .max_h(px(296.))
+                    .overflow_y_scroll()
+                    .p_2()
+                    .child(
+                        div()
+                            .mb_2()
+                            .text_sm()
+                            .line_height(px(20.))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(colors.foreground)
+                            .child(day.format("%b %-d, %Y").to_string()),
+                    )
+                    .child(div().flex().flex_col().gap(px(CHIP_GAP)).children(rows)),
+            ))
+    }
+
+    fn day_cell(
+        &self,
+        day: NaiveDate,
+        in_month: bool,
+        cell_height: Option<f32>,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        let items = self.days.get(&day).map(Vec::as_slice).unwrap_or_default();
+        let today = day == self.today;
+        let chip = items
+            .first()
+            .map(CalendarItem::chip_height)
+            .unwrap_or(CHIP_HEIGHT);
+        let shown = visible_count(
+            items.len(),
+            chip,
+            cell_height.map(|height| height - CELL_CHROME),
+        );
+        let hidden = items.len() - shown;
+        let popover_here = self.popover.as_ref().filter(|popover| popover.day() == day);
+        // An item opened from the "+N more" list stays anchored there.
+        let detached = popover_here.and_then(|popover| match popover {
+            Popover::Item(_, id) => items[shown..].iter().find(|item| &item.id == id),
+            Popover::More(_) => None,
+        });
+        let weekend = weekend(day);
+        div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .p(px(6.))
+            .border_r_1()
+            .border_b_1()
+            .border_color(colors.border)
+            .when(weekend, |cell| cell.bg(colors.muted))
+            .child(
+                div().flex().flex_shrink_0().justify_end().child(
+                    div()
+                        .mb_1()
+                        .size(px(28.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded(px(8.))
+                        .text_sm()
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(if today {
+                            colors.background
+                        } else if !in_month {
+                            colors.muted_foreground.opacity(0.7)
+                        } else if weekend {
+                            colors.muted_foreground
+                        } else {
+                            colors.foreground
+                        })
+                        .when(today, |badge| badge.bg(colors.foreground))
+                        .child(day.day().to_string()),
+                ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h_0()
+                    .gap(px(CHIP_GAP))
+                    .overflow_hidden()
+                    .children(
+                        items[..shown]
+                            .iter()
+                            .map(|item| self.chip(day, item, colors, cx)),
+                    )
+                    .when(hidden > 0, |list| {
+                        let popover = Popover::More(day);
+                        list.child(
+                            div()
+                                .id(SharedString::from(format!("calendar-more:{day}")))
+                                .relative()
+                                .flex_shrink_0()
+                                .pl_1()
+                                .text_xs()
+                                .line_height(px(16.))
+                                .text_color(colors.muted_foreground)
+                                .cursor_pointer()
+                                .child(format!("+{hidden} more"))
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.toggle_popover(popover.clone(), cx)
+                                }))
+                                .when_some(detached, |more, item| {
+                                    more.child(
+                                        self.anchor(16., self.item_popover(item, colors, cx)),
+                                    )
+                                })
+                                .when(popover_here == Some(&Popover::More(day)), |more| {
+                                    more.child(
+                                        self.anchor(16., self.more_popover(day, items, colors, cx)),
+                                    )
+                                }),
+                        )
+                    }),
+            )
+    }
+
+    fn header(&self, title: String, colors: Theme, cx: &mut Context<Self>) -> gpui::Div {
+        let segment = |id: &'static str| {
+            div()
+                .id(id)
+                .h_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .cursor_pointer()
+                .hover(move |style| style.bg(colors.accent))
+        };
+        let divider = || div().w(px(1.)).h_full().bg(colors.accent);
+        div()
+            .h(px(HEADER_HEIGHT))
+            .flex_shrink_0()
+            .flex()
+            .items_center()
+            .justify_between()
+            .px_3()
+            .border_b_1()
+            .border_color(colors.border)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .text_sm()
+                            .line_height(px(20.))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(colors.foreground)
+                            .child(title),
+                    )
+                    .child(if self.showing_refresh {
+                        div()
+                            .id("calendar-syncing")
+                            .size(px(24.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                icon("workspace/RefreshIcon.svg", 12., colors.muted_foreground)
+                                    .with_animation(
+                                        "calendar-syncing",
+                                        Animation::new(Duration::from_secs(1)).repeat(),
+                                        |icon, delta| {
+                                            icon.with_transformation(Transformation::rotate(
+                                                percentage(delta),
+                                            ))
+                                        },
+                                    ),
+                            )
+                            .into_any_element()
+                    } else {
+                        div()
+                            .id("calendar-refresh")
+                            .size(px(24.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(8.))
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(colors.accent))
+                            .child(icon("workspace/RefreshIcon.svg", 14., colors.foreground))
+                            .on_click(cx.listener(|this, _, _, cx| this.manual_refresh(cx)))
+                            .into_any_element()
+                    }),
+            )
+            .child(
+                div()
+                    .h(px(28.))
+                    .flex()
+                    .items_center()
+                    .overflow_hidden()
+                    .rounded(px(8.))
+                    .border_1()
+                    .border_color(colors.border)
+                    .bg(colors.card)
+                    .child(
+                        segment("calendar-previous")
+                            .w(px(28.))
+                            .child(icon(
+                                "workspace/ArrowLeft01Icon.svg",
+                                14.,
+                                colors.foreground,
+                            ))
+                            .on_click(cx.listener(|this, _, _, cx| this.step(-1, cx))),
+                    )
+                    .child(divider())
+                    .child(
+                        segment("calendar-today")
+                            .px_2()
+                            .text_xs()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(colors.foreground)
+                            .child("Today")
+                            .on_click(cx.listener(|this, _, _, cx| this.go_to_today(cx))),
+                    )
+                    .child(divider())
+                    .child(
+                        segment("calendar-next")
+                            .w(px(28.))
+                            .child(icon(
+                                "workspace/ArrowRight01Icon.svg",
+                                14.,
+                                colors.foreground,
+                            ))
+                            .on_click(cx.listener(|this, _, _, cx| this.step(1, cx))),
+                    ),
+            )
+    }
+
+    fn weekday_label(&self, label: &'static str, colors: Theme) -> gpui::Div {
+        div()
+            .py_2()
+            .flex()
+            .justify_center()
+            .text_xs()
+            .line_height(px(16.))
+            .font_weight(FontWeight::MEDIUM)
+            .text_color(if matches!(label, "Sat" | "Sun") {
+                colors.muted_foreground
+            } else {
+                colors.foreground
+            })
+            .child(label)
+    }
+
+    fn month_view(&self, colors: Theme, cx: &mut Context<Self>) -> gpui::Div {
+        let days = month_days(self.month, self.week_start);
+        let rows = days.len() / 7;
+        let row_height = self.body_height.map(|height| height / rows.max(1) as f32);
+        let labels = (0..7).map(|index| WEEKDAYS[(index + usize::from(self.week_start)) % 7]);
+        div()
+            .flex_1()
+            .min_h_0()
+            .flex()
+            .flex_col()
+            .child(
+                div()
+                    .flex()
+                    .flex_shrink_0()
+                    .border_b_1()
+                    .border_color(colors.border)
+                    .children(labels.enumerate().map(|(index, label)| {
+                        self.weekday_label(label, colors)
+                            .flex_1()
+                            .min_w_0()
+                            .when(index < 6, |label| {
+                                label.border_r_1().border_color(colors.border)
+                            })
+                    })),
+            )
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
+                    .overflow_hidden()
+                    .children(days.chunks(7).map(|week| {
+                        div()
+                            .flex_1()
+                            .min_h_0()
+                            .flex()
+                            .children(week.iter().map(|day| {
+                                let in_month = day.month() == self.month.month();
+                                self.day_cell(*day, in_month, row_height, colors, cx)
+                            }))
+                    }))
+                    .child(self.measure_body(cx)),
+            )
+    }
+
+    fn compact_view(&self, colors: Theme, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
+        let cell_height = self.body_height.map(|height| height - WEEKDAY_HEIGHT);
+        let days = compact_days(self.compact_start);
+        div()
+            .id("calendar-compact")
+            .relative()
+            .flex_1()
+            .min_h_0()
+            .overflow_x_scroll()
+            .track_scroll(&self.compact_scroll)
+            .child(
+                div()
+                    .h_full()
+                    .flex()
+                    .w(px(self.compact_left(days.len())))
+                    .children(days.into_iter().enumerate().map(|(index, day)| {
+                        div()
+                            .w(px(self.compact_left(index + 1) - self.compact_left(index)))
+                            .flex_shrink_0()
+                            .h_full()
+                            .flex()
+                            .flex_col()
+                            .child(
+                                self.weekday_label(
+                                    WEEKDAYS[day.weekday().num_days_from_sunday() as usize],
+                                    colors,
+                                )
+                                .flex_shrink_0()
+                                .border_r_1()
+                                .border_b_1()
+                                .border_color(colors.border),
+                            )
+                            .child(self.day_cell(day, true, cell_height, colors, cx))
+                    })),
+            )
+            .child(self.measure_body(cx))
+    }
+
+    /// Records the height of the day area so cells can decide how many chips fit.
+    fn measure_body(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let entity = cx.entity().downgrade();
+        let known = self.body_height;
+        canvas(
+            move |bounds, window, cx| {
+                let height = f32::from(bounds.size.height);
+                if known != Some(height) {
+                    window.defer(cx, move |_, cx| {
+                        let _ = entity.update(cx, |this, cx| {
+                            this.body_height = Some(height);
+                            cx.notify();
+                        });
+                    });
+                }
+            },
+            |_, (), _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+    }
+}
+
 impl Render for CalendarView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
-        let cols = self.request.columns;
-        let days = self
-            .page
-            .as_ref()
-            .map(|page| page.days.clone())
-            .unwrap_or_else(|| Arc::from([]));
+        self.today = self.clock.today();
         let entity = cx.entity().downgrade();
+        let columns = self.columns;
+        let width = self.width;
+        if self.columns != 7 && self.compact_recentre && self.width > 0. {
+            self.scroll_compact_to(self.compact_start);
+            self.compact_recentre = false;
+        }
+        let title = if self.columns == 7 {
+            self.month.format("%B %Y").to_string()
+        } else {
+            self.compact_visible_start().format("%B %Y").to_string()
+        };
         div()
             .relative()
             .size_full()
             .flex()
             .flex_col()
-            .child(
-                div()
-                    .h(px(48.))
-                    .flex_shrink_0()
-                    .px_4()
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .child(
-                        div()
-                            .text_lg()
-                            .flex_1()
-                            .child(SharedString::from(self.request.anchor.clone())),
-                    )
-                    .child(
-                        div()
-                            .id("calendar-connections")
-                            .cursor_pointer()
-                            .child("Calendar connections")
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(CalendarConnections))),
-                    )
-                    .child(
-                        div()
-                            .id("calendar-previous")
-                            .cursor_pointer()
-                            .child("Previous")
-                            .on_click(cx.listener(|this, _, _, cx| this.step(-1, cx))),
-                    )
-                    .child(
-                        div()
-                            .id("calendar-today")
-                            .cursor_pointer()
-                            .child("Today")
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.request.anchor = "".into();
-                                this.request.step = 0;
-                                this.load(cx);
-                            })),
-                    )
-                    .child(
-                        div()
-                            .id("calendar-next")
-                            .cursor_pointer()
-                            .child("Next")
-                            .on_click(cx.listener(|this, _, _, cx| this.step(1, cx))),
-                    )
-                    .child(
-                        div()
-                            .id("calendar-refresh")
-                            .cursor_pointer()
-                            .child("Reload")
-                            .on_click(cx.listener(|this, _, _, cx| this.load(cx))),
-                    ),
-            )
-            .child(
-                div()
-                    .px_4()
-                    .pb_2()
-                    .text_xs()
-                    .text_color(colors.muted_foreground)
-                    .child("Events from enabled calendars stored on this device."),
-            )
-            .child(
-                div().flex_1().min_h_0().child(
-                    uniform_list(
-                        "calendar-weeks",
-                        days.len().div_ceil(cols),
-                        cx.processor(move |_, range: std::ops::Range<usize>, _, cx| {
-                            range
-                                .map(|row| {
-                                    div().h(px(190.)).flex().children(
-                                        days.iter().skip(row * cols).take(cols).map(|day| {
-                                            div()
-                                                .flex_1()
-                                                .min_w_0()
-                                                .h_full()
-                                                .border_1()
-                                                .border_color(colors.border)
-                                                .px_2()
-                                                .py_1()
-                                                .flex()
-                                                .flex_col()
-                                                .gap_1()
-                                                .child(
-                                                    div()
-                                                        .text_sm()
-                                                        .text_color(if day.today {
-                                                            colors.ring
-                                                        } else {
-                                                            colors.foreground
-                                                        })
-                                                        .child(SharedString::from(
-                                                            day.date.clone(),
-                                                        )),
-                                                )
-                                                .children(day.items.iter().take(5).map(|item| {
-                                                    let item = item.clone();
-                                                    let title = item.title.clone();
-                                                    div()
-                                                        .id(SharedString::from(format!(
-                                                            "{}:{}",
-                                                            day.date, item.id
-                                                        )))
-                                                        .rounded(px(8.))
-                                                        .px_1()
-                                                        .bg(colors.accent)
-                                                        .text_xs()
-                                                        .truncate()
-                                                        .cursor_pointer()
-                                                        .child(SharedString::from(title))
-                                                        .on_click(cx.listener(
-                                                            move |this, _, _, cx| {
-                                                                this.selected = Some(item.clone());
-                                                                cx.notify();
-                                                            },
-                                                        ))
-                                                }))
-                                                .when(day.items.len() > 5, |view| {
-                                                    view.child(div().text_xs().child(format!(
-                                                        "{} more stored items",
-                                                        day.items.len() - 5
-                                                    )))
-                                                })
-                                        }),
-                                    )
-                                })
-                                .collect()
-                        }),
-                    )
-                    .track_scroll(&self.scroll)
-                    .size_full(),
-                ),
-            )
-            .when(!self.message.is_empty(), |view| {
-                view.child(div().px_4().text_xs().child(self.message.clone()))
+            .overflow_hidden()
+            // Clears a dismissal from the previous click before this one is dispatched.
+            .capture_any_mouse_down(cx.listener(|this, _, _, _| this.dismissed = None))
+            .child(self.header(title, colors, cx))
+            .map(|view| {
+                if self.columns == 7 {
+                    view.child(self.month_view(colors, cx))
+                } else {
+                    view.child(self.compact_view(colors, cx))
+                }
             })
-            .when_some(self.selected.clone(), |view, item| {
+            .when(!self.message.is_empty(), |view| {
                 view.child(
                     div()
-                        .p_4()
-                        .border_t_1()
-                        .border_color(colors.border)
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(
-                            div()
-                                .text_sm()
-                                .child(SharedString::from(item.title.clone())),
-                        )
-                        .child(div().text_xs().child(if item.all_day {
-                            format!("All day · {}", item.time)
-                        } else {
-                            item.time.to_string()
-                        }))
-                        .child(
-                            div()
-                                .text_xs()
-                                .child(SharedString::from(item.location.clone())),
-                        )
-                        .when_some(item.session.clone(), |view, id| {
-                            view.child(
-                                div()
-                                    .id("calendar-open-note")
-                                    .cursor_pointer()
-                                    .child("Open note")
-                                    .on_click(cx.listener(move |_, _, _, cx| {
-                                        cx.emit(CalendarOpen(id.clone()))
-                                    })),
-                            )
-                        })
-                        .when(item.session.is_none(), |view| {
-                            let id = item.id.clone();
-                            view.child(
-                                div()
-                                    .id("calendar-create-note")
-                                    .cursor_pointer()
-                                    .child(if self.opening {
-                                        "Opening…"
-                                    } else {
-                                        "Create note for this event"
-                                    })
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        if this.opening {
-                                            return;
-                                        }
-                                        let reply = open_event(
-                                            &this.runtime,
-                                            id.clone(),
-                                            this.viewer.clone(),
-                                        );
-                                        this.opening = true;
-                                        cx.notify();
-                                        cx.spawn(async move |this, cx| {
-                                            let result = match reply {
-                                                Ok(reply) => reply.receive().await,
-                                                Err(error) => Err(error),
-                                            };
-                                            let _ = this.update(cx, |this, cx| {
-                                                this.opening = false;
-                                                match result {
-                                                    Ok(id) => {
-                                                        cx.emit(CalendarOpen(id));
-                                                        this.load(cx);
-                                                    }
-                                                    Err(error) => {
-                                                        this.message = format!(
-                                                            "Could not open event: {error}"
-                                                        );
-                                                        cx.notify();
-                                                    }
-                                                }
-                                            });
-                                        })
-                                        .detach();
-                                    })),
-                            )
-                        })
-                        .child(
-                            div()
-                                .id("calendar-dismiss")
-                                .text_xs()
-                                .cursor_pointer()
-                                .child("Close details")
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.selected = None;
-                                    cx.notify();
-                                })),
-                        ),
+                        .px_3()
+                        .py_1()
+                        .flex_shrink_0()
+                        .text_xs()
+                        .text_color(colors.muted_foreground)
+                        .child(self.message.clone()),
                 )
             })
             .child(
                 canvas(
                     move |bounds, window, cx| {
-                        let columns = visible_columns(f32::from(bounds.size.width));
-                        if columns != cols {
+                        let measured = f32::from(bounds.size.width);
+                        let next = visible_columns(measured);
+                        if next != columns || measured != width {
                             window.defer(cx, move |_, cx| {
                                 let _ = entity.update(cx, |this, cx| {
-                                    if this.request.columns != columns {
-                                        this.request.columns = columns;
-                                        this.request.step = 0;
+                                    let compact_changed = (this.columns == 7) != (next == 7);
+                                    // Shipping's strip snaps to whole days; keep the first visible
+                                    // day when only the width changes.
+                                    let keep =
+                                        (this.columns == next && next != 7 && this.width > 0.)
+                                            .then(|| this.compact_visible_start());
+                                    if this.columns != next {
+                                        this.compact_recentre = true;
+                                    }
+                                    this.columns = next;
+                                    this.width = measured;
+                                    if let Some(start) = keep {
+                                        this.scroll_compact_to(start);
+                                    }
+                                    if compact_changed {
+                                        this.body_height = None;
                                         this.load(cx);
                                     }
+                                    cx.notify();
                                 });
                             });
                         }
@@ -690,6 +1505,26 @@ impl Render for CalendarView {
 mod tests {
     use super::*;
 
+    fn date(value: &str) -> NaiveDate {
+        NaiveDate::parse_from_str(value, "%Y-%m-%d").unwrap()
+    }
+
+    fn item(id: &str, start: &str, all_day: bool, note: bool) -> CalendarItem {
+        CalendarItem {
+            id: id.into(),
+            note,
+            title: id.into(),
+            start: start.into(),
+            end: "".into(),
+            all_day,
+            color: "#4f46e5".into(),
+            location: "".into(),
+            meeting_link: "".into(),
+            description: "".into(),
+            session: None,
+        }
+    }
+
     #[test]
     fn shipping_calendar_breakpoints_are_exact() {
         for (width, cols) in [
@@ -703,5 +1538,48 @@ mod tests {
         ] {
             assert_eq!(visible_columns(width), cols);
         }
+    }
+
+    #[test]
+    fn month_grid_covers_whole_weeks_from_the_configured_start() {
+        let sunday = month_days(date("2026-11-01"), 0);
+        assert_eq!(sunday.first(), Some(&date("2026-11-01")));
+        assert_eq!(sunday.last(), Some(&date("2026-12-05")));
+        assert_eq!(sunday.len(), 35);
+        let monday = month_days(date("2026-11-01"), 1);
+        assert_eq!(monday.first(), Some(&date("2026-10-26")));
+        assert_eq!(monday.last(), Some(&date("2026-12-06")));
+        assert_eq!(monday.len() % 7, 0);
+    }
+
+    #[test]
+    fn items_land_on_their_local_start_day_in_shipping_order() {
+        let clock = Clock {
+            use_24_hour_time: false,
+            timezone: Some(chrono_tz::America::Los_Angeles),
+        };
+        let items = [
+            item("note", "2026-11-17T01:00:00Z", false, true),
+            item("late", "2026-11-17T02:00:00Z", false, false),
+            item("early", "2026-11-16T17:00:00Z", false, false),
+            item("holiday", "2026-11-16", true, false),
+            item("next-day", "2026-11-17T09:00:00Z", false, false),
+        ];
+        let days = by_day(&items, &clock);
+        let order = days[&date("2026-11-16")]
+            .iter()
+            .map(|item| &*item.id)
+            .collect::<Vec<_>>();
+        assert_eq!(order, ["holiday", "early", "late", "note"]);
+        assert_eq!(&*days[&date("2026-11-17")][0].id, "next-day");
+    }
+
+    #[test]
+    fn overflowing_days_reserve_a_row_for_more() {
+        assert_eq!(visible_count(3, 15., None), 3);
+        assert_eq!(visible_count(3, 15., Some(49.)), 3);
+        assert_eq!(visible_count(4, 15., Some(49.)), 2);
+        assert_eq!(visible_count(5, 15., Some(10.)), 1);
+        assert_eq!(visible_count(0, 15., Some(10.)), 0);
     }
 }

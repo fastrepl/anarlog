@@ -18,6 +18,13 @@ import {
   Sun01Icon,
   SortByUp01Icon,
   SortDescendingIcon,
+  RefreshIcon,
+  ArrowLeft01Icon,
+  PlusIcon,
+  MoreHorizontalIcon,
+  CalendarOffIcon,
+  MapPinIcon,
+  Video01Icon,
 } from "@hugeicons/core-free-icons";
 import { writeFileSync } from "node:fs";
 
@@ -48,6 +55,13 @@ for (const [name, data] of Object.entries({
   Sun01Icon,
   SortByUp01Icon,
   SortDescendingIcon,
+  RefreshIcon,
+  ArrowLeft01Icon,
+  PlusIcon,
+  MoreHorizontalIcon,
+  CalendarOffIcon,
+  MapPinIcon,
+  Video01Icon,
 })) {
   for (const variant of ["", ...(variants[name] ?? [])]) {
     const strokeWidth = variant === "Bold" ? "2" : "1.5";

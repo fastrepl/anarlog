@@ -74,77 +74,85 @@ impl Render for WorkspaceView {
             .iter()
             .find(|(catalog, _)| Some(*catalog) == self.active_catalog)
             .map(|(_, view)| view.clone());
-        let sidebar = div()
-            .w(px(self.sidebar.width()))
-            .h_full()
-            .flex_shrink_0()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .map(|sidebar| {
-                if catalog.is_some() {
-                    // Shipping custom sidebars leave the chrome row free instead of the timeline header.
-                    sidebar.pt(px(44.))
-                } else {
-                    sidebar.child(self.sidebar_header(window, cx))
-                }
-            })
-            .child(
-                div()
-                    .flex_1()
-                    .min_h_0()
-                    .w_full()
-                    .when_some(catalog.clone(), |view, catalog| view.child(catalog))
-                    .when(catalog.is_none(), |view| {
-                        view.flex()
-                            .flex_col()
-                            .gap_1()
-                            .child(div().flex_1().min_h_0().child(self.library.clone()))
-                            .child(
-                                div()
-                                    .px_2()
-                                    .flex()
-                                    .justify_between()
-                                    .text_xs()
-                                    .when(
-                                        self.page.as_ref().is_some_and(|page| page.offset > 0),
-                                        |view| {
-                                            view.child(
-                                                div()
-                                                    .id("previous-page")
-                                                    .cursor_pointer()
-                                                    .child("Previous")
-                                                    .on_click(cx.listener(|this, _, _, cx| {
-                                                        this.query.offset = this
-                                                            .query
-                                                            .offset
-                                                            .saturating_sub(this.query.limit);
-                                                        this.reload(cx);
-                                                    })),
-                                            )
-                                        },
-                                    )
-                                    .when(
-                                        self.page.as_ref().is_some_and(|page| page.has_more),
-                                        |view| {
-                                            view.child(
-                                                div()
-                                                    .id("next-page")
-                                                    .cursor_pointer()
-                                                    .child("Next")
-                                                    .on_click(cx.listener(|this, _, _, cx| {
-                                                        this.query.offset = this
-                                                            .query
-                                                            .offset
-                                                            .saturating_add(this.query.limit);
-                                                        this.reload(cx);
-                                                    })),
-                                            )
-                                        },
-                                    ),
-                            )
-                    }),
-            );
+        let sidebar = if route == Route::Calendar {
+            div()
+                .w(px(self.sidebar.width()))
+                .h_full()
+                .flex_shrink_0()
+                .child(self.calendar_sidebar.clone())
+        } else {
+            div()
+                .w(px(self.sidebar.width()))
+                .h_full()
+                .flex_shrink_0()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .map(|sidebar| {
+                    if catalog.is_some() {
+                        // Shipping custom sidebars leave the chrome row free instead of the timeline header.
+                        sidebar.pt(px(44.))
+                    } else {
+                        sidebar.child(self.sidebar_header(window, cx))
+                    }
+                })
+                .child(
+                    div()
+                        .flex_1()
+                        .min_h_0()
+                        .w_full()
+                        .when_some(catalog.clone(), |view, catalog| view.child(catalog))
+                        .when(catalog.is_none(), |view| {
+                            view.flex()
+                                .flex_col()
+                                .gap_1()
+                                .child(div().flex_1().min_h_0().child(self.library.clone()))
+                                .child(
+                                    div()
+                                        .px_2()
+                                        .flex()
+                                        .justify_between()
+                                        .text_xs()
+                                        .when(
+                                            self.page.as_ref().is_some_and(|page| page.offset > 0),
+                                            |view| {
+                                                view.child(
+                                                    div()
+                                                        .id("previous-page")
+                                                        .cursor_pointer()
+                                                        .child("Previous")
+                                                        .on_click(cx.listener(|this, _, _, cx| {
+                                                            this.query.offset = this
+                                                                .query
+                                                                .offset
+                                                                .saturating_sub(this.query.limit);
+                                                            this.reload(cx);
+                                                        })),
+                                                )
+                                            },
+                                        )
+                                        .when(
+                                            self.page.as_ref().is_some_and(|page| page.has_more),
+                                            |view| {
+                                                view.child(
+                                                    div()
+                                                        .id("next-page")
+                                                        .cursor_pointer()
+                                                        .child("Next")
+                                                        .on_click(cx.listener(|this, _, _, cx| {
+                                                            this.query.offset = this
+                                                                .query
+                                                                .offset
+                                                                .saturating_add(this.query.limit);
+                                                            this.reload(cx);
+                                                        })),
+                                                )
+                                            },
+                                        ),
+                                )
+                        }),
+                )
+        };
         let surface = div()
             .flex_1()
             .min_w_0()

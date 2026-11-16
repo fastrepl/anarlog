@@ -53,7 +53,30 @@ const ICONS: &[(&str, &[u8])] = &[
         "SortDescendingIcon",
         include_bytes!("icons/SortDescendingIcon.svg"),
     ),
+    ("RefreshIcon", include_bytes!("icons/RefreshIcon.svg")),
+    (
+        "ArrowLeft01Icon",
+        include_bytes!("icons/ArrowLeft01Icon.svg"),
+    ),
+    ("PlusIcon", include_bytes!("icons/PlusIcon.svg")),
+    (
+        "MoreHorizontalIcon",
+        include_bytes!("icons/MoreHorizontalIcon.svg"),
+    ),
+    (
+        "CalendarOffIcon",
+        include_bytes!("icons/CalendarOffIcon.svg"),
+    ),
+    ("MapPinIcon", include_bytes!("icons/MapPinIcon.svg")),
+    ("Video01Icon", include_bytes!("icons/Video01Icon.svg")),
+    ("GoogleCalendar", include_bytes!("icons/GoogleCalendar.svg")),
+    ("OutlookIcon", include_bytes!("icons/OutlookIcon.svg")),
 ];
+
+const IMAGES: &[(&str, &[u8])] = &[(
+    "AppleCalendar.png",
+    include_bytes!("icons/AppleCalendar.png"),
+)];
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
@@ -61,6 +84,11 @@ impl AssetSource for Assets {
             .strip_prefix("workspace/")
             .and_then(|p| p.strip_suffix(".svg"))
             && let Some((_, bytes)) = ICONS.iter().find(|(key, _)| *key == name)
+        {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
+        if let Some(name) = path.strip_prefix("workspace/")
+            && let Some((_, bytes)) = IMAGES.iter().find(|(key, _)| *key == name)
         {
             return Ok(Some(Cow::Borrowed(bytes)));
         }
@@ -74,6 +102,11 @@ impl AssetSource for Assets {
                 .iter()
                 .map(|(name, _)| format!("workspace/{name}.svg").into()),
         );
+        paths.extend(
+            IMAGES
+                .iter()
+                .map(|(name, _)| format!("workspace/{name}").into()),
+        );
         Ok(paths)
     }
 }
@@ -86,7 +119,11 @@ mod tests {
     fn embedded_source_icons_and_existing_assets_are_resolvable() {
         for path in Assets.list("").unwrap() {
             let bytes = Assets.load(path.as_ref()).unwrap().unwrap();
-            assert!(std::str::from_utf8(&bytes).unwrap().contains("<svg"));
+            if path.ends_with(".png") {
+                assert!(bytes.starts_with(b"\x89PNG"));
+            } else {
+                assert!(std::str::from_utf8(&bytes).unwrap().contains("<svg"));
+            }
         }
         assert!(Assets.load("workspace/missing.svg").unwrap().is_none());
     }

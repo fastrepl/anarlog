@@ -5,12 +5,13 @@ use std::{
     time::Duration,
 };
 
+use chrono::NaiveDate;
 use desktop_runtime::{CancellationToken, Profile, RuntimeHandle, ServiceError, SessionId};
 use futures::executor::block_on;
 use serde_json::{Value, json};
 
 use super::{
-    calendar::{CalendarRequest, load_calendar},
+    calendar::{Clock, by_day, load_calendar, month_days},
     folders,
     mutations::{self, Command},
     navigation::Route,
@@ -1296,34 +1297,36 @@ fn catalogs_read_canonical_schema_and_preserve_malformed_template() {
 }
 
 #[test]
-fn calendar_uses_enabled_stored_events_and_exclusive_all_day_end() {
+fn calendar_lists_events_and_unlinked_notes_on_their_start_day() {
     block_on(async {
         let (_directory, runtime) = start().await;
         execute(
             &runtime,
-            "INSERT INTO calendars(id,name,enabled) VALUES ('on','Enabled',1),('off','Disabled',0)",
+            "INSERT INTO calendars(id,name,enabled,color) VALUES ('work','Work',1,'#4f46e5')",
             vec![],
         )
         .await;
-        for (id, calendar, tracking, start, end, all_day) in [
-            ("all-day", "on", "all", "2024-02-28", "2024-03-01", 1),
-            ("hidden", "off", "off", "2024-02-29", "2024-03-01", 1),
-            ("ignored", "on", "ignored", "2024-02-29", "2024-03-01", 1),
+        for (id, tracking, start, end, all_day) in [
+            ("all-day", "all", "2024-02-28", "2024-03-01", 1),
+            ("ignored", "ignored", "2024-02-29", "2024-03-01", 1),
             (
                 "meeting",
-                "on",
                 "timed",
                 "2024-02-29T12:00:00Z",
                 "2024-02-29T13:00:00Z",
                 0,
             ),
+            ("outside", "far", "2024-05-01T12:00:00Z", "", 0),
         ] {
-            execute(&runtime,"INSERT INTO events(id,title,calendar_id,tracking_id_event,started_at,ended_at,is_all_day) VALUES (?,?,?,?,?,?,?)",
-                vec![json!(id),json!(id),json!(calendar),json!(tracking),json!(start),json!(end),json!(all_day)]).await;
+            execute(&runtime,"INSERT INTO events(id,title,calendar_id,tracking_id_event,started_at,ended_at,is_all_day) VALUES (?,?,'work',?,?,?,?)",
+                vec![json!(id),json!(id),json!(tracking),json!(start),json!(end),json!(all_day)]).await;
         }
         execute(
             &runtime,
-            "INSERT INTO sessions(id,title,event_id) VALUES ('linked','Meeting','meeting')",
+            "INSERT INTO sessions(id,title,event_id,created_at) VALUES
+                ('linked','Meeting','meeting','2024-02-29T12:00:00Z'),
+                ('note','Standalone','','2024-02-29T15:00:00Z'),
+                ('untitled','','','2024-02-29T15:00:00Z')",
             vec![],
         )
         .await;
@@ -1335,68 +1338,41 @@ fn calendar_uses_enabled_stored_events_and_exclusive_all_day_end() {
             )],
         )
         .await;
-        let request = CalendarRequest {
-            anchor: "2024-02-29".into(),
-            columns: 7,
-            week_start: 1,
-            step: 0,
+        let days = month_days(NaiveDate::from_ymd_opt(2024, 2, 1).unwrap(), 1);
+        let page = load_calendar(
+            &runtime,
+            days[0],
+            *days.last().unwrap(),
+            CancellationToken::new(),
+        )
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+        let clock = Clock {
+            use_24_hour_time: false,
+            timezone: Some(chrono_tz::UTC),
         };
-        let page = load_calendar(&runtime, request.clone(), CancellationToken::new())
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert_eq!(page.days.first().unwrap().date.as_ref(), "2024-01-29");
-        assert_eq!(page.days.last().unwrap().date.as_ref(), "2024-03-03");
-        assert_eq!(page.days.len(), 35);
-        let day = page
-            .days
+        let by_day = by_day(&page.items, &clock);
+        let leap = by_day[&NaiveDate::from_ymd_opt(2024, 2, 29).unwrap()]
             .iter()
-            .find(|day| day.date.as_ref() == "2024-02-29")
-            .unwrap();
-        assert_eq!(day.items.len(), 2);
-        assert!(day.items.iter().any(|item| {
-            item.session
-                .as_ref()
-                .is_some_and(|id| id.0.as_ref() == "linked")
-        }));
-        assert!(
-            !page
-                .days
-                .iter()
-                .find(|day| day.date.as_ref() == "2024-03-01")
-                .unwrap()
-                .items
-                .iter()
-                .any(|item| item.id.as_ref() == "all-day")
+            .map(|item| (item.id.as_ref(), item.note, item.session.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            leap,
+            [
+                ("meeting", false, Some(SessionId("linked".into()))),
+                ("note", true, Some(SessionId("note".into()))),
+            ]
         );
-        let next = load_calendar(
-            &runtime,
-            CalendarRequest {
-                step: 1,
-                ..request.clone()
-            },
-            CancellationToken::new(),
-        )
-        .unwrap()
-        .receive()
-        .await
-        .unwrap();
-        assert_eq!(next.anchor.as_ref(), "2024-03-01");
-        let compact = load_calendar(
-            &runtime,
-            CalendarRequest {
-                columns: 4,
-                ..request
-            },
-            CancellationToken::new(),
-        )
-        .unwrap()
-        .receive()
-        .await
-        .unwrap();
-        assert_eq!(compact.days.len(), 85);
-        assert_eq!(compact.days[42].date, Arc::<str>::from("2024-02-29"));
+        assert_eq!(
+            by_day[&NaiveDate::from_ymd_opt(2024, 2, 28).unwrap()][0]
+                .id
+                .as_ref(),
+            "all-day"
+        );
+        assert!(!page.items.iter().any(|item| item.id.as_ref() == "outside"));
+        assert!(!by_day.contains_key(&NaiveDate::from_ymd_opt(2024, 3, 1).unwrap()));
         runtime.shutdown().await.unwrap();
     });
 }

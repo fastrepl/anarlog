@@ -16,7 +16,8 @@ use gpui::{
 };
 
 use super::{
-    calendar::{CalendarOpen, CalendarView},
+    calendar::{CalendarOpen, CalendarView, Clock},
+    calendar_sidebar::{CalendarSidebar, CalendarSidebarEvent},
     catalog::CatalogView,
     library::{LibraryView, OpenNote},
     navigation::{Navigation, Route, SidebarState, SlotId},
@@ -53,6 +54,7 @@ pub struct WorkspaceView {
     pub(super) picker: Entity<NotePicker>,
     pub(super) catalogs: Vec<(Catalog, Entity<CatalogView>)>,
     pub(super) calendar: Entity<CalendarView>,
+    pub(super) calendar_sidebar: Entity<CalendarSidebar>,
     pub(super) active_catalog: Option<Catalog>,
     pub(super) navigation: Navigation,
     pub(super) sidebar: SidebarState,
@@ -119,6 +121,15 @@ impl WorkspaceView {
     ) {
         self.library.update(cx, |library, cx| {
             library.set_clock(use_24_hour_time, timezone, cx)
+        });
+        self.calendar.update(cx, |calendar, cx| {
+            calendar.set_clock(
+                Clock {
+                    use_24_hour_time,
+                    timezone,
+                },
+                cx,
+            )
         });
     }
 
@@ -195,6 +206,7 @@ impl WorkspaceView {
         let note = cx.new(|cx| NoteView::new(context.runtime.clone(), window, cx));
         let picker = cx.new(|cx| NotePicker::new(context.runtime.clone(), cx));
         let calendar = cx.new(|_| CalendarView::new(context.runtime.clone()));
+        let calendar_sidebar = cx.new(|_| CalendarSidebar::new(context.runtime.clone()));
         let focus = cx.focus_handle();
         focus.focus(window, cx);
         let open_subscription = cx.subscribe(&library, |this, _, event: &OpenNote, cx| {
@@ -275,11 +287,14 @@ impl WorkspaceView {
         let calendar_subscription = cx.subscribe(&calendar, |this, _, event: &CalendarOpen, cx| {
             this.open_session(event.0.clone(), cx);
         });
-        let calendar_connections_subscription = cx.subscribe(
-            &calendar,
-            |this, _, _: &super::calendar::CalendarConnections, cx| {
-                if this.can_navigate(cx) {
-                    cx.emit(WorkspaceEvent::Product(ProductRoute::Calendar));
+        let calendar_sidebar_subscription = cx.subscribe(
+            &calendar_sidebar,
+            |this, _, event: &CalendarSidebarEvent, cx| match event {
+                CalendarSidebarEvent::Back => this.leave_overlay(cx),
+                CalendarSidebarEvent::Connect => {
+                    if this.can_navigate(cx) {
+                        cx.emit(WorkspaceEvent::Product(ProductRoute::Calendar));
+                    }
                 }
             },
         );
@@ -309,6 +324,7 @@ impl WorkspaceView {
             picker,
             catalogs: vec![],
             calendar,
+            calendar_sidebar,
             active_catalog: None,
             navigation,
             sidebar: SidebarState::default(),
@@ -347,7 +363,7 @@ impl WorkspaceView {
                 note_subscription,
                 picker_subscription,
                 calendar_subscription,
-                calendar_connections_subscription,
+                calendar_sidebar_subscription,
             ],
         }
     }
@@ -581,6 +597,9 @@ impl WorkspaceView {
             .update(cx, |picker, cx| picker.set_viewer(viewer.clone(), cx));
         self.calendar
             .update(cx, |calendar, _| calendar.viewer = viewer.clone());
+        self.calendar_sidebar.update(cx, |sidebar, cx| {
+            sidebar.set_signed_in(viewer.is_some(), cx)
+        });
         for (kind, catalog) in &self.catalogs {
             catalog.update(cx, |catalog, cx| {
                 catalog.set_viewer(viewer.clone());
@@ -772,11 +791,19 @@ impl WorkspaceView {
             )
         });
         self.route_content = None;
+        let calendar_route = route == Route::Calendar;
         self.calendar.update(cx, |calendar, cx| {
-            if route == Route::Calendar {
+            if calendar_route {
                 calendar.activate(cx);
             } else {
                 calendar.suspend();
+            }
+        });
+        self.calendar_sidebar.update(cx, |sidebar, cx| {
+            if calendar_route {
+                sidebar.activate(cx);
+            } else {
+                sidebar.suspend();
             }
         });
         let catalog = match route {
