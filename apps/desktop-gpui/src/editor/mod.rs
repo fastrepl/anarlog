@@ -12,6 +12,7 @@ pub mod persistence;
 mod sequence;
 mod services;
 mod surface;
+pub mod transcript;
 mod transform;
 
 pub use attachments::{AttachmentPreview, AttachmentService};

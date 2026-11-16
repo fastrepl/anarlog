@@ -723,10 +723,11 @@ fn document_watch_delivers_revisions_and_unsubscribes_under_backpressure() {
     let worker_cancel = cancel.clone();
     let worker_runtime = runtime.clone();
     let (sender, mut receiver) = futures::channel::mpsc::channel(0);
+    let document = session.note.as_ref().unwrap().id.clone();
     let watcher = std::thread::spawn(move || {
         block_on(super::services::watch(
             worker_runtime,
-            session.summary.id,
+            document,
             worker_cancel,
             sender,
         ));

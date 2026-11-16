@@ -94,7 +94,7 @@ impl EditorPane {
         cx.background_executor()
             .spawn(super::services::watch(
                 context.runtime.clone(),
-                init.session_id.clone(),
+                init.document.id.clone(),
                 watch_cancel.clone(),
                 sender,
             ))

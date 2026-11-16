@@ -1,5 +1,5 @@
 use desktop_runtime::{
-    CancellationToken, DocumentSnapshot, DocumentWatch, RuntimeHandle, ServiceError, SessionId,
+    CancellationToken, DocumentId, DocumentSnapshot, DocumentWatch, RuntimeHandle, ServiceError,
 };
 use futures::{SinkExt, channel::mpsc};
 use serde_json::json;
@@ -36,12 +36,19 @@ pub(super) async fn mentions(
 
 pub(super) async fn watch(
     runtime: RuntimeHandle,
-    session: SessionId,
+    document: DocumentId,
     cancel: CancellationToken,
     mut sender: mpsc::Sender<Result<Option<DocumentSnapshot>, String>>,
 ) {
     let result = async {
-        let watch = runtime.watch_document(session)?.receive().await?;
+        // By document id, so a summary editor follows its own document, not the session memo.
+        let watch = runtime
+            .watch_query(
+                "SELECT id, session_id, body_format, body, updated_at FROM session_documents WHERE id = ? AND deleted_at IS NULL".into(),
+                vec![json!(document)],
+            )?
+            .receive()
+            .await?;
         let mut watch = DocumentWatch(watch);
         loop {
             let snapshot = if let Some(error) = watch.0.terminal_error() {

@@ -264,7 +264,7 @@ impl WorkspaceView {
                 cx.notify();
             }
             NoteEvent::RenameFailed => this.pending = None,
-            NoteEvent::Move(id) => this.handle_note(&OpenNote::Move(vec![id.clone()].into()), cx),
+            NoteEvent::Request(request) => this.handle_note(request, cx),
             NoteEvent::Failed => {
                 this.pending = None;
                 this.set_status(

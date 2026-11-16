@@ -113,6 +113,23 @@ fn main() {
         chat.event(ChatEvent::OpenRightPanel, window, cx)
     });
     capture(&mut cx, window, &out, "chat-right");
+    chat(&mut cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Close, window, cx)
+    });
+    // The note's more button and its tabs, by window position.
+    open(&mut cx, window, Route::Session(SessionId("s-sync".into())));
+    click(&mut cx, window, 888., 23.);
+    capture(&mut cx, window, &out, "note-menu");
+    open(
+        &mut cx,
+        window,
+        Route::Session(SessionId("s-critique".into())),
+    );
+    capture(&mut cx, window, &out, "note-summary");
+    click(&mut cx, window, 329., 23.);
+    capture(&mut cx, window, &out, "note-memos");
+    click(&mut cx, window, 362., 23.);
+    capture(&mut cx, window, &out, "note-transcript");
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -122,10 +139,6 @@ fn main() {
         (
             "note-typography",
             Route::Session(SessionId("s-typography".into())),
-        ),
-        (
-            "note-summary",
-            Route::Session(SessionId("s-critique".into())),
         ),
         ("calendar", Route::Calendar),
         ("contacts", Route::Contacts),

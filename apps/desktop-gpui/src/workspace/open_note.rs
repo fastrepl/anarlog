@@ -1,22 +1,28 @@
 use std::sync::Arc;
 
 use desktop_runtime::{
-    CancellationToken, Generation, OpenSession, RenameSession, RuntimeHandle, SessionId,
+    CancellationToken, DocumentId, DocumentSnapshot, Generation, OpenSession, RenameSession,
+    RuntimeHandle, SessionId,
 };
 use gpui::{
-    AnyView, Context, Entity, EventEmitter, FocusHandle, Focusable, MouseButton, Render,
-    Subscription, Task, Window, canvas, div, prelude::*, px, svg,
+    AnyElement, AnyView, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, Hsla,
+    MouseButton, Render, SharedString, Subscription, Task, Window, canvas, div, prelude::*, px,
+    rgb, svg,
 };
-use serde_json::json;
+use serde_json::{Value, json};
 
-use super::library::folder_label;
+use super::library::{OpenNote, folder_label};
 use crate::{
-    contracts::{MeetingIntent, ProductRoute, WorkspaceEvent},
+    contracts::{EditorInit, LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent},
+    editor::{EditorPane, transcript::TranscriptView},
     ui::{
         input::{InputEvent, TextInput},
-        theme::theme,
+        theme::{RADIUS, Theme, theme},
     },
 };
+
+/// Shipping's `red-500`, used by the record mark and the stop square.
+const RECORD_RED: u32 = 0xef4444;
 
 pub struct NoteView {
     runtime: RuntimeHandle,
@@ -32,11 +38,14 @@ pub struct NoteView {
     rename_error: bool,
     recording: bool,
     menu: bool,
-    menu_index: usize,
+    menu_index: Option<usize>,
     menu_focus: FocusHandle,
     return_focus: Option<FocusHandle>,
-    folder: String,
-    folder_task: Option<Task<()>>,
+    details: Details,
+    view: Option<NoteTab>,
+    summary_editor: Option<(DocumentId, Entity<EditorPane>)>,
+    transcript: Option<Entity<TranscriptView>>,
+    details_task: Option<Task<()>>,
     compact_folder: bool,
     _subscriptions: Vec<Subscription>,
 }
@@ -49,10 +58,96 @@ pub enum NoteEvent {
     Failed,
     TitleUpdated(Arc<OpenSession>),
     RenameFailed,
-    Move(SessionId),
+    /// A library operation (move, delete, open in window) started from the note header.
+    Request(OpenNote),
 }
 
 impl EventEmitter<NoteEvent> for NoteView {}
+
+/// What the open note's header needs beyond the session row, kept live by one watch.
+#[derive(Default)]
+struct Details {
+    folder: String,
+    event_ended: bool,
+    has_transcript: bool,
+    summaries: Vec<DocumentSnapshot>,
+}
+
+/// The note's views, in shipping's switcher order: summaries, memos, transcript.
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum NoteTab {
+    Summary(Arc<str>),
+    Memos,
+    Transcript,
+}
+
+fn note_tabs(summaries: &[Arc<str>], transcript: bool) -> Vec<NoteTab> {
+    let mut tabs: Vec<NoteTab> = summaries.iter().cloned().map(NoteTab::Summary).collect();
+    tabs.push(NoteTab::Memos);
+    if transcript {
+        tabs.push(NoteTab::Transcript);
+    }
+    tabs
+}
+
+/// Shipping's `computeCurrentNoteTab`: a missing choice opens the first summary, and a
+/// live recording only keeps a choice that is still available.
+fn current_tab(chosen: Option<&NoteTab>, live: bool, tabs: &[NoteTab]) -> NoteTab {
+    let first_summary = tabs
+        .iter()
+        .find(|tab| matches!(tab, NoteTab::Summary(_)))
+        .cloned();
+    match chosen {
+        Some(tab) if tabs.contains(tab) => tab.clone(),
+        Some(NoteTab::Summary(_)) if !live => first_summary.unwrap_or(NoteTab::Memos),
+        Some(_) => NoteTab::Memos,
+        None if live => NoteTab::Memos,
+        None => first_summary.unwrap_or(NoteTab::Memos),
+    }
+}
+
+/// Mirrors shipping's `visibleSummaryDocuments` and `defaultSummaryDocumentId`: untouched
+/// placeholder summaries hide behind real ones, and a finished transcript always offers one.
+fn summary_ids(details: &[Value], session: &SessionId, transcript_done: bool) -> Vec<Arc<str>> {
+    let placeholder = |row: &Value| {
+        row["kind"] == "summary"
+            && row["template_id"] == ""
+            && row["body"] == ""
+            && row["title"] == "Summary"
+            && row["created_at"] == row["updated_at"]
+            && row["generation_metadata_json"] == "{}"
+    };
+    let ids: Vec<Arc<str>> = details
+        .iter()
+        .filter(|row| !placeholder(row) || details.iter().all(&placeholder))
+        .filter_map(|row| row["id"].as_str().map(Into::into))
+        .collect();
+    if ids.is_empty() && transcript_done {
+        vec![format!("summary:{}", session.0).into()]
+    } else {
+        ids
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MenuAction {
+    MeetingInfo,
+    VersionHistory,
+    Listen,
+    Export,
+    OpenWindow,
+    AlwaysOnTop,
+    Delete,
+}
+
+struct MenuItem {
+    action: MenuAction,
+    icon: &'static str,
+    label: &'static str,
+    /// The native preview has no implementation yet; shown disabled so nothing pretends to work.
+    disabled: bool,
+    separator_before: bool,
+}
 
 impl NoteView {
     pub fn new(runtime: RuntimeHandle, window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -87,11 +182,14 @@ impl NoteView {
             rename_error: false,
             recording: false,
             menu: false,
-            menu_index: 0,
+            menu_index: None,
             menu_focus: cx.focus_handle(),
             return_focus: None,
-            folder: String::new(),
-            folder_task: None,
+            details: Details::default(),
+            view: None,
+            summary_editor: None,
+            transcript: None,
+            details_task: None,
             compact_folder: false,
             _subscriptions: vec![input, blur],
         }
@@ -142,14 +240,21 @@ impl NoteView {
         {
             self.cancel_open();
             self.current = None;
-            self.folder.clear();
-            self.folder_task = None;
+            self.reset_details();
             self.content = None;
             self.message.clear();
             self.title
                 .update(cx, |title, cx| title.set_text(String::new(), cx));
             cx.notify();
         }
+    }
+
+    fn reset_details(&mut self) {
+        self.details = Details::default();
+        self.details_task = None;
+        self.view = None;
+        self.summary_editor = None;
+        self.transcript = None;
     }
 
     fn restore_title(&mut self, cx: &mut Context<Self>) {
@@ -271,8 +376,9 @@ impl NoteView {
         self.menu = false;
         self.rename_pending = false;
         self.rename_error = false;
-        self.folder = folder_label(&session.summary.folder_path);
-        self.watch_folder(session.summary.id.clone(), cx);
+        self.reset_details();
+        self.details.folder = folder_label(&session.summary.folder_path);
+        self.watch_details(session.summary.id.clone(), cx);
         let session = Arc::new(session);
         cx.emit(NoteEvent::Opened(session.clone()));
         if let Some(document) = &session.note {
@@ -295,19 +401,33 @@ impl NoteView {
         cx.notify();
     }
 
-    fn watch_folder(&mut self, id: SessionId, cx: &mut Context<Self>) {
-        self.folder_task = None;
+    fn watch_details(&mut self, id: SessionId, cx: &mut Context<Self>) {
+        self.details_task = None;
         let reply = self.runtime.watch_query(
-            "SELECT folder_path FROM sessions WHERE id=? AND deleted_at IS NULL".into(),
+            "SELECT s.folder_path, s.event_json,
+               EXISTS (SELECT 1 FROM transcripts t WHERE t.session_id = s.id AND t.deleted_at IS NULL
+                 AND CASE WHEN json_valid(t.words_json) THEN json_array_length(t.words_json) ELSE 0 END > 0
+               ) AS has_transcript,
+               (SELECT json_group_array(json_object(
+                  'id', d.id, 'session_id', d.session_id, 'kind', d.kind, 'title', d.title,
+                  'template_id', d.template_id, 'body_format', d.body_format, 'body', d.body,
+                  'created_at', d.created_at, 'updated_at', d.updated_at,
+                  'generation_metadata_json', d.generation_metadata_json))
+                FROM (SELECT * FROM session_documents WHERE session_id = s.id
+                  AND kind IN ('summary', 'template_output') AND deleted_at IS NULL
+                  ORDER BY sort_order, id) d
+               ) AS summaries
+             FROM sessions s WHERE s.id = ? AND s.deleted_at IS NULL"
+                .into(),
             vec![json!(id)],
         );
-        self.folder_task = Some(cx.spawn(async move |this, cx| {
+        self.details_task = Some(cx.spawn(async move |this, cx| {
             let result = async { reply?.receive().await }.await;
             let mut watch = match result {
                 Ok(watch) => watch,
                 Err(error) => {
                     let _ = this.update(cx, |this, cx| {
-                        this.message = format!("Folder updates unavailable: {error}");
+                        this.message = format!("Note details unavailable: {error}");
                         cx.notify();
                     });
                     return;
@@ -321,26 +441,19 @@ impl NoteView {
                 let terminal = error.is_some();
                 if this
                     .update(cx, |this, cx| {
-                        if this
+                        if !this
                             .current
                             .as_ref()
                             .is_some_and(|session| session.summary.id == id)
                         {
-                            if let Some(error) = error {
-                                this.message = format!("Folder updates unavailable: {error}");
-                                cx.notify();
-                            } else {
-                                let folder = folder_label(
-                                    rows.first()
-                                        .and_then(|row| row["folder_path"].as_str())
-                                        .unwrap_or_default(),
-                                );
-                                if this.folder != folder {
-                                    this.folder = folder;
-                                    cx.notify();
-                                }
-                            }
+                            return;
                         }
+                        if let Some(error) = error {
+                            this.message = format!("Note details unavailable: {error}");
+                        } else if let Some(row) = rows.first() {
+                            this.apply_details(row);
+                        }
+                        cx.notify();
                     })
                     .is_err()
                     || terminal
@@ -351,6 +464,57 @@ impl NoteView {
             }
             let _ = watch.unsubscribe().await;
         }));
+    }
+
+    fn apply_details(&mut self, row: &Value) {
+        let summaries: Vec<Value> = row["summaries"]
+            .as_str()
+            .and_then(|json| serde_json::from_str(json).ok())
+            .unwrap_or_default();
+        let visible = summary_ids(&summaries, &SessionId("".into()), false);
+        self.details = Details {
+            folder: folder_label(row["folder_path"].as_str().unwrap_or_default()),
+            event_ended: row["event_json"]
+                .as_str()
+                .and_then(|event| serde_json::from_str::<Value>(event).ok())
+                .and_then(|event| {
+                    chrono::DateTime::parse_from_rfc3339(event["ended_at"].as_str()?).ok()
+                })
+                .is_some_and(|ended| ended <= chrono::Utc::now()),
+            has_transcript: row["has_transcript"].as_i64().unwrap_or(0) != 0
+                || row["has_transcript"].as_bool().unwrap_or(false),
+            summaries: summaries
+                .into_iter()
+                .filter(|row| {
+                    row["id"]
+                        .as_str()
+                        .is_some_and(|id| visible.iter().any(|visible| visible.as_ref() == id))
+                })
+                .filter_map(|row| serde_json::from_value(row).ok())
+                .collect(),
+        };
+    }
+
+    fn tabs(&self) -> Vec<NoteTab> {
+        let Some(session) = &self.current else {
+            return Vec::new();
+        };
+        let ids: Vec<Arc<str>> = self
+            .details
+            .summaries
+            .iter()
+            .map(|summary| summary.id.0.clone())
+            .collect();
+        let ids = if ids.is_empty() && self.details.has_transcript && !self.recording {
+            summary_ids(&[], &session.summary.id, true)
+        } else {
+            ids
+        };
+        note_tabs(&ids, self.details.has_transcript || self.recording)
+    }
+
+    fn meeting_over(&self) -> bool {
+        !self.recording && (self.details.event_ended || self.details.has_transcript)
     }
 
     pub(super) fn rename(&mut self, cx: &mut Context<Self>) {
@@ -408,6 +572,86 @@ impl NoteView {
         .detach();
     }
 
+    fn menu_items(&self) -> Vec<MenuItem> {
+        let item = |action, icon, label, disabled, separator_before| MenuItem {
+            action,
+            icon,
+            label,
+            disabled,
+            separator_before,
+        };
+        let (listen_icon, listen_label) = if self.recording {
+            ("editor/MicOff01Icon.svg", "Stop listening")
+        } else if self.details.has_transcript {
+            ("editor/Mic01Icon.svg", "Resume listening")
+        } else {
+            ("editor/Mic01Icon.svg", "Start listening")
+        };
+        vec![
+            item(
+                MenuAction::MeetingInfo,
+                "editor/Calendar04Icon.svg",
+                "Meeting info",
+                true,
+                false,
+            ),
+            item(
+                MenuAction::VersionHistory,
+                "editor/HistoryIcon.svg",
+                "Version history",
+                true,
+                false,
+            ),
+            item(MenuAction::Listen, listen_icon, listen_label, false, true),
+            item(
+                MenuAction::Export,
+                "editor/FileDownloadIcon.svg",
+                "Export",
+                false,
+                true,
+            ),
+            item(
+                MenuAction::OpenWindow,
+                "editor/AppWindowIcon.svg",
+                "Open in New Window",
+                false,
+                true,
+            ),
+            item(
+                MenuAction::AlwaysOnTop,
+                "editor/PinIcon.svg",
+                "Always on Top",
+                true,
+                false,
+            ),
+            item(
+                MenuAction::Delete,
+                "editor/TrashIcon.svg",
+                "Delete",
+                false,
+                true,
+            ),
+        ]
+    }
+
+    fn step_menu(&mut self, forward: bool) {
+        let items = self.menu_items();
+        let enabled: Vec<usize> = (0..items.len())
+            .filter(|index| !items[*index].disabled)
+            .collect();
+        let position = self
+            .menu_index
+            .and_then(|index| enabled.iter().position(|candidate| *candidate == index));
+        self.menu_index = match position {
+            Some(position) if forward => enabled.get((position + 1) % enabled.len()).copied(),
+            Some(position) => enabled
+                .get((position + enabled.len() - 1) % enabled.len())
+                .copied(),
+            None if forward => enabled.first().copied(),
+            None => enabled.last().copied(),
+        };
+    }
+
     fn close_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.menu = false;
         if self.menu_focus.is_focused(window)
@@ -418,19 +662,541 @@ impl NoteView {
         cx.notify();
     }
 
-    fn choose_menu(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+    fn choose_menu(&mut self, action: MenuAction, window: &mut Window, cx: &mut Context<Self>) {
         self.close_menu(window, cx);
         let Some(session) = &self.current else {
             return;
         };
         let id = session.summary.id.clone();
-        cx.emit(match index {
-            0 => WorkspaceEvent::Meeting(MeetingIntent::Open(id)),
-            1 => WorkspaceEvent::Product(ProductRoute::Share(id)),
-            2 => WorkspaceEvent::Product(ProductRoute::Export(id)),
-            _ => WorkspaceEvent::AttachFile(id),
-        });
+        match action {
+            MenuAction::Listen => self.toggle_recording(cx),
+            MenuAction::Export => cx.emit(WorkspaceEvent::Product(ProductRoute::Export(id))),
+            MenuAction::OpenWindow => cx.emit(NoteEvent::Request(OpenNote::Window(id))),
+            MenuAction::Delete => cx.emit(NoteEvent::Request(OpenNote::Delete(vec![id].into()))),
+            MenuAction::MeetingInfo | MenuAction::VersionHistory | MenuAction::AlwaysOnTop => {}
+        }
     }
+
+    fn toggle_recording(&mut self, cx: &mut Context<Self>) {
+        if let Some(session) = &self.current {
+            cx.emit(WorkspaceEvent::Meeting(if self.recording {
+                MeetingIntent::Stop
+            } else {
+                MeetingIntent::Start {
+                    session_id: session.summary.id.clone(),
+                }
+            }));
+        }
+    }
+
+    fn select_tab(&mut self, tab: NoteTab, cx: &mut Context<Self>) {
+        self.view = Some(tab);
+        cx.notify();
+    }
+
+    fn summary_view(
+        &mut self,
+        id: &Arc<str>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let session = self.current.clone()?;
+        let Some(document) = self
+            .details
+            .summaries
+            .iter()
+            .find(|summary| &summary.id.0 == id)
+            .cloned()
+        else {
+            return Some(empty_summary(theme(window)).into_any_element());
+        };
+        let editor = match &self.summary_editor {
+            Some((current, editor)) if current == &document.id => editor.clone(),
+            _ => {
+                let return_focus = self.title.focus_handle(cx);
+                let runtime = self.runtime.clone();
+                let init = EditorInit {
+                    session_id: session.summary.id.clone(),
+                    document: document.clone(),
+                    return_focus,
+                };
+                let editor =
+                    cx.new(|cx| EditorPane::new(LaneContext { runtime }, init, window, cx));
+                self.summary_editor = Some((document.id.clone(), editor.clone()));
+                editor
+            }
+        };
+        // Shipping's summary editor shows the session title as its first line unless the
+        // stored summary already starts with a title heading.
+        let titled = serde_json::from_str::<Value>(&document.body)
+            .ok()
+            .is_some_and(|body| {
+                body["content"][0]["type"] == "heading" && body["content"][0]["attrs"]["level"] == 1
+            });
+        let colors = theme(window);
+        Some(
+            div()
+                .flex()
+                .flex_col()
+                .flex_1()
+                .min_h_0()
+                .when(!titled, |view| {
+                    view.child(
+                        div()
+                            .px_3()
+                            .pt(px(11.))
+                            .pb(px(3.))
+                            .mb_2()
+                            .text_size(px(24.))
+                            .line_height(px(30.))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(colors.foreground)
+                            .child(SharedString::from(session.summary.title.to_string())),
+                    )
+                })
+                .child(div().flex().flex_col().flex_1().min_h_0().child(editor))
+                .into_any_element(),
+        )
+    }
+
+    fn folder_chip(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        let folder = self.details.folder.clone();
+        let compact = self.compact_folder;
+        div()
+            .id("note-folder")
+            .h(px(28.))
+            .flex()
+            .flex_shrink_0()
+            .items_center()
+            .rounded(px(RADIUS))
+            .text_color(colors.muted_foreground)
+            .hover(|view| view.bg(colors.accent).text_color(colors.foreground))
+            .cursor_pointer()
+            .map(|view| {
+                if folder.is_empty() || compact {
+                    view.w(px(28.)).justify_center()
+                } else {
+                    view.max_w(px(144.)).min_w_0().gap_1().px(px(6.))
+                }
+            })
+            .on_click(cx.listener(|this, _, _, cx| {
+                if let Some(session) = &this.current {
+                    cx.emit(NoteEvent::Request(OpenNote::Move(
+                        vec![session.summary.id.clone()].into(),
+                    )));
+                }
+            }))
+            .group("note-folder")
+            .child(
+                icon("workspace/Folder01Icon.svg", 16., colors.muted_foreground)
+                    .group_hover("note-folder", |style| style.text_color(colors.foreground)),
+            )
+            .when(!folder.is_empty() && !compact, |view| {
+                view.child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .text_xs()
+                        .line_height(px(16.))
+                        .text_color(neutral(colors, 0x525252, 0xd4d4d4))
+                        .child(folder),
+                )
+            })
+    }
+
+    fn view_switcher(
+        &self,
+        tabs: &[NoteTab],
+        current: &NoteTab,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_shrink_0()
+            .h(px(28.))
+            .p(px(2.))
+            .gap(px(2.))
+            .items_center()
+            .rounded_full()
+            .bg(colors.foreground.opacity(0.1))
+            .children(tabs.iter().enumerate().map(|(index, tab)| {
+                let active = tab == current;
+                let (path, size, label): (&str, f32, SharedString) = match tab {
+                    // Template titles need the template catalog; untemplated summaries read
+                    // "Summary" in shipping too.
+                    NoteTab::Summary(_) => ("editor/SparkleIcon.svg", 16., "Summary".into()),
+                    NoteTab::Memos => ("editor/TextAlignLeftIcon.svg", 14., "Memos".into()),
+                    NoteTab::Transcript => {
+                        ("editor/TranscriptAudioIcon.svg", 16., "Transcript".into())
+                    }
+                };
+                let target = tab.clone();
+                div()
+                    .id(("note-tab", index))
+                    .h(px(24.))
+                    .px_2()
+                    .flex()
+                    .flex_shrink_0()
+                    .items_center()
+                    .justify_center()
+                    .rounded_full()
+                    .cursor_pointer()
+                    .when_else(
+                        active,
+                        |view| {
+                            view.min_w(px(if matches!(tab, NoteTab::Summary(_)) {
+                                62.
+                            } else {
+                                40.
+                            }))
+                            .max_w(px(160.))
+                            .gap(px(6.))
+                            .bg(neutral(colors, 0xffffff, 0))
+                            .when(is_dark(colors), |view| view.bg(colors.accent))
+                            .shadow_xs()
+                            .text_color(colors.foreground)
+                        },
+                        |view| {
+                            view.text_color(colors.muted_foreground.opacity(0.7))
+                                .hover(|view| {
+                                    view.bg(colors.background.opacity(0.6))
+                                        .text_color(colors.foreground)
+                                })
+                        },
+                    )
+                    .on_click(
+                        cx.listener(move |this, _, _, cx| this.select_tab(target.clone(), cx)),
+                    )
+                    .group(SharedString::from(format!("note-tab-{index}")))
+                    .child(if active {
+                        icon(path, size, colors.foreground)
+                    } else {
+                        icon(path, size, colors.muted_foreground.opacity(0.7))
+                            .group_hover(SharedString::from(format!("note-tab-{index}")), |style| {
+                                style.text_color(colors.foreground)
+                            })
+                    })
+                    .when(active, |view| {
+                        view.child(
+                            div()
+                                .min_w_0()
+                                .truncate()
+                                .text_xs()
+                                .line_height(px(16.))
+                                .font_weight(FontWeight::MEDIUM)
+                                .child(label),
+                        )
+                    })
+            }))
+    }
+
+    fn meeting_control(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        let share = self.meeting_over();
+        let recording = self.recording;
+        div()
+            .id("record-note")
+            .mx_1()
+            .h(px(28.))
+            .pl(px(6.))
+            .pr(px(10.))
+            .flex()
+            .flex_shrink_0()
+            .items_center()
+            .gap(px(6.))
+            .rounded(px(RADIUS))
+            .border_1()
+            .border_color(colors.border)
+            .when(recording, |view| view.bg(colors.card))
+            .hover(|view| view.bg(colors.accent))
+            .text_sm()
+            .line_height(px(20.))
+            .font_weight(FontWeight::MEDIUM)
+            .text_color(colors.foreground)
+            .cursor_pointer()
+            .on_click(cx.listener(move |this, _, _, cx| {
+                if share {
+                    if let Some(session) = &this.current {
+                        cx.emit(WorkspaceEvent::Product(ProductRoute::Share(
+                            session.summary.id.clone(),
+                        )));
+                    }
+                } else {
+                    this.toggle_recording(cx);
+                }
+            }))
+            .map(|view| {
+                if share {
+                    view.child(icon("editor/Share08Icon.svg", 14., colors.foreground))
+                        .child("Share")
+                } else if recording {
+                    view.child(icon("editor/SquareIcon.svg", 12., rgb(RECORD_RED).into()))
+                        .child("Stop")
+                } else {
+                    view.child(
+                        div()
+                            .size(px(12.))
+                            .flex()
+                            .flex_shrink_0()
+                            .items_center()
+                            .justify_center()
+                            .child(div().size(px(8.)).rounded(px(2.4)).bg(rgb(RECORD_RED))),
+                    )
+                    .child("Record")
+                }
+            })
+    }
+
+    fn header(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = theme(window);
+        let tabs = self.tabs();
+        let current = current_tab(self.view.as_ref(), self.recording, &tabs);
+        let switcher = tabs.len() > 1;
+        let breadcrumb = !switcher && !self.recording && !self.meeting_over();
+        // Shipping's breadcrumb title is `w-fit` over the title and its placeholder, capped at
+        // `max-w-56`; the input itself draws 14px text.
+        let title_width = {
+            let font = window.text_style().font();
+            let measure = |text: &str| {
+                let run = gpui::TextRun {
+                    len: text.len(),
+                    font: font.clone(),
+                    color: colors.foreground,
+                    background_color: None,
+                    underline: None,
+                    strikethrough: None,
+                };
+                window
+                    .text_system()
+                    .shape_line(text.to_owned().into(), px(14.), &[run], None)
+                    .width
+            };
+            let title = self.title.read(cx).buffer.text.clone();
+            (measure(&title).max(measure("Untitled")) + px(2.)).min(px(224.))
+        };
+        div()
+            .flex()
+            .h(px(48.))
+            .flex_shrink_0()
+            .pb(px(2.))
+            .pl(px(12.))
+            .pr(px(8.))
+            .items_center()
+            .gap(px(2.))
+            .on_mouse_down(MouseButton::Left, |_, window, cx| window.blur(cx))
+            .when(switcher, |view| {
+                view.child(self.view_switcher(&tabs, &current, colors, cx))
+            })
+            .when(breadcrumb, |view| {
+                view.child(
+                    div()
+                        .flex()
+                        .min_w_0()
+                        .items_center()
+                        .gap_1()
+                        .child(self.folder_chip(colors, cx))
+                        .child(
+                            div()
+                                .flex_shrink_0()
+                                .text_color(colors.muted_foreground)
+                                .child("/"),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .min_w_0()
+                                .w(title_width)
+                                .child(self.title.clone()),
+                        ),
+                )
+            })
+            .child(div().flex_1().min_w_0())
+            .child(
+                div()
+                    .flex()
+                    .flex_shrink_0()
+                    .items_center()
+                    .when(!breadcrumb, |view| view.child(self.folder_chip(colors, cx)))
+                    .child(self.meeting_control(colors, cx))
+                    .child(
+                        div()
+                            .id("note-more")
+                            .size(px(28.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(RADIUS))
+                            .text_color(colors.muted_foreground)
+                            .hover(|view| view.bg(colors.accent).text_color(colors.foreground))
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                if this.menu {
+                                    this.close_menu(window, cx);
+                                } else {
+                                    this.return_focus = window.focused(cx);
+                                    this.menu = true;
+                                    this.menu_index = None;
+                                    this.menu_focus.focus(window, cx);
+                                    cx.notify();
+                                }
+                            }))
+                            .group("note-more")
+                            .child(
+                                icon(
+                                    "editor/MoreHorizontalIcon.svg",
+                                    16.,
+                                    colors.muted_foreground,
+                                )
+                                .group_hover("note-more", |style| {
+                                    style.text_color(colors.foreground)
+                                }),
+                            ),
+                    ),
+            )
+    }
+
+    fn menu(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        let items = self.menu_items();
+        let red = neutral(colors, 0xdc2626, 0xf87171);
+        div()
+            .id("note-actions")
+            .absolute()
+            .top(px(39.))
+            .right(px(8.))
+            .w(px(224.))
+            .occlude()
+            .p(px(2.))
+            .rounded(px(22.))
+            .border_1()
+            .border_color(colors.app_floating_border)
+            .bg(colors.app_floating_chrome)
+            .shadow_lg()
+            .track_focus(&self.menu_focus)
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down_out(cx.listener(|this, _, window, cx| this.close_menu(window, cx)))
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                match event.keystroke.key.as_str() {
+                    "escape" => this.close_menu(window, cx),
+                    "up" => this.step_menu(false),
+                    "down" => this.step_menu(true),
+                    "enter" => {
+                        let items = this.menu_items();
+                        if let Some(item) = this.menu_index.and_then(|index| items.get(index)) {
+                            this.choose_menu(item.action, window, cx);
+                        }
+                    }
+                    _ => return,
+                }
+                cx.stop_propagation();
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .p(px(6.))
+                    .rounded(px(20.))
+                    .border_1()
+                    .border_color(colors.app_floating_border)
+                    .bg(colors.app_floating_panel)
+                    .text_color(colors.popover_foreground)
+                    .children(items.into_iter().enumerate().flat_map(|(index, item)| {
+                        let separator = item.separator_before.then(|| {
+                            div()
+                                .mx(px(-4.))
+                                .my_1()
+                                .h(px(1.))
+                                .bg(colors.muted)
+                                .into_any_element()
+                        });
+                        let destructive = item.action == MenuAction::Delete;
+                        let highlighted = self.menu_index == Some(index);
+                        let row = div()
+                            .id(("note-action", index))
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .px_2()
+                            .py(px(6.))
+                            .rounded(px(14.))
+                            .text_sm()
+                            .line_height(px(20.))
+                            .when(destructive, |view| view.text_color(red))
+                            .when_else(
+                                item.disabled,
+                                |view| view.opacity(0.5),
+                                |view| {
+                                    view.cursor_pointer()
+                                        .when(highlighted, |view| {
+                                            view.bg(if destructive {
+                                                neutral(colors, 0xfef2f2, 0x450a0a)
+                                            } else {
+                                                colors.accent
+                                            })
+                                        })
+                                        .hover(|view| {
+                                            view.bg(if destructive {
+                                                neutral(colors, 0xfef2f2, 0x450a0a)
+                                            } else {
+                                                colors.accent
+                                            })
+                                        })
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            this.choose_menu(item.action, window, cx)
+                                        }))
+                                },
+                            )
+                            .child(icon(
+                                item.icon,
+                                16.,
+                                if destructive {
+                                    red
+                                } else {
+                                    colors.popover_foreground
+                                },
+                            ))
+                            .child(div().flex_1().child(item.label))
+                            .when(item.action == MenuAction::MeetingInfo, |view| {
+                                view.child(icon(
+                                    "editor/ArrowRight01Icon.svg",
+                                    16.,
+                                    colors.popover_foreground,
+                                ))
+                            })
+                            .into_any_element();
+                        separator.into_iter().chain([row])
+                    })),
+            )
+    }
+}
+
+/// GPUI svgs do not inherit text color, so every icon names its own.
+fn icon(path: &'static str, size: f32, color: Hsla) -> gpui::Svg {
+    svg()
+        .path(path)
+        .size(px(size))
+        .flex_shrink_0()
+        .text_color(color)
+}
+
+fn is_dark(colors: Theme) -> bool {
+    colors.background.l < 0.5
+}
+
+/// A fixed Tailwind neutral that shipping uses instead of a theme token.
+fn neutral(colors: Theme, light: u32, dark: u32) -> Hsla {
+    if is_dark(colors) {
+        rgb(dark).into()
+    } else {
+        rgb(light).into()
+    }
+}
+
+fn empty_summary(colors: Theme) -> impl IntoElement {
+    div()
+        .px_3()
+        .py_2()
+        .text_sm()
+        .text_color(colors.muted_foreground)
+        .child("No summary yet.")
 }
 
 impl Drop for NoteView {
@@ -444,6 +1210,22 @@ impl Render for NoteView {
         let colors = theme(window);
         let compact_folder = self.compact_folder;
         let entity = cx.entity().downgrade();
+        let ready = self.current.is_some() && !self.loading;
+        let tabs = self.tabs();
+        let current = current_tab(self.view.as_ref(), self.recording, &tabs);
+        let body = match &current {
+            NoteTab::Summary(id) if ready => self.summary_view(&id.clone(), window, cx),
+            NoteTab::Transcript if ready => self.current.clone().map(|session| {
+                let runtime = self.runtime.clone();
+                self.transcript
+                    .get_or_insert_with(|| {
+                        cx.new(|cx| TranscriptView::new(runtime, session.summary.id.clone(), cx))
+                    })
+                    .clone()
+                    .into_any_element()
+            }),
+            _ => self.content.clone().map(AnyView::into_any_element),
+        };
         div()
             .size_full()
             .relative()
@@ -459,121 +1241,7 @@ impl Render for NoteView {
                     cx.stop_propagation();
                 }
             }))
-            .when(self.current.is_some() && !self.loading, |view| {
-                view.child(
-                    div()
-                        .flex()
-                        .h(px(48.))
-                        .flex_shrink_0()
-                        .px_2()
-                        .items_center()
-                        .gap_1()
-                        .on_mouse_down(MouseButton::Left, |_, window, cx| window.blur(cx))
-                        .child(
-                            div()
-                                .id("note-folder")
-                                .h(px(28.))
-                                .flex()
-                                .items_center()
-                                .when(self.folder.is_empty(), |view| {
-                                    view.w(px(28.)).justify_center()
-                                })
-                                .when(!self.folder.is_empty(), |view| {
-                                    view.max_w(px(144.)).min_w_0().when_else(
-                                        self.compact_folder,
-                                        |view| view.w(px(28.)),
-                                        |view| view.gap_1().px(px(6.)),
-                                    )
-                                })
-                                .rounded_full()
-                                .hover(|view| view.bg(colors.accent))
-                                .text_color(colors.muted_foreground)
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    if let Some(session) = &this.current {
-                                        cx.emit(NoteEvent::Move(session.summary.id.clone()));
-                                    }
-                                }))
-                                .child(
-                                    svg()
-                                        .path("workspace/Folder01Icon.svg")
-                                        .size(px(16.))
-                                        .flex_shrink_0()
-                                        .text_color(colors.muted_foreground),
-                                )
-                                .when(!self.folder.is_empty() && !self.compact_folder, |view| {
-                                    view.child(
-                                        div()
-                                            .min_w_0()
-                                            .truncate()
-                                            .text_xs()
-                                            .child(self.folder.clone()),
-                                    )
-                                }),
-                        )
-                        .child(div().text_color(colors.muted_foreground).child("/"))
-                        .child(
-                            div()
-                                .flex()
-                                .min_w_0()
-                                .max_w(px(224.))
-                                .flex_1()
-                                .child(self.title.clone()),
-                        )
-                        .child(div().flex_1())
-                        .child(
-                            div()
-                                .id("record-note")
-                                .h(px(28.))
-                                .px_2()
-                                .flex()
-                                .items_center()
-                                .gap_1()
-                                .rounded(px(8.))
-                                .border_1()
-                                .border_color(colors.border)
-                                .hover(|view| view.bg(colors.accent))
-                                .text_sm()
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    if let Some(session) = &this.current {
-                                        cx.emit(WorkspaceEvent::Meeting(if this.recording {
-                                            MeetingIntent::Stop
-                                        } else {
-                                            MeetingIntent::Start {
-                                                session_id: session.summary.id.clone(),
-                                            }
-                                        }));
-                                    }
-                                }))
-                                .child(div().size(px(8.)).rounded_full().bg(gpui::rgb(0xff3344)))
-                                .child(if self.recording { "Stop" } else { "Record" }),
-                        )
-                        .child(
-                            div()
-                                .id("note-more")
-                                .size(px(28.))
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .rounded_full()
-                                .hover(|view| view.bg(colors.accent))
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    if this.menu {
-                                        this.close_menu(window, cx);
-                                    } else {
-                                        this.return_focus = window.focused(cx);
-                                        this.menu = true;
-                                        this.menu_index = 0;
-                                        this.menu_focus.focus(window, cx);
-                                        cx.notify();
-                                    }
-                                }))
-                                .child("⋯"),
-                        ),
-                )
-            })
+            .when(ready, |view| view.child(self.header(window, cx)))
             .child(
                 canvas(
                     move |bounds, window, cx| {
@@ -631,63 +1299,65 @@ impl Render for NoteView {
                         }),
                 )
             })
-            .when_some(self.content.clone(), |view, content| {
+            .when_some(body, |view, content| {
                 view.child(div().flex().flex_col().flex_1().min_h_0().child(content))
             })
             .when(self.menu, |view| {
-                view.child(gpui::deferred(
-                    div()
-                        .id("note-actions")
-                        .absolute()
-                        .top(px(44.))
-                        .right(px(8.))
-                        .w(px(224.))
-                        .occlude()
-                        .p_1()
-                        .rounded(px(8.))
-                        .shadow_lg()
-                        .bg(colors.card)
-                        .border_1()
-                        .border_color(colors.border)
-                        .track_focus(&self.menu_focus)
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_mouse_down_out(
-                            cx.listener(|this, _, window, cx| this.close_menu(window, cx)),
-                        )
-                        .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                            match event.keystroke.key.as_str() {
-                                "escape" => this.close_menu(window, cx),
-                                "up" => this.menu_index = (this.menu_index + 3) % 4,
-                                "down" => this.menu_index = (this.menu_index + 1) % 4,
-                                "enter" => this.choose_menu(this.menu_index, window, cx),
-                                _ => return,
-                            }
-                            cx.stop_propagation();
-                            cx.notify();
-                        }))
-                        .children(
-                            ["Transcript / audio", "Share", "Export", "Attach file"]
-                                .into_iter()
-                                .enumerate()
-                                .map(|(index, label)| {
-                                    div()
-                                        .id(("note-action", index))
-                                        .px_3()
-                                        .py_1()
-                                        .text_sm()
-                                        .rounded(px(4.))
-                                        .cursor_pointer()
-                                        .hover(|view| view.bg(colors.accent))
-                                        .when(self.menu_index == index, |view| {
-                                            view.bg(colors.accent)
-                                        })
-                                        .child(label)
-                                        .on_click(cx.listener(move |this, _, window, cx| {
-                                            this.choose_menu(index, window, cx)
-                                        }))
-                                }),
-                        ),
-                ))
+                view.child(gpui::deferred(self.menu(colors, cx)))
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn note_tabs_follow_shipping_switcher_rules() {
+        let summary: Arc<str> = "summary-1".into();
+        let tabs = note_tabs(std::slice::from_ref(&summary), true);
+        assert_eq!(
+            tabs,
+            [
+                NoteTab::Summary(summary.clone()),
+                NoteTab::Memos,
+                NoteTab::Transcript
+            ]
+        );
+        assert_eq!(
+            current_tab(None, false, &tabs),
+            NoteTab::Summary(summary.clone())
+        );
+        assert_eq!(current_tab(None, true, &tabs), NoteTab::Memos);
+        let gone = NoteTab::Summary("removed".into());
+        assert_eq!(
+            current_tab(Some(&gone), false, &tabs),
+            NoteTab::Summary(summary)
+        );
+        assert_eq!(
+            current_tab(Some(&NoteTab::Transcript), false, &note_tabs(&[], false)),
+            NoteTab::Memos
+        );
+    }
+
+    #[test]
+    fn untouched_summary_placeholders_hide_behind_real_summaries() {
+        let placeholder = json!({"id":"p","kind":"summary","template_id":"","body":"","title":"Summary",
+            "created_at":"t","updated_at":"t","generation_metadata_json":"{}"});
+        let real = json!({"id":"r","kind":"summary","template_id":"","body":"{}","title":"",
+            "created_at":"t","updated_at":"u","generation_metadata_json":"{}"});
+        let session = SessionId("s".into());
+        assert_eq!(
+            summary_ids(&[placeholder.clone(), real], &session, false),
+            [Arc::<str>::from("r")]
+        );
+        assert_eq!(
+            summary_ids(&[placeholder], &session, false),
+            [Arc::<str>::from("p")]
+        );
+        assert_eq!(
+            summary_ids(&[], &session, true),
+            [Arc::<str>::from("summary:s")]
+        );
     }
 }
