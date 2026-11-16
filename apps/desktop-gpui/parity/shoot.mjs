@@ -113,6 +113,7 @@ try {
           (${matches}) && element.getClientRects().length);
         const target = matches.find((element) => ![...element.children].some((child) => matches.includes(child)));
         if (!target) return null;
+        target.scrollIntoView({ block: "center" });
         const box = target.getBoundingClientRect();
         return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
       })()`,

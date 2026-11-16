@@ -51,6 +51,9 @@ pub struct PreferencesView {
     saving: BTreeSet<String>,
     pub(super) menu: Option<&'static str>,
     pub(super) menu_search: Entity<TextInput>,
+    pub(super) dictionary_input: Entity<TextInput>,
+    /// Whether Pro-only settings are available; shipping greys them out otherwise.
+    pub pro: bool,
     cancellation: CancellationToken,
     status: Option<String>,
     active: bool,
@@ -63,6 +66,14 @@ impl PreferencesView {
     pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
         let menu_search = cx.new(|cx| TextInput::new("Search...", cx).inline());
         let subscription = cx.subscribe(&menu_search, |_, _, _: &InputEvent, cx| cx.notify());
+        let dictionary_input = cx
+            .new(|cx| TextInput::new("Add names, jargon, or product terms to prefer", cx).inline());
+        let dictionary_subscription =
+            cx.subscribe(&dictionary_input, |this, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Submitted) && this.pro {
+                    this.add_dictionary_terms(cx);
+                }
+            });
         let mut this = Self {
             runtime,
             section: "app",
@@ -71,10 +82,12 @@ impl PreferencesView {
             saving: BTreeSet::new(),
             menu: None,
             menu_search,
+            dictionary_input,
+            pro: false,
             cancellation: CancellationToken::new(),
             status: None,
             active: true,
-            _subscriptions: vec![subscription],
+            _subscriptions: vec![subscription, dictionary_subscription],
         };
         this.watch(cx);
         this
@@ -276,6 +289,22 @@ impl PreferencesView {
         colors: &Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        self.gated_switch_row(key, title, detail, true, enabled, colors, cx)
+    }
+
+    /// A switch row whose value only shows as on when `allowed` (shipping renders Pro-only
+    /// switches as off for other plans).
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn gated_switch_row(
+        &self,
+        key: &'static str,
+        title: &'static str,
+        detail: Option<&'static str>,
+        allowed: bool,
+        enabled: bool,
+        colors: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let checked = self.flag(key);
         controls::setting_row(
             title,
@@ -283,8 +312,8 @@ impl PreferencesView {
             false,
             controls::switch(
                 SharedString::from(format!("switch-{key}")),
-                checked,
-                enabled && self.writable(key),
+                allowed && checked,
+                allowed && enabled && self.writable(key),
                 colors,
                 cx.listener(move |this, _, _, cx| this.set(key, Value::Bool(!checked), cx)),
             ),
@@ -519,7 +548,9 @@ mod tests {
             }
             assert!(view.flag("use_24_hour_time"));
         });
-        settle(cx, |cx| view.read_with(cx, |view, cx| !view.has_unsaved(cx)));
+        settle(cx, |cx| {
+            view.read_with(cx, |view, cx| !view.has_unsaved(cx))
+        });
 
         view.read_with(cx, |view, _| assert_eq!(view.status, None));
         let stored = futures::executor::block_on(async {

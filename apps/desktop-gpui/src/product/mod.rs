@@ -7,6 +7,7 @@ mod navigation;
 mod onboarding;
 mod pages;
 mod preferences_view;
+mod provider_catalog;
 mod providers;
 mod service_view;
 pub mod services;
@@ -237,7 +238,12 @@ impl ProductPane {
                 }
             }
             if self.preferences.is_none() {
-                let view = cx.new(|cx| PreferencesView::new(self.context.runtime.clone(), cx));
+                let pro = self.pro;
+                let view = cx.new(|cx| {
+                    let mut view = PreferencesView::new(self.context.runtime.clone(), cx);
+                    view.pro = pro;
+                    view
+                });
                 self.settings_subscription = Some(cx.subscribe(&view, |_, _, error, cx| {
                     cx.emit(ProductEvent::Failed(error.clone()))
                 }));
@@ -580,15 +586,17 @@ impl ProductPane {
                     view.when_some(self.providers.clone(), |view, providers| {
                         view.child(providers)
                     })
-                    .child(
-                        div()
-                            .id("local-models")
-                            .cursor_pointer()
-                            .child("Manage local models")
-                            .on_click(cx.listener(|this, _, _, cx| {
+                    .when(self.active.id == "transcription", |view| {
+                        view.child(div().flex().child(controls::outline_button(
+                            "local-models",
+                            "Manage local models",
+                            true,
+                            colors,
+                            Some(Box::new(cx.listener(|this, _, _, cx| {
                                 this.show_surface(Some(Surface::Models), cx)
-                            })),
-                    )
+                            }))),
+                        )))
+                    })
                 },
             )
             .when(onboarding, |view| {

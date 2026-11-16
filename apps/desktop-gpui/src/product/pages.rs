@@ -812,21 +812,571 @@ impl PreferencesView {
             )
     }
 
-    pub(super) fn meetings(&mut self, _: &mut Window, _: &mut Context<Self>) -> AnyElement {
-        page("Meetings", 32.).into_any_element()
+    /// `settings/general/index.tsx` (section "meetings"), `meeting-settings.tsx` and
+    /// `audio-settings.tsx`.
+    pub(super) fn meetings(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let colors = theme(window);
+        let pro = self.pro;
+        let macos = cfg!(target_os = "macos");
+        let windows = cfg!(target_os = "windows");
+        let share = self.text("default_meeting_share_access");
+        let retention = self.text("audio_retention");
+        page("Meetings", 32.)
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(setting_row(
+                        "Default sharing",
+                        Some("Choose who can access notes from new meetings.".into()),
+                        true,
+                        self.dropdown_select(
+                            "default_meeting_share_access",
+                            vec![
+                                SelectOption::new("me", "Only me"),
+                                SelectOption::new("participants", "People in the meeting"),
+                                SelectOption::new("workspace", "Everyone in the workspace"),
+                            ],
+                            &share,
+                            "Only me",
+                            self.writable("default_meeting_share_access"),
+                            false,
+                            controls::CONTROL_WIDTH,
+                            |this, value, cx| {
+                                this.set("default_meeting_share_access", json!(value), cx)
+                            },
+                            window,
+                            cx,
+                        ),
+                        &colors,
+                    ))
+                    // Choosing a primary device needs the signed-in device registry.
+                    .child(setting_row(
+                        "Primary recording device",
+                        Some("Sign in to choose a primary recording device.".into()),
+                        true,
+                        controls::select_trigger(
+                            "primary_recording_device",
+                            Some("Ask each meeting".into()),
+                            "",
+                            false,
+                            &colors,
+                        ),
+                        &colors,
+                    ))
+                    .child(plan_gate(
+                        pro,
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_4()
+                            .child(self.gated_switch_row(
+                                "auto_start_scheduled_meetings",
+                                "Start when meeting begins",
+                                Some("Start listening when a scheduled meeting begins."),
+                                pro,
+                                true,
+                                &colors,
+                                cx,
+                            ))
+                            .child(self.gated_switch_row(
+                                "auto_join_scheduled_meetings",
+                                "Join scheduled meetings",
+                                Some("Open the meeting link when a scheduled meeting begins."),
+                                pro,
+                                self.flag("auto_start_scheduled_meetings"),
+                                &colors,
+                                cx,
+                            )),
+                    ))
+                    .when(!windows, |view| {
+                        view.child(self.switch_row(
+                            "auto_stop_meetings",
+                            "Stop when meeting ends",
+                            Some("Stop listening when your call ends."),
+                            true,
+                            &colors,
+                            cx,
+                        ))
+                    })
+                    .when(!windows, |view| {
+                        view.child(self.switch_row(
+                            "consent_auto_send_chat",
+                            "Post recording disclosure in meeting chat",
+                            Some("Tell participants when listening starts; this does not confirm consent."),
+                            true,
+                            &colors,
+                            cx,
+                        ))
+                        .child(self.switch_row(
+                            "capture_meeting_chat",
+                            "Capture meeting chat in Memos",
+                            Some("Save visible chat from supported meetings using Accessibility."),
+                            true,
+                            &colors,
+                            cx,
+                        ))
+                    })
+                    .when(macos || windows, |view| {
+                        view.child(self.switch_row(
+                            "capture_shared_screens",
+                            "Capture shared screens in Memos",
+                            Some("Save slides and screens others share in meetings. Requires Screen Recording."),
+                            true,
+                            &colors,
+                            cx,
+                        ))
+                    })
+                    .child(self.switch_row(
+                        "floating_bar_enabled",
+                        "Show floating bar",
+                        Some("Control listening without reopening Anarlog."),
+                        true,
+                        &colors,
+                        cx,
+                    )),
+            )
+            .child(
+                div()
+                    .child(controls::section_title("Audio").mb_4())
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_4()
+                            .child(self.microphone_row(window, cx))
+                            .child(setting_row(
+                                "Audio file retention",
+                                Some("Choose how long recordings stay on this device.".into()),
+                                true,
+                                self.dropdown_select(
+                                    "audio_retention",
+                                    [
+                                        ("none", "Don't save"),
+                                        ("oneDay", "1 day"),
+                                        ("threeDays", "3 days"),
+                                        ("oneWeek", "1 week"),
+                                        ("oneMonth", "1 month"),
+                                        ("forever", "Forever"),
+                                    ]
+                                    .into_iter()
+                                    .map(|(value, label)| SelectOption::new(value, label))
+                                    .collect(),
+                                    &retention,
+                                    "",
+                                    self.writable("audio_retention"),
+                                    false,
+                                    controls::CONTROL_WIDTH,
+                                    |this, value, cx| {
+                                        this.set("save_recordings", json!(value != "none"), cx);
+                                        this.set("audio_retention", json!(value), cx);
+                                    },
+                                    window,
+                                    cx,
+                                ),
+                                &colors,
+                            ))
+                            .child(self.switch_row(
+                                "remember_speakers",
+                                "Remember speakers",
+                                Some("Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."),
+                                true,
+                                &colors,
+                                cx,
+                            )),
+                    ),
+            )
+            .into_any_element()
     }
 
-    pub(super) fn privacy(&mut self, _: &mut Window, _: &mut Context<Self>) -> AnyElement {
-        page("Privacy", 24.).into_any_element()
+    /// `AudioDeviceRow`. Device enumeration lives in the capture service, so only the
+    /// current default and the stored device are offered here.
+    fn microphone_row(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let colors = theme(window);
+        let stored = self.text("microphone_device");
+        let mut options = vec![SelectOption::new("", "Current default")];
+        if !stored.is_empty() {
+            options.push(SelectOption::new(stored.clone(), stored.clone()));
+        }
+        setting_row(
+            "Microphone",
+            Some("Choose the microphone that captures your voice.".into()),
+            true,
+            self.dropdown_select(
+                "microphone_device",
+                options,
+                &stored,
+                "Current default",
+                self.writable("microphone_device"),
+                false,
+                controls::CONTROL_WIDTH,
+                |this, value, cx| this.set("microphone_device", json!(value), cx),
+                window,
+                cx,
+            ),
+            &colors,
+        )
+        .into_any_element()
     }
 
-    pub(super) fn dictation(&mut self, _: &mut Window, _: &mut Context<Self>) -> AnyElement {
-        page("Dictation", 24.).into_any_element()
+    /// `settings/privacy/index.tsx`.
+    pub(super) fn privacy(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let colors = theme(window);
+        page("Privacy", 32.)
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    // Native device authentication is not wired into the native app yet.
+                    .child(self.switch_row(
+                        "lock_app",
+                        "Lock app",
+                        Some("Device authentication is not available on this computer."),
+                        false,
+                        &colors,
+                        cx,
+                    ))
+                    .child(self.switch_row(
+                        "telemetry_consent",
+                        "Share usage data",
+                        Some("Help improve Anarlog with anonymous usage data."),
+                        true,
+                        &colors,
+                        cx,
+                    ))
+                    .child(self.switch_row(
+                        "crash_reporting_consent",
+                        "Error",
+                        Some("Send sanitized crash and error reports to help improve Anarlog."),
+                        true,
+                        &colors,
+                        cx,
+                    )),
+            )
+            .into_any_element()
     }
 
-    pub(super) fn dictionary(&mut self, _: &mut Window, _: &mut Context<Self>) -> AnyElement {
-        page("Dictionary", 24.).into_any_element()
+    /// `settings/dictation.tsx` and `dictation-shortcut.tsx`.
+    pub(super) fn dictation(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let colors = theme(window);
+        let pro = self.pro;
+        let hands_free = self.flag("dictation_hands_free");
+        let keys = self
+            .text("dictation_shortcut")
+            .split('+')
+            .map(|key| match key {
+                "Control" => "⌃".to_owned(),
+                "Alt" => "⌥".to_owned(),
+                "Meta" | "Command" => "⌘".to_owned(),
+                "Shift" => "⇧".to_owned(),
+                "Fn" => "Fn / Globe".to_owned(),
+                "RightCommand" => "Right Command".to_owned(),
+                key => key.to_owned(),
+            })
+            .collect::<Vec<_>>();
+        let chip = |label: String| {
+            div()
+                .px(px(6.))
+                .py(px(2.))
+                .rounded(px(4.))
+                .border_1()
+                .border_color(colors.border)
+                .bg(colors.muted)
+                .text_xs()
+                .child(label)
+        };
+        page("Dictation", 32.)
+            .child(plan_gate(
+                pro,
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_6()
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(colors.muted_foreground)
+                            .child("Speak into the focused text field in your apps. Your transcript appears when you finish."),
+                    )
+                    .child(self.gated_switch_row(
+                        "dictation_enabled",
+                        "Enable dictation",
+                        Some("Keep Anarlog running to use your shortcut in other apps."),
+                        pro,
+                        true,
+                        &colors,
+                        cx,
+                    ))
+                    // Recording a new shortcut needs the native key-capture service.
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .justify_between()
+                                    .gap_4()
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .font_weight(FontWeight::MEDIUM)
+                                            .child("Dictation shortcut"),
+                                    )
+                                    .child(
+                                        div()
+                                            .h(px(36.))
+                                            .px_3()
+                                            .flex()
+                                            .items_center()
+                                            .gap_1()
+                                            .rounded(px(8.))
+                                            .border_1()
+                                            .border_color(colors.input)
+                                            .children(keys.into_iter().map(chip)),
+                                    ),
+                            )
+                            .child(controls::description(
+                                "Click the shortcut to record a new key combination. Press Escape to cancel.",
+                                &colors,
+                            ))
+                            .child(
+                                div().flex().gap_2().children(
+                                    ["Fn / Globe", "Right Command"].into_iter().map(|label| {
+                                        div()
+                                            .h(px(28.))
+                                            .px_2()
+                                            .flex()
+                                            .items_center()
+                                            .rounded(px(8.))
+                                            .border_1()
+                                            .border_color(colors.input)
+                                            .text_xs()
+                                            .font_weight(FontWeight::MEDIUM)
+                                            .child(label)
+                                    }),
+                                ),
+                            ),
+                    )
+                    .child(self.microphone_row(window, cx))
+                    .child(self.gated_switch_row(
+                        "dictation_live_preview",
+                        "Live transcript preview",
+                        Some("Show words in the floating panel as you speak. Uses a live connection to your selected transcription provider when supported. Text is inserted when you finish."),
+                        pro,
+                        true,
+                        &colors,
+                        cx,
+                    ))
+                    .child(self.gated_switch_row(
+                        "dictation_hands_free",
+                        "Hands-free dictation",
+                        Some(if hands_free {
+                            "Press your shortcut to start, then press it again to finish."
+                        } else {
+                            "Hold your shortcut while speaking, then release it to finish."
+                        }),
+                        pro,
+                        true,
+                        &colors,
+                        cx,
+                    ))
+                    .child(controls::description(
+                        "Press Escape to cancel. Dictation stops after five minutes and pauses while Anarlog records a meeting.",
+                        &colors,
+                    ))
+                    .child(div().flex().flex_wrap().gap_2().children(
+                        ["Permissions", "Language & transcription", "Dictionary"].map(|label| {
+                            controls::outline_button(label, label, true, &colors, None)
+                        }),
+                    )),
+            ))
+            .into_any_element()
     }
+
+    /// `settings/dictionary/index.tsx`.
+    pub(super) fn dictionary(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let colors = theme(window);
+        let terms = stored_terms(&self.text("personalization_dictionary_terms"));
+        let enabled = self.pro && self.writable("personalization_dictionary_terms");
+        page("Dictionary", 32.)
+            .child(plan_gate(
+                self.pro,
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(
+                        div()
+                            .h(px(36.))
+                            .pl_4()
+                            .pr_1()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .rounded(px(8.))
+                            .border_1()
+                            .border_color(colors.border)
+                            .bg(colors.card)
+                            .text_sm()
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .h(px(20.))
+                                    .line_height(px(20.))
+                                    .child(self.dictionary_input.clone()),
+                            )
+                            .child(
+                                div()
+                                    .id("add-dictionary-term")
+                                    .h(px(28.))
+                                    .px_2()
+                                    .flex()
+                                    .items_center()
+                                    .gap_1()
+                                    .rounded(px(8.))
+                                    .bg(colors.foreground)
+                                    .text_color(colors.background)
+                                    .text_sm()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .when(enabled, |view| {
+                                        view.cursor_pointer().on_click(cx.listener(|this, _, _, cx| {
+                                            this.add_dictionary_terms(cx)
+                                        }))
+                                    })
+                                    .child(controls::icon("product/PlusIcon.svg", 14., colors.background))
+                                    .child("Add"),
+                            ),
+                    )
+                    .when(terms.is_empty(), |view| {
+                        view.child(
+                            div()
+                                .min_h(px(160.))
+                                .px_6()
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(16.))
+                                .border_1()
+                                .border_color(colors.border)
+                                .bg(colors.card)
+                                .text_center()
+                                .child(controls::icon("product/BookOpen01Icon.svg", 20., colors.muted_foreground).mb_3())
+                                .child(div().text_sm().font_weight(FontWeight::MEDIUM).child("Your dictionary is empty"))
+                                .child(
+                                    div()
+                                        .mt_1()
+                                        .max_w(px(384.))
+                                        .text_xs()
+                                        .text_color(colors.muted_foreground)
+                                        .child("Tip: Add teammate names, acronyms, company jargon, and product terms."),
+                                ),
+                        )
+                    })
+                    .when(!terms.is_empty(), |view| {
+                        view.child(
+                            div()
+                                .overflow_hidden()
+                                .rounded(px(16.))
+                                .border_1()
+                                .border_color(colors.border)
+                                .bg(colors.card)
+                                .children(terms.iter().enumerate().map(|(index, term)| {
+                                    let remaining = terms
+                                        .iter()
+                                        .filter(|other| *other != term)
+                                        .cloned()
+                                        .collect::<Vec<_>>();
+                                    div()
+                                        .min_h(px(48.))
+                                        .py_3()
+                                        .pl_4()
+                                        .pr_3()
+                                        .flex()
+                                        .items_center()
+                                        .justify_between()
+                                        .gap_3()
+                                        .when(index > 0, |view| view.border_t_1().border_color(colors.border))
+                                        .child(div().text_sm().child(term.clone()))
+                                        .child(
+                                            div()
+                                                .id(SharedString::from(format!("remove-term-{index}")))
+                                                .size(px(28.))
+                                                .flex()
+                                                .items_center()
+                                                .justify_center()
+                                                .when(enabled, |view| {
+                                                    view.cursor_pointer().on_click(cx.listener(
+                                                        move |this, _, _, cx| {
+                                                            this.set(
+                                                                "personalization_dictionary_terms",
+                                                                json!(json!(remaining).to_string()),
+                                                                cx,
+                                                            )
+                                                        },
+                                                    ))
+                                                })
+                                                .child(controls::icon("product/XIcon.svg", 16., colors.muted_foreground)),
+                                        )
+                                })),
+                        )
+                    }),
+            ))
+            .into_any_element()
+    }
+
+    pub(super) fn add_dictionary_terms(&mut self, cx: &mut Context<Self>) {
+        let input = self.dictionary_input.read(cx).buffer.text.clone();
+        let stored = stored_terms(&self.text("personalization_dictionary_terms"));
+        let terms = normalize_terms(
+            stored
+                .iter()
+                .cloned()
+                .chain(input.split(['\n', ',']).map(str::to_owned)),
+        );
+        if terms.len() > stored.len() {
+            self.set(
+                "personalization_dictionary_terms",
+                json!(json!(terms).to_string()),
+                cx,
+            );
+        }
+        self.dictionary_input
+            .update(cx, |input, cx| input.set_text(String::new(), cx));
+    }
+}
+
+/// Shipping's `PlanGate`: content stays visible at 60% opacity and ignores input.
+fn plan_gate(allowed: bool, content: Div) -> Div {
+    if allowed {
+        return content;
+    }
+    div()
+        .relative()
+        .opacity(0.6)
+        .child(content)
+        .child(div().absolute().inset_0().occlude())
+}
+
+fn stored_terms(stored: &str) -> Vec<String> {
+    normalize_terms(serde_json::from_str::<Vec<String>>(stored).unwrap_or_default())
+}
+
+/// `normalizeKeywordList`: trimmed, whitespace-collapsed, at least two characters, and
+/// unique ignoring case, in first-seen order.
+fn normalize_terms(terms: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    terms
+        .into_iter()
+        .map(|term| term.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|term| term.chars().count() >= 2 && seen.insert(term.to_lowercase()))
+        .collect()
 }
 
 /// `ThemePreview` in `settings/appearance/theme.tsx`: a miniature light or dark window, and
@@ -976,4 +1526,20 @@ fn preview_canvas(bg: Hsla, sidebar: Hsla, heading: Hsla, line: Hsla) -> Div {
                         .child(bar(gpui::relative(0.667), 4., line)),
                 ),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dictionary_terms_normalize_like_shipping() {
+        assert_eq!(
+            normalize_terms(
+                ["  Anarlog ", "anarlog", "a", "Linear   issue", "GPUI"].map(String::from)
+            ),
+            ["Anarlog", "Linear issue", "GPUI"]
+        );
+        assert!(stored_terms("not json").is_empty());
+    }
 }

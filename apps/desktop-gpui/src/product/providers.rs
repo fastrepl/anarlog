@@ -2,15 +2,23 @@ use std::collections::BTreeMap;
 
 use anlg_db_execute::TransactionStatement;
 use desktop_runtime::{Result, ServiceError};
-use gpui::{Context, Entity, Render, Subscription, Window, div, prelude::*};
+use gpui::{
+    Context, Div, Entity, FontWeight, Render, SharedString, Stateful, Subscription, Window, div,
+    prelude::*, px,
+};
 use serde_json::{Value, json};
 
 use crate::{
     meeting::config::{ProviderKind, ProviderServices},
     ui::{
         input::{InputEvent, TextInput},
-        theme::theme,
+        theme::{Theme, theme},
     },
+};
+
+use super::{
+    controls,
+    provider_catalog::{self, ProviderInfo},
 };
 
 impl gpui::Global for ProviderServices {}
@@ -54,6 +62,33 @@ impl Snapshot {
         if matches!(provider, "local" | "local_file") {
             return Err(failure("Start local models using Manage local models."));
         }
+        let key = format!("ai_provider:{}:{provider}", kind.key());
+        let config = self.provider_config(kind, &key, base)?;
+        Ok([
+            (format!("current_{}_provider", kind.key()), json!(provider)),
+            (format!("current_{}_model", kind.key()), json!(model.trim())),
+            (key, config),
+        ]
+        .into_iter()
+        .map(|(key, value)| self.upsert(key, value))
+        .collect())
+    }
+
+    /// Saves one provider's row (base URL) without changing the active provider.
+    fn provider_statement(
+        &self,
+        kind: ProviderKind,
+        provider: &str,
+        base: &str,
+    ) -> Result<TransactionStatement> {
+        let key = format!("ai_provider:{}:{provider}", kind.key());
+        let config = self.provider_config(kind, &key, base)?;
+        Ok(self.upsert(key, config))
+    }
+
+    /// The stored row with `base_url` replaced, in shipping's `{type, base_url, api_key}`
+    /// shape; keys live in the keyring, so `api_key` stays empty. Unknown fields are kept.
+    fn provider_config(&self, kind: ProviderKind, key: &str, base: &str) -> Result<Value> {
         if !base.is_empty() {
             let url = reqwest::Url::parse(base).map_err(|_| failure("Invalid provider URL"))?;
             let local = matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
@@ -66,10 +101,9 @@ impl Snapshot {
                 ));
             }
         }
-        let key = format!("ai_provider:{}:{provider}", kind.key());
         let mut config: Value = self
             .values
-            .get(&key)
+            .get(key)
             .map(|value| serde_json::from_str(value))
             .transpose()
             .map_err(failure)?
@@ -78,15 +112,17 @@ impl Snapshot {
             failure("Stored provider configuration is malformed; it was preserved.")
         })?;
         object.insert("base_url".into(), json!(base));
-        Ok([
-            (format!("current_{}_provider", kind.key()), json!(provider)),
-            (format!("current_{}_model", kind.key()), json!(model.trim())),
-            (key, config),
-        ].into_iter().map(|(key, value)| TransactionStatement {
+        object.entry("type").or_insert(json!(kind.key()));
+        object.entry("api_key").or_insert(json!(""));
+        Ok(config)
+    }
+
+    fn upsert(&self, key: String, value: Value) -> TransactionStatement {
+        TransactionStatement {
             sql: "INSERT INTO app_settings (id,value_json,updated_at) SELECT ?1,?2,strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE (SELECT value_json FROM app_settings WHERE id=?1) IS ?3 ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at".into(),
             params: vec![json!(key), json!(value.to_string()), json!(self.values.get(&key))],
             expected_rows_affected: Some(1),
-        }).collect())
+        }
     }
 }
 
@@ -96,12 +132,39 @@ enum Operation {
     Saving,
 }
 
+fn catalog(kind: ProviderKind) -> &'static [ProviderInfo] {
+    match kind {
+        ProviderKind::Stt => provider_catalog::STT,
+        ProviderKind::Llm => provider_catalog::LLM,
+    }
+}
+
+/// Subscription twins of API providers stay out of the list unless searched for
+/// (`settings/ai/llm/subscriptions/twins.ts`).
+fn folded(kind: ProviderKind, id: &str) -> bool {
+    kind == ProviderKind::Llm && matches!(id, "chatgpt" | "claude" | "grok" | "kimi_code")
+}
+
+/// Providers the native app can select as the active one. On-device engines start from
+/// Manage local models, and subscriptions need a sign-in flow the native app lacks.
+fn selectable(kind: ProviderKind, provider: &ProviderInfo) -> bool {
+    !provider.subscription
+        && !(kind == ProviderKind::Stt && provider.built_in && provider.id != "anarlog")
+        && !(kind == ProviderKind::Llm && provider.id == "apple_foundation")
+}
+
+/// `settings/ai/{stt,llm}`: "Model being used" plus the provider cards. Choices save as one
+/// compare-and-swap transaction; API keys go to the system keyring.
 pub struct ProviderView {
     services: ProviderServices,
     kind: ProviderKind,
     snapshot: Option<Snapshot>,
-    provider: Entity<TextInput>,
+    /// A provider picked in the menu whose model has not been saved yet.
+    draft: Option<&'static str>,
     model: Entity<TextInput>,
+    search: Entity<TextInput>,
+    menu: bool,
+    expanded: Option<&'static str>,
     base: Entity<TextInput>,
     secret: Entity<TextInput>,
     dirty: bool,
@@ -115,35 +178,42 @@ impl ProviderView {
     pub fn select_kind(&mut self, kind: ProviderKind, cx: &mut Context<Self>) {
         if self.kind != kind && !self.has_unsaved(cx) {
             self.kind = kind;
+            self.expanded = None;
+            self.menu = false;
             self.restore(cx);
         }
     }
 
     pub fn new(services: ProviderServices, cx: &mut Context<Self>) -> Self {
-        let provider =
-            cx.new(|cx| TextInput::new("Provider ID: anarlog, openai, deepgram, custom…", cx));
-        let model = cx.new(|cx| TextInput::new("Model name", cx));
-        let base = cx.new(|cx| TextInput::new("Base URL (blank uses provider default)", cx));
-        let secret =
-            cx.new(|cx| TextInput::new("New API key (stored in the system keyring)", cx).secret());
-        let subscriptions = [&provider, &model, &base, &secret]
+        let model = cx.new(|cx| TextInput::new("Select a model", cx).inline());
+        let search = cx.new(|cx| TextInput::new("Search providers...", cx).inline());
+        let base = cx.new(|cx| TextInput::new("Base URL", cx));
+        let secret = cx.new(|cx| TextInput::new("Enter your API key", cx).secret());
+        let mut subscriptions: Vec<Subscription> = [&model, &base, &secret]
             .into_iter()
             .map(|input| {
-                cx.subscribe(input, |this, _, event, cx| {
-                    if matches!(event, InputEvent::Changed) {
+                cx.subscribe(input, |this, input, event, cx| match event {
+                    InputEvent::Changed => {
                         this.dirty = true;
                         this.generation = this.generation.wrapping_add(1);
                         cx.notify();
                     }
+                    InputEvent::Submitted if input == this.model => this.save_choice(cx),
+                    InputEvent::Submitted => this.save_provider(cx),
+                    InputEvent::Rejected => {}
                 })
             })
             .collect();
+        subscriptions.push(cx.subscribe(&search, |_, _, _: &InputEvent, cx| cx.notify()));
         let mut view = Self {
             services,
             kind: ProviderKind::Stt,
             snapshot: None,
-            provider,
+            draft: None,
             model,
+            search,
+            menu: false,
+            expanded: None,
             base,
             secret,
             dirty: false,
@@ -158,8 +228,9 @@ impl ProviderView {
 
     pub fn has_unsaved(&self, cx: &gpui::App) -> bool {
         self.dirty
+            || self.draft.is_some()
             || self.operation == Some(Operation::Saving)
-            || [&self.provider, &self.model, &self.base, &self.secret]
+            || [&self.model, &self.base, &self.secret]
                 .into_iter()
                 .any(|input| input.read(cx).buffer.marked.is_some())
     }
@@ -198,133 +269,513 @@ impl ProviderView {
         .detach();
     }
 
-    fn restore(&mut self, cx: &mut Context<Self>) {
-        let Some(snapshot) = &self.snapshot else {
-            return;
-        };
-        let provider = snapshot.choice(&format!("current_{}_provider", self.kind.key()));
-        let model = snapshot.choice(&format!("current_{}_model", self.kind.key()));
-        let base = snapshot
-            .parsed
-            .get(&format!("ai_provider:{}:{provider}", self.kind.key()))
-            .and_then(|value| value["base_url"].as_str())
+    fn current(&self, field: &str) -> String {
+        self.snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.choice(&format!("current_{}_{field}", self.kind.key())))
             .unwrap_or_default()
-            .to_owned();
-        self.provider
-            .update(cx, |input, cx| input.set_text(provider, cx));
+    }
+
+    fn provider(&self) -> String {
+        self.draft
+            .map(str::to_owned)
+            .unwrap_or_else(|| self.current("provider"))
+    }
+
+    /// The base URL stored for `provider`, else the catalog default.
+    fn stored_base(&self, provider: &str) -> String {
+        self.snapshot
+            .as_ref()
+            .and_then(|snapshot| {
+                snapshot
+                    .parsed
+                    .get(&format!("ai_provider:{}:{provider}", self.kind.key()))
+            })
+            .and_then(|value| value["base_url"].as_str())
+            .filter(|base| !base.is_empty())
+            .map(str::to_owned)
+            .or_else(|| {
+                catalog(self.kind)
+                    .iter()
+                    .find(|info| info.id == provider)
+                    .map(|info| info.base_url.to_owned())
+            })
+            .unwrap_or_default()
+    }
+
+    fn configured(&self, provider: &str) -> bool {
+        self.snapshot.as_ref().is_some_and(|snapshot| {
+            snapshot
+                .values
+                .contains_key(&format!("ai_provider:{}:{provider}", self.kind.key()))
+        })
+    }
+
+    fn restore(&mut self, cx: &mut Context<Self>) {
+        let model = self.current("model");
+        self.draft = None;
         self.model.update(cx, |input, cx| input.set_text(model, cx));
-        self.base.update(cx, |input, cx| input.set_text(base, cx));
-        self.secret
-            .update(cx, |input, cx| input.set_text(String::new(), cx));
+        self.restore_card(cx);
         self.dirty = false;
     }
 
-    fn save(&mut self, key_only: bool, cx: &mut Context<Self>) {
-        if self.operation.is_some()
-            || [&self.provider, &self.model, &self.base, &self.secret]
+    fn restore_card(&mut self, cx: &mut Context<Self>) {
+        let base = self
+            .expanded
+            .map(|provider| self.stored_base(provider))
+            .unwrap_or_default();
+        self.base.update(cx, |input, cx| input.set_text(base, cx));
+        self.secret
+            .update(cx, |input, cx| input.set_text(String::new(), cx));
+    }
+
+    fn pick_provider(&mut self, provider: &'static str, cx: &mut Context<Self>) {
+        self.menu = false;
+        if provider == self.current("provider") {
+            self.restore(cx);
+        } else {
+            self.draft = Some(provider);
+            self.model
+                .update(cx, |input, cx| input.set_text(String::new(), cx));
+            self.status = "Enter a model and press Return to use this provider.".into();
+        }
+        cx.notify();
+    }
+
+    fn toggle_card(&mut self, provider: &'static str, cx: &mut Context<Self>) {
+        let editing = self.base.read(cx).buffer.text
+            != self
+                .expanded
+                .map(|id| self.stored_base(id))
+                .unwrap_or_default()
+            || !self.secret.read(cx).buffer.text.is_empty();
+        if editing && self.operation.is_none() {
+            self.status = "Press Return to save the provider, or clear the API key field.".into();
+            cx.notify();
+            return;
+        }
+        self.expanded = (self.expanded != Some(provider)).then_some(provider);
+        self.restore_card(cx);
+        cx.notify();
+    }
+
+    fn busy(&self, cx: &gpui::App) -> bool {
+        self.operation.is_some()
+            || [&self.model, &self.base, &self.secret]
                 .into_iter()
                 .any(|input| input.read(cx).buffer.marked.is_some())
-        {
-            return;
-        }
-        let Some(snapshot) = &self.snapshot else {
+    }
+
+    /// Saves the active provider and model ("Model being used").
+    fn save_choice(&mut self, cx: &mut Context<Self>) {
+        let Some(snapshot) = self.snapshot.clone().filter(|_| !self.busy(cx)) else {
             return;
         };
-        let provider = self.provider.read(cx).buffer.text.trim().to_owned();
+        let provider = self.provider();
         let model = self.model.read(cx).buffer.text.clone();
-        let base = self.base.read(cx).buffer.text.trim().to_owned();
-        let snapshot = snapshot.clone();
-        let secret = self.secret.read(cx).buffer.text.clone();
-        if key_only && (secret.is_empty() || !secret.is_ascii()) {
-            self.status = "Enter an ASCII API key to save to the keyring.".into();
-            cx.notify();
-            return;
-        }
-        if !key_only && !secret.is_empty() {
-            self.status = "Save the API key before saving the provider choice.".into();
-            cx.notify();
-            return;
-        }
-        let writer = self.services.secret_write.clone();
+        let base = self.stored_base(&provider);
         let kind = self.kind;
-        let reply = if key_only {
-            self.services.runtime.service(move |_| async move {
-                snapshot.statements(kind, &provider, &model, &base)?;
-                writer(kind, provider, secret).await
-            })
-        } else {
-            self.services.runtime.submit(move |services| async move {
-                let statements = snapshot.statements(kind, &provider, &model, &base)?;
-                services
-                    .executor
-                    .execute_transaction(statements)
-                    .await
-                    .map_err(failure)?;
-                Ok(())
-            })
+        let reply = self.services.runtime.submit(move |services| async move {
+            let statements = snapshot.statements(kind, &provider, &model, &base)?;
+            services
+                .executor
+                .execute_transaction(statements)
+                .await
+                .map_err(failure)?;
+            Ok(())
+        });
+        self.finish(
+            reply,
+            "Provider choice saved. Credentials are checked when the provider is used.",
+            cx,
+        );
+    }
+
+    /// Saves the expanded card: its base URL row, and a new API key to the keyring.
+    fn save_provider(&mut self, cx: &mut Context<Self>) {
+        let (Some(snapshot), Some(provider)) = (self.snapshot.clone(), self.expanded) else {
+            return;
         };
+        if self.busy(cx) {
+            return;
+        }
+        let base = self.base.read(cx).buffer.text.trim().to_owned();
+        let secret = self.secret.read(cx).buffer.text.clone();
+        if !secret.is_ascii() {
+            self.status = "Enter an ASCII API key.".into();
+            cx.notify();
+            return;
+        }
+        let kind = self.kind;
+        let writer = self.services.secret_write.clone();
+        let runtime = self.services.runtime.clone();
+        let reply = self.services.runtime.service(move |_| async move {
+            let statement = snapshot.provider_statement(kind, provider, &base)?;
+            if !secret.is_empty() {
+                writer(kind, provider.to_owned(), secret).await?;
+            }
+            runtime
+                .submit(move |services| async move {
+                    services
+                        .executor
+                        .execute_transaction(vec![statement])
+                        .await
+                        .map_err(failure)?;
+                    Ok(())
+                })?
+                .receive()
+                .await
+        });
+        self.finish(
+            reply,
+            "Provider saved. API keys are stored in the system keyring.",
+            cx,
+        );
+    }
+
+    fn finish(
+        &mut self,
+        reply: Result<desktop_runtime::Reply<()>>,
+        saved: &'static str,
+        cx: &mut Context<Self>,
+    ) {
         self.operation = Some(Operation::Saving);
         let generation = self.generation;
         cx.spawn(async move |this, cx| {
-            let result = match reply { Ok(reply) => reply.receive().await, Err(error) => Err(error) };
+            let result = match reply {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
             let _ = this.update(cx, |this, cx| {
                 this.operation = None;
                 match result {
-                    Ok(()) if key_only => {
-                        if this.generation == generation {
-                            this.secret.update(cx, |input, cx| input.set_text(String::new(), cx));
-                        }
-                        this.status = "API key saved securely. Save provider choice separately.".into();
-                    }
                     Ok(()) => {
-                        this.status = "Provider choice saved. Credentials are checked when the provider is used.".into();
-                        if this.generation == generation { this.dirty = false; }
+                        this.status = saved.into();
+                        if this.generation == generation {
+                            this.dirty = false;
+                            this.draft = None;
+                            this.secret
+                                .update(cx, |input, cx| input.set_text(String::new(), cx));
+                        }
                         this.reload(false, cx);
                     }
-                    Err(error) => this.status = format!("{error}. Draft retained; reload to resolve a concurrent change."),
+                    Err(error) => {
+                        this.status = format!(
+                            "{error}. Draft retained; reload to resolve a concurrent change."
+                        )
+                    }
                 }
                 cx.notify();
             });
-        }).detach();
+        })
+        .detach();
         cx.notify();
     }
+
+    fn provider_menu(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+        let current = self.provider();
+        controls::menu_panel(280., colors).child(
+            div()
+                .id("provider-options")
+                .max_h(px(300.))
+                .overflow_y_scroll()
+                .flex()
+                .flex_col()
+                .children(
+                    catalog(self.kind)
+                        .iter()
+                        .filter(|info| !folded(self.kind, info.id))
+                        .map(|info| {
+                            let enabled = selectable(self.kind, info);
+                            let id = info.id;
+                            controls::menu_item(
+                                SharedString::from(format!("provider-option-{id}")),
+                                info.name,
+                                info.badge.map(Into::into),
+                                id == current,
+                                colors,
+                            )
+                            .when(!enabled, |view| view.opacity(0.5).cursor_default())
+                            .when(enabled, |view| {
+                                view.on_click(
+                                    cx.listener(move |this, _, _, cx| this.pick_provider(id, cx)),
+                                )
+                            })
+                        }),
+                ),
+        )
+    }
+
+    fn card(
+        &self,
+        info: &'static ProviderInfo,
+        colors: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let open = self.expanded == Some(info.id);
+        let ready = self.configured(info.id);
+        let id = info.id;
+        div()
+            .id(SharedString::from(format!("provider-card-{id}")))
+            .rounded(px(22.))
+            .border_2()
+            .border_color(colors.border)
+            .when(!ready, |view| view.border_dashed())
+            .bg(colors.muted)
+            .child(
+                div()
+                    .id(SharedString::from(format!("provider-header-{id}")))
+                    .px_4()
+                    .py_4()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _, _, cx| this.toggle_card(id, cx)))
+                    .child(
+                        div()
+                            .size(px(16.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(4.))
+                            .bg(colors.border)
+                            .text_size(px(10.))
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child(info.name.chars().next().unwrap_or_default().to_string()),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .line_height(px(20.))
+                            .font_weight(FontWeight::MEDIUM)
+                            .child(info.name),
+                    )
+                    .when_some(info.badge, |view, badge| {
+                        view.child(
+                            div()
+                                .px_2()
+                                .rounded(px(6.))
+                                .border_1()
+                                .border_color(colors.border)
+                                .text_xs()
+                                .text_color(colors.muted_foreground)
+                                .child(badge),
+                        )
+                    })
+                    .child(div().flex_1())
+                    .child(controls::icon(
+                        if open { "ArrowUp01Icon.svg" } else { "ArrowDown01Icon.svg" },
+                        16.,
+                        colors.foreground,
+                    )),
+            )
+            .when(open, |view| {
+                view.child(
+                    div()
+                        .px_4()
+                        .pb_4()
+                        .flex()
+                        .flex_col()
+                        .gap_4()
+                        .when(info.subscription, |view| {
+                            view.child(controls::description(
+                                "Connecting a subscription needs the browser sign-in flow, which the native app does not have yet.",
+                                colors,
+                            ))
+                        })
+                        .when(!info.subscription && (info.needs_base_url || !info.base_url.is_empty()), |view| {
+                            view.child(field("Base URL", self.base.clone()))
+                        })
+                        .when(!info.subscription && info.needs_api_key, |view| {
+                            view.child(field("API Key", self.secret.clone()))
+                        })
+                        .when(!info.subscription, |view| {
+                            view.child(controls::description("Press Return to save.", colors))
+                        }),
+                )
+            })
+    }
+}
+
+fn field(label: &'static str, input: Entity<TextInput>) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap_2()
+        .child(div().text_sm().font_weight(FontWeight::MEDIUM).child(label))
+        .child(input)
+}
+
+fn pill(colors: &Theme) -> Div {
+    div()
+        .h(px(36.))
+        .px_3()
+        .flex()
+        .items_center()
+        .gap_2()
+        .rounded(px(18.))
+        .border_1()
+        .border_color(colors.input)
+        .bg(colors.card)
+        .text_sm()
 }
 
 impl Render for ProviderView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
-        let kinds = [
-            ("Transcription", ProviderKind::Stt),
-            ("Intelligence", ProviderKind::Llm),
-        ]
-        .into_iter()
-        .map(|(label, kind)| {
+        let provider = self.provider();
+        let provider_name = catalog(self.kind)
+            .iter()
+            .find(|info| info.id == provider)
+            .map(|info| SharedString::from(info.name))
+            .or_else(|| (!provider.is_empty()).then(|| provider.clone().into()));
+        let query = self.search.read(cx).buffer.text.trim().to_lowercase();
+        let cards = catalog(self.kind)
+            .iter()
+            .filter(|info| !info.built_in)
+            .filter(|info| !folded(self.kind, info.id) || !query.is_empty())
+            .filter(|info| {
+                query.is_empty()
+                    || info.name.to_lowercase().contains(&query)
+                    || info.id.contains(&query)
+            })
+            .collect::<Vec<_>>();
+        let empty = cards.is_empty();
+        let heading = |text: &'static str| {
             div()
-                .id(label)
-                .child(label)
-                .cursor_pointer()
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    if this.has_unsaved(cx) {
-                        this.status =
-                            "Save or restore edits before switching provider kind.".into();
-                    } else {
-                        this.kind = kind;
-                        this.restore(cx);
-                    }
-                    cx.notify();
-                }))
-        });
-        div().flex().flex_col().gap_2()
-            .child("Provider connection")
-            .child(div().flex().gap_3().children(kinds))
-            .child(match self.kind { ProviderKind::Stt => "Editing transcription provider", ProviderKind::Llm => "Editing intelligence provider" })
-            .child(self.provider.clone()).child(self.model.clone()).child(self.base.clone()).child(self.secret.clone())
-            .child(div().text_xs().text_color(colors.muted_foreground).child("Anarlog uses account sign-in. Other providers use the system keyring. Start local models through Manage local models."))
-            .child(self.status.clone())
-            .child(div().flex().gap_3().when(self.operation.is_none(), |view| view
-                .child(div().id("provider-choice").cursor_pointer().child("Save provider choice").on_click(cx.listener(|this, _, _, cx| this.save(false, cx))))
-                .child(div().id("provider-key").cursor_pointer().child("Save API key").on_click(cx.listener(|this, _, _, cx| this.save(true, cx))))
-                .child(div().id("provider-restore").cursor_pointer().child("Discard and reload").on_click(cx.listener(|this, _, _, cx| this.reload(true, cx))))))
+                .text_base()
+                .line_height(px(24.))
+                .font_weight(FontWeight::SEMIBOLD)
+                .child(text)
+        };
+        div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .child(heading("Model being used"))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_4()
+                            .child(
+                                div()
+                                    .relative()
+                                    .flex_grow(2.)
+                                    .flex_basis(px(0.))
+                                    .min_w_0()
+                                    .child(
+                                        pill(&colors)
+                                            .id("provider-select")
+                                            .justify_between()
+                                            .cursor_pointer()
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.menu = !this.menu;
+                                                cx.notify();
+                                            }))
+                                            .child(
+                                                div()
+                                                    .min_w_0()
+                                                    .truncate()
+                                                    .when(provider_name.is_none(), |view| {
+                                                        view.text_color(colors.muted_foreground)
+                                                    })
+                                                    .child(provider_name.unwrap_or_else(|| {
+                                                        "Select a provider".into()
+                                                    })),
+                                            )
+                                            .child(controls::icon(
+                                                "ArrowDown01Icon.svg",
+                                                16.,
+                                                colors.foreground.opacity(0.5),
+                                            )),
+                                    )
+                                    .when(self.menu, |view| {
+                                        view.child(controls::dropdown(
+                                            self.provider_menu(&colors, cx),
+                                            false,
+                                        ))
+                                    }),
+                            )
+                            .child(div().text_color(colors.muted_foreground).child("/"))
+                            .child(
+                                pill(&colors)
+                                    .flex_grow(3.)
+                                    .flex_basis(px(0.))
+                                    .min_w_0()
+                                    .when(provider.is_empty(), |view| view.opacity(0.5))
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .h(px(20.))
+                                            .line_height(px(20.))
+                                            .child(self.model.clone()),
+                                    ),
+                            ),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .gap_3()
+                            .child(heading("Configure Providers"))
+                            .child(
+                                div()
+                                    .w(px(224.))
+                                    .h(px(32.))
+                                    .px_3()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .rounded(px(8.))
+                                    .border_1()
+                                    .border_color(colors.border)
+                                    .bg(colors.accent.opacity(0.5))
+                                    .text_sm()
+                                    .child(controls::icon(
+                                        "Search01Icon.svg",
+                                        16.,
+                                        colors.muted_foreground,
+                                    ))
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .h(px(20.))
+                                            .line_height(px(20.))
+                                            .child(self.search.clone()),
+                                    ),
+                            ),
+                    )
+                    .when(!self.status.is_empty(), |view| {
+                        view.child(controls::description(self.status.clone(), &colors))
+                    })
+                    .children(cards.into_iter().map(|info| self.card(info, &colors, cx)))
+                    .when(empty, |view| {
+                        view.child(
+                            div()
+                                .py_8()
+                                .text_center()
+                                .text_sm()
+                                .text_color(colors.muted_foreground)
+                                .child("No providers found."),
+                        )
+                    }),
+            )
     }
 }
 
@@ -414,6 +865,14 @@ mod tests {
         let stored: Value =
             serde_json::from_str(statements[2].params[1].as_str().unwrap()).unwrap();
         assert_eq!(stored["extra"], 42);
+        let created = Snapshot::default()
+            .provider_statement(ProviderKind::Stt, "deepgram", "")
+            .unwrap();
+        let created: Value = serde_json::from_str(created.params[1].as_str().unwrap()).unwrap();
+        assert_eq!(
+            created,
+            json!({"type": "stt", "base_url": "", "api_key": ""})
+        );
         assert!(
             snapshot
                 .statements(

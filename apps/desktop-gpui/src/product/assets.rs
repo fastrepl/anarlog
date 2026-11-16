@@ -20,6 +20,7 @@ icons!(
     "Download01Icon",
     "LockPasswordIcon",
     "Mic01Icon",
+    "PlusIcon",
     "RefreshIcon",
     "Settings02Icon",
     "ShieldCheckIcon",
