@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
 import { AttachmentTransferLifecycle } from "~/attachment-sync/lifecycle";
 import { useAuth } from "~/auth";
+import { useBillingAccess } from "~/auth/billing-context";
 import { CloudsyncKeychainRepairToast } from "~/auth/cloudsync-keychain-repair";
 import { searchCalendarEvents } from "~/calendar/queries";
 import { useSessionTab } from "~/chat/components/use-session-tab";
@@ -17,11 +18,13 @@ import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
 import { FolderDefaultAccessRunner } from "~/session-sharing/folder-default-access-runner";
 import { OwnedSharedNotePublisher } from "~/session-sharing/sync";
+import { useNotifyPlanRequired } from "~/settings/plan-gate";
 import { SharedAttachmentCacheLifecycle } from "~/shared-notes/attachment-cache-lifecycle";
 import { SharedNotePreviewAuthLifecycle } from "~/shared-notes/preview";
 import { DurableSharedNoteCacheSync } from "~/shared-notes/sync";
 import { useConfigValue } from "~/shared/config";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
+import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { folderIdForNewNote, useSidebarNotes } from "~/sidebar/note-filter";
 import { useTabs } from "~/store/zustand/tabs";
 import { BatchTranscriptionRecovery } from "~/stt/batch-transcription-recovery";
@@ -76,6 +79,14 @@ export function ClassicMainServices() {
 
 function ToolRegistration() {
   const auth = useAuth();
+  const billing = useBillingAccess();
+  const canUseProRef = useLatestRef(billing.isReady && billing.isPro);
+  const notifyPlanRequired = useNotifyPlanRequired();
+  const canUsePro = useCallback(() => canUseProRef.current, [canUseProRef]);
+  const onProRequired = useCallback(
+    () => notifyPlanRequired("pro"),
+    [notifyPlanRequired],
+  );
   const { search } = useSearchEngine();
 
   const getContactSearchResults = searchContacts;
@@ -95,16 +106,19 @@ function ToolRegistration() {
   useRegisterTools(
     "chat-general",
     () =>
-      buildChatTools({
-        search,
-        getContactSearchResults,
-        getCalendarEventSearchResults,
-        getSessionId,
-        getFolderFilter,
-        getEnhancedNoteId,
-        openEditTab,
-        getAuthHeaders,
-      }),
+      buildChatTools(
+        {
+          search,
+          getContactSearchResults,
+          getCalendarEventSearchResults,
+          getSessionId,
+          getFolderFilter,
+          getEnhancedNoteId,
+          openEditTab,
+          getAuthHeaders,
+        },
+        { canUsePro, onProRequired },
+      ),
     [
       search,
       getContactSearchResults,
@@ -114,6 +128,8 @@ function ToolRegistration() {
       getEnhancedNoteId,
       openEditTab,
       getAuthHeaders,
+      canUsePro,
+      onProRequired,
     ],
   );
 

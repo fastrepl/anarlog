@@ -4,6 +4,8 @@ import { platform } from "@tauri-apps/plugin-os";
 import { DefaultMeetingShareAccessSelector } from "./default-share-access";
 import { PrimaryRecordingDeviceSelector } from "./primary-recording-device";
 
+import { useBillingAccess } from "~/auth/billing-context";
+import { PlanGate } from "~/settings/plan-gate";
 import { SettingSwitchRow } from "~/settings/setting-row";
 
 interface SettingItem {
@@ -28,6 +30,7 @@ export function MeetingSettingsView({
   captureMeetingChat: SettingItem;
   captureSharedScreens: SettingItem;
 }) {
+  const { isPro } = useBillingAccess();
   const currentPlatform = platform();
   const supportsMeetingAx =
     currentPlatform === "macos" || currentPlatform === "linux";
@@ -39,23 +42,27 @@ export function MeetingSettingsView({
     <div className="flex flex-col gap-4">
       <DefaultMeetingShareAccessSelector />
       <PrimaryRecordingDeviceSelector />
-      <SettingSwitchRow
-        title={<Trans>Start when meeting begins</Trans>}
-        description={
-          <Trans>Start listening when a scheduled meeting begins.</Trans>
-        }
-        checked={autoStartScheduledMeetings.value}
-        onChange={autoStartScheduledMeetings.onChange}
-      />
-      <SettingSwitchRow
-        title={<Trans>Join scheduled meetings</Trans>}
-        description={
-          <Trans>Open the meeting link when a scheduled meeting begins.</Trans>
-        }
-        checked={autoJoinScheduledMeetings.value}
-        onChange={autoJoinScheduledMeetings.onChange}
-        disabled={!autoStartScheduledMeetings.value}
-      />
+      <PlanGate plan="pro" allowed={isPro} className="flex flex-col gap-4">
+        <SettingSwitchRow
+          title={<Trans>Start when meeting begins</Trans>}
+          description={
+            <Trans>Start listening when a scheduled meeting begins.</Trans>
+          }
+          checked={isPro && autoStartScheduledMeetings.value}
+          onChange={autoStartScheduledMeetings.onChange}
+        />
+        <SettingSwitchRow
+          title={<Trans>Join scheduled meetings</Trans>}
+          description={
+            <Trans>
+              Open the meeting link when a scheduled meeting begins.
+            </Trans>
+          }
+          checked={isPro && autoJoinScheduledMeetings.value}
+          onChange={autoJoinScheduledMeetings.onChange}
+          disabled={!autoStartScheduledMeetings.value}
+        />
+      </PlanGate>
       {supportsMicDetection && (
         <SettingSwitchRow
           title={<Trans>Stop when meeting ends</Trans>}

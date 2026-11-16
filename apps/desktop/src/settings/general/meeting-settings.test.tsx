@@ -2,7 +2,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  isPro: true,
   platform: vi.fn(() => "macos"),
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => ({ isPro: mocks.isPro }),
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -54,6 +59,7 @@ describe("MeetingSettingsView", () => {
   afterEach(() => {
     cleanup();
     mocks.platform.mockReturnValue("macos");
+    mocks.isPro = true;
   });
 
   it("hides meeting AX controls on Windows until UI Automation lands", () => {
@@ -103,5 +109,34 @@ describe("MeetingSettingsView", () => {
     );
 
     expect(meetingDisclosureAutoPost.onChange).toHaveBeenCalledWith(true);
+  });
+
+  it("does not enable scheduled recording on Free while keeping disclosure editable", () => {
+    mocks.isPro = false;
+    const onStart = vi.fn();
+    const disclosure = setting(false);
+    render(
+      <MeetingSettingsView
+        autoStartScheduledMeetings={{ value: true, onChange: onStart }}
+        autoJoinScheduledMeetings={setting()}
+        autoStopMeetings={setting()}
+        floatingBar={setting()}
+        meetingDisclosureAutoPost={disclosure}
+        captureMeetingChat={setting()}
+        captureSharedScreens={setting()}
+      />,
+    );
+    const start = screen.getByRole("switch", {
+      name: "Start when meeting begins",
+    });
+    expect(start.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(start);
+    expect(onStart).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("switch", {
+        name: "Post recording disclosure in meeting chat",
+      }),
+    );
+    expect(disclosure.onChange).toHaveBeenCalledWith(true);
   });
 });

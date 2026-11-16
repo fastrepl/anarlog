@@ -7,6 +7,8 @@ import { ScheduledSessionAutoStart } from "./scheduled-session-auto-start";
 import { useAppLock } from "~/lock/store";
 
 const mocks = vi.hoisted(() => ({
+  isPro: true,
+  isReady: true,
   beginScheduledAutoStart: vi.fn(),
   canStart: true,
   liveStatus: "inactive",
@@ -37,6 +39,10 @@ const mocks = vi.hoisted(() => ({
   } | null,
   startListening: vi.fn(),
   updateSessionTabState: vi.fn(),
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => ({ isPro: mocks.isPro, isReady: mocks.isReady }),
 }));
 
 const tab = {
@@ -87,6 +93,8 @@ vi.mock("~/stt/useStartListening", () => ({
 }));
 
 beforeEach(() => {
+  mocks.isPro = true;
+  mocks.isReady = true;
   mocks.canStart = true;
   mocks.liveStatus = "inactive";
   mocks.readDueScheduledSessionMeeting.mockReset().mockResolvedValue({
@@ -114,6 +122,35 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+});
+
+test("abandons queued scheduled capture on downgrade without blocking manual starts", async () => {
+  let resolveEligibility!: (value: { id: string }) => void;
+  mocks.readDueScheduledSessionMeeting.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveEligibility = resolve;
+    }),
+  );
+  const view = render(<ScheduledSessionAutoStart sessionId="session-1" />);
+  mocks.isPro = false;
+  view.rerender(<ScheduledSessionAutoStart sessionId="session-1" />);
+  resolveEligibility({ id: "event-1" });
+  await act(async () => {});
+  expect(mocks.startListening).not.toHaveBeenCalled();
+  expect(mocks.updateSessionTabState).toHaveBeenCalledWith(tab, {
+    ...tab.state,
+    autoStart: null,
+    scheduledAutoStart: null,
+  });
+
+  view.rerender(
+    <ScheduledSessionAutoStart
+      sessionId="session-1"
+      requiresCalendarEligibility={false}
+    />,
+  );
+  await act(async () => {});
+  expect(mocks.startListening).toHaveBeenCalled();
 });
 
 test("starts scheduled recording when its connection state is ready", async () => {

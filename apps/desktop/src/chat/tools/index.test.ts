@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getMeeting } from "@anlg/plugin-db";
+import { getMeeting, getRecurringMeetingHistory } from "@anlg/plugin-db";
 
 import { buildChatTools, type ToolDependencies } from "./index";
 
@@ -16,6 +16,8 @@ function dependencies(): ToolDependencies {
   };
 }
 
+const access = { canUsePro: () => true, onProRequired: vi.fn() };
+
 describe("chat tool registration", () => {
   afterEach(() => {
     vi.mocked(getMeeting).mockReset();
@@ -23,7 +25,7 @@ describe("chat tool registration", () => {
   });
 
   it("registers meeting vocabulary without legacy shell-shaped names", () => {
-    const tools = buildChatTools(dependencies());
+    const tools = buildChatTools(dependencies(), access);
 
     expect(tools).toHaveProperty("list_meetings");
     expect(tools).toHaveProperty("get_meeting");
@@ -51,7 +53,7 @@ describe("chat tool registration", () => {
       title: "private output",
     } as never);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const tools = buildChatTools(dependencies());
+    const tools = buildChatTools(dependencies(), access);
 
     await (tools.get_meeting as any).execute({
       meeting_id: "private input",
@@ -63,12 +65,49 @@ describe("chat tool registration", () => {
   it("does not log meeting tool errors", async () => {
     vi.mocked(getMeeting).mockRejectedValue(new Error("private error"));
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const tools = buildChatTools(dependencies());
+    const tools = buildChatTools(dependencies(), access);
 
     await expect(
       (tools.get_meeting as any).execute({ meeting_id: "private input" }),
     ).rejects.toThrow("private error");
 
     expect(JSON.stringify(error.mock.calls)).not.toContain("private");
+  });
+
+  it.each([
+    "get_recurring_meeting_history",
+    "find_related_meetings",
+    "read_folder_material",
+    "web_search",
+  ] as const)("blocks %s for Free before executing it", async (name) => {
+    const tools = buildChatTools(dependencies(), {
+      canUsePro: () => false,
+      onProRequired: vi.fn(),
+    });
+    await expect((tools[name] as any).execute({})).rejects.toThrow(
+      "This requires Anarlog Pro",
+    );
+  });
+
+  it("rechecks advanced tool access on downgrade while leaving ordinary note access free", async () => {
+    let isPro = true;
+    const tools = buildChatTools(dependencies(), {
+      canUsePro: () => isPro,
+      onProRequired: vi.fn(),
+    });
+    const history = { meetings: [], pagination: { next_offset: null } };
+    vi.mocked(getRecurringMeetingHistory).mockResolvedValue(history as never);
+    const execute = tools.get_recurring_meeting_history.execute! as any;
+    await expect(execute({ meeting_id: "meeting-1" })).resolves.toEqual(
+      history,
+    );
+    isPro = false;
+    await expect(execute({ meeting_id: "meeting-1" })).rejects.toThrow(
+      "This requires Anarlog Pro",
+    );
+    vi.mocked(getMeeting).mockResolvedValue({ title: "Local note" } as never);
+    await expect(
+      (tools.get_meeting as any).execute({ meeting_id: "meeting-1" }),
+    ).resolves.toEqual({ title: "Local note" });
   });
 });
