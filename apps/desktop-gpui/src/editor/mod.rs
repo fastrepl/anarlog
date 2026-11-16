@@ -3,6 +3,7 @@ mod attachments;
 mod clipboard;
 pub mod document;
 mod html;
+pub mod icons;
 mod input;
 pub mod menu;
 pub mod model;

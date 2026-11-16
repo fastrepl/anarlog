@@ -159,17 +159,17 @@ impl Node {
         self.attrs()?.get(key)
     }
 
+    /// Matches the shipping schema: ProseMirror fills a missing `status` with its default
+    /// `"todo"`, and status outranks `checked`, so `checked` alone never marks a task done.
     pub fn task_done(&self) -> bool {
-        if let Some(done) = self.attr("status").and_then(Value::as_bool) {
-            return done;
-        }
-        match self.attr("status").and_then(Value::as_str) {
-            Some("done") => true,
-            Some("todo" | "in_progress") => false,
-            _ => self
-                .attr("checked")
-                .and_then(Value::as_bool)
-                .unwrap_or(false),
+        match self.attr("status") {
+            None => false,
+            Some(Value::Bool(done)) => *done,
+            Some(Value::String(status)) if matches!(status.as_str(), "todo" | "in_progress") => {
+                false
+            }
+            Some(Value::String(status)) if status == "done" => true,
+            Some(_) => self.attr("checked") == Some(&Value::Bool(true)),
         }
     }
 

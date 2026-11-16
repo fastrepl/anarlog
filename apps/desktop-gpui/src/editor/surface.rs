@@ -20,9 +20,15 @@ pub struct BlockStyle {
     pub depth: usize,
     lists: usize,
     bullets: usize,
+    ordered: usize,
     marker: String,
     guides: Vec<usize>,
+    quotes: Vec<usize>,
     parent_is_item: bool,
+    /// Inside a done task item: shipping fades the whole item.
+    done: bool,
+    /// A done task item's own paragraph: shipping also strikes it through.
+    strike: bool,
 }
 
 impl BlockStyle {
@@ -39,15 +45,19 @@ impl BlockStyle {
             child.lists += 1;
             child.depth += 1;
         } else if node.kind() == "blockquote" {
+            child.quotes.push(self.indent());
             child.depth += 1;
         }
         if node.kind() == "bulletList" {
             child.bullets += 1;
         }
+        if node.kind() == "orderedList" {
+            child.ordered += 1;
+        }
         child.marker = match node.kind() {
-            "orderedList" => format!(
-                "{}.",
-                node.attr("start").and_then(Value::as_u64).unwrap_or(1) + index as u64
+            "orderedList" => ordered_marker(
+                node.attr("start").and_then(Value::as_u64).unwrap_or(1) + index as u64,
+                child.ordered,
             ),
             "bulletList" => "•".into(),
             "taskItem" => if node.task_done() { "[x]" } else { "[ ]" }.into(),
@@ -55,7 +65,56 @@ impl BlockStyle {
             _ => String::new(),
         };
         child.parent_is_item = matches!(node.kind(), "listItem" | "taskItem");
+        if node.kind() == "taskItem" {
+            child.done = self.done || node.task_done();
+            child.strike = node.task_done();
+        } else {
+            child.strike = false;
+        }
         child
+    }
+}
+
+/// Shipping cycles ordered markers by `ol` nesting: decimal, lower-alpha, lower-roman.
+fn ordered_marker(number: u64, depth: usize) -> String {
+    match depth.saturating_sub(1) % 3 {
+        1 => {
+            let mut letters = Vec::new();
+            let mut rest = number.max(1);
+            while rest > 0 {
+                rest -= 1;
+                letters.push(b'a' + (rest % 26) as u8);
+                rest /= 26;
+            }
+            letters.reverse();
+            format!("{}.", String::from_utf8(letters).expect("ascii"))
+        }
+        2 if (1..4000).contains(&number) => {
+            let mut rest = number;
+            let mut roman = String::new();
+            for (value, digits) in [
+                (1000, "m"),
+                (900, "cm"),
+                (500, "d"),
+                (400, "cd"),
+                (100, "c"),
+                (90, "xc"),
+                (50, "l"),
+                (40, "xl"),
+                (10, "x"),
+                (9, "ix"),
+                (5, "v"),
+                (4, "iv"),
+                (1, "i"),
+            ] {
+                while rest >= value {
+                    roman.push_str(digits);
+                    rest -= value;
+                }
+            }
+            format!("{roman}.")
+        }
+        _ => format!("{number}."),
     }
 }
 
@@ -375,9 +434,18 @@ pub fn render_row(
 ) -> gpui::AnyElement {
     let colors = theme(window);
     let mut base = window.text_style().to_run(0);
-    base.color = colors.foreground;
-    if row.style.marker == "[x]" {
+    base.color = if row.style.quotes.is_empty() {
+        colors.foreground
+    } else {
+        colors.muted_foreground
+    };
+    if row.style.done {
         base.color.a *= 0.5;
+    }
+    if row.kind == "horizontalRule" {
+        base.color = gpui::transparent_black();
+    }
+    if row.style.strike {
         base.strikethrough = Some(StrikethroughStyle {
             thickness: px(1.),
             color: None,
@@ -391,9 +459,12 @@ pub fn render_row(
         };
         for mark in &span.marks {
             match mark.get("type").and_then(Value::as_str).unwrap_or("") {
-                "bold" => run.font.weight = FontWeight::BOLD,
+                "bold" => run.font.weight = FontWeight::SEMIBOLD,
                 "italic" => run.font.style = FontStyle::Italic,
-                "code" => run.font.family = crate::ui::theme::monospace_font(cx),
+                "code" => {
+                    run.font.family = crate::ui::theme::monospace_font(cx);
+                    run.background_color = Some(colors.muted);
+                }
                 "link" | "underline" => {
                     run.underline = Some(UnderlineStyle {
                         thickness: px(1.),
@@ -410,7 +481,15 @@ pub fn render_row(
                         color: None,
                     })
                 }
-                "highlight" => run.background_color = Some(gpui::rgba(0xfacc1540).into()),
+                "highlight" => {
+                    run.background_color = Some(gpui::rgb(0xfef08a).into());
+                    if matches!(
+                        window.appearance(),
+                        gpui::WindowAppearance::Dark | gpui::WindowAppearance::VibrantDark
+                    ) {
+                        run.color = gpui::rgb(0x1c1917).into();
+                    }
+                }
                 _ => {}
             }
         }
@@ -445,7 +524,10 @@ pub fn render_row(
         block_start,
     };
     let entity = cx.entity();
-    let font_size = if row.kind == "heading" {
+    let rule = row.kind == "horizontalRule";
+    let font_size = if rule {
+        1.
+    } else if row.kind == "heading" {
         match row.level {
             1 => 20.,
             2 => 18.,
@@ -456,7 +538,9 @@ pub fn render_row(
     } else {
         16.
     };
-    let line_height = if row.kind == "heading" {
+    let line_height = if rule {
+        1.
+    } else if row.kind == "heading" {
         match row.level {
             1 => 28.,
             2 => 26.,
@@ -470,17 +554,37 @@ pub fn render_row(
     let inset = if in_cell { 0. } else { 12. };
     let indent = row.style.indent() as f32;
     let marker_left = inset + indent - 24.;
+    let marker_color = colors.foreground.opacity(0.65);
     div()
         .relative()
         .w_full()
         .min_h(px(line_height))
-        .py(px(font_size * 0.125))
-        .pl(px(inset + indent))
-        .pr(px(if in_cell { 0. } else { 12. }))
         .text_size(px(font_size))
         .line_height(px(line_height))
-        .when(row.kind == "codeBlock", |div| {
-            div.bg(colors.muted).my_2().py_4().rounded_md()
+        .map(|div| match row.kind.as_str() {
+            // Shipping's `pre` keeps its background at the text column, not the row inset.
+            "codeBlock" => div
+                .my_2()
+                .ml(px(inset + indent))
+                .mr(px(inset))
+                .py(px(14.))
+                .px(px(10.5))
+                .bg(colors.muted)
+                .rounded(px(6.)),
+            // A 1px rule; the transparent glyph only keeps the atom selectable.
+            "horizontalRule" => div.py(px(2.)).pl(px(inset + indent)).pr(px(inset)).child(
+                gpui::div()
+                    .absolute()
+                    .top(px(2.))
+                    .left(px(inset + indent))
+                    .right(px(inset))
+                    .h(px(1.))
+                    .bg(colors.border),
+            ),
+            _ => div
+                .py(px(font_size * 0.125))
+                .pl(px(inset + indent))
+                .pr(px(inset)),
         })
         .children(row.style.guides.iter().map(|offset| {
             div()
@@ -491,15 +595,40 @@ pub fn render_row(
                 .w(px(1.))
                 .bg(colors.foreground.opacity(0.3))
         }))
+        .children(row.style.quotes.iter().map(|offset| {
+            div()
+                .absolute()
+                .left(px(inset + *offset as f32))
+                .top_0()
+                .bottom_0()
+                .w(px(3.))
+                .bg(colors.border)
+        }))
         .when(!row.style.marker.is_empty(), |div| {
             let marker = row.style.marker.clone();
             if matches!(marker.as_str(), "[ ]" | "[x]") {
+                let done = marker == "[x]";
                 div.child(
                     gpui::div()
                         .id(("task", row.id))
                         .absolute()
                         .left(px(marker_left))
+                        .top(px(font_size * 0.375))
+                        .size(px(font_size))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded(px(font_size * 0.22))
+                        .border(px(1.5))
                         .cursor_pointer()
+                        .when_else(
+                            done,
+                            |view| view.bg(colors.foreground).border_color(colors.foreground),
+                            |view| {
+                                view.border_color(marker_color)
+                                    .hover(|view| view.border_color(colors.foreground))
+                            },
+                        )
                         .on_mouse_down(
                             gpui::MouseButton::Left,
                             cx.listener(move |this, _, _, cx| {
@@ -511,41 +640,50 @@ pub fn render_row(
                                 cx.stop_propagation();
                             }),
                         )
-                        .child(if marker == "[x]" { "☑" } else { "☐" }),
+                        .when(done, |view| {
+                            view.child(
+                                gpui::svg()
+                                    .path("editor/TaskCheck.svg")
+                                    .absolute()
+                                    .top(px(-1.5))
+                                    .left(px(-1.5))
+                                    .size(px(font_size))
+                                    .text_color(colors.background),
+                            )
+                        }),
+                )
+            } else if marker == "•" {
+                // Shipping cycles squircle -> hollow squircle -> small square by bullet depth.
+                let variant = row.style.bullets.saturating_sub(1) % 3;
+                let size = font_size * if variant == 2 { 0.42 } else { 0.5 };
+                div.child(
+                    gpui::div()
+                        .absolute()
+                        .left(px(marker_left + font_size * 0.5 - size / 2.))
+                        .top(px(font_size * 0.875 - size / 2.))
+                        .size(px(size))
+                        .rounded(px(if variant == 2 {
+                            font_size * 0.06
+                        } else {
+                            size * 0.3
+                        }))
+                        .when_else(
+                            variant == 1,
+                            |view| view.border(px(1.5)).border_color(marker_color),
+                            |view| view.bg(marker_color),
+                        ),
                 )
             } else {
-                let color = colors.foreground.opacity(0.65);
-                if marker == "•" {
-                    let variant = row.style.bullets.saturating_sub(1).min(5) % 3;
-                    let diameter = font_size * if variant == 2 { 0.42 } else { 0.5 };
-                    div.child(
-                        gpui::div()
-                            .absolute()
-                            .left(px(marker_left + font_size * 0.5 - diameter / 2.))
-                            .top(px(font_size * 0.875 - diameter / 2.))
-                            .size(px(diameter))
-                            .when_else(
-                                variant == 2,
-                                |view| view.rounded(px(font_size * 0.1)),
-                                |view| view.rounded_full(),
-                            )
-                            .when_else(
-                                variant == 1,
-                                |view| view.border(px(1.5)).border_color(color),
-                                |view| view.bg(color),
-                            ),
-                    )
-                } else {
-                    div.child(
-                        gpui::div()
-                            .absolute()
-                            .left(px(marker_left))
-                            .w(px(font_size))
-                            .text_center()
-                            .text_color(color)
-                            .child(marker),
-                    )
-                }
+                div.child(
+                    gpui::div()
+                        .absolute()
+                        .left(px(marker_left))
+                        .top(px(font_size * 0.125))
+                        .w(px(font_size))
+                        .text_center()
+                        .text_color(marker_color)
+                        .child(marker),
+                )
             }
         })
         .child(text)
@@ -712,6 +850,33 @@ mod tests {
         let (restored, _, style) = block_layout(&model.document, 1).unwrap();
         assert!(Arc::ptr_eq(&node, &restored));
         assert_eq!(style, initial);
+    }
+
+    #[test]
+    fn task_and_ordered_markers_follow_the_shipping_schema() {
+        let paragraph =
+            |text: &str| json!({"type":"paragraph","content":[{"type":"text","text":text}]});
+        let document = Document::parse(
+            json!({"type":"doc","content":[
+                {"type":"taskList","content":[
+                    {"type":"taskItem","attrs":{"checked":true},"content":[paragraph("legacy")]},
+                    {"type":"taskItem","attrs":{"status":"done","checked":false},"content":[paragraph("done")]},
+                    {"type":"taskItem","attrs":{"status":"later","checked":true},"content":[paragraph("fallback")]}
+                ]},
+                {"type":"orderedList","content":[{"type":"listItem","content":[paragraph("one"),
+                    {"type":"orderedList","attrs":{"start":2},"content":[{"type":"listItem","content":[paragraph("two"),
+                        {"type":"orderedList","attrs":{"start":4},"content":[{"type":"listItem","content":[paragraph("four")]}]}
+                    ]}]}
+                ]}]}
+            ]})
+            .to_string()
+            .into(),
+        )
+        .unwrap();
+        let markers: Vec<String> = (0..6)
+            .map(|index| block_layout(&document, index).unwrap().2.marker)
+            .collect();
+        assert_eq!(markers, ["[ ]", "[x]", "[x]", "1.", "b.", "iv."]);
     }
 
     #[test]

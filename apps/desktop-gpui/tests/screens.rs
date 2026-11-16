@@ -119,6 +119,14 @@ fn main() {
             "note-markdown",
             Route::Session(SessionId("s-korean".into())),
         ),
+        (
+            "note-typography",
+            Route::Session(SessionId("s-typography".into())),
+        ),
+        (
+            "note-summary",
+            Route::Session(SessionId("s-critique".into())),
+        ),
         ("calendar", Route::Calendar),
         ("contacts", Route::Contacts),
         ("templates", Route::Templates),
