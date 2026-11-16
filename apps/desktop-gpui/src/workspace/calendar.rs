@@ -46,6 +46,39 @@ pub fn visible_columns(width: f32) -> usize {
     }
 }
 
+/// Regions whose week does not start on Monday (CLDR `firstDay` sun, sat or fri).
+const NON_MONDAY_REGIONS: &[&str] = &[
+    "AE", "AF", "AG", "AS", "BD", "BH", "BR", "BS", "BT", "BW", "BZ", "CA", "CN", "CO", "DJ", "DM",
+    "DO", "DZ", "EG", "ET", "GT", "GU", "HK", "HN", "ID", "IL", "IN", "IQ", "IR", "JM", "JO", "JP",
+    "KE", "KH", "KR", "KW", "LA", "LY", "MH", "MM", "MO", "MT", "MV", "MX", "MZ", "NI", "NP", "OM",
+    "PA", "PE", "PH", "PK", "PR", "PT", "PY", "QA", "SA", "SD", "SG", "SV", "SY", "TH", "TT", "TW",
+    "UM", "US", "VE", "VI", "WS", "YE", "ZA", "ZW",
+];
+
+/// The first weekday (0 = Sunday, 1 = Monday) for the `week_start` setting, resolved like
+/// shipping's `useWeekStartsOn`: an explicit choice wins; otherwise Monday only where the
+/// system locale's week starts on Monday.
+pub fn week_start(preference: &str, locale: Option<&str>) -> u8 {
+    match preference {
+        "monday" => 1,
+        "sunday" => 0,
+        _ => {
+            let region = locale.and_then(|locale| {
+                locale.split(['-', '_']).skip(1).find(|part| {
+                    part.len() == 2 && part.chars().all(|char| char.is_ascii_alphabetic())
+                })
+            });
+            region.map_or(0, |region| {
+                u8::from(
+                    !NON_MONDAY_REGIONS
+                        .iter()
+                        .any(|other| other.eq_ignore_ascii_case(region)),
+                )
+            })
+        }
+    }
+}
+
 /// The days shown for `month`: whole weeks from the one containing the 1st to the one
 /// containing the last day.
 pub fn month_days(month: NaiveDate, week_start: u8) -> Vec<NaiveDate> {
@@ -1970,6 +2003,18 @@ impl Render for CalendarView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn week_start_prefers_the_setting_then_the_locale_region() {
+        assert_eq!(week_start("monday", Some("en-US")), 1);
+        assert_eq!(week_start("sunday", Some("de-DE")), 0);
+        assert_eq!(week_start("", Some("de-DE")), 1);
+        assert_eq!(week_start("", Some("en_US")), 0);
+        assert_eq!(week_start("", Some("zh-Hant-TW")), 0);
+        assert_eq!(week_start("", Some("ar-EG")), 0);
+        assert_eq!(week_start("", Some("ko")), 0);
+        assert_eq!(week_start("", None), 0);
+    }
 
     fn date(value: &str) -> NaiveDate {
         NaiveDate::parse_from_str(value, "%Y-%m-%d").unwrap()

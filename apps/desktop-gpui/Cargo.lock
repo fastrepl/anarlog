@@ -3050,6 +3050,7 @@ dependencies = [
  "storage",
  "supabase-auth",
  "swift-rs",
+ "sys-locale",
  "tar",
  "tempfile",
  "template-app",

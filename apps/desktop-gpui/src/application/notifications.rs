@@ -133,9 +133,14 @@ impl ApplicationView {
                                     .get("sidebar_show_tags")
                                     .and_then(|setting| setting.value.as_bool())
                                     .unwrap_or(false);
+                                let week_start = crate::workspace::calendar::week_start(
+                                    choice(&snapshot, "week_start"),
+                                    sys_locale::get_locale().as_deref(),
+                                );
                                 this.workspace.update(cx, |workspace, cx| {
                                     workspace.set_timeline_clock(use_24_hour_time, timezone, cx);
                                     workspace.set_timeline_metadata(show_folder, show_tags, cx);
+                                    workspace.set_calendar_week_start(week_start, cx);
                                 });
                                 this.notifications.preferences = Some(snapshot);
                             }
