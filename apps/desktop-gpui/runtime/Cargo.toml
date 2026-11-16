@@ -1,0 +1,28 @@
+[package]
+name = "desktop-runtime"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-db-execute = { workspace = true }
+anlg-db-reactive = { workspace = true }
+futures = "0.3"
+icu_collator = "2.3"
+icu_locale_core = "2.3"
+serde = { workspace = true, features = ["derive", "rc"] }
+serde_json = { workspace = true }
+serde_qs = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
+sys-locale = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros"] }
+tokio-util = { workspace = true, features = ["rt"] }
+updater-core = { path = "../../../crates/updater-core" }
+url = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -1,0 +1,690 @@
+{
+  "dictation_live_preview": {
+    "type": "boolean",
+    "path": [
+      "dictation",
+      "live_preview"
+    ],
+    "default": false
+  },
+  "dictation_enabled": {
+    "type": "boolean",
+    "path": [
+      "dictation",
+      "enabled"
+    ],
+    "default": false
+  },
+  "dictation_shortcut": {
+    "type": "string",
+    "path": [
+      "dictation",
+      "shortcut"
+    ],
+    "default": "Control+Alt+Space"
+  },
+  "dictation_hands_free": {
+    "type": "boolean",
+    "path": [
+      "dictation",
+      "hands_free"
+    ],
+    "default": false
+  },
+  "export_directory": {
+    "type": "string",
+    "path": [
+      "general",
+      "export_directory"
+    ],
+    "default": ""
+  },
+  "autostart": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "autostart"
+    ],
+    "default": false
+  },
+  "automatic_updates": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "automatic_updates"
+    ],
+    "default": true
+  },
+  "auto_stop_meetings": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "auto_stop_meetings"
+    ],
+    "default": true
+  },
+  "auto_start_scheduled_meetings": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "auto_start_scheduled_meetings"
+    ],
+    "default": true
+  },
+  "auto_join_scheduled_meetings": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "auto_join_scheduled_meetings"
+    ],
+    "default": false
+  },
+  "floating_bar_enabled": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "floating_bar_enabled"
+    ],
+    "default": true
+  },
+  "floating_bar_opacity": {
+    "type": "number",
+    "path": [
+      "general",
+      "floating_bar_opacity"
+    ],
+    "default": 0.78
+  },
+  "live_caption_opacity": {
+    "type": "number",
+    "path": [
+      "general",
+      "live_caption_opacity"
+    ],
+    "default": 0.3
+  },
+  "live_caption_width": {
+    "type": "number",
+    "path": [
+      "general",
+      "live_caption_width"
+    ],
+    "default": 440
+  },
+  "live_caption_line_count": {
+    "type": "number",
+    "path": [
+      "general",
+      "live_caption_line_count"
+    ],
+    "default": 1
+  },
+  "live_caption_position": {
+    "type": "string",
+    "path": [
+      "general",
+      "live_caption_position"
+    ],
+    "default": "topCenter"
+  },
+  "live_caption_minimized": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "live_caption_minimized"
+    ],
+    "default": true
+  },
+  "show_app_in_dock": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "show_app_in_dock"
+    ],
+    "default": true
+  },
+  "show_tray_icon": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "show_tray_icon"
+    ],
+    "default": true
+  },
+  "use_24_hour_time": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "use_24_hour_time"
+    ],
+    "synced": true,
+    "default": false
+  },
+  "theme": {
+    "type": "string",
+    "path": [
+      "general",
+      "theme"
+    ],
+    "default": "system",
+    "synced": true
+  },
+  "app_icon": {
+    "type": "string",
+    "path": [
+      "general",
+      "app_icon"
+    ],
+    "default": "default",
+    "synced": true
+  },
+  "sidebar_show_folder": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "sidebar_show_folder"
+    ],
+    "default": true,
+    "synced": true
+  },
+  "sidebar_show_tags": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "sidebar_show_tags"
+    ],
+    "default": false,
+    "synced": true
+  },
+  "save_recordings": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "save_recordings"
+    ],
+    "default": true
+  },
+  "audio_retention": {
+    "type": "string",
+    "path": [
+      "general",
+      "audio_retention"
+    ],
+    "default": "forever"
+  },
+  "remember_speakers": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "remember_speakers"
+    ],
+    "default": true
+  },
+  "microphone_device": {
+    "type": "string",
+    "path": [
+      "general",
+      "microphone_device"
+    ],
+    "default": ""
+  },
+  "notification_disabled": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "disabled"
+    ],
+    "default": false
+  },
+  "notification_event": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "event"
+    ],
+    "default": true
+  },
+  "notification_detect": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "detect"
+    ],
+    "default": true
+  },
+  "notification_transcription_complete": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "transcription_complete"
+    ],
+    "default": true
+  },
+  "notification_summary_complete": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "summary_complete"
+    ],
+    "default": true
+  },
+  "notification_cloudsync_complete": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "cloudsync_complete"
+    ],
+    "default": true
+  },
+  "notification_recording": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "recording"
+    ],
+    "default": true
+  },
+  "notification_completion_sound": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "completion_sound"
+    ],
+    "default": true
+  },
+  "notification_completion_sound_name": {
+    "type": "string",
+    "path": [
+      "notification",
+      "completion_sound_name"
+    ],
+    "default": "ready"
+  },
+  "respect_dnd": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "respect_dnd"
+    ],
+    "default": false
+  },
+  "notification_bounce": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "bounce"
+    ],
+    "default": true
+  },
+  "notification_bounce_summary": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "bounce_summary"
+    ],
+    "default": true
+  },
+  "notification_bounce_transcript": {
+    "type": "boolean",
+    "path": [
+      "notification",
+      "bounce_transcript"
+    ],
+    "default": true
+  },
+  "telemetry_consent": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "telemetry_consent"
+    ],
+    "default": true
+  },
+  "crash_reporting_consent": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "crash_reporting_consent"
+    ],
+    "default": true
+  },
+  "lock_app": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "lock_app"
+    ],
+    "default": false
+  },
+  "consent_auto_send_chat": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "consent_auto_send_chat"
+    ],
+    "default": false
+  },
+  "capture_meeting_chat": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "capture_meeting_chat"
+    ],
+    "default": false
+  },
+  "cloud_sync_enabled": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "cloud_sync_enabled"
+    ],
+    "default": true
+  },
+  "ai_language": {
+    "type": "string",
+    "path": [
+      "language",
+      "ai_language"
+    ],
+    "default": "en"
+  },
+  "spoken_languages": {
+    "type": "string",
+    "path": [
+      "language",
+      "spoken_languages"
+    ],
+    "default": "[]"
+  },
+  "personalization_dictionary_terms": {
+    "type": "string",
+    "path": [
+      "personalization",
+      "dictionary_terms"
+    ],
+    "default": "[]"
+  },
+  "custom_summary_instructions": {
+    "type": "string",
+    "path": [
+      "personalization",
+      "custom_summary_instructions"
+    ],
+    "default": ""
+  },
+  "custom_summary_instructions_token_aware": {
+    "type": "boolean",
+    "path": [
+      "personalization",
+      "custom_summary_instructions_token_aware"
+    ],
+    "default": false
+  },
+  "auto_summary_prompt": {
+    "type": "string",
+    "path": [
+      "ai",
+      "auto_summary_prompt"
+    ],
+    "default": ""
+  },
+  "summary_length": {
+    "type": "string",
+    "path": [
+      "ai",
+      "summary_length"
+    ],
+    "default": "detailed"
+  },
+  "ignored_platforms": {
+    "type": "string",
+    "path": [
+      "notification",
+      "ignored_platforms"
+    ],
+    "default": "[]"
+  },
+  "included_platforms": {
+    "type": "string",
+    "path": [
+      "notification",
+      "included_platforms"
+    ],
+    "default": "[]"
+  },
+  "mic_active_threshold": {
+    "type": "number",
+    "path": [
+      "notification",
+      "mic_active_threshold"
+    ],
+    "default": 15
+  },
+  "current_llm_provider": {
+    "type": "string",
+    "path": [
+      "ai",
+      "current_llm_provider"
+    ]
+  },
+  "current_llm_model": {
+    "type": "string",
+    "path": [
+      "ai",
+      "current_llm_model"
+    ]
+  },
+  "current_llm_reasoning_effort": {
+    "type": "string",
+    "path": [
+      "ai",
+      "current_llm_reasoning_effort"
+    ],
+    "default": "default"
+  },
+  "current_stt_provider": {
+    "type": "string",
+    "path": [
+      "ai",
+      "current_stt_provider"
+    ]
+  },
+  "current_stt_model": {
+    "type": "string",
+    "path": [
+      "ai",
+      "current_stt_model"
+    ]
+  },
+  "local_stt_model_path": {
+    "type": "string",
+    "path": [
+      "ai",
+      "local_stt_model_path"
+    ],
+    "default": ""
+  },
+  "timezone": {
+    "type": "string",
+    "path": [
+      "general",
+      "timezone"
+    ]
+  },
+  "week_start": {
+    "type": "string",
+    "path": [
+      "general",
+      "week_start"
+    ],
+    "synced": true
+  },
+  "selected_template_id": {
+    "type": "string",
+    "path": [
+      "general",
+      "selected_template_id"
+    ]
+  },
+  "default_meeting_share_access": {
+    "type": "string",
+    "path": [
+      "general",
+      "default_meeting_share_access"
+    ],
+    "default": "me",
+    "synced": true
+  },
+  "todo_linear_filter": {
+    "type": "string",
+    "path": [
+      "todo",
+      "linear_filter"
+    ],
+    "default": ""
+  },
+  "todo_github_repository": {
+    "type": "string",
+    "path": [
+      "todo",
+      "github_repository"
+    ],
+    "default": ""
+  },
+  "automation_draft_template": {
+    "type": "string",
+    "path": [
+      "automations",
+      "draft_template"
+    ],
+    "default": ""
+  },
+  "automation_workflows": {
+    "type": "string",
+    "path": [
+      "automations",
+      "workflows"
+    ],
+    "default": "[]"
+  },
+  "automation_markdown_export_enabled": {
+    "type": "boolean",
+    "path": [
+      "automations",
+      "markdown_export_enabled"
+    ],
+    "default": false
+  },
+  "automation_markdown_export_directory": {
+    "type": "string",
+    "path": [
+      "automations",
+      "markdown_export_directory"
+    ],
+    "default": ""
+  },
+  "automation_markdown_export_last_run": {
+    "type": "string",
+    "path": [
+      "automations",
+      "markdown_export_last_run"
+    ],
+    "default": ""
+  },
+  "automation_slack_recap_enabled": {
+    "type": "boolean",
+    "path": [
+      "automations",
+      "slack_recap_enabled"
+    ],
+    "default": false
+  },
+  "automation_slack_recap_channel": {
+    "type": "string",
+    "path": [
+      "automations",
+      "slack_recap_channel"
+    ],
+    "default": ""
+  },
+  "automation_slack_recap_last_run": {
+    "type": "string",
+    "path": [
+      "automations",
+      "slack_recap_last_run"
+    ],
+    "default": ""
+  },
+  "automation_slack_recap_processed": {
+    "type": "string",
+    "path": [
+      "automations",
+      "slack_recap_processed"
+    ],
+    "default": ""
+  },
+  "automation_linear_issues_enabled": {
+    "type": "boolean",
+    "path": [
+      "automations",
+      "linear_issues_enabled"
+    ],
+    "default": false
+  },
+  "automation_linear_issues_team": {
+    "type": "string",
+    "path": [
+      "automations",
+      "linear_issues_team"
+    ],
+    "default": ""
+  },
+  "automation_linear_issues_last_run": {
+    "type": "string",
+    "path": [
+      "automations",
+      "linear_issues_last_run"
+    ],
+    "default": ""
+  },
+  "automation_linear_issues_processed": {
+    "type": "string",
+    "path": [
+      "automations",
+      "linear_issues_processed"
+    ],
+    "default": ""
+  },
+  "automation_notion_update_enabled": {
+    "type": "boolean",
+    "path": [
+      "automations",
+      "notion_update_enabled"
+    ],
+    "default": false
+  },
+  "automation_notion_update_page": {
+    "type": "string",
+    "path": [
+      "automations",
+      "notion_update_page"
+    ],
+    "default": ""
+  },
+  "automation_notion_update_last_run": {
+    "type": "string",
+    "path": [
+      "automations",
+      "notion_update_last_run"
+    ],
+    "default": ""
+  },
+  "automation_notion_update_processed": {
+    "type": "string",
+    "path": [
+      "automations",
+      "notion_update_processed"
+    ],
+    "default": ""
+  }
+}

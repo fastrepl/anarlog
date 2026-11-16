@@ -1,0 +1,1124 @@
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    sync::Arc,
+};
+
+use desktop_runtime::{
+    CancellationToken, Generation, LibraryPage, LibraryQuery, Reply, RuntimeHandle, SessionId,
+};
+use futures::{
+    FutureExt,
+    future::{Either, select},
+};
+use gpui::{
+    AnyView, App, AppContext, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
+    Subscription, Window,
+};
+
+use super::{
+    calendar::{CalendarOpen, CalendarView},
+    catalog::CatalogView,
+    library::{LibraryView, OpenNote},
+    navigation::{Navigation, Route, SidebarState, SlotId},
+    open_note::{NoteEvent, NoteView},
+    picker::{NotePicker, PickerEvent},
+    ports::Catalog,
+};
+use crate::{
+    contracts::{LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent},
+    ui::input::TextInput,
+};
+
+#[derive(Clone)]
+pub enum WorkspaceAction {
+    SidebarChanged,
+    OpenShared(Arc<str>),
+    NewNoteWindow,
+    OpenNoteWindow(SessionId),
+    PinnedChanged(Arc<[Route]>),
+}
+
+#[derive(Clone)]
+pub(super) enum Navigate {
+    Open(Route, bool),
+    Select(SlotId),
+    History(bool),
+}
+
+pub struct WorkspaceView {
+    runtime: RuntimeHandle,
+    pub(super) focus: FocusHandle,
+    pub(super) library: Entity<LibraryView>,
+    pub(super) note: Entity<NoteView>,
+    pub(super) picker: Entity<NotePicker>,
+    pub(super) catalogs: Vec<(Catalog, Entity<CatalogView>)>,
+    pub(super) calendar: Entity<CalendarView>,
+    pub(super) active_catalog: Option<Catalog>,
+    pub(super) navigation: Navigation,
+    pub(super) sidebar: SidebarState,
+    pub(super) query: LibraryQuery,
+    pub(super) page: Option<Arc<LibraryPage>>,
+    generation: Generation,
+    cancellation: CancellationToken,
+    watch_cancel: CancellationToken,
+    library_stale: bool,
+    pub(super) message: String,
+    creating: bool,
+    ready: bool,
+    pub(super) picker_open: bool,
+    pub(super) return_focus: Option<FocusHandle>,
+    pub(super) resizing: bool,
+    pending: Option<Navigate>,
+    pub(super) titles: HashMap<SessionId, Arc<str>>,
+    title_order: VecDeque<SessionId>,
+    dirty: HashSet<SessionId>,
+    recording: HashSet<SessionId>,
+    viewer: Option<Arc<str>>,
+    auto_start: Option<SessionId>,
+    pub(super) route_content: Option<(Route, AnyView)>,
+    pub(super) pin_persistence: bool,
+    pub(super) note_operation: Option<(Arc<[SessionId]>, bool)>,
+    pub(super) move_target: Entity<TextInput>,
+    pub(super) mutation_busy: bool,
+    automation_client: Option<super::automation_runner::AutomationClient>,
+    subscriptions: Vec<Subscription>,
+}
+
+impl EventEmitter<WorkspaceEvent> for WorkspaceView {}
+impl EventEmitter<WorkspaceAction> for WorkspaceView {}
+
+struct NoteOperationChanged;
+impl EventEmitter<NoteOperationChanged> for WorkspaceView {}
+
+impl Focusable for WorkspaceView {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
+        self.focus.clone()
+    }
+}
+
+impl WorkspaceView {
+    pub fn set_timeline_metadata(
+        &mut self,
+        show_folder: bool,
+        show_tags: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.library.update(cx, |library, cx| {
+            library.set_metadata(show_folder, show_tags, cx)
+        });
+    }
+
+    pub fn set_timeline_clock(
+        &mut self,
+        use_24_hour_time: bool,
+        timezone: Option<chrono_tz::Tz>,
+        cx: &mut Context<Self>,
+    ) {
+        self.library.update(cx, |library, cx| {
+            library.set_clock(use_24_hour_time, timezone, cx)
+        });
+    }
+
+    pub fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
+        self.sidebar.toggle();
+        cx.notify();
+    }
+
+    pub fn sidebar_expanded(&self) -> bool {
+        self.sidebar.expanded
+    }
+
+    pub fn run_automations(
+        &mut self,
+        trigger: super::automation_runner::Trigger,
+        session: SessionId,
+        cx: &mut Context<Self>,
+    ) {
+        let runtime = self.runtime.clone();
+        let client = self.automation_client.clone();
+        let reply =
+            super::automation_runner::matching_workflows(&runtime, trigger, session.clone());
+        cx.spawn(async move |this, cx| {
+            let result = async {
+                let workflows = reply?.receive().await?;
+                let mut messages = Vec::new();
+                for id in workflows {
+                    let result = super::automation_runner::run(
+                        &runtime,
+                        id,
+                        session.clone(),
+                        client.clone(),
+                    )?
+                    .receive()
+                    .await;
+                    messages.push(match result {
+                        Ok(detail) => detail,
+                        Err(error) => error.to_string(),
+                    });
+                }
+                Ok::<_, desktop_runtime::ServiceError>(messages.join(" · "))
+            }
+            .await;
+            let _ = this.update(cx, |this, cx| match result {
+                Ok(message) if !message.is_empty() => this.set_status(message, cx),
+                Err(error) => this.set_status(error.to_string(), cx),
+                _ => {}
+            });
+        })
+        .detach();
+    }
+    pub fn set_automation_client(
+        &mut self,
+        client: Option<super::automation_runner::AutomationClient>,
+        cx: &mut Context<Self>,
+    ) {
+        self.automation_client = client.clone();
+        for (catalog, view) in &self.catalogs {
+            if *catalog == Catalog::Automations {
+                view.update(cx, |view, cx| {
+                    view.set_automation_client(client.clone(), cx)
+                });
+            }
+        }
+    }
+    pub fn new(
+        context: LaneContext,
+        ready: Reply<()>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let library = cx.new(LibraryView::new);
+        let note = cx.new(|cx| NoteView::new(context.runtime.clone(), window, cx));
+        let picker = cx.new(|cx| NotePicker::new(context.runtime.clone(), cx));
+        let calendar = cx.new(|_| CalendarView::new(context.runtime.clone()));
+        let focus = cx.focus_handle();
+        focus.focus(window, cx);
+        let open_subscription = cx.subscribe(&library, |this, _, event: &OpenNote, cx| {
+            this.handle_note(event, cx)
+        });
+        let operation_subscription = cx.subscribe_in(
+            &cx.entity(),
+            window,
+            |this, _, _: &NoteOperationChanged, window, cx| {
+                if let Some((_, moving)) = &this.note_operation {
+                    this.return_focus = window.focused(cx);
+                    if *moving {
+                        cx.focus_view(&this.move_target, window);
+                    } else {
+                        this.focus.focus(window, cx);
+                    }
+                } else if let Some(focus) = this.return_focus.take() {
+                    focus.focus(window, cx);
+                }
+            },
+        );
+        let forward_subscription = cx.subscribe(&note, |_, _, event: &WorkspaceEvent, cx| {
+            cx.emit(event.clone())
+        });
+        let note_subscription = cx.subscribe(&note, |this, _, event: &NoteEvent, cx| match event {
+            NoteEvent::Opened(session) => {
+                this.note.update(cx, |note, cx| {
+                    note.set_recording(this.recording.contains(&session.summary.id), cx);
+                });
+                this.cache_title(session.summary.id.clone(), session.summary.title.clone());
+                this.reload(cx);
+                if let Some(intent) = this.pending.take() {
+                    this.apply_navigation(intent, cx);
+                }
+                this.picker
+                    .update(cx, |picker, _| picker.remember(session.summary.id.clone()));
+                if this.auto_start.as_ref() == Some(&session.summary.id) {
+                    this.auto_start = None;
+                    cx.emit(WorkspaceEvent::Meeting(MeetingIntent::Start {
+                        session_id: session.summary.id.clone(),
+                    }));
+                }
+                cx.notify();
+            }
+            NoteEvent::TitleUpdated(session) => {
+                this.cache_title(session.summary.id.clone(), session.summary.title.clone());
+                this.reload(cx);
+                if let Some(intent) = this.pending.take() {
+                    this.navigate(intent, cx);
+                }
+                cx.notify();
+            }
+            NoteEvent::RenameFailed => this.pending = None,
+            NoteEvent::Move(id) => this.handle_note(&OpenNote::Move(vec![id.clone()].into()), cx),
+            NoteEvent::Failed => {
+                this.pending = None;
+                this.set_status(
+                    "Could not open the destination. The current tab is unchanged.".into(),
+                    cx,
+                );
+            }
+        });
+        let picker_subscription = cx.subscribe_in(
+            &picker,
+            window,
+            |this, _, event: &PickerEvent, window, cx| {
+                this.picker_open = false;
+                this.picker.update(cx, |picker, _| picker.close());
+                if let Some(focus) = this.return_focus.take() {
+                    focus.focus(window, cx);
+                }
+                if let PickerEvent::Open(route) = event {
+                    this.navigate(Navigate::Open(route.clone(), false), cx);
+                }
+                cx.notify();
+            },
+        );
+        let calendar_subscription = cx.subscribe(&calendar, |this, _, event: &CalendarOpen, cx| {
+            this.open_session(event.0.clone(), cx);
+        });
+        let calendar_connections_subscription = cx.subscribe(
+            &calendar,
+            |this, _, _: &super::calendar::CalendarConnections, cx| {
+                if this.can_navigate(cx) {
+                    cx.emit(WorkspaceEvent::Product(ProductRoute::Calendar));
+                }
+            },
+        );
+        cx.spawn(async move |this, cx| {
+            let result = ready.receive().await;
+            let _ = this.update(cx, |this, cx| match result {
+                Ok(()) => {
+                    this.ready = true;
+                    this.reload(cx);
+                    this.watch(cx);
+                }
+                Err(error) => {
+                    this.set_status(format!("Could not open the isolated library: {error}"), cx)
+                }
+            });
+        })
+        .detach();
+        let mut navigation = Navigation::default();
+        navigation.open(Route::Empty, true, false);
+        Self {
+            runtime: context.runtime,
+            focus,
+            library,
+            note,
+            picker,
+            catalogs: vec![],
+            calendar,
+            active_catalog: None,
+            navigation,
+            sidebar: SidebarState::default(),
+            query: LibraryQuery::default(),
+            page: None,
+            generation: Generation::default(),
+            cancellation: CancellationToken::new(),
+            watch_cancel: CancellationToken::new(),
+            library_stale: false,
+            message: "Opening isolated local library…".into(),
+            creating: false,
+            ready: false,
+            picker_open: false,
+            return_focus: None,
+            resizing: false,
+            pending: None,
+            titles: HashMap::new(),
+            title_order: VecDeque::new(),
+            dirty: HashSet::new(),
+            recording: HashSet::new(),
+            viewer: None,
+            auto_start: None,
+            route_content: None,
+            pin_persistence: false,
+            note_operation: None,
+            move_target: cx.new(|cx| TextInput::new("Folder path (empty moves to root)", cx)),
+            mutation_busy: false,
+            automation_client: None,
+            subscriptions: vec![
+                operation_subscription,
+                open_subscription,
+                forward_subscription,
+                note_subscription,
+                picker_subscription,
+                calendar_subscription,
+                calendar_connections_subscription,
+            ],
+        }
+    }
+
+    pub fn set_status(&mut self, message: String, cx: &mut Context<Self>) {
+        self.message = message;
+        cx.notify();
+    }
+
+    fn handle_note(&mut self, event: &OpenNote, cx: &mut Context<Self>) {
+        match event {
+            OpenNote::Current(id) => self.open_session(id.clone(), cx),
+            OpenNote::Window(id) => {
+                if self.can_navigate(cx) {
+                    cx.emit(WorkspaceAction::OpenNoteWindow(id.clone()));
+                }
+            }
+            OpenNote::Reveal(id) => {
+                let reply = super::notes::directory(&self.runtime, id.clone());
+                let job = cx.background_executor().spawn(async move {
+                    let path = reply?.receive().await?;
+                    open::that(path).map_err(super::mutations::failure)
+                });
+                cx.spawn(async move |this, cx| {
+                    if let Err(error) = job.await {
+                        let _ = this.update(cx, |this, cx| {
+                            this.set_status(format!("Could not show note folder: {error}"), cx);
+                        });
+                    }
+                })
+                .detach();
+            }
+            OpenNote::Delete(ids) | OpenNote::Move(ids) => {
+                if self.note_operation.is_some() {
+                    return;
+                }
+                if !self.can_navigate(cx) || ids.iter().any(|id| self.recording.contains(id)) {
+                    self.set_status(
+                        "Save edits and stop selected recordings before changing these notes."
+                            .into(),
+                        cx,
+                    );
+                    return;
+                }
+                self.note_operation = Some((ids.clone(), matches!(event, OpenNote::Move(_))));
+                self.move_target
+                    .update(cx, |input, cx| input.set_text(String::new(), cx));
+                cx.emit(NoteOperationChanged);
+                cx.notify();
+            }
+        }
+    }
+
+    pub(super) fn close_note_operation(&mut self, cx: &mut Context<Self>) {
+        if !self.mutation_busy {
+            self.note_operation = None;
+            cx.emit(NoteOperationChanged);
+            cx.notify();
+        }
+    }
+
+    pub(super) fn submit_note_operation(&mut self, cx: &mut Context<Self>) {
+        if self.mutation_busy {
+            return;
+        }
+        let Some((ids, moving)) = self.note_operation.clone() else {
+            return;
+        };
+        if !self.can_navigate(cx) || ids.iter().any(|id| self.recording.contains(id)) {
+            return;
+        }
+        let command = if moving {
+            super::notes::NoteCommand::Move {
+                ids: ids.clone(),
+                folder: self.move_target.read(cx).buffer.text.trim().into(),
+            }
+        } else {
+            super::notes::NoteCommand::Delete(ids.clone())
+        };
+        let reply = super::notes::dispatch(&self.runtime, command);
+        self.mutation_busy = true;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let result = match reply {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
+            let _ = this.update(cx, |this, cx| {
+                this.mutation_busy = false;
+                match result {
+                    Ok(()) => {
+                        this.close_note_operation(cx);
+                        if !moving {
+                            let previous = this.current_route();
+                            this.navigation.remove_sessions(&ids);
+                            this.note
+                                .update(cx, |note, cx| note.remove_sessions(&ids, cx));
+                            for id in ids.iter() {
+                                this.titles.remove(id);
+                                this.title_order.retain(|cached| cached != id);
+                                this.dirty.remove(id);
+                            }
+                            cx.emit(WorkspaceEvent::SessionsDeleted(ids.clone()));
+                            if this.current_route() != previous
+                                && let Route::Session(id) = this.current_route()
+                            {
+                                this.note.update(cx, |note, cx| note.open(id, cx));
+                            }
+                            if this.pin_persistence {
+                                cx.emit(WorkspaceAction::PinnedChanged(
+                                    this.navigation
+                                        .tabs
+                                        .iter()
+                                        .filter(|tab| tab.pinned && tab.route.persistent_pin())
+                                        .map(|tab| tab.route.clone())
+                                        .collect(),
+                                ));
+                            }
+                            this.sync_route(cx);
+                        }
+                        this.library
+                            .update(cx, |library, cx| library.clear_selection(cx));
+                        for (catalog, view) in &this.catalogs {
+                            if *catalog == Catalog::Folders {
+                                view.update(cx, |view, cx| view.refresh_folder_notes(cx));
+                            }
+                        }
+                        this.reload(cx);
+                    }
+                    Err(error) => {
+                        this.set_status(format!("Could not complete note operation: {error}"), cx)
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    pub fn current_route(&self) -> Route {
+        self.navigation
+            .current()
+            .map(|tab| tab.route.clone())
+            .unwrap_or(Route::Empty)
+    }
+
+    pub fn open_native_route(&mut self, route: Route, cx: &mut Context<Self>) {
+        self.navigate(Navigate::Open(route, false), cx);
+    }
+
+    pub fn set_editor_content(
+        &mut self,
+        session_id: &SessionId,
+        content: AnyView,
+        cx: &mut Context<Self>,
+    ) {
+        self.note
+            .update(cx, |note, cx| note.set_content(session_id, content, cx));
+    }
+
+    pub fn set_route_content(&mut self, route: Route, content: AnyView, cx: &mut Context<Self>) {
+        if self
+            .navigation
+            .current()
+            .is_some_and(|tab| tab.route == route)
+        {
+            self.route_content = Some((route, content));
+            cx.notify();
+        }
+    }
+
+    pub fn set_session_dirty(&mut self, id: SessionId, dirty: bool, cx: &mut Context<Self>) {
+        if dirty && self.pending.is_some() {
+            self.pending = None;
+            self.note.update(cx, |note, _| note.cancel_open());
+            self.set_status(
+                "Navigation was cancelled to preserve newer edits.".into(),
+                cx,
+            );
+        }
+        if dirty {
+            self.dirty.insert(id);
+        } else {
+            self.dirty.remove(&id);
+        }
+        cx.notify();
+    }
+
+    pub fn set_recording(&mut self, id: SessionId, active: bool, cx: &mut Context<Self>) {
+        self.library.update(cx, |library, cx| {
+            library.set_recording(id.clone(), active, cx)
+        });
+        if self.current_route() == Route::Session(id.clone()) {
+            self.note
+                .update(cx, |note, cx| note.set_recording(active, cx));
+        }
+        if active {
+            self.recording.insert(id);
+        } else {
+            self.recording.remove(&id);
+        }
+        cx.notify();
+    }
+
+    pub fn set_viewer(&mut self, viewer: Option<Arc<str>>, cx: &mut Context<Self>) {
+        if self.viewer == viewer {
+            return;
+        }
+        self.viewer = viewer.clone();
+        self.set_automation_client(None, cx);
+        self.picker
+            .update(cx, |picker, cx| picker.set_viewer(viewer.clone(), cx));
+        self.calendar
+            .update(cx, |calendar, _| calendar.viewer = viewer.clone());
+        for (kind, catalog) in &self.catalogs {
+            catalog.update(cx, |catalog, cx| {
+                catalog.set_viewer(viewer.clone());
+                if *kind == Catalog::Contacts && self.active_catalog == Some(Catalog::Contacts) {
+                    catalog.load(cx);
+                }
+            });
+        }
+    }
+
+    pub fn set_calendar_week_start(&mut self, week_start: u8, cx: &mut Context<Self>) {
+        self.calendar
+            .update(cx, |calendar, cx| calendar.set_week_start(week_start, cx));
+    }
+
+    pub fn set_pin_persistence(&mut self, enabled: bool) {
+        self.pin_persistence = enabled;
+    }
+
+    fn cache_title(&mut self, id: SessionId, title: Arc<str>) {
+        self.title_order.retain(|cached| cached != &id);
+        self.title_order.push_back(id.clone());
+        self.titles.insert(id, title);
+        if self.title_order.len() > 512
+            && let Some(oldest) = self.title_order.pop_front()
+        {
+            self.titles.remove(&oldest);
+        }
+    }
+
+    pub fn open_session(&mut self, id: SessionId, cx: &mut Context<Self>) {
+        self.navigate(Navigate::Open(Route::Session(id), false), cx);
+    }
+
+    pub fn open_route(&mut self, route: Route, new_slot: bool, cx: &mut Context<Self>) {
+        self.navigate(Navigate::Open(route, new_slot), cx);
+    }
+
+    pub fn restore_pinned(&mut self, routes: &[Route], cx: &mut Context<Self>) {
+        for route in routes.iter().filter(|route| route.persistent_pin()) {
+            let slot = self.navigation.open(route.clone(), true, false);
+            self.navigation.pin(slot, true);
+        }
+        self.navigation.active = self
+            .navigation
+            .tabs
+            .iter()
+            .find(|tab| tab.route == Route::Empty)
+            .map(|tab| tab.slot);
+        cx.notify();
+    }
+
+    pub fn invalidate(&mut self, route: &Route, cx: &mut Context<Self>) {
+        if let Route::Session(id) = route
+            && (self.dirty.contains(id) || self.note.read(cx).has_unsaved_title(cx))
+        {
+            self.set_status("The note was removed remotely. Unsaved local work is retained; resolve it before leaving.".into(), cx);
+            return;
+        }
+        self.navigation.invalidate(route);
+        self.sync_route(cx);
+    }
+
+    pub fn can_close(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.note_operation.is_some() {
+            return false;
+        }
+        if !self.recording.is_empty() {
+            self.set_status(
+                "Stop recording and finish saving before closing the window.".into(),
+                cx,
+            );
+            return false;
+        }
+        self.can_navigate(cx)
+    }
+
+    fn can_navigate(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.mutation_busy
+            || self.creating
+            || self.note.read(cx).has_unsaved_title(cx)
+            || !self.dirty.is_empty()
+            || self
+                .catalogs
+                .iter()
+                .any(|(_, catalog)| catalog.read(cx).blocked(cx))
+        {
+            self.set_status(
+                "Save or restore unsaved edits before closing or changing tabs.".into(),
+                cx,
+            );
+            false
+        } else {
+            true
+        }
+    }
+
+    fn destination(&self, intent: &Navigate) -> Option<Route> {
+        match intent {
+            Navigate::Open(route, _) => Some(route.clone()),
+            Navigate::Select(slot) => self
+                .navigation
+                .tabs
+                .iter()
+                .find(|tab| tab.slot == *slot)
+                .map(|tab| tab.route.clone()),
+            Navigate::History(forward) => self.navigation.history_target(*forward),
+        }
+    }
+
+    pub(super) fn navigate(&mut self, intent: Navigate, cx: &mut Context<Self>) {
+        if self.note_operation.is_some() {
+            return;
+        }
+        if self
+            .catalogs
+            .iter()
+            .any(|(_, catalog)| catalog.read(cx).blocked(cx))
+        {
+            self.set_status(
+                "Save or discard catalog edits before navigating.".into(),
+                cx,
+            );
+            return;
+        }
+        if self.note.read(cx).has_unsaved_title(cx) {
+            self.pending = Some(intent);
+            self.note.update(cx, |note, cx| note.rename(cx));
+            return;
+        }
+        if !self.can_navigate(cx) {
+            return;
+        }
+        let Some(route) = self.destination(&intent) else {
+            return;
+        };
+        self.note.update(cx, |note, _| note.cancel_open());
+        if matches!(&route, Route::Session(_))
+            && self
+                .navigation
+                .current()
+                .is_some_and(|tab| tab.route == route)
+        {
+            self.pending = None;
+            self.apply_navigation(intent, cx);
+            return;
+        }
+        if let Route::Session(id) = &route {
+            self.pending = Some(intent);
+            self.note.update(cx, |note, cx| note.open(id.clone(), cx));
+        } else {
+            self.pending = None;
+            self.apply_navigation(intent, cx);
+        }
+    }
+
+    fn apply_navigation(&mut self, intent: Navigate, cx: &mut Context<Self>) {
+        match intent {
+            Navigate::Open(route, new_slot) => {
+                let protect = self.navigation.current().is_some_and(
+                    |tab| matches!(&tab.route, Route::Session(id) if self.recording.contains(id)),
+                );
+                self.navigation.open(route, new_slot, protect);
+            }
+            Navigate::Select(slot) => {
+                self.navigation.select(slot);
+            }
+            Navigate::History(forward) => {
+                self.navigation.travel(forward);
+            }
+        }
+        self.sync_route(cx);
+    }
+
+    fn sync_route(&mut self, cx: &mut Context<Self>) {
+        let route = self
+            .navigation
+            .current()
+            .map(|tab| tab.route.clone())
+            .unwrap_or(Route::Empty);
+        self.sidebar.set_route(&route);
+        self.library.update(cx, |library, cx| {
+            library.set_active(
+                match &route {
+                    Route::Session(id) => Some(id.clone()),
+                    _ => None,
+                },
+                cx,
+            )
+        });
+        self.route_content = None;
+        self.calendar.update(cx, |calendar, cx| {
+            if route == Route::Calendar {
+                calendar.activate(cx);
+            } else {
+                calendar.suspend();
+            }
+        });
+        let catalog = match route {
+            Route::Contacts | Route::Human(_) | Route::Organization(_) => Some(Catalog::Contacts),
+            Route::Folders | Route::Folder(_) => Some(Catalog::Folders),
+            Route::Templates => Some(Catalog::Templates),
+            Route::Automations => Some(Catalog::Automations),
+            _ => None,
+        };
+        if catalog != self.active_catalog {
+            for (_, view) in &self.catalogs {
+                view.update(cx, |view, cx| view.suspend(cx));
+            }
+            self.active_catalog = catalog;
+            self.cancellation.cancel();
+            self.generation.advance();
+            self.library_stale = true;
+            if let Some(catalog) = catalog {
+                let view = if let Some((_, view)) =
+                    self.catalogs.iter().find(|(kind, _)| *kind == catalog)
+                {
+                    view.clone()
+                } else {
+                    let view = cx.new(|cx| {
+                        let mut view = CatalogView::new(self.runtime.clone(), catalog, cx);
+                        view.set_viewer(self.viewer.clone());
+                        if catalog == Catalog::Automations {
+                            view.set_automation_client(self.automation_client.clone(), cx);
+                        }
+                        view
+                    });
+                    self.subscriptions.push(
+                        cx.subscribe(&view, |this, _, event: &OpenNote, cx| {
+                            this.handle_note(event, cx)
+                        }),
+                    );
+                    self.catalogs.push((catalog, view.clone()));
+                    self.subscriptions.push(cx.subscribe(
+                        &view,
+                        |this, _, event: &super::catalog::PinFolders, cx| {
+                            if !this.can_navigate(cx) || !this.pin_persistence {
+                                return;
+                            }
+                            let active = this.navigation.active;
+                            for id in event.0.iter() {
+                                let slot =
+                                    this.navigation.open(Route::Folder(id.clone()), true, false);
+                                this.navigation.pin(slot, true);
+                            }
+                            this.navigation.active = active;
+                            cx.emit(WorkspaceAction::PinnedChanged(
+                                this.navigation
+                                    .tabs
+                                    .iter()
+                                    .filter(|tab| tab.pinned && tab.route.persistent_pin())
+                                    .map(|tab| tab.route.clone())
+                                    .collect(),
+                            ));
+                            cx.notify();
+                        },
+                    ));
+                    view
+                };
+                view.update(cx, |view, cx| view.load(cx));
+            }
+        }
+        if catalog.is_none() && self.library_stale {
+            self.reload(cx);
+        }
+        let contact = match &route {
+            Route::Human(id) => Some(("human", id)),
+            Route::Organization(id) => Some(("organization", id)),
+            _ => None,
+        };
+        if let Some((kind, id)) = contact
+            && let Some((_, view)) = self
+                .catalogs
+                .iter()
+                .find(|(catalog, _)| *catalog == Catalog::Contacts)
+        {
+            view.update(cx, |view, cx| view.select_resource(kind, id.clone(), cx));
+        }
+        if let Route::Folder(id) = &route
+            && let Some((_, view)) = self
+                .catalogs
+                .iter()
+                .find(|(catalog, _)| *catalog == Catalog::Folders)
+        {
+            view.update(cx, |view, cx| {
+                view.select_resource("folder", id.clone(), cx)
+            });
+        }
+        match &route {
+            Route::Settings(section) => cx.emit(WorkspaceEvent::Product(match section.as_ref() {
+                "billing" => ProductRoute::Billing,
+                "permissions" => ProductRoute::Permissions,
+                "sync" => ProductRoute::CloudSync,
+                "imports" => ProductRoute::Import,
+                _ => ProductRoute::Settings,
+            })),
+            Route::Onboarding => cx.emit(WorkspaceEvent::Product(ProductRoute::Onboarding)),
+            Route::SharedSession(id) => cx.emit(WorkspaceAction::OpenShared(id.clone())),
+            _ => {}
+        }
+        self.titles.retain(|id, _| {
+            self.navigation
+                .tabs
+                .iter()
+                .any(|tab| tab.route == Route::Session(id.clone()))
+        });
+        cx.notify();
+    }
+
+    fn watch(&mut self, cx: &mut Context<Self>) {
+        let reply = self.runtime.watch_library();
+        let cancel = self.watch_cancel.clone();
+        cx.spawn(async move |this, cx| {
+            let mut watch = match reply {
+                Ok(reply) => match reply.receive().await {
+                    Ok(watch) => watch,
+                    Err(error) => {
+                        let _ = this.update(cx, |this, cx| this.set_status(error.to_string(), cx));
+                        return;
+                    }
+                },
+                Err(error) => {
+                    let _ = this.update(cx, |this, cx| this.set_status(error.to_string(), cx));
+                    return;
+                }
+            };
+            loop {
+                if cancel.is_cancelled() {
+                    break;
+                }
+                watch.snapshots.borrow_and_update();
+                let error = watch
+                    .terminal_error()
+                    .or_else(|| watch.errors.try_recv().ok());
+                if this
+                    .update(cx, |this, cx| {
+                        if let Some(error) = error {
+                            this.set_status(format!("Library watch failed: {error}"), cx);
+                        } else {
+                            this.reload(cx);
+                        }
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+                if watch.terminal_error().is_some() {
+                    break;
+                }
+                match select(
+                    watch.snapshots.changed().boxed(),
+                    cancel.cancelled().boxed(),
+                )
+                .await
+                {
+                    Either::Left((Ok(()), _)) => {}
+                    _ => break,
+                }
+            }
+            let _ = watch.unsubscribe().await;
+        })
+        .detach();
+    }
+
+    pub(super) fn reload(&mut self, cx: &mut Context<Self>) {
+        if !self.ready {
+            return;
+        }
+        if self.active_catalog.is_some() {
+            self.library_stale = true;
+            return;
+        }
+        self.library_stale = false;
+        self.cancellation.cancel();
+        self.cancellation = CancellationToken::new();
+        let generation = self.generation.advance();
+        let reply = self
+            .runtime
+            .library(self.query.clone(), self.cancellation.clone());
+        cx.spawn(async move |this, cx| {
+            let result = match reply {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
+            let _ = this.update(cx, |this, cx| {
+                if generation != this.generation {
+                    return;
+                }
+                match result {
+                    Ok(page) => {
+                        if this.message.is_empty()
+                            && this.page.as_ref().is_some_and(|previous| {
+                                previous.offset == page.offset
+                                    && previous.has_more == page.has_more
+                                    && previous.items.len() == page.items.len()
+                                    && previous.items.iter().zip(page.items.iter()).all(|(a, b)| {
+                                        a.id == b.id
+                                            && a.title == b.title
+                                            && a.created_at == b.created_at
+                                            && a.folder_path == b.folder_path
+                                            && a.tag_line == b.tag_line
+                                    })
+                            })
+                        {
+                            return;
+                        }
+                        this.message = if page.items.is_empty() {
+                            "No matching notes.".into()
+                        } else {
+                            String::new()
+                        };
+                        let page = Arc::new(page);
+                        this.page = Some(page.clone());
+                        this.library
+                            .update(cx, |library, cx| library.set_page(page, cx));
+                    }
+                    Err(error) => {
+                        this.message =
+                            format!("Library refresh failed: {error}. Previous notes retained.")
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    pub fn create(&mut self, listen: bool, cx: &mut Context<Self>) {
+        if !self.ready || !self.can_navigate(cx) {
+            return;
+        }
+        let reply = self.runtime.create_note("Untitled note".into());
+        self.creating = true;
+        self.note.update(cx, |note, _| note.cancel_open());
+        self.pending = None;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let result = match reply { Ok(reply) => reply.receive().await, Err(error) => Err(error) };
+            let _ = this.update(cx, |this, cx| {
+                this.creating = false;
+                match result {
+                    Ok(session) => {
+                        if this.can_navigate(cx) {
+                            let id = session.summary.id.clone();
+                            let new_slot = this.navigation.current().is_none_or(|tab| tab.route != Route::Empty);
+                            this.pending = Some(Navigate::Open(Route::Session(id.clone()), new_slot));
+                            this.auto_start = listen.then_some(id);
+                            this.note.update(cx, |note, cx| note.show(session, cx));
+                        } else {
+                            this.set_status("The new note was created and is available in the library. Save current edits before opening it.".into(), cx);
+                        }
+                    }
+                    Err(error) => this.set_status(format!("Note not created: {error}"), cx),
+                }
+                cx.notify();
+            });
+        }).detach();
+    }
+
+    pub(super) fn show_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.picker_open {
+            self.return_focus = window.focused(cx);
+        }
+        self.picker_open = true;
+        self.picker.update(cx, |picker, cx| picker.open(window, cx));
+        cx.notify();
+    }
+
+    pub(super) fn shortcuts(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let modifiers = event.keystroke.modifiers;
+        if self.note_operation.is_some() {
+            match event.keystroke.key.as_str() {
+                "escape" if !self.mutation_busy => {
+                    self.close_note_operation(cx);
+                }
+                "enter" => self.submit_note_operation(cx),
+                _ => return,
+            }
+            cx.stop_propagation();
+            return;
+        }
+        if modifiers.alt && matches!(event.keystroke.key.as_str(), "left" | "right") {
+            self.navigate(Navigate::History(event.keystroke.key == "right"), cx);
+            cx.stop_propagation();
+            return;
+        }
+        if !modifiers.secondary(cx) {
+            return;
+        }
+        match event.keystroke.key.as_str() {
+            "k" => self.show_picker(window, cx),
+            "n" => self.create(modifiers.shift, cx),
+            "," => self.navigate(Navigate::Open(Route::settings("app"), false), cx),
+            "\\" => {
+                self.sidebar.toggle();
+                cx.notify();
+            }
+            "[" => self.navigate(Navigate::History(false), cx),
+            "]" => self.navigate(Navigate::History(true), cx),
+            _ => return,
+        }
+        cx.stop_propagation();
+    }
+
+    pub(super) fn dismiss_overlay(
+        &mut self,
+        event: &KeyDownEvent,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let modifiers = event.keystroke.modifiers;
+        if event.keystroke.key == "escape"
+            && !modifiers.secondary(cx)
+            && !modifiers.alt
+            && !modifiers.shift
+        {
+            self.leave_overlay(cx);
+            cx.stop_propagation();
+        }
+    }
+
+    fn leave_overlay(&mut self, cx: &mut Context<Self>) {
+        let Some(current) = self.navigation.current() else {
+            return;
+        };
+        if matches!(current.route, Route::Empty | Route::Onboarding) {
+            return;
+        }
+        if let Some((slot, route)) = &current.return_to {
+            if *slot != current.slot
+                && self
+                    .navigation
+                    .tabs
+                    .iter()
+                    .any(|tab| tab.slot == *slot && &tab.route == route)
+            {
+                self.navigate(Navigate::Select(*slot), cx);
+                return;
+            }
+            if *slot == current.slot && current.can_back() {
+                self.navigate(Navigate::History(false), cx);
+                return;
+            }
+        }
+        if let Some(home) = self
+            .navigation
+            .tabs
+            .iter()
+            .find(|tab| tab.route == Route::Empty)
+        {
+            self.navigate(Navigate::Select(home.slot), cx);
+        } else {
+            self.navigate(Navigate::Open(Route::Empty, false), cx);
+        }
+    }
+}
+
+impl Drop for WorkspaceView {
+    fn drop(&mut self) {
+        self.cancellation.cancel();
+        self.watch_cancel.cancel();
+        self.subscriptions.clear();
+    }
+}

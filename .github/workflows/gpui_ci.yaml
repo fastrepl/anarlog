@@ -3,18 +3,26 @@ on:
   pull_request:
     paths:
       - apps/desktop-gpui/**
-      - crates/tiptap/**
-      - crates/db-app/migrations/**
-      - Cargo.toml
+      # Path dependencies and files the native build reads.
+      - crates/**
+      - plugins/local-llm/swift-lib/**
+      - packages/design-system/src/tokens.css
+      - apps/desktop/src/i18n/locales.ts
+      - apps/desktop/src/session/queries/sessions.ts
+      - apps/desktop/src-tauri/icons/dev/32x32.png
       - .cargo/config.toml
       - .github/workflows/gpui_ci.yaml
   push:
     branches: [main]
     paths:
       - apps/desktop-gpui/**
-      - crates/tiptap/**
-      - crates/db-app/migrations/**
-      - Cargo.toml
+      # Path dependencies and files the native build reads.
+      - crates/**
+      - plugins/local-llm/swift-lib/**
+      - packages/design-system/src/tokens.css
+      - apps/desktop/src/i18n/locales.ts
+      - apps/desktop/src/session/queries/sessions.ts
+      - apps/desktop/src-tauri/icons/dev/32x32.png
       - .cargo/config.toml
       - .github/workflows/gpui_ci.yaml
 
@@ -25,19 +33,44 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    # The native app has its own workspace and toolchain; rustup resolves it from this directory.
+    working-directory: apps/desktop-gpui
+
 jobs:
   macos:
     runs-on: macos-26
-    defaults:
-      run:
-        # The app pins its own toolchain; rustup resolves it from this directory.
-        working-directory: apps/desktop-gpui
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+          submodules: recursive
       - run: rustup show
       - run: cargo fmt --check
-      - run: cargo test --locked
-      - run: cargo clippy --locked --all-targets --no-deps -- -D warnings
+      - run: cargo test --locked --workspace
+      - run: cargo clippy --locked --workspace --all-targets --no-deps -- -D warnings
+      - run: cargo build --locked
+
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev cmake ninja-build pkg-config \
+            libasound2-dev libudev-dev libpulse-dev libpipewire-0.3-dev libssl-dev \
+            libfontconfig1-dev libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev libx11-dev libxcb1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+      - run: rustup show
+      - run: cargo test --locked --workspace
+      - run: cargo clippy --locked --workspace --all-targets --no-deps -- -D warnings
       - run: cargo build --locked
