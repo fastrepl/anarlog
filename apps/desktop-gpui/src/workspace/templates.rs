@@ -50,8 +50,8 @@ impl StoredTemplate {
 }
 
 fn decode_sections(raw: &str) -> std::result::Result<Vec<Section>, Arc<str>> {
-    let value =
-        super::ports::decode_json_text(raw).map_err(|error| Arc::<str>::from(error.to_string()))?;
+    let value = super::mutations::decode_json_text(raw)
+        .map_err(|error| Arc::<str>::from(error.to_string()))?;
     let rows = value
         .as_array()
         .ok_or_else(|| Arc::from("Sections must be an array; stored data is preserved."))?;

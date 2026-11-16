@@ -184,12 +184,16 @@ fn main() {
         ("calendar", Route::Calendar),
         ("templates", Route::Templates),
         ("folders", Route::Folders),
+        ("automations", Route::Automations),
         ("settings", Route::Settings("app".into())),
     ] {
         open(&mut cx, window, route);
         capture(&mut cx, window, &out, name);
         if name == "folders" {
             templates_and_folders(&mut cx, window, &out);
+        }
+        if name == "automations" {
+            automations(&mut cx, window, &out);
         }
     }
     for page in [
@@ -1068,6 +1072,94 @@ fn templates_and_folders(
     click(cx, window, 840., 66.);
     capture(cx, window, out, "folders-delete");
     click(cx, window, 10., 590.);
+}
+
+/// Starters, workflows and the chat automation, by their sidebar rows.
+fn automations(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    for (name, y) in [
+        ("automations-drive", 134.),
+        ("automations-slack", 170.),
+        ("automations-markdown", 278.),
+        ("automations-workflow", 355.),
+        ("automations-archive", 409.),
+        ("automations-blank", 463.),
+    ] {
+        click(cx, window, 100., y);
+        pointer(cx, window, 500., 590.);
+        capture(cx, window, out, name);
+        // The config below the steps, scrolled into view.
+        if matches!(name, "automations-drive" | "automations-archive") {
+            input(
+                cx,
+                window,
+                [PlatformInput::Scroll(ScrollEvent {
+                    position: point(px(500.), px(300.)),
+                    delta: ScrollDelta::Pixels(point(px(0.), px(-1000.))),
+                    modifiers: Modifiers::default(),
+                    touch_phase: TouchPhase::Moved,
+                    source: ScrollSource::Pointer,
+                })],
+            );
+            capture(cx, window, out, &format!("{name}-end"));
+        }
+    }
+    // The workflow's trigger select and actions menu, then a row's context menu.
+    click(cx, window, 100., 355.);
+    click(cx, window, 466., 266.);
+    capture(cx, window, out, "automations-trigger-menu");
+    click(cx, window, 466., 266.);
+    click(cx, window, 891., 24.);
+    capture(cx, window, out, "automations-actions-menu");
+    click(cx, window, 891., 24.);
+    input(
+        cx,
+        window,
+        [PlatformInput::MouseDown(MouseDownEvent {
+            button: MouseButton::Right,
+            position: point(px(100.), px(409.)),
+            modifiers: Modifiers::default(),
+            click_count: 1,
+            first_mouse: false,
+        })],
+    );
+    capture(cx, window, out, "automations-context");
+    click(cx, window, 10., 590.);
+    // With Pro, the enabled workflow disables and enables again from its header.
+    cx.update(|cx| {
+        use desktop_gpui::product::account::{self, Account, Claims, User};
+        account::set(
+            Account {
+                user: Some(User {
+                    id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
+                    email: Some("alex@example.com".into()),
+                }),
+                claims: Some(Claims {
+                    entitlements: vec!["hyprnote_pro".into()],
+                    subscription_status: Some("active".into()),
+                    current_period_end: Some(account::now() + 86_400),
+                    ..Claims::default()
+                }),
+                ..Account::default()
+            },
+            cx,
+        )
+    });
+    click(cx, window, 100., 355.);
+    click(cx, window, 840., 24.);
+    pointer(cx, window, 500., 590.);
+    capture(cx, window, out, "automations-pro-disabled");
+    click(cx, window, 840., 24.);
+    pointer(cx, window, 500., 590.);
+    capture(cx, window, out, "automations-pro-enabled");
+    cx.update(|cx| desktop_gpui::product::account::set(Default::default(), cx));
+    // Last: opening the chat automation stores its workflow at the top of the list.
+    click(cx, window, 100., 517.);
+    pointer(cx, window, 500., 590.);
+    capture(cx, window, out, "automations-chat");
 }
 
 /// People, organizations and their menus, by window position.

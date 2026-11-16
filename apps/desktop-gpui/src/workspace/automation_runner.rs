@@ -13,8 +13,7 @@ use serde_json::{Value, json};
 
 use super::{
     automations::{already_processed, workflow_configured},
-    mutations::{NOW, failure, statement, transaction},
-    ports::decode_json_text,
+    mutations::{NOW, decode_json_text, failure, statement, transaction},
 };
 
 fn active_runs() -> &'static Mutex<HashSet<String>> {
@@ -162,6 +161,70 @@ impl AutomationClient {
         }
     }
 
+    /// `listConnections`: each integration's connection id and whether it needs a reconnect.
+    pub async fn connections(&self) -> Result<Vec<Connection>> {
+        let response = self
+            .request(Method::GET, "/nango/connections", None)
+            .await?;
+        Ok(response["connections"]
+            .as_array()
+            .ok_or_else(|| failure("Failed to load integrations"))?
+            .iter()
+            .filter_map(|row| {
+                Some(Connection {
+                    integration: row["integration_id"].as_str()?.into(),
+                    id: row["connection_id"].as_str()?.into(),
+                    reconnect: row["status"] == "reconnect_required",
+                })
+            })
+            .collect())
+    }
+
+    /// The choices of a step's target select: Slack channels, Linear teams or Notion pages.
+    pub async fn targets(&self, kind: TargetList) -> Result<Vec<Choice>> {
+        let choice = |row: &Value, name: &str| {
+            Some(Choice {
+                id: row["id"].as_str()?.into(),
+                name: row[name].as_str()?.into(),
+                private: row["is_private"] == true,
+            })
+        };
+        let (response, list, name) = match kind {
+            TargetList::Slack => (
+                self.request(Method::GET, "/messenger/slack/channels", None)
+                    .await?,
+                "channels",
+                "name",
+            ),
+            TargetList::Linear(connection) => (
+                self.request(
+                    Method::POST,
+                    "/ticket/linear/list-teams",
+                    Some(json!({"connection_id": connection})),
+                )
+                .await?,
+                "items",
+                "name",
+            ),
+            TargetList::Notion(connection, query) => (
+                self.request(
+                    Method::POST,
+                    "/notion/search-pages",
+                    Some(json!({"connection_id": connection, "query": query})),
+                )
+                .await?,
+                "pages",
+                "title",
+            ),
+        };
+        Ok(response[list]
+            .as_array()
+            .ok_or_else(|| failure("The integration returned no list"))?
+            .iter()
+            .filter_map(|row| choice(row, name))
+            .collect())
+    }
+
     async fn connection(&self, provider: &str) -> Result<String> {
         let connections = self
             .request(Method::GET, "/nango/connections", None)
@@ -180,6 +243,28 @@ impl AutomationClient {
             .map(str::to_owned)
             .ok_or_else(|| failure("Connection response has no ID"))
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Connection {
+    pub integration: Arc<str>,
+    pub id: Arc<str>,
+    pub reconnect: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Choice {
+    pub id: Arc<str>,
+    pub name: Arc<str>,
+    pub private: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TargetList {
+    Slack,
+    Linear(Arc<str>),
+    /// A connection and the submitted search, if any.
+    Notion(Arc<str>, Option<Arc<str>>),
 }
 
 pub fn run(
@@ -400,6 +485,11 @@ async fn execute_step(
                 client.request(Method::POST,"/ticket/linear/create-issue",Some(json!({"connection_id":connection,"team_id":target,"title":item.text,"description":format!("Action item from the Anarlog meeting \"{}\" ({date}).",export.meeting.title)}))).await?;
             }
             return Ok(format!("{} issues created", items.len()));
+        }
+        "google_drive_export" => {
+            return Err(failure(
+                "Google Drive export is not available in this app yet",
+            ));
         }
         _ => return Err(failure("Unknown automation step")),
     }

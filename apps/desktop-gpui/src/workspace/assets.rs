@@ -99,6 +99,9 @@ impl AssetSource for Assets {
         if let Some(bytes) = super::contacts::assets::load(path) {
             return Ok(Some(Cow::Borrowed(bytes)));
         }
+        if let Some(bytes) = super::automations::assets::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
         if let Some(bytes) = crate::chat::assets::load(path) {
             return Ok(Some(Cow::Borrowed(bytes)));
         }

@@ -95,11 +95,6 @@ impl Render for WorkspaceView {
         let layout_sidebar = self.sidebar.clone();
         let chat_width = crate::chat::reserved_width(&self.chat, window, cx);
         let entity = cx.entity().downgrade();
-        let catalog = self
-            .catalogs
-            .iter()
-            .find(|(catalog, _)| Some(*catalog) == self.active_catalog)
-            .map(|(_, view)| view.clone());
         let resource_nav = match route {
             Route::Templates => Some(
                 self.templates
@@ -108,6 +103,10 @@ impl Render for WorkspaceView {
             Route::Folders | Route::Folder(_) => Some(
                 self.folders
                     .update(cx, |folders, cx| folders.render_nav(window, cx)),
+            ),
+            Route::Automations => Some(
+                self.automations
+                    .update(cx, |automations, cx| automations.render_nav(window, cx)),
             ),
             _ => None,
         };
@@ -138,21 +137,13 @@ impl Render for WorkspaceView {
                 .flex()
                 .flex_col()
                 .gap_1()
-                .map(|sidebar| {
-                    if catalog.is_some() {
-                        // Shipping custom sidebars leave the chrome row free instead of the timeline header.
-                        sidebar.pt(px(44.))
-                    } else {
-                        sidebar.child(self.sidebar_header(window, cx))
-                    }
-                })
+                .child(self.sidebar_header(window, cx))
                 .child(
                     div()
                         .flex_1()
                         .min_h_0()
                         .w_full()
-                        .when_some(catalog.clone(), |view, catalog| view.child(catalog))
-                        .when(catalog.is_none(), |view| view.child(self.library.clone())),
+                        .child(self.library.clone()),
                 )
         };
         let surface = div()
@@ -200,6 +191,9 @@ impl Render for WorkspaceView {
                         Route::Calendar => view.child(self.calendar.clone()),
                         Route::Templates => view.child(self.templates.clone()),
                         Route::Folders | Route::Folder(_) => view.child(self.folders.clone()),
+                        Route::Automations => view.child(self.automations.clone()),
+                        // Shipping renders nothing for a daily summary tab.
+                        Route::DailySummary(_) => view,
                         Route::Empty => view.child(
                             div()
                                 .size_full()
@@ -242,9 +236,6 @@ impl Render for WorkspaceView {
                                         )),
                                 ),
                         ),
-                        _ if catalog.is_some() => {
-                            view.child(catalog.as_ref().unwrap().read(cx).detail())
-                        }
                         _ => view.child(div().p_6().text_sm().child(format!(
                             "{} content has not been connected to the workspace.",
                             route.label()

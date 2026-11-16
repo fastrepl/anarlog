@@ -11,15 +11,13 @@ use futures::executor::block_on;
 use serde_json::{Value, json};
 
 use super::{
+    automations::{self, Step, StepType, Target, Workflow},
     calendar::{Clock, by_day, load_calendar, month_days},
     folders,
-    mutations::{self, Command},
     navigation::Route,
     notes::{self, NoteCommand},
     picker::{NOTES_QUERY, load_recent, save_recent},
-    pins,
-    ports::{Catalog, CatalogQuery, catalog_detail, catalog_page, decode_catalog},
-    templates,
+    pins, templates,
 };
 
 #[test]
@@ -57,33 +55,6 @@ fn pins_use_cas_and_malformed_storage_cannot_become_empty_success() {
         )
         .await;
         assert_eq!(raw[0]["value_json"], "{broken");
-        runtime.shutdown().await.unwrap();
-    });
-}
-
-#[test]
-fn contacts_prefer_authenticated_self_and_keep_self_visible_during_search() {
-    block_on(async {
-        let (_directory, runtime) = start().await;
-        execute(&runtime,"INSERT INTO humans(id,name) VALUES ('signed-in','Signed in self'),('00000000-0000-0000-0000-000000000000','Local self'),('other','Another person')",vec![]).await;
-        let query = CatalogQuery {
-            catalog: Catalog::Contacts,
-            search: "does not match".into(),
-            offset: 0,
-        };
-        let (sql, params) = query.sql_for_viewer(Some("signed-in"));
-        let page = decode_catalog(&execute(&runtime, &sql, params).await).unwrap();
-        assert_eq!(page.rows[0].id.as_ref(), "signed-in");
-        assert!(page.rows[0].self_contact);
-        assert_eq!(
-            page.rows[1].id.as_ref(),
-            "00000000-0000-0000-0000-000000000000"
-        );
-        assert_eq!(page.rows.len(), 2);
-        let (sql, params) = query.sql();
-        let page = decode_catalog(&execute(&runtime, &sql, params).await).unwrap();
-        assert_eq!(page.rows.len(), 1);
-        assert!(page.rows[0].self_contact);
         runtime.shutdown().await.unwrap();
     });
 }
@@ -168,13 +139,9 @@ fn malformed_workflow_storage_is_an_error_and_remains_unchanged() {
             vec![],
         )
         .await;
-        let query = CatalogQuery {
-            catalog: Catalog::Automations,
-            search: "".into(),
-            offset: 0,
-        };
+        let workflow = Workflow::empty(None, None, "Untitled automation");
         assert!(
-            catalog_page(&runtime, query, CancellationToken::new())
+            automations::save(&runtime, workflow)
                 .unwrap()
                 .receive()
                 .await
@@ -376,9 +343,7 @@ fn note_folder_resolution_rejects_missing_directories_and_regular_files() {
 fn folder_material_commands_copy_checksum_and_soft_delete_the_catalog_entry() {
     block_on(async {
         let (directory, runtime) = start().await;
-        let mut draft = mutations::blank(Catalog::Folders);
-        edit(&mut draft, "path", "Research");
-        mutations::dispatch(&runtime, Command::Save(draft), None)
+        folders::create(&runtime, "Research".into())
             .unwrap()
             .receive()
             .await
@@ -527,19 +492,23 @@ fn automation_provider_adapters_follow_openapi_and_durable_errors_never_claim_su
             ("/nango/connections", 200, connections),
             ("/ticket/linear/create-issue", 200, json!({"id":"issue"})),
         ]);
-        let mut draft = mutations::blank(Catalog::Automations);
-        edit(&mut draft, "enabled", "true");
-        edit(
-            &mut draft,
-            "steps",
-            &json!([
-                {"type":"slack_recap","target":{"id":"channel","name":"Channel"}},
-                {"type":"notion_update","target":{"id":"page","name":"Page"}},
-                {"type":"linear_issues","target":{"id":"team","name":"Team"}}
-            ])
-            .to_string(),
-        );
-        let row = mutations::dispatch(&runtime, Command::Save(draft), None)
+        let target = |kind, id: &str, name: &str| Step::Target {
+            id: id.into(),
+            kind,
+            target: Some(Target {
+                id: id.into(),
+                name: name.into(),
+            }),
+        };
+        let mut workflow = Workflow::empty(None, None, "Provider contract");
+        workflow.enabled = true;
+        workflow.steps = vec![
+            target(StepType::Slack, "channel", "Channel"),
+            target(StepType::Notion, "page", "Page"),
+            target(StepType::Linear, "team", "Team"),
+        ];
+        let id = workflow.id.clone();
+        automations::save(&runtime, workflow)
             .unwrap()
             .receive()
             .await
@@ -550,7 +519,7 @@ fn automation_provider_adapters_follow_openapi_and_durable_errors_never_claim_su
             "Fixture".into(),
         )
         .unwrap();
-        super::automation_runner::run(&runtime, row.id.clone(), session.clone(), Some(client))
+        super::automation_runner::run(&runtime, id.clone(), session.clone(), Some(client))
             .unwrap()
             .receive()
             .await
@@ -567,9 +536,9 @@ fn automation_provider_adapters_follow_openapi_and_durable_errors_never_claim_su
         )
         .await;
         let workflows =
-            super::ports::decode_json_text(stored[0]["value_json"].as_str().unwrap()).unwrap();
+            super::mutations::decode_json_text(stored[0]["value_json"].as_str().unwrap()).unwrap();
         assert_eq!(workflows[0]["lastRun"]["status"], "success");
-        super::automation_runner::allow_retry(&runtime, row.id.clone(), session.clone())
+        super::automation_runner::allow_retry(&runtime, id.clone(), session.clone())
             .unwrap()
             .receive()
             .await
@@ -586,7 +555,7 @@ fn automation_provider_adapters_follow_openapi_and_durable_errors_never_claim_su
         )
         .unwrap();
         assert!(
-            super::automation_runner::run(&runtime, row.id, session.clone(), Some(client))
+            super::automation_runner::run(&runtime, id, session.clone(), Some(client))
                 .unwrap()
                 .receive()
                 .await
@@ -600,7 +569,7 @@ fn automation_provider_adapters_follow_openapi_and_durable_errors_never_claim_su
         )
         .await;
         let workflows =
-            super::ports::decode_json_text(stored[0]["value_json"].as_str().unwrap()).unwrap();
+            super::mutations::decode_json_text(stored[0]["value_json"].as_str().unwrap()).unwrap();
         assert_eq!(workflows[0]["lastRun"]["status"], "error");
         assert!(super::automations::already_processed(
             &workflows[0],
@@ -610,130 +579,11 @@ fn automation_provider_adapters_follow_openapi_and_durable_errors_never_claim_su
     });
 }
 
-fn edit(draft: &mut super::mutations::Draft, key: &str, value: &str) {
-    draft
-        .fields
-        .iter_mut()
-        .find(|field| field.key == key)
-        .unwrap()
-        .value = value.into();
-}
-
-async fn reload_draft(
-    runtime: &RuntimeHandle,
-    row: super::ports::CatalogRow,
-) -> super::mutations::Draft {
-    super::mutations::load(runtime, row, CancellationToken::new())
-        .unwrap()
-        .receive()
-        .await
-        .unwrap()
-}
-
 #[test]
-fn catalog_commands_persist_contact_merge_and_conflicts_without_losing_extensions() {
+fn selecting_a_template_for_a_note_keeps_its_memo() {
     block_on(async {
         let (_directory, runtime) = start().await;
-        let mut draft = mutations::blank(Catalog::Contacts);
-        edit(&mut draft, "name", "안녕 Café");
-        edit(&mut draft, "email", "person@example.com");
-        let row = mutations::dispatch(&runtime, Command::Save(draft), None)
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        let draft = reload_draft(&runtime, row.clone()).await;
-        assert_eq!(draft.fields[0].value, "안녕 Café");
-        let mut changed = draft.clone();
-        edit(&mut changed, "name", "Renamed");
-        mutations::dispatch(&runtime, Command::Save(changed), None)
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert!(matches!(
-            mutations::dispatch(&runtime, Command::Save(draft), None)
-                .unwrap()
-                .receive()
-                .await,
-            Err(ServiceError::Conflict)
-        ));
-        execute(&runtime,"INSERT INTO humans(id,name,phone,metadata_json) VALUES ('duplicate','Duplicate','123','{\"unknown\":true}')",vec![]).await;
-        execute(&runtime,"INSERT INTO session_participants(id,session_id,human_id) VALUES ('one','s',?),('two','s','duplicate'),('three','other','duplicate')",vec![json!(row.id)]).await;
-        let primary = reload_draft(&runtime, row.clone()).await;
-        mutations::dispatch(
-            &runtime,
-            Command::Merge {
-                primary,
-                duplicate: "duplicate".into(),
-            },
-            None,
-        )
-        .unwrap()
-        .receive()
-        .await
-        .unwrap();
-        let rows = execute(
-            &runtime,
-            "SELECT * FROM session_participants WHERE deleted_at IS NULL",
-            vec![],
-        )
-        .await;
-        assert_eq!(rows.len(), 2);
-        assert!(
-            rows.iter()
-                .all(|entry| entry["human_id"] == row.id.as_ref())
-        );
-        assert_eq!(
-            execute(
-                &runtime,
-                "SELECT phone FROM humans WHERE id=?",
-                vec![json!(row.id)]
-            )
-            .await[0]["phone"],
-            "123"
-        );
-        assert_eq!(
-            execute(
-                &runtime,
-                "SELECT metadata_json FROM humans WHERE id='duplicate'",
-                vec![]
-            )
-            .await[0]["metadata_json"],
-            "{\"unknown\":true}"
-        );
-        execute(
-            &runtime,
-            "INSERT INTO humans(id,name) VALUES ('00000000-0000-0000-0000-000000000000','Me')",
-            vec![],
-        )
-        .await;
-        let mut owner = row.clone();
-        owner.id = "00000000-0000-0000-0000-000000000000".into();
-        let owner = reload_draft(&runtime, owner).await;
-        assert!(
-            mutations::dispatch(&runtime, Command::Delete(owner), None)
-                .unwrap()
-                .receive()
-                .await
-                .is_err()
-        );
-        runtime.shutdown().await.unwrap();
-    });
-}
-
-#[test]
-fn template_commands_duplicate_raw_json_and_keep_conflicting_edits() {
-    block_on(async {
-        let (_directory, runtime) = start().await;
-        let mut draft = mutations::blank(Catalog::Templates);
-        edit(&mut draft, "title", "Interview");
-        edit(
-            &mut draft,
-            "sections_json",
-            r#"[{"title":"Agenda","extension":{"emoji":"世界"}}]"#,
-        );
-        let row = mutations::dispatch(&runtime, Command::Save(draft), None)
+        let template = templates::create(&runtime)
             .unwrap()
             .receive()
             .await
@@ -748,7 +598,7 @@ fn template_commands_duplicate_raw_json_and_keep_conflicting_edits() {
         super::notes::select_template(
             &runtime,
             desktop_runtime::SessionId("imported".into()),
-            row.id.clone(),
+            template.clone(),
         )
         .unwrap()
         .receive()
@@ -760,92 +610,8 @@ fn template_commands_duplicate_raw_json_and_keep_conflicting_edits() {
             vec![],
         )
         .await;
-        assert_eq!(memo[0]["template_id"], row.id.as_ref());
+        assert_eq!(memo[0]["template_id"], template.as_ref());
         assert_eq!(memo[0]["body"], "original");
-        let draft = reload_draft(&runtime, row.clone()).await;
-        let duplicate = mutations::dispatch(&runtime, Command::Duplicate(draft), None)
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        let data = execute(
-            &runtime,
-            "SELECT * FROM templates WHERE id=?",
-            vec![json!(duplicate.id)],
-        )
-        .await;
-        assert_eq!(data[0]["title"], "Interview (Copy)");
-        assert_eq!(
-            data[0]["sections_json"],
-            r#"[{"title":"Agenda","extension":{"emoji":"世界"}}]"#
-        );
-        let draft = reload_draft(&runtime, duplicate.clone()).await;
-        mutations::dispatch(&runtime, Command::Pin(draft), None)
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert_eq!(
-            execute(
-                &runtime,
-                "SELECT pinned FROM templates WHERE id=?",
-                vec![json!(duplicate.id)]
-            )
-            .await[0]["pinned"],
-            1
-        );
-        let draft = reload_draft(&runtime, duplicate.clone()).await;
-        for expected in [duplicate.id.as_ref(), "", duplicate.id.as_ref()] {
-            mutations::dispatch(&runtime, Command::SelectDefault(draft.clone()), None)
-                .unwrap()
-                .receive()
-                .await
-                .unwrap();
-            let settings = execute(
-                &runtime,
-                "SELECT value_json FROM app_settings WHERE id='selected_template_id'",
-                vec![],
-            )
-            .await;
-            assert_eq!(
-                serde_json::from_str::<String>(settings[0]["value_json"].as_str().unwrap())
-                    .unwrap(),
-                expected
-            );
-        }
-        mutations::dispatch(&runtime, Command::Delete(draft), None)
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert_eq!(
-            execute(
-                &runtime,
-                "SELECT value_json FROM app_settings WHERE id='selected_template_id'",
-                vec![]
-            )
-            .await[0]["value_json"],
-            "\"\""
-        );
-        assert!(
-            execute(
-                &runtime,
-                "SELECT id FROM templates WHERE id=?",
-                vec![json!(duplicate.id)]
-            )
-            .await
-            .is_empty()
-        );
-        assert_eq!(
-            execute(
-                &runtime,
-                "SELECT id FROM templates WHERE id=?",
-                vec![json!(row.id)]
-            )
-            .await
-            .len(),
-            1
-        );
         runtime.shutdown().await.unwrap();
     });
 }
@@ -854,9 +620,7 @@ fn template_commands_duplicate_raw_json_and_keep_conflicting_edits() {
 fn folders_and_note_commands_move_nested_paths_and_soft_delete_related_rows() {
     block_on(async {
         let (directory, runtime) = start().await;
-        let mut draft = mutations::blank(Catalog::Folders);
-        edit(&mut draft, "path", "Clients/日本");
-        let row = mutations::dispatch(&runtime, Command::Save(draft), None)
+        folders::create(&runtime, "Clients/日本".into())
             .unwrap()
             .receive()
             .await
@@ -868,9 +632,7 @@ fn folders_and_note_commands_move_nested_paths_and_soft_delete_related_rows() {
             vec![],
         )
         .await;
-        let mut draft = reload_draft(&runtime, row.clone()).await;
-        edit(&mut draft, "path", "Projects/日本");
-        mutations::dispatch(&runtime, Command::Save(draft), None)
+        folders::rename(&runtime, "Clients/日本".into(), "Projects/日本".into())
             .unwrap()
             .receive()
             .await
@@ -927,8 +689,7 @@ fn folders_and_note_commands_move_nested_paths_and_soft_delete_related_rows() {
             .await[0]["deleted_at"]
                 .is_null()
         );
-        let draft = reload_draft(&runtime, row).await;
-        mutations::dispatch(&runtime, Command::Delete(draft), None)
+        folders::delete(&runtime, "Projects/日本".into())
             .unwrap()
             .receive()
             .await
@@ -1215,160 +976,64 @@ fn workflow_crud_executes_real_markdown_export_and_blocks_duplicate_delivery() {
             .receive()
             .await
             .unwrap();
-        let mut draft = mutations::blank(Catalog::Automations);
-        edit(&mut draft, "enabled", "true");
-        edit(&mut draft,"steps",&json!([{"id":"step","type":"markdown_export","directory":directory.path().join("exports"),"unknown":"retained"}]).to_string());
-        let row = mutations::dispatch(&runtime, Command::Save(draft), None)
+        let mut workflow = Workflow::empty(None, None, "Export");
+        workflow.steps = vec![Step::Markdown {
+            id: "step".into(),
+            directory: directory.path().join("exports").to_string_lossy().into(),
+            options: None,
+        }];
+        workflow.enabled = true;
+        let id = workflow.id.clone();
+        automations::save(&runtime, workflow)
             .unwrap()
             .receive()
             .await
             .unwrap();
-        let path = super::automation_runner::run(
-            &runtime,
-            row.id.clone(),
-            session.summary.id.clone(),
-            None,
-        )
-        .unwrap()
-        .receive()
-        .await
-        .unwrap();
+        let path =
+            super::automation_runner::run(&runtime, id.clone(), session.summary.id.clone(), None)
+                .unwrap()
+                .receive()
+                .await
+                .unwrap();
         assert!(
             std::fs::read_to_string(path)
                 .unwrap()
                 .contains("Résumé / 日本")
         );
         assert!(
-            super::automation_runner::run(&runtime, row.id.clone(), session.summary.id, None)
+            super::automation_runner::run(&runtime, id.clone(), session.summary.id, None)
                 .unwrap()
                 .receive()
                 .await
                 .is_err()
         );
-        let draft = reload_draft(&runtime, row.clone()).await;
-        let copy = mutations::dispatch(&runtime, Command::Duplicate(draft), None)
+        let stored = execute(
+            &runtime,
+            "SELECT value_json FROM app_settings WHERE id='automation_workflows'",
+            vec![],
+        )
+        .await;
+        let settings = automations::Settings::decode(&[json!({
+            "id": automations::WORKFLOWS,
+            "value_json": stored[0]["value_json"],
+        })]);
+        let run = settings.workflow(&id).unwrap().last_run.clone().unwrap();
+        assert!(run.success);
+        automations::delete(&runtime, Some(id.clone()), None)
             .unwrap()
             .receive()
             .await
             .unwrap();
-        let copy_draft = reload_draft(&runtime, copy.clone()).await;
-        let settings = super::ports::decode_json_text(
-            copy_draft.base.as_ref().unwrap()["value_json"]
-                .as_str()
-                .unwrap(),
-        )
-        .unwrap();
-        let copy_value = settings
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|item| item["id"] == copy.id.as_ref())
-            .unwrap();
-        assert_eq!(copy_value["processedSessionIds"], json!([]));
-        assert_eq!(copy_value["steps"][0]["unknown"], "retained");
-        mutations::dispatch(&runtime, Command::Delete(copy_draft), None)
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        runtime.shutdown().await.unwrap();
-    });
-}
-
-#[test]
-fn catalogs_read_canonical_schema_and_preserve_malformed_template() {
-    block_on(async {
-        let (_directory, runtime) = start().await;
-        execute(&runtime,"INSERT INTO humans(id,name,email) VALUES ('human','Person','p@example.com'),('00000000-0000-0000-0000-000000000000','Me','')",vec![]).await;
-        execute(
+        let stored = execute(
             &runtime,
-            "INSERT INTO organizations(id,name,pinned,pin_order) VALUES ('org','Company',1,0)",
+            "SELECT value_json FROM app_settings WHERE id='automation_workflows'",
             vec![],
         )
         .await;
-        execute(&runtime,"INSERT INTO folders(id,path,instructions) VALUES ('folder','Clients/100%_complete','Original instructions')",vec![]).await;
-        execute(&runtime,"INSERT INTO templates(id,title,sections_json,targets_json) VALUES ('template','Damaged template','{broken','\"Team\"')",vec![]).await;
-        execute(&runtime,"INSERT INTO app_settings(id,value_json) VALUES ('automation_workflows',?)",vec![json!(serde_json::to_string(&json!([{
-            "id":"workflow","title":"Export","enabled":false,"trigger":"meeting_completed","steps":[{"type":"markdown_export","directory":"/fixture/export","options":{"include_memo":false}}],
-            "lastRun":null,"processedSessionIds":[],"chatGroupId":"chat"
-        }])).unwrap())]).await;
-        for catalog in [
-            Catalog::Contacts,
-            Catalog::Folders,
-            Catalog::Templates,
-            Catalog::Automations,
-        ] {
-            let page = catalog_page(
-                &runtime,
-                CatalogQuery {
-                    catalog,
-                    search: "".into(),
-                    offset: 0,
-                },
-                CancellationToken::new(),
-            )
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-            assert!(!page.rows.is_empty(), "{catalog:?}");
-            for row in page.rows.iter() {
-                let detail = catalog_detail(&runtime, row.clone(), CancellationToken::new())
-                    .unwrap()
-                    .receive()
-                    .await
-                    .unwrap();
-                assert!(!detail.title.is_empty(), "{catalog:?}");
-                if row.id.as_ref() == "template" {
-                    assert!(!detail.warnings.is_empty());
-                }
-            }
-            if catalog == Catalog::Contacts {
-                assert!(page.rows[0].self_contact);
-                assert_eq!(page.rows[1].id.as_ref(), "org");
-            }
-        }
-        let page = catalog_page(
-            &runtime,
-            CatalogQuery {
-                catalog: Catalog::Folders,
-                search: "100%_".into(),
-                offset: 0,
-            },
-            CancellationToken::new(),
-        )
-        .unwrap()
-        .receive()
-        .await
-        .unwrap();
-        assert_eq!(page.rows.len(), 1);
-        let rows = execute(
-            &runtime,
-            "SELECT sections_json FROM templates WHERE id='template'",
-            vec![],
-        )
-        .await;
-        assert_eq!(rows[0]["sections_json"], "{broken");
-        execute(
-            &runtime,
-            "UPDATE humans SET deleted_at = 'removed' WHERE id='human'",
-            vec![],
-        )
-        .await;
-        let page = catalog_page(
-            &runtime,
-            CatalogQuery {
-                catalog: Catalog::Contacts,
-                search: "".into(),
-                offset: 0,
-            },
-            CancellationToken::new(),
-        )
-        .unwrap()
-        .receive()
-        .await
-        .unwrap();
-        assert!(!page.rows.iter().any(|row| row.id.as_ref() == "human"));
+        assert_eq!(
+            super::mutations::decode_json_text(stored[0]["value_json"].as_str().unwrap()).unwrap(),
+            json!([])
+        );
         runtime.shutdown().await.unwrap();
     });
 }
@@ -1450,51 +1115,6 @@ fn calendar_lists_events_and_unlinked_notes_on_their_start_day() {
         );
         assert!(!page.items.iter().any(|item| item.id.as_ref() == "outside"));
         assert!(!by_day.contains_key(&NaiveDate::from_ymd_opt(2024, 3, 1).unwrap()));
-        runtime.shutdown().await.unwrap();
-    });
-}
-
-#[test]
-fn catalog_page_is_bounded_and_cancelled_reads_cannot_succeed() {
-    block_on(async {
-        let (_directory, runtime) = start().await;
-        execute(&runtime,"WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<150) INSERT INTO folders(id,path) SELECT 'id-'||x, printf('Folder-%03d',x) FROM n",vec![]).await;
-        let query = CatalogQuery {
-            catalog: Catalog::Folders,
-            search: "".into(),
-            offset: 0,
-        };
-        let page = catalog_page(&runtime, query.clone(), CancellationToken::new())
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert_eq!(page.rows.len(), 100);
-        assert!(page.has_more);
-        let next = catalog_page(
-            &runtime,
-            CatalogQuery {
-                offset: 100,
-                ..query.clone()
-            },
-            CancellationToken::new(),
-        )
-        .unwrap()
-        .receive()
-        .await
-        .unwrap();
-        assert_eq!(next.rows.len(), 50);
-        assert!(!next.has_more);
-        assert_ne!(page.rows[99].id, next.rows[0].id);
-        let cancel = CancellationToken::new();
-        cancel.cancel();
-        assert!(matches!(
-            catalog_page(&runtime, query, cancel)
-                .unwrap()
-                .receive()
-                .await,
-            Err(ServiceError::Cancelled)
-        ));
         runtime.shutdown().await.unwrap();
     });
 }

@@ -7,10 +7,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use super::{
-    mutations::{Draft, NOW, cas, failure, statement, transaction},
-    ports::CatalogRow,
-};
+use super::mutations::{NOW, cas, failure, statement, transaction};
 
 #[derive(Clone)]
 pub struct Material {
@@ -78,25 +75,15 @@ pub(super) async fn filesystem(executor: &DbExecutor) -> Result<FsSyncCore> {
     Ok(FsSyncCore::new(root))
 }
 
-pub(super) async fn save(executor: &DbExecutor, mut draft: Draft) -> Result<CatalogRow> {
-    let path = draft
-        .fields
-        .iter()
-        .find(|field| field.key == "path")
-        .map(|field| field.value.trim())
-        .unwrap_or("");
-    let path = normalize_folder_path(path).map_err(failure)?;
+/// Renames the folder row `base` to `path` on disk and in the catalog, moving nested
+/// folders, notes and materials.
+async fn rename_row(executor: &DbExecutor, base: Value, path: &str) -> Result<()> {
+    let path = normalize_folder_path(path.trim()).map_err(failure)?;
     if path.is_empty() {
         return Err(failure("A folder name is required"));
     }
-    let instructions = draft
-        .fields
-        .iter()
-        .find(|field| field.key == "instructions")
-        .map(|field| field.value.as_str())
-        .unwrap_or("");
     let fs = filesystem(executor).await?;
-    let old = draft.base.as_ref().and_then(|base| base["path"].as_str());
+    let old = base["path"].as_str();
     if old != Some(&path) {
         let collision = executor
             .execute(
@@ -125,28 +112,23 @@ pub(super) async fn save(executor: &DbExecutor, mut draft: Draft) -> Result<Cata
             fs.create_folder(&path).map_err(failure)?;
         }
     }
-    let mut statements = Vec::new();
-    if draft.base.is_some() {
-        let (predicate, mut params) = cas(&draft)?;
-        let mut values = vec![json!(path), json!(instructions)];
-        values.append(&mut params);
-        statements.push(statement(
-            format!("UPDATE folders SET path=?,instructions=?,updated_at={NOW} WHERE {predicate}"),
-            values,
-            Some(1),
-        ));
-        if let Some(old) = old.filter(|old| *old != path) {
-            for (table, column) in [
-                ("folders", "path"),
-                ("sessions", "folder_path"),
-                ("folder_attachments", "folder_path"),
-            ] {
-                statements.push(statement(format!("UPDATE {table} SET {column}=?1 || substr({column},length(?2)+1),updated_at={NOW} WHERE deleted_at IS NULL AND ({column}=?2 OR substr({column},1,length(?2)+1)=?2 || '/')"),
-                    vec![json!(path),json!(old)],None));
-            }
+    let (predicate, mut params) = cas(&base)?;
+    let mut values = vec![json!(path)];
+    values.append(&mut params);
+    let mut statements = vec![statement(
+        format!("UPDATE folders SET path=?,updated_at={NOW} WHERE {predicate}"),
+        values,
+        Some(1),
+    )];
+    if let Some(old) = old.filter(|old| *old != path) {
+        for (table, column) in [
+            ("folders", "path"),
+            ("sessions", "folder_path"),
+            ("folder_attachments", "folder_path"),
+        ] {
+            statements.push(statement(format!("UPDATE {table} SET {column}=?1 || substr({column},length(?2)+1),updated_at={NOW} WHERE deleted_at IS NULL AND ({column}=?2 OR substr({column},1,length(?2)+1)=?2 || '/')"),
+                vec![json!(path),json!(old)],None));
         }
-    } else {
-        statements.push(statement(format!("INSERT INTO folders(id,path,instructions,created_at,updated_at) VALUES (?,?,?,{NOW},{NOW})"),vec![json!(draft.row.id),json!(path),json!(instructions)],Some(1)));
     }
     let segments = path.split('/').collect::<Vec<_>>();
     for count in 1..segments.len() {
@@ -162,16 +144,11 @@ pub(super) async fn save(executor: &DbExecutor, mut draft: Draft) -> Result<Cata
         }
         return Err(error);
     }
-    draft.row.title = path.into();
-    Ok(draft.row)
+    Ok(())
 }
 
-pub(super) async fn remove(executor: &DbExecutor, draft: Draft) -> Result<CatalogRow> {
-    let path = draft
-        .base
-        .as_ref()
-        .and_then(|base| base["path"].as_str())
-        .ok_or(ServiceError::Conflict)?;
+async fn remove(executor: &DbExecutor, base: Value) -> Result<()> {
+    let path = base["path"].as_str().ok_or(ServiceError::Conflict)?;
     let fs = filesystem(executor).await?;
     let rows = executor.execute("SELECT id,folder_path FROM sessions WHERE deleted_at IS NULL AND (folder_path=?1 OR substr(folder_path,1,length(?1)+1)=?1 || '/')".into(),vec![json!(path)]).await.map_err(failure)?;
     let mut moved = Vec::new();
@@ -188,7 +165,7 @@ pub(super) async fn remove(executor: &DbExecutor, draft: Draft) -> Result<Catalo
             }
         }
     }
-    let (predicate, params) = cas(&draft)?;
+    let (predicate, params) = cas(&base)?;
     let mut statements = vec![statement(
         format!("UPDATE folders SET updated_at={NOW} WHERE {predicate}"),
         params,
@@ -205,7 +182,7 @@ pub(super) async fn remove(executor: &DbExecutor, draft: Draft) -> Result<Catalo
         return Err(error);
     }
     // Keep material files for recovery of the soft-deleted catalog rows.
-    Ok(draft.row)
+    Ok(())
 }
 
 fn rollback_moves(fs: &FsSyncCore, moved: &[(&str, &str)]) -> Result<()> {
@@ -359,34 +336,6 @@ async fn ensure(executor: &DbExecutor, path: &str) -> Result<Value> {
     rows.into_iter().next().ok_or(ServiceError::Conflict)
 }
 
-fn draft(base: Value, path: &str) -> Result<Draft> {
-    Ok(Draft {
-        row: CatalogRow {
-            id: base["id"].as_str().ok_or(ServiceError::Conflict)?.into(),
-            kind: "folder".into(),
-            title: base["path"].as_str().unwrap_or_default().into(),
-            subtitle: "".into(),
-            pinned: false,
-            self_contact: false,
-        },
-        fields: vec![
-            super::mutations::Field {
-                key: "path",
-                label: "Folder",
-                value: path.into(),
-            },
-            super::mutations::Field {
-                key: "instructions",
-                label: "Instructions",
-                value: base["instructions"].as_str().unwrap_or("").into(),
-            },
-        ],
-        base: Some(base),
-        groups: None,
-        groups_dirty: false,
-    })
-}
-
 fn named(path: &str) -> Result<String> {
     let path = normalize_folder_path(path.trim()).map_err(failure)?;
     if path.is_empty() {
@@ -413,7 +362,7 @@ pub fn rename(runtime: &RuntimeHandle, old: Arc<str>, new: Arc<str>) -> Result<R
     runtime.submit(move |services| async move {
         let new = named(&new)?;
         let base = ensure(&services.executor, &old).await?;
-        save(&services.executor, draft(base, &new)?).await?;
+        rename_row(&services.executor, base, &new).await?;
         Ok(new.into())
     })
 }
@@ -422,7 +371,7 @@ pub fn rename(runtime: &RuntimeHandle, old: Arc<str>, new: Arc<str>) -> Result<R
 pub fn delete(runtime: &RuntimeHandle, path: Arc<str>) -> Result<Reply<()>> {
     runtime.submit(move |services| async move {
         let base = ensure(&services.executor, &path).await?;
-        remove(&services.executor, draft(base, &path)?).await?;
+        remove(&services.executor, base).await?;
         Ok(())
     })
 }

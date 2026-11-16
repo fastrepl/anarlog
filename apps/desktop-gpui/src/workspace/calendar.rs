@@ -947,17 +947,8 @@ impl CalendarView {
         let created = session
             .is_none()
             .then(|| open_event(&runtime, item.id.clone(), self.viewer.clone()));
-        let new_folder = (create && !folder.is_empty()).then(|| {
-            let mut draft = super::mutations::blank(super::ports::Catalog::Folders);
-            if let Some(field) = draft.fields.iter_mut().find(|field| field.key == "path") {
-                field.value = folder.to_string();
-            }
-            super::mutations::dispatch(
-                &runtime,
-                super::mutations::Command::Save(draft),
-                self.viewer.clone(),
-            )
-        });
+        let new_folder = (create && !folder.is_empty())
+            .then(|| super::folders::create(&runtime, folder.clone()));
         cx.spawn(async move |this, cx| {
             let result = async {
                 if let Some(reply) = new_folder {
@@ -1005,17 +996,8 @@ impl CalendarView {
         } else {
             RuleChange::Set(path.clone())
         };
-        let new_folder = (create && matches!(change, RuleChange::Set(_))).then(|| {
-            let mut draft = super::mutations::blank(super::ports::Catalog::Folders);
-            if let Some(field) = draft.fields.iter_mut().find(|field| field.key == "path") {
-                field.value = path.to_string();
-            }
-            super::mutations::dispatch(
-                &self.runtime,
-                super::mutations::Command::Save(draft),
-                self.viewer.clone(),
-            )
-        });
+        let new_folder = (create && matches!(change, RuleChange::Set(_)))
+            .then(|| super::folders::create(&self.runtime, path.clone()));
         self.change_rule(item, change, new_folder, cx);
     }
 
@@ -1023,7 +1005,7 @@ impl CalendarView {
         &mut self,
         item: &CalendarItem,
         change: RuleChange,
-        before: Option<Result<Reply<super::ports::CatalogRow>>>,
+        before: Option<Result<Reply<Arc<str>>>>,
         cx: &mut Context<Self>,
     ) {
         if item.series.is_empty() {

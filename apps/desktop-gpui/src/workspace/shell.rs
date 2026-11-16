@@ -16,16 +16,15 @@ use gpui::{
 };
 
 use super::{
+    automations::view::{AutomationsEvent, AutomationsView},
     calendar::{CalendarFolders, CalendarOpen, CalendarView, Clock},
     calendar_sidebar::{CalendarSidebar, CalendarSidebarEvent},
-    catalog::CatalogView,
     contacts::{Contacts, ContactsEvent, Selection},
     folders_view::{FoldersEvent, FoldersView},
     library::{LibraryView, OpenNote},
     navigation::{Navigation, Route, SidebarState, SlotId},
     open_note::{NoteEvent, NoteView},
     picker::{NotePicker, PickerEvent},
-    ports::Catalog,
     templates_view::{TemplatesEvent, TemplatesView},
 };
 use crate::{
@@ -56,7 +55,6 @@ pub struct WorkspaceView {
     pub(super) library: Entity<LibraryView>,
     pub(super) note: Entity<NoteView>,
     pub(super) picker: Entity<NotePicker>,
-    pub(super) catalogs: Vec<(Catalog, Entity<CatalogView>)>,
     pub(super) calendar: Entity<CalendarView>,
     pub(super) calendar_sidebar: Entity<CalendarSidebar>,
     calendar_sync: Entity<super::calendar_accounts::CalendarSync>,
@@ -64,7 +62,7 @@ pub struct WorkspaceView {
     pub(super) folders: Entity<FoldersView>,
     pub(super) contacts: Option<Entity<Contacts>>,
     pub(super) chat: Entity<ChatView>,
-    pub(super) active_catalog: Option<Catalog>,
+    pub(super) automations: Entity<AutomationsView>,
     pub(super) navigation: Navigation,
     pub(super) sidebar: SidebarState,
     pub(super) query: LibraryQuery,
@@ -74,7 +72,6 @@ pub struct WorkspaceView {
     watch_cancel: CancellationToken,
     events_cancel: CancellationToken,
     events_loaded: Option<std::time::Instant>,
-    library_stale: bool,
     pub(super) message: String,
     creating: bool,
     ready: bool,
@@ -207,13 +204,8 @@ impl WorkspaceView {
         cx: &mut Context<Self>,
     ) {
         self.automation_client = client.clone();
-        for (catalog, view) in &self.catalogs {
-            if *catalog == Catalog::Automations {
-                view.update(cx, |view, cx| {
-                    view.set_automation_client(client.clone(), cx)
-                });
-            }
-        }
+        self.automations
+            .update(cx, |automations, cx| automations.set_client(client, cx));
     }
     pub fn new(
         context: LaneContext,
@@ -238,6 +230,12 @@ impl WorkspaceView {
                 this.navigate(Navigate::Open(route.clone(), false), cx)
             }
         });
+        let automations = cx.new(|cx| AutomationsView::new(context.runtime.clone(), cx));
+        let automations_subscription =
+            cx.subscribe(&automations, |this, _, event, cx| match event {
+                AutomationsEvent::Back => this.leave_overlay(cx),
+                AutomationsEvent::Product(route) => cx.emit(WorkspaceEvent::Product(route.clone())),
+            });
         let folders_subscription = cx.subscribe(&folders, |this, _, event, cx| match event {
             FoldersEvent::Back => this.leave_overlay(cx),
             FoldersEvent::SignIn => cx.emit(WorkspaceEvent::Product(ProductRoute::Account)),
@@ -368,7 +366,6 @@ impl WorkspaceView {
             library,
             note,
             picker,
-            catalogs: vec![],
             calendar,
             calendar_sidebar,
             calendar_sync,
@@ -376,7 +373,7 @@ impl WorkspaceView {
             folders,
             contacts: None,
             chat,
-            active_catalog: None,
+            automations,
             navigation,
             sidebar: SidebarState::default(),
             // Shipping's timeline lists the whole library; the runtime orders it.
@@ -390,7 +387,6 @@ impl WorkspaceView {
             watch_cancel: CancellationToken::new(),
             events_cancel: CancellationToken::new(),
             events_loaded: None,
-            library_stale: false,
             message: "Opening isolated local library…".into(),
             creating: false,
             ready: false,
@@ -422,6 +418,7 @@ impl WorkspaceView {
                 calendar_folders_subscription,
                 calendar_note_subscription,
                 templates_subscription,
+                automations_subscription,
                 folders_subscription,
             ],
         }
@@ -674,9 +671,6 @@ impl WorkspaceView {
         if let Some(contacts) = &self.contacts {
             contacts.update(cx, |contacts, cx| contacts.set_viewer(viewer.clone(), cx));
         }
-        for (_, catalog) in &self.catalogs {
-            catalog.update(cx, |catalog, _| catalog.set_viewer(viewer.clone()));
-        }
     }
 
     pub fn set_calendar_week_start(&mut self, week_start: u8, cx: &mut Context<Self>) {
@@ -751,10 +745,6 @@ impl WorkspaceView {
             || self.creating
             || self.note.read(cx).has_unsaved_title(cx)
             || !self.dirty.is_empty()
-            || self
-                .catalogs
-                .iter()
-                .any(|(_, catalog)| catalog.read(cx).blocked(cx))
         {
             self.set_status(
                 "Save or restore unsaved edits before closing or changing tabs.".into(),
@@ -781,17 +771,6 @@ impl WorkspaceView {
 
     pub(super) fn navigate(&mut self, intent: Navigate, cx: &mut Context<Self>) {
         if self.note_operation.is_some() {
-            return;
-        }
-        if self
-            .catalogs
-            .iter()
-            .any(|(_, catalog)| catalog.read(cx).blocked(cx))
-        {
-            self.set_status(
-                "Save or discard catalog edits before navigating.".into(),
-                cx,
-            );
             return;
         }
         if self.note.read(cx).has_unsaved_title(cx) {
@@ -894,46 +873,14 @@ impl WorkspaceView {
             }
         });
         self.sync_contacts(&route, cx);
-        let catalog = match route {
-            Route::Automations => Some(Catalog::Automations),
-            _ => None,
-        };
-        if catalog != self.active_catalog {
-            for (_, view) in &self.catalogs {
-                view.update(cx, |view, cx| view.suspend(cx));
+        let automations_route = route == Route::Automations;
+        self.automations.update(cx, |automations, cx| {
+            if automations_route {
+                automations.activate(cx);
+            } else {
+                automations.suspend(cx);
             }
-            self.active_catalog = catalog;
-            self.cancellation.cancel();
-            self.generation.advance();
-            self.library_stale = true;
-            if let Some(catalog) = catalog {
-                let view = if let Some((_, view)) =
-                    self.catalogs.iter().find(|(kind, _)| *kind == catalog)
-                {
-                    view.clone()
-                } else {
-                    let view = cx.new(|cx| {
-                        let mut view = CatalogView::new(self.runtime.clone(), catalog, cx);
-                        view.set_viewer(self.viewer.clone());
-                        if catalog == Catalog::Automations {
-                            view.set_automation_client(self.automation_client.clone(), cx);
-                        }
-                        view
-                    });
-                    self.subscriptions.push(
-                        cx.subscribe(&view, |this, _, event: &OpenNote, cx| {
-                            this.handle_note(event, cx)
-                        }),
-                    );
-                    self.catalogs.push((catalog, view.clone()));
-                    view
-                };
-                view.update(cx, |view, cx| view.load(cx));
-            }
-        }
-        if catalog.is_none() && self.library_stale {
-            self.reload(cx);
-        }
+        });
         if let Route::Folder(id) = &route {
             self.folders
                 .update(cx, |folders, cx| folders.select_id(id.clone(), cx));
@@ -1149,11 +1096,6 @@ impl WorkspaceView {
         if !self.ready {
             return;
         }
-        if self.active_catalog.is_some() {
-            self.library_stale = true;
-            return;
-        }
-        self.library_stale = false;
         self.cancellation.cancel();
         self.cancellation = CancellationToken::new();
         let generation = self.generation.advance();
