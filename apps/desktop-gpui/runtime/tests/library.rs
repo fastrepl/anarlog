@@ -783,3 +783,81 @@ async fn watch_admission_is_bounded_and_released_by_unsubscribe() {
     }
     runtime.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn whole_library_orders_by_event_start_in_either_direction() {
+    let directory = tempfile::tempdir().unwrap();
+    let runtime = start(&Profile {
+        database: directory.path().join("order.sqlite"),
+    })
+    .await;
+    runtime.submit(|services| async move {
+        for sql in [
+            "INSERT INTO events(id,tracking_id_event,calendar_id,started_at,ended_at) VALUES
+                ('linked','t1','c1','2026-08-01T09:00:00Z','2026-08-01T10:00:00Z'),
+                ('resynced','t2','c2','2026-09-20T09:00:00Z','2026-09-20T09:30:00Z')",
+            "INSERT INTO sessions(id,title,created_at,event_id,event_json) VALUES
+                ('plain','Plain','2026-09-01T00:00:00Z','',''),
+                ('linked','Linked','2026-09-05T00:00:00Z','linked','{\"tracking_id\":\"t1\",\"calendar_id\":\"c1\",\"started_at\":\"2026-01-01T00:00:00Z\"}'),
+                ('saved','Saved','2026-09-03T00:00:00Z','','{\"tracking_id\":\"gone\",\"calendar_id\":\"c9\",\"started_at\":\"2026-09-10T00:00:00Z\",\"ended_at\":\"2026-09-10T01:00:00Z\"}'),
+                ('tracked','Tracked','2026-09-02T00:00:00Z','old-id','{\"tracking_id\":\"t2\",\"calendar_id\":\"c2\",\"started_at\":\"2026-01-01T00:00:00Z\"}'),
+                ('broken','Broken','2026-08-15T00:00:00Z','','not json')",
+        ] {
+            services.executor.execute(sql.into(), vec![]).await.unwrap();
+        }
+        Ok(())
+    }).unwrap().receive().await.unwrap();
+    let ids = |oldest: bool, offset: u32, limit: u32| {
+        let runtime = runtime.clone();
+        async move {
+            let page = runtime
+                .library(
+                    LibraryQuery {
+                        offset,
+                        limit,
+                        oldest,
+                        ..Default::default()
+                    },
+                    CancellationToken::new(),
+                )
+                .unwrap()
+                .receive()
+                .await
+                .unwrap();
+            let ids = page
+                .items
+                .iter()
+                .map(|item| item.id.0.to_string())
+                .collect::<Vec<_>>();
+            (ids, page)
+        }
+    };
+    let newest = ["tracked", "saved", "plain", "broken", "linked"];
+    let (all, page) = ids(false, 0, u32::MAX).await;
+    assert_eq!(all, newest);
+    assert!(!page.has_more);
+    let tracked = &page.items[0];
+    assert_eq!(
+        (tracked.event_start.as_ref(), tracked.event_end.as_ref()),
+        ("2026-09-20T09:00:00Z", "2026-09-20T09:30:00Z")
+    );
+    assert_eq!(page.items[1].starts_at(), "2026-09-10T00:00:00Z");
+    assert_eq!(page.items[2].starts_at(), "2026-09-01T00:00:00Z");
+    let mut oldest = newest;
+    oldest.reverse();
+    assert_eq!(ids(true, 0, u32::MAX).await.0, oldest);
+    let (cached, page) = ids(true, 1, 2).await;
+    assert_eq!(cached, oldest[1..3]);
+    assert!(page.has_more);
+    let opened = runtime
+        .open_session(
+            desktop_runtime::SessionId("linked".into()),
+            CancellationToken::new(),
+        )
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(opened.summary.starts_at(), "2026-08-01T09:00:00Z");
+    runtime.shutdown().await.unwrap();
+}

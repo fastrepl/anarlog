@@ -365,7 +365,8 @@ pub fn build(
     let mut later = date_grouping && events.later;
     let mut items = Vec::new();
     for (index, session) in sessions.iter().enumerate() {
-        let start = parse_time(&session.created_at);
+        // Notes created from a calendar event sit at the event's time, like shipping.
+        let start = parse_time(session.starts_at());
         if date_grouping && start.is_some_and(|start| start >= upper) {
             later = true;
             continue;
@@ -373,7 +374,7 @@ pub fn build(
         items.push(Item {
             source: Source::Session(index),
             start,
-            end: None,
+            end: parse_time(&session.event_end).filter(|_| !session.event_start.is_empty()),
             precision: Precision::Date,
         });
     }
@@ -676,6 +677,8 @@ mod tests {
             created_at: created_at.into(),
             folder_path: folder.into(),
             tag_line: "".into(),
+            event_start: "".into(),
+            event_end: "".into(),
         }
     }
 
@@ -751,6 +754,34 @@ mod tests {
             ]
         );
         assert_eq!(timeline.upcoming, None);
+    }
+
+    #[test]
+    fn notes_from_calendar_events_sit_at_the_event_time() {
+        let now = at("2026-11-16T12:00:00Z");
+        let mut standup = session("a", "Standup notes", "2026-11-10T09:00:00Z", "");
+        standup.event_start = "2026-11-17T09:30:00Z".into();
+        standup.event_end = "2026-11-17T09:45:00Z".into();
+        let mut sync = session("b", "Sync notes", "2026-11-16T08:00:00Z", "");
+        sync.event_start = "2026-11-16T11:30:00Z".into();
+        sync.event_end = "2026-11-16T12:30:00Z".into();
+        let sessions = [
+            standup,
+            sync,
+            session("c", "Plain", "2026-11-16T09:00:00Z", ""),
+        ];
+        let events = EventWindow::default();
+        let timeline = build(&sessions, &events, View::default(), now, UTC);
+        assert_eq!(
+            labels(&timeline, &sessions, &events),
+            [
+                "# Tomorrow",
+                "Standup notes",
+                "# Today",
+                "Sync notes (now inside)",
+                "Plain"
+            ]
+        );
     }
 
     #[test]

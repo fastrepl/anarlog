@@ -107,13 +107,31 @@ pub struct SessionSummary {
     pub created_at: Arc<str>,
     pub folder_path: Arc<str>,
     pub tag_line: Arc<str>,
+    /// Start and end of the calendar event the note was created from (the live event when it
+    /// still exists, else the copy saved on the note); empty for notes without one.
+    pub event_start: Arc<str>,
+    pub event_end: Arc<str>,
+}
+
+impl SessionSummary {
+    /// When the note happened: its event's start, else its creation time (shipping's timeline key).
+    pub fn starts_at(&self) -> &str {
+        if self.event_start.is_empty() {
+            &self.created_at
+        } else {
+            &self.event_start
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct LibraryQuery {
     pub search: Arc<str>,
     pub offset: u32,
+    /// Up to 200 rows are served from the page cache; larger requests read straight through.
     pub limit: u32,
+    /// Orders the whole library oldest first instead of newest first.
+    pub oldest: bool,
 }
 
 impl Default for LibraryQuery {
@@ -122,6 +140,7 @@ impl Default for LibraryQuery {
             search: "".into(),
             offset: 0,
             limit: 100,
+            oldest: false,
         }
     }
 }

@@ -351,9 +351,19 @@ impl WorkspaceView {
     fn choose_sort(&mut self, row: usize, option: usize, cx: &mut Context<Self>) {
         let view = SortMenu::apply(row, option, self.library.read(cx).view());
         self.sort_menu = None;
+        self.set_timeline_view(view, cx);
+        cx.notify();
+    }
+
+    /// Oldest-first orders the whole library, so the order is part of the library query.
+    fn set_timeline_view(&mut self, view: View, cx: &mut Context<Self>) {
         self.library
             .update(cx, |library, cx| library.set_view(view, cx));
-        cx.notify();
+        let oldest = view.ordering == Ordering::Oldest;
+        if self.query.oldest != oldest {
+            self.query.oldest = oldest;
+            self.reload(cx);
+        }
     }
 
     /// Routes keys to the open sort menu; returns whether the menu consumed them.
@@ -363,8 +373,7 @@ impl WorkspaceView {
         }
         let view = self.library.read(cx).view();
         if let Some(view) = SortMenu::key(&mut self.sort_menu, event.keystroke.key.as_str(), view) {
-            self.library
-                .update(cx, |library, cx| library.set_view(view, cx));
+            self.set_timeline_view(view, cx);
         }
         cx.notify();
         true

@@ -253,12 +253,7 @@ impl LibraryView {
     }
 
     fn rebuild(&mut self, remeasure: bool, cx: &mut Context<Self>) {
-        // Events belong to the newest page only, like the shipping timeline's single list.
-        let events = if self.page.offset == 0 {
-            self.events.clone()
-        } else {
-            EventWindow::default()
-        };
+        let events = self.events.clone();
         let timeline = timeline::build(
             &self.page.items,
             &events,

@@ -127,55 +127,7 @@ impl Render for WorkspaceView {
                         .min_h_0()
                         .w_full()
                         .when_some(catalog.clone(), |view, catalog| view.child(catalog))
-                        .when(catalog.is_none(), |view| {
-                            view.flex()
-                                .flex_col()
-                                .gap_1()
-                                .child(div().flex_1().min_h_0().child(self.library.clone()))
-                                .child(
-                                    div()
-                                        .px_2()
-                                        .flex()
-                                        .justify_between()
-                                        .text_xs()
-                                        .when(
-                                            self.page.as_ref().is_some_and(|page| page.offset > 0),
-                                            |view| {
-                                                view.child(
-                                                    div()
-                                                        .id("previous-page")
-                                                        .cursor_pointer()
-                                                        .child("Previous")
-                                                        .on_click(cx.listener(|this, _, _, cx| {
-                                                            this.query.offset = this
-                                                                .query
-                                                                .offset
-                                                                .saturating_sub(this.query.limit);
-                                                            this.reload(cx);
-                                                        })),
-                                                )
-                                            },
-                                        )
-                                        .when(
-                                            self.page.as_ref().is_some_and(|page| page.has_more),
-                                            |view| {
-                                                view.child(
-                                                    div()
-                                                        .id("next-page")
-                                                        .cursor_pointer()
-                                                        .child("Next")
-                                                        .on_click(cx.listener(|this, _, _, cx| {
-                                                            this.query.offset = this
-                                                                .query
-                                                                .offset
-                                                                .saturating_add(this.query.limit);
-                                                            this.reload(cx);
-                                                        })),
-                                                )
-                                            },
-                                        ),
-                                )
-                        }),
+                        .when(catalog.is_none(), |view| view.child(self.library.clone())),
                 )
         };
         let surface = div()

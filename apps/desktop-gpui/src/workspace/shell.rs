@@ -354,7 +354,11 @@ impl WorkspaceView {
             active_catalog: None,
             navigation,
             sidebar: SidebarState::default(),
-            query: LibraryQuery::default(),
+            // Shipping's timeline lists the whole library; the runtime orders it.
+            query: LibraryQuery {
+                limit: u32::MAX,
+                ..LibraryQuery::default()
+            },
             page: None,
             generation: Generation::default(),
             cancellation: CancellationToken::new(),
@@ -1142,6 +1146,8 @@ impl WorkspaceView {
                                             && a.created_at == b.created_at
                                             && a.folder_path == b.folder_path
                                             && a.tag_line == b.tag_line
+                                            && a.event_start == b.event_start
+                                            && a.event_end == b.event_end
                                     })
                             })
                         {

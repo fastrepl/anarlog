@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use anlg_db_app::ListSessions;
 use anlg_db_execute::TransactionStatement;
 use futures::TryStreamExt;
 use icu_collator::{Collator, CollatorBorrowed, options::CollatorOptions};
@@ -112,9 +111,12 @@ fn tag_locale(name: Option<&str>) -> Locale {
 pub(crate) struct Cache {
     observer: SqliteConnection,
     version: i64,
-    pages: VecDeque<(Arc<str>, LibraryPage)>,
+    pages: VecDeque<(PageKey, LibraryPage)>,
     bytes: usize,
 }
+
+/// Search text and sort order of a cached page.
+type PageKey = (Arc<str>, bool);
 
 impl Cache {
     pub(crate) async fn new(path: &Path) -> Result<Self> {
@@ -160,6 +162,96 @@ fn page_slice(page: &LibraryPage, offset: u32, limit: u32) -> LibraryPage {
     }
 }
 
+/// Notes ordered like shipping's timeline: by the start of the calendar event they were created
+/// from (the live event, else the copy saved on the note), falling back to creation time.
+fn library_sql(filter: &str, oldest: bool) -> String {
+    let order = if oldest { "ASC" } else { "DESC" };
+    format!(
+        "WITH base AS (
+            SELECT id, title, created_at, updated_at, folder_path, event_id,
+                CASE WHEN json_valid(event_json) THEN event_json END AS saved
+            FROM sessions
+            WHERE deleted_at IS NULL AND {filter}
+        ), linked AS (
+            SELECT base.*, COALESCE(
+                (SELECT e.id FROM events e WHERE e.id = base.event_id AND e.deleted_at IS NULL),
+                (SELECT e.id FROM events e
+                    WHERE e.deleted_at IS NULL AND e.tracking_id_event <> ''
+                        AND e.calendar_id = COALESCE(json_extract(base.saved, '$.calendar_id'), '')
+                        AND e.tracking_id_event = json_extract(base.saved, '$.tracking_id')
+                    ORDER BY e.started_at, e.id LIMIT 1)) AS live
+            FROM base
+        ), timed AS (
+            SELECT linked.*,
+                CASE WHEN live IS NULL THEN json_extract(saved, '$.started_at')
+                    ELSE (SELECT started_at FROM events WHERE id = live) END AS event_start,
+                CASE WHEN live IS NULL THEN json_extract(saved, '$.ended_at')
+                    ELSE (SELECT ended_at FROM events WHERE id = live) END AS event_end
+            FROM linked
+        )
+        SELECT id, title, created_at, updated_at, folder_path,
+            COALESCE(CAST(event_start AS TEXT), '') AS event_start,
+            COALESCE(CAST(event_end AS TEXT), '') AS event_end
+        FROM timed
+        ORDER BY julianday(COALESCE(NULLIF(event_start, ''), created_at)) {order},
+            created_at {order}, id {order}
+        LIMIT ?2 OFFSET ?3"
+    )
+}
+
+const SEARCH_FILTER: &str =
+    "(?1 = '' OR instr(lower(title), lower(?1)) > 0 OR instr(lower(id), lower(?1)) > 0)";
+
+#[derive(sqlx::FromRow)]
+struct LibraryRow {
+    id: String,
+    title: String,
+    created_at: String,
+    updated_at: String,
+    folder_path: String,
+    event_start: String,
+    event_end: String,
+}
+
+/// Reads `limit` rows (and whether more follow) with their tag lines.
+async fn read_rows(
+    services: &Services,
+    search: &str,
+    oldest: bool,
+    offset: u32,
+    limit: u32,
+) -> Result<(Vec<SessionSummary>, bool)> {
+    let mut rows =
+        sqlx::query_as::<_, LibraryRow>(sqlx::AssertSqlSafe(library_sql(SEARCH_FILTER, oldest)))
+            .bind(search.trim())
+            .bind(i64::from(limit) + 1)
+            .bind(i64::from(offset))
+            .fetch_all(services.db.pool())
+            .await
+            .map_err(failure)?;
+    let has_more = rows.len() > limit as usize;
+    rows.truncate(limit as usize);
+    let mut tags = HashMap::new();
+    for chunk in rows.chunks(CACHE_ROWS as usize) {
+        let ids = chunk.iter().map(|row| row.id.as_str()).collect::<Vec<_>>();
+        tags.extend(services.session_tag_lines(&ids).await?);
+    }
+    let items = rows
+        .into_iter()
+        .map(|row| SessionSummary {
+            tag_line: tags.remove(&row.id).unwrap_or_default(),
+            id: row.id.into(),
+            title: row.title.into(),
+            updated_at: row.updated_at.into(),
+            created_at: row.created_at.into(),
+            folder_path: row.folder_path.into(),
+            event_start: row.event_start.into(),
+            event_end: row.event_end.into(),
+        })
+        .collect();
+    Ok((items, has_more))
+}
+
 impl RuntimeHandle {
     pub fn library(
         &self,
@@ -167,64 +259,49 @@ impl RuntimeHandle {
         cancel: CancellationToken,
     ) -> Result<Reply<LibraryPage>> {
         self.read(cancel, move |services| async move {
-            let limit = query.limit.clamp(1, 200);
+            if query.limit > 200 {
+                let (items, has_more) = read_rows(
+                    &services,
+                    &query.search,
+                    query.oldest,
+                    query.offset,
+                    query.limit,
+                )
+                .await?;
+                return Ok(LibraryPage {
+                    items: items.into(),
+                    offset: query.offset,
+                    has_more,
+                });
+            }
+            let limit = query.limit.max(1);
             let offset = query.offset / PAGE_STRIDE * PAGE_STRIDE;
+            let key: PageKey = (query.search.clone(), query.oldest);
             let mut cache = services.library.lock().await;
             let version = cache.version().await?;
             if version != cache.version {
                 cache.clear(version);
             }
-            if let Some(index) = cache.pages.iter().position(|(search, page)| {
-                search.as_ref() == query.search.as_ref() && page.offset == offset
-            }) {
+            if let Some(index) = cache
+                .pages
+                .iter()
+                .position(|(cached, page)| *cached == key && page.offset == offset)
+            {
                 let entry = cache.pages.remove(index).expect("cache index exists");
                 let result = page_slice(&entry.1, query.offset, limit);
                 cache.pages.push_front(entry);
                 return Ok(result);
             }
-            let mut rows = anlg_db_app::list_sessions(
-                services.db.pool(),
-                ListSessions {
-                    query: Some(&query.search),
-                    series_id: None,
-                    folder_path: None,
-                    limit: CACHE_ROWS + 1,
-                    offset,
-                },
-            )
-            .await
-            .map_err(failure)?;
-            let has_more = rows.len() > CACHE_ROWS as usize;
-            rows.truncate(CACHE_ROWS as usize);
-            let ids = rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>();
-            let mut tags = services.session_tag_lines(&ids).await?;
-            let mut folders: HashMap<String, String> = sqlx::query_as::<_, (String, String)>(
-                "SELECT id, folder_path FROM sessions WHERE id IN (SELECT value FROM json_each(?)) AND deleted_at IS NULL",
-            )
-            .bind(json!(ids).to_string())
-            .fetch_all(services.db.pool())
-            .await
-            .map_err(failure)?
-            .into_iter()
-            .collect();
+            let (items, has_more) =
+                read_rows(&services, &query.search, query.oldest, offset, CACHE_ROWS).await?;
             let page = LibraryPage {
-                items: rows
-                    .into_iter()
-                    .map(|row| SessionSummary {
-                        folder_path: folders.remove(&row.id).unwrap_or_default().into(),
-                        tag_line: tags.remove(&row.id).unwrap_or_default(),
-                        id: row.id.into(),
-                        title: row.title.into(),
-                        updated_at: row.updated_at.into(),
-                        created_at: row.created_at.into(),
-                    })
-                    .collect(),
+                items: items.into(),
                 offset,
                 has_more,
             };
             let result = page_slice(&page, query.offset, limit);
             if cache.version().await? == version {
-                let bytes = query.search.len()
+                let bytes = key.0.len()
                     + page
                         .items
                         .iter()
@@ -235,6 +312,8 @@ impl RuntimeHandle {
                                 + row.created_at.len()
                                 + row.folder_path.len()
                                 + row.tag_line.len()
+                                + row.event_start.len()
+                                + row.event_end.len()
                                 + std::mem::size_of::<SessionSummary>()
                         })
                         .sum::<usize>();
@@ -243,7 +322,7 @@ impl RuntimeHandle {
                 }
                 if bytes <= CACHE_BYTES {
                     cache.bytes += bytes;
-                    cache.pages.push_front((query.search, page));
+                    cache.pages.push_front((key, page));
                 }
             }
             Ok(result)
@@ -348,8 +427,20 @@ async fn load_session(services: &Services, id: SessionId) -> Result<OpenSession>
             body: row.body.into(),
             updated_at: row.updated_at.into(),
         });
+    let (event_start, event_end) =
+        sqlx::query_as::<_, LibraryRow>(sqlx::AssertSqlSafe(library_sql("id = ?1", false)))
+            .bind(id.0.as_ref())
+            .bind(1_i64)
+            .bind(0_i64)
+            .fetch_optional(services.db.pool())
+            .await
+            .map_err(failure)?
+            .map(|row| (row.event_start, row.event_end))
+            .unwrap_or_default();
     Ok(OpenSession {
         summary: SessionSummary {
+            event_start: event_start.into(),
+            event_end: event_end.into(),
             tag_line: services
                 .session_tag_lines(&[&id.0])
                 .await?
