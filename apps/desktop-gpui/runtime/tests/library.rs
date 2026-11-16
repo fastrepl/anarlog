@@ -312,6 +312,59 @@ async fn native_notes_share_the_shipping_editors_document() {
 }
 
 #[tokio::test]
+async fn markdown_notes_save_edits_as_prosemirror_json() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile = Profile {
+        database: directory.path().join("markdown.sqlite"),
+    };
+    let runtime = start(&profile).await;
+    let session = runtime
+        .create_note("Imported".into())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let id = session.summary.id.clone();
+    runtime
+        .submit(move |services| async move {
+            services
+                .executor
+                .execute(
+                    "UPDATE session_documents SET body_format = 'markdown', body = '## Agenda' WHERE session_id = ?".into(),
+                    vec![json!(id)],
+                )
+                .await
+                .map_err(|e| ServiceError::Failed(e.to_string().into()))
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    let base = runtime
+        .open_session(session.summary.id.clone(), CancellationToken::new())
+        .unwrap()
+        .receive()
+        .await
+        .unwrap()
+        .note
+        .unwrap();
+    assert_eq!(base.body_format.as_ref(), "markdown");
+    let body: Arc<str> = r#"{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Agenda!"}]}]}"#.into();
+    let saved = runtime
+        .save_document(SaveDocument {
+            base,
+            body: body.clone(),
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(saved.body_format.as_ref(), "prosemirror_json");
+    assert_eq!(saved.body, body);
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn library_cache_observes_other_connections_and_rollbacks() {
     let directory = tempfile::tempdir().unwrap();
     let profile = Profile {

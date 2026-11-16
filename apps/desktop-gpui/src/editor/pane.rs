@@ -125,13 +125,21 @@ impl EditorPane {
         let runtime = context.runtime.clone();
         let snapshot = init.document.clone();
         let load = cx.background_executor().spawn(async move {
-            if snapshot.body_format.as_ref() != "prosemirror_json" {
-                return Err(format!(
-                    "Unsupported stored format: {}. Original bytes retained read-only.",
-                    snapshot.body_format
-                ));
-            }
-            let document = Document::parse(snapshot.body.clone())?;
+            let document = match snapshot.body_format.as_ref() {
+                "prosemirror_json" => Document::parse(snapshot.body.clone())?,
+                // Shipping decodes imported Markdown for display; the first edit saves
+                // ProseMirror JSON in its place, as shipping does.
+                "markdown" => Document::parse(
+                    anlg_tiptap::md_to_tiptap_json(&snapshot.body)?
+                        .to_string()
+                        .into(),
+                )?,
+                format => {
+                    return Err(format!(
+                        "Unsupported stored format: {format}. Original bytes retained read-only."
+                    ));
+                }
+            };
             let (journal, events) =
                 SaveJournal::start(runtime, snapshot).map_err(|error| error.to_string())?;
             Ok((document, journal, events))

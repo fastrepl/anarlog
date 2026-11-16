@@ -309,7 +309,8 @@ impl RuntimeHandle {
             ));
         }
         self.submit(move |services| async move {
-            if input.base.body_format.as_ref() != "prosemirror_json" {
+            // Shipping decodes Markdown notes for editing and stores the edit as ProseMirror JSON.
+            if !matches!(input.base.body_format.as_ref(), "prosemirror_json" | "markdown") {
                 return Err(ServiceError::Unsupported("Document format is read-only.".into()));
             }
             let body: serde_json::Value = serde_json::from_str(&input.body).map_err(failure)?;
@@ -317,7 +318,7 @@ impl RuntimeHandle {
                 return Err(ServiceError::Unsupported("Expected a ProseMirror doc root.".into()));
             }
             let row = services.executor.execute(
-                "UPDATE session_documents SET body = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND session_id = ? AND body = ? AND body_format = ? AND updated_at = ? AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM sessions WHERE id = session_documents.session_id AND deleted_at IS NULL AND locked = 0) RETURNING id, session_id, body_format, body, updated_at".into(),
+                "UPDATE session_documents SET body = ?, body_format = 'prosemirror_json', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND session_id = ? AND body = ? AND body_format = ? AND updated_at = ? AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM sessions WHERE id = session_documents.session_id AND deleted_at IS NULL AND locked = 0) RETURNING id, session_id, body_format, body, updated_at".into(),
                 vec![json!(input.body), json!(input.base.id), json!(input.base.session_id), json!(input.base.body), json!(input.base.body_format), json!(input.base.updated_at)],
             ).await.map_err(failure)?.into_iter().next().ok_or(ServiceError::Conflict)?;
             serde_json::from_value(row).map_err(failure)
