@@ -16,17 +16,17 @@ invent historical notes or publication evidence.
 Only after the exact build is available to its intended audience, create or
 update the adjacent `<version>.json` record. An absent record keeps the notes
 out of deployable website builds, including direct URLs and browser bundles.
-A build, upload, or submission success is not availability. Verify TestFlight
-processing and intended tester-group access, or the selected Play track's
-rollout. Public App Store availability requires approval and release.
+A build, upload, or submission success is not availability. Mobile releases
+ship publicly: verify App Store approval and release, or the Play production
+rollout.
 
 The record contains `version`, the full 40-character candidate `sourceSha`,
 `channel` (`beta` or `stable`), and a nonempty `availability` array. Each item
 contains:
 
 - `platform`: `ios` or `android`, at most one entry per platform.
-- `destination`: `testflight` for iOS beta; `play-internal` or `play-beta` for
-  Android beta; `app-store` or `play-production` for stable.
+- `destination`: `app-store` or `play-production` for stable. `testflight`,
+  `play-internal`, and `play-beta` remain only for historical beta records.
 - `build`: the exact iOS build number or Android version code, as a string.
 - `publishedAt`: the verified availability time with timezone, in ISO 8601.
 - `evidenceUrl`: an HTTPS link to the exact store/build/rollout evidence.

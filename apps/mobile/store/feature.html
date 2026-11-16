@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .frame {
+    width: 1024px; height: 500px; overflow: hidden; position: relative;
+    background: linear-gradient(to bottom, #F7E7B0 0%, #FFE08C 100%);
+    display: flex; align-items: center; padding: 0 88px; gap: 56px;
+  }
+  .icon { width: 216px; height: 216px; border-radius: 48px; box-shadow: 0 24px 48px rgba(63, 50, 32, 0.22); flex: none; }
+  .wordmark { height: 44px; filter: invert(17%) sepia(25%) saturate(800%) hue-rotate(5deg) brightness(70%); }
+  .headline { margin-top: 28px; font-size: 52px; line-height: 1.05; font-weight: 800; letter-spacing: -0.02em; color: #3F3220; }
+  .sub { margin-top: 16px; font-size: 24px; font-weight: 500; color: #6B5A3A; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <img class="icon" src="../assets/images/icon.png" alt="">
+    <div>
+      <img class="wordmark" src="../assets/images/anarlog-wordmark.png" alt="Anarlog">
+      <div class="headline">Private AI<br>meeting notes</div>
+      <div class="sub">Local-first. Open source. Yours.</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -92,40 +92,28 @@ AAB, not a simulator build or development APK. Inspect packaged identity,
 CloudSync inclusion, and signing metadata before submission. Never select
 `--latest` when concurrent builds can select a different candidate.
 
-### TestFlight and Google Play internal testing
+### Store submission and public release
 
-Use the explicit completed build IDs:
+Mobile releases go straight to the public App Store and Google Play production
+track; there is no TestFlight or Play testing-track lane. Submit the explicit
+completed build IDs:
 
 ```bash
 APP_VARIANT=stable eas submit --platform ios --profile stable --id <ios-build-id> --non-interactive --no-auto-testflight-setup --wait
 APP_VARIANT=stable eas submit --platform android --profile stable --id <android-build-id> --non-interactive --wait
 ```
 
-For Google Play internal testing, require the selected submission profile to
-specify `android.track: internal`. A `completed` release makes the build
-available on that track; `draft` uploads it without completing rollout. Do not
-silently switch to `production`. An EAS `distribution: internal` build is a
-separate sideloading mechanism and is not Play internal testing.
+The `stable` submit profile uploads Android to the `production` track with
+`releaseStatus: completed` (full rollout once Google approves). Use a staged
+rollout fraction only when requested. Keep `--no-auto-testflight-setup`: the
+default creates a TestFlight group and invites every App Store Connect admin.
 
-Follow the returned submission URLs to terminal status. For iOS, verify Apple
-processing completes and the exact version/build appears in TestFlight; check
-availability to the intended existing tester group. External TestFlight testing
-can require Beta App Review. For Android, verify the exact version code on the
-internal track and the release status. Report missing credentials, app setup,
-store processing, or tester-group access as concrete pending steps.
-
-Current EAS Submit enables automatic TestFlight setup by default, which can
-create a group and invite every App Store Connect admin. Keep
-`--no-auto-testflight-setup` unless those invitations were explicitly requested.
-An upload request alone does not authorize inviting additional testers.
-
-### Public App Store and Google Play releases
-
-Run only when public distribution was requested. EAS iOS submission uploads to
-App Store Connect/TestFlight; public distribution additionally requires selecting
-the build for an App Store version, completing metadata and review requirements,
-submitting for review, and verifying the approved release becomes available.
-Google Play public distribution requires an explicitly selected production
-profile or promotion of the verified internal build, with the requested rollout
-fraction and release status. Keep store review and public availability distinct
-from a successful upload. Never accept new legal agreements on the user's behalf.
+EAS iOS submission only uploads to App Store Connect. After Apple processing
+completes, select the exact build for the App Store version, complete metadata
+and review requirements, submit for review with automatic release after
+approval unless asked otherwise, and verify the release becomes available.
+For Android, follow the submission to Play review and verify the exact version
+code is live on production. Keep upload, review, and public availability
+distinct, and report missing credentials, app setup, store processing, or review
+status as concrete pending steps. Never accept new legal agreements on the
+user's behalf.
