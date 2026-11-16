@@ -18,7 +18,8 @@ export type ReplicaCredentialErrorCode =
   | "invalid_response"
   | "not_entitled"
   | "reauth_required"
-  | "unavailable";
+  | "unavailable"
+  | "upgrade_required";
 
 export class ReplicaCredentialError extends Error {
   readonly code: ReplicaCredentialErrorCode;
@@ -32,12 +33,18 @@ export class ReplicaCredentialError extends Error {
         not_entitled: "Anarlog Pro is required for cloud sync.",
         reauth_required: "Sign in again to continue syncing.",
         unavailable: "Cloud sync is temporarily unavailable.",
+        upgrade_required: "Update Anarlog to continue syncing.",
       }[code],
     );
     this.name = "ReplicaCredentialError";
     this.code = code;
   }
 }
+
+// Same capability desktop sends: this build keeps unsent edits in the
+// accepted-state outbox and bundles the Apache-licensed sqlite-sync. The API
+// refuses replica credentials without it once SQLite Cloud is retired.
+const CLOUDSYNC_TRANSPORTS = "replica, accepted_replica";
 
 const keyIdPattern = /^[A-Za-z0-9_-]{22}$/;
 const memberPublicKeyPattern = /^[A-Za-z0-9_-]{43}$/;
@@ -103,6 +110,7 @@ export async function requestReplicaCredentials({
     Authorization: `Bearer ${accessToken}`,
     "X-Anarlog-E2EE-Key-Id": identity.keyId,
     "X-Anarlog-E2EE-Member-Public-Key": identity.memberPublicKey,
+    "X-Anarlog-Cloudsync-Transports": CLOUDSYNC_TRANSPORTS,
   };
   if (device?.fingerprint) {
     headers["X-Device-Fingerprint"] = device.fingerprint;
@@ -139,6 +147,9 @@ export async function requestReplicaCredentials({
     }
     if (response.status === 409) {
       throw new ReplicaCredentialError("identity_mismatch");
+    }
+    if (response.status === 426) {
+      throw new ReplicaCredentialError("upgrade_required");
     }
     throw new ReplicaCredentialError("unavailable");
   }

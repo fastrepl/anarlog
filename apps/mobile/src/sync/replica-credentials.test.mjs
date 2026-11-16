@@ -52,6 +52,29 @@ test("requests validated replica credentials with the E2EE identity", async () =
   );
   assert.equal(headers.get("x-device-fingerprint"), "device-1234");
   assert.equal(headers.get("x-anarlog-device-name"), "John's iPhone");
+  assert.equal(
+    headers.get("x-anarlog-cloudsync-transports"),
+    "replica, accepted_replica",
+  );
+});
+
+test("asks for an update when the API refuses an outdated client", async () => {
+  await assert.rejects(
+    requestReplicaCredentials({
+      apiUrl: "https://api.anarlog.test",
+      accessToken: "access-token",
+      accountUserId: "user-123",
+      identity,
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({ error: { code: "cloudsync_upgrade_required" } }),
+          { status: 426, headers: { "Content-Type": "application/json" } },
+        ),
+    }),
+    (error) =>
+      error instanceof ReplicaCredentialError &&
+      error.code === "upgrade_required",
+  );
 });
 
 test("rejects credentials that do not match the signed-in identity", async () => {
