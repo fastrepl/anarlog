@@ -10,14 +10,17 @@ use futures::{
     future::{Either, select},
 };
 use gpui::{
-    Animation, AnimationExt, App, Context, EventEmitter, FontWeight, Hsla, Render, ScrollHandle,
-    SharedString, Transformation, Window, anchored, canvas, deferred, div, percentage, point,
-    prelude::*, px, rgb, svg,
+    Animation, AnimationExt, App, Context, Entity, EventEmitter, FontWeight, Hsla, Render,
+    ScrollHandle, SharedString, Subscription, Transformation, Window, anchored, canvas, deferred,
+    div, percentage, point, prelude::*, px, rgb, svg,
 };
 use serde_json::{Value, json};
 
 use super::mutations::{failure, statement, transaction};
-use crate::ui::theme::{Theme, monospace_font, theme};
+use crate::ui::{
+    input::{InputEvent, TextInput},
+    theme::{Theme, monospace_font, theme},
+};
 
 const COMPACT_PAST_DAYS: u64 = 42;
 const COMPACT_FUTURE_DAYS: u64 = 42;
@@ -176,6 +179,8 @@ pub struct CalendarItem {
     pub meeting_link: Arc<str>,
     pub description: Arc<str>,
     pub session: Option<SessionId>,
+    /// Folder of the note itself, or of the note linked to the event.
+    pub folder: Arc<str>,
 }
 
 impl CalendarItem {
@@ -248,7 +253,8 @@ const ITEM_QUERY: &str = "SELECT 0 AS note, e.id, substr(e.title,1,4096) AS titl
         e.ended_at AS end, e.is_all_day AS all_day, COALESCE(c.color,'') AS color,
         substr(e.location,1,4096) AS location, substr(e.meeting_link,1,4096) AS meeting_link,
         substr(e.description,1,16384) AS description,
-        (SELECT s.id FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1) AS session_id
+        (SELECT s.id FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1) AS session_id,
+        COALESCE((SELECT s.folder_path FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1),'') AS folder
     FROM events e LEFT JOIN calendars c ON c.id = e.calendar_id AND c.deleted_at IS NULL
     WHERE e.deleted_at IS NULL AND e.started_at >= ?1 AND e.started_at < ?2
         AND NOT EXISTS(
@@ -258,7 +264,7 @@ const ITEM_QUERY: &str = "SELECT 0 AS note, e.id, substr(e.title,1,4096) AS titl
                 OR (a.id = 'ignored_recurring_series' AND json_extract(ignored.value,'$.id') = e.recurrence_series_id)
         )
     UNION ALL
-    SELECT 1, s.id, substr(s.title,1,4096), s.created_at, '', 0, '', '', '', '', s.id
+    SELECT 1, s.id, substr(s.title,1,4096), s.created_at, '', 0, '', '', '', '', s.id, s.folder_path
     FROM sessions s
     WHERE s.deleted_at IS NULL AND s.title <> '' AND s.event_json = ''
         AND NOT EXISTS(SELECT 1 FROM events e WHERE e.id = s.event_id AND e.deleted_at IS NULL)
@@ -301,6 +307,7 @@ pub fn load_calendar(
                 meeting_link: field(row, "meeting_link"),
                 description: field(row, "description"),
                 session: row["session_id"].as_str().map(|id| SessionId(id.into())),
+                folder: field(row, "folder"),
             })
             .collect();
         Ok(CalendarPage {
@@ -403,18 +410,82 @@ pub struct CalendarView {
     popover: Option<Popover>,
     dismissed: Option<Popover>,
     opening: bool,
+    /// The event popover is showing its folder list instead of the event details.
+    folder_view: bool,
+    folders: Option<Arc<FolderList>>,
+    folder_search: Entity<TextInput>,
+    filing: bool,
     refreshing: Generation,
     showing_refresh: bool,
     message: String,
     pub(super) viewer: Option<Arc<str>>,
+    _search: Subscription,
 }
 
 impl EventEmitter<CalendarOpen> for CalendarView {}
 
+/// Requests the folders route ("See all folders").
+pub struct CalendarFolders;
+impl EventEmitter<CalendarFolders> for CalendarView {}
+
+/// Folder paths the shipping picker offers: explicit folders plus folders that only exist
+/// on notes or attachments. `known` marks rows in `folders`.
+const FOLDER_QUERY: &str = "SELECT path, 1 AS known FROM folders WHERE deleted_at IS NULL AND path <> ''
+    UNION SELECT folder_path, 0 FROM sessions WHERE deleted_at IS NULL AND folder_path <> ''
+    UNION SELECT folder_path, 0 FROM folder_attachments WHERE deleted_at IS NULL AND folder_path <> ''
+    LIMIT 2000";
+
+#[derive(Debug, Default, PartialEq)]
+pub struct FolderList {
+    pub paths: Vec<Arc<str>>,
+    known: std::collections::HashSet<Arc<str>>,
+}
+
+impl FolderList {
+    /// Normalizes paths, adds their ancestors and sorts them, like the shipping picker.
+    pub fn new(rows: impl IntoIterator<Item = (String, bool)>) -> Self {
+        let mut paths = std::collections::BTreeSet::<Arc<str>>::new();
+        let mut known = std::collections::HashSet::new();
+        for (path, explicit) in rows {
+            let Ok(path) = anlg_fs_sync_core::normalize_folder_path(&path) else {
+                continue;
+            };
+            if path.is_empty() {
+                continue;
+            }
+            if explicit {
+                known.insert(Arc::from(path.as_str()));
+            }
+            let mut prefix = String::new();
+            for segment in path.split('/') {
+                if !prefix.is_empty() {
+                    prefix.push('/');
+                }
+                prefix.push_str(segment);
+                paths.insert(prefix.as_str().into());
+            }
+        }
+        Self {
+            paths: paths.into_iter().collect(),
+            known,
+        }
+    }
+
+    fn known(&self, path: &str) -> bool {
+        self.known.contains(path)
+    }
+}
+
+fn folder_name(path: &str) -> &str {
+    path.rsplit('/').next().unwrap_or(path)
+}
+
 impl CalendarView {
-    pub fn new(runtime: RuntimeHandle) -> Self {
+    pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
         let clock = Clock::default();
         let today = clock.today();
+        let folder_search = cx.new(|cx| TextInput::new("Search or create folder", cx).inline());
+        let search = cx.subscribe(&folder_search, |_, _, _: &InputEvent, cx| cx.notify());
         Self {
             runtime,
             clock,
@@ -436,10 +507,15 @@ impl CalendarView {
             popover: None,
             dismissed: None,
             opening: false,
+            folder_view: false,
+            folders: None,
+            folder_search,
+            filing: false,
             refreshing: Generation::default(),
             showing_refresh: false,
             message: String::new(),
             viewer: None,
+            _search: search,
         }
     }
 
@@ -686,12 +762,113 @@ impl CalendarView {
             return;
         }
         self.popover = Some(popover);
+        self.folder_view = false;
         cx.notify();
     }
 
     fn dismiss_popover(&mut self, cx: &mut Context<Self>) {
         self.dismissed = self.popover.take();
+        self.folder_view = false;
         cx.notify();
+    }
+
+    fn open_folders(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.filing {
+            return;
+        }
+        self.folder_view = true;
+        self.folder_search
+            .update(cx, |input, cx| input.set_text(String::new(), cx));
+        cx.focus_view(&self.folder_search, window);
+        let reply = self
+            .runtime
+            .read(CancellationToken::new(), |services| async move {
+                let rows = services
+                    .executor
+                    .execute(FOLDER_QUERY.into(), vec![])
+                    .await
+                    .map_err(failure)?;
+                Ok(Arc::new(FolderList::new(rows.iter().map(|row| {
+                    (field(row, "path").to_string(), row["known"] == 1)
+                }))))
+            });
+        cx.spawn(async move |this, cx| {
+            let result = async { reply?.receive().await }.await;
+            let _ = this.update(cx, |this, cx| {
+                match result {
+                    Ok(folders) => this.folders = Some(folders),
+                    Err(error) => this.message = format!("Could not load folders: {error}"),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Files the event's note (creating it first when needed) like the shipping picker:
+    /// choosing the current folder takes the note out of it.
+    fn file_item(
+        &mut self,
+        item: &CalendarItem,
+        path: Arc<str>,
+        create: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.folder_view = false;
+        let folder: Arc<str> = if path == item.folder { "".into() } else { path };
+        if self.filing || (folder.is_empty() && item.session.is_none()) {
+            cx.notify();
+            return;
+        }
+        self.filing = true;
+        cx.notify();
+        let runtime = self.runtime.clone();
+        let session = item.session.clone();
+        let created = session
+            .is_none()
+            .then(|| open_event(&runtime, item.id.clone(), self.viewer.clone()));
+        let new_folder = (create && !folder.is_empty()).then(|| {
+            let mut draft = super::mutations::blank(super::ports::Catalog::Folders);
+            if let Some(field) = draft.fields.iter_mut().find(|field| field.key == "path") {
+                field.value = folder.to_string();
+            }
+            super::mutations::dispatch(
+                &runtime,
+                super::mutations::Command::Save(draft),
+                self.viewer.clone(),
+            )
+        });
+        cx.spawn(async move |this, cx| {
+            let result = async {
+                if let Some(reply) = new_folder {
+                    reply?.receive().await?;
+                }
+                let id = match (session, created) {
+                    (Some(id), _) => id,
+                    (None, Some(reply)) => reply?.receive().await?,
+                    (None, None) => return Err(ServiceError::Conflict),
+                };
+                super::notes::dispatch(
+                    &runtime,
+                    super::notes::NoteCommand::Move {
+                        ids: vec![id].into(),
+                        folder,
+                    },
+                )?
+                .receive()
+                .await
+            }
+            .await;
+            let _ = this.update(cx, |this, cx| {
+                this.filing = false;
+                if let Err(error) = result {
+                    this.message = format!("Could not file the event note: {error}");
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn open_item(&mut self, item: &CalendarItem, cx: &mut Context<Self>) {
@@ -888,7 +1065,9 @@ impl CalendarView {
             let item = item.clone();
             cx.listener(move |this, _, _, cx| this.open_item(&item, cx))
         };
-        let content = if item.note {
+        let content = if self.folder_view && !item.note {
+            self.folder_list(item, colors, cx)
+        } else if item.note {
             let created =
                 parse_instant(&item.start).map(|at| self.clock.date_time(self.clock.local(at)));
             div()
@@ -1022,6 +1201,7 @@ impl CalendarView {
                             .child(SharedString::from(item.description.clone())),
                     )
                 })
+                .child(self.folder_button(item, colors, cx))
                 .child(
                     primary_button("calendar-open-note", "Open note", self.opening, colors)
                         .on_click(open),
@@ -1036,6 +1216,292 @@ impl CalendarView {
                 colors,
                 content,
             ))
+    }
+
+    fn folder_button(
+        &self,
+        item: &CalendarItem,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let folder = icon(
+            "workspace/Folder01Icon.svg",
+            14.,
+            colors.secondary_foreground,
+        );
+        div()
+            .id("calendar-add-folder")
+            .w_full()
+            .min_h(px(32.))
+            .px_2()
+            .flex()
+            .items_center()
+            .gap_2()
+            .rounded(px(8.))
+            .bg(colors.secondary)
+            .text_color(colors.secondary_foreground)
+            .text_xs()
+            .font_weight(FontWeight::MEDIUM)
+            .cursor_pointer()
+            .hover(move |style| style.bg(colors.secondary.opacity(0.8)))
+            .child(if self.filing {
+                folder
+                    .with_animation(
+                        "calendar-filing",
+                        Animation::new(Duration::from_secs(1)).repeat(),
+                        |icon, delta| {
+                            icon.with_transformation(Transformation::rotate(percentage(delta)))
+                        },
+                    )
+                    .into_any_element()
+            } else {
+                folder.into_any_element()
+            })
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .child(if item.folder.is_empty() {
+                        SharedString::from("Add to folder")
+                    } else {
+                        SharedString::from(folder_name(&item.folder).to_owned())
+                    }),
+            )
+            .child(icon(
+                "ArrowDown01Icon.svg",
+                14.,
+                colors.secondary_foreground,
+            ))
+            .on_click(cx.listener(|this, _, window, cx| this.open_folders(window, cx)))
+    }
+
+    fn folder_list(&self, item: &CalendarItem, colors: Theme, cx: &mut Context<Self>) -> gpui::Div {
+        let typed = self.folder_search.read(cx).buffer.text.trim().to_owned();
+        let query = typed.to_lowercase();
+        let name = anlg_fs_sync_core::normalize_folder_path(&typed).ok();
+        let list = self.folders.clone().unwrap_or_default();
+        let folders = list
+            .paths
+            .iter()
+            .filter(|path| path.to_lowercase().contains(&query))
+            .cloned()
+            .collect::<Vec<_>>();
+        // Like the shipping command list, the current folder starts highlighted, else the first.
+        let highlighted = folders
+            .iter()
+            .find(|path| **path == item.folder)
+            .or(folders.first())
+            .cloned();
+        let creatable = name
+            .as_deref()
+            .filter(|name| !name.is_empty())
+            .filter(|name| !list.paths.iter().any(|path| &**path == *name))
+            .map(Arc::<str>::from);
+        let empty = if query.is_empty() {
+            "No folders yet."
+        } else if name.is_none() {
+            "Enter a valid folder name."
+        } else {
+            "No folders found."
+        };
+        div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .p_2()
+            .child(
+                div()
+                    .id("calendar-folder-back")
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .px_2()
+                    .py_1()
+                    .text_xs()
+                    .line_height(px(16.))
+                    .text_color(colors.muted_foreground)
+                    .cursor_pointer()
+                    .hover(move |style| style.text_color(colors.foreground))
+                    .child(icon(
+                        "workspace/ArrowLeft01Icon.svg",
+                        14.,
+                        colors.muted_foreground,
+                    ))
+                    .child("Back")
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.folder_view = false;
+                        cx.notify();
+                    })),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .child(
+                        div()
+                            .rounded(px(20.))
+                            .border_1()
+                            .border_color(colors.app_floating_border)
+                            .bg(colors.app_floating_panel)
+                            .overflow_hidden()
+                            .child(
+                                div()
+                                    .h(px(32.))
+                                    .px(px(10.))
+                                    .flex()
+                                    .items_center()
+                                    .border_b_1()
+                                    .border_color(colors.border)
+                                    .child(
+                                        icon("Search01Icon.svg", 16., colors.foreground)
+                                            .mr_2()
+                                            .opacity(0.5),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .text_sm()
+                                            .child(self.folder_search.clone()),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .id("calendar-folder-list")
+                                    .max_h(px(300.))
+                                    .overflow_y_scroll()
+                                    .p_2()
+                                    .when(
+                                        self.folders.is_some()
+                                            && folders.is_empty()
+                                            && creatable.is_none(),
+                                        |list| {
+                                            list.child(
+                                                div()
+                                                    .px(px(10.))
+                                                    .py_2()
+                                                    .text_sm()
+                                                    .text_color(colors.muted_foreground)
+                                                    .child(empty),
+                                            )
+                                        },
+                                    )
+                                    .children(folders.into_iter().map(|path| {
+                                        let current = path == item.folder;
+                                        let selected = highlighted.as_ref() == Some(&path);
+                                        let target = item.clone();
+                                        let chosen = path.clone();
+                                        let create = !list.known(&path);
+                                        div()
+                                            .id(SharedString::from(format!(
+                                                "calendar-folder:{path}"
+                                            )))
+                                            .flex()
+                                            .items_center()
+                                            .gap_2()
+                                            .px_2()
+                                            .py(px(6.))
+                                            .rounded(px(14.))
+                                            .text_sm()
+                                            .line_height(px(20.))
+                                            .text_color(colors.foreground)
+                                            .cursor_pointer()
+                                            .when(selected, |row| row.bg(colors.accent))
+                                            .hover(move |style| style.bg(colors.accent))
+                                            .child(
+                                                icon(
+                                                    "workspace/Folder01Icon.svg",
+                                                    16.,
+                                                    colors.foreground,
+                                                )
+                                                .opacity(0.7),
+                                            )
+                                            .child(
+                                                div()
+                                                    .flex_1()
+                                                    .min_w_0()
+                                                    .truncate()
+                                                    .child(SharedString::from(path.clone())),
+                                            )
+                                            .when(current, |row| {
+                                                row.child(icon(
+                                                    "workspace/CheckIcon.svg",
+                                                    16.,
+                                                    colors.foreground,
+                                                ))
+                                            })
+                                            .on_click(cx.listener(move |this, _, _, cx| {
+                                                this.file_item(&target, chosen.clone(), create, cx)
+                                            }))
+                                    }))
+                                    .when_some(creatable, |list, name| {
+                                        let target = item.clone();
+                                        list.child(
+                                            div()
+                                                .id("calendar-folder-create")
+                                                .flex()
+                                                .items_center()
+                                                .gap_2()
+                                                .px_2()
+                                                .py(px(6.))
+                                                .rounded(px(14.))
+                                                .text_sm()
+                                                .line_height(px(20.))
+                                                .text_color(colors.foreground)
+                                                .cursor_pointer()
+                                                .hover(move |style| style.bg(colors.accent))
+                                                .child(icon(
+                                                    "workspace/PlusIcon.svg",
+                                                    16.,
+                                                    colors.foreground,
+                                                ))
+                                                .child(
+                                                    div()
+                                                        .flex_1()
+                                                        .min_w_0()
+                                                        .truncate()
+                                                        .child(format!("Create \"{name}\"")),
+                                                )
+                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                    this.file_item(&target, name.clone(), true, cx)
+                                                })),
+                                        )
+                                    }),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id("calendar-all-folders")
+                            .w_full()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .gap_1()
+                            .px_3()
+                            .py(px(6.))
+                            .text_xs()
+                            .line_height(px(16.))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(colors.muted_foreground)
+                            .cursor_pointer()
+                            .hover(move |style| {
+                                style.bg(colors.accent).text_color(colors.foreground)
+                            })
+                            .child("See all folders")
+                            .child(icon(
+                                "workspace/ArrowRight01Icon.svg",
+                                14.,
+                                colors.muted_foreground,
+                            ))
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.popover = None;
+                                this.folder_view = false;
+                                cx.emit(CalendarFolders);
+                                cx.notify();
+                            })),
+                    ),
+            )
     }
 
     /// Choosing an item here swaps the list for its details, anchored at the same "+N more".
@@ -1522,6 +1988,7 @@ mod tests {
             meeting_link: "".into(),
             description: "".into(),
             session: None,
+            folder: "".into(),
         }
     }
 
@@ -1572,6 +2039,21 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(order, ["holiday", "early", "late", "note"]);
         assert_eq!(&*days[&date("2026-11-17")][0].id, "next-day");
+    }
+
+    #[test]
+    fn folder_picker_offers_implicit_folders_and_their_parents() {
+        let list = FolderList::new([
+            ("Clients/Acme".to_owned(), false),
+            ("Research".to_owned(), true),
+            ("/Research/".to_owned(), false),
+        ]);
+        assert_eq!(
+            list.paths.iter().map(|path| &**path).collect::<Vec<_>>(),
+            ["Clients", "Clients/Acme", "Research"]
+        );
+        assert!(list.known("Research"));
+        assert!(!list.known("Clients/Acme"));
     }
 
     #[test]

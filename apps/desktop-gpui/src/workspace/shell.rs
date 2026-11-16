@@ -16,7 +16,7 @@ use gpui::{
 };
 
 use super::{
-    calendar::{CalendarOpen, CalendarView, Clock},
+    calendar::{CalendarFolders, CalendarOpen, CalendarView, Clock},
     calendar_sidebar::{CalendarSidebar, CalendarSidebarEvent},
     catalog::CatalogView,
     library::{LibraryView, OpenNote},
@@ -205,7 +205,7 @@ impl WorkspaceView {
         let library = cx.new(LibraryView::new);
         let note = cx.new(|cx| NoteView::new(context.runtime.clone(), window, cx));
         let picker = cx.new(|cx| NotePicker::new(context.runtime.clone(), cx));
-        let calendar = cx.new(|_| CalendarView::new(context.runtime.clone()));
+        let calendar = cx.new(|cx| CalendarView::new(context.runtime.clone(), cx));
         let calendar_sidebar = cx.new(|_| CalendarSidebar::new(context.runtime.clone()));
         let focus = cx.focus_handle();
         focus.focus(window, cx);
@@ -287,6 +287,10 @@ impl WorkspaceView {
         let calendar_subscription = cx.subscribe(&calendar, |this, _, event: &CalendarOpen, cx| {
             this.open_session(event.0.clone(), cx);
         });
+        let calendar_folders_subscription = cx
+            .subscribe(&calendar, |this, _, _: &CalendarFolders, cx| {
+                this.open_route(Route::Folders, true, cx)
+            });
         let calendar_sidebar_subscription = cx.subscribe(
             &calendar_sidebar,
             |this, _, event: &CalendarSidebarEvent, cx| match event {
@@ -364,6 +368,7 @@ impl WorkspaceView {
                 picker_subscription,
                 calendar_subscription,
                 calendar_sidebar_subscription,
+                calendar_folders_subscription,
             ],
         }
     }
