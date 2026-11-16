@@ -141,6 +141,25 @@ timestamp, but cannot prove that a caller retained every unknown node. The edito
 lane must preserve unknown data and refuse unsafe transformations. CAS failures
 must retain the dirty draft and expose reload/merge recovery.
 
+## Visual parity
+
+Both apps render the same seeded library without opening a window:
+
+```sh
+# Native screens (and a copy of the seeded library) into /tmp/screens
+ANLG_SCREENS_DIR=/tmp/screens cargo test --test screens
+# Shipping frontend with Tauri IPC mocked over a disposable copy of that library
+cp /tmp/screens/library.sqlite /tmp/shipping.sqlite
+PARITY_DB=/tmp/shipping.sqlite node parity/serve.mjs &
+node parity/shoot.mjs http://127.0.0.1:1499/app/main /tmp/screens/shipping-main.png
+node parity/shoot.mjs http://127.0.0.1:1499/app/main /tmp/screens/shipping-note.png \
+  --click "Weekly product sync"
+```
+
+`tests/screens/*.sql` hold the fictional library, applied in name order. The shipping capture uses
+headless Chromium from the Playwright cache (`CHROME` overrides it) and prints
+console errors plus any IPC command it had no answer for.
+
 ## Module contracts
 
 All modules are registered in `lib.rs` and mounted by `application.rs`.

@@ -84,6 +84,11 @@ impl ApplicationView {
     pub fn native_ready(&self) -> bool {
         self.native.is_some()
     }
+
+    pub fn workspace(&self) -> &Entity<WorkspaceView> {
+        &self.workspace
+    }
+
     pub fn new(
         runtime: RuntimeHandle,
         ready: Reply<()>,
