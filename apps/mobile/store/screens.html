@@ -1,0 +1,290 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #FAFAF9; --ink: #1C1917; --card: #FFFFFF; --primary: #292524;
+    --primary-fg: #FAFAF9; --muted: #78716C; --muted-surface: #F5F5F4;
+    --accent-surface: #F0F0ED; --border: #E7E5E4; --red: #EF4444;
+    --brown: #3F3220;
+  }
+  html, body { background: transparent; }
+  body { font-family: -apple-system, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body.android { font-family: "Roboto", "Google Sans", -apple-system, system-ui, sans-serif; }
+
+  .frame {
+    position: relative; overflow: hidden;
+    width: var(--fw); height: var(--fh);
+    background: linear-gradient(to bottom, #F7E7B0 0%, #FFE08C 100%);
+  }
+  .copy { position: absolute; left: 0; right: 0; top: var(--copy-top); text-align: center; padding: 0 28px; }
+  .headline {
+    font-family: -apple-system, "SF Pro Display", system-ui, sans-serif;
+    font-size: var(--h-size); line-height: 1.08; font-weight: 800; letter-spacing: -0.02em; color: var(--brown);
+  }
+  .sub { margin-top: 10px; font-size: var(--s-size); line-height: 1.3; font-weight: 500; color: #6B5A3A; }
+
+  .device {
+    position: absolute; left: 50%; top: var(--device-top);
+    width: 393px; height: 852px; transform-origin: top center;
+    transform: translateX(-50%) scale(var(--scale));
+    border-radius: 62px; background: #1C1917; padding: 12px;
+    box-shadow: 0 40px 80px rgba(63, 50, 32, 0.28), 0 0 0 2px #3A3532 inset;
+  }
+  .android .device { border-radius: 44px; padding: 10px; }
+  .screen {
+    position: relative; width: 100%; height: 100%; overflow: hidden;
+    border-radius: 50px; background: var(--bg); display: flex; flex-direction: column;
+  }
+  .android .screen { border-radius: 34px; }
+
+  /* Status bars */
+  .status { height: 54px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 34px 0 46px; font-size: 16px; font-weight: 600; color: var(--ink); position: relative; }
+  .island { position: absolute; left: 50%; top: 11px; width: 122px; height: 36px; border-radius: 20px; background: #000; transform: translateX(-50%); }
+  .status .right { display: flex; gap: 6px; align-items: center; }
+  .android .status { height: 40px; padding: 4px 22px 0 26px; font-size: 14px; font-weight: 500; }
+  .android .island { width: 14px; height: 14px; top: 13px; border-radius: 50%; }
+  .home-indicator { position: absolute; bottom: 8px; left: 50%; width: 140px; height: 5px; border-radius: 3px; background: var(--ink); transform: translateX(-50%); }
+  .android .home-indicator { width: 108px; height: 4px; bottom: 7px; }
+
+  /* Shared app chrome (spacing/typography mirror src/constants/theme.ts) */
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 16px; flex: none; }
+  .note-header { padding: 8px 16px; }
+  .icon-btn { width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center; }
+  .icon-btn svg { width: 22px; height: 22px; }
+  .header-actions { display: flex; gap: 4px; }
+  .avatar { width: 40px; height: 40px; border-radius: 20px; background: var(--accent-surface); border: 0.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--ink); }
+  .note-title { flex: 1; text-align: center; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--ink); padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .list { flex: 1; padding: 0 16px; overflow: hidden; }
+  .section-label { font-size: 16px; line-height: 22px; font-weight: 700; color: var(--muted); padding: 0 12px; margin: 16px 0 8px; }
+  .section-label:first-child { margin-top: 0; }
+  .card { min-height: 64px; border: 0.5px solid var(--border); border-radius: 12px; background: var(--card); padding: 8px 12px; margin-bottom: 8px; display: flex; flex-direction: column; justify-content: center; }
+  .card .folder { display: flex; gap: 4px; align-items: center; font-size: 12px; line-height: 16px; color: var(--muted); margin-bottom: 4px; }
+  .card .title { font-size: 15px; line-height: 20px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .subtitle { margin-top: 4px; font-size: 12px; line-height: 16px; color: var(--muted); }
+  .card .tags { margin-top: 4px; font-size: 12px; line-height: 16px; color: var(--muted); }
+
+  .listen-wrap { position: absolute; left: 0; right: 0; bottom: 34px; }
+  .listen-btn { height: 72px; margin: 0 16px 4px; border-radius: 20px; background: var(--primary); display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--primary-fg); font-size: 16px; line-height: 22px; font-weight: 700; }
+  .dot { width: 12px; height: 12px; border-radius: 6px; background: var(--red); }
+
+  .tabs { margin: 12px 16px; height: 32px; background: rgba(118, 118, 128, 0.12); border-radius: 9px; padding: 2px; display: flex; flex: none; }
+  .tabs div { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; color: var(--ink); border-radius: 7px; }
+  .tabs .on { background: #fff; font-weight: 600; box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.04); }
+
+  .body { flex: 1; padding: 12px 16px 0; font-size: 15px; line-height: 22px; color: var(--ink); overflow: hidden; }
+  .body p { margin-bottom: 0; }
+  .summary { flex: 1; padding: 0 16px 16px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+  .md-h { font-size: 16px; line-height: 22px; font-weight: 700; color: var(--ink); margin-top: 8px; }
+  .md-h:first-child { margin-top: 0; }
+  .md-p { font-size: 15px; line-height: 22px; color: var(--ink); }
+  .md-li { display: flex; gap: 8px; font-size: 15px; line-height: 22px; color: var(--ink); }
+  .md-li .m { min-width: 18px; text-align: right; color: var(--muted); }
+  .md-list { display: flex; flex-direction: column; gap: 4px; }
+  .ghost-btn { align-self: flex-start; margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--ink); padding: 8px 12px; border-radius: 8px; background: var(--accent-surface); }
+
+  .transcript { flex: 1; padding: 0 16px 16px; overflow: hidden; }
+  .turn { padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+  .speaker { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); }
+  .turn-text { font-size: 15px; line-height: 22px; color: var(--ink); }
+
+  .dock { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 16px 42px; border-top: 0.5px solid var(--border); background: var(--bg); display: flex; align-items: center; gap: 12px; }
+  .dock .status-text { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sticks { display: flex; gap: 2px; align-items: center; height: 20px; }
+  .sticks i { width: 2px; border-radius: 1px; background: var(--red); display: block; }
+  .stop { min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 999px; background: var(--card); font-size: 15px; font-weight: 600; color: var(--ink); }
+  .stop .sq { width: 12px; height: 12px; border-radius: 2px; background: var(--red); }
+
+  .settings { flex: 1; padding: 4px 16px; overflow: hidden; background: var(--bg); }
+  .group-title { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; padding: 18px 16px 6px; }
+  .group { background: var(--card); border-radius: 12px; overflow: hidden; }
+  .row { display: flex; align-items: center; min-height: 48px; padding: 0 16px; font-size: 16px; color: var(--ink); gap: 8px; }
+  .row + .row { border-top: 0.5px solid var(--border); }
+  .row .label { flex: 1; }
+  .row .value { color: var(--muted); }
+  .row .chev { color: #C4BFBB; font-size: 18px; }
+  .footer { font-size: 13px; line-height: 18px; color: var(--muted); padding: 6px 16px 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const params = new URLSearchParams(location.search);
+const frameIndex = Number(params.get("frame") || 0);
+const platform = params.get("platform") || "ios";
+document.body.classList.add(platform);
+
+const sizes = {
+  ios: { fw: 440, fh: 956, copyTop: 70, h: 38, s: 17, deviceTop: 214, scale: 0.86 },
+  android: { fw: 360, fh: 640, copyTop: 40, h: 28, s: 14, deviceTop: 138, scale: 0.585 },
+};
+
+const ICONS = {
+  ios: {
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="#1C1917" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l-8 8 8 8"/></svg>',
+    more: '<svg viewBox="0 0 24 24" fill="#78716C"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>',
+    newNote: '<svg viewBox="0 0 24 24" fill="none" stroke="#1C1917" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V13"/><path d="M18.4 3.6a2 2 0 0 1 2.8 2.8L12 15.6 8.5 16.5l.9-3.5z"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="#1C1917" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>',
+  },
+  android: {
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="#1C1917" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H5M11 5l-7 7 7 7"/></svg>',
+    more: '<svg viewBox="0 0 24 24" fill="#78716C"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+    newNote: '<svg viewBox="0 0 24 24" fill="none" stroke="#1C1917" stroke-width="2" stroke-linejoin="round"><path d="M12 4H5v15h15v-7"/><path d="M17.5 3.5l3 3L12 15H9v-3z"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="#1C1917" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="10" r="6"/><path d="M15 15l5 5"/></svg>',
+  },
+}[platform];
+
+const folderIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
+
+const statusBar = platform === "ios"
+  ? `<div class="status"><span>9:41</span><div class="island"></div><span class="right">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="#1C1917"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="#1C1917"><path d="M8 2.6c2.3 0 4.4.9 6 2.4l1.2-1.3A10.4 10.4 0 0 0 8 .8 10.4 10.4 0 0 0 .8 3.7L2 5c1.6-1.5 3.7-2.4 6-2.4zm0 3.6c1.3 0 2.5.5 3.4 1.3l1.2-1.3A6.6 6.6 0 0 0 8 4.4c-1.8 0-3.4.7-4.6 1.8l1.2 1.3c.9-.8 2.1-1.3 3.4-1.3zM8 9.6l2-2.1a3 3 0 0 0-4 0z"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.8" fill="none" stroke="#1C1917" opacity="0.4"/><rect x="2" y="2" width="20" height="9" rx="2.5" fill="#1C1917"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="#1C1917" opacity="0.4"/></svg>
+    </span></div>`
+  : `<div class="status"><span>9:41</span><div class="island"></div><span class="right">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="#1C1917"><path d="M12 21L1 8.5A16 16 0 0 1 23 8.5z"/></svg>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="#1C1917"><path d="M2 22h20V2z"/></svg>
+      <svg width="9" height="15" viewBox="0 0 12 20" fill="#1C1917"><rect x="3" y="0" width="6" height="2" rx="1"/><rect x="0" y="2" width="12" height="18" rx="2"/></svg>
+    </span></div>`;
+
+function card({ title, time, folder, tags }) {
+  return `<div class="card">
+    ${folder ? `<div class="folder">${folderIcon}<span>${folder}</span></div>` : ""}
+    <div class="title">${title}</div>
+    <div class="subtitle">${time}</div>
+    ${tags ? `<div class="tags">${tags}</div>` : ""}
+  </div>`;
+}
+
+function noteHeader(title, more = true) {
+  return `<div class="header note-header">
+    <div class="icon-btn">${ICONS.back}</div>
+    <div class="note-title">${title}</div>
+    <div class="icon-btn">${more ? ICONS.more : ""}</div>
+  </div>`;
+}
+
+function tabs(labels, selected) {
+  return `<div class="tabs">${labels.map((l, i) => `<div class="${i === selected ? "on" : ""}">${l}</div>`).join("")}</div>`;
+}
+
+function sticks() {
+  const heights = [8, 14, 20, 11, 17, 9];
+  return `<span class="sticks">${heights.map((h) => `<i style="height:${h}px"></i>`).join("")}</span>`;
+}
+
+const screens = [
+  {
+    headline: "Every meeting,<br>in your pocket",
+    sub: "Notes and recordings, organized by day.",
+    body: () => `
+      <div class="header">
+        <div class="avatar">MK</div>
+        <div class="header-actions"><div class="icon-btn">${ICONS.newNote}</div><div class="icon-btn">${ICONS.search}</div></div>
+      </div>
+      <div class="list">
+        <div class="section-label">Tomorrow</div>
+        ${card({ title: "Q1 roadmap review", time: "in 1 day", folder: "Product" })}
+        <div class="section-label">Today</div>
+        ${card({ title: "Design sync with Mira", time: "in 2 hours" })}
+        ${card({ title: "Weekly product sync", time: "38 mins ago", folder: "Product", tags: "#weekly #planning" })}
+        ${card({ title: "Northwind onboarding call", time: "3 hours ago", folder: "Customers" })}
+        <div class="section-label">Yesterday</div>
+        ${card({ title: "1:1 with Sam", time: "1 day ago" })}
+        ${card({ title: "Hiring debrief: iOS engineer", time: "1 day ago", folder: "Hiring" })}
+      </div>
+      <div class="listen-wrap"><div class="listen-btn"><span class="dot"></span>Start listening</div></div>`,
+  },
+  {
+    headline: "Tap once.<br>Anarlog listens.",
+    sub: "Jot memos while it captures the conversation.",
+    body: () => `
+      ${noteHeader("Weekly product sync")}
+      ${tabs(["Memos", "Transcript"], 0)}
+      <div class="body">
+        <p>Launch checklist</p>
+        <p>- Pricing page copy is final</p>
+        <p>- Android build goes to review Friday</p>
+        <p>- Mira owns onboarding emails</p>
+        <p>&nbsp;</p>
+        <p>Open questions</p>
+        <p>- Do we keep the waitlist after launch?</p>
+        <p>- Support rotation for launch week</p>
+      </div>
+      <div class="dock">
+        <div class="status-text">${sticks()}<span>Listening · 12:47</span></div>
+        <div class="stop"><span class="sq"></span>Stop</div>
+      </div>`,
+  },
+  {
+    headline: "A summary the<br>moment it ends",
+    sub: "Decisions and action items, written for you.",
+    body: () => `
+      ${noteHeader("Weekly product sync")}
+      ${tabs(["Summary", "Memos", "Transcript"], 0)}
+      <div class="summary">
+        <div class="md-h">Decisions</div>
+        <div class="md-list">
+          <div class="md-li"><span class="m">•</span><span>Launch on both app stores next Tuesday.</span></div>
+          <div class="md-li"><span class="m">•</span><span>Keep the waitlist open for two weeks, then retire it.</span></div>
+        </div>
+        <div class="md-h">Action items</div>
+        <div class="md-list">
+          <div class="md-li"><span class="m">1.</span><span><b>Mira:</b> finish onboarding emails by Thursday.</span></div>
+          <div class="md-li"><span class="m">2.</span><span><b>Daniel:</b> submit the Android build for review.</span></div>
+          <div class="md-li"><span class="m">3.</span><span><b>Sam:</b> set up the launch-week support rotation.</span></div>
+        </div>
+        <div class="md-h">Notes</div>
+        <div class="md-p">Pricing copy is final. The team agreed the first week should focus on onboarding feedback over new features.</div>
+        <div class="ghost-btn">Regenerate summary</div>
+      </div>`,
+  },
+  {
+    headline: "Every word,<br>by speaker",
+    sub: "Transcripts you can read, search, and share.",
+    body: () => `
+      ${noteHeader("Weekly product sync")}
+      ${tabs(["Summary", "Memos", "Transcript"], 2)}
+      <div class="transcript">
+        <div class="turn"><div class="speaker">Mira</div><div class="turn-text">Onboarding emails are drafted. I want one more pass on the welcome message before Thursday.</div></div>
+        <div class="turn"><div class="speaker">Daniel</div><div class="turn-text">The Android build is ready. I'll submit it for review on Friday so we can launch with iOS.</div></div>
+        <div class="turn"><div class="speaker">You</div><div class="turn-text">Great. Let's launch on both stores next Tuesday and keep the waitlist open for two weeks.</div></div>
+        <div class="turn"><div class="speaker">Sam</div><div class="turn-text">I'll put together the support rotation for launch week.</div></div>
+        <div class="turn"><div class="speaker">Mira</div><div class="turn-text">Sounds good. Pricing copy is final, so the page can go live Monday night.</div></div>
+      </div>`,
+  },
+  {
+    headline: "Your models,<br>your language",
+    sub: "Use Anarlog Pro or bring your own API keys.",
+    body: () => `
+      ${noteHeader("Transcription & summaries", false)}
+      <div class="settings">
+        <div class="group">
+          <div class="row"><span class="label">Transcription provider</span><span class="chev">›</span></div>
+          <div class="row"><span class="label">Summary provider</span><span class="chev">›</span></div>
+        </div>
+        <div class="group-title">Language</div>
+        <div class="group">
+          <div class="row"><span class="label">Main language</span><span class="value">English ⌄</span></div>
+          <div class="row"><span class="label">Additional spoken languages</span><span class="value">Korean, Spanish</span><span class="chev">›</span></div>
+          <div class="row"><span class="label">Dictionary</span><span class="value">24 terms</span><span class="chev">›</span></div>
+        </div>
+        <div class="footer">The main language guides transcription and is used for summaries.</div>
+      </div>`,
+  },
+];
+
+const size = sizes[platform];
+const screen = screens[frameIndex];
+document.getElementById("root").innerHTML = `
+  <div class="frame" style="--fw:${size.fw}px;--fh:${size.fh}px;--copy-top:${size.copyTop}px;--h-size:${size.h}px;--s-size:${size.s}px;--device-top:${size.deviceTop}px;--scale:${size.scale}">
+    <div class="copy"><div class="headline">${screen.headline}</div><div class="sub">${screen.sub}</div></div>
+    <div class="device"><div class="screen">${statusBar}${screen.body()}<div class="home-indicator"></div></div></div>
+  </div>`;
+</script>
+</body>
+</html>
