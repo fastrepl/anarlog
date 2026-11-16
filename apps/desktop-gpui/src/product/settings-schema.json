@@ -1,4 +1,12 @@
 {
+  "intelligence_disabled": {
+    "type": "boolean",
+    "path": [
+      "ai",
+      "intelligence_disabled"
+    ],
+    "default": false
+  },
   "dictation_live_preview": {
     "type": "boolean",
     "path": [
@@ -39,6 +47,38 @@
     ],
     "default": ""
   },
+  "export_format": {
+    "type": "string",
+    "path": [
+      "general",
+      "export_format"
+    ],
+    "default": "pdf"
+  },
+  "export_include_memo": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "export_include_memo"
+    ],
+    "default": false
+  },
+  "export_include_summary": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "export_include_summary"
+    ],
+    "default": true
+  },
+  "export_include_transcript": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "export_include_transcript"
+    ],
+    "default": false
+  },
   "autostart": {
     "type": "boolean",
     "path": [
@@ -62,6 +102,15 @@
       "auto_stop_meetings"
     ],
     "default": true
+  },
+  "primary_recording_device": {
+    "type": "string",
+    "path": [
+      "general",
+      "primary_recording_device"
+    ],
+    "synced": true,
+    "default": ""
   },
   "auto_start_scheduled_meetings": {
     "type": "boolean",
@@ -252,14 +301,6 @@
     ],
     "default": true
   },
-  "notification_transcription_complete": {
-    "type": "boolean",
-    "path": [
-      "notification",
-      "transcription_complete"
-    ],
-    "default": true
-  },
   "notification_summary_complete": {
     "type": "boolean",
     "path": [
@@ -372,6 +413,14 @@
     ],
     "default": false
   },
+  "capture_shared_screens": {
+    "type": "boolean",
+    "path": [
+      "general",
+      "capture_shared_screens"
+    ],
+    "default": false
+  },
   "cloud_sync_enabled": {
     "type": "boolean",
     "path": [
@@ -395,6 +444,14 @@
       "spoken_languages"
     ],
     "default": "[]"
+  },
+  "summary_use_main_language": {
+    "type": "boolean",
+    "path": [
+      "language",
+      "summary_use_main_language"
+    ],
+    "default": false
   },
   "personalization_dictionary_terms": {
     "type": "string",
@@ -427,14 +484,6 @@
       "auto_summary_prompt"
     ],
     "default": ""
-  },
-  "summary_length": {
-    "type": "string",
-    "path": [
-      "ai",
-      "summary_length"
-    ],
-    "default": "detailed"
   },
   "ignored_platforms": {
     "type": "string",
@@ -588,6 +637,14 @@
     "path": [
       "automations",
       "markdown_export_last_run"
+    ],
+    "default": ""
+  },
+  "automation_markdown_export_files": {
+    "type": "string",
+    "path": [
+      "automations",
+      "markdown_export_files"
     ],
     "default": ""
   },

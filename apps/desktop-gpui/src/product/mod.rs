@@ -1,7 +1,11 @@
+pub mod assets;
 pub mod cloud;
+mod controls;
 pub mod local;
+mod locale;
 mod navigation;
 mod onboarding;
+mod pages;
 mod preferences_view;
 mod providers;
 mod service_view;
@@ -12,14 +16,15 @@ mod surface_view;
 use std::sync::Arc;
 
 use gpui::{
-    Context, Entity, EventEmitter, KeyDownEvent, Render, Subscription, Window, div, prelude::*, px,
+    Context, Div, Entity, EventEmitter, Focusable, FontWeight, KeyDownEvent, Render, SharedString,
+    Subscription, Window, WindowAppearance, div, prelude::*, px,
 };
 
 use crate::{
     contracts::{LaneContext, ProductEvent, ProductRoute},
     ui::{
         input::{InputEvent, TextInput},
-        theme::{system_font, theme},
+        theme::{Theme, system_font, theme},
     },
 };
 
@@ -42,6 +47,8 @@ pub struct ProductPane {
     providers: Option<Entity<providers::ProviderView>>,
     service: Option<Entity<SurfaceView>>,
     active: navigation::Page,
+    /// Whether the signed-in account has Anarlog Pro; Pro-only pages show a lock otherwise.
+    pro: bool,
     onboarding: Option<Onboarding>,
     notice: String,
     _search_subscription: Subscription,
@@ -77,7 +84,7 @@ impl ProductPane {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let search = cx.new(|cx| TextInput::new("Search settings", cx));
+        let search = cx.new(|cx| TextInput::new("Search settings...", cx).inline());
         let subscription = cx.subscribe(&search, |_, _, event, cx| {
             if matches!(event, InputEvent::Changed | InputEvent::Rejected) {
                 cx.notify();
@@ -98,6 +105,7 @@ impl ProductPane {
             providers,
             service: None,
             active: navigation::page("app"),
+            pro: false,
             onboarding: None,
             notice: String::new(),
             _search_subscription: subscription,
@@ -272,7 +280,7 @@ impl ProductPane {
             "imports" => Some(Surface::Imports),
             "permissions" => Some(Surface::Permissions),
             "developers" => Some(Surface::Developers),
-            "calendar" | "folders" | "contacts" | "templates" | "automations" | "insights" => {
+            _ if navigation::opens_workspace(page) => {
                 cx.emit(OpenWorkspaceSection(page.id));
                 cx.notify();
                 return;
@@ -318,10 +326,217 @@ impl EventEmitter<ProductEvent> for ProductPane {}
 impl EventEmitter<Scope> for ProductPane {}
 impl EventEmitter<OpenWorkspaceSection> for ProductPane {}
 
-impl Render for ProductPane {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let colors = theme(window);
+impl ProductPane {
+    /// `sidebar/settings.tsx`: back arrow, search field, then the grouped pages.
+    fn sidebar(&self, colors: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
+        let query = self.search.read(cx).buffer.text.clone();
+        let searching = !query.is_empty();
+        let focused = self.search.focus_handle(cx).is_focused(window);
+        let mut groups: Vec<(&'static str, Vec<navigation::Page>)> = Vec::new();
+        for page in navigation::PAGES
+            .iter()
+            .copied()
+            .filter(|page| navigation::matches(*page, &query))
+        {
+            match groups.last_mut() {
+                Some((group, pages)) if *group == page.group => pages.push(page),
+                _ => groups.push((page.group, vec![page])),
+            }
+        }
+        let muted = colors.muted_foreground;
+        let hover = colors.sidebar_accent.opacity(0.5);
+        let header = div()
+            .h(px(48.))
+            .flex_shrink_0()
+            .pt(px(9.))
+            // The macOS traffic lights overlay the sidebar; keep the shipping app's gutter.
+            .pl(px(if cfg!(target_os = "macos") { 76. } else { 8. }))
+            .pr_1()
+            .flex()
+            .items_start()
+            .child(
+                div()
+                    .id("settings-back")
+                    .group("settings-back")
+                    .size(px(28.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(8.))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(colors.accent))
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        if this.can_close(cx) {
+                            cx.emit(ProductEvent::NavigateWorkspace);
+                        }
+                    }))
+                    .child(
+                        controls::icon("workspace/ArrowLeft02Icon.svg", 16., muted)
+                            .group_hover("settings-back", |style| {
+                                style.text_color(colors.foreground)
+                            }),
+                    ),
+            );
+        let search = div().pb_2().flex_shrink_0().child(
+            div()
+                .h(px(32.))
+                .w_full()
+                .px_3()
+                .flex()
+                .items_center()
+                .gap_2()
+                .rounded(px(8.))
+                .border_1()
+                .border_color(colors.border)
+                .bg(if focused {
+                    colors.accent
+                } else {
+                    colors.accent.opacity(0.5)
+                })
+                .text_sm()
+                .child(controls::icon("Search01Icon.svg", 16., muted))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .h(px(20.))
+                        .line_height(px(20.))
+                        .overflow_hidden()
+                        .child(self.search.clone()),
+                )
+                .when(searching, |view| {
+                    view.child(
+                        div()
+                            .id("clear-settings-search")
+                            .group("clear-settings-search")
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.search
+                                    .update(cx, |search, cx| search.set_text(String::new(), cx));
+                                cx.notify();
+                            }))
+                            .child(
+                                controls::icon("product/XIcon.svg", 16., muted)
+                                    .group_hover("clear-settings-search", |style| {
+                                        style.text_color(colors.foreground)
+                                    }),
+                            ),
+                    )
+                }),
+        );
+        let list = div()
+            .flex()
+            .flex_col()
+            .gap_5()
+            .pb_6()
+            .when(groups.is_empty(), |view| {
+                view.child(
+                    div()
+                        .px_3()
+                        .py_8()
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .text_color(muted)
+                        .child(controls::icon("Search01Icon.svg", 32., muted.opacity(0.7)).mb_2())
+                        .child(div().text_sm().child("No results found.")),
+                )
+            })
+            .children(groups.into_iter().map(|(group, pages)| {
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(2.))
+                    .child(
+                        div()
+                            .px_3()
+                            .pb_1()
+                            .text_size(px(11.))
+                            .line_height(px(16.5))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(muted.opacity(0.6))
+                            .child(group.to_uppercase()),
+                    )
+                    .children(pages.into_iter().map(|page| {
+                        let active = page.id == self.active.id;
+                        let locked = page.requires_pro && !self.pro;
+                        let tint = if active { colors.foreground } else { muted };
+                        let group = SharedString::from(format!("settings-nav-{}", page.id));
+                        div()
+                            .id(page.id)
+                            .group(group.clone())
+                            .w_full()
+                            .px_3()
+                            .py_2()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .rounded(px(8.))
+                            .text_sm()
+                            .line_height(px(20.))
+                            .cursor_pointer()
+                            .text_color(tint)
+                            .when(active, |view| {
+                                view.bg(colors.sidebar_accent)
+                                    .font_weight(FontWeight::MEDIUM)
+                            })
+                            .when(!active, |view| {
+                                view.hover(|style| style.bg(hover).text_color(colors.foreground))
+                            })
+                            .on_click(cx.listener(move |this, _, _, cx| this.select_page(page, cx)))
+                            .child(
+                                controls::icon(page.icon, 15., tint)
+                                    .group_hover(group.clone(), |style| {
+                                        style.text_color(colors.foreground)
+                                    }),
+                            )
+                            .child(div().flex_1().min_w_0().truncate().child(page.label))
+                            .when(locked, |view| {
+                                view.child(
+                                    controls::icon("product/LockPasswordIcon.svg", 14., tint)
+                                        .group_hover(group, |style| {
+                                            style.text_color(colors.foreground)
+                                        }),
+                                )
+                            })
+                    }))
+            }));
+        div()
+            .w(px(200.))
+            .h_full()
+            .flex_shrink_0()
+            .pr_1()
+            .flex()
+            .flex_col()
+            .child(header)
+            .child(search)
+            .child(
+                div()
+                    .id("settings-navigation")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .child(list),
+            )
+    }
+
+    fn page(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
         let onboarding = self.onboarding.is_some();
+        let preferences = self.service.is_none()
+            && !onboarding
+            && matches!(
+                self.active.id,
+                "app"
+                    | "appearance"
+                    | "notifications"
+                    | "meetings"
+                    | "privacy"
+                    | "dictation"
+                    | "dictionary"
+            );
+        if preferences && let Some(view) = self.preferences.clone() {
+            return div().child(view);
+        }
         let title = self
             .onboarding
             .as_ref()
@@ -332,73 +547,11 @@ impl Render for ProductPane {
                     .map(|view| view.read(cx).surface.title())
             })
             .unwrap_or(self.active.label);
-        let query = self.search.read(cx).buffer.text.clone();
-        let mut sidebar = div()
-            .w(px(232.))
-            .h_full()
+        div()
             .flex()
             .flex_col()
-            .border_r_1()
-            .border_color(colors.border)
-            .child(div().p_3().child(self.search.clone()));
-        let mut items = div()
-            .id("settings-navigation")
-            .flex_1()
-            .min_h_0()
-            .overflow_y_scroll()
-            .p_3();
-        let mut group = "";
-        for page in navigation::PAGES
-            .iter()
-            .copied()
-            .filter(|page| navigation::matches(*page, &query))
-        {
-            if group != page.group {
-                items = items.child(
-                    div()
-                        .pt_4()
-                        .pb_2()
-                        .text_xs()
-                        .text_color(colors.muted_foreground)
-                        .child(page.group),
-                );
-                group = page.group;
-            }
-            items = items.child(
-                div()
-                    .id(page.id)
-                    .px_3()
-                    .py_2()
-                    .rounded(px(8.))
-                    .cursor_pointer()
-                    .when(page == self.active, |view| view.bg(colors.accent))
-                    .child(page.label)
-                    .on_click(cx.listener(move |this, _, _, cx| this.select_page(page, cx))),
-            );
-        }
-        sidebar = sidebar.child(items);
-        let content = div()
-            .id("product-content")
-            .flex_1()
-            .min_w_0()
-            .h_full()
-            .overflow_y_scroll()
-            .p_6()
-            .flex()
-            .flex_col()
-            .gap_4()
-            .child(
-                div()
-                    .text_2xl()
-                    .font_family(if cfg!(target_os = "macos") {
-                        "Bradley Hand"
-                    } else if cfg!(target_os = "windows") {
-                        "Segoe Print"
-                    } else {
-                        "Comic Sans MS"
-                    })
-                    .child(title),
-            )
+            .gap_6()
+            .child(controls::page_title(title))
             .when(onboarding, |view| {
                 view.child(
                     div().flex().gap_3().children(
@@ -419,11 +572,6 @@ impl Render for ProductPane {
                 )
             })
             .when_some(self.service.clone(), |view, service| view.child(service))
-            .when(self.service.is_none(), |view| {
-                view.when_some(self.preferences.clone(), |view, preferences| {
-                    view.child(preferences)
-                })
-            })
             .when(
                 matches!(self.active.id, "transcription" | "intelligence")
                     && !onboarding
@@ -439,20 +587,6 @@ impl Render for ProductPane {
                             .child("Manage local models")
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.show_surface(Some(Surface::Models), cx)
-                            })),
-                    )
-                },
-            )
-            .when(
-                self.active.id == "app" && !onboarding && self.service.is_none(),
-                |view| {
-                    view.child(
-                        div()
-                            .id("storage")
-                            .cursor_pointer()
-                            .child("Storage location")
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.show_surface(Some(Surface::Storage), cx)
                             })),
                     )
                 },
@@ -496,11 +630,26 @@ impl Render for ProductPane {
                             },
                         ),
                 )
-            });
+            })
+    }
+}
+
+impl Render for ProductPane {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = theme(window);
+        let dark = matches!(
+            window.appearance(),
+            WindowAppearance::Dark | WindowAppearance::VibrantDark
+        );
+        let sidebar = self
+            .onboarding
+            .is_none()
+            .then(|| self.sidebar(&colors, window, cx));
+        let page = self.page(&colors, cx);
         div()
             .size_full()
             .flex()
-            .flex_col()
+            .pl(px(4.))
             .bg(colors.background)
             .text_color(colors.foreground)
             .font_family(system_font(cx))
@@ -511,33 +660,27 @@ impl Render for ProductPane {
                     cx.notify();
                 }
             }))
-            .child(
-                div()
-                    .h(px(56.))
-                    .px_6()
-                    .flex()
-                    .items_center()
-                    .border_b_1()
-                    .border_color(colors.border)
-                    .child(
-                        div()
-                            .id("back-to-workspace")
-                            .cursor_pointer()
-                            .child("Back to workspace")
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                if this.can_close(cx) {
-                                    cx.emit(ProductEvent::NavigateWorkspace);
-                                }
-                            })),
-                    ),
-            )
+            .when_some(sidebar, |view, sidebar| view.child(sidebar))
             .child(
                 div()
                     .flex_1()
-                    .min_h_0()
-                    .flex()
-                    .when(!onboarding, |view| view.child(sidebar))
-                    .child(content),
+                    .min_w_0()
+                    .h_full()
+                    .overflow_hidden()
+                    .bg(if dark { colors.accent } else { colors.card })
+                    .border_l_1()
+                    .border_color(colors.border)
+                    .rounded_l(px(12.))
+                    .child(
+                        div()
+                            .id("product-content")
+                            .size_full()
+                            .overflow_y_scroll()
+                            .px_6()
+                            .pt_6()
+                            .pb_10()
+                            .child(page),
+                    ),
             )
     }
 }

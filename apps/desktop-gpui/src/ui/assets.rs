@@ -6,6 +6,9 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
+        if let Some(bytes) = crate::product::assets::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
         let bytes: Option<&'static [u8]> = match path {
             "FileAddIcon.svg" => Some(include_bytes!("../../assets/FileAddIcon.svg")),
             "Search01Icon.svg" => Some(include_bytes!("../../assets/Search01Icon.svg")),
@@ -30,6 +33,7 @@ impl AssetSource for Assets {
             "ArrowDown01Icon.svg",
         ]
         .into_iter()
+        .chain(crate::product::assets::paths())
         .map(Into::into)
         .collect())
     }

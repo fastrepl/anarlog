@@ -229,9 +229,9 @@ fn canonical_database_writes_are_durable_independent_and_conflict_checked() {
         ));
         save(
             &fixture.runtime,
-            "summary_length".into(),
-            original["summary_length"].clone(),
-            json!("concise"),
+            "live_caption_position".into(),
+            original["live_caption_position"].clone(),
+            json!("bottomCenter"),
         )
         .unwrap()
         .receive()
@@ -239,7 +239,7 @@ fn canonical_database_writes_are_durable_independent_and_conflict_checked() {
         .unwrap();
         let current = fixture.snapshot().await;
         assert_eq!(current["export_directory"].value, "/notes");
-        assert_eq!(current["summary_length"].value, "concise");
+        assert_eq!(current["live_caption_position"].value, "bottomCenter");
         drop(
             save(
                 &fixture.runtime,
@@ -258,7 +258,7 @@ fn canonical_database_writes_are_durable_independent_and_conflict_checked() {
         fixture.runtime = runtime;
         let reopened = fixture.snapshot().await;
         assert_eq!(reopened["export_directory"].value, "/admitted-write");
-        assert_eq!(reopened["summary_length"].value, "concise");
+        assert_eq!(reopened["live_caption_position"].value, "bottomCenter");
     });
 }
 

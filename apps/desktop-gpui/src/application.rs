@@ -1385,22 +1385,6 @@ impl Render for ApplicationView {
             .when(!cfg!(target_os = "macos"), |view| {
                 view.child(self.title_bar(window, cx))
             })
-            .when(!self.closing && self.product.is_some(), |view| {
-                view.child(div().flex().gap_4().px_3().py_1().when(
-                    self.product.is_some(),
-                    |view| {
-                        view.child(
-                            div()
-                                .id("back-workspace")
-                                .cursor_pointer()
-                                .child("Back to workspace")
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.leave_product(Route::Empty, cx)
-                                })),
-                        )
-                    },
-                ))
-            })
             .child(
                 div()
                     .flex_1()

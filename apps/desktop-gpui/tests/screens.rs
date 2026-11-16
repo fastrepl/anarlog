@@ -98,6 +98,29 @@ fn main() {
         open(&mut cx, window, route);
         capture(&mut cx, window, &out, name);
     }
+    for page in [
+        "account",
+        "billing",
+        "referrals",
+        "insights",
+        "team",
+        "sync",
+        "appearance",
+        "notifications",
+        "transcription",
+        "dictation",
+        "intelligence",
+        "dictionary",
+        "meetings",
+        "imports",
+        "crm",
+        "privacy",
+        "permissions",
+        "developers",
+    ] {
+        open(&mut cx, window, Route::Settings(page.into()));
+        capture(&mut cx, window, &out, &format!("settings-{page}"));
+    }
 }
 
 fn seed(runtime: &RuntimeHandle, out: &std::path::Path) {

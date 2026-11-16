@@ -1,268 +1,80 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+    sync::Arc,
+};
 
 use desktop_runtime::{CancellationToken, RuntimeHandle, ServiceError};
 use futures::future::{Either, select};
-use gpui::{Context, Entity, EventEmitter, Render, Subscription, Window, div, prelude::*, px};
+use gpui::{
+    AnyElement, Context, Entity, EventEmitter, Focusable, KeyDownEvent, MouseButton, Render,
+    SharedString, Subscription, Window, deferred, div, point, prelude::*, px,
+};
+use serde_json::Value;
 
 use crate::ui::{
     input::{InputEvent, TextInput},
-    theme::theme,
+    theme::{Theme, theme},
 };
 
 use super::{
-    navigation,
-    settings::{self, Definition, Draft, Setting, Snapshot},
+    controls,
+    settings::{self, Snapshot},
 };
 
-pub struct PreferenceField {
-    runtime: RuntimeHandle,
-    def: &'static Definition,
-    draft: Draft,
-    input: Entity<TextInput>,
-    _subscription: Subscription,
+type OnSelect = Rc<dyn Fn(&mut PreferencesView, String, &mut Context<PreferencesView>)>;
+
+pub struct SelectOption {
+    pub value: SharedString,
+    pub label: SharedString,
+    pub detail: Option<SharedString>,
 }
 
-impl PreferenceField {
-    fn new(
-        runtime: RuntimeHandle,
-        def: &'static Definition,
-        setting: Setting,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let draft = Draft::new(setting);
-        let input = cx.new(|cx| {
-            let mut input = TextInput::new(def.kind.clone(), cx);
-            if draft.text.len() <= 4096 {
-                input.set_text(draft.text.clone(), cx);
-            }
-            input
-        });
-        let subscription = cx.subscribe(&input, |this, _, event, cx| {
-            match event {
-                InputEvent::Changed => {
-                    this.draft.text = this.input.read(cx).buffer.text.clone();
-                    this.draft.dirty = true;
-                    this.draft.error = None;
-                }
-                InputEvent::Submitted => this.save(cx),
-                InputEvent::Rejected => this.draft.error = Some("The native input limit is 4096 bytes. Existing longer preferences remain unchanged.".into()),
-            }
-            cx.notify();
-        });
+impl SelectOption {
+    pub fn new(value: impl Into<SharedString>, label: impl Into<SharedString>) -> Self {
         Self {
-            runtime,
-            def,
-            draft,
-            input,
-            _subscription: subscription,
+            value: value.into(),
+            label: label.into(),
+            detail: None,
         }
-    }
-
-    fn observe(&mut self, setting: Setting, cx: &mut Context<Self>) {
-        if self.draft.latest == setting {
-            return;
-        }
-        self.draft.observe(setting);
-        if !self.draft.dirty && !self.draft.saving && self.draft.text.len() <= 4096 {
-            self.input
-                .update(cx, |input, cx| input.set_text(self.draft.text.clone(), cx));
-        }
-        cx.notify();
-    }
-
-    fn save(&mut self, cx: &mut Context<Self>) {
-        if self.draft.saving || !self.draft.dirty {
-            return;
-        }
-        let value = match self.draft.value(self.def) {
-            Ok(value) => value,
-            Err(error) => {
-                self.draft.error = Some(error.to_string());
-                cx.notify();
-                return;
-            }
-        };
-        let reply = settings::save(
-            &self.runtime,
-            self.def.key.clone(),
-            self.draft.base.clone(),
-            value,
-        );
-        let submitted = self.draft.text.clone();
-        self.draft.saving = true;
-        self.draft.error = None;
-        cx.notify();
-        cx.spawn(async move |this, cx| {
-            let result = match reply {
-                Ok(reply) => reply.receive().await,
-                Err(error) => Err(error),
-            };
-            let _ = this.update(cx, |this, cx| {
-                this.draft.saving = false;
-                match result {
-                    Ok(setting) => {
-                        this.draft.saved(setting, &submitted);
-                    }
-                    Err(error) => this.draft.error = Some(error.to_string()),
-                }
-                cx.notify();
-            });
-        })
-        .detach();
     }
 }
 
-impl Render for PreferenceField {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let colors = theme(window);
-        let overlong = self.draft.text.len() > 4096;
-        let gate = settings::write_gate(&self.def.key).or(
-            matches!(self.def.key.as_str(), "theme" | "app_icon")
-                .then_some("Requires the application appearance service."),
-        ).or(if overlong {
-            Some("The stored value is preserved. Editing preferences longer than 4096 bytes requires the shipping app.")
-        } else {
-            None
-        });
-        div()
-            .py_3()
-            .border_b_1()
-            .border_color(colors.border)
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(
-                div()
-                    .flex()
-                    .justify_between()
-                    .child(navigation::label(&self.def.key))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(colors.muted_foreground)
-                            .child(format!(
-                                "{} · {}",
-                                self.draft.base.source,
-                                if self.def.synced {
-                                    "Synced preference"
-                                } else {
-                                    "This device"
-                                }
-                            )),
-                    ),
-            )
-            .when_some(gate, |view, reason| {
-                view.child(div().text_sm().child(if overlong {
-                    format!("{} bytes (preserved)", self.draft.text.len())
-                } else {
-                    self.draft.text.clone()
-                }))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(colors.muted_foreground)
-                        .child(reason),
-                )
-            })
-            .when(gate.is_none(), |view| {
-                view.when(self.def.kind == "boolean", |view| {
-                    view.child(
-                        div()
-                            .id("toggle-preference")
-                            .px_3()
-                            .py_2()
-                            .rounded(px(8.))
-                            .bg(colors.accent)
-                            .child(if self.draft.text == "true" {
-                                "Enabled"
-                            } else {
-                                "Disabled"
-                            })
-                            .when(!self.draft.saving, |view| {
-                                view.cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.draft.text = (this.draft.text != "true").to_string();
-                                        this.draft.dirty = true;
-                                        this.input.update(cx, |input, cx| {
-                                            input.set_text(this.draft.text.clone(), cx)
-                                        });
-                                        this.save(cx);
-                                    }))
-                            }),
-                    )
-                })
-                .when(self.def.kind != "boolean", |view| {
-                    view.child(self.input.clone())
-                })
-                .child(
-                    div()
-                        .flex()
-                        .gap_3()
-                        .child(
-                            div()
-                                .id("save")
-                                .px_3()
-                                .py_1()
-                                .rounded(px(6.))
-                                .bg(colors.accent)
-                                .when(self.draft.dirty && !self.draft.saving, |button| {
-                                    button
-                                        .cursor_pointer()
-                                        .on_click(cx.listener(|this, _, _, cx| this.save(cx)))
-                                })
-                                .child(if self.draft.saving {
-                                    "Saving…"
-                                } else if self.draft.dirty {
-                                    "Save preference"
-                                } else {
-                                    "No changes"
-                                }),
-                        )
-                        .when(self.draft.dirty && !self.draft.saving, |view| {
-                            view.child(
-                                div()
-                                    .id("restore")
-                                    .cursor_pointer()
-                                    .child("Restore draft")
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.draft.restore();
-                                        this.input.update(cx, |input, cx| {
-                                            input.set_text(this.draft.text.clone(), cx)
-                                        });
-                                        cx.notify();
-                                    })),
-                            )
-                        }),
-                )
-            })
-            .when_some(self.draft.error.clone(), |view, error| {
-                view.child(div().text_sm().text_color(colors.destructive).child(error))
-            })
-    }
-}
-
+/// The curated settings pages backed by `app_settings`/`synced_preferences`.
+/// Controls write immediately, like shipping's `setSettingValues`; writes to one key are
+/// serialized so each compare-and-swap uses the revision the previous write produced.
 pub struct PreferencesView {
-    runtime: RuntimeHandle,
+    pub(super) runtime: RuntimeHandle,
     pub section: &'static str,
-    snapshot: Arc<Snapshot>,
-    fields: BTreeMap<String, Entity<PreferenceField>>,
+    snapshot: Option<Arc<Snapshot>>,
+    desired: BTreeMap<String, Value>,
+    saving: BTreeSet<String>,
+    pub(super) menu: Option<&'static str>,
+    pub(super) menu_search: Entity<TextInput>,
     cancellation: CancellationToken,
-    status: String,
+    status: Option<String>,
     active: bool,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl EventEmitter<ServiceError> for PreferencesView {}
 
 impl PreferencesView {
     pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
+        let menu_search = cx.new(|cx| TextInput::new("Search...", cx).inline());
+        let subscription = cx.subscribe(&menu_search, |_, _, _: &InputEvent, cx| cx.notify());
         let mut this = Self {
             runtime,
             section: "app",
-            snapshot: Arc::new(Snapshot::new()),
-            fields: BTreeMap::new(),
+            snapshot: None,
+            desired: BTreeMap::new(),
+            saving: BTreeSet::new(),
+            menu: None,
+            menu_search,
             cancellation: CancellationToken::new(),
-            status: "Loading preferences…".into(),
+            status: None,
             active: true,
+            _subscriptions: vec![subscription],
         };
         this.watch(cx);
         this
@@ -308,7 +120,11 @@ impl PreferencesView {
                 }
                 if this
                     .update(cx, |this, cx| match decoded {
-                        Ok(snapshot) => this.apply(snapshot, cx),
+                        Ok(snapshot) => {
+                            this.status = None;
+                            this.snapshot = Some(snapshot);
+                            cx.notify();
+                        }
                         Err(error) => this.fail(error, cx),
                     })
                     .is_err()
@@ -331,40 +147,102 @@ impl PreferencesView {
     }
 
     fn fail(&mut self, error: ServiceError, cx: &mut Context<Self>) {
-        self.status = format!("Preferences: {error}");
+        self.status = Some(error.to_string());
         cx.emit(error);
         cx.notify();
     }
 
-    fn apply(&mut self, snapshot: Arc<Snapshot>, cx: &mut Context<Self>) {
-        self.status = "Changes save to the canonical library. Preferences alone do not enable services that have not been integrated.".into();
-        if snapshot == self.snapshot {
-            cx.notify();
+    pub fn loaded(&self) -> bool {
+        self.snapshot.is_some()
+    }
+
+    /// The value shown for `key`: an unconfirmed write, else the stored or default value.
+    pub fn value(&self, key: &str) -> Value {
+        self.desired
+            .get(key)
+            .cloned()
+            .or_else(|| {
+                self.snapshot
+                    .as_ref()
+                    .and_then(|snapshot| snapshot.get(key))
+                    .map(|setting| setting.value.clone())
+            })
+            .or_else(|| {
+                settings::definition(key)
+                    .ok()
+                    .map(|def| def.default.clone())
+            })
+            .unwrap_or(Value::Null)
+    }
+
+    pub fn flag(&self, key: &str) -> bool {
+        self.value(key) == Value::Bool(true)
+    }
+
+    pub fn text(&self, key: &str) -> String {
+        self.value(key).as_str().unwrap_or_default().to_owned()
+    }
+
+    pub fn writable(&self, key: &str) -> bool {
+        self.loaded() && settings::write_gate(key).is_none()
+    }
+
+    pub fn set(&mut self, key: &str, value: Value, cx: &mut Context<Self>) {
+        if let Some(reason) = settings::write_gate(key) {
+            self.fail(ServiceError::Unsupported(reason.into()), cx);
             return;
         }
-        for (key, field) in &self.fields {
-            if let Some(setting) = snapshot.get(key) {
-                field.update(cx, |field, cx| field.observe(setting.clone(), cx));
-            }
-        }
-        self.snapshot = snapshot;
-        self.ensure_fields(cx);
+        self.desired.insert(key.to_owned(), value);
+        self.flush(key.to_owned(), cx);
         cx.notify();
     }
 
-    fn ensure_fields(&mut self, cx: &mut Context<Self>) {
-        for def in settings::definitions()
-            .iter()
-            .filter(|def| navigation::section(def) == self.section)
-        {
-            if let Some(setting) = self.snapshot.get(&def.key) {
-                self.fields.entry(def.key.clone()).or_insert_with(|| {
-                    cx.new(|cx| {
-                        PreferenceField::new(self.runtime.clone(), def, setting.clone(), cx)
-                    })
-                });
-            }
+    fn flush(&mut self, key: String, cx: &mut Context<Self>) {
+        if self.saving.contains(&key) {
+            return;
         }
+        let (Some(value), Some(base)) = (
+            self.desired.get(&key).cloned(),
+            self.snapshot
+                .as_ref()
+                .and_then(|snapshot| snapshot.get(&key))
+                .cloned(),
+        ) else {
+            return;
+        };
+        if base.value == value {
+            self.desired.remove(&key);
+            return;
+        }
+        let reply = settings::save(&self.runtime, key.clone(), base, value.clone());
+        self.saving.insert(key.clone());
+        cx.spawn(async move |this, cx| {
+            let result = match reply {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
+            let _ = this.update(cx, |this, cx| {
+                this.saving.remove(&key);
+                match result {
+                    Ok(setting) => {
+                        if let Some(snapshot) = &mut this.snapshot {
+                            Arc::make_mut(snapshot).insert(key.clone(), setting);
+                        }
+                        if this.desired.get(&key) == Some(&value) {
+                            this.desired.remove(&key);
+                        } else {
+                            this.flush(key, cx);
+                        }
+                    }
+                    Err(error) => {
+                        this.desired.remove(&key);
+                        this.fail(error, cx);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     pub fn select(&mut self, section: &'static str, cx: &mut Context<Self>) {
@@ -372,21 +250,194 @@ impl PreferencesView {
             self.active = true;
             self.watch(cx);
         }
+        if self.section != section {
+            self.menu = None;
+        }
         self.section = section;
-        self.ensure_fields(cx);
         cx.notify();
     }
 
     pub fn suspend(&mut self) {
         self.active = false;
+        self.menu = None;
         self.cancellation.cancel();
     }
 
-    pub fn has_unsaved(&self, cx: &gpui::App) -> bool {
-        self.fields.values().any(|field| {
-            let field = field.read(cx);
-            field.draft.dirty || field.draft.saving
-        })
+    pub fn has_unsaved(&self, _: &gpui::App) -> bool {
+        !self.desired.is_empty()
+    }
+
+    pub(super) fn switch_row(
+        &self,
+        key: &'static str,
+        title: &'static str,
+        detail: Option<&'static str>,
+        enabled: bool,
+        colors: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let checked = self.flag(key);
+        controls::setting_row(
+            title,
+            detail.map(Into::into),
+            false,
+            controls::switch(
+                SharedString::from(format!("switch-{key}")),
+                checked,
+                enabled && self.writable(key),
+                colors,
+                cx.listener(move |this, _, _, cx| this.set(key, Value::Bool(!checked), cx)),
+            ),
+            colors,
+        )
+        .into_any_element()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn dropdown_select(
+        &self,
+        id: &'static str,
+        options: Vec<SelectOption>,
+        selected: &str,
+        placeholder: &'static str,
+        enabled: bool,
+        searchable: bool,
+        width: f32,
+        on_select: impl Fn(&mut Self, String, &mut Context<Self>) + 'static,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let colors = theme(window);
+        let label = options
+            .iter()
+            .find(|option| option.value.as_ref() == selected)
+            .map(|option| match &option.detail {
+                Some(detail) if searchable => format!("{} ({detail})", option.label).into(),
+                _ => option.label.clone(),
+            });
+        let open = self.menu == Some(id);
+        let trigger = controls::select_trigger(id, label, placeholder, enabled, &colors).when(
+            enabled,
+            |view| {
+                view.on_click(cx.listener(move |this, _, window, cx| {
+                    this.menu = Some(id);
+                    if searchable {
+                        this.menu_search.update(cx, |search, cx| {
+                            search.set_text(String::new(), cx);
+                            search.focus_handle(cx).focus(window, cx);
+                        });
+                    }
+                    cx.notify();
+                }))
+            },
+        );
+        let on_select: OnSelect = Rc::new(on_select);
+        let query = self.menu_search.read(cx).buffer.text.to_lowercase();
+        let menu = open.then(|| {
+            let visible = options
+                .into_iter()
+                .filter(|option| {
+                    !searchable
+                        || query.trim().is_empty()
+                        || format!(
+                            "{} {}",
+                            option.label,
+                            option.detail.as_deref().unwrap_or_default()
+                        )
+                        .to_lowercase()
+                        .contains(query.trim())
+                })
+                .collect::<Vec<_>>();
+            let empty = visible.is_empty();
+            controls::menu_panel(width.max(controls::CONTROL_WIDTH), &colors)
+                .when(searchable, |view| {
+                    view.child(
+                        div()
+                            .h(px(36.))
+                            .px_2()
+                            .mb_1()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .border_b_1()
+                            .border_color(colors.border)
+                            .text_sm()
+                            .child(controls::icon(
+                                "Search01Icon.svg",
+                                16.,
+                                colors.muted_foreground,
+                            ))
+                            .child(div().flex_1().h(px(20.)).child(self.menu_search.clone())),
+                    )
+                })
+                .child(
+                    div()
+                        .id(SharedString::from(format!("{id}-options")))
+                        .max_h(px(250.))
+                        .overflow_y_scroll()
+                        .flex()
+                        .flex_col()
+                        .when(empty, |view| {
+                            view.child(
+                                div()
+                                    .px_2()
+                                    .py(px(6.))
+                                    .text_sm()
+                                    .text_color(colors.muted_foreground)
+                                    .child("No results found."),
+                            )
+                        })
+                        .children(visible.into_iter().map(|option| {
+                            let value = option.value.to_string();
+                            let on_select = on_select.clone();
+                            controls::menu_item(
+                                SharedString::from(format!("{id}-{value}")),
+                                option.label,
+                                option.detail,
+                                value == selected,
+                                &colors,
+                            )
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.menu = None;
+                                    on_select(this, value.clone(), cx);
+                                    cx.notify();
+                                },
+                            ))
+                        })),
+                )
+        });
+        div()
+            .relative()
+            .w_full()
+            .child(trigger)
+            .when_some(menu, |view, menu| {
+                view.child(controls::dropdown(menu, width > controls::CONTROL_WIDTH))
+            })
+            .into_any_element()
+    }
+
+    /// Closes an open menu on any click outside it, without the click reaching the page.
+    fn backdrop(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+        let size = window.viewport_size();
+        deferred(
+            gpui::anchored().position(point(px(0.), px(0.))).child(
+                div()
+                    .id("settings-menu-backdrop")
+                    .w(size.width)
+                    .h(size.height)
+                    .occlude()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| {
+                            this.menu = None;
+                            cx.notify();
+                        }),
+                    ),
+            ),
+        )
+        .with_priority(0)
+        .into_any_element()
     }
 }
 
@@ -399,30 +450,87 @@ impl Drop for PreferencesView {
 impl Render for PreferencesView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
+        let page = match self.section {
+            "app" => self.general(window, cx),
+            "appearance" => self.appearance(window, cx),
+            "notifications" => self.notifications(window, cx),
+            "meetings" => self.meetings(window, cx),
+            "privacy" => self.privacy(window, cx),
+            "dictation" => self.dictation(window, cx),
+            "dictionary" => self.dictionary(window, cx),
+            _ => div().into_any_element(),
+        };
         div()
             .flex()
             .flex_col()
-            .gap_3()
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(colors.muted_foreground)
-                    .child(self.status.clone()),
-            )
-            .child(
-                div()
-                    .id("refresh-preferences")
-                    .cursor_pointer()
-                    .text_sm()
-                    .child("Refresh preferences")
-                    .on_click(cx.listener(|this, _, _, cx| this.watch(cx))),
-            )
-            .children(
-                settings::definitions()
-                    .iter()
-                    .filter(|def| navigation::section(def) == self.section)
-                    .filter_map(|def| self.fields.get(&def.key))
-                    .cloned(),
-            )
+            .gap_4()
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape" && this.menu.take().is_some() {
+                    cx.stop_propagation();
+                    cx.notify();
+                }
+            }))
+            .when_some(self.status.clone(), |view, status| {
+                view.child(div().text_sm().text_color(colors.destructive).child(status))
+            })
+            .child(page)
+            .when(self.menu.is_some(), |view| {
+                view.child(self.backdrop(window, cx))
+            })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use desktop_runtime::Profile;
+    use gpui::{AppContext, TestAppContext};
+
+    use super::*;
+
+    /// Runs foreground work until `done`, letting replies from the runtime's threads land.
+    fn settle(cx: &mut TestAppContext, done: impl Fn(&mut TestAppContext) -> bool) {
+        for _ in 0..400 {
+            cx.run_until_parked();
+            if done(cx) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        panic!("settings view did not settle");
+    }
+
+    #[gpui::test]
+    fn rapid_changes_to_one_setting_persist_the_last_value(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let view = cx.new(|cx| PreferencesView::new(runtime.clone(), cx));
+        settle(cx, |cx| view.read_with(cx, |view, _| view.loaded()));
+
+        view.update(cx, |view, cx| {
+            for value in [true, false, true] {
+                view.set("use_24_hour_time", Value::Bool(value), cx);
+            }
+            assert!(view.flag("use_24_hour_time"));
+        });
+        settle(cx, |cx| view.read_with(cx, |view, cx| !view.has_unsaved(cx)));
+
+        view.read_with(cx, |view, _| assert_eq!(view.status, None));
+        let stored = futures::executor::block_on(async {
+            let watch = settings::watch(&runtime).unwrap().receive().await.unwrap();
+            let snapshot = settings::decode(&watch.snapshots.borrow().rows).unwrap();
+            watch.unsubscribe().await.unwrap();
+            snapshot
+        });
+        assert_eq!(stored["use_24_hour_time"].value, Value::Bool(true));
+        assert_eq!(stored["use_24_hour_time"].source, "Synced");
+        drop(view);
+        futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 }

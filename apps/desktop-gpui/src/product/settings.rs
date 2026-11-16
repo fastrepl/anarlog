@@ -67,6 +67,11 @@ pub fn write_gate(key: &str) -> Option<&'static str> {
         | "show_app_in_dock"
         | "show_tray_icon" => Some("Requires the native settings side-effect service."),
         "lock_app" => Some("Requires native authentication before changing device lock."),
+        "app_icon" => Some("Requires the application icon service."),
+        // Only macOS lets the app override its window appearance.
+        "theme" if !cfg!(target_os = "macos") => {
+            Some("Requires the application appearance service.")
+        }
         "cloud_sync_enabled" => Some("Requires the CloudSync lifecycle service."),
         "current_stt_provider" | "current_stt_model" | "local_stt_model_path" => {
             Some("Requires model inspection and successful engine startup before persistence.")
@@ -76,6 +81,15 @@ pub fn write_gate(key: &str) -> Option<&'static str> {
         }
         _ => None,
     }
+}
+
+/// Applies the `theme` preference to every window: "light", "dark", or "system".
+pub fn apply_theme(theme: &str, cx: &mut gpui::App) {
+    cx.set_window_appearance(match theme {
+        "light" => Some(gpui::WindowAppearance::Light),
+        "dark" => Some(gpui::WindowAppearance::Dark),
+        _ => None,
+    });
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
