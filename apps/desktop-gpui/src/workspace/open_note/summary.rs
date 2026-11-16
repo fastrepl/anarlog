@@ -391,7 +391,17 @@ impl NoteView {
             };
             let _ = this.update(cx, |this, cx| {
                 match result {
-                    Ok(_) | Err(desktop_runtime::ServiceError::Cancelled) => {
+                    Ok(_) => {
+                        this.jobs.remove(&session);
+                        let title = this
+                            .current
+                            .as_ref()
+                            .filter(|current| current.summary.id == session)
+                            .map(|current| current.summary.title.to_string())
+                            .unwrap_or_default();
+                        crate::meeting::automation::summary_ready(&session, &title, cx);
+                    }
+                    Err(desktop_runtime::ServiceError::Cancelled) => {
                         this.jobs.remove(&session);
                     }
                     Err(error) => {

@@ -92,6 +92,11 @@ impl CloudServices {
         Ok(Self { runtime, core })
     }
 
+    /// The replica's sync progress, for the initial-sync notification.
+    pub fn sync_status(&self) -> anlg_db_sync::ReplicaSyncStatus {
+        self.core.sync.hook.replica_status()
+    }
+
     pub fn auth_provider(&self) -> Arc<dyn SecureAuthProvider> {
         Arc::new(self.clone())
     }

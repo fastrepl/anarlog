@@ -101,6 +101,48 @@ impl NativeNotifications {
     }
 }
 
+/// Closes every shown notification, like shipping's `clearNotifications`.
+pub fn dismiss_all() {
+    #[cfg(target_os = "macos")]
+    anlg_notification_macos::dismiss_all();
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    native_notifications::dismiss_all();
+}
+
+/// Shipping's detect plugin `is_do_not_disturb`: whether a Focus mode is on (macOS only).
+pub fn do_not_disturb() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("defaults")
+            .args([
+                "read",
+                "com.apple.controlcenter",
+                "NSStatusItem Visible FocusModes",
+            ])
+            .output()
+            .is_ok_and(|output| {
+                output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "1"
+            })
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
+}
+
+/// An informational Dock bounce (`requestUserAttention(Informational)`); other platforms
+/// have no native equivalent in GPUI yet.
+pub fn request_attention() {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2::{class, msg_send, runtime::AnyObject};
+        const INFORMATIONAL_REQUEST: isize = 10;
+        // SAFETY: called on the main thread; NSApplication is the running shared instance.
+        unsafe {
+            let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+            let _: isize = msg_send![app, requestUserAttention: INFORMATIONAL_REQUEST];
+        }
+    }
+}
+
 #[cfg(target_os = "linux")]
 use anlg_notification_linux as native_notifications;
 #[cfg(target_os = "windows")]

@@ -59,6 +59,7 @@ fn main() -> anyhow::Result<()> {
             Ok(native) => cx.set_global(Installed(std::sync::Arc::new(native))),
             Err(error) => tracing::warn!(%error, "native setting side effects are unavailable"),
         }
+        desktop_gpui::meeting::automation::NativePlatform::install(cx);
         cx.set_global(desktop_gpui::platform::device_auth::Installed(
             std::sync::Arc::new(desktop_gpui::platform::device_auth::NativeDeviceAuth),
         ));

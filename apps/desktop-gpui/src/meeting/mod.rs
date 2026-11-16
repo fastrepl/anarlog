@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod ai_view;
+pub mod automation;
 pub mod capture;
 pub mod config;
 pub mod context;

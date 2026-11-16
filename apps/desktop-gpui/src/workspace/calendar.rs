@@ -172,7 +172,7 @@ impl Clock {
 }
 
 /// Stored timestamps are RFC 3339; zone-less values are UTC, as in the shipping app.
-fn parse_instant(value: &str) -> Option<DateTime<Utc>> {
+pub(crate) fn parse_instant(value: &str) -> Option<DateTime<Utc>> {
     let value = value.trim();
     DateTime::parse_from_rfc3339(value)
         .map(|date| date.to_utc())

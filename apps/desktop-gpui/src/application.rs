@@ -1,3 +1,4 @@
+mod automation;
 mod chrome;
 pub(crate) mod lifecycle;
 mod notifications;
@@ -58,6 +59,7 @@ pub struct ApplicationView {
     editor: Option<Entity<EditorPane>>,
     meeting: Option<Entity<MeetingPane>>,
     meeting_host: MeetingHost,
+    automation: Entity<crate::meeting::automation::MeetingAutomation>,
     dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
     trial_dialogs: Entity<crate::product::trial::TrialDialogs>,
@@ -105,6 +107,14 @@ impl ApplicationView {
         let meeting_host = MeetingHost::install(cx);
         let toasts = toasts::install(cx);
         let live = meeting_host.live().clone();
+        let automation = cx.new(|cx| {
+            crate::meeting::automation::MeetingAutomation::new(
+                runtime.clone(),
+                Some(profile.clone()),
+                window,
+                cx,
+            )
+        });
         let workspace = cx.new(|cx| {
             WorkspaceView::new(
                 LaneContext {
@@ -135,6 +145,13 @@ impl ApplicationView {
             }),
             // Plan-gated surfaces read the account while rendering.
             cx.observe_global::<crate::product::account::Account>(|_, cx| cx.notify()),
+            cx.subscribe_in(
+                &automation,
+                window,
+                |this, _, request: &crate::meeting::automation::Request, window, cx| {
+                    this.automation_request(request, window, cx)
+                },
+            ),
         ];
         let dictation = match crate::dictation::Dictation::install(runtime.clone(), cx) {
             Ok(dictation) => {
@@ -337,6 +354,7 @@ impl ApplicationView {
             editor: None,
             meeting: None,
             meeting_host,
+            automation,
             dictation,
             product: None,
             trial_dialogs,
@@ -559,6 +577,7 @@ impl ApplicationView {
             }
             Phase::Idle => {
                 if let Some(session) = self.capture_session.take() {
+                    crate::meeting::automation::capture_completed(cx);
                     self.workspace.update(cx, |workspace, cx| {
                         workspace.run_automations(
                             crate::workspace::automation_runner::Trigger::MeetingCompleted,
@@ -788,6 +807,14 @@ impl ApplicationView {
             loop {
                 let identity = identities.borrow_and_update().clone();
                 let _ = this.update(cx, |this, cx| {
+                    let status = identity_cloud.clone();
+                    this.automation.update(cx, |automation, cx| {
+                        automation.set_account(
+                            identity.account_id.clone(),
+                            Some(Arc::new(move || status.sync_status().last_sync_at_ms)),
+                            cx,
+                        )
+                    });
                     this.workspace.update(cx, |view, cx| {
                         view.set_viewer(identity.account_id.clone(), cx);
                         view.set_automation_client(None, cx);
@@ -1105,6 +1132,7 @@ impl ApplicationView {
         self.meeting_subscription = Some(cx.subscribe(&meeting, |this, _, event, cx| {
             match event {
                 MeetingEvent::NoteEnhanced(session) => {
+                    crate::meeting::automation::summary_ready(session, "", cx);
                     this.workspace.update(cx, |workspace, cx| {
                         workspace.run_automations(
                             crate::workspace::automation_runner::Trigger::NoteEnhanced,

@@ -393,6 +393,9 @@ impl ApplicationView {
                                     workspace.set_timeline_metadata(show_folder, show_tags, cx);
                                     workspace.set_calendar_week_start(week_start, cx);
                                 });
+                                this.automation.update(cx, |automation, _| {
+                                    automation.set_preferences(snapshot.clone())
+                                });
                                 this.notifications.preferences = Some(snapshot);
                             }
                             Err(error) => {
