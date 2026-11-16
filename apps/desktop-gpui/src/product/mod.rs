@@ -454,7 +454,7 @@ impl ProductPane {
                     )
                     .children(pages.into_iter().map(|page| {
                         let active = page.id == self.active.id;
-                        let locked = account_view::locked(page.id, page.requires_pro, &account);
+                        let locked = account::locked(page.id, page.requires_pro, &account);
                         let tint = if active { colors.foreground } else { muted };
                         let group = SharedString::from(format!("settings-nav-{}", page.id));
                         div()

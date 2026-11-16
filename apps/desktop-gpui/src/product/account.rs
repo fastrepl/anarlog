@@ -247,6 +247,18 @@ pub fn is_paid(cx: &App) -> bool {
         .is_some_and(|account| account.is_paid(now()))
 }
 
+/// Whether a Pro page shows a lock in the settings sidebar and search; Teams unlocks once
+/// the account belongs to a workspace.
+pub fn locked(page: &str, requires_pro: bool, account: &Account) -> bool {
+    requires_pro
+        && !account.is_pro(now())
+        && !(page == "team"
+            && account
+                .workspaces
+                .as_ref()
+                .is_some_and(|workspaces| !workspaces.is_empty()))
+}
+
 /// Replaces the app-wide account; views observing `Account` re-render.
 pub fn set(account: Account, cx: &mut App) {
     if cx.try_global::<Account>() != Some(&account) {

@@ -10,7 +10,10 @@ use gpui::{
 };
 
 use super::playback::{Command, Playback, RATES, Snapshot};
-use crate::ui::theme::{RADIUS, monospace_font, theme};
+use crate::{
+    product::account,
+    ui::theme::{RADIUS, monospace_font, theme},
+};
 
 const BAR_WIDTH: f32 = 3.;
 const BAR_GAP: f32 = 2.;
@@ -26,7 +29,6 @@ pub struct PlayerView {
     dragging: bool,
     rates_open: bool,
     /// Shipping offers playback rates to Pro accounts only.
-    pro: bool,
     _poll: Task<()>,
 }
 
@@ -58,7 +60,6 @@ impl PlayerView {
             bounds: None,
             dragging: false,
             rates_open: false,
-            pro: false,
             _poll: poll,
         }
     }
@@ -66,11 +67,6 @@ impl PlayerView {
     pub fn open(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         self.path = Some(path.clone());
         self.command(Command::Open(path), cx);
-    }
-
-    pub fn set_pro(&mut self, pro: bool, cx: &mut Context<Self>) {
-        self.pro = pro;
-        cx.notify();
     }
 
     fn command(&mut self, command: Command, cx: &mut Context<Self>) {
@@ -115,6 +111,8 @@ fn bars(peaks: &[[f32; 2]], width: f32) -> Vec<[f32; 2]> {
 
 impl Render for PlayerView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Shipping offers playback speeds only on paid plans.
+        let pro = account::is_pro(cx);
         let colors = theme(window);
         let row = div()
             .relative()
@@ -231,7 +229,7 @@ impl Render for PlayerView {
                 .child("/")
                 .child(clock(duration)),
         )
-        .when(self.pro, |row| {
+        .when(pro, |row| {
             row.child(
                 div()
                     .id("playback-rate")
@@ -283,7 +281,7 @@ impl Render for PlayerView {
                     cx.listener(|this, _, _, _| this.dragging = false),
                 ),
         )
-        .when(self.pro && self.rates_open, |row| {
+        .when(pro && self.rates_open, |row| {
             row.child(
                 gpui::deferred(
                     div()

@@ -1679,21 +1679,10 @@ fn sync_preview(colors: &Theme) -> Div {
         )
 }
 
-/// The settings sidebar locks Pro pages; Teams unlocks once the account has a workspace.
-pub(super) fn locked(page: &str, requires_pro: bool, account: &Account) -> bool {
-    requires_pro
-        && !account.is_pro(account::now())
-        && !(page == "team"
-            && account
-                .workspaces
-                .as_ref()
-                .is_some_and(|workspaces| !workspaces.is_empty()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::product::account::{Claims, User, Workspace};
+    use crate::product::account::{Claims, User, Workspace, locked};
 
     fn account(workspaces: Vec<Workspace>, entitlements: Vec<String>) -> Account {
         Account {

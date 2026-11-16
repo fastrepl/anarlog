@@ -652,18 +652,30 @@ fn templates_and_folders(
     click(cx, window, 154., 23.);
     click(cx, window, 182., 23.);
     capture(cx, window, out, "templates-pro-required");
+    // Pro comes from the app-wide account; reset it so later captures stay signed out.
     cx.update(|cx| {
-        window
-            .update(cx, |root, _, cx| {
-                root.workspace()
-                    .clone()
-                    .update(cx, |workspace, cx| workspace.set_pro(true, cx))
-            })
-            .unwrap()
+        use desktop_gpui::product::account::{self, Account, Claims, User};
+        account::set(
+            Account {
+                user: Some(User {
+                    id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
+                    email: Some("alex@example.com".into()),
+                }),
+                claims: Some(Claims {
+                    entitlements: vec!["hyprnote_pro".into()],
+                    subscription_status: Some("active".into()),
+                    current_period_end: Some(account::now() + 86_400),
+                    ..Claims::default()
+                }),
+                ..Account::default()
+            },
+            cx,
+        )
     });
     click(cx, window, 100., 146.);
     pointer(cx, window, 500., 200.);
     capture(cx, window, out, "templates-pro");
+    cx.update(|cx| desktop_gpui::product::account::set(Default::default(), cx));
     open(cx, window, Route::Folders);
     click(cx, window, 182., 23.);
     capture(cx, window, out, "folders-new");

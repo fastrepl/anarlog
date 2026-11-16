@@ -20,6 +20,7 @@ use super::{
 };
 use crate::{
     contracts::ProductRoute,
+    product::account,
     ui::{
         input::{InputEvent, TextInput},
         theme::{Theme, is_dark, monospace_font, theme},
@@ -76,7 +77,6 @@ pub struct TemplatesView {
     context: Option<(Point<Pixels>, Arc<str>)>,
     form: Option<Form>,
     picker: Option<(Entity<IconPicker>, Subscription)>,
-    pro: bool,
     signed_in: bool,
     sharing: bool,
     /// The visible "requires Pro" toast, by sequence number.
@@ -107,7 +107,6 @@ impl TemplatesView {
             context: None,
             form: None,
             picker: None,
-            pro: false,
             signed_in: false,
             sharing: false,
             notice: None,
@@ -117,12 +116,6 @@ impl TemplatesView {
             focus: cx.focus_handle(),
             _subscriptions: vec![subscription],
         }
-    }
-
-    /// Template editing and creation require Pro, as in shipping's `PlanGate`.
-    pub fn set_pro(&mut self, pro: bool, cx: &mut Context<Self>) {
-        self.pro = pro;
-        cx.notify();
     }
 
     pub fn set_signed_in(&mut self, signed_in: bool, cx: &mut Context<Self>) {
@@ -412,7 +405,7 @@ impl TemplatesView {
     }
 
     fn create(&mut self, cx: &mut Context<Self>) {
-        if !self.pro {
+        if !account::is_pro(cx) {
             self.notify_pro(cx);
             return;
         }
@@ -427,7 +420,7 @@ impl TemplatesView {
     fn duplicate(&mut self, id: Arc<str>, cx: &mut Context<Self>) {
         self.menu = None;
         self.context = None;
-        if !self.pro {
+        if !account::is_pro(cx) {
             self.notify_pro(cx);
             return;
         }
@@ -911,7 +904,7 @@ impl TemplatesView {
         let is_default = self.library.default_id == id;
         let pinned = template.pinned;
         let rose: gpui::Hsla = rgb(0xf43f5e).into();
-        let sections_editable = self.pro && template.warnings.is_empty();
+        let sections_editable = account::is_pro(cx) && template.warnings.is_empty();
         let actions_open = self.menu == Some(Menu::Actions);
         let (default_id, favorite_id) = (id.clone(), id.clone());
         div()
@@ -1102,7 +1095,7 @@ impl TemplatesView {
 
     /// `PlanGate`: without Pro the content is dimmed and every pointer press explains why.
     fn gate(&self, content: gpui::Div, cx: &mut Context<Self>) -> AnyElement {
-        if self.pro {
+        if account::is_pro(cx) {
             return content.into_any_element();
         }
         content
@@ -1635,7 +1628,7 @@ impl TemplatesView {
                                             .cursor_pointer()
                                             .hover(|style| style.bg(colors.accent))
                                             .on_click(cx.listener(|this, _, _, cx| {
-                                                if !this.pro {
+                                                if !account::is_pro(cx) {
                                                     this.notify_pro(cx);
                                                 }
                                             }))

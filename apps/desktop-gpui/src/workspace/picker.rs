@@ -19,9 +19,12 @@ use super::{
     navigation::Route,
     search::{self, MAX_RECENT, Move, Note, Row},
 };
-use crate::ui::{
-    input::{InputEvent, TextInput},
-    theme::{system_font, theme},
+use crate::{
+    product::account,
+    ui::{
+        input::{InputEvent, TextInput},
+        theme::{system_font, theme},
+    },
 };
 
 /// Local notes newest first (ties keep shipping's `created_at DESC, id`), then the viewer's
@@ -328,7 +331,7 @@ impl NotePicker {
                     page.icon,
                     page.label.into(),
                     search::hint(*page),
-                    page.requires_pro,
+                    account::locked(page.id, page.requires_pro, &account::current(cx)),
                 ),
                 Row::Note { note, .. } => (
                     if matches!(note.route, Route::SharedSession(_)) {

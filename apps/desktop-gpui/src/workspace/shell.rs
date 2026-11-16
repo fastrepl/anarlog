@@ -141,12 +141,6 @@ impl WorkspaceView {
         });
     }
 
-    /// Pro unlocks template editing, as shipping's billing access does.
-    pub fn set_pro(&mut self, pro: bool, cx: &mut Context<Self>) {
-        self.templates
-            .update(cx, |templates, cx| templates.set_pro(pro, cx));
-    }
-
     pub fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
         self.sidebar.toggle();
         self.sort_menu = None;
