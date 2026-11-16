@@ -120,20 +120,17 @@ uncached and reference samples; these are not whole-application measurements.
 
 ## Remaining parity and validation gates
 
-Recorded Linux comparisons against the shipping Tauri application are in progress
-with isolated profiles. They found substantial layout differences and concrete
-interaction regressions; fixed paths are being retested. Visual/focus/drag/drop/IME
-parity, native accessibility, i18n, macOS/Windows, hardware/provider/keyring
-behavior and signed packaging/update installation remain unverified. Upstream GPUI
+Screens are compared side by side with the shipping frontend on macOS (see Visual
+parity below). Focus/drag/drop/IME parity, native accessibility, i18n, Linux and
+Windows rendering, hardware/provider/keyring behavior, real floating windows and
+signed packaging/update installation remain unverified. Upstream GPUI
 now provides accessibility hooks, but the views do not publish roles, labels or text
 yet. A Wayland shortcut portal and per-window close-to-hide support are missing. Cloud attachment transfer/hydration, image
 resize handles and full multiline soft wrapping remain incomplete. Shared-note
 previews retain source JSON but do not hydrate published attachments. This is
 not release-ready and does not switch the shipping default.
-Several generic side-effect settings remain guarded, including autostart,
-device lock, app/dock appearance, analytics and crash reporting. Native
-localization, complete provider enrollment/model discovery, spellcheck and
-keyboard/drag-selection parity still need work.
+Native localization, spellcheck and keyboard/drag-selection parity still need
+work.
 
 `save_document` is an explicit JSON-document API, not a lossless editor
 implementation: it verifies the root and CASes the original body, format and
@@ -156,7 +153,8 @@ node parity/shoot.mjs http://127.0.0.1:1499/app/main /tmp/screens/shipping-note.
   --click "Weekly product sync"
 ```
 
-`tests/screens/*.sql` hold the fictional library, applied in name order. The shipping capture uses
+`tests/screens/*.sql` hold the fictional library, applied in name order. Tests that
+drive `anlg-audio-mock` stay silent through `.cargo/config.toml` (`MOCK_PLAYBACK=0`). The shipping capture uses
 headless Chromium from the Playwright cache (`CHROME` overrides it) and prints
 console errors plus any IPC command it had no answer for.
 
@@ -327,9 +325,7 @@ also exercises rich-document save/reopen through `SaveJournal`, preservation of
 opaque/table/task content, competing writes, explicit conflict resolution, and
 pin CAS/corrupt-storage behavior.
 
-`pnpm dev:desktop-gpui --profile /absolute/path/to/sandbox` runs the native binary.
-`pnpm check:desktop-gpui` runs the native check, tests, and Clippy. The focused
-`desktop_gpui_ci.yaml` additionally builds the binary and checks Rust formatting.
+`pnpm dev:gpui --profile /absolute/path/to/sandbox` runs the native binary.
 
 Equivalent release-build old/new profiling with reproducible large-library,
 large-document and streaming fixtures is required before claiming any speed,

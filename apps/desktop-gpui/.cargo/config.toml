@@ -1,0 +1,4 @@
+[env]
+# Tests drive anlg-audio-mock; keep it from playing fixtures through the speakers. Set
+# MOCK_PLAYBACK=1 in the environment to hear them.
+MOCK_PLAYBACK = "0"
