@@ -693,7 +693,7 @@ fn status(
                     div()
                         .text_base()
                         .line_height(px(24.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(colors.foreground)
                         .child(title),
                 )
@@ -739,7 +739,7 @@ fn disabled_button(colors: Theme, label: &'static str, primary: bool) -> impl In
         .gap_2()
         .rounded(px(RADIUS))
         .text_xs()
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .opacity(0.5)
         .map(|button| {
             if primary {

@@ -73,7 +73,7 @@ pub fn setting_row(
                         .mb_1()
                         .text_sm()
                         .line_height(px(20.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .child(title.into()),
                 )
                 .when_some(detail, |view, detail| {
@@ -166,7 +166,7 @@ pub fn outline_button(
         .bg(colors.background)
         .shadow_xs()
         .text_sm()
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .child(label.into())
         .when(!enabled, |view| view.opacity(0.5))
         .when_some(on_click.filter(|_| enabled), |view, on_click| {

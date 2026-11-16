@@ -298,7 +298,7 @@ fn button(
         .justify_center()
         .gap_2()
         .rounded(px(RADIUS))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .map(|button| {
             if small {
@@ -570,7 +570,7 @@ impl NoteView {
                         div()
                             .text_base()
                             .line_height(px(24.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.foreground)
                             .child("Set up AI summaries"),
                     )
@@ -632,7 +632,7 @@ impl NoteView {
                         div()
                             .text_base()
                             .line_height(px(24.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.foreground)
                             .child("Summary generation failed"),
                     )
@@ -813,7 +813,7 @@ impl NoteView {
                         .truncate()
                         .text_sm()
                         .line_height(px(20.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(colors.foreground)
                         .child(SharedString::from(item.title.to_string())),
                 )
@@ -834,7 +834,7 @@ impl NoteView {
                             .py(px(2.))
                             .text_size(px(11.))
                             .line_height(px(16.5))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.muted_foreground)
                             .when_else(
                                 generating,
@@ -872,7 +872,7 @@ impl NoteView {
                         .font_family(mono.clone())
                         .text_size(px(11.))
                         .line_height(px(16.5))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(colors.muted_foreground)
                         .child(label),
                 )
@@ -904,7 +904,7 @@ impl NoteView {
                             .min_w_0()
                             .truncate()
                             .text_sm()
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.foreground)
                             .child(title),
                     )
@@ -1027,7 +1027,7 @@ impl NoteView {
                         .py(px(6.))
                         .text_xs()
                         .line_height(px(16.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(colors.muted_foreground)
                         .cursor_pointer()
                         .hover(move |style| style.bg(colors.accent).text_color(colors.foreground))

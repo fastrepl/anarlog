@@ -541,7 +541,7 @@ pub fn dialog_button(
         .rounded(px(8.))
         .text_xs()
         .line_height(px(16.))
-        .font_weight(gpui::FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .shadow_sm()
         .child(label);
@@ -577,7 +577,7 @@ pub fn share_button(id: &'static str, colors: Theme) -> Stateful<gpui::Div> {
         .rounded(px(8.))
         .text_xs()
         .line_height(px(16.))
-        .font_weight(gpui::FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .text_color(colors.muted_foreground)
         .cursor_pointer()
         .hover(|style| style.bg(colors.accent).text_color(colors.foreground))
@@ -626,7 +626,7 @@ impl WarningToast {
                 .rounded(px(6.))
                 .text_xs()
                 .line_height(px(16.))
-                .font_weight(gpui::FontWeight::MEDIUM)
+                .font_weight(crate::ui::theme::MEDIUM)
                 .cursor_pointer()
                 .map(|button| {
                     if primary {
@@ -736,7 +736,7 @@ impl WarningToast {
                         .child(
                             div()
                                 .text_color(colors.foreground)
-                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .child(if self.paused { "Resume" } else { "Pause" }),
                         )
                         .child(

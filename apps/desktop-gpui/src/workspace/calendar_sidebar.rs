@@ -758,7 +758,7 @@ impl CalendarSidebar {
                                     .truncate()
                                     .text_sm()
                                     .line_height(px(20.))
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .text_color(colors.foreground)
                                     .child(provider.name()),
                             ),
@@ -1174,7 +1174,7 @@ impl CalendarSidebar {
                     .truncate()
                     .text_xs()
                     .line_height(px(16.))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .text_color(colors.muted_foreground)
                     .child(SharedString::from(group.source.clone())),
             )

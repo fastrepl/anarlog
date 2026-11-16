@@ -391,7 +391,7 @@ impl Render for ProfileCard {
                 div()
                     .text_sm()
                     .line_height(px(20.))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .child("Your info"),
             )
             .child(muted(

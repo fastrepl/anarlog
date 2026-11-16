@@ -709,7 +709,7 @@ impl Composer {
                         ..base.clone()
                     };
                     if span.node.kind() == "mention-@" {
-                        run.font.weight = FontWeight::MEDIUM;
+                        run.font.weight = crate::ui::theme::MEDIUM;
                     }
                     run
                 })

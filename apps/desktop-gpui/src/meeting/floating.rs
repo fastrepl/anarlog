@@ -357,7 +357,7 @@ impl FloatingBar {
                                 .border_color(palette.chip_stroke)
                                 .text_color(palette.content)
                                 .text_size(px(11.))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .cursor_pointer()
                                 .child(icon("meeting/ArrowDown02Icon.svg", 10., palette.content))
                                 .child("Go to bottom")

@@ -874,7 +874,7 @@ impl TemplatesView {
                         .child(
                             div()
                                 .truncate()
-                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .child(title),
                         )
                         .when_some(subtitle, |view, subtitle| {
@@ -981,7 +981,7 @@ impl TemplatesView {
             .rounded(px(8.))
             .text_xs()
             .line_height(px(16.))
-            .font_weight(gpui::FontWeight::MEDIUM)
+            .font_weight(crate::ui::theme::MEDIUM)
             .map(|button| {
                 if default {
                     button
@@ -1412,7 +1412,7 @@ impl TemplatesView {
                                             .flex()
                                             .items_center()
                                             .text_sm()
-                                            .font_weight(gpui::FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .when(!editable, |view| view.opacity(0.5))
                                             .child(inputs.title.clone()),
                                     )
@@ -1460,7 +1460,7 @@ impl TemplatesView {
                             .bg(colors.card)
                             .text_sm()
                             .line_height(px(20.))
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.foreground)
                             .shadow_sm()
                             .cursor_pointer()
@@ -1594,7 +1594,7 @@ impl TemplatesView {
                     .bg(colors.background)
                     .shadow_xs()
                     .text_xs()
-                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .cursor_pointer()
                     .hover(|style| style.bg(colors.accent))
                     .on_click(cx.listener(|this, _, _, cx| this.create(cx)))
@@ -1745,7 +1745,7 @@ impl TemplatesView {
                                             .bg(colors.background)
                                             .shadow_xs()
                                             .text_xs()
-                                            .font_weight(gpui::FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .cursor_pointer()
                                             .hover(|style| style.bg(colors.accent))
                                             .on_click(cx.listener(|this, _, _, cx| {
@@ -1795,7 +1795,7 @@ impl TemplatesView {
                                                     .bg(colors.primary)
                                                     .text_color(colors.primary_foreground)
                                                     .text_sm()
-                                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                                    .font_weight(crate::ui::theme::MEDIUM)
                                                     .shadow_xs()
                                                     .when_else(
                                                         dirty,

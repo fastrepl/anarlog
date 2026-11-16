@@ -287,7 +287,7 @@ fn label(text: &'static str) -> Div {
     div()
         .text_sm()
         .line_height(px(20.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .child(text)
 }
 
@@ -435,7 +435,7 @@ impl ResourceShareDialog {
                                 field("resource-share-publish")
                                     .px_4()
                                     .justify_center()
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .when_else(
                                         paid && !publishing,
                                         |b| {
@@ -693,7 +693,7 @@ impl ResourceShareDialog {
                         .items_center()
                         .rounded(px(8.))
                         .text_xs()
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .when_else(
                             pending,
                             |b| b.opacity(0.5),
@@ -737,7 +737,7 @@ impl ResourceShareDialog {
                         .gap_2()
                         .rounded(px(8.))
                         .text_xs()
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(red)
                         .when_else(
                             stopping,

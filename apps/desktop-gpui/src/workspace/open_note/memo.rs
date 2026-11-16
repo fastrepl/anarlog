@@ -4,7 +4,7 @@
 use std::sync::LazyLock;
 
 use desktop_runtime::SessionId;
-use gpui::{AnyElement, Context, Entity, FontWeight, SharedString, div, prelude::*, px};
+use gpui::{AnyElement, Context, Entity, SharedString, div, prelude::*, px};
 use regex::Regex;
 use serde_json::json;
 
@@ -161,7 +161,7 @@ impl NoteView {
                         .overflow_hidden()
                         .text_sm()
                         .line_height(px(20.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .child(title),
                 )
         };

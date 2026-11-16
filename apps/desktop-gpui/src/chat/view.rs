@@ -463,7 +463,7 @@ impl ChatView {
                                 .truncate()
                                 .text_sm()
                                 .line_height(px(20.))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .text_color(if active {
                                     colors.foreground
                                 } else {
@@ -635,7 +635,7 @@ impl ChatView {
                             div()
                                 .flex_1()
                                 .truncate()
-                                .when(open, |view| view.font_weight(FontWeight::MEDIUM))
+                                .when(open, |view| view.font_weight(crate::ui::theme::MEDIUM))
                                 .child("Activity"),
                         )
                         .child(
@@ -803,7 +803,7 @@ impl ChatView {
                                 div()
                                     .text_sm()
                                     .line_height(px(20.))
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .text_color(colors.foreground)
                                     .child("Anarlog AI"),
                             )
@@ -818,7 +818,7 @@ impl ChatView {
                                     .text_color(rgb(0x0c4a6e))
                                     .text_size(px(10.))
                                     .line_height(px(15.))
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .child("Beta"),
                             ),
                     )
@@ -847,7 +847,7 @@ impl ChatView {
                             .text_color(colors.primary_foreground)
                             .text_xs()
                             .line_height(px(16.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .shadow(vec![BoxShadow {
                                 color: rgba(0x57534e2e).into(),
                                 offset: point(px(0.), px(4.)),

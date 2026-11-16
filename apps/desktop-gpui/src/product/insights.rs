@@ -6,9 +6,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Utc};
 use chrono_tz::Tz;
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError};
-use gpui::{
-    Context, FontWeight, Hsla, Render, SharedString, Window, div, prelude::*, px, relative,
-};
+use gpui::{Context, Hsla, Render, SharedString, Window, div, prelude::*, px, relative};
 use serde_json::json;
 
 use crate::ui::theme::{Theme, theme};
@@ -333,7 +331,7 @@ impl InsightsView {
                         .rounded(px(6.))
                         .text_xs()
                         .line_height(px(16.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .cursor_pointer()
                         .when(selected, |view| {
                             view.bg(colors.background)
@@ -358,7 +356,7 @@ fn heading(text: impl Into<SharedString>) -> gpui::Div {
     div()
         .text_sm()
         .line_height(px(20.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .child(text.into())
 }
 
@@ -423,7 +421,7 @@ fn patterns(stats: &Stats, colors: &Theme) -> gpui::Div {
                 div()
                     .text_2xl()
                     .line_height(px(32.))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .child(value),
             )
             .child(small(note))
@@ -452,7 +450,7 @@ fn patterns(stats: &Stats, colors: &Theme) -> gpui::Div {
                             div()
                                 .text_base()
                                 .line_height(px(24.))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .child(title),
                         )
                         .child(
@@ -695,7 +693,7 @@ impl Render for InsightsView {
                                         .mt_2()
                                         .text_3xl()
                                         .line_height(px(36.))
-                                        .font_weight(FontWeight::MEDIUM)
+                                        .font_weight(crate::ui::theme::MEDIUM)
                                         .child(value),
                                 )
                         })),

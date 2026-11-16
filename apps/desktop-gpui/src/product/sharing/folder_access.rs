@@ -280,7 +280,7 @@ impl Render for FolderAccess {
                         div()
                             .text_sm()
                             .line_height(px(20.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child("Default access"),
                     )
                     .child(
@@ -406,7 +406,7 @@ impl FolderAccess {
                 .rounded(px(8.))
                 .text_sm()
                 .line_height(px(20.))
-                .font_weight(FontWeight::MEDIUM)
+                .font_weight(crate::ui::theme::MEDIUM)
                 .shadow_xs()
                 .map(|b| {
                     if primary {

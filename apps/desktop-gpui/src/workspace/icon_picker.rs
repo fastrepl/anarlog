@@ -262,7 +262,7 @@ impl IconPicker {
                                 .child(
                                     div()
                                         .text_xs()
-                                        .font_weight(gpui::FontWeight::MEDIUM)
+                                        .font_weight(crate::ui::theme::MEDIUM)
                                         .text_color(colors.muted_foreground)
                                         .child("HEX"),
                                 )
@@ -373,7 +373,7 @@ impl IconPicker {
                                             .mb(px(6.))
                                             .text_sm()
                                             .line_height(px(20.))
-                                            .font_weight(gpui::FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .text_color(colors.muted_foreground)
                                             .child(label),
                                     )
@@ -432,7 +432,7 @@ impl Render for IconPicker {
                 .flex()
                 .items_center()
                 .text_sm()
-                .font_weight(gpui::FontWeight::MEDIUM)
+                .font_weight(crate::ui::theme::MEDIUM)
                 .cursor_pointer()
                 .text_color(if active {
                     colors.foreground

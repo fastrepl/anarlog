@@ -295,7 +295,7 @@ impl Render for SharedLibrary {
                     .gap(px(6.))
                     .text_size(px(11.))
                     .line_height(px(16.5))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .text_color(colors.muted_foreground)
                     .child(icon("sharing/AddTeamIcon.svg", 14., colors.muted_foreground))
                     .child("SHARED WITH ME"),

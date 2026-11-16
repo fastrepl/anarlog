@@ -282,7 +282,7 @@ impl TranscriptView {
                 .pb_1()
                 .text_size(px(11.))
                 .line_height(px(16.5))
-                .font_weight(FontWeight::MEDIUM)
+                .font_weight(crate::ui::theme::MEDIUM)
                 .text_color(colors.muted_foreground)
                 .child(title)
         };
@@ -321,7 +321,12 @@ impl TranscriptView {
                     div()
                         .min_w_0()
                         .flex_1()
-                        .child(div().truncate().font_weight(FontWeight::MEDIUM).child(name))
+                        .child(
+                            div()
+                                .truncate()
+                                .font_weight(crate::ui::theme::MEDIUM)
+                                .child(name),
+                        )
                         .when(!email.is_empty(), |view| {
                             view.child(
                                 div()
@@ -576,7 +581,7 @@ impl TranscriptView {
                                         .bg(colors.primary)
                                         .text_color(colors.primary_foreground)
                                         .text_xs()
-                                        .font_weight(FontWeight::MEDIUM)
+                                        .font_weight(crate::ui::theme::MEDIUM)
                                         .when_else(
                                             can_confirm,
                                             |button| {

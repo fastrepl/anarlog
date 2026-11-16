@@ -611,7 +611,7 @@ impl ProviderView {
                         div()
                             .text_sm()
                             .line_height(px(20.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child(info.name),
                     )
                     .when_some(info.badge, |view, badge| {
@@ -666,7 +666,12 @@ fn field(label: &'static str, input: Entity<TextInput>) -> Div {
         .flex()
         .flex_col()
         .gap_2()
-        .child(div().text_sm().font_weight(FontWeight::MEDIUM).child(label))
+        .child(
+            div()
+                .text_sm()
+                .font_weight(crate::ui::theme::MEDIUM)
+                .child(label),
+        )
         .child(input)
 }
 

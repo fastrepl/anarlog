@@ -250,7 +250,7 @@ impl LocalSettingsView {
                                         div()
                                             .text_sm()
                                             .line_height(px(20.))
-                                            .font_weight(FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .child(found.title.to_string()),
                                     ),
                             )
@@ -406,7 +406,7 @@ impl Render for LocalSettingsView {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .child(row.title.to_string()),
                             )
                             .child(

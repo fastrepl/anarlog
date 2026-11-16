@@ -138,7 +138,7 @@ fn heading(text: &'static str) -> Div {
     div()
         .text_sm()
         .line_height(px(20.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .child(text)
 }
 
@@ -169,7 +169,7 @@ fn pill(
         .when(!chip, |view| {
             view.px_3().py(px(6.)).text_xs().line_height(px(16.))
         })
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .when(primary, |view| {
             view.bg(colors.primary)
@@ -191,7 +191,7 @@ fn status_chip(label: &'static str, emphasis: bool, colors: &Theme) -> Div {
         .py(px(2.))
         .text_size(px(10.))
         .line_height(px(15.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .when(emphasis, |view| {
             view.bg(colors.primary)
                 .text_color(colors.primary_foreground)
@@ -223,7 +223,7 @@ fn destructive_button(
         .text_color(colors.destructive_foreground)
         .shadow_xs()
         .text_sm()
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .child(label)
         .when(!enabled, |view| view.opacity(0.5))
         .when(enabled, |view| {
@@ -253,7 +253,7 @@ fn small_outline(
         .bg(colors.background)
         .shadow_xs()
         .text_xs()
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .hover(move |style| style.bg(hover))
         .when_some(icon, |view, icon| {
@@ -591,7 +591,7 @@ impl ProductPane {
                                 .bg(colors.primary)
                                 .text_color(colors.primary_foreground)
                                 .text_sm()
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 // `shadow-[0_4px_14px_rgba(87,83,78,0.4)]`; GPUI's blur
                                 // radius is the Gaussian sigma, half of CSS's blur.
                                 .shadow(vec![gpui::BoxShadow {
@@ -750,7 +750,7 @@ impl ProductPane {
                                         .border_color(colors.border.opacity(0.7))
                                         .bg(colors.background.opacity(0.5))
                                         .text_xs()
-                                        .font_weight(FontWeight::MEDIUM)
+                                        .font_weight(crate::ui::theme::MEDIUM)
                                         .shadow_xs()
                                         .when(pending, |view| view.opacity(0.5))
                                         .when(!pending, |view| {
@@ -774,7 +774,7 @@ impl ProductPane {
                                         .bg(colors.destructive)
                                         .text_color(colors.destructive_foreground)
                                         .text_xs()
-                                        .font_weight(FontWeight::MEDIUM)
+                                        .font_weight(crate::ui::theme::MEDIUM)
                                         .shadow_sm()
                                         .when(pending, |view| view.opacity(0.5))
                                         .when(!pending, |view| {
@@ -802,7 +802,7 @@ impl ProductPane {
                             .id("billing-sign-in")
                             .text_sm()
                             .line_height(px(20.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(primary)
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, _, cx| {
@@ -1018,7 +1018,7 @@ impl ProductPane {
                                     div()
                                         .text_base()
                                         .line_height(px(24.))
-                                        .font_weight(FontWeight::MEDIUM)
+                                        .font_weight(crate::ui::theme::MEDIUM)
                                         .child(format!("Anarlog {label}")),
                                 )
                                 .child(
@@ -1207,7 +1207,7 @@ impl ProductPane {
                         .rounded_full()
                         .text_xs()
                         .line_height(px(16.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .cursor_pointer()
                         .when(selected, |view| {
                             view.bg(colors.background)
@@ -1395,7 +1395,7 @@ impl ProductPane {
                                     .font_weight(if is_pro && highlight_pro {
                                         FontWeight::SEMIBOLD
                                     } else {
-                                        FontWeight::MEDIUM
+                                        crate::ui::theme::MEDIUM
                                     })
                                     .child(tier.name),
                             )
@@ -1488,7 +1488,7 @@ impl ProductPane {
                             .text_color(colors.primary_foreground)
                             .shadow_xs()
                             .text_xs()
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child(controls::icon(
                                 if self.account_ui.busy {
                                     "product/LoaderCircleIcon.svg"
@@ -1652,7 +1652,7 @@ impl ProductPane {
                     .child(
                         div()
                             .text_color(colors.foreground)
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child("Missing a referral reward?"),
                     )
                     .child("If your friend signed up through your link and started their free trial, but your free month hasn't appeared, email us and we'll help.")
@@ -1695,7 +1695,7 @@ impl ProductPane {
                         .mt_2()
                         .text_xl()
                         .line_height(px(28.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .child(value),
                 )
         };
@@ -1718,7 +1718,7 @@ impl ProductPane {
                         div()
                             .text_xl()
                             .line_height(px(28.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child("Refer friends, get a month free"),
                     )
                     .child(div().text_sm().line_height(px(22.75)).text_color(muted).child(
@@ -1804,7 +1804,7 @@ impl ProductPane {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .child(div().font_weight(FontWeight::MEDIUM).child("Your referrals"))
+                    .child(div().font_weight(crate::ui::theme::MEDIUM).child("Your referrals"))
                     .child(
                         div()
                             .id("refresh-referrals")
@@ -1815,7 +1815,7 @@ impl ProductPane {
                             .gap_2()
                             .rounded_full()
                             .text_xs()
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .cursor_pointer()
                             .hover(|style| style.bg(colors.accent))
                             .child(controls::icon("product/RefreshIcon.svg", 16., colors.foreground))
@@ -1861,7 +1861,7 @@ impl ProductPane {
                                 div()
                                     .flex()
                                     .text_sm()
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .child(format!("Invite {}", invite.slot))
                                     .child(
                                         div()

@@ -625,7 +625,7 @@ impl FoldersView {
                                     true,
                                     colors,
                                 )
-                                .when(selected, |row| row.font_weight(gpui::FontWeight::MEDIUM))
+                                .when(selected, |row| row.font_weight(crate::ui::theme::MEDIUM))
                                 .on_click(cx.listener({
                                     let path = path.clone();
                                     move |this, _, window, cx| {
@@ -887,7 +887,7 @@ impl FoldersView {
                         div()
                             .text_xs()
                             .line_height(px(16.))
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child("Add file"),
                     ),
             )
@@ -1044,7 +1044,7 @@ fn heading(text: &'static str) -> gpui::Div {
     div()
         .text_sm()
         .line_height(px(20.))
-        .font_weight(gpui::FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .child(text)
 }
 

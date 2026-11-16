@@ -732,7 +732,7 @@ impl AutomationsView {
                 .pb_1()
                 .text_xs()
                 .line_height(px(16.))
-                .font_weight(FontWeight::MEDIUM)
+                .font_weight(crate::ui::theme::MEDIUM)
                 .text_color(colors.muted_foreground)
                 .child(title)
         };
@@ -904,7 +904,7 @@ impl AutomationsView {
                             .child(
                                 div()
                                     .truncate()
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .child(title),
                             )
                             .when_some(subtitle, |view, subtitle| {
@@ -1409,7 +1409,7 @@ impl AutomationsView {
                         div()
                             .text_sm()
                             .line_height(px(20.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child("Add an action"),
                     )
                     .child(
@@ -1670,7 +1670,7 @@ impl AutomationsView {
             div()
                 .text_xs()
                 .line_height(px(16.))
-                .font_weight(FontWeight::MEDIUM)
+                .font_weight(crate::ui::theme::MEDIUM)
                 .child(text)
         };
         let mono = crate::ui::theme::monospace_font(cx);
@@ -2527,7 +2527,7 @@ impl AutomationsView {
                                         div()
                                             .text_sm()
                                             .line_height(px(20.))
-                                            .font_weight(FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .child(*title),
                                     )
                                     .child(badge(
@@ -2809,7 +2809,7 @@ impl Toast {
                         .child(
                             div()
                                 .text_color(colors.foreground)
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .child(if self.paused { "Resume" } else { "Pause" }),
                         )
                         .child(
@@ -2988,7 +2988,7 @@ fn button(
         .rounded(px(8.))
         .text_xs()
         .line_height(px(16.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .whitespace_nowrap()
         .text_color(foreground)
         .map(|button| match variant {
@@ -3359,7 +3359,7 @@ fn workflow_card(
                             div()
                                 .text_sm()
                                 .line_height(px(20.))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .child(title),
                         )
                         .child(badge(label, true, colors))

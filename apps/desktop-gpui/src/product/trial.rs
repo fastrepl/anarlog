@@ -191,7 +191,7 @@ fn button(
         .justify_center()
         .rounded_full()
         .text_xs()
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .child(label);
     if primary {

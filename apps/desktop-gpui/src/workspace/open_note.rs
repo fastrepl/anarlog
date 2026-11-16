@@ -9,8 +9,8 @@ use desktop_runtime::{
 };
 use gpui::{
     Animation, AnimationExt, AnyElement, AnyView, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, FontWeight, Hsla, MouseButton, Render, SharedString, Subscription, Task, Window,
-    canvas, div, prelude::*, px, rgb, svg,
+    Focusable, Hsla, MouseButton, Render, SharedString, Subscription, Task, Window, canvas, div,
+    prelude::*, px, rgb, svg,
 };
 use serde_json::{Value, json};
 
@@ -1278,7 +1278,7 @@ impl NoteView {
                                 .truncate()
                                 .text_xs()
                                 .line_height(px(16.))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .child(label),
                         )
                     })
@@ -1375,7 +1375,7 @@ impl NoteView {
             .hover(|view| view.bg(colors.accent))
             .text_sm()
             .line_height(px(20.))
-            .font_weight(FontWeight::MEDIUM)
+            .font_weight(crate::ui::theme::MEDIUM)
             .text_color(colors.foreground)
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, window, cx| {

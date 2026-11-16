@@ -568,7 +568,7 @@ pub(super) fn button(
         .rounded(px(8.))
         .text_xs()
         .line_height(px(16.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .map(|button| {
             if primary {
                 button
@@ -593,7 +593,7 @@ fn small_label(text: impl Into<SharedString>, colors: Theme) -> Div {
         .px(px(6.))
         .text_size(px(10.))
         .line_height(px(15.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .text_color(colors.muted_foreground)
         .child(text.into())
 }
@@ -641,7 +641,7 @@ fn name_line(text: impl Into<SharedString>) -> Div {
         .truncate()
         .text_xs()
         .line_height(px(16.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .child(text.into())
 }
 
@@ -1047,7 +1047,7 @@ impl SharePopover {
                                 .truncate()
                                 .text_xs()
                                 .line_height(px(16.))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .child(format!("{owner_name} "))
                                 .child(div().text_color(colors.muted_foreground).child("(You)"))
                                 .flex()
@@ -1330,7 +1330,7 @@ impl SharePopover {
                                 .items_center()
                                 .rounded(px(8.))
                                 .text_xs()
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .cursor_pointer()
                                 .hover(|s| s.bg(colors.accent))
                                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -1531,7 +1531,7 @@ impl SharePopover {
                         div()
                             .text_xs()
                             .line_height(px(16.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child(title),
                     ),
             )
@@ -1732,7 +1732,7 @@ impl SharePopover {
                                     .gap_2()
                                     .text_xs()
                                     .line_height(px(16.))
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .when_else(
                                         copy_enabled,
                                         |b| {
@@ -1966,7 +1966,7 @@ impl SharePopover {
                                 div()
                                     .text_xs()
                                     .line_height(px(16.))
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .child("Sharing paused to protect your edits"),
                             )
                             .child(

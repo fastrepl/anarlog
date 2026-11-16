@@ -1016,7 +1016,7 @@ fn styled_text(text: &Inline, style: &Style, id: &str) -> (AnyElement, TextLayou
                 font_weight: if span.bold {
                     Some(FontWeight::SEMIBOLD)
                 } else {
-                    span.link.as_ref().map(|_| FontWeight::MEDIUM)
+                    span.link.as_ref().map(|_| crate::ui::theme::MEDIUM)
                 },
                 font_style: span.italic.then_some(FontStyle::Italic),
                 color: span.link.as_ref().map(|_| style.colors.primary),

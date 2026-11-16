@@ -1120,7 +1120,7 @@ fn primary_button(
         .bg(colors.primary)
         .text_color(colors.primary_foreground)
         .text_xs()
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .hover(move |style| style.bg(colors.primary.opacity(0.9)))
         .when(busy, |button| {
@@ -1150,7 +1150,7 @@ fn secondary_button(
         .bg(colors.secondary)
         .text_color(colors.secondary_foreground)
         .text_xs()
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
         .hover(move |style| style.bg(colors.secondary.opacity(0.8)))
         .when(disabled, |button| button.opacity(0.5))
@@ -1338,7 +1338,7 @@ impl CalendarView {
                     div()
                         .text_base()
                         .line_height(px(24.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(colors.foreground)
                         .child(item.title()),
                 )
@@ -1394,7 +1394,7 @@ impl CalendarView {
                         .min_w_0()
                         .text_base()
                         .line_height(px(24.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(colors.foreground)
                         .child(if item.title.trim().is_empty() {
                             SharedString::from("Busy")
@@ -1434,7 +1434,7 @@ impl CalendarView {
                                     .bg(colors.primary)
                                     .text_color(colors.primary_foreground)
                                     .text_xs()
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .cursor_pointer()
                                     .hover(move |style| style.bg(colors.primary.opacity(0.9)))
                                     .child("Join")
@@ -1502,7 +1502,7 @@ impl CalendarView {
             .bg(colors.secondary)
             .text_color(colors.secondary_foreground)
             .text_xs()
-            .font_weight(FontWeight::MEDIUM)
+            .font_weight(crate::ui::theme::MEDIUM)
             .cursor_pointer()
             .hover(move |style| style.bg(colors.secondary.opacity(0.8)))
             .child(if self.filing {
@@ -1588,7 +1588,7 @@ impl CalendarView {
                     div()
                         .min_w_0()
                         .truncate()
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(colors.foreground)
                         .child(value),
                 )
@@ -1673,7 +1673,7 @@ impl CalendarView {
                     .gap_2()
                     .text_sm()
                     .line_height(px(20.))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .text_color(colors.foreground)
                     .child(icon("workspace/RepeatIcon.svg", 16., colors.foreground))
                     .child("Auto-add future meetings?"),
@@ -1934,7 +1934,7 @@ impl CalendarView {
                             .py(px(6.))
                             .text_xs()
                             .line_height(px(16.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.muted_foreground)
                             .cursor_pointer()
                             .hover(move |style| {
@@ -1985,7 +1985,7 @@ impl CalendarView {
                             .mb_2()
                             .text_sm()
                             .line_height(px(20.))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.foreground)
                             .child(day.format("%b %-d, %Y").to_string()),
                     )
@@ -2040,7 +2040,7 @@ impl CalendarView {
                         .justify_center()
                         .rounded(px(8.))
                         .text_sm()
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(if today {
                             colors.background
                         } else if !in_month {
@@ -2188,7 +2188,7 @@ impl CalendarView {
                         segment("calendar-today")
                             .px_2()
                             .text_xs()
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.foreground)
                             .child("Today")
                             .on_click(cx.listener(|this, _, _, cx| this.go_to_today(cx))),
@@ -2253,7 +2253,7 @@ impl CalendarView {
             .justify_center()
             .text_xs()
             .line_height(px(16.))
-            .font_weight(FontWeight::MEDIUM)
+            .font_weight(crate::ui::theme::MEDIUM)
             .text_color(if matches!(label, "Sat" | "Sun") {
                 colors.muted_foreground
             } else {

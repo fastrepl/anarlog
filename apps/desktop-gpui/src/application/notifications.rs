@@ -279,7 +279,7 @@ impl ApplicationView {
                             .bg(colors.primary)
                             .text_color(colors.primary_foreground)
                             .text_xs()
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .cursor_pointer()
                             .hover(|style| style.bg(colors.primary.opacity(0.9)))
                             .focus(|style| style.bg(colors.primary.opacity(0.9)))

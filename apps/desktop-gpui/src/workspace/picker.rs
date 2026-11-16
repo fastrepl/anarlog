@@ -8,9 +8,9 @@ use desktop_runtime::{
     CancellationToken, Generation, Reply, RuntimeHandle, ServiceError, SessionId,
 };
 use gpui::{
-    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, Font, FontWeight,
-    KeyDownEvent, ListAlignment, ListState, MouseButton, Pixels, Render, SharedString,
-    Subscription, TextRun, Window, div, list, prelude::*, px, svg,
+    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, Font, KeyDownEvent,
+    ListAlignment, ListState, MouseButton, Pixels, Render, SharedString, Subscription, TextRun,
+    Window, div, list, prelude::*, px, svg,
 };
 use serde_json::json;
 
@@ -320,7 +320,7 @@ impl NotePicker {
                                 .flex()
                                 .text_size(px(12.))
                                 .line_height(px(16.))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .text_color(muted)
                                 .children(tracked(&label.to_uppercase(), 12., window, cx)),
                         )
@@ -405,7 +405,7 @@ impl NotePicker {
 /// out at its own advance plus the tracking.
 fn tracked(text: &str, size: f32, window: &Window, cx: &App) -> Vec<gpui::Div> {
     let font = Font {
-        weight: FontWeight::MEDIUM,
+        weight: crate::ui::theme::MEDIUM,
         ..gpui::font(system_font(cx))
     };
     text.chars()

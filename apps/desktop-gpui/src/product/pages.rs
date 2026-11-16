@@ -2,8 +2,8 @@
 //! shipping components named on each method.
 
 use gpui::{
-    AnyElement, Context, Div, Focusable, FontWeight, Hsla, KeyDownEvent, SharedString, Window,
-    deferred, div, hsla, prelude::*, px,
+    AnyElement, Context, Div, Focusable, Hsla, KeyDownEvent, SharedString, Window, deferred, div,
+    hsla, prelude::*, px,
 };
 use serde_json::json;
 
@@ -345,7 +345,7 @@ impl PreferencesView {
                             .px_3()
                             .py_2()
                             .text_sm()
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .truncate()
                             .cursor_pointer()
                             .when(self.spoken_index == Some(index), |view| view.bg(hover))
@@ -362,7 +362,7 @@ impl PreferencesView {
                     .mb_1()
                     .text_sm()
                     .line_height(px(20.))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .child("Additional spoken languages"),
             )
             .child(
@@ -486,7 +486,7 @@ impl PreferencesView {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .font_weight(FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .child("Export location"),
                                     )
                                     .child(controls::description(shown, colors).truncate()),
@@ -520,7 +520,7 @@ impl PreferencesView {
                         .id("reset-export-folder")
                         .px_2()
                         .text_xs()
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(colors.primary)
                         .cursor_pointer()
                         .child("Reset to Downloads")
@@ -632,7 +632,7 @@ impl PreferencesView {
                                                         div()
                                                             .text_sm()
                                                             .line_height(px(20.))
-                                                            .font_weight(FontWeight::MEDIUM)
+                                                            .font_weight(crate::ui::theme::MEDIUM)
                                                             .child(label),
                                                     )
                                                     .child(controls::description(detail, &colors)),
@@ -1047,7 +1047,7 @@ impl PreferencesView {
                                             div()
                                                 .flex_shrink_0()
                                                 .text_xs()
-                                                .font_weight(FontWeight::MEDIUM)
+                                                .font_weight(crate::ui::theme::MEDIUM)
                                                 .text_color(colors.muted_foreground)
                                                 .child("For enabled notifications"),
                                         )
@@ -1120,7 +1120,7 @@ impl PreferencesView {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child("Exclude apps from detection"),
                     )
                     .child(controls::description(
@@ -1507,7 +1507,7 @@ impl PreferencesView {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .font_weight(FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .child("Dictation shortcut"),
                                     )
                                     .child(
@@ -1524,7 +1524,7 @@ impl PreferencesView {
                                             .border_color(colors.input)
                                             .bg(colors.background)
                                             .text_sm()
-                                            .font_weight(FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .shadow_xs()
                                             .cursor_pointer()
                                             .hover(|style| style.bg(colors.accent))
@@ -1570,7 +1570,7 @@ impl PreferencesView {
                                                 .bg(colors.background)
                                                 .shadow_xs()
                                                 .text_xs()
-                                                .font_weight(FontWeight::MEDIUM)
+                                                .font_weight(crate::ui::theme::MEDIUM)
                                                 .cursor_pointer()
                                                 .hover(|style| style.bg(colors.accent))
                                                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -1663,7 +1663,7 @@ impl PreferencesView {
                                     .bg(colors.foreground)
                                     .text_color(colors.background)
                                     .text_sm()
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .when(enabled, |view| {
                                         view.cursor_pointer().on_click(cx.listener(|this, _, _, cx| {
                                             this.add_dictionary_terms(cx)
@@ -1688,7 +1688,7 @@ impl PreferencesView {
                                 .bg(colors.card)
                                 .text_center()
                                 .child(controls::icon("product/BookOpen01Icon.svg", 20., colors.muted_foreground).mb_3())
-                                .child(div().text_sm().font_weight(FontWeight::MEDIUM).child("Your dictionary is empty"))
+                                .child(div().text_sm().font_weight(crate::ui::theme::MEDIUM).child("Your dictionary is empty"))
                                 .child(
                                     div()
                                         .mt_1()

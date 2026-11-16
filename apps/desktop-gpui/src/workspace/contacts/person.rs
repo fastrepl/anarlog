@@ -558,7 +558,7 @@ impl Contacts {
                             .w_auto()
                             .flex_none()
                             .rounded(px(8.))
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.muted_foreground)
                             .cursor_pointer()
                             .hover(move |style| {
@@ -743,7 +743,7 @@ impl Contacts {
                     .child(
                         div()
                             .truncate()
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .child(name.clone()),
                     )
             }))
@@ -772,7 +772,7 @@ impl Contacts {
                                 .flex()
                                 .items_center()
                                 .gap_1()
-                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .text_color(colors.muted_foreground)
                                 .child("Create")
                                 .child(
@@ -803,7 +803,7 @@ impl Contacts {
                         .gap_3()
                         .child(
                             text_sm(div())
-                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .text_color(colors.muted_foreground)
                                 .child("Organization"),
                         )
@@ -923,7 +923,7 @@ impl Contacts {
                                 div()
                                     .child(
                                         text_sm(div())
-                                            .font_weight(gpui::FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .text_color(colors.foreground)
                                             .child(if duplicate.name.is_empty() {
                                                 SharedString::from("Unnamed Contact")
@@ -946,7 +946,7 @@ impl Contacts {
                             .flex()
                             .items_center()
                             .rounded(px(8.))
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .bg(colors.primary)
                             .text_color(colors.primary_foreground)
                             .shadow_xs()
@@ -991,7 +991,7 @@ impl Contacts {
                     .items_center()
                     .gap_2()
                     .rounded(px(8.))
-                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .text_color(colors.muted_foreground)
                     .opacity(0.5)
                     .child(
@@ -1039,7 +1039,7 @@ impl Contacts {
                         )
                         .child(
                             div()
-                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .child("Connect a CRM"),
                         )
                         .child(
@@ -1077,7 +1077,7 @@ impl Contacts {
                     .gap_1()
                     .child(
                         text_sm(div())
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(colors.muted_foreground)
                             .child("Related Notes"),
                     )
@@ -1318,7 +1318,7 @@ fn summary(facts: &[SharedString], colors: Theme) -> impl IntoElement {
         .child(
             div().mb_3().flex().items_center().gap_2().child(
                 text_sm(div())
-                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .text_color(colors.muted_foreground)
                     .child("Summary"),
             ),

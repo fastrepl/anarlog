@@ -69,7 +69,7 @@ fn button(id: impl Into<ElementId>) -> Stateful<Div> {
         .rounded(px(8.))
         .text_size(px(14.))
         .line_height(px(20.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .cursor_pointer()
 }
 
@@ -102,7 +102,7 @@ fn secondary_button(id: impl Into<ElementId>, colors: &Theme) -> Stateful<Div> {
         .text_color(muted)
         .text_size(px(14.))
         .line_height(px(20.))
-        .font_weight(FontWeight::MEDIUM)
+        .font_weight(crate::ui::theme::MEDIUM)
         .shadow(vec![BoxShadow {
             color: rgba(0xffffff8c).into(),
             offset: point(px(0.), px(1.)),
@@ -431,7 +431,7 @@ impl OnboardingView {
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .text_color(if authorized {
                             colors.foreground
                         } else {
@@ -833,7 +833,7 @@ impl OnboardingView {
                     .gap_2()
                     .px_2()
                     .text_size(px(12.))
-                    .font_weight(FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .text_color(text_color)
                     .cursor_pointer()
                     .map(|button| {
@@ -984,7 +984,7 @@ impl OnboardingView {
                                     .child(
                                         text(14., 20.)
                                             .truncate()
-                                            .font_weight(FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .child("Google Meet"),
                                     )
                                     .child(icon("product/ArrowDown01Icon.svg", 14., muted).when(

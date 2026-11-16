@@ -71,7 +71,7 @@ impl WorkspaceView {
                     .font_family(monospace_font(cx))
                     .text_xs()
                     .line_height(px(12.))
-                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .font_weight(crate::ui::theme::MEDIUM)
                     .shadow(kbd_shadow(1., outer))
                     // The key lifts while its row is hovered and presses in while clicked.
                     .group_hover(group.clone(), move |style| {

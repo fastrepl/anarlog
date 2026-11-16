@@ -44,7 +44,7 @@ impl Render for Dragged {
             .py_2()
             .rounded(px(8.))
             .bg(colors.accent)
-            .font_weight(gpui::FontWeight::MEDIUM)
+            .font_weight(crate::ui::theme::MEDIUM)
             .child(self.label.clone())
     }
 }
@@ -236,7 +236,7 @@ impl ContactsList {
                     .min_w_0()
                     .child(
                         div()
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .map(|name| match kind {
                                 // Shipping's person name is a flex row, so it clips without an ellipsis.
                                 Kind::Human => name.overflow_hidden().whitespace_nowrap(),

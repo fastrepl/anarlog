@@ -876,7 +876,7 @@ impl LibraryView {
                     view.child(
                         chip("open-calendar", colors)
                             .text_color(colors.muted_foreground)
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .shadow_xs()
                             .hover(|style| style.bg(colors.accent).text_color(colors.foreground))
                             .child(
@@ -898,7 +898,7 @@ impl LibraryView {
                             .border_color(colors.destructive)
                             .bg(colors.destructive)
                             .text_color(colors.destructive_foreground)
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .shadow_md()
                             .child(
                                 chip_icon("workspace/ArrowUp02IconBold.svg", 12.)

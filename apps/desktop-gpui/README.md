@@ -293,8 +293,9 @@ workspace, and clones `LaneContext` into every other pane.
 `build.rs` derives all HSL colors from
 `packages/design-system/src/tokens.css`. The shared radius is 8px. The CSS RGBA
 keyboard-shadow tokens are not yet native shadow primitives.
-`ui::theme::SYSTEM_FONT` selects `.SystemUIFont`, `Segoe UI` or Linux
-`sans-serif`; font metrics still require platform comparison.
+`ui::theme::UiFonts` uses San Francisco and SF Mono on macOS (shipping's `system-ui`
+and `ui-monospace`), and `Segoe UI` or Linux `sans-serif` elsewhere. Use
+`ui::theme::MEDIUM` for `font-medium`: font-kit reads SF's Medium face as weight 530.
 The existing logo is embedded directly. Hugeicons SVGs are generated from the
 repository-pinned `@hugeicons/core-free-icons` package:
 

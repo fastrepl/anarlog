@@ -302,7 +302,7 @@ impl Render for SharedNoteView {
                                             .truncate()
                                             .text_sm()
                                             .line_height(px(20.))
-                                            .font_weight(FontWeight::MEDIUM)
+                                            .font_weight(crate::ui::theme::MEDIUM)
                                             .child(if note.title.is_empty() {
                                                 SharedString::from("Untitled")
                                             } else {
@@ -386,7 +386,7 @@ fn unavailable(
                     div()
                         .text_sm()
                         .line_height(px(20.))
-                        .font_weight(FontWeight::MEDIUM)
+                        .font_weight(crate::ui::theme::MEDIUM)
                         .child(title),
                 )
                 .child(
@@ -414,7 +414,7 @@ fn attachment_list(attachments: &[SharedString], colors: Theme) -> impl IntoElem
                 .mb_2()
                 .text_sm()
                 .line_height(px(20.))
-                .font_weight(FontWeight::MEDIUM)
+                .font_weight(crate::ui::theme::MEDIUM)
                 .child("Attachments"),
         )
         .child(

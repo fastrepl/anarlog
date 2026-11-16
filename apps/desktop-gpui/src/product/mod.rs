@@ -24,7 +24,7 @@ pub mod trial;
 use std::sync::Arc;
 
 use gpui::{
-    Context, Div, Entity, EventEmitter, Focusable, FontWeight, KeyDownEvent, Render, SharedString,
+    Context, Div, Entity, EventEmitter, Focusable, KeyDownEvent, Render, SharedString,
     Subscription, Window, WindowAppearance, div, prelude::*, px,
 };
 
@@ -588,7 +588,7 @@ impl ProductPane {
                             .pb_1()
                             .text_size(px(11.))
                             .line_height(px(16.5))
-                            .font_weight(FontWeight::MEDIUM)
+                            .font_weight(crate::ui::theme::MEDIUM)
                             .text_color(muted.opacity(0.6))
                             .child(group.to_uppercase()),
                     )
@@ -613,7 +613,7 @@ impl ProductPane {
                             .text_color(tint)
                             .when(active, |view| {
                                 view.bg(colors.sidebar_accent)
-                                    .font_weight(FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                             })
                             .when(!active, |view| {
                                 view.hover(|style| style.bg(hover).text_color(colors.foreground))

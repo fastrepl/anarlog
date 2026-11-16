@@ -6,13 +6,13 @@ include!(concat!(env!("OUT_DIR"), "/tokens.rs"));
 
 pub const RADIUS: f32 = 8.0;
 
-const SYSTEM_FONT: &str = if cfg!(target_os = "macos") {
-    ".SystemUIFont"
-} else if cfg!(target_os = "windows") {
-    "Segoe UI"
+/// Tailwind's `font-medium`. font-kit reads San Francisco's Medium face as weight 530, so a
+/// 500 request would fall back to Regular there.
+pub const MEDIUM: FontWeight = FontWeight(if cfg!(target_os = "macos") {
+    530.
 } else {
-    "sans-serif"
-};
+    500.
+});
 
 pub struct UiFonts {
     sans: SharedString,
@@ -23,28 +23,40 @@ impl Global for UiFonts {}
 
 impl UiFonts {
     pub fn init(cx: &mut App) {
-        let text_system = cx.text_system();
-        let fonts = Self {
-            sans: resolve_family(
-                text_system,
-                &[
-                    SYSTEM_FONT,
-                    "Noto Sans",
-                    "DejaVu Sans",
-                    "Liberation Sans",
-                    "Arial",
-                ],
-            ),
-            mono: resolve_family(
-                text_system,
-                &[
-                    "monospace",
-                    "Menlo",
-                    "Consolas",
-                    "DejaVu Sans Mono",
-                    "Liberation Mono",
-                ],
-            ),
+        // Shipping's `system-ui` and `ui-monospace` are San Francisco and SF Mono. Core Text
+        // resolves these private names, but they are absent from the listed families.
+        let fonts = if cfg!(target_os = "macos") {
+            Self {
+                sans: ".SystemUIFont".into(),
+                mono: ".AppleSystemUIFontMonospaced".into(),
+            }
+        } else {
+            let text_system = cx.text_system();
+            Self {
+                sans: resolve_family(
+                    text_system,
+                    &[
+                        if cfg!(target_os = "windows") {
+                            "Segoe UI"
+                        } else {
+                            "sans-serif"
+                        },
+                        "Noto Sans",
+                        "DejaVu Sans",
+                        "Liberation Sans",
+                        "Arial",
+                    ],
+                ),
+                mono: resolve_family(
+                    text_system,
+                    &[
+                        "monospace",
+                        "Consolas",
+                        "DejaVu Sans Mono",
+                        "Liberation Mono",
+                    ],
+                ),
+            }
         };
         cx.set_global(fonts);
     }

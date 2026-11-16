@@ -161,7 +161,7 @@ impl Contacts {
                                 text_sm(div())
                                     .mb_4()
                                     .flex()
-                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .font_weight(crate::ui::theme::MEDIUM)
                                     .text_color(colors.muted_foreground)
                                     .child("People")
                                     .child(

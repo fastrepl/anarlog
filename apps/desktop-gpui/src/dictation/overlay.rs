@@ -186,7 +186,7 @@ impl DictationBar {
                                 .border_color(chip.1)
                                 .text_color(content)
                                 .text_size(px(11.))
-                                .font_weight(FontWeight::MEDIUM)
+                                .font_weight(crate::ui::theme::MEDIUM)
                                 .cursor_pointer()
                                 .child(icon("meeting/ArrowDown02Icon.svg", 10., content))
                                 .child("Go to bottom")
