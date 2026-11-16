@@ -1389,6 +1389,37 @@ impl EditorModel {
         Ok(())
     }
 
+    /// Double click: select the word under `position`, as browsers do in shipping's editor.
+    pub fn select_word_at(&mut self, position: usize) -> EditResult<()> {
+        let resolved = self.document.resolve(position)?;
+        let text = inline_text(&resolved.node.children);
+        let word = text.unicode_word_indices().find_map(|(byte, word)| {
+            let start = text[..byte].encode_utf16().count();
+            let end = start + word.encode_utf16().count();
+            (start..=end)
+                .contains(&resolved.offset)
+                .then_some(start..end)
+        });
+        self.selection = match word {
+            Some(word) => Selection {
+                anchor: resolved.start + word.start,
+                head: resolved.start + word.end,
+            },
+            None => Selection::caret(position),
+        };
+        Ok(())
+    }
+
+    /// Triple click: select the whole text block under `position`.
+    pub fn select_block_at(&mut self, position: usize) -> EditResult<()> {
+        let resolved = self.document.resolve(position)?;
+        self.selection = Selection {
+            anchor: resolved.start,
+            head: resolved.start + resolved.node.children.units(),
+        };
+        Ok(())
+    }
+
     pub fn move_word(&mut self, forward: bool, extend: bool) -> EditResult<()> {
         let resolved = self.document.resolve(self.selection.head)?;
         let mut start = resolved.offset.saturating_sub(4096);

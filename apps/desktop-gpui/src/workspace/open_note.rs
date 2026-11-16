@@ -1,13 +1,13 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use desktop_runtime::{
     CancellationToken, DocumentId, DocumentSnapshot, Generation, OpenSession, RenameSession,
     RuntimeHandle, SessionId,
 };
 use gpui::{
-    AnyElement, AnyView, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, Hsla,
-    MouseButton, Render, SharedString, Subscription, Task, Window, canvas, div, prelude::*, px,
-    rgb, svg,
+    Animation, AnimationExt, AnyElement, AnyView, Context, Entity, EventEmitter, FocusHandle,
+    Focusable, FontWeight, Hsla, MouseButton, Render, SharedString, Subscription, Task, Window,
+    canvas, div, prelude::*, px, rgb, svg,
 };
 use serde_json::{Value, json};
 
@@ -336,7 +336,7 @@ impl NoteView {
         let generation = self.generation.advance();
         let reply = self.runtime.open_session(id, self.cancellation.clone());
         self.loading = true;
-        self.message = "Loading note…".into();
+        self.message.clear();
         cx.notify();
         cx.spawn(async move |this, cx| {
             let result = match reply {
@@ -391,10 +391,7 @@ impl NoteView {
             title.set_text(session.summary.title.to_string(), cx)
         });
         self.message = match &session.note {
-            Some(note) => format!(
-                "The {} document is loaded. Native editor content has not been connected; stored data is unchanged.",
-                note.body_format
-            ),
+            Some(_) => String::new(),
             None => "This session has no note document. Existing data is unchanged.".into(),
         };
         self.current = Some(session);
@@ -720,8 +717,11 @@ impl NoteView {
                     document: document.clone(),
                     return_focus,
                 };
-                let editor =
-                    cx.new(|cx| EditorPane::new(LaneContext { runtime }, init, window, cx));
+                let editor = cx.new(|cx| {
+                    let mut editor = EditorPane::new(LaneContext { runtime }, init, window, cx);
+                    editor.set_placeholder(None);
+                    editor
+                });
                 self.summary_editor = Some((document.id.clone(), editor.clone()));
                 editor
             }
@@ -933,16 +933,7 @@ impl NoteView {
                     view.child(icon("editor/SquareIcon.svg", 12., rgb(RECORD_RED).into()))
                         .child("Stop")
                 } else {
-                    view.child(
-                        div()
-                            .size(px(12.))
-                            .flex()
-                            .flex_shrink_0()
-                            .items_center()
-                            .justify_center()
-                            .child(div().size(px(8.)).rounded(px(2.4)).bg(rgb(RECORD_RED))),
-                    )
-                    .child("Record")
+                    view.child(record_mark()).child("Record")
                 }
             })
     }
@@ -1168,6 +1159,33 @@ impl NoteView {
     }
 }
 
+/// Shipping's `RecordingIcon`: a red squircle dot over a halo running Tailwind's
+/// `animate-ping` (scale to 2x and fade out over the first 75% of each second).
+fn record_mark() -> impl IntoElement {
+    let red = gpui::Hsla::from(rgb(RECORD_RED));
+    div()
+        .size(px(12.))
+        .relative()
+        .flex()
+        .flex_shrink_0()
+        .items_center()
+        .justify_center()
+        .child(div().absolute().bg(red.opacity(0.4)).with_animation(
+            "record-ping",
+            Animation::new(Duration::from_secs(1)).repeat(),
+            |halo, delta| {
+                let progress = 1. - (1. - (delta / 0.75).min(1.)).powi(3);
+                let size = 10. * (1. + progress);
+                halo.size(px(size))
+                    .top(px(6. - size / 2.))
+                    .left(px(6. - size / 2.))
+                    .rounded(px(size * 0.3))
+                    .opacity(1. - progress)
+            },
+        ))
+        .child(div().size(px(8.)).rounded(px(2.4)).bg(red))
+}
+
 /// GPUI svgs do not inherit text color, so every icon names its own.
 fn icon(path: &'static str, size: f32, color: Hsla) -> gpui::Svg {
     svg()
@@ -1188,6 +1206,37 @@ fn neutral(colors: Theme, light: u32, dark: u32) -> Hsla {
     } else {
         rgb(light).into()
     }
+}
+
+/// Shipping's `SessionContentLoading` bars, without the pulse.
+fn loading_skeleton(colors: Theme) -> impl IntoElement {
+    div()
+        .flex()
+        .flex_col()
+        .gap_3()
+        .px_4()
+        .py_5()
+        .child(
+            div()
+                .h_5()
+                .w(gpui::relative(0.6))
+                .rounded_md()
+                .bg(colors.muted),
+        )
+        .child(
+            div()
+                .h_4()
+                .w(gpui::relative(0.8))
+                .rounded_md()
+                .bg(colors.muted.opacity(0.8)),
+        )
+        .child(
+            div()
+                .h_4()
+                .w(gpui::relative(2. / 3.))
+                .rounded_md()
+                .bg(colors.muted.opacity(0.7)),
+        )
 }
 
 fn empty_summary(colors: Theme) -> impl IntoElement {
@@ -1242,6 +1291,7 @@ impl Render for NoteView {
                 }
             }))
             .when(ready, |view| view.child(self.header(window, cx)))
+            .when(self.loading, |view| view.child(loading_skeleton(colors)))
             .child(
                 canvas(
                     move |bounds, window, cx| {

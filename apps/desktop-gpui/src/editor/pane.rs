@@ -7,8 +7,8 @@ use desktop_runtime::{AttachmentId, CancellationToken, DocumentSnapshot, HumanId
 use futures::{StreamExt, channel::oneshot};
 use gpui::{
     App, ClipboardItem, Context, ElementInputHandler, Entity, EventEmitter, FocusHandle, Focusable,
-    ListAlignment, ListOffset, ListState, MouseButton, Pixels, Point, Window, canvas, div, list,
-    prelude::*, px,
+    ListAlignment, ListOffset, ListState, MouseButton, Pixels, Point, SharedString, Window, canvas,
+    div, list, prelude::*, px,
 };
 
 use super::{
@@ -35,6 +35,8 @@ pub struct EditorPane {
     pub(super) caret: Entity<Caret>,
     pub(super) journal: Option<SaveJournal>,
     dirty: bool,
+    /// Shipping autosaves silently; the retry control only appears after a failed save.
+    save_failed: bool,
     pub(super) message: String,
     list: ListState,
     list_count: usize,
@@ -43,6 +45,7 @@ pub struct EditorPane {
     pub(super) layouts: HashMap<u64, VisibleLayout>,
     pub(super) slash: Option<SlashMenu>,
     pub(super) slash_dismissed: Option<usize>,
+    placeholder: Option<SharedString>,
     pub(super) mention: Option<MentionMenu>,
     mention_results: MentionResults,
     mention_enabled: bool,
@@ -178,10 +181,12 @@ impl EditorPane {
                                     cx.emit(EditorEvent::Dirty { session_id: this.init.session_id.clone(), dirty: false });
                                 }
                                 this.message.clear();
+                                this.save_failed = false;
                                 cx.emit(EditorEvent::Saved(snapshot));
                             }
                             SaveEvent::Failed(error) => {
                                 this.message = format!("Unsaved changes: {error} Draft retained; retry or resolve the external revision.");
+                                this.save_failed = true;
                                 if matches!(error, ServiceError::Conflict) { this.fetch_conflict(cx); }
                                 cx.emit(EditorEvent::SaveFailed { session_id: this.init.session_id.clone(), error });
                             }
@@ -198,7 +203,8 @@ impl EditorPane {
             model: None,
             journal: None,
             dirty: false,
-            message: "Loading stored document…".into(),
+            save_failed: false,
+            message: String::new(),
             list: ListState::new(0, ListAlignment::Top, px(400.)),
             list_count: 0,
             projection: HashMap::new(),
@@ -206,6 +212,7 @@ impl EditorPane {
             layouts: HashMap::new(),
             slash: None,
             slash_dismissed: None,
+            placeholder: Some("Start writing...".into()),
             mention: None,
             mention_results: MentionResults::default(),
             mention_enabled: true,
@@ -230,6 +237,11 @@ impl EditorPane {
             pending_attachment: None,
             attachment_importing: false,
         }
+    }
+
+    /// The empty-block hint; memos say "Start writing..." like shipping, summaries show none.
+    pub fn set_placeholder(&mut self, placeholder: Option<SharedString>) {
+        self.placeholder = placeholder;
     }
 
     pub fn is_dirty(&self) -> bool {
@@ -1159,6 +1171,14 @@ impl EditorPane {
             })
             .detach();
         }
+        // Shipping's placeholder plugin labels the empty text block holding the selection anchor.
+        let anchor = self.model.as_ref().map(|model| model.selection.anchor);
+        let placeholder_text = self.placeholder.clone();
+        let placeholder = |row: &surface::Row| {
+            (row.text.is_empty() && anchor == Some(start + row.start))
+                .then(|| placeholder_text.clone())
+                .flatten()
+        };
         match cached {
             Some(block) if block.grid.is_some() => {
                 let grid = block.grid.as_ref().expect("grid");
@@ -1202,6 +1222,7 @@ impl EditorPane {
                                         start,
                                         current,
                                         true,
+                                        placeholder(row),
                                         window,
                                         cx,
                                     )
@@ -1218,15 +1239,20 @@ impl EditorPane {
                     }) {
                         preview
                     } else {
-                        surface::render_row(row.clone(), start, current, false, window, cx)
+                        surface::render_row(
+                            row.clone(),
+                            start,
+                            current,
+                            false,
+                            placeholder(row),
+                            window,
+                            cx,
+                        )
                     }
                 }))
                 .into_any_element(),
-            None => div()
-                .h(px(28.))
-                .px_3()
-                .child("Laying out stored block…")
-                .into_any_element(),
+            // Layout runs off the UI thread for a frame; shipping shows no placeholder text.
+            None => div().h(px(28.)).into_any_element(),
         }
     }
 
@@ -1661,15 +1687,25 @@ impl Render for EditorPane {
                             return;
                         }
                         if let Some(model) = &mut this.model {
-                            model.select(Selection {
-                                anchor: if event.modifiers.shift {
-                                    model.selection.anchor
-                                } else {
-                                    position
-                                },
-                                head: position,
-                            });
-                            this.dragging = true;
+                            match event.click_count {
+                                2 => {
+                                    let _ = model.select_word_at(position);
+                                }
+                                3.. => {
+                                    let _ = model.select_block_at(position);
+                                }
+                                _ => {
+                                    model.select(Selection {
+                                        anchor: if event.modifiers.shift {
+                                            model.selection.anchor
+                                        } else {
+                                            position
+                                        },
+                                        head: position,
+                                    });
+                                    this.dragging = true;
+                                }
+                            }
                         }
                     }
                     cx.notify();
@@ -1843,7 +1879,7 @@ impl Render for EditorPane {
                         ),
                 )
             })
-            .when(self.dirty, |container| {
+            .when(self.save_failed, |container| {
                 container.child(
                     div()
                         .id("retry-editor-save")

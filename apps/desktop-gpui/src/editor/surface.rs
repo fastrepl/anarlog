@@ -429,6 +429,7 @@ pub fn render_row(
     block_start: usize,
     current: bool,
     in_cell: bool,
+    placeholder: Option<SharedString>,
     window: &mut Window,
     cx: &mut Context<EditorPane>,
 ) -> gpui::AnyElement {
@@ -685,6 +686,16 @@ pub fn render_row(
                         .child(marker),
                 )
             }
+        })
+        .when_some(placeholder, |view, placeholder| {
+            view.child(
+                div()
+                    .absolute()
+                    .top(px(font_size * 0.125))
+                    .left(px(inset + indent))
+                    .text_color(colors.muted_foreground.opacity(0.6))
+                    .child(placeholder),
+            )
         })
         .child(text)
         .child(

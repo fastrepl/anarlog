@@ -1513,3 +1513,16 @@ fn toolbar_marks_are_active_when_any_selected_text_has_them() {
     assert!(model.mark_active("bold"));
     assert!(!model.mark_active("italic"));
 }
+
+#[test]
+fn double_and_triple_click_select_word_and_block() {
+    let mut model = fixture(json!({"type":"doc","content":[
+        {"type":"paragraph","content":[{"type":"text","text":"Ship the 日本 release"}]}
+    ]}));
+    model.select_word_at(7).unwrap();
+    assert_eq!((model.selection.anchor, model.selection.head), (6, 9));
+    model.select_word_at(15).unwrap();
+    assert_eq!((model.selection.anchor, model.selection.head), (13, 20));
+    model.select_block_at(3).unwrap();
+    assert_eq!((model.selection.anchor, model.selection.head), (1, 20));
+}

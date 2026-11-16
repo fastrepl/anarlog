@@ -149,6 +149,7 @@ fn main() {
             "note-typography",
             Route::Session(SessionId("s-typography".into())),
         ),
+        ("note-empty", Route::Session(SessionId("s-welcome".into()))),
         ("calendar", Route::Calendar),
         ("contacts", Route::Contacts),
         ("templates", Route::Templates),
