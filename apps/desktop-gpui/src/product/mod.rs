@@ -526,6 +526,138 @@ impl ProductPane {
             )
     }
 
+    /// Pages whose shipping content depends on the Anarlog account. Without cloud
+    /// configuration they show shipping's signed-out state.
+    fn account_page(&self, colors: &Theme) -> Option<Div> {
+        let signed_out = self.cloud.is_none();
+        let page = |title: &'static str| {
+            div()
+                .flex()
+                .flex_col()
+                .gap_8()
+                .child(controls::page_title(title))
+        };
+        let muted = |text: &'static str| {
+            div()
+                .text_sm()
+                .line_height(px(20.))
+                .text_color(colors.muted_foreground)
+                .child(text)
+        };
+        let unconfigured = || {
+            controls::description(
+                "Cloud sign-in needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY at build or run time.",
+                colors,
+            )
+        };
+        Some(match self.active.id {
+            "account" if signed_out => page("Account").child(
+                div()
+                    .pb_4()
+                    .flex()
+                    .flex_col()
+                    .items_start()
+                    .gap_4()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .line_height(px(20.))
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child("Sign in to Anarlog"),
+                            )
+                            .child(muted("Sign in for cloud transcription, AI models, and sharing.")),
+                    )
+                    .child(
+                        div()
+                            .h(px(40.))
+                            .px_6()
+                            .flex()
+                            .items_center()
+                            .rounded(px(20.))
+                            .border_2()
+                            .border_color(colors.primary)
+                            .bg(colors.primary)
+                            .text_color(colors.primary_foreground)
+                            .text_sm()
+                            .font_weight(FontWeight::MEDIUM)
+                            .shadow_md()
+                            .opacity(0.5)
+                            .child("Get started"),
+                    )
+                    .child(unconfigured()),
+            ),
+            "billing" if signed_out => page("Billing")
+                .child(div().text_sm().child("Sign in to Anarlog"))
+                .child(unconfigured()),
+            "sync" if signed_out => page("Sync").child(unconfigured()),
+            "team" if signed_out => {
+                page("Teams").child(muted("Sign in to create a shared workspace for your team."))
+            }
+            "referrals" => page("Invite friends")
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .items_start()
+                        .gap_3()
+                        .text_sm()
+                        .child("Sign in to see your referral invites.")
+                        .child(controls::outline_button(
+                            "referrals-sign-in",
+                            "Sign in",
+                            false,
+                            colors,
+                            None,
+                        ))
+                        .when(signed_out, |view| view.child(unconfigured())),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .text_sm()
+                        .text_color(colors.muted_foreground)
+                        .child(
+                            div()
+                                .text_color(colors.foreground)
+                                .font_weight(FontWeight::MEDIUM)
+                                .child("Missing a referral reward?"),
+                        )
+                        .child("If your friend signed up through your link and started their free trial, but your free month hasn't appeared, email us and we'll help.")
+                        .child(
+                            div()
+                                .id("referral-support")
+                                .underline()
+                                .cursor_pointer()
+                                .child("Email us")
+                                .on_click(|_, _, cx| {
+                                    cx.open_url(
+                                        "mailto:team@fastrepl.com?subject=Referral%20reward%20help",
+                                    )
+                                }),
+                        ),
+                ),
+            // The native app has no CRM integration yet; signed in, shipping shows this
+            // message when no integration is available.
+            "crm" => page("CRM")
+                .child(muted("Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."))
+                .child(muted(if signed_out {
+                    "Sign in to connect a CRM."
+                } else {
+                    "No CRM integrations are available yet."
+                })),
+            "insights" => page("Your insights")
+                .child(muted("Insights are not available in the native app yet.")),
+            _ => return None,
+        })
+    }
+
     fn page(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
         let onboarding = self.onboarding.is_some();
         let preferences = self.service.is_none()
@@ -542,6 +674,9 @@ impl ProductPane {
             );
         if preferences && let Some(view) = self.preferences.clone() {
             return div().child(view);
+        }
+        if !onboarding && let Some(page) = self.account_page(colors) {
+            return page;
         }
         let title = self
             .onboarding

@@ -92,6 +92,26 @@ pub fn apply_theme(theme: &str, cx: &mut gpui::App) {
     });
 }
 
+/// Applies the saved `theme` once the library is readable, like shipping does at startup.
+pub fn apply_stored_theme(runtime: &RuntimeHandle, cx: &mut gpui::App) {
+    let Ok(reply) = watch(runtime) else {
+        return;
+    };
+    cx.spawn(async move |cx| {
+        let Ok(watch) = reply.receive().await else {
+            return;
+        };
+        let theme = decode(&watch.snapshots.borrow().rows)
+            .ok()
+            .and_then(|snapshot| snapshot.get("theme")?.value.as_str().map(str::to_owned));
+        let _ = watch.unsubscribe().await;
+        if let Some(theme) = theme {
+            cx.update(|cx| apply_theme(&theme, cx));
+        }
+    })
+    .detach();
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Revision {
     local: Option<String>,

@@ -329,25 +329,20 @@ impl Render for CloudView {
             .gap_6()
             .text_sm()
             .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .child(div().text_lg().child(self.surface.title()))
-                    .child(
-                        div()
-                            .id("refresh-cloud")
-                            .cursor_pointer()
-                            .text_xs()
-                            .child(if self.loading {
-                                "Refreshing…"
-                            } else {
-                                "Refresh"
-                            })
-                            .when(!busy, |view| {
-                                view.on_click(cx.listener(|this, _, _, cx| this.reload(cx)))
-                            }),
-                    ),
+                div().flex().items_center().justify_end().child(
+                    div()
+                        .id("refresh-cloud")
+                        .cursor_pointer()
+                        .text_xs()
+                        .child(if self.loading {
+                            "Refreshing…"
+                        } else {
+                            "Refresh"
+                        })
+                        .when(!busy, |view| {
+                            view.on_click(cx.listener(|this, _, _, cx| this.reload(cx)))
+                        }),
+                ),
             )
             .child(
                 div()

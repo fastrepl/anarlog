@@ -125,6 +125,7 @@ impl ApplicationView {
                 WorkspaceAction::PinnedChanged(routes) => this.save_pins(routes.clone(), cx),
             }),
         ];
+        crate::product::settings::apply_stored_theme(&runtime, cx);
         let pins_runtime = runtime.clone();
         cx.spawn(async move |this, cx| {
             let mut state = pins_runtime.state();

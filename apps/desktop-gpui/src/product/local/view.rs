@@ -210,12 +210,6 @@ impl Render for LocalSettingsView {
             .flex()
             .flex_col()
             .gap_4()
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(self.surface.title()),
-            )
             .when(!self.error.is_empty(), |view| {
                 view.child(
                     div()
@@ -268,22 +262,15 @@ impl Render for LocalSettingsView {
                     );
                 for operation in actions {
                     let enabled = !busy && operation.disabled_reason.is_none();
-                    line = line.child(
-                        div()
-                            .id(SharedString::from(operation.id.clone()))
-                            .px_3()
-                            .py_2()
-                            .rounded(px(8.))
-                            .border_1()
-                            .border_color(colors.border)
-                            .text_sm()
-                            .child(operation.label.to_string())
-                            .when(enabled, |button| {
-                                button.cursor_pointer().on_click(cx.listener(
-                                    move |this, _, _, cx| this.choose(operation.clone(), cx),
-                                ))
-                            }),
-                    );
+                    line = line.child(crate::product::controls::outline_button(
+                        SharedString::from(operation.id.clone()),
+                        operation.label.to_string(),
+                        enabled,
+                        &colors,
+                        Some(Box::new(cx.listener(move |this, _, _, cx| {
+                            this.choose(operation.clone(), cx)
+                        }))),
+                    ));
                 }
                 view = view.child(line);
             }

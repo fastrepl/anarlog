@@ -36,7 +36,7 @@ impl Surface {
             Self::Teams => "Teams",
             Self::CloudSync => "Sync",
             Self::Sharing => "Share meeting",
-            Self::Imports => "Import meetings",
+            Self::Imports => "Imports",
             Self::Exports => "Export meeting",
             Self::Models => "Local models",
             Self::Calendar => "Calendar",
