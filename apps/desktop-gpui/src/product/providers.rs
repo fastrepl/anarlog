@@ -132,6 +132,56 @@ enum Operation {
     Saving,
 }
 
+/// `ProviderLobeIcon` / `ProviderBrandImage`: logos without their own colors take the text
+/// color, like shipping's `currentColor` icons and brand filter.
+pub(super) fn provider_logo(info: &ProviderInfo, size: f32, colors: &Theme) -> gpui::AnyElement {
+    let tinted = |path: SharedString| {
+        gpui::svg()
+            .path(path)
+            .size(px(size))
+            .flex_shrink_0()
+            .text_color(colors.foreground)
+            .into_any_element()
+    };
+    let image = |path: SharedString| {
+        gpui::img(path)
+            .size(px(size))
+            .flex_shrink_0()
+            .into_any_element()
+    };
+    let lobe = SharedString::from(format!("product/providers/{}.svg", info.id));
+    if let Some(bytes) = super::assets::load(&lobe) {
+        let mono = bytes.windows(12).any(|window| window == b"currentColor");
+        return if mono { tinted(lobe) } else { image(lobe) };
+    }
+    if let Some((id, path, _)) = super::assets::BRAND_IMAGES
+        .iter()
+        .find(|(id, _, _)| *id == info.id)
+    {
+        let path = SharedString::from(*path);
+        let keeps_color = matches!(*id, "alebex" | "meta");
+        return if path.ends_with(".svg") && !keeps_color {
+            tinted(path)
+        } else {
+            image(path)
+        };
+    }
+    if info.id == "soniqo" {
+        return tinted("product/AudioWaveformIcon.svg".into());
+    }
+    div()
+        .size(px(size + 4.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(4.))
+        .bg(colors.border)
+        .text_size(px(10.))
+        .font_weight(FontWeight::SEMIBOLD)
+        .child(info.name.chars().next().unwrap_or_default().to_string())
+        .into_any_element()
+}
+
 fn catalog(kind: ProviderKind) -> &'static [ProviderInfo] {
     match kind {
         ProviderKind::Stt => provider_catalog::STT,
@@ -164,6 +214,8 @@ pub struct ProviderView {
     model: Entity<TextInput>,
     search: Entity<TextInput>,
     menu: bool,
+    model_menu: bool,
+    effort_menu: bool,
     expanded: Option<&'static str>,
     base: Entity<TextInput>,
     secret: Entity<TextInput>,
@@ -213,6 +265,8 @@ impl ProviderView {
             model,
             search,
             menu: false,
+            model_menu: false,
+            effort_menu: false,
             expanded: None,
             base,
             secret,
@@ -242,7 +296,7 @@ impl ProviderView {
         self.operation = Some(Operation::Loading);
         let generation = self.generation;
         let reply = self.services.runtime.read(desktop_runtime::CancellationToken::new(), |services| async move {
-            let rows = services.executor.execute("SELECT id,value_json FROM app_settings WHERE (id LIKE 'ai_provider:%' OR id IN ('current_stt_provider','current_stt_model','current_llm_provider','current_llm_model')) AND length(CAST(value_json AS BLOB)) <= 524288 LIMIT 256".into(), vec![]).await.map_err(failure)?;
+            let rows = services.executor.execute("SELECT id,value_json FROM app_settings WHERE (id LIKE 'ai_provider:%' OR id IN ('current_stt_provider','current_stt_model','current_llm_provider','current_llm_model','current_llm_reasoning_effort')) AND length(CAST(value_json AS BLOB)) <= 524288 LIMIT 256".into(), vec![]).await.map_err(failure)?;
             let values: BTreeMap<String, String> = rows.iter().map(|row| Ok((row["id"].as_str().ok_or_else(|| failure("Invalid setting ID"))?.to_owned(), row["value_json"].as_str().ok_or_else(|| failure("Invalid setting value"))?.to_owned()))).collect::<Result<_>>()?;
             let parsed = values.iter().map(|(key, value)| Ok((key.clone(), serde_json::from_str(value).map_err(failure)?))).collect::<Result<_>>()?;
             Ok(Snapshot { values, parsed })
@@ -551,11 +605,7 @@ impl ProviderView {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded(px(4.))
-                            .bg(colors.border)
-                            .text_size(px(10.))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(info.name.chars().next().unwrap_or_default().to_string()),
+                            .child(provider_logo(info, 12., colors)),
                     )
                     .child(
                         div()
@@ -620,6 +670,191 @@ fn field(label: &'static str, input: Entity<TextInput>) -> Div {
         .child(input)
 }
 
+impl ProviderView {
+    /// The model half of "Model being used": a menu of the provider's models when it has a
+    /// fixed list, else the typed identifier.
+    fn model_select(&self, provider: &str, colors: &Theme, cx: &mut Context<Self>) -> Div {
+        let models = match self.kind {
+            ProviderKind::Stt => provider_catalog::stt_models(provider),
+            ProviderKind::Llm => &[],
+        };
+        let field = div().relative().flex_grow(3.).flex_basis(px(0.)).min_w_0();
+        if provider.is_empty() {
+            return field.child(
+                pill(colors)
+                    .justify_between()
+                    .opacity(0.5)
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .text_color(colors.muted_foreground)
+                            .child("Select a model"),
+                    )
+                    .child(controls::icon(
+                        "ArrowDown01Icon.svg",
+                        16.,
+                        colors.foreground.opacity(0.5),
+                    )),
+            );
+        }
+        if models.is_empty() {
+            return field.child(
+                pill(colors)
+                    .when(provider.is_empty(), |view| view.opacity(0.5))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .h(px(20.))
+                            .line_height(px(20.))
+                            .child(self.model.clone()),
+                    ),
+            );
+        }
+        let current = self.model.read(cx).buffer.text.clone();
+        let selected = models.iter().find(|model| **model == current).copied();
+        field
+            .child(
+                pill(colors)
+                    .id("model-select")
+                    .justify_between()
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.model_menu = !this.model_menu;
+                        cx.notify();
+                    }))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .when(selected.is_none(), |view| {
+                                view.text_color(colors.muted_foreground)
+                            })
+                            .child(selected.unwrap_or("Select a model")),
+                    )
+                    .child(controls::icon(
+                        "ArrowDown01Icon.svg",
+                        16.,
+                        colors.foreground.opacity(0.5),
+                    )),
+            )
+            .when(self.model_menu, |view| {
+                view.child(controls::dropdown(
+                    controls::menu_panel(controls::CONTROL_WIDTH, colors).children(
+                        models.iter().map(|model| {
+                            let model = *model;
+                            controls::menu_item(
+                                SharedString::from(format!("model-{model}")),
+                                model,
+                                None,
+                                Some(model) == selected,
+                                colors,
+                            )
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.model_menu = false;
+                                    this.model
+                                        .update(cx, |input, cx| input.set_text(model.into(), cx));
+                                    this.save_choice(cx);
+                                    cx.notify();
+                                },
+                            ))
+                        }),
+                    ),
+                    true,
+                ))
+            })
+    }
+}
+
+impl ProviderView {
+    /// `Reasoning effort` (`settings/ai/llm/select.tsx`), stored for providers that take one.
+    fn reasoning_effort(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+        const EFFORTS: [(&str, &str); 4] = [
+            ("default", "Default"),
+            ("low", "Low"),
+            ("medium", "Medium"),
+            ("high", "High"),
+        ];
+        let stored = self
+            .snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.choice("current_llm_reasoning_effort"))
+            .unwrap_or_default();
+        let current = EFFORTS
+            .iter()
+            .find(|(value, _)| *value == stored)
+            .unwrap_or(&EFFORTS[0]);
+        let enabled = self.snapshot.is_some() && !self.busy(cx);
+        controls::setting_row(
+            "Reasoning effort",
+            Some(
+                "How much the model thinks before answering. Default leaves it to the provider."
+                    .into(),
+            ),
+            true,
+            div()
+                .relative()
+                .w_full()
+                .child(
+                    controls::select_trigger(
+                        "reasoning-effort",
+                        Some(current.1.into()),
+                        "",
+                        enabled,
+                        colors,
+                    )
+                    .when(enabled, |view| {
+                        view.on_click(cx.listener(|this, _, _, cx| {
+                            this.effort_menu = !this.effort_menu;
+                            cx.notify();
+                        }))
+                    }),
+                )
+                .when(self.effort_menu, |view| {
+                    view.child(controls::dropdown(
+                        controls::menu_panel(controls::CONTROL_WIDTH, colors).children(
+                            EFFORTS.into_iter().map(|(value, label)| {
+                                controls::menu_item(
+                                    SharedString::from(format!("effort-{value}")),
+                                    label,
+                                    None,
+                                    value == current.0,
+                                    colors,
+                                )
+                                .on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        this.effort_menu = false;
+                                        this.save_effort(value, cx);
+                                    },
+                                ))
+                            }),
+                        ),
+                        false,
+                    ))
+                }),
+            colors,
+        )
+    }
+
+    fn save_effort(&mut self, effort: &'static str, cx: &mut Context<Self>) {
+        let Some(snapshot) = self.snapshot.clone().filter(|_| !self.busy(cx)) else {
+            return;
+        };
+        let statement = snapshot.upsert("current_llm_reasoning_effort".into(), json!(effort));
+        let reply = self.services.runtime.submit(move |services| async move {
+            services
+                .executor
+                .execute_transaction(vec![statement])
+                .await
+                .map_err(failure)?;
+            Ok(())
+        });
+        self.finish(reply, "Reasoning effort saved.", cx);
+    }
+}
+
 fn pill(colors: &Theme) -> Div {
     div()
         .h(px(36.))
@@ -638,9 +873,8 @@ impl Render for ProviderView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
         let provider = self.provider();
-        let provider_name = catalog(self.kind)
-            .iter()
-            .find(|info| info.id == provider)
+        let provider_info = catalog(self.kind).iter().find(|info| info.id == provider);
+        let provider_name = provider_info
             .map(|info| SharedString::from(info.name))
             .or_else(|| (!provider.is_empty()).then(|| provider.clone().into()));
         let query = self.search.read(cx).buffer.text.trim().to_lowercase();
@@ -695,13 +929,27 @@ impl Render for ProviderView {
                                             .child(
                                                 div()
                                                     .min_w_0()
-                                                    .truncate()
-                                                    .when(provider_name.is_none(), |view| {
-                                                        view.text_color(colors.muted_foreground)
+                                                    .flex()
+                                                    .items_center()
+                                                    .gap_2()
+                                                    .when_some(provider_info, |view, info| {
+                                                        view.child(provider_logo(
+                                                            info, 14., &colors,
+                                                        ))
                                                     })
-                                                    .child(provider_name.unwrap_or_else(|| {
-                                                        "Select a provider".into()
-                                                    })),
+                                                    .child(
+                                                        div()
+                                                            .min_w_0()
+                                                            .truncate()
+                                                            .when(provider_name.is_none(), |view| {
+                                                                view.text_color(
+                                                                    colors.muted_foreground,
+                                                                )
+                                                            })
+                                                            .child(provider_name.unwrap_or_else(
+                                                                || "Select a provider".into(),
+                                                            )),
+                                                    ),
                                             )
                                             .child(controls::icon(
                                                 "ArrowDown01Icon.svg",
@@ -717,21 +965,13 @@ impl Render for ProviderView {
                                     }),
                             )
                             .child(div().text_color(colors.muted_foreground).child("/"))
-                            .child(
-                                pill(&colors)
-                                    .flex_grow(3.)
-                                    .flex_basis(px(0.))
-                                    .min_w_0()
-                                    .when(provider.is_empty(), |view| view.opacity(0.5))
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .min_w_0()
-                                            .h(px(20.))
-                                            .line_height(px(20.))
-                                            .child(self.model.clone()),
-                                    ),
-                            ),
+                            .child(self.model_select(&provider, &colors, cx)),
+                    )
+                    .when(
+                        self.kind == ProviderKind::Llm
+                            && !provider.is_empty()
+                            && !matches!(provider.as_str(), "anarlog" | "apple_foundation"),
+                        |view| view.child(self.reasoning_effort(&colors, cx)),
                     ),
             )
             .child(
