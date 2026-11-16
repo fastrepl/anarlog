@@ -3,6 +3,8 @@ mod account_view;
 pub mod assets;
 pub mod cloud;
 mod controls;
+mod dictation_shortcut;
+mod insights;
 pub mod local;
 mod locale;
 pub(crate) mod navigation;
@@ -16,6 +18,7 @@ mod service_view;
 pub mod services;
 pub mod settings;
 mod surface_view;
+pub mod trial;
 
 use std::sync::Arc;
 
@@ -40,6 +43,12 @@ use surface_view::SurfaceView;
 #[derive(Clone, Debug)]
 pub struct OpenWorkspaceSection(pub &'static str);
 
+/// A press on Pro-gated content, answered with `useNotifyPlanRequired`'s toast.
+pub struct PlanRequired;
+
+type ProNotice = (u64, crate::workspace::resource_list::WarningToast);
+type ReferralState = Result<cloud::Referrals, String>;
+
 pub struct ProductPane {
     pub context: LaneContext,
     pub route: ProductRoute,
@@ -56,9 +65,17 @@ pub struct ProductPane {
     workspace_name: Entity<TextInput>,
     onboarding: Option<Entity<OnboardingView>>,
     notice: String,
+    pro_notice: Option<ProNotice>,
+    insights: Option<(String, Entity<insights::InsightsView>)>,
+    /// The signed-in account's referral summary: loading, failed, or loaded.
+    referrals: Option<(Arc<str>, Option<ReferralState>)>,
+    referral_copied: bool,
+    pro_notices: u64,
+    last_pro_notice: Option<std::time::Instant>,
     _search_subscription: Subscription,
     service_subscription: Option<Subscription>,
     settings_subscription: Option<Subscription>,
+    plan_subscription: Option<Subscription>,
     scope_subscription: Option<Subscription>,
     _account_subscriptions: [Subscription; 2],
 }
@@ -121,9 +138,16 @@ impl ProductPane {
             workspace_name,
             onboarding: None,
             notice: String::new(),
+            pro_notice: None,
+            insights: None,
+            referrals: None,
+            referral_copied: false,
+            pro_notices: 0,
+            last_pro_notice: None,
             _search_subscription: subscription,
             service_subscription: None,
             settings_subscription: None,
+            plan_subscription: None,
             scope_subscription: None,
             _account_subscriptions: account_subscriptions,
         };
@@ -264,9 +288,16 @@ impl ProductPane {
             }
             if self.preferences.is_none() {
                 let view = cx.new(|cx| PreferencesView::new(self.context.runtime.clone(), cx));
-                self.settings_subscription = Some(cx.subscribe(&view, |_, _, error, cx| {
-                    cx.emit(ProductEvent::Failed(error.clone()))
-                }));
+                self.settings_subscription = Some(cx.subscribe(
+                    &view,
+                    |_, _, error: &desktop_runtime::ServiceError, cx| {
+                        cx.emit(ProductEvent::Failed(error.clone()))
+                    },
+                ));
+                self.plan_subscription =
+                    Some(cx.subscribe(&view, |this, _, _: &PlanRequired, cx| {
+                        this.notify_plan_required(cx)
+                    }));
                 self.preferences = Some(view);
             }
             if let Some(view) = &self.preferences {
@@ -298,6 +329,10 @@ impl ProductPane {
             cx.notify();
             return;
         }
+        // Insights and referrals reload on each visit, as shipping's queries do.
+        self.insights = None;
+        self.referrals = None;
+        self.referral_copied = false;
         let surface = match page.id {
             "team" => Some(Surface::Teams),
             "sync" => Some(Surface::CloudSync),
@@ -313,6 +348,110 @@ impl ProductPane {
         };
         self.active = page;
         self.show_surface(surface, cx);
+    }
+}
+
+impl ProductPane {
+    /// `useNotifyPlanRequired`: a six-second warning toast whose Upgrade opens checkout.
+    /// Presses within 400 ms of the last one are ignored, like `PlanGate`.
+    pub(crate) fn notify_plan_required(&mut self, cx: &mut Context<Self>) {
+        const TOTAL: u64 = 6_000;
+        const TICK: u64 = 100;
+        let now = std::time::Instant::now();
+        if self
+            .last_pro_notice
+            .is_some_and(|last| now.duration_since(last).as_millis() < 400)
+        {
+            return;
+        }
+        self.last_pro_notice = Some(now);
+        self.pro_notices += 1;
+        let id = self.pro_notices;
+        self.pro_notice = Some((
+            id,
+            crate::workspace::resource_list::WarningToast {
+                message: "This requires Anarlog Pro",
+                action: "Upgrade",
+                remaining_ms: TOTAL,
+                total_ms: TOTAL,
+                paused: false,
+            },
+        ));
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(TICK))
+                    .await;
+                let open = this.update(cx, |this, cx| {
+                    let Some((_, toast)) = this
+                        .pro_notice
+                        .as_mut()
+                        .filter(|(current, _)| *current == id)
+                    else {
+                        return false;
+                    };
+                    if !toast.paused {
+                        toast.remaining_ms = toast.remaining_ms.saturating_sub(TICK);
+                        if toast.remaining_ms == 0 {
+                            this.pro_notice = None;
+                        }
+                        cx.notify();
+                    }
+                    this.pro_notice.is_some()
+                });
+                if !matches!(open, Ok(true)) {
+                    break;
+                }
+            }
+        })
+        .detach();
+        cx.notify();
+    }
+
+    fn upgrade_to_pro(&mut self, cx: &mut Context<Self>) {
+        self.pro_notice = None;
+        if let Some(cloud) = self.cloud.clone() {
+            cx.spawn(async move |this, cx| {
+                if let Err(error) = cloud
+                    .open_web(
+                        "/app/checkout",
+                        vec![("source", "feature_gate".into())],
+                        None,
+                    )
+                    .await
+                {
+                    let _ = this.update(cx, |_, cx| cx.emit(ProductEvent::Failed(error)));
+                }
+            })
+            .detach();
+        }
+        cx.notify();
+    }
+
+    fn pro_toast(
+        &self,
+        window: &Window,
+        colors: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<gpui::AnyElement> {
+        let (_, toast) = self.pro_notice.as_ref()?;
+        Some(toast.render(
+            [
+                Box::new(cx.listener(|this, _, _, cx| this.upgrade_to_pro(cx))),
+                Box::new(cx.listener(|this, _, _, cx| {
+                    this.pro_notice = None;
+                    cx.notify();
+                })),
+                Box::new(cx.listener(|this, _, _, cx| {
+                    if let Some((_, toast)) = &mut this.pro_notice {
+                        toast.paused = !toast.paused;
+                    }
+                    cx.notify();
+                })),
+            ],
+            window,
+            *colors,
+        ))
     }
 }
 
@@ -541,11 +680,13 @@ impl ProductPane {
             .as_ref()
             .map(|view| view.read(cx).surface.title())
             .unwrap_or(self.active.label);
+        // These surfaces lay out their own title row, like shipping's pages.
+        let titled = matches!(surface, Some(Surface::Permissions));
         div()
             .flex()
             .flex_col()
             .gap_6()
-            .child(controls::page_title(title))
+            .when(!titled, |view| view.child(controls::page_title(title)))
             .when(!self.notice.is_empty(), |view| {
                 view.child(
                     div()
@@ -592,6 +733,7 @@ impl Render for ProductPane {
         let sidebar = self.sidebar(&colors, window, cx);
         let page = self.page(&colors, cx);
         let dialog = self.sign_out_dialog(&colors, cx);
+        let toast = self.pro_toast(window, &colors, cx);
         div()
             .relative()
             .size_full()
@@ -630,5 +772,6 @@ impl Render for ProductPane {
                     ),
             )
             .children(dialog)
+            .children(toast)
     }
 }

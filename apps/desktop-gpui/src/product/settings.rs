@@ -56,7 +56,7 @@ pub fn definition(key: &str) -> Result<&'static Definition> {
 
 pub fn write_gate(key: &str) -> Option<&'static str> {
     match key {
-        "app_icon" => Some("Requires the application icon service."),
+        "app_icon" if !cfg!(target_os = "macos") => Some("Requires the application icon service."),
         // Only macOS lets the app override its window appearance.
         "theme" if !cfg!(target_os = "macos") => {
             Some("Requires the application appearance service.")
@@ -81,6 +81,13 @@ pub fn apply_theme(theme: &str, cx: &mut gpui::App) {
     });
 }
 
+pub fn is_dark(cx: &gpui::App) -> bool {
+    matches!(
+        cx.window_appearance(),
+        gpui::WindowAppearance::Dark | gpui::WindowAppearance::VibrantDark
+    )
+}
+
 /// Applies the saved theme and the native side effects of stored settings once the library
 /// is readable, like shipping's `initializeApplicationSettings`.
 pub fn apply_stored_preferences(runtime: &RuntimeHandle, cx: &mut gpui::App) {
@@ -97,8 +104,23 @@ pub fn apply_stored_preferences(runtime: &RuntimeHandle, cx: &mut gpui::App) {
             return;
         };
         cx.update(|cx| {
-            if let Some(theme) = snapshot.get("theme").and_then(|s| s.value.as_str()) {
-                apply_theme(theme, cx);
+            let text = |key: &str| {
+                snapshot
+                    .get(key)
+                    .and_then(|setting| setting.value.as_str())
+                    .unwrap_or_default()
+                    .to_owned()
+            };
+            apply_theme(&text("theme"), cx);
+            if cfg!(target_os = "macos") {
+                let icon = crate::platform::system_settings::dock_icon(
+                    &text("app_icon"),
+                    &text("theme"),
+                    is_dark(cx),
+                );
+                if let Err(error) = crate::platform::system_settings::apply_effect(icon, cx) {
+                    tracing::warn!(%error, "stored app icon could not be applied");
+                }
             }
             for key in crate::platform::system_settings::KEYS {
                 if let Some(setting) = snapshot.get(key)

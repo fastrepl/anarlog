@@ -666,6 +666,9 @@ impl PreferencesView {
                 &colors,
                 cx,
             ))
+            .when(cfg!(target_os = "macos"), |view| {
+                view.child(self.app_icons(&colors, window, cx))
+            })
             .child(
                 div()
                     .flex()
@@ -698,6 +701,170 @@ impl PreferencesView {
                     )),
             )
             .into_any_element()
+    }
+
+    /// `settings/appearance/app-icon.tsx`: the Dock icon choices; other plans can only keep
+    /// the current one.
+    fn app_icons(&self, colors: &Theme, window: &Window, cx: &mut Context<Self>) -> Div {
+        const OPTIONS: [(&str, &str); 10] = [
+            ("default", "Default"),
+            ("stable", "Production"),
+            ("anagram", "Anagram"),
+            ("dev", "Blueprint"),
+            ("staging", "Sketch"),
+            ("journal", "Field Journal"),
+            ("notepad", "Notepad"),
+            ("stone", "Stone"),
+            ("typewriter-key", "Typewriter Key"),
+            ("walnut", "Walnut"),
+        ];
+        let pro = super::account::is_pro(cx);
+        let stored = self.text("app_icon");
+        let default = crate::platform::system_settings::DEFAULT_ICON;
+        fn resolve(value: &'static str) -> &'static str {
+            if value == "default" {
+                crate::platform::system_settings::DEFAULT_ICON
+            } else {
+                value
+            }
+        }
+        let current = OPTIONS
+            .iter()
+            .find(|(value, _)| *value == stored)
+            .map_or(default, |(value, _)| resolve(value));
+        let dark = matches!(
+            window.appearance(),
+            gpui::WindowAppearance::Dark | gpui::WindowAppearance::VibrantDark
+        );
+        let sky = |light: u32, dark_color: u32, alpha: f32| {
+            Hsla::from(gpui::rgb(if dark { dark_color } else { light })).opacity(alpha)
+        };
+        let writable = self.writable("app_icon");
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(
+                div().child(controls::section_title("App icon")).child(
+                    div()
+                        .mt_1()
+                        .text_sm()
+                        .text_color(colors.muted_foreground)
+                        .child("Choose how Anarlog appears in the Dock."),
+                ),
+            )
+            .child(
+                div().flex().flex_wrap().gap_3().children(
+                    OPTIONS
+                        .into_iter()
+                        .filter(|(value, _)| *value == "default" || *value != default)
+                        .map(|(value, _)| {
+                            let name = resolve(value);
+                            let selected = name == current;
+                            let locked = !pro && !selected;
+                            let preview =
+                                if matches!(name, "stable" | "anagram" | "dev" | "staging") {
+                                    format!(
+                                        "product/app-icons/{name}-{}.png",
+                                        if dark { "dark" } else { "light" }
+                                    )
+                                } else {
+                                    format!("product/app-icons/{name}.png")
+                                };
+                            div()
+                                .id(SharedString::from(format!("app-icon-{value}")))
+                                .group(SharedString::from(format!("app-icon-{value}")))
+                                .relative()
+                                .p(px(2.))
+                                .pb(px(10.))
+                                .rounded(px(22.))
+                                .cursor_pointer()
+                                .when(selected, |view| {
+                                    view.child(
+                                        div()
+                                            .absolute()
+                                            .bottom(px(2.))
+                                            .left(px(11.))
+                                            .w(px(56.))
+                                            .h(px(16.))
+                                            .rounded_full()
+                                            .shadow(vec![gpui::BoxShadow {
+                                                color: sky(0x38bdf8, 0x7dd3fc, 0.6),
+                                                offset: gpui::point(px(0.), px(0.)),
+                                                blur_radius: px(12.),
+                                                spread_radius: px(0.),
+                                                inset: false,
+                                            }]),
+                                    )
+                                    .child(
+                                        div()
+                                            .absolute()
+                                            .bottom(px(6.))
+                                            .left(px(23.))
+                                            .w(px(32.))
+                                            .h(px(6.))
+                                            .rounded_full()
+                                            .shadow(vec![gpui::BoxShadow {
+                                                color: sky(0x7dd3fc, 0xbae6fd, 0.9),
+                                                offset: gpui::point(px(0.), px(0.)),
+                                                blur_radius: px(3.),
+                                                spread_radius: px(0.),
+                                                inset: false,
+                                            }]),
+                                    )
+                                })
+                                .child(
+                                    div()
+                                        .relative()
+                                        .size(px(64.))
+                                        .when(selected, |view| view.top(px(-6.)))
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .overflow_hidden()
+                                        .rounded(px(18.))
+                                        .child(
+                                            gpui::img(SharedString::from(preview))
+                                                .flex_shrink_0()
+                                                .size(px(74.24))
+                                                .group_hover(
+                                                    SharedString::from(format!("app-icon-{value}")),
+                                                    |style| style.size(px(77.44)),
+                                                ),
+                                        ),
+                                )
+                                .when(locked, |view| {
+                                    view.child(
+                                        div()
+                                            .absolute()
+                                            .right(px(4.))
+                                            .bottom(px(12.))
+                                            .size(px(20.))
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .rounded_full()
+                                            .border_1()
+                                            .border_color(colors.border)
+                                            .bg(colors.background)
+                                            .shadow_xs()
+                                            .child(controls::icon(
+                                                "product/LockPasswordIcon.svg",
+                                                12.,
+                                                colors.muted_foreground,
+                                            )),
+                                    )
+                                })
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    if locked {
+                                        cx.emit(super::PlanRequired);
+                                    } else if writable {
+                                        this.set("app_icon", json!(value), cx);
+                                    }
+                                }))
+                        }),
+                ),
+            )
     }
 
     /// `settings/general/notification.tsx`.
@@ -1002,29 +1169,7 @@ impl PreferencesView {
                         ),
                         &colors,
                     ))
-                    // Choosing a primary device needs the signed-in device registry.
-                    .child(setting_row(
-                        "Primary recording device",
-                        Some(
-                            if !super::account::current(cx).signed_in() {
-                                "Sign in to choose a primary recording device."
-                            } else if !pro {
-                                "Anarlog Pro coordinates recording across your devices."
-                            } else {
-                                "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
-                            }
-                            .into(),
-                        ),
-                        true,
-                        controls::select_trigger(
-                            "primary_recording_device",
-                            Some("Ask each meeting".into()),
-                            "",
-                            false,
-                            &colors,
-                        ),
-                        &colors,
-                    ))
+                    .child(self.primary_recording_device(window, cx))
                     .child(plan_gate(
                         pro,
                         div()
@@ -1049,7 +1194,7 @@ impl PreferencesView {
                                 &colors,
                                 cx,
                             )),
-                    ))
+                    cx))
                     .when(!windows, |view| {
                         view.child(self.switch_row(
                             "auto_stop_meetings",
@@ -1150,15 +1295,28 @@ impl PreferencesView {
             .into_any_element()
     }
 
-    /// `AudioDeviceRow`. Device enumeration lives in the capture service, so only the
-    /// current default and the stored device are offered here.
+    /// `AudioDeviceRow`: the current default, then the devices sorted by name; a stored
+    /// device that is not connected stays listed as unavailable.
     fn microphone_row(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let colors = theme(window);
         let stored = self.text("microphone_device");
-        let mut options = vec![SelectOption::new("", "Current default")];
-        if !stored.is_empty() {
-            options.push(SelectOption::new(stored.clone(), stored.clone()));
+        let mut devices = self.microphones.clone();
+        devices.sort();
+        devices.dedup();
+        let unavailable = !stored.is_empty() && !devices.contains(&stored);
+        if unavailable {
+            devices.insert(0, stored.clone());
         }
+        let options = std::iter::once(SelectOption::new("", "Current default"))
+            .chain(devices.into_iter().map(|device| {
+                let label = if unavailable && device == stored {
+                    format!("{device} (Unavailable — using current default)")
+                } else {
+                    device.clone()
+                };
+                SelectOption::new(device, label)
+            }))
+            .collect();
         setting_row(
             "Microphone",
             Some("Choose the microphone that captures your voice.".into()),
@@ -1172,6 +1330,67 @@ impl PreferencesView {
                 false,
                 controls::CONTROL_WIDTH,
                 |this, value, cx| this.set("microphone_device", json!(value), cx),
+                window,
+                cx,
+            ),
+            &colors,
+        )
+        .into_any_element()
+    }
+
+    /// `PrimaryRecordingDeviceSelector`: Pro accounts can prefer this computer.
+    fn primary_recording_device(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let colors = theme(window);
+        let account = super::account::current(cx);
+        let pro = super::account::is_pro(cx);
+        let stored = self.text("primary_recording_device");
+        let recorder = account
+            .devices
+            .as_ref()
+            .and_then(|devices| devices.recorder.clone());
+        let mut options = vec![SelectOption::new("ask", "Ask each meeting")];
+        if let Some(recorder) = &recorder {
+            options.push(SelectOption::new(
+                recorder.fingerprint.to_string(),
+                recorder.name.to_string(),
+            ));
+        }
+        if !stored.is_empty() && recorder.is_none_or(|recorder| *recorder.fingerprint != *stored) {
+            options.push(SelectOption::new(stored.clone(), "Unavailable device"));
+        }
+        let selected = if stored.is_empty() {
+            "ask".into()
+        } else {
+            stored
+        };
+        setting_row(
+            "Primary recording device",
+            Some(
+                if !account.signed_in() {
+                    "Sign in to choose a primary recording device."
+                } else if !pro {
+                    "Anarlog Pro coordinates recording across your devices."
+                } else {
+                    "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
+                }
+                .into(),
+            ),
+            true,
+            self.dropdown_select(
+                "primary_recording_device",
+                options,
+                &selected,
+                "Choose a device",
+                account.signed_in()
+                    && pro
+                    && account.devices.is_some()
+                    && self.writable("primary_recording_device"),
+                false,
+                controls::CONTROL_WIDTH,
+                |this, value, cx| {
+                    let value = if value == "ask" { String::new() } else { value };
+                    this.set("primary_recording_device", json!(value), cx)
+                },
                 window,
                 cx,
             ),
@@ -1240,19 +1459,7 @@ impl PreferencesView {
         let colors = theme(window);
         let pro = super::account::is_pro(cx);
         let hands_free = self.flag("dictation_hands_free");
-        let keys = self
-            .text("dictation_shortcut")
-            .split('+')
-            .map(|key| match key {
-                "Control" => "⌃".to_owned(),
-                "Alt" => "⌥".to_owned(),
-                "Meta" | "Command" => "⌘".to_owned(),
-                "Shift" => "⇧".to_owned(),
-                "Fn" => "Fn / Globe".to_owned(),
-                "RightCommand" => "Right Command".to_owned(),
-                key => key.to_owned(),
-            })
-            .collect::<Vec<_>>();
+        let keys = super::dictation_shortcut::labels(&self.text("dictation_shortcut"));
         let chip = |label: String| {
             div()
                 .px(px(6.))
@@ -1286,7 +1493,6 @@ impl PreferencesView {
                         &colors,
                         cx,
                     ))
-                    // Recording a new shortcut needs the native key-capture service.
                     .child(
                         div()
                             .flex()
@@ -1306,38 +1512,74 @@ impl PreferencesView {
                                     )
                                     .child(
                                         div()
+                                            .id("dictation-shortcut")
+                                            .track_focus(&self.shortcut_focus)
                                             .h(px(36.))
-                                            .px_3()
+                                            .px_4()
                                             .flex()
                                             .items_center()
                                             .gap_1()
                                             .rounded(px(8.))
                                             .border_1()
                                             .border_color(colors.input)
-                                            .children(keys.into_iter().map(chip)),
+                                            .bg(colors.background)
+                                            .text_sm()
+                                            .font_weight(FontWeight::MEDIUM)
+                                            .shadow_xs()
+                                            .cursor_pointer()
+                                            .hover(|style| style.bg(colors.accent))
+                                            .on_click(cx.listener(|this, _, window, cx| {
+                                                this.toggle_shortcut_recording(window, cx)
+                                            }))
+                                            .on_key_down(cx.listener(
+                                                |this, event: &KeyDownEvent, _, cx| {
+                                                    this.record_shortcut(event, cx)
+                                                },
+                                            ))
+                                            .when(self.recording_shortcut, |view| {
+                                                view.child("Press shortcut…")
+                                            })
+                                            .when(!self.recording_shortcut, |view| {
+                                                view.children(keys.into_iter().map(chip))
+                                            }),
                                     ),
                             )
                             .child(controls::description(
                                 "Click the shortcut to record a new key combination. Press Escape to cancel.",
                                 &colors,
                             ))
-                            .child(
-                                div().flex().gap_2().children(
-                                    ["Fn / Globe", "Right Command"].into_iter().map(|label| {
-                                        div()
-                                            .h(px(28.))
-                                            .px_2()
-                                            .flex()
-                                            .items_center()
-                                            .rounded(px(8.))
-                                            .border_1()
-                                            .border_color(colors.input)
-                                            .text_xs()
-                                            .font_weight(FontWeight::MEDIUM)
-                                            .child(label)
-                                    }),
-                                ),
-                            ),
+                            .when_some(self.shortcut_error.clone(), |view, error| {
+                                view.child(
+                                    div().text_sm().text_color(colors.destructive).child(error),
+                                )
+                            })
+                            .when(cfg!(target_os = "macos"), |view| {
+                                view.child(div().flex().gap_2().children(
+                                    [("Fn", "Fn / Globe"), ("RightCommand", "Right Command")]
+                                        .into_iter()
+                                        .map(|(value, label)| {
+                                            div()
+                                                .id(value)
+                                                .h(px(28.))
+                                                .px_2()
+                                                .flex()
+                                                .items_center()
+                                                .rounded(px(8.))
+                                                .border_1()
+                                                .border_color(colors.input)
+                                                .bg(colors.background)
+                                                .shadow_xs()
+                                                .text_xs()
+                                                .font_weight(FontWeight::MEDIUM)
+                                                .cursor_pointer()
+                                                .hover(|style| style.bg(colors.accent))
+                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                    this.save_shortcut(value.into(), cx)
+                                                }))
+                                                .child(label)
+                                        }),
+                                ))
+                            }),
                     )
                     .child(self.microphone_row(window, cx))
                     .child(self.gated_switch_row(
@@ -1371,7 +1613,7 @@ impl PreferencesView {
                             controls::outline_button(label, label, true, &colors, None)
                         }),
                     )),
-            ))
+            cx))
             .into_any_element()
     }
 
@@ -1505,8 +1747,49 @@ impl PreferencesView {
                                 })),
                         )
                     }),
-            ))
+            cx))
             .into_any_element()
+    }
+
+    fn toggle_shortcut_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.recording_shortcut = !self.recording_shortcut;
+        if self.recording_shortcut {
+            self.shortcut_error = None;
+            self.shortcut_focus.focus(window, cx);
+        }
+        cx.notify();
+    }
+
+    fn record_shortcut(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
+        use super::dictation_shortcut::{Recorded, record};
+        if !self.recording_shortcut {
+            return;
+        }
+        cx.stop_propagation();
+        if event.is_held {
+            return;
+        }
+        match record(&event.keystroke) {
+            Recorded::Cancel => {
+                self.recording_shortcut = false;
+                cx.notify();
+            }
+            Recorded::Ignore => {}
+            Recorded::Shortcut(shortcut) => self.save_shortcut(shortcut, cx),
+        }
+    }
+
+    /// Validates before saving, like the shortcut plugin; an invalid choice keeps the old one.
+    fn save_shortcut(&mut self, shortcut: String, cx: &mut Context<Self>) {
+        self.recording_shortcut = false;
+        match super::dictation_shortcut::validate(&shortcut) {
+            Ok(()) => {
+                self.shortcut_error = None;
+                self.set("dictation_shortcut", json!(shortcut), cx);
+            }
+            Err(error) => self.shortcut_error = Some(error),
+        }
+        cx.notify();
     }
 
     pub(super) fn add_dictionary_terms(&mut self, cx: &mut Context<Self>) {
@@ -1540,15 +1823,12 @@ fn preview_sound(name: &str) {
 }
 
 /// Shipping's `PlanGate`: content stays visible at 60% opacity and ignores input.
-fn plan_gate(allowed: bool, content: Div) -> Div {
-    if allowed {
-        return content;
-    }
-    div()
-        .relative()
-        .opacity(0.6)
-        .child(content)
-        .child(div().absolute().inset_0().occlude())
+fn plan_gate(allowed: bool, content: Div, cx: &mut Context<PreferencesView>) -> Div {
+    super::account_view::plan_gate(
+        allowed,
+        content,
+        cx.listener(|_, _, _, cx| cx.emit(super::PlanRequired)),
+    )
 }
 
 fn stored_terms(stored: &str) -> Vec<String> {

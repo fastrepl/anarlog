@@ -59,10 +59,15 @@ pub struct PreferencesView {
     active: bool,
     pub(super) lock_available: bool,
     pub(super) authenticating: bool,
+    pub(super) microphones: Vec<String>,
+    pub(super) recording_shortcut: bool,
+    pub(super) shortcut_error: Option<String>,
+    pub(super) shortcut_focus: gpui::FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
 impl EventEmitter<ServiceError> for PreferencesView {}
+impl EventEmitter<super::PlanRequired> for PreferencesView {}
 
 impl PreferencesView {
     pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
@@ -100,6 +105,10 @@ impl PreferencesView {
             active: true,
             lock_available: false,
             authenticating: false,
+            microphones: Vec::new(),
+            recording_shortcut: false,
+            shortcut_error: None,
+            shortcut_focus: cx.focus_handle(),
             _subscriptions: vec![subscription, dictionary_subscription, spoken_subscription],
         };
         this.watch(cx);
@@ -259,6 +268,9 @@ impl PreferencesView {
                         if let Some(snapshot) = &mut this.snapshot {
                             Arc::make_mut(snapshot).insert(key.clone(), setting);
                         }
+                        if matches!(key.as_str(), "app_icon" | "theme") {
+                            this.apply_dock_icon(cx);
+                        }
                         if this.desired.get(&key) == Some(&value) {
                             this.desired.remove(&key);
                         } else {
@@ -287,8 +299,45 @@ impl PreferencesView {
         if section == "privacy" {
             self.lock_available = crate::platform::device_auth::available(cx);
         }
+        if matches!(section, "meetings" | "dictation") && self.section != section {
+            self.load_microphones(cx);
+        }
         self.section = section;
         cx.notify();
+    }
+
+    /// `applyAppIconPreference`: the Dock shows the chosen icon in the app's appearance.
+    fn apply_dock_icon(&mut self, cx: &mut Context<Self>) {
+        if !cfg!(target_os = "macos") {
+            return;
+        }
+        let effect = crate::platform::system_settings::dock_icon(
+            &self.text("app_icon"),
+            &self.text("theme"),
+            settings::is_dark(cx),
+        );
+        if let Err(error) = crate::platform::system_settings::apply_effect(effect, cx) {
+            self.fail(error, cx);
+        }
+    }
+
+    /// `listMicrophoneDevices`, through the capture service when it is running.
+    fn load_microphones(&mut self, cx: &mut Context<Self>) {
+        let Some(request) = cx
+            .try_global::<crate::meeting::MeetingServices>()
+            .and_then(|services| services.capture.devices().ok())
+        else {
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            if let Ok(Ok(devices)) = request.await {
+                let _ = this.update(cx, |this, cx| {
+                    this.microphones = devices.microphones;
+                    cx.notify();
+                });
+            }
+        })
+        .detach();
     }
 
     /// `SettingsPrivacy`: changing the app lock needs device authentication first.

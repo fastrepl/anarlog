@@ -309,14 +309,24 @@ fn section(title: &'static str, description: Option<&'static str>, colors: &Them
         })
 }
 
-/// `PlanGate`: visible at 60% opacity and ignores input.
-pub fn plan_gate(allowed: bool, content: impl IntoElement) -> Div {
+/// `PlanGate`: visible at 60% opacity; pressing it shows the plan-required toast instead.
+pub fn plan_gate(
+    allowed: bool,
+    content: impl IntoElement,
+    on_blocked: impl Fn(&gpui::MouseDownEvent, &mut gpui::Window, &mut gpui::App) + 'static,
+) -> Div {
     let gate = div().relative().child(content);
     if allowed {
         return gate;
     }
-    gate.opacity(0.6)
-        .child(div().absolute().inset_0().occlude())
+    gate.opacity(0.6).child(
+        div()
+            .absolute()
+            .inset_0()
+            .occlude()
+            .cursor_not_allowed()
+            .on_mouse_down(gpui::MouseButton::Left, on_blocked),
+    )
 }
 
 fn emerald(colors: &Theme) -> Hsla {
@@ -469,11 +479,19 @@ impl ProductPane {
                 text_sm(colors, true).child("Sign in to create a shared workspace for your team."),
             ),
             "team" if account.workspaces.as_ref().is_some_and(|w| w.is_empty()) => {
-                page("Teams").child(plan_gate(pro, self.create_workspace(colors, cx)))
+                page("Teams").child(plan_gate(
+                    pro,
+                    self.create_workspace(colors, cx),
+                    cx.listener(|this, _, _, cx| this.notify_plan_required(cx)),
+                ))
             }
             "sync" if !signed_in => page("Sync").child(self.sync_signed_out(colors, cx)),
-            "sync" if !pro => page("Sync").child(plan_gate(false, sync_preview(colors))),
-            "referrals" => self.referrals(signed_in, colors, cx),
+            "sync" if !pro => page("Sync").child(plan_gate(
+                false,
+                sync_preview(colors),
+                cx.listener(|this, _, _, cx| this.notify_plan_required(cx)),
+            )),
+            "referrals" => self.referrals(&account, colors, cx),
             // The native app has no CRM integration yet; signed in, shipping shows this
             // message when no integration is available.
             "crm" => page("CRM")
@@ -483,8 +501,22 @@ impl ProductPane {
                 } else {
                     "Sign in to connect a CRM."
                 })),
-            "insights" => page("Your insights")
-                .child(text_sm(colors, true).child("Insights are not available in the native app yet.")),
+            "insights" => {
+                let user = account
+                    .user
+                    .as_ref()
+                    .map_or("00000000-0000-0000-0000-000000000000".into(), |user| {
+                        user.id.to_string()
+                    });
+                if self.insights.as_ref().is_none_or(|(id, _)| *id != user) {
+                    let runtime = self.context.runtime.clone();
+                    let id = user.clone();
+                    let view =
+                        cx.new(|cx| super::insights::InsightsView::new(runtime, id, cx));
+                    self.insights = Some((user, view));
+                }
+                div().children(self.insights.as_ref().map(|(_, view)| view.clone()))
+            }
             _ => return None,
         })
     }
@@ -1096,7 +1128,7 @@ impl ProductPane {
                 None,
             ));
         }
-        if let Some(devices) = account.devices {
+        if let Some(devices) = &account.devices {
             rows.push(row(
                 "Synced devices",
                 (devices.used >= devices.max).then(|| "At your device limit".into()),
@@ -1533,39 +1565,90 @@ impl ProductPane {
             )
     }
 
-    fn referrals(&self, signed_in: bool, colors: &Theme, cx: &mut Context<Self>) -> Div {
-        page("Invite friends")
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .items_start()
-                    .gap_3()
-                    .text_sm()
-                    .child(if signed_in {
-                        "Referral invites are not available in the native app yet."
-                    } else {
-                        "Sign in to see your referral invites."
-                    })
-                    .when(!signed_in, |view| {
-                        view.child(controls::outline_button(
-                            "referrals-sign-in",
-                            "Sign in",
-                            true,
-                            colors,
-                            Some(Box::new(cx.listener(|this, _, _, cx| {
-                                this.select_page(super::navigation::page("account"), cx)
-                            }))),
-                        ))
-                    }),
+    fn load_referrals(&mut self, user: Arc<str>, cx: &mut Context<Self>) {
+        let Some(cloud) = self.cloud.clone() else {
+            self.referrals = Some((user, Some(Err(UNCONFIGURED.into()))));
+            return;
+        };
+        self.referrals = Some((user.clone(), None));
+        cx.spawn(async move |this, cx| {
+            let result = cloud.referrals().await.map_err(|error| error.to_string());
+            let _ = this.update(cx, |this, cx| {
+                if this.referrals.as_ref().is_some_and(|(id, _)| *id == user) {
+                    this.referrals = Some((user, Some(result)));
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// `settings/referrals.tsx`.
+    fn referrals(&mut self, account: &Account, colors: &Theme, cx: &mut Context<Self>) -> Div {
+        let user = account.user.as_ref().map(|user| user.id.clone());
+        if let Some(user) = &user
+            && self.referrals.as_ref().is_none_or(|(id, _)| id != user)
+        {
+            self.load_referrals(user.clone(), cx);
+        }
+        let muted = colors.muted_foreground;
+        let text = |value: String| div().text_sm().line_height(px(20.)).child(value);
+        let retry = |cx: &mut Context<Self>| {
+            controls::outline_button(
+                "referrals-retry",
+                "Try again",
+                true,
+                colors,
+                Some(Box::new(cx.listener(|this, _, _, cx| {
+                    if let Some((user, _)) = this.referrals.take() {
+                        this.load_referrals(user, cx);
+                    }
+                    cx.notify();
+                }))),
             )
+        };
+        let body = match (
+            &user,
+            self.referrals.as_ref().and_then(|(_, state)| state.clone()),
+        ) {
+            (None, _) => div()
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap_3()
+                .child(text("Sign in to see your referral invites.".into()))
+                .child(controls::outline_button(
+                    "referrals-sign-in",
+                    "Sign in",
+                    true,
+                    colors,
+                    Some(Box::new(cx.listener(|this, _, _, cx| {
+                        this.select_page(super::navigation::page("account"), cx)
+                    }))),
+                )),
+            (Some(_), None) => text("Loading your invites...".into()),
+            (Some(_), Some(Err(_))) => div()
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap_3()
+                .child(text(
+                    "We couldn't load your invites. Please try again.".into(),
+                ))
+                .child(retry(cx)),
+            (Some(_), Some(Ok(data))) => self.referral_summary(&data, colors, cx),
+        };
+        page("Invite friends")
+            .gap_8()
+            .child(body)
             .child(
                 div()
                     .flex()
                     .flex_col()
                     .gap_2()
                     .text_sm()
-                    .text_color(colors.muted_foreground)
+                    .line_height(px(20.))
+                    .text_color(muted)
                     .child(
                         div()
                             .text_color(colors.foreground)
@@ -1584,6 +1667,229 @@ impl ProductPane {
                             }),
                     ),
             )
+    }
+
+    fn referral_summary(
+        &self,
+        data: &super::cloud::Referrals,
+        colors: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let muted = colors.muted_foreground;
+        let stat = |label: &'static str, value: String| {
+            div()
+                .flex_1()
+                .p_4()
+                .rounded(px(12.))
+                .border_1()
+                .border_color(colors.border)
+                .child(
+                    div()
+                        .text_xs()
+                        .line_height(px(16.))
+                        .text_color(muted)
+                        .child(label),
+                )
+                .child(
+                    div()
+                        .mt_2()
+                        .text_xl()
+                        .line_height(px(28.))
+                        .font_weight(FontWeight::MEDIUM)
+                        .child(value),
+                )
+        };
+        let copied = self.referral_copied;
+        div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(if data.enabled {
+                div()
+                    .p_6()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .rounded(px(12.))
+                    .border_1()
+                    .border_color(colors.border)
+                    .bg(colors.muted.opacity(0.3))
+                    .child(
+                        div()
+                            .text_xl()
+                            .line_height(px(28.))
+                            .font_weight(FontWeight::MEDIUM)
+                            .child("Refer friends, get a month free"),
+                    )
+                    .child(div().text_sm().line_height(px(22.75)).text_color(muted).child(
+                        "Get one free month when a friend signs up through your link and starts their free trial. Invite up to 3 friends. Each friend gets 30 days of Pro free.",
+                    ))
+                    .child(div().text_xs().line_height(px(16.)).text_color(muted).child(
+                        "Your trial or paid subscription is extended by one month. No payment from your friend is required.",
+                    ))
+            } else {
+                div().text_sm().child(
+                    "The new referral offer is not available yet. Your previous referrals are shown below.",
+                )
+            })
+            .when(data.enabled, |view| {
+                view.child(
+                    div()
+                        .flex()
+                        .gap_3()
+                        .child(stat("Accepted", format!("{} / 3", data.accepted)))
+                        .child(stat("Free months earned", data.months_earned.to_string()))
+                        .child(stat("Invites remaining", data.remaining.to_string())),
+                )
+                .child(if data.remaining == 0 {
+                    div().text_sm().child("All 3 invites have been accepted.")
+                } else if let (true, Some(link)) = (data.eligible, data.link.clone()) {
+                    div()
+                        .p_4()
+                        .flex()
+                        .flex_wrap()
+                        .items_center()
+                        .gap_3()
+                        .rounded(px(12.))
+                        .border_1()
+                        .border_color(colors.border)
+                        .child(div().flex_1().min_w_0().text_sm().child(link.clone()))
+                        .child(
+                            controls::outline_button(
+                                "copy-referral-link",
+                                if copied { "Copied" } else { "Copy link" },
+                                true,
+                                colors,
+                                Some(Box::new(cx.listener(move |this, _, _, cx| {
+                                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+                                        link.clone(),
+                                    ));
+                                    this.referral_copied = true;
+                                    cx.notify();
+                                }))),
+                            )
+                            .gap_2()
+                            .child(controls::icon(
+                                if copied {
+                                    "product/CheckIcon.svg"
+                                } else {
+                                    "product/CopyIcon.svg"
+                                },
+                                16.,
+                                colors.foreground,
+                            )),
+                        )
+                } else {
+                    div()
+                        .flex()
+                        .flex_col()
+                        .items_start()
+                        .gap_3()
+                        .child(div().text_sm().text_color(muted).child(
+                            "New referral invites are available with an active personal Pro trial or paid subscription. Team-only subscriptions aren't eligible.",
+                        ))
+                        .child(controls::outline_button(
+                            "referrals-billing",
+                            "View billing",
+                            true,
+                            colors,
+                            Some(Box::new(cx.listener(|this, _, _, cx| {
+                                this.select_page(super::navigation::page("billing"), cx)
+                            }))),
+                        ))
+                })
+            })
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .child(div().font_weight(FontWeight::MEDIUM).child("Your referrals"))
+                    .child(
+                        div()
+                            .id("refresh-referrals")
+                            .h(px(28.))
+                            .px_2()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .rounded_full()
+                            .text_xs()
+                            .font_weight(FontWeight::MEDIUM)
+                            .cursor_pointer()
+                            .hover(|style| style.bg(colors.accent))
+                            .child(controls::icon("product/RefreshIcon.svg", 16., colors.foreground))
+                            .child("Refresh")
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                if let Some((user, _)) = this.referrals.take() {
+                                    this.load_referrals(user, cx);
+                                }
+                                cx.notify();
+                            })),
+                    ),
+            )
+            .child(if data.invites.is_empty() {
+                div().text_sm().text_color(muted).child(
+                    "No accepted invites yet. Copying your link doesn't count as an accepted invite.",
+                )
+            } else {
+                div()
+                    .rounded(px(12.))
+                    .border_1()
+                    .border_color(colors.border)
+                    .children(data.invites.iter().enumerate().map(|(index, invite)| {
+                        let status = match invite.status.as_str() {
+                            "accepted" => "Accepted · Waiting for trial to start",
+                            "applying" => "Trial started · Applying your free month",
+                            "applied" => "Reward applied · 1 free month added",
+                            "pending" => "Reward pending · Contact us for help",
+                            "legacy_pending" => "Previous referral offer · Waiting for first payment",
+                            _ => "Previous referral offer · Reward applied",
+                        };
+                        let date = |value: &str| {
+                            chrono::DateTime::parse_from_rfc3339(value)
+                                .map(|date| date.format("%-m/%-d/%Y").to_string())
+                                .unwrap_or_default()
+                        };
+                        div()
+                            .p_4()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .when(index > 0, |view| view.border_t_1().border_color(colors.border))
+                            .child(
+                                div()
+                                    .flex()
+                                    .text_sm()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child(format!("Invite {}", invite.slot))
+                                    .child(
+                                        div()
+                                            .ml_3()
+                                            .font_weight(FontWeight::NORMAL)
+                                            .text_color(muted)
+                                            .child(date(&invite.accepted_at)),
+                                    ),
+                            )
+                            .child(div().text_sm().text_color(muted).child(status))
+                            .when(invite.policy == "legacy_payment", |view| {
+                                view.child(div().text_xs().text_color(muted).child(format!(
+                                    "Original offer: ${:.2} off your subscription after your friend's first payment.",
+                                    invite.legacy_amount_cents as f64 / 100.
+                                )))
+                            })
+                            .when_some(invite.extended_until.as_deref().map(date), |view, end| {
+                                view.child(div().text_xs().text_color(muted).child(format!(
+                                    "Extended through {end} when this reward was applied."
+                                )))
+                            })
+                    }))
+            })
+            .when(data.invites.iter().any(|invite| invite.policy == "legacy_payment"), |view| {
+                view.child(div().text_xs().text_color(muted).child(
+                    "Previous referrals keep their original reward terms and count toward your 3-invite limit.",
+                ))
+            })
     }
 }
 

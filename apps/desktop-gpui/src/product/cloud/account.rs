@@ -6,7 +6,9 @@ use reqwest::Method;
 use serde_json::{Value, json};
 
 use super::{CloudServices, Core, auth::AuthLease, transport::text};
-use crate::product::account::{Account, Claims, Devices, User, Workspace, WorkspaceTier, now};
+use crate::product::account::{
+    Account, Claims, Devices, Recorder, User, Workspace, WorkspaceTier, now,
+};
 
 impl CloudServices {
     /// The signed-in account with its plan, workspace seats, trial offer and synced devices.
@@ -43,7 +45,7 @@ impl Core {
             self.api(&lease, Method::GET, "/sync/devices", None)
                 .await
                 .ok()
-                .and_then(|value| devices(&value))
+                .and_then(|value| devices(&value, &self.auth.transport.config.device_fingerprint))
         } else {
             None
         };
@@ -93,16 +95,140 @@ impl Core {
     }
 }
 
+/// `get_referral_summary`, as `settings/referrals.tsx` validates it.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct Referrals {
+    pub enabled: bool,
+    pub eligible: bool,
+    pub code: Option<String>,
+    pub accepted: u32,
+    pub remaining: u32,
+    pub months_earned: u32,
+    pub invites: Vec<ReferralInvite>,
+    /// The invite link built from `code` and the web app URL.
+    #[serde(skip)]
+    pub link: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct ReferralInvite {
+    pub id: String,
+    pub slot: u32,
+    pub policy: String,
+    pub accepted_at: String,
+    pub extended_until: Option<String>,
+    pub legacy_amount_cents: i64,
+    pub status: String,
+}
+
+impl CloudServices {
+    pub fn referrals(&self) -> BoxFuture<'static, Result<Referrals>> {
+        let this = self.clone();
+        Box::pin(async move {
+            this.runtime
+                .service(move |_| async move { this.core.referrals().await })?
+                .receive()
+                .await
+        })
+    }
+}
+
+impl Core {
+    async fn referrals(&self) -> Result<Referrals> {
+        let id = self
+            .auth
+            .identity()
+            .account_id
+            .clone()
+            .ok_or_else(|| desktop_runtime::ServiceError::Failed("Unauthorized".into()))?;
+        let lease = self.auth.lease(&id, false).await?;
+        let value = self.rpc(&lease, "get_referral_summary", json!({})).await?;
+        lease.check()?;
+        let mut summary: Referrals = serde_json::from_value(value).map_err(|_| {
+            desktop_runtime::ServiceError::Failed("Invalid referral summary".into())
+        })?;
+        summary.code = summary.code.filter(|code| {
+            code.len() == 24
+                && code
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        });
+        summary.link = summary.code.as_ref().and_then(|code| {
+            self.auth
+                .transport
+                .config
+                .web
+                .join(&format!("/invite/{code}"))
+                .ok()
+                .map(String::from)
+        });
+        Ok(summary)
+    }
+}
+
+/// Records an automatic trial attempt for `account` (`claim`) or releases it after a failure
+/// so a later refresh retries, like shipping's `startTrialOnce`.
+fn claim_trial_start(account: &str, claim: bool) -> bool {
+    static ATTEMPTED: std::sync::Mutex<std::collections::BTreeSet<String>> =
+        std::sync::Mutex::new(std::collections::BTreeSet::new());
+    let mut attempted = ATTEMPTED.lock().unwrap_or_else(|error| error.into_inner());
+    if claim {
+        attempted.insert(account.to_owned())
+    } else {
+        attempted.remove(account)
+    }
+}
+
+impl Core {
+    async fn start_monthly_trial(&self) -> Result<bool> {
+        let Some(id) = self.auth.identity().account_id.clone() else {
+            return Ok(false);
+        };
+        let lease = self.auth.lease(&id, false).await?;
+        let response = self
+            .api(
+                &lease,
+                Method::POST,
+                "/subscription/start-trial?interval=monthly",
+                None,
+            )
+            .await?;
+        let started = response["started"] == true;
+        if started {
+            // The trial is in the next token's claims.
+            self.auth.lease(&id, true).await?;
+        }
+        Ok(started)
+    }
+}
+
 /// Devices and pending enrollments both hold a slot, counted once per fingerprint.
-fn devices(value: &Value) -> Option<Devices> {
+fn devices(value: &Value, fingerprint: &str) -> Option<Devices> {
     let max = value["maxDevices"].as_u64()? as u32;
+    let recorder = value["devices"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|device| device["deviceFingerprint"] == fingerprint)
+        .map(|device| Recorder {
+            fingerprint: fingerprint.into(),
+            name: device["deviceName"]
+                .as_str()
+                .filter(|name| !name.is_empty())
+                .unwrap_or("Unnamed device")
+                .into(),
+        });
     let used = ["devices", "pendingDevices"]
         .iter()
         .flat_map(|key| value[*key].as_array().into_iter().flatten())
         .filter_map(|device| device["deviceFingerprint"].as_str())
         .collect::<HashSet<_>>()
         .len() as u32;
-    (max > 0).then_some(Devices { used, max })
+    (max > 0).then_some(Devices {
+        used,
+        max,
+        recorder,
+    })
 }
 
 impl CloudServices {
@@ -136,12 +262,47 @@ impl CloudServices {
         let this = self.clone();
         cx.spawn(async move |cx| {
             let expected = this.core.auth.identity().account_id;
-            if let Ok(account) = this.account().await {
+            let Ok(account) = this.account().await else {
+                return;
+            };
+            let start = account.trial_eligible
+                && expected
+                    .as_deref()
+                    .is_some_and(|id| claim_trial_start(id, true));
+            let publish = |account, cx: &mut gpui::AsyncApp| {
                 cx.update(|cx| {
                     if this.core.auth.identity().account_id == expected {
                         crate::product::account::set(account, cx);
                     }
-                });
+                })
+            };
+            publish(account, cx);
+            if !start {
+                return;
+            }
+            // Shipping's `startEligibleTrial`: one automatic monthly trial per account.
+            let started = this
+                .runtime
+                .service({
+                    let core = this.core.clone();
+                    move |_| async move { core.start_monthly_trial().await }
+                })
+                .map(|reply| reply.receive());
+            let started = match started {
+                Ok(reply) => reply.await,
+                Err(error) => Err(error),
+            };
+            match started {
+                Ok(true) => {
+                    if let Ok(account) = this.account().await {
+                        publish(account, cx);
+                    }
+                }
+                _ => {
+                    if let Some(id) = expected.as_deref() {
+                        claim_trial_start(id, false);
+                    }
+                }
             }
         })
         .detach();

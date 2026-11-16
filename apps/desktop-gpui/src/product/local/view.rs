@@ -1,13 +1,14 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use gpui::{Context, EventEmitter, Render, SharedString, Window, div, prelude::*, px};
+use gpui::{Context, EventEmitter, FontWeight, Render, SharedString, Window, div, prelude::*, px};
 
 use crate::{
     contracts::ProductEvent,
+    product::controls,
     product::services::{
         Mutation, Operation, Outcome, Panel, ProductServices, RequestGate, Scope, Surface,
     },
-    ui::theme::theme,
+    ui::theme::{Theme, theme},
 };
 
 pub struct LocalSettingsView {
@@ -46,7 +47,7 @@ impl LocalSettingsView {
             suspended: false,
         };
         view.reload(cx);
-        if surface == Surface::Models {
+        if matches!(surface, Surface::Models | Surface::Permissions) {
             cx.spawn(async move |this, cx| {
                 loop {
                     cx.background_executor()
@@ -196,10 +197,168 @@ impl LocalSettingsView {
     }
 }
 
+impl LocalSettingsView {
+    /// `settings/general/permissions.tsx`: grouped rows whose title turns red with a warning
+    /// until granted; the button requests access, or opens System Settings once granted.
+    fn permissions(&self, panel: &Panel, colors: &Theme, cx: &mut Context<Self>) -> gpui::Div {
+        let busy = self.gate.busy();
+        let row = |id: &'static str, description: &'static str, cx: &mut Context<Self>| {
+            let found = panel.rows.iter().find(|row| row.id.as_ref() == id)?;
+            let granted = found.detail.as_ref() == super::PERMISSION_ALLOWED
+                || found.detail.as_ref() == super::PERMISSION_NOT_REQUIRED;
+            // Accessibility is granted in System Settings, which shipping's assistant opens.
+            let action = if granted || id == "accessibility" {
+                "settings"
+            } else {
+                "request"
+            };
+            let operation = panel
+                .operations
+                .iter()
+                .find(|operation| operation.id.as_ref() == format!("{id}:{action}"))
+                .cloned();
+            let tint = if granted {
+                colors.foreground
+            } else {
+                gpui::rgb(0xef4444).into()
+            };
+            let green: gpui::Hsla = gpui::rgb(0x16a34a).into();
+            Some(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap_4()
+                    .child(
+                        div()
+                            .flex_1()
+                            .child(
+                                div()
+                                    .mb_1()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .text_color(tint)
+                                    .when(!granted, |view| {
+                                        view.child(controls::icon(
+                                            "product/AlertCircleIcon.svg",
+                                            16.,
+                                            tint,
+                                        ))
+                                    })
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .line_height(px(20.))
+                                            .font_weight(FontWeight::MEDIUM)
+                                            .child(found.title.to_string()),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .line_height(px(16.))
+                                    .text_color(colors.muted_foreground)
+                                    .child(description),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("permission-{id}")))
+                            .size(px(32.))
+                            .flex_shrink_0()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(8.))
+                            .when(!granted, |view| {
+                                view.bg(colors.primary)
+                                    .hover(|style| style.bg(colors.primary.opacity(0.9)))
+                            })
+                            .child(if granted {
+                                controls::icon("product/CheckIcon.svg", 16., green)
+                            } else {
+                                controls::icon(
+                                    "product/ArrowRight02Icon.svg",
+                                    20.,
+                                    colors.primary_foreground,
+                                )
+                            })
+                            .when_some(operation.filter(|_| !busy), |view, operation| {
+                                view.cursor_pointer().on_click(cx.listener(
+                                    move |this, _, _, cx| this.choose(operation.clone(), cx),
+                                ))
+                            }),
+                    ),
+            )
+        };
+        let group = |title: &'static str, rows: Vec<gpui::Div>| {
+            div()
+                .child(
+                    div()
+                        .mb_3()
+                        .text_xs()
+                        .line_height(px(16.))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(colors.muted_foreground)
+                        .child(title),
+                )
+                .child(div().flex().flex_col().gap_4().children(rows))
+        };
+        let audio = group(
+            "AUDIO",
+            [
+                row("microphone", "Record your voice in meetings and calls.", cx),
+                row("system_audio", "Record other participants in meetings.", cx),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        );
+        div()
+            .flex()
+            .flex_col()
+            .gap_8()
+            .child(audio)
+            .when(cfg!(target_os = "macos"), |view| {
+                view.children(row(
+                    "accessibility",
+                    "Read meeting controls and visible chat.",
+                    cx,
+                ))
+                .child(group(
+                    "OTHERS",
+                    row("calendar", "Show Apple Calendar events in Anarlog.", cx)
+                        .into_iter()
+                        .collect(),
+                ))
+            })
+    }
+}
+
 impl Render for LocalSettingsView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
         let busy = self.gate.busy();
+        if self.surface == Surface::Permissions {
+            return div()
+                .id("local-settings")
+                .flex()
+                .flex_col()
+                .gap_8()
+                .child(controls::page_title("Permissions"))
+                .when(!self.error.is_empty(), |view| {
+                    view.child(
+                        div()
+                            .text_xs()
+                            .text_color(gpui::rgb(0xef4444))
+                            .child(self.error.clone()),
+                    )
+                })
+                .when_some(self.panel.clone(), |view, panel| {
+                    view.child(self.permissions(&panel, &colors, cx))
+                });
+        }
         let mut view = div()
             .id("local-settings")
             .w_full()

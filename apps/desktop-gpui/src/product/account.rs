@@ -154,10 +154,19 @@ pub struct User {
 }
 
 /// Synced devices against the plan's limit.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Devices {
     pub used: u32,
     pub max: u32,
+    /// This computer's entry, the only device offered as primary recorder (shipping cannot
+    /// tell desktop recorders from phones or watches).
+    pub recorder: Option<Recorder>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Recorder {
+    pub fingerprint: Arc<str>,
+    pub name: Arc<str>,
 }
 
 /// The account as the app last saw it. `None` fields are still loading.

@@ -16,6 +16,49 @@ pub enum Effect {
     ShowInDock(bool),
     /// `tray::set_tray_icon_visible`.
     ShowTrayIcon(bool),
+    /// `icon::set_dock_icon`: one of shipping's bundled icons by resource name.
+    DockIcon(&'static str),
+}
+
+/// `resolveAppIconName`'s choice for "default": the development icon for debug builds,
+/// like shipping's `.dev` identifier, else the production icon.
+pub const DEFAULT_ICON: &str = if cfg!(debug_assertions) {
+    "dev"
+} else {
+    "stable"
+};
+
+/// `resolveDockIconName`: the `app_icon` choice in its dark variant when the app is dark.
+pub fn dock_icon(icon: &str, theme: &str, system_dark: bool) -> Effect {
+    let dark = theme == "dark" || (theme != "light" && system_dark);
+    let icon = if icon == "default" {
+        DEFAULT_ICON
+    } else {
+        icon
+    };
+    Effect::DockIcon(match (icon, dark) {
+        ("anagram", false) => "anagram",
+        ("anagram", true) => "anagram-dark",
+        ("dev", false) => "dev",
+        ("dev", true) => "dev-dark",
+        ("staging", false) => "staging",
+        ("staging", true) => "staging-dark",
+        ("journal", _) => "journal",
+        ("notepad", _) => "notepad",
+        ("stone", _) => "stone",
+        ("typewriter-key", _) => "typewriter-key",
+        ("walnut", _) => "walnut",
+        (_, false) => "stable",
+        (_, true) => "stable-dark",
+    })
+}
+
+/// Applies an effect through the installed adapter.
+pub fn apply_effect(effect: Effect, cx: &gpui::App) -> Result<()> {
+    match cx.try_global::<Installed>() {
+        Some(adapter) => adapter.0.apply(effect),
+        None => Ok(()),
+    }
 }
 
 /// Settings whose stored values are re-applied at startup.
@@ -70,6 +113,7 @@ impl SystemSettings for NativeSettings {
                 super::tray::set_visible(on);
                 Ok(())
             }
+            Effect::DockIcon(name) => set_dock_icon(name),
         }
     }
 }
@@ -210,6 +254,58 @@ fn set_show_in_dock(_: bool) -> Result<()> {
     Ok(())
 }
 
+/// The icon's `.icns`: from the shipping app's sources in debug builds (as the icon plugin
+/// does), else from the native resources directory.
+fn icon_path(name: &str) -> Result<PathBuf> {
+    let path = if cfg!(debug_assertions) {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../desktop/src-tauri/resources")
+            .join(name)
+            .join("AppIcon.icns")
+    } else {
+        std::env::var_os("ANARLOG_NATIVE_RESOURCES")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|exe| Some(exe.parent()?.join("resources")))
+            })
+            .ok_or_else(|| failure("No native resources directory"))?
+            .join("icons")
+            .join(format!("{name}.icns"))
+    };
+    if path.is_file() {
+        Ok(path)
+    } else {
+        Err(failure(format!("Icon file not found: {}", path.display())))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_dock_icon(name: &str) -> Result<()> {
+    use objc2::{
+        class, msg_send,
+        rc::{Allocated, Retained},
+        runtime::AnyObject,
+    };
+    let path =
+        std::ffi::CString::new(icon_path(name)?.to_string_lossy().into_owned()).map_err(failure)?;
+    unsafe {
+        let path: *mut AnyObject = msg_send![class!(NSString), stringWithUTF8String: path.as_ptr()];
+        let allocated: Allocated<AnyObject> = msg_send![class!(NSImage), alloc];
+        let image: Option<Retained<AnyObject>> = msg_send![allocated, initWithContentsOfFile: path];
+        let image = image.ok_or_else(|| failure(format!("Failed to load icon: {name}")))?;
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![app, setApplicationIconImage: &*image];
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_dock_icon(name: &str) -> Result<()> {
+    icon_path(name).map(|_| ())
+}
+
 fn failure(error: impl ToString) -> ServiceError {
     ServiceError::Failed(error.to_string().into())
 }
@@ -235,6 +331,18 @@ mod tests {
             cfg!(target_os = "macos").then_some(Effect::ShowInDock(false))
         );
         assert_eq!(effect("autostart", &json!("yes")), None);
+        assert_eq!(
+            dock_icon("stable", "system", true),
+            Effect::DockIcon("stable-dark")
+        );
+        assert_eq!(
+            dock_icon("anagram", "light", true),
+            Effect::DockIcon("anagram")
+        );
+        assert_eq!(
+            dock_icon("walnut", "dark", false),
+            Effect::DockIcon("walnut")
+        );
         assert_eq!(effect("use_24_hour_time", &json!(true)), None);
     }
 

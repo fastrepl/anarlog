@@ -322,7 +322,11 @@ fn side_effect_preferences_never_claim_persistence_without_platform_services() {
     block_on(async {
         let fixture = Fixture::start().await;
         let snapshot = fixture.snapshot().await;
-        for key in ["app_icon", "cloud_sync_enabled", "current_stt_model"] {
+        for key in [
+            "cloud_sync_enabled",
+            "current_stt_model",
+            "current_llm_provider",
+        ] {
             assert!(matches!(
                 save(
                     &fixture.runtime,

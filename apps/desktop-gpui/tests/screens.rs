@@ -339,7 +339,7 @@ fn account_states(
     out: &std::path::Path,
 ) {
     use desktop_gpui::product::account::{
-        self, Account, Claims, Devices, User, Workspace, WorkspaceTier,
+        self, Account, Claims, Devices, Recorder, User, Workspace, WorkspaceTier,
     };
     let now = account::now();
     let day = 86_400;
@@ -366,7 +366,11 @@ fn account_states(
             ..Claims::default()
         },
         vec![],
-        Some(Devices { used: 1, max: 3 }),
+        Some(Devices {
+            used: 1,
+            max: 3,
+            recorder: None,
+        }),
     );
     let pro = signed_in(
         Claims {
@@ -376,7 +380,14 @@ fn account_states(
             ..Claims::default()
         },
         vec![],
-        Some(Devices { used: 2, max: 3 }),
+        Some(Devices {
+            used: 2,
+            max: 3,
+            recorder: Some(Recorder {
+                fingerprint: "fp-macbook".into(),
+                name: "Alex's MacBook Pro".into(),
+            }),
+        }),
     );
     let seat = signed_in(
         Claims::default(),
@@ -397,14 +408,32 @@ fn account_states(
         ("dictation-free", free.clone(), "dictation"),
         ("billing-trial", trial, "billing"),
         ("billing-pro", pro.clone(), "billing"),
-        ("dictation-pro", pro, "dictation"),
+        ("dictation-pro", pro.clone(), "dictation"),
+        ("meetings-pro", pro.clone(), "meetings"),
         ("billing-team-seat", seat.clone(), "billing"),
         ("meetings-team-seat", seat, "meetings"),
     ] {
         cx.update(|cx| account::set(state, cx));
         open(cx, window, Route::Settings(page.into()));
+        // A new trial opens the app-wide trial dialogs: started, then the payment reminder.
+        if name == "billing-trial" {
+            capture(cx, window, out, "trial-started");
+            click(cx, window, 455., 371.);
+            capture(cx, window, out, "trial-reminder");
+            click(cx, window, 383., 371.);
+        }
         capture(cx, window, out, &format!("settings-{name}"));
     }
+    // Recording a dictation shortcut, then a press on Pro-gated content.
+    cx.update(|cx| account::set(pro, cx));
+    open(cx, window, Route::Settings("dictation".into()));
+    click(cx, window, 817., 222.);
+    capture(cx, window, out, "settings-dictation-recording");
+    type_text(cx, window, &["escape"]);
+    cx.update(|cx| account::set(free.clone(), cx));
+    open(cx, window, Route::Settings("dictation".into()));
+    click(cx, window, 600., 180.);
+    capture(cx, window, out, "settings-plan-required");
     cx.update(|cx| account::set(free, cx));
     open(cx, window, Route::Settings("account".into()));
     click(cx, window, 850., 100.);

@@ -57,6 +57,7 @@ pub struct ApplicationView {
     meeting_host: MeetingHost,
     _dictation: Option<Entity<crate::dictation::Dictation>>,
     product: Option<Entity<ProductPane>>,
+    trial_dialogs: Entity<crate::product::trial::TrialDialogs>,
     services: Option<MeetingServices>,
     native: Option<NativeServices>,
     editor_vault: PathBuf,
@@ -316,6 +317,8 @@ impl ApplicationView {
             });
         })
         .detach();
+        let trial_dialogs =
+            cx.new(|cx| crate::product::trial::TrialDialogs::new(runtime.clone(), cx));
         Self {
             window: window.window_handle(),
             notifications: notifications::Notifications::new(cx),
@@ -328,6 +331,7 @@ impl ApplicationView {
             meeting_host,
             _dictation: dictation,
             product: None,
+            trial_dialogs,
             services: None,
             native: None,
             editor_vault,
@@ -900,6 +904,8 @@ impl ApplicationView {
     }
 
     fn watch_cloud(&mut self, cloud: crate::product::cloud::CloudServices, cx: &mut Context<Self>) {
+        self.trial_dialogs
+            .update(cx, |dialogs, _| dialogs.set_cloud(cloud.clone()));
         let mut identities = cloud.identities();
         let identity_cloud = cloud.clone();
         cx.spawn(async move |this, cx| {
@@ -1531,5 +1537,6 @@ impl Render for ApplicationView {
                 |view, notification| view.child(notification),
             )
             .when_some(self.title_menu(window, cx), |view, menu| view.child(menu))
+            .child(self.trial_dialogs.clone())
     }
 }

@@ -1,6 +1,7 @@
 // Exports the settings and onboarding Hugeicons (the same icons shipping uses) as SVGs.
 // node apps/desktop-gpui/src/product/export-icons.mjs
 import {
+  AlertCircleIcon,
   ArrowDown01Icon,
   ArrowRight01Icon,
   ArrowRight02Icon,
@@ -14,10 +15,12 @@ import {
   CheckmarkCircle02Icon,
   CloudOffIcon,
   CodeIcon,
+  CopyIcon,
   CreditCardIcon,
   Cursor01Icon,
   Download01Icon,
   ElectricPlugsIcon,
+  ExternalLinkIcon,
   LoaderCircleIcon,
   LockPasswordIcon,
   Mic01Icon,
@@ -44,6 +47,7 @@ const escape = (value) =>
     .replaceAll("<", "&lt;");
 const BOLD = new Set(["CheckIcon"]);
 for (const [name, data] of Object.entries({
+  AlertCircleIcon,
   ArrowDown01Icon,
   ArrowRight01Icon,
   ArrowRight02Icon,
@@ -57,10 +61,12 @@ for (const [name, data] of Object.entries({
   CheckmarkCircle02Icon,
   CloudOffIcon,
   CodeIcon,
+  CopyIcon,
   CreditCardIcon,
   Cursor01Icon,
   Download01Icon,
   ElectricPlugsIcon,
+  ExternalLinkIcon,
   LoaderCircleIcon,
   LockPasswordIcon,
   Mic01Icon,
