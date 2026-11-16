@@ -1,5 +1,6 @@
 import { fetch } from "expo/fetch";
 
+import { throwIfAborted } from "../lib/abort.ts";
 import { readProviderKey, readProviderSetup } from "./providers";
 import {
   isOAuthSubscriptionProvider,
@@ -14,7 +15,7 @@ export async function discoverProviderModels(
   config: ProviderConfig,
   signal: AbortSignal,
 ): Promise<string[]> {
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   const connection = validateProviderConnection("llm", config);
   const saved = await readProviderSetup(account, "llm", config.provider);
   if (saved.baseUrl !== connection.baseUrl)
@@ -24,12 +25,12 @@ export async function discoverProviderModels(
       account,
       config.provider,
     );
-    signal.throwIfAborted();
+    throwIfAborted(signal);
     return listSubscriptionModels(config.provider, credential, fetch, signal);
   }
   const apiKey = await readProviderKey(account, "llm", config.provider);
   if (!apiKey) throw new Error("Add an API key to load models.");
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal.addEventListener("abort", abort, { once: true });

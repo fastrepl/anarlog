@@ -1,4 +1,5 @@
 import { readBoundedTranscriptionResponse } from "../data/transcription-response.ts";
+import { throwIfAborted } from "../lib/abort.ts";
 
 export function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
@@ -13,7 +14,7 @@ export async function subscriptionJson(
   timeout = 15_000,
   readErrors = false,
 ) {
-  init.signal?.throwIfAborted();
+  throwIfAborted(init.signal);
   const controller = new AbortController();
   const abort = () => controller.abort();
   init.signal?.addEventListener("abort", abort, { once: true });
@@ -32,7 +33,7 @@ export async function subscriptionJson(
       response,
       init.method === "POST" || readErrors ? 128 * 1024 : 8 * 1024 * 1024,
     );
-    controller.signal.throwIfAborted();
+    throwIfAborted(controller.signal);
     try {
       return { status: response.status, json: record(JSON.parse(body)) };
     } catch {
