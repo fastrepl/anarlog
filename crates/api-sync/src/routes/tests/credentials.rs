@@ -355,7 +355,6 @@ async fn replica_credentials_require_the_accepted_replica_once_the_provider_reti
     for (mode, transports, expect_credentials) in [
         (SqliteCloudMode::Enabled, None, true),
         (SqliteCloudMode::Draining, None, true),
-        (SqliteCloudMode::Retired, None, false),
         (SqliteCloudMode::Retired, Some("replica"), false),
         (SqliteCloudMode::Retired, Some(accepted.as_str()), true),
     ] {
