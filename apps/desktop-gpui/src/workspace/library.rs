@@ -47,10 +47,15 @@ struct NoteMenu {
     position: gpui::Point<gpui::Pixels>,
     ids: Arc<[SessionId]>,
     bulk: bool,
+    /// An event row's tracking id and series, for its delete menu.
+    event: Option<(Arc<str>, Arc<str>)>,
 }
 
 impl NoteMenu {
     fn labels(&self) -> Vec<String> {
+        if let Some((_, series)) = &self.event {
+            return super::timeline::event_menu_labels(!series.is_empty());
+        }
         if self.bulk {
             vec![format!("Delete Selected ({})", self.ids.len())]
         } else {
@@ -77,6 +82,8 @@ pub enum OpenNote {
     Move(Arc<[SessionId]>),
     /// A calendar event without a note yet; the workspace creates or finds its note.
     Event(Arc<str>),
+    /// Hide a calendar event or its recurring series.
+    Ignore(anlg_db_app::IgnoredCalendarItemKind, Arc<str>),
     Calendar,
     /// The live item's stop control.
     StopListening,
@@ -330,7 +337,14 @@ impl LibraryView {
         let Some(menu) = self.menu.take() else {
             return;
         };
-        if !menu.ids.is_empty() {
+        if let Some((tracking, series)) = menu.event {
+            use anlg_db_app::IgnoredCalendarItemKind;
+            match index {
+                0 => cx.emit(OpenNote::Ignore(IgnoredCalendarItemKind::Events, tracking)),
+                1 => cx.emit(OpenNote::Ignore(IgnoredCalendarItemKind::Series, series)),
+                _ => {}
+            }
+        } else if !menu.ids.is_empty() {
             match (menu.bulk, index) {
                 (false, 0) => cx.emit(OpenNote::Window(menu.ids[0].clone())),
                 (false, 1) => cx.emit(OpenNote::Reveal(menu.ids[0].clone())),
@@ -531,6 +545,12 @@ impl LibraryView {
             Source::Event(index) => self.opening.as_ref() == Some(&self.events.events[index].id),
             Source::Session(_) => false,
         };
+        let event_ids = match entry.source {
+            Source::Event(index) => Some(&self.events.events[index])
+                .filter(|event| !event.tracking.is_empty())
+                .map(|event| (event.tracking.clone(), event.series.clone())),
+            Source::Session(_) => None,
+        };
         let (id, title, folder, tags, session) = match entry.source {
             Source::Session(index) => {
                 let session = &self.page.items[index];
@@ -633,6 +653,24 @@ impl LibraryView {
                                 vec![session.clone()].into()
                             },
                             bulk,
+                            event: None,
+                        });
+                        this.menu_index = 0;
+                        cx.stop_propagation();
+                        cx.notify();
+                    }),
+                )
+            })
+            .when_some(event_ids, |view, event_ids| {
+                view.on_mouse_down(
+                    gpui::MouseButton::Right,
+                    cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
+                        this.focus.focus(window, cx);
+                        this.menu = Some(NoteMenu {
+                            position: event.position,
+                            ids: Arc::from([]),
+                            bulk: false,
+                            event: Some(event_ids.clone()),
                         });
                         this.menu_index = 0;
                         cx.stop_propagation();

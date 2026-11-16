@@ -1170,3 +1170,57 @@ fn calendar_lists_events_and_unlinked_notes_on_their_start_day() {
         runtime.shutdown().await.unwrap();
     });
 }
+
+#[test]
+fn deleting_an_event_or_its_series_hides_it_from_the_timeline() {
+    use anlg_db_app::IgnoredCalendarItemKind;
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        for (id, tracking, series, offset) in [
+            ("once", "t-once", "", "+1 hours"),
+            ("weekly", "t-weekly", "s-weekly", "+2 hours"),
+            ("weekly-next", "t-weekly-next", "s-weekly", "+3 hours"),
+        ] {
+            execute(
+                &runtime,
+                "INSERT INTO events(id,title,calendar_id,tracking_id_event,recurrence_series_id,started_at,ended_at)
+                VALUES (?1,?1,'work',?2,?3,strftime('%Y-%m-%dT%H:%M:%SZ','now',?4),
+                    strftime('%Y-%m-%dT%H:%M:%SZ','now',?4,'+1 hours'))",
+                vec![json!(id), json!(tracking), json!(series), json!(offset)],
+            )
+            .await;
+        }
+        let events = || async {
+            super::timeline::load_events(&runtime, CancellationToken::new())
+                .unwrap()
+                .receive()
+                .await
+                .unwrap()
+                .events
+        };
+        let first = events().await;
+        assert_eq!(
+            (first[0].tracking.as_ref(), first[1].series.as_ref()),
+            ("t-once", "s-weekly")
+        );
+        let ignore = |kind, id: &str| super::timeline::ignore(&runtime, kind, id.into());
+        ignore(IgnoredCalendarItemKind::Events, "t-once")
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let ids = events()
+            .await
+            .iter()
+            .map(|event| event.id.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, ["weekly", "weekly-next"]);
+        ignore(IgnoredCalendarItemKind::Series, "s-weekly")
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert!(events().await.is_empty());
+        runtime.shutdown().await.unwrap();
+    });
+}

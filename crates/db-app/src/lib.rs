@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod attachment_ops;
+mod calendar_ignore_ops;
 mod calendar_ops;
 mod calendar_sync_ops;
 mod calendar_types;
@@ -37,6 +38,7 @@ mod webhook_ops;
 mod webhook_types;
 
 pub use attachment_ops::*;
+pub use calendar_ignore_ops::*;
 pub use calendar_ops::*;
 pub use calendar_sync_ops::*;
 pub use calendar_types::*;

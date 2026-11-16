@@ -484,6 +484,17 @@ impl WorkspaceView {
                     cx.emit(WorkspaceAction::OpenNoteWindow(id.clone()));
                 }
             }
+            OpenNote::Ignore(kind, id) => {
+                let reply = super::timeline::ignore(&self.runtime, *kind, id.clone());
+                cx.spawn(async move |this, cx| {
+                    if let Err(error) = async { reply?.receive().await }.await {
+                        let _ = this.update(cx, |this, cx| {
+                            this.set_status(format!("Could not delete event: {error}"), cx);
+                        });
+                    }
+                })
+                .detach();
+            }
             OpenNote::Reveal(id) => {
                 let reply = super::notes::directory(&self.runtime, id.clone());
                 let job = cx.background_executor().spawn(async move {

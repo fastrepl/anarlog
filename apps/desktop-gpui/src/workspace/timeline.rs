@@ -34,7 +34,8 @@ macro_rules! event_filter {
 /// Events the timeline can show: not over yet and starting before the day after tomorrow in
 /// any timezone. Events that already have a note are shown through that note instead.
 const EVENT_QUERY: &str = concat!(
-    "SELECT e.id, substr(e.title,1,4096) AS title, e.started_at, e.ended_at, e.is_all_day
+    "SELECT e.id, substr(e.title,1,4096) AS title, e.started_at, e.ended_at, e.is_all_day,
+        e.tracking_id_event AS tracking, e.recurrence_series_id AS series
     FROM events e WHERE ",
     event_filter!(),
     " AND NOT EXISTS(SELECT 1 FROM sessions s WHERE s.deleted_at IS NULL AND (s.event_id = e.id
@@ -58,6 +59,10 @@ pub struct TimelineEvent {
     pub start: DateTime<Utc>,
     pub end: Option<DateTime<Utc>>,
     pub all_day: bool,
+    /// The provider's id for hiding the event; empty when it has none.
+    pub tracking: Arc<str>,
+    /// Recurring series; empty for one-off events.
+    pub series: Arc<str>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -105,6 +110,34 @@ fn event_row(row: &Value) -> Option<TimelineEvent> {
         start: parse_time(text("started_at"))?,
         end: parse_time(text("ended_at")),
         all_day: row.get("is_all_day").and_then(Value::as_i64) == Some(1),
+        tracking: text("tracking").into(),
+        series: text("series").into(),
+    })
+}
+
+/// Shipping's event menu (`useIgnoredEvents`): hide one occurrence, or its whole series.
+pub fn event_menu_labels(recurring: bool) -> Vec<String> {
+    if recurring {
+        vec![
+            "Delete This Event".into(),
+            "Delete All Recurring Events".into(),
+        ]
+    } else {
+        vec!["Delete Event".into()]
+    }
+}
+
+/// Hides an event by its tracking id, or a recurring series by its id.
+pub fn ignore(
+    runtime: &RuntimeHandle,
+    kind: anlg_db_app::IgnoredCalendarItemKind,
+    id: Arc<str>,
+) -> Result<Reply<()>> {
+    runtime.submit(move |services| async move {
+        let now = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        anlg_db_app::update_ignored_calendar_item(services.db.pool(), kind, &id, true, &now)
+            .await
+            .map_err(failure)
     })
 }
 
@@ -689,6 +722,8 @@ mod tests {
             start: at(start),
             end: parse_time(end),
             all_day: false,
+            tracking: "".into(),
+            series: "".into(),
         }
     }
 

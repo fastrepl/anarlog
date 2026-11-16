@@ -203,6 +203,13 @@ pub(super) fn parse_color(value: &str) -> Option<Hsla> {
         .map(|value| rgb(value).into())
 }
 
+#[derive(Clone)]
+enum ChipMenu {
+    Note(SessionId),
+    /// An event's tracking id and recurring series.
+    Event(Arc<str>, Arc<str>),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct CalendarItem {
     pub id: Arc<str>,
@@ -221,6 +228,8 @@ pub struct CalendarItem {
     pub folder: Arc<str>,
     /// Recurring series of an event; empty for one-off events and notes.
     pub series: Arc<str>,
+    /// The provider's id for hiding an event; empty for notes.
+    pub tracking: Arc<str>,
 }
 
 impl CalendarItem {
@@ -296,7 +305,7 @@ const ITEM_QUERY: &str = "SELECT 0 AS note, e.id, substr(e.title,1,4096) AS titl
         substr(e.description,1,16384) AS description,
         (SELECT s.id FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1) AS session_id,
         COALESCE((SELECT s.folder_path FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1),'') AS folder,
-        e.recurrence_series_id AS series
+        e.recurrence_series_id AS series, e.tracking_id_event AS tracking
     FROM events e LEFT JOIN calendars c ON c.id = e.calendar_id AND c.deleted_at IS NULL
     WHERE e.deleted_at IS NULL AND e.started_at >= ?1 AND e.started_at < ?2
         AND NOT EXISTS(
@@ -306,7 +315,7 @@ const ITEM_QUERY: &str = "SELECT 0 AS note, e.id, substr(e.title,1,4096) AS titl
                 OR (a.id = 'ignored_recurring_series' AND json_extract(ignored.value,'$.id') = e.recurrence_series_id)
         )
     UNION ALL
-    SELECT 1, s.id, substr(s.title,1,4096), s.created_at, '', 0, '', '', '', '', s.id, s.folder_path, ''
+    SELECT 1, s.id, substr(s.title,1,4096), s.created_at, '', 0, '', '', '', '', s.id, s.folder_path, '', ''
     FROM sessions s
     WHERE s.deleted_at IS NULL AND s.title <> '' AND s.event_json = ''
         AND NOT EXISTS(SELECT 1 FROM events e WHERE e.id = s.event_id AND e.deleted_at IS NULL)
@@ -356,6 +365,7 @@ pub fn load_calendar(
                 session: row["session_id"].as_str().map(|id| SessionId(id.into())),
                 folder: field(row, "folder"),
                 series: field(row, "series"),
+                tracking: field(row, "tracking"),
             })
             .collect();
         Ok(CalendarPage {
@@ -473,8 +483,8 @@ pub struct CalendarView {
     /// `pickerClosed` and `folderAtPickerOpen`).
     picker_closed: bool,
     folder_at_open: Arc<str>,
-    /// A note's right-click menu, at the pointer.
-    menu: Option<(Point<Pixels>, SessionId)>,
+    /// A chip's right-click menu, at the pointer.
+    menu: Option<(Point<Pixels>, ChipMenu)>,
     focus: FocusHandle,
     sync: Entity<CalendarSync>,
     snap: Option<Task<()>>,
@@ -1232,14 +1242,26 @@ impl CalendarView {
                     chip.on_mouse_down(
                         MouseButton::Right,
                         cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                            this.menu = Some((event.position, session.clone()));
+                            this.menu = Some((event.position, ChipMenu::Note(session.clone())));
                             this.focus.focus(window, cx);
                             cx.stop_propagation();
                             cx.notify();
                         }),
                     )
                 },
-            );
+            )
+            .when(!item.note && !item.tracking.is_empty(), |chip| {
+                let menu = ChipMenu::Event(item.tracking.clone(), item.series.clone());
+                chip.on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                        this.menu = Some((event.position, menu.clone()));
+                        this.focus.focus(window, cx);
+                        cx.stop_propagation();
+                        cx.notify();
+                    }),
+                )
+            });
         let chip = if item.all_day && !item.note {
             chip.px(px(6.))
                 .py(px(2.))
@@ -2246,6 +2268,46 @@ impl CalendarView {
         )
     }
 
+    /// Shipping's `EventChip` menu: hide this event, or every event in its series.
+    fn event_menu(
+        &self,
+        position: Point<Pixels>,
+        tracking: Arc<str>,
+        series: Arc<str>,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let items = super::timeline::event_menu_labels(!series.is_empty())
+            .into_iter()
+            .map(super::calendar_sidebar::MenuItem::new);
+        super::calendar_sidebar::context_menu(
+            "calendar-event-menu",
+            position,
+            items,
+            colors,
+            cx.listener(move |this, index: &usize, _, cx| {
+                use anlg_db_app::IgnoredCalendarItemKind;
+                this.menu = None;
+                cx.emit(if *index == 0 {
+                    super::library::OpenNote::Ignore(
+                        IgnoredCalendarItemKind::Events,
+                        tracking.clone(),
+                    )
+                } else {
+                    super::library::OpenNote::Ignore(
+                        IgnoredCalendarItemKind::Series,
+                        series.clone(),
+                    )
+                });
+                cx.notify();
+            }),
+            cx.listener(|this, _: &(), _, cx| {
+                this.menu = None;
+                cx.notify();
+            }),
+        )
+    }
+
     fn weekday_label(&self, label: &'static str, colors: Theme) -> gpui::Div {
         div()
             .py_2()
@@ -2416,8 +2478,15 @@ impl Render for CalendarView {
                     view.child(self.compact_view(colors, cx))
                 }
             })
-            .when_some(self.menu.clone(), |view, (position, session)| {
-                view.child(self.note_menu(position, session, colors, cx))
+            .when_some(self.menu.clone(), |view, (position, menu)| match menu {
+                ChipMenu::Note(session) => view.child(
+                    self.note_menu(position, session, colors, cx)
+                        .into_any_element(),
+                ),
+                ChipMenu::Event(tracking, series) => view.child(
+                    self.event_menu(position, tracking, series, colors, cx)
+                        .into_any_element(),
+                ),
             })
             .when(!self.message.is_empty(), |view| {
                 view.child(
@@ -2504,6 +2573,7 @@ mod tests {
             session: None,
             folder: "".into(),
             series: "".into(),
+            tracking: "".into(),
         }
     }
 
