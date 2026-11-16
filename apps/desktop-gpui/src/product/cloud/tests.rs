@@ -15,18 +15,21 @@ use wiremock::{
 use zeroize::Zeroizing;
 
 use super::{
-    CloudHost, CloudServices, ConflictDecision,
+    CloudHost, CloudServices, ConflictDecision, ShareCommand,
     auth::{Auth, SecureStore},
     sharing::validate_document,
     transport::{CloudConfig, Transport},
 };
-use crate::product::services::{Action, Mutation, ProductServices, RequestGate, Scope, Surface};
+use crate::product::{
+    services::{Action, Mutation, ProductServices, RequestGate, Scope, Surface},
+    sharing::GeneralAccess,
+};
 
 const ACCOUNT: &str = "180dc97e-633a-4766-9184-799f89db530b";
 const SHARE: &str = "73d1e15a-9117-4260-8c78-5081a0c5012e";
 
 #[tokio::test]
-async fn shared_note_host_uses_account_rpc_and_anonymous_handoff_contracts() {
+async fn shared_note_links_refresh_the_cache_or_claim_an_anonymous_preview() {
     let server = MockServer::start().await;
     let directory = tempfile::tempdir().unwrap();
     let (runtime, ready) = RuntimeHandle::start(Profile {
@@ -36,43 +39,64 @@ async fn shared_note_host_uses_account_rpc_and_anonymous_handoff_contracts() {
     ready.receive().await.unwrap();
     let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
     let body = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"日本語 🧑🏽‍💻"}]}]});
-    Mock::given(method("POST"))
+    let row = json!({"share_id":SHARE,"workspace_id":ACCOUNT,"session_id":"remote-session","schema_version":1,
+        "content_revision":2,"title":"Shared","body_json":body,"attachments_json":[],"capability":"commenter",
+        "manage_access":false,"access_version":1,"web_editable":false,"published_at":"2026-01-01T00:00:00Z"});
+    let read = Mock::given(method("POST"))
         .and(path("/rest/v1/rpc/read_my_session_share_snapshot_v2"))
         .and(body_json(json!({"p_share_id":SHARE})))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(json!([{"share_id":SHARE,"title":"Shared","body_json":body}])),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([row])))
+        .expect(1)
+        .mount_as_scoped(&server)
+        .await;
+    cloud
+        .refresh_shared(SHARE.into(), desktop_runtime::CancellationToken::new())
+        .await
+        .unwrap();
+    drop(read);
+    let cached = || {
+        runtime
+            .service(|services| async move {
+                Ok(sqlx::query_scalar::<_, String>("SELECT title || ':' || capability FROM shared_session_cache WHERE viewer_user_id = ? AND share_id = ?")
+                    .bind(ACCOUNT).bind(SHARE).fetch_optional(services.db.pool()).await.unwrap())
+            })
+            .unwrap()
+    };
+    assert_eq!(
+        cached().receive().await.unwrap().as_deref(),
+        Some("Shared:commenter")
+    );
+    // Revoked access removes the cached copy, so the view says access is gone.
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/read_my_session_share_snapshot_v2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
         .expect(1)
         .mount(&server)
         .await;
     cloud
-        .read_shared(
-            SHARE.into(),
-            false,
-            desktop_runtime::CancellationToken::new(),
-        )
+        .refresh_shared(SHARE.into(), desktop_runtime::CancellationToken::new())
         .await
         .unwrap();
+    assert_eq!(cached().receive().await.unwrap(), None);
     Mock::given(method("POST"))
         .and(path("/shared-notes/handoffs/claim"))
         .and(body_partial_json(json!({"request_id":SHARE})))
-        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(1, body)))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(1, body.clone())))
         .expect(1)
         .mount(&server)
         .await;
-    cloud
-        .read_shared(
-            SHARE.into(),
-            true,
-            desktop_runtime::CancellationToken::new(),
-        )
+    let preview = cloud
+        .claim_preview(SHARE.into(), desktop_runtime::CancellationToken::new())
         .await
         .unwrap();
+    assert_eq!(
+        (preview.title.as_str(), preview.body),
+        ("Web snapshot", body)
+    );
     let cancelled = desktop_runtime::CancellationToken::new();
     cancelled.cancel();
     assert!(matches!(
-        cloud.read_shared(SHARE.into(), true, cancelled).await,
+        cloud.claim_preview(SHARE.into(), cancelled).await,
         Err(ServiceError::Cancelled)
     ));
     runtime.shutdown().await.unwrap();
@@ -1002,4 +1026,101 @@ async fn account_counts_a_paid_workspace_seat_as_pro_without_offering_a_trial() 
         Some("fixture@example.invalid")
     );
     runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn share_popover_publishes_before_its_first_invite_and_reads_back_access() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let document = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Decisions"}]}]});
+    let scope = seed_summary(&runtime, document.clone()).await;
+    create_share_rpc(&server).await;
+    Mock::given(method("PUT"))
+        .and(path(format!("/sync/shares/{SHARE}/snapshot")))
+        .and(body_partial_json(json!({"baseRevision":0,"body":document})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(snapshot(1, document.clone())))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let invitation = uuid::Uuid::new_v4().to_string();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/create_session_access_invitation"))
+        .and(body_json(json!({"p_share_id":SHARE,"p_invitee_email":"maya@northwind.example","p_capability":"viewer"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(
+            json!([{"invitation_id":invitation,"invite_token":"a".repeat(43)}]),
+        ))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path(format!("/shared-notes/invitations/{invitation}/email")))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_management"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"share_id":SHARE,
+            "general_scope":"restricted","general_workspace_id":null,"has_active_link":false}])))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_session_share_access"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"entry_type":"invitation",
+            "entry_id":invitation,"user_id":null,"user_email":"maya@northwind.example","capability":"viewer"}])))
+        .mount(&server)
+        .await;
+    let share = cloud
+        .share_command(
+            scope.clone(),
+            ShareCommand::Invite(vec!["Maya@Northwind.example".into()]),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(share.general, GeneralAccess::Restricted);
+    let entry = share.access[0].clone();
+    assert_eq!(entry.kind, crate::product::sharing::EntryKind::Invitation);
+    // The share exists now, so later changes manage it without publishing again.
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/revoke_session_access_invitation"))
+        .and(body_json(json!({"p_invitation_id":invitation})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    cloud
+        .share_command(scope, ShareCommand::Remove(entry))
+        .await
+        .unwrap();
+    runtime.shutdown().await.unwrap();
+}
+
+#[test]
+fn account_share_urls_follow_the_workspace_subdomain_and_desktop_scheme() {
+    use super::sharing::account_share_url;
+    let production: reqwest::Url = "https://anarlog.so".parse().unwrap();
+    assert_eq!(
+        account_share_url(&production, SHARE, None, "anarlog").unwrap(),
+        format!("https://anarlog.so/share/{SHARE}/")
+    );
+    assert_eq!(
+        account_share_url(&production, SHARE, Some("lumen"), "anarlog-dev").unwrap(),
+        format!("https://lumen.anarlog.so/share/{SHARE}/?scheme=anarlog-dev")
+    );
+    let local: reqwest::Url = "http://localhost:3000".parse().unwrap();
+    assert_eq!(
+        account_share_url(&local, SHARE, Some("lumen"), "anarlog").unwrap(),
+        format!("http://localhost:3000/share/{SHARE}/")
+    );
+    for slug in ["www", "-lumen", "Lumen", "ab"] {
+        assert!(account_share_url(&production, SHARE, Some(slug), "anarlog").is_err());
+    }
+    assert!(account_share_url(&production, "not-a-share", None, "anarlog").is_err());
 }

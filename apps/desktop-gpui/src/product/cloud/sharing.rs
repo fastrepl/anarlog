@@ -1,17 +1,23 @@
-use desktop_runtime::{Result, Services, SessionId};
-use reqwest::{Method, StatusCode};
+use std::sync::Arc;
+
+use desktop_runtime::{Result, ServiceError, Services, SessionId};
+use futures::future::BoxFuture;
+use reqwest::{Method, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::Row as _;
 use zeroize::Zeroizing;
 
 use super::{
-    Core, account,
+    CloudServices, Core, account,
     auth::AuthLease,
     choice, field, target,
     transport::{Transport, failure, first, text, uuid},
 };
-use crate::product::services::{Action, Mutation, Scope};
+use crate::product::{
+    services::{Action, Mutation, Operation, Scope},
+    sharing::{AccessEntry, Capability, EntryKind, GeneralAccess, ManagedShare},
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct Publication {
@@ -562,4 +568,338 @@ pub(super) async fn persist_snapshot(
         ));
     }
     Ok(())
+}
+
+/// One change from the note's share popover.
+#[derive(Clone, Debug)]
+pub enum ShareCommand {
+    /// Invites each address as a viewer.
+    Invite(Vec<String>),
+    CopyLink,
+    Access(GeneralAccess),
+    SetCapability(AccessEntry, Capability),
+    Remove(AccessEntry),
+    Resend(AccessEntry),
+    Review(AccessEntry, bool),
+    /// Publishes the desktop copy over the web edits that paused sharing.
+    KeepDesktop,
+    /// Opens the shared note's web copy in the browser.
+    OpenWebCopy,
+}
+
+impl CloudServices {
+    /// Starts browser sign-in, as the share surfaces' Sign in buttons do.
+    pub fn sign_in(&self) -> BoxFuture<'static, Result<()>> {
+        let this = self.clone();
+        Box::pin(async move {
+            this.runtime
+                .service(move |_| async move {
+                    let url = this.core.auth.begin_sign_in().await?;
+                    this.core.host.open_url(url).await
+                })?
+                .receive()
+                .await
+        })
+    }
+
+    /// The note's published share as its owner manages it, or `None` before it is shared.
+    pub fn share_overview(&self, scope: Scope) -> BoxFuture<'static, Result<Option<ManagedShare>>> {
+        let this = self.clone();
+        Box::pin(async move {
+            this.runtime
+                .service(move |services| async move {
+                    let lease = this.core.lease(&scope).await?;
+                    let session = scope
+                        .session_id
+                        .as_ref()
+                        .ok_or_else(|| failure("Open a meeting to share"))?;
+                    this.core.managed_share(&services, &lease, session).await
+                })?
+                .receive()
+                .await
+        })
+    }
+
+    /// Shipping's draft panel shares the note on its first action; later actions manage it.
+    pub fn share_command(
+        &self,
+        scope: Scope,
+        command: ShareCommand,
+    ) -> BoxFuture<'static, Result<Option<ManagedShare>>> {
+        let this = self.clone();
+        Box::pin(async move {
+            this.runtime
+                .service(move |services| async move {
+                    let _guard = this
+                        .core
+                        .mutations
+                        .try_lock()
+                        .map_err(|_| ServiceError::Busy)?;
+                    let lease = this.core.lease(&scope).await?;
+                    this.core
+                        .share_command(&services, &lease, &scope, command)
+                        .await?;
+                    let session = scope
+                        .session_id
+                        .as_ref()
+                        .ok_or_else(|| failure("Open a meeting to share"))?;
+                    this.core.managed_share(&services, &lease, session).await
+                })?
+                .receive()
+                .await
+        })
+    }
+}
+
+impl Core {
+    async fn managed_share(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        session: &SessionId,
+    ) -> Result<Option<ManagedShare>> {
+        let Some(publication) = self.share_state(services, lease, session).await? else {
+            return Ok(None);
+        };
+        let share = json!({"p_share_id": publication.share_id});
+        let management = self
+            .rpc(lease, "get_session_share_management", share.clone())
+            .await?;
+        let management = first(&management)?;
+        let general = GeneralAccess::parse(
+            text(management, "general_scope")?,
+            management["general_workspace_id"].as_str(),
+        )
+        .ok_or_else(|| failure("Invalid share access"))?;
+        let access = self.rpc(lease, "list_session_share_access", share).await?;
+        let access = access
+            .as_array()
+            .ok_or_else(|| failure("Invalid share access list"))?
+            .iter()
+            .map(AccessEntry::parse)
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| failure("Invalid share access entry"))?;
+        Ok(Some(ManagedShare {
+            share_id: publication.share_id.as_str().into(),
+            general,
+            has_active_link: management["has_active_link"].as_bool() == Some(true),
+            access: access.into(),
+            conflict: publication.conflict.is_some(),
+        }))
+    }
+
+    async fn share_command(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        scope: &Scope,
+        command: ShareCommand,
+    ) -> Result<()> {
+        let session = scope
+            .session_id
+            .as_ref()
+            .ok_or_else(|| failure("Open a meeting to share"))?;
+        let run = |action: Action, target: Option<&str>, fields: &[(&str, &str)]| Mutation {
+            operation: Operation {
+                id: "share-popover".into(),
+                label: "Share".into(),
+                action,
+                target_id: target.map(Into::into),
+                disabled_reason: None,
+                confirmation: None,
+            },
+            fields: fields
+                .iter()
+                .map(|(key, value)| (Arc::from(*key), Arc::from(*value)))
+                .collect(),
+        };
+        if self.share_state(services, lease, session).await?.is_none() {
+            self.share_action(services, lease, scope, &run(Action::CreateShare, None, &[]))
+                .await?;
+        }
+        let publication = self
+            .share_state(services, lease, session)
+            .await?
+            .ok_or_else(|| failure("Create a share first"))?;
+        let share = publication.share_id.as_str();
+        let mutation = match command {
+            ShareCommand::Invite(emails) => {
+                if emails.is_empty() || emails.len() > 32 {
+                    return Err(failure("Invite between 1 and 32 people at a time"));
+                }
+                for email in emails {
+                    self.share_action(
+                        services,
+                        lease,
+                        scope,
+                        &run(
+                            Action::InviteToShare,
+                            None,
+                            &[("email", &email), ("role", "viewer")],
+                        ),
+                    )
+                    .await?;
+                }
+                return Ok(());
+            }
+            ShareCommand::CopyLink => return self.copy_share_url(lease, share).await,
+            ShareCommand::OpenWebCopy => {
+                let url = self.share_url(lease, share, "anarlog").await?;
+                let url = Url::parse(&url).map_err(|_| failure("Share URL is unavailable"))?;
+                return self.host.open_url(url).await;
+            }
+            ShareCommand::KeepDesktop => {
+                let revision = publication
+                    .conflict
+                    .as_ref()
+                    .and_then(|remote| remote["contentRevision"].as_u64())
+                    .ok_or(ServiceError::Conflict)?;
+                return self
+                    .resolve_share_conflict(
+                        services,
+                        lease,
+                        scope,
+                        revision,
+                        super::ConflictDecision::PublishLocal,
+                    )
+                    .await;
+            }
+            ShareCommand::Access(GeneralAccess::Link) => {
+                let management = self
+                    .rpc(
+                        lease,
+                        "get_session_share_management",
+                        json!({"p_share_id": share}),
+                    )
+                    .await?;
+                let linked = async {
+                    if first(&management)?["has_active_link"].as_bool() != Some(true) {
+                        self.rpc(
+                            lease,
+                            "enable_session_share_link",
+                            json!({"p_share_id": share}),
+                        )
+                        .await?;
+                    }
+                    self.copy_share_url(lease, share).await
+                }
+                .await;
+                if linked.is_err() {
+                    let _ = self.rpc(lease, "set_session_share_scope", json!({"p_share_id": share, "p_general_scope": "restricted", "p_general_workspace_id": null})).await;
+                }
+                return linked;
+            }
+            ShareCommand::Access(GeneralAccess::Restricted) => {
+                run(Action::SetShareScope, None, &[("scope", "restricted")])
+            }
+            ShareCommand::Access(GeneralAccess::Workspace(workspace)) => run(
+                Action::SetShareScope,
+                None,
+                &[("scope", "workspace"), ("workspace", &workspace)],
+            ),
+            ShareCommand::Access(GeneralAccess::Public) => {
+                return Err(failure("Public access is managed on the web"));
+            }
+            ShareCommand::SetCapability(entry, capability) => match entry.kind {
+                EntryKind::Grant => run(
+                    Action::SetShareRole,
+                    Some(&entry.id),
+                    &[("role", capability.as_str())],
+                ),
+                EntryKind::Invitation => run(
+                    Action::InviteToShare,
+                    None,
+                    &[
+                        ("email", entry.email.as_deref().unwrap_or_default()),
+                        ("role", capability.as_str()),
+                    ],
+                ),
+                EntryKind::Request => return Err(failure("Review the request first")),
+            },
+            ShareCommand::Remove(entry) => match entry.kind {
+                EntryKind::Grant => {
+                    self.rpc(
+                        lease,
+                        "revoke_session_access_grant",
+                        json!({"p_grant_id": uuid(&entry.id)?}),
+                    )
+                    .await?;
+                    return Ok(());
+                }
+                EntryKind::Invitation => run(Action::RevokeInvitation, Some(&entry.id), &[]),
+                EntryKind::Request => return Err(failure("Deny the request instead")),
+            },
+            ShareCommand::Resend(entry) => run(Action::ResendInvitation, Some(&entry.id), &[]),
+            ShareCommand::Review(entry, approve) => run(
+                Action::RespondShareRequest,
+                Some(&entry.id),
+                &[
+                    ("decision", if approve { "approved" } else { "denied" }),
+                    ("role", entry.capability.as_str()),
+                ],
+            ),
+        };
+        self.share_action(services, lease, scope, &mutation).await
+    }
+
+    /// `copySessionShareUrl`: the account URL people with access open.
+    async fn copy_share_url(&self, lease: &AuthLease, share: &str) -> Result<()> {
+        let scheme = self.auth.transport.config.callback.scheme().to_owned();
+        let url = self.share_url(lease, share, &scheme).await?;
+        self.host.copy_text(Zeroizing::new(url)).await
+    }
+
+    async fn share_url(&self, lease: &AuthLease, share: &str, scheme: &str) -> Result<String> {
+        let response = self
+            .rpc(
+                lease,
+                "get_session_share_workspace_slug",
+                json!({"p_share_id": share}),
+            )
+            .await?;
+        let slug = first(&response)?["workspace_share_slug"].as_str();
+        account_share_url(&self.auth.transport.config.web, share, slug, scheme)
+    }
+}
+
+/// `buildAccountSessionShareUrl`: `/share/<id>/`, on the workspace's subdomain of anarlog.so,
+/// with the desktop scheme for non-production builds.
+pub(super) fn account_share_url(
+    web: &Url,
+    share: &str,
+    slug: Option<&str>,
+    scheme: &str,
+) -> Result<String> {
+    uuid(share)?;
+    let mut base = web.clone();
+    if let Some(slug) = slug {
+        const RESERVED: &[&str] = &[
+            "admin", "api", "app", "assets", "auth", "cdn", "dev", "docs", "mail", "staging",
+            "static", "status", "support", "www",
+        ];
+        let bytes = slug.as_bytes();
+        let valid = (3..=63).contains(&bytes.len())
+            && bytes
+                .iter()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'-')
+            && bytes[0] != b'-'
+            && bytes[bytes.len() - 1] != b'-'
+            && !RESERVED.contains(&slug);
+        if !valid {
+            return Err(failure("Share URL is unavailable"));
+        }
+        if matches!(base.host_str(), Some("anarlog.so" | "www.anarlog.so")) {
+            base.set_host(Some(&format!("{slug}.anarlog.so")))
+                .map_err(|_| failure("Share URL is unavailable"))?;
+        }
+    }
+    let mut url = base
+        .join(&format!("/share/{share}/"))
+        .map_err(|_| failure("Share URL is unavailable"))?;
+    url.set_query(None);
+    url.set_fragment(None);
+    if scheme != "anarlog" {
+        url.query_pairs_mut().append_pair("scheme", scheme);
+    }
+    Ok(url.to_string())
 }

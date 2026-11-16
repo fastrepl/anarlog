@@ -194,6 +194,7 @@ pub fn load(path: &str) -> Option<&'static [u8]> {
                 .find(|(_, name, _)| *name == path)
                 .map(|(_, _, bytes)| *bytes)
         })
+        .or_else(|| super::sharing::assets::load(path))
 }
 
 pub fn paths() -> impl Iterator<Item = &'static str> {
@@ -204,4 +205,5 @@ pub fn paths() -> impl Iterator<Item = &'static str> {
         .chain(PROVIDER_LOGOS)
         .map(|(name, _)| *name)
         .chain(BRAND_IMAGES.iter().map(|(_, name, _)| *name))
+        .chain(super::sharing::assets::paths())
 }

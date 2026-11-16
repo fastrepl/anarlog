@@ -127,7 +127,7 @@ impl ApplicationView {
             }),
             cx.subscribe(&workspace, |this, _, event, cx| match event {
                 WorkspaceAction::SidebarChanged => cx.notify(),
-                WorkspaceAction::OpenShared(id) => this.open_shared(id.to_string(), false, cx),
+                WorkspaceAction::OpenShared(id) => this.mount_shared(id.to_string(), false, cx),
                 WorkspaceAction::NewNoteWindow => this.open_note_window(None, cx),
                 WorkspaceAction::OpenNoteWindow(id) => this.open_note_window(Some(id.clone()), cx),
                 WorkspaceAction::PinnedChanged(routes) => this.save_pins(routes.clone(), cx),
@@ -494,15 +494,9 @@ impl ApplicationView {
         }
     }
 
+    /// `share/open` links: an account link refreshes the cached copy, then opens the shared
+    /// note; a handoff link opens a view-only preview.
     fn open_shared(&mut self, id: String, handoff: bool, cx: &mut Context<Self>) {
-        let cloud = self
-            .native
-            .as_ref()
-            .and_then(|native| native.cloud.service.clone());
-        let Some(cloud) = cloud else {
-            self.status("Configure cloud sign-in before opening shared notes.", cx);
-            return;
-        };
         if !self
             .workspace
             .update(cx, |workspace, cx| workspace.can_close(cx))
@@ -517,13 +511,44 @@ impl ApplicationView {
             self.status("Save the note before opening a shared note.", cx);
             return;
         }
-        let route = Route::SharedPreview(id.clone().into());
-        self.leave_product(route.clone(), cx);
+        if handoff {
+            self.leave_product(Route::SharedPreview(id.clone().into()), cx);
+            self.mount_shared(id, true, cx);
+            return;
+        }
+        let route = Route::SharedSession(id.clone().into());
+        let cloud = self
+            .native
+            .as_ref()
+            .and_then(|native| native.cloud.service.clone())
+            .filter(|_| crate::product::account::current(cx).signed_in());
+        let Some(cloud) = cloud else {
+            self.leave_product(route, cx);
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            let _ = cloud
+                .refresh_shared(id, desktop_runtime::CancellationToken::new())
+                .await;
+            let _ = this.update(cx, |this, cx| this.leave_product(route, cx));
+        })
+        .detach();
+    }
+
+    /// Shows a shared note or preview once its route is current.
+    fn mount_shared(&mut self, id: String, preview: bool, cx: &mut Context<Self>) {
+        let route = if preview {
+            Route::SharedPreview(id.clone().into())
+        } else {
+            Route::SharedSession(id.clone().into())
+        };
         if self.product.is_some() || self.workspace.read(cx).current_route() != route {
             return;
         }
-        let view = cx
-            .new(|cx| crate::product::cloud::shared_view::SharedView::new(cloud, id, handoff, cx));
+        let runtime = self.runtime.clone();
+        let view = cx.new(|cx| {
+            crate::product::sharing::shared_note::SharedNoteView::new(runtime, id, preview, cx)
+        });
         self.workspace.update(cx, |workspace, cx| {
             workspace.set_route_content(route, view.into(), cx)
         });
@@ -906,6 +931,7 @@ impl ApplicationView {
     fn watch_cloud(&mut self, cloud: crate::product::cloud::CloudServices, cx: &mut Context<Self>) {
         self.trial_dialogs
             .update(cx, |dialogs, _| dialogs.set_cloud(cloud.clone()));
+        cx.set_global(crate::product::sharing::SharingCloud(cloud.clone()));
         let mut identities = cloud.identities();
         let identity_cloud = cloud.clone();
         cx.spawn(async move |this, cx| {

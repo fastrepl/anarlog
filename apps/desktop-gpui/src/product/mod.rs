@@ -17,6 +17,7 @@ mod providers;
 mod service_view;
 pub mod services;
 pub mod settings;
+pub mod sharing;
 mod surface_view;
 pub mod trial;
 

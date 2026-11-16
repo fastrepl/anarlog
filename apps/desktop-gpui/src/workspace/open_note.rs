@@ -21,6 +21,7 @@ use crate::{
         player_view::PlayerView,
         widgets::{dancing_sticks, spinner},
     },
+    product::sharing::{self, SharePopover, SharePopoverEvent},
     ui::{
         input::{InputEvent, TextInput},
         theme::{RADIUS, Theme, theme},
@@ -57,6 +58,7 @@ pub struct NoteView {
     transcript: Option<Entity<TranscriptView>>,
     details_task: Option<Task<()>>,
     compact_folder: bool,
+    share: Option<(SessionId, Entity<SharePopover>, Subscription)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -211,8 +213,31 @@ impl NoteView {
             transcript: None,
             details_task: None,
             compact_folder: false,
+            share: None,
             _subscriptions: subscriptions,
         }
+    }
+
+    /// Shipping's `SessionShareButton` toggles its popover under the button.
+    fn toggle_share(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(session) = self.current.as_ref().map(|s| s.summary.id.clone()) else {
+            return;
+        };
+        if self.share.take().is_some() {
+            cx.notify();
+            return;
+        }
+        let runtime = self.runtime.clone();
+        let popover = cx.new(|cx| SharePopover::new(session.clone(), runtime, window, cx));
+        let subscription = cx.subscribe(&popover, |this, _, event, cx| {
+            this.share = None;
+            if let SharePopoverEvent::Open(route) = event {
+                cx.emit(WorkspaceEvent::Product(route.clone()));
+            }
+            cx.notify();
+        });
+        self.share = Some((session, popover, subscription));
+        cx.notify();
     }
 
     pub fn has_unsaved_title(&self, cx: &gpui::App) -> bool {
@@ -1079,21 +1104,28 @@ impl NoteView {
             .font_weight(FontWeight::MEDIUM)
             .text_color(colors.foreground)
             .cursor_pointer()
-            .on_click(cx.listener(move |this, _, _, cx| {
+            .on_click(cx.listener(move |this, _, window, cx| {
                 if share {
-                    if let Some(session) = &this.current {
-                        cx.emit(WorkspaceEvent::Product(ProductRoute::Share(
-                            session.summary.id.clone(),
-                        )));
-                    }
+                    this.toggle_share(window, cx);
                 } else {
                     this.toggle_recording(cx);
                 }
             }))
             .map(|view| {
                 if share {
-                    view.child(icon("editor/Share08Icon.svg", 14., colors.foreground))
+                    let popover = self
+                        .share
+                        .as_ref()
+                        .filter(|(session, ..)| {
+                            self.current.as_ref().map(|s| &s.summary.id) == Some(session)
+                        })
+                        .map(|(_, popover, _)| popover.clone());
+                    view.relative()
+                        .child(icon("editor/Share08Icon.svg", 14., colors.foreground))
                         .child("Share")
+                        .when_some(popover, |view, popover| {
+                            view.child(sharing::anchor(popover))
+                        })
                 } else if recording {
                     view.child(icon("editor/SquareIcon.svg", 12., rgb(RECORD_RED).into()))
                         .child("Stop")

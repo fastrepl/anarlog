@@ -3,7 +3,7 @@
 //! organization page on the main surface. Edits save as they are typed, like shipping.
 
 pub mod assets;
-mod avatar;
+pub(crate) mod avatar;
 mod data;
 mod list;
 mod ops;

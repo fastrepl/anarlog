@@ -169,6 +169,7 @@ fn main() {
     contacts(&mut cx, window, &out);
     timeline_details(&mut cx, window, &out);
     calendar_depth(&mut cx, window, &out);
+    sharing(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -331,6 +332,112 @@ fn timeline_details(
     set_live(cx, None);
 }
 
+/// The note share popover in each account state, and a share with people, by window position.
+fn sharing(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::product::{
+        account::{self, Account, Claims, User},
+        sharing::{self, AccessEntry, Capability, EntryKind, GeneralAccess, ManagedShare},
+    };
+    let critique = || SessionId("s-critique".into());
+    let signed_in = |claims: Claims| Account {
+        user: Some(User {
+            id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
+            email: Some("alex@example.com".into()),
+        }),
+        claims: Some(claims),
+        workspaces: Some(Arc::from([])),
+        ..Account::default()
+    };
+    let pro = || {
+        signed_in(Claims {
+            entitlements: vec!["hyprnote_pro".into()],
+            subscription_status: Some("active".into()),
+            current_period_end: Some(account::now() + 86_400),
+            ..Claims::default()
+        })
+    };
+    open(cx, window, Route::Session(critique()));
+    click(cx, window, 832., 23.);
+    capture(cx, window, out, "share-signed-out");
+    type_text(cx, window, &["escape"]);
+    cx.update(|cx| account::set(signed_in(Claims::default()), cx));
+    click(cx, window, 832., 23.);
+    capture(cx, window, out, "share-upgrade");
+    type_text(cx, window, &["escape"]);
+    cx.update(|cx| account::set(pro(), cx));
+    click(cx, window, 832., 23.);
+    capture(cx, window, out, "share-draft");
+    type_text(cx, window, &["escape"]);
+    let entry = |kind, id: &str, email: Option<&str>, capability| AccessEntry {
+        kind,
+        id: id.into(),
+        user_id: None,
+        email: email.map(Into::into),
+        capability,
+    };
+    cx.update(|cx| {
+        sharing::remember(
+            critique(),
+            Some(ManagedShare {
+                share_id: "73d1e15a-9117-4260-8c78-5081a0c5012e".into(),
+                general: GeneralAccess::Workspace("5d8f2c1a-7b3e-4f6a-9c2d-1e0b7a6f5c4d".into()),
+                has_active_link: false,
+                access: Arc::from([
+                    entry(
+                        EntryKind::Grant,
+                        "g-maya",
+                        Some("maya@northwind.example"),
+                        Capability::Commenter,
+                    ),
+                    entry(
+                        EntryKind::Invitation,
+                        "i-jordan",
+                        Some("jordan@contoso.example"),
+                        Capability::Viewer,
+                    ),
+                    entry(
+                        EntryKind::Request,
+                        "r-sam",
+                        Some("sam@contoso.example"),
+                        Capability::Editor,
+                    ),
+                ]),
+                conflict: false,
+            }),
+            cx,
+        )
+    });
+    click(cx, window, 832., 23.);
+    capture(cx, window, out, "share-managed");
+    type_text(cx, window, &["escape"]);
+    cx.update(|cx| {
+        sharing::remember(critique(), None, cx);
+        account::set(Account::default(), cx);
+    });
+    // Shared notes render from the account's local cache.
+    open(
+        cx,
+        window,
+        Route::SharedSession("2b6e4f1c-8a3d-4c7e-9f0a-5d1b3e7c9a2f".into()),
+    );
+    capture(cx, window, out, "shared-note-signed-out");
+    cx.update(|cx| account::set(pro(), cx));
+    // Every account-aware view reloads after sign-in; let the cache read land.
+    settle(cx);
+    settle(cx);
+    capture(cx, window, out, "shared-note");
+    open(
+        cx,
+        window,
+        Route::SharedSession("9c3a7e2b-1d4f-4a6c-8e5b-0f2d6a9c3e1b".into()),
+    );
+    capture(cx, window, out, "shared-note-revoked");
+    cx.update(|cx| account::set(Account::default(), cx));
+}
 /// Account, plan and seat states, seeded through the same app-wide value the cloud service
 /// publishes after sign-in.
 fn account_states(

@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
-use desktop_runtime::{Result, ServiceError};
+use desktop_runtime::{Result, ServiceError, Services};
 use futures::future::BoxFuture;
 use serde_json::Value;
 
 use super::{
-    CloudServices, host,
+    CloudServices, Core,
+    auth::AuthLease,
+    host,
     panels::operation,
     transport::{failure, text},
 };
@@ -116,45 +118,65 @@ impl CloudServices {
                         .try_lock()
                         .map_err(|_| ServiceError::Busy)?;
                     let lease = this.core.lease(&scope).await?;
-                    let session = scope
-                        .session_id
-                        .as_ref()
-                        .ok_or_else(|| failure("Select a meeting"))?;
-                    let mut state = this
-                        .core
-                        .share_state(&services, &lease, session)
-                        .await?
-                        .ok_or(ServiceError::Conflict)?;
-                    let remote = state.conflict.as_ref().ok_or(ServiceError::Conflict)?;
-                    if remote["contentRevision"].as_u64() != Some(reviewed_revision) {
-                        return Err(ServiceError::Conflict);
-                    }
-                    super::sharing::persist_snapshot(
-                        &services,
-                        super::account(&lease)?,
-                        session,
-                        &state.workspace_id,
-                        remote,
-                    )
-                    .await?;
-                    state.revision = reviewed_revision;
-                    state.attachments = remote["attachments"]
-                        .as_array()
-                        .cloned()
-                        .ok_or_else(|| failure("Invalid attachment list"))?;
-                    state.pending = None;
-                    state.conflict = None;
                     this.core
-                        .save_share_state(&services, &lease, session, &state)
+                        .resolve_share_conflict(
+                            &services,
+                            &lease,
+                            &scope,
+                            reviewed_revision,
+                            decision,
+                        )
                         .await?;
-                    if matches!(decision, ConflictDecision::PublishLocal) {
-                        this.core.publish(&services, &lease, &scope, state).await?;
-                    }
                     Ok(())
                 })?
                 .receive()
                 .await
         })
+    }
+}
+
+impl Core {
+    pub(super) async fn resolve_share_conflict(
+        &self,
+        services: &Services,
+        lease: &AuthLease,
+        scope: &Scope,
+        reviewed_revision: u64,
+        decision: ConflictDecision,
+    ) -> Result<()> {
+        let session = scope
+            .session_id
+            .as_ref()
+            .ok_or_else(|| failure("Select a meeting"))?;
+        let mut state = self
+            .share_state(services, lease, session)
+            .await?
+            .ok_or(ServiceError::Conflict)?;
+        let remote = state.conflict.as_ref().ok_or(ServiceError::Conflict)?;
+        if remote["contentRevision"].as_u64() != Some(reviewed_revision) {
+            return Err(ServiceError::Conflict);
+        }
+        super::sharing::persist_snapshot(
+            services,
+            super::account(lease)?,
+            session,
+            &state.workspace_id,
+            remote,
+        )
+        .await?;
+        state.revision = reviewed_revision;
+        state.attachments = remote["attachments"]
+            .as_array()
+            .cloned()
+            .ok_or_else(|| failure("Invalid attachment list"))?;
+        state.pending = None;
+        state.conflict = None;
+        self.save_share_state(services, lease, session, &state)
+            .await?;
+        if matches!(decision, ConflictDecision::PublishLocal) {
+            self.publish(services, lease, scope, state).await?;
+        }
+        Ok(())
     }
 }
 

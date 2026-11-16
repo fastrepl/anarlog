@@ -16,6 +16,7 @@ mod teams;
 mod transport;
 pub mod view;
 pub use review::{ConflictDecision, ConflictReview};
+pub use sharing::ShareCommand;
 
 use std::sync::Arc;
 
