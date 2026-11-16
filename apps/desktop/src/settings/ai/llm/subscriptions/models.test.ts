@@ -27,14 +27,16 @@ describe("ChatGPT subscription models", () => {
     });
   });
 
-  test("parses the Codex catalog and omits hidden models", async () => {
-    mocks.fetchJson.mockReturnValue(
+  test("includes newer models from the current Codex catalog and omits hidden models", async () => {
+    mocks.fetchJson.mockImplementation((url: string) =>
       Effect.succeed({
         models: [
-          { slug: "gpt-5.6-sol", visibility: "list" },
-          { slug: "codex-auto-review", visibility: "hide" },
+          ...(new URL(url).searchParams.get("client_version") === "0.165.0"
+            ? [{ slug: "new-model", visibility: "list" }]
+            : []),
+          { slug: "hidden-model", visibility: "hide" },
           {
-            slug: "gpt-5.3-codex-spark",
+            slug: "existing-model",
             visibility: "list",
             supported_in_api: false,
           },
@@ -49,10 +51,10 @@ describe("ChatGPT subscription models", () => {
         "stored-credential",
       ),
     ).resolves.toMatchObject({
-      models: ["gpt-5.6-sol", "gpt-5.3-codex-spark"],
+      models: ["new-model", "existing-model"],
     });
     expect(mocks.fetchJson).toHaveBeenCalledWith(
-      "https://chatgpt.com/backend-api/codex/models?client_version=0.145.0",
+      "https://chatgpt.com/backend-api/codex/models?client_version=0.165.0",
       expect.objectContaining({
         Authorization: "Bearer access-token",
         "ChatGPT-Account-ID": "account-1",
