@@ -157,12 +157,25 @@ impl WorkspaceView {
     ) {
         let runtime = self.runtime.clone();
         let client = self.automation_client.clone();
+        let starters = super::automation_runner::run_starters(
+            &runtime,
+            trigger,
+            session.clone(),
+            client.clone(),
+        );
         let reply =
             super::automation_runner::matching_workflows(&runtime, trigger, session.clone());
         cx.spawn(async move |this, cx| {
             let result = async {
+                // Like shipping, a failing starter does not stop the workflows.
+                let mut messages = match starters {
+                    Ok(reply) => reply
+                        .receive()
+                        .await
+                        .unwrap_or_else(|error| vec![error.to_string()]),
+                    Err(error) => vec![error.to_string()],
+                };
                 let workflows = reply?.receive().await?;
-                let mut messages = Vec::new();
                 for id in workflows {
                     let result = super::automation_runner::run(
                         &runtime,

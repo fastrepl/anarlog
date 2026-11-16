@@ -45,7 +45,7 @@ impl Drop for RunGuard {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Trigger {
     NoteEnhanced,
     MeetingCompleted,
@@ -478,13 +478,17 @@ async fn execute_step(
                 .take(10)
                 .collect::<Vec<_>>();
             if items.is_empty() {
-                return Ok("No action items found for this meeting".into());
+                return Ok("no action items found for this meeting".into());
             }
             let connection = client.connection("linear").await?;
             for item in &items {
                 client.request(Method::POST,"/ticket/linear/create-issue",Some(json!({"connection_id":connection,"team_id":target,"title":item.text,"description":format!("Action item from the Anarlog meeting \"{}\" ({date}).",export.meeting.title)}))).await?;
             }
-            return Ok(format!("{} issues created", items.len()));
+            let team = step["target"]["name"].as_str().unwrap_or(target);
+            return Ok(match items.len() {
+                1 => format!("1 issue in {team}"),
+                count => format!("{count} issues in {team}"),
+            });
         }
         "google_drive_export" => {
             return Err(failure(
@@ -493,10 +497,162 @@ async fn execute_step(
         }
         _ => return Err(failure("Unknown automation step")),
     }
-    Ok(format!(
-        "Delivered to {}",
-        step["target"]["name"].as_str().unwrap_or(target)
-    ))
+    let name = step["target"]["name"].as_str().unwrap_or(target);
+    Ok(if kind == "slack_recap" {
+        format!("#{name}")
+    } else {
+        name.to_owned()
+    })
+}
+
+/// Shipping's starter automations: one settings-backed step each, run before workflows.
+/// Markdown re-exports after every meeting; the others deliver once per note and are
+/// reserved before dispatch, like workflow steps.
+struct StarterRun {
+    trigger: Trigger,
+    kind: &'static str,
+    enabled: &'static str,
+    target: &'static str,
+    last_run: &'static str,
+    processed: Option<&'static str>,
+}
+
+const STARTERS: [StarterRun; 4] = [
+    StarterRun {
+        trigger: Trigger::MeetingCompleted,
+        kind: "markdown_export",
+        enabled: "automation_markdown_export_enabled",
+        target: "automation_markdown_export_directory",
+        last_run: "automation_markdown_export_last_run",
+        processed: None,
+    },
+    StarterRun {
+        trigger: Trigger::NoteEnhanced,
+        kind: "slack_recap",
+        enabled: "automation_slack_recap_enabled",
+        target: "automation_slack_recap_channel",
+        last_run: "automation_slack_recap_last_run",
+        processed: Some("automation_slack_recap_processed"),
+    },
+    StarterRun {
+        trigger: Trigger::NoteEnhanced,
+        kind: "linear_issues",
+        enabled: "automation_linear_issues_enabled",
+        target: "automation_linear_issues_team",
+        last_run: "automation_linear_issues_last_run",
+        processed: Some("automation_linear_issues_processed"),
+    },
+    StarterRun {
+        trigger: Trigger::NoteEnhanced,
+        kind: "notion_update",
+        enabled: "automation_notion_update_enabled",
+        target: "automation_notion_update_page",
+        last_run: "automation_notion_update_last_run",
+        processed: Some("automation_notion_update_processed"),
+    },
+];
+
+pub fn run_starters(
+    runtime: &RuntimeHandle,
+    trigger: Trigger,
+    session: SessionId,
+    client: Option<AutomationClient>,
+) -> Result<Reply<Vec<String>>> {
+    runtime.submit(move |services| async move {
+        let rows = services
+            .executor
+            .execute(
+                "SELECT id, value_json FROM app_settings WHERE id LIKE 'automation\\_%' ESCAPE '\\'"
+                    .into(),
+                vec![],
+            )
+            .await
+            .map_err(failure)?;
+        // Starter settings are booleans and strings; targets and lists are JSON strings.
+        let setting = |key: &str| {
+            rows.iter()
+                .find(|row| row["id"] == key)
+                .and_then(|row| serde_json::from_str(row["value_json"].as_str()?).ok())
+                .unwrap_or(Value::Null)
+        };
+        let nested = |key: &str| {
+            setting(key)
+                .as_str()
+                .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                .unwrap_or(Value::Null)
+        };
+        let mut export = None;
+        let mut messages = Vec::new();
+        for StarterRun {
+            trigger: when,
+            kind,
+            enabled,
+            target,
+            last_run,
+            processed,
+        } in STARTERS
+        {
+            if when != trigger || setting(enabled) != true {
+                continue;
+            }
+            let step = match (kind, setting(target)) {
+                ("markdown_export", Value::String(directory)) if !directory.trim().is_empty() => {
+                    json!({"type": kind, "directory": directory.trim()})
+                }
+                ("markdown_export", _) => continue,
+                _ => match nested(target) {
+                    target if target["id"].is_string() && target["name"].is_string() => {
+                        json!({"type": kind, "target": target})
+                    }
+                    _ => continue,
+                },
+            };
+            let mut seen = nested(processed.unwrap_or_default())
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            if seen.iter().any(|id| id.as_str() == Some(&session.0)) {
+                continue;
+            }
+            let _guard = RunGuard::acquire(kind, &session)?;
+            let mut updates = Vec::new();
+            if let Some(key) = processed {
+                seen.push(json!(session.0));
+                if seen.len() > 50 {
+                    seen.drain(..seen.len() - 50);
+                }
+                super::automations::set_settings(
+                    &services.executor,
+                    vec![(key, json!(Value::Array(seen).to_string()))],
+                )
+                .await?;
+            }
+            if export.is_none() {
+                export = Some(
+                    anlg_agent_access::get_meeting_export(
+                        services.db.pool(),
+                        session.0.to_string(),
+                    )
+                    .await
+                    .map_err(failure)?,
+                );
+            }
+            let result = execute_step(&step, export.as_ref().unwrap(), client.as_ref()).await;
+            let (status, detail) = match &result {
+                Ok(detail) => ("success", detail.clone()),
+                Err(error) => ("error", error.to_string()),
+            };
+            let record = json!({
+                "at": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                "status": status,
+                "detail": detail,
+            });
+            updates.push((last_run, json!(record.to_string())));
+            super::automations::set_settings(&services.executor, updates).await?;
+            messages.push(detail);
+        }
+        Ok(messages)
+    })
 }
 
 fn write_export(step: &Value, export: &MeetingExport) -> Result<String> {

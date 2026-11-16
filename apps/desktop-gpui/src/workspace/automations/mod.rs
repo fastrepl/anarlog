@@ -875,7 +875,10 @@ async fn mutate_workflows(
     Err(ServiceError::Conflict)
 }
 
-async fn set_settings(executor: &DbExecutor, values: Vec<(&'static str, Value)>) -> Result<()> {
+pub(super) async fn set_settings(
+    executor: &DbExecutor,
+    values: Vec<(&'static str, Value)>,
+) -> Result<()> {
     if values.is_empty() {
         return Ok(());
     }

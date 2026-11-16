@@ -967,6 +967,58 @@ fn event_command_reuses_a_note_for_the_same_event() {
 }
 
 #[test]
+fn enabled_starters_run_on_their_trigger_and_record_the_last_run() {
+    block_on(async {
+        let (directory, runtime) = start().await;
+        let session = runtime
+            .create_note("Weekly sync".into())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap()
+            .summary
+            .id;
+        let exports = directory.path().join("exports");
+        execute(
+            &runtime,
+            "INSERT INTO app_settings(id,value_json) VALUES ('automation_markdown_export_enabled','true'),('automation_markdown_export_directory',?),('automation_slack_recap_channel',?)",
+            vec![
+                json!(json!(exports.to_string_lossy()).to_string()),
+                json!(json!(r#"{"id":"C1","name":"eng"}"#).to_string()),
+            ],
+        )
+        .await;
+        let run = |trigger| {
+            super::automation_runner::run_starters(&runtime, trigger, session.clone(), None)
+                .unwrap()
+                .receive()
+        };
+        // Slack is not enabled, so the summary trigger has nothing to run.
+        assert!(
+            run(super::automation_runner::Trigger::NoteEnhanced)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        for _ in 0..2 {
+            let messages = run(super::automation_runner::Trigger::MeetingCompleted)
+                .await
+                .unwrap();
+            assert!(messages[0].ends_with(".md"), "{messages:?}");
+        }
+        let settings = automations::Settings::decode(
+            &execute(&runtime, automations::SETTINGS_SQL, vec![]).await,
+        );
+        let last = settings
+            .starter_last_run(automations::StarterId::MarkdownExport)
+            .unwrap();
+        assert!(last.success);
+        assert_eq!(std::fs::read_dir(&exports).unwrap().count(), 1);
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
 fn workflow_crud_executes_real_markdown_export_and_blocks_duplicate_delivery() {
     block_on(async {
         let (directory, runtime) = start().await;
