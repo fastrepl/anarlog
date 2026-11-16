@@ -23,6 +23,7 @@ use gpui::{
 };
 use serde_json::Value;
 
+pub use avatar::facehash;
 pub use data::Selection;
 use data::{ContactsData, RelatedNote};
 use list::ContactsList;

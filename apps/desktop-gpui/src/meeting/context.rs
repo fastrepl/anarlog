@@ -5,7 +5,7 @@ use anlg_template_app::{
     SessionContext, Template, Transcript,
 };
 use desktop_runtime::{
-    CancellationToken, DocumentSnapshot, Result, RuntimeHandle, ServiceError, SessionId,
+    CancellationToken, DocumentId, DocumentSnapshot, Result, RuntimeHandle, ServiceError, SessionId,
 };
 use serde_json::{Value, json};
 
@@ -22,7 +22,9 @@ pub fn resolver(runtime: RuntimeHandle) -> ContextResolver {
         let runtime = runtime.clone();
         Box::pin(async move {
             match purpose {
-                ContextPurpose::Preview => load_context(&runtime, session, false).await,
+                ContextPurpose::Preview => {
+                    load_context(&runtime, session, SummaryRequest::Preview).await
+                }
                 ContextPurpose::Summarize => load(&runtime, session).await,
             }
         })
@@ -30,17 +32,70 @@ pub fn resolver(runtime: RuntimeHandle) -> ContextResolver {
 }
 
 pub async fn load(runtime: &RuntimeHandle, session: SessionId) -> Result<AiContext> {
-    load_context(runtime, session, true).await
+    load_context(
+        runtime,
+        session,
+        SummaryRequest::Prepare {
+            target: None,
+            template: None,
+        },
+    )
+    .await
+}
+
+/// The summary document to write and its context. `target` regenerates that summary;
+/// `template` is an explicit choice (`Some(None)` is Auto), otherwise shipping's enhancer
+/// order applies: the summary's template, the memo's, then the default template.
+pub async fn load_summary(
+    runtime: &RuntimeHandle,
+    session: SessionId,
+    target: Option<DocumentId>,
+    template: Option<Option<String>>,
+) -> Result<(DocumentSnapshot, SummaryContext)> {
+    load_context(
+        runtime,
+        session,
+        SummaryRequest::Prepare { target, template },
+    )
+    .await?
+    .summary
+    .ok_or(ServiceError::Conflict)
+}
+
+enum SummaryRequest {
+    Preview,
+    Prepare {
+        target: Option<DocumentId>,
+        template: Option<Option<String>>,
+    },
+}
+
+/// Shipping's `resolveTemplateId` for a summary: an explicit choice wins, then the first
+/// non-empty of the summary's, the memo's and the default template.
+fn summary_template(
+    explicit: Option<Option<String>>,
+    summary: &str,
+    memo: &str,
+    default: &str,
+) -> String {
+    match explicit {
+        Some(choice) => choice.unwrap_or_default(),
+        None => [summary, memo, default]
+            .into_iter()
+            .find(|id| !id.is_empty())
+            .unwrap_or_default()
+            .to_owned(),
+    }
 }
 
 async fn load_context(
     runtime: &RuntimeHandle,
     session: SessionId,
-    prepare_summary: bool,
+    request: SummaryRequest,
 ) -> Result<AiContext> {
     let settings = preferences(runtime).await?;
     let template_id = settings.text("selected_template_id");
-    let content = snapshot(runtime, session.clone(), template_id, prepare_summary).await?;
+    let content = snapshot(runtime, session.clone(), template_id, request).await?;
     let transcripts = TranscriptStore(runtime.clone())
         .load(session.clone(), CancellationToken::new())?
         .receive()
@@ -101,7 +156,7 @@ async fn load_context(
     let summary = SummaryContext {
         system: EnhanceSystem {
             language,
-            format_override: if settings.text("selected_template_id").is_empty() {
+            format_override: if content.template.is_none() {
                 settings.text("auto_summary_prompt")
             } else {
                 String::new()
@@ -136,8 +191,8 @@ struct Snapshot {
 async fn snapshot(
     runtime: &RuntimeHandle,
     session: SessionId,
-    template_id: String,
-    prepare_summary: bool,
+    default_template: String,
+    request: SummaryRequest,
 ) -> Result<Snapshot> {
     runtime.submit(move |services| async move {
         let rows = services.executor.execute("SELECT title, created_at, event_json, owner_user_id, workspace_id FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0".into(), vec![json!(session)]).await.map_err(failure)?;
@@ -145,38 +200,62 @@ async fn snapshot(
         let title = string(row, "title")?.to_owned();
         let event: Value = serde_json::from_str(string(row, "event_json")?).unwrap_or(Value::Null);
         let event_name = event["title"].as_str().or_else(|| event["name"].as_str()).map(str::to_owned);
-        let template = if template_id.is_empty() { None } else {
-            let rows = services.executor.execute("SELECT title, description, sections_json FROM templates WHERE id = ?".into(), vec![json!(template_id)]).await.map_err(failure)?;
-            rows.first().map(|row| Ok::<_, ServiceError>(EnhanceTemplate {
-                title: string(row, "title")?.into(),
-                description: row["description"].as_str().map(str::to_owned),
-                sections: serde_json::from_str(string(row, "sections_json")?).map_err(failure)?,
-            })).transpose()?
-        };
-        let docs = services.executor.execute("SELECT id, session_id, body_format, body, updated_at, kind FROM session_documents WHERE session_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at, id LIMIT 101".into(), vec![json!(session)]).await.map_err(failure)?;
+        let docs = services.executor.execute("SELECT id, session_id, body_format, body, updated_at, kind, template_id FROM session_documents WHERE session_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at, id LIMIT 101".into(), vec![json!(session)]).await.map_err(failure)?;
         if docs.len() > 100 { return Err(failure("Meeting contains too many documents for AI context.")); }
+        let is_summary = |document: &Value| document["kind"] == "summary" || document["kind"] == "template_output";
+        let (target, explicit) = match request {
+            SummaryRequest::Preview => (None, None),
+            SummaryRequest::Prepare { target, template } => (target, Some(template)),
+        };
+        let chosen = match &target {
+            Some(id) => Some(docs.iter().find(|document| document["id"] == json!(id) && is_summary(document)).ok_or(ServiceError::Conflict)?),
+            None => docs.iter().find(|document| is_summary(document)),
+        };
+        let memo_template = docs.iter().find(|document| document["kind"] == "note").and_then(|document| document["template_id"].as_str()).unwrap_or_default();
+        let chosen_template = chosen.and_then(|document| document["template_id"].as_str()).unwrap_or_default();
+        let template_id = match &explicit {
+            Some(explicit) => summary_template(explicit.clone(), chosen_template, memo_template, &default_template),
+            None => chosen.map_or(default_template.clone(), |_| chosen_template.to_owned()),
+        };
+        let template_row = if template_id.is_empty() { None } else {
+            services.executor.execute("SELECT title, description, sections_json FROM templates WHERE id = ?".into(), vec![json!(template_id)]).await.map_err(failure)?.into_iter().next()
+        };
+        let template = template_row.as_ref().map(|row| Ok::<_, ServiceError>(EnhanceTemplate {
+            title: string(row, "title")?.into(),
+            description: row["description"].as_str().map(str::to_owned),
+            sections: serde_json::from_str(string(row, "sections_json")?).map_err(failure)?,
+        })).transpose()?;
+        let summary_title = template_row.as_ref().and_then(|row| row["title"].as_str()).map(str::trim).filter(|title| !title.is_empty()).unwrap_or("Summary").to_owned();
+        let kind = if template_id.is_empty() { "summary" } else { "template_output" };
         let mut memo = String::new();
-        let mut summary = None;
-        for document in docs {
-            if string(&document, "body")?.len() > MAX_TEXT { return Err(failure("Meeting document exceeds context limit.")); }
-            if document["kind"] == "note" { memo = markdown(string(&document, "body")?, string(&document, "body_format")?)?; }
-            if summary.is_none() && (document["kind"] == "summary" || document["kind"] == "template_output") {
-                summary = Some(document_snapshot(&document)?);
-            }
+        for document in &docs {
+            if string(document, "body")?.len() > MAX_TEXT { return Err(failure("Meeting document exceeds context limit.")); }
+            if document["kind"] == "note" { memo = markdown(string(document, "body")?, string(document, "body_format")?)?; }
         }
-        let summary = match summary {
-            Some(summary) => Some(summary),
-            None if prepare_summary => {
-                let id = uuid::Uuid::new_v4().to_string();
-                let body = json!({"type": "doc", "content": []}).to_string();
+        let summary = match (chosen, explicit.is_some()) {
+            (Some(document), true) if document["template_id"] != json!(template_id) || document["kind"] != kind => {
+                // Shipping's `replaceSummaryDocumentTemplate`, keeping the body until the new
+                // summary replaces it.
+                let id = string(document, "id")?.to_owned();
                 services.executor.execute_transaction(vec![statement(
-                    "INSERT INTO session_documents (id, session_id, workspace_id, kind, template_id, title, body_format, body) SELECT ?, id, workspace_id, 'summary', ?, 'Summary', 'prosemirror_json', ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0",
-                    vec![json!(id), json!(template_id), json!(body), json!(session)], Some(1)),
+                    "UPDATE session_documents SET kind = ?, template_id = ?, title = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND session_id = ? AND kind IN ('summary', 'template_output') AND deleted_at IS NULL",
+                    vec![json!(kind), json!(template_id), json!(summary_title), json!(id), json!(session)], Some(1)),
                 ]).await.map_err(failure)?;
                 let rows = services.executor.execute("SELECT id, session_id, body_format, body, updated_at FROM session_documents WHERE id = ?".into(), vec![json!(id)]).await.map_err(failure)?;
                 Some(document_snapshot(rows.first().ok_or(ServiceError::Conflict)?)?)
             }
-            None => None,
+            (Some(document), _) => Some(document_snapshot(document)?),
+            (None, true) => {
+                let id = uuid::Uuid::new_v4().to_string();
+                let body = json!({"type": "doc", "content": []}).to_string();
+                services.executor.execute_transaction(vec![statement(
+                    "INSERT INTO session_documents (id, session_id, workspace_id, kind, template_id, title, body_format, body) SELECT ?, id, workspace_id, ?, ?, ?, 'prosemirror_json', ? FROM sessions WHERE id = ? AND deleted_at IS NULL AND locked = 0",
+                    vec![json!(id), json!(kind), json!(template_id), json!(summary_title), json!(body), json!(session)], Some(1)),
+                ]).await.map_err(failure)?;
+                let rows = services.executor.execute("SELECT id, session_id, body_format, body, updated_at FROM session_documents WHERE id = ?".into(), vec![json!(id)]).await.map_err(failure)?;
+                Some(document_snapshot(rows.first().ok_or(ServiceError::Conflict)?)?)
+            }
+            (None, false) => None,
         };
         let participants = services.executor.execute("SELECT COALESCE(NULLIF(h.name, ''), p.display_name) AS name, h.job_title FROM session_participants p LEFT JOIN humans h ON h.id = p.human_id AND h.deleted_at IS NULL WHERE p.session_id = ? AND p.source <> 'excluded' AND p.deleted_at IS NULL ORDER BY p.id LIMIT 500".into(), vec![json!(session)]).await.map_err(failure)?
             .into_iter().map(|row| Participant { name: row["name"].as_str().unwrap_or_default().into(), job_title: row["job_title"].as_str().map(str::to_owned) }).collect();
@@ -242,6 +321,19 @@ pub(super) fn document_snapshot(row: &Value) -> Result<DocumentSnapshot> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn summary_template_follows_shipping_enhancer_order() {
+        let pick = |explicit, summary, memo| summary_template(explicit, summary, memo, "default");
+        assert_eq!(pick(Some(None), "summary", "memo"), "");
+        assert_eq!(
+            pick(Some(Some("chosen".into())), "summary", "memo"),
+            "chosen"
+        );
+        assert_eq!(pick(None, "summary", "memo"), "summary");
+        assert_eq!(pick(None, "", "memo"), "memo");
+        assert_eq!(pick(None, "", ""), "default");
+    }
 
     #[test]
     fn source_tool_parts_load_without_rewriting_persisted_history() {

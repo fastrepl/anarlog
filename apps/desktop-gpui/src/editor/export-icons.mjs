@@ -1,18 +1,24 @@
 // Regenerates the editor's checked-in Hugeicons SVGs (the shipping app's icon set):
 // node apps/desktop-gpui/src/editor/export-icons.mjs
 import {
+  AlertCircleIcon,
   AppWindowIcon,
+  ArrowDown01Icon,
+  ArrowDown02Icon,
   ArrowRight01Icon,
+  ArrowUp02Icon,
   AudioWaveformIcon,
   Building03Icon,
   Calendar04Icon,
   CheckIcon,
+  CheckmarkCircle02Icon,
   CodeIcon,
   FileDownloadIcon,
   FileTextIcon,
   Heading01Icon,
   Heading02Icon,
   Heading03Icon,
+  HeartIcon,
   HighlighterIcon,
   HistoryIcon,
   LeftToRightListBulletIcon,
@@ -25,8 +31,13 @@ import {
   MinusIcon,
   MoreHorizontalIcon,
   NoteIcon,
+  PencilEdit01Icon,
   PinIcon,
+  PlusIcon,
   QuotesIcon,
+  RefreshIcon,
+  RotateClockwiseIcon,
+  Search01Icon,
   Share08Icon,
   SparkleIcon,
   SquareIcon,
@@ -38,6 +49,7 @@ import {
   TextUnderlineIcon,
   TrashIcon,
   UserIcon,
+  XIcon,
 } from "@hugeicons/core-free-icons";
 import { writeFileSync } from "node:fs";
 
@@ -47,18 +59,24 @@ const escape = (value) =>
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;");
 for (const [name, data] of Object.entries({
+  AlertCircleIcon,
   AppWindowIcon,
+  ArrowDown01Icon,
+  ArrowDown02Icon,
   ArrowRight01Icon,
+  ArrowUp02Icon,
   AudioWaveformIcon,
   Building03Icon,
   Calendar04Icon,
   CheckIcon,
+  CheckmarkCircle02Icon,
   CodeIcon,
   FileDownloadIcon,
   FileTextIcon,
   Heading01Icon,
   Heading02Icon,
   Heading03Icon,
+  HeartIcon,
   HighlighterIcon,
   HistoryIcon,
   LeftToRightListBulletIcon,
@@ -71,8 +89,13 @@ for (const [name, data] of Object.entries({
   MinusIcon,
   MoreHorizontalIcon,
   NoteIcon,
+  PencilEdit01Icon,
   PinIcon,
+  PlusIcon,
   QuotesIcon,
+  RefreshIcon,
+  RotateClockwiseIcon,
+  Search01Icon,
   Share08Icon,
   SparkleIcon,
   SquareIcon,
@@ -84,6 +107,7 @@ for (const [name, data] of Object.entries({
   TextUnderlineIcon,
   TrashIcon,
   UserIcon,
+  XIcon,
 })) {
   const elements = data
     .map(

@@ -2,6 +2,36 @@
 //! `export-icons.mjs`; `TaskCheck` and `TranscriptAudioIcon` are drawn by hand.
 
 const ICONS: &[(&str, &[u8])] = &[
+    (
+        "AlertCircleIcon",
+        include_bytes!("icons/AlertCircleIcon.svg"),
+    ),
+    (
+        "ArrowDown01Icon",
+        include_bytes!("icons/ArrowDown01Icon.svg"),
+    ),
+    (
+        "ArrowDown02Icon",
+        include_bytes!("icons/ArrowDown02Icon.svg"),
+    ),
+    ("ArrowUp02Icon", include_bytes!("icons/ArrowUp02Icon.svg")),
+    (
+        "CheckmarkCircle02Icon",
+        include_bytes!("icons/CheckmarkCircle02Icon.svg"),
+    ),
+    ("HeartIcon", include_bytes!("icons/HeartIcon.svg")),
+    (
+        "PencilEdit01Icon",
+        include_bytes!("icons/PencilEdit01Icon.svg"),
+    ),
+    ("PlusIcon", include_bytes!("icons/PlusIcon.svg")),
+    ("RefreshIcon", include_bytes!("icons/RefreshIcon.svg")),
+    (
+        "RotateClockwiseIcon",
+        include_bytes!("icons/RotateClockwiseIcon.svg"),
+    ),
+    ("Search01Icon", include_bytes!("icons/Search01Icon.svg")),
+    ("XIcon", include_bytes!("icons/XIcon.svg")),
     ("AppWindowIcon", include_bytes!("icons/AppWindowIcon.svg")),
     (
         "ArrowRight01Icon",

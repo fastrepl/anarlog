@@ -28,4 +28,5 @@ pub mod templates;
 pub mod templates_view;
 mod timeline;
 
+pub use contacts::facehash;
 pub use shell::{WorkspaceAction, WorkspaceView};

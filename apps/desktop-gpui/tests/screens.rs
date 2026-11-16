@@ -141,7 +141,7 @@ fn main() {
         Route::Session(SessionId("s-critique".into())),
     );
     capture(&mut cx, window, &out, "note-summary");
-    click(&mut cx, window, 329., 23.);
+    click(&mut cx, window, 349., 23.);
     capture(&mut cx, window, &out, "note-memos");
     click(&mut cx, window, 362., 23.);
     capture(&mut cx, window, &out, "note-transcript");
@@ -170,6 +170,7 @@ fn main() {
     timeline_details(&mut cx, window, &out);
     calendar_depth(&mut cx, window, &out);
     sharing(&mut cx, window, &out);
+    note_depth(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -453,6 +454,35 @@ fn sharing(
     click(cx, window, 10., 590.);
     cx.update(|cx| account::set(Account::default(), cx));
 }
+
+/// The note's summary states, memo templates and transcript editing (`120-editor.sql`).
+fn note_depth(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    // The active summary tab opens the template picker.
+    open(cx, window, Route::Session(SessionId("s-critique".into())));
+    click(cx, window, 270., 23.);
+    capture(cx, window, out, "summary-picker");
+    type_text(cx, window, &["escape"]);
+    // A transcript without a summary offers to generate one.
+    open(cx, window, Route::Session(SessionId("s-vendor".into())));
+    capture(cx, window, out, "summary-generate");
+    // Its transcript scrolls; the active Transcript tab toggles editing, and a speaker label
+    // opens the speaker picker.
+    click(cx, window, TRANSCRIPT_TAB_AFTER.0, TRANSCRIPT_TAB_AFTER.1);
+    capture(cx, window, out, "transcript-vendor");
+    click(cx, window, 330., 23.);
+    capture(cx, window, out, "transcript-edit");
+    click(cx, window, 290., 68.);
+    capture(cx, window, out, "transcript-speaker");
+    type_text(cx, window, &["escape"]);
+    click(cx, window, 330., 23.);
+    // A note without a memo document: the empty editor with suggested templates.
+    open(cx, window, Route::Session(SessionId("s-intro".into())));
+    capture(cx, window, out, "memo-templates");
+}
 /// Account, plan and seat states, seeded through the same app-wide value the cloud service
 /// publishes after sign-in.
 fn account_states(
@@ -623,7 +653,7 @@ fn meeting(
 
 /// The transcript tab of a finished meeting (Summary, Memos, Transcript) and of a live one
 /// (Memos, Transcript), by window position.
-const TRANSCRIPT_TAB_AFTER: (f32, f32) = (362., 23.);
+const TRANSCRIPT_TAB_AFTER: (f32, f32) = (382., 23.);
 const TRANSCRIPT_TAB_LIVE: (f32, f32) = (315., 23.);
 
 fn set_live(cx: &mut HeadlessAppContext, live: Option<LiveMeeting>) {

@@ -115,6 +115,20 @@ impl TranscriptStore {
         })
     }
 
+    /// Shipping's `updateTranscriptSegmentText`: one edited segment's text back onto its
+    /// words, token by token, the last word taking the rest.
+    pub fn edit_segment_text(
+        &self,
+        id: Arc<str>,
+        word_ids: Vec<String>,
+        text: String,
+    ) -> Result<Reply<()>> {
+        self.mutate(id, move |snapshot| {
+            segment_text(&mut snapshot.words, &word_ids, &text);
+            Ok(())
+        })
+    }
+
     pub fn repair(
         &self,
         id: Arc<str>,
@@ -214,6 +228,26 @@ impl TranscriptStore {
             }
             Err(ServiceError::Conflict)
         })
+    }
+}
+
+fn segment_text(words: &mut [Word], word_ids: &[String], text: &str) {
+    let tokens: Vec<&str> = text.split_whitespace().collect();
+    let selected: Vec<usize> = words
+        .iter()
+        .enumerate()
+        .filter(|(_, word)| word_ids.contains(&word.id))
+        .map(|(index, _)| index)
+        .collect();
+    for (position, index) in selected.iter().enumerate() {
+        let next = if position + 1 == selected.len() {
+            tokens.get(position..).unwrap_or_default().join(" ")
+        } else {
+            tokens.get(position).copied().unwrap_or_default().to_owned()
+        };
+        if words[*index].text != next {
+            words[*index].text = next;
+        }
     }
 }
 
@@ -392,4 +426,34 @@ pub fn integer(value: &Value, key: &str) -> Result<i64> {
     value[key]
         .as_i64()
         .ok_or_else(|| failure(format!("Invalid {key}; original record preserved.")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn edited_segment_text_maps_tokens_onto_words_in_order() {
+        let word = |id: &str, text: &str| Word {
+            id: id.into(),
+            text: text.into(),
+            start_ms: 0,
+            end_ms: 0,
+            channel: 0,
+            extra: Default::default(),
+        };
+        let mut words = vec![
+            word("a", "Hello"),
+            word("b", " there"),
+            word("c", " friend"),
+            word("x", "kept"),
+        ];
+        let ids = ["a", "b", "c"].map(String::from);
+        segment_text(&mut words, &ids, "Hi there  my good friend");
+        let texts: Vec<&str> = words.iter().map(|word| word.text.as_str()).collect();
+        assert_eq!(texts, ["Hi", "there", "my good friend", "kept"]);
+        segment_text(&mut words, &ids, "Bye");
+        let texts: Vec<&str> = words.iter().map(|word| word.text.as_str()).collect();
+        assert_eq!(texts, ["Bye", "", "", "kept"]);
+    }
 }

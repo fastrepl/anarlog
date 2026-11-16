@@ -424,16 +424,25 @@ impl VisibleLayout {
     }
 }
 
+/// Where a row sits: in the document, in a table cell, or as a summary's title line.
+#[derive(Clone, Copy, PartialEq)]
+pub enum RowPlace {
+    Body,
+    Cell,
+    Title,
+}
+
 pub fn render_row(
     row: Arc<Row>,
     block_start: usize,
     current: bool,
-    in_cell: bool,
+    place: RowPlace,
     placeholder: Option<SharedString>,
     window: &mut Window,
     cx: &mut Context<EditorPane>,
 ) -> gpui::AnyElement {
     let colors = theme(window);
+    let title = place == RowPlace::Title;
     let mut base = window.text_style().to_run(0);
     base.color = if row.style.quotes.is_empty() {
         colors.foreground
@@ -526,8 +535,11 @@ pub fn render_row(
     };
     let entity = cx.entity();
     let rule = row.kind == "horizontalRule";
+    // Shipping's `note-title-editor > h1:first-child`: 1.5rem / 1.875rem with 1rem below.
     let font_size = if rule {
         1.
+    } else if title {
+        24.
     } else if row.kind == "heading" {
         match row.level {
             1 => 20.,
@@ -541,6 +553,8 @@ pub fn render_row(
     };
     let line_height = if rule {
         1.
+    } else if title {
+        30.
     } else if row.kind == "heading" {
         match row.level {
             1 => 28.,
@@ -552,7 +566,7 @@ pub fn render_row(
     } else {
         24.
     };
-    let inset = if in_cell { 0. } else { 12. };
+    let inset = if place == RowPlace::Cell { 0. } else { 12. };
     let indent = row.style.indent() as f32;
     let marker_left = inset + indent - 24.;
     let marker_color = colors.foreground.opacity(0.65);
@@ -582,6 +596,13 @@ pub fn render_row(
                     .h(px(1.))
                     .bg(colors.border),
             ),
+            // Padding, not margin: a list item's margin collapses out of its measured height.
+            // Measured against shipping: 1rem below plus the next heading's leading.
+            _ if title => div
+                .pt(px(4.))
+                .pb(px(19.))
+                .pl(px(inset + indent))
+                .pr(px(inset)),
             _ => div
                 .py(px(font_size * 0.125))
                 .pl(px(inset + indent))

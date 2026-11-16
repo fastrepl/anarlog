@@ -46,6 +46,8 @@ pub struct EditorPane {
     pub(super) slash: Option<SlashMenu>,
     pub(super) slash_dismissed: Option<usize>,
     placeholder: Option<SharedString>,
+    /// The note title shown as the first H1, as shipping's summary editor does.
+    title: Option<SharedString>,
     pub(super) mention: Option<MentionMenu>,
     mention_results: MentionResults,
     mention_enabled: bool,
@@ -74,6 +76,28 @@ impl EditorPane {
     pub fn new(
         context: LaneContext,
         init: EditorInit,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::create(context, init, None, window, cx)
+    }
+
+    /// A summary editor: `title` leads the document as its first H1 (added for display
+    /// only; stored bytes change on the first edit, as in shipping).
+    pub fn titled(
+        context: LaneContext,
+        init: EditorInit,
+        title: SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::create(context, init, Some(title), window, cx)
+    }
+
+    fn create(
+        context: LaneContext,
+        init: EditorInit,
+        title: Option<SharedString>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -109,6 +133,8 @@ impl EditorPane {
                     .update(cx, |this, cx| {
                         match result {
                             Ok(Some(snapshot)) => this.remote_revision(snapshot, cx),
+                            // An unsaved memo has no row until its first save creates it.
+                            Ok(None) if this.init.document.is_unsaved() => {}
                             Ok(None) => {
                                 this.message =
                                     "This document was removed remotely; local content retained."
@@ -128,24 +154,25 @@ impl EditorPane {
         .detach();
         let runtime = context.runtime.clone();
         let snapshot = init.document.clone();
+        let display_title = title.clone();
         let load = cx.background_executor().spawn(async move {
-            let document = match snapshot.body_format.as_ref() {
-                "prosemirror_json" => Document::parse(snapshot.body.clone())?,
+            let body: Arc<str> = match snapshot.body_format.as_ref() {
+                "prosemirror_json" => snapshot.body.clone(),
                 // Shipping decodes imported Markdown for display; the first edit saves
                 // ProseMirror JSON in its place, as shipping does.
-                "markdown" => Document::parse(
-                    anlg_tiptap::md_to_tiptap_json(&snapshot.body)?
-                        .to_string()
-                        .into(),
-                )?,
+                "markdown" => anlg_tiptap::md_to_tiptap_json(&snapshot.body)?
+                    .to_string()
+                    .into(),
                 format => {
                     return Err(format!(
                         "Unsupported stored format: {format}. Original bytes retained read-only."
                     ));
                 }
             };
-            let (journal, events) =
-                SaveJournal::start(runtime, snapshot).map_err(|error| error.to_string())?;
+            let document = Document::parse(with_title(body, display_title.as_deref()))?;
+            let (journal, events) = SaveJournal::start(runtime, snapshot)
+                .await
+                .map_err(|error| error.to_string())?;
             Ok((document, journal, events))
         });
         cx.spawn(async move |entity, cx| {
@@ -213,6 +240,7 @@ impl EditorPane {
             slash: None,
             slash_dismissed: None,
             placeholder: Some("Start writing...".into()),
+            title,
             mention: None,
             mention_results: MentionResults::default(),
             mention_enabled: true,
@@ -246,6 +274,28 @@ impl EditorPane {
 
     pub fn is_dirty(&self) -> bool {
         self.dirty
+    }
+
+    /// Shipping's `isPristineNoteDoc`: nothing but one empty paragraph.
+    pub fn is_pristine(&self) -> bool {
+        self.model
+            .as_ref()
+            .is_some_and(|model| super::title::is_pristine(&model.document.root.children))
+    }
+
+    /// Shipping's memo template: each titled section as an H2 over an empty paragraph,
+    /// replacing the (pristine) memo in one undoable edit that autosaves.
+    pub fn apply_template(&mut self, sections: &[&str], cx: &mut Context<Self>) {
+        let Some(body) = super::title::template_body(sections) else {
+            return;
+        };
+        let Some(model) = &mut self.model else {
+            return;
+        };
+        let before = model.revision;
+        let result = Document::parse(body.to_string().into())
+            .and_then(|fragment| model.replace_all(fragment));
+        self.edited(before, result, cx);
     }
 
     pub fn set_read_only(&mut self, read_only: bool, cx: &mut Context<Self>) {
@@ -1091,7 +1141,7 @@ impl EditorPane {
             return;
         }
         let generation = self.external_generation;
-        let body = snapshot.body.clone();
+        let body = with_title(snapshot.body.clone(), self.title.as_deref());
         let job = cx
             .background_executor()
             .spawn(async move { Document::parse(body) });
@@ -1174,6 +1224,14 @@ impl EditorPane {
         // Shipping's placeholder plugin labels the empty text block holding the selection anchor.
         let anchor = self.model.as_ref().map(|model| model.selection.anchor);
         let placeholder_text = self.placeholder.clone();
+        let first_row = cached
+            .as_ref()
+            .and_then(|block| block.rows.first())
+            .map(|row| row.id);
+        let titled = self.title.is_some() && index == 0;
+        let is_title = |row: &surface::Row| {
+            titled && Some(row.id) == first_row && row.kind == "heading" && row.level == 1
+        };
         let placeholder = |row: &surface::Row| {
             (row.text.is_empty() && anchor == Some(start + row.start))
                 .then(|| placeholder_text.clone())
@@ -1221,7 +1279,7 @@ impl EditorPane {
                                         row.clone(),
                                         start,
                                         current,
-                                        true,
+                                        surface::RowPlace::Cell,
                                         placeholder(row),
                                         window,
                                         cx,
@@ -1243,8 +1301,14 @@ impl EditorPane {
                             row.clone(),
                             start,
                             current,
-                            false,
-                            placeholder(row),
+                            if is_title(row) {
+                                surface::RowPlace::Title
+                            } else {
+                                surface::RowPlace::Body
+                            },
+                            placeholder(row).or_else(|| {
+                                (is_title(row) && row.text.is_empty()).then(|| "Untitled".into())
+                            }),
                             window,
                             cx,
                         )
@@ -1954,4 +2018,10 @@ impl Drop for EditorPane {
             cancel.cancel();
         }
     }
+}
+
+fn with_title(body: Arc<str>, title: Option<&str>) -> Arc<str> {
+    title
+        .and_then(|title| super::title::ensure_first_line_title(&body, title))
+        .map_or(body, Into::into)
 }

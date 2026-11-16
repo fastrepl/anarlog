@@ -3,48 +3,87 @@
 //! words), rendered by the same `anlg_transcript` segmenter. While a meeting is live, stored
 //! segments merge with the live ones and partial words show faded and italic.
 
-use std::collections::HashSet;
+mod speakers;
+
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anlg_listener_core::LiveTranscriptSegment;
 use anlg_transcript::{
-    ChannelProfile, RenderTranscriptRequest, RenderedTranscriptSegment, SegmentKey, SegmentWord,
-    SpeakerLabeler, render_transcript_segments,
+    ChannelProfile, RenderTranscriptHuman, RenderTranscriptRequest, RenderedTranscriptSegment,
+    SegmentKey, SegmentWord, SpeakerLabeler, render_transcript_segments,
 };
 use desktop_runtime::{RuntimeHandle, SessionId};
 use gpui::{
-    App, Context, Entity, FontStyle, FontWeight, HighlightStyle, Hsla, Render, ScrollHandle,
-    SharedString, StyledText, Subscription, Task, Window, div, prelude::*, px, rgb, svg,
+    AnyElement, App, Context, Entity, FocusHandle, Focusable, FontStyle, FontWeight,
+    HighlightStyle, Hsla, InteractiveText, Render, ScrollHandle, SharedString, StyledText,
+    Subscription, Task, Window, div, point, prelude::*, px, rgb, rgba, svg,
 };
 use serde_json::{Value, json};
 
 use crate::{
     meeting::{
+        MeetingServices,
         live::{CaptureMode, LiveMeeting, LiveState, SessionMode},
         model::Transcript,
+        playback::Command,
+        store::TranscriptStore,
         widgets::{dancing_sticks, spinner},
     },
-    ui::theme::{RADIUS, Theme, theme},
+    ui::{
+        input::{InputEvent, TextInput},
+        theme::{RADIUS, Theme, theme},
+    },
 };
 
 pub struct TranscriptView {
+    runtime: RuntimeHandle,
     session: SessionId,
     segments: Vec<RenderedTranscriptSegment>,
+    /// Each stored word's transcript, for edits and speaker assignment.
+    word_transcripts: HashMap<String, Arc<str>>,
     loaded: bool,
-    audio: bool,
+    audio: Option<PathBuf>,
     error: Option<String>,
     live: Option<Entity<LiveState>>,
     scroll: ScrollHandle,
+    /// Shipping's transcript edit mode (the pencil on the Transcript tab).
+    edit_mode: bool,
+    editors: HashMap<String, SegmentEditor>,
+    /// The word under the pointer, by row and word index.
+    hovered: Option<(usize, usize)>,
+    /// Playback position in this session's audio, for the current-line highlight.
+    playing_ms: Option<i64>,
+    picker: Option<speakers::SpeakerPicker>,
+    focus: FocusHandle,
+    _playback: Option<Task<()>>,
     _watch: Task<()>,
     _live: Option<Subscription>,
 }
 
+/// One segment's text while editing (shipping's `EditableSegmentText`).
+struct SegmentEditor {
+    input: Entity<TextInput>,
+    original: String,
+    transcript: Arc<str>,
+    word_ids: Vec<String>,
+    /// Bumped per keystroke; a pause in typing saves, so closing the note keeps the edit.
+    revision: u64,
+    _subscriptions: [Subscription; 2],
+}
+
 impl TranscriptView {
     pub fn new(runtime: RuntimeHandle, session: SessionId, cx: &mut Context<Self>) -> Self {
+        // Humans named by speaker hints label their segments, as shipping's renderer does.
         let reply = runtime.watch_query(
-            "SELECT id, started_at_ms, words_json, speaker_hints_json FROM transcripts
-             WHERE session_id = ? AND deleted_at IS NULL ORDER BY started_at_ms, id"
+            "SELECT t.id, t.started_at_ms, t.words_json, t.speaker_hints_json,
+               (SELECT json_group_array(json_object('id', h.id, 'name', h.name)) FROM humans h
+                WHERE h.deleted_at IS NULL AND instr(t.speaker_hints_json, h.id) > 0) AS humans
+             FROM transcripts t
+             WHERE t.session_id = ? AND t.deleted_at IS NULL ORDER BY t.started_at_ms, t.id"
                 .into(),
             vec![json!(session)],
         );
@@ -70,7 +109,10 @@ impl TranscriptView {
                 if this
                     .update(cx, |this, cx| {
                         match rendered {
-                            Ok(segments) => this.segments = segments,
+                            Ok((segments, words)) => {
+                                this.segments = segments;
+                                this.word_transcripts = words;
+                            }
                             Err(error) => this.error = Some(error),
                         }
                         if let Some(error) = error {
@@ -97,24 +139,196 @@ impl TranscriptView {
             })
         });
         Self {
+            runtime,
             session,
             segments: Vec::new(),
+            word_transcripts: HashMap::new(),
             loaded: false,
-            audio: false,
+            audio: None,
             error: None,
             live,
             scroll: ScrollHandle::new(),
+            edit_mode: false,
+            editors: HashMap::new(),
+            hovered: None,
+            playing_ms: None,
+            picker: None,
+            focus: cx.focus_handle(),
+            _playback: None,
             _watch: watch,
             _live: observe,
         }
     }
 
-    /// Whether the session has saved audio, which decides the empty screen's copy.
-    pub fn set_audio(&mut self, audio: bool, cx: &mut Context<Self>) {
-        if self.audio != audio {
-            self.audio = audio;
-            cx.notify();
+    /// The session's saved audio: it decides the empty screen's copy, makes words seekable
+    /// and follows playback for the current line.
+    pub fn set_audio(&mut self, audio: Option<PathBuf>, cx: &mut Context<Self>) {
+        if self.audio == audio {
+            return;
         }
+        self.audio = audio;
+        self.playing_ms = None;
+        self._playback = self.audio.clone().and_then(|path| {
+            let playback = cx.try_global::<MeetingServices>()?.playback.clone();
+            Some(cx.spawn(async move |this, cx| {
+                loop {
+                    cx.background_executor()
+                        .timer(Duration::from_millis(100))
+                        .await;
+                    let snapshot = playback.snapshot();
+                    let ms = (snapshot.path.as_ref() == Some(&path))
+                        .then_some(snapshot.position.as_millis() as i64)
+                        .filter(|ms| *ms > 0);
+                    if this
+                        .update(cx, |this, cx| {
+                            if this.playing_ms != ms {
+                                this.playing_ms = ms;
+                                cx.notify();
+                            }
+                        })
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            }))
+        });
+        cx.notify();
+    }
+
+    pub fn edit_mode(&self) -> bool {
+        self.edit_mode
+    }
+
+    /// Leaving edit mode saves every changed segment, as shipping's blur does.
+    pub fn set_edit_mode(&mut self, edit_mode: bool, cx: &mut Context<Self>) {
+        if self.edit_mode == edit_mode {
+            return;
+        }
+        if !edit_mode {
+            let ids: Vec<String> = self.editors.keys().cloned().collect();
+            for id in ids {
+                self.commit(&id, cx);
+            }
+            self.editors.clear();
+        }
+        self.edit_mode = edit_mode;
+        cx.notify();
+    }
+
+    fn editor(
+        &mut self,
+        row: &Row,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Entity<TextInput>> {
+        if let Some(editor) = self.editors.get(&row.id) {
+            return Some(editor.input.clone());
+        }
+        let word_ids: Vec<String> = row
+            .words
+            .iter()
+            .filter_map(|word| word.id.clone())
+            .collect();
+        let transcript = self.word_transcripts.get(word_ids.first()?)?.clone();
+        let original = normalize(
+            &row.words
+                .iter()
+                .map(|word| word.text.trim())
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
+        let input = cx.new(|cx| {
+            let mut input = TextInput::new("", cx).inline().multiline();
+            input.set_text(original.clone(), cx);
+            input
+        });
+        let id = row.id.clone();
+        let blur = cx.on_blur(&input.focus_handle(cx), window, {
+            let id = id.clone();
+            move |this, _, cx| this.commit(&id, cx)
+        });
+        // Cmd/Ctrl-Enter finishes the segment, like shipping's editor.
+        let submit = cx.subscribe_in(&input, window, {
+            let id = id.clone();
+            move |this, _, event, window, cx| match event {
+                InputEvent::Submitted => window.blur(cx),
+                InputEvent::Changed => this.save_after_pause(&id, cx),
+                InputEvent::Rejected => {}
+            }
+        });
+        self.editors.insert(
+            id,
+            SegmentEditor {
+                input: input.clone(),
+                original,
+                transcript,
+                word_ids,
+                revision: 0,
+                _subscriptions: [blur, submit],
+            },
+        );
+        Some(input)
+    }
+
+    fn save_after_pause(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some(editor) = self.editors.get_mut(id) else {
+            return;
+        };
+        editor.revision += 1;
+        let revision = editor.revision;
+        let id = id.to_owned();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(800))
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                if this
+                    .editors
+                    .get(&id)
+                    .is_some_and(|editor| editor.revision == revision)
+                {
+                    this.commit(&id, cx);
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// Saves a segment's edited text when it changed (shipping's blur handler).
+    fn commit(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some(editor) = self.editors.get_mut(id) else {
+            return;
+        };
+        let text = normalize(&editor.input.read(cx).buffer.text);
+        if text == editor.original || editor.word_ids.is_empty() {
+            return;
+        }
+        editor.original = text.clone();
+        let reply = TranscriptStore(self.runtime.clone()).edit_segment_text(
+            editor.transcript.clone(),
+            editor.word_ids.clone(),
+            text,
+        );
+        cx.spawn(async move |this, cx| {
+            if let Err(error) = async { reply?.receive().await }.await {
+                let _ = this.update(cx, |this, cx| {
+                    this.error = Some(format!("Transcript edit not saved: {error}"));
+                    cx.notify();
+                });
+            }
+        })
+        .detach();
+    }
+
+    /// Shipping's `seekAndPlay` for a clicked word.
+    fn seek(&mut self, start_ms: i64, cx: &mut Context<Self>) {
+        let (Some(_), Some(services)) = (&self.audio, cx.try_global::<MeetingServices>()) else {
+            return;
+        };
+        let playback = services.playback.clone();
+        let _ = playback.send(Command::Seek(Duration::from_millis(start_ms.max(0) as u64)));
+        let _ = playback.send(Command::Play);
     }
 
     fn live(&self, cx: &App) -> Option<LiveMeeting> {
@@ -169,19 +383,40 @@ fn screen(live: Option<&LiveMeeting>, has_words: bool, audio: bool) -> Screen {
     Screen::Ready
 }
 
-fn segments(rows: &[Value]) -> Result<Vec<RenderedTranscriptSegment>, String> {
+type Rendered = (Vec<RenderedTranscriptSegment>, HashMap<String, Arc<str>>);
+
+fn segments(rows: &[Value]) -> Result<Rendered, String> {
     let parse = |row: &Value, key: &str| -> Result<Vec<Value>, String> {
         serde_json::from_str(row[key].as_str().unwrap_or("[]")).map_err(|error| error.to_string())
     };
     let mut transcripts = Vec::new();
+    let mut word_transcripts = HashMap::new();
+    let mut humans = Vec::new();
     for row in rows {
+        let id: Arc<str> = row["id"].as_str().unwrap_or_default().into();
+        for human in parse(row, "humans")? {
+            if let (Some(human_id), Some(name)) = (human["id"].as_str(), human["name"].as_str())
+                && !humans
+                    .iter()
+                    .any(|known: &RenderTranscriptHuman| known.human_id == human_id)
+            {
+                humans.push(RenderTranscriptHuman {
+                    human_id: human_id.into(),
+                    name: name.into(),
+                });
+            }
+        }
         let words = parse(row, "words_json")?
             .into_iter()
             .map(serde_json::from_value)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| error.to_string())?;
+        for word in &words {
+            let word: &crate::meeting::model::Word = word;
+            word_transcripts.insert(word.id.clone(), id.clone());
+        }
         let transcript = Transcript {
-            id: row["id"].as_str().unwrap_or_default().into(),
+            id: id.clone(),
             started_at: row["started_at_ms"].as_i64().unwrap_or(0),
             revision: 0,
             sequence: 0,
@@ -194,19 +429,26 @@ fn segments(rows: &[Value]) -> Result<Vec<RenderedTranscriptSegment>, String> {
                 .map_err(|error| error.to_string())?,
         );
     }
-    Ok(render_transcript_segments(RenderTranscriptRequest {
+    let segments = render_transcript_segments(RenderTranscriptRequest {
         speaker_context: None,
         preview: None,
         transcripts,
         participant_human_ids: Vec::new(),
         self_human_id: None,
-        humans: Vec::new(),
-    }))
+        humans,
+    });
+    Ok((segments, word_transcripts))
+}
+
+/// Shipping's `normalizeEditableTranscriptText`.
+fn normalize(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// One rendered segment: who spoke, and their words.
 #[derive(Debug)]
 struct Row {
+    id: String,
     key: SegmentKey,
     label: SharedString,
     start_ms: i64,
@@ -242,6 +484,7 @@ fn merge(stored: &[RenderedTranscriptSegment], live: &[Arc<LiveTranscriptSegment
             continue;
         }
         rows.push(Row {
+            id: segment.id.clone(),
             key: segment.key.clone(),
             label: segment.speaker_label.clone().into(),
             start_ms: segment.start_ms,
@@ -258,6 +501,7 @@ fn merge(stored: &[RenderedTranscriptSegment], live: &[Arc<LiveTranscriptSegment
                 format!("Speaker {}", labeler.unknown_speaker_number(&segment.key)).into()
             });
         rows.push(Row {
+            id: segment.id.clone(),
             key: segment.key.clone(),
             label,
             start_ms: segment.start_ms,
@@ -283,32 +527,99 @@ fn merge(stored: &[RenderedTranscriptSegment], live: &[Arc<LiveTranscriptSegment
     merged
 }
 
-/// Words trimmed and joined by spaces, with partial words styled `opacity-60 italic`.
-fn row_text(row: &Row) -> (String, Vec<(Range<usize>, HighlightStyle)>) {
+type RowText = (
+    String,
+    Vec<(Range<usize>, HighlightStyle)>,
+    Vec<Range<usize>>,
+);
+
+/// A segment's words joined by spaces: partial words `opacity-60 italic`, the sentence being
+/// played on yellow (shipping's `data-line-current`), the hovered seekable word on the accent.
+/// Also returns each word's byte range, for clicks.
+fn row_text(
+    row: &Row,
+    current_ms: Option<i64>,
+    hovered: Option<usize>,
+    dark: bool,
+    accent: Hsla,
+) -> RowText {
     if row.words.is_empty() {
-        return (
-            row.text.split_whitespace().collect::<Vec<_>>().join(" "),
-            Vec::new(),
-        );
+        let text = row.text.split_whitespace().collect::<Vec<_>>().join(" ");
+        return (text, Vec::new(), Vec::new());
     }
     let partial = HighlightStyle {
         font_style: Some(FontStyle::Italic),
         fade_out: Some(0.4),
         ..Default::default()
     };
+    let current_line = HighlightStyle {
+        background_color: Some(
+            if dark {
+                rgba(0x713f124d)
+            } else {
+                rgba(0xfef9c380)
+            }
+            .into(),
+        ),
+        ..Default::default()
+    };
     let mut text = String::new();
     let mut highlights = Vec::new();
-    for word in &row.words {
-        if !text.is_empty() {
-            text.push(' ');
-        }
+    let mut ranges = Vec::new();
+    for line in sentence_lines(&row.words) {
         let start = text.len();
-        text.push_str(word.text.trim());
-        if !word.is_final {
-            highlights.push((start..text.len(), partial));
+        let words = &row.words[line.clone()];
+        for word in words {
+            if !text.is_empty() {
+                text.push(' ');
+            }
+            let begin = text.len();
+            text.push_str(word.text.trim());
+            ranges.push(begin..text.len());
+        }
+        let first = words.first().map_or(0, |word| word.start_ms);
+        let last = words.last().map_or(0, |word| word.end_ms);
+        if current_ms.is_some_and(|ms| ms >= first && ms <= last) {
+            highlights.push((start..text.len(), current_line));
         }
     }
-    (text, highlights)
+    for (index, word) in row.words.iter().enumerate() {
+        if !word.is_final {
+            highlights.push((ranges[index].clone(), partial));
+        }
+    }
+    if let Some(index) = hovered.filter(|index| seekable(&row.words[*index])) {
+        highlights.push((
+            ranges[index].clone(),
+            HighlightStyle {
+                background_color: Some(accent.opacity(0.6)),
+                ..Default::default()
+            },
+        ));
+    }
+    (text, highlights, ranges)
+}
+
+/// Shipping's `groupWordsIntoLines`: sentences end at `.`, `?` or `!`.
+fn sentence_lines(words: &[SegmentWord]) -> Vec<Range<usize>> {
+    let mut lines = Vec::new();
+    let mut start = 0;
+    for (index, word) in words.iter().enumerate() {
+        if word.text.trim().ends_with(['.', '?', '!']) {
+            lines.push(start..index + 1);
+            start = index + 1;
+        }
+    }
+    if start < words.len() {
+        lines.push(start..words.len());
+    }
+    lines
+}
+
+/// Shipping's `isTranscriptWordSeekable` rejects only synthetic text timing, which rendered
+/// segments do not carry; partial live words are never played back.
+fn seekable(word: &SegmentWord) -> bool {
+    word.is_final
 }
 
 /// Shipping's `getSegmentColor`: golden-angle hues in OKLCH, remote speakers rotated 180°.
@@ -466,7 +777,7 @@ impl Render for TranscriptView {
             .segments
             .iter()
             .any(|segment| !segment.words.is_empty());
-        let screen = screen(live.as_ref(), has_words, self.audio);
+        let screen = screen(live.as_ref(), has_words, self.audio.is_some());
         let frame = div().id("note-transcript").size_full().relative();
         match screen {
             Screen::Listening { finalizing } => frame.child(if finalizing {
@@ -558,57 +869,277 @@ impl Render for TranscriptView {
                     &self.segments,
                     live.as_ref().map(|live| &live.segments[..]).unwrap_or(&[]),
                 );
-                frame.child(
-                    div()
-                        .id("note-transcript-scroll")
-                        .size_full()
-                        .overflow_y_scroll()
-                        .track_scroll(&self.scroll)
-                        .px_1()
-                        .pt_2()
-                        .pb(px(80.))
-                        .when_some(self.error.clone(), |view, error| {
-                            view.child(
-                                div()
-                                    .px_2()
-                                    .text_sm()
-                                    .text_color(colors.muted_foreground)
-                                    .child(format!("Transcript unavailable: {error}")),
-                            )
-                        })
-                        .children(rows.iter().enumerate().map(|(index, row)| {
-                            let (text, highlights) = row_text(row);
-                            div().when(index > 0, |view| view.pt_4()).child(
-                                div()
-                                    .px_2()
-                                    .rounded(px(8.))
-                                    .child(
-                                        div()
-                                            .py_1()
-                                            .text_xs()
-                                            .line_height(px(16.))
-                                            .font_weight(FontWeight::LIGHT)
-                                            .text_color(segment_color(&row.key, dark))
-                                            .child(row.label.clone()),
-                                    )
-                                    .child(
-                                        div()
-                                            .mt(px(6.))
-                                            .text_sm()
-                                            .line_height(px(22.75))
-                                            .text_color(colors.foreground)
-                                            .child(
-                                                StyledText::new(text).with_highlights(highlights),
-                                            ),
-                                    ),
-                            )
-                        }))
-                        .when_some(paused, |view, message| {
-                            view.child(div().pt_8().child(paused_notice(colors, message)))
-                        }),
-                )
+                // Shipping edits and seeks only once the meeting is over.
+                let editing = self.edit_mode && live.is_none();
+                let audio = self.audio.is_some() && live.is_none();
+                let mut children = Vec::with_capacity(rows.len());
+                for (index, row) in rows.iter().enumerate() {
+                    let editor = if editing {
+                        self.editor(row, window, cx)
+                    } else {
+                        None
+                    };
+                    let header = self.segment_header(index, row, editing, dark, colors, cx);
+                    let body = div()
+                        .mt(px(6.))
+                        .text_sm()
+                        .line_height(px(22.75))
+                        .text_color(colors.foreground);
+                    let body = match editor {
+                        Some(input) => body.child(input).into_any_element(),
+                        None => body
+                            .child(self.words(index, row, audio, colors, cx))
+                            .into_any_element(),
+                    };
+                    children.push(
+                        div()
+                            .when(index > 0, |view| view.pt_4())
+                            .child(div().px_2().rounded(px(8.)).child(header).child(body))
+                            .into_any_element(),
+                    );
+                }
+                frame
+                    .child(
+                        div()
+                            .id("note-transcript-scroll")
+                            .size_full()
+                            .overflow_y_scroll()
+                            .track_scroll(&self.scroll)
+                            .px_1()
+                            .pt_2()
+                            .pb(px(80.))
+                            .when_some(self.error.clone(), |view, error| {
+                                view.child(
+                                    div()
+                                        .px_2()
+                                        .text_sm()
+                                        .text_color(colors.muted_foreground)
+                                        .child(format!("Transcript unavailable: {error}")),
+                                )
+                            })
+                            .children(children)
+                            .when_some(paused, |view, message| {
+                                view.child(div().pt_8().child(paused_notice(colors, message)))
+                            }),
+                    )
+                    .children(self.scroll_controls(colors, cx))
             }
         }
+    }
+}
+
+impl TranscriptView {
+    /// Shipping's `SegmentHeader`: the select circle while editing, then the speaker label,
+    /// which opens the speaker picker.
+    fn segment_header(
+        &self,
+        index: usize,
+        row: &Row,
+        editing: bool,
+        dark: bool,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let color = segment_color(&row.key, dark);
+        let open = self
+            .picker
+            .as_ref()
+            .is_some_and(|picker| picker.segment == row.id);
+        let target = speakers::Target::new(row, &self.word_transcripts);
+        div()
+            .relative()
+            .py_1()
+            .flex()
+            .items_center()
+            .gap_2()
+            .text_xs()
+            .line_height(px(16.))
+            .font_weight(FontWeight::LIGHT)
+            .when(editing, |header| {
+                header.child(
+                    div()
+                        .size_4()
+                        .flex_shrink_0()
+                        .rounded_full()
+                        .border_1()
+                        .border_color(colors.muted_foreground.opacity(0.4)),
+                )
+            })
+            .child(
+                div()
+                    .relative()
+                    .child(
+                        div()
+                            .id(("speaker", index))
+                            .my(px(-2.))
+                            .py(px(2.))
+                            .pr_2()
+                            .cursor_pointer()
+                            .text_color(color)
+                            .when(open, |label| label.underline())
+                            .hover(|style| style.underline())
+                            .when_some(target, |label, target| {
+                                label.on_click(cx.listener(move |this, _, window, cx| {
+                                    this.open_picker(target.clone(), window, cx)
+                                }))
+                            })
+                            .child(row.label.clone()),
+                    )
+                    .when(open, |view| {
+                        view.children(self.speaker_picker(colors, cx).map(|picker| {
+                            div().absolute().top(px(-2.)).left_full().child(
+                                gpui::deferred(gpui::anchored().snap_to_window().child(picker))
+                                    .with_priority(1),
+                            )
+                        }))
+                    }),
+            )
+            .into_any_element()
+    }
+
+    /// The segment's words; with audio, each seeks playback (shipping's `WordSpan`).
+    fn words(
+        &self,
+        index: usize,
+        row: &Row,
+        audio: bool,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let hovered = self
+            .hovered
+            .filter(|(row, _)| audio && *row == index)
+            .map(|(_, word)| word);
+        let current = self.playing_ms.filter(|_| audio);
+        let dark = colors.background.l < 0.5;
+        let (text, highlights, ranges) = row_text(row, current, hovered, dark, colors.accent);
+        let text = StyledText::new(text).with_highlights(highlights);
+        if !audio || ranges.is_empty() {
+            return text.into_any_element();
+        }
+        let starts: Vec<i64> = row.words.iter().map(|word| word.start_ms).collect();
+        let view = cx.entity().downgrade();
+        let hover_view = view.clone();
+        let word_ranges = ranges.clone();
+        InteractiveText::new(("transcript-words", index), text)
+            .on_click(ranges, move |word, _, cx| {
+                let start = starts[word];
+                let _ = view.update(cx, |this, cx| this.seek(start, cx));
+            })
+            .on_hover(move |position, _, _, cx| {
+                let word = position.and_then(|position| {
+                    word_ranges
+                        .iter()
+                        .position(|range| range.contains(&position))
+                });
+                let _ = hover_view.update(cx, |this, cx| {
+                    let hovered = word.map(|word| (index, word));
+                    if this.hovered != hovered {
+                        this.hovered = hovered;
+                        cx.notify();
+                    }
+                });
+            })
+            .into_any_element()
+    }
+
+    /// Shipping's scroll-to-top and scroll-to-bottom controls, shown once the transcript scrolls.
+    fn scroll_controls(&self, colors: Theme, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let max = self.scroll.max_offset().y;
+        if max <= px(0.) {
+            return None;
+        }
+        let offset = -self.scroll.offset().y;
+        let (at_top, at_bottom) = (offset <= px(0.), offset >= max);
+        let button = |id: &'static str, path: &'static str, disabled: bool| {
+            div()
+                .id(id)
+                .size_8()
+                .flex()
+                .items_center()
+                .justify_center()
+                .when_else(
+                    disabled,
+                    |button| button.opacity(0.3),
+                    move |button| {
+                        button
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(colors.muted.opacity(0.55)))
+                    },
+                )
+                .child(
+                    svg()
+                        .path(path)
+                        .size(px(14.))
+                        .text_color(colors.muted_foreground.opacity(0.45))
+                        .group_hover("transcript-scroll", move |style| {
+                            style.text_color(colors.foreground)
+                        }),
+                )
+        };
+        Some(
+            div()
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .right_1()
+                .flex()
+                .items_center()
+                .child(
+                    div()
+                        .id("transcript-scroll-controls")
+                        .group("transcript-scroll")
+                        .flex()
+                        .flex_col()
+                        .overflow_hidden()
+                        .rounded(px(RADIUS))
+                        .border_1()
+                        .border_color(gpui::transparent_black())
+                        .hover(move |style| {
+                            style
+                                .border_color(colors.border.opacity(0.5))
+                                .bg(colors.background.opacity(0.65))
+                                .shadow_sm()
+                        })
+                        .child(
+                            button("transcript-scroll-top", "editor/ArrowUp02Icon.svg", at_top)
+                                .when(!at_top, |button| {
+                                    button.on_click(cx.listener(|this, _, _, cx| {
+                                        this.scroll.set_offset(point(px(0.), px(0.)));
+                                        cx.notify();
+                                    }))
+                                }),
+                        )
+                        .child(
+                            div()
+                                .h(px(1.))
+                                .w_full()
+                                .bg(colors.border.opacity(0.2))
+                                .group_hover("transcript-scroll", move |style| {
+                                    style.bg(colors.border.opacity(0.6))
+                                }),
+                        )
+                        .child(
+                            button(
+                                "transcript-scroll-bottom",
+                                "editor/ArrowDown02Icon.svg",
+                                at_bottom,
+                            )
+                            .when(!at_bottom, |button| {
+                                button.on_click(cx.listener(|this, _, _, cx| {
+                                    this.scroll.scroll_to_bottom();
+                                    cx.notify();
+                                }))
+                            }),
+                        ),
+                ),
+        )
+    }
+}
+
+impl Focusable for TranscriptView {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
+        self.focus.clone()
     }
 }
 
@@ -628,7 +1159,8 @@ mod tests {
             ]).to_string(),
             "speaker_hints_json": "[]"
         })];
-        let segments = segments(&rows).unwrap();
+        let (segments, words) = segments(&rows).unwrap();
+        assert_eq!(words.get("c").map(AsRef::as_ref), Some("t"));
         assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].text.trim(), "Hello there.");
         assert_eq!(segments[1].key.channel, ChannelProfile::RemoteParty);
@@ -692,10 +1224,51 @@ mod tests {
         let rows = merge(&stored, &live);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].label.as_ref(), "Speaker 1");
-        let (text, highlights) = row_text(&rows[0]);
+        let (text, highlights, _) = row_text(&rows[0], None, None, false, gpui::black());
         assert_eq!(text, "Hello there frie");
         assert_eq!(highlights.len(), 1);
         assert_eq!(&text[highlights[0].0.clone()], "frie");
+    }
+
+    #[test]
+    fn the_played_sentence_is_highlighted_and_words_keep_their_ranges() {
+        let key = SegmentKey {
+            channel: ChannelProfile::DirectMic,
+            speaker_index: None,
+            speaker_human_id: None,
+        };
+        let timed = |id: &str, text: &str, start_ms: i64, end_ms: i64| SegmentWord {
+            start_ms,
+            end_ms,
+            ..word(Some(id), text, true)
+        };
+        let row = Row {
+            id: "s".into(),
+            key,
+            label: "Speaker 1".into(),
+            start_ms: 0,
+            words: vec![
+                timed("a", "One.", 0, 100),
+                timed("b", " Two", 200, 300),
+                timed("c", " three.", 300, 400),
+            ],
+            text: String::new(),
+        };
+        let (text, highlights, ranges) = row_text(&row, Some(250), Some(0), false, gpui::black());
+        assert_eq!(text, "One. Two three.");
+        assert_eq!(&text[ranges[1].clone()], "Two");
+        let playing = highlights
+            .iter()
+            .find(|(_, style)| style.background_color.is_some_and(|color| color.a < 0.6))
+            .map(|(range, _)| &text[range.clone()]);
+        // Shipping's line span holds the space before it too.
+        assert_eq!(playing, Some(" Two three."));
+        assert_eq!(
+            highlights.len(),
+            2,
+            "the played sentence and the hovered word"
+        );
+        assert_eq!(normalize("  Hi \n there "), "Hi there");
     }
 
     #[test]

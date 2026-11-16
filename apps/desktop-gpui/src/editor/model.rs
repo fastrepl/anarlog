@@ -368,6 +368,16 @@ impl EditorModel {
         self.replace(range, text)
     }
 
+    /// Replaces the whole document with `fragment` in one undoable step (shipping's
+    /// `replaceContent`).
+    pub fn replace_all(&mut self, fragment: Document) -> EditResult<()> {
+        self.select(Selection {
+            anchor: self.document.edge_caret(false),
+            head: self.document.edge_caret(true),
+        });
+        self.insert_slice(fragment, false)
+    }
+
     pub fn insert_slice(&mut self, fragment: Document, open: bool) -> EditResult<()> {
         self.transaction(|model| model.insert_slice_inner(fragment, open))
     }

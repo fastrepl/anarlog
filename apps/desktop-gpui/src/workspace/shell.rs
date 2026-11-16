@@ -310,6 +310,7 @@ impl WorkspaceView {
             }
             NoteEvent::RenameFailed => this.pending = None,
             NoteEvent::Request(request) => this.handle_note(request, cx),
+            NoteEvent::OpenTemplates => this.navigate(Navigate::Open(Route::Templates, false), cx),
             NoteEvent::Failed => {
                 this.pending = None;
                 this.set_status(

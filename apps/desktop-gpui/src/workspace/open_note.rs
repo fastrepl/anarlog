@@ -1,4 +1,7 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+mod memo;
+mod summary;
+
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
 use desktop_runtime::{
     CancellationToken, DocumentId, DocumentSnapshot, Generation, OpenSession, RenameSession,
@@ -11,10 +14,16 @@ use gpui::{
 };
 use serde_json::{Value, json};
 
-use super::library::{OpenNote, folder_label};
+use super::{
+    library::{OpenNote, folder_label},
+    resource_list,
+    templates::{self, Library},
+};
 use crate::{
-    contracts::{EditorInit, LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent},
-    editor::{EditorPane, transcript::TranscriptView},
+    contracts::{
+        EditorEvent, EditorInit, LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent,
+    },
+    editor::{EditorPane, title::first_line_title, transcript::TranscriptView},
     meeting::{
         MeetingServices,
         live::{LiveState, SessionMode},
@@ -54,11 +63,21 @@ pub struct NoteView {
     return_focus: Option<FocusHandle>,
     details: Details,
     view: Option<NoteTab>,
-    summary_editor: Option<(DocumentId, Entity<EditorPane>)>,
+    summary_editor: Option<(DocumentId, Entity<EditorPane>, Subscription)>,
     transcript: Option<Entity<TranscriptView>>,
     details_task: Option<Task<()>>,
     compact_folder: bool,
     share: Option<(SessionId, Entity<SharePopover>, Subscription)>,
+    /// Summary generations by session; they outlive switching notes, as shipping's tasks do.
+    jobs: HashMap<SessionId, summary::SummaryJob>,
+    job_poll: Option<Task<()>>,
+    model: Option<summary::ModelState>,
+    picker: Option<summary::TemplatePicker>,
+    templates: Arc<Library>,
+    templates_cancel: CancellationToken,
+    /// A template applied to the memo, recorded on it once saved.
+    memo_template: Option<(SessionId, Arc<str>)>,
+    memo_saved: Option<Subscription>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -72,6 +91,8 @@ pub enum NoteEvent {
     RenameFailed,
     /// A library operation (move, delete, open in window) started from the note header.
     Request(OpenNote),
+    /// The summary template picker's "See all templates" and "Create new template".
+    OpenTemplates,
 }
 
 impl EventEmitter<NoteEvent> for NoteView {}
@@ -83,6 +104,12 @@ struct Details {
     event_ended: bool,
     has_transcript: bool,
     summaries: Vec<DocumentSnapshot>,
+    /// Each visible summary's stored title and template, for its tab.
+    summary_meta: HashMap<Arc<str>, (Arc<str>, Arc<str>)>,
+    /// The calendar event's title and description, and its participant count, which pick
+    /// the memo's suggested templates.
+    event_text: String,
+    participants: usize,
 }
 
 /// The note's views, in shipping's switcher order: summaries, memos, transcript.
@@ -188,6 +215,19 @@ impl NoteView {
         if let Some(live) = LiveState::global(cx) {
             subscriptions.push(cx.observe(&live, |this, _, cx| this.live_changed(cx)));
         }
+        let templates_cancel = CancellationToken::new();
+        resource_list::watch(
+            &runtime,
+            templates::LIBRARY_SQL,
+            templates_cancel.clone(),
+            cx,
+            |this, rows, cx| {
+                if let Ok(rows) = rows {
+                    this.templates = Arc::new(templates::decode_library(&rows));
+                    cx.notify();
+                }
+            },
+        );
         Self {
             runtime,
             title,
@@ -214,6 +254,14 @@ impl NoteView {
             details_task: None,
             compact_folder: false,
             share: None,
+            jobs: HashMap::new(),
+            job_poll: None,
+            model: None,
+            picker: None,
+            templates: Arc::default(),
+            templates_cancel,
+            memo_template: None,
+            memo_saved: None,
             _subscriptions: subscriptions,
         }
     }
@@ -285,7 +333,7 @@ impl NoteView {
                 this.audio = path;
                 this.player = None;
                 if let Some(transcript) = &this.transcript {
-                    let audio = this.audio.is_some();
+                    let audio = this.audio.clone();
                     transcript.update(cx, |transcript, cx| transcript.set_audio(audio, cx));
                 }
                 cx.notify();
@@ -305,6 +353,14 @@ impl NoteView {
             .as_ref()
             .is_some_and(|session| &session.summary.id == session_id)
         {
+            self.memo_saved = content.clone().downcast::<EditorPane>().ok().map(|editor| {
+                let session = session_id.clone();
+                cx.subscribe(&editor, move |this, _, event: &EditorEvent, cx| {
+                    if matches!(event, EditorEvent::Saved(_)) {
+                        this.memo_saved(&session, cx);
+                    }
+                })
+            });
             self.content = Some(content);
             if !self.rename_error {
                 self.message.clear();
@@ -344,6 +400,7 @@ impl NoteView {
         self.transcript = None;
         self.audio = None;
         self.player = None;
+        self.picker = None;
     }
 
     fn restore_title(&mut self, cx: &mut Context<Self>) {
@@ -470,23 +527,38 @@ impl NoteView {
         self.watch_details(session.summary.id.clone(), cx);
         let session = Arc::new(session);
         cx.emit(NoteEvent::Opened(session.clone()));
-        if let Some(document) = &session.note {
-            cx.emit(WorkspaceEvent::OpenEditor {
-                session_id: session.summary.id.clone(),
-                document: document.clone(),
-            });
-        }
+        // A note without a memo shows shipping's empty editor; its first edit creates it.
+        cx.emit(WorkspaceEvent::OpenEditor {
+            session_id: session.summary.id.clone(),
+            document: session
+                .note
+                .clone()
+                .unwrap_or_else(|| DocumentSnapshot::unsaved_note(session.summary.id.clone())),
+        });
         self.title.update(cx, |title, cx| {
             title.set_text(session.summary.title.to_string(), cx)
         });
-        self.message = match &session.note {
-            Some(_) => String::new(),
-            None => "This session has no note document. Existing data is unchanged.".into(),
-        };
+        self.message.clear();
         self.mode = LiveState::mode(cx, &session.summary.id);
         self.current = Some(session);
         self.load_audio(cx);
+        self.load_model(cx);
         cx.notify();
+    }
+
+    fn load_model(&mut self, cx: &mut Context<Self>) {
+        let Ok(reply) = summary::load_model(&self.runtime) else {
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            if let Ok(model) = reply.receive().await {
+                let _ = this.update(cx, |this, cx| {
+                    this.model = Some(model);
+                    cx.notify();
+                });
+            }
+        })
+        .detach();
     }
 
     fn watch_details(&mut self, id: SessionId, cx: &mut Context<Self>) {
@@ -560,7 +632,28 @@ impl NoteView {
             .and_then(|json| serde_json::from_str(json).ok())
             .unwrap_or_default();
         let visible = summary_ids(&summaries, &SessionId("".into()), false);
+        let summary_meta = summaries
+            .iter()
+            .filter_map(|row| {
+                let text = |key: &str| Arc::<str>::from(row[key].as_str().unwrap_or_default());
+                Some((
+                    row["id"].as_str()?.into(),
+                    (text("title"), text("template_id")),
+                ))
+            })
+            .collect();
+        let event = row["event_json"]
+            .as_str()
+            .and_then(|event| serde_json::from_str::<Value>(event).ok())
+            .unwrap_or_default();
         self.details = Details {
+            summary_meta,
+            event_text: format!(
+                "{} {}",
+                event["title"].as_str().unwrap_or_default(),
+                event["description"].as_str().unwrap_or_default()
+            ),
+            participants: event["participants"].as_array().map_or(0, Vec::len),
             folder: folder_label(row["folder_path"].as_str().unwrap_or_default()),
             event_ended: row["event_json"]
                 .as_str()
@@ -801,17 +894,33 @@ impl NoteView {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let session = self.current.clone()?;
-        let Some(document) = self
+        let colors = theme(window);
+        let document = self
             .details
             .summaries
             .iter()
             .find(|summary| &summary.id.0 == id)
-            .cloned()
-        else {
-            return Some(empty_summary(theme(window)).into_any_element());
-        };
+            .cloned();
+        let has_content = document.as_ref().is_some_and(|document| {
+            if document.body_format.as_ref() == "markdown" {
+                !document.body.trim().is_empty()
+            } else {
+                first_line_title(&document.body).is_some()
+            }
+        });
+        let title = session.summary.title.to_string();
+        if let Some(state) = self.summary_state(
+            document.as_ref().map(|document| &document.id),
+            has_content,
+            &title,
+            colors,
+            cx,
+        ) {
+            return Some(state);
+        }
+        let document = document?;
         let editor = match &self.summary_editor {
-            Some((current, editor)) if current == &document.id => editor.clone(),
+            Some((current, editor, _)) if current == &document.id => editor.clone(),
             _ => {
                 let return_focus = self.title.focus_handle(cx);
                 let runtime = self.runtime.clone();
@@ -820,46 +929,47 @@ impl NoteView {
                     document: document.clone(),
                     return_focus,
                 };
+                // Shipping's summary editor leads with the note title and shows no other
+                // placeholder.
                 let editor = cx.new(|cx| {
-                    let mut editor = EditorPane::new(LaneContext { runtime }, init, window, cx);
+                    let mut editor =
+                        EditorPane::titled(LaneContext { runtime }, init, title.into(), window, cx);
                     editor.set_placeholder(None);
                     editor
                 });
-                self.summary_editor = Some((document.id.clone(), editor.clone()));
+                let saved = cx.subscribe(&editor, |this, _, event: &EditorEvent, cx| {
+                    if let EditorEvent::Saved(snapshot) = event {
+                        this.rename_from_summary(&snapshot.body, cx);
+                    }
+                });
+                self.summary_editor = Some((document.id.clone(), editor.clone(), saved));
                 editor
             }
         };
-        // Shipping's summary editor shows the session title as its first line unless the
-        // stored summary already starts with a title heading.
-        let titled = serde_json::from_str::<Value>(&document.body)
-            .ok()
-            .is_some_and(|body| {
-                body["content"][0]["type"] == "heading" && body["content"][0]["attrs"]["level"] == 1
-            });
-        let colors = theme(window);
         Some(
             div()
                 .flex()
                 .flex_col()
                 .flex_1()
                 .min_h_0()
-                .when(!titled, |view| {
-                    view.child(
-                        div()
-                            .px_3()
-                            .pt(px(11.))
-                            .pb(px(3.))
-                            .mb_2()
-                            .text_size(px(24.))
-                            .line_height(px(30.))
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(colors.foreground)
-                            .child(SharedString::from(session.summary.title.to_string())),
-                    )
-                })
-                .child(div().flex().flex_col().flex_1().min_h_0().child(editor))
+                .child(editor)
                 .into_any_element(),
         )
+    }
+
+    /// Shipping renames the note from the summary's first line on every save.
+    fn rename_from_summary(&mut self, body: &str, cx: &mut Context<Self>) {
+        let Some(title) = first_line_title(body) else {
+            return;
+        };
+        if self
+            .current
+            .as_ref()
+            .is_some_and(|session| session.summary.title.as_ref() != title)
+        {
+            self.title.update(cx, |input, cx| input.set_text(title, cx));
+            self.rename(cx);
+        }
     }
 
     fn folder_chip(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
@@ -936,10 +1046,44 @@ impl NoteView {
             .bg(colors.foreground.opacity(0.1))
             .children(tabs.iter().enumerate().map(|(index, tab)| {
                 let active = tab == current;
+                let summary = match tab {
+                    NoteTab::Summary(id) => {
+                        let (raw, template_id) = self
+                            .details
+                            .summary_meta
+                            .get(id)
+                            .cloned()
+                            .unwrap_or_default();
+                        let template = self
+                            .templates
+                            .templates
+                            .iter()
+                            .find(|template| template.id == template_id && !template_id.is_empty())
+                            .cloned();
+                        let job = self
+                            .current
+                            .as_ref()
+                            .and_then(|session| self.jobs.get(&session.summary.id))
+                            .filter(|job| job.shows(id));
+                        Some((
+                            summary::tab_title(&raw, template.as_ref(), &template_id),
+                            template,
+                            (!template_id.is_empty()).then_some(template_id),
+                            job.is_some_and(|job| job.running()),
+                            job.is_some_and(|job| !job.running()),
+                        ))
+                    }
+                    _ => None,
+                };
                 let (path, size, label): (&str, f32, SharedString) = match tab {
-                    // Template titles need the template catalog; untemplated summaries read
-                    // "Summary" in shipping too.
-                    NoteTab::Summary(_) => ("editor/SparkleIcon.svg", 16., "Summary".into()),
+                    NoteTab::Summary(_) => (
+                        "editor/SparkleIcon.svg",
+                        16.,
+                        summary
+                            .as_ref()
+                            .map(|summary| summary.0.clone())
+                            .unwrap_or_default(),
+                    ),
                     NoteTab::Memos => ("editor/TextAlignLeftIcon.svg", 14., "Memos".into()),
                     NoteTab::Transcript => {
                         ("editor/TranscriptAudioIcon.svg", 16., "Transcript".into())
@@ -950,7 +1094,34 @@ impl NoteView {
                 let recording = transcript && mode == SessionMode::Active;
                 let finalizing = transcript && mode == SessionMode::Finalizing;
                 let group = SharedString::from(format!("note-tab-{index}"));
-                let tab_icon = if recording {
+                let generating = summary.as_ref().is_some_and(|summary| summary.3);
+                let failed = summary.as_ref().is_some_and(|summary| summary.4);
+                let summary_tab = summary.is_some();
+                // Shipping's `canEdit`: an inactive session with a transcript.
+                let editable_transcript = matches!(tab, NoteTab::Transcript)
+                    && mode == SessionMode::Inactive
+                    && self.details.has_transcript;
+                let transcript_editing = editable_transcript
+                    && self
+                        .transcript
+                        .as_ref()
+                        .is_some_and(|transcript| transcript.read(cx).edit_mode());
+                // Shipping marks the template a summary used (Auto when it has none).
+                let used = summary
+                    .as_ref()
+                    .map(|summary| summary.2.clone())
+                    .unwrap_or_default();
+                let tab_icon = if let Some((_, template, _, _, _)) = &summary {
+                    self.summary_glyph(
+                        template.as_ref(),
+                        generating,
+                        if active {
+                            colors.foreground
+                        } else {
+                            colors.muted_foreground.opacity(0.7)
+                        },
+                    )
+                } else if recording {
                     dancing_sticks(
                         "note-tab-live",
                         amplitude,
@@ -990,17 +1161,14 @@ impl NoteView {
                     .when_else(
                         active,
                         |view| {
-                            view.min_w(px(if matches!(tab, NoteTab::Summary(_)) {
-                                62.
-                            } else {
-                                40.
-                            }))
-                            .max_w(px(160.))
-                            .gap(px(6.))
-                            .bg(neutral(colors, 0xffffff, 0))
-                            .when(is_dark(colors), |view| view.bg(colors.accent))
-                            .shadow_xs()
-                            .text_color(colors.foreground)
+                            let summary_tab = matches!(tab, NoteTab::Summary(_));
+                            view.min_w(px(if summary_tab { 62. } else { 40. }))
+                                .max_w(px(if summary_tab { 224. } else { 160. }))
+                                .gap(px(6.))
+                                .bg(neutral(colors, 0xffffff, 0))
+                                .when(is_dark(colors), |view| view.bg(colors.accent))
+                                .shadow_xs()
+                                .text_color(colors.foreground)
                         },
                         |view| {
                             view.text_color(colors.muted_foreground.opacity(0.7))
@@ -1026,9 +1194,31 @@ impl NoteView {
                                     .text_color(neutral_rgb(dark, 0xdc2626, 0xfecaca))
                             })
                     })
-                    .on_click(
-                        cx.listener(move |this, _, _, cx| this.select_tab(target.clone(), cx)),
-                    )
+                    .when(active && generating, |view| {
+                        view.opacity(0.7).cursor_not_allowed()
+                    })
+                    .when(active && failed, |view| {
+                        let red = self.error_color(colors);
+                        view.text_color(red)
+                    })
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        // The active summary tab opens shipping's template picker.
+                        if active && summary_tab {
+                            if !generating && this.picker.is_none() {
+                                this.open_picker(window, cx);
+                            }
+                        } else if active && editable_transcript {
+                            if let Some(transcript) = &this.transcript {
+                                transcript.update(cx, |transcript, cx| {
+                                    let editing = transcript.edit_mode();
+                                    transcript.set_edit_mode(!editing, cx)
+                                });
+                            }
+                            cx.notify();
+                        } else {
+                            this.select_tab(target.clone(), cx)
+                        }
+                    }))
                     .group(group)
                     .child(tab_icon)
                     .when(active, |view| {
@@ -1041,6 +1231,40 @@ impl NoteView {
                                 .font_weight(FontWeight::MEDIUM)
                                 .child(label),
                         )
+                    })
+                    // Shipping's transcript edit toggle: a pencil, a check while editing.
+                    .when(active && editable_transcript, |view| {
+                        view.child(icon(
+                            if transcript_editing {
+                                "editor/CheckmarkCircle02Icon.svg"
+                            } else {
+                                "editor/PencilEdit01Icon.svg"
+                            },
+                            14.,
+                            colors.foreground,
+                        ))
+                    })
+                    .when(active && summary_tab, |view| {
+                        let color = if failed {
+                            self.error_color(colors)
+                        } else {
+                            colors.foreground
+                        };
+                        view.relative()
+                            .child(icon("editor/ArrowDown01Icon.svg", 14., color))
+                            .when_some(
+                                self.template_picker(used.clone(), generating, colors, cx),
+                                |view, picker| {
+                                    view.child(
+                                        div().absolute().top(px(28.)).left_0().child(
+                                            gpui::deferred(
+                                                gpui::anchored().snap_to_window().child(picker),
+                                            )
+                                            .with_priority(1),
+                                        ),
+                                    )
+                                },
+                            )
                     })
             }))
     }
@@ -1436,18 +1660,10 @@ fn loading_skeleton(colors: Theme) -> impl IntoElement {
         )
 }
 
-fn empty_summary(colors: Theme) -> impl IntoElement {
-    div()
-        .px_3()
-        .py_2()
-        .text_sm()
-        .text_color(colors.muted_foreground)
-        .child("No summary yet.")
-}
-
 impl Drop for NoteView {
     fn drop(&mut self) {
         self.cancellation.cancel();
+        self.templates_cancel.cancel();
     }
 }
 
@@ -1463,7 +1679,7 @@ impl Render for NoteView {
             NoteTab::Summary(id) if ready => self.summary_view(&id.clone(), window, cx),
             NoteTab::Transcript if ready => self.current.clone().map(|session| {
                 let runtime = self.runtime.clone();
-                let audio = self.audio.is_some();
+                let audio = self.audio.clone();
                 let transcript = self
                     .transcript
                     .get_or_insert_with(|| {
@@ -1485,7 +1701,14 @@ impl Render for NoteView {
                     .child(div().flex_1().min_h_0().child(transcript))
                     .into_any_element()
             }),
-            _ => self.content.clone().map(AnyView::into_any_element),
+            _ => self.content.clone().map(|content| {
+                div()
+                    .relative()
+                    .size_full()
+                    .child(content)
+                    .children(self.memo_templates_overlay(colors, cx))
+                    .into_any_element()
+            }),
         };
         div()
             .size_full()

@@ -55,7 +55,9 @@ pub struct SaveJournal {
 }
 
 impl SaveJournal {
-    pub fn start(
+    /// Awaited, not blocked on: the editor starts journals from executor tasks, and a
+    /// headless test executor runs those on the UI thread the runtime may be waiting for.
+    pub async fn start(
         runtime: RuntimeHandle,
         base: DocumentSnapshot,
     ) -> Result<(Self, mpsc::Receiver<SaveEvent>), ServiceError> {
@@ -75,7 +77,7 @@ impl SaveJournal {
             wake: Condvar::new(),
         });
         let guard = Arc::downgrade(&shared);
-        block_on(runtime.register_flush(Box::new(move || Box::pin(async move {
+        runtime.register_flush(Box::new(move || Box::pin(async move {
             if let Some(shared) = guard.upgrade() {
                 let state = shared.state.lock().map_err(|_| failed("Editor journal lock failed"))?;
                 if state.pending.is_some() || state.saving {
@@ -85,7 +87,7 @@ impl SaveJournal {
                 }
             }
             Ok(())
-        })))?.receive())?;
+        })))?.receive().await?;
         let (events, receiver) = mpsc::channel(8);
         let worker = shared.clone();
         std::thread::Builder::new()
@@ -276,7 +278,7 @@ mod tests {
         block_on(ready.receive()).unwrap();
         let session = block_on(runtime.create_note("fixture".into()).unwrap().receive()).unwrap();
         let (journal, _events) =
-            SaveJournal::start(runtime.clone(), session.note.unwrap()).unwrap();
+            block_on(SaveJournal::start(runtime.clone(), session.note.unwrap())).unwrap();
         for revision in 1..=200 {
             let document = Document::parse(format!(
                 r#"{{"type":"doc","content":[{{"type":"paragraph","content":[{{"type":"text","text":"revision {revision}"}}]}}]}}"#
@@ -306,7 +308,8 @@ mod tests {
         block_on(ready.receive()).unwrap();
         let session = block_on(runtime.create_note("fixture".into()).unwrap().receive()).unwrap();
         let base = session.note.unwrap();
-        let (journal, _events) = SaveJournal::start(runtime.clone(), base.clone()).unwrap();
+        let (journal, _events) =
+            block_on(SaveJournal::start(runtime.clone(), base.clone())).unwrap();
         let remote = r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"remote"}]}]}"#;
         block_on(
             runtime
@@ -338,7 +341,8 @@ mod tests {
         block_on(ready.receive()).unwrap();
         let session = block_on(runtime.create_note("fixture".into()).unwrap().receive()).unwrap();
         let base = session.note.unwrap();
-        let (journal, _events) = SaveJournal::start(runtime.clone(), base.clone()).unwrap();
+        let (journal, _events) =
+            block_on(SaveJournal::start(runtime.clone(), base.clone())).unwrap();
         let remote = block_on(runtime.save_document(SaveDocument {
             base, body: r#"{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"remote"}]}]}"#.into(),
         }).unwrap().receive()).unwrap();
@@ -369,7 +373,7 @@ mod tests {
         block_on(ready.receive()).unwrap();
         let session = block_on(runtime.create_note("fixture".into()).unwrap().receive()).unwrap();
         let (journal, _events) =
-            SaveJournal::start(runtime.clone(), session.note.unwrap()).unwrap();
+            block_on(SaveJournal::start(runtime.clone(), session.note.unwrap())).unwrap();
         let (release, resume) = oneshot::channel();
         let gate = runtime
             .submit(move |_| async move {
@@ -424,7 +428,7 @@ mod tests {
         block_on(ready.receive()).unwrap();
         let session = block_on(runtime.create_note("fixture".into()).unwrap().receive()).unwrap();
         let (journal, _events) =
-            SaveJournal::start(runtime.clone(), session.note.unwrap()).unwrap();
+            block_on(SaveJournal::start(runtime.clone(), session.note.unwrap())).unwrap();
         let start = Instant::now();
         let mut revision = 0;
         while start.elapsed() < Duration::from_millis(11_000) {

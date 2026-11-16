@@ -255,7 +255,7 @@ fn journal_flush_roundtrips_rich_document_and_retains_conflicting_draft() {
     let mut editor = EditorModel::new(Document::parse(rich.to_string().into()).unwrap());
     editor.replace(1..1, "Edited ").unwrap();
     let expected = editor.document.serialize_for_save().unwrap();
-    let (journal, mut events) = SaveJournal::start(runtime.clone(), base).unwrap();
+    let (journal, mut events) = block_on(SaveJournal::start(runtime.clone(), base)).unwrap();
     journal.publish(editor.revision, editor.document.clone());
     block_on(journal.flush(editor.revision)).unwrap().unwrap();
     let saved = match block_on(events.next()).unwrap() {
@@ -330,6 +330,18 @@ fn journal_flush_roundtrips_rich_document_and_retains_conflicting_draft() {
     assert_eq!(restored["content"][2], rich["content"][2]);
     assert_eq!(restored["content"][3], rich["content"][3]);
     block_on(runtime.shutdown()).unwrap();
+}
+
+#[test]
+fn a_template_replaces_a_pristine_memo_in_one_undo_step() {
+    let mut editor = fixture(json!({"type":"doc","content":[{"type":"paragraph"}]}));
+    let body = super::title::template_body(&["Goals", "Risks"]).unwrap();
+    editor
+        .replace_all(Document::parse(body.to_string().into()).unwrap())
+        .unwrap();
+    assert_eq!(editor.document.root.value()["content"], body["content"]);
+    editor.undo().unwrap();
+    assert!(super::title::is_pristine(&editor.document.root.children));
 }
 
 fn model(text: &str) -> EditorModel {
