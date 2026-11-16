@@ -53,7 +53,9 @@ impl UpdateChecker {
             .no_zstd()
             .build()?;
 
-        let response = loop {
+        let mut reported = 0;
+        let mut expected_total = None;
+        loop {
             let mut request = client
                 .get(release.download_url.clone())
                 .headers(headers.clone());
@@ -61,76 +63,92 @@ impl UpdateChecker {
                 request = request.header(header::RANGE, format!("bytes={offset}-"));
             }
             let response = request.send().await?;
-            if response.status() != StatusCode::RANGE_NOT_SATISFIABLE || offset == 0 {
-                break response;
-            }
-
-            // The app may have quit after the last write but before verification.
-            if verify_file(&partial, release, &self.config.pubkey)
-                .await
-                .is_ok()
-            {
-                on_chunk(offset, Some(offset));
-                file.sync_all().await?;
-                drop(file);
-                tokio::fs::rename(&partial, destination).await?;
-                let _ = tokio::fs::remove_file(&identity).await;
-                return Ok(());
-            }
-            file.set_len(0).await?;
-            offset = 0;
-        };
-
-        let total = match response.status() {
-            StatusCode::OK => {
+            if response.status() == StatusCode::RANGE_NOT_SATISFIABLE && offset > 0 {
+                // The app may have quit after the last write but before verification.
+                if verify_file(&partial, release, &self.config.pubkey)
+                    .await
+                    .is_ok()
+                {
+                    on_chunk(offset.saturating_sub(reported), Some(offset));
+                    file.sync_all().await?;
+                    drop(file);
+                    tokio::fs::rename(&partial, destination).await?;
+                    let _ = tokio::fs::remove_file(&identity).await;
+                    return Ok(());
+                }
                 file.set_len(0).await?;
                 offset = 0;
-                response.content_length()
+                expected_total = None;
+                continue;
             }
-            StatusCode::PARTIAL_CONTENT => {
-                let (start, end, total) = response
+
+            let (total, response_end) = match response.status() {
+                StatusCode::OK => {
+                    file.set_len(0).await?;
+                    offset = 0;
+                    let total = response.content_length().or(expected_total);
+                    (total, total)
+                }
+                StatusCode::PARTIAL_CONTENT => {
+                    let (start, end, total) = response
+                        .headers()
+                        .get(header::CONTENT_RANGE)
+                        .and_then(|value| value.to_str().ok())
+                        .and_then(parse_range)
+                        .ok_or(Error::InvalidDownloadResponse)?;
+                    if start != offset
+                        || start > end
+                        || end >= total
+                        || response
+                            .content_length()
+                            .is_some_and(|length| length != end - start + 1)
+                    {
+                        return Err(Error::InvalidDownloadResponse);
+                    }
+                    (Some(total), Some(end + 1))
+                }
+                status => return Err(Error::BadStatus(status)),
+            };
+            if expected_total
+                .zip(total)
+                .is_some_and(|(expected, total)| expected != total)
+                || response
                     .headers()
-                    .get(header::CONTENT_RANGE)
-                    .and_then(|value| value.to_str().ok())
-                    .and_then(parse_range)
+                    .get(header::CONTENT_ENCODING)
+                    .is_some_and(|encoding| encoding != "identity")
+            {
+                return Err(Error::InvalidDownloadResponse);
+            }
+            expected_total = total;
+
+            // A full-response fallback can replay bytes already counted in this attempt.
+            on_chunk(offset.saturating_sub(reported), total);
+            reported = reported.max(offset);
+            let mut stream = response.bytes_stream();
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk?;
+                let next_offset = offset
+                    .checked_add(chunk.len() as u64)
                     .ok_or(Error::InvalidDownloadResponse)?;
-                if start != offset
-                    || end.checked_add(1) != Some(total)
-                    || start > end
-                    || response
-                        .content_length()
-                        .is_some_and(|length| length != total - start)
-                {
+                if response_end.is_some_and(|end| next_offset > end) {
                     return Err(Error::InvalidDownloadResponse);
                 }
-                Some(total)
+                file.write_all(&chunk).await?;
+                // Tokio writes can outlive write_all; report only bytes visible to a new process.
+                file.flush().await?;
+                offset = next_offset;
+                on_chunk(offset.saturating_sub(reported), total);
+                reported = reported.max(offset);
             }
-            status => return Err(Error::BadStatus(status)),
-        };
-        if response
-            .headers()
-            .get(header::CONTENT_ENCODING)
-            .is_some_and(|encoding| encoding != "identity")
-        {
-            return Err(Error::InvalidDownloadResponse);
-        }
-
-        on_chunk(offset, total);
-        let mut downloaded = offset;
-        let mut stream = response.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk?;
-            file.write_all(&chunk).await?;
-            // Tokio writes can outlive write_all; report only bytes visible to a new process.
-            file.flush().await?;
-            downloaded += chunk.len() as u64;
-            on_chunk(chunk.len() as u64, total);
+            if response_end.is_some_and(|end| end != offset) {
+                return Err(Error::InvalidDownloadResponse);
+            }
+            if total.is_none_or(|total| offset == total) {
+                break;
+            }
         }
         file.sync_all().await?;
         drop(file);
-        if total.is_some_and(|total| total != downloaded) {
-            return Err(Error::InvalidDownloadResponse);
-        }
         if let Err(error) = verify_file(&partial, release, &self.config.pubkey).await {
             tokio::fs::remove_file(&partial).await?;
             return Err(error);

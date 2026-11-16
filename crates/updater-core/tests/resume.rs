@@ -57,68 +57,79 @@ async fn interrupted_download_resumes_saved_bytes_after_process_exit() {
             .unwrap();
         return;
     }
-    let dir = tempfile::tempdir().unwrap();
-    let destination = dir.path().join("1.0.1.bin");
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let url = format!("http://{}/update", listener.local_addr().unwrap());
-    let server = tokio::spawn(async move {
-        let (mut first, headers) = request(&listener).await;
-        assert!(!headers.contains("range:"));
-        first
-            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nte")
-            .await
+    for final_response in [
+        "HTTP/1.1 206 Partial Content\r\nContent-Length: 1\r\nContent-Range: bytes 3-3/4\r\n\r\nt",
+        "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\ntest",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("1.0.1.bin");
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/update", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            let (mut first, headers) = request(&listener).await;
+            assert!(!headers.contains("range:"));
+            first
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nte")
+                .await
+                .unwrap();
+
+            let (mut second, headers) = request(&listener).await;
+            assert!(headers.contains("range: bytes=2-\r\n"));
+            second.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Length: 1\r\nContent-Range: bytes 2-2/4\r\n\r\ns").await.unwrap();
+            drop(second);
+
+            let (mut third, headers) = request(&listener).await;
+            assert!(headers.contains("range: bytes=3-\r\n"));
+            third.write_all(final_response.as_bytes()).await.unwrap();
+        });
+        let mut process = tokio::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "interrupted_download_resumes_saved_bytes_after_process_exit",
+                "--nocapture",
+            ])
+            .env("ANARLOG_RESUME_TEST_URL", &url)
+            .env("ANARLOG_RESUME_TEST_PATH", &destination)
+            .env("RUST_TEST_THREADS", "1")
+            .stdout(std::process::Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
             .unwrap();
-
-        let (mut second, headers) = request(&listener).await;
-        assert!(headers.contains("range: bytes=2-\r\n"));
-        second.write_all(b"HTTP/1.1 206 Partial Content\r\nContent-Length: 2\r\nContent-Range: bytes 2-3/4\r\n\r\nst").await.unwrap();
-    });
-    let mut process = tokio::process::Command::new(std::env::current_exe().unwrap())
-        .args([
-            "--exact",
-            "interrupted_download_resumes_saved_bytes_after_process_exit",
-            "--nocapture",
-        ])
-        .env("ANARLOG_RESUME_TEST_URL", &url)
-        .env("ANARLOG_RESUME_TEST_PATH", &destination)
-        .stdout(std::process::Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .unwrap();
-    let mut output = BufReader::new(process.stdout.take().unwrap()).lines();
-    tokio::time::timeout(Duration::from_secs(5), async {
-        while output
-            .next_line()
-            .await
-            .unwrap()
-            .expect("download process exited")
-            != "partial saved"
-        {}
-    })
-    .await
-    .unwrap();
-    process.kill().await.unwrap();
-    process.wait().await.unwrap();
-    assert!(!destination.exists());
-    assert_eq!(
-        std::fs::read(destination.with_extension("part")).unwrap(),
-        b"te"
-    );
-
-    let (reopened, release) = checker(&url);
-    let mut progress = Vec::new();
-    reopened
-        .download_to_path(&release, &destination, |bytes, total| {
-            progress.push((bytes, total))
+        let mut output = BufReader::new(process.stdout.take().unwrap()).lines();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while !output
+                .next_line()
+                .await
+                .unwrap()
+                .expect("download process exited")
+                .ends_with("partial saved")
+            {}
         })
         .await
         .unwrap();
-    assert_eq!(progress.first(), Some(&(2, Some(4))));
-    assert_eq!(progress.iter().map(|(bytes, _)| bytes).sum::<u64>(), 4);
-    assert_eq!(std::fs::read(&destination).unwrap(), b"test");
-    assert!(!destination.with_extension("part").exists());
-    assert!(!destination.with_extension("signature").exists());
-    server.await.unwrap();
+        process.kill().await.unwrap();
+        process.wait().await.unwrap();
+        assert!(!destination.exists());
+        assert_eq!(
+            std::fs::read(destination.with_extension("part")).unwrap(),
+            b"te"
+        );
+
+        let (reopened, release) = checker(&url);
+        let mut progress = Vec::new();
+        reopened
+            .download_to_path(&release, &destination, |bytes, total| {
+                progress.push((bytes, total))
+            })
+            .await
+            .unwrap();
+        assert_eq!(progress.first(), Some(&(2, Some(4))));
+        assert_eq!(progress.iter().map(|(bytes, _)| bytes).sum::<u64>(), 4);
+        assert_eq!(std::fs::read(&destination).unwrap(), b"test");
+        assert!(!destination.with_extension("part").exists());
+        assert!(!destination.with_extension("signature").exists());
+        server.await.unwrap();
+    }
 }
 
 #[tokio::test]
@@ -156,6 +167,18 @@ async fn resumed_download_never_publishes_unverified_or_misaligned_bytes() {
         ),
         (
             "HTTP/1.1 206 Partial Content\r\nContent-Length: 2\r\nContent-Range: bytes 2-3/4\r\n\r\nxx",
+            "te",
+            true,
+            false,
+        ),
+        (
+            "HTTP/1.1 206 Partial Content\r\nTransfer-Encoding: chunked\r\nContent-Range: bytes 2-2/4\r\n\r\n2\r\nst\r\n0\r\n\r\n",
+            "te",
+            true,
+            false,
+        ),
+        (
+            "HTTP/1.1 206 Partial Content\r\nTransfer-Encoding: chunked\r\nContent-Range: bytes 2-3/4\r\n\r\n1\r\ns\r\n0\r\n\r\n",
             "te",
             true,
             false,
