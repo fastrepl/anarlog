@@ -52,8 +52,6 @@ pub struct PreferencesView {
     pub(super) menu: Option<&'static str>,
     pub(super) menu_search: Entity<TextInput>,
     pub(super) dictionary_input: Entity<TextInput>,
-    /// Whether Pro-only settings are available; shipping greys them out otherwise.
-    pub pro: bool,
     cancellation: CancellationToken,
     status: Option<String>,
     active: bool,
@@ -70,7 +68,7 @@ impl PreferencesView {
             .new(|cx| TextInput::new("Add names, jargon, or product terms to prefer", cx).inline());
         let dictionary_subscription =
             cx.subscribe(&dictionary_input, |this, _, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Submitted) && this.pro {
+                if matches!(event, InputEvent::Submitted) && super::account::is_pro(cx) {
                     this.add_dictionary_terms(cx);
                 }
             });
@@ -83,7 +81,6 @@ impl PreferencesView {
             menu: None,
             menu_search,
             dictionary_input,
-            pro: false,
             cancellation: CancellationToken::new(),
             status: None,
             active: true,

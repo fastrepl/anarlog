@@ -476,31 +476,34 @@ async fn concurrent_expired_leases_refresh_once_and_persist_rotation() {
 }
 
 #[tokio::test]
-async fn pkce_checks_state_before_exchange_and_rejects_replayed_callback() {
+async fn sign_in_handoff_checks_state_before_exchange_and_rejects_replayed_callback() {
     let server = MockServer::start().await;
     let auth = Auth::new(
-        Transport::new(config(&server, "pkce")).unwrap(),
+        Transport::new(config(&server, "handoff")).unwrap(),
         Arc::new(MemoryStore::default()),
     )
     .await
     .unwrap();
-    let login = auth.begin_login("google").await.unwrap();
-    let redirect = login
-        .query_pairs()
-        .find(|(key, _)| key == "redirect_to")
-        .unwrap()
-        .1
-        .into_owned();
-    let mut bad: reqwest::Url = "anarlog-dev://auth/callback?state=wrong&code=fixture-code"
-        .parse()
-        .unwrap();
-    assert!(auth.deep_link(bad.clone()).await.is_err());
+    let login = auth.begin_sign_in().await.unwrap();
+    assert_eq!(login.path(), "/auth");
+    let pairs = login.query_pairs().collect::<HashMap<_, _>>();
+    assert_eq!(pairs["flow"], "desktop");
+    assert_eq!(pairs["scheme"], "anarlog-dev");
+    let state = pairs["desktop_state"].to_string();
+    let callback = |state: &str| -> reqwest::Url {
+        let mut url: reqwest::Url = "anarlog-dev://auth/callback".parse().unwrap();
+        url.query_pairs_mut()
+            .append_pair("access_token", "handed-off")
+            .append_pair("refresh_token", "fixture-refresh")
+            .append_pair("state", state);
+        url
+    };
+    assert!(auth.deep_link(callback("wrong")).await.is_err());
     assert!(server.received_requests().await.unwrap().is_empty());
-    bad = redirect.parse().unwrap();
-    bad.query_pairs_mut().append_pair("code", "fixture-code");
     Mock::given(method("POST"))
         .and(path("/auth/v1/token"))
-        .and(query_param("grant_type", "pkce"))
+        .and(query_param("grant_type", "refresh_token"))
+        .and(body_json(json!({"refresh_token": "fixture-refresh"})))
         .respond_with(
             ResponseTemplate::new(200).set_body_json(session(now() + 3600, "fixture-token")),
         )
@@ -508,14 +511,14 @@ async fn pkce_checks_state_before_exchange_and_rejects_replayed_callback() {
         .mount(&server)
         .await;
     assert_eq!(
-        auth.deep_link(bad.clone())
+        auth.deep_link(callback(&state))
             .await
             .unwrap()
             .account_id
             .as_deref(),
         Some(ACCOUNT)
     );
-    assert!(auth.deep_link(bad).await.is_err());
+    assert!(auth.deep_link(callback(&state)).await.is_err());
 }
 
 #[tokio::test]
@@ -945,6 +948,58 @@ async fn encryption_setup_never_replaces_an_existing_server_identity_and_pause_i
             .unwrap()
             .as_str(),
         "false"
+    );
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn account_counts_a_paid_workspace_seat_as_pro_without_offering_a_trial() {
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("account.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    const WORKSPACE: &str = "5b0f2a3c-9d7e-4a51-8f6b-2c1d0e9a8b7c";
+    Mock::given(method("GET"))
+        .and(path("/rest/v1/workspace_memberships"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"workspace_id": WORKSPACE, "role": "member",
+             "workspaces": {"id": WORKSPACE, "name": "Acme", "kind": "shared"}},
+            {"workspace_id": ACCOUNT, "role": "owner",
+             "workspaces": {"id": ACCOUNT, "name": "Personal", "kind": "personal"}}
+        ])))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_workspace_access"))
+        .and(body_json(json!({"p_workspace_id": WORKSPACE})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"workspace_role": "member", "workspace_tier": "team", "capabilities": [],
+             "seat_limit": 10, "used_seats": 4}
+        ])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/subscription/can-start-trial"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"canStartTrial": true})))
+        .expect(0)
+        .mount(&server)
+        .await;
+
+    let account = cloud.account().await.unwrap();
+    let now = crate::product::account::now();
+    assert!(account.is_pro(now));
+    assert!(!account.can_start_trial(now));
+    let seats = account.workspaces.as_deref().unwrap();
+    assert_eq!(seats.len(), 1);
+    assert_eq!((seats[0].used_seats, seats[0].seat_limit), (4, Some(10)));
+    assert_eq!(
+        account.user.unwrap().email.as_deref(),
+        Some("fixture@example.invalid")
     );
     runtime.shutdown().await.unwrap();
 }

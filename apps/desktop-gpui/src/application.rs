@@ -124,6 +124,8 @@ impl ApplicationView {
                 WorkspaceAction::OpenNoteWindow(id) => this.open_note_window(Some(id.clone()), cx),
                 WorkspaceAction::PinnedChanged(routes) => this.save_pins(routes.clone(), cx),
             }),
+            // Plan-gated surfaces read the account while rendering.
+            cx.observe_global::<crate::product::account::Account>(|_, cx| cx.notify()),
         ];
         crate::product::settings::apply_stored_theme(&runtime, cx);
         let pins_runtime = runtime.clone();
@@ -442,7 +444,10 @@ impl ApplicationView {
                                 Err(_) => Err(ServiceError::Failed("Invalid deep link".into())),
                             };
                             let _ = this.update(cx, |this, cx| match result {
-                                Ok(_) => this.status("Account updated.", cx),
+                                Ok(_) => {
+                                    cloud.publish_account(cx);
+                                    this.status("Account updated.", cx)
+                                }
                                 Err(error) => this.status(&error.to_string(), cx),
                             });
                         })
@@ -876,6 +881,7 @@ impl ApplicationView {
                     if let Some(product) = &this.product {
                         product.update(cx, |view, cx| view.set_scope(identity_cloud.scope(), cx));
                     }
+                    identity_cloud.publish_account(cx);
                     cx.notify();
                 });
                 if identity.account_id.is_some() {
@@ -898,6 +904,7 @@ impl ApplicationView {
                     .unwrap_or(true);
                 if !paused {
                     let result = cloud.refresh().await;
+                    let _ = this.update(cx, |_, cx| cloud.publish_account(cx));
                     if let Err(error) = result {
                         let _ = this.update(cx, |this, cx| {
                             this.status(&format!("Account refresh: {error}"), cx)

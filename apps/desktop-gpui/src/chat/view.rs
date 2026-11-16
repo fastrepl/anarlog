@@ -736,7 +736,7 @@ impl ChatView {
 
     fn empty_state(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         let colors = theme(window);
-        match self.model_configured? {
+        match self.model_ready(cx)? {
             false => Some(
                 div()
                     .flex()
@@ -1294,7 +1294,7 @@ impl Render for ChatView {
             }))
             .child(self.toolbar(window, cx))
             .child(self.body(window, cx))
-            .when(self.model_configured == Some(true), |view| {
+            .when(self.model_ready(cx) == Some(true), |view| {
                 view.children(self.queue_list(&colors, cx))
                     .child(self.composer(window, cx))
             })

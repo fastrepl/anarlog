@@ -486,16 +486,29 @@ impl ProviderView {
                         .iter()
                         .filter(|info| !folded(self.kind, info.id))
                         .map(|info| {
-                            let enabled = selectable(self.kind, info);
+                            // Shipping's hosted language model requires a paid plan.
+                            let locked = self.kind == ProviderKind::Llm
+                                && info.id == "anarlog"
+                                && !super::account::is_paid(cx);
+                            let enabled = selectable(self.kind, info) && !locked;
                             let id = info.id;
                             controls::menu_item(
                                 SharedString::from(format!("provider-option-{id}")),
                                 info.name,
-                                info.badge.map(Into::into),
+                                if locked {
+                                    Some("Upgrade to Pro to use this provider.".into())
+                                } else {
+                                    info.badge.map(Into::into)
+                                },
                                 id == current,
                                 colors,
                             )
-                            .when(!enabled, |view| view.opacity(0.5).cursor_default())
+                            .when(locked, |view| {
+                                view.text_color(colors.muted_foreground).cursor_default()
+                            })
+                            .when(!enabled && !locked, |view| {
+                                view.opacity(0.5).cursor_default()
+                            })
                             .when(enabled, |view| {
                                 view.on_click(
                                     cx.listener(move |this, _, _, cx| this.pick_provider(id, cx)),

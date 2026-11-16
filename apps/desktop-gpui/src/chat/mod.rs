@@ -64,6 +64,8 @@ pub struct ChatView {
     groups: Vec<ChatGroup>,
     history_open: bool,
     model_configured: Option<bool>,
+    /// The chosen model is Anarlog's hosted one, which needs a paid plan.
+    hosted_model: bool,
     input: Entity<TextInput>,
     sent: SentHistory,
     phase: Phase,
@@ -115,6 +117,7 @@ impl ChatView {
             groups: Vec::new(),
             history_open: false,
             model_configured: None,
+            hosted_model: false,
             input,
             sent: SentHistory::default(),
             phase: Phase::Ready,
@@ -266,12 +269,22 @@ impl ChatView {
         .detach();
     }
 
+    /// Shipping's `useLanguageModel` yields no model for Anarlog's hosted one without a paid plan.
+    fn model_ready(&self, cx: &gpui::App) -> Option<bool> {
+        self.model_configured.map(|configured| {
+            configured && (!self.hosted_model || crate::product::account::is_paid(cx))
+        })
+    }
+
     fn refresh_model(&mut self, cx: &mut Context<Self>) {
         let reply = store::model_configured(&self.runtime);
         cx.spawn(async move |this, cx| {
-            let configured = async { reply?.receive().await }.await.unwrap_or(false);
+            let (configured, hosted) = async { reply?.receive().await }
+                .await
+                .unwrap_or((false, false));
             let _ = this.update(cx, |this, cx| {
                 this.model_configured = Some(configured);
+                this.hosted_model = hosted;
                 cx.notify();
             });
         })
@@ -290,7 +303,7 @@ impl ChatView {
 
     fn submit(&mut self, text: String, cx: &mut Context<Self>) {
         let text = text.trim().to_owned();
-        if text.is_empty() || self.model_configured != Some(true) {
+        if text.is_empty() || self.model_ready(cx) != Some(true) {
             return;
         }
         self.sent.push(&text);

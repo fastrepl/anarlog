@@ -31,7 +31,6 @@ impl Core {
                 return Err(desktop_runtime::ServiceError::Conflict);
             }
             panel.status = "Sign in to Anarlog".into();
-            panel.fields = Arc::from([input("provider", "Sign-in provider", "google")]);
             panel.operations = Arc::from([operation(Action::SignIn, "Continue with browser")]);
             return Ok(panel);
         }

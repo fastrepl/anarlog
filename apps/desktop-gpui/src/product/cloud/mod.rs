@@ -1,5 +1,6 @@
 //! Native cloud services. Construct and call through the desktop runtime worker.
 
+mod account;
 pub mod auth;
 pub mod host;
 mod integration;
@@ -348,10 +349,7 @@ impl Core {
             return Err(ServiceError::Cancelled);
         }
         if *action == Action::SignIn {
-            let url = self
-                .auth
-                .begin_login(optional_field(&mutation, "provider").unwrap_or("google"))
-                .await?;
+            let url = self.auth.begin_sign_in().await?;
             self.host.open_url(url).await?;
             return Ok(Outcome::Refresh);
         }

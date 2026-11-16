@@ -5,13 +5,11 @@ use std::{
 };
 
 use anlg_supabase_auth::{Claims, session::Session};
-use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use desktop_runtime::{CancellationToken, Result, ServiceError};
 use futures::future::BoxFuture;
 use reqwest::{Method, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sha2::{Digest, Sha256};
 use tokio::sync::{Mutex, watch};
 use zeroize::Zeroizing;
 
@@ -141,7 +139,6 @@ struct State {
 
 #[derive(Serialize, Deserialize)]
 struct PendingLogin {
-    verifier: String,
     state: String,
     started: u64,
 }
@@ -275,45 +272,26 @@ impl Auth {
             .await
     }
 
-    pub async fn begin_login(&self, provider: &str) -> Result<Url> {
-        if !matches!(provider, "google" | "github" | "apple" | "azure") {
-            return Err(failure("Unknown OAuth provider"));
-        }
+    /// Shipping's browser hand-off: the web `/auth` page signs in and returns to the app with
+    /// tokens and this request's `state`.
+    pub async fn begin_sign_in(&self) -> Result<Url> {
         let _state = self.state.lock().await;
-        let verifier = format!(
-            "{}{}",
-            uuid::Uuid::new_v4().simple(),
-            uuid::Uuid::new_v4().simple()
-        );
-        let nonce = uuid::Uuid::new_v4().to_string();
-        let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
         let pending = PendingLogin {
-            verifier,
-            state: nonce.clone(),
+            state: uuid::Uuid::new_v4().to_string(),
             started: now(),
         };
         self.store
             .write(
-                self.key("pkce"),
+                self.key("pending-sign-in"),
                 Zeroizing::new(
                     serde_json::to_string(&pending)
                         .map_err(|_| failure("Could not start sign in"))?,
                 ),
             )
             .await?;
-        let mut callback = self.transport.config.callback.clone();
-        callback.query_pairs_mut().append_pair("state", &nonce);
-        let mut url = self
-            .transport
-            .config
-            .supabase
-            .join("/auth/v1/authorize")
-            .map_err(|_| failure("Invalid auth endpoint"))?;
+        let mut url = self.transport.config.web_flow("/auth")?;
         url.query_pairs_mut()
-            .append_pair("provider", provider)
-            .append_pair("redirect_to", callback.as_str())
-            .append_pair("code_challenge", &challenge)
-            .append_pair("code_challenge_method", "s256");
+            .append_pair("desktop_state", &pending.state);
         Ok(url)
     }
 
@@ -330,7 +308,7 @@ impl Auth {
         let mut state = self.state.lock().await;
         let pending = self
             .store
-            .read(self.key("pkce"))
+            .read(self.key("pending-sign-in"))
             .await?
             .ok_or_else(|| failure("No sign-in request is pending"))?;
         let pending: PendingLogin =
@@ -341,17 +319,18 @@ impl Auth {
                 .iter()
                 .filter(|(key, _)| key == name)
                 .collect::<Vec<_>>();
-            if values.len() != 1 {
+            if values.len() != 1 || values[0].1.is_empty() {
                 return Err(failure("Invalid sign-in callback"));
             }
             Ok(values[0].1.to_string())
         };
-        if parameter("state")? != pending.state || now().saturating_sub(pending.started) > 600 {
+        if parameter("state")? != pending.state || now().saturating_sub(pending.started) > 900 {
             return Err(failure(
                 "Sign-in request expired or belongs to another device",
             ));
         }
-        let code = parameter("code")?;
+        parameter("access_token")?;
+        // Exchanging the handed-off refresh token proves it and returns the account.
         let response = self
             .transport
             .send(
@@ -359,10 +338,10 @@ impl Auth {
                 self.transport
                     .config
                     .supabase
-                    .join("/auth/v1/token?grant_type=pkce")
+                    .join("/auth/v1/token?grant_type=refresh_token")
                     .map_err(|_| failure("Invalid auth endpoint"))?,
                 None,
-                Some(&json!({"auth_code": code, "code_verifier": pending.verifier})),
+                Some(&json!({"refresh_token": parameter("refresh_token")?})),
                 &[("apikey", self.transport.config.anon_key.clone())],
             )
             .await?;
@@ -371,7 +350,7 @@ impl Auth {
         normalize_expiry(&mut session);
         self.validate_session(&session)?;
         self.persist(&session).await?;
-        self.store.remove(self.key("pkce")).await?;
+        self.store.remove(self.key("pending-sign-in")).await?;
         self.announce(&mut state, Some(&session));
         state.session = Some(session);
         Ok(self.identity())
@@ -382,7 +361,7 @@ impl Auth {
         let old = state.session.take();
         self.announce(&mut state, None);
         let removed = self.store.remove(self.key("session")).await;
-        let pending_removed = self.store.remove(self.key("pkce")).await;
+        let pending_removed = self.store.remove(self.key("pending-sign-in")).await;
         if let Some(session) = old {
             // Local erasure must not depend on reachability of the logout endpoint.
             let _ = self

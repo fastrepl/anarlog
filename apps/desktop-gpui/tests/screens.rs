@@ -182,6 +182,88 @@ fn main() {
         open(&mut cx, window, Route::Settings(page.into()));
         capture(&mut cx, window, &out, &format!("settings-{page}"));
     }
+    account_states(&mut cx, window, &out);
+}
+
+/// Account, plan and seat states, seeded through the same app-wide value the cloud service
+/// publishes after sign-in.
+fn account_states(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::product::account::{
+        self, Account, Claims, Devices, User, Workspace, WorkspaceTier,
+    };
+    let now = account::now();
+    let day = 86_400;
+    let user = || {
+        Some(User {
+            id: "7f1c2a9e-3b4d-4e5f-8a6b-9c0d1e2f3a4b".into(),
+            email: Some("alex@example.com".into()),
+        })
+    };
+    let signed_in =
+        |claims: Claims, workspaces: Vec<Workspace>, devices: Option<Devices>| Account {
+            user: user(),
+            claims: Some(claims),
+            workspaces: Some(workspaces.into()),
+            trial_eligible: true,
+            devices,
+        };
+    let free = signed_in(Claims::default(), vec![], None);
+    let trial = signed_in(
+        Claims {
+            subscription_status: Some("trialing".into()),
+            trial_end: Some(now + 5 * day - 60),
+            has_payment_method: Some(false),
+            ..Claims::default()
+        },
+        vec![],
+        Some(Devices { used: 1, max: 3 }),
+    );
+    let pro = signed_in(
+        Claims {
+            entitlements: vec!["hyprnote_pro".into()],
+            subscription_status: Some("active".into()),
+            current_period_end: Some(now + 20 * day),
+            ..Claims::default()
+        },
+        vec![],
+        Some(Devices { used: 2, max: 3 }),
+    );
+    let seat = signed_in(
+        Claims::default(),
+        vec![Workspace {
+            id: "ws-acme".into(),
+            name: "Acme".into(),
+            tier: WorkspaceTier::Team,
+            seat_limit: Some(10),
+            used_seats: 4,
+        }],
+        None,
+    );
+    for (name, state, page) in [
+        ("account-signed-in", free.clone(), "account"),
+        ("billing-free", free.clone(), "billing"),
+        ("sync-free", free.clone(), "sync"),
+        ("team-free", free.clone(), "team"),
+        ("dictation-free", free.clone(), "dictation"),
+        ("billing-trial", trial, "billing"),
+        ("billing-pro", pro.clone(), "billing"),
+        ("dictation-pro", pro, "dictation"),
+        ("billing-team-seat", seat.clone(), "billing"),
+        ("meetings-team-seat", seat, "meetings"),
+    ] {
+        cx.update(|cx| account::set(state, cx));
+        open(cx, window, Route::Settings(page.into()));
+        capture(cx, window, out, &format!("settings-{name}"));
+    }
+    cx.update(|cx| account::set(free, cx));
+    open(cx, window, Route::Settings("account".into()));
+    click(cx, window, 850., 100.);
+    capture(cx, window, out, "settings-account-sign-out");
+    cx.update(|cx| account::set(Account::default(), cx));
 }
 
 fn chat(

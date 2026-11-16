@@ -361,7 +361,10 @@ impl CalendarSidebar {
 
     fn toggle_provider(&mut self, provider: Provider, cx: &mut Context<Self>) {
         if provider == Provider::Apple && !self.apple_authorized
-            || provider.cloud() && self.signed_in && !self.connected(provider)
+            || provider.cloud()
+                && self.signed_in
+                && crate::product::account::is_paid(cx)
+                && !self.connected(provider)
         {
             cx.emit(CalendarSidebarEvent::Connect);
             return;
@@ -402,7 +405,8 @@ impl CalendarSidebar {
     fn provider(&self, provider: Provider, colors: Theme, cx: &mut Context<Self>) -> gpui::Div {
         let needs_permission = provider == Provider::Apple && !self.apple_authorized;
         let open = !needs_permission && self.open.contains(&provider);
-        let add = needs_permission || provider.cloud() && self.signed_in;
+        let add = needs_permission
+            || provider.cloud() && self.signed_in && crate::product::account::is_pro(cx);
         div()
             .flex()
             .flex_col()
@@ -489,7 +493,20 @@ impl CalendarSidebar {
         let content = div().pb_3().text_sm();
         if provider.cloud() && !self.connected(provider) {
             let label = format!("Connect {} Calendar", provider.name());
-            return content.child(div().pt_1().pb_2().flex().child(if self.signed_in {
+            // Shipping gates connecting a cloud calendar on Pro (`PlanGate`).
+            let pro = crate::product::account::is_pro(cx);
+            return content.child(div().pt_1().pb_2().flex().child(if self.signed_in && !pro {
+                div()
+                    .relative()
+                    .opacity(0.6)
+                    .text_xs()
+                    .line_height(px(20.))
+                    .underline()
+                    .text_color(colors.muted_foreground)
+                    .child(label)
+                    .child(div().absolute().inset_0().occlude())
+                    .into_any_element()
+            } else if self.signed_in {
                 div()
                     .id(SharedString::from(format!(
                         "calendar-connect-link:{}",

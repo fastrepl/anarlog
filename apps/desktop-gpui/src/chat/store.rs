@@ -205,15 +205,18 @@ pub fn create_group(runtime: &RuntimeHandle, id: Arc<str>, title: String) -> Res
 }
 
 /// Whether chat has a language model to talk to; shipping hides the composer otherwise.
-pub fn model_configured(runtime: &RuntimeHandle) -> Result<Reply<bool>> {
+/// Whether a language model is chosen, and whether it is Anarlog's hosted one.
+pub fn model_configured(runtime: &RuntimeHandle) -> Result<Reply<(bool, bool)>> {
     let runtime_for_read = runtime.clone();
     runtime.service(move |_| async move {
         let settings = crate::meeting::config::preferences(&runtime_for_read).await?;
-        Ok(
+        let provider = settings.text("current_llm_provider");
+        Ok((
             settings.value("intelligence_disabled") != &Value::Bool(true)
-                && !settings.text("current_llm_provider").is_empty()
+                && !provider.is_empty()
                 && !settings.text("current_llm_model").is_empty(),
-        )
+            matches!(provider.as_str(), "anarlog" | "hyprnote"),
+        ))
     })
 }
 
@@ -263,7 +266,10 @@ mod tests {
             })
             .unwrap();
             ready.receive().await.unwrap();
-            assert!(!model_configured(&runtime).unwrap().receive().await.unwrap());
+            assert_eq!(
+                model_configured(&runtime).unwrap().receive().await.unwrap(),
+                (false, false)
+            );
             runtime
                 .submit(|services| async move {
                     services.executor.execute_transaction(vec![
@@ -325,7 +331,10 @@ mod tests {
                 ["Hello", "Hi"]
             );
             assert!(thread[0].user);
-            assert!(model_configured(&runtime).unwrap().receive().await.unwrap());
+            assert_eq!(
+                model_configured(&runtime).unwrap().receive().await.unwrap(),
+                (true, false)
+            );
             runtime.shutdown().await.unwrap();
         });
     }

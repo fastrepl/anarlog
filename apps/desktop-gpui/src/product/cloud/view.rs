@@ -658,7 +658,6 @@ fn selection_allows(action: &Action, selected: Option<&str>) -> bool {
 
 fn fields_for(action: &Action) -> &'static [&'static str] {
     match action {
-        Action::SignIn => &["provider"],
         Action::CreateWorkspace => &["name"],
         Action::InviteMember | Action::InviteToShare => &["email", "role"],
         Action::SetMemberRole | Action::SetShareRole => &["role"],
@@ -686,7 +685,6 @@ fn choices_for(field: &str, surface: Surface) -> &'static [&'static str] {
         "role" => &["viewer", "commenter", "editor"],
         "scope" => &["restricted", "workspace", "public"],
         "default_scope" => &["restricted", "workspace", "link", "public"],
-        "provider" => &["google", "apple"],
         "decision" => &["approved", "denied"],
         "interval" => &["monthly", "yearly"],
         "plan" => &["pro", "lite"],

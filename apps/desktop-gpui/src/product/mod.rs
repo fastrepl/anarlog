@@ -1,3 +1,5 @@
+pub mod account;
+mod account_view;
 pub mod assets;
 pub mod cloud;
 mod controls;
@@ -7,6 +9,7 @@ mod navigation;
 mod onboarding;
 mod pages;
 mod preferences_view;
+mod profile;
 mod provider_catalog;
 mod providers;
 mod service_view;
@@ -48,14 +51,16 @@ pub struct ProductPane {
     providers: Option<Entity<providers::ProviderView>>,
     service: Option<Entity<SurfaceView>>,
     active: navigation::Page,
-    /// Whether the signed-in account has Anarlog Pro; Pro-only pages show a lock otherwise.
-    pro: bool,
+    account_ui: account_view::AccountUi,
+    profile: Option<(profile::ProfileKey, Entity<profile::ProfileCard>)>,
+    workspace_name: Entity<TextInput>,
     onboarding: Option<Onboarding>,
     notice: String,
     _search_subscription: Subscription,
     service_subscription: Option<Subscription>,
     settings_subscription: Option<Subscription>,
     scope_subscription: Option<Subscription>,
+    _account_subscriptions: [Subscription; 2],
 }
 
 impl ProductPane {
@@ -91,6 +96,11 @@ impl ProductPane {
                 cx.notify();
             }
         });
+        let workspace_name = cx.new(|cx| TextInput::new("Acme", cx));
+        let account_subscriptions = [
+            cx.observe_global::<account::Account>(|_, cx| cx.notify()),
+            cx.subscribe(&workspace_name, |_, _, _: &InputEvent, cx| cx.notify()),
+        ];
         let providers = cx
             .try_global::<crate::meeting::config::ProviderServices>()
             .cloned()
@@ -106,13 +116,16 @@ impl ProductPane {
             providers,
             service: None,
             active: navigation::page("app"),
-            pro: false,
+            account_ui: Default::default(),
+            profile: None,
+            workspace_name,
             onboarding: None,
             notice: String::new(),
             _search_subscription: subscription,
             service_subscription: None,
             settings_subscription: None,
             scope_subscription: None,
+            _account_subscriptions: account_subscriptions,
         };
         this.open_route(route, cx);
         this
@@ -166,8 +179,8 @@ impl ProductPane {
             ProductRoute::Settings => ("app", None),
             ProductRoute::Transcription => ("transcription", None),
             ProductRoute::Intelligence => ("intelligence", None),
-            ProductRoute::Account => ("account", Some(Surface::Account)),
-            ProductRoute::Billing => ("billing", Some(Surface::Billing)),
+            ProductRoute::Account => ("account", None),
+            ProductRoute::Billing => ("billing", None),
             ProductRoute::CloudSync => ("sync", Some(Surface::CloudSync)),
             ProductRoute::Permissions => ("permissions", Some(Surface::Permissions)),
             ProductRoute::Share(_) => ("account", Some(Surface::Sharing)),
@@ -238,12 +251,7 @@ impl ProductPane {
                 }
             }
             if self.preferences.is_none() {
-                let pro = self.pro;
-                let view = cx.new(|cx| {
-                    let mut view = PreferencesView::new(self.context.runtime.clone(), cx);
-                    view.pro = pro;
-                    view
-                });
+                let view = cx.new(|cx| PreferencesView::new(self.context.runtime.clone(), cx));
                 self.settings_subscription = Some(cx.subscribe(&view, |_, _, error, cx| {
                     cx.emit(ProductEvent::Failed(error.clone()))
                 }));
@@ -279,8 +287,6 @@ impl ProductPane {
             return;
         }
         let surface = match page.id {
-            "account" => Some(Surface::Account),
-            "billing" => Some(Surface::Billing),
             "team" => Some(Surface::Teams),
             "sync" => Some(Surface::CloudSync),
             "imports" => Some(Surface::Imports),
@@ -337,6 +343,7 @@ impl ProductPane {
     fn sidebar(&self, colors: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let query = self.search.read(cx).buffer.text.clone();
         let searching = !query.is_empty();
+        let account = account::current(cx);
         let focused = self.search.focus_handle(cx).is_focused(window);
         let mut groups: Vec<(&'static str, Vec<navigation::Page>)> = Vec::new();
         for page in navigation::PAGES
@@ -465,7 +472,7 @@ impl ProductPane {
                     )
                     .children(pages.into_iter().map(|page| {
                         let active = page.id == self.active.id;
-                        let locked = page.requires_pro && !self.pro;
+                        let locked = account_view::locked(page.id, page.requires_pro, &account);
                         let tint = if active { colors.foreground } else { muted };
                         let group = SharedString::from(format!("settings-nav-{}", page.id));
                         div()
@@ -526,139 +533,7 @@ impl ProductPane {
             )
     }
 
-    /// Pages whose shipping content depends on the Anarlog account. Without cloud
-    /// configuration they show shipping's signed-out state.
-    fn account_page(&self, colors: &Theme) -> Option<Div> {
-        let signed_out = self.cloud.is_none();
-        let page = |title: &'static str| {
-            div()
-                .flex()
-                .flex_col()
-                .gap_8()
-                .child(controls::page_title(title))
-        };
-        let muted = |text: &'static str| {
-            div()
-                .text_sm()
-                .line_height(px(20.))
-                .text_color(colors.muted_foreground)
-                .child(text)
-        };
-        let unconfigured = || {
-            controls::description(
-                "Cloud sign-in needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY at build or run time.",
-                colors,
-            )
-        };
-        Some(match self.active.id {
-            "account" if signed_out => page("Account").child(
-                div()
-                    .pb_4()
-                    .flex()
-                    .flex_col()
-                    .items_start()
-                    .gap_4()
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .line_height(px(20.))
-                                    .font_weight(FontWeight::MEDIUM)
-                                    .child("Sign in to Anarlog"),
-                            )
-                            .child(muted("Sign in for cloud transcription, AI models, and sharing.")),
-                    )
-                    .child(
-                        div()
-                            .h(px(40.))
-                            .px_6()
-                            .flex()
-                            .items_center()
-                            .rounded(px(20.))
-                            .border_2()
-                            .border_color(colors.primary)
-                            .bg(colors.primary)
-                            .text_color(colors.primary_foreground)
-                            .text_sm()
-                            .font_weight(FontWeight::MEDIUM)
-                            .shadow_md()
-                            .opacity(0.5)
-                            .child("Get started"),
-                    )
-                    .child(unconfigured()),
-            ),
-            "billing" if signed_out => page("Billing")
-                .child(div().text_sm().child("Sign in to Anarlog"))
-                .child(unconfigured()),
-            "sync" if signed_out => page("Sync").child(unconfigured()),
-            "team" if signed_out => {
-                page("Teams").child(muted("Sign in to create a shared workspace for your team."))
-            }
-            "referrals" => page("Invite friends")
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .items_start()
-                        .gap_3()
-                        .text_sm()
-                        .child("Sign in to see your referral invites.")
-                        .child(controls::outline_button(
-                            "referrals-sign-in",
-                            "Sign in",
-                            false,
-                            colors,
-                            None,
-                        ))
-                        .when(signed_out, |view| view.child(unconfigured())),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .text_sm()
-                        .text_color(colors.muted_foreground)
-                        .child(
-                            div()
-                                .text_color(colors.foreground)
-                                .font_weight(FontWeight::MEDIUM)
-                                .child("Missing a referral reward?"),
-                        )
-                        .child("If your friend signed up through your link and started their free trial, but your free month hasn't appeared, email us and we'll help.")
-                        .child(
-                            div()
-                                .id("referral-support")
-                                .underline()
-                                .cursor_pointer()
-                                .child("Email us")
-                                .on_click(|_, _, cx| {
-                                    cx.open_url(
-                                        "mailto:team@fastrepl.com?subject=Referral%20reward%20help",
-                                    )
-                                }),
-                        ),
-                ),
-            // The native app has no CRM integration yet; signed in, shipping shows this
-            // message when no integration is available.
-            "crm" => page("CRM")
-                .child(muted("Connect a CRM to look up your contacts from Anarlog. Connections are managed through your Anarlog account."))
-                .child(muted(if signed_out {
-                    "Sign in to connect a CRM."
-                } else {
-                    "No CRM integrations are available yet."
-                })),
-            "insights" => page("Your insights")
-                .child(muted("Insights are not available in the native app yet.")),
-            _ => return None,
-        })
-    }
-
-    fn page(&self, colors: &Theme, cx: &mut Context<Self>) -> Div {
+    fn page(&mut self, colors: &Theme, cx: &mut Context<Self>) -> Div {
         let onboarding = self.onboarding.is_some();
         let preferences = self.service.is_none()
             && !onboarding
@@ -675,7 +550,11 @@ impl ProductPane {
         if preferences && let Some(view) = self.preferences.clone() {
             return div().child(view);
         }
-        if !onboarding && let Some(page) = self.account_page(colors) {
+        let surface = self.service.as_ref().map(|view| view.read(cx).surface);
+        if !onboarding
+            && matches!(surface, None | Some(Surface::Teams | Surface::CloudSync))
+            && let Some(page) = self.account_page(colors, cx)
+        {
             return page;
         }
         let title = self
@@ -789,7 +668,9 @@ impl Render for ProductPane {
             .is_none()
             .then(|| self.sidebar(&colors, window, cx));
         let page = self.page(&colors, cx);
+        let dialog = self.sign_out_dialog(&colors, cx);
         div()
+            .relative()
             .size_full()
             .flex()
             .pl(px(4.))
@@ -825,5 +706,6 @@ impl Render for ProductPane {
                             .child(page),
                     ),
             )
+            .children(dialog)
     }
 }

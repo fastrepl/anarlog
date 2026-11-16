@@ -816,7 +816,7 @@ impl PreferencesView {
     /// `audio-settings.tsx`.
     pub(super) fn meetings(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let colors = theme(window);
-        let pro = self.pro;
+        let pro = super::account::is_pro(cx);
         let macos = cfg!(target_os = "macos");
         let windows = cfg!(target_os = "windows");
         let share = self.text("default_meeting_share_access");
@@ -854,7 +854,16 @@ impl PreferencesView {
                     // Choosing a primary device needs the signed-in device registry.
                     .child(setting_row(
                         "Primary recording device",
-                        Some("Sign in to choose a primary recording device.".into()),
+                        Some(
+                            if !super::account::current(cx).signed_in() {
+                                "Sign in to choose a primary recording device."
+                            } else if !pro {
+                                "Anarlog Pro coordinates recording across your devices."
+                            } else {
+                                "Prefer this device when multiple devices record the same meeting. Other devices can record when it is not recording."
+                            }
+                            .into(),
+                        ),
                         true,
                         controls::select_trigger(
                             "primary_recording_device",
@@ -1061,7 +1070,7 @@ impl PreferencesView {
     /// `settings/dictation.tsx` and `dictation-shortcut.tsx`.
     pub(super) fn dictation(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let colors = theme(window);
-        let pro = self.pro;
+        let pro = super::account::is_pro(cx);
         let hands_free = self.flag("dictation_hands_free");
         let keys = self
             .text("dictation_shortcut")
@@ -1202,10 +1211,11 @@ impl PreferencesView {
     pub(super) fn dictionary(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let colors = theme(window);
         let terms = stored_terms(&self.text("personalization_dictionary_terms"));
-        let enabled = self.pro && self.writable("personalization_dictionary_terms");
+        let enabled =
+            super::account::is_pro(cx) && self.writable("personalization_dictionary_terms");
         page("Dictionary", 32.)
             .child(plan_gate(
-                self.pro,
+                super::account::is_pro(cx),
                 div()
                     .flex()
                     .flex_col()
