@@ -23,7 +23,10 @@ use crate::{
     product::{
         account,
         cloud::resources::ResourceKind,
-        sharing::resource_dialog::{ResourceDialogEvent, ResourceShareDialog},
+        sharing::{
+            resource_dialog::{ResourceDialogEvent, ResourceShareDialog},
+            shared_library::SharedLibrary,
+        },
     },
     ui::{
         input::{InputEvent, TextInput},
@@ -84,6 +87,7 @@ pub struct TemplatesView {
     picker: Option<(Entity<IconPicker>, Subscription)>,
     signed_in: bool,
     sharing: Option<(Entity<ResourceShareDialog>, Subscription)>,
+    shared_library: Entity<SharedLibrary>,
     /// The visible "requires Pro" toast, by sequence number.
     notice: Option<(u64, list::WarningToast)>,
     notices: u64,
@@ -102,6 +106,9 @@ impl TemplatesView {
                 cx.notify();
             }
         });
+        let shared_library = cx.new(|cx| {
+            SharedLibrary::new(runtime.clone(), ResourceKind::Template, search.clone(), cx)
+        });
         Self {
             runtime,
             library: Arc::default(),
@@ -114,6 +121,7 @@ impl TemplatesView {
             picker: None,
             signed_in: false,
             sharing: None,
+            shared_library,
             notice: None,
             notices: 0,
             message: String::new(),
@@ -732,7 +740,8 @@ impl TemplatesView {
                                 self.list_item(item.clone(), item == current, colors, cx)
                             })))
                         }
-                    }),
+                    })
+                    .child(self.shared_library.clone()),
             )
             .when_some(self.context.clone(), |view, (position, id)| {
                 view.child(self.context_menu(position, id, colors, cx))

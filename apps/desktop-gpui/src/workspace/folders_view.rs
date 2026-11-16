@@ -20,7 +20,10 @@ use super::{
 use crate::{
     product::{
         cloud::resources::ResourceKind,
-        sharing::resource_dialog::{ResourceDialogEvent, ResourceShareDialog},
+        sharing::{
+            resource_dialog::{ResourceDialogEvent, ResourceShareDialog},
+            shared_library::SharedLibrary,
+        },
     },
     ui::{
         input::{InputEvent, TextInput},
@@ -69,6 +72,7 @@ pub struct FoldersView {
     actions_open: bool,
     signed_in: bool,
     sharing: Option<(Entity<ResourceShareDialog>, Subscription)>,
+    shared_library: Entity<SharedLibrary>,
     busy: bool,
     message: String,
     cancel: CancellationToken,
@@ -84,6 +88,9 @@ impl FoldersView {
                 cx.notify();
             }
         });
+        let shared_library = cx.new(|cx| {
+            SharedLibrary::new(runtime.clone(), ResourceKind::Folder, search.clone(), cx)
+        });
         Self {
             runtime,
             library: Arc::default(),
@@ -96,6 +103,7 @@ impl FoldersView {
             actions_open: false,
             signed_in: false,
             sharing: None,
+            shared_library,
             busy: false,
             message: String::new(),
             cancel: CancellationToken::new(),
@@ -640,7 +648,8 @@ impl FoldersView {
                                 )
                             }))
                         }
-                    }),
+                    })
+                    .child(self.shared_library.clone()),
             )
             .into_any_element()
     }
