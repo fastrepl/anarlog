@@ -85,7 +85,7 @@ impl ProfileCard {
                 (*key, *label, input)
             })
             .collect();
-        let memo = cx.new(|cx| TextInput::new("", cx).multiline().inline());
+        let memo = cx.new(|cx| TextInput::new("", cx).multiline().inline().rows(3, Some(3)));
         watch(&memo, cx);
         let mut this = Self {
             runtime,

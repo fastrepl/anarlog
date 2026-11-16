@@ -145,6 +145,8 @@ pub struct Library {
     pub templates: Vec<Template>,
     pub default_id: Arc<str>,
     pub auto_customized: bool,
+    /// The stored `auto_summary_prompt`, as written.
+    pub auto_format: Arc<str>,
 }
 
 pub const LIBRARY_SQL: &str =
@@ -193,7 +195,92 @@ pub fn decode_library(rows: &[Value]) -> Library {
         templates,
         default_id: setting(rows, "selected_template_id").into(),
         auto_customized: !setting(rows, "auto_summary_prompt").trim().is_empty(),
+        auto_format: setting(rows, "auto_summary_prompt").into(),
     }
+}
+
+/// Shipping's `normalizeFormat`.
+fn normalize_format(value: &str) -> String {
+    value.replace("\r\n", "\n").trim().to_owned()
+}
+
+/// Shipping's `normalizeFormatOverride`: a legacy full prompt keeps only its format
+/// requirements and custom instructions.
+fn normalize_format_override(value: &str) -> String {
+    const PREAMBLE: &str = "For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.";
+    let normalized = normalize_format(value);
+    if !normalized.contains("# General Instructions") || !normalized.contains("# About Notes") {
+        return normalized;
+    }
+    let section = |heading: &str| {
+        let lines: Vec<&str> = normalized.split('\n').collect();
+        let start = lines.iter().position(|line| line.trim() == heading)? + 1;
+        let end = lines[start..]
+            .iter()
+            .position(|line| line.trim_start().starts_with("# "))
+            .map_or(lines.len(), |offset| start + offset);
+        Some(lines[start..end].join("\n").trim().to_owned())
+    };
+    let Some(requirements) = section("# Format Requirements") else {
+        return normalized;
+    };
+    let custom = section("# Custom Summary Instructions")
+        .map(|custom| custom.replacen(PREAMBLE, "", 1).trim().to_owned())
+        .filter(|custom| !custom.is_empty());
+    [Some(requirements), custom]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+/// The format Auto's editor opens with: a stored override that differs from the default,
+/// otherwise the default.
+pub fn auto_format(stored: &str, default: &str) -> String {
+    let stored = normalize_format_override(stored);
+    if !stored.is_empty() && stored != normalize_format(default) {
+        stored
+    } else {
+        default.to_owned()
+    }
+}
+
+/// What saving Auto's format stores: the default saves as "" and an empty format is refused.
+pub fn stored_format(source: &str, default: &str) -> std::result::Result<String, String> {
+    let normalized = normalize_format(source);
+    if normalized.is_empty() {
+        return Err("Summary format cannot be empty.".into());
+    }
+    let stored = if normalized == normalize_format(default) {
+        String::new()
+    } else {
+        normalized
+    };
+    anlg_template_app::render(anlg_template_app::Template::EnhanceSystem(
+        anlg_template_app::EnhanceSystem {
+            language: Some("en".into()),
+            format_override: stored.clone(),
+        },
+    ))
+    .map_err(|error| error.to_string())?;
+    Ok(stored)
+}
+
+/// Stores `auto_summary_prompt`, as shipping's Auto format form does.
+pub fn save_auto_format(runtime: &RuntimeHandle, stored: String) -> Result<Reply<()>> {
+    runtime.submit(move |services| async move {
+        transaction(
+            &services.executor,
+            vec![statement(
+                "INSERT INTO app_settings (id,value_json,updated_at) VALUES ('auto_summary_prompt',?,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                    ON CONFLICT(id) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at"
+                    .into(),
+                vec![json!(json!(stored).to_string())],
+                Some(1),
+            )],
+        )
+        .await
+    })
 }
 
 /// `localeCompare` for titles: case-insensitive first, lowercase before uppercase on ties.
@@ -474,6 +561,22 @@ pub fn set_default(runtime: &RuntimeHandle, id: Arc<str>) -> Result<Reply<()>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_format_saves_the_default_as_empty_and_refuses_blank() {
+        let default = "## Summary\n- {{ language }}\n";
+        assert_eq!(
+            stored_format("## Summary\r\n- {{ language }}  ", default),
+            Ok(String::new())
+        );
+        assert_eq!(stored_format("## Notes", default), Ok("## Notes".into()));
+        assert!(stored_format("  \n", default).is_err());
+        assert!(stored_format("{{ unknown_variable }}", default).is_err());
+        assert_eq!(auto_format("", default), default);
+        assert_eq!(auto_format("## Notes\n", default), "## Notes");
+        let legacy = "# General Instructions\nx\n# About Notes\ny\n# Format Requirements\n## Notes\n# Custom Summary Instructions\nBe brief.";
+        assert_eq!(auto_format(legacy, default), "## Notes\n\nBe brief.");
+    }
 
     #[test]
     fn malformed_persisted_rows_keep_original_bytes_and_warning() {

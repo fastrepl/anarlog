@@ -262,6 +262,7 @@ impl FoldersView {
             TextInput::new("Add context for this folder", cx)
                 .inline()
                 .multiline()
+                .rows(4, Some(4))
         });
         let subscriptions = vec![cx.subscribe(&name, |this, _, event, cx| {
             if matches!(event, InputEvent::Submitted) {
@@ -814,12 +815,12 @@ impl FoldersView {
                                             .child("What these notes are usually about"),
                                     )
                                     .child(
+                                        // `rows={4}` with `px-3 py-2.5 leading-5`.
                                         div()
-                                            .h(px(102.))
                                             .w_full()
                                             .px_3()
-                                            .pt(px(8.))
-                                            .overflow_hidden()
+                                            .py(px(10.))
+                                            .line_height(px(20.))
                                             .rounded(px(6.))
                                             .border_1()
                                             .border_color(if instructions_focused {

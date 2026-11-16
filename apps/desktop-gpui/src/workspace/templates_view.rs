@@ -94,7 +94,17 @@ pub struct TemplatesView {
     message: String,
     cancel: CancellationToken,
     focus: FocusHandle,
+    auto: Option<AutoEditor>,
     _subscriptions: Vec<Subscription>,
+}
+
+/// Auto's editable summary format, rebuilt when the stored format changes (shipping keys its
+/// form by the stored value).
+struct AutoEditor {
+    stored: Arc<str>,
+    initial: String,
+    input: Entity<TextInput>,
+    _subscription: Subscription,
 }
 
 impl TemplatesView {
@@ -125,6 +135,7 @@ impl TemplatesView {
             notice: None,
             notices: 0,
             message: String::new(),
+            auto: None,
             cancel: CancellationToken::new(),
             focus: cx.focus_handle(),
             _subscriptions: vec![subscription],
@@ -291,7 +302,8 @@ impl TemplatesView {
                     cx,
                 )
                 .inline()
-                .multiline();
+                .multiline()
+                .fill();
                 input.set_text(section.description.to_string(), cx);
                 input
             }),
@@ -492,6 +504,64 @@ impl TemplatesView {
     fn toggle_favorite(&mut self, id: Arc<str>, cx: &mut Context<Self>) {
         let reply = templates::toggle_favorite(&self.runtime, id);
         self.run(reply, |_, (), _| {}, cx);
+    }
+
+    fn auto_editor(&mut self, cx: &mut Context<Self>) -> Entity<TextInput> {
+        let stored = self.library.auto_format.clone();
+        if let Some(auto) = self.auto.as_ref().filter(|auto| auto.stored == stored) {
+            return auto.input.clone();
+        }
+        let initial = templates::auto_format(&stored, Self::default_format());
+        let input = cx.new(|cx| {
+            let mut input = TextInput::new("", cx)
+                .inline()
+                .multiline()
+                .paragraph_gap(px(4.));
+            input.set_text(initial.clone(), cx);
+            input
+        });
+        let subscription = cx.observe(&input, |_, _, cx| cx.notify());
+        self.auto = Some(AutoEditor {
+            stored,
+            initial,
+            input: input.clone(),
+            _subscription: subscription,
+        });
+        input
+    }
+
+    fn default_format() -> &'static str {
+        anlg_template_app::template_source(anlg_template_app::EditableTemplate::EnhanceFormat)
+    }
+
+    fn save_auto_format(&mut self, source: String, cx: &mut Context<Self>) {
+        if !account::is_pro(cx) {
+            self.notify_pro(cx);
+            return;
+        }
+        match templates::stored_format(&source, Self::default_format()) {
+            Ok(stored) => {
+                let reply = templates::save_auto_format(&self.runtime, stored.clone());
+                self.run(
+                    reply,
+                    move |this, (), cx| {
+                        // Saving the value already stored rebuilds nothing, so reset the form.
+                        if let Some(auto) = &mut this.auto
+                            && auto.stored.as_ref() == stored
+                        {
+                            auto.initial = templates::auto_format(&stored, Self::default_format());
+                            let text = auto.initial.clone();
+                            auto.input.update(cx, |input, cx| input.set_text(text, cx));
+                        }
+                    },
+                    cx,
+                );
+            }
+            Err(error) => {
+                self.message = error;
+                cx.notify();
+            }
+        }
     }
 
     fn set_default(&mut self, id: Arc<str>, cx: &mut Context<Self>) {
@@ -1347,15 +1417,15 @@ impl TemplatesView {
                                             .child(inputs.title.clone()),
                                     )
                                     .child(
+                                        // `min-h-[100px] p-3 text-sm`; the text scrolls inside.
                                         div()
                                             .h(px(100.))
                                             .w_full()
-                                            .px_3()
-                                            .pt(px(10.))
-                                            .overflow_hidden()
+                                            .p_3()
                                             .rounded(px(12.))
                                             .border_1()
                                             .text_sm()
+                                            .line_height(px(20.))
                                             .map(|view| {
                                                 if !editable {
                                                     view.bg(colors.muted).border_color(colors.input)
@@ -1535,13 +1605,14 @@ impl TemplatesView {
     }
 
     /// `AutoTemplateDetails`: the built-in summary format.
-    fn render_auto(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn render_auto(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let colors = theme(window);
         let is_default = self.library.default_id.is_empty();
-        let format =
-            anlg_template_app::template_source(anlg_template_app::EditableTemplate::EnhanceFormat)
-                .trim()
-                .to_owned();
+        let editor = self.auto_editor(cx);
+        let dirty = self
+            .auto
+            .as_ref()
+            .is_some_and(|auto| auto.input.read(cx).buffer.text != auto.initial);
         let menu_open = self.menu == Some(Menu::AutoActions);
         div()
             .size_full()
@@ -1595,14 +1666,24 @@ impl TemplatesView {
                                         button.child(dropdown(
                                             Anchor::TopRight,
                                             floating_menu(224., colors).child(
-                                                floating_menu_body(colors).child(menu_item(
-                                                    "reset-format",
-                                                    "Reset to default format",
-                                                    false,
-                                                    !self.library.auto_customized,
-                                                    window,
-                                                    colors,
-                                                )),
+                                                floating_menu_body(colors).child(
+                                                    menu_item(
+                                                        "reset-format",
+                                                        "Reset to default format",
+                                                        false,
+                                                        !self.library.auto_customized,
+                                                        window,
+                                                        colors,
+                                                    )
+                                                    .when(self.library.auto_customized, |item| {
+                                                        item.on_click(cx.listener(|this, _, _, cx| {
+                                                            this.save_auto_format(
+                                                                Self::default_format().into(),
+                                                                cx,
+                                                            )
+                                                        }))
+                                                    }),
+                                                ),
                                             ),
                                             cx,
                                         ))
@@ -1684,6 +1765,7 @@ impl TemplatesView {
                                         .gap_5()
                                         .child(
                                             div()
+                                                .id("auto-format")
                                                 .min_h(px(448.))
                                                 .px_4()
                                                 .py_3()
@@ -1694,18 +1776,17 @@ impl TemplatesView {
                                                 .font_family(monospace_font(cx))
                                                 .text_sm()
                                                 .line_height(px(20.))
-                                                .whitespace_normal()
-                                                .flex()
-                                                .flex_col()
-                                                // The prompt editor sets each source line as a paragraph.
-                                                .gap_1()
-                                                .children(format.lines().map(|line| {
-                                                    div().min_h(px(20.)).child(SharedString::from(line.to_owned()))
-                                                })),
+                                                .cursor_text()
+                                                .on_click({
+                                                    let focus = editor.focus_handle(cx);
+                                                    move |_, window, cx| focus.focus(window, cx)
+                                                })
+                                                .child(editor.clone()),
                                         )
                                         .child(
                                             div().flex().justify_end().child(
                                                 div()
+                                                    .id("save-format")
                                                     .h(px(36.))
                                                     .px_4()
                                                     .flex()
@@ -1716,7 +1797,23 @@ impl TemplatesView {
                                                     .text_sm()
                                                     .font_weight(gpui::FontWeight::MEDIUM)
                                                     .shadow_xs()
-                                                    .opacity(0.5)
+                                                    .when_else(
+                                                        dirty,
+                                                        |button| {
+                                                            button
+                                                                .cursor_pointer()
+                                                                .hover(|style| style.bg(colors.primary.opacity(0.9)))
+                                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                                    let source = this
+                                                                        .auto
+                                                                        .as_ref()
+                                                                        .map(|auto| auto.input.read(cx).buffer.text.clone())
+                                                                        .unwrap_or_default();
+                                                                    this.save_auto_format(source, cx)
+                                                                }))
+                                                        },
+                                                        |button| button.opacity(0.5),
+                                                    )
                                                     .child("Save"),
                                             ),
                                         ),

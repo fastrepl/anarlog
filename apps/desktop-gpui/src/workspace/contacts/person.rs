@@ -81,7 +81,7 @@ impl PersonPage {
                 let input = cx.new(|cx| {
                     let mut input = TextInput::new(placeholder, cx).inline();
                     if field == Field::Memo {
-                        input = input.multiline();
+                        input = input.multiline().fill();
                     }
                     input.set_text(value.to_string(), cx);
                     input
@@ -589,13 +589,12 @@ impl Contacts {
                             .child("Notes"),
                     )
                     .child(
-                        div()
+                        // `Textarea rows={3} min-h-[80px] py-2`: the text scrolls inside.
+                        text_sm(div())
                             .flex_1()
                             .min_w_0()
                             .h(px(80.))
-                            // The 24px input line sits where the textarea's 20px line does.
-                            .pt(px(6.))
-                            .overflow_hidden()
+                            .py_2()
                             .child(input(Field::Memo)),
                     ),
             )
