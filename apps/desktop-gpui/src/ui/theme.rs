@@ -88,9 +88,17 @@ pub fn monospace_font(cx: &App) -> SharedString {
     cx.global::<UiFonts>().mono.clone()
 }
 
+pub fn is_dark(window: &Window) -> bool {
+    matches!(
+        window.appearance(),
+        WindowAppearance::Dark | WindowAppearance::VibrantDark
+    )
+}
+
 pub fn theme(window: &Window) -> Theme {
-    match window.appearance() {
-        WindowAppearance::Dark | WindowAppearance::VibrantDark => Theme::dark(),
-        _ => Theme::light(),
+    if is_dark(window) {
+        Theme::dark()
+    } else {
+        Theme::light()
     }
 }

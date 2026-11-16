@@ -4,13 +4,13 @@ use gpui::{
     App, Bounds, ClipboardItem, Context, DispatchPhase, ElementInputHandler, Entity,
     EntityInputHandler, EventEmitter, FocusHandle, Focusable, KeyDownEvent, MouseButton,
     MouseMoveEvent, Pixels, Point, ShapedLine, TextAlign, TextRun, UTF16Selection, UnderlineStyle,
-    Window, canvas, div, fill, point, prelude::*, px, size,
+    Window, canvas, div, fill, point, prelude::*, px, rgb, size,
 };
 
 use super::{
     caret::Caret,
     text::TextBuffer,
-    theme::{RADIUS, theme},
+    theme::{RADIUS, is_dark, theme},
 };
 
 #[derive(Clone, Debug)]
@@ -36,6 +36,7 @@ pub struct TextInput {
     multiline: bool,
     secret: bool,
     inline: bool,
+    breadcrumb: bool,
     lines: Vec<(Range<usize>, Bounds<Pixels>, ShapedLine)>,
     dragging: bool,
     caret: Option<Entity<Caret>>,
@@ -54,6 +55,7 @@ impl TextInput {
             multiline: false,
             secret: false,
             inline: false,
+            breadcrumb: false,
             lines: Vec::new(),
             dragging: false,
             caret: None,
@@ -73,6 +75,12 @@ impl TextInput {
 
     pub fn inline(mut self) -> Self {
         self.inline = true;
+        self
+    }
+
+    /// Shipping's breadcrumb title: neutral-700 text in light mode, underlined while focused.
+    pub fn breadcrumb(mut self) -> Self {
+        self.breadcrumb = true;
         self
     }
 
@@ -528,16 +536,29 @@ impl Render for TextInput {
                             } else {
                                 this.buffer.text.clone()
                             };
+                            let text_color = if this.breadcrumb && !is_dark(window) {
+                                rgb(0x404040).into()
+                            } else {
+                                colors.foreground
+                            };
+                            let underline = (this.breadcrumb
+                                && !this.buffer.text.is_empty()
+                                && this.focus.is_focused(window))
+                            .then_some(UnderlineStyle {
+                                color: Some(text_color),
+                                thickness: px(1.),
+                                wavy: false,
+                            });
                             let run = TextRun {
                                 len: text.len(),
                                 font: style.font(),
                                 color: if this.buffer.text.is_empty() {
                                     colors.muted_foreground
                                 } else {
-                                    colors.foreground
+                                    text_color
                                 },
                                 background_color: None,
-                                underline: None,
+                                underline,
                                 strikethrough: None,
                             };
                             let runs = if let Some(marked) = &this.buffer.marked {

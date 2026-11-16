@@ -151,7 +151,7 @@ struct MenuItem {
 
 impl NoteView {
     pub fn new(runtime: RuntimeHandle, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let title = cx.new(|cx| TextInput::new("Untitled", cx).inline());
+        let title = cx.new(|cx| TextInput::new("Untitled", cx).inline().breadcrumb());
         let input = cx.subscribe_in(&title, window, |this, _, event, window, cx| {
             match event {
                 InputEvent::Submitted => {
