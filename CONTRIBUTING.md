@@ -185,7 +185,8 @@ Check the affected workflow under `.github/workflows/` for stricter package-spec
 ## Open a pull request
 
 - Write the title as a specific action that states the intended outcome. Do not use a file name, ticket number, or a generic label as the title.
-- Follow the [review-intent skill](.agents/skills/review-intent/SKILL.md): describe the previous behavior under `Context`, the mismatch and desired outcome under `Intention`, and the chosen approach under `Direction`. Keep each part to one or two short sentences; do not paste a commit log or a file-by-file recap.
+- Follow the [PR template](.github/PULL_REQUEST_TEMPLATE.md): describe the previous behavior under `Context`, the mismatch and desired outcome under `Intention`, and the chosen approach under `Direction`. Keep each part to one or two short sentences; do not paste a commit log or a file-by-file recap.
+- Link a relevant issue when one exists; an existing issue is not required. Label completed predecessors as related history instead of reopening them for new work.
 - Attach a short screen recording or GIF in the `Demo` section showing the problem and the fix in action. Together with the summary, this lets a maintainer understand the contribution quickly. Docs-only or non-functional changes can skip the video by writing `N/A` and a one-line reason.
 - List the commands and manual checks you used to verify the change.
 - CI enforces the title, a labeled `Intention` line (20–400 characters), and the `Demo` section for external contributors. It also accepts the legacy `Intent` label; `Context` and `Direction` are authoring requirements, not additional CI gates. Org members, collaborators, owners, and bots are not gated.

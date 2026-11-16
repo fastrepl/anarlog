@@ -12,7 +12,7 @@ Do not paste a commit log or file-by-file recap; each commit records its actions
 
 **Direction:** <!-- How should it change? Explain the chosen approach and resulting behavior. -->
 
-<!-- Link the active Linear issue. Label completed predecessors as related history. -->
+<!-- Link the active issue when one exists. Label completed predecessors as related history. -->
 
 ## Demo
 
