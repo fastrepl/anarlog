@@ -4,11 +4,15 @@ use chrono::Utc;
 use gpui::{
     Animation, AnimationExt, AnyElement, App, BoxShadow, Context, Div, Entity, FontWeight, Hsla,
     KeyDownEvent, MouseButton, Render, ScrollHandle, SharedString, Stateful, Svg, Transformation,
-    Window, WindowAppearance, anchored, deferred, div, percentage, point, prelude::*, px, rgb,
-    rgba, svg,
+    Window, WindowAppearance, anchored, canvas, deferred, div, percentage, point, prelude::*, px,
+    rgb, rgba, svg,
 };
 
-use super::{ChatView, Entry, Phase, markdown, state, store::Display};
+use super::{
+    ChatView, Entry, Phase, markdown, state,
+    store::Display,
+    voice::{self, VoicePhase},
+};
 use crate::{
     chat::state::{ChatEvent, ChatMode},
     ui::theme::{Theme, monospace_font, theme},
@@ -18,6 +22,7 @@ use crate::{
 const FLOATING_MAX_WIDTH: f32 = 650.;
 const CTA_MAX_WIDTH: f32 = 640.;
 const RIGHT_PANEL_MIN_WIDTH: f32 = 320.;
+const REVEAL: Duration = Duration::from_millis(180);
 
 fn dark(window: &Window) -> bool {
     matches!(
@@ -171,6 +176,68 @@ pub fn overlay(
         }
         ChatMode::FloatingOpen => {
             let close = chat.clone();
+            let state = chat.read(cx);
+            let measured = state.panel_height.clone();
+            let height = measured.get();
+            // Shipping reveals the panel upward from its composer over 180ms; closing is instant.
+            let reveal = state
+                .revealed_at
+                .filter(|at| height > 0. && at.elapsed() < REVEAL)
+                .map(|_| state.reveals);
+            let panel = div()
+                .id("chat-floating-panel")
+                .occlude()
+                .w_full()
+                .max_w(px(FLOATING_MAX_WIDTH))
+                .when(reveal.is_none(), |view| view.max_h_full())
+                .when(reveal.is_some(), |view| view.h(px(height)).flex_shrink_0())
+                .flex()
+                .flex_col()
+                .min_h_0()
+                .overflow_hidden()
+                .rounded(px(24.))
+                .border_1()
+                .border_color(colors.border.opacity(0.7))
+                .border_t_1()
+                .bg(if dark(window) {
+                    rgb(0x202020).into()
+                } else {
+                    Hsla::from(rgb(0xf4f4f5))
+                })
+                .shadow(vec![shadow(
+                    if dark(window) { 16. } else { 12. },
+                    if dark(window) { 40. } else { 32. },
+                    if dark(window) { 0.4 } else { 0.14 },
+                )])
+                .child(chat.clone())
+                .child(
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, (), _, _| measured.set(f32::from(bounds.size.height)),
+                    )
+                    .absolute()
+                    .inset_0(),
+                );
+            let panel = match reveal {
+                Some(generation) => {
+                    const START: f32 = 45.;
+                    div()
+                        .w_full()
+                        .max_w(px(FLOATING_MAX_WIDTH))
+                        .flex()
+                        .flex_col()
+                        .justify_end()
+                        .overflow_hidden()
+                        .child(panel)
+                        .with_animation(
+                            ("chat-reveal", generation),
+                            Animation::new(REVEAL).with_easing(gpui::ease_out_quint()),
+                            move |view, delta| view.h(px(START + (height - START) * delta)),
+                        )
+                        .into_any_element()
+                }
+                None => panel.into_any_element(),
+            };
             Some(
                 div()
                     .id("chat-floating-frame")
@@ -191,33 +258,7 @@ pub fn overlay(
                             }
                         })
                     })
-                    .child(
-                        div()
-                            .id("chat-floating-panel")
-                            .occlude()
-                            .w_full()
-                            .max_w(px(FLOATING_MAX_WIDTH))
-                            .max_h_full()
-                            .flex()
-                            .flex_col()
-                            .min_h_0()
-                            .overflow_hidden()
-                            .rounded(px(24.))
-                            .border_1()
-                            .border_color(colors.border.opacity(0.7))
-                            .border_t_1()
-                            .bg(if dark(window) {
-                                rgb(0x202020).into()
-                            } else {
-                                Hsla::from(rgb(0xf4f4f5))
-                            })
-                            .shadow(vec![shadow(
-                                if dark(window) { 16. } else { 12. },
-                                if dark(window) { 40. } else { 32. },
-                                if dark(window) { 0.4 } else { 0.14 },
-                            )])
-                            .child(chat.clone()),
-                    )
+                    .child(panel)
                     .into_any_element(),
             )
         }
@@ -227,6 +268,15 @@ pub fn overlay(
 
 pub(super) fn at_bottom(scroll: &ScrollHandle) -> bool {
     -f32::from(scroll.offset().y) >= f32::from(scroll.max_offset().y) - 4.
+}
+
+/// Shipping's `isContextLengthError`.
+fn context_length_error(message: &str) -> bool {
+    let message = message.to_lowercase();
+    (message.contains("n_keep") && message.contains("n_ctx"))
+        || (message.contains("context") && message.contains("exceeds"))
+        || message.contains("context length")
+        || message.contains("context size")
 }
 
 fn humanize(name: &str) -> String {
@@ -814,36 +864,76 @@ impl ChatView {
                     .into_any_element(),
             ),
             true => {
-                let context = self.context.is_some();
-                let suggestions = [
-                    (
-                        "List action items.",
-                        "chat/ListChecksIcon.svg",
-                        if context {
-                            "What are my action items from this meeting?"
-                        } else {
-                            "What are my outstanding action items across my meetings?"
-                        },
-                    ),
-                    (
-                        "Draft follow-up email.",
-                        "chat/Mail01Icon.svg",
-                        if context {
-                            "Draft a follow-up email to the participants"
-                        } else {
-                            "Draft a follow-up email for my most recent meeting."
-                        },
-                    ),
-                    (
-                        "Find key decisions.",
-                        "Search01Icon.svg",
-                        if context {
-                            "What were the key decisions that have been made?"
-                        } else {
-                            "What key decisions were made in my recent meetings?"
-                        },
-                    ),
-                ];
+                // Shipping's `hasContext`: the current note or a mention in the draft.
+                let context =
+                    self.context.is_some() || !self.composer.read(cx).context_refs().is_empty();
+                let suggestions: Vec<(&'static str, &'static str, &'static str)> = if self
+                    .live_meeting(cx)
+                {
+                    vec![
+                        (
+                            "Recap the last 5 minutes.",
+                            "chat/HistoryIcon.svg",
+                            "Recap what was discussed in the last 5 minutes of this meeting. Use the transcript timestamps, where the latest one is now.",
+                        ),
+                        (
+                            "Suggest what to ask next.",
+                            "chat/LightbulbIcon.svg",
+                            "Based on the conversation so far, suggest a few questions I could ask next.",
+                        ),
+                        (
+                            "List action items so far.",
+                            "chat/ListChecksIcon.svg",
+                            "What action items have come up so far in this meeting?",
+                        ),
+                    ]
+                } else {
+                    let mut suggestions = Vec::new();
+                    if self.summary_shown(cx) {
+                        suggestions.extend([
+                            (
+                                "Make the summary shorter.",
+                                "chat/ArrowShrinkIcon.svg",
+                                "Make the current summary noticeably shorter than it is now. Keep every decision, owner, deadline, and open question; cut repetition and secondary detail.",
+                            ),
+                            (
+                                "Make the summary longer.",
+                                "chat/ArrowExpandIcon.svg",
+                                "Make the current summary more detailed than it is now. Add supporting context, rationale, and examples from the transcript without inventing anything.",
+                            ),
+                        ]);
+                    }
+                    suggestions.extend([
+                        (
+                            "List action items.",
+                            "chat/ListChecksIcon.svg",
+                            if context {
+                                "What are my action items from this meeting?"
+                            } else {
+                                "What are my outstanding action items across my meetings?"
+                            },
+                        ),
+                        (
+                            "Draft follow-up email.",
+                            "chat/Mail01Icon.svg",
+                            if context {
+                                "Draft a follow-up email to the participants"
+                            } else {
+                                "Draft a follow-up email for my most recent meeting."
+                            },
+                        ),
+                        (
+                            "Find key decisions.",
+                            "Search01Icon.svg",
+                            if context {
+                                "What were the key decisions that have been made?"
+                            } else {
+                                "What key decisions were made in my recent meetings?"
+                            },
+                        ),
+                    ]);
+                    suggestions
+                };
                 Some(
                     div()
                         .flex()
@@ -867,7 +957,8 @@ impl ChatView {
                                 .text_color(colors.muted_foreground)
                                 .hover(|style| style.bg(colors.muted.opacity(0.55)))
                                 .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.send(prompt.to_owned(), cx)
+                                    let refs = this.composer.read(cx).context_refs();
+                                    this.submit(prompt.to_owned(), refs, cx)
                                 }))
                                 .child(
                                     div().size(px(24.)).flex().items_center().justify_center().child(
@@ -891,6 +982,12 @@ impl ChatView {
         let style = markdown::Style {
             colors,
             mono: monospace_font(cx),
+            chat: cx.weak_entity(),
+            menu: self.markdown.menu.clone(),
+            copied: self.markdown.copied.clone(),
+            selection: self.markdown.selection.clone(),
+            texts: self.markdown.texts.clone(),
+            streaming: false,
         };
         let last_assistant = self.entries.iter().rposition(|entry| !entry.message.user);
         let busy = self.busy();
@@ -942,7 +1039,10 @@ impl ChatView {
                             ))
                             .child(markdown::render(
                                 &self.stream_blocks,
-                                &style,
+                                &markdown::Style {
+                                    streaming: true,
+                                    ..style.clone()
+                                },
                                 "chat-md-stream",
                             )),
                     ),
@@ -979,6 +1079,36 @@ impl ChatView {
                             .line_height(px(20.))
                             .text_color(rgb(0xdc2626))
                             .child(SharedString::from(error.clone()))
+                            .when(context_length_error(error), |view| {
+                                view.child(
+                                    div()
+                                        .id("chat-context-length-help")
+                                        .mt_2()
+                                        .flex()
+                                        .items_center()
+                                        .gap_1()
+                                        .text_xs()
+                                        .line_height(px(16.))
+                                        .text_color(rgb(0xb91c1c))
+                                        .hover(|style| style.text_color(rgb(0x7f1d1d)))
+                                        .underline()
+                                        .cursor_pointer()
+                                        .on_click(|_, _, cx| {
+                                            let base = std::env::var("VITE_WEB_APP_URL")
+                                                .unwrap_or_else(|_| "https://anarlog.so".into());
+                                            cx.open_url(&format!(
+                                                "{}/docs/faq/local-llm-setup#context-length-error",
+                                                base.trim_end_matches('/')
+                                            ));
+                                        })
+                                        .child(icon(
+                                            "chat/ExternalLinkIcon.svg",
+                                            12.,
+                                            rgb(0xb91c1c).into(),
+                                        ))
+                                        .child("Learn how to fix this"),
+                                )
+                            })
                             .child(
                                 div()
                                     .id("chat-retry")
@@ -1075,8 +1205,8 @@ impl ChatView {
                     .flex()
                     .flex_col()
                     .gap(px(2.))
-                    .children(self.queue.iter().map(|(id, text)| {
-                        let id = *id;
+                    .children(self.queue.iter().map(|queued| {
+                        let (id, text) = (queued.id, &queued.text);
                         div()
                             .id(SharedString::from(format!("chat-queued-{id}")))
                             .group("chat-queued")
@@ -1129,21 +1259,23 @@ impl ChatView {
         )
     }
 
-    fn composer(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
+    fn composer_surface(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let colors = theme(window);
         let right = self.mode == ChatMode::RightPanelOpen;
         let has_content = !self.draft_empty(cx);
         let busy = self.busy();
-        let send_enabled = has_content;
+        let show_send = right || busy || has_content;
         let mic = div()
+            .id("chat-voice")
             .size(px(28.))
             .flex()
             .flex_none()
             .items_center()
             .justify_center()
-            .rounded_full()
-            // Voice input is not ported yet; shipping disables it the same way when unavailable.
-            .opacity(0.45)
+            .rounded(px(8.))
+            .cursor_pointer()
+            .hover(|style| style.bg(colors.muted))
+            .on_click(cx.listener(|this, _, _, cx| this.start_voice(cx)))
             .child(icon("chat/Mic01Icon.svg", 17., colors.muted_foreground));
         let send = div()
             .id("chat-send")
@@ -1152,24 +1284,21 @@ impl ChatView {
             .flex_none()
             .items_center()
             .justify_center()
-            .rounded_full()
+            .rounded(px(8.))
             .border_1()
-            .when(!send_enabled, |view| view.border_color(colors.border))
-            .when(send_enabled, |view| {
+            .when(!has_content, |view| view.border_color(colors.border))
+            .when(has_content, |view| {
                 view.bg(colors.primary)
                     .border_color(rgb(0x57534e))
                     .cursor_pointer()
                     .hover(|style| style.bg(colors.primary.opacity(0.9)))
                     .active(|style| style.bg(colors.primary.opacity(0.8)))
             })
-            .on_click(cx.listener(|this, _, _, cx| {
-                let text = this.input.read(cx).buffer.text.clone();
-                this.submit(text, cx);
-            }))
+            .on_click(cx.listener(|this, _, _, cx| this.submit_draft(cx)))
             .child(icon(
                 "chat/ArrowUp02Icon.svg",
                 15.,
-                if send_enabled {
+                if has_content {
                     colors.primary_foreground
                 } else {
                     colors.muted_foreground.opacity(0.6)
@@ -1182,19 +1311,24 @@ impl ChatView {
             .flex_none()
             .items_center()
             .justify_center()
-            .rounded_full()
+            .rounded(px(8.))
             .cursor_pointer()
             .hover(|style| style.bg(colors.accent))
             .on_click(cx.listener(|this, _, _, cx| this.stop(cx)))
             .child(icon("chat/SquareIcon.svg", 14., colors.foreground));
-        let actions = div()
-            .flex()
-            .flex_none()
-            .items_center()
-            .gap_1()
-            .when(!busy, |view| view.child(mic))
-            .when(busy, |view| view.child(stop))
-            .when(!busy && (right || has_content), |view| view.child(send));
+        let voice = self.voice != VoicePhase::Idle;
+        let actions = if voice {
+            self.voice_status(stop, send, show_send && !busy, &colors, cx)
+        } else {
+            div()
+                .flex()
+                .flex_none()
+                .items_center()
+                .gap_1()
+                .when(!busy, |view| view.child(mic))
+                .when(busy, |view| view.child(stop))
+                .when(!busy && show_send, |view| view.child(send))
+        };
         let indicator = self.sent.position().map(|(position, total)| {
             div()
                 .pb_1()
@@ -1205,6 +1339,24 @@ impl ChatView {
                 .text_color(colors.muted_foreground.opacity(0.8))
                 .child(format!("History {position}/{total}"))
         });
+        // The floating draft keeps clear of the controls drawn over its right edge.
+        let max_height = if right {
+            f32::from(window.viewport_size().height) * 0.4
+        } else {
+            144.
+        };
+        let padding = if right || voice {
+            0.
+        } else if has_content && !busy {
+            74.
+        } else {
+            42.
+        };
+        self.composer.update(cx, |composer, _| {
+            composer.max_height = max_height;
+            composer.padding_right = padding;
+            composer.paragraph_gap = if right { 4. } else { 0. };
+        });
         let surface = if right {
             div()
                 .flex()
@@ -1213,6 +1365,7 @@ impl ChatView {
                 .border_1()
                 .border_color(colors.border)
                 .bg(colors.card)
+                .text_color(colors.card_foreground)
                 .child(
                     div()
                         .flex()
@@ -1220,15 +1373,24 @@ impl ChatView {
                         .px_2()
                         .pt_3()
                         .pb_2()
-                        .child(div().mb_1().text_sm().child(self.input.clone()))
+                        .child(
+                            div()
+                                .mb_1()
+                                .min_h_0()
+                                .text_sm()
+                                .line_height(px(20.))
+                                .child(self.composer.clone()),
+                        )
                         .child(div().flex().justify_end().child(actions)),
                 )
         } else {
             div()
                 .flex()
-                .items_center()
+                .when(voice, |view| view.items_stretch().py_2())
+                .when(!voice, |view| view.items_center().py(px(3.)))
                 .min_h(px(40.))
-                .py(px(3.))
+                .max_h(px(160.))
+                .overflow_hidden()
                 .pl_4()
                 .pr(px(6.))
                 .rounded(px(20.))
@@ -1239,15 +1401,31 @@ impl ChatView {
                 } else {
                     gpui::white()
                 })
+                .text_color(colors.card_foreground)
                 .child(
                     div()
-                        .flex_1()
+                        .relative()
+                        .flex()
+                        .when(voice, |view| view.flex_col().items_stretch())
+                        .when(!voice, |view| view.items_center())
+                        .w_full()
                         .min_w_0()
-                        .mr(px(14.))
-                        .text_sm()
-                        .child(self.input.clone()),
+                        .min_h(px(30.))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .min_h(px(20.))
+                                .text_sm()
+                                .line_height(px(20.))
+                                .child(self.composer.clone()),
+                        )
+                        .child(if voice {
+                            actions.mt_2()
+                        } else {
+                            div().absolute().right_0().bottom(px(2.)).child(actions)
+                        }),
                 )
-                .child(actions)
         };
         div()
             .relative()
@@ -1258,12 +1436,255 @@ impl ChatView {
             .children(indicator)
             .child(surface)
     }
+
+    /// Shipping's `VoiceStatus`: the live waveform and elapsed time (or the starting and
+    /// transcribing spinner), the stop-recording button, then stop-response or send.
+    fn voice_status(
+        &self,
+        stop: Stateful<Div>,
+        send: Stateful<Div>,
+        show_send: bool,
+        colors: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let recording = match self.voice {
+            VoicePhase::Recording(started) => Some(started),
+            _ => None,
+        };
+        let busy = self.busy();
+        let bars = div()
+            .flex()
+            .flex_1()
+            .min_w_0()
+            .items_center()
+            .gap(px(3.))
+            .overflow_hidden()
+            .map(|view| match recording {
+                Some(_) => view.children((0..voice::WAVEFORM.len()).map(|index| {
+                    div()
+                        .w(px(1.))
+                        .flex_shrink_0()
+                        .rounded_full()
+                        .bg(colors.muted_foreground.opacity(0.55))
+                        .h(px(voice::bar_height(index, 0.)))
+                        .with_animation(
+                            ("chat-voice-bar", index),
+                            Animation::new(Duration::from_millis(700)).repeat(),
+                            move |bar, delta| bar.h(px(voice::bar_height(index, delta))),
+                        )
+                })),
+                None => view.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .text_xs()
+                        .line_height(px(16.))
+                        .text_color(colors.muted_foreground)
+                        .child(spinner(
+                            "chat-voice-processing",
+                            14.,
+                            colors.muted_foreground,
+                        ))
+                        .child(if self.voice == VoicePhase::Starting {
+                            "Starting…"
+                        } else {
+                            "Transcribing…"
+                        }),
+                ),
+            });
+        let stop_voice = div()
+            .id("chat-voice-stop")
+            .size(px(28.))
+            .flex()
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .rounded(px(8.))
+            .bg(colors.muted)
+            .text_color(colors.foreground)
+            .when(recording.is_none(), |view| view.opacity(0.6))
+            .when(recording.is_some(), |view| {
+                view.cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| this.stop_voice(cx)))
+            })
+            .child(match recording {
+                Some(_) => icon("chat/SquareIcon.svg", 12., colors.foreground).into_any_element(),
+                None => {
+                    spinner("chat-voice-stop-spinner", 14., colors.foreground).into_any_element()
+                }
+            });
+        div()
+            .flex()
+            .w_full()
+            .min_h(px(28.))
+            .items_center()
+            .gap_2()
+            .child(bars)
+            .children(recording.map(|started| {
+                div()
+                    .text_xs()
+                    .line_height(px(16.))
+                    .text_color(colors.muted_foreground)
+                    .child(VoicePhase::elapsed(started))
+            }))
+            .child(stop_voice)
+            .when(busy, |view| view.child(stop))
+            .when(!busy && show_send, |view| view.child(send))
+    }
+
+    /// Shipping's compact app toast, bottom right of the window.
+    fn toast_card(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let (tone, message, _) = self.toast?;
+        let colors = theme(window);
+        let viewport = window.viewport_size();
+        let tint: Hsla = match tone {
+            voice::Tone::Warning => rgb(0xd97706).into(),
+            voice::Tone::Error => colors.destructive,
+        };
+        Some(
+            deferred(
+                anchored()
+                    .position(point(viewport.width - px(16.), viewport.height - px(16.)))
+                    .anchor(gpui::Anchor::BottomRight)
+                    .child(
+                        div()
+                            .id("chat-toast")
+                            .occlude()
+                            .w(px(320.).min(viewport.width - px(32.)))
+                            .min_h(px(44.))
+                            .flex()
+                            .items_center()
+                            .gap(px(8.))
+                            .px(px(10.))
+                            .py(px(6.))
+                            .rounded(px(14.))
+                            .border_1()
+                            .border_color(colors.border.opacity(0.7))
+                            .bg(colors.popover)
+                            .text_color(colors.popover_foreground)
+                            .shadow_md()
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.toast = None;
+                                cx.notify();
+                            }))
+                            .child(
+                                div()
+                                    .size(px(32.))
+                                    .flex_none()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child(icon("chat/AlertCircleIcon.svg", 16., tint)),
+                            )
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .text_size(px(13.))
+                                    .line_height(px(20.))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(message),
+                            ),
+                    ),
+            )
+            .with_priority(3)
+            .into_any_element(),
+        )
+    }
+
+    /// Streamdown's fullscreen table: the whole window, its controls and a close button.
+    fn fullscreen_table(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let (id, header, rows) = self.markdown.fullscreen.as_ref()?;
+        let colors = theme(window);
+        let style = markdown::Style {
+            colors,
+            mono: monospace_font(cx),
+            chat: cx.weak_entity(),
+            menu: self.markdown.menu.clone(),
+            copied: self.markdown.copied.clone(),
+            selection: self.markdown.selection.clone(),
+            texts: self.markdown.texts.clone(),
+            streaming: false,
+        };
+        let viewport = window.viewport_size();
+        Some(
+            deferred(
+                anchored().position(point(px(0.), px(0.))).child(
+                    div()
+                        .id("chat-table-fullscreen")
+                        .occlude()
+                        .w(viewport.width)
+                        .h(viewport.height)
+                        .flex()
+                        .flex_col()
+                        .bg(colors.background)
+                        .text_color(colors.foreground)
+                        .text_sm()
+                        .line_height(px(20.))
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_end()
+                                .gap_1()
+                                .p_4()
+                                .child(markdown::table_controls(id, header, rows, &style))
+                                .child(
+                                    div()
+                                        .id("chat-table-fullscreen-close")
+                                        .group("chat-table-fullscreen-close")
+                                        .p_1()
+                                        .rounded(px(6.))
+                                        .cursor_pointer()
+                                        .hover(|style| style.bg(colors.muted))
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.markdown.fullscreen = None;
+                                            this.markdown.menu = None;
+                                            cx.notify();
+                                        }))
+                                        .child(
+                                            icon("chat/XIcon.svg", 20., colors.muted_foreground)
+                                                .group_hover(
+                                                    "chat-table-fullscreen-close",
+                                                    |style| style.text_color(colors.foreground),
+                                                ),
+                                        ),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .id("chat-table-fullscreen-body")
+                                .flex_1()
+                                .min_h_0()
+                                .overflow_y_scroll()
+                                .px_4()
+                                .pb_4()
+                                .child(
+                                    markdown::table(header, rows, &style, id)
+                                        .w_full()
+                                        .border_1()
+                                        .border_color(colors.border),
+                                ),
+                        ),
+                ),
+            )
+            .with_priority(2)
+            .into_any_element(),
+        )
+    }
 }
 
 impl Render for ChatView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
         let right = self.mode == ChatMode::RightPanelOpen;
+        // Text elements register again as they paint this frame.
+        self.markdown.texts.borrow_mut().clear();
+        if self.focus_composer && self.model_ready(cx) == Some(true) {
+            self.focus_composer = false;
+            gpui::Focusable::focus_handle(self.composer.read(cx), cx).focus(window, cx);
+        }
         div()
             .id("chat")
             .track_focus(&self.focus)
@@ -1274,29 +1695,54 @@ impl Render for ChatView {
             .when(right, |view| view.size_full())
             .when(!right, |view| view.max_h_full())
             .text_color(colors.card_foreground)
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                    if this.markdown.press(event.position) {
+                        this.focus.focus(window, cx);
+                    }
+                    cx.notify();
+                }),
+            )
+            .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, _, cx| {
+                if event.pressed_button != Some(MouseButton::Left) {
+                    this.markdown.selecting = false;
+                } else if this.markdown.drag(event.position) {
+                    cx.notify();
+                }
+            }))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, _, _, _| this.markdown.selecting = false),
+            )
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 let modifiers = event.keystroke.modifiers;
-                if modifiers.secondary(cx) || modifiers.alt || modifiers.shift {
+                let key = event.keystroke.key.as_str();
+                if modifiers.secondary(cx) && key == "c" {
+                    if let Some(text) = this.markdown.selected_text() {
+                        cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+                        cx.stop_propagation();
+                    }
                     return;
                 }
-                let handled = match event.keystroke.key.as_str() {
-                    "escape" => {
-                        this.event(ChatEvent::Close, window, cx);
-                        true
-                    }
-                    "up" => this.recall(true, cx),
-                    "down" => this.recall(false, cx),
-                    _ => false,
-                };
-                if handled {
-                    cx.stop_propagation();
+                if key != "escape" || modifiers.secondary(cx) || modifiers.alt || modifiers.shift {
+                    return;
                 }
+                if this.markdown.fullscreen.take().is_some() {
+                    this.markdown.menu = None;
+                    cx.notify();
+                } else {
+                    this.event(ChatEvent::Close, window, cx);
+                }
+                cx.stop_propagation();
             }))
             .child(self.toolbar(window, cx))
             .child(self.body(window, cx))
             .when(self.model_ready(cx) == Some(true), |view| {
                 view.children(self.queue_list(&colors, cx))
-                    .child(self.composer(window, cx))
+                    .child(self.composer_surface(window, cx))
             })
+            .children(self.fullscreen_table(window, cx))
+            .children(self.toast_card(window, cx))
     }
 }

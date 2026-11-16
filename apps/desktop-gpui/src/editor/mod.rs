@@ -11,7 +11,7 @@ mod pane;
 pub mod persistence;
 mod sequence;
 mod services;
-mod surface;
+pub(crate) mod surface;
 pub mod title;
 pub mod transcript;
 mod transform;

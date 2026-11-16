@@ -602,6 +602,11 @@ impl WorkspaceView {
         &self.chat
     }
 
+    /// Whether the open note shows a summary with content, for chat's rewrite suggestions.
+    pub fn editable_summary_shown(&self, cx: &gpui::App) -> bool {
+        self.note.read(cx).editable_summary_shown()
+    }
+
     pub fn current_route(&self) -> Route {
         self.navigation
             .current()

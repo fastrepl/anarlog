@@ -131,6 +131,7 @@ fn main() {
     chat(&mut cx, window, |chat, window, cx| {
         chat.event(ChatEvent::Close, window, cx)
     });
+    chat_composer(&mut cx, window, &runtime, &out);
     // The note's more button and its tabs, by window position.
     open(&mut cx, window, Route::Session(SessionId("s-sync".into())));
     click(&mut cx, window, 888., 23.);
@@ -1239,6 +1240,297 @@ fn contacts(
         })],
     );
     capture(cx, window, out, "contacts-scrolled");
+}
+
+/// The composer, mentions, message interactions and reply states, by window position for the
+/// floating panel over the empty tab.
+fn chat_composer(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    runtime: &RuntimeHandle,
+    out: &std::path::Path,
+) {
+    // A transcription provider hides the "provider needed" toast that covers the composer.
+    sql(
+        runtime,
+        "INSERT INTO app_settings (id, value_json) VALUES ('current_stt_provider', '\"deepgram\"'), ('current_stt_model', '\"nova-3\"')",
+    );
+    open(cx, window, Route::Empty);
+    chat(cx, window, |chat, window, cx| {
+        chat.new_chat(cx);
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    // Voice input: without a dictation service it fails like shipping without a microphone;
+    // a stand-in service shows the recording row. No audio device is opened.
+    click(cx, window, 858., 561.);
+    capture(cx, window, out, "chat-voice-unavailable");
+    cx.update(|cx| {
+        cx.set_global(desktop_gpui::chat::voice::Voice(std::sync::Arc::new(
+            StandInVoice,
+        )))
+    });
+    // The toast sits over the microphone; the first click dismisses it.
+    click(cx, window, 858., 561.);
+    click(cx, window, 858., 561.);
+    capture(cx, window, out, "chat-voice-recording");
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Close, window, cx);
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    write(cx, window, "Summarize the weekly sync");
+    capture(cx, window, out, "chat-composer-typed");
+    type_text(cx, window, &["shift-enter"]);
+    write(cx, window, "and list the owners");
+    capture(cx, window, out, "chat-composer-multiline");
+    type_text(cx, window, &["cmd-a", "backspace"]);
+    write(cx, window, "Prep for @");
+    capture(cx, window, out, "chat-mention-empty");
+    type_text(cx, window, &["enter"]);
+    write(cx, window, "and @");
+    type_text(cx, window, &["down", "enter"]);
+    capture(cx, window, out, "chat-mention-chips");
+    type_text(cx, window, &["cmd-a", "backspace"]);
+    write(cx, window, "@wee");
+    capture(cx, window, out, "chat-mention-search");
+    type_text(cx, window, &["cmd-a", "backspace"]);
+    write(cx, window, "Prep for @");
+    type_text(cx, window, &["enter"]);
+    write(cx, window, "and @");
+    type_text(cx, window, &["down", "enter"]);
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::OpenRightPanel, window, cx)
+    });
+    capture(cx, window, out, "chat-right-typed");
+    chat(cx, window, |chat, window, cx| {
+        chat.composer()
+            .update(cx, |composer, cx| composer.clear(cx));
+        chat.select_group("g-launch".into(), cx);
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    pointer(cx, window, 455., 300.);
+    capture(cx, window, out, "chat-thread-hover");
+    // The table's controls where shipping's capture scrolls them: copy, download, fullscreen.
+    wheel(cx, window, (500., 300.), 134.);
+    capture(cx, window, out, "chat-thread-table");
+    click(cx, window, 789., 332.);
+    capture(cx, window, out, "chat-table-copy");
+    click(cx, window, 815., 332.);
+    capture(cx, window, out, "chat-table-download");
+    click(cx, window, 815., 332.);
+    click(cx, window, 841., 332.);
+    capture(cx, window, out, "chat-table-fullscreen");
+    type_text(cx, window, &["escape"]);
+    drag(cx, window, (258., 146.), (545., 198.));
+    capture(cx, window, out, "chat-selection");
+    chat(cx, window, |chat, _, cx| {
+        chat.select_group("g-hiring".into(), cx);
+    });
+    capture(cx, window, out, "chat-code");
+    chat(cx, window, |chat, _, cx| {
+        chat.preview_reply("", "", None, cx);
+    });
+    capture(cx, window, out, "chat-thinking");
+    chat(cx, window, |chat, _, cx| {
+        chat.preview_reply(
+            "Checking the debrief notes for owners",
+            "The debrief raised **two** questions about",
+            None,
+            cx,
+        );
+    });
+    capture(cx, window, out, "chat-streaming");
+    chat(cx, window, |chat, _, cx| {
+        chat.preview_reply(
+            "",
+            "The debrief raised **two** questions about",
+            Some(Ok(())),
+            cx,
+        );
+    });
+    capture(cx, window, out, "chat-stopped");
+    chat(cx, window, |chat, _, cx| {
+        chat.preview_reply(
+            "",
+            "",
+            Some(Err(
+                "Request failed: the prompt (5120 tokens) exceeds the context length of 4096"
+                    .into(),
+            )),
+            cx,
+        );
+    });
+    pointer(cx, window, 300., 520.);
+    capture(cx, window, out, "chat-error");
+    chat(cx, window, |chat, window, cx| {
+        chat.new_chat(cx);
+        chat.event(ChatEvent::Close, window, cx)
+    });
+    // A summary shown in the note adds shipping's rewrite suggestions; a live meeting swaps
+    // in its own.
+    open(cx, window, Route::Session(SessionId("s-critique".into())));
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    capture(cx, window, out, "chat-summary-suggestions");
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Close, window, cx)
+    });
+    let standup = SessionId("s-standup".into());
+    set_live(
+        cx,
+        Some(LiveMeeting::new(standup.clone(), SessionMode::Active)),
+    );
+    open(cx, window, Route::Session(standup));
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    capture(cx, window, out, "chat-live-suggestions");
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Close, window, cx)
+    });
+    set_live(cx, None);
+    // A provider that needs a key it does not have shows the setup prompt, not the composer.
+    sql(
+        runtime,
+        "UPDATE app_settings SET value_json = '\"openai\"' WHERE id = 'current_llm_provider'",
+    );
+    open(cx, window, Route::Empty);
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Open, window, cx)
+    });
+    capture(cx, window, out, "chat-missing-key");
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Close, window, cx)
+    });
+    sql(
+        runtime,
+        "UPDATE app_settings SET value_json = '\"ollama\"' WHERE id = 'current_llm_provider'",
+    );
+    // The reveal halfway through its 180ms.
+    cx.update(|cx| {
+        window
+            .update(cx, |root, window, cx| {
+                let chat = root.workspace().read(cx).chat().clone();
+                chat.update(cx, |chat, cx| chat.event(ChatEvent::Open, window, cx))
+            })
+            .unwrap()
+    });
+    cx.advance_clock(Duration::from_millis(60));
+    cx.run_until_parked();
+    capture(cx, window, out, "chat-reveal");
+    settle(cx);
+    chat(cx, window, |chat, window, cx| {
+        chat.event(ChatEvent::Close, window, cx)
+    });
+    sql(
+        runtime,
+        "DELETE FROM app_settings WHERE id IN ('current_stt_provider', 'current_stt_model')",
+    );
+}
+
+fn wheel(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    at: (f32, f32),
+    y: f32,
+) {
+    input(
+        cx,
+        window,
+        [PlatformInput::Scroll(ScrollEvent {
+            position: point(px(at.0), px(at.1)),
+            delta: ScrollDelta::Pixels(point(px(0.), px(y))),
+            modifiers: Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
+        })],
+    );
+}
+
+struct StandInVoice;
+
+impl desktop_gpui::chat::voice::VoiceInput for StandInVoice {
+    fn start(&self) -> futures::future::BoxFuture<'static, desktop_runtime::Result<()>> {
+        Box::pin(async { Ok(()) })
+    }
+
+    fn stop(&self) -> futures::future::BoxFuture<'static, desktop_runtime::Result<String>> {
+        Box::pin(async { Ok("and the release dates".into()) })
+    }
+
+    fn cancel(&self) {}
+}
+
+/// Runs a statement through the executor, so reactive watches see the change.
+fn sql(runtime: &RuntimeHandle, statement: &'static str) {
+    let reply = runtime
+        .submit(move |services| async move {
+            services
+                .executor
+                .execute(statement.into(), vec![])
+                .await
+                .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+            Ok(())
+        })
+        .unwrap();
+    futures::executor::block_on(reply.receive()).unwrap();
+}
+
+/// Types text through the focused element's input handler, as an input method would.
+fn write(cx: &mut HeadlessAppContext, window: WindowHandle<ApplicationView>, text: &str) {
+    let window: AnyWindowHandle = window.into();
+    for character in text.chars() {
+        let keystroke = gpui::Keystroke {
+            modifiers: Modifiers::default(),
+            key: character.to_lowercase().to_string(),
+            key_char: Some(character.to_string()),
+        };
+        cx.update_window(window, |_, window, cx| {
+            window.draw(cx).clear(cx);
+            window.dispatch_keystroke(keystroke, cx);
+        })
+        .unwrap();
+        cx.run_until_parked();
+    }
+    settle(cx);
+}
+
+fn drag(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    from: (f32, f32),
+    to: (f32, f32),
+) {
+    let (from, to) = (point(px(from.0), px(from.1)), point(px(to.0), px(to.1)));
+    input(
+        cx,
+        window,
+        [
+            PlatformInput::MouseMove(MouseMoveEvent {
+                position: from,
+                pressed_button: None,
+                modifiers: Modifiers::default(),
+            }),
+            PlatformInput::MouseDown(MouseDownEvent {
+                button: MouseButton::Left,
+                position: from,
+                modifiers: Modifiers::default(),
+                click_count: 1,
+                first_mouse: false,
+            }),
+            PlatformInput::MouseMove(MouseMoveEvent {
+                position: to,
+                pressed_button: Some(MouseButton::Left),
+                modifiers: Modifiers::default(),
+            }),
+            PlatformInput::MouseUp(MouseUpEvent {
+                button: MouseButton::Left,
+                position: to,
+                modifiers: Modifiers::default(),
+                click_count: 1,
+            }),
+        ],
+    );
 }
 
 fn chat(

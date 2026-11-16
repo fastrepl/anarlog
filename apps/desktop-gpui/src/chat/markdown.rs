@@ -2,16 +2,16 @@
 //! `apps/desktop/src/chat/components/message/normal.tsx`. Parsing reuses the TipTap
 //! converter; GFM tables, which it drops, are split out first.
 
-use std::ops::Range;
-
-use std::path::PathBuf;
+use std::{cell::RefCell, ops::Range, path::PathBuf, rc::Rc};
 
 use gpui::{
-    AnyElement, ClipboardItem, FontStyle, FontWeight, HighlightStyle, InteractiveText,
-    SharedString, StrikethroughStyle, StyledText, UnderlineStyle, div, prelude::*, px, svg,
+    AnyElement, ClipboardItem, FontStyle, FontWeight, HighlightStyle, InteractiveText, MouseButton,
+    Pixels, Point, SharedString, StrikethroughStyle, StyledText, TextLayout, UnderlineStyle,
+    WeakEntity, Window, anchored, canvas, deferred, div, fill, point, prelude::*, px, size, svg,
 };
 use serde_json::Value;
 
+use super::ChatView;
 use crate::ui::theme::Theme;
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -222,9 +222,149 @@ fn inline(node: &Value) -> Inline {
 
 const CODE_PAD: &str = "\u{2009}\u{2009}";
 
+#[derive(Clone)]
 pub struct Style {
     pub colors: Theme,
     pub mono: SharedString,
+    pub chat: WeakEntity<ChatView>,
+    pub menu: Option<(String, TableMenu)>,
+    pub copied: Option<String>,
+    pub selection: Option<(Caret, Caret)>,
+    pub texts: Rc<RefCell<Vec<Painted>>>,
+    /// Streamdown disables block controls while a reply streams.
+    pub streaming: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TableMenu {
+    Copy,
+    Download,
+}
+
+/// A point in the rendered messages: a text element's key and a byte in its text.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Caret {
+    pub key: SharedString,
+    pub byte: usize,
+}
+
+/// A text element as last painted, in document order.
+#[derive(Clone)]
+pub struct Painted {
+    pub key: SharedString,
+    pub text: SharedString,
+    pub layout: TextLayout,
+}
+
+/// Message interactions Streamdown provides in the browser: dragging a text selection across
+/// blocks, the table copy/download menus and the fullscreen table.
+#[derive(Default)]
+pub struct Interaction {
+    pub menu: Option<(String, TableMenu)>,
+    pub copied: Option<String>,
+    pub fullscreen: Option<(String, Vec<Inline>, Vec<Vec<Inline>>)>,
+    pub selection: Option<(Caret, Caret)>,
+    pub selecting: bool,
+    pub texts: Rc<RefCell<Vec<Painted>>>,
+}
+
+impl Interaction {
+    pub fn close(&mut self) {
+        self.menu = None;
+        self.fullscreen = None;
+        self.selection = None;
+        self.selecting = false;
+    }
+
+    fn caret_at(&self, position: Point<Pixels>, nearest: bool) -> Option<Caret> {
+        let texts = self.texts.borrow();
+        let inside = texts.iter().find(|painted| {
+            let bounds = painted.layout.bounds();
+            bounds.contains(&position)
+        });
+        let painted = inside.or_else(|| {
+            nearest
+                .then(|| {
+                    texts.iter().min_by(|a, b| {
+                        let distance = |painted: &Painted| {
+                            let bounds = painted.layout.bounds();
+                            let y = f32::from(position.y);
+                            if y < f32::from(bounds.top()) {
+                                f32::from(bounds.top()) - y
+                            } else {
+                                (y - f32::from(bounds.bottom())).max(0.)
+                            }
+                        };
+                        distance(a).total_cmp(&distance(b))
+                    })
+                })
+                .flatten()
+        })?;
+        let byte = painted
+            .layout
+            .index_for_position(position)
+            .unwrap_or_else(|byte| byte);
+        Some(Caret {
+            key: painted.key.clone(),
+            byte,
+        })
+    }
+
+    /// Starts a selection at a pressed point; false when it is not over message text.
+    pub fn press(&mut self, position: Point<Pixels>) -> bool {
+        self.menu = None;
+        let caret = self.caret_at(position, false);
+        self.selecting = caret.is_some();
+        self.selection = caret.map(|caret| (caret.clone(), caret));
+        self.selecting
+    }
+
+    pub fn drag(&mut self, position: Point<Pixels>) -> bool {
+        if !self.selecting {
+            return false;
+        }
+        let Some(head) = self.caret_at(position, true) else {
+            return false;
+        };
+        match &mut self.selection {
+            Some((_, current)) if *current != head => {
+                *current = head;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The selected text, element by element in document order.
+    pub fn selected_text(&self) -> Option<String> {
+        let (anchor, head) = self.selection.as_ref()?;
+        let texts = self.texts.borrow();
+        let index = |caret: &Caret| texts.iter().position(|painted| painted.key == caret.key);
+        let (a, b) = (index(anchor)?, index(head)?);
+        let ((start, from), (end, to)) = if (a, anchor.byte) <= (b, head.byte) {
+            ((a, anchor.byte), (b, head.byte))
+        } else {
+            ((b, head.byte), (a, anchor.byte))
+        };
+        let parts = texts[start..=end]
+            .iter()
+            .enumerate()
+            .map(|(offset, painted)| {
+                let text = painted.text.as_ref();
+                let first = if offset == 0 { from.min(text.len()) } else { 0 };
+                let last = if start + offset == end {
+                    to.min(text.len())
+                } else {
+                    text.len()
+                };
+                text.get(first..last.max(first))
+                    .unwrap_or_default()
+                    .replace(CODE_PAD, "")
+            })
+            .collect::<Vec<_>>();
+        let text = parts.join("\n");
+        (!text.is_empty()).then_some(text)
+    }
 }
 
 pub fn render(blocks: &[Block], style: &Style, id: &str) -> AnyElement {
@@ -365,9 +505,9 @@ fn render_block(block: &Block, style: &Style, id: &str) -> AnyElement {
                                 id,
                                 format!("code.{extension}"),
                                 code.clone(),
-                                colors,
+                                style,
                             ))
-                            .child(copy_button(id, code.clone(), colors)),
+                            .child(copy_button(id, code.clone(), style)),
                     ),
                 )
                 .child(
@@ -378,7 +518,14 @@ fn render_block(block: &Block, style: &Style, id: &str) -> AnyElement {
                         .border_color(colors.border)
                         .bg(colors.background)
                         .font_family(style.mono.clone())
-                        .child(SharedString::from(code)),
+                        .child(text_element(
+                            &Inline {
+                                text: code,
+                                spans: Vec::new(),
+                            },
+                            style,
+                            &format!("{id}-code"),
+                        )),
                 )
                 .into_any_element()
         }
@@ -389,57 +536,225 @@ fn render_block(block: &Block, style: &Style, id: &str) -> AnyElement {
             .children(render_blocks(blocks, style, id))
             .into_any_element(),
         Block::Rule => div().h(px(1.)).bg(colors.border).into_any_element(),
-        Block::Table { header, rows } => {
-            let widths = column_widths(header, rows);
-            let row = |cells: &[Inline], key: &str, head: bool| {
+        Block::Table { header, rows } => frame(colors)
+            .gap_2()
+            .child(
                 div()
                     .flex()
-                    .children(cells.iter().zip(&widths).enumerate().map(
-                        |(column, (text, (minimum, weight)))| {
-                            let mut cell = div().flex_basis(px(*minimum)).flex_shrink_0();
-                            cell.style().flex_grow = Some(*weight);
-                            cell.px_4()
-                                .py_2()
-                                .when(head, |view| view.font_weight(FontWeight::SEMIBOLD))
-                                .child(text_element(text, style, &format!("{id}-{key}-{column}")))
-                        },
-                    ))
-            };
-            frame(colors)
-                .gap_2()
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_end()
-                        .gap_1()
-                        .child(copy_button(id, table_markdown(header, rows), colors))
-                        .child(download_button(
-                            id,
-                            "table.csv".into(),
-                            table_csv(header, rows),
-                            colors,
-                        )),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .overflow_hidden()
-                        .rounded(px(6.))
-                        .border_1()
-                        .border_color(colors.border)
-                        .bg(colors.background)
-                        .child(row(header, "h", true).bg(colors.muted.opacity(0.8)))
-                        .children(rows.iter().enumerate().map(|(index, cells)| {
-                            row(cells, &index.to_string(), false)
-                                .border_t_1()
-                                .border_color(colors.border)
-                        })),
-                )
-                .into_any_element()
-        }
+                    .items_center()
+                    .justify_end()
+                    .gap_1()
+                    .child(table_controls(id, header, rows, style)),
+            )
+            .child(
+                table(header, rows, style, id)
+                    .overflow_hidden()
+                    .rounded(px(6.))
+                    .border_1()
+                    .border_color(colors.border)
+                    .bg(colors.background),
+            )
+            .into_any_element(),
     }
+}
+
+/// The table's rows: a muted header, then bordered body rows.
+pub fn table(header: &[Inline], rows: &[Vec<Inline>], style: &Style, id: &str) -> gpui::Div {
+    let colors = &style.colors;
+    let widths = column_widths(header, rows);
+    let row = |cells: &[Inline], key: &str, head: bool| {
+        div()
+            .flex()
+            .children(cells.iter().zip(&widths).enumerate().map(
+                |(column, (text, (minimum, weight)))| {
+                    let mut cell = div().flex_basis(px(*minimum)).flex_shrink_0();
+                    cell.style().flex_grow = Some(*weight);
+                    cell.px_4()
+                        .py_2()
+                        .when(head, |view| view.font_weight(FontWeight::SEMIBOLD))
+                        .child(text_element(text, style, &format!("{id}-{key}-{column}")))
+                },
+            ))
+    };
+    div()
+        .flex()
+        .flex_col()
+        .child(row(header, "h", true).bg(colors.muted.opacity(0.8)))
+        .children(rows.iter().enumerate().map(|(index, cells)| {
+            row(cells, &index.to_string(), false)
+                .border_t_1()
+                .border_color(colors.border)
+        }))
+}
+
+/// Streamdown's copy menu (Markdown, CSV, TSV), download menu (CSV, Markdown) and, outside
+/// fullscreen, the fullscreen button.
+pub fn table_controls(
+    id: &str,
+    header: &[Inline],
+    rows: &[Vec<Inline>],
+    style: &Style,
+) -> gpui::Div {
+    let fullscreen = id.ends_with("-fullscreen");
+    let copy_id = format!("{id}-copy");
+    let copied = style.copied.as_deref() == Some(copy_id.as_str());
+    let open = |menu| {
+        style
+            .menu
+            .as_ref()
+            .is_some_and(|(open, kind)| open == id && *kind == menu)
+    };
+    let copy_formats = [
+        ("Markdown", table_markdown(header, rows)),
+        ("CSV", table_csv(header, rows)),
+        ("TSV", table_tsv(header, rows)),
+    ];
+    let download_formats = [
+        ("CSV", "table.csv", table_csv(header, rows)),
+        ("Markdown", "table.md", table_markdown(header, rows)),
+    ];
+    let chat = style.chat.clone();
+    let table_id = id.to_owned();
+    let copy_items = copy_formats
+        .into_iter()
+        .enumerate()
+        .map(|(index, (label, text))| {
+            let (chat, copy_id) = (chat.clone(), copy_id.clone());
+            menu_item(format!("{id}-copy-{index}"), label, style, move |cx| {
+                cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
+                let copy_id = copy_id.clone();
+                let _ = chat.update(cx, |chat, cx| chat.mark_copied(copy_id, cx));
+            })
+        })
+        .collect::<Vec<_>>();
+    let download_items = download_formats
+        .into_iter()
+        .enumerate()
+        .map(|(index, (label, name, contents))| {
+            let chat = chat.clone();
+            menu_item(format!("{id}-download-{index}"), label, style, move |cx| {
+                save(name.into(), contents.clone(), cx);
+                let _ = chat.update(cx, |chat, cx| {
+                    chat.markdown.menu = None;
+                    cx.notify();
+                });
+            })
+        })
+        .collect::<Vec<_>>();
+    let toggle = |menu: TableMenu| {
+        let (chat, table_id) = (chat.clone(), table_id.clone());
+        move |_: &gpui::MouseDownEvent, _: &mut Window, cx: &mut gpui::App| {
+            cx.stop_propagation();
+            let _ = chat.update(cx, |chat, cx| {
+                let current = chat.markdown.menu.take();
+                if current != Some((table_id.clone(), menu)) {
+                    chat.markdown.menu = Some((table_id.clone(), menu));
+                }
+                cx.notify();
+            });
+        }
+    };
+    let header_cells = header.to_vec();
+    let body_rows = rows.to_vec();
+    let expand_chat = chat.clone();
+    let expand_id = table_id.clone();
+    div()
+        .flex()
+        .items_center()
+        .gap_1()
+        .child(
+            div()
+                .relative()
+                .child(
+                    control(
+                        copy_id.clone(),
+                        if copied {
+                            "chat/CheckIcon.svg"
+                        } else {
+                            "chat/CopyIcon.svg"
+                        },
+                        style,
+                    )
+                    .on_mouse_down(MouseButton::Left, toggle(TableMenu::Copy)),
+                )
+                .when(open(TableMenu::Copy), |view| {
+                    view.child(menu(copy_items, style))
+                }),
+        )
+        .child(
+            div()
+                .relative()
+                .child(
+                    control(format!("{id}-download"), "chat/Download01Icon.svg", style)
+                        .on_mouse_down(MouseButton::Left, toggle(TableMenu::Download)),
+                )
+                .when(open(TableMenu::Download), |view| {
+                    view.child(menu(download_items, style))
+                }),
+        )
+        .when(!fullscreen, |view| {
+            view.child(
+                control(
+                    format!("{id}-fullscreen-open"),
+                    "chat/ArrowExpandIcon.svg",
+                    style,
+                )
+                .on_click(move |_, _, cx| {
+                    let table = (
+                        format!("{expand_id}-fullscreen"),
+                        header_cells.clone(),
+                        body_rows.clone(),
+                    );
+                    let _ = expand_chat.update(cx, |chat, cx| {
+                        chat.markdown.menu = None;
+                        chat.markdown.fullscreen = Some(table);
+                        cx.notify();
+                    });
+                }),
+            )
+        })
+}
+
+fn menu(items: Vec<gpui::Stateful<gpui::Div>>, style: &Style) -> impl IntoElement {
+    let colors = &style.colors;
+    div().absolute().top_full().right_0().mt_1().child(deferred(
+        anchored().anchor(gpui::Anchor::TopRight).child(
+            div()
+                .id("chat-table-menu")
+                .occlude()
+                .min_w(px(120.))
+                .overflow_hidden()
+                .rounded(px(6.))
+                .border_1()
+                .border_color(colors.border)
+                .bg(colors.background)
+                .text_color(colors.foreground)
+                .shadow_lg()
+                .children(items),
+        ),
+    ))
+}
+
+fn menu_item(
+    id: String,
+    label: &'static str,
+    style: &Style,
+    choose: impl Fn(&mut gpui::App) + 'static,
+) -> gpui::Stateful<gpui::Div> {
+    div()
+        .id(SharedString::from(id))
+        .w_full()
+        .px_3()
+        .py_2()
+        .text_sm()
+        .line_height(px(20.))
+        .cursor_pointer()
+        .hover(|view| view.bg(style.colors.muted.opacity(0.4)))
+        .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+            cx.stop_propagation();
+            choose(cx);
+        })
+        .child(label)
 }
 
 /// Streamdown's table and code-block frame.
@@ -453,41 +768,67 @@ fn frame(colors: &Theme) -> gpui::Div {
         .border_color(colors.border)
 }
 
-fn action(id: String, path: &'static str, colors: &Theme) -> gpui::Stateful<gpui::Div> {
+/// Streamdown's block control: `p-1 text-muted-foreground hover:text-foreground`, disabled
+/// while the reply streams.
+fn control(id: String, path: &'static str, style: &Style) -> gpui::Stateful<gpui::Div> {
+    let colors = &style.colors;
+    let group = SharedString::from(id.clone());
     div()
         .id(SharedString::from(id))
+        .group(group.clone())
         .p_1()
-        .cursor_pointer()
+        .when(style.streaming, |view| view.opacity(0.5))
+        .when(!style.streaming, |view| view.cursor_pointer())
         .child(
             svg()
                 .path(path)
                 .size(px(14.))
-                .text_color(colors.muted_foreground),
+                .text_color(colors.muted_foreground)
+                .when(!style.streaming, |icon| {
+                    icon.group_hover(group, |style| style.text_color(colors.foreground))
+                }),
         )
 }
 
-fn copy_button(id: &str, text: String, colors: &Theme) -> impl IntoElement {
-    action(format!("{id}-copy"), "chat/CopyIcon.svg", colors)
-        .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(text.clone())))
+fn copy_button(id: &str, text: String, style: &Style) -> impl IntoElement {
+    let copy_id = format!("{id}-copy");
+    let copied = style.copied.as_deref() == Some(copy_id.as_str());
+    let chat = style.chat.clone();
+    control(
+        copy_id.clone(),
+        if copied {
+            "chat/CheckIcon.svg"
+        } else {
+            "chat/CopyIcon.svg"
+        },
+        style,
+    )
+    .on_click(move |_, _, cx| {
+        cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
+        let copy_id = copy_id.clone();
+        let _ = chat.update(cx, |chat, cx| chat.mark_copied(copy_id, cx));
+    })
 }
 
-fn download_button(id: &str, name: String, contents: String, colors: &Theme) -> impl IntoElement {
-    action(format!("{id}-download"), "chat/Download01Icon.svg", colors).on_click(move |_, _, cx| {
-        let directory = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_default();
-        let target = cx.prompt_for_new_path(&directory, Some(&name));
-        let csv = contents.clone();
-        cx.background_executor()
-            .spawn(async move {
-                if let Ok(Ok(Some(path))) = target.await
-                    && let Err(error) = std::fs::write(&path, csv)
-                {
-                    tracing::error!(%error, "markdown download failed");
-                }
-            })
-            .detach();
-    })
+fn download_button(id: &str, name: String, contents: String, style: &Style) -> impl IntoElement {
+    control(format!("{id}-download"), "chat/Download01Icon.svg", style)
+        .on_click(move |_, _, cx| save(name.clone(), contents.clone(), cx))
+}
+
+fn save(name: String, contents: String, cx: &mut gpui::App) {
+    let directory = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default();
+    let target = cx.prompt_for_new_path(&directory, Some(&name));
+    cx.background_executor()
+        .spawn(async move {
+            if let Ok(Ok(Some(path))) = target.await
+                && let Err(error) = std::fs::write(&path, contents)
+            {
+                tracing::error!(%error, "markdown download failed");
+            }
+        })
+        .detach();
 }
 
 /// Approximates a browser's automatic table layout: each column starts at its
@@ -515,75 +856,183 @@ fn column_widths(header: &[Inline], rows: &[Vec<Inline>]) -> Vec<(f32, f32)> {
         .collect()
 }
 
+/// A cell as the browser reads it for export: its visible text, trimmed.
+fn cell(inline: &Inline) -> String {
+    inline.text.replace(CODE_PAD, "").trim().to_owned()
+}
+
+/// Streamdown's `tableDataToMarkdown`: `\\` and `|` escaped, short rows padded.
 fn table_markdown(header: &[Inline], rows: &[Vec<Inline>]) -> String {
-    let line = |cells: &[Inline]| {
-        format!(
-            "| {} |",
-            cells
-                .iter()
-                .map(|cell| cell.text.replace('|', "\\|"))
-                .collect::<Vec<_>>()
-                .join(" | ")
-        )
-    };
-    std::iter::once(line(header))
-        .chain(std::iter::once(format!(
-            "| {} |",
-            vec!["---"; header.len()].join(" | ")
-        )))
-        .chain(rows.iter().map(|row| line(row)))
+    let escape = |text: String| text.replace('\\', "\\\\").replace('|', "\\|");
+    let line = |cells: Vec<String>| format!("| {} |", cells.join(" | "));
+    std::iter::once(line(header.iter().map(|text| escape(cell(text))).collect()))
+        .chain(std::iter::once(line(vec!["---".into(); header.len()])))
+        .chain(rows.iter().map(|row| {
+            line(
+                (0..header.len().max(row.len()))
+                    .map(|index| {
+                        row.get(index)
+                            .map(|text| escape(cell(text)))
+                            .unwrap_or_default()
+                    })
+                    .collect(),
+            )
+        }))
         .collect::<Vec<_>>()
         .join("\n")
 }
 
+/// Streamdown's `tableDataToCSV`: fields with a quote, comma or newline are quoted.
 fn table_csv(header: &[Inline], rows: &[Vec<Inline>]) -> String {
+    let field = |text: &Inline| {
+        let text = cell(text);
+        if text.contains('"') {
+            format!("\"{}\"", text.replace('"', "\"\""))
+        } else if text.contains([',', '\n']) {
+            format!("\"{text}\"")
+        } else {
+            text
+        }
+    };
     std::iter::once(header)
         .chain(rows.iter().map(Vec::as_slice))
-        .map(|cells| {
-            cells
-                .iter()
-                .map(|cell| {
-                    if cell.text.contains([',', '"', '\n']) {
-                        format!("\"{}\"", cell.text.replace('"', "\"\""))
-                    } else {
-                        cell.text.clone()
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(",")
-        })
+        .map(|cells| cells.iter().map(field).collect::<Vec<_>>().join(","))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Streamdown's `tableDataToTSV`: tabs and line breaks written as escapes.
+fn table_tsv(header: &[Inline], rows: &[Vec<Inline>]) -> String {
+    let field = |text: &Inline| {
+        cell(text)
+            .replace('\t', "\\t")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+    };
+    std::iter::once(header)
+        .chain(rows.iter().map(Vec::as_slice))
+        .map(|cells| cells.iter().map(field).collect::<Vec<_>>().join("\t"))
         .collect::<Vec<_>>()
         .join("\n")
 }
 
 fn text_element(text: &Inline, style: &Style, id: &str) -> AnyElement {
+    let element = styled_text(text, style, id);
+    let layout = element.1;
+    let key = SharedString::from(id.to_owned());
+    let painted_text = SharedString::from(text.text.clone());
+    let texts = style.texts.clone();
+    let selection = style.selection.clone();
+    div()
+        .relative()
+        // Painted first, so the selection sits behind the text like the browser's.
+        .child(
+            canvas(
+                |_, _, _| (),
+                move |_, (), window, _| {
+                    let mut texts = texts.borrow_mut();
+                    paint_selection(&texts, &key, &layout, selection.as_ref(), window);
+                    texts.push(Painted {
+                        key: key.clone(),
+                        text: painted_text.clone(),
+                        layout: layout.clone(),
+                    });
+                },
+            )
+            .absolute()
+            .inset_0(),
+        )
+        .child(element.0)
+        .into_any_element()
+}
+
+/// The webview's text selection colour as shipping renders it.
+const SELECTION: u32 = 0xafd3fa;
+
+/// Paints this element's share of the selection; elements painted earlier come first.
+fn paint_selection(
+    earlier: &[Painted],
+    key: &SharedString,
+    layout: &TextLayout,
+    selection: Option<&(Caret, Caret)>,
+    window: &mut Window,
+) {
+    let Some((anchor, head)) = selection else {
+        return;
+    };
+    let seen = |caret: &Caret| earlier.iter().any(|painted| painted.key == caret.key);
+    let len = layout.len();
+    let range = match (anchor.key == *key, head.key == *key) {
+        (true, true) => anchor.byte.min(head.byte)..anchor.byte.max(head.byte),
+        (true, false) if seen(head) => 0..anchor.byte,
+        (true, false) => anchor.byte..len,
+        (false, true) if seen(anchor) => 0..head.byte,
+        (false, true) => head.byte..len,
+        (false, false) if seen(anchor) != seen(head) => 0..len,
+        _ => return,
+    };
+    if range.is_empty() {
+        return;
+    }
+    let (Some(a), Some(b)) = (
+        layout.position_for_index(range.start),
+        layout.position_for_index(range.end.min(len)),
+    ) else {
+        return;
+    };
+    let height = layout.line_height();
+    let bounds = layout.bounds();
+    let mut y = a.y;
+    while y <= b.y {
+        let left = if y == a.y { a.x } else { bounds.left() };
+        let right = if y == b.y { b.x } else { bounds.right() };
+        window.paint_quad(fill(
+            gpui::Bounds::new(point(left, y), size((right - left).max(px(1.)), height)),
+            gpui::rgb(SELECTION),
+        ));
+        y += height;
+    }
+}
+
+fn styled_text(text: &Inline, style: &Style, id: &str) -> (AnyElement, TextLayout) {
     let highlights = text
         .spans
         .iter()
-        .map(|span| {
-            (
-                span.range.clone(),
-                HighlightStyle {
-                    font_weight: if span.bold {
-                        Some(FontWeight::SEMIBOLD)
-                    } else {
-                        span.link.as_ref().map(|_| FontWeight::MEDIUM)
-                    },
-                    font_style: span.italic.then_some(FontStyle::Italic),
-                    color: span.link.as_ref().map(|_| style.colors.primary),
-                    background_color: span.code.then_some(style.colors.muted),
-                    strikethrough: span.strike.then(|| StrikethroughStyle {
-                        thickness: px(1.),
-                        color: None,
-                    }),
-                    underline: span.link.is_some().then(|| UnderlineStyle {
-                        thickness: px(1.),
-                        color: None,
-                        wavy: false,
-                    }),
-                    ..HighlightStyle::default()
+        .flat_map(|span| {
+            // A code span's padding gets its own runs: GPUI only switches a font for runs
+            // that lie wholly inside the override, so the code itself must be its own run.
+            let pad = if span.code {
+                CODE_PAD.len().min(span.range.len() / 2)
+            } else {
+                0
+            };
+            let (start, end) = (span.range.start, span.range.end);
+            let ranges = if pad > 0 {
+                vec![start..start + pad, start + pad..end - pad, end - pad..end]
+            } else {
+                vec![span.range.clone()]
+            };
+            let highlight = HighlightStyle {
+                font_weight: if span.bold {
+                    Some(FontWeight::SEMIBOLD)
+                } else {
+                    span.link.as_ref().map(|_| FontWeight::MEDIUM)
                 },
-            )
+                font_style: span.italic.then_some(FontStyle::Italic),
+                color: span.link.as_ref().map(|_| style.colors.primary),
+                background_color: span.code.then_some(style.colors.muted),
+                strikethrough: span.strike.then(|| StrikethroughStyle {
+                    thickness: px(1.),
+                    color: None,
+                }),
+                underline: span.link.is_some().then(|| UnderlineStyle {
+                    thickness: px(1.),
+                    color: None,
+                    wavy: false,
+                }),
+                ..HighlightStyle::default()
+            };
+            ranges.into_iter().map(move |range| (range, highlight))
         })
         .collect::<Vec<_>>();
     let mono = text
@@ -601,18 +1050,20 @@ fn text_element(text: &Inline, style: &Style, id: &str) -> AnyElement {
     let styled = StyledText::new(SharedString::from(text.text.clone()))
         .with_highlights(highlights)
         .with_font_family_overrides(mono);
+    let layout = styled.layout().clone();
     let links = text
         .spans
         .iter()
         .filter_map(|span| Some((span.range.clone(), span.link.clone()?)))
         .collect::<Vec<_>>();
     if links.is_empty() {
-        return styled.into_any_element();
+        return (styled.into_any_element(), layout);
     }
     let ranges = links.iter().map(|(range, _)| range.clone()).collect();
-    InteractiveText::new(SharedString::from(id.to_owned()), styled)
+    let element = InteractiveText::new(SharedString::from(id.to_owned()), styled)
         .on_click(ranges, move |index, _, cx| cx.open_url(&links[index].1))
-        .into_any_element()
+        .into_any_element();
+    (element, layout)
 }
 
 #[cfg(test)]
@@ -707,6 +1158,7 @@ mod tests {
             "| Task | Note |\n| --- | --- |\n| QA | a, \"b\" |"
         );
         assert_eq!(table_csv(header, rows), "Task,Note\nQA,\"a, \"\"b\"\"\"");
+        assert_eq!(table_tsv(header, rows), "Task\tNote\nQA\ta, \"b\"");
         let widths = column_widths(header, rows);
         assert_eq!(widths[0], (4. * 8. + 32., 4.));
         assert!(widths[1].1 > widths[0].1);

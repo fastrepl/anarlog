@@ -3,13 +3,16 @@
 //! and `apps/desktop/src/shared/chat-cta.tsx`. Sending reuses the meeting AI services.
 
 pub mod assets;
+pub mod composer;
 pub mod markdown;
+pub mod search;
 pub mod state;
 pub mod store;
 mod view;
+pub mod voice;
 
 use std::{
-    collections::HashSet,
+    collections::{HashSet, VecDeque},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -17,9 +20,10 @@ use std::{
 use chrono::Utc;
 use desktop_runtime::{CancellationToken, Result, RuntimeHandle, ServiceError, SessionId};
 use gpui::{
-    AppContext, ClipboardItem, Context, Entity, FocusHandle, Focusable, ScrollHandle, Subscription,
-    Task, WeakEntity, Window,
+    AppContext, ClipboardItem, Context, Entity, FocusHandle, ScrollHandle, Subscription, Task,
+    WeakEntity, Window,
 };
+use serde_json::Value;
 
 use crate::{
     meeting::{
@@ -27,9 +31,10 @@ use crate::{
         ai_view::{AiViewServices, ContextPurpose},
         model::{MAX_TEXT, failure},
     },
-    ui::input::{InputEvent, TextInput},
     workspace::{WorkspaceView, navigation::Route},
 };
+use composer::{Composer, ComposerEvent, ContextRef};
+use search::{MentionKind, SearchIndex};
 use state::{ChatEvent, ChatMode, SentHistory};
 use store::{ChatGroup, ChatMessage, Display};
 pub use view::{overlay, reserved_width, right_panel};
@@ -37,12 +42,18 @@ pub use view::{overlay, reserved_width, right_panel};
 struct Entry {
     message: ChatMessage,
     blocks: Vec<markdown::Block>,
+    /// A reply stopped mid-stream stays on screen but was never saved, as in shipping.
+    persisted: bool,
 }
 
 impl Entry {
     fn new(message: ChatMessage) -> Self {
         let blocks = markdown::parse(&message.text());
-        Self { message, blocks }
+        Self {
+            message,
+            blocks,
+            persisted: true,
+        }
     }
 }
 
@@ -53,6 +64,33 @@ enum Phase {
     Failed(String),
 }
 
+struct Queued {
+    id: u64,
+    text: String,
+    refs: Vec<ContextRef>,
+}
+
+/// Unsent drafts per chat, like shipping's `DraftCache`: the 50 most recent are kept.
+#[derive(Default)]
+struct Drafts(VecDeque<(String, Value)>);
+
+impl Drafts {
+    const LIMIT: usize = 50;
+
+    fn take(&mut self, key: &str) -> Option<Value> {
+        let index = self.0.iter().position(|(draft, _)| draft == key)?;
+        self.0.remove(index).map(|(_, doc)| doc)
+    }
+
+    fn put(&mut self, key: String, doc: Value) {
+        self.take(&key);
+        self.0.push_back((key, doc));
+        while self.0.len() > Self::LIMIT {
+            self.0.pop_front();
+        }
+    }
+}
+
 pub struct ChatView {
     runtime: RuntimeHandle,
     workspace: WeakEntity<WorkspaceView>,
@@ -60,18 +98,22 @@ pub struct ChatView {
     route: Route,
     context: Option<SessionId>,
     group: Option<Arc<str>>,
+    /// Shipping's chat `sessionId`: the group's id, or a fresh one for a new chat. Drafts and
+    /// queued messages belong to it.
+    draft_key: String,
+    drafts: Drafts,
     entries: Vec<Entry>,
     groups: Vec<ChatGroup>,
     history_open: bool,
     model_configured: Option<bool>,
     /// The chosen model is Anarlog's hosted one, which needs a paid plan.
     hosted_model: bool,
-    input: Entity<TextInput>,
+    composer: Entity<Composer>,
     sent: SentHistory,
     phase: Phase,
     run: u64,
     session: Option<Arc<ChatSession>>,
-    queue: Vec<(u64, String)>,
+    queue: Vec<Queued>,
     next_queued: u64,
     pending: Arc<Mutex<(String, String)>>,
     stream_text: String,
@@ -79,8 +121,21 @@ pub struct ChatView {
     stream_blocks: Vec<markdown::Block>,
     expanded: HashSet<String>,
     copied: Option<String>,
+    pub(crate) markdown: markdown::Interaction,
     right_fraction: f32,
     restore_sidebar: bool,
+    /// When the floating panel last opened, for its reveal animation, and how many times.
+    revealed_at: Option<std::time::Instant>,
+    reveals: u64,
+    /// The floating panel's height when last painted; the reveal runs up to it.
+    panel_height: std::rc::Rc<std::cell::Cell<f32>>,
+    /// Focus moves to the composer in the frame that first draws it; a handle focused while
+    /// undrawn loses focus to the workspace.
+    focus_composer: bool,
+    voice: voice::VoicePhase,
+    /// Bumped when chat closes, so a late recording result is dropped like shipping's.
+    voice_generation: u64,
+    toast: Option<(voice::Tone, &'static str, u64)>,
     focus: FocusHandle,
     scroll: ScrollHandle,
     load: CancellationToken,
@@ -94,17 +149,15 @@ impl ChatView {
         workspace: WeakEntity<WorkspaceView>,
         cx: &mut Context<Self>,
     ) -> Self {
-        let input = cx.new(|cx| TextInput::new("Ask anything", cx).inline());
-        let subscription = cx.subscribe(&input, |this, _, event, cx| match event {
-            InputEvent::Submitted => {
-                let text = this.input.read(cx).buffer.text.clone();
-                this.submit(text, cx);
-            }
-            InputEvent::Changed => {
+        let index = SearchIndex::default();
+        let composer = cx.new(|cx| Composer::new(runtime.clone(), index, cx));
+        let subscription = cx.subscribe(&composer, |this, _, event, cx| match event {
+            ComposerEvent::Submit => this.submit_draft(cx),
+            ComposerEvent::Changed => {
                 this.sent.edited();
                 cx.notify();
             }
-            InputEvent::Rejected => {}
+            ComposerEvent::Recall(previous) => this.recall(*previous, cx),
         });
         Self {
             runtime,
@@ -113,12 +166,14 @@ impl ChatView {
             route: Route::Empty,
             context: None,
             group: None,
+            draft_key: uuid::Uuid::new_v4().to_string(),
+            drafts: Drafts::default(),
             entries: Vec::new(),
             groups: Vec::new(),
             history_open: false,
             model_configured: None,
             hosted_model: false,
-            input,
+            composer,
             sent: SentHistory::default(),
             phase: Phase::Ready,
             run: 0,
@@ -131,8 +186,16 @@ impl ChatView {
             stream_blocks: Vec::new(),
             expanded: HashSet::new(),
             copied: None,
+            markdown: markdown::Interaction::default(),
             right_fraction: 0.3,
             restore_sidebar: false,
+            revealed_at: None,
+            reveals: 0,
+            panel_height: Default::default(),
+            focus_composer: false,
+            voice: voice::VoicePhase::Idle,
+            voice_generation: 0,
+            toast: None,
             focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
             load: CancellationToken::new(),
@@ -149,6 +212,10 @@ impl ChatView {
         self.mode.is_open()
     }
 
+    pub fn composer(&self) -> &Entity<Composer> {
+        &self.composer
+    }
+
     pub fn event(&mut self, event: ChatEvent, window: &mut Window, cx: &mut Context<Self>) {
         let mode = self.mode.next(event);
         if mode == self.mode {
@@ -160,7 +227,8 @@ impl ChatView {
             if opened {
                 self.refresh_model(cx);
             }
-            self.input.read(cx).focus_handle(cx).focus(window, cx);
+            self.focus_composer = true;
+            window.refresh();
         }
         cx.notify();
     }
@@ -172,10 +240,18 @@ impl ChatView {
         let (was_right, is_right) = (self.mode == right, mode == right);
         if mode != self.mode {
             self.history_open = false;
+            self.markdown.close();
             // The thread follows its newest message across floating and right-panel layouts.
             self.scroll.scroll_to_bottom();
+            if mode == ChatMode::FloatingOpen {
+                self.revealed_at = Some(std::time::Instant::now());
+                self.reveals += 1;
+            }
         }
         self.mode = mode;
+        if !mode.is_open() {
+            self.cancel_voice(cx);
+        }
         if was_right == is_right {
             return;
         }
@@ -211,11 +287,29 @@ impl ChatView {
         cx.notify();
     }
 
+    /// Keeps the current draft for this chat and shows the draft saved for `key`.
+    fn switch_draft(&mut self, key: String, cx: &mut Context<Self>) {
+        let composer = self.composer.read(cx);
+        let draft = composer.doc();
+        if composer.has_text() || !composer.context_refs().is_empty() {
+            self.drafts
+                .put(std::mem::replace(&mut self.draft_key, key), draft);
+        } else {
+            self.draft_key = key;
+        }
+        let restored = self.drafts.take(&self.draft_key);
+        self.composer.update(cx, |composer, cx| match restored {
+            Some(doc) => composer.set_doc(&doc, false, cx),
+            None => composer.clear(cx),
+        });
+    }
+
     pub fn new_chat(&mut self, cx: &mut Context<Self>) {
         self.detach_run();
         self.group = None;
         self.entries.clear();
         self.history_open = false;
+        self.switch_draft(uuid::Uuid::new_v4().to_string(), cx);
         cx.notify();
     }
 
@@ -223,6 +317,7 @@ impl ChatView {
         self.detach_run();
         self.history_open = false;
         self.group = Some(group.clone());
+        self.switch_draft(group.to_string(), cx);
         self.entries.clear();
         self.load.cancel();
         self.load = CancellationToken::new();
@@ -277,7 +372,10 @@ impl ChatView {
     }
 
     fn refresh_model(&mut self, cx: &mut Context<Self>) {
-        let reply = store::model_configured(&self.runtime);
+        let secret = cx
+            .try_global::<crate::meeting::config::ProviderServices>()
+            .map(|providers| providers.secret.clone());
+        let reply = store::model_status(&self.runtime, secret);
         cx.spawn(async move |this, cx| {
             let (configured, hosted) = async { reply?.receive().await }
                 .await
@@ -301,24 +399,52 @@ impl ChatView {
         self.phase == Phase::Busy
     }
 
-    fn submit(&mut self, text: String, cx: &mut Context<Self>) {
-        let text = text.trim().to_owned();
+    /// The current note is recording, which swaps in shipping's live-meeting suggestions.
+    fn live_meeting(&self, cx: &gpui::App) -> bool {
+        self.context.as_ref().is_some_and(|session| {
+            crate::meeting::live::LiveState::mode(cx, session)
+                == crate::meeting::live::SessionMode::Active
+        })
+    }
+
+    /// Shipping offers summary rewrites only while the shown note view is a summary.
+    fn summary_shown(&self, cx: &gpui::App) -> bool {
+        self.context.is_some()
+            && matches!(self.route, Route::Session(_))
+            && self
+                .workspace
+                .read_with(cx, |workspace, cx| workspace.editable_summary_shown(cx))
+                .unwrap_or(false)
+    }
+
+    fn submit_draft(&mut self, cx: &mut Context<Self>) {
+        let composer = self.composer.read(cx);
+        let text = composer.text().trim().to_owned();
         if text.is_empty() || self.model_ready(cx) != Some(true) {
             return;
         }
-        self.sent.push(&text);
-        self.input
-            .update(cx, |input, cx| input.set_text(String::new(), cx));
+        let refs = composer.context_refs();
+        let doc = composer.doc();
+        self.sent.push(doc);
+        self.composer.update(cx, |composer, cx| composer.clear(cx));
+        self.submit(text, refs, cx);
+    }
+
+    fn submit(&mut self, text: String, refs: Vec<ContextRef>, cx: &mut Context<Self>) {
         if self.busy() {
             self.next_queued += 1;
-            self.queue.push((self.next_queued, text));
+            self.queue.push(Queued {
+                id: self.next_queued,
+                text,
+                refs,
+            });
             cx.notify();
             return;
         }
-        self.send(text, cx);
+        self.send(text, refs, cx);
     }
 
-    fn send(&mut self, text: String, cx: &mut Context<Self>) {
+    fn send(&mut self, text: String, refs: Vec<ContextRef>, cx: &mut Context<Self>) {
         if text.len() > MAX_TEXT {
             self.phase = Phase::Failed("Message exceeds the size limit.".into());
             cx.notify();
@@ -329,9 +455,10 @@ impl ChatView {
             user: true,
             parts: vec![Display::Text(text)],
             created_at: Some(Utc::now()),
+            refs,
         };
         self.entries.push(Entry::new(user.clone()));
-        self.start(user.to_request(), None, cx);
+        self.start(user, None, cx);
     }
 
     /// Re-sends the last user message, replacing the last reply like shipping's regenerate.
@@ -342,19 +469,36 @@ impl ChatView {
         let Some(user) = self.entries.iter().rev().find(|entry| entry.message.user) else {
             return;
         };
-        let user = user.message.to_request();
+        let user = user.message.clone();
         let previous = self
             .entries
             .last()
             .filter(|entry| !entry.message.user)
-            .map(|entry| entry.message.id.clone());
+            .map(|entry| (entry.message.id.clone(), entry.persisted));
         if previous.is_some() {
             self.entries.pop();
         }
+        let previous = previous.and_then(|(id, persisted)| persisted.then_some(id));
         self.start(user, previous, cx);
     }
 
-    fn start(&mut self, user: Message, previous: Option<String>, cx: &mut Context<Self>) {
+    /// Mentions from every message in this chat, oldest first, like shipping's committed refs.
+    fn chat_refs(&self) -> Vec<ContextRef> {
+        let mut refs: Vec<ContextRef> = Vec::new();
+        for reference in self
+            .entries
+            .iter()
+            .filter(|entry| entry.message.user)
+            .flat_map(|entry| &entry.message.refs)
+        {
+            if !refs.contains(reference) {
+                refs.push(reference.clone());
+            }
+        }
+        refs
+    }
+
+    fn start(&mut self, user: ChatMessage, previous: Option<String>, cx: &mut Context<Self>) {
         let Some(services) = cx.try_global::<AiViewServices>().cloned() else {
             self.phase = Phase::Failed("Intelligence is still starting. Try again shortly.".into());
             cx.notify();
@@ -378,15 +522,17 @@ impl ChatView {
         self.phase = Phase::Busy;
         self.clear_stream();
         let run = self.run;
+        let request = user.to_request();
         let history = self
             .entries
             .iter()
             .filter(|entry| entry.message.id != user.id)
             .map(|entry| entry.message.to_request())
             .collect::<Vec<_>>();
-        let title = state::fallback_title(&message_text(&user));
+        let title = state::fallback_title(&message_text(&request));
         let runtime = self.runtime.clone();
         let context = self.context.clone();
+        let refs = self.chat_refs();
         let observer = self.observer();
         self.scroll.scroll_to_bottom();
         self.poll(run, cx);
@@ -399,15 +545,24 @@ impl ChatView {
                 }
                 let system = services
                     .ai
-                    .enqueue(system_prompt(services.clone(), context))?
+                    .enqueue(system_prompt(
+                        services.clone(),
+                        runtime.clone(),
+                        context,
+                        refs,
+                    ))?
                     .await
                     .map_err(failure)??;
                 let mut messages = vec![system];
                 messages.extend(history);
-                session
-                    .queue_send(user, messages, previous, observer)?
-                    .await
-                    .map_err(failure)?
+                let sent = session.queue_send(request, messages, previous, observer)?;
+                // The user row exists once the session starts streaming; its metadata keeps
+                // the mentions for later turns and reloads.
+                let reply = sent.await.map_err(failure)?;
+                if let Ok(metadata) = store::set_metadata(&runtime, user.id.clone(), &user.refs) {
+                    let _ = metadata.receive().await;
+                }
+                reply
             }
             .await;
             let _ = this.update(cx, |this, cx| this.finish(run, created, result, cx));
@@ -422,7 +577,7 @@ impl ChatView {
         }
         self._poll = None;
         self.session = None;
-        self.clear_stream();
+        self.drain_pending();
         match result {
             Ok(reply) => {
                 self.phase = Phase::Ready;
@@ -430,7 +585,28 @@ impl ChatView {
                     .push(Entry::new(ChatMessage::from_reply(&reply)));
                 self.scroll.scroll_to_bottom();
             }
-            Err(ServiceError::Cancelled) => self.phase = Phase::Ready,
+            Err(ServiceError::Cancelled) => {
+                self.phase = Phase::Ready;
+                // Shipping keeps the stopped reply on screen without saving it.
+                let mut parts = Vec::new();
+                if !self.stream_reasoning.trim().is_empty() {
+                    parts.push(Display::Reasoning(self.stream_reasoning.clone()));
+                }
+                if !self.stream_text.trim().is_empty() {
+                    parts.push(Display::Text(self.stream_text.clone()));
+                }
+                if !parts.is_empty() {
+                    let mut entry = Entry::new(ChatMessage {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        user: false,
+                        parts,
+                        created_at: None,
+                        refs: Vec::new(),
+                    });
+                    entry.persisted = false;
+                    self.entries.push(entry);
+                }
+            }
             Err(error) => {
                 if created && self.entries.len() <= 1 {
                     // The group was never written, like shipping's failed-group rollback.
@@ -439,9 +615,10 @@ impl ChatView {
                 self.phase = Phase::Failed(error.to_string());
             }
         }
+        self.clear_stream();
         if self.phase == Phase::Ready && !self.queue.is_empty() {
-            let (_, text) = self.queue.remove(0);
-            self.send(text, cx);
+            let next = self.queue.remove(0);
+            self.send(next.text, next.refs, cx);
         }
         cx.notify();
     }
@@ -460,6 +637,7 @@ impl ChatView {
         self.session = None;
         self.queue.clear();
         self.phase = Phase::Ready;
+        self.markdown.close();
         self.clear_stream();
     }
 
@@ -471,6 +649,18 @@ impl ChatView {
         self.stream_text.clear();
         self.stream_reasoning.clear();
         self.stream_blocks.clear();
+    }
+
+    /// Moves streamed text not yet picked up by the poll into the visible reply.
+    fn drain_pending(&mut self) {
+        let (text, reasoning) = std::mem::take(
+            &mut *self
+                .pending
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner()),
+        );
+        self.stream_text.push_str(&text);
+        self.stream_reasoning.push_str(&reasoning);
     }
 
     fn observer(&self) -> StreamObserver {
@@ -520,7 +710,7 @@ impl ChatView {
     }
 
     fn remove_queued(&mut self, id: u64, cx: &mut Context<Self>) {
-        self.queue.retain(|(queued, _)| *queued != id);
+        self.queue.retain(|queued| queued.id != id);
         cx.notify();
     }
 
@@ -540,28 +730,206 @@ impl ChatView {
         cx.notify();
     }
 
-    fn recall(&mut self, previous: bool, cx: &mut Context<Self>) -> bool {
-        let input = self.input.read(cx);
-        let buffer = &input.buffer;
-        let edge = if previous { 0 } else { buffer.text.len() };
-        if !buffer.selection().is_empty() || buffer.cursor != edge {
-            return false;
+    /// Shows a reply state that needs a live model: streaming (or "Thinking..." with no text),
+    /// failed, or stopped mid-stream. The screenshot harness has no model to produce them.
+    #[doc(hidden)]
+    pub fn preview_reply(
+        &mut self,
+        reasoning: &str,
+        text: &str,
+        outcome: Option<std::result::Result<(), String>>,
+        cx: &mut Context<Self>,
+    ) {
+        self.run += 1;
+        self.phase = Phase::Busy;
+        self.stream_reasoning = reasoning.into();
+        self.stream_text = text.into();
+        self.stream_blocks = markdown::parse(text);
+        self.scroll.scroll_to_bottom();
+        match outcome {
+            Some(Ok(())) => self.finish(self.run, false, Err(ServiceError::Cancelled), cx),
+            Some(Err(error)) => self.finish(self.run, false, Err(failure(error)), cx),
+            None => {}
         }
-        let current = buffer.text.clone();
-        let Some(text) = self.sent.navigate(previous, &current) else {
-            return false;
-        };
-        let cursor = if previous { 0 } else { text.len() };
-        self.input.update(cx, |input, cx| {
-            input.set_text(text, cx);
-            input.buffer.move_to(cursor, false);
-        });
         cx.notify();
-        true
+    }
+
+    /// Shipping's `toast.warning` / `toast.error`, shown for its usual duration.
+    fn show_toast(&mut self, tone: voice::Tone, message: &'static str, cx: &mut Context<Self>) {
+        let id = self.toast.map_or(0, |(_, _, id)| id) + 1;
+        self.toast = Some((tone, message, id));
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(tone.duration()).await;
+            let _ = this.update(cx, |this, cx| {
+                if this.toast.is_some_and(|(_, _, current)| current == id) {
+                    this.toast = None;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    fn start_voice(&mut self, cx: &mut Context<Self>) {
+        if self.voice != voice::VoicePhase::Idle {
+            return;
+        }
+        let recording = crate::meeting::live::LiveState::global(cx)
+            .and_then(|state| state.read(cx).current().map(|live| live.live()))
+            .unwrap_or(false);
+        if recording {
+            self.show_toast(
+                voice::Tone::Warning,
+                "Voice input is unavailable while Anarlog is recording a meeting.",
+                cx,
+            );
+            return;
+        }
+        let Some(backend) = cx.try_global::<voice::Voice>().cloned() else {
+            self.show_toast(voice::Tone::Error, "Could not start voice input", cx);
+            return;
+        };
+        self.voice = voice::VoicePhase::Starting;
+        let generation = self.voice_generation;
+        let started = backend.0.start();
+        cx.spawn(async move |this, cx| {
+            let result = started.await;
+            let _ = this.update(cx, |this, cx| {
+                if this.voice_generation != generation {
+                    backend.0.cancel();
+                    return;
+                }
+                match result {
+                    Ok(()) => {
+                        this.voice = voice::VoicePhase::Recording(std::time::Instant::now());
+                        this.tick_voice(generation, cx);
+                    }
+                    Err(_) => {
+                        this.voice = voice::VoicePhase::Idle;
+                        this.show_toast(voice::Tone::Error, "Could not start voice input", cx);
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Redraws the elapsed time, stopping at shipping's five-minute limit.
+    fn tick_voice(&mut self, generation: u64, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(250))
+                    .await;
+                let running = this.update(cx, |this, cx| {
+                    let voice::VoicePhase::Recording(started) = this.voice else {
+                        return false;
+                    };
+                    if this.voice_generation != generation {
+                        return false;
+                    }
+                    if started.elapsed() >= voice::MAX_RECORDING {
+                        this.stop_voice(cx);
+                        return false;
+                    }
+                    cx.notify();
+                    true
+                });
+                if !matches!(running, Ok(true)) {
+                    break;
+                }
+            }
+        })
+        .detach();
+    }
+
+    fn stop_voice(&mut self, cx: &mut Context<Self>) {
+        let voice::VoicePhase::Recording(_) = self.voice else {
+            return;
+        };
+        let Some(backend) = cx.try_global::<voice::Voice>().cloned() else {
+            self.voice = voice::VoicePhase::Idle;
+            return;
+        };
+        self.voice = voice::VoicePhase::Transcribing;
+        let generation = self.voice_generation;
+        let stopped = backend.0.stop();
+        cx.spawn(async move |this, cx| {
+            let result = stopped.await;
+            let _ = this.update(cx, |this, cx| {
+                this.voice = voice::VoicePhase::Idle;
+                if this.voice_generation != generation {
+                    cx.notify();
+                    return;
+                }
+                match result {
+                    Ok(text) if !text.trim().is_empty() => {
+                        this.composer
+                            .update(cx, |composer, cx| composer.insert_text(&text, cx));
+                    }
+                    Ok(_) => this.show_toast(voice::Tone::Warning, "No speech detected", cx),
+                    Err(_) => {
+                        this.show_toast(voice::Tone::Error, "Could not transcribe voice input", cx)
+                    }
+                }
+                this.focus_composer = true;
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    fn cancel_voice(&mut self, cx: &mut Context<Self>) {
+        self.voice_generation += 1;
+        if matches!(
+            self.voice,
+            voice::VoicePhase::Starting | voice::VoicePhase::Recording(_)
+        ) && let Some(backend) = cx.try_global::<voice::Voice>()
+        {
+            backend.0.cancel();
+        }
+        if self.voice != voice::VoicePhase::Transcribing {
+            self.voice = voice::VoicePhase::Idle;
+        }
+    }
+
+    /// A copy control shows its check for two seconds, like Streamdown's.
+    pub(crate) fn mark_copied(&mut self, id: String, cx: &mut Context<Self>) {
+        self.markdown.menu = None;
+        self.markdown.copied = Some(id.clone());
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(Duration::from_secs(2)).await;
+            let _ = this.update(cx, |this, cx| {
+                if this.markdown.copied.as_deref() == Some(id.as_str()) {
+                    this.markdown.copied = None;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    /// Shipping's `useMessageHistory`: recalled prompts replace the draft with the caret at
+    /// the start going back and at the end going forward.
+    fn recall(&mut self, previous: bool, cx: &mut Context<Self>) {
+        let current = self.composer.read(cx).doc();
+        let Some(doc) = self.sent.navigate(previous, &current) else {
+            return;
+        };
+        if doc != current {
+            self.composer
+                .update(cx, |composer, cx| composer.set_doc(&doc, previous, cx));
+        }
+        cx.notify();
     }
 
     fn draft_empty(&self, cx: &gpui::App) -> bool {
-        self.input.read(cx).buffer.text.trim().is_empty()
+        !self.composer.read(cx).has_text()
     }
 }
 
@@ -582,28 +950,58 @@ fn message_text(message: &Message) -> String {
         .collect()
 }
 
-/// The chat system prompt, with the current note as context when there is one.
+/// The chat system prompt with shipping's context: the mentioned notes, then the current
+/// note, then the mentioned people, organizations and folders.
 fn system_prompt(
     services: AiViewServices,
-    context: Option<SessionId>,
+    runtime: RuntimeHandle,
+    current: Option<SessionId>,
+    refs: Vec<ContextRef>,
 ) -> futures::future::BoxFuture<'static, Result<Message>> {
     Box::pin(async move {
-        if let Some(session) = context {
-            let context = (services.context)(session, ContextPurpose::Preview).await?;
-            if let Some(system) = context
-                .history
-                .into_iter()
-                .find(|message| message.role == Role::System)
-            {
-                return Ok(system);
-            }
-        }
         let settings = crate::meeting::config::preferences(&services.ai.runtime).await?;
         let language = Some(settings.text("ai_language")).filter(|language| !language.is_empty());
-        let text = anlg_template_app::render(anlg_template_app::Template::ChatSystem(
+        let system = anlg_template_app::render(anlg_template_app::Template::ChatSystem(
             anlg_template_app::ChatSystem { language },
         ))
         .map_err(failure)?;
+        let mut sessions = refs
+            .iter()
+            .filter(|reference| reference.kind == MentionKind::Session)
+            .map(|reference| SessionId(reference.id.as_str().into()))
+            .filter(|session| Some(session) != current.as_ref())
+            .collect::<Vec<_>>();
+        sessions.extend(current);
+        let mut blocks = vec![system.clone()];
+        for session in sessions {
+            let Ok(context) = (services.context)(session, ContextPurpose::Preview).await else {
+                continue;
+            };
+            if let Some(Part::Text { text }) = context
+                .history
+                .into_iter()
+                .find(|message| message.role == Role::System)
+                .and_then(|message| message.parts.into_iter().next())
+            {
+                // Each note's context opens with the same system prompt; keep only its block.
+                let block = text.strip_prefix(&system).unwrap_or(&text).trim();
+                if !block.is_empty() {
+                    blocks.push(block.to_owned());
+                }
+            }
+        }
+        for reference in refs
+            .into_iter()
+            .filter(|reference| reference.kind != MentionKind::Session)
+        {
+            if let Ok(Some(text)) = store::mention_context(&runtime, reference)?.receive().await {
+                blocks.push(text);
+            }
+        }
+        let text = blocks.join("\n\n");
+        if text.len() > MAX_TEXT {
+            return Err(failure("Meeting context exceeds the provider input limit."));
+        }
         Ok(Message {
             id: "system".into(),
             role: Role::System,

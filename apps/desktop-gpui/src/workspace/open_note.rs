@@ -168,6 +168,38 @@ fn summary_ids(details: &[Value], session: &SessionId, transcript_done: bool) ->
     }
 }
 
+/// Shipping's `hasSummaryContent`: text beyond a leading heading that only repeats the title.
+fn summary_has_content(body: &str, title: &str) -> bool {
+    fn text(node: &Value) -> String {
+        node["text"].as_str().map(str::to_owned).unwrap_or_else(|| {
+            node["content"]
+                .as_array()
+                .map(|children| children.iter().map(text).collect())
+                .unwrap_or_default()
+        })
+    }
+    let trimmed = body.trim();
+    let Ok(doc) = serde_json::from_str::<Value>(trimmed) else {
+        return !trimmed.is_empty();
+    };
+    if !trimmed.starts_with('{') || doc["type"] != "doc" {
+        return true;
+    }
+    let blocks = doc["content"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let title_block = blocks.first().is_some_and(|block| {
+        !title.trim().is_empty()
+            && block["type"] == "heading"
+            && block["attrs"]["level"] == 1
+            && text(block).trim() == title.trim()
+    });
+    blocks[usize::from(title_block)..]
+        .iter()
+        .any(|block| !text(block).trim().is_empty() || block["type"] == "image")
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum MenuAction {
     MeetingInfo,
@@ -695,6 +727,24 @@ impl NoteView {
         // Shipping's `getCanShowTranscript`.
         let transcript = self.details.has_transcript || self.audio.is_some() || !inactive;
         note_tabs(&ids, transcript)
+    }
+
+    /// Shipping's `useHasEditableSummary`: the shown view is a summary with content.
+    pub fn editable_summary_shown(&self) -> bool {
+        let Some(session) = &self.current else {
+            return false;
+        };
+        let tabs = self.tabs();
+        let NoteTab::Summary(id) =
+            current_tab(self.view.as_ref(), self.mode == SessionMode::Active, &tabs)
+        else {
+            return false;
+        };
+        self.details
+            .summaries
+            .iter()
+            .find(|summary| summary.id.0 == id)
+            .is_some_and(|summary| summary_has_content(&summary.body, &session.summary.title))
     }
 
     fn meeting_over(&self) -> bool {

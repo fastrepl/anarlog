@@ -2,6 +2,10 @@
 
 pub const ICONS: &[(&str, &[u8])] = &[
     (
+        "AlertCircleIcon",
+        include_bytes!("icons/AlertCircleIcon.svg"),
+    ),
+    (
         "ArrowExpandIcon",
         include_bytes!("icons/ArrowExpandIcon.svg"),
     ),
@@ -22,6 +26,7 @@ pub const ICONS: &[(&str, &[u8])] = &[
     ("CheckIcon", include_bytes!("icons/CheckIcon.svg")),
     ("CopyIcon", include_bytes!("icons/CopyIcon.svg")),
     ("Download01Icon", include_bytes!("icons/Download01Icon.svg")),
+    ("Folder01Icon", include_bytes!("icons/Folder01Icon.svg")),
     (
         "ExternalLinkIcon",
         include_bytes!("icons/ExternalLinkIcon.svg"),

@@ -86,10 +86,18 @@ impl Approvals {
 }
 
 pub fn executor(runtime: RuntimeHandle, approvals: Approvals) -> ToolExecutor {
+    // Meeting search uses the chat's full-text index, kept warm across tool calls.
+    let index = crate::chat::search::SearchIndex::default();
     Arc::new(move |tool, cancellation| {
         let runtime = runtime.clone();
         let approvals = approvals.clone();
-        Box::pin(async move { execute(&runtime, &approvals, tool, cancellation).await })
+        let index = index.clone();
+        Box::pin(async move {
+            if let MeetingTool::Search { query } = &tool {
+                return crate::chat::search::meetings(&index, &runtime, query, cancellation).await;
+            }
+            execute(&runtime, &approvals, tool, cancellation).await
+        })
     })
 }
 
@@ -177,10 +185,6 @@ async fn execute(
                 MeetingTool::History { session_id } => (
                     "SELECT m.role, m.content FROM chat_messages m JOIN sessions s ON s.id = m.chat_group_id WHERE s.id = ? AND s.deleted_at IS NULL AND s.locked = 0 AND m.deleted_at IS NULL ORDER BY m.created_at DESC, m.id DESC LIMIT 20",
                     vec![json!(session_id)],
-                ),
-                MeetingTool::Search { query } => (
-                    "SELECT id, title, created_at FROM sessions WHERE deleted_at IS NULL AND locked = 0 AND instr(lower(title), lower(?)) > 0 ORDER BY updated_at DESC LIMIT 30",
-                    vec![json!(query)],
                 ),
                 _ => {
                     return Err(failure(

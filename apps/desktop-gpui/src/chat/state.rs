@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use chrono::{DateTime, Datelike, Local, TimeZone, Utc};
 use desktop_runtime::SessionId;
+use serde_json::Value;
 
 use crate::workspace::navigation::Route;
 
@@ -69,37 +70,38 @@ pub fn context_session(previous: Option<SessionId>, route: &Route) -> Option<Ses
 
 const MAX_SENT: usize = 50;
 
-/// Sent prompts recalled with up/down in the composer, newest first and shared across chats.
+/// Sent drafts recalled with up/down in the composer, newest first and shared across chats,
+/// like shipping's `history.ts`. Entries are the composer's document, mentions included.
 #[derive(Default)]
 pub struct SentHistory {
-    entries: VecDeque<String>,
+    entries: VecDeque<Value>,
     index: Option<usize>,
-    draft: String,
+    draft: Option<Value>,
 }
 
 impl SentHistory {
-    pub fn push(&mut self, text: &str) {
+    pub fn push(&mut self, doc: Value) {
         self.index = None;
-        self.draft.clear();
-        if self.entries.front().is_some_and(|entry| entry == text) {
+        self.draft = None;
+        if self.entries.front().is_some_and(|entry| *entry == doc) {
             return;
         }
-        self.entries.push_front(text.to_owned());
+        self.entries.push_front(doc);
         self.entries.truncate(MAX_SENT);
     }
 
-    /// Returns the text to show, or `None` when the key is not consumed.
-    pub fn navigate(&mut self, previous: bool, current: &str) -> Option<String> {
+    /// Returns the draft to show, or `None` when the key is not consumed.
+    pub fn navigate(&mut self, previous: bool, current: &Value) -> Option<Value> {
         if previous {
             let next = self.index.map_or(0, |index| index + 1);
             if self.entries.is_empty() {
                 return None;
             }
             if next >= self.entries.len() {
-                return Some(current.to_owned());
+                return Some(current.clone());
             }
             if self.index.is_none() {
-                self.draft = current.to_owned();
+                self.draft = Some(current.clone());
             }
             self.index = Some(next);
             return Some(self.entries[next].clone());
@@ -107,7 +109,7 @@ impl SentHistory {
         match self.index? {
             0 => {
                 self.index = None;
-                Some(std::mem::take(&mut self.draft))
+                Some(self.draft.take().unwrap_or_else(super::composer::empty_doc))
             }
             index => {
                 self.index = Some(index - 1);
@@ -266,19 +268,20 @@ mod tests {
 
     #[test]
     fn sent_history_recalls_newest_first_and_restores_the_draft() {
+        let doc = |text: &str| serde_json::json!({"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}]});
         let mut history = SentHistory::default();
-        assert_eq!(history.navigate(true, "draft"), None);
-        history.push("first");
-        history.push("second");
-        history.push("second");
-        assert_eq!(history.navigate(true, "draft").as_deref(), Some("second"));
+        assert_eq!(history.navigate(true, &doc("draft")), None);
+        history.push(doc("first"));
+        history.push(doc("second"));
+        history.push(doc("second"));
+        assert_eq!(history.navigate(true, &doc("draft")), Some(doc("second")));
         assert_eq!(history.position(), Some((1, 2)));
-        assert_eq!(history.navigate(true, "second").as_deref(), Some("first"));
-        assert_eq!(history.navigate(true, "first").as_deref(), Some("first"));
-        assert_eq!(history.navigate(false, "first").as_deref(), Some("second"));
-        assert_eq!(history.navigate(false, "second").as_deref(), Some("draft"));
+        assert_eq!(history.navigate(true, &doc("second")), Some(doc("first")));
+        assert_eq!(history.navigate(true, &doc("first")), Some(doc("first")));
+        assert_eq!(history.navigate(false, &doc("first")), Some(doc("second")));
+        assert_eq!(history.navigate(false, &doc("second")), Some(doc("draft")));
         assert_eq!(history.position(), None);
-        assert_eq!(history.navigate(false, "draft"), None);
+        assert_eq!(history.navigate(false, &doc("draft")), None);
     }
 
     #[test]
