@@ -25,6 +25,7 @@ import {
   CalendarOffIcon,
   MapPinIcon,
   Video01Icon,
+  RepeatIcon,
 } from "@hugeicons/core-free-icons";
 import { writeFileSync } from "node:fs";
 
@@ -62,6 +63,7 @@ for (const [name, data] of Object.entries({
   CalendarOffIcon,
   MapPinIcon,
   Video01Icon,
+  RepeatIcon,
 })) {
   for (const variant of ["", ...(variants[name] ?? [])]) {
     const strokeWidth = variant === "Bold" ? "2" : "1.5";

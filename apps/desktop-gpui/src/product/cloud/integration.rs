@@ -53,6 +53,99 @@ impl CloudServices {
         })
     }
 
+    /// The account's integration connections with their status (shipping `useConnections`).
+    pub fn integration_connections(&self) -> BoxFuture<'static, Result<Vec<serde_json::Value>>> {
+        let this = self.clone();
+        Box::pin(async move {
+            this.runtime
+                .clone()
+                .service(move |_| async move {
+                    let account = this
+                        .identity()
+                        .account_id
+                        .ok_or_else(|| failure("Sign in to connect a calendar"))?;
+                    let lease = this.core.auth.lease(&account, false).await?;
+                    let response = this
+                        .core
+                        .api(&lease, Method::GET, "/nango/connections", None)
+                        .await?;
+                    Ok(response["connections"]
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default())
+                })?
+                .receive()
+                .await
+        })
+    }
+
+    /// Opens the web integration page like shipping's `openIntegrationUrl`: connect and
+    /// reconnect hand over a Nango session; disconnect confirms on the page itself.
+    pub fn open_integration(
+        &self,
+        integration: &'static str,
+        action: &'static str,
+        connection: Option<String>,
+        return_to: &'static str,
+    ) -> BoxFuture<'static, Result<()>> {
+        let this = self.clone();
+        Box::pin(async move {
+            let host = this.core.host.clone();
+            let url = this
+                .runtime
+                .clone()
+                .service(move |_| async move {
+                    let mut url = this
+                        .core
+                        .auth
+                        .transport
+                        .config
+                        .web_flow("/app/integration")?;
+                    url.query_pairs_mut()
+                        .append_pair("action", action)
+                        .append_pair("integration_id", integration)
+                        .append_pair("return_to", return_to);
+                    if let Some(connection) = &connection {
+                        url.query_pairs_mut()
+                            .append_pair("connection_id", connection);
+                    }
+                    if action != "disconnect" {
+                        let account = this
+                            .identity()
+                            .account_id
+                            .ok_or_else(|| failure("Sign in to connect a calendar"))?;
+                        let lease = this.core.auth.lease(&account, false).await?;
+                        let response = this
+                            .core
+                            .api(
+                                &lease,
+                                Method::POST,
+                                "/nango/session",
+                                Some(&json!({
+                                    "integration_id": integration,
+                                    "mode": action,
+                                    "connection_id": connection,
+                                })),
+                            )
+                            .await?;
+                        let token = response["token"]
+                            .as_str()
+                            .ok_or_else(|| failure("Integration handoff is missing"))?;
+                        url.query_pairs_mut().append_pair("handoff", "nango");
+                        url.set_fragment(Some(
+                            &url::form_urlencoded::Serializer::new(String::new())
+                                .append_pair("session_token", token)
+                                .finish(),
+                        ));
+                    }
+                    Ok(url)
+                })?
+                .receive()
+                .await?;
+            host.open_url(url).await
+        })
+    }
+
     fn calendar_flow(
         &self,
         provider: CalendarProviderType,

@@ -167,6 +167,8 @@ fn main() {
     meeting(&mut cx, window, profile.path(), &out);
     dictation(&mut cx, &out);
     contacts(&mut cx, window, &out);
+    timeline_details(&mut cx, window, &out);
+    calendar_depth(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -214,6 +216,119 @@ fn main() {
     }
     account_states(&mut cx, window, &out);
     capture_onboarding(&mut cx, window, &out);
+}
+
+/// The month grid's cell for `day`, top-left in window pixels (Sunday-first, as captured).
+fn calendar_cell(day: chrono::NaiveDate) -> Option<(f32, f32)> {
+    use chrono::Datelike;
+    let today = chrono::Local::now().date_naive();
+    let days = desktop_gpui::workspace::calendar::month_days(today.with_day(1)?, 0);
+    let index = days.iter().position(|candidate| *candidate == day)?;
+    let width = (WINDOW.0 - CALENDAR_LEFT) / 7.;
+    let height = (WINDOW.1 - CALENDAR_TOP) / (days.len() / 7) as f32;
+    Some((
+        CALENDAR_LEFT + width * (index % 7) as f32,
+        CALENDAR_TOP + height * (index / 7) as f32,
+    ))
+}
+
+const CALENDAR_LEFT: f32 = 209.;
+const CALENDAR_TOP: f32 = 81.;
+
+/// Where an anchored popover of `size` lands for a chip whose top-left is `chip`: below it,
+/// moved back inside the window's 16px margin.
+fn popover_origin(chip: (f32, f32), size: (f32, f32)) -> (f32, f32) {
+    (
+        chip.0.min(WINDOW.0 - 16. - size.0),
+        (chip.1 + 19.).min(WINDOW.1 - 16. - size.1),
+    )
+}
+
+/// The event popover, its folder picker, the auto-add prompt it leads to, the manage view,
+/// Escape, and a note's right-click menu.
+fn calendar_depth(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    let today = chrono::Local::now().date_naive();
+    // The seed places next week's critique at 06:00 UTC, seven UTC days from now.
+    let critique = (chrono::Utc::now().date_naive() + chrono::Days::new(7))
+        .and_hms_opt(6, 0, 0)
+        .unwrap()
+        .and_utc()
+        .with_timezone(&chrono::Local)
+        .date_naive();
+    let Some(cell) = calendar_cell(critique) else {
+        return;
+    };
+    open(cx, window, Route::Calendar);
+    let chip = (cell.0 + 6., cell.1 + 38.);
+    click(cx, window, chip.0 + 40., chip.1 + 7.);
+    capture(cx, window, out, "calendar-event-popover");
+    let main = popover_origin(chip, (320., 197.));
+    click(cx, window, main.0 + 160., main.1 + 117.);
+    type_text(cx, window, &["R", "e", "s", "e", "a", "r", "c", "h"]);
+    capture(cx, window, out, "calendar-folder-picker");
+    let picker = popover_origin(chip, (320., 163.));
+    click(cx, window, picker.0 + 160., picker.1 + 98.);
+    capture(cx, window, out, "calendar-auto-add");
+    let prompt = popover_origin(chip, (320., 156.));
+    click(cx, window, prompt.0 + 88., prompt.1 + 120.);
+    click(cx, window, main.0 + 160., main.1 + 117.);
+    capture(cx, window, out, "calendar-manage");
+    type_text(cx, window, &["escape"]);
+    capture(cx, window, out, "calendar-escape");
+    if let Some(cell) = calendar_cell(today) {
+        right_click(cx, window, cell.0 + 46., cell.1 + 45.5 + 2. * 17.);
+        capture(cx, window, out, "calendar-note-menu");
+        type_text(cx, window, &["escape"]);
+    }
+}
+
+fn right_click(cx: &mut HeadlessAppContext, window: WindowHandle<ApplicationView>, x: f32, y: f32) {
+    let position = point(px(x), px(y));
+    input(
+        cx,
+        window,
+        [
+            PlatformInput::MouseMove(MouseMoveEvent {
+                position,
+                pressed_button: None,
+                modifiers: Modifiers::default(),
+            }),
+            PlatformInput::MouseDown(MouseDownEvent {
+                button: MouseButton::Right,
+                position,
+                modifiers: Modifiers::default(),
+                click_count: 1,
+                first_mouse: false,
+            }),
+            PlatformInput::MouseUp(MouseUpEvent {
+                button: MouseButton::Right,
+                position,
+                modifiers: Modifiers::default(),
+                click_count: 1,
+            }),
+        ],
+    );
+}
+
+/// The empty state's key lift on hover and the live note's stop control on hover.
+fn timeline_details(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    open(cx, window, Route::Empty);
+    pointer(cx, window, 520., 253.);
+    capture(cx, window, out, "empty-hover");
+    let mut live = LiveMeeting::new(SessionId("s-standup".into()), SessionMode::Active);
+    live.amplitude = 0.35;
+    set_live(cx, Some(live));
+    pointer(cx, window, 100., 322.);
+    capture(cx, window, out, "timeline-live-hover");
+    set_live(cx, None);
 }
 
 /// Account, plan and seat states, seeded through the same app-wide value the cloud service

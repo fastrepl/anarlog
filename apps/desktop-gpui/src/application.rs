@@ -288,6 +288,14 @@ impl ApplicationView {
                     cx.set_global(ai);
                     cx.set_global(native.providers.clone());
                     this.services = Some(services);
+                    let calendar = crate::workspace::calendar_accounts::HostCalendarAccounts::new(
+                        this.runtime.clone(),
+                        native.local.clone(),
+                        native.cloud.service.clone(),
+                    );
+                    this.workspace.update(cx, |workspace, cx| {
+                        workspace.set_calendar_accounts(Some(Arc::new(calendar)), cx)
+                    });
                     if let Some(cloud) = native.cloud.service.clone() {
                         this.watch_cloud(cloud, cx);
                     }

@@ -59,6 +59,7 @@ pub struct WorkspaceView {
     pub(super) catalogs: Vec<(Catalog, Entity<CatalogView>)>,
     pub(super) calendar: Entity<CalendarView>,
     pub(super) calendar_sidebar: Entity<CalendarSidebar>,
+    calendar_sync: Entity<super::calendar_accounts::CalendarSync>,
     pub(super) templates: Entity<TemplatesView>,
     pub(super) folders: Entity<FoldersView>,
     pub(super) contacts: Option<Entity<Contacts>>,
@@ -190,6 +191,16 @@ impl WorkspaceView {
         })
         .detach();
     }
+    /// The host's calendar account services, once native services are ready.
+    pub fn set_calendar_accounts(
+        &mut self,
+        accounts: Option<Arc<dyn super::calendar_accounts::CalendarAccounts>>,
+        cx: &mut Context<Self>,
+    ) {
+        self.calendar_sync
+            .update(cx, |sync, cx| sync.set_services(accounts, cx));
+    }
+
     pub fn set_automation_client(
         &mut self,
         client: Option<super::automation_runner::AutomationClient>,
@@ -213,8 +224,11 @@ impl WorkspaceView {
         let library = cx.new(LibraryView::new);
         let note = cx.new(|cx| NoteView::new(context.runtime.clone(), window, cx));
         let picker = cx.new(|cx| NotePicker::new(context.runtime.clone(), cx));
-        let calendar = cx.new(|cx| CalendarView::new(context.runtime.clone(), cx));
-        let calendar_sidebar = cx.new(|_| CalendarSidebar::new(context.runtime.clone()));
+        let calendar_sync = cx.new(|_| super::calendar_accounts::CalendarSync::new());
+        let calendar =
+            cx.new(|cx| CalendarView::new(context.runtime.clone(), calendar_sync.clone(), cx));
+        let calendar_sidebar =
+            cx.new(|cx| CalendarSidebar::new(context.runtime.clone(), calendar_sync.clone(), cx));
         let templates = cx.new(|cx| TemplatesView::new(context.runtime.clone(), cx));
         let folders = cx.new(|cx| FoldersView::new(context.runtime.clone(), cx));
         let templates_subscription = cx.subscribe(&templates, |this, _, event, cx| match event {
@@ -304,6 +318,10 @@ impl WorkspaceView {
         let calendar_subscription = cx.subscribe(&calendar, |this, _, event: &CalendarOpen, cx| {
             this.open_session(event.0.clone(), cx);
         });
+        let calendar_note_subscription = cx
+            .subscribe(&calendar, |this, _, event: &OpenNote, cx| {
+                this.handle_note(event, cx)
+            });
         let calendar_folders_subscription = cx
             .subscribe(&calendar, |this, _, _: &CalendarFolders, cx| {
                 this.open_route(Route::Folders, true, cx)
@@ -347,6 +365,7 @@ impl WorkspaceView {
             catalogs: vec![],
             calendar,
             calendar_sidebar,
+            calendar_sync,
             templates,
             folders,
             contacts: None,
@@ -395,6 +414,7 @@ impl WorkspaceView {
                 calendar_subscription,
                 calendar_sidebar_subscription,
                 calendar_folders_subscription,
+                calendar_note_subscription,
                 templates_subscription,
                 folders_subscription,
             ],

@@ -2,6 +2,8 @@ pub mod assets;
 pub mod automation_runner;
 pub mod automations;
 pub mod calendar;
+pub mod calendar_accounts;
+mod calendar_rules;
 pub mod calendar_sidebar;
 mod catalog;
 mod catalog_editor;

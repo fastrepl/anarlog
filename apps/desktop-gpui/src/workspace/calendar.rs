@@ -10,13 +10,18 @@ use futures::{
     future::{Either, select},
 };
 use gpui::{
-    Animation, AnimationExt, App, Context, Entity, EventEmitter, FontWeight, Hsla, Render,
-    ScrollHandle, SharedString, Subscription, Transformation, Window, anchored, canvas, deferred,
-    div, percentage, point, prelude::*, px, rgb, svg,
+    Animation, AnimationExt, App, Context, Entity, EventEmitter, FocusHandle, FontWeight, Hsla,
+    KeyDownEvent, MouseButton, MouseDownEvent, Pixels, Point, Render, ScrollEvent, ScrollHandle,
+    SharedString, Subscription, Task, Transformation, Window, anchored, canvas, deferred, div,
+    percentage, point, prelude::*, px, rgb, svg,
 };
 use serde_json::{Value, json};
 
-use super::mutations::{failure, statement, transaction};
+use super::{
+    calendar_accounts::{CalendarSync, SyncStatus},
+    calendar_rules::{self, RuleChange, SeriesRules},
+    mutations::{failure, statement, transaction},
+};
 use crate::ui::{
     input::{InputEvent, TextInput},
     theme::{Theme, monospace_font, theme},
@@ -214,6 +219,8 @@ pub struct CalendarItem {
     pub session: Option<SessionId>,
     /// Folder of the note itself, or of the note linked to the event.
     pub folder: Arc<str>,
+    /// Recurring series of an event; empty for one-off events and notes.
+    pub series: Arc<str>,
 }
 
 impl CalendarItem {
@@ -273,6 +280,7 @@ pub struct CalendarPage {
     pub to: NaiveDate,
     pub items: Arc<[CalendarItem]>,
     pub overflow: bool,
+    pub rules: Arc<SeriesRules>,
 }
 
 fn field(row: &Value, key: &str) -> Arc<str> {
@@ -287,7 +295,8 @@ const ITEM_QUERY: &str = "SELECT 0 AS note, e.id, substr(e.title,1,4096) AS titl
         substr(e.location,1,4096) AS location, substr(e.meeting_link,1,4096) AS meeting_link,
         substr(e.description,1,16384) AS description,
         (SELECT s.id FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1) AS session_id,
-        COALESCE((SELECT s.folder_path FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1),'') AS folder
+        COALESCE((SELECT s.folder_path FROM sessions s WHERE s.event_id = e.id AND s.deleted_at IS NULL ORDER BY s.created_at,s.id LIMIT 1),'') AS folder,
+        e.recurrence_series_id AS series
     FROM events e LEFT JOIN calendars c ON c.id = e.calendar_id AND c.deleted_at IS NULL
     WHERE e.deleted_at IS NULL AND e.started_at >= ?1 AND e.started_at < ?2
         AND NOT EXISTS(
@@ -297,7 +306,7 @@ const ITEM_QUERY: &str = "SELECT 0 AS note, e.id, substr(e.title,1,4096) AS titl
                 OR (a.id = 'ignored_recurring_series' AND json_extract(ignored.value,'$.id') = e.recurrence_series_id)
         )
     UNION ALL
-    SELECT 1, s.id, substr(s.title,1,4096), s.created_at, '', 0, '', '', '', '', s.id, s.folder_path
+    SELECT 1, s.id, substr(s.title,1,4096), s.created_at, '', 0, '', '', '', '', s.id, s.folder_path, ''
     FROM sessions s
     WHERE s.deleted_at IS NULL AND s.title <> '' AND s.event_json = ''
         AND NOT EXISTS(SELECT 1 FROM events e WHERE e.id = s.event_id AND e.deleted_at IS NULL)
@@ -325,6 +334,11 @@ pub fn load_calendar(
             .execute(ITEM_QUERY.into(), query_bounds(from, to).to_vec())
             .await
             .map_err(failure)?;
+        let rules = services
+            .executor
+            .execute(calendar_rules::QUERY.into(), vec![])
+            .await
+            .map_err(failure)?;
         let items = rows
             .iter()
             .take(MAX_ITEMS)
@@ -341,6 +355,7 @@ pub fn load_calendar(
                 description: field(row, "description"),
                 session: row["session_id"].as_str().map(|id| SessionId(id.into())),
                 folder: field(row, "folder"),
+                series: field(row, "series"),
             })
             .collect();
         Ok(CalendarPage {
@@ -348,6 +363,7 @@ pub fn load_calendar(
             to,
             items,
             overflow: rows.len() > MAX_ITEMS,
+            rules: Arc::new(SeriesRules::from_rows(&rules)),
         })
     })
 }
@@ -384,8 +400,17 @@ pub fn open_event(
             statement("INSERT INTO session_documents(id,workspace_id,session_id,kind,body_format,body,created_by,updated_by) SELECT id,workspace_id,id,'note','prosemirror_json','{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}',owner_user_id,owner_user_id FROM sessions WHERE id=?".into(),vec![json!(id)],None),
         ]).await?;
         let rows = executor.execute("SELECT id FROM sessions WHERE deleted_at IS NULL AND (event_id=?1 OR (?2<>'' AND external_event_id=?2 AND external_provider=?3)) ORDER BY created_at,id LIMIT 1".into(),vec![json!(event_id),json!(tracking),json!(provider)]).await.map_err(failure)?;
+        let created = id.clone();
         let id = rows.first().and_then(|row| row["id"].as_str()).ok_or(ServiceError::Conflict)?.to_owned();
         let mut statements = Vec::new();
+        // A new note of a recurring meeting goes into the series' auto-add folder, if it exists.
+        let series = event["recurrence_series_id"].as_str().unwrap_or("");
+        if id == created && !series.is_empty() {
+            let rules = executor.execute(calendar_rules::QUERY.into(), vec![]).await.map_err(failure)?;
+            if let Some(folder) = SeriesRules::from_rows(&rules).folder(series) {
+                statements.push(statement("UPDATE sessions SET folder_path=?1, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?2 AND EXISTS(SELECT 1 FROM folders WHERE path=?1 AND deleted_at IS NULL)".into(), vec![json!(folder), json!(id)], None));
+            }
+        }
         let mut emails = std::collections::HashSet::new();
         for person in participants {
             if person["is_current_user"]==true { continue; }
@@ -443,8 +468,16 @@ pub struct CalendarView {
     popover: Option<Popover>,
     dismissed: Option<Popover>,
     opening: bool,
-    /// The event popover is showing its folder list instead of the event details.
-    folder_view: bool,
+    panel: Panel,
+    /// Set when the folder picker closes, so a changed folder can offer auto-add (shipping
+    /// `pickerClosed` and `folderAtPickerOpen`).
+    picker_closed: bool,
+    folder_at_open: Arc<str>,
+    /// A note's right-click menu, at the pointer.
+    menu: Option<(Point<Pixels>, SessionId)>,
+    focus: FocusHandle,
+    sync: Entity<CalendarSync>,
+    snap: Option<Task<()>>,
     folders: Option<Arc<FolderList>>,
     folder_search: Entity<TextInput>,
     filing: bool,
@@ -453,9 +486,23 @@ pub struct CalendarView {
     message: String,
     pub(super) viewer: Option<Arc<str>>,
     _search: Subscription,
+    _sync: Subscription,
 }
 
 impl EventEmitter<CalendarOpen> for CalendarView {}
+impl EventEmitter<super::library::OpenNote> for CalendarView {}
+
+/// What the event popover shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Panel {
+    Main,
+    /// The folder picker, for this note or (`rule`) for the series' future notes.
+    Folders {
+        rule: bool,
+    },
+    /// The series' auto-add folder and its actions.
+    Manage,
+}
 
 /// Requests the folders route ("See all folders").
 pub struct CalendarFolders;
@@ -514,11 +561,12 @@ fn folder_name(path: &str) -> &str {
 }
 
 impl CalendarView {
-    pub fn new(runtime: RuntimeHandle, cx: &mut Context<Self>) -> Self {
+    pub fn new(runtime: RuntimeHandle, sync: Entity<CalendarSync>, cx: &mut Context<Self>) -> Self {
         let clock = Clock::default();
         let today = clock.today();
         let folder_search = cx.new(|cx| TextInput::new("Search or create folder", cx).inline());
         let search = cx.subscribe(&folder_search, |_, _, _: &InputEvent, cx| cx.notify());
+        let sync_subscription = cx.observe(&sync, |_, _, cx| cx.notify());
         Self {
             runtime,
             clock,
@@ -540,7 +588,13 @@ impl CalendarView {
             popover: None,
             dismissed: None,
             opening: false,
-            folder_view: false,
+            panel: Panel::Main,
+            picker_closed: false,
+            folder_at_open: "".into(),
+            menu: None,
+            focus: cx.focus_handle(),
+            sync,
+            snap: None,
             folders: None,
             folder_search,
             filing: false,
@@ -549,6 +603,7 @@ impl CalendarView {
             message: String::new(),
             viewer: None,
             _search: search,
+            _sync: sync_subscription,
         }
     }
 
@@ -771,9 +826,14 @@ impl CalendarView {
         self.load(cx);
     }
 
+    /// Shipping's refresh: a calendar sync now, with 1.5 seconds of feedback.
     fn manual_refresh(&mut self, cx: &mut Context<Self>) {
         let generation = self.refreshing.advance();
         self.showing_refresh = true;
+        self.sync.update(cx, |sync, cx| {
+            sync.cancel_debounced(cx);
+            sync.schedule(cx);
+        });
         self.load(cx);
         cx.spawn(async move |this, cx| {
             cx.background_executor()
@@ -789,27 +849,53 @@ impl CalendarView {
         .detach();
     }
 
-    fn toggle_popover(&mut self, popover: Popover, cx: &mut Context<Self>) {
+    fn toggle_popover(&mut self, popover: Popover, window: &mut Window, cx: &mut Context<Self>) {
         // Clicking the open popover's trigger first dismisses it via mouse-down-out; keep it closed.
         if self.dismissed.as_ref() == Some(&popover) {
             return;
         }
         self.popover = Some(popover);
-        self.folder_view = false;
+        self.panel = Panel::Main;
+        self.picker_closed = false;
+        self.menu = None;
+        // Escape closes the popover, so keys must reach the calendar.
+        self.focus.focus(window, cx);
         cx.notify();
     }
 
     fn dismiss_popover(&mut self, cx: &mut Context<Self>) {
         self.dismissed = self.popover.take();
-        self.folder_view = false;
+        self.panel = Panel::Main;
+        self.picker_closed = false;
         cx.notify();
     }
 
-    fn open_folders(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn rules(&self) -> Arc<SeriesRules> {
+        self.page
+            .as_ref()
+            .map(|page| page.rules.clone())
+            .unwrap_or_default()
+    }
+
+    /// The folder picker closed after a choice ("See all folders" included).
+    fn close_picker(&mut self) {
+        self.picker_closed = true;
+        self.panel = Panel::Main;
+    }
+
+    fn open_folders(
+        &mut self,
+        item: &CalendarItem,
+        rule: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.filing {
             return;
         }
-        self.folder_view = true;
+        self.folder_at_open = item.folder.clone();
+        self.picker_closed = false;
+        self.panel = Panel::Folders { rule };
         self.folder_search
             .update(cx, |input, cx| input.set_text(String::new(), cx));
         cx.focus_view(&self.folder_search, window);
@@ -848,7 +934,7 @@ impl CalendarView {
         create: bool,
         cx: &mut Context<Self>,
     ) {
-        self.folder_view = false;
+        self.close_picker();
         let folder: Arc<str> = if path == item.folder { "".into() } else { path };
         if self.filing || (folder.is_empty() && item.session.is_none()) {
             cx.notify();
@@ -902,6 +988,86 @@ impl CalendarView {
             });
         })
         .detach();
+    }
+
+    /// The rule picker: choosing the series' folder again stops auto-adding.
+    fn choose_rule_folder(
+        &mut self,
+        item: &CalendarItem,
+        path: Arc<str>,
+        create: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.close_picker();
+        let current = self.rules().folder(&item.series).cloned();
+        let change = if current.as_ref() == Some(&path) {
+            RuleChange::Clear
+        } else {
+            RuleChange::Set(path.clone())
+        };
+        let new_folder = (create && matches!(change, RuleChange::Set(_))).then(|| {
+            let mut draft = super::mutations::blank(super::ports::Catalog::Folders);
+            if let Some(field) = draft.fields.iter_mut().find(|field| field.key == "path") {
+                field.value = path.to_string();
+            }
+            super::mutations::dispatch(
+                &self.runtime,
+                super::mutations::Command::Save(draft),
+                self.viewer.clone(),
+            )
+        });
+        self.change_rule(item, change, new_folder, cx);
+    }
+
+    fn change_rule(
+        &mut self,
+        item: &CalendarItem,
+        change: RuleChange,
+        before: Option<Result<Reply<super::ports::CatalogRow>>>,
+        cx: &mut Context<Self>,
+    ) {
+        if item.series.is_empty() {
+            return;
+        }
+        let runtime = self.runtime.clone();
+        let series = item.series.clone();
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let result = async {
+                if let Some(reply) = before {
+                    reply?.receive().await?;
+                }
+                calendar_rules::update(&runtime, series, change)?
+                    .receive()
+                    .await
+            }
+            .await;
+            let _ = this.update(cx, |this, cx| {
+                match result {
+                    // Rules are not part of the watched rows, so the watch stays quiet.
+                    Ok(()) => this.load(cx),
+                    Err(error) => this.message = format!("Could not update auto-add: {error}"),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn snap_compact(&mut self, cx: &mut Context<Self>) {
+        // Shipping's strip uses `snap-x snap-mandatory`: settle on the nearest whole day.
+        self.snap = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(150))
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                if this.columns != 7 && !this.compact_recentre {
+                    let start = this.compact_visible_start();
+                    this.scroll_compact_to(start);
+                    cx.notify();
+                }
+            });
+        }));
     }
 
     fn open_item(&mut self, item: &CalendarItem, cx: &mut Context<Self>) {
@@ -975,8 +1141,47 @@ fn primary_button(
         .font_weight(FontWeight::MEDIUM)
         .cursor_pointer()
         .hover(move |style| style.bg(colors.primary.opacity(0.9)))
-        .when(busy, |button| button.opacity(0.5))
+        .when(busy, |button| {
+            button
+                .opacity(0.5)
+                .child(spinner(id, colors.primary_foreground))
+        })
         .child(label)
+}
+
+fn secondary_button(
+    id: &'static str,
+    label: &'static str,
+    disabled: bool,
+    colors: Theme,
+) -> gpui::Stateful<gpui::Div> {
+    div()
+        .id(id)
+        .w_full()
+        .min_h(px(32.))
+        .px_2()
+        .flex()
+        .items_center()
+        .justify_center()
+        .gap_2()
+        .rounded(px(8.))
+        .bg(colors.secondary)
+        .text_color(colors.secondary_foreground)
+        .text_xs()
+        .font_weight(FontWeight::MEDIUM)
+        .cursor_pointer()
+        .hover(move |style| style.bg(colors.secondary.opacity(0.8)))
+        .when(disabled, |button| button.opacity(0.5))
+        .child(label)
+}
+
+/// Shipping's `CircleNotch` spinner (size-3.5).
+fn spinner(id: &'static str, color: Hsla) -> impl IntoElement {
+    icon("chat/LoaderCircleIcon.svg", 14., color).with_animation(
+        SharedString::from(format!("{id}-spinner")),
+        Animation::new(Duration::from_secs(1)).repeat(),
+        |icon, delta| icon.with_transformation(Transformation::rotate(percentage(delta))),
+    )
 }
 
 fn separator(colors: Theme) -> gpui::Div {
@@ -1036,7 +1241,23 @@ impl CalendarView {
             .rounded(px(4.))
             .cursor_pointer()
             .hover(|style| style.opacity(0.8))
-            .on_click(cx.listener(move |this, _, _, cx| this.toggle_popover(popover.clone(), cx)));
+            .on_click(cx.listener(move |this, _, window, cx| {
+                this.toggle_popover(popover.clone(), window, cx)
+            }))
+            .when_some(
+                item.session.clone().filter(|_| item.note),
+                |chip, session| {
+                    chip.on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                            this.menu = Some((event.position, session.clone()));
+                            this.focus.focus(window, cx);
+                            cx.stop_propagation();
+                            cx.notify();
+                        }),
+                    )
+                },
+            );
         let chip = if item.all_day && !item.note {
             chip.px(px(6.))
                 .py(px(2.))
@@ -1098,8 +1319,31 @@ impl CalendarView {
             let item = item.clone();
             cx.listener(move |this, _, _, cx| this.open_item(&item, cx))
         };
-        let content = if self.folder_view && !item.note {
-            self.folder_list(item, colors, cx)
+        let rules = self.rules();
+        let rule = rules.folder(&item.series).cloned();
+        // Shipping falls back to the details once the rule it manages is gone.
+        let panel = match self.panel {
+            Panel::Manage if rule.is_none() => Panel::Main,
+            panel => panel,
+        };
+        let auto_add = panel == Panel::Main
+            && !item.series.is_empty()
+            && rule.is_none()
+            && self.picker_closed
+            && !item.folder.is_empty()
+            && item.folder != self.folder_at_open
+            && !rules.declined.contains(&item.series);
+        let content = if let (Panel::Folders { rule: for_rule }, false) = (panel, item.note) {
+            self.folder_list(
+                item,
+                for_rule.then(|| rule.clone().unwrap_or_default()),
+                colors,
+                cx,
+            )
+        } else if let (Some(rule), Panel::Manage, false) = (rule.as_ref(), panel, item.note) {
+            self.manage_view(item, rule, colors, cx)
+        } else if auto_add && !item.note {
+            self.auto_add_view(item, colors, cx)
         } else if item.note {
             let created =
                 parse_instant(&item.start).map(|at| self.clock.date_time(self.clock.local(at)));
@@ -1234,7 +1478,7 @@ impl CalendarView {
                             .child(SharedString::from(item.description.clone())),
                     )
                 })
-                .child(self.folder_button(item, colors, cx))
+                .child(self.folder_button(item, rule.is_some(), colors, cx))
                 .child(
                     primary_button("calendar-open-note", "Open note", self.opening, colors)
                         .on_click(open),
@@ -1254,6 +1498,7 @@ impl CalendarView {
     fn folder_button(
         &self,
         item: &CalendarItem,
+        has_rule: bool,
         colors: Theme,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
@@ -1262,6 +1507,7 @@ impl CalendarView {
             14.,
             colors.secondary_foreground,
         );
+        let target = item.clone();
         div()
             .id("calendar-add-folder")
             .w_full()
@@ -1278,15 +1524,7 @@ impl CalendarView {
             .cursor_pointer()
             .hover(move |style| style.bg(colors.secondary.opacity(0.8)))
             .child(if self.filing {
-                folder
-                    .with_animation(
-                        "calendar-filing",
-                        Animation::new(Duration::from_secs(1)).repeat(),
-                        |icon, delta| {
-                            icon.with_transformation(Transformation::rotate(percentage(delta)))
-                        },
-                    )
-                    .into_any_element()
+                spinner("calendar-filing", colors.secondary_foreground).into_any_element()
             } else {
                 folder.into_any_element()
             })
@@ -1306,10 +1544,200 @@ impl CalendarView {
                 14.,
                 colors.secondary_foreground,
             ))
-            .on_click(cx.listener(|this, _, window, cx| this.open_folders(window, cx)))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                if this.filing {
+                    return;
+                }
+                if has_rule {
+                    this.panel = Panel::Manage;
+                    cx.notify();
+                } else {
+                    this.open_folders(&target, false, window, cx);
+                }
+            }))
     }
 
-    fn folder_list(&self, item: &CalendarItem, colors: Theme, cx: &mut Context<Self>) -> gpui::Div {
+    fn back_link(
+        &self,
+        id: &'static str,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        div()
+            .id(id)
+            .flex()
+            .items_center()
+            .gap_1()
+            .text_xs()
+            .line_height(px(16.))
+            .text_color(colors.muted_foreground)
+            .cursor_pointer()
+            .hover(move |style| style.text_color(colors.foreground))
+            .child(icon(
+                "workspace/ArrowLeft01Icon.svg",
+                14.,
+                colors.muted_foreground,
+            ))
+            .child("Back")
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.panel = Panel::Main;
+                cx.notify();
+            }))
+    }
+
+    /// Shipping's "manage" view of a series with an auto-add folder.
+    fn manage_view(
+        &self,
+        item: &CalendarItem,
+        rule: &Arc<str>,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        let row = |label: gpui::AnyElement, value: SharedString| {
+            div()
+                .flex()
+                .items_center()
+                .justify_between()
+                .gap_2()
+                .text_sm()
+                .line_height(px(20.))
+                .child(label)
+                .child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(colors.foreground)
+                        .child(value),
+                )
+        };
+        let (occurrence, for_rule, stop) = (item.clone(), item.clone(), item.clone());
+        div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_4()
+            .child(self.back_link("calendar-manage-back", colors, cx))
+            .child(row(
+                div()
+                    .text_color(colors.muted_foreground)
+                    .child("This note")
+                    .into_any_element(),
+                if item.folder.is_empty() {
+                    "Unfiled".into()
+                } else {
+                    folder_name(&item.folder).to_owned().into()
+                },
+            ))
+            .child(row(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(6.))
+                    .text_color(colors.muted_foreground)
+                    .child(icon(
+                        "workspace/RepeatIcon.svg",
+                        14.,
+                        colors.muted_foreground,
+                    ))
+                    .child("Future meetings")
+                    .into_any_element(),
+                folder_name(rule).to_owned().into(),
+            ))
+            .child(
+                secondary_button("calendar-move-note", "Move this note", self.filing, colors)
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.open_folders(&occurrence, false, window, cx)
+                    })),
+            )
+            .child(
+                secondary_button(
+                    "calendar-change-rule",
+                    "Change auto-add folder",
+                    self.filing,
+                    colors,
+                )
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    this.open_folders(&for_rule, true, window, cx)
+                })),
+            )
+            .child(
+                secondary_button("calendar-stop-rule", "Stop auto-add", false, colors).on_click(
+                    cx.listener(move |this, _, _, cx| {
+                        this.panel = Panel::Main;
+                        this.change_rule(&stop, RuleChange::Clear, None, cx);
+                    }),
+                ),
+            )
+    }
+
+    /// Offered after a recurring meeting's note is filed into a folder.
+    fn auto_add_view(
+        &self,
+        item: &CalendarItem,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        let (accept, decline) = (item.clone(), item.clone());
+        div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_4()
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .line_height(px(20.))
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(colors.foreground)
+                    .child(icon("workspace/RepeatIcon.svg", 16., colors.foreground))
+                    .child("Auto-add future meetings?"),
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .line_height(px(20.))
+                    .text_color(colors.muted_foreground)
+                    .child("Automatically put all future instances of this recurring meeting into a folder."),
+            )
+            .child(
+                div()
+                    .flex()
+                    .gap_2()
+                    .child(
+                        primary_button("calendar-auto-add", "Auto-add", false, colors)
+                            .flex_1()
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.picker_closed = false;
+                                let folder = accept.folder.clone();
+                                this.change_rule(&accept, RuleChange::Set(folder), None, cx);
+                            })),
+                    )
+                    .child(
+                        secondary_button("calendar-auto-add-no", "No", false, colors)
+                            .flex_1()
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.picker_closed = false;
+                                this.change_rule(&decline, RuleChange::Decline, None, cx);
+                            })),
+                    ),
+            )
+    }
+
+    /// `rule` holds the series' current folder when the picker chooses it instead of this
+    /// note's folder.
+    fn folder_list(
+        &self,
+        item: &CalendarItem,
+        rule: Option<Arc<str>>,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        let current = rule.clone().unwrap_or_else(|| item.folder.clone());
+        let for_rule = rule.is_some();
         let typed = self.folder_search.read(cx).buffer.text.trim().to_owned();
         let query = typed.to_lowercase();
         let name = anlg_fs_sync_core::normalize_folder_path(&typed).ok();
@@ -1323,7 +1751,7 @@ impl CalendarView {
         // Like the shipping command list, the current folder starts highlighted, else the first.
         let highlighted = folders
             .iter()
-            .find(|path| **path == item.folder)
+            .find(|path| **path == current)
             .or(folders.first())
             .cloned();
         let creatable = name
@@ -1344,28 +1772,9 @@ impl CalendarView {
             .gap_1()
             .p_2()
             .child(
-                div()
-                    .id("calendar-folder-back")
-                    .flex()
-                    .items_center()
-                    .gap_1()
+                self.back_link("calendar-folder-back", colors, cx)
                     .px_2()
-                    .py_1()
-                    .text_xs()
-                    .line_height(px(16.))
-                    .text_color(colors.muted_foreground)
-                    .cursor_pointer()
-                    .hover(move |style| style.text_color(colors.foreground))
-                    .child(icon(
-                        "workspace/ArrowLeft01Icon.svg",
-                        14.,
-                        colors.muted_foreground,
-                    ))
-                    .child("Back")
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.folder_view = false;
-                        cx.notify();
-                    })),
+                    .py_1(),
             )
             .child(
                 div()
@@ -1421,7 +1830,7 @@ impl CalendarView {
                                         },
                                     )
                                     .children(folders.into_iter().map(|path| {
-                                        let current = path == item.folder;
+                                        let selected_path = path == current;
                                         let selected = highlighted.as_ref() == Some(&path);
                                         let target = item.clone();
                                         let chosen = path.clone();
@@ -1457,7 +1866,7 @@ impl CalendarView {
                                                     .truncate()
                                                     .child(SharedString::from(path.clone())),
                                             )
-                                            .when(current, |row| {
+                                            .when(selected_path, |row| {
                                                 row.child(icon(
                                                     "workspace/CheckIcon.svg",
                                                     16.,
@@ -1465,7 +1874,21 @@ impl CalendarView {
                                                 ))
                                             })
                                             .on_click(cx.listener(move |this, _, _, cx| {
-                                                this.file_item(&target, chosen.clone(), create, cx)
+                                                if for_rule {
+                                                    this.choose_rule_folder(
+                                                        &target,
+                                                        chosen.clone(),
+                                                        create,
+                                                        cx,
+                                                    )
+                                                } else {
+                                                    this.file_item(
+                                                        &target,
+                                                        chosen.clone(),
+                                                        create,
+                                                        cx,
+                                                    )
+                                                }
                                             }))
                                     }))
                                     .when_some(creatable, |list, name| {
@@ -1497,7 +1920,21 @@ impl CalendarView {
                                                         .child(format!("Create \"{name}\"")),
                                                 )
                                                 .on_click(cx.listener(move |this, _, _, cx| {
-                                                    this.file_item(&target, name.clone(), true, cx)
+                                                    if for_rule {
+                                                        this.choose_rule_folder(
+                                                            &target,
+                                                            name.clone(),
+                                                            true,
+                                                            cx,
+                                                        )
+                                                    } else {
+                                                        this.file_item(
+                                                            &target,
+                                                            name.clone(),
+                                                            true,
+                                                            cx,
+                                                        )
+                                                    }
                                                 })),
                                         )
                                     }),
@@ -1528,8 +1965,8 @@ impl CalendarView {
                                 colors.muted_foreground,
                             ))
                             .on_click(cx.listener(|this, _, _, cx| {
+                                this.close_picker();
                                 this.popover = None;
-                                this.folder_view = false;
                                 cx.emit(CalendarFolders);
                                 cx.notify();
                             })),
@@ -1661,8 +2098,8 @@ impl CalendarView {
                                 .text_color(colors.muted_foreground)
                                 .cursor_pointer()
                                 .child(format!("+{hidden} more"))
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.toggle_popover(popover.clone(), cx)
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    this.toggle_popover(popover.clone(), window, cx)
                                 }))
                                 .when_some(detached, |more, item| {
                                     more.child(
@@ -1713,40 +2150,36 @@ impl CalendarView {
                             .text_color(colors.foreground)
                             .child(title),
                     )
-                    .child(if self.showing_refresh {
-                        div()
-                            .id("calendar-syncing")
-                            .size(px(24.))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                icon("workspace/RefreshIcon.svg", 12., colors.muted_foreground)
-                                    .with_animation(
-                                        "calendar-syncing",
-                                        Animation::new(Duration::from_secs(1)).repeat(),
-                                        |icon, delta| {
-                                            icon.with_transformation(Transformation::rotate(
-                                                percentage(delta),
-                                            ))
-                                        },
-                                    ),
-                            )
-                            .into_any_element()
-                    } else {
-                        div()
-                            .id("calendar-refresh")
-                            .size(px(24.))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded(px(8.))
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(colors.accent))
-                            .child(icon("workspace/RefreshIcon.svg", 14., colors.foreground))
-                            .on_click(cx.listener(|this, _, _, cx| this.manual_refresh(cx)))
-                            .into_any_element()
-                    }),
+                    // Shipping shows its spinner while a sync is scheduled or running.
+                    .child(
+                        if self.showing_refresh || self.sync.read(cx).status() != SyncStatus::Idle {
+                            div()
+                                .id("calendar-syncing")
+                                .size(px(24.))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .child(crate::meeting::widgets::spinner(
+                                    "calendar-syncing",
+                                    12.,
+                                    colors.muted_foreground,
+                                ))
+                                .into_any_element()
+                        } else {
+                            div()
+                                .id("calendar-refresh")
+                                .size(px(24.))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(8.))
+                                .cursor_pointer()
+                                .hover(move |style| style.bg(colors.accent))
+                                .child(icon("workspace/RefreshIcon.svg", 14., colors.foreground))
+                                .on_click(cx.listener(|this, _, _, cx| this.manual_refresh(cx)))
+                                .into_any_element()
+                        },
+                    ),
             )
             .child(
                 div()
@@ -1790,6 +2223,45 @@ impl CalendarView {
                             .on_click(cx.listener(|this, _, _, cx| this.step(1, cx))),
                     ),
             )
+    }
+
+    /// Shipping's native note menu (`SessionChip`): reveal the note's folder or delete it.
+    fn note_menu(
+        &self,
+        position: Point<Pixels>,
+        session: SessionId,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let reveal = if cfg!(target_os = "macos") {
+            "Show in Finder"
+        } else {
+            "Show in folder"
+        };
+        let items = [
+            super::calendar_sidebar::MenuItem::new(reveal),
+            super::calendar_sidebar::MenuItem::new("Delete Note").after_separator(),
+        ];
+        super::calendar_sidebar::context_menu(
+            "calendar-note-menu",
+            position,
+            items,
+            colors,
+            cx.listener(move |this, index: &usize, _, cx| {
+                this.menu = None;
+                let id = session.clone();
+                cx.emit(if *index == 0 {
+                    super::library::OpenNote::Reveal(id)
+                } else {
+                    super::library::OpenNote::Delete(vec![id].into())
+                });
+                cx.notify();
+            }),
+            cx.listener(|this, _: &(), _, cx| {
+                this.menu = None;
+                cx.notify();
+            }),
+        )
     }
 
     fn weekday_label(&self, label: &'static str, colors: Theme) -> gpui::Div {
@@ -1865,6 +2337,7 @@ impl CalendarView {
             .min_h_0()
             .overflow_x_scroll()
             .track_scroll(&self.compact_scroll)
+            .on_scroll(cx.listener(|this, _: &ScrollEvent, _, cx| this.snap_compact(cx)))
             .child(
                 div()
                     .h_full()
@@ -1940,6 +2413,17 @@ impl Render for CalendarView {
             .flex()
             .flex_col()
             .overflow_hidden()
+            .track_focus(&self.focus)
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                if event.keystroke.key == "escape"
+                    && (this.popover.is_some() || this.menu.is_some())
+                {
+                    this.menu = None;
+                    this.dismiss_popover(cx);
+                    this.dismissed = None;
+                    cx.stop_propagation();
+                }
+            }))
             // Clears a dismissal from the previous click before this one is dispatched.
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.dismissed = None))
             .child(self.header(title, colors, cx))
@@ -1949,6 +2433,9 @@ impl Render for CalendarView {
                 } else {
                     view.child(self.compact_view(colors, cx))
                 }
+            })
+            .when_some(self.menu.clone(), |view, (position, session)| {
+                view.child(self.note_menu(position, session, colors, cx))
             })
             .when(!self.message.is_empty(), |view| {
                 view.child(
@@ -2034,6 +2521,7 @@ mod tests {
             description: "".into(),
             session: None,
             folder: "".into(),
+            series: "".into(),
         }
     }
 
@@ -2099,6 +2587,78 @@ mod tests {
         );
         assert!(list.known("Research"));
         assert!(!list.known("Clients/Acme"));
+    }
+
+    #[tokio::test]
+    async fn new_notes_of_a_recurring_meeting_go_into_its_auto_add_folder() {
+        let root = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: root.path().join("rules.sqlite"),
+        })
+        .unwrap();
+        ready.receive().await.unwrap();
+        runtime
+            .submit(|services| async move {
+                for sql in [
+                    "INSERT INTO folders(id,path) VALUES ('f','Weekly')",
+                    "INSERT INTO events(id,tracking_id_event,calendar_id,title,started_at,ended_at,recurrence_series_id) VALUES
+                        ('sync-1','t1','c','Sync','2026-11-16T09:00:00Z','2026-11-16T10:00:00Z','series'),
+                        ('other','t3','c','Other','2026-11-23T09:00:00Z','2026-11-23T10:00:00Z','gone')",
+                    r#"INSERT INTO app_settings(id,value_json) VALUES ('auto_add_series_folders','[{"series_id":"series","folder_path":"Weekly"},{"series_id":"gone","folder_path":"Missing"}]')"#,
+                ] {
+                    services.executor.execute(sql.into(), vec![]).await.map_err(failure)?;
+                }
+                Ok(())
+            })
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let folder = |event: &'static str| {
+            let runtime = runtime.clone();
+            async move {
+                let id = open_event(&runtime, event.into(), None)
+                    .unwrap()
+                    .receive()
+                    .await
+                    .unwrap();
+                runtime
+                    .submit(move |services| async move {
+                        let rows = services
+                            .executor
+                            .execute(
+                                "SELECT folder_path FROM sessions WHERE id = ?".into(),
+                                vec![json!(id.0)],
+                            )
+                            .await
+                            .map_err(failure)?;
+                        Ok(field(&rows[0], "folder_path"))
+                    })
+                    .unwrap()
+                    .receive()
+                    .await
+                    .unwrap()
+            }
+        };
+        assert_eq!(&*folder("sync-1").await, "Weekly");
+        // A rule pointing at a folder that no longer exists leaves the note unfiled.
+        assert_eq!(&*folder("other").await, "");
+        runtime
+            .submit(|services| async move {
+                services
+                    .executor
+                    .execute("UPDATE sessions SET folder_path=''".into(), vec![])
+                    .await
+                    .map_err(failure)?;
+                Ok(())
+            })
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        // Only a newly created note is filed.
+        assert_eq!(&*folder("sync-1").await, "");
+        runtime.shutdown().await.unwrap();
     }
 
     #[test]

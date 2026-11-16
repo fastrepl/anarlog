@@ -71,6 +71,7 @@ const ICONS: &[(&str, &[u8])] = &[
     ("Video01Icon", include_bytes!("icons/Video01Icon.svg")),
     ("GoogleCalendar", include_bytes!("icons/GoogleCalendar.svg")),
     ("OutlookIcon", include_bytes!("icons/OutlookIcon.svg")),
+    ("RepeatIcon", include_bytes!("icons/RepeatIcon.svg")),
 ];
 
 const IMAGES: &[(&str, &[u8])] = &[(
