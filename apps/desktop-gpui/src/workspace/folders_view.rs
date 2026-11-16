@@ -17,14 +17,21 @@ use super::{
         ghost_icon_button, icon, menu_item,
     },
 };
-use crate::ui::{
-    input::{InputEvent, TextInput},
-    theme::{Theme, theme},
+use crate::{
+    product::{
+        cloud::resources::ResourceKind,
+        sharing::resource_dialog::{ResourceDialogEvent, ResourceShareDialog},
+    },
+    ui::{
+        input::{InputEvent, TextInput},
+        theme::{Theme, theme},
+    },
 };
 
 pub enum FoldersEvent {
     Back,
     SignIn,
+    Navigate(crate::workspace::navigation::Route),
 }
 
 impl EventEmitter<FoldersEvent> for FoldersView {}
@@ -45,6 +52,7 @@ struct Editor {
     instructions: Entity<TextInput>,
     saved_instructions: Arc<str>,
     materials: Vec<Material>,
+    access: Entity<crate::product::sharing::folder_access::FolderAccess>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -60,7 +68,7 @@ pub struct FoldersView {
     icon_overrides: std::collections::HashMap<Arc<str>, Glyph>,
     actions_open: bool,
     signed_in: bool,
-    sharing: bool,
+    sharing: Option<(Entity<ResourceShareDialog>, Subscription)>,
     busy: bool,
     message: String,
     cancel: CancellationToken,
@@ -87,13 +95,33 @@ impl FoldersView {
             icon_overrides: std::collections::HashMap::new(),
             actions_open: false,
             signed_in: false,
-            sharing: false,
+            sharing: None,
             busy: false,
             message: String::new(),
             cancel: CancellationToken::new(),
             focus: cx.focus_handle(),
             _subscriptions: vec![subscription],
         }
+    }
+
+    /// Shipping's `ResourceShareButton` dialog for the selected folder.
+    fn share(&mut self, cx: &mut Context<Self>) {
+        let Some(path) = self.editor.as_ref().map(|editor| editor.path.clone()) else {
+            return;
+        };
+        let title = folders::display_name(&path).into();
+        let runtime = self.runtime.clone();
+        let dialog =
+            cx.new(|cx| ResourceShareDialog::new(runtime, ResourceKind::Folder, path, title, cx));
+        let subscription = cx.subscribe(&dialog, |this, _, event, cx| {
+            this.sharing = None;
+            if let ResourceDialogEvent::Navigate(route) = event {
+                cx.emit(FoldersEvent::Navigate(route.clone()));
+            }
+            cx.notify();
+        });
+        self.sharing = Some((dialog, subscription));
+        cx.notify();
     }
 
     pub fn set_signed_in(&mut self, signed_in: bool, cx: &mut Context<Self>) {
@@ -232,12 +260,17 @@ impl FoldersView {
                 this.commit_name(cx);
             }
         })];
+        let runtime = self.runtime.clone();
+        let access_path = path.clone();
         let editor = Editor {
             path: path.clone(),
             name,
             instructions,
             saved_instructions: "".into(),
             materials: Vec::new(),
+            access: cx.new(|cx| {
+                crate::product::sharing::folder_access::FolderAccess::new(runtime, access_path, cx)
+            }),
             _subscriptions: subscriptions,
         };
         let reply = folders::instructions(&self.runtime, path.clone());
@@ -701,8 +734,7 @@ impl FoldersView {
                             .gap(px(2.))
                             .child(list::share_button("folder-share", colors).on_click(
                                 cx.listener(|this, _, _, cx| {
-                                    this.sharing = true;
-                                    cx.notify();
+                                    this.share(cx);
                                 }),
                             ))
                             .child(
@@ -756,6 +788,9 @@ impl FoldersView {
                             .flex()
                             .flex_col()
                             .gap_6()
+                            .when(crate::product::account::current(cx).signed_in(), |view| {
+                                view.child(editor.access.clone())
+                            })
                             .child(
                                 div()
                                     .flex()
@@ -1050,31 +1085,8 @@ impl Render for FoldersView {
             .when_some(self.dialog.as_ref(), |view, dialog| {
                 view.child(list::modal(window, self.render_dialog(dialog, window, cx)))
             })
-            .when_some(
-                self.editor
-                    .as_ref()
-                    .filter(|_| self.sharing)
-                    .map(|editor| folders::display_name(&editor.path).to_owned()),
-                |view, title| {
-                    view.child(list::modal(
-                        window,
-                        list::share_dialog(
-                            &title,
-                            self.signed_in,
-                            colors,
-                            cx.listener(|this, _, _, cx| {
-                                this.sharing = false;
-                                cx.emit(FoldersEvent::SignIn);
-                                cx.notify();
-                            }),
-                        )
-                        .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                            this.sharing = false;
-                            cx.notify();
-                        }))
-                        .into_any_element(),
-                    ))
-                },
-            )
+            .when_some(self.sharing.as_ref(), |view, (dialog, _)| {
+                view.child(list::modal(window, dialog.clone().into_any_element()))
+            })
     }
 }

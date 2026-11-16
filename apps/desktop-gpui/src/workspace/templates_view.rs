@@ -20,7 +20,11 @@ use super::{
 };
 use crate::{
     contracts::ProductRoute,
-    product::account,
+    product::{
+        account,
+        cloud::resources::ResourceKind,
+        sharing::resource_dialog::{ResourceDialogEvent, ResourceShareDialog},
+    },
     ui::{
         input::{InputEvent, TextInput},
         theme::{Theme, is_dark, monospace_font, theme},
@@ -34,6 +38,7 @@ pub enum TemplatesEvent {
     Back,
     /// Sign in, or upgrade to Pro.
     Product(ProductRoute),
+    Navigate(super::navigation::Route),
 }
 
 impl EventEmitter<TemplatesEvent> for TemplatesView {}
@@ -78,7 +83,7 @@ pub struct TemplatesView {
     form: Option<Form>,
     picker: Option<(Entity<IconPicker>, Subscription)>,
     signed_in: bool,
-    sharing: bool,
+    sharing: Option<(Entity<ResourceShareDialog>, Subscription)>,
     /// The visible "requires Pro" toast, by sequence number.
     notice: Option<(u64, list::WarningToast)>,
     notices: u64,
@@ -108,7 +113,7 @@ impl TemplatesView {
             form: None,
             picker: None,
             signed_in: false,
-            sharing: false,
+            sharing: None,
             notice: None,
             notices: 0,
             message: String::new(),
@@ -152,6 +157,33 @@ impl TemplatesView {
         self.message.clear();
         self.library = Arc::new(library);
         self.sync_form(cx);
+    }
+
+    /// Shipping's `ResourceShareButton` dialog for the selected template.
+    fn share(&mut self, cx: &mut Context<Self>) {
+        let (source, title): (Arc<str>, Arc<str>) = match self.current() {
+            Selection::Mine(id) => {
+                let title = self
+                    .template(&id)
+                    .map(|template| template.title.trim().to_owned())
+                    .filter(|title| !title.is_empty())
+                    .unwrap_or_else(|| "Untitled template".into());
+                (id.clone(), title.into())
+            }
+            Selection::Auto => ("auto".into(), "Auto".into()),
+        };
+        let runtime = self.runtime.clone();
+        let dialog = cx
+            .new(|cx| ResourceShareDialog::new(runtime, ResourceKind::Template, source, title, cx));
+        let subscription = cx.subscribe(&dialog, |this, _, event, cx| {
+            this.sharing = None;
+            if let ResourceDialogEvent::Navigate(route) = event {
+                cx.emit(TemplatesEvent::Navigate(route.clone()));
+            }
+            cx.notify();
+        });
+        self.sharing = Some((dialog, subscription));
+        cx.notify();
     }
 
     fn current(&self) -> Selection {
@@ -968,8 +1000,7 @@ impl TemplatesView {
                             .items_center()
                             .child(list::share_button("template-share", colors).on_click(
                                 cx.listener(|this, _, _, cx| {
-                                    this.sharing = true;
-                                    cx.notify();
+                                    this.share(cx);
                                 }),
                             ))
                             .child(
@@ -1751,33 +1782,8 @@ impl Render for TemplatesView {
                     colors,
                 ))
             })
-            .when(self.sharing, |view| {
-                let title = match self.current() {
-                    Selection::Mine(id) => self
-                        .template(&id)
-                        .map(|template| template.title.trim().to_owned())
-                        .filter(|title| !title.is_empty())
-                        .unwrap_or_else(|| "Untitled template".into()),
-                    Selection::Auto => "Auto".into(),
-                };
-                view.child(list::modal(
-                    window,
-                    list::share_dialog(
-                        &title,
-                        self.signed_in,
-                        colors,
-                        cx.listener(|this, _, _, cx| {
-                            this.sharing = false;
-                            cx.emit(TemplatesEvent::Product(ProductRoute::Account));
-                            cx.notify();
-                        }),
-                    )
-                    .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                        this.sharing = false;
-                        cx.notify();
-                    }))
-                    .into_any_element(),
-                ))
+            .when_some(self.sharing.as_ref(), |view, (dialog, _)| {
+                view.child(list::modal(window, dialog.clone().into_any_element()))
             })
     }
 }

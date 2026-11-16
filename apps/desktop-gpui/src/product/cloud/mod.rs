@@ -9,6 +9,7 @@ mod panels;
 pub mod shared_view;
 pub use account::{ReferralInvite, Referrals};
 pub use management::ManagementCommand;
+pub mod resources;
 mod review;
 mod sharing;
 mod sync;

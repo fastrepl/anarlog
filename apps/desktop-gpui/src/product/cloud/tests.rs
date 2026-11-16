@@ -1059,15 +1059,19 @@ async fn share_popover_publishes_before_its_first_invite_and_reads_back_access()
         .mount(&server)
         .await;
     Mock::given(method("POST"))
-        .and(path(format!("/shared-notes/invitations/{invitation}/email")))
+        .and(path(format!(
+            "/shared-notes/invitations/{invitation}/email"
+        )))
         .respond_with(ResponseTemplate::new(204))
         .expect(1)
         .mount(&server)
         .await;
     Mock::given(method("POST"))
         .and(path("/rest/v1/rpc/get_session_share_management"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{"share_id":SHARE,
-            "general_scope":"restricted","general_workspace_id":null,"has_active_link":false}])))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([{"share_id":SHARE,
+            "general_scope":"restricted","general_workspace_id":null,"has_active_link":false}])),
+        )
         .mount(&server)
         .await;
     Mock::given(method("POST"))
@@ -1123,4 +1127,114 @@ fn account_share_urls_follow_the_workspace_subdomain_and_desktop_scheme() {
         assert!(account_share_url(&production, SHARE, Some(slug), "anarlog").is_err());
     }
     assert!(account_share_url(&production, "not-a-share", None, "anarlog").is_err());
+}
+
+#[tokio::test]
+async fn folder_shares_publish_the_folder_payload_then_grant_a_guest() {
+    use super::resources::{ResourceCommand, ResourceKind, is_team_upsell};
+    let server = MockServer::start().await;
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let cloud = fixture_cloud(&runtime, &server, Arc::new(MemoryStore::default())).await;
+    let summary = json!({"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Findings"}]}]});
+    let scope = seed_summary(&runtime, summary.clone()).await;
+    let id = scope.session_id.unwrap();
+    runtime.service(move |services| async move {
+        sqlx::query("INSERT INTO folders (id, path, instructions) VALUES ('f-research', 'Research', 'Customer interviews')").execute(services.db.pool()).await.unwrap();
+        sqlx::query("UPDATE sessions SET folder_path = 'Research/Interviews', title = 'Interview' WHERE id = ?").bind(id.0.as_ref()).execute(services.db.pool()).await.unwrap();
+        Ok(())
+    }).unwrap().receive().await.unwrap();
+    let share = uuid::Uuid::new_v4().to_string();
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/upsert_shared_resource"))
+        .and(body_json(
+            json!({"p_resource_type":"folder","p_source_id":"Research","p_title":"Research",
+            "p_payload":{"version":1,"path":"Research","instructions":"Customer interviews",
+                "notes":[{"title":"Interview","relativeFolderPath":"Interviews","body":summary}]},
+            "p_general_workspace_id":null}),
+        ))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!([{"share_id":share,"general_workspace_id":null}])),
+        )
+        .expect(2)
+        .mount(&server)
+        .await;
+    let grant = Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/grant_shared_resource_access"))
+        .and(body_json(
+            json!({"p_share_id":share,"p_invitee_email":"guest@example.com"}),
+        ))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!([{"guest_id":"g","invitee_email":"guest@example.com"}])),
+        )
+        .expect(1)
+        .mount_as_scoped(&server)
+        .await;
+    let invite = || ResourceCommand::Invite {
+        workspace: None,
+        email: " Guest@Example.com ".into(),
+    };
+    cloud
+        .resource_command(
+            ResourceKind::Folder,
+            "Research".into(),
+            "Research".into(),
+            invite(),
+        )
+        .await
+        .unwrap();
+    drop(grant);
+    // A guest who already has another item needs Team access; the dialog shows the upsell.
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/grant_shared_resource_access"))
+        .respond_with(
+            ResponseTemplate::new(400)
+                .set_body_json(json!({"message":"multi-resource guest requires Team membership"})),
+        )
+        .mount(&server)
+        .await;
+    let error = cloud
+        .resource_command(
+            ResourceKind::Folder,
+            "Research".into(),
+            "Research".into(),
+            invite(),
+        )
+        .await
+        .unwrap_err();
+    assert!(is_team_upsell(&error));
+    runtime.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn template_shares_publish_the_editable_template_fields() {
+    let directory = tempfile::tempdir().unwrap();
+    let (runtime, ready) = RuntimeHandle::start(Profile {
+        database: directory.path().join("cloud.sqlite"),
+    })
+    .unwrap();
+    ready.receive().await.unwrap();
+    let payload = runtime
+        .service(|services| async move {
+            sqlx::query("INSERT INTO templates (id, title, description, category, targets_json, sections_json) VALUES ('t', 'Interview', 'Hiring loop', 'Hiring', '[\"Manager\"]', '[{\"title\":\"Signals\"}]')")
+                .execute(services.db.pool()).await.unwrap();
+            super::resources::template_payload(&services, "t").await
+        })
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+    assert_eq!(
+        payload["template"],
+        json!({"title":"Interview","description":"Hiring loop","category":"Hiring",
+            "icon":{"type":"icon","value":"notebook-tabs","color":"#9ca3af"},
+            "targets":["Manager"],"sections":[{"title":"Signals"}]})
+    );
+    runtime.shutdown().await.unwrap();
 }

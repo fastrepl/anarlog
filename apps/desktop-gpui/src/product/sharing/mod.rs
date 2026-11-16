@@ -2,8 +2,10 @@
 //! the folder and template share dialog (`resource-sharing/*`).
 
 pub mod assets;
+pub mod folder_access;
 mod model;
 pub mod popover;
+pub mod resource_dialog;
 pub mod shared_note;
 
 use gpui::Global;

@@ -436,6 +436,17 @@ fn sharing(
         Route::SharedSession("9c3a7e2b-1d4f-4a6c-8e5b-0f2d6a9c3e1b".into()),
     );
     capture(cx, window, out, "shared-note-revoked");
+    // The Research folder's Default access row and its share dialog, signed in.
+    open(cx, window, Route::Folders);
+    click(cx, window, 100., 218.);
+    capture(cx, window, out, "folder-default-access");
+    click(cx, window, 840., 24.);
+    capture(cx, window, out, "folder-share-pro");
+    click(cx, window, 10., 590.);
+    cx.update(|cx| account::set(signed_in(Claims::default()), cx));
+    click(cx, window, 840., 24.);
+    capture(cx, window, out, "folder-share-free");
+    click(cx, window, 10., 590.);
     cx.update(|cx| account::set(Account::default(), cx));
 }
 /// Account, plan and seat states, seeded through the same app-wide value the cloud service

@@ -234,10 +234,16 @@ impl WorkspaceView {
         let templates_subscription = cx.subscribe(&templates, |this, _, event, cx| match event {
             TemplatesEvent::Back => this.leave_overlay(cx),
             TemplatesEvent::Product(route) => cx.emit(WorkspaceEvent::Product(route.clone())),
+            TemplatesEvent::Navigate(route) => {
+                this.navigate(Navigate::Open(route.clone(), false), cx)
+            }
         });
         let folders_subscription = cx.subscribe(&folders, |this, _, event, cx| match event {
             FoldersEvent::Back => this.leave_overlay(cx),
             FoldersEvent::SignIn => cx.emit(WorkspaceEvent::Product(ProductRoute::Account)),
+            FoldersEvent::Navigate(route) => {
+                this.navigate(Navigate::Open(route.clone(), false), cx)
+            }
         });
         let workspace = cx.weak_entity();
         let chat = cx.new(|cx| ChatView::new(context.runtime.clone(), workspace, cx));
