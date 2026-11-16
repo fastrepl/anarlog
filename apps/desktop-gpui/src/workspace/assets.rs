@@ -92,6 +92,9 @@ impl AssetSource for Assets {
         {
             return Ok(Some(Cow::Borrowed(bytes)));
         }
+        if let Some(bytes) = super::catalog_icons::load(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
         if let Some(bytes) = crate::chat::assets::load(path) {
             return Ok(Some(Cow::Borrowed(bytes)));
         }
@@ -123,6 +126,7 @@ impl AssetSource for Assets {
         );
         paths.extend(crate::editor::icons::paths().map(Into::into));
         paths.extend(crate::meeting::icons::paths().map(Into::into));
+        paths.extend(super::catalog_icons::paths().map(Into::into));
         Ok(paths)
     }
 }

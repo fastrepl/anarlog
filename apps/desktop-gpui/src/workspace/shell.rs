@@ -19,11 +19,13 @@ use super::{
     calendar::{CalendarFolders, CalendarOpen, CalendarView, Clock},
     calendar_sidebar::{CalendarSidebar, CalendarSidebarEvent},
     catalog::CatalogView,
+    folders_view::{FoldersEvent, FoldersView},
     library::{LibraryView, OpenNote},
     navigation::{Navigation, Route, SidebarState, SlotId},
     open_note::{NoteEvent, NoteView},
     picker::{NotePicker, PickerEvent},
     ports::Catalog,
+    templates_view::{TemplatesEvent, TemplatesView},
 };
 use crate::{
     chat::{ChatView, state::ChatEvent},
@@ -56,6 +58,8 @@ pub struct WorkspaceView {
     pub(super) catalogs: Vec<(Catalog, Entity<CatalogView>)>,
     pub(super) calendar: Entity<CalendarView>,
     pub(super) calendar_sidebar: Entity<CalendarSidebar>,
+    pub(super) templates: Entity<TemplatesView>,
+    pub(super) folders: Entity<FoldersView>,
     pub(super) chat: Entity<ChatView>,
     pub(super) active_catalog: Option<Catalog>,
     pub(super) navigation: Navigation,
@@ -135,6 +139,12 @@ impl WorkspaceView {
         });
     }
 
+    /// Pro unlocks template editing, as shipping's billing access does.
+    pub fn set_pro(&mut self, pro: bool, cx: &mut Context<Self>) {
+        self.templates
+            .update(cx, |templates, cx| templates.set_pro(pro, cx));
+    }
+
     pub fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
         self.sidebar.toggle();
         self.sort_menu = None;
@@ -209,6 +219,16 @@ impl WorkspaceView {
         let picker = cx.new(|cx| NotePicker::new(context.runtime.clone(), cx));
         let calendar = cx.new(|cx| CalendarView::new(context.runtime.clone(), cx));
         let calendar_sidebar = cx.new(|_| CalendarSidebar::new(context.runtime.clone()));
+        let templates = cx.new(|cx| TemplatesView::new(context.runtime.clone(), cx));
+        let folders = cx.new(|cx| FoldersView::new(context.runtime.clone(), cx));
+        let templates_subscription = cx.subscribe(&templates, |this, _, event, cx| match event {
+            TemplatesEvent::Back => this.leave_overlay(cx),
+            TemplatesEvent::Product(route) => cx.emit(WorkspaceEvent::Product(route.clone())),
+        });
+        let folders_subscription = cx.subscribe(&folders, |this, _, event, cx| match event {
+            FoldersEvent::Back => this.leave_overlay(cx),
+            FoldersEvent::SignIn => cx.emit(WorkspaceEvent::Product(ProductRoute::Account)),
+        });
         let workspace = cx.weak_entity();
         let chat = cx.new(|cx| ChatView::new(context.runtime.clone(), workspace, cx));
         let focus = cx.focus_handle();
@@ -331,6 +351,8 @@ impl WorkspaceView {
             catalogs: vec![],
             calendar,
             calendar_sidebar,
+            templates,
+            folders,
             chat,
             active_catalog: None,
             navigation,
@@ -372,6 +394,8 @@ impl WorkspaceView {
                 calendar_subscription,
                 calendar_sidebar_subscription,
                 calendar_folders_subscription,
+                templates_subscription,
+                folders_subscription,
             ],
         }
     }
@@ -514,11 +538,6 @@ impl WorkspaceView {
                         }
                         this.library
                             .update(cx, |library, cx| library.clear_selection(cx));
-                        for (catalog, view) in &this.catalogs {
-                            if *catalog == Catalog::Folders {
-                                view.update(cx, |view, cx| view.refresh_folder_notes(cx));
-                            }
-                        }
                         this.reload(cx);
                     }
                     Err(error) => {
@@ -608,6 +627,12 @@ impl WorkspaceView {
             .update(cx, |calendar, _| calendar.viewer = viewer.clone());
         self.calendar_sidebar.update(cx, |sidebar, cx| {
             sidebar.set_signed_in(viewer.is_some(), cx)
+        });
+        self.templates.update(cx, |templates, cx| {
+            templates.set_signed_in(viewer.is_some(), cx)
+        });
+        self.folders.update(cx, |folders, cx| {
+            folders.set_signed_in(viewer.is_some(), cx)
         });
         for (kind, catalog) in &self.catalogs {
             catalog.update(cx, |catalog, cx| {
@@ -817,10 +842,24 @@ impl WorkspaceView {
                 sidebar.suspend();
             }
         });
+        let templates_route = route == Route::Templates;
+        self.templates.update(cx, |templates, cx| {
+            if templates_route {
+                templates.activate(cx);
+            } else {
+                templates.suspend(cx);
+            }
+        });
+        let folders_route = matches!(route, Route::Folders | Route::Folder(_));
+        self.folders.update(cx, |folders, cx| {
+            if folders_route {
+                folders.activate(cx);
+            } else {
+                folders.suspend(cx);
+            }
+        });
         let catalog = match route {
             Route::Contacts | Route::Human(_) | Route::Organization(_) => Some(Catalog::Contacts),
-            Route::Folders | Route::Folder(_) => Some(Catalog::Folders),
-            Route::Templates => Some(Catalog::Templates),
             Route::Automations => Some(Catalog::Automations),
             _ => None,
         };
@@ -852,30 +891,6 @@ impl WorkspaceView {
                         }),
                     );
                     self.catalogs.push((catalog, view.clone()));
-                    self.subscriptions.push(cx.subscribe(
-                        &view,
-                        |this, _, event: &super::catalog::PinFolders, cx| {
-                            if !this.can_navigate(cx) || !this.pin_persistence {
-                                return;
-                            }
-                            let active = this.navigation.active;
-                            for id in event.0.iter() {
-                                let slot =
-                                    this.navigation.open(Route::Folder(id.clone()), true, false);
-                                this.navigation.pin(slot, true);
-                            }
-                            this.navigation.active = active;
-                            cx.emit(WorkspaceAction::PinnedChanged(
-                                this.navigation
-                                    .tabs
-                                    .iter()
-                                    .filter(|tab| tab.pinned && tab.route.persistent_pin())
-                                    .map(|tab| tab.route.clone())
-                                    .collect(),
-                            ));
-                            cx.notify();
-                        },
-                    ));
                     view
                 };
                 view.update(cx, |view, cx| view.load(cx));
@@ -897,15 +912,9 @@ impl WorkspaceView {
         {
             view.update(cx, |view, cx| view.select_resource(kind, id.clone(), cx));
         }
-        if let Route::Folder(id) = &route
-            && let Some((_, view)) = self
-                .catalogs
-                .iter()
-                .find(|(catalog, _)| *catalog == Catalog::Folders)
-        {
-            view.update(cx, |view, cx| {
-                view.select_resource("folder", id.clone(), cx)
-            });
+        if let Route::Folder(id) = &route {
+            self.folders
+                .update(cx, |folders, cx| folders.select_id(id.clone(), cx));
         }
         match &route {
             Route::Settings(section) => cx.emit(WorkspaceEvent::Product(match section.as_ref() {

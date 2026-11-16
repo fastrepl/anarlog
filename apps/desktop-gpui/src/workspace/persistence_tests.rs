@@ -19,6 +19,7 @@ use super::{
     picker::{NOTES_QUERY, load_recent, save_recent},
     pins,
     ports::{Catalog, CatalogQuery, catalog_detail, catalog_page, decode_catalog},
+    templates,
 };
 
 #[test]
@@ -850,52 +851,6 @@ fn template_commands_duplicate_raw_json_and_keep_conflicting_edits() {
 }
 
 #[test]
-fn folder_notes_keep_normalized_live_tag_metadata() {
-    block_on(async {
-        let (_directory, runtime) = start().await;
-        execute(
-            &runtime,
-            "INSERT INTO sessions(id,title,folder_path) VALUES ('tagged','Tagged','Work/日本')",
-            vec![],
-        )
-        .await;
-        execute(
-            &runtime,
-            "INSERT INTO tags(id,name) VALUES ('tag',' release, prep ')",
-            vec![],
-        )
-        .await;
-        execute(
-            &runtime,
-            "INSERT INTO session_tags(id,session_id,tag_id) VALUES ('link','tagged','tag')",
-            vec![],
-        )
-        .await;
-        let page = folders::notes(&runtime, "Work".into(), 0, CancellationToken::new())
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert_eq!(page.items.len(), 1);
-        assert_eq!(page.items[0].tag_line.as_ref(), "#release, prep");
-        execute(
-            &runtime,
-            "UPDATE tags SET deleted_at='2026-09-21' WHERE id='tag'",
-            vec![],
-        )
-        .await;
-        let page = folders::notes(&runtime, "Work".into(), 0, CancellationToken::new())
-            .unwrap()
-            .receive()
-            .await
-            .unwrap();
-        assert_eq!(page.items[0].title.as_ref(), "Tagged");
-        assert!(page.items[0].tag_line.is_empty());
-        runtime.shutdown().await.unwrap();
-    });
-}
-
-#[test]
 fn folders_and_note_commands_move_nested_paths_and_soft_delete_related_rows() {
     block_on(async {
         let (directory, runtime) = start().await;
@@ -992,63 +947,36 @@ fn folders_and_note_commands_move_nested_paths_and_soft_delete_related_rows() {
 }
 
 #[test]
-fn selected_folder_commands_collapse_nested_roots_and_keep_notes_on_delete() {
+fn folder_route_creates_renames_updates_and_deletes_paths() {
     block_on(async {
-        let (_directory, runtime) = start().await;
-        let mut ids = Vec::<Arc<str>>::new();
-        for path in ["One", "One/Child", "Two"] {
-            let mut draft = mutations::blank(Catalog::Folders);
-            edit(&mut draft, "path", path);
-            let row = mutations::dispatch(&runtime, Command::Save(draft), None)
+        let (directory, runtime) = start().await;
+        for _ in 0..2 {
+            let path = folders::create(&runtime, " Clients ".into())
                 .unwrap()
                 .receive()
                 .await
                 .unwrap();
-            ids.push(row.id);
+            assert_eq!(path.as_ref(), "Clients");
         }
+        assert!(directory.path().join("vault/sessions/Clients").exists());
         execute(
             &runtime,
-            "INSERT INTO sessions(id,title,folder_path) VALUES ('note','Retained','One/Child')",
+            "INSERT INTO sessions(id,title,folder_path) VALUES ('note','Kept','Clients/Sub')",
             vec![],
         )
         .await;
-        execute(
-            &runtime,
-            "INSERT INTO sessions(id,title,folder_path) VALUES ('other','Outside','One2')",
-            vec![],
-        )
-        .await;
-        let notes = super::folders::notes(&runtime, "One".into(), 0, CancellationToken::new())
+        let rows = execute(&runtime, folders::LIBRARY_SQL, vec![]).await;
+        assert_eq!(
+            folders::decode_library(&rows).paths.as_slice(),
+            [Arc::<str>::from("Clients"), Arc::from("Clients/Sub")]
+        );
+        // A path only notes reference gains catalog rows when renamed.
+        let renamed = folders::rename(&runtime, "Clients/Sub".into(), "Clients/Renamed".into())
             .unwrap()
             .receive()
             .await
             .unwrap();
-        assert_eq!(notes.items.len(), 1);
-        assert_eq!(notes.items[0].id.0.as_ref(), "note");
-        assert!(
-            super::folders::notes(&runtime, "On%".into(), 0, CancellationToken::new())
-                .unwrap()
-                .receive()
-                .await
-                .unwrap()
-                .items
-                .is_empty()
-        );
-        assert!(
-            super::folders::batch(&runtime, ids.clone().into(), Some("One/Child".into()))
-                .unwrap()
-                .receive()
-                .await
-                .is_err()
-        );
-        assert_eq!(
-            super::folders::batch(&runtime, ids.clone().into(), Some("Archive".into()))
-                .unwrap()
-                .receive()
-                .await
-                .unwrap(),
-            "Moved 2 folder roots"
-        );
+        assert_eq!(renamed.as_ref(), "Clients/Renamed");
         assert_eq!(
             execute(
                 &runtime,
@@ -1056,15 +984,55 @@ fn selected_folder_commands_collapse_nested_roots_and_keep_notes_on_delete() {
                 vec![]
             )
             .await[0]["folder_path"],
-            "Archive/One/Child"
+            "Clients/Renamed"
         );
-        assert_eq!(
-            super::folders::batch(&runtime, ids.into(), None)
+        folders::create(&runtime, "Other".into())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert!(
+            folders::rename(&runtime, "Other".into(), "Clients".into())
                 .unwrap()
                 .receive()
                 .await
-                .unwrap(),
-            "Deleted 2 folder roots"
+                .is_err()
+        );
+        let icon = super::resource_list::Glyph::Emoji("📁".into());
+        for update in [
+            folders::Update::Instructions("Weekly client calls".into()),
+            folders::Update::Icon(icon.clone()),
+        ] {
+            folders::update(&runtime, "Clients".into(), update)
+                .unwrap()
+                .receive()
+                .await
+                .unwrap();
+        }
+        let row = &execute(
+            &runtime,
+            "SELECT instructions,icon_json FROM folders WHERE path='Clients' AND deleted_at IS NULL",
+            vec![],
+        )
+        .await[0];
+        assert_eq!(row["instructions"], "Weekly client calls");
+        assert_eq!(
+            super::resource_list::Glyph::folder(row["icon_json"].as_str().unwrap()),
+            icon
+        );
+        folders::delete(&runtime, "Clients".into())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert!(
+            execute(
+                &runtime,
+                "SELECT id FROM folders WHERE path LIKE 'Clients%' AND deleted_at IS NULL",
+                vec![]
+            )
+            .await
+            .is_empty()
         );
         let note = &execute(
             &runtime,
@@ -1074,6 +1042,126 @@ fn selected_folder_commands_collapse_nested_roots_and_keep_notes_on_delete() {
         .await[0];
         assert_eq!(note["folder_path"], "");
         assert!(note["deleted_at"].is_null());
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
+fn template_route_writes_keep_stored_json_and_settings_consistent() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        let id = templates::create(&runtime)
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let library = |rows: Vec<Value>| templates::decode_library(&rows);
+        let stored = library(execute(&runtime, templates::LIBRARY_SQL, vec![]).await);
+        let created = stored
+            .templates
+            .iter()
+            .find(|template| template.id == id)
+            .unwrap();
+        assert_eq!(created.title.as_ref(), "New Template");
+        assert_eq!(
+            created.icon,
+            super::resource_list::Glyph::template_default()
+        );
+        templates::save(
+            &runtime,
+            id.clone(),
+            templates::Changes {
+                title: Some("Standup".into()),
+                targets: Some(vec!["Engineering".into()]),
+                sections: Some(vec![templates::Section {
+                    title: "Blockers".into(),
+                    description: "{{ notes }}".into(),
+                }]),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .receive()
+        .await
+        .unwrap();
+        let row = &execute(
+            &runtime,
+            "SELECT title,description,targets_json,sections_json FROM templates WHERE id=?",
+            vec![json!(id)],
+        )
+        .await[0];
+        assert_eq!(row["title"], "Standup");
+        assert_eq!(row["description"], "");
+        assert_eq!(row["targets_json"], r#"["Engineering"]"#);
+        assert_eq!(
+            row["sections_json"],
+            r#"[{"title":"Blockers","description":"{{ notes }}"}]"#
+        );
+        // Duplicates copy stored JSON verbatim, even when it cannot be decoded.
+        execute(
+            &runtime,
+            "UPDATE templates SET sections_json='{kept' WHERE id=?",
+            vec![json!(id)],
+        )
+        .await;
+        let copy = templates::duplicate(&runtime, id.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let row = &execute(
+            &runtime,
+            "SELECT title,pinned,sections_json FROM templates WHERE id=?",
+            vec![json!(copy)],
+        )
+        .await[0];
+        assert_eq!(row["title"], "Standup (Copy)");
+        assert_eq!(row["sections_json"], "{kept");
+        let updated = |runtime: &RuntimeHandle, id: Arc<str>| {
+            let runtime = runtime.clone();
+            async move {
+                execute(
+                    &runtime,
+                    "SELECT pinned,pin_order,updated_at FROM templates WHERE id=?",
+                    vec![json!(id)],
+                )
+                .await[0]
+                    .clone()
+            }
+        };
+        let before = updated(&runtime, copy.clone()).await;
+        for target in [id.clone(), copy.clone()] {
+            templates::toggle_favorite(&runtime, target)
+                .unwrap()
+                .receive()
+                .await
+                .unwrap();
+        }
+        let after = updated(&runtime, copy.clone()).await;
+        assert_eq!(after["pinned"], 1);
+        assert_eq!(after["pin_order"], 2);
+        assert_eq!(after["updated_at"], before["updated_at"]);
+        templates::toggle_favorite(&runtime, copy.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        assert_eq!(updated(&runtime, copy.clone()).await["pin_order"], 0);
+        templates::set_default(&runtime, copy.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let stored = library(execute(&runtime, templates::LIBRARY_SQL, vec![]).await);
+        assert_eq!(stored.default_id, copy);
+        templates::delete(&runtime, copy.clone())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let stored = library(execute(&runtime, templates::LIBRARY_SQL, vec![]).await);
+        assert!(stored.default_id.is_empty());
+        assert!(stored.templates.iter().all(|template| template.id != copy));
         runtime.shutdown().await.unwrap();
     });
 }

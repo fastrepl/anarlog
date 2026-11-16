@@ -91,5 +91,10 @@ export function commandDefaults(repository) {
       defaults[command] = value(type.replace(/\s+/g, " "), aliases);
     }
   }
+  // Auto's template page renders the bundled summary format.
+  defaults["plugin:template|get_template_source"] = readFileSync(
+    path.join(repository, "crates/template-app/assets/enhance.format.md.jinja"),
+    "utf8",
+  );
   return defaults;
 }

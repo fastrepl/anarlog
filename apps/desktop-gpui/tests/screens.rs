@@ -184,6 +184,9 @@ fn main() {
     ] {
         open(&mut cx, window, route);
         capture(&mut cx, window, &out, name);
+        if name == "folders" {
+            templates_and_folders(&mut cx, window, &out);
+        }
     }
     for page in [
         "account",
@@ -630,6 +633,53 @@ fn capture_onboarding(
         capture(cx, window, out, name);
     }
     cx.update(|cx| cx.remove_global::<OnboardingPreview>());
+}
+
+/// Templates and folders, by window position: list rows are 36px tall from y=110.
+fn templates_and_folders(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    open(cx, window, Route::Templates);
+    click(cx, window, 100., 146.);
+    capture(cx, window, out, "templates-favorite");
+    click(cx, window, 100., 110.);
+    capture(cx, window, out, "templates-auto");
+    click(cx, window, 100., 254.);
+    click(cx, window, 154., 23.);
+    capture(cx, window, out, "templates-sort");
+    click(cx, window, 154., 23.);
+    click(cx, window, 182., 23.);
+    capture(cx, window, out, "templates-pro-required");
+    cx.update(|cx| {
+        window
+            .update(cx, |root, _, cx| {
+                root.workspace()
+                    .clone()
+                    .update(cx, |workspace, cx| workspace.set_pro(true, cx))
+            })
+            .unwrap()
+    });
+    click(cx, window, 100., 146.);
+    pointer(cx, window, 500., 200.);
+    capture(cx, window, out, "templates-pro");
+    open(cx, window, Route::Folders);
+    click(cx, window, 182., 23.);
+    capture(cx, window, out, "folders-new");
+    click(cx, window, 10., 590.);
+    click(cx, window, 100., 218.);
+    capture(cx, window, out, "folders-research");
+    click(cx, window, 231., 24.);
+    capture(cx, window, out, "folders-picker");
+    click(cx, window, 231., 24.);
+    click(cx, window, 840., 24.);
+    capture(cx, window, out, "folders-share");
+    click(cx, window, 10., 590.);
+    click(cx, window, 892., 24.);
+    click(cx, window, 840., 66.);
+    capture(cx, window, out, "folders-delete");
+    click(cx, window, 10., 590.);
 }
 
 fn chat(

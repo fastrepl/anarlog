@@ -23,66 +23,6 @@ pub enum MaterialCommand {
     Remove(Arc<str>),
 }
 
-pub fn notes(
-    runtime: &RuntimeHandle,
-    folder: Arc<str>,
-    offset: u32,
-    cancel: CancellationToken,
-) -> Result<Reply<desktop_runtime::LibraryPage>> {
-    runtime.read(cancel,move |services| async move {
-        let rows=services.executor.execute("SELECT id,substr(title,1,4096) AS title,created_at,updated_at,folder_path FROM sessions WHERE deleted_at IS NULL AND (folder_path=?1 OR substr(folder_path,1,length(?1)+1)=?1 || '/') ORDER BY created_at DESC,id LIMIT 101 OFFSET ?2".into(),vec![json!(folder),json!(offset)]).await.map_err(failure)?;
-        let has_more=rows.len()>100;
-        let ids=rows.iter().take(100).filter_map(|row| row["id"].as_str()).collect::<Vec<_>>();
-        let mut tags=services.session_tag_lines(&ids).await?;
-        let items=rows.into_iter().take(100).map(|row| desktop_runtime::SessionSummary{
-            id:desktop_runtime::SessionId(row["id"].as_str().unwrap_or("").into()),
-            title:row["title"].as_str().unwrap_or("").into(),
-            created_at:row["created_at"].as_str().unwrap_or("").into(),
-            updated_at:row["updated_at"].as_str().unwrap_or("").into(),
-            folder_path:row["folder_path"].as_str().unwrap_or("").into(),
-            tag_line:tags.remove(row["id"].as_str().unwrap_or("")).unwrap_or_default(),
-        }).collect::<Vec<_>>().into();
-        Ok(desktop_runtime::LibraryPage{items,offset,has_more})
-    })
-}
-
-pub fn batch(
-    runtime: &RuntimeHandle,
-    ids: Arc<[Arc<str>]>,
-    destination: Option<Arc<str>>,
-) -> Result<Reply<String>> {
-    runtime.submit(move |services| async move {
-        if ids.is_empty() || ids.len()>100 {return Err(failure("Select between 1 and 100 folders"));}
-        let rows=services.executor.execute("SELECT * FROM folders WHERE id IN(SELECT value FROM json_each(?)) AND deleted_at IS NULL ORDER BY path".into(),vec![json!(ids).to_string().into()]).await.map_err(failure)?;
-        if rows.len()!=ids.len() {return Err(ServiceError::Conflict);}
-        let destination=destination.map(|path| normalize_folder_path(&path).map_err(failure)).transpose()?;
-        let mut roots=Vec::<Value>::new();
-        for row in rows {
-            let path=row["path"].as_str().ok_or(ServiceError::Conflict)?;
-            if roots.iter().any(|root| path.strip_prefix(root["path"].as_str().unwrap_or("")).is_some_and(|suffix| suffix.starts_with('/'))) {continue;}
-            if destination.as_ref().is_some_and(|target| target==path || target.starts_with(&format!("{path}/"))) {return Err(failure("Cannot move a folder into itself"));}
-            roots.push(row);
-        }
-        let mut completed=0;
-        for base in roots {
-            let path=base["path"].as_str().ok_or(ServiceError::Conflict)?;
-            let target=destination.as_ref().map(|parent| if parent.is_empty() {path.rsplit('/').next().unwrap_or(path).to_owned()} else {format!("{parent}/{}",path.rsplit('/').next().unwrap_or(path))});
-            let draft=Draft {
-                row: CatalogRow {id:base["id"].as_str().ok_or(ServiceError::Conflict)?.into(),kind:"folder".into(),title:path.into(),subtitle:"".into(),pinned:false,self_contact:false},
-                fields:vec![
-                    super::mutations::Field{key:"path",label:"Folder",value:target.clone().unwrap_or_else(||path.into())},
-                    super::mutations::Field{key:"instructions",label:"Instructions",value:base["instructions"].as_str().unwrap_or("").into()},
-                ],
-                base:Some(base.clone()),groups:None,groups_dirty:false,
-            };
-            let result=if target.is_some() {save(&services.executor,draft).await} else {remove(&services.executor,draft).await};
-            if let Err(error)=result {return Err(failure(format!("Changed {completed} folder roots; stopped at {path}: {error}")));}
-            completed+=1;
-        }
-        Ok(format!("{} {completed} folder roots",if destination.is_some() {"Moved"} else {"Deleted"}))
-    })
-}
-
 pub fn materials(runtime: &RuntimeHandle, folder: Arc<str>) -> Result<Reply<Vec<Material>>> {
     runtime.read(CancellationToken::new(),move |services| async move {
         let rows=services.executor.execute("SELECT id,filename FROM folder_attachments WHERE folder_path=? AND deleted_at IS NULL ORDER BY filename,id LIMIT 100".into(),vec![json!(folder)]).await.map_err(failure)?;
@@ -330,4 +270,222 @@ pub(super) async fn move_notes(
         return Err(error);
     }
     Ok(())
+}
+
+/// Every folder the library knows about: catalog rows, plus paths that only notes or
+/// materials still reference (shipping's `FOLDER_PATHS_SQL`).
+pub const LIBRARY_SQL: &str = "SELECT path AS folder_path, icon_json FROM folders
+        WHERE deleted_at IS NULL AND path != ''
+    UNION ALL SELECT DISTINCT folder_path, NULL FROM sessions
+        WHERE deleted_at IS NULL AND folder_path != ''
+    UNION ALL SELECT DISTINCT folder_path, NULL FROM folder_attachments
+        WHERE deleted_at IS NULL AND folder_path != ''
+    LIMIT 5000";
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Library {
+    /// Normalized paths and all their ancestors, in `localeCompare` order.
+    pub paths: Vec<Arc<str>>,
+    pub icons: std::collections::HashMap<Arc<str>, super::resource_list::Glyph>,
+}
+
+impl Library {
+    pub fn icon(&self, path: &str) -> super::resource_list::Glyph {
+        self.icons
+            .get(path)
+            .cloned()
+            .unwrap_or_else(super::resource_list::Glyph::folder_default)
+    }
+}
+
+pub fn decode_library(rows: &[Value]) -> Library {
+    let mut paths = std::collections::BTreeSet::new();
+    let mut icons = std::collections::HashMap::new();
+    for row in rows {
+        let Some(path) = row["folder_path"]
+            .as_str()
+            .and_then(|path| normalize_folder_path(path).ok())
+            .filter(|path| !path.is_empty())
+        else {
+            continue;
+        };
+        if let Some(raw) = row["icon_json"].as_str() {
+            icons.insert(
+                Arc::from(path.as_str()),
+                super::resource_list::Glyph::folder(raw),
+            );
+        }
+        let mut ancestor = String::new();
+        for segment in path.split('/') {
+            if !ancestor.is_empty() {
+                ancestor.push('/');
+            }
+            ancestor.push_str(segment);
+            paths.insert(ancestor.clone());
+        }
+    }
+    let mut paths = paths.into_iter().map(Arc::from).collect::<Vec<Arc<str>>>();
+    paths.sort_by(|a, b| {
+        a.to_lowercase()
+            .cmp(&b.to_lowercase())
+            .then_with(|| b.cmp(a))
+    });
+    Library { paths, icons }
+}
+
+pub fn display_name(path: &str) -> &str {
+    path.rsplit('/').next().unwrap_or(path)
+}
+
+/// Creates catalog rows for `path` and its ancestors when missing, then returns its row.
+async fn ensure(executor: &DbExecutor, path: &str) -> Result<Value> {
+    let mut statements = Vec::new();
+    let mut ancestor = String::new();
+    for segment in path.split('/') {
+        if !ancestor.is_empty() {
+            ancestor.push('/');
+        }
+        ancestor.push_str(segment);
+        statements.push(statement(format!("INSERT INTO folders(id,path,created_at,updated_at) SELECT ?,?,{NOW},{NOW} WHERE NOT EXISTS(SELECT 1 FROM folders WHERE path=? AND deleted_at IS NULL)"),vec![json!(Uuid::new_v4().to_string()),json!(ancestor),json!(ancestor)],None));
+    }
+    transaction(executor, statements).await?;
+    let rows = executor
+        .execute(
+            "SELECT * FROM folders WHERE path=? AND deleted_at IS NULL".into(),
+            vec![json!(path)],
+        )
+        .await
+        .map_err(failure)?;
+    rows.into_iter().next().ok_or(ServiceError::Conflict)
+}
+
+fn draft(base: Value, path: &str) -> Result<Draft> {
+    Ok(Draft {
+        row: CatalogRow {
+            id: base["id"].as_str().ok_or(ServiceError::Conflict)?.into(),
+            kind: "folder".into(),
+            title: base["path"].as_str().unwrap_or_default().into(),
+            subtitle: "".into(),
+            pinned: false,
+            self_contact: false,
+        },
+        fields: vec![
+            super::mutations::Field {
+                key: "path",
+                label: "Folder",
+                value: path.into(),
+            },
+            super::mutations::Field {
+                key: "instructions",
+                label: "Instructions",
+                value: base["instructions"].as_str().unwrap_or("").into(),
+            },
+        ],
+        base: Some(base),
+        groups: None,
+        groups_dirty: false,
+    })
+}
+
+fn named(path: &str) -> Result<String> {
+    let path = normalize_folder_path(path.trim()).map_err(failure)?;
+    if path.is_empty() {
+        return Err(failure("A folder name is required"));
+    }
+    Ok(path)
+}
+
+/// `createNamedFolder`: idempotent catalog rows plus the vault directory.
+pub fn create(runtime: &RuntimeHandle, path: Arc<str>) -> Result<Reply<Arc<str>>> {
+    runtime.submit(move |services| async move {
+        let path = named(&path)?;
+        ensure(&services.executor, &path).await?;
+        filesystem(&services.executor)
+            .await?
+            .create_folder(&path)
+            .map_err(failure)?;
+        Ok(path.into())
+    })
+}
+
+/// Renames the folder at `old` to `new`, moving nested folders, notes and materials.
+pub fn rename(runtime: &RuntimeHandle, old: Arc<str>, new: Arc<str>) -> Result<Reply<Arc<str>>> {
+    runtime.submit(move |services| async move {
+        let new = named(&new)?;
+        let base = ensure(&services.executor, &old).await?;
+        save(&services.executor, draft(base, &new)?).await?;
+        Ok(new.into())
+    })
+}
+
+/// Deletes the folder and its nested folders; their notes move to the library root.
+pub fn delete(runtime: &RuntimeHandle, path: Arc<str>) -> Result<Reply<()>> {
+    runtime.submit(move |services| async move {
+        let base = ensure(&services.executor, &path).await?;
+        remove(&services.executor, draft(base, &path)?).await?;
+        Ok(())
+    })
+}
+
+pub enum Update {
+    Instructions(Arc<str>),
+    Icon(super::resource_list::Glyph),
+}
+
+pub fn update(runtime: &RuntimeHandle, path: Arc<str>, update: Update) -> Result<Reply<()>> {
+    runtime.submit(move |services| async move {
+        ensure(&services.executor, &path).await?;
+        let (column, value) = match update {
+            Update::Instructions(text) => ("instructions", text.to_string()),
+            Update::Icon(icon) => ("icon_json", icon.to_json()),
+        };
+        transaction(&services.executor, vec![statement(format!("UPDATE folders SET {column}=?,updated_at={NOW} WHERE path=? AND deleted_at IS NULL"),vec![json!(value),json!(path)],Some(1))]).await
+    })
+}
+
+pub fn instructions(runtime: &RuntimeHandle, path: Arc<str>) -> Result<Reply<Arc<str>>> {
+    runtime.read(CancellationToken::new(), move |services| async move {
+        let rows = services
+            .executor
+            .execute(
+                "SELECT instructions FROM folders WHERE path=? AND deleted_at IS NULL LIMIT 1"
+                    .into(),
+                vec![json!(path)],
+            )
+            .await
+            .map_err(failure)?;
+        Ok(rows
+            .first()
+            .and_then(|row| row["instructions"].as_str())
+            .unwrap_or_default()
+            .into())
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn folder_list_adds_ancestors_and_sorts_like_shipping() {
+        let library = decode_library(&[
+            json!({"folder_path": "work/Projects", "icon_json": null}),
+            json!({"folder_path": "Archive", "icon_json": r#"{"type":"emoji","value":"📦"}"#}),
+            json!({"folder_path": "../escape", "icon_json": null}),
+            json!({"folder_path": "", "icon_json": null}),
+        ]);
+        assert_eq!(
+            library.paths.iter().map(AsRef::as_ref).collect::<Vec<_>>(),
+            ["Archive", "work", "work/Projects"]
+        );
+        assert_eq!(
+            library.icon("Archive"),
+            super::super::resource_list::Glyph::Emoji("📦".into())
+        );
+        assert_eq!(
+            library.icon("work"),
+            super::super::resource_list::Glyph::folder_default()
+        );
+        assert_eq!(display_name("work/Projects"), "Projects");
+    }
 }

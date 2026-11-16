@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use desktop_runtime::{CancellationToken, Generation, RuntimeHandle};
 use gpui::{
-    Context, Entity, EventEmitter, Focusable, KeyDownEvent, PathPromptOptions, Render,
-    SharedString, Subscription, Window, div, prelude::*, px,
+    Context, Entity, EventEmitter, Focusable, KeyDownEvent, Render, SharedString, Subscription,
+    Window, div, prelude::*, px,
 };
 use serde_json::json;
 
@@ -40,14 +40,6 @@ pub struct CatalogEditor {
     targets_are_contacts: bool,
     confirm_retry: bool,
     pending_action: Option<EditorAction>,
-    materials: Vec<super::folders::Material>,
-    folder_notes: Entity<super::library::LibraryView>,
-    folder_offset: u32,
-    folder_more: bool,
-    folder_message: String,
-    folder_cancel: CancellationToken,
-    folder_notes_path: Option<Arc<str>>,
-    _folder_subscription: Subscription,
 }
 
 impl EventEmitter<EditorSaved> for CatalogEditor {}
@@ -55,23 +47,7 @@ impl EventEmitter<super::library::OpenNote> for CatalogEditor {}
 
 impl CatalogEditor {
     pub fn new(runtime: RuntimeHandle, catalog: Catalog, cx: &mut Context<Self>) -> Self {
-        let folder_notes = cx.new(super::library::LibraryView::new);
-        let folder_subscription = cx.subscribe(
-            &folder_notes,
-            |this, _, event: &super::library::OpenNote, cx| {
-                if !this.blocked() {
-                    cx.emit(event.clone());
-                }
-            },
-        );
         Self {
-            folder_notes,
-            folder_offset: 0,
-            folder_more: false,
-            folder_message: String::new(),
-            folder_cancel: CancellationToken::new(),
-            folder_notes_path: None,
-            _folder_subscription: folder_subscription,
             runtime,
             catalog,
             draft: None,
@@ -93,148 +69,11 @@ impl CatalogEditor {
             targets_are_contacts: false,
             confirm_retry: false,
             pending_action: None,
-            materials: Vec::new(),
         }
     }
 
     pub fn blocked(&self) -> bool {
         self.dirty || self.busy
-    }
-
-    fn folder_path(&self) -> Option<Arc<str>> {
-        self.draft
-            .as_ref()
-            .filter(|draft| draft.row.kind.as_ref() == "folder")?
-            .base
-            .as_ref()?["path"]
-            .as_str()
-            .map(Arc::from)
-    }
-
-    fn refresh_materials(&mut self, cx: &mut Context<Self>) {
-        self.materials.clear();
-        let Some(folder) = self.folder_path() else {
-            return;
-        };
-        let reply = super::folders::materials(&self.runtime, folder.clone());
-        cx.spawn(async move |this, cx| {
-            let result = match reply {
-                Ok(reply) => reply.receive().await,
-                Err(error) => Err(error),
-            };
-            let _ = this.update(cx, |this, cx| {
-                if this.folder_path().as_ref() != Some(&folder) {
-                    return;
-                }
-                match result {
-                    Ok(materials) => this.materials = materials,
-                    Err(error) => this.message = error.to_string(),
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    pub(super) fn refresh_notes(&mut self, cx: &mut Context<Self>) {
-        self.folder_cancel.cancel();
-        self.folder_cancel = CancellationToken::new();
-        let Some(folder) = self.folder_path() else {
-            return;
-        };
-        if self.folder_notes_path.as_ref() != Some(&folder) {
-            self.folder_notes_path = Some(folder.clone());
-            self.folder_more = false;
-            self.folder_notes.update(cx, |notes, cx| {
-                notes.set_page(
-                    Arc::new(desktop_runtime::LibraryPage {
-                        items: Arc::from([]),
-                        offset: 0,
-                        has_more: false,
-                    }),
-                    cx,
-                )
-            });
-        }
-        let cancel = self.folder_cancel.clone();
-        self.folder_message = "Loading notes…".into();
-        let reply =
-            super::folders::notes(&self.runtime, folder, self.folder_offset, cancel.clone());
-        cx.spawn(async move |this, cx| {
-            let result = match reply {
-                Ok(reply) => reply.receive().await,
-                Err(error) => Err(error),
-            };
-            if cancel.is_cancelled() {
-                return;
-            }
-            let _ = this.update(cx, |this, cx| {
-                match result {
-                    Ok(page) => {
-                        this.folder_more = page.has_more;
-                        this.folder_message = if page.items.is_empty() {
-                            "No notes in this folder.".into()
-                        } else {
-                            String::new()
-                        };
-                        this.folder_notes
-                            .update(cx, |notes, cx| notes.set_page(Arc::new(page), cx));
-                    }
-                    Err(error) => this.folder_message = error.to_string(),
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    fn material(&mut self, remove: Option<Arc<str>>, cx: &mut Context<Self>) {
-        if self.blocked() {
-            return;
-        }
-        let Some(folder) = self.folder_path() else {
-            return;
-        };
-        let picker = remove.is_none().then(|| {
-            cx.prompt_for_paths(PathPromptOptions {
-                files: true,
-                directories: false,
-                multiple: false,
-                prompt: Some("Add folder material".into()),
-            })
-        });
-        let runtime = self.runtime.clone();
-        self.busy = true;
-        cx.spawn(async move |this, cx| {
-            let result = async {
-                let command = if let Some(id) = remove {
-                    super::folders::MaterialCommand::Remove(id)
-                } else {
-                    let paths = picker
-                        .unwrap()
-                        .await
-                        .map_err(mutations::failure)?
-                        .map_err(mutations::failure)?;
-                    let Some(path) = paths.and_then(|paths| paths.into_iter().next()) else {
-                        return Ok(());
-                    };
-                    super::folders::MaterialCommand::Import(path)
-                };
-                super::folders::material_command(&runtime, folder, command)?
-                    .receive()
-                    .await
-            }
-            .await;
-            let _ = this.update(cx, |this, cx| {
-                this.busy = false;
-                match result {
-                    Ok(()) => this.refresh_materials(cx),
-                    Err(error) => this.message = error.to_string(),
-                }
-                cx.notify();
-            });
-        })
-        .detach();
     }
 
     fn choose_target(&mut self, contacts: bool, cx: &mut Context<Self>) {
@@ -365,16 +204,12 @@ impl CatalogEditor {
             cx.notify();
             return;
         }
-        let reply = if draft.row.kind.as_ref() == "workflow" {
-            super::automation_runner::run(
-                &self.runtime,
-                draft.row.id.clone(),
-                session,
-                self.automation_client.clone(),
-            )
-        } else {
-            super::notes::select_template(&self.runtime, session, draft.row.id.clone())
-        };
+        let reply = super::automation_runner::run(
+            &self.runtime,
+            draft.row.id.clone(),
+            session,
+            self.automation_client.clone(),
+        );
         self.busy = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -500,9 +335,6 @@ impl CatalogEditor {
         self.dirty = false;
         self.message.clear();
         self.confirm_delete = false;
-        self.refresh_materials(cx);
-        self.folder_offset = 0;
-        self.refresh_notes(cx);
         cx.notify();
     }
 
@@ -694,7 +526,6 @@ impl CatalogEditor {
             EditorAction::Save => Command::Save(draft),
             EditorAction::Duplicate => Command::Duplicate(draft),
             EditorAction::Pin => Command::Pin(draft),
-            EditorAction::SelectDefault => Command::SelectDefault(draft),
             EditorAction::Delete => Command::Delete(draft),
             EditorAction::Merge => Command::Merge {
                 primary: draft,
@@ -740,9 +571,6 @@ impl CatalogEditor {
                                 }
                                 this.message = "Saved. Newer edits remain unsaved.".into();
                             } else { this.install(refreshed, cx); }
-                            if matches!(action,EditorAction::SelectDefault) {
-                                this.message="Default template selection updated.".into();
-                            }
                         } else {
                             this.message = "Saved, but refreshing the revision failed. Reload before saving again.".into();
                         }
@@ -765,14 +593,12 @@ pub(super) enum EditorAction {
     Duplicate,
     Delete,
     Pin,
-    SelectDefault,
     Merge,
 }
 
 impl Drop for CatalogEditor {
     fn drop(&mut self) {
         self.cancel.cancel();
-        self.folder_cancel.cancel();
     }
 }
 
@@ -998,16 +824,12 @@ impl Render for CatalogEditor {
                     )
                     .child(
                         div().flex().gap_2().children(
-                            if kind.as_ref() == "template" {
-                                vec![("section", "+ Add section")]
-                            } else {
-                                vec![
-                                    ("markdown_export", "+ Markdown"),
-                                    ("slack_recap", "+ Slack"),
-                                    ("notion_update", "+ Notion"),
-                                    ("linear_issues", "+ Linear"),
-                                ]
-                            }
+                            [
+                                ("markdown_export", "+ Markdown"),
+                                ("slack_recap", "+ Slack"),
+                                ("notion_update", "+ Notion"),
+                                ("linear_issues", "+ Linear"),
+                            ]
                             .into_iter()
                             .map(|(kind, label)| {
                                 div()
@@ -1034,24 +856,16 @@ impl Render for CatalogEditor {
                             (EditorAction::Discard, "Discard"),
                             (EditorAction::Duplicate, "Duplicate"),
                             (EditorAction::Pin, "Pin / unpin"),
-                            (EditorAction::SelectDefault, "Set / unset default"),
                             (EditorAction::Delete, "Delete"),
                         ]
                         .into_iter()
                         .filter(|(action, _)| match action {
                             EditorAction::Save | EditorAction::Discard => true,
-                            EditorAction::Duplicate => {
-                                existing && matches!(kind.as_ref(), "template" | "workflow")
-                            }
+                            EditorAction::Duplicate => existing && kind.as_ref() == "workflow",
                             EditorAction::Pin => {
-                                existing
-                                    && matches!(
-                                        kind.as_ref(),
-                                        "human" | "organization" | "template"
-                                    )
+                                existing && matches!(kind.as_ref(), "human" | "organization")
                             }
                             EditorAction::Delete => existing,
-                            EditorAction::SelectDefault => existing && kind.as_ref() == "template",
                             _ => false,
                         })
                         .map(|(action, label)| {
@@ -1075,76 +889,6 @@ impl Render for CatalogEditor {
                         }),
                     ),
                 )
-            })
-            .when(existing && kind.as_ref() == "folder", |view| {
-                view.child(
-                    div().flex().justify_between().child("Notes").child(
-                        div()
-                            .id("refresh-folder-notes")
-                            .cursor_pointer()
-                            .child("Refresh")
-                            .on_click(cx.listener(|this, _, _, cx| this.refresh_notes(cx))),
-                    ),
-                )
-                .child(div().h(px(300.)).child(self.folder_notes.clone()))
-                .when(!self.folder_message.is_empty(), |view| {
-                    view.child(self.folder_message.clone())
-                })
-                .child(
-                    div()
-                        .flex()
-                        .gap_2()
-                        .when(self.folder_offset > 0, |view| {
-                            view.child(
-                                div()
-                                    .id("previous-folder-notes")
-                                    .cursor_pointer()
-                                    .child("Previous")
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.folder_offset = this.folder_offset.saturating_sub(100);
-                                        this.refresh_notes(cx);
-                                    })),
-                            )
-                        })
-                        .when(self.folder_more, |view| {
-                            view.child(
-                                div()
-                                    .id("next-folder-notes")
-                                    .cursor_pointer()
-                                    .child("Next")
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.folder_offset = this.folder_offset.saturating_add(100);
-                                        this.refresh_notes(cx);
-                                    })),
-                            )
-                        }),
-                )
-                .child(
-                    div().flex().justify_between().child("Materials").child(
-                        div()
-                            .id("add-material")
-                            .cursor_pointer()
-                            .child("+ Add")
-                            .on_click(cx.listener(|this, _, _, cx| this.material(None, cx))),
-                    ),
-                )
-                .children(self.materials.iter().enumerate().map(|(index, material)| {
-                    let id = material.id.clone();
-                    div()
-                        .flex()
-                        .justify_between()
-                        .gap_2()
-                        .child(SharedString::from(material.name.clone()))
-                        .child(
-                            div()
-                                .id(("remove-material", index))
-                                .cursor_pointer()
-                                .child("Remove")
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.material(Some(id.clone()), cx)
-                                })),
-                        )
-                }))
             })
             .when(existing && kind.as_ref() == "human", |view| {
                 view.child(
@@ -1175,42 +919,35 @@ impl Render for CatalogEditor {
                         ),
                 )
             })
-            .when(
-                existing && matches!(kind.as_ref(), "template" | "workflow"),
-                |view| {
-                    view.child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(div().flex_1().child(self.session_target.clone()))
-                            .child(
-                                div()
-                                    .id("choose-note")
-                                    .cursor_pointer()
-                                    .child("Choose note")
-                                    .on_click(
-                                        cx.listener(|this, _, _, cx| this.choose_target(false, cx)),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .id("use-for-note")
-                                    .cursor_pointer()
-                                    .px_3()
-                                    .py_2()
-                                    .rounded(px(6.))
-                                    .bg(colors.accent)
-                                    .child(if kind.as_ref() == "template" {
-                                        "Use for note"
-                                    } else {
-                                        "Run for note"
-                                    })
-                                    .on_click(cx.listener(|this, _, _, cx| this.use_for_note(cx))),
-                            ),
-                    )
-                },
-            )
+            .when(existing && kind.as_ref() == "workflow", |view| {
+                view.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(div().flex_1().child(self.session_target.clone()))
+                        .child(
+                            div()
+                                .id("choose-note")
+                                .cursor_pointer()
+                                .child("Choose note")
+                                .on_click(
+                                    cx.listener(|this, _, _, cx| this.choose_target(false, cx)),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .id("use-for-note")
+                                .cursor_pointer()
+                                .px_3()
+                                .py_2()
+                                .rounded(px(6.))
+                                .bg(colors.accent)
+                                .child("Run for note")
+                                .on_click(cx.listener(|this, _, _, cx| this.use_for_note(cx))),
+                        ),
+                )
+            })
             .when(self.confirm_delete, |view| {
                 view.child(div().text_sm().text_color(colors.destructive).child(
                     "Delete this item? This action changes stored data. Press Escape to cancel.",

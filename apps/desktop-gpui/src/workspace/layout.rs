@@ -75,12 +75,30 @@ impl Render for WorkspaceView {
             .iter()
             .find(|(catalog, _)| Some(*catalog) == self.active_catalog)
             .map(|(_, view)| view.clone());
+        let resource_nav = match route {
+            Route::Templates => Some(
+                self.templates
+                    .update(cx, |templates, cx| templates.render_nav(window, cx)),
+            ),
+            Route::Folders | Route::Folder(_) => Some(
+                self.folders
+                    .update(cx, |folders, cx| folders.render_nav(window, cx)),
+            ),
+            _ => None,
+        };
         let sidebar = if route == Route::Calendar {
             div()
                 .w(px(self.sidebar.width()))
                 .h_full()
                 .flex_shrink_0()
                 .child(self.calendar_sidebar.clone())
+        } else if let Some(nav) = resource_nav {
+            // Shipping's custom sidebars end in a 4px gutter (`pr-1`); the row gap supplies it.
+            div()
+                .w(px(self.sidebar.width() - 4.))
+                .h_full()
+                .flex_shrink_0()
+                .child(nav)
         } else {
             div()
                 .w(px(self.sidebar.width()))
@@ -196,6 +214,8 @@ impl Render for WorkspaceView {
                     .when(self.route_content.is_none(), |view| match &route {
                         Route::Session(_) => view.child(self.note.clone()),
                         Route::Calendar => view.child(self.calendar.clone()),
+                        Route::Templates => view.child(self.templates.clone()),
+                        Route::Folders | Route::Folder(_) => view.child(self.folders.clone()),
                         Route::Empty => view.child(
                             div()
                                 .size_full()

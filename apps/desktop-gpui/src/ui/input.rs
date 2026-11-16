@@ -37,6 +37,7 @@ pub struct TextInput {
     secret: bool,
     inline: bool,
     breadcrumb: bool,
+    muted: bool,
     lines: Vec<(Range<usize>, Bounds<Pixels>, ShapedLine)>,
     dragging: bool,
     caret: Option<Entity<Caret>>,
@@ -56,6 +57,7 @@ impl TextInput {
             secret: false,
             inline: false,
             breadcrumb: false,
+            muted: false,
             lines: Vec::new(),
             dragging: false,
             caret: None,
@@ -81,6 +83,12 @@ impl TextInput {
     /// Shipping's breadcrumb title: neutral-700 text in light mode, underlined while focused.
     pub fn breadcrumb(mut self) -> Self {
         self.breadcrumb = true;
+        self
+    }
+
+    /// Muted text, as for shipping's secondary fields (`text-muted-foreground`).
+    pub fn muted(mut self) -> Self {
+        self.muted = true;
         self
     }
 
@@ -538,6 +546,8 @@ impl Render for TextInput {
                             };
                             let text_color = if this.breadcrumb && !is_dark(window) {
                                 rgb(0x404040).into()
+                            } else if this.muted {
+                                colors.muted_foreground
                             } else {
                                 colors.foreground
                             };
@@ -681,7 +691,7 @@ impl TextInput {
             let base = TextRun {
                 len: content.len(),
                 font: font.clone(),
-                color: if self.buffer.text.is_empty() {
+                color: if self.buffer.text.is_empty() || self.muted {
                     colors.muted_foreground
                 } else {
                     colors.foreground
