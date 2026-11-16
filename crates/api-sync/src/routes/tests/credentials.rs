@@ -350,6 +350,60 @@ async fn token_route_stops_issuing_sqlitecloud_tokens_once_the_provider_drains()
 }
 
 #[tokio::test]
+async fn replica_credentials_require_the_accepted_replica_once_the_provider_retires() {
+    let accepted = format!("replica, {ACCEPTED_REPLICA_TRANSPORT}");
+    for (mode, transports, expect_credentials) in [
+        (SqliteCloudMode::Enabled, None, true),
+        (SqliteCloudMode::Draining, None, true),
+        (SqliteCloudMode::Retired, None, false),
+        (SqliteCloudMode::Retired, Some("replica"), false),
+        (SqliteCloudMode::Retired, Some(accepted.as_str()), true),
+    ] {
+        let case = format!("{} with transports {transports:?}", mode.as_str());
+        let server = MockServer::start().await;
+        mock_personal_only_e2ee_account(&server).await;
+        let mut request =
+            Request::post("/replica/credentials").header(E2EE_KEY_ID_HEADER, TEST_KEY_ID);
+        if let Some(transports) = transports {
+            request = request.header(CLOUDSYNC_TRANSPORTS_HEADER, transports);
+        }
+
+        let response = test_router_with_sqlitecloud_mode(
+            &server,
+            "issuer-key",
+            &["hyprnote_pro"],
+            CloudsyncProtocolMode::E2eeEnforced,
+            None,
+            CloudsyncTransport::SqliteSync,
+            mode,
+        )
+        .oneshot(request.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+        if expect_credentials {
+            assert_eq!(response.status(), StatusCode::OK, "{case}");
+            assert_eq!(
+                response_json(response).await["transport"],
+                "replica",
+                "{case}"
+            );
+        } else {
+            assert_eq!(response.status(), StatusCode::UPGRADE_REQUIRED, "{case}");
+            let body = response_json(response).await;
+            assert_eq!(
+                body["error"]["code"], "cloudsync_upgrade_required",
+                "{case}"
+            );
+            assert!(
+                server.received_requests().await.unwrap().is_empty(),
+                "{case}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
 async fn transport_override_failure_is_redacted() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

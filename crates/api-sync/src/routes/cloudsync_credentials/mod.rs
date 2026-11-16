@@ -279,7 +279,8 @@ async fn set_workspace_e2ee_key(
     tag = "sync",
     params(
         ("x-anarlog-e2ee-key-id" = String, Header, description = "Local recovery-key identity"),
-        ("x-anarlog-e2ee-member-public-key" = Option<String>, Header, description = "Account-level member identity public key")
+        ("x-anarlog-e2ee-member-public-key" = Option<String>, Header, description = "Account-level member identity public key"),
+        ("x-anarlog-cloudsync-transports" = Option<String>, Header, description = "Comma-separated transports the client accepts; `accepted_replica` is required once SQLite Cloud is retired")
     ),
     responses(
         (status = 200, description = "Encrypted replica credentials", body = ReplicaCredentials),
@@ -287,6 +288,7 @@ async fn set_workspace_e2ee_key(
         (status = 401, description = "Authentication required"),
         (status = 403, description = "Anarlog Pro subscription required"),
         (status = 409, description = "Account already uses a different recovery key"),
+        (status = 426, description = "SQLite Cloud is retired and the client predates the accepted replica"),
         (status = 502, description = "Replica credential service unavailable")
     )
 )]
@@ -300,6 +302,18 @@ async fn create_replica_credentials(
 )> {
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
+    }
+    // Retired means the SQLite Cloud subscription has ended. Builds that predate
+    // `accepted_replica` bundle sqlite-sync 1.2.0, whose license does not cover
+    // syncing without that subscription, so they are told to update (ANLG-554).
+    if state.config.sqlitecloud_mode == SqliteCloudMode::Retired
+        && !client_runs_accepted_replica(&headers)
+    {
+        tracing::info!(
+            anarlog.operation = "replica_credentials.retired.upgrade_required",
+            "replica_credentials_refused"
+        );
+        return Err(SyncError::CloudsyncUpgradeRequired);
     }
 
     publish_requested_member_identity(&state, &auth, &headers).await?;

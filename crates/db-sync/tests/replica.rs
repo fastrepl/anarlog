@@ -37,6 +37,7 @@ async fn fresh_devices_converge_through_the_replica_and_other_accounts_stay_out(
         .post(format!("{api}/sync/replica/credentials"))
         .bearer_auth(&token_a)
         .header(KEY_ID_HEADER, recovery.key_id())
+        .header(TRANSPORTS_HEADER, "replica, accepted_replica")
         .send()
         .await
         .unwrap()
@@ -75,6 +76,17 @@ async fn fresh_devices_converge_through_the_replica_and_other_accounts_stay_out(
             .unwrap();
         assert_eq!(upgraded["transport"], "replica");
         assert!(upgraded.get("token").is_none());
+    }
+
+    // Once retired, builds that predate the accepted replica are refused on the
+    // replica route too, so none keeps syncing after the subscription ends.
+    if std::env::var("ANARLOG_REPLICA_SQLITECLOUD_MODE").as_deref() == Ok("retired") {
+        let old_client = http
+            .post(format!("{api}/sync/replica/credentials"))
+            .bearer_auth(&token_a)
+            .header(KEY_ID_HEADER, recovery.key_id())
+            .header(TRANSPORTS_HEADER, "replica");
+        assert_eq!(status_of(old_client).await, 426);
     }
 
     let key = recovery.workspace_key(&workspace).unwrap();

@@ -152,6 +152,7 @@ pub(crate) struct SqliteCloudConfig {
 
 #[derive(Clone)]
 pub struct ReplicaConfig {
+    pub(crate) sqlitecloud_mode: SqliteCloudMode,
     pub(crate) supabase_url: String,
     pub(crate) supabase_anon_key: String,
     pub(crate) supabase_service_role_key: String,
@@ -360,6 +361,7 @@ impl SyncConfig {
 
     pub(crate) fn replica_config(&self) -> ReplicaConfig {
         ReplicaConfig {
+            sqlitecloud_mode: self.sqlitecloud_mode,
             supabase_url: self.supabase_url.clone(),
             supabase_anon_key: self.supabase_anon_key.clone(),
             supabase_service_role_key: self.supabase_service_role_key.clone(),
@@ -385,6 +387,7 @@ impl ReplicaConfig {
         }
 
         Ok(Self {
+            sqlitecloud_mode: SqliteCloudMode::Retired,
             supabase_url: validate_supabase_url(supabase_url.into())?,
             supabase_anon_key,
             supabase_service_role_key,

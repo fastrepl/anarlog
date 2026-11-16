@@ -4003,6 +4003,18 @@
                 "null"
               ]
             }
+          },
+          {
+            "name": "x-anarlog-cloudsync-transports",
+            "in": "header",
+            "description": "Comma-separated transports the client accepts; `accepted_replica` is required once SQLite Cloud is retired",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -4027,6 +4039,9 @@
           },
           "409": {
             "description": "Account already uses a different recovery key"
+          },
+          "426": {
+            "description": "SQLite Cloud is retired and the client predates the accepted replica"
           },
           "502": {
             "description": "Replica credential service unavailable"
