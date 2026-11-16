@@ -42,6 +42,7 @@ fn main() {
         database: profile.path().join("library.sqlite"),
     })
     .unwrap();
+    finish_onboarding(&runtime);
 
     let text_system = gpui_platform::current_platform(true).text_system();
     let mut cx = HeadlessAppContext::with_platform(
@@ -190,6 +191,7 @@ fn main() {
         capture(&mut cx, window, &out, &format!("settings-{page}"));
     }
     account_states(&mut cx, window, &out);
+    capture_onboarding(&mut cx, window, &out);
 }
 
 /// Account, plan and seat states, seeded through the same app-wide value the cloud service
@@ -513,6 +515,103 @@ fn wav(seconds: u32) -> Vec<u8> {
         }
     }
     bytes
+}
+
+/// A fresh profile opens first-run onboarding; the library captures start past it.
+fn finish_onboarding(runtime: &RuntimeHandle) {
+    let mut state = runtime.state();
+    while !matches!(
+        *state.borrow_and_update(),
+        desktop_runtime::RuntimeState::Ready
+    ) {
+        futures::executor::block_on(state.changed()).unwrap();
+    }
+    let reply = runtime
+        .submit(|services| async move {
+            sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, 'false')")
+                .bind(desktop_gpui::product::onboarding::NEEDED_KEY)
+                .execute(services.db.pool())
+                .await
+                .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
+            Ok(())
+        })
+        .unwrap();
+    futures::executor::block_on(reply.receive()).unwrap();
+}
+
+/// Each onboarding step from seeded state, so no permission, account or audio is touched.
+fn capture_onboarding(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    use desktop_gpui::product::onboarding::{Access, OnboardingPreview, State, Step, TrialPhase};
+    let granted = State {
+        microphone: Access::Authorized,
+        system_audio: Access::Authorized,
+        accessibility: Access::Authorized,
+        enabled_calendars: 1,
+        ..State::default()
+    };
+    let skipped = State {
+        skipped_login: true,
+        ..granted.clone()
+    };
+    let signed_in = State {
+        signed_in: true,
+        ..granted.clone()
+    };
+    let preview = |cx: &mut HeadlessAppContext, step, state: State| {
+        cx.update(|cx| {
+            cx.set_global(OnboardingPreview {
+                step: Some(step),
+                state,
+            })
+        });
+        // An empty corner: drawing once starts loading the step's images before the capture.
+        pointer(cx, window, 905., 595.);
+    };
+    preview(cx, Step::Permissions, State::default());
+    open(cx, window, Route::Onboarding);
+    pointer(cx, window, 905., 595.);
+    capture(cx, window, out, "onboarding-permissions");
+    preview(
+        cx,
+        Step::Permissions,
+        State {
+            microphone: Access::Authorized,
+            system_audio: Access::Denied,
+            ..State::default()
+        },
+    );
+    capture(cx, window, out, "onboarding-permissions-partial");
+    for (name, step, state) in [
+        ("onboarding-login", Step::Login, granted.clone()),
+        (
+            "onboarding-login-checking",
+            Step::Login,
+            State {
+                trial: Some(TrialPhase::Checking),
+                ..signed_in.clone()
+            },
+        ),
+        (
+            "onboarding-login-trial",
+            Step::Login,
+            State {
+                trial: Some(TrialPhase::Started { days: Some(30) }),
+                ..signed_in.clone()
+            },
+        ),
+        ("onboarding-calendar", Step::Calendar, skipped.clone()),
+        ("onboarding-calendar-signed-in", Step::Calendar, signed_in),
+        ("onboarding-imports", Step::Imports, skipped.clone()),
+        ("onboarding-final", Step::Final, skipped),
+    ] {
+        preview(cx, step, state);
+        capture(cx, window, out, name);
+    }
+    cx.update(|cx| cx.remove_global::<OnboardingPreview>());
 }
 
 fn chat(

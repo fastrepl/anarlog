@@ -23,11 +23,12 @@ pub async fn complete_onboarding(runtime: &RuntimeHandle) -> Result<SessionId> {
             .map(str::to_owned).unwrap_or_else(|| Uuid::new_v4().to_string());
         let mut statements = Vec::new();
         if existing.is_empty() {
+            let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
             statements.push(statement(
                 "INSERT INTO sessions (id,title,kind,event_json) VALUES (?,'Welcome to Anarlog','meeting',?)",
                 vec![json!(id), json!(json!({
                     "tracking_id": WELCOME_ID, "calendar_id": "", "title": "Welcome to Anarlog",
-                    "started_at": "", "ended_at": "", "is_all_day": false,
+                    "started_at": now, "ended_at": "", "is_all_day": false,
                     "has_recurrence_rules": false, "meeting_link": "https://anarlog.so/onboarding-demo/",
                     "description": "A private, prerecorded introduction to Anarlog."
                 }).to_string())],
@@ -37,8 +38,7 @@ pub async fn complete_onboarding(runtime: &RuntimeHandle) -> Result<SessionId> {
                 vec![json!(id), json!(id), json!(anlg_tiptap::md_to_tiptap_json(WELCOME).map_err(failure)?.to_string())],
             ));
         }
-        statements.push(setting("onboarding_needed", Value::Bool(false)));
-        statements.push(setting("gpui_pending_welcome_session", json!(id)));
+        statements.push(setting(crate::product::onboarding::NEEDED_KEY, Value::Bool(false)));
         services.executor.execute_transaction(statements).await.map_err(failure)?;
         Ok(id.into())
     })?.receive().await

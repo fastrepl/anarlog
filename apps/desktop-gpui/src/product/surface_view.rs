@@ -95,14 +95,6 @@ impl SurfaceView {
         }
     }
 
-    pub fn permissions_ready(&self, cx: &gpui::App) -> bool {
-        match &self.mounted {
-            Mounted::Local(view) => view.read(cx).permissions_ready(),
-            Mounted::Generic(view) => view.read(cx).permissions_ready(),
-            Mounted::Cloud(_) => false,
-        }
-    }
-
     pub fn suspend(&mut self, cx: &mut Context<Self>) {
         match &self.mounted {
             Mounted::Cloud(view) => view.update(cx, |view, _| view.suspend()),

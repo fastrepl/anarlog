@@ -74,12 +74,6 @@ impl ServiceView {
         self.gate.busy() || self.inputs.values().any(|input| input.dirty)
     }
 
-    pub fn permissions_ready(&self) -> bool {
-        self.panel
-            .as_ref()
-            .is_some_and(|panel| panel.permissions_ready)
-    }
-
     pub fn suspend(&mut self) {
         self.gate.next(self.scope.clone());
     }

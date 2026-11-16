@@ -1,17 +1,23 @@
-// Exports the settings Hugeicons (the same icons the shipping settings use) as SVGs.
+// Exports the settings and onboarding Hugeicons (the same icons shipping uses) as SVGs.
 // node apps/desktop-gpui/src/product/export-icons.mjs
 import {
+  ArrowDown01Icon,
+  ArrowRight01Icon,
+  ArrowRight02Icon,
   AudioWaveformIcon,
   BellIcon,
   BookOpen01Icon,
   Building03Icon,
+  CancelCircleIcon,
   ChartLineData01Icon,
   CheckIcon,
   CheckmarkCircle02Icon,
   CloudOffIcon,
   CodeIcon,
   CreditCardIcon,
+  Cursor01Icon,
   Download01Icon,
+  ElectricPlugsIcon,
   LoaderCircleIcon,
   LockPasswordIcon,
   Mic01Icon,
@@ -25,6 +31,8 @@ import {
   UserGroupIcon,
   UserIcon,
   Video01Icon,
+  VolumeHighIcon,
+  VolumeXIcon,
   XIcon,
 } from "@hugeicons/core-free-icons";
 import { writeFileSync } from "node:fs";
@@ -34,18 +42,25 @@ const escape = (value) =>
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;");
+const BOLD = new Set(["CheckIcon"]);
 for (const [name, data] of Object.entries({
+  ArrowDown01Icon,
+  ArrowRight01Icon,
+  ArrowRight02Icon,
   AudioWaveformIcon,
   BellIcon,
   BookOpen01Icon,
   Building03Icon,
+  CancelCircleIcon,
   ChartLineData01Icon,
   CheckIcon,
   CheckmarkCircle02Icon,
   CloudOffIcon,
   CodeIcon,
   CreditCardIcon,
+  Cursor01Icon,
   Download01Icon,
+  ElectricPlugsIcon,
   LoaderCircleIcon,
   LockPasswordIcon,
   Mic01Icon,
@@ -59,6 +74,8 @@ for (const [name, data] of Object.entries({
   UserGroupIcon,
   UserIcon,
   Video01Icon,
+  VolumeHighIcon,
+  VolumeXIcon,
   XIcon,
 })) {
   const elements = data
@@ -73,8 +90,16 @@ for (const [name, data] of Object.entries({
           .join(" ")} />`,
     )
     .join("");
-  writeFileSync(
-    new URL(`./icons/${name}.svg`, import.meta.url),
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${elements}</svg>\n`,
-  );
+  // `weight="bold"` icons use a 2px stroke instead of the regular 1.5px.
+  for (const [suffix, width] of BOLD.has(name)
+    ? [
+        ["", 1.5],
+        ["Bold", 2],
+      ]
+    : [["", 1.5]]) {
+    writeFileSync(
+      new URL(`./icons/${name}${suffix}.svg`, import.meta.url),
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round">${elements}</svg>\n`,
+    );
+  }
 }

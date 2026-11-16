@@ -15,8 +15,20 @@ window.__TAURI_OS_PLUGIN_INTERNALS__ = {
 };
 mockWindows("main");
 
+const search = new URLSearchParams(window.location.search);
 // `?tabs=<pinned tabs JSON>` opens screens through the app's own pinned-tab restore.
-const pinnedTabs = new URLSearchParams(window.location.search).get("tabs");
+const pinnedTabs = search.get("tabs");
+// `?onboarding=1` routes into first-run onboarding (the gate also requires isTauri()).
+// `&permissions=microphone:authorized,systemAudio:denied` seeds permission statuses;
+// unlisted permissions report "neverRequested".
+const onboarding = search.get("onboarding") === "1";
+if (onboarding) window.isTauri = true;
+const permissions = Object.fromEntries(
+  (search.get("permissions") ?? "")
+    .split(",")
+    .filter(Boolean)
+    .map((entry) => entry.split(":")),
+);
 const unmocked = new Set();
 let subscriptions = 0;
 
@@ -50,6 +62,9 @@ const core = {
 
 const handlers = {
   get_pinned_tabs: () => pinnedTabs,
+  get_onboarding_needed: () => onboarding,
+  "plugin:permissions|check_permission": ({ permission }) =>
+    permissions[permission] ?? "neverRequested",
   "plugin:db|execute": (args) => database("execute", args),
   "plugin:db|execute_proxy": (args) => database("execute_proxy", args),
   "plugin:db|execute_transaction": (args) =>

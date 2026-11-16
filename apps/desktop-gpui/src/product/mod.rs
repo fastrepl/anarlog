@@ -6,7 +6,7 @@ mod controls;
 pub mod local;
 mod locale;
 mod navigation;
-mod onboarding;
+pub mod onboarding;
 mod pages;
 mod preferences_view;
 mod profile;
@@ -32,7 +32,7 @@ use crate::{
     },
 };
 
-use onboarding::{Onboarding, Step};
+use onboarding::OnboardingView;
 use preferences_view::PreferencesView;
 use services::{ProductServices, Scope, Surface, UnavailableServices};
 use surface_view::SurfaceView;
@@ -54,7 +54,7 @@ pub struct ProductPane {
     account_ui: account_view::AccountUi,
     profile: Option<(profile::ProfileKey, Entity<profile::ProfileCard>)>,
     workspace_name: Entity<TextInput>,
-    onboarding: Option<Onboarding>,
+    onboarding: Option<Entity<OnboardingView>>,
     notice: String,
     _search_subscription: Subscription,
     service_subscription: Option<Subscription>,
@@ -87,7 +87,7 @@ impl ProductPane {
         services: Arc<dyn ProductServices>,
         cloud: Option<cloud::CloudServices>,
         scope: Scope,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let search = cx.new(|cx| TextInput::new("Search settings...", cx).inline());
@@ -127,7 +127,7 @@ impl ProductPane {
             scope_subscription: None,
             _account_subscriptions: account_subscriptions,
         };
-        this.open_route(route, cx);
+        this.open_route(route, window, cx);
         this
     }
 
@@ -168,7 +168,7 @@ impl ProductPane {
         }
     }
 
-    pub fn open_route(&mut self, route: ProductRoute, cx: &mut Context<Self>) {
+    pub fn open_route(&mut self, route: ProductRoute, window: &mut Window, cx: &mut Context<Self>) {
         self.route = route.clone();
         self.scope.session_id = match &route {
             ProductRoute::Share(id) | ProductRoute::Export(id) => Some(id.clone()),
@@ -190,10 +190,22 @@ impl ProductPane {
             ProductRoute::Integrations => ("developers", Some(Surface::Developers)),
             ProductRoute::Calendar => ("calendar", Some(Surface::Calendar)),
             ProductRoute::Onboarding => {
-                let flow = Onboarding::new(cfg!(target_os = "macos"));
-                let surface = flow.step().surface();
-                self.onboarding = Some(flow);
-                ("app", Some(surface))
+                let view = cx.new(|cx| {
+                    OnboardingView::new(
+                        self.services.clone(),
+                        self.cloud.clone(),
+                        self.context.runtime.clone(),
+                        window,
+                        cx,
+                    )
+                });
+                self.service_subscription =
+                    Some(cx.subscribe(&view, |_, _, event: &ProductEvent, cx| {
+                        cx.emit(event.clone())
+                    }));
+                self.onboarding = Some(view);
+                cx.notify();
+                return;
             }
         };
         self.active = navigation::page(page);
@@ -301,36 +313,6 @@ impl ProductPane {
         };
         self.active = page;
         self.show_surface(surface, cx);
-    }
-
-    fn next_onboarding(&mut self, back: bool, cx: &mut Context<Self>) {
-        let Some(flow) = &mut self.onboarding else {
-            return;
-        };
-        if self
-            .service
-            .as_ref()
-            .is_some_and(|view| view.read(cx).has_unsaved(cx))
-        {
-            self.notice = "Wait for the current operation and save or restore form edits.".into();
-            cx.notify();
-            return;
-        }
-        let ready = self
-            .service
-            .as_ref()
-            .is_some_and(|view| view.read(cx).permissions_ready(cx));
-        if if back {
-            flow.back()
-        } else {
-            flow.advance(ready)
-        } {
-            let surface = flow.step().surface();
-            self.show_surface(Some(surface), cx);
-        } else if flow.step() == Step::Permissions {
-            self.notice = "Microphone, system audio, and Accessibility access must all be verified by the native permission service.".into();
-            cx.notify();
-        }
     }
 }
 
@@ -534,9 +516,7 @@ impl ProductPane {
     }
 
     fn page(&mut self, colors: &Theme, cx: &mut Context<Self>) -> Div {
-        let onboarding = self.onboarding.is_some();
         let preferences = self.service.is_none()
-            && !onboarding
             && matches!(
                 self.active.id,
                 "app"
@@ -551,38 +531,21 @@ impl ProductPane {
             return div().child(view);
         }
         let surface = self.service.as_ref().map(|view| view.read(cx).surface);
-        if !onboarding
-            && matches!(surface, None | Some(Surface::Teams | Surface::CloudSync))
+        if matches!(surface, None | Some(Surface::Teams | Surface::CloudSync))
             && let Some(page) = self.account_page(colors, cx)
         {
             return page;
         }
         let title = self
-            .onboarding
+            .service
             .as_ref()
-            .map(|flow| flow.step().label())
-            .or_else(|| {
-                self.service
-                    .as_ref()
-                    .map(|view| view.read(cx).surface.title())
-            })
+            .map(|view| view.read(cx).surface.title())
             .unwrap_or(self.active.label);
         div()
             .flex()
             .flex_col()
             .gap_6()
             .child(controls::page_title(title))
-            .when(onboarding, |view| {
-                view.child(
-                    div().flex().gap_3().children(
-                        self.onboarding
-                            .as_ref()
-                            .into_iter()
-                            .flat_map(|flow| flow.steps.iter())
-                            .map(|step| div().text_sm().child(step.label())),
-                    ),
-                )
-            })
             .when(!self.notice.is_empty(), |view| {
                 view.child(
                     div()
@@ -594,7 +557,6 @@ impl ProductPane {
             .when_some(self.service.clone(), |view, service| view.child(service))
             .when(
                 matches!(self.active.id, "transcription" | "intelligence")
-                    && !onboarding
                     && self.service.is_none(),
                 |view| {
                     view.when_some(self.providers.clone(), |view, providers| {
@@ -613,60 +575,21 @@ impl ProductPane {
                     })
                 },
             )
-            .when(onboarding, |view| {
-                view.child(
-                    div()
-                        .flex()
-                        .gap_4()
-                        .child(
-                            div()
-                                .id("onboarding-back")
-                                .cursor_pointer()
-                                .child("Back")
-                                .on_click(
-                                    cx.listener(|this, _, _, cx| this.next_onboarding(true, cx)),
-                                ),
-                        )
-                        .when(
-                            self.onboarding
-                                .as_ref()
-                                .is_some_and(|flow| flow.step() != Step::Final),
-                            |view| {
-                                view.child(
-                                    div()
-                                        .id("onboarding-next")
-                                        .cursor_pointer()
-                                        .child(
-                                            if self.onboarding.as_ref().is_some_and(|flow| {
-                                                flow.step() == Step::Permissions
-                                            }) {
-                                                "Continue"
-                                            } else {
-                                                "Skip for now"
-                                            },
-                                        )
-                                        .on_click(cx.listener(|this, _, _, cx| {
-                                            this.next_onboarding(false, cx)
-                                        })),
-                                )
-                            },
-                        ),
-                )
-            })
     }
 }
 
 impl Render for ProductPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Onboarding is edge to edge, without the settings sidebar or content card.
+        if let Some(onboarding) = self.onboarding.clone() {
+            return div().size_full().child(onboarding);
+        }
         let colors = theme(window);
         let dark = matches!(
             window.appearance(),
             WindowAppearance::Dark | WindowAppearance::VibrantDark
         );
-        let sidebar = self
-            .onboarding
-            .is_none()
-            .then(|| self.sidebar(&colors, window, cx));
+        let sidebar = self.sidebar(&colors, window, cx);
         let page = self.page(&colors, cx);
         let dialog = self.sign_out_dialog(&colors, cx);
         div()
@@ -684,7 +607,7 @@ impl Render for ProductPane {
                     cx.notify();
                 }
             }))
-            .when_some(sidebar, |view, sidebar| view.child(sidebar))
+            .child(sidebar)
             .child(
                 div()
                     .flex_1()

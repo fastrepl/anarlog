@@ -76,9 +76,6 @@ impl LocalSettingsView {
     pub fn has_unsaved(&self) -> bool {
         self.gate.busy()
     }
-    pub fn permissions_ready(&self) -> bool {
-        self.panel.as_ref().is_some_and(|p| p.permissions_ready)
-    }
     pub fn suspend(&mut self) {
         self.suspended = true;
         self.gate.next(self.scope.clone());

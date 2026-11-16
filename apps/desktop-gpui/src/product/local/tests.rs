@@ -292,12 +292,6 @@ async fn onboarding_is_durable_and_reuses_the_welcome_session() {
             .unwrap(),
         Some(json!(false))
     );
-    assert_eq!(
-        data::setting_value(&runtime, "gpui_pending_welcome_session".into())
-            .await
-            .unwrap(),
-        Some(json!(first))
-    );
     runtime.shutdown().await.unwrap();
     let reopened = self::runtime(root.path()).await;
     assert_eq!(data::complete_onboarding(&reopened).await.unwrap(), first);

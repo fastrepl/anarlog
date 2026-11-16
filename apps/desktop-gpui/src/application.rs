@@ -279,6 +279,7 @@ impl ApplicationView {
                     }
                     this.native = Some(native);
                     this.watch_preferences(cx);
+                    this.open_onboarding_if_needed(cx);
                     if !warnings.is_empty() {
                         this.status(
                             &format!(
@@ -1285,6 +1286,25 @@ impl ApplicationView {
         ];
         self.product = Some(product);
         cx.notify();
+    }
+
+    /// Like shipping's `/app` route guard: a profile that has not finished onboarding opens it.
+    fn open_onboarding_if_needed(&mut self, cx: &mut Context<Self>) {
+        let runtime = self.runtime.clone();
+        let window = self.window;
+        cx.spawn(async move |this, cx| {
+            let key = crate::product::onboarding::NEEDED_KEY.into();
+            let stored = crate::product::local::data::setting_value(&runtime, key).await;
+            // An unreadable flag skips onboarding, as shipping's `getOnboardingNeeded` does.
+            if stored.is_ok_and(|value| crate::product::onboarding::needed(value.as_ref())) {
+                let _ = cx.update_window(window, |_, window, cx| {
+                    this.update(cx, |this, cx| {
+                        this.open_product(ProductRoute::Onboarding, window, cx)
+                    })
+                });
+            }
+        })
+        .detach();
     }
 
     fn leave_product(&mut self, route: Route, cx: &mut Context<Self>) {

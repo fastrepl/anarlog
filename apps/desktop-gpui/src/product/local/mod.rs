@@ -3,7 +3,6 @@ pub mod data;
 pub mod developers;
 pub mod export;
 pub mod models;
-pub mod onboarding;
 pub mod storage;
 #[cfg(test)]
 mod tests;
@@ -20,6 +19,10 @@ use super::services::{
     Action, Field, Mutation, Operation, Outcome, Panel, ProductServices, Request, Row, Surface,
 };
 use crate::platform::permissions::{NativePermissions, Permission, Status};
+
+/// Permission row details that mean the grant is in place.
+pub const PERMISSION_ALLOWED: &str = "Allowed";
+pub const PERMISSION_NOT_REQUIRED: &str = "Not required";
 
 pub fn failure(error: impl std::fmt::Display) -> ServiceError {
     ServiceError::Failed(error.to_string().into())
@@ -139,8 +142,8 @@ impl LocalServices {
                     .all(|(_, _, status)| matches!(status, Status::Granted | Status::NotRequired));
                 for (id, title, status) in states {
                     let detail = match status {
-                        Status::Granted => "Allowed".into(),
-                        Status::NotRequired => "Not required".into(),
+                        Status::Granted => PERMISSION_ALLOWED.into(),
+                        Status::NotRequired => PERMISSION_NOT_REQUIRED.into(),
                         Status::Denied(error) => error,
                     };
                     rows.push(row(&id, title, &detail));
@@ -159,8 +162,11 @@ impl LocalServices {
                 }
             }
             Surface::Onboarding => {
-                let complete = data::setting_value(&self.runtime, "onboarding_needed".into())
-                    .await?
+                let complete = data::setting_value(
+                    &self.runtime,
+                    crate::product::onboarding::NEEDED_KEY.into(),
+                )
+                .await?
                     == Some(serde_json::Value::Bool(false));
                 rows.push(row("welcome", "Welcome to Anarlog", if complete { "Setup complete. Your welcome meeting is saved." } else { "Your private AI notepad for meetings. Set up permissions, connect your calendar, and bring your notes." }));
                 actions.push(operation(
