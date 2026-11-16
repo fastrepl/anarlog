@@ -1,23 +1,32 @@
 use std::{collections::HashSet, sync::Arc};
 
-use anlg_fs_sync_core::normalize_folder_path;
-use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveDate, Utc};
+use chrono::{Datelike, Utc};
 use chrono_tz::Tz;
 use desktop_runtime::{LibraryPage, SessionId};
 use gpui::{
-    Context, EventEmitter, FocusHandle, ListAlignment, ListState, Render, Window, div, list,
-    prelude::*, px, svg,
+    Context, EventEmitter, FocusHandle, Hsla, ListAlignment, ListOffset, ListState, Pixels, Render,
+    Window, div, linear_color_stop, linear_gradient, list, prelude::*, px, rgb, svg,
 };
 
-use crate::ui::theme::{monospace_font, theme};
+pub(super) use super::timeline::folder_label;
+use super::timeline::{
+    self, EventWindow, Grouping, Row, Source, Timeline, View, local_time, timestamp,
+};
+use crate::ui::theme::{RADIUS, Theme, monospace_font, theme};
+
+const HEADING_HEIGHT: f32 = 28.;
+const RED_500: u32 = 0xfb2c36;
 
 pub struct LibraryView {
     page: Arc<LibraryPage>,
+    events: EventWindow,
+    view: View,
+    timeline: Timeline,
+    keys: Vec<RowKey>,
     selection: Selection,
     active: Option<SessionId>,
     recording: HashSet<SessionId>,
     scroll: ListState,
-    rows: Vec<TimelineRow>,
     focus: FocusHandle,
     menu: Option<NoteMenu>,
     menu_index: usize,
@@ -25,16 +34,6 @@ pub struct LibraryView {
     timezone: Option<Tz>,
     show_folder: bool,
     show_tags: bool,
-}
-
-enum TimelineRow {
-    Heading(String),
-    Note {
-        index: usize,
-        time: String,
-        folder: String,
-        tags: Arc<str>,
-    },
 }
 
 #[derive(Clone)]
@@ -63,83 +62,6 @@ impl NoteMenu {
     }
 }
 
-fn bucket(date: NaiveDate, today: NaiveDate) -> String {
-    let days = date.signed_duration_since(today).num_days();
-    match days {
-        0 => "Today".into(),
-        -1 => "Yesterday".into(),
-        1 => "Tomorrow".into(),
-        -6..=-2 => format!("{} days ago", -days),
-        2..=6 => format!("in {days} days"),
-        -27..=27 => {
-            let weeks = (days.unsigned_abs() + 3) / 7;
-            match (days < 0, weeks) {
-                (true, 1) => "a week ago".into(),
-                (true, _) => format!("{weeks} weeks ago"),
-                (false, 1) => "next week".into(),
-                (false, _) => format!("in {weeks} weeks"),
-            }
-        }
-        _ => {
-            let months = ((date.year() - today.year()) * 12 + date.month() as i32
-                - today.month() as i32)
-                .unsigned_abs()
-                .max(1);
-            match (days < 0, months) {
-                (true, 1) => "a month ago".into(),
-                (true, _) => format!("{months} months ago"),
-                (false, 1) => "next month".into(),
-                (false, _) => format!("in {months} months"),
-            }
-        }
-    }
-}
-
-fn local_time(date: DateTime<Utc>, timezone: Option<Tz>) -> DateTime<FixedOffset> {
-    match timezone {
-        Some(timezone) => date.with_timezone(&timezone).fixed_offset(),
-        None => date.with_timezone(&Local).fixed_offset(),
-    }
-}
-
-pub(super) fn folder_label(path: &str) -> String {
-    let normalized = normalize_folder_path(path.trim()).unwrap_or_default();
-    if normalized.encode_utf16().count() > 200
-        || normalized
-            .split('/')
-            .any(|segment| segment.encode_utf16().count() > 80)
-    {
-        String::new()
-    } else {
-        normalized
-    }
-}
-
-fn timestamp(date: DateTime<FixedOffset>, today: NaiveDate, use_24_hour_time: bool) -> String {
-    let time = date
-        .format(if use_24_hour_time {
-            "%H:%M"
-        } else {
-            "%-I:%M %p"
-        })
-        .to_string();
-    if date
-        .date_naive()
-        .signed_duration_since(today)
-        .num_days()
-        .abs()
-        < 7
-    {
-        return time;
-    }
-    let date = date.format(if date.year() == today.year() {
-        "%b %-d"
-    } else {
-        "%b %-d, %Y"
-    });
-    format!("{date}, {time}")
-}
-
 #[derive(Clone)]
 pub enum OpenNote {
     Current(SessionId),
@@ -147,6 +69,9 @@ pub enum OpenNote {
     Reveal(SessionId),
     Delete(Arc<[SessionId]>),
     Move(Arc<[SessionId]>),
+    /// A calendar event without a note yet; the workspace creates or finds its note.
+    Event(Arc<str>),
+    Calendar,
 }
 impl EventEmitter<OpenNote> for LibraryView {}
 
@@ -188,19 +113,61 @@ impl Selection {
     }
 }
 
+/// Stable row identity, so a new note or a passing minute does not reset the scroll.
+#[derive(Clone, PartialEq)]
+enum RowKey {
+    Spacer,
+    Heading(Arc<str>),
+    Session(SessionId),
+    Event(Arc<str>),
+    Now(u32, u32),
+}
+
+fn row_keys(timeline: &Timeline, page: &LibraryPage, events: &EventWindow) -> Vec<RowKey> {
+    timeline
+        .rows
+        .iter()
+        .map(|row| match row {
+            Row::TopSpacer => RowKey::Spacer,
+            Row::Heading(label) => RowKey::Heading(label.clone()),
+            Row::Now { above, below } => RowKey::Now(*above as u32, *below as u32),
+            Row::Item { item, .. } => match timeline.items[*item].source {
+                Source::Session(index) => RowKey::Session(page.items[index].id.clone()),
+                Source::Event(index) => RowKey::Event(events.events[index].id.clone()),
+            },
+        })
+        .collect()
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Visibility {
+    Above,
+    Visible,
+    Below,
+}
+
 impl LibraryView {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let scroll = ListState::new(0, ListAlignment::Top, px(256.));
+        let entity = cx.entity().downgrade();
+        // Chips, the sticky heading and the fade depend on the scroll position.
+        scroll.set_scroll_handler(move |_, _, cx| {
+            let _ = entity.update(cx, |_, cx| cx.notify());
+        });
         Self {
             page: Arc::new(LibraryPage {
                 items: Arc::from([]),
                 offset: 0,
                 has_more: false,
             }),
+            events: EventWindow::default(),
+            view: View::default(),
+            timeline: Timeline::default(),
+            keys: Vec::new(),
             selection: Selection::default(),
             active: None,
             recording: HashSet::new(),
-            scroll: ListState::new(0, ListAlignment::Top, px(256.)),
-            rows: Vec::new(),
+            scroll,
             focus: cx.focus_handle(),
             menu: None,
             menu_index: 0,
@@ -220,7 +187,7 @@ impl LibraryView {
         if (self.use_24_hour_time, self.timezone) != (use_24_hour_time, timezone) {
             self.use_24_hour_time = use_24_hour_time;
             self.timezone = timezone;
-            self.set_page(self.page.clone(), cx);
+            self.rebuild(false, cx);
         }
     }
 
@@ -228,7 +195,20 @@ impl LibraryView {
         if (self.show_folder, self.show_tags) != (show_folder, show_tags) {
             self.show_folder = show_folder;
             self.show_tags = show_tags;
-            self.set_page(self.page.clone(), cx);
+            self.scroll.remeasure_items(0..self.keys.len());
+            cx.notify();
+        }
+    }
+
+    pub fn view(&self) -> View {
+        self.view
+    }
+
+    pub fn set_view(&mut self, view: View, cx: &mut Context<Self>) {
+        if self.view != view {
+            self.view = view;
+            self.timeline = Timeline::default();
+            self.rebuild(false, cx);
         }
     }
 
@@ -236,46 +216,73 @@ impl LibraryView {
         self.selection
             .ids
             .retain(|id| page.items.iter().any(|item| &item.id == id));
-        let mut rows = Vec::new();
-        let today = local_time(Utc::now(), self.timezone).date_naive();
-        let mut previous = String::new();
-        for (index, item) in page.items.iter().enumerate() {
-            let date = DateTime::parse_from_rfc3339(&item.created_at)
-                .ok()
-                .map(|date| local_time(date.with_timezone(&Utc), self.timezone));
-            let heading = date
-                .map(|date| bucket(date.date_naive(), today))
-                .unwrap_or_else(|| "Undated".into());
-            if heading != previous {
-                rows.push(TimelineRow::Heading(heading.clone()));
-                previous = heading;
-            }
-            let time = date
-                .map(|date| timestamp(date, today, self.use_24_hour_time))
-                .unwrap_or_default();
-            let folder = if self.show_folder {
-                folder_label(&item.folder_path)
-            } else {
-                String::new()
-            };
-            rows.push(TimelineRow::Note {
-                index,
-                time,
-                folder,
-                tags: if self.show_tags {
-                    item.tag_line.clone()
-                } else {
-                    Arc::default()
-                },
-            });
+        if page.offset != self.page.offset {
+            self.timeline = Timeline::default();
         }
-        if self.rows.is_empty() || page.offset != self.page.offset {
-            self.scroll.reset(rows.len());
-        } else {
-            self.scroll.splice(0..self.rows.len(), rows.len());
-        }
-        self.rows = rows;
         self.page = page;
+        self.rebuild(true, cx);
+    }
+
+    pub fn set_events(&mut self, events: EventWindow, cx: &mut Context<Self>) {
+        if self.events != events {
+            self.events = events;
+            self.rebuild(false, cx);
+        }
+    }
+
+    /// Re-derives time-dependent rows and returns when to call again.
+    pub fn tick(&mut self, cx: &mut Context<Self>) -> std::time::Duration {
+        self.rebuild(false, cx);
+        self.timeline.next_refresh()
+    }
+
+    /// The meeting the collapsed sidebar badge points at, unless it is the open note.
+    pub fn has_upcoming_meeting(&self) -> bool {
+        self.timeline.upcoming.as_ref().is_some_and(|upcoming| {
+            match self.timeline.items[upcoming.item].source {
+                Source::Session(index) => self.active.as_ref() != Some(&self.page.items[index].id),
+                Source::Event(_) => true,
+            }
+        })
+    }
+
+    fn rebuild(&mut self, remeasure: bool, cx: &mut Context<Self>) {
+        // Events belong to the newest page only, like the shipping timeline's single list.
+        let events = if self.page.offset == 0 {
+            self.events.clone()
+        } else {
+            EventWindow::default()
+        };
+        let timeline = timeline::build(
+            &self.page.items,
+            &events,
+            self.view,
+            Utc::now(),
+            self.timezone,
+        );
+        let keys = row_keys(&timeline, &self.page, &events);
+        if self.timeline.rows.is_empty() {
+            self.scroll.reset(keys.len());
+        } else {
+            // Splice only the rows that changed, so refreshes keep the scroll position.
+            let old = &self.keys;
+            let prefix = old.iter().zip(&keys).take_while(|(a, b)| a == b).count();
+            let suffix = old[prefix..]
+                .iter()
+                .rev()
+                .zip(keys[prefix..].iter().rev())
+                .take_while(|(a, b)| a == b)
+                .count();
+            if prefix + suffix != old.len() || old.len() != keys.len() {
+                self.scroll
+                    .splice(prefix..old.len() - suffix, keys.len() - prefix - suffix);
+            }
+            if remeasure {
+                self.scroll.remeasure_items(0..keys.len());
+            }
+        }
+        self.keys = keys;
+        self.timeline = timeline;
         cx.notify();
     }
 
@@ -327,11 +334,601 @@ impl LibraryView {
             .map(|item| item.id.clone())
             .collect()
     }
+
+    /// Session ids in timeline order, for keyboard and range selection.
+    fn visible_sessions(&self) -> Vec<SessionId> {
+        self.timeline
+            .rows
+            .iter()
+            .filter_map(|row| match row {
+                Row::Item { item, .. } => match self.timeline.items[*item].source {
+                    Source::Session(index) => Some(self.page.items[index].id.clone()),
+                    Source::Event(_) => None,
+                },
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn visibility(&self, row: usize) -> Visibility {
+        let viewport = self.scroll.viewport_bounds();
+        if viewport.size.height <= px(0.) {
+            return Visibility::Visible;
+        }
+        if row < self.scroll.logical_scroll_top().item_ix {
+            return Visibility::Above;
+        }
+        match self.scroll.bounds_for_item(row) {
+            Some(bounds) if bounds.bottom() <= viewport.top() => Visibility::Above,
+            Some(bounds) if bounds.top() >= viewport.bottom() => Visibility::Below,
+            Some(_) => Visibility::Visible,
+            None => Visibility::Below,
+        }
+    }
+
+    /// Scrolls a row so its middle sits at `ratio` of the viewport height.
+    fn scroll_row_to(&self, row: usize, ratio: f32) {
+        let height = self.scroll.viewport_bounds().size.height;
+        let row_height = self
+            .scroll
+            .bounds_for_item(row)
+            .map_or(px(0.), |bounds| bounds.size.height);
+        self.scroll.scroll_to(ListOffset {
+            item_ix: row,
+            offset_in_item: px(0.),
+        });
+        self.scroll.scroll_by(row_height * 0.5 - height * ratio);
+    }
+
+    fn scroll_offset(&self) -> (Pixels, Pixels) {
+        let offset = -self.scroll.scroll_px_offset_for_scrollbar().y;
+        (offset, self.scroll.max_offset_for_scrollbar().y - offset)
+    }
+
+    fn render_row(
+        &mut self,
+        row: usize,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        let colors = theme(window);
+        let date_grouping = self.view.grouping == Grouping::Date;
+        match self.timeline.rows.get(row).cloned() {
+            None => div().into_any_element(),
+            Some(Row::TopSpacer) => div().h(px(36.)).into_any_element(),
+            Some(Row::Heading(label)) => heading(label, colors).into_any_element(),
+            Some(Row::Now { above, below }) => div()
+                .pt(px(above))
+                .pb(px(below))
+                .child(self.now_line(None, cx))
+                .into_any_element(),
+            Some(Row::Item { item, indicator }) => {
+                let element = self.render_item(item, date_grouping, colors, cx);
+                match indicator {
+                    Some(position) => div()
+                        .relative()
+                        .child(element)
+                        .child(self.now_line(Some(position), cx))
+                        .into_any_element(),
+                    None => element,
+                }
+            }
+        }
+    }
+
+    /// The red current-time line; `inside` positions it over an ongoing item. A live recording
+    /// in the timeline replaces the line with an invisible anchor, as in the shipping app.
+    fn now_line(&self, inside: Option<f32>, cx: &Context<Self>) -> gpui::Div {
+        let live = self
+            .page
+            .items
+            .iter()
+            .any(|item| self.recording.contains(&item.id));
+        let label = self.timeline.now.map(|now| {
+            local_time(now, self.timezone)
+                .format(if self.use_24_hour_time {
+                    "%H:%M"
+                } else {
+                    "%-I:%M %p"
+                })
+                .to_string()
+        });
+        div()
+            .h(px(1.))
+            .w_full()
+            .when_some(inside, |view, position| {
+                view.absolute().left_0().top(gpui::relative(position))
+            })
+            .when(!live, |view| {
+                view.child(
+                    div()
+                        .id("current-time")
+                        .group("current-time")
+                        .absolute()
+                        .left_0()
+                        .right_0()
+                        .top(px(-10.))
+                        .h(px(20.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(
+                            div()
+                                .absolute()
+                                .left_0()
+                                .right_0()
+                                .top(px(10.))
+                                .h(px(1.))
+                                .bg(Hsla::from(rgb(RED_500)).opacity(0.85)),
+                        )
+                        .when_some(label, |view, label| {
+                            view.child(
+                                div()
+                                    .rounded_full()
+                                    .border_1()
+                                    .border_color(rgb(RED_500))
+                                    .bg(rgb(RED_500))
+                                    .px_2()
+                                    .py(px(2.))
+                                    .font_family(monospace_font(cx))
+                                    .text_size(px(11.))
+                                    .line_height(px(14.))
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(gpui::white())
+                                    .shadow_xs()
+                                    .opacity(0.)
+                                    .group_hover("current-time", |style| style.opacity(1.))
+                                    .child(label),
+                            )
+                        }),
+                )
+            })
+    }
+
+    fn render_item(
+        &mut self,
+        item: usize,
+        date_grouping: bool,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        let entry = self.timeline.items[item].clone();
+        let now = self.timeline.now.unwrap_or_else(Utc::now);
+        let today = local_time(now, self.timezone).date_naive();
+        let time = entry
+            .start
+            .map(|start| {
+                timestamp(
+                    local_time(start, self.timezone),
+                    entry.precision,
+                    today.year(),
+                    self.use_24_hour_time,
+                )
+            })
+            .unwrap_or_default();
+        let muted = entry.start.is_some_and(|start| start > now);
+        let upcoming = self
+            .timeline
+            .upcoming
+            .clone()
+            .filter(|upcoming| upcoming.item == item);
+        let (id, title, folder, tags, session) = match entry.source {
+            Source::Session(index) => {
+                let session = &self.page.items[index];
+                (
+                    gpui::SharedString::from(session.id.0.clone()),
+                    session.title.clone(),
+                    if self.show_folder && date_grouping {
+                        folder_label(&session.folder_path)
+                    } else {
+                        String::new()
+                    },
+                    if self.show_tags {
+                        session.tag_line.clone()
+                    } else {
+                        Arc::default()
+                    },
+                    Some(session.id.clone()),
+                )
+            }
+            Source::Event(index) => {
+                let event = &self.events.events[index];
+                (
+                    gpui::SharedString::from(format!("event-{}", event.id)),
+                    event.title.clone(),
+                    String::new(),
+                    Arc::default(),
+                    None,
+                )
+            }
+        };
+        let live = session
+            .as_ref()
+            .is_some_and(|id| self.recording.contains(id));
+        let selected = session
+            .as_ref()
+            .is_some_and(|id| self.selection.ids.contains(id) || self.active.as_ref() == Some(id));
+        let extra_rows = usize::from(!folder.is_empty()) + usize::from(!tags.is_empty());
+        // Shipping's stylesheet never generates the item's `bg-destructive/8`, `bg-destructive/20`
+        // and `text-destructive-foreground/65` classes, so upcoming items have no tint or gauge
+        // track and live metadata stays full white. Match what ships.
+        let secondary = if live {
+            colors.destructive_foreground
+        } else {
+            colors.muted_foreground
+        };
+        let content = div()
+            .id(id)
+            .w_full()
+            .min_w_0()
+            .h(px(54. + 18. * extra_rows as f32))
+            .flex()
+            .flex_col()
+            .gap(px(2.))
+            .px_3()
+            .py_2()
+            .when(upcoming.is_some(), |view| view.pl_4())
+            .rounded(px(8.))
+            .cursor_pointer()
+            .overflow_hidden()
+            .when(!selected, |view| {
+                view.hover(|style| style.bg(colors.accent.opacity(0.5)))
+            })
+            .when(selected, |view| view.bg(colors.accent))
+            .when(live, |view| {
+                view.bg(colors.destructive)
+                    .text_color(colors.destructive_foreground)
+                    .hover(|style| style.bg(colors.destructive.opacity(0.9)))
+            })
+            .when(muted && !live && upcoming.is_none(), |view| {
+                view.opacity(0.65)
+            })
+            .when_some(session.clone(), |view, session| {
+                view.on_mouse_down(
+                    gpui::MouseButton::Right,
+                    cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
+                        this.focus.focus(window, cx);
+                        let ids = this.selected_ids();
+                        let bulk = !ids.is_empty();
+                        this.menu = Some(NoteMenu {
+                            position: event.position,
+                            ids: if bulk {
+                                ids
+                            } else {
+                                vec![session.clone()].into()
+                            },
+                            bulk,
+                        });
+                        this.menu_index = 0;
+                        cx.stop_propagation();
+                        cx.notify();
+                    }),
+                )
+            })
+            .on_click(cx.listener({
+                let source = entry.source;
+                move |this, event: &gpui::ClickEvent, window, cx| {
+                    this.focus.focus(window, cx);
+                    let id = match source {
+                        Source::Session(index) => this.page.items[index].id.clone(),
+                        Source::Event(index) => {
+                            if event.click_count() == 1 {
+                                cx.emit(OpenNote::Event(this.events.events[index].id.clone()));
+                            }
+                            return;
+                        }
+                    };
+                    let modifiers = event.modifiers();
+                    let visible = this.visible_sessions();
+                    this.selection.click(
+                        id.clone(),
+                        &visible,
+                        modifiers.secondary(cx),
+                        modifiers.shift,
+                    );
+                    if !modifiers.secondary(cx) && !modifiers.shift {
+                        if event.click_count() == 2 {
+                            cx.emit(OpenNote::Window(id));
+                        } else if event.click_count() == 1 {
+                            cx.emit(OpenNote::Current(id));
+                        }
+                    }
+                    cx.notify();
+                }
+            }))
+            .when(!folder.is_empty(), |view| {
+                view.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .min_w_0()
+                        .flex_shrink_0()
+                        .h(px(16.))
+                        .gap(px(4.))
+                        .text_size(px(11.))
+                        .line_height(px(16.))
+                        .text_color(secondary)
+                        .child(
+                            svg()
+                                .path("workspace/Folder01Icon.svg")
+                                .size(px(12.))
+                                .flex_shrink_0()
+                                .text_color(secondary),
+                        )
+                        .child(div().min_w_0().truncate().child(folder)),
+                )
+            })
+            .child(
+                div()
+                    .text_sm()
+                    .line_height(px(20.))
+                    .truncate()
+                    .child(if title.is_empty() {
+                        "Untitled".into()
+                    } else {
+                        gpui::SharedString::from(title)
+                    }),
+            )
+            .when(!time.is_empty(), |view| {
+                view.child(
+                    div()
+                        .font_family(monospace_font(cx))
+                        .text_xs()
+                        .line_height(px(16.))
+                        .text_color(secondary)
+                        .child(time),
+                )
+            })
+            .when(!tags.is_empty(), |view| {
+                view.child(
+                    div()
+                        .w_full()
+                        .min_w_0()
+                        .flex_shrink_0()
+                        .h(px(16.))
+                        .text_size(px(11.))
+                        .line_height(px(16.))
+                        .text_color(secondary)
+                        .line_clamp(1)
+                        .text_ellipsis()
+                        .child(gpui::SharedString::from(tags)),
+                )
+            });
+        div()
+            .w_full()
+            .relative()
+            .child(content)
+            .when_some(upcoming.filter(|_| !live), |view, upcoming| {
+                view.child(
+                    div()
+                        .absolute()
+                        .top_2()
+                        .bottom_2()
+                        .left(px(6.))
+                        .w(px(2.))
+                        .rounded_full()
+                        .overflow_hidden()
+                        .child(
+                            div()
+                                .absolute()
+                                .bottom_0()
+                                .left_0()
+                                .w_full()
+                                .h(gpui::relative(upcoming.progress))
+                                .rounded_full()
+                                .bg(colors.destructive),
+                        ),
+                )
+            })
+            .into_any_element()
+    }
+
+    /// The shipping chip stack above the timeline and the "Now" chip below it.
+    fn chips(
+        &self,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> (Option<gpui::Div>, Option<gpui::Div>) {
+        if self.view.grouping != Grouping::Date {
+            return (None, None);
+        }
+        let (offset, _) = self.scroll_offset();
+        let open_calendar = self.timeline.later && offset <= px(12.);
+        let upcoming = self.timeline.upcoming.as_ref().and_then(|upcoming| {
+            let row = self.timeline.item_row(upcoming.item)?;
+            (self.visibility(row) != Visibility::Visible).then(|| (row, upcoming.label.clone()))
+        });
+        let now = self
+            .timeline
+            .now_row()
+            .map(|row| (row, self.visibility(row)))
+            .filter(|_| upcoming.is_none());
+        let bottom = now
+            .filter(|(_, visibility)| *visibility == Visibility::Below)
+            .map(|(row, _)| {
+                div()
+                    .absolute()
+                    .bottom_2()
+                    .left_0()
+                    .right_0()
+                    .flex()
+                    .justify_center()
+                    .child(self.now_chip(row, false, colors, cx))
+            });
+        let now = now.filter(|(_, visibility)| *visibility == Visibility::Above);
+        if !open_calendar && upcoming.is_none() && now.is_none() {
+            return (None, bottom);
+        }
+        let top = Some(
+            div()
+                .absolute()
+                .top_1()
+                .left_0()
+                .right_0()
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap_2()
+                .when(open_calendar, |view| {
+                    view.child(
+                        chip("open-calendar", colors)
+                            .text_color(colors.muted_foreground)
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .shadow_xs()
+                            .hover(|style| style.bg(colors.accent).text_color(colors.foreground))
+                            .child(
+                                chip_icon("workspace/Calendar03Icon.svg", 12.)
+                                    .text_color(colors.muted_foreground)
+                                    .group_hover("open-calendar", |style| {
+                                        style.text_color(colors.foreground)
+                                    }),
+                            )
+                            .child("Open calendar")
+                            .on_click(cx.listener(|_, _, _, cx| cx.emit(OpenNote::Calendar))),
+                    )
+                })
+                .when_some(upcoming, |view, (row, label)| {
+                    view.child(
+                        chip("upcoming-meeting", colors)
+                            .w(px(112.))
+                            .justify_center()
+                            .border_color(colors.destructive)
+                            .bg(colors.destructive)
+                            .text_color(colors.destructive_foreground)
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .shadow_md()
+                            .child(
+                                chip_icon("workspace/ArrowUp02IconBold.svg", 12.)
+                                    .text_color(colors.destructive_foreground),
+                            )
+                            .child(label)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.scroll_row_to(row, 0.45);
+                                cx.notify();
+                            })),
+                    )
+                })
+                .when_some(now, |view, (row, _)| {
+                    view.child(self.now_chip(row, true, colors, cx))
+                }),
+        );
+        (top, bottom)
+    }
+
+    fn now_chip(
+        &self,
+        row: usize,
+        up: bool,
+        colors: Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let arrow = |path| chip_icon(path, 12.).text_color(colors.foreground);
+        chip(if up { "now-up" } else { "now-down" }, colors)
+            .text_color(colors.foreground)
+            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .shadow_md()
+            .hover(|style| style.bg(colors.accent))
+            .when(up, |view| view.child(arrow("workspace/ArrowUp02Icon.svg")))
+            .child(chip_icon("workspace/Sun01Icon.svg", 13.).text_color(rgb(0xfac800)))
+            .child("Now")
+            .when(!up, |view| {
+                view.child(arrow("workspace/ArrowDown02Icon.svg"))
+            })
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.scroll_row_to(row, 0.5);
+                cx.notify();
+            }))
+    }
+
+    fn sticky_heading(&self, colors: Theme) -> Option<gpui::Div> {
+        let top = self.scroll.logical_scroll_top();
+        if top.item_ix == 0 && top.offset_in_item <= px(0.) {
+            return None;
+        }
+        let (index, label) = self.timeline.heading_for(top.item_ix)?;
+        if index == top.item_ix && top.offset_in_item <= px(0.) {
+            return None;
+        }
+        let viewport = self.scroll.viewport_bounds();
+        // The next bucket's heading pushes this one out, like CSS sticky inside its bucket.
+        let shift = self
+            .timeline
+            .rows
+            .get(top.item_ix + 1..)
+            .unwrap_or_default()
+            .iter()
+            .position(|row| matches!(row, Row::Heading(_)))
+            .and_then(|next| self.scroll.bounds_for_item(top.item_ix + 1 + next))
+            .map_or(px(0.), |bounds| {
+                (bounds.top() - viewport.top() - px(HEADING_HEIGHT)).min(px(0.))
+            });
+        Some(
+            div()
+                .absolute()
+                .top(shift)
+                .left_0()
+                .right_0()
+                .child(heading(label.clone(), colors)),
+        )
+    }
+}
+
+fn heading(label: Arc<str>, colors: Theme) -> gpui::Div {
+    div()
+        .h(px(HEADING_HEIGHT))
+        .pr_1()
+        .pb_1()
+        .pl_3()
+        .bg(colors.background)
+        .text_color(colors.foreground)
+        .text_base()
+        .line_height(px(24.))
+        .font_weight(gpui::FontWeight::BOLD)
+        .child(gpui::SharedString::from(label))
+}
+
+fn chip(id: &'static str, colors: Theme) -> gpui::Stateful<gpui::Div> {
+    div()
+        .id(id)
+        .group(id)
+        .h_6()
+        .flex()
+        .items_center()
+        .gap_1()
+        .px(px(10.))
+        .rounded(px(RADIUS))
+        .border_1()
+        .border_color(colors.border)
+        .bg(colors.card)
+        .text_xs()
+        .line_height(px(16.))
+        .cursor_pointer()
+}
+
+fn chip_icon(path: &'static str, size: f32) -> gpui::Svg {
+    svg().path(path).size(px(size)).flex_shrink_0()
+}
+
+fn fade(color: Hsla) -> gpui::Div {
+    div()
+        .absolute()
+        .left_0()
+        .right_0()
+        .bottom_0()
+        .h(px(28.))
+        .bg(linear_gradient(
+            180.,
+            linear_color_stop(color.opacity(0.), 0.),
+            linear_color_stop(color, 1.),
+        ))
 }
 
 impl Render for LibraryView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
+        let (_, remaining) = self.scroll_offset();
+        let (chips, bottom_now) = self.chips(colors, cx);
+        let sticky = self.sticky_heading(colors);
         div()
             .size_full()
             .relative()
@@ -358,15 +955,11 @@ impl Render for LibraryView {
                     cx.stop_propagation();
                     return;
                 }
-                if matches!(event.keystroke.key.as_str(), "up" | "down")
-                    && !this.page.items.is_empty()
-                {
-                    let visible = this
-                        .page
-                        .items
-                        .iter()
-                        .map(|item| item.id.clone())
-                        .collect::<Vec<_>>();
+                if matches!(event.keystroke.key.as_str(), "up" | "down") {
+                    let visible = this.visible_sessions();
+                    if visible.is_empty() {
+                        return;
+                    }
                     let anchor = this
                         .selection
                         .cursor
@@ -410,159 +1003,18 @@ impl Render for LibraryView {
             .child(
                 list(
                     self.scroll.clone(),
-                    cx.processor(move |this, row: usize, _, cx| {
-                        let Some(row) = this.rows.get(row) else {
-                            return div().into_any_element();
-                        };
-                        let (index, time, folder, tags) = match row {
-                            TimelineRow::Heading(title) => {
-                                return div()
-                                    .h(px(32.))
-                                    .px_3()
-                                    .pt_2()
-                                    .font_weight(gpui::FontWeight::BOLD)
-                                    .child(title.clone())
-                                    .into_any_element();
-                            }
-                            TimelineRow::Note {
-                                index,
-                                time,
-                                folder,
-                                tags,
-                            } => (*index, time.clone(), folder.clone(), tags.clone()),
-                        };
-                        let item = &this.page.items[index];
-                        let id = item.id.clone();
-                        let item = div()
-                            .id(gpui::SharedString::from(item.id.0.clone()))
-                            .flex_1()
-                            .min_w_0()
-                            .h(px(54.
-                                + 18.
-                                    * (usize::from(!folder.is_empty())
-                                        + usize::from(!tags.is_empty()))
-                                        as f32))
-                            .flex()
-                            .flex_col()
-                            .gap(px(2.))
-                            .px_3()
-                            .py_2()
-                            .mx_1()
-                            .rounded(px(8.))
-                            .hover(|style| style.bg(colors.accent.opacity(0.5)))
-                            .when(
-                                this.selection.ids.contains(&id)
-                                    || this.active.as_ref() == Some(&id),
-                                |view| view.bg(colors.accent),
-                            )
-                            .cursor_pointer()
-                            .overflow_hidden()
-                            .on_mouse_down(
-                                gpui::MouseButton::Right,
-                                cx.listener({
-                                    let id = item.id.clone();
-                                    move |this, event: &gpui::MouseDownEvent, window, cx| {
-                                        this.focus.focus(window, cx);
-                                        let ids = this.selected_ids();
-                                        let bulk = !ids.is_empty();
-                                        this.menu = Some(NoteMenu {
-                                            position: event.position,
-                                            ids: if bulk { ids } else { vec![id.clone()].into() },
-                                            bulk,
-                                        });
-                                        this.menu_index = 0;
-                                        cx.stop_propagation();
-                                        cx.notify();
-                                    }
-                                }),
-                            )
-                            .on_click(cx.listener(
-                                move |this, event: &gpui::ClickEvent, window, cx| {
-                                    this.focus.focus(window, cx);
-                                    let modifiers = event.modifiers();
-                                    let visible = this
-                                        .page
-                                        .items
-                                        .iter()
-                                        .map(|row| row.id.clone())
-                                        .collect::<Vec<_>>();
-                                    this.selection.click(
-                                        id.clone(),
-                                        &visible,
-                                        modifiers.secondary(cx),
-                                        modifiers.shift,
-                                    );
-                                    if !modifiers.secondary(cx) && !modifiers.shift {
-                                        if event.click_count() == 2 {
-                                            cx.emit(OpenNote::Window(id.clone()));
-                                        } else if event.click_count() == 1 {
-                                            cx.emit(OpenNote::Current(id.clone()));
-                                        }
-                                    }
-                                    cx.notify();
-                                },
-                            ))
-                            .when(!folder.is_empty(), |view| {
-                                view.child(
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .min_w_0()
-                                        .flex_shrink_0()
-                                        .h(px(16.))
-                                        .gap(px(4.))
-                                        .text_size(px(11.))
-                                        .line_height(px(16.))
-                                        .text_color(colors.muted_foreground)
-                                        .child(
-                                            svg()
-                                                .path("workspace/Folder01Icon.svg")
-                                                .size(px(12.))
-                                                .flex_shrink_0()
-                                                .text_color(colors.muted_foreground),
-                                        )
-                                        .child(div().min_w_0().truncate().child(folder)),
-                                )
-                            })
-                            .child(div().text_sm().line_height(px(20.)).truncate().child(
-                                if item.title.is_empty() {
-                                    "Untitled".into()
-                                } else {
-                                    gpui::SharedString::from(item.title.clone())
-                                },
-                            ))
-                            .child(
-                                div()
-                                    .font_family(monospace_font(cx))
-                                    .text_xs()
-                                    .line_height(px(16.))
-                                    .text_color(colors.muted_foreground)
-                                    .child(if this.recording.contains(&item.id) {
-                                        "Recording".into()
-                                    } else {
-                                        gpui::SharedString::from(time)
-                                    }),
-                            )
-                            .when(!tags.is_empty(), |view| {
-                                view.child(
-                                    div()
-                                        .w_full()
-                                        .min_w_0()
-                                        .flex_shrink_0()
-                                        .h(px(16.))
-                                        .text_size(px(11.))
-                                        .line_height(px(16.))
-                                        .text_color(colors.muted_foreground)
-                                        .line_clamp(1)
-                                        .text_ellipsis()
-                                        .child(gpui::SharedString::from(tags)),
-                                )
-                            });
-                        div().w_full().flex().child(item).into_any_element()
+                    cx.processor(move |this, row: usize, window, cx| {
+                        this.render_row(row, window, cx)
                     }),
                 )
                 .size_full(),
             )
+            .when(remaining > px(12.), |view| {
+                view.child(fade(colors.background))
+            })
+            .when_some(sticky, |view, sticky| view.child(sticky))
+            .when_some(chips, |view, chips| view.child(chips))
+            .when_some(bottom_now, |view, chip| view.child(chip))
             .when_some(self.menu.clone(), |view, menu| {
                 view.child(gpui::deferred(
                     gpui::anchored()
@@ -619,79 +1071,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sidebar_folders_follow_shipping_normalization_and_utf16_limits() {
-        for (input, expected) in [
-            ("  Work\\日本語/  ", "Work/日本語"),
-            ("   ", ""),
-            ("/Work", ""),
-            ("Work//Meetings", ""),
-            ("Work/../Meetings", ""),
-            ("./Work", ""),
-        ] {
-            assert_eq!(folder_label(input), expected);
-        }
-        assert_eq!(folder_label(&"🚀".repeat(40)), "🚀".repeat(40));
-        assert_eq!(folder_label(&"🚀".repeat(41)), "");
-        assert_eq!(folder_label(&format!("{0}/{0}/{0}", "a".repeat(70))), "");
-    }
-
-    #[test]
-    fn timeline_timestamps_keep_time_and_only_show_the_year_when_needed() {
-        let today = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
-        for (date, twelve_hour, twenty_four_hour) in [
-            ("2026-01-15T00:05:00Z", "12:05 AM", "00:05"),
-            ("2026-01-15T12:05:00Z", "12:05 PM", "12:05"),
-            ("2026-01-09T23:59:00Z", "11:59 PM", "23:59"),
-            ("2026-01-08T13:02:00Z", "Jan 8, 1:02 PM", "Jan 8, 13:02"),
-            ("2026-01-21T13:02:00Z", "1:02 PM", "13:02"),
-            ("2026-01-22T13:02:00Z", "Jan 22, 1:02 PM", "Jan 22, 13:02"),
-            (
-                "2025-12-31T13:02:00Z",
-                "Dec 31, 2025, 1:02 PM",
-                "Dec 31, 2025, 13:02",
-            ),
-        ] {
-            let date = DateTime::parse_from_rfc3339(date).unwrap();
-            assert_eq!(timestamp(date, today, false), twelve_hour);
-            assert_eq!(timestamp(date, today, true), twenty_four_hour);
-        }
-    }
-
-    #[test]
-    fn timeline_timezone_applies_to_grouping_year_boundaries_and_dst() {
-        let zone = Some(chrono_tz::America::Los_Angeles);
-        let date = |value: &str| {
-            local_time(
-                DateTime::parse_from_rfc3339(value)
-                    .unwrap()
-                    .with_timezone(&Utc),
-                zone,
-            )
-        };
-        let previous_year = date("2026-01-01T00:30:00Z");
-        let today = date("2026-01-08T00:00:00Z").date_naive();
-        assert_eq!(bucket(previous_year.date_naive(), today), "a week ago");
-        assert_eq!(
-            timestamp(previous_year, today, false),
-            "Dec 31, 2025, 4:30 PM"
-        );
-
-        let before = date("2026-03-08T09:59:00Z");
-        let after = date("2026-03-08T10:00:00Z");
-        assert_eq!(timestamp(before, after.date_naive(), false), "1:59 AM");
-        assert_eq!(timestamp(after, after.date_naive(), false), "3:00 AM");
-        assert_eq!(bucket(before.date_naive(), after.date_naive()), "Today");
-
-        for instant in ["2026-11-01T08:30:00Z", "2026-11-01T09:30:00Z"] {
-            let repeated_hour = date(instant);
-            assert_eq!(
-                timestamp(repeated_hour, repeated_hour.date_naive(), true),
-                "01:30"
-            );
-        }
-    }
-
-    #[test]
     fn opening_a_note_sets_the_range_anchor_without_selecting_it_for_deletion() {
         let ids = ["a", "b", "c"].map(|id| SessionId(id.into()));
         let mut selection = Selection::default();
@@ -702,23 +1081,6 @@ mod tests {
         selection.click(ids[1].clone(), &ids, false, false);
         assert!(selection.ids.is_empty());
         assert_eq!(selection.anchor, Some(ids[1].clone()));
-    }
-
-    #[test]
-    fn timeline_buckets_match_the_source_relative_day_week_and_month_boundaries() {
-        let today = NaiveDate::from_ymd_opt(2026, 9, 21).unwrap();
-        for (days, label) in [
-            (0, "Today"),
-            (-1, "Yesterday"),
-            (1, "Tomorrow"),
-            (-6, "6 days ago"),
-            (-7, "a week ago"),
-            (-11, "2 weeks ago"),
-            (-28, "a month ago"),
-            (14, "in 2 weeks"),
-        ] {
-            assert_eq!(bucket(today + chrono::Duration::days(days), today), label);
-        }
     }
 
     #[test]

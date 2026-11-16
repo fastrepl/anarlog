@@ -23,6 +23,36 @@ const ICONS: &[(&str, &[u8])] = &[
     ("Calendar03Icon", include_bytes!("icons/Calendar03Icon.svg")),
     ("ZapIcon", include_bytes!("icons/ZapIcon.svg")),
     ("FileTextIcon", include_bytes!("icons/FileTextIcon.svg")),
+    (
+        "ViewSidebarLeftIcon",
+        include_bytes!("icons/ViewSidebarLeftIcon.svg"),
+    ),
+    ("Calendar04Icon", include_bytes!("icons/Calendar04Icon.svg")),
+    ("FilterIcon", include_bytes!("icons/FilterIcon.svg")),
+    (
+        "FilterIconFilled",
+        include_bytes!("icons/FilterIconFilled.svg"),
+    ),
+    ("CheckIcon", include_bytes!("icons/CheckIcon.svg")),
+    (
+        "ArrowRight01Icon",
+        include_bytes!("icons/ArrowRight01Icon.svg"),
+    ),
+    ("ArrowUp02Icon", include_bytes!("icons/ArrowUp02Icon.svg")),
+    (
+        "ArrowUp02IconBold",
+        include_bytes!("icons/ArrowUp02IconBold.svg"),
+    ),
+    (
+        "ArrowDown02Icon",
+        include_bytes!("icons/ArrowDown02Icon.svg"),
+    ),
+    ("Sun01Icon", include_bytes!("icons/Sun01Icon.svg")),
+    ("SortByUp01Icon", include_bytes!("icons/SortByUp01Icon.svg")),
+    (
+        "SortDescendingIcon",
+        include_bytes!("icons/SortDescendingIcon.svg"),
+    ),
 ];
 
 impl AssetSource for Assets {

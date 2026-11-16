@@ -1,28 +1,10 @@
-use gpui::{Context, MouseButton, Render, Window, canvas, div, prelude::*, px, svg};
+use gpui::{Context, MouseButton, Render, Window, canvas, div, prelude::*, px};
 
 use super::{
     navigation::Route,
     shell::{Navigate, WorkspaceAction, WorkspaceView},
 };
-use crate::ui::theme::{monospace_font, system_font, theme};
-
-struct Hint(&'static str);
-
-impl Render for Hint {
-    fn render(&mut self, window: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        let colors = theme(window);
-        div()
-            .px_2()
-            .py_1()
-            .rounded(px(6.))
-            .bg(colors.card)
-            .border_1()
-            .border_color(colors.border)
-            .text_xs()
-            .text_color(colors.foreground)
-            .child(self.0)
-    }
-}
+use crate::ui::theme::{RADIUS, monospace_font, system_font, theme};
 
 impl WorkspaceView {
     fn empty_action(
@@ -46,7 +28,7 @@ impl WorkspaceView {
             .gap_8()
             .px_4()
             .py_2()
-            .rounded_full()
+            .rounded(px(RADIUS))
             .text_sm()
             .line_height(px(20.))
             .text_color(colors.foreground)
@@ -99,76 +81,14 @@ impl Render for WorkspaceView {
             .flex()
             .flex_col()
             .gap_1()
-            .child(
-                div()
-                    .min_h(px(36.))
-                    .flex_shrink_0()
-                    .pt(px(9.))
-                    // The macOS traffic lights overlay the sidebar; keep the shipping app's gutter.
-                    .pl(px(if cfg!(target_os = "macos") { 76. } else { 8. }))
-                    .pr_1()
-                    .flex()
-                    .items_start()
-                    .justify_start()
-                    .child(
-                        div()
-                            .flex()
-                            .child(
-                                div()
-                                    .id("open-picker")
-                                    .group("sidebar-search")
-                                    .size(px(28.))
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .rounded_full()
-                                    .text_color(colors.muted_foreground)
-                                    .hover(|style| {
-                                        style.bg(colors.accent).text_color(colors.foreground)
-                                    })
-                                    .tooltip(|_, cx| cx.new(|_| Hint("Search")).into())
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.show_picker(window, cx)
-                                    }))
-                                    .child(
-                                        svg()
-                                            .path("Search01Icon.svg")
-                                            .size(px(15.))
-                                            .text_color(colors.muted_foreground)
-                                            .group_hover("sidebar-search", |style| {
-                                                style.text_color(colors.foreground)
-                                            }),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .id("new-note")
-                                    .group("sidebar-new-note")
-                                    .size(px(28.))
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .rounded_full()
-                                    .text_color(colors.muted_foreground)
-                                    .hover(|style| {
-                                        style.bg(colors.accent).text_color(colors.foreground)
-                                    })
-                                    .tooltip(|_, cx| cx.new(|_| Hint("New note")).into())
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, _, cx| this.create(false, cx)))
-                                    .child(
-                                        svg()
-                                            .path("NoteEditIcon.svg")
-                                            .size(px(15.))
-                                            .text_color(colors.muted_foreground)
-                                            .group_hover("sidebar-new-note", |style| {
-                                                style.text_color(colors.foreground)
-                                            }),
-                                    ),
-                            ),
-                    ),
-            )
+            .map(|sidebar| {
+                if catalog.is_some() {
+                    // Shipping custom sidebars leave the chrome row free instead of the timeline header.
+                    sidebar.pt(px(44.))
+                } else {
+                    sidebar.child(self.sidebar_header(window, cx))
+                }
+            })
             .child(
                 div()
                     .flex_1()
@@ -240,10 +160,17 @@ impl Render for WorkspaceView {
             )
             .overflow_hidden()
             .bg(colors.card)
-            .border_l_1()
-            .border_t_1()
-            .border_color(colors.border)
-            .rounded_tl(px(12.))
+            .map(|surface| {
+                if self.sidebar.expanded {
+                    surface
+                        .border_l_1()
+                        .border_t_1()
+                        .border_color(colors.border)
+                        .rounded_tl(px(12.))
+                } else {
+                    surface.rounded_t(px(12.))
+                }
+            })
             .child(
                 div()
                     .flex()
@@ -326,7 +253,7 @@ impl Render for WorkspaceView {
             .size_full()
             .relative()
             .flex()
-            .pl(px(4.))
+            .when(self.sidebar.expanded, |view| view.pl(px(4.)))
             .gap(px(4.))
             .overflow_hidden()
             .font_family(system_font(cx))
@@ -370,6 +297,9 @@ impl Render for WorkspaceView {
                 ))
             })
             .child(surface)
+            .when(!self.sidebar.expanded, |view| {
+                view.child(self.collapsed_sidebar_chrome(window, cx))
+            })
             .child(
                 canvas(
                     move |bounds, window, cx| {

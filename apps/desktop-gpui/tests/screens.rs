@@ -17,7 +17,11 @@ use desktop_gpui::{
     workspace::{assets::Assets, navigation::Route},
 };
 use desktop_runtime::{Profile, RuntimeHandle, ServiceError, SessionId};
-use gpui::{AnyWindowHandle, AppContext, HeadlessAppContext, WindowHandle, px, size};
+use gpui::{
+    AnyWindowHandle, AppContext, HeadlessAppContext, Modifiers, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, PlatformInput, ScrollDelta, ScrollEvent, ScrollSource,
+    TouchPhase, WindowHandle, point, px, size,
+};
 
 const WINDOW: (f32, f32) = (910., 600.);
 
@@ -63,6 +67,22 @@ fn main() {
     settle(&mut cx);
 
     capture(&mut cx, window, &out, "main");
+    // Sidebar chrome, by window position: sort menu, its Grouping submenu, then the toggle.
+    click(&mut cx, window, 178., 23.);
+    pointer(&mut cx, window, 260., 67.);
+    capture(&mut cx, window, &out, "sort-menu");
+    click(&mut cx, window, 450., 108.);
+    capture(&mut cx, window, &out, "folder-grouping");
+    click(&mut cx, window, 178., 23.);
+    pointer(&mut cx, window, 260., 67.);
+    click(&mut cx, window, 450., 76.);
+    click(&mut cx, window, 94., 23.);
+    capture(&mut cx, window, &out, "sidebar-collapsed");
+    click(&mut cx, window, 94., 23.);
+    pointer(&mut cx, window, 700., 590.);
+    scroll(&mut cx, window, -260.);
+    capture(&mut cx, window, &out, "timeline-scrolled");
+    scroll(&mut cx, window, 1000.);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -142,6 +162,79 @@ fn capture(
     let path = out.join(format!("{name}.png"));
     image.save(&path).unwrap();
     println!("{}", path.display());
+}
+
+fn pointer(cx: &mut HeadlessAppContext, window: WindowHandle<ApplicationView>, x: f32, y: f32) {
+    input(
+        cx,
+        window,
+        [PlatformInput::MouseMove(MouseMoveEvent {
+            position: point(px(x), px(y)),
+            pressed_button: None,
+            modifiers: Modifiers::default(),
+        })],
+    );
+}
+
+/// Scrolls the sidebar timeline; negative deltas move the content up.
+fn scroll(cx: &mut HeadlessAppContext, window: WindowHandle<ApplicationView>, y: f32) {
+    input(
+        cx,
+        window,
+        [PlatformInput::Scroll(ScrollEvent {
+            position: point(px(100.), px(400.)),
+            delta: ScrollDelta::Pixels(point(px(0.), px(y))),
+            modifiers: Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
+        })],
+    );
+}
+
+fn click(cx: &mut HeadlessAppContext, window: WindowHandle<ApplicationView>, x: f32, y: f32) {
+    let position = point(px(x), px(y));
+    input(
+        cx,
+        window,
+        [
+            PlatformInput::MouseMove(MouseMoveEvent {
+                position,
+                pressed_button: None,
+                modifiers: Modifiers::default(),
+            }),
+            PlatformInput::MouseDown(MouseDownEvent {
+                button: MouseButton::Left,
+                position,
+                modifiers: Modifiers::default(),
+                click_count: 1,
+                first_mouse: false,
+            }),
+            PlatformInput::MouseUp(MouseUpEvent {
+                button: MouseButton::Left,
+                position,
+                modifiers: Modifiers::default(),
+                click_count: 1,
+            }),
+        ],
+    );
+}
+
+/// Dispatches pointer input against the last drawn frame's hitboxes.
+fn input<const N: usize>(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    events: [PlatformInput; N],
+) {
+    let window: AnyWindowHandle = window.into();
+    for event in events {
+        cx.update_window(window, |_, window, cx| {
+            window.draw(cx).clear(cx);
+            window.dispatch_event(event, cx);
+        })
+        .unwrap();
+        cx.run_until_parked();
+    }
+    settle(cx);
 }
 
 /// Lets runtime replies and simulated timers land before a frame is captured.

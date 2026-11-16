@@ -11,8 +11,6 @@ use crate::{
 
 pub(super) struct Notifications {
     preferences: Option<Arc<Snapshot>>,
-    expanded: bool,
-    toggle_focus: FocusHandle,
     add_focus: FocusHandle,
 }
 
@@ -20,8 +18,6 @@ impl Notifications {
     pub(super) fn new(cx: &mut Context<ApplicationView>) -> Self {
         Self {
             preferences: None,
-            expanded: true,
-            toggle_focus: cx.focus_handle().tab_stop(true),
             add_focus: cx.focus_handle().tab_stop(true),
         }
     }
@@ -193,7 +189,8 @@ impl ApplicationView {
             product.map(|product| product.active_section()),
         )?;
         let colors = theme(window);
-        let expanded = self.notifications.expanded;
+        // The shipping compact app toast; provider prompts are condition-bound, so there is no
+        // dismiss action and nothing to expand.
         Some(
             div()
                 .id("provider-notification")
@@ -204,9 +201,9 @@ impl ApplicationView {
                 .rounded(px(14.))
                 .border_1()
                 .border_color(colors.border.opacity(0.7))
-                .bg(colors.card)
+                .bg(colors.popover)
                 .font_family(system_font(cx))
-                .text_color(colors.foreground)
+                .text_color(colors.popover_foreground)
                 .shadow_md()
                 .occlude()
                 .on_key_down(cx.listener(|_, event: &gpui::KeyDownEvent, window, cx| {
@@ -238,7 +235,7 @@ impl ApplicationView {
                                     svg()
                                         .path("InfoIcon.svg")
                                         .size(px(16.))
-                                        .text_color(rgb(0x2563eb)),
+                                        .text_color(rgb(0x155dfc)),
                                 ),
                         )
                         .child(
@@ -249,65 +246,33 @@ impl ApplicationView {
                                 .line_height(px(20.))
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .child(notice.message()),
-                        )
-                        .child(
-                            div()
-                                .id("toggle-notification")
-                                .track_focus(&self.notifications.toggle_focus)
-                                .size(px(32.))
-                                .flex_shrink_0()
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .rounded_md()
-                                .cursor_pointer()
-                                .hover(|style| style.bg(colors.accent))
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.notifications.toggle_focus.focus(window, cx);
-                                    this.notifications.expanded = !this.notifications.expanded;
-                                    cx.notify();
-                                }))
-                                .focus(|style| style.bg(colors.accent))
-                                .child(
-                                    svg()
-                                        .path(if expanded {
-                                            "ArrowUp01Icon.svg"
-                                        } else {
-                                            "ArrowDown01Icon.svg"
-                                        })
-                                        .size(px(16.))
-                                        .text_color(colors.muted_foreground),
-                                ),
                         ),
                 )
-                .when(expanded, |view| {
-                    view.child(
-                        div().px(px(10.)).pb(px(10.)).flex().child(
-                            div()
-                                .id("add-provider")
-                                .track_focus(&self.notifications.add_focus)
-                                .min_h(px(28.))
-                                .px(px(10.))
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .rounded_md()
-                                .border_1()
-                                .border_color(colors.border)
-                                .bg(colors.background)
-                                .text_xs()
-                                .font_weight(FontWeight::MEDIUM)
-                                .cursor_pointer()
-                                .hover(|style| style.bg(colors.accent))
-                                .focus(|style| style.bg(colors.accent))
-                                .child("Add")
-                                .on_click(cx.listener(move |this, _, window, cx| {
-                                    this.notifications.expanded = true;
-                                    this.open_product(notice.route(), window, cx);
-                                })),
-                        ),
-                    )
-                }),
+                .child(
+                    div().px(px(10.)).pb(px(10.)).flex().child(
+                        div()
+                            .id("add-provider")
+                            .track_focus(&self.notifications.add_focus)
+                            .min_h(px(28.))
+                            .px(px(10.))
+                            .py(px(4.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded_md()
+                            .bg(colors.primary)
+                            .text_color(colors.primary_foreground)
+                            .text_xs()
+                            .font_weight(FontWeight::MEDIUM)
+                            .cursor_pointer()
+                            .hover(|style| style.bg(colors.primary.opacity(0.9)))
+                            .focus(|style| style.bg(colors.primary.opacity(0.9)))
+                            .child("Add")
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.open_product(notice.route(), window, cx);
+                            })),
+                    ),
+                ),
         )
     }
 }

@@ -195,6 +195,68 @@ async fn start() -> (tempfile::TempDir, RuntimeHandle) {
 }
 
 #[test]
+fn timeline_events_skip_ignored_declined_and_noted_events() {
+    block_on(async {
+        let (_directory, runtime) = start().await;
+        execute(
+            &runtime,
+            "INSERT INTO calendars(id,name,enabled) VALUES ('work','Work',1)",
+            vec![],
+        )
+        .await;
+        for (id, tracking, offset, attendance) in [
+            ("upcoming", "a", "+1 hours", None),
+            ("ignored", "b", "+1 hours", None),
+            (
+                "declined",
+                "c",
+                "+1 hours",
+                Some(r#"{"self_status":"declined"}"#),
+            ),
+            ("noted", "d", "+1 hours", None),
+            ("next-week", "f", "+7 days", None),
+        ] {
+            execute(
+                &runtime,
+                "INSERT INTO events(id,title,calendar_id,tracking_id_event,started_at,ended_at,attendance_json)
+                VALUES (?1,?1,'work',?2,strftime('%Y-%m-%dT%H:%M:%SZ','now',?3),
+                    strftime('%Y-%m-%dT%H:%M:%SZ','now',?3,'+1 hours'),?4)",
+                vec![json!(id), json!(tracking), json!(offset), json!(attendance)],
+            )
+            .await;
+        }
+        execute(
+            &runtime,
+            "INSERT INTO sessions(id,title,event_json) VALUES ('note','Noted',?)",
+            vec![json!(r#"{"tracking_id":"d"}"#)],
+        )
+        .await;
+        execute(
+            &runtime,
+            "INSERT INTO app_settings(id,value_json) VALUES ('ignored_events',?)",
+            vec![json!(r#"[{"tracking_id":"b"},"legacy"]"#)],
+        )
+        .await;
+        let window = super::timeline::load_events(&runtime, CancellationToken::new())
+            .unwrap()
+            .receive()
+            .await
+            .unwrap();
+        let ids = window
+            .events
+            .iter()
+            .map(|event| event.id.as_ref())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, ["upcoming"]);
+        assert!(
+            window.later,
+            "next week's event leaves more for the calendar"
+        );
+        runtime.shutdown().await.unwrap();
+    });
+}
+
+#[test]
 fn note_folder_resolution_follows_moved_notes_and_rejects_locked_or_deleted_notes() {
     block_on(async {
         let (directory, runtime) = start().await;

@@ -18,6 +18,8 @@ pub mod pins;
 pub mod ports;
 pub mod search;
 mod shell;
+mod sidebar;
 pub mod templates;
+mod timeline;
 
 pub use shell::{WorkspaceAction, WorkspaceView};

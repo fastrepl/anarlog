@@ -61,11 +61,14 @@ pub struct WorkspaceView {
     generation: Generation,
     cancellation: CancellationToken,
     watch_cancel: CancellationToken,
+    events_cancel: CancellationToken,
+    events_loaded: Option<std::time::Instant>,
     library_stale: bool,
     pub(super) message: String,
     creating: bool,
     ready: bool,
     pub(super) picker_open: bool,
+    pub(super) sort_menu: Option<super::sidebar::SortMenu>,
     pub(super) return_focus: Option<FocusHandle>,
     pub(super) resizing: bool,
     pending: Option<Navigate>,
@@ -121,6 +124,7 @@ impl WorkspaceView {
 
     pub fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
         self.sidebar.toggle();
+        self.sort_menu = None;
         cx.notify();
     }
 
@@ -286,6 +290,8 @@ impl WorkspaceView {
                     this.ready = true;
                     this.reload(cx);
                     this.watch(cx);
+                    this.watch_events(cx);
+                    this.tick(cx);
                 }
                 Err(error) => {
                     this.set_status(format!("Could not open the isolated library: {error}"), cx)
@@ -311,11 +317,14 @@ impl WorkspaceView {
             generation: Generation::default(),
             cancellation: CancellationToken::new(),
             watch_cancel: CancellationToken::new(),
+            events_cancel: CancellationToken::new(),
+            events_loaded: None,
             library_stale: false,
             message: "Opening isolated local library…".into(),
             creating: false,
             ready: false,
             picker_open: false,
+            sort_menu: None,
             return_focus: None,
             resizing: false,
             pending: None,
@@ -351,6 +360,25 @@ impl WorkspaceView {
     fn handle_note(&mut self, event: &OpenNote, cx: &mut Context<Self>) {
         match event {
             OpenNote::Current(id) => self.open_session(id.clone(), cx),
+            OpenNote::Calendar => self.navigate(Navigate::Open(Route::Calendar, true), cx),
+            OpenNote::Event(event) => {
+                if !self.can_navigate(cx) {
+                    return;
+                }
+                let reply =
+                    super::calendar::open_event(&self.runtime, event.clone(), self.viewer.clone());
+                cx.spawn(async move |this, cx| {
+                    let result = match reply {
+                        Ok(reply) => reply.receive().await,
+                        Err(error) => Err(error),
+                    };
+                    let _ = this.update(cx, |this, cx| match result {
+                        Ok(id) => this.open_session(id, cx),
+                        Err(error) => this.set_status(format!("Could not open event: {error}"), cx),
+                    });
+                })
+                .detach();
+            }
             OpenNote::Window(id) => {
                 if self.can_navigate(cx) {
                     cx.emit(WorkspaceAction::OpenNoteWindow(id.clone()));
@@ -917,6 +945,98 @@ impl WorkspaceView {
         .detach();
     }
 
+    fn reload_events(&mut self, cx: &mut Context<Self>) {
+        self.events_cancel.cancel();
+        self.events_cancel = CancellationToken::new();
+        self.events_loaded = Some(std::time::Instant::now());
+        let reply = super::timeline::load_events(&self.runtime, self.events_cancel.clone());
+        cx.spawn(async move |this, cx| {
+            let result = match reply {
+                Ok(reply) => reply.receive().await,
+                Err(error) => Err(error),
+            };
+            let _ = this.update(cx, |this, cx| match result {
+                Ok(events) => this
+                    .library
+                    .update(cx, |library, cx| library.set_events(events, cx)),
+                Err(desktop_runtime::ServiceError::Cancelled) => {}
+                Err(error) => this.set_status(format!("Calendar events failed: {error}"), cx),
+            });
+        })
+        .detach();
+    }
+
+    /// Reloads timeline events whenever events, their notes or ignored events change.
+    fn watch_events(&mut self, cx: &mut Context<Self>) {
+        let reply = super::timeline::watch_events(&self.runtime);
+        let cancel = self.watch_cancel.clone();
+        cx.spawn(async move |this, cx| {
+            let mut watch = match reply {
+                Ok(reply) => match reply.receive().await {
+                    Ok(watch) => watch,
+                    Err(error) => {
+                        let _ = this.update(cx, |this, cx| this.set_status(error.to_string(), cx));
+                        return;
+                    }
+                },
+                Err(error) => {
+                    let _ = this.update(cx, |this, cx| this.set_status(error.to_string(), cx));
+                    return;
+                }
+            };
+            loop {
+                watch.snapshots.borrow_and_update();
+                if cancel.is_cancelled()
+                    || this.update(cx, |this, cx| this.reload_events(cx)).is_err()
+                    || watch.terminal_error().is_some()
+                {
+                    break;
+                }
+                match select(
+                    watch.snapshots.changed().boxed(),
+                    cancel.cancelled().boxed(),
+                )
+                .await
+                {
+                    Either::Left((Ok(()), _)) => {}
+                    _ => break,
+                }
+            }
+            let _ = watch.unsubscribe().await;
+        })
+        .detach();
+    }
+
+    /// Keeps the current-time line, muted future items and the meeting countdown current. The
+    /// event window is re-read periodically because it is relative to now.
+    fn tick(&mut self, cx: &mut Context<Self>) {
+        let cancel = self.watch_cancel.clone();
+        cx.spawn(async move |this, cx| {
+            loop {
+                let Ok(delay) = this.update(cx, |this, cx| {
+                    if this.events_loaded.is_some_and(|loaded| {
+                        loaded.elapsed() > std::time::Duration::from_secs(1800)
+                    }) {
+                        this.reload_events(cx);
+                    }
+                    this.library.update(cx, |library, cx| library.tick(cx))
+                }) else {
+                    break;
+                };
+                match select(
+                    cx.background_executor().timer(delay).boxed(),
+                    cancel.cancelled().boxed(),
+                )
+                .await
+                {
+                    Either::Left(_) => {}
+                    Either::Right(_) => break,
+                }
+            }
+        })
+        .detach();
+    }
+
     pub(super) fn reload(&mut self, cx: &mut Context<Self>) {
         if !self.ready {
             return;
@@ -1028,6 +1148,10 @@ impl WorkspaceView {
         cx: &mut Context<Self>,
     ) {
         let modifiers = event.keystroke.modifiers;
+        if self.sort_menu_key(event, cx) {
+            cx.stop_propagation();
+            return;
+        }
         if self.note_operation.is_some() {
             match event.keystroke.key.as_str() {
                 "escape" if !self.mutation_busy => {
@@ -1051,10 +1175,7 @@ impl WorkspaceView {
             "k" => self.show_picker(window, cx),
             "n" => self.create(modifiers.shift, cx),
             "," => self.navigate(Navigate::Open(Route::settings("app"), false), cx),
-            "\\" => {
-                self.sidebar.toggle();
-                cx.notify();
-            }
+            "\\" => self.toggle_sidebar(cx),
             "[" => self.navigate(Navigate::History(false), cx),
             "]" => self.navigate(Navigate::History(true), cx),
             _ => return,
@@ -1119,6 +1240,7 @@ impl Drop for WorkspaceView {
     fn drop(&mut self) {
         self.cancellation.cancel();
         self.watch_cancel.cancel();
+        self.events_cancel.cancel();
         self.subscriptions.clear();
     }
 }
