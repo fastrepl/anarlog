@@ -456,6 +456,30 @@ const _PROVIDERS = [
     },
   },
   {
+    id: "runcrate",
+    displayName: "Runcrate",
+    badge: null,
+    icon: (
+      <ProviderBrandImage
+        src="/assets/runcrate.svg"
+        alt="Runcrate"
+        preserveColor
+      />
+    ),
+    baseUrl: "https://api.runcrate.ai/v1",
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://runcrate.ai/dashboard/models",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://runcrate.ai/dashboard/api-keys",
+      },
+    },
+  },
+  {
     id: "fireworks",
     displayName: "Fireworks AI",
     badge: null,
@@ -708,6 +732,7 @@ const PROVIDER_ORDER = [
   "mistral",
   "meta",
   "together",
+  "runcrate",
   "cohere",
   "fireworks",
   "cloudflare_workers_ai",
