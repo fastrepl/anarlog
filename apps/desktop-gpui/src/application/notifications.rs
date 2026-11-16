@@ -88,6 +88,17 @@ fn choice<'a>(snapshot: &'a Snapshot, key: &str) -> &'a str {
         .unwrap_or_default()
 }
 
+impl Notifications {
+    /// Shipping's `floating_bar_enabled` setting, on by default.
+    pub(super) fn floating_bar_enabled(&self) -> bool {
+        self.preferences
+            .as_ref()
+            .and_then(|snapshot| snapshot.get("floating_bar_enabled"))
+            .and_then(|setting| setting.value.as_bool())
+            .unwrap_or(true)
+    }
+}
+
 impl ApplicationView {
     pub(super) fn watch_preferences(&mut self, cx: &mut Context<Self>) {
         let reply = settings::watch(&self.runtime);

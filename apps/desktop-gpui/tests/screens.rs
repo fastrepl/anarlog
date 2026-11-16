@@ -11,9 +11,15 @@
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
+use anlg_listener_core::LiveTranscriptSegment;
+use anlg_transcript::{ChannelProfile, SegmentKey, SegmentWord};
 use desktop_gpui::{
     application::ApplicationView,
     chat::{ChatView, state::ChatEvent},
+    meeting::{
+        floating::{FloatingBar, container_size, shows_expand},
+        live::{CaptureMode, LiveMeeting, LiveState, SessionMode},
+    },
     ui::theme::UiFonts,
     workspace::{assets::Assets, navigation::Route},
 };
@@ -139,6 +145,7 @@ fn main() {
     click(&mut cx, window, 850., 70.);
     type_text(&mut cx, window, &["space", "/"]);
     capture(&mut cx, window, &out, "note-slash");
+    meeting(&mut cx, window, profile.path(), &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -264,6 +271,248 @@ fn account_states(
     click(cx, window, 850., 100.);
     capture(cx, window, out, "settings-account-sign-out");
     cx.update(|cx| account::set(Account::default(), cx));
+}
+
+/// The live meeting, its floating bar and the note after recording. Live states come from the
+/// same `LiveState` the capture poll feeds; no microphone or provider is involved.
+fn meeting(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    profile: &std::path::Path,
+    out: &std::path::Path,
+) {
+    let audio = profile.join("vault/sessions/s-retro");
+    std::fs::create_dir_all(&audio).unwrap();
+    std::fs::write(audio.join("audio.wav"), wav(60)).unwrap();
+    open(cx, window, Route::Session(SessionId("s-retro".into())));
+    capture(cx, window, out, "meeting-after");
+    click(cx, window, TRANSCRIPT_TAB_AFTER.0, TRANSCRIPT_TAB_AFTER.1);
+    capture(cx, window, out, "meeting-after-transcript");
+
+    let standup = SessionId("s-standup".into());
+    let mut live = LiveMeeting::new(standup.clone(), SessionMode::Active);
+    live.amplitude = 0.35;
+    set_live(cx, Some(live.clone()));
+    open(cx, window, Route::Session(standup.clone()));
+    capture(cx, window, out, "meeting-live-memos");
+    click(cx, window, TRANSCRIPT_TAB_LIVE.0, TRANSCRIPT_TAB_LIVE.1);
+    capture(cx, window, out, "meeting-listening");
+    live.segments = live_segments().into();
+    set_live(cx, Some(live.clone()));
+    capture(cx, window, out, "meeting-live-transcript");
+    floating(cx, out, "floating-compact", false, false);
+    floating(cx, out, "floating-hover", false, true);
+    floating(cx, out, "floating-expanded", true, false);
+
+    let mut paused = live.clone();
+    paused.capture = CaptureMode::FallbackRecordOnly;
+    paused.paused = Some(
+        "Live transcript paused because Deepgram is having an outage. Your audio is still being saved, and the missing part will be filled in from the recording."
+            .into(),
+    );
+    paused.warning = Some("Microphone unavailable. System audio continues".into());
+    set_live(cx, Some(paused));
+    capture(cx, window, out, "meeting-paused");
+    floating(cx, out, "floating-warning", true, false);
+
+    let mut batch = LiveMeeting::new(standup.clone(), SessionMode::Active);
+    batch.capture = CaptureMode::RecordOnly;
+    batch.amplitude = 0.35;
+    set_live(cx, Some(batch));
+    capture(cx, window, out, "meeting-batch");
+    floating(cx, out, "floating-batch", false, false);
+
+    set_live(
+        cx,
+        Some(LiveMeeting::new(standup.clone(), SessionMode::Finalizing)),
+    );
+    capture(cx, window, out, "meeting-finalizing");
+    set_live(cx, None);
+    capture(cx, window, out, "meeting-stopped");
+}
+
+/// The transcript tab of a finished meeting (Summary, Memos, Transcript) and of a live one
+/// (Memos, Transcript), by window position.
+const TRANSCRIPT_TAB_AFTER: (f32, f32) = (362., 23.);
+const TRANSCRIPT_TAB_LIVE: (f32, f32) = (315., 23.);
+
+fn set_live(cx: &mut HeadlessAppContext, live: Option<LiveMeeting>) {
+    cx.update(|cx| {
+        LiveState::global(cx)
+            .unwrap()
+            .update(cx, |state, cx| state.set(live, cx))
+    });
+    settle(cx);
+}
+
+/// Captures the floating bar in its own headless window sized like the panel. The application
+/// must already show its bar for the live meeting; headless windows cannot resize their layout
+/// viewport, so each state gets a window of its exact size. `hover` places the pointer on the
+/// bar, otherwise it sits outside.
+fn floating(
+    cx: &mut HeadlessAppContext,
+    out: &std::path::Path,
+    name: &str,
+    expanded: bool,
+    hover: bool,
+) {
+    assert!(
+        cx.update(|cx| cx
+            .windows()
+            .into_iter()
+            .any(|window| window.downcast::<FloatingBar>().is_some())),
+        "the application shows a floating bar while listening"
+    );
+    let live = cx.update(|cx| LiveState::global(cx).unwrap());
+    let shows = cx.update(|cx| live.read(cx).current().is_some_and(shows_expand));
+    let size = container_size(expanded && shows, shows);
+    let bar = cx
+        .open_window(size, move |_, cx| {
+            cx.new(|cx| {
+                let mut bar = FloatingBar::new(live, cx);
+                bar.set_expanded(expanded, cx);
+                bar
+            })
+        })
+        .unwrap();
+    settle(cx);
+    let window: AnyWindowHandle = bar.into();
+    let position = if hover {
+        point(size.width / 2., size.height - px(10.))
+    } else {
+        point(px(-20.), px(-20.))
+    };
+    cx.update_window(window, |_, window, cx| {
+        window.draw(cx).clear(cx);
+        window.dispatch_event(
+            PlatformInput::MouseMove(MouseMoveEvent {
+                position,
+                pressed_button: None,
+                modifiers: Modifiers::default(),
+            }),
+            cx,
+        );
+    })
+    .unwrap();
+    settle(cx);
+    cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))
+        .unwrap();
+    let image = cx.capture_screenshot(window).unwrap();
+    let path = out.join(format!("{name}.png"));
+    image.save(&path).unwrap();
+    println!("{}", path.display());
+    cx.update_window(window, |_, window, _| window.remove_window())
+        .unwrap();
+}
+
+fn segment(
+    id: &str,
+    channel: ChannelProfile,
+    speaker: Option<i32>,
+    start_ms: i64,
+    words: &[(&str, bool)],
+) -> Arc<LiveTranscriptSegment> {
+    let words: Vec<SegmentWord> = words
+        .iter()
+        .enumerate()
+        .map(|(index, (text, is_final))| SegmentWord {
+            text: (*text).into(),
+            start_ms: start_ms + index as i64 * 300,
+            end_ms: start_ms + index as i64 * 300 + 280,
+            channel,
+            is_final: *is_final,
+            id: is_final.then(|| format!("{id}-{index}")),
+        })
+        .collect();
+    Arc::new(LiveTranscriptSegment {
+        id: id.into(),
+        key: SegmentKey {
+            channel,
+            speaker_index: speaker,
+            speaker_human_id: None,
+        },
+        start_ms,
+        end_ms: words.last().map_or(start_ms, |word| word.end_ms),
+        text: String::new(),
+        words,
+    })
+}
+
+fn live_segments() -> Vec<Arc<LiveTranscriptSegment>> {
+    fn words(text: &'static str) -> Vec<(&'static str, bool)> {
+        text.split(' ').map(|word| (word, true)).collect()
+    }
+    vec![
+        segment(
+            "l1",
+            ChannelProfile::DirectMic,
+            None,
+            0,
+            &words("Okay, let's get started with the launch checklist."),
+        ),
+        segment(
+            "l2",
+            ChannelProfile::RemoteParty,
+            Some(0),
+            4000,
+            &words("Marketing assets are ready and the press note goes out Thursday."),
+        ),
+        segment(
+            "l3",
+            ChannelProfile::DirectMic,
+            None,
+            9000,
+            &words("Great. What is still blocking the beta invites?"),
+        ),
+        segment(
+            "l4",
+            ChannelProfile::RemoteParty,
+            Some(1),
+            13000,
+            &[
+                ("We", true),
+                ("still", true),
+                ("need", true),
+                ("the", true),
+                ("updated", false),
+                ("pricing", false),
+                ("page", false),
+            ],
+        ),
+    ]
+}
+
+/// A stereo 16 kHz WAV whose two channels pulse like alternating speakers.
+fn wav(seconds: u32) -> Vec<u8> {
+    const RATE: u32 = 16_000;
+    let frames = RATE * seconds;
+    let mut bytes = Vec::with_capacity(44 + frames as usize * 4);
+    let data = frames * 4;
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&2u16.to_le_bytes());
+    bytes.extend_from_slice(&RATE.to_le_bytes());
+    bytes.extend_from_slice(&(RATE * 4).to_le_bytes());
+    bytes.extend_from_slice(&4u16.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data.to_le_bytes());
+    for frame in 0..frames {
+        let time = frame as f32 / RATE as f32;
+        let tone = (time * 220. * std::f32::consts::TAU).sin();
+        let envelope = |offset: f32| {
+            let phase = ((time + offset) * 0.7).sin() * ((time + offset) * 2.3).sin();
+            phase.max(0.)
+        };
+        for offset in [0., 1.9] {
+            let sample = (tone * envelope(offset) * 12_000.) as i16;
+            bytes.extend_from_slice(&sample.to_le_bytes());
+        }
+    }
+    bytes
 }
 
 fn chat(

@@ -87,11 +87,35 @@ impl Playback {
                 let mut device = None;
                 loop {
                     let command = receiver.recv_timeout(Duration::from_millis(100));
+                    // Opening only decodes; the output device connects on first play, so
+                    // viewing a note never holds an audio device.
+                    let mut connect = |player: &mut Option<Player>| -> Result<()> {
+                        if player.is_some() {
+                            return Ok(());
+                        }
+                        let (path, position, rate) = {
+                            let state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
+                            (state.path.clone(), state.position, state.rate)
+                        };
+                        let path = path.ok_or_else(|| failure("No playable audio is loaded."))?;
+                        let stream = open_default_playback_sink().map_err(failure)?;
+                        let sink = Player::connect_new(stream.mixer());
+                        sink.pause();
+                        sink.append(Centered(source_from_path(&path).map_err(failure)?));
+                        sink.set_speed(rate);
+                        if !position.is_zero() {
+                            sink.try_seek(position).map_err(failure)?;
+                        }
+                        *player = Some(sink);
+                        device = Some(stream);
+                        Ok(())
+                    };
                     let result = match command {
                         Ok(Command::Open(path)) => {
                             if let Some(player) = player.take() {
                                 player.stop();
                             }
+                            device = None;
                             {
                                 let mut state =
                                     shared.lock().unwrap_or_else(|poison| poison.into_inner());
@@ -101,15 +125,7 @@ impl Playback {
                                     ..Snapshot::default()
                                 };
                             }
-                            (|| {
-                                let (waveform, duration) = decode_waveform(&path)?;
-                                let stream = open_default_playback_sink().map_err(failure)?;
-                                let sink = Player::connect_new(stream.mixer());
-                                let decoder = source_from_path(&path).map_err(failure)?;
-                                sink.pause();
-                                sink.append(Centered(decoder));
-                                player = Some(sink);
-                                device = Some(stream);
+                            decode_waveform(&path).map(|(waveform, duration)| {
                                 let mut state =
                                     shared.lock().unwrap_or_else(|poison| poison.into_inner());
                                 state.path = Some(path);
@@ -117,53 +133,55 @@ impl Playback {
                                 state.waveform = waveform;
                                 state.error = None;
                                 state.revision += 1;
-                                Ok(())
-                            })()
+                            })
                         }
-                        Ok(command) => match &player {
-                            Some(sink) => match command {
-                                Command::Play => {
-                                    if sink.empty() {
-                                        let path = shared
-                                            .lock()
-                                            .unwrap_or_else(|poison| poison.into_inner())
-                                            .path
-                                            .clone();
-                                        match path {
-                                            Some(path) => match source_from_path(path) {
-                                                Ok(decoder) => {
-                                                    sink.append(Centered(decoder));
-                                                    sink.play();
-                                                    Ok(())
-                                                }
-                                                Err(error) => Err(failure(error)),
-                                            },
-                                            None => Err(failure("No audio loaded.")),
-                                        }
-                                    } else {
-                                        sink.play();
-                                        Ok(())
-                                    }
-                                }
-                                Command::Pause => {
-                                    sink.pause();
+                        Ok(Command::Play) => connect(&mut player).and_then(|()| {
+                            let Some(sink) = &player else {
+                                return Ok(());
+                            };
+                            if sink.empty() {
+                                let path = shared
+                                    .lock()
+                                    .unwrap_or_else(|poison| poison.into_inner())
+                                    .path
+                                    .clone()
+                                    .ok_or_else(|| failure("No audio loaded."))?;
+                                sink.append(Centered(source_from_path(path).map_err(failure)?));
+                            }
+                            sink.play();
+                            Ok(())
+                        }),
+                        Ok(Command::Pause) => {
+                            if let Some(sink) = &player {
+                                sink.pause();
+                            }
+                            Ok(())
+                        }
+                        Ok(Command::Seek(position)) => match &player {
+                            Some(sink) => sink.try_seek(position).map_err(failure),
+                            None => {
+                                let mut state =
+                                    shared.lock().unwrap_or_else(|poison| poison.into_inner());
+                                if state.path.is_some() {
+                                    state.position = position.min(state.duration);
+                                    state.revision += 1;
                                     Ok(())
+                                } else {
+                                    Err(failure("No playable audio is loaded."))
                                 }
-                                Command::Seek(position) => sink.try_seek(position).map_err(failure),
-                                Command::Rate(rate) if RATES.contains(&rate) => {
-                                    sink.set_speed(rate);
-                                    shared
-                                        .lock()
-                                        .unwrap_or_else(|poison| poison.into_inner())
-                                        .rate = rate;
-                                    Ok(())
-                                }
-                                Command::Rate(_) => Err(failure("Unsupported playback rate.")),
-                                Command::Open(_) => unreachable!(),
-                            },
-                            None if matches!(command, Command::Pause) => Ok(()),
-                            None => Err(failure("No playable audio is loaded.")),
+                            }
                         },
+                        Ok(Command::Rate(rate)) if RATES.contains(&rate) => {
+                            if let Some(sink) = &player {
+                                sink.set_speed(rate);
+                            }
+                            let mut state =
+                                shared.lock().unwrap_or_else(|poison| poison.into_inner());
+                            state.rate = rate;
+                            state.revision += 1;
+                            Ok(())
+                        }
+                        Ok(Command::Rate(_)) => Err(failure("Unsupported playback rate.")),
                         Err(mpsc::RecvTimeoutError::Timeout) => Ok(()),
                         Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     };

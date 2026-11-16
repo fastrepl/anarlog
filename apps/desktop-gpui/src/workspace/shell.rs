@@ -237,9 +237,6 @@ impl WorkspaceView {
         });
         let note_subscription = cx.subscribe(&note, |this, _, event: &NoteEvent, cx| match event {
             NoteEvent::Opened(session) => {
-                this.note.update(cx, |note, cx| {
-                    note.set_recording(this.recording.contains(&session.summary.id), cx);
-                });
                 this.cache_title(session.summary.id.clone(), session.summary.title.clone());
                 this.reload(cx);
                 if let Some(intent) = this.pending.take() {
@@ -387,6 +384,7 @@ impl WorkspaceView {
         match event {
             OpenNote::Current(id) => self.open_session(id.clone(), cx),
             OpenNote::Calendar => self.navigate(Navigate::Open(Route::Calendar, true), cx),
+            OpenNote::StopListening => cx.emit(WorkspaceEvent::Meeting(MeetingIntent::Stop)),
             OpenNote::Event(event) => {
                 if !self.can_navigate(cx) {
                     return;
@@ -589,10 +587,6 @@ impl WorkspaceView {
         self.library.update(cx, |library, cx| {
             library.set_recording(id.clone(), active, cx)
         });
-        if self.current_route() == Route::Session(id.clone()) {
-            self.note
-                .update(cx, |note, cx| note.set_recording(active, cx));
-        }
         if active {
             self.recording.insert(id);
         } else {

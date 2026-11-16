@@ -12,6 +12,10 @@ pub(super) use super::timeline::folder_label;
 use super::timeline::{
     self, EventWindow, Grouping, Row, Source, Timeline, View, local_time, timestamp,
 };
+use crate::meeting::{
+    live::{LiveState, SessionMode},
+    widgets::{dancing_sticks, spinner as spinner_icon},
+};
 use crate::ui::theme::{RADIUS, Theme, monospace_font, theme};
 
 const HEADING_HEIGHT: f32 = 28.;
@@ -72,6 +76,8 @@ pub enum OpenNote {
     /// A calendar event without a note yet; the workspace creates or finds its note.
     Event(Arc<str>),
     Calendar,
+    /// The live item's stop control.
+    StopListening,
 }
 impl EventEmitter<OpenNote> for LibraryView {}
 
@@ -542,12 +548,27 @@ impl LibraryView {
                 )
             }
         };
-        let live = session
+        let mode = session
             .as_ref()
-            .is_some_and(|id| self.recording.contains(id));
+            .map(|id| LiveState::mode(cx, id))
+            .unwrap_or_default();
+        // Shipping turns only an actively listening note red; finalizing shows a spinner.
+        let live = match LiveState::global(cx) {
+            Some(_) => mode == SessionMode::Active,
+            None => session
+                .as_ref()
+                .is_some_and(|id| self.recording.contains(id)),
+        };
+        let amplitude = session
+            .as_ref()
+            .zip(LiveState::global(cx))
+            .and_then(|(id, state)| state.read(cx).session(id).map(|live| live.amplitude))
+            .unwrap_or_default()
+            .max(0.25);
         let selected = session
             .as_ref()
             .is_some_and(|id| self.selection.ids.contains(id) || self.active.as_ref() == Some(id));
+        let spinner = !selected && !live && mode == SessionMode::Finalizing;
         let extra_rows = usize::from(!folder.is_empty()) + usize::from(!tags.is_empty());
         // Shipping's stylesheet never generates the item's `bg-destructive/8`, `bg-destructive/20`
         // and `text-destructive-foreground/65` classes, so upcoming items have no tint or gauge
@@ -568,10 +589,11 @@ impl LibraryView {
             .px_3()
             .py_2()
             .when(upcoming.is_some(), |view| view.pl_4())
+            .when(live, |view| view.pr_10())
             .rounded(px(8.))
             .cursor_pointer()
             .overflow_hidden()
-            .when(!selected, |view| {
+            .when(!selected && !live, |view| {
                 view.hover(|style| style.bg(colors.accent.opacity(0.5)))
             })
             .when(selected, |view| view.bg(colors.accent))
@@ -697,7 +719,75 @@ impl LibraryView {
         div()
             .w_full()
             .relative()
+            .group("sidebar-live-item")
             .child(content)
+            .when(spinner, |view| {
+                view.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .right_3()
+                        .flex()
+                        .items_center()
+                        .child(spinner_icon(
+                            "sidebar-finalizing",
+                            14.,
+                            colors.muted_foreground,
+                        )),
+                )
+            })
+            .when(live, |view| {
+                let white = gpui::white();
+                view.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .right_3()
+                        .flex()
+                        .items_center()
+                        .child(
+                            div()
+                                .id("sidebar-live-stop")
+                                .size_5()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(RADIUS - 4.))
+                                .text_color(white.opacity(0.8))
+                                .hover(|style| style.bg(white.opacity(0.15)).text_color(white))
+                                .cursor_pointer()
+                                .on_click(cx.listener(|_, _, _, cx| {
+                                    cx.stop_propagation();
+                                    cx.emit(OpenNote::StopListening);
+                                }))
+                                .child(
+                                    div()
+                                        .group_hover("sidebar-live-item", |style| style.invisible())
+                                        .child(dancing_sticks(
+                                            "sidebar-live",
+                                            amplitude,
+                                            white.opacity(0.8),
+                                            (13., 14.),
+                                            (2., 2.),
+                                        )),
+                                )
+                                .child(
+                                    div()
+                                        .absolute()
+                                        .invisible()
+                                        .group_hover("sidebar-live-item", |style| style.visible())
+                                        .child(
+                                            svg()
+                                                .path("meeting/SquareIcon.svg")
+                                                .size(px(10.))
+                                                .text_color(white),
+                                        ),
+                                ),
+                        ),
+                )
+            })
             .when_some(upcoming.filter(|_| !live), |view, upcoming| {
                 view.child(
                     div()

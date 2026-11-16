@@ -19,6 +19,7 @@ use crate::{
     meeting::{
         MeetingPane, MeetingServices,
         capture::{CaptureService, Phase},
+        host::{self, MeetingHost},
         playback::{self, Playback},
         recovery,
     },
@@ -53,6 +54,7 @@ pub struct ApplicationView {
     workspace: Entity<WorkspaceView>,
     editor: Option<Entity<EditorPane>>,
     meeting: Option<Entity<MeetingPane>>,
+    meeting_host: MeetingHost,
     product: Option<Entity<ProductPane>>,
     services: Option<MeetingServices>,
     native: Option<NativeServices>,
@@ -97,6 +99,9 @@ impl ApplicationView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        // Installed first: the note and transcript views read the live meeting from it.
+        let meeting_host = MeetingHost::install(cx);
+        let live = meeting_host.live().clone();
         let workspace = cx.new(|cx| {
             WorkspaceView::new(
                 LaneContext {
@@ -108,6 +113,7 @@ impl ApplicationView {
             )
         });
         let subscriptions = vec![
+            cx.observe(&live, |this, _, cx| this.live_changed(cx)),
             cx.on_focus_lost(window, |this, window, cx| {
                 if this.product.is_none() && !this.closing && !this.writers_paused {
                     cx.focus_view(&this.workspace, window);
@@ -296,6 +302,7 @@ impl ApplicationView {
             workspace,
             editor: None,
             meeting: None,
+            meeting_host,
             product: None,
             services: None,
             native: None,
@@ -510,6 +517,7 @@ impl ApplicationView {
         let Some(services) = &self.services else {
             return;
         };
+        self.meeting_host.tick(services, cx);
         let update = services.capture.take_update(u64::MAX);
         match update.phase {
             Phase::Loading | Phase::Listening | Phase::Finalizing => {
@@ -1135,9 +1143,40 @@ impl ApplicationView {
         cx.notify();
     }
 
+    /// Live recording markers and the floating bar follow the live meeting.
+    fn live_changed(&mut self, cx: &mut Context<Self>) {
+        for (session, active) in self.meeting_host.recording_changes(cx) {
+            self.workspace.update(cx, |workspace, cx| {
+                workspace.set_recording(session, active, cx)
+            });
+        }
+        let enabled = self.notifications.floating_bar_enabled();
+        if let Err(error) = self
+            .meeting_host
+            .sync_floating(enabled, self.services.as_ref(), cx)
+        {
+            self.status(&error.to_string(), cx);
+        }
+    }
+
     fn open_meeting(&mut self, intent: MeetingIntent, window: &mut Window, cx: &mut Context<Self>) {
-        if self.services.is_none() {
+        let Some(services) = self.services.clone() else {
             self.status("Meeting services are still starting or recovery failed. Retry after resolving the startup error.", cx);
+            return;
+        };
+        // Shipping records inside the note itself; only an explicit open shows the meeting pane.
+        let reply = match &intent {
+            MeetingIntent::Start { session_id } => Some(host::start(&services, session_id.clone())),
+            MeetingIntent::Stop => Some(host::stop(&services)),
+            MeetingIntent::Open(_) => None,
+        };
+        if let Some(reply) = reply {
+            cx.spawn(async move |this, cx| {
+                if let Err(error) = host::acknowledged(reply).await {
+                    let _ = this.update(cx, |this, cx| this.status(&error.to_string(), cx));
+                }
+            })
+            .detach();
             return;
         }
         let meeting = cx.new(|cx| {

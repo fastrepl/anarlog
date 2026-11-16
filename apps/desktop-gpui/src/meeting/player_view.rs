@@ -1,13 +1,22 @@
+//! Shipping's audio player `Timeline` (`audio-player/timeline.tsx`): play/pause, elapsed and
+//! total time, the Pro playback-rate menu, and the split-channel WaveSurfer waveform.
+
 use std::path::PathBuf;
 use std::time::Duration;
 
 use gpui::{
-    Bounds, Context, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Render, Task, Window,
-    canvas, div, fill, point, prelude::*, px, size,
+    Bounds, Context, FontWeight, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Render, Task,
+    Window, canvas, div, fill, point, prelude::*, px, rgb, size, svg,
 };
 
 use super::playback::{Command, Playback, RATES, Snapshot};
-use crate::ui::theme::theme;
+use crate::ui::theme::{RADIUS, monospace_font, theme};
+
+const BAR_WIDTH: f32 = 3.;
+const BAR_GAP: f32 = 2.;
+const HEIGHT: f32 = 24.;
+/// WaveSurfer `splitChannels` colors: (wave, progress) per channel, drawn overlaid.
+const CHANNELS: [(u32, u32); 2] = [(0xe8d5d5, 0xc9a3a3), (0xd5dde8, 0xa3b3c9)];
 
 pub struct PlayerView {
     playback: Playback,
@@ -16,6 +25,8 @@ pub struct PlayerView {
     bounds: Option<Bounds<Pixels>>,
     dragging: bool,
     rates_open: bool,
+    /// Shipping offers playback rates to Pro accounts only.
+    pro: bool,
     _poll: Task<()>,
 }
 
@@ -47,6 +58,7 @@ impl PlayerView {
             bounds: None,
             dragging: false,
             rates_open: false,
+            pro: false,
             _poll: poll,
         }
     }
@@ -54,6 +66,11 @@ impl PlayerView {
     pub fn open(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         self.path = Some(path.clone());
         self.command(Command::Open(path), cx);
+    }
+
+    pub fn set_pro(&mut self, pro: bool, cx: &mut Context<Self>) {
+        self.pro = pro;
+        cx.notify();
     }
 
     fn command(&mut self, command: Command, cx: &mut Context<Self>) {
@@ -71,190 +88,251 @@ impl PlayerView {
     }
 }
 
+/// Shipping's `formatTime`: zero-padded minutes and seconds.
+fn clock(seconds: f32) -> String {
+    let seconds = seconds.max(0.) as u64;
+    format!("{:02}:{:02}", seconds / 60, seconds % 60)
+}
+
+/// One WaveSurfer bar per `BAR_WIDTH + BAR_GAP` pixels, each the loudest peak it covers.
+fn bars(peaks: &[[f32; 2]], width: f32) -> Vec<[f32; 2]> {
+    let count = (width / (BAR_WIDTH + BAR_GAP)).floor().max(0.) as usize;
+    if peaks.is_empty() || count == 0 {
+        return Vec::new();
+    }
+    (0..count)
+        .map(|index| {
+            let start = index * peaks.len() / count;
+            let end = ((index + 1) * peaks.len() / count)
+                .max(start + 1)
+                .min(peaks.len());
+            peaks[start..end]
+                .iter()
+                .fold([0_f32; 2], |a, b| [a[0].max(b[0]), a[1].max(b[1])])
+        })
+        .collect()
+}
+
 impl Render for PlayerView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
-        let mut panel = div()
+        let row = div()
             .relative()
+            .w_full()
             .flex()
             .items_center()
             .gap_2()
-            .px_2()
-            .py_1()
-            .rounded_xl();
+            .py(px(6.))
+            .pl_1()
+            .pr_3();
         if let Some(error) = &self.snapshot.error {
-            return panel.child(error.to_string());
+            return row
+                .h(px(40.))
+                .text_xs()
+                .text_color(colors.muted_foreground)
+                .child(error.to_string());
         }
-        if self.path.is_none() {
-            return panel.child("No audio loaded.");
-        }
-        if self.path != self.snapshot.path {
-            return panel.child("Loading audio…");
-        }
-        let peaks = self.snapshot.waveform.clone();
+        let peaks = if self.path.is_some() && self.path == self.snapshot.path {
+            self.snapshot.waveform.clone()
+        } else {
+            Default::default()
+        };
         let position = self.snapshot.position.as_secs_f32();
         let duration = self.snapshot.duration.as_secs_f32();
+        let progress = if duration > 0. {
+            (position / duration).clamp(0., 1.)
+        } else {
+            0.
+        };
         let view = cx.entity().downgrade();
         let waveform = canvas(
             move |bounds, _, cx| {
                 let _ = view.update(cx, |view, _| view.bounds = Some(bounds));
             },
             move |bounds, _, window, _| {
-                if peaks.is_empty() {
-                    return;
-                }
-                let count = peaks.len().min(400);
-                let width = bounds.size.width / count as f32;
-                for index in 0..count {
-                    let range = index * peaks.len() / count..(index + 1) * peaks.len() / count;
-                    let peak = peaks[range]
-                        .iter()
-                        .fold([0_f32; 2], |a, b| [a[0].max(b[0]), a[1].max(b[1])]);
-                    for (channel, value) in peak.into_iter().enumerate() {
-                        let height = px((value * 11.).max(1.));
-                        let top = if channel == 0 {
-                            bounds.top() + px(12.) - height
-                        } else {
-                            bounds.top() + px(12.)
-                        };
-                        let played =
-                            duration > 0. && index as f32 / count as f32 <= position / duration;
-                        let color = match (channel, played) {
-                            (0, false) => gpui::rgb(0xe8d5d5),
-                            (0, true) => gpui::rgb(0xc9a3a3),
-                            (_, false) => gpui::rgb(0xd5dde8),
-                            (_, true) => gpui::rgb(0xa3b3c9),
-                        };
-                        window.paint_quad(fill(
-                            Bounds::new(
-                                point(bounds.left() + width * index as f32, top),
-                                size(width.max(px(1.)), height),
-                            ),
-                            color,
-                        ));
+                let bars = bars(&peaks, f32::from(bounds.size.width));
+                let cursor = bounds.left() + bounds.size.width * progress;
+                let middle = bounds.center().y;
+                for (index, bar) in bars.iter().enumerate() {
+                    let left = bounds.left() + px(index as f32 * (BAR_WIDTH + BAR_GAP));
+                    for (channel, (wave, played)) in CHANNELS.iter().enumerate() {
+                        let height = (bar[channel] * HEIGHT).max(1.);
+                        let bar_bounds = Bounds::new(
+                            point(left, middle - px(height / 2.)),
+                            size(px(BAR_WIDTH), px(height)),
+                        );
+                        let color = if left < cursor { *played } else { *wave };
+                        window.paint_quad(
+                            fill(bar_bounds, rgb(color)).corner_radii(px(2_f32.min(height / 2.))),
+                        );
                     }
                 }
                 if duration > 0. {
                     window.paint_quad(fill(
                         Bounds::new(
-                            point(
-                                bounds.left()
-                                    + bounds.size.width * (position / duration).clamp(0., 1.),
-                                bounds.top(),
-                            ),
-                            size(px(1.), px(24.)),
+                            point(cursor - px(1.), bounds.top()),
+                            size(px(2.), px(HEIGHT)),
                         ),
-                        colors.foreground,
+                        rgb(0x737373),
                     ));
                 }
             },
         )
-        .w_full()
-        .h(px(24.));
-        panel = panel
-            .child(
-                div()
-                    .id("play-pause")
-                    .cursor_pointer()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .size(px(28.))
-                    .rounded_full()
-                    .border_1()
-                    .border_color(colors.border)
-                    .hover(|style| style.bg(colors.accent))
-                    .child(if self.snapshot.playing { "Ⅱ" } else { "▷" })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.command(
-                            if this.snapshot.playing {
-                                Command::Pause
-                            } else {
-                                Command::Play
-                            },
-                            cx,
-                        )
-                    })),
-            )
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(colors.muted_foreground)
-                    .child(format!(
-                        "{:02}:{:02} / {:02}:{:02}",
-                        position as u64 / 60,
-                        position as u64 % 60,
-                        duration as u64 / 60,
-                        duration as u64 % 60
-                    )),
-            )
-            .child(
-                div()
-                    .id("waveform")
-                    .flex_1()
-                    .h(px(24.))
-                    .child(waveform)
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|this, event: &MouseDownEvent, _, cx| {
-                            this.dragging = true;
-                            this.seek(event.position.x, cx);
-                        }),
+        .size_full();
+        let mono = monospace_font(cx);
+        let playing = self.snapshot.playing;
+        row.child(
+            div()
+                .id("play-pause")
+                .size_7()
+                .flex()
+                .flex_shrink_0()
+                .items_center()
+                .justify_center()
+                .rounded(px(RADIUS))
+                .border_1()
+                .border_color(colors.border)
+                .bg(colors.card)
+                .shadow_xs()
+                .cursor_pointer()
+                .hover(|style| style.bg(colors.accent))
+                .child(
+                    svg()
+                        .path(if playing {
+                            "meeting/PauseIcon.svg"
+                        } else {
+                            "meeting/PlayIcon.svg"
+                        })
+                        .size(px(14.))
+                        .text_color(colors.foreground),
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.command(
+                        if playing {
+                            Command::Pause
+                        } else {
+                            Command::Play
+                        },
+                        cx,
                     )
-                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
-                        if this.dragging && event.pressed_button == Some(MouseButton::Left) {
-                            this.seek(event.position.x, cx);
-                        }
-                    }))
-                    .on_mouse_up(
-                        MouseButton::Left,
-                        cx.listener(|this, _, _, _| this.dragging = false),
-                    ),
-            )
-            .child(
+                })),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_shrink_0()
+                .items_center()
+                .gap_1()
+                .font_family(mono.clone())
+                .text_xs()
+                .line_height(px(16.))
+                .text_color(colors.muted_foreground)
+                .child(clock(position))
+                .child("/")
+                .child(clock(duration)),
+        )
+        .when(self.pro, |row| {
+            row.child(
                 div()
                     .id("playback-rate")
-                    .cursor_pointer()
-                    .text_xs()
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
+                    .h_6()
+                    .px(px(6.))
+                    .flex()
+                    .flex_shrink_0()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(RADIUS - 2.))
                     .border_1()
                     .border_color(colors.border)
-                    .child(format!("{}×", self.snapshot.rate))
+                    .bg(colors.card)
+                    .shadow_xs()
+                    .cursor_pointer()
+                    .hover(|style| style.bg(colors.accent))
+                    .font_family(mono.clone())
+                    .text_xs()
+                    .text_color(colors.muted_foreground)
+                    .child(format!("{}x", self.snapshot.rate))
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.rates_open = !this.rates_open;
                         cx.notify();
                     })),
             )
-            .when(self.rates_open, |view| {
-                view.child(
+        })
+        .child(
+            div()
+                .id("waveform")
+                .flex_1()
+                .min_w_0()
+                .h(px(HEIGHT))
+                .cursor_pointer()
+                .child(waveform)
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                        this.dragging = true;
+                        this.seek(event.position.x, cx);
+                    }),
+                )
+                .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
+                    if this.dragging && event.pressed_button == Some(MouseButton::Left) {
+                        this.seek(event.position.x, cx);
+                    }
+                }))
+                .on_mouse_up(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, _| this.dragging = false),
+                ),
+        )
+        .when(self.pro && self.rates_open, |row| {
+            row.child(
+                gpui::deferred(
                     div()
                         .absolute()
-                        .right_0()
+                        .right(px(12.))
                         .bottom(px(36.))
-                        .bg(colors.background)
+                        .py_1()
+                        .rounded_lg()
                         .border_1()
                         .border_color(colors.border)
-                        .rounded_lg()
-                        .py_1()
+                        .bg(colors.card)
+                        .shadow_md()
                         .children(RATES.into_iter().enumerate().map(|(index, rate)| {
+                            let current = rate == self.snapshot.rate;
                             div()
                                 .id(("rate", index))
                                 .px_3()
                                 .py_1()
+                                .font_family(mono.clone())
                                 .text_xs()
                                 .cursor_pointer()
-                                .when(rate == self.snapshot.rate, |view| view.bg(colors.accent))
+                                .text_color(if current {
+                                    colors.foreground
+                                } else {
+                                    colors.muted_foreground
+                                })
+                                .when(current, |item| item.font_weight(FontWeight::SEMIBOLD))
                                 .hover(|style| style.bg(colors.accent))
-                                .child(format!("{rate}×"))
+                                .child(format!("{rate}x"))
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.rates_open = false;
                                     this.command(Command::Rate(rate), cx);
                                 }))
                         })),
                 )
-            });
-        panel
+                .with_priority(1),
+            )
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn waveform_bars_keep_each_ranges_loudest_peak() {
+        let peaks = [[0.1, 0.2], [0.9, 0.1], [0.3, 0.8], [0.2, 0.2]];
+        assert_eq!(bars(&peaks, 10.), [[0.9, 0.2], [0.3, 0.8]]);
+        assert_eq!(clock(75.9), "01:15");
     }
 }

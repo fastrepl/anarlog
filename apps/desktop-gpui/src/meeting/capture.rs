@@ -5,8 +5,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anlg_audio::AudioProvider;
 use anlg_listener_core::{
-    ListenerRuntime, LiveTranscriptSegment, SessionDataEvent, SessionErrorEvent,
-    SessionLifecycleEvent, SessionProgressEvent,
+    DegradedError, ListenerRuntime, LiveTranscriptSegment, SessionDataEvent, SessionErrorEvent,
+    SessionLifecycleEvent, SessionProgressEvent, TranscriptionMode,
     actors::{RootActor, RootArgs, RootMsg, SessionParams},
 };
 use anlg_storage::StorageRuntime;
@@ -44,6 +44,14 @@ pub enum Phase {
     Failed,
 }
 
+/// Which capture channels the recorder reports working (`None` until it says either way).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Health {
+    pub mic: Option<bool>,
+    pub speaker: Option<bool>,
+    pub unavailable: bool,
+}
+
 pub struct CaptureUpdate {
     pub session: Option<SessionId>,
     pub phase: Phase,
@@ -53,6 +61,14 @@ pub struct CaptureUpdate {
     pub changes: SegmentChanges,
     pub revision: u64,
     pub resync: bool,
+    pub health: Health,
+    /// A non-channel audio error interrupted capture.
+    pub audio_interrupted: bool,
+    pub requested_live: Option<bool>,
+    pub live_active: Option<bool>,
+    pub degraded: Option<DegradedError>,
+    pub stalled: bool,
+    pub provider: Arc<str>,
 }
 
 #[derive(Clone)]
@@ -87,6 +103,12 @@ struct State {
     repair_through: u64,
     activity: Option<Activity>,
     batch: bool,
+    health: Health,
+    audio_interrupted: bool,
+    requested_live: Option<bool>,
+    live_active: Option<bool>,
+    degraded: Option<DegradedError>,
+    provider: Arc<str>,
 }
 
 impl Default for State {
@@ -114,6 +136,12 @@ impl Default for State {
             repair_through: 0,
             activity: None,
             batch: false,
+            health: Health::default(),
+            audio_interrupted: false,
+            requested_live: None,
+            live_active: None,
+            degraded: None,
+            provider: "".into(),
         }
     }
 }
@@ -168,22 +196,41 @@ impl ListenerRuntime for Adapter {
     }
 
     fn emit_error(&self, event: SessionErrorEvent) {
-        let (session, error) = match event {
-            SessionErrorEvent::AudioError { error, .. } if is_capture_signal(&error) => return,
+        let (session, error, audio) = match event {
+            SessionErrorEvent::AudioError { error, .. } if error == "audio_deletion_completed" => {
+                return;
+            }
             SessionErrorEvent::AudioError {
                 session_id, error, ..
-            }
-            | SessionErrorEvent::ConnectionError { session_id, error } => (session_id, error),
+            } => (session_id, error, true),
+            SessionErrorEvent::ConnectionError { session_id, error } => (session_id, error, false),
         };
         let mut state = self
             .state
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
+        let mut health = state.health;
+        if audio && let Some(lost) = update_health(&mut health, &error) {
+            if matches_session(&state, &session) {
+                state.health = health;
+                // A lost channel stays a recovery incident; only its display is a warning.
+                if lost {
+                    state.incomplete = true;
+                    state.repair_through = state.capture_start.elapsed().as_millis() as u64;
+                    if let Some(repair) = &state.repair {
+                        repair.recovery.incident();
+                    }
+                }
+                state.revision += 1;
+            }
+            return;
+        }
         if state
             .session
             .as_ref()
             .is_none_or(|id| id.0.as_ref() == session)
         {
+            state.audio_interrupted |= audio && !error.starts_with("audio_storage_");
             state.error = Some(failure(error));
             state.incomplete = true;
             state.repair_through = state.capture_start.elapsed().as_millis() as u64;
@@ -270,16 +317,29 @@ impl ListenerRuntime for Adapter {
     }
 }
 
-/// The listener reports capture readiness and zero-retention cleanup on the audio error channel.
-/// Shipping treats these as status signals (`updateCaptureHealth`, `audio-cleanup.ts`), not data loss.
-fn is_capture_signal(error: &str) -> bool {
-    matches!(
-        error,
-        "audio_capture_ready"
-            | "audio_mic_ready"
-            | "audio_speaker_ready"
-            | "audio_deletion_completed"
-    )
+/// The listener reports channel health on the audio error channel; shipping folds these into
+/// `captureHealth` (`updateCaptureHealth`) instead of treating them as errors. Returns whether
+/// the signal reports a lost channel, or `None` for anything else.
+fn update_health(health: &mut Health, error: &str) -> Option<bool> {
+    match error {
+        "audio_capture_ready" => health.unavailable = false,
+        "audio_capture_unavailable" => {
+            health.unavailable = true;
+            return Some(true);
+        }
+        "audio_mic_ready" => health.mic = Some(true),
+        "audio_speaker_ready" => health.speaker = Some(true),
+        _ if error.starts_with("audio_mic_unavailable:") => {
+            health.mic = Some(false);
+            return Some(true);
+        }
+        _ if error.starts_with("audio_speaker_unavailable:") => {
+            health.speaker = Some(false);
+            return Some(true);
+        }
+        _ => return None,
+    }
+    Some(false)
 }
 
 impl Adapter {
@@ -338,6 +398,38 @@ mod callback_tests {
         let state = state.lock().unwrap();
         assert!(state.incomplete);
         assert!(state.error.is_some());
+    }
+
+    #[test]
+    fn lost_channels_are_health_warnings_that_still_mark_recovery() {
+        let (events, _receiver) = mpsc::channel(1);
+        let state = Arc::new(Mutex::new(State {
+            session: Some(SessionId("fixture".into())),
+            ..State::default()
+        }));
+        let adapter = Adapter {
+            storage: Arc::new(Storage),
+            state: state.clone(),
+            events,
+            overload: tokio::sync::Notify::new(),
+        };
+        let audio = |error: &str| SessionErrorEvent::AudioError {
+            session_id: "fixture".into(),
+            error: error.into(),
+            device: None,
+            is_fatal: false,
+        };
+        adapter.emit_error(audio("audio_speaker_ready"));
+        adapter.emit_error(audio("audio_mic_unavailable: device removed"));
+        {
+            let state = state.lock().unwrap();
+            assert_eq!(state.health.mic, Some(false));
+            assert_eq!(state.health.speaker, Some(true));
+            assert!(state.incomplete && state.error.is_none() && !state.audio_interrupted);
+        }
+        adapter.emit_error(audio("audio_stream_failed"));
+        let state = state.lock().unwrap();
+        assert!(state.audio_interrupted && state.error.is_some());
     }
 }
 
@@ -598,6 +690,13 @@ impl CaptureService {
             changes,
             revision: state.revision,
             resync,
+            health: state.health,
+            audio_interrupted: state.audio_interrupted,
+            requested_live: state.requested_live,
+            live_active: state.live_active,
+            degraded: state.degraded.clone(),
+            stalled,
+            provider: state.provider.clone(),
         }
     }
 }
@@ -624,6 +723,12 @@ async fn start(
         state.session = Some(session.clone());
         state.error = None;
         state.incomplete = false;
+        state.health = Health::default();
+        state.audio_interrupted = false;
+        state.requested_live = None;
+        state.live_active = None;
+        state.degraded = None;
+        state.amplitude = (0, 0);
         state.revision += 1;
     }
     let mut config = resolver(session.clone()).await?;
@@ -665,6 +770,7 @@ async fn start(
         state.transcript = Some(transcript.clone());
         state.persistence = Some(persistence);
         state.retention = config.retention;
+        state.provider = config.provider.as_str().into();
         state.capture_start = Instant::now();
         state.activity = Some(activity);
         state.repair = config.recovery.map(|resolver| RepairContext {
@@ -767,15 +873,18 @@ async fn handle_lifecycle(
         SessionLifecycleEvent::Active {
             session_id,
             error,
+            requested_transcription_mode,
             current_transcription_mode,
-            ..
         } => {
             let mut state = shared.lock().unwrap_or_else(|poison| poison.into_inner());
             if matches_session(&state, &session_id) {
                 state.phase = Phase::Listening;
                 state.status = "Listening…".into();
-                state.batch =
-                    current_transcription_mode == anlg_listener_core::TranscriptionMode::Batch;
+                state.requested_live =
+                    Some(requested_transcription_mode == TranscriptionMode::Live);
+                state.live_active = Some(current_transcription_mode == TranscriptionMode::Live);
+                state.degraded = error.clone();
+                state.batch = current_transcription_mode == TranscriptionMode::Batch;
                 state.incomplete |= state.batch;
                 if let Some(error) = error {
                     state.error = Some(failure(format!("{error:?}")));

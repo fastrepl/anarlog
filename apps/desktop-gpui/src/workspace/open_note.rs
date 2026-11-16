@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use desktop_runtime::{
     CancellationToken, DocumentId, DocumentSnapshot, Generation, OpenSession, RenameSession,
@@ -15,6 +15,12 @@ use super::library::{OpenNote, folder_label};
 use crate::{
     contracts::{EditorInit, LaneContext, MeetingIntent, ProductRoute, WorkspaceEvent},
     editor::{EditorPane, transcript::TranscriptView},
+    meeting::{
+        MeetingServices,
+        live::{LiveState, SessionMode},
+        player_view::PlayerView,
+        widgets::{dancing_sticks, spinner},
+    },
     ui::{
         input::{InputEvent, TextInput},
         theme::{RADIUS, Theme, theme},
@@ -36,7 +42,11 @@ pub struct NoteView {
     cancellation: CancellationToken,
     rename_pending: bool,
     rename_error: bool,
-    recording: bool,
+    /// The open session's live capture mode.
+    mode: SessionMode,
+    /// Saved audio for the open session, which enables the transcript tab and its player.
+    audio: Option<PathBuf>,
+    player: Option<Entity<PlayerView>>,
     menu: bool,
     menu_index: Option<usize>,
     menu_focus: FocusHandle,
@@ -168,6 +178,14 @@ impl NoteView {
         let blur = cx.on_blur(&title.focus_handle(cx), window, |this, _, cx| {
             this.rename(cx);
         });
+        let mut subscriptions = vec![
+            input,
+            blur,
+            cx.observe_global::<MeetingServices>(|this, cx| this.load_audio(cx)),
+        ];
+        if let Some(live) = LiveState::global(cx) {
+            subscriptions.push(cx.observe(&live, |this, _, cx| this.live_changed(cx)));
+        }
         Self {
             runtime,
             title,
@@ -180,7 +198,9 @@ impl NoteView {
             cancellation: CancellationToken::new(),
             rename_pending: false,
             rename_error: false,
-            recording: false,
+            mode: SessionMode::Inactive,
+            audio: None,
+            player: None,
             menu: false,
             menu_index: None,
             menu_focus: cx.focus_handle(),
@@ -191,7 +211,7 @@ impl NoteView {
             transcript: None,
             details_task: None,
             compact_folder: false,
-            _subscriptions: vec![input, blur],
+            _subscriptions: subscriptions,
         }
     }
 
@@ -202,9 +222,51 @@ impl NoteView {
             })
     }
 
-    pub fn set_recording(&mut self, active: bool, cx: &mut Context<Self>) {
-        self.recording = active;
-        cx.notify();
+    fn live_changed(&mut self, cx: &mut Context<Self>) {
+        let Some(session) = &self.current else {
+            return;
+        };
+        let mode = LiveState::mode(cx, &session.summary.id);
+        let ended = mode == SessionMode::Inactive && self.mode != SessionMode::Inactive;
+        if mode != self.mode || mode != SessionMode::Inactive {
+            self.mode = mode;
+            cx.notify();
+        }
+        if ended {
+            // A resumed recording appends to the same file, so the player must reopen it.
+            self.player = None;
+            self.load_audio(cx);
+        }
+    }
+
+    /// Shipping's `useAudioExists`: looks for the session's saved recording.
+    fn load_audio(&mut self, cx: &mut Context<Self>) {
+        let (Some(session), Some(services)) = (&self.current, cx.try_global::<MeetingServices>())
+        else {
+            return;
+        };
+        let id = session.summary.id.clone();
+        let Ok(reply) = services.capture.audio_path(id.clone()) else {
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            let path = reply.await.ok().and_then(Result::ok);
+            let _ = this.update(cx, |this, cx| {
+                if this.current.as_ref().map(|session| &session.summary.id) != Some(&id)
+                    || this.audio == path
+                {
+                    return;
+                }
+                this.audio = path;
+                this.player = None;
+                if let Some(transcript) = &this.transcript {
+                    let audio = this.audio.is_some();
+                    transcript.update(cx, |transcript, cx| transcript.set_audio(audio, cx));
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     pub fn set_content(
@@ -255,6 +317,8 @@ impl NoteView {
         self.view = None;
         self.summary_editor = None;
         self.transcript = None;
+        self.audio = None;
+        self.player = None;
     }
 
     fn restore_title(&mut self, cx: &mut Context<Self>) {
@@ -394,7 +458,9 @@ impl NoteView {
             Some(_) => String::new(),
             None => "This session has no note document. Existing data is unchanged.".into(),
         };
+        self.mode = LiveState::mode(cx, &session.summary.id);
         self.current = Some(session);
+        self.load_audio(cx);
         cx.notify();
     }
 
@@ -502,16 +568,20 @@ impl NoteView {
             .iter()
             .map(|summary| summary.id.0.clone())
             .collect();
-        let ids = if ids.is_empty() && self.details.has_transcript && !self.recording {
+        let inactive = self.mode == SessionMode::Inactive;
+        let ids = if ids.is_empty() && self.details.has_transcript && inactive {
             summary_ids(&[], &session.summary.id, true)
         } else {
             ids
         };
-        note_tabs(&ids, self.details.has_transcript || self.recording)
+        // Shipping's `getCanShowTranscript`.
+        let transcript = self.details.has_transcript || self.audio.is_some() || !inactive;
+        note_tabs(&ids, transcript)
     }
 
     fn meeting_over(&self) -> bool {
-        !self.recording && (self.details.event_ended || self.details.has_transcript)
+        self.mode != SessionMode::Active
+            && (self.details.event_ended || self.details.has_transcript || self.audio.is_some())
     }
 
     pub(super) fn rename(&mut self, cx: &mut Context<Self>) {
@@ -577,7 +647,7 @@ impl NoteView {
             disabled,
             separator_before,
         };
-        let (listen_icon, listen_label) = if self.recording {
+        let (listen_icon, listen_label) = if self.mode != SessionMode::Inactive {
             ("editor/MicOff01Icon.svg", "Stop listening")
         } else if self.details.has_transcript {
             ("editor/Mic01Icon.svg", "Resume listening")
@@ -599,7 +669,13 @@ impl NoteView {
                 true,
                 false,
             ),
-            item(MenuAction::Listen, listen_icon, listen_label, false, true),
+            item(
+                MenuAction::Listen,
+                listen_icon,
+                listen_label,
+                self.mode == SessionMode::Finalizing,
+                true,
+            ),
             item(
                 MenuAction::Export,
                 "editor/FileDownloadIcon.svg",
@@ -676,13 +752,15 @@ impl NoteView {
 
     fn toggle_recording(&mut self, cx: &mut Context<Self>) {
         if let Some(session) = &self.current {
-            cx.emit(WorkspaceEvent::Meeting(if self.recording {
-                MeetingIntent::Stop
-            } else {
-                MeetingIntent::Start {
-                    session_id: session.summary.id.clone(),
-                }
-            }));
+            cx.emit(WorkspaceEvent::Meeting(
+                if self.mode != SessionMode::Inactive {
+                    MeetingIntent::Stop
+                } else {
+                    MeetingIntent::Start {
+                        session_id: session.summary.id.clone(),
+                    }
+                },
+            ));
         }
     }
 
@@ -811,6 +889,17 @@ impl NoteView {
         colors: Theme,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let amplitude = self
+            .current
+            .as_ref()
+            .zip(LiveState::global(cx))
+            .and_then(|(session, live)| {
+                live.read(cx)
+                    .session(&session.summary.id)
+                    .map(|live| live.amplitude)
+            })
+            .unwrap_or_default();
+        let mode = self.mode;
         div()
             .flex()
             .flex_shrink_0()
@@ -832,6 +921,37 @@ impl NoteView {
                     }
                 };
                 let target = tab.clone();
+                let transcript = matches!(tab, NoteTab::Transcript);
+                let recording = transcript && mode == SessionMode::Active;
+                let finalizing = transcript && mode == SessionMode::Finalizing;
+                let group = SharedString::from(format!("note-tab-{index}"));
+                let tab_icon = if recording {
+                    dancing_sticks(
+                        "note-tab-live",
+                        amplitude,
+                        rgb(RECORD_RED).into(),
+                        (16., 16.),
+                        (2., 1.),
+                    )
+                    .into_any_element()
+                } else if finalizing {
+                    spinner(
+                        "note-tab-finalizing",
+                        16.,
+                        if active {
+                            colors.foreground
+                        } else {
+                            colors.muted_foreground.opacity(0.7)
+                        },
+                    )
+                    .into_any_element()
+                } else if active {
+                    icon(path, size, colors.foreground).into_any_element()
+                } else {
+                    icon(path, size, colors.muted_foreground.opacity(0.7))
+                        .group_hover(group.clone(), |style| style.text_color(colors.foreground))
+                        .into_any_element()
+                };
                 div()
                     .id(("note-tab", index))
                     .h(px(24.))
@@ -865,18 +985,27 @@ impl NoteView {
                                 })
                         },
                     )
+                    // A live transcript tab is red and wide enough for its dancing sticks.
+                    .when(active && recording, |view| {
+                        let dark = is_dark(colors);
+                        view.w(px(98.))
+                            .min_w(px(98.))
+                            .bg(if dark {
+                                Hsla::from(rgb(0x450a0a)).opacity(0.5)
+                            } else {
+                                rgb(0xfef2f2).into()
+                            })
+                            .text_color(neutral(colors, RECORD_RED, 0xfca5a5))
+                            .hover(move |view| {
+                                view.bg(neutral_rgb(dark, 0xfee2e2, 0x450a0a))
+                                    .text_color(neutral_rgb(dark, 0xdc2626, 0xfecaca))
+                            })
+                    })
                     .on_click(
                         cx.listener(move |this, _, _, cx| this.select_tab(target.clone(), cx)),
                     )
-                    .group(SharedString::from(format!("note-tab-{index}")))
-                    .child(if active {
-                        icon(path, size, colors.foreground)
-                    } else {
-                        icon(path, size, colors.muted_foreground.opacity(0.7))
-                            .group_hover(SharedString::from(format!("note-tab-{index}")), |style| {
-                                style.text_color(colors.foreground)
-                            })
-                    })
+                    .group(group)
+                    .child(tab_icon)
                     .when(active, |view| {
                         view.child(
                             div()
@@ -891,9 +1020,45 @@ impl NoteView {
             }))
     }
 
-    fn meeting_control(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
+    /// Shipping's session top audio player, shown above the transcript once audio is saved.
+    fn top_player(&mut self, colors: Theme, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        if self.mode != SessionMode::Inactive {
+            return None;
+        }
+        let path = self.audio.clone()?;
+        let playback = cx.try_global::<MeetingServices>()?.playback.clone();
+        let player = self
+            .player
+            .get_or_insert_with(|| {
+                cx.new(|cx| {
+                    let mut player = PlayerView::new(playback, cx);
+                    player.open(path, cx);
+                    player
+                })
+            })
+            .clone();
+        Some(
+            div().flex_shrink_0().px_1().pt_1().pb_2().child(
+                div()
+                    .overflow_hidden()
+                    .rounded(px(22.))
+                    .border_1()
+                    .border_color(colors.border.opacity(0.7))
+                    .bg(colors.card.opacity(0.8))
+                    .child(player),
+            ),
+        )
+    }
+
+    /// Shipping's `HeaderMeetingControl`: Record, Stop while live, Share once the meeting is
+    /// over, and nothing while the transcript finalizes.
+    fn meeting_control(&self, colors: Theme, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        (self.mode != SessionMode::Finalizing).then(|| self.meeting_button(colors, cx))
+    }
+
+    fn meeting_button(&self, colors: Theme, cx: &mut Context<Self>) -> impl IntoElement {
         let share = self.meeting_over();
-        let recording = self.recording;
+        let recording = self.mode == SessionMode::Active;
         div()
             .id("record-note")
             .mx_1()
@@ -941,9 +1106,9 @@ impl NoteView {
     fn header(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = theme(window);
         let tabs = self.tabs();
-        let current = current_tab(self.view.as_ref(), self.recording, &tabs);
+        let current = current_tab(self.view.as_ref(), self.mode == SessionMode::Active, &tabs);
         let switcher = tabs.len() > 1;
-        let breadcrumb = !switcher && !self.recording && !self.meeting_over();
+        let breadcrumb = !switcher && self.mode == SessionMode::Inactive && !self.meeting_over();
         // Shipping's breadcrumb title is `w-fit` over the title and its placeholder, capped at
         // `max-w-56`; the input itself draws 14px text.
         let title_width = {
@@ -1008,7 +1173,7 @@ impl NoteView {
                     .flex_shrink_0()
                     .items_center()
                     .when(!breadcrumb, |view| view.child(self.folder_chip(colors, cx)))
-                    .child(self.meeting_control(colors, cx))
+                    .children(self.meeting_control(colors, cx))
                     .child(
                         div()
                             .id("note-more")
@@ -1201,11 +1366,11 @@ fn is_dark(colors: Theme) -> bool {
 
 /// A fixed Tailwind neutral that shipping uses instead of a theme token.
 fn neutral(colors: Theme, light: u32, dark: u32) -> Hsla {
-    if is_dark(colors) {
-        rgb(dark).into()
-    } else {
-        rgb(light).into()
-    }
+    neutral_rgb(is_dark(colors), light, dark)
+}
+
+fn neutral_rgb(dark: bool, light: u32, dark_value: u32) -> Hsla {
+    rgb(if dark { dark_value } else { light }).into()
 }
 
 /// Shipping's `SessionContentLoading` bars, without the pulse.
@@ -1261,16 +1426,31 @@ impl Render for NoteView {
         let entity = cx.entity().downgrade();
         let ready = self.current.is_some() && !self.loading;
         let tabs = self.tabs();
-        let current = current_tab(self.view.as_ref(), self.recording, &tabs);
+        let current = current_tab(self.view.as_ref(), self.mode == SessionMode::Active, &tabs);
         let body = match &current {
             NoteTab::Summary(id) if ready => self.summary_view(&id.clone(), window, cx),
             NoteTab::Transcript if ready => self.current.clone().map(|session| {
                 let runtime = self.runtime.clone();
-                self.transcript
+                let audio = self.audio.is_some();
+                let transcript = self
+                    .transcript
                     .get_or_insert_with(|| {
-                        cx.new(|cx| TranscriptView::new(runtime, session.summary.id.clone(), cx))
+                        cx.new(|cx| {
+                            let mut view =
+                                TranscriptView::new(runtime, session.summary.id.clone(), cx);
+                            view.set_audio(audio, cx);
+                            view
+                        })
                     })
-                    .clone()
+                    .clone();
+                div()
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .when_some(self.top_player(colors, cx), |view, player| {
+                        view.child(player)
+                    })
+                    .child(div().flex_1().min_h_0().child(transcript))
                     .into_any_element()
             }),
             _ => self.content.clone().map(AnyView::into_any_element),

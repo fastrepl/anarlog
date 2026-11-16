@@ -10,7 +10,7 @@ mod onboarding;
 mod pages;
 mod preferences_view;
 mod profile;
-mod provider_catalog;
+pub(crate) mod provider_catalog;
 mod providers;
 mod service_view;
 pub mod services;
