@@ -27,21 +27,23 @@ export const platformIcons = {
   Android: "simple-icons:android",
 } as const;
 
-export const mobileLaunchLabel = "Coming October";
+export const appStoreUrl = "https://apps.apple.com/app/id6807350358";
+export const googlePlayUrl =
+  "https://play.google.com/store/apps/details?id=so.anarlog.mobile";
 
 export const mobileDownloadSections = [
   {
     platform: "ios",
     name: "iOS",
-    status: mobileLaunchLabel,
-    available: false,
-    description: "The iPhone and iPad app launches in October.",
+    status: null,
+    available: true,
+    description: "Get Anarlog for iPhone on the App Store.",
     downloads: [
       {
-        name: "TestFlight",
-        detail: "iPhone and iPad · Public beta",
-        url: "https://testflight.apple.com/join/y7WJCXvG",
-        actionLabel: "Join TestFlight",
+        name: "App Store",
+        detail: "iPhone",
+        url: appStoreUrl,
+        actionLabel: "Get on the App Store",
         showInMenu: true,
       },
     ],
@@ -49,15 +51,15 @@ export const mobileDownloadSections = [
   {
     platform: "android",
     name: "Android",
-    status: mobileLaunchLabel,
-    available: false,
-    description: "The Android app launches in October on Google Play.",
+    status: null,
+    available: true,
+    description: "Get Anarlog for Android on Google Play.",
     downloads: [
       {
         name: "Google Play",
-        detail: "Android · Open beta",
-        url: "https://play.google.com/apps/testing/so.anarlog.mobile",
-        actionLabel: "Join open beta",
+        detail: "Android",
+        url: googlePlayUrl,
+        actionLabel: "Get on Google Play",
         showInMenu: true,
       },
     ],
