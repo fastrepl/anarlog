@@ -8,18 +8,6 @@ publish = false
 
 [profile.dev]
 debug = false
-# Rust 1.94's debug-info stripping can produce dylibs rejected by macOS 27.
-# https://github.com/rust-lang/rust/issues/157750
-strip = "none"
-
-[profile.release]
-strip = "none"
-
-[profile.dev.build-override]
-debug = true
-
-[profile.release.build-override]
-debug = true
 
 [profile.dev.package."*"]
 opt-level = 1
@@ -32,10 +20,16 @@ path = "src/main.rs"
 anlg-tiptap = { path = "../../crates/tiptap", package = "tiptap" }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-gpui = "=0.2.2"
+# crates.io 0.2.2 predates upstream's AccessKit integration and platform split; pin the
+# official source instead. Bump every revision together with rust-toolchain.toml.
+gpui = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af" }
+# Without `font-kit` the macOS backend installs a no-op text system and draws no glyphs.
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["font-kit"] }
 serde_json = "1"
 sqlx = { version = "=0.9.0-alpha.1", default-features = false, features = ["runtime-tokio", "sqlite"] }
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+unicode-segmentation = "1"
 
 [dev-dependencies]
+gpui = { git = "https://github.com/zed-industries/zed", rev = "053d91cb14b5fd138f221ec02bd76efb15e7b2af", features = ["test-support"] }
 tempfile = "3"

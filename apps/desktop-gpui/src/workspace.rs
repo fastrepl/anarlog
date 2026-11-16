@@ -1,11 +1,14 @@
 use std::path::PathBuf;
 
 use gpui::{
-    Context, FocusHandle, ScrollHandle, SharedString, Task, UniformListScrollHandle, Window,
-    actions, div, prelude::*, px, rgb, uniform_list,
+    Context, Entity, FocusHandle, Focusable, Role, ScrollHandle, SharedString, Subscription, Task,
+    UniformListScrollHandle, Window, actions, div, prelude::*, px, rgb, text, uniform_list,
 };
 
-use crate::library::{Library, PAGE_SIZE, Session};
+use crate::{
+    library::{Library, PAGE_SIZE, Session},
+    text_input::{Changed, TextInput},
+};
 
 actions!(
     library,
@@ -16,7 +19,9 @@ actions!(
         Next,
         Previous,
         NextPage,
-        PreviousPage
+        PreviousPage,
+        FocusFilter,
+        Dismiss
     ]
 );
 
@@ -32,6 +37,8 @@ pub struct Workspace {
     status: SharedString,
     note: SharedString,
     focus: FocusHandle,
+    filter: Entity<TextInput>,
+    _filter_changed: Subscription,
     list_scroll: UniformListScrollHandle,
     note_scroll: ScrollHandle,
     load_task: Option<Task<()>>,
@@ -49,7 +56,12 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) -> Self {
         let focus = cx.focus_handle();
-        focus.focus(window);
+        focus.focus(window, cx);
+        let filter = cx.new(|cx| TextInput::new("filter", "Filter by title", cx));
+        let filter_changed = cx.subscribe(&filter, |this, _, _: &Changed, cx| {
+            this.offset = 0;
+            this.reload(cx);
+        });
         let mut workspace = Self {
             database,
             runtime,
@@ -62,6 +74,8 @@ impl Workspace {
             status: "No library selected".into(),
             note: "Choose Open Library to browse an existing app.db.\n\nThis native preview opens the database read-only. Notes appear as Markdown; editing and recording are not available yet.".into(),
             focus,
+            filter,
+            _filter_changed: filter_changed,
             list_scroll: UniformListScrollHandle::new(),
             note_scroll: ScrollHandle::new(),
             load_task: None,
@@ -123,12 +137,14 @@ impl Workspace {
         self.note = "Select a note to preview it.".into();
         let library = self.library.clone();
         let offset = self.offset;
+        let filter = self.filter.read(cx).text().trim().to_owned();
+        let filtered = !filter.is_empty();
         let job = self.runtime.spawn(async move {
             let library = match library {
                 Some(library) => library,
                 None => Library::open(&path).await?,
             };
-            let (sessions, has_more) = library.sessions(offset).await?;
+            let (sessions, has_more) = library.sessions(offset, &filter).await?;
             anyhow::Ok((library, sessions, has_more))
         });
         self.load_abort = Some(job.abort_handle());
@@ -144,7 +160,9 @@ impl Workspace {
                         this.library = Some(library);
                         this.sessions = sessions;
                         this.has_more = has_more;
-                        this.status = if this.sessions.is_empty() {
+                        this.status = if this.sessions.is_empty() && filtered {
+                            "No titles match".into()
+                        } else if this.sessions.is_empty() {
                             "No notes on this page".into()
                         } else {
                             format!(
@@ -223,6 +241,16 @@ impl Workspace {
             self.reload(cx);
         }
     }
+
+    /// Escape clears the filter and returns the keyboard to the note list.
+    fn dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.filter.update(cx, |filter, cx| {
+            if !filter.text().is_empty() {
+                filter.clear(window, cx);
+            }
+        });
+        self.focus.focus(window, cx);
+    }
 }
 
 impl Drop for Workspace {
@@ -257,7 +285,11 @@ impl Render for Workspace {
             .bg(rgb(0xfafaf9))
             .text_color(rgb(0x292524))
             .key_context("Library")
-            .track_focus(&self.focus)
+            .on_action(cx.listener(|this, _: &FocusFilter, window, cx| {
+                let filter = this.filter.focus_handle(cx);
+                window.focus(&filter, cx);
+            }))
+            .on_action(cx.listener(|this, _: &Dismiss, window, cx| this.dismiss(window, cx)))
             .on_action(cx.listener(|this, _: &OpenLibrary, _, cx| this.open_library(cx)))
             .on_action(cx.listener(|this, _: &Reload, _, cx| this.reload(cx)))
             .on_action(cx.listener(|this, _: &NextPage, _, cx| this.next_page(cx)))
@@ -288,6 +320,8 @@ impl Render for Workspace {
                     .child(
                         div()
                             .id("open-library")
+                            .role(Role::Button)
+                            .aria_label("Open Library")
                             .px_5()
                             .pb_3()
                             .text_sm()
@@ -295,46 +329,96 @@ impl Render for Workspace {
                             .child("Open Library…")
                             .on_click(cx.listener(|this, _, _, cx| this.open_library(cx))),
                     )
-                    .child(div().px_5().pb_3().text_sm().child(self.status.clone()))
                     .child(
-                        uniform_list(
-                            "sessions",
-                            self.sessions.len(),
-                            cx.processor(|this, range: std::ops::Range<usize>, _, cx| {
-                                range
-                                    .map(|index| {
-                                        let session = &this.sessions[index];
-                                        div()
-                                            .id(index)
-                                            .h(px(64.))
-                                            .px_5()
-                                            .py_2()
-                                            .cursor_pointer()
-                                            .when(this.selected == Some(index), |row| {
-                                                row.bg(rgb(0xe7e5e4))
-                                            })
-                                            .hover(|style| style.bg(rgb(0xf0efed)))
-                                            .on_click(cx.listener(move |this, _, window, cx| {
-                                                this.focus.focus(window);
-                                                this.select(index, cx);
-                                            }))
-                                            .child(div().text_ellipsis().child(
-                                                if session.title.is_empty() {
-                                                    "Untitled note".to_owned()
+                        div()
+                            .mx_5()
+                            .mb_3()
+                            .px_2()
+                            .py_1()
+                            .text_sm()
+                            .rounded_md()
+                            .border_1()
+                            .border_color(rgb(0xd6d3d1))
+                            .bg(rgb(0xffffff))
+                            .child(self.filter.clone()),
+                    )
+                    .child(
+                        div()
+                            .id("status")
+                            .role(Role::Status)
+                            .aria_label(self.status.clone())
+                            .px_5()
+                            .pb_3()
+                            .text_sm()
+                            .child(self.status.clone()),
+                    )
+                    .child(
+                        // The list keeps keyboard focus; the selected row is its active descendant.
+                        div()
+                            .id("notes")
+                            .role(Role::ListBox)
+                            .aria_label("Notes")
+                            .track_focus(&self.focus)
+                            .key_context("NoteList")
+                            .flex_1()
+                            .min_h_0()
+                            .flex()
+                            .flex_col()
+                            .child(
+                                uniform_list(
+                                    "sessions",
+                                    self.sessions.len(),
+                                    cx.processor(|this, range: std::ops::Range<usize>, _, cx| {
+                                        range
+                                            .map(|index| {
+                                                let session = &this.sessions[index];
+                                                let title = if session.title.is_empty() {
+                                                    "Untitled note"
                                                 } else {
-                                                    session.title.clone()
-                                                },
-                                            ))
-                                            .child(div().text_xs().text_color(rgb(0x78716c)).child(
-                                                session.date.chars().take(10).collect::<String>(),
-                                            ))
-                                    })
-                                    .collect::<Vec<_>>()
-                            }),
-                        )
-                        .track_scroll(self.list_scroll.clone())
-                        .flex_1()
-                        .min_h_0(),
+                                                    &session.title
+                                                };
+                                                let date: String =
+                                                    session.date.chars().take(10).collect();
+                                                div()
+                                                    .id(index)
+                                                    .role(Role::ListBoxOption)
+                                                    .aria_label(format!("{title}, {date}"))
+                                                    .aria_selected(this.selected == Some(index))
+                                                    .aria_position_in_set(this.offset + index + 1)
+                                                    .h(px(64.))
+                                                    .px_5()
+                                                    .py_2()
+                                                    .cursor_pointer()
+                                                    .when(this.selected == Some(index), |row| {
+                                                        row.aria_active_descendant()
+                                                            .bg(rgb(0xe7e5e4))
+                                                    })
+                                                    .hover(|style| style.bg(rgb(0xf0efed)))
+                                                    .on_click(cx.listener(
+                                                        move |this, _, window, cx| {
+                                                            this.focus.focus(window, cx);
+                                                            this.select(index, cx);
+                                                        },
+                                                    ))
+                                                    .child(
+                                                        div()
+                                                            .text_ellipsis()
+                                                            .child(title.to_owned()),
+                                                    )
+                                                    .child(
+                                                        div()
+                                                            .text_xs()
+                                                            .text_color(rgb(0x78716c))
+                                                            .child(date),
+                                                    )
+                                            })
+                                            .collect::<Vec<_>>()
+                                    }),
+                                )
+                                .track_scroll(&self.list_scroll)
+                                .flex_1()
+                                .min_h_0(),
+                            ),
                     )
                     .child(
                         div()
@@ -345,6 +429,8 @@ impl Render for Workspace {
                             .child(
                                 div()
                                     .id("previous")
+                                    .role(Role::Button)
+                                    .aria_label("Previous page")
                                     .cursor_pointer()
                                     .child("← Previous")
                                     .on_click(cx.listener(|this, _, _, cx| this.previous_page(cx))),
@@ -352,6 +438,8 @@ impl Render for Workspace {
                             .child(
                                 div()
                                     .id("next")
+                                    .role(Role::Button)
+                                    .aria_label("Next page")
                                     .cursor_pointer()
                                     .child("Next →")
                                     .on_click(cx.listener(|this, _, _, cx| this.next_page(cx))),
@@ -359,6 +447,8 @@ impl Render for Workspace {
                             .child(
                                 div()
                                     .id("reload")
+                                    .role(Role::Button)
+                                    .aria_label("Reload library")
                                     .cursor_pointer()
                                     .child("Reload")
                                     .on_click(cx.listener(|this, _, _, cx| this.reload(cx))),
@@ -378,7 +468,15 @@ impl Render for Workspace {
                             .py_6()
                             .border_b_1()
                             .border_color(rgb(0xe7e5e4))
-                            .child(div().text_2xl().child(title))
+                            .child(
+                                div()
+                                    .id("title")
+                                    .role(Role::Heading)
+                                    .aria_level(1)
+                                    .aria_label(title.clone())
+                                    .text_2xl()
+                                    .child(title),
+                            )
                             .child(
                                 div()
                                     .mt_2()
@@ -390,13 +488,44 @@ impl Render for Workspace {
                     .child(
                         div()
                             .id("note")
+                            .role(Role::Document)
+                            .aria_label("Note")
                             .flex_1()
                             .min_h_0()
                             .overflow_y_scroll()
                             .track_scroll(&self.note_scroll)
                             .p_8()
-                            .child(self.note.clone()),
+                            .child(text!(id = "body", self.note.clone())),
                     ),
             )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::TestAppContext;
+
+    use super::*;
+
+    #[gpui::test]
+    fn filters_from_the_keyboard(cx: &mut TestAppContext) {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let handle = runtime.handle().clone();
+        let (workspace, cx) =
+            cx.add_window_view(|window, cx| Workspace::new(None, handle, window, cx));
+        cx.update(|_, cx| cx.bind_keys(crate::key_bindings()));
+
+        cx.simulate_keystrokes(secondary!("f"));
+        cx.simulate_input("회의");
+        workspace.update_in(cx, |workspace, window, cx| {
+            assert_eq!(workspace.filter.read(cx).text(), "회의");
+            assert!(workspace.filter.focus_handle(cx).is_focused(window));
+        });
+
+        cx.simulate_keystrokes("escape");
+        workspace.update_in(cx, |workspace, window, cx| {
+            assert_eq!(workspace.filter.read(cx).text(), "");
+            assert!(workspace.focus.is_focused(window));
+        });
     }
 }

@@ -31,12 +31,22 @@ impl Library {
         Ok(Self(pool))
     }
 
-    pub async fn sessions(&self, offset: usize) -> Result<(Vec<Session>, bool)> {
+    /// One page of sessions whose title contains `filter`; an empty filter matches all.
+    pub async fn sessions(&self, offset: usize, filter: &str) -> Result<(Vec<Session>, bool)> {
+        // The filter is literal text, so LIKE's own wildcards are escaped.
+        let pattern = format!(
+            "%{}%",
+            filter
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_")
+        );
         let rows = sqlx::query(
             "SELECT id, title, COALESCE(NULLIF(started_at, ''), created_at) AS date
-             FROM sessions WHERE deleted_at IS NULL
+             FROM sessions WHERE deleted_at IS NULL AND title LIKE ? ESCAPE '\\'
              ORDER BY date DESC, created_at DESC, id DESC LIMIT ? OFFSET ?",
         )
+        .bind(pattern)
         .bind((PAGE_SIZE + 1) as i64)
         .bind(i64::try_from(offset)?)
         .fetch_all(&self.0)
@@ -129,14 +139,62 @@ mod tests {
             }
             writer.close().await;
             let library = Library::open(&path).await?;
-            let (first, has_more) = library.sessions(0).await?;
+            let (first, has_more) = library.sessions(0, "").await?;
             assert_eq!(first.len(), PAGE_SIZE);
             assert!(has_more);
-            let (last, has_more) = library.sessions(PAGE_SIZE).await?;
+            let (last, has_more) = library.sessions(PAGE_SIZE, "").await?;
             assert_eq!(last.len(), 1);
             assert!(!has_more);
             assert_eq!(last[0].id, "note-0000");
             assert!(!first.iter().any(|session| session.id == last[0].id));
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn filters_titles_as_literal_text() -> Result<()> {
+        tokio::runtime::Runtime::new()?.block_on(async {
+            let directory = tempfile::tempdir()?;
+            let path = directory.path().join("app.db");
+            let writer = SqlitePool::connect_with(
+                SqliteConnectOptions::new()
+                    .filename(&path)
+                    .create_if_missing(true),
+            )
+            .await?;
+            sqlx::raw_sql(include_str!(
+                "../../../crates/db-app/migrations/20260710223922_canonical_data_model.sql"
+            ))
+            .execute(&writer)
+            .await?;
+            for (id, title) in [
+                ("percent", "100% done"),
+                ("plain", "100 done"),
+                ("underscore", "a_b"),
+                ("letter", "axb"),
+                ("korean", "주간 회의록"),
+                ("untitled", ""),
+            ] {
+                sqlx::query("INSERT INTO sessions (id, title) VALUES (?, ?)")
+                    .bind(id)
+                    .bind(title)
+                    .execute(&writer)
+                    .await?;
+            }
+            writer.close().await;
+            let library = Library::open(&path).await?;
+            let matching = async |filter: &str| -> Result<Vec<String>> {
+                let (sessions, _) = library.sessions(0, filter).await?;
+                let mut ids: Vec<String> = sessions.into_iter().map(|session| session.id).collect();
+                ids.sort();
+                Ok(ids)
+            };
+            assert_eq!(matching("").await?.len(), 6);
+            assert_eq!(matching("100%").await?, ["percent"]);
+            assert_eq!(matching("a_b").await?, ["underscore"]);
+            assert_eq!(matching("회의").await?, ["korean"]);
+            assert_eq!(matching("DONE").await?, ["percent", "plain"]);
+            assert!(matching("\\").await?.is_empty());
             Ok(())
         })
     }
@@ -168,7 +226,7 @@ mod tests {
             writer.close().await;
             let before = std::fs::read(&path)?;
             let library = Library::open(&path).await?;
-            let (sessions, has_more) = library.sessions(0).await?;
+            let (sessions, has_more) = library.sessions(0, "").await?;
             assert_eq!(sessions.len(), 1);
             assert_eq!(sessions[0].id, "active");
             assert!(!has_more);

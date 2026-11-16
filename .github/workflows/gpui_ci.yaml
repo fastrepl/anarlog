@@ -5,7 +5,6 @@ on:
       - apps/desktop-gpui/**
       - crates/tiptap/**
       - crates/db-app/migrations/**
-      - rust-toolchain.toml
       - Cargo.toml
       - .cargo/config.toml
       - .github/workflows/gpui_ci.yaml
@@ -15,7 +14,6 @@ on:
       - apps/desktop-gpui/**
       - crates/tiptap/**
       - crates/db-app/migrations/**
-      - rust-toolchain.toml
       - Cargo.toml
       - .cargo/config.toml
       - .github/workflows/gpui_ci.yaml
@@ -30,12 +28,16 @@ concurrency:
 jobs:
   macos:
     runs-on: macos-26
+    defaults:
+      run:
+        # The app pins its own toolchain; rustup resolves it from this directory.
+        working-directory: apps/desktop-gpui
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
       - run: rustup show
-      - run: cargo fmt --manifest-path apps/desktop-gpui/Cargo.toml --check
-      - run: cargo test --locked --manifest-path apps/desktop-gpui/Cargo.toml
-      - run: cargo clippy --locked --manifest-path apps/desktop-gpui/Cargo.toml --all-targets --no-deps -- -D warnings
-      - run: cargo build --locked --manifest-path apps/desktop-gpui/Cargo.toml
+      - run: cargo fmt --check
+      - run: cargo test --locked
+      - run: cargo clippy --locked --all-targets --no-deps -- -D warnings
+      - run: cargo build --locked
