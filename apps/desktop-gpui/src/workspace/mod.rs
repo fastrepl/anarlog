@@ -6,6 +6,7 @@ pub mod calendar_sidebar;
 mod catalog;
 mod catalog_editor;
 pub mod catalog_icons;
+mod contacts;
 pub mod folders;
 pub mod folders_view;
 mod icon_picker;

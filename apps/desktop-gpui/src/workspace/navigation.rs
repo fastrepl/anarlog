@@ -46,13 +46,25 @@ impl Route {
     }
 
     pub fn same_resource(&self, other: &Self) -> bool {
-        matches!((self, other), (Self::Settings(_), Self::Settings(_))) || self == other
+        matches!((self, other), (Self::Settings(_), Self::Settings(_)))
+            || (self.contacts() && other.contacts())
+            || self == other
+    }
+
+    /// Shipping shows people and organizations inside its single contacts tab.
+    pub fn contacts(&self) -> bool {
+        matches!(
+            self,
+            Self::Contacts | Self::Human(_) | Self::Organization(_)
+        )
     }
 
     pub fn custom_sidebar(&self) -> bool {
         matches!(
             self,
             Self::Contacts
+                | Self::Human(_)
+                | Self::Organization(_)
                 | Self::Templates
                 | Self::Automations
                 | Self::Folders

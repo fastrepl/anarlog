@@ -105,24 +105,6 @@ impl CatalogView {
         editor.update(cx, |editor, _| editor.set_automation_client(client));
     }
 
-    pub fn select_resource(&mut self, kind: &'static str, id: Arc<str>, cx: &mut Context<Self>) {
-        let row = self
-            .page
-            .rows
-            .iter()
-            .find(|row| row.kind.as_ref() == kind && row.id == id)
-            .cloned()
-            .unwrap_or(CatalogRow {
-                kind: kind.into(),
-                id,
-                title: "".into(),
-                subtitle: "".into(),
-                pinned: false,
-                self_contact: false,
-            });
-        self.choose(row, cx);
-    }
-
     pub fn suspend(&mut self, cx: &mut Context<Self>) {
         self.cancel.cancel();
         self.generation.advance();

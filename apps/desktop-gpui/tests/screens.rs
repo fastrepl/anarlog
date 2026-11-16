@@ -165,6 +165,7 @@ fn main() {
     capture(&mut cx, window, &out, "search-keyboard");
     type_text(&mut cx, window, &["escape"]);
     meeting(&mut cx, window, profile.path(), &out);
+    contacts(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -177,7 +178,6 @@ fn main() {
         ),
         ("note-empty", Route::Session(SessionId("s-welcome".into()))),
         ("calendar", Route::Calendar),
-        ("contacts", Route::Contacts),
         ("templates", Route::Templates),
         ("folders", Route::Folders),
         ("settings", Route::Settings("app".into())),
@@ -680,6 +680,55 @@ fn templates_and_folders(
     click(cx, window, 840., 66.);
     capture(cx, window, out, "folders-delete");
     click(cx, window, 10., 590.);
+}
+
+/// People, organizations and their menus, by window position.
+fn contacts(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    for (name, route) in [
+        ("contacts", Route::Contacts),
+        ("contacts-person", Route::Human("h-maya".into())),
+        ("contacts-duplicate", Route::Human("h-jordan".into())),
+        ("contacts-photo", Route::Human("h-priya".into())),
+        (
+            "contacts-organization",
+            Route::Organization("org-northwind".into()),
+        ),
+        ("contacts-team", Route::Organization("org-team".into())),
+    ] {
+        open(cx, window, route);
+        capture(cx, window, out, name);
+    }
+    open(cx, window, Route::Human("h-maya".into()));
+    click(cx, window, 892., 24.);
+    capture(cx, window, out, "contacts-options");
+    click(cx, window, 892., 24.);
+    pointer(cx, window, 847., 24.);
+    capture(cx, window, out, "contacts-enrich");
+    open(cx, window, Route::Human("h-taylor".into()));
+    click(cx, window, 393., 293.);
+    capture(cx, window, out, "contacts-company");
+    click(cx, window, 700., 580.);
+    click(cx, window, 182., 23.);
+    capture(cx, window, out, "contacts-new-person");
+    type_text(cx, window, &["escape"]);
+    open(cx, window, Route::Human("h-maya".into()));
+    pointer(cx, window, 600., 400.);
+    input(
+        cx,
+        window,
+        [PlatformInput::Scroll(ScrollEvent {
+            position: point(px(600.), px(400.)),
+            delta: ScrollDelta::Pixels(point(px(0.), px(-700.))),
+            modifiers: Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
+        })],
+    );
+    capture(cx, window, out, "contacts-scrolled");
 }
 
 fn chat(

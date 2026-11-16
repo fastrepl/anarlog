@@ -19,6 +19,7 @@ use super::{
     calendar::{CalendarFolders, CalendarOpen, CalendarView, Clock},
     calendar_sidebar::{CalendarSidebar, CalendarSidebarEvent},
     catalog::CatalogView,
+    contacts::{Contacts, ContactsEvent, Selection},
     folders_view::{FoldersEvent, FoldersView},
     library::{LibraryView, OpenNote},
     navigation::{Navigation, Route, SidebarState, SlotId},
@@ -60,6 +61,7 @@ pub struct WorkspaceView {
     pub(super) calendar_sidebar: Entity<CalendarSidebar>,
     pub(super) templates: Entity<TemplatesView>,
     pub(super) folders: Entity<FoldersView>,
+    pub(super) contacts: Option<Entity<Contacts>>,
     pub(super) chat: Entity<ChatView>,
     pub(super) active_catalog: Option<Catalog>,
     pub(super) navigation: Navigation,
@@ -353,6 +355,7 @@ impl WorkspaceView {
             calendar_sidebar,
             templates,
             folders,
+            contacts: None,
             chat,
             active_catalog: None,
             navigation,
@@ -634,13 +637,11 @@ impl WorkspaceView {
         self.folders.update(cx, |folders, cx| {
             folders.set_signed_in(viewer.is_some(), cx)
         });
-        for (kind, catalog) in &self.catalogs {
-            catalog.update(cx, |catalog, cx| {
-                catalog.set_viewer(viewer.clone());
-                if *kind == Catalog::Contacts && self.active_catalog == Some(Catalog::Contacts) {
-                    catalog.load(cx);
-                }
-            });
+        if let Some(contacts) = &self.contacts {
+            contacts.update(cx, |contacts, cx| contacts.set_viewer(viewer.clone(), cx));
+        }
+        for (_, catalog) in &self.catalogs {
+            catalog.update(cx, |catalog, _| catalog.set_viewer(viewer.clone()));
         }
     }
 
@@ -858,8 +859,8 @@ impl WorkspaceView {
                 folders.suspend(cx);
             }
         });
+        self.sync_contacts(&route, cx);
         let catalog = match route {
-            Route::Contacts | Route::Human(_) | Route::Organization(_) => Some(Catalog::Contacts),
             Route::Automations => Some(Catalog::Automations),
             _ => None,
         };
@@ -899,19 +900,6 @@ impl WorkspaceView {
         if catalog.is_none() && self.library_stale {
             self.reload(cx);
         }
-        let contact = match &route {
-            Route::Human(id) => Some(("human", id)),
-            Route::Organization(id) => Some(("organization", id)),
-            _ => None,
-        };
-        if let Some((kind, id)) = contact
-            && let Some((_, view)) = self
-                .catalogs
-                .iter()
-                .find(|(catalog, _)| *catalog == Catalog::Contacts)
-        {
-            view.update(cx, |view, cx| view.select_resource(kind, id.clone(), cx));
-        }
         if let Route::Folder(id) = &route {
             self.folders
                 .update(cx, |folders, cx| folders.select_id(id.clone(), cx));
@@ -935,6 +923,45 @@ impl WorkspaceView {
                 .any(|tab| tab.route == Route::Session(id.clone()))
         });
         cx.notify();
+    }
+
+    /// Contacts, people and organizations share shipping's contacts tab.
+    fn sync_contacts(&mut self, route: &Route, cx: &mut Context<Self>) {
+        let selection = match route {
+            Route::Contacts => None,
+            Route::Human(id) => Some(Selection::Person(id.to_string().into())),
+            Route::Organization(id) => Some(Selection::Organization(id.to_string().into())),
+            _ => {
+                if let Some(contacts) = &self.contacts {
+                    contacts.update(cx, |contacts, _| contacts.suspend());
+                }
+                return;
+            }
+        };
+        let contacts = match &self.contacts {
+            Some(contacts) => contacts.clone(),
+            None => {
+                let contacts = cx.new(|cx| Contacts::new(self.runtime.clone(), cx));
+                contacts.update(cx, |contacts, cx| {
+                    contacts.set_viewer(self.viewer.clone(), cx)
+                });
+                self.subscriptions.push(cx.subscribe(
+                    &contacts,
+                    |this, _, event: &ContactsEvent, cx| match event {
+                        ContactsEvent::Back => this.leave_overlay(cx),
+                        ContactsEvent::OpenNote(id) => this.open_session(id.clone(), cx),
+                    },
+                ));
+                self.contacts = Some(contacts.clone());
+                contacts
+            }
+        };
+        contacts.update(cx, |contacts, cx| {
+            contacts.activate(cx);
+            if selection.is_some() {
+                contacts.select(selection, cx);
+            }
+        });
     }
 
     fn watch(&mut self, cx: &mut Context<Self>) {

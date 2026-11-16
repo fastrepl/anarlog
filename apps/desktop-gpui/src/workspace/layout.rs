@@ -86,6 +86,7 @@ impl Render for WorkspaceView {
             ),
             _ => None,
         };
+        let contacts = self.contacts.clone().filter(|_| route.contacts());
         let sidebar = if route == Route::Calendar {
             div()
                 .w(px(self.sidebar.width()))
@@ -99,6 +100,11 @@ impl Render for WorkspaceView {
                 .h_full()
                 .flex_shrink_0()
                 .child(nav)
+        } else if let Some(contacts) = &contacts {
+            let list = contacts.read(cx).list();
+            let width = self.sidebar.width();
+            list.update(cx, |list, cx| list.set_width(width, cx));
+            div().w(px(width)).h_full().flex_shrink_0().child(list)
         } else {
             div()
                 .w(px(self.sidebar.width()))
@@ -212,6 +218,7 @@ impl Render for WorkspaceView {
                         |view, content| view.child(content),
                     )
                     .when(self.route_content.is_none(), |view| match &route {
+                        _ if contacts.is_some() => view.child(contacts.clone().unwrap()),
                         Route::Session(_) => view.child(self.note.clone()),
                         Route::Calendar => view.child(self.calendar.clone()),
                         Route::Templates => view.child(self.templates.clone()),

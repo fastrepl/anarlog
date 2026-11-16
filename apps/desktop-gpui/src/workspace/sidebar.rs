@@ -153,7 +153,7 @@ fn menu_item(
 }
 
 /// The shipping `AppFloatingPanel` inside its chrome ring.
-fn floating_panel(width: f32, colors: Theme) -> gpui::Div {
+pub(super) fn floating_panel(width: f32, colors: Theme) -> gpui::Div {
     div()
         .w(px(width))
         .p(px(2.))
@@ -164,7 +164,7 @@ fn floating_panel(width: f32, colors: Theme) -> gpui::Div {
         .shadow_lg()
 }
 
-fn floating_panel_body(colors: Theme) -> gpui::Div {
+pub(super) fn floating_panel_body(colors: Theme) -> gpui::Div {
     div()
         .p(px(6.))
         .rounded(px(20.))
