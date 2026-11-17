@@ -103,6 +103,9 @@ impl Drafts {
 pub struct ChatView {
     runtime: RuntimeHandle,
     workspace: WeakEntity<WorkspaceView>,
+    /// A standalone note window's chat: summary suggestions follow that note, and the main
+    /// window's sidebar is left alone.
+    note: Option<WeakEntity<crate::workspace::NoteView>>,
     mode: ChatMode,
     route: Route,
     context: Option<SessionId>,
@@ -192,6 +195,7 @@ impl ChatView {
         Self {
             runtime,
             workspace,
+            note: None,
             mode: ChatMode::FloatingClosed,
             route: Route::Empty,
             context: None,
@@ -237,6 +241,10 @@ impl ChatView {
             _reviews: review_task,
             _subscription: subscription,
         }
+    }
+
+    pub fn set_note(&mut self, note: WeakEntity<crate::workspace::NoteView>) {
+        self.note = Some(note);
     }
 
     pub fn mode(&self) -> ChatMode {
@@ -287,7 +295,7 @@ impl ChatView {
         if !mode.is_open() {
             self.cancel_voice(cx);
         }
-        if was_right == is_right {
+        if was_right == is_right || self.note.is_some() {
             return;
         }
         // Workspace may be mid-update when it forwards navigation or shortcuts here.
@@ -454,10 +462,13 @@ impl ChatView {
     fn summary_shown(&self, cx: &gpui::App) -> bool {
         self.context.is_some()
             && matches!(self.route, Route::Session(_))
-            && self
-                .workspace
-                .read_with(cx, |workspace, cx| workspace.editable_summary_shown(cx))
-                .unwrap_or(false)
+            && match &self.note {
+                Some(note) => note.read_with(cx, |note, _| note.editable_summary_shown()),
+                None => self
+                    .workspace
+                    .read_with(cx, |workspace, cx| workspace.editable_summary_shown(cx)),
+            }
+            .unwrap_or(false)
     }
 
     fn submit_draft(&mut self, cx: &mut Context<Self>) {

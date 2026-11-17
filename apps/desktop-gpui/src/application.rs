@@ -4,6 +4,7 @@ pub mod instruction;
 pub(crate) mod lifecycle;
 pub mod lock;
 mod meeting_schedule;
+mod note_windows;
 mod notifications;
 pub mod toasts;
 mod updates;
@@ -709,69 +710,20 @@ impl ApplicationView {
                         .options(None, cx)?;
                     let runtime = this.runtime.clone();
                     let vault = this.editor_vault.clone();
-                    if note.note.is_none() {
-                        return Err(ServiceError::Conflict);
-                    }
+                    let workspace = this.workspace.downgrade();
                     let window = cx
                         .open_window(options, move |window, cx| {
                             cx.new(|cx| {
                                 crate::note_window::NoteWindow::new(
-                                    runtime, note, vault, window, cx,
+                                    runtime, note, vault, workspace, window, cx,
                                 )
-                                .expect("note checked above")
                             })
                         })
                         .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
                     let view = window
                         .update(cx, |_, _, cx| cx.entity())
                         .map_err(|error| ServiceError::Failed(error.to_string().into()))?;
-                    let subscriptions = vec![
-                        cx.subscribe(&view, |this, _, event: &EditorEvent, cx| match event {
-                            EditorEvent::OpenLink(url)
-                                if url.starts_with("https://")
-                                    || url.starts_with("http://")
-                                    || url.starts_with("mailto:") =>
-                            {
-                                cx.open_url(url)
-                            }
-                            EditorEvent::MentionHuman(id) => {
-                                this.workspace.update(cx, |view, cx| {
-                                    view.open_route(Route::Human(id.0.clone()), false, cx)
-                                })
-                            }
-                            _ => {}
-                        }),
-                        cx.subscribe(&view, |this, _, event: &EditorRequest, cx| match event {
-                            EditorRequest::OpenSession(id) => {
-                                this.open_note_window(Some(id.clone().into()), cx)
-                            }
-                            EditorRequest::OpenOrganization(id) => {
-                                this.workspace.update(cx, |view, cx| {
-                                    view.open_route(
-                                        Route::Organization(id.clone().into()),
-                                        false,
-                                        cx,
-                                    )
-                                })
-                            }
-                            EditorRequest::MentionSearch { .. } => {}
-                        }),
-                        cx.subscribe(&view, |this, _, event: &MeetingEvent, cx| match event {
-                            MeetingEvent::NoteEnhanced(id) => {
-                                this.workspace.update(cx, |view, cx| {
-                                    view.run_automations(
-                                        crate::workspace::automation_runner::Trigger::NoteEnhanced,
-                                        id.clone(),
-                                        cx,
-                                    )
-                                })
-                            }
-                            MeetingEvent::OpenSession(id) => {
-                                this.open_note_window(Some(id.clone()), cx)
-                            }
-                            _ => {}
-                        }),
-                    ];
+                    let subscriptions = this.note_window_subscriptions(&view, cx);
                     this.note_subscriptions.insert(id.clone(), subscriptions);
                     this.note_windows.insert(id, window);
                     Ok(())
@@ -965,13 +917,7 @@ impl ApplicationView {
                     self.editor_subscriptions.clear();
                     self.editor = None;
                 }
-                // Like shipping, a deleted note's standalone window closes.
-                for id in ids.iter() {
-                    self.note_subscriptions.remove(id);
-                    if let Some(window) = self.note_windows.remove(id) {
-                        let _ = window.update(cx, |_, window, _| window.remove_window());
-                    }
-                }
+                self.close_note_windows(ids, cx);
                 cx.notify();
             }
             WorkspaceEvent::OpenEditor {

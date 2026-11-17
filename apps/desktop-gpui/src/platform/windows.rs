@@ -145,7 +145,7 @@ impl WindowIdentity {
                 Some(TitlebarOptions {
                     appears_transparent: cfg!(target_os = "macos"),
                     // Matches the shipping window's traffic lights (Tauri offset 12, 25).
-                    traffic_light_position: matches!(self, Self::Main)
+                    traffic_light_position: matches!(self, Self::Main | Self::Note(_))
                         .then(|| point(px(12.), px(16.))),
                     ..Default::default()
                 })

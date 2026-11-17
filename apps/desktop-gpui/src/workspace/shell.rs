@@ -456,7 +456,7 @@ impl WorkspaceView {
         crate::application::toasts::error(message, cx);
     }
 
-    fn handle_note(&mut self, event: &OpenNote, cx: &mut Context<Self>) {
+    pub(crate) fn handle_note(&mut self, event: &OpenNote, cx: &mut Context<Self>) {
         let Some(authenticated) = super::note_lock::guard(event, cx) else {
             return self.handle_unlocked_note(event, cx);
         };

@@ -1,3 +1,5 @@
+mod conflict;
+
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,

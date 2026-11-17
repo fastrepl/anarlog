@@ -182,6 +182,7 @@ fn main() {
     meeting_records(&mut cx, window, &runtime, profile.path(), &out);
     locks(&mut cx, window, &runtime, &out);
     note_header(&mut cx, window, &out);
+    note_windows(&mut cx, window, &out);
     for (name, route) in [
         ("note", Route::Session(SessionId("s-sync".into()))),
         (
@@ -2348,4 +2349,95 @@ fn settle(cx: &mut HeadlessAppContext) {
         cx.run_until_parked();
         std::thread::sleep(Duration::from_millis(25));
     }
+}
+
+/// Standalone note windows, and the sync conflict banner with its version history
+/// (`165-versions.sql`). Note windows open from the workspace's own request; captures and
+/// clicks address them by handle.
+fn note_windows(
+    cx: &mut HeadlessAppContext,
+    window: WindowHandle<ApplicationView>,
+    out: &std::path::Path,
+) {
+    open(cx, window, Route::Session(SessionId("s-offsite".into())));
+    capture(cx, window, out, "note-conflict");
+    click(cx, window, 888., 23.);
+    capture(cx, window, out, "note-menu-history");
+    click(cx, window, 800., 96.);
+    capture(cx, window, out, "version-history");
+    type_text(cx, window, &["escape"]);
+    let open_window = |cx: &mut HeadlessAppContext, id: &str| {
+        let before = cx.update(|cx| cx.windows());
+        let id = SessionId(id.into());
+        cx.update(|cx| {
+            window
+                .update(cx, |root, _, cx| {
+                    root.workspace().update(cx, |_, cx| {
+                        cx.emit(desktop_gpui::workspace::WorkspaceAction::OpenNoteWindow(id))
+                    })
+                })
+                .unwrap()
+        });
+        settle(cx);
+        cx.update(|cx| cx.windows())
+            .into_iter()
+            .find(|candidate| !before.contains(candidate))
+            .expect("the note opens in a new window")
+    };
+    let note = open_window(cx, "s-sync");
+    shoot(cx, note, out, "note-window");
+    press(cx, note, 697., 24.);
+    shoot(cx, note, out, "note-window-menu");
+    press(cx, note, 360., 790.);
+    shoot(cx, note, out, "note-window-chat");
+    press(cx, note, 654., 592.);
+    shoot(cx, note, out, "note-window-chat-right");
+    let conflict = open_window(cx, "s-offsite");
+    shoot(cx, conflict, out, "note-window-conflict");
+    for handle in [note, conflict] {
+        cx.update_window(handle, |_, window, _| window.remove_window())
+            .unwrap();
+    }
+    settle(cx);
+}
+
+fn shoot(cx: &mut HeadlessAppContext, window: AnyWindowHandle, out: &std::path::Path, name: &str) {
+    cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))
+        .unwrap();
+    let image = cx.capture_screenshot(window).unwrap();
+    let path = out.join(format!("{name}.png"));
+    image.save(&path).unwrap();
+    println!("{}", path.display());
+}
+
+fn press(cx: &mut HeadlessAppContext, window: AnyWindowHandle, x: f32, y: f32) {
+    let position = point(px(x), px(y));
+    for event in [
+        PlatformInput::MouseMove(MouseMoveEvent {
+            position,
+            pressed_button: None,
+            modifiers: Modifiers::default(),
+        }),
+        PlatformInput::MouseDown(MouseDownEvent {
+            button: MouseButton::Left,
+            position,
+            modifiers: Modifiers::default(),
+            click_count: 1,
+            first_mouse: false,
+        }),
+        PlatformInput::MouseUp(MouseUpEvent {
+            button: MouseButton::Left,
+            position,
+            modifiers: Modifiers::default(),
+            click_count: 1,
+        }),
+    ] {
+        cx.update_window(window, |_, window, cx| {
+            window.draw(cx).clear(cx);
+            window.dispatch_event(event, cx);
+        })
+        .unwrap();
+        cx.run_until_parked();
+    }
+    settle(cx);
 }

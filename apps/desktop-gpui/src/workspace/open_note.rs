@@ -3,6 +3,7 @@ mod meeting_info;
 pub(super) mod meeting_records;
 mod memo;
 mod summary;
+mod versions;
 
 pub use meeting_info::Clock;
 
@@ -109,6 +110,9 @@ pub struct NoteView {
     /// A note view tab's right-click menu, at the pointer.
     tab_menu: Option<(Point<Pixels>, TabMenu)>,
     pending_edits: Entity<super::edit_review::PendingEdits>,
+    versions: versions::Versions,
+    /// Shown in its own window, which has no "Open in New Window" and clears the traffic lights.
+    standalone: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -442,8 +446,14 @@ impl NoteView {
             export: None,
             tab_menu: None,
             pending_edits,
+            versions: Default::default(),
+            standalone: false,
             _subscriptions: subscriptions,
         }
+    }
+
+    pub fn set_standalone(&mut self) {
+        self.standalone = true;
     }
 
     /// Shipping's `SessionShareButton` toggles its popover under the button.
@@ -554,6 +564,7 @@ impl NoteView {
                     }
                 })
             });
+            self.observe_memo(&content, cx);
             self.content = Some(content);
             if !self.rename_error {
                 self.message.clear();
@@ -598,6 +609,7 @@ impl NoteView {
         self.audio = None;
         self.player = None;
         self.picker = None;
+        self.versions = Default::default();
     }
 
     fn restore_title(&mut self, cx: &mut Context<Self>) {
@@ -723,6 +735,7 @@ impl NoteView {
         self.details.folder = folder_label(&session.summary.folder_path);
         self.details.folder_path = session.summary.folder_path.clone();
         self.watch_details(session.summary.id.clone(), cx);
+        self.watch_conflicts(session.summary.id.clone(), cx);
         let session = Arc::new(session);
         cx.emit(NoteEvent::Opened(session.clone()));
         // A note without a memo shows shipping's empty editor; its first edit creates it.
@@ -962,7 +975,7 @@ impl NoteView {
             && (self.details.event_ended || self.details.has_transcript || self.audio.is_some())
     }
 
-    pub(super) fn rename(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn rename(&mut self, cx: &mut Context<Self>) {
         if self.busy {
             self.rename_pending = true;
             return;
@@ -1034,8 +1047,7 @@ impl NoteView {
         menu_rows(vec![
             vec![
                 MenuItem::new(MeetingInfo, "editor/Calendar04Icon.svg", "Meeting info"),
-                MenuItem::new(VersionHistory, "editor/HistoryIcon.svg", "Version history")
-                    .disabled(true),
+                MenuItem::new(VersionHistory, "editor/HistoryIcon.svg", "Version history"),
             ],
             // Shipping's recording rows follow Listen in its group.
             std::iter::once(
@@ -1050,11 +1062,10 @@ impl NoteView {
                 "Export",
             )],
             [
-                Some(MenuItem::new(
-                    OpenWindow,
-                    "editor/AppWindowIcon.svg",
-                    "Open in New Window",
-                )),
+                // A standalone note window has no "Open in New Window".
+                (!self.standalone).then(|| {
+                    MenuItem::new(OpenWindow, "editor/AppWindowIcon.svg", "Open in New Window")
+                }),
                 // Shipping's `canOpenFloatingPanel`.
                 (self.floating_bar_enabled && self.mode == SessionMode::Active).then(|| {
                     MenuItem::new(
@@ -1443,9 +1454,10 @@ impl NoteView {
             MenuAction::Export => self.open_export(window, cx),
             MenuAction::OpenWindow => cx.emit(NoteEvent::Request(OpenNote::Window(id))),
             MenuAction::FloatingPanel => cx.emit(NoteEvent::OpenFloatingPanel),
+            MenuAction::VersionHistory => self.open_history(window, cx),
             MenuAction::Delete => cx.emit(NoteEvent::Request(OpenNote::Delete(vec![id].into()))),
             MenuAction::Lock => super::note_lock::toggle_from_menu(id, cx),
-            MenuAction::MeetingInfo | MenuAction::VersionHistory | MenuAction::AlwaysOnTop => {}
+            MenuAction::MeetingInfo | MenuAction::AlwaysOnTop => {}
         }
     }
 
@@ -2087,7 +2099,12 @@ impl NoteView {
             .h(px(48.))
             .flex_shrink_0()
             .pb(px(2.))
-            .pl(px(12.))
+            // A standalone window's header starts after the macOS traffic lights (76px).
+            .pl(px(if self.standalone && cfg!(target_os = "macos") {
+                80.
+            } else {
+                12.
+            }))
             .pr(px(8.))
             .items_center()
             .gap(px(2.))
@@ -2645,6 +2662,7 @@ impl Render for NoteView {
                         }),
                 )
             })
+            .children(ready.then(|| self.conflict_banner(colors, cx)).flatten())
             .when_some(body, |view, content| {
                 view.child(div().flex().flex_col().flex_1().min_h_0().child(content))
             })
@@ -2659,6 +2677,7 @@ impl Render for NoteView {
                 self.export.as_ref().map(|(modal, _)| modal.clone()),
                 |view, modal| view.child(modal),
             )
+            .children(self.history_dialog(colors, window, cx))
     }
 }
 
