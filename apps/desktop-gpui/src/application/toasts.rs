@@ -22,7 +22,8 @@ const SUCCESS: Duration = Duration::from_millis(3_000);
 const INFO: Duration = Duration::from_millis(4_000);
 const WARNING: Duration = Duration::from_millis(6_000);
 const ERROR: Duration = Duration::from_millis(5_000);
-const EXIT: Duration = Duration::from_millis(220);
+const ENTER: Duration = Duration::from_millis(70);
+const EXIT: Duration = Duration::from_millis(70);
 const VISIBLE: usize = 4;
 const STACK_OFFSET: f32 = 10.;
 const STACK_SCALE_STEP: f32 = 0.035;
@@ -622,7 +623,6 @@ impl Toasts {
                     .child(bottom_bar(progress, 4., colors.primary))
             });
         let leaving = item.leaving.map(|left| now.saturating_duration_since(left));
-        let distance = f32::from(window.viewport_size().width) + 256.;
         let wrapper = div()
             .relative()
             .flex()
@@ -638,27 +638,21 @@ impl Toasts {
             .child(card);
         match leaving {
             Some(elapsed) => {
-                // Exits slide right as they fade, eased in like shipping's `[0.4, 0, 1, 1]`.
                 let start = (elapsed.as_secs_f32() / EXIT.as_secs_f32()).min(1.);
                 wrapper
                     .with_animation(
                         ElementId::Name(format!("toast-leave-{id}").into()),
                         Animation::new(EXIT.saturating_sub(elapsed).max(Duration::from_millis(1))),
-                        move |wrapper, delta| {
-                            let t = start + (1. - start) * delta;
-                            wrapper
-                                .left(px(distance * t * t))
-                                .opacity(1. - (t * EXIT.as_secs_f32() / 0.18).min(1.))
-                        },
+                        move |wrapper, delta| wrapper.opacity(1. - (start + (1. - start) * delta)),
                     )
                     .into_any_element()
             }
             None => wrapper
                 .with_animation(
                     ElementId::Name(format!("toast-enter-{id}").into()),
-                    Animation::new(Duration::from_millis(240)).with_easing(gpui::ease_out_quint()),
+                    Animation::new(ENTER),
                     move |wrapper, delta| {
-                        let wrapper = wrapper.opacity((delta * 240. / 180.).min(1.));
+                        let wrapper = wrapper.opacity(delta);
                         if stacked && depth > 0 {
                             wrapper
                         } else {

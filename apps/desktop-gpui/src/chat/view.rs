@@ -22,7 +22,7 @@ use crate::{
 const FLOATING_MAX_WIDTH: f32 = 650.;
 const CTA_MAX_WIDTH: f32 = 640.;
 const RIGHT_PANEL_MIN_WIDTH: f32 = 320.;
-const REVEAL: Duration = Duration::from_millis(180);
+const REVEAL: Duration = Duration::from_millis(70);
 
 fn dark(window: &Window) -> bool {
     matches!(
@@ -183,7 +183,7 @@ pub fn overlay(
             let state = chat.read(cx);
             let measured = state.panel_height.clone();
             let height = measured.get();
-            // Shipping reveals the panel upward from its composer over 180ms; closing is instant.
+            // The panel grows upward from its composer; closing is instant.
             let reveal = state
                 .revealed_at
                 .filter(|at| height > 0. && at.elapsed() < REVEAL)
@@ -234,7 +234,7 @@ pub fn overlay(
                         .child(panel)
                         .with_animation(
                             ("chat-reveal", generation),
-                            Animation::new(REVEAL).with_easing(gpui::ease_out_quint()),
+                            Animation::new(REVEAL),
                             move |view, delta| view.h(px(START + (height - START) * delta)),
                         )
                         .into_any_element()

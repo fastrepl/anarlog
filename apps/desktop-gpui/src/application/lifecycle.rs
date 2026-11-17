@@ -37,7 +37,7 @@ use crate::{
 };
 
 pub const QUIT_OVERLAY_DURATION: Duration = Duration::from_millis(1500);
-const FADE: Duration = Duration::from_millis(150);
+const FADE: Duration = Duration::from_millis(70);
 const SCHEDULE_HORIZON_DAYS: i64 = 7;
 /// Shipping's `UPDATE_CHECK_INTERVAL_MS`.
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(30 * 60);
@@ -206,7 +206,7 @@ impl Render for QuitOverlayView {
             .child("Press ⌘Q again to Quit")
             .with_animation(
                 ("quit-overlay", self.shown * 2 + u64::from(closing)),
-                Animation::new(FADE).with_easing(gpui::ease_in_out),
+                Animation::new(FADE),
                 move |view, delta| view.opacity(if closing { 1. - delta } else { delta }),
             )
     }

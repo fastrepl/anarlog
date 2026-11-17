@@ -24,7 +24,7 @@ use crate::{
 
 mod sections;
 
-const SCROLL_DELAY: Duration = Duration::from_millis(350);
+const SCROLL_DELAY: Duration = Duration::from_millis(70);
 
 /// Everything the sections render. Live onboarding fills it from the product services; a
 /// [`OnboardingPreview`] supplies it directly.
@@ -183,7 +183,7 @@ impl OnboardingView {
     fn go_to(&mut self, step: Step, cx: &mut Context<Self>) {
         self.current = step;
         self.after_change(cx);
-        // Like shipping, bring the new section to the top once its content has laid out.
+        // Bring the new section to the top once its content has laid out.
         let index = self
             .steps
             .iter()

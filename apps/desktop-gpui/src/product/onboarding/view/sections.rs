@@ -1244,26 +1244,7 @@ impl Render for OnboardingView {
             .bg(colors.card)
             .text_color(colors.foreground)
             .font_family(system_font(cx))
-            .child(if self.live {
-                // Shipping fades the backdrop in and lifts the video into place.
-                backdrop
-                    .child(
-                        div()
-                            .absolute()
-                            .inset_0()
-                            .bg(colors.background)
-                            .with_animation(
-                                "onboarding-reveal",
-                                Animation::new(Duration::from_millis(1100)).with_easing(|delta| {
-                                    ease_out(((delta * 1.1 - 0.1) / 1.).max(0.))
-                                }),
-                                |cover, delta| cover.opacity(1. - delta),
-                            ),
-                    )
-                    .into_any_element()
-            } else {
-                backdrop.into_any_element()
-            })
+            .child(backdrop)
             .child(
                 div()
                     .relative()
@@ -1325,9 +1306,4 @@ impl Render for OnboardingView {
                     .children(sections.into_iter().flatten()),
             )
     }
-}
-
-/// Approximates shipping's `[0.22, 1, 0.36, 1]` ease-out curve.
-fn ease_out(delta: f32) -> f32 {
-    1. - (1. - delta.min(1.)).powi(4)
 }
