@@ -398,6 +398,13 @@ impl EditorPane {
             .drop_cursor
             .take()
             .or_else(|| self.hit(window.mouse_position()));
+        // Shipping's `getAudioDrop`: the first audio file becomes the note's recording.
+        if let Some(audio) = paths.iter().find(|path| super::drop::is_audio(path)) {
+            let (runtime, session) = (self.context.runtime.clone(), self.init.session_id.clone());
+            crate::meeting::upload::Uploads::global(cx).update(cx, |uploads, cx| {
+                uploads.drop_audio(&runtime, session, audio.clone(), cx)
+            });
+        }
         let files = super::drop::attachable(paths);
         if files.is_empty() {
             return;

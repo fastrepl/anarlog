@@ -225,12 +225,12 @@ fn dropped_files_attach_at_the_drop_but_a_lone_recording_goes_to_the_note(cx: &m
     let editor = fixture.editor.clone();
     let vault = fixture.directory.path().join("vault");
     editor.update(cx, |editor, cx| editor.configure_attachments(vault, cx));
-    let drop = |cx: &mut VisualTestContext, path: PathBuf| {
+    let drop = |cx: &mut VisualTestContext, paths: Vec<PathBuf>| {
         let position = point(px(400.), px(20.));
         frame(cx);
         cx.simulate_event(FileDropEvent::Entered {
             position,
-            paths: ExternalPaths(vec![path].into()),
+            paths: ExternalPaths(paths.into()),
         });
         frame(cx);
         cx.simulate_event(FileDropEvent::Pending { position });
@@ -240,15 +240,15 @@ fn dropped_files_attach_at_the_drop_but_a_lone_recording_goes_to_the_note(cx: &m
 
     let recording = fixture.directory.path().join("call.m4a");
     std::fs::write(&recording, b"audio").unwrap();
-    drop(cx, recording.clone());
+    drop(cx, vec![recording.clone()]);
     let passed = fixture
         .harness
         .read_with(cx, |harness, _| harness.passed.clone());
-    assert_eq!(*passed.borrow(), [recording]);
+    assert_eq!(*passed.borrow(), std::slice::from_ref(&recording));
 
     let photo = fixture.directory.path().join("photo.png");
     std::fs::write(&photo, b"\x89PNG\r\n\x1a\n").unwrap();
-    drop(cx, photo);
+    drop(cx, vec![photo.clone()]);
     settle(cx, |cx| {
         body(&editor, cx)["content"]
             .as_array()
@@ -269,6 +269,15 @@ fn dropped_files_attach_at_the_drop_but_a_lone_recording_goes_to_the_note(cx: &m
             .as_str()
             .is_some_and(|id| !id.is_empty())
     );
+    assert_eq!(passed.borrow().len(), 1);
+
+    // With other files, the recording still goes to the note's upload while they attach.
+    let session = editor.read_with(cx, |editor, _| editor.init.session_id.clone());
+    drop(cx, vec![photo, recording]);
+    let uploads = cx.update(|_, cx| crate::meeting::upload::Uploads::global(cx));
+    settle(cx, |cx| {
+        uploads.read_with(cx, |uploads, _| uploads.job(&session).is_some())
+    });
     assert_eq!(passed.borrow().len(), 1);
 }
 
