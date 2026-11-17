@@ -270,9 +270,15 @@ impl EditorPane {
                                 cx.emit(EditorEvent::Saved(snapshot));
                             }
                             SaveEvent::Failed(error) => {
-                                this.message = format!("Unsaved changes: {error} Draft retained; retry or resolve the external revision.");
+                                // A conflict is explained by the note's conflict banner once the
+                                // other revision loads.
+                                if matches!(error, ServiceError::Conflict) {
+                                    this.message.clear();
+                                    this.fetch_conflict(cx);
+                                } else {
+                                    this.message = format!("Unsaved changes: {error} Draft retained; retry or resolve the external revision.");
+                                }
                                 this.save_failed = true;
-                                if matches!(error, ServiceError::Conflict) { this.fetch_conflict(cx); }
                                 cx.emit(EditorEvent::SaveFailed { session_id: this.init.session_id.clone(), error });
                             }
                         }
@@ -1660,7 +1666,12 @@ impl EditorPane {
         self.external_generation += 1;
         if self.dirty || self.focused || self.model.as_ref().is_some_and(EditorModel::composing) {
             self.external = Some(snapshot);
-            self.message = "A remote revision is available. Your draft and composition are retained; resolve before saving.".into();
+            if self.save_failed {
+                // A failed save plus another revision is the note banner's save conflict.
+                self.message.clear();
+            } else {
+                self.message = "A remote revision is available. Your draft and composition are retained; resolve before saving.".into();
+            }
             cx.notify();
             return;
         }
@@ -2543,7 +2554,8 @@ impl Render for EditorPane {
                         ),
                 )
             })
-            .when(self.save_failed, |container| {
+            // The note's conflict banner owns a save conflict; these rows cover everything else.
+            .when(self.save_failed && !self.save_conflict(), |container| {
                 container.child(
                     div()
                         .id("retry-editor-save")
@@ -2554,17 +2566,20 @@ impl Render for EditorPane {
                         .child("Unsaved · Retry save"),
                 )
             })
-            .when(self.external.is_some(), |container| {
-                container.child(
-                    div()
-                        .id("merge-editor-remote")
-                        .text_sm()
-                        .px_2()
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _, _, cx| this.merge_external(cx)))
-                        .child("Merge nonoverlapping remote changes"),
-                )
-            })
+            .when(
+                self.external.is_some() && !self.save_conflict(),
+                |container| {
+                    container.child(
+                        div()
+                            .id("merge-editor-remote")
+                            .text_sm()
+                            .px_2()
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, _, cx| this.merge_external(cx)))
+                            .child("Merge nonoverlapping remote changes"),
+                    )
+                },
+            )
             .child(
                 div()
                     .relative()

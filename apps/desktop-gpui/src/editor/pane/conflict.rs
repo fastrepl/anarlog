@@ -261,6 +261,8 @@ mod tests {
             wait(cx, "conflict", |cx| {
                 editor.read_with(cx, |editor, _| editor.save_conflict())
             });
+            // The note's conflict banner explains it; the editor adds no status of its own.
+            editor.read_with(cx, |editor, _| assert_eq!(editor.message, ""));
             editor.update(cx, |editor, cx| {
                 if keep {
                     editor.keep_draft(cx)
