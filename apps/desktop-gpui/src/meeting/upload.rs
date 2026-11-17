@@ -1266,10 +1266,14 @@ pub fn audio_drop_target(
     let active = window.use_keyed_state("audio-drop-target", cx, |_, _| false);
     let over = *active.read(cx) && cx.has_active_drag();
     let hover = active.clone();
+    // A column like the note body it wraps: the summary editor fills it with `flex_1`, which
+    // collapses to nothing in a block container.
     div()
         .id("audio-drop-target")
         .relative()
         .size_full()
+        .flex()
+        .flex_col()
         .on_drag_move::<ExternalPaths>(move |event, _, cx| {
             let inside = event.bounds.contains(&event.event.position)
                 && single_audio(event.drag(cx)).is_some();

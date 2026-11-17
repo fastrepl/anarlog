@@ -1651,6 +1651,7 @@ impl NoteView {
         };
         Some(
             div()
+                .debug_selector(|| "summary-editor".into())
                 .flex()
                 .flex_col()
                 .flex_1()
@@ -2898,6 +2899,70 @@ mod tests {
             })
             .unwrap();
         assert!(level.0.get());
+        futures::executor::block_on(runtime.shutdown()).unwrap();
+    }
+
+    /// The audio drop target around the note body once collapsed the summary editor, so the
+    /// Summary tab rendered blank below its tabs.
+    #[gpui::test]
+    fn summary_editor_is_not_collapsed_by_the_audio_drop_target(cx: &mut gpui::TestAppContext) {
+        cx.executor().allow_parking();
+        let directory = tempfile::tempdir().unwrap();
+        let (runtime, ready) = RuntimeHandle::start(desktop_runtime::Profile {
+            database: directory.path().join("library.sqlite"),
+        })
+        .unwrap();
+        futures::executor::block_on(ready.receive()).unwrap();
+        let open = futures::executor::block_on(
+            runtime
+                .create_note("Design critique".into())
+                .unwrap()
+                .receive(),
+        )
+        .unwrap();
+        let session = open.summary.id.clone();
+        let body = json!({"type": "doc", "content": [
+            {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Decisions"}]},
+            {"type": "paragraph", "content": [{"type": "text", "text": "Keep the calendar step optional."}]}
+        ]})
+        .to_string();
+        let id = session.clone();
+        let insert = runtime
+            .submit(move |services| async move {
+                services
+                    .executor
+                    .execute(
+                        "INSERT INTO session_documents (id, session_id, kind, title, body_format, body, sort_order)
+                         VALUES ('critique-summary', ?, 'summary', '', 'prosemirror_json', ?, 0)"
+                            .into(),
+                        vec![json!(id), json!(body)],
+                    )
+                    .await
+                    .map_err(|error| {
+                        desktop_runtime::ServiceError::Failed(error.to_string().into())
+                    })
+            })
+            .unwrap();
+        futures::executor::block_on(insert.receive()).unwrap();
+        cx.update(crate::ui::theme::UiFonts::init);
+        let (note, cx) =
+            cx.add_window_view(|window, cx| NoteView::new(runtime.clone(), window, cx));
+        note.update(cx, |note, cx| note.open(session, cx));
+        let mut summary = None;
+        for _ in 0..400 {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+            summary = cx.debug_bounds("summary-editor");
+            if summary.is_some() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let summary = summary.expect("the Summary tab shows its editor");
+        assert!(
+            summary.size.height > px(200.),
+            "summary editor collapsed to {summary:?}"
+        );
         futures::executor::block_on(runtime.shutdown()).unwrap();
     }
 
