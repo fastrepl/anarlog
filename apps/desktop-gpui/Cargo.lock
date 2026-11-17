@@ -3154,6 +3154,7 @@ dependencies = [
  "unicode-width",
  "url",
  "uuid",
+ "windows-sys 0.61.2",
  "wiremock",
  "zeroize",
 ]
@@ -3215,6 +3216,7 @@ dependencies = [
  "xcap",
  "zbus",
 ]
+
 [[package]]
 name = "deunicode"
 version = "1.6.2"

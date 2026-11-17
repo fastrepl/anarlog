@@ -157,7 +157,7 @@ impl WindowIdentity {
 }
 
 /// Hides only the main window like shipping's `AppWindow::Main.hide` (`orderOut:`), leaving
-/// note windows open; the next show or Dock click brings it back.
+/// note windows open; the next tray or Dock action brings it back.
 pub fn hide_main(window: &Window, cx: &App) -> Result<()> {
     if window.is_fullscreen() {
         window.toggle_fullscreen();
@@ -172,13 +172,34 @@ pub fn hide_main(window: &Window, cx: &App) -> Result<()> {
             .detach();
         Ok(())
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        let _ = cx;
+        win32::show(window, windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = cx;
         Err(ServiceError::Unsupported(
             "This platform cannot hide a single window".into(),
         ))
     }
+}
+
+/// GPUI's Windows activation restores minimized windows but does not show hidden ones.
+#[cfg(target_os = "windows")]
+pub fn show_main(window: &Window) -> Result<()> {
+    win32::show(window, windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOW)
+}
+
+/// GPUI's pinned Windows backend only maximizes; the titlebar must also restore.
+pub fn toggle_maximize(window: &Window) {
+    #[cfg(target_os = "windows")]
+    if let Err(error) = win32::toggle_maximize(window) {
+        tracing::warn!(%error, "Could not toggle window maximization");
+    }
+    #[cfg(not(target_os = "windows"))]
+    window.zoom_window();
 }
 
 /// The standard Close Window item (`performClose:`): runs the window's own close handler.
@@ -207,6 +228,46 @@ pub fn set_min_size(window: &Window, minimum: gpui::Size<Pixels>) -> Result<()> 
         Err(ServiceError::Unsupported(
             "This platform cannot change a window's minimum size".into(),
         ))
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod win32 {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use windows_sys::Win32::{
+        Foundation::HWND,
+        UI::WindowsAndMessaging::{
+            IsZoomed, SHOW_WINDOW_CMD, SW_MAXIMIZE, SW_RESTORE, ShowWindowAsync,
+        },
+    };
+
+    use super::{Result, ServiceError, Window};
+
+    fn hwnd(window: &Window) -> Result<HWND> {
+        let unavailable = || ServiceError::Unsupported("The native window is unavailable".into());
+        let handle = HasWindowHandle::window_handle(window).map_err(|_| unavailable())?;
+        let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+            return Err(unavailable());
+        };
+        Ok(handle.hwnd.get() as HWND)
+    }
+
+    pub fn show(window: &Window, command: SHOW_WINDOW_CMD) -> Result<()> {
+        let native = hwnd(window)?;
+        // SAFETY: GPUI owns this open HWND. Post the visibility change to avoid reentering
+        // its window callbacks while the application view is borrowed.
+        if unsafe { ShowWindowAsync(native, command) } == 0 {
+            return Err(ServiceError::Failed(
+                "Could not change native window visibility".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn toggle_maximize(window: &Window) -> Result<()> {
+        // SAFETY: GPUI owns the open HWND; IsZoomed only reads its maximized state.
+        let maximized = unsafe { IsZoomed(hwnd(window)?) } != 0;
+        show(window, if maximized { SW_RESTORE } else { SW_MAXIMIZE })
     }
 }
 
